@@ -1,8 +1,8 @@
 "use client";
 
-import { GoogleSignin } from "@/components/google-signin";
-import { EmailSignin } from "@/components/email-signin";
-import { OtpVerify } from "@/components/otp-verify";
+import { GoogleSignin } from "@/components/auth/google-signin";
+import { EmailSignin } from "@/components/auth/email-signin";
+import { OtpVerify } from "@/components/auth/otp-verify";
 import { sendOtpAction } from "@/actions/auth/send-otp-action";
 import { verifyOtpAction } from "@/actions/auth/verify-otp-action";
 import { useState } from "react";

@@ -139,14 +139,13 @@ await supabase.auth.verifyOtp({
 - **Full Name** (required, 2-32 characters)
 - **Avatar/Profile Picture** (optional)
 
-**Implementation**:
+**Implementation (tRPC)**:
 ```typescript
-const formSchema = z.object({
-  fullName: z.string().min(2).max(32),
-});
+const formSchema = z.object({ full_name: z.string().min(2) });
 
-// Updates user profile
-updateUserMutation.mutate(data);
+// Optional avatar upload via Supabase Storage (client)
+// then update profile via tRPC
+updateUserMutation.mutate({ full_name, avatar_url });
 ```
 
 #### **4. Additional User Fields**:
@@ -163,32 +162,25 @@ updateUserMutation.mutate(data);
 #### **1. Brand Creation Form** (`/brands/create`):
 **Required Information**:
 - **Brand/Company Name** (required)
-- **Country Code** (auto-detected from location)
+- **Country** (dropdown; ISO alpha‑2 via shared countries list)
 - **Logo** (optional)
 
-#### **2. Database Transaction** (in `createBrand` function):
-```typescript
-return db.transaction(async (tx) => {
-  // 1. Create brand record
-  const [newbrand] = await tx.insert(brands).values({
-    name: params.name,
-    countryCode: params.countryCode,
-    logoUrl: params.logoUrl,
-    email: params.email,
-  }).returning({ id: brands.id });
+#### **2. API (tRPC) create flow** (`apps/api/src/trpc/routers/brand.ts`):
+```ts
+create: protectedProcedure
+  .input(z.object({ name: z.string().min(1), country_code: z.string().optional().nullable() }))
+  .mutation(async ({ ctx, input }) => {
+    const { supabase, user } = ctx;
+    const { data: brand } = await supabase
+      .from("brands")
+      .insert({ name: input.name, country_code: input.country_code ?? null, created_by: user.id })
+      .select("id")
+      .single();
 
-  // 2. Add user to brand with "owner" role
-  await tx.insert(usersOnBrand).values({
-    userId: params.userId,
-    brandId: newBrand.id,
-    role: "owner",
+    await supabase.from("users_on_brand").insert({ user_id: user.id, brand_id: brand.id, role: "owner" });
+    await supabase.from("users").update({ brand_id: brand.id }).eq("id", user.id);
+    return { id: brand.id } as const;
   });
-
-  // 3. Set user's active brand
-  await tx.update(users)
-    .set({ brandId: newBrand.id })
-    .where(eq(users.id, params.userId));
-});
 ```
 
 #### **3. Brand-User Relationship**:
@@ -241,6 +233,11 @@ export async function verifyAccessToken(accessToken?: string): Promise<Session |
   return user ? { user } : null;
 }
 ```
+
+#### **4. Country Selector UI**
+- Searchable combobox built with shadcn `Popover` + `Command` from `@v1/ui`.
+- Backed by `@v1/location/countries` map: `Record<code, { code; name; emoji; unicode }>`.
+- Reusable `CountrySelect` with label-above UX matching `TextField`.
     // what is TRPC?
 #### **2. TRPC Context Creation** (`/trpc/init.ts`):
 ```typescript
@@ -273,11 +270,26 @@ if (hasAccess === undefined) {
 ```
 
 ### **Row Level Security (RLS)**:
-Every team-scoped table uses policies like:
+Every brand-scoped table uses policies like:
 ```sql
 CREATE POLICY "Data can be accessed by brand members" ON "table_name"
 AS PERMISSIVE FOR ALL TO public 
 USING ((brand_id IN ( SELECT private.get_brands_for_authenticated_user() )));
+```
+
+RLS insert/select nuance for brand creation:
+- Insert is allowed when `created_by = auth.uid()`.
+- Immediately reading the inserted row (INSERT ... RETURNING) is allowed via a select policy that permits either membership or creator access.
+
+```sql
+-- apps/api/supabase/migrations/20240901171000_fix_brands_select_policy.sql
+drop policy if exists brands_select_for_members on public.brands;
+create policy brands_select_for_members on public.brands
+for select to authenticated
+using (
+  public.is_brand_member(brands.id)
+  or brands.created_by = auth.uid()
+);
 ```
 
 ---
@@ -458,14 +470,51 @@ This comprehensive structure shows how Midday implements a **robust, multi-tenan
   - Files: `apps/api/supabase/functions/send-email/index.ts`, `apps/api/supabase/functions/import_map.json`, `apps/api/supabase/functions/deno.json`, `apps/api/supabase/config.toml`, `packages/email/emails/otp.tsx`
 
 - **Centralized redirect policy**:
-  - Introduced `resolveAuthRedirectPath` to unify post-auth routing for both OAuth callbacks and OTP verification.
-  - Behavior: If user has no brand memberships and `return_to` is not an invite path (`brands/invite/...`), redirect to `/setup`; otherwise use `return_to` → `next` → `/`.
+  - Introduced and updated `resolveAuthRedirectPath` to unify post-auth routing for both OAuth callbacks and OTP verification.
+  - Behavior:
+    - If profile is incomplete (missing `users.full_name`), redirect to `/setup`.
+    - Else if user has no brand memberships and `return_to` is not an invite path (`brands/invite/...`), redirect to `/brands/create`.
+    - Else use `return_to` → `next` → `/`.
   - Files: `apps/app/src/lib/auth-redirect.ts`, `apps/app/src/app/api/auth/callback/route.ts`, `apps/app/src/actions/auth/verify-otp-action.ts`
 
 - **OAuth callback**:
   - Exchanges `code` when present (OAuth/PKCE). For OTP, no code is expected; route still resolves redirect using the shared helper.
   - Uses `supabase.auth.getUser()` (server-validated) instead of reading raw session to avoid warnings.
   - Files: `apps/app/src/app/api/auth/callback/route.ts`
+
+- **Cookie & JWT verification**:
+  - Enforce auth on protected pages/actions using `@v1/supabase/server` in RSC/route handlers and `getUser()` checks.
+  - Consider middleware (`packages/supabase/src/clients/middleware.ts`) to keep sessions fresh and block unauthenticated access to dashboard routes.
+  - Ensure RLS is complemented by application‑level brand checks.
+
+- **Profile setup (UI + tRPC)**:
+  - `/[locale]/(dashboard)/setup` page implemented.
+  - Requires `full_name` (mandatory) and lets users upload an optional avatar (converted to WebP client-side and stored in Supabase Storage `avatars` bucket).
+  - Updates profile via `trpc.user.update` and redirects client-side based on brand membership.
+  - Files: `apps/app/src/app/[locale]/(dashboard)/setup/page.tsx`, `apps/app/src/components/forms/setup-form.tsx`, `apps/app/src/components/avatar-upload.tsx`, `apps/app/src/components/text-field.tsx`.
+
+- **Brand creation (UI + tRPC)**:
+  - `/[locale]/(dashboard)/brands/create` page implemented.
+  - Form: brand name (required) + country (dropdown via `@v1/location/countries`).
+  - On submit, calls `trpc.brand.create` which inserts the brand, creates `users_on_brand` owner membership, and sets `users.brand_id`; then the client redirects to `/`.
+  - Files: `apps/app/src/app/[locale]/(dashboard)/brands/create/page.tsx`, `apps/app/src/components/forms/create-brand-form.tsx`, `apps/app/src/components/country-select.tsx`, `apps/api/src/trpc/routers/brand.ts`, `packages/location/src/countries.ts`.
+
+- **Brand system (DB + RLS)**:
+  - Tables: `public.brands`, `public.users_on_brand`, `public.users.brand_id` (active brand).
+  - Helper SQL functions to avoid recursive policies: `public.get_brands_for_authenticated_user()`, `public.is_brand_member(uuid)`, `public.is_brand_owner(uuid)`, `public.is_brand_creator(uuid)`.
+  - Policies reference helper functions to prevent infinite recursion.
+  - Files: `apps/api/supabase/migrations/20240901170000_create_brands_system.sql`, `packages/supabase/src/types/db.ts`.
+
+- **Supabase Storage (avatars)**:
+  - Bucket: `avatars` (public read).
+  - Policies:
+    - Insert: authenticated users can upload when `bucket_id = 'avatars'` and path starts with `auth.uid()` (via `path_tokens[1] = (auth.uid())::text`).
+    - Select: public read on `avatars`.
+    - Update/Delete: permitted to the owner (same path-token rule).
+  - Files: `apps/api/supabase/migrations/20240901170500_create_avatars_bucket.sql`.
+
+- **Temporary testing controls**:
+  - Add temporary “Delete account”, “Delete brand”, and a brand selector dropdown to facilitate manual testing.
 
 ### Files changed in this iteration
 - `apps/app/src/app/api/auth/callback/route.ts`
@@ -482,27 +531,29 @@ This comprehensive structure shows how Midday implements a **robust, multi-tenan
 - `apps/app/src/components/google-signin.tsx`
 - `apps/app/src/components/login-form.tsx`
 - `apps/app/src/components/otp-verify.tsx`
+- `apps/app/src/middleware.ts`
+- `apps/app/src/actions/safe-action.ts`
+ - `apps/app/src/lib/auth-redirect.ts`
+ - `apps/app/src/app/[locale]/(dashboard)/setup/page.tsx`
+ - `apps/app/src/components/setup/setup-form.tsx`
+ - `apps/app/src/components/forms/avatar-upload.tsx`
+ - `apps/app/src/components/forms/text-field.tsx`
+ - `apps/app/src/actions/user/complete-profile-action.ts`
+ - `apps/api/supabase/migrations/20240901170000_create_brands_system.sql`
+ - `apps/api/supabase/migrations/20240901170500_create_avatars_bucket.sql`
+ - `packages/supabase/src/mutations/index.ts`
+ - `packages/supabase/src/queries/index.ts`
+ - `packages/supabase/src/types/db.ts`
+  - `apps/app/src/app/[locale]/(dashboard)/brands/create/page.tsx`
+  - `apps/app/src/components/brands/create-brand-form.tsx`
+  - `apps/app/src/components/forms/country-select.tsx`
+  - `apps/app/src/actions/brand/create-brand-action.ts`
+  - `packages/location/src/countries.ts`
+  - `apps/app/next.config.mjs` (added `@v1/location` to `transpilePackages`)
 
 ### Open items / To‑Dos
-- **Cookie & JWT verification**:
-  - Enforce auth on protected pages/actions using `@v1/supabase/server` in RSC/route handlers and `getUser()` checks.
-  - Consider middleware (`packages/supabase/src/clients/middleware.ts`) to keep sessions fresh and block unauthenticated access to dashboard routes.
-  - Ensure RLS is complemented by application‑level brand checks.
 
-- **Setup page (UI + logic)**:
-  - Build `/[locale]/(dashboard)/setup` UI.
-  - Require full name (mandatory) and profile picture (optional) to proceed.
-  - Update `resolveAuthRedirectPath` to also route to `/setup` when profile is incomplete, not just when membership count is `0`.
-
-- **Brand creation and membership**:
-  - Implement `/[locale]/(dashboard)/brands/create` form and server action to create a brand, assign the user as owner, and set active brand on the user profile.
-  - Reflect brand membership in auth checks and UI visibility; prevent cross‑brand data leakage.
-
-- **Create brand flow**:
-  - Wire up the create page action to insert brand, create `users_on_brand` record, and set `users.brand_id` as active brand.
-
-- **Temporary testing controls**:
-  - Add temporary “Delete account”, “Delete brand”, and a brand selector dropdown to facilitate manual testing.
+- Reflect brand membership in auth checks and UI visibility; prevent cross‑brand data leakage.
 
 - **Invitations**:
   - Implement invite issuance (email) and acceptance.
@@ -510,5 +561,6 @@ This comprehensive structure shows how Midday implements a **robust, multi-tenan
   - If multiple invites are accepted, add the user to all invited brands; redirect to the most recently accepted brand. Ensure `resolveAuthRedirectPath` respects invite context (already partially handled via `brands/invite/...`).
 
 ### Notes
-- Redirect policy is centralized in `apps/app/src/lib/auth-redirect.ts` and consumed by both OTP and OAuth flows, keeping behavior consistent and easy to evolve.
+- Redirect policy is centralized in `apps/app/src/lib/auth-redirect.ts` and consumed by both OTP and OAuth flows, keeping behavior consistent and easy to evolve. It now checks profile completeness before brand membership.
+- The setup form uploads avatars as WebP to Supabase Storage under `avatars/<userId>/...` and updates `public.users` accordingly. The action returns a redirect URL that the client navigates to for a smoother dev experience.
 - OTP code delivery is decoupled via the Supabase Edge Function and Resend template, enabling branded emails without changing the auth core.

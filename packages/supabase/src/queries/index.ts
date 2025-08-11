@@ -1,5 +1,6 @@
 import { logger } from "@v1/logger";
 import { createClient } from "@v1/supabase/server";
+import type { Tables } from "../types";
 
 export async function getUser() {
   const supabase = createClient();
@@ -16,12 +17,34 @@ export async function getUser() {
 }
 
 export async function getPosts() {
+  // posts feature removed
+  return { data: [] as Array<never>, error: null };
+}
+
+export async function getUserProfile() {
   const supabase = createClient();
 
   try {
-    const result = await supabase.from("posts").select("*");
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, email, full_name, avatar_url, brand_id")
+      .single();
+    return { data: data as Tables<"users"> | null, error };
+  } catch (error) {
+    logger.error(error);
+    throw error;
+  }
+}
 
-    return result;
+export async function getMyBrands() {
+  const supabase = createClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("brands")
+      .select("id, name, logo_url, country_code")
+      .order("name", { ascending: true });
+    return { data: data as Array<Pick<Tables<"brands">, "id" | "name">>, error };
   } catch (error) {
     logger.error(error);
     throw error;

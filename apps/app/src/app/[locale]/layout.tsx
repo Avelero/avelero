@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
+import { TRPCReactProvider } from "@/trpc/client";
 
 export const metadata: Metadata = {
   title: "Create v1",
@@ -37,9 +38,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-
-          <Footer />
+          <TRPCReactProvider>
+            {children}
+            <Footer />
+          </TRPCReactProvider>
         </ThemeProvider>
       </body>
     </html>

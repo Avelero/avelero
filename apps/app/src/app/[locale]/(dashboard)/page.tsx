@@ -1,4 +1,5 @@
-import { SignOut } from "@/components/sign-out";
+import { SignOut } from "@/components/auth/sign-out";
+import { TestingControls } from "@/components/debug/testing-controls";
 import { getI18n } from "@/locales/server";
 import { getUser } from "@v1/supabase/queries";
 
@@ -11,8 +12,9 @@ export default async function Page() {
   const t = await getI18n();
 
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center">
-      <div className="flex flex-col items-center justify-center gap-4">
+    <div className="min-h-screen w-full flex flex-col">
+      <TestingControls />
+      <div className="flex flex-1 flex-col items-center justify-center gap-4">
         <p>{t("welcome", { name: data?.user?.email })}</p>
 
         <SignOut />

@@ -13,7 +13,7 @@ export type Database = {
         Row: {
           country_code: string | null
           created_at: string | null
-          email: string | null
+          created_by: string
           id: string
           logo_url: string | null
           name: string
@@ -22,7 +22,7 @@ export type Database = {
         Insert: {
           country_code?: string | null
           created_at?: string | null
-          email?: string | null
+          created_by: string
           id?: string
           logo_url?: string | null
           name: string
@@ -31,49 +31,23 @@ export type Database = {
         Update: {
           country_code?: string | null
           created_at?: string | null
-          email?: string | null
+          created_by?: string
           id?: string
           logo_url?: string | null
           name?: string
           updated_at?: string | null
         }
-        Relationships: []
-      }
-      posts: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
         Relationships: [
           {
-            foreignKeyName: "fk_posts_user"
-            columns: ["user_id"]
+            foreignKeyName: "brands_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
       }
+      
       users: {
         Row: {
           avatar_url: string | null

@@ -63,3 +63,9 @@ export default function OtpEmail({ code, siteUrl = "", appName = "Avelero" }: Ot
   );
 }
 
+export const previewProps: OtpEmailProps = {
+  code: "123456",
+  siteUrl: "https://app.avelero.com",
+  appName: "Avelero",
+};
+

@@ -20,6 +20,7 @@
     "@supabase/supabase-js": "^2.45.3",
     "@v1/supabase": "workspace:*",
     "hono": "^4.5.10",
-    "@hono/trpc-server": "^0.3.0"
+    "@hono/trpc-server": "^0.3.0",
+    "@trigger.dev/sdk": "3.3.17"
   }
 }

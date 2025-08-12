@@ -74,8 +74,29 @@ export async function verifyOtpAction(email: string, token: string) {
       error: "Failed to verify code. Please try again.",
     };
   }
-  // Successful verification: compute the final destination here using shared policy
+  // Successful verification: claim invites then compute final destination
   const supabase = createClient();
+  const { data: userRes } = await supabase.auth.getUser();
+  const user = userRes?.user ?? null;
+  if (user) {
+    try {
+      await supabase.rpc("claim_invites_for_user", { p_user_id: user.id });
+      // Ensure active brand is set to the most recent membership
+      const { data: recentMembership } = await supabase
+        .from("users_on_brand")
+        .select("brand_id, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const selectedBrandId = recentMembership?.brand_id ?? null;
+      if (selectedBrandId) {
+        await supabase.from("users").update({ brand_id: selectedBrandId }).eq("id", user.id);
+      }
+    } catch (e) {
+      // ignore failures; redirect policy will still work
+    }
+  }
   const destination = await resolveAuthRedirectPath(supabase, { next: "/" });
   redirect(destination);
 }

@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
+import crypto from "node:crypto";
+import { TRPCError } from "@trpc/server";
+import { tasks } from "@trigger.dev/sdk/v3";
 
 export const brandRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -82,6 +85,152 @@ export const brandRouter = createTRPCRouter({
         .eq("id", user.id);
       if (error) throw error;
       return { success: true } as const;
+    }),
+
+  // Invites
+  sendInvite: protectedProcedure
+    .input(
+      z.object({
+        brand_id: z.string().uuid(),
+        email: z.string().email(),
+        role: z.enum(["owner", "member"]).default("member"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { supabase, supabaseAdmin, user } = ctx;
+      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+      if (!supabaseAdmin) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Admin client not configured" });
+
+      // Ensure caller is an owner of the brand
+      const { count: ownerCount, error: ownerErr } = await supabase
+        .from("users_on_brand")
+        .select("*", { count: "exact", head: true })
+        .eq("brand_id", input.brand_id)
+        .eq("user_id", user.id)
+        .eq("role", "owner");
+      if (ownerErr) throw ownerErr;
+      if (!ownerCount) throw new TRPCError({ code: "FORBIDDEN", message: "Only brand owners can invite" });
+
+      const appUrl = process.env.APP_URL as string | undefined;
+      if (!appUrl) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "APP_URL missing" });
+
+      // Generate Supabase invite link
+      const { data: linkData, error: linkErr } = await (supabaseAdmin as any).auth.admin.generateLink({
+        type: "invite",
+        email: input.email,
+        options: {
+          redirectTo: `${appUrl}/api/auth/accept`,
+        },
+      });
+      if (linkErr) throw linkErr;
+
+      // Extract raw token from action_link
+      const actionLink: string | undefined = linkData?.properties?.action_link ?? linkData?.action_link;
+      if (!actionLink) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create invite link" });
+      const url = new URL(actionLink);
+      const rawToken = url.searchParams.get("token") ?? url.searchParams.get("token_hash");
+      if (!rawToken) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Invite token missing" });
+
+      // Hash token
+      const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+      // Optional: set expiry (7 days)
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Insert invite row
+      const { error: insertErr } = await supabase.from("brand_invites").insert({
+        brand_id: input.brand_id,
+        email: input.email,
+        role: input.role,
+        token_hash: tokenHash,
+        status: "pending",
+        expires_at: expiresAt,
+        created_by: user.id,
+      });
+      if (insertErr) throw insertErr;
+
+      // Fetch brand name for email content
+      const { data: brandRow } = await supabase
+        .from("brands")
+        .select("name")
+        .eq("id", input.brand_id)
+        .single();
+
+      // Prepare accept URL using token_hash (avoid raw token)
+      const acceptUrl = `${appUrl}/api/auth/accept?token_hash=${tokenHash}`;
+
+      // Trigger background email via Trigger.dev
+      await tasks.trigger("invite-brand-members", {
+        invites: [
+          {
+            recipientEmail: input.email,
+            brandName: brandRow?.name ?? "Avelero",
+            role: input.role,
+            acceptUrl,
+            expiresAt,
+            appName: "Avelero",
+          },
+        ],
+      });
+
+      // Return minimal response
+      return { success: true } as const;
+    }),
+
+  revokeInvite: protectedProcedure
+    .input(z.object({ invite_id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { supabase, user } = ctx;
+      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+      // Find invite and ensure caller owns the brand
+      const { data: invite, error: invErr } = await supabase
+        .from("brand_invites")
+        .select("id, brand_id, status")
+        .eq("id", input.invite_id)
+        .single();
+      if (invErr) throw invErr;
+      if (!invite) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const { count: ownerCount, error: ownerErr } = await supabase
+        .from("users_on_brand")
+        .select("*", { count: "exact", head: true })
+        .eq("brand_id", invite.brand_id)
+        .eq("user_id", user.id)
+        .eq("role", "owner");
+      if (ownerErr) throw ownerErr;
+      if (!ownerCount) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const { error: updErr } = await supabase
+        .from("brand_invites")
+        .update({ status: "revoked" })
+        .eq("id", input.invite_id);
+      if (updErr) throw updErr;
+      return { success: true } as const;
+    }),
+
+  listInvites: protectedProcedure
+    .input(z.object({ brand_id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { supabase, user } = ctx;
+      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+      // Ensure membership
+      const { count, error: countErr } = await supabase
+        .from("users_on_brand")
+        .select("*", { count: "exact", head: true })
+        .eq("brand_id", input.brand_id)
+        .eq("user_id", user.id);
+      if (countErr) throw countErr;
+      if (!count) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const { data, error } = await supabase
+        .from("brand_invites")
+        .select("id, email, role, status, accepted_at, fulfilled_at, expires_at, created_at")
+        .eq("brand_id", input.brand_id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return { data } as const;
     }),
 });
 

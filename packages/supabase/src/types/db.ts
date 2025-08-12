@@ -128,6 +128,67 @@ export type Database = {
           },
         ]
       }
+      ,
+      brand_invites: {
+        Row: {
+          id: string
+          brand_id: string
+          email: string
+          role: string
+          token_hash: string
+          status: string
+          accepted_at: string | null
+          fulfilled_at: string | null
+          expires_at: string | null
+          created_by: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          brand_id: string
+          email: string
+          role?: string
+          token_hash: string
+          status?: string
+          accepted_at?: string | null
+          fulfilled_at?: string | null
+          expires_at?: string | null
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          brand_id?: string
+          email?: string
+          role?: string
+          token_hash?: string
+          status?: string
+          accepted_at?: string | null
+          fulfilled_at?: string | null
+          expires_at?: string | null
+          created_by?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_invites_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_invites_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -138,6 +199,11 @@ export type Database = {
         Returns: {
           brand_id: string
         }[]
+      }
+      ,
+      claim_invites_for_user: {
+        Args: { p_user_id: string }
+        Returns: { brand_id: string }[]
       }
     }
     Enums: {

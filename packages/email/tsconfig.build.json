@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": false,
+    "outDir": "dist",
+    "rootDir": ".",
+    "module": "CommonJS",
+    "moduleResolution": "Node"
+  },
+  "include": [
+    "emails/**/*.ts",
+    "emails/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx"
+  ]
+}
+

@@ -1,1 +1,0 @@
--- Posts table removed as it's only used for demo purposes. Intentionally left empty.

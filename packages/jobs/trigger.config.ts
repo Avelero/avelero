@@ -1,9 +1,9 @@
 import type { TriggerConfig } from "@trigger.dev/sdk/v3";
 
 export const config: TriggerConfig = {
-  // Replace <your-project-ref> with your project id: https://trigger.dev/docs/trigger-config
-  project: "<your-project-ref>",
+  project: "proj_mqxiyipljbptdmfeivig",
   logLevel: "log",
+  maxDuration: 60,
   retries: {
     enabledInDev: true,
     default: {

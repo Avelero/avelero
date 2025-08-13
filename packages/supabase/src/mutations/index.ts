@@ -3,7 +3,7 @@ import { createClient } from "@v1/supabase/server";
 import type { TablesUpdate } from "../types";
 
 export async function updateUser(userId: string, data: TablesUpdate<"users">) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     const result = await supabase.from("users").update(data).eq("id", userId);
@@ -17,7 +17,7 @@ export async function updateUser(userId: string, data: TablesUpdate<"users">) {
 }
 
 export async function createBrand(params: { name: string; country_code?: string | null; logo_url?: string | null; ownerId: string }) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     // 1) create the brand (created_by must be ownerId; types model may omit it, so pass via insert)
@@ -56,7 +56,7 @@ export async function createBrand(params: { name: string; country_code?: string 
 }
 
 export async function setActiveBrand(userId: string, brandId: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     // Guard: ensure membership exists (RLS protects too, but helpful error)

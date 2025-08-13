@@ -17,7 +17,7 @@ export async function sendOtpAction(email: string) {
       };
     }
 
-    const supabase = createClient();
+    const supabase = await createClient();
     
     // Send OTP via Supabase
     const { error } = await supabase.auth.signInWithOtp({

@@ -232,6 +232,34 @@ export const brandRouter = createTRPCRouter({
       if (error) throw error;
       return { data } as const;
     }),
+
+  members: protectedProcedure
+    .query(async ({ ctx }) => {
+      const { supabase, brandId } = ctx;
+      if (!brandId) throw new TRPCError({ code: "BAD_REQUEST", message: "No active brand" });
+
+      const { data, error } = await supabase
+        .from("users_on_brand")
+        .select(
+          "user_id, role, users:users(id, email, full_name, avatar_url)"
+        )
+        .eq("brand_id", brandId);
+      if (error) throw error;
+
+      const rows = (data ?? []).map((row: any) => ({
+        id: row.user_id as string,
+        role: (row.role as string) ?? null,
+        teamId: brandId,
+        user: {
+          id: row.users?.id ?? null,
+          email: row.users?.email ?? null,
+          fullName: row.users?.full_name ?? null,
+          avatarUrl: row.users?.avatar_url ?? null,
+        },
+      }));
+
+      return rows;
+    }),
 });
 
 

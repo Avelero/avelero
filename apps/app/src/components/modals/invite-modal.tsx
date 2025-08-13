@@ -9,7 +9,7 @@ import { Input } from "@v1/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@v1/ui/command";
 
-interface Invitee {
+interface Invitee { 
   email: string;
   role: "owner" | "member";
 }

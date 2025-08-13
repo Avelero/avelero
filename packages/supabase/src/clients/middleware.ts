@@ -5,7 +5,7 @@ export const updateSession = async (
   request: NextRequest,
   response: NextResponse,
 ) => {
-  const supabase = createServerClient(
+  createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -26,10 +26,5 @@ export const updateSession = async (
     },
   );
 
-  // This is to ensure the session is updated
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  return { response, user };
+  return response;
 };

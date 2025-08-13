@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/";
   const returnTo = searchParams.get("return_to");
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // If we received an OAuth/PKCE code, exchange it. OTP flows won't include a code.
   if (code) {

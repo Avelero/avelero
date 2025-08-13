@@ -31,6 +31,7 @@ export default function RootLayout({
           `${GeistSans.variable} ${GeistMono.variable}`,
           "antialiased",
         )}
+        suppressHydrationWarning
       >
         <ThemeProvider
           attribute="class"

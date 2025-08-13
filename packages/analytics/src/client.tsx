@@ -20,7 +20,7 @@ const track = (options: { event: string } & PostEventPayload["properties"]) => {
   const { track: openTrack } = useOpenPanel();
 
   if (!isProd) {
-    logger.info("Track", options);
+    logger.info({ options }, "Track");
 
     return;
   }

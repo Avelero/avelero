@@ -553,8 +553,6 @@ This comprehensive structure shows how Midday implements a **robust, multi-tenan
 
 ### Open items / To‑Dos
 
-- Reflect brand membership in auth checks and UI visibility; prevent cross‑brand data leakage.
-
 - **Invitations**:
   - Implement invite issuance (email) and acceptance.
   - On acceptance, redirect invitees through login; after `/setup`, skip `/brands/create` and land on the invited brand’s home.

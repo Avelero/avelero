@@ -81,4 +81,12 @@ export default function InviteEmail({
   );
 }
 
+export const previewProps: InviteEmailProps = {
+  recipientEmail: "john@example.com",
+  brandName: "Acme Corp",
+  role: "Editor",
+  acceptUrl: "https://app.avelero.com/accept?token=abc123",
+  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+  appName: "Avelero",
+};
 

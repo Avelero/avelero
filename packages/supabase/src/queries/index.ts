@@ -3,7 +3,7 @@ import { createClient } from "@v1/supabase/server";
 import type { Tables } from "../types";
 
 export async function getUser() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     const result = await supabase.auth.getUser();
@@ -22,7 +22,7 @@ export async function getPosts() {
 }
 
 export async function getUserProfile() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     const { data, error } = await supabase
@@ -37,7 +37,7 @@ export async function getUserProfile() {
 }
 
 export async function getMyBrands() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     const { data, error } = await supabase

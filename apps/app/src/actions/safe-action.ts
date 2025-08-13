@@ -1,5 +1,4 @@
 import "server-only";
-import * as Sentry from "@sentry/nextjs";
 import { setupAnalytics } from "@v1/analytics/server";
 import { ratelimit } from "@v1/kv/ratelimit";
 import { logger } from "@v1/logger";
@@ -56,7 +55,7 @@ export const authActionClient = actionClientWithMeta
     return result;
   })
   .use(async ({ next, metadata }) => {
-    const ip = headers().get("x-forwarded-for");
+    const ip = (await headers()).get("x-forwarded-for");
 
     const { success, remaining } = await ratelimit.limit(
       `${ip}-${metadata.name}`,
@@ -78,7 +77,7 @@ export const authActionClient = actionClientWithMeta
     const {
       data: { user },
     } = await getUser();
-    const supabase = createClient();
+    const supabase = await createClient();
 
     if (!user) {
       throw new Error("Unauthorized");
@@ -94,12 +93,10 @@ export const authActionClient = actionClientWithMeta
       }
     }
 
-    return Sentry.withServerActionInstrumentation(metadata.name, async () => {
-      return next({
-        ctx: {
-          supabase,
-          user,
-        },
-      });
+    return next({
+      ctx: {
+        supabase,
+        user,
+      },
     });
   });

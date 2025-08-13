@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@v1/supabase/server";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
@@ -21,7 +20,7 @@ export async function verifyOtpAction(email: string, token: string) {
       };
     }
 
-    const supabase = createClient();
+    const supabase = await createClient();
     
     // Verify OTP with Supabase
     const { data, error } = await supabase.auth.verifyOtp({
@@ -56,18 +55,6 @@ export async function verifyOtpAction(email: string, token: string) {
       };
     }
 
-    // Set preferred sign-in method cookie (expires in 1 year)
-    const cookieStore = cookies();
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-    
-    cookieStore.set("preferred-signin-provider", "otp", {
-      expires: expiryDate,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-    });
-
   } catch (error) {
     console.error("Verify OTP action error:", error);
     return {
@@ -75,7 +62,7 @@ export async function verifyOtpAction(email: string, token: string) {
     };
   }
   // Successful verification: claim invites then compute final destination
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: userRes } = await supabase.auth.getUser();
   const user = userRes?.user ?? null;
   if (user) {

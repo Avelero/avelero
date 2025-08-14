@@ -18,7 +18,7 @@ interface OtpEmailProps {
   appName?: string;
 }
 
-export function OtpEmail({ code, siteUrl = "", appName = "Avelero" }: OtpEmailProps) {
+export default function OtpEmail({ code, siteUrl = "", appName = "Avelero" }: OtpEmailProps) {
   return (
     <Html>
       <Head />

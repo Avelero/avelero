@@ -15,6 +15,9 @@ export async function middleware(request: NextRequest) {
   const url = new URL("/", request.url);
   const nextUrl = request.nextUrl;
 
+  // Set pathname in headers for server components
+  response.headers.set('x-pathname', nextUrl.pathname);
+
   const pathnameLocale = nextUrl.pathname.split("/", 2)?.[1];
 
   // Remove the locale from the pathname

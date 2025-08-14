@@ -1,7 +1,9 @@
-import { LoginForm } from "@/components/forms/login-form";
+import { GoogleSignin } from "@/components/auth/google-signin";
+import { OTPSignIn } from "@/components/auth/otp-signin";
+import type { Metadata } from "next";
 import Image from "next/image";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Login",
 };
 
@@ -32,7 +34,25 @@ export default function Page() {
           </div>
 
           {/* Auth Forms */}
-          <LoginForm />
+          <div className="space-y-4">
+            {/* Google Sign-in */}
+            <GoogleSignin />
+            
+            {/* Separator */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground font-mono">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            {/* OTP Sign-in */}
+            <OTPSignIn />
+          </div>
         </div>
       </div>
 

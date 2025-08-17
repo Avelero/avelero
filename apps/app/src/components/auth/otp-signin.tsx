@@ -91,7 +91,7 @@ export function OTPSignIn({ className }: Props) {
             variant="outline"
             onClick={handleCancel}
             disabled={verifyOtp.status === "executing"}
-            className="flex-1 font-mono"
+            className="flex-1"
           >
             Cancel
           </Button>
@@ -99,13 +99,13 @@ export function OTPSignIn({ className }: Props) {
             type="button"
             onClick={() => onComplete("")}
             disabled={verifyOtp.status === "executing"}
-            className="flex-1 font-mono"
+            className="flex-1"
           >
             {verifyOtp.status === "executing" ? "Verifying..." : "Send"}
           </Button>
         </div>
 
-        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground font-mono">
+        <div className="flex items-center justify-center gap-1 text-small text-secondary">
           <span>Didn't receive an email?</span>
           <button
             onClick={() => setSent(false)}
@@ -130,14 +130,13 @@ export function OTPSignIn({ className }: Props) {
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            className="font-mono"
             {...form.register("email")}
           />
         </div>
 
         <Button
           type="submit"
-          className="w-full h-10 font-mono"
+          className="w-full h-10"
           disabled={isLoading}
         >
           {isLoading ? "Sending..." : "Continue"}

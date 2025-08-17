@@ -43,7 +43,7 @@ export function GoogleSignin() {
     <Button
       onClick={handleSignin}
       variant="outline"
-      className="w-full font-mono"
+      className="w-full font-sans"
       disabled={isLoading}
     >
       {isLoading ? "Connecting..." : "Continue with Google"}

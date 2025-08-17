@@ -1,5 +1,4 @@
-import "@v1/ui/globals.css";
-import { Footer } from "@/components/footer";
+import "@v1/ui/globals.css";;
 import { cn } from "@v1/ui/cn";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
@@ -26,6 +25,29 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* ====== STANDARD BROWSERS ====== */}
+        {/* Light mode favicon (dark icon) */}
+        <link rel="icon" href="/favicon/FaviconDark.ico" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon/FaviconDark32.png" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon/FaviconDark16.png" media="(prefers-color-scheme: light)" />
+
+        {/* Dark mode favicon (light icon) */}
+        <link rel="icon" href="/favicon/FaviconLight.ico" media="(prefers-color-scheme: dark)" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon/FaviconLight32.png" media="(prefers-color-scheme: dark)" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon/FaviconLight16.png" media="(prefers-color-scheme: dark)" />
+
+        {/* ====== APPLE TOUCH ICONS ====== */}
+        <link rel="apple-touch-icon" href="/favicon/AppleTouchIconDark.png" media="(prefers-color-scheme: light)" />
+        <link rel="apple-touch-icon" href="/favicon/AppleTouchIconLight.png" media="(prefers-color-scheme: dark)" />
+
+        {/* ====== SAFARI PINNED TABS ====== */}
+        <link rel="mask-icon" href="/favicon/MaskIconDark.svg" color="#000000" media="(prefers-color-scheme: light)" />
+        <link rel="mask-icon" href="/favicon/MaskIconLight.svg" color="#ffffff" media="(prefers-color-scheme: dark)" />
+
+        {/* ====== FALLBACK (OLD BROWSERS) ====== */}
+        <link rel="icon" href="/favicon/FaviconDark.ico" />
+      </head>
       <body
         className={cn(
           `${GeistSans.variable} ${GeistMono.variable}`,
@@ -41,7 +63,6 @@ export default function RootLayout({
         >
           <TRPCReactProvider>
             {children}
-            <Footer />
           </TRPCReactProvider>
         </ThemeProvider>
       </body>

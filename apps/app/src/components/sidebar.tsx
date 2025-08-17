@@ -1,29 +1,68 @@
 "use client";
 
 import { cn } from "@v1/ui/cn";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { MainMenu } from "./main-menu";
 import { BrandDropdown } from "./brand-dropdown";
 
 export function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isBrandPopupOpen, setIsBrandPopupOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const mousePositionRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePositionRef.current = { x: e.clientX, y: e.clientY };
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => document.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  const isMouseOverSidebar = () => {
+    if (!sidebarRef.current) return false;
+    const rect = sidebarRef.current.getBoundingClientRect();
+    const { x, y } = mousePositionRef.current;
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  };
+
+  const handleMouseEnter = () => setIsExpanded(true);
+  const handleMouseLeave = () => {
+    if (!isBrandPopupOpen) setIsExpanded(false);
+  };
+
+  const handleBrandPopupChange = (isOpen: boolean) => {
+    setIsBrandPopupOpen(isOpen);
+    if (!isOpen) {
+      setTimeout(() => {
+        if (!isMouseOverSidebar()) {
+          setIsExpanded(false);
+        }
+      }, 100);
+    }
+  };
 
   return (
     <aside
+      ref={sidebarRef}
       className={cn(
-        "h-screen mt-[70px] flex-shrink-0 flex-col desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px] justify-between fixed top-0 pb-4 items-center hidden md:flex z-50 transition-all duration-200 ease-&lsqb;cubic-bezier(0.4,0,0.2,1)&rsqb;",
+        "fixed top-0 z-50 hidden md:flex h-screen mt-14",
+        "flex-col flex-shrink-0 p-2 gap-2",
         "bg-background border-r border-border",
-        isExpanded ? "w-[240px]" : "w-[70px]",
+        "desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px]",
+        "transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
+        isExpanded ? "w-60" : "w-14" // 56px collapsed rail is preserved
       )}
-      onMouseEnter={() => setIsExpanded(true)}
-      onMouseLeave={() => setIsExpanded(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
+      <BrandDropdown
+        isExpanded={isExpanded}
+        onPopupChange={handleBrandPopupChange}
+      />
 
-      <BrandDropdown isExpanded={isExpanded} />
-
-      <div className="flex flex-col w-full pt-[70px] flex-1">
-        <MainMenu isExpanded={isExpanded} />
-      </div>
+      <MainMenu isExpanded={isExpanded} />
     </aside>
   );
 }

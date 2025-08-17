@@ -51,10 +51,10 @@ export function UserMenu({ onlySignOut }: Props) {
             <DropdownMenuLabel>
               <div className="flex justify-between items-center">
                 <div className="flex flex-col">
-                  <span className="truncate line-clamp-1 max-w-[155px] block">
+                  <span className="truncate line-clamp-1 max-w-[155px] text-foreground font-medium block">
                     {user?.full_name}
                   </span>
-                  <span className="truncate text-xs text-[#606060] font-normal">
+                  <span className="truncate text-s text-secondary">
                     {user?.email}
                   </span>
                 </div>

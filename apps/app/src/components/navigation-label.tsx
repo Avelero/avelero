@@ -61,11 +61,11 @@ export function NavigationLabel({ pathname, locale = "en" }: NavigationLabelProp
     <nav className="flex items-center text-sm">
       {items.map((item, index) => (
         <div key={index} className="flex items-center">
-          {index > 0 && <span className="mx-2 text-muted-foreground">/</span>}
+          {index > 0 && <span className="mx-2 text-secondary">/</span>}
           {!item.show ? (
-            <span className="text-muted-foreground">{item.label}</span>
+            <span className="text-secondary">{item.label}</span>
           ) : index === items.length - 1 ? (
-            <span className="font-medium text-foreground">{item.label}</span>
+            <span className="text-h5 text-primary">{item.label}</span>
           ) : (
             <Link 
               href={item.href} 

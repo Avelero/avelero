@@ -1,7 +1,6 @@
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import {
-  HydrateClient,
   batchPrefetch,
   getQueryClient,
   trpc,
@@ -47,14 +46,12 @@ export default async function Layout({
   const { locale } = await params;
 
   return (
-    <HydrateClient>
-      <div className="relative">
-        <Header pathname={pathname} locale={locale} />
-        <div className="flex flex-row justify-start">
-            <Sidebar />
-            <div className="relative ml-[70px]">{children}</div>
-        </div>
+    <div className="relative">
+      <Header pathname={pathname} locale={locale} />
+      <div className="flex flex-row justify-start">
+          <Sidebar />
+          <div className="relative ml-[70px]">{children}</div>
       </div>
-    </HydrateClient>
+    </div>
   );
 }

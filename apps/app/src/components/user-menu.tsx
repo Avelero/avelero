@@ -24,25 +24,19 @@ export function UserMenu({ onlySignOut }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Avatar className="rounded-full w-8 h-8 cursor-pointer">
-          {!isLoading && user?.avatar_url && (
-            <AvatarImageNext
-              src={user?.avatar_url}
-              alt={user?.full_name ?? ""}
-              width={32}
-              height={32}
-              quality={100}
-            />
-          )}
-          <AvatarFallback>
-            {isLoading ? (
+        <Avatar 
+          className="rounded-full w-8 h-8 cursor-pointer"
+          src={user?.avatar_url}
+          name={user?.full_name ?? undefined}
+          hue={user?.avatar_hue ?? undefined}
+          width={32}
+          height={32}
+        >
+          {isLoading && (
+            <AvatarFallback>
               <div className="w-4 h-4 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-            ) : (
-              <span className="text-xs">
-                {user?.full_name?.charAt(0)?.toUpperCase()}
-              </span>
-            )}
-          </AvatarFallback>
+            </AvatarFallback>
+          )}
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[240px]" sideOffset={10} align="end">

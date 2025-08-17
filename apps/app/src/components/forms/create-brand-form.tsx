@@ -8,6 +8,7 @@ import { Button } from "@v1/ui/button";
 import { TextField } from "@/components/text-field";
 import { CountrySelect } from "@/components/country-select";
 import { useTRPC } from "@/trpc/client";
+import { hueFromName } from "@/utils/avatar-hue";
 
 const schema = z.object({
   name: z.string().min(2, "Please enter a brand name"),
@@ -41,7 +42,10 @@ export function CreateBrandForm() {
       setError(parsed.error.errors[0]?.message ?? "Invalid input");
       return;
     }
-    createBrandMutation.mutate(parsed.data);
+    createBrandMutation.mutate({
+      ...parsed.data,
+      avatar_hue: hueFromName(parsed.data.name)
+    });
   };
 
   return (

@@ -21,6 +21,7 @@ interface Brand {
   id: string;
   name: string;
   logo_url?: string | null;
+  avatar_hue?: number | null;
   country_code?: string | null;
 }
 
@@ -75,14 +76,19 @@ export function BrandDropdown({ isExpanded, onPopupChange }: BrandDropdownProps)
 
           {/* Icon block: fixed 40×40, anchored to inner left edge */}
           <div className="absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center pointer-events-none">
-            <Avatar className="w-6 h-6">
-              <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
-                {isLoading ? (
+            <Avatar 
+              className="w-6 h-6"
+              src={activeBrand?.logo_url}
+              name={activeBrand?.name}
+              hue={activeBrand?.avatar_hue ?? undefined}
+              width={24}
+              height={24}
+            >
+              {isLoading && (
+                <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
                   <div className="w-3 h-3 border border-primary/30 border-t-primary rounded-full animate-spin" />
-                ) : (
-                  activeBrand?.name?.charAt(0) ?? "?"
-                )}
-              </AvatarFallback>
+                </AvatarFallback>
+              )}
             </Avatar>
           </div>
 
@@ -134,11 +140,14 @@ export function BrandDropdown({ isExpanded, onPopupChange }: BrandDropdownProps)
               onClick={() => handleBrandSelect(brand.id)}
             >
               <div className="flex items-center gap-2 w-full">
-                <Avatar className="w-4 h-4">
-                  <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
-                    {brand.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
+                <Avatar 
+                  className="w-4 h-4"
+                  src={brand.logo_url}
+                  name={brand.name}
+                  hue={brand.avatar_hue ?? undefined}
+                  width={16}
+                  height={16}
+                />
                 <span className="text-p truncate">{brand.name}</span>
                 {user?.brand_id === brand.id && (
                   <Icons.Check className="ml-auto h-4 w-4 flex-shrink-0" />

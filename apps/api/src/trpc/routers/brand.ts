@@ -9,7 +9,7 @@ export const brandRouter = createTRPCRouter({
     const { supabase } = ctx;
     const { data, error } = await supabase
       .from("brands")
-      .select("id, name, logo_url, country_code")
+      .select("id, name, logo_url, avatar_hue, country_code")
       .order("name", { ascending: true });
     if (error) throw error;
     return { data } as const;
@@ -21,6 +21,7 @@ export const brandRouter = createTRPCRouter({
         name: z.string().min(1),
         country_code: z.string().optional().nullable(),
         logo_url: z.string().url().optional().nullable(),
+        avatar_hue: z.number().int().min(160).max(259).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -33,6 +34,7 @@ export const brandRouter = createTRPCRouter({
           name: input.name,
           country_code: input.country_code ?? null,
           logo_url: input.logo_url ?? null,
+          avatar_hue: input.avatar_hue ?? null,
           created_by: user.id,
         })
         .select("id")
@@ -241,7 +243,7 @@ export const brandRouter = createTRPCRouter({
       const { data, error } = await supabase
         .from("users_on_brand")
         .select(
-          "user_id, role, users:users(id, email, full_name, avatar_url)"
+          "user_id, role, users:users(id, email, full_name, avatar_url, avatar_hue)"
         )
         .eq("brand_id", brandId);
       if (error) throw error;
@@ -255,6 +257,7 @@ export const brandRouter = createTRPCRouter({
           email: row.users?.email ?? null,
           fullName: row.users?.full_name ?? null,
           avatarUrl: row.users?.avatar_url ?? null,
+          avatarHue: row.users?.avatar_hue ?? null,
         },
       }));
 

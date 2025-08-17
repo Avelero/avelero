@@ -9,6 +9,7 @@ import { TextField } from "@/components/text-field";
 import { AvatarUpload } from "@/components/avatar-upload";
 import { useTRPC } from "@/trpc/client";
 import { createClient as createSupabaseClient } from "@v1/supabase/client";
+import { hueFromName } from "@/utils/avatar-hue";
 
 const schema = z.object({
   full_name: z.string().min(2, "Please enter your full name"),
@@ -75,7 +76,11 @@ export function SetupForm() {
         avatarUrl = pub.publicUrl;
       }
 
-      updateUserMutation.mutate({ full_name: parsed.data.full_name, avatar_url: avatarUrl });
+      updateUserMutation.mutate({ 
+        full_name: parsed.data.full_name, 
+        avatar_url: avatarUrl,
+        avatar_hue: hueFromName(parsed.data.full_name)
+      });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save profile";
       setError(message);

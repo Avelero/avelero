@@ -5,7 +5,7 @@ import Image from "next/image";
 import LoginPageImage from "public/marketing/LoginPageImage.webp";
 
 export const metadata: Metadata = {
-  title: "Login",
+  title: "Login | Avelero",
 };
 
 export default function Page() {

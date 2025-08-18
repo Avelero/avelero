@@ -51,7 +51,7 @@ export function Sidebar() {
         "flex-col flex-shrink-0 p-2 gap-2",
         "bg-background border-r border-border",
         "desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px]",
-        "transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "transition-all duration-200 ease-out",
         isExpanded ? "w-60" : "w-14" // 56px collapsed rail is preserved
       )}
       onMouseEnter={handleMouseEnter}

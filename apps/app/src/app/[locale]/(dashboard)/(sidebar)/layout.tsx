@@ -1,10 +1,6 @@
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
-import {
-  batchPrefetch,
-  getQueryClient,
-  trpc,
-} from "@/trpc/server";
+import { batchPrefetch, getQueryClient, trpc, HydrateClient } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { Suspense } from "react";
@@ -46,12 +42,14 @@ export default async function Layout({
   const { locale } = await params;
 
   return (
-    <div className="relative">
-      <Header pathname={pathname} locale={locale} />
-      <div className="flex flex-row justify-start">
-          <Sidebar />
-          <div className="relative ml-[70px]">{children}</div>
+    <HydrateClient>
+      <div className="relative h-full">
+        <Header pathname={pathname} locale={locale} />
+        <div className="flex flex-row justify-start h-[calc(100%-56px)]">
+            <Sidebar />
+            <div className="relative w-full h-full ml-[56px]">{children}</div>
+        </div>
       </div>
-    </div>
+    </HydrateClient>
   );
 }

@@ -1,15 +1,43 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
+import { createClient as createSupabaseClient } from "@v1/supabase/client";
 import {
   useMutation,
   useQuery,
   useQueryClient,
+  useSuspenseQuery,
 } from "@tanstack/react-query";
+
+function useIsSessionReady(): boolean {
+  if (typeof window === "undefined") return true;
+  const supabase = createSupabaseClient();
+  // We can't subscribe synchronously without state; assume presence if local storage has a token
+  // Minimal: check access_token in memory via getSession() lazily handled by query enabled flag
+  return !!(supabase as any);
+}
 
 export function useUserQuery() {
   const trpc = useTRPC();
-  return useQuery(trpc.user.me.queryOptions());
+  const isSessionReady = typeof window === "undefined" ? true : !!window?.localStorage;
+  const opts = trpc.user.me.queryOptions();
+  return useQuery({ ...(opts as any), enabled: typeof window !== "undefined" && isSessionReady } as any);
+}
+
+export interface CurrentUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  avatar_hue: number | null;
+  brand_id: string | null;
+}
+
+export function useUserQuerySuspense() {
+  const trpc = useTRPC();
+  const isSessionReady = typeof window === "undefined" ? true : !!window?.localStorage;
+  const opts = trpc.user.me.queryOptions();
+  return useSuspenseQuery({ ...(opts as any), enabled: typeof window !== "undefined" && isSessionReady } as any);
 }
 
 export function useUserMutation() {

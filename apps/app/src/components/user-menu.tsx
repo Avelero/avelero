@@ -1,7 +1,9 @@
 "use client";
 
-import { useUserQuery } from "@/hooks/use-user";
-import { Avatar, AvatarFallback, AvatarImageNext } from "@v1/ui/avatar";
+import { useUserQuery, useUserQuerySuspense, CurrentUser } from "@/hooks/use-user";
+import { Avatar } from "@v1/ui/avatar";
+import { Icons } from "@v1/ui/icons";
+import { Suspense } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,26 +20,38 @@ type Props = {
   onlySignOut?: boolean;
 };
 
+function UserAvatar() {
+  const { data } = useUserQuerySuspense();
+  const user = data as CurrentUser | null;
+  return (
+    <Avatar 
+      className="rounded-full w-8 h-8 cursor-pointer"
+      src={user?.avatar_url ?? undefined}
+      name={user?.full_name ?? undefined}
+      hue={user?.avatar_hue ?? undefined}
+      width={32}
+      height={32}
+    />
+  );
+}
+
 export function UserMenu({ onlySignOut }: Props) {
-  const { data: user, isLoading } = useUserQuery();
+  const { data: user } = useUserQuery();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Avatar 
-          className="rounded-full w-8 h-8 cursor-pointer"
-          src={user?.avatar_url}
-          name={user?.full_name ?? undefined}
-          hue={user?.avatar_hue ?? undefined}
-          width={32}
-          height={32}
-        >
-          {isLoading && (
-            <AvatarFallback>
-              <div className="w-4 h-4 border border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-            </AvatarFallback>
-          )}
-        </Avatar>
+        <button type="button" className="rounded-full focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
+          <Suspense fallback={
+            <Avatar className="rounded-full w-8 h-8 cursor-pointer">
+              <div className="flex h-full w-full items-center justify-center bg-accent">
+                <Icons.UserRound className="text-tertiary" />
+              </div>
+            </Avatar>
+          }>
+            <UserAvatar />
+          </Suspense>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[240px]" sideOffset={10} align="end">
         {!onlySignOut && (
@@ -46,10 +60,10 @@ export function UserMenu({ onlySignOut }: Props) {
               <div className="flex justify-between items-center">
                 <div className="flex flex-col">
                   <span className="truncate line-clamp-1 max-w-[155px] text-foreground font-medium block">
-                    {user?.full_name}
+                    {(user as CurrentUser | null | undefined)?.full_name ?? ""}
                   </span>
                   <span className="truncate text-s text-secondary">
-                    {user?.email}
+                    {(user as CurrentUser | null | undefined)?.email ?? ""}
                   </span>
                 </div>
               </div>

@@ -1,8 +1,8 @@
 // Server-only: stable hue selection and HSL formatting for avatar fallbacks.
 
-export const HUE_START = 160;
-export const HUE_COUNT = 100; // inclusive range 160..259
-export const HUE_END = HUE_START + HUE_COUNT - 1; // 259
+export const HUE_START = 1;
+export const HUE_COUNT = 360; // inclusive range 1..359
+export const HUE_END = HUE_START + HUE_COUNT - 2; // 359
 export const SATURATION = 100;
 export const LIGHTNESS = 33;
 
@@ -18,7 +18,7 @@ function fnv1a(str: string): number {
 
 export function hueFromName(name: string): number {
   const h = fnv1a(name || "default");
-  return HUE_START + (h % HUE_COUNT); // 160..259
+  return HUE_START + (h % HUE_COUNT); // 1..359
 }
 
 export function clampHue(hue: number): number {

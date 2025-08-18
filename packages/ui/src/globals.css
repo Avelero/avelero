@@ -29,7 +29,7 @@
     --accent-foreground: 240 80% 4%;
     --accent-blue: 219 100% 97%;
 
-    --destructive: 0 97% 23%;
+    --destructive: 1 97% 30%;
     --destructive-foreground: 240 100% 99%;
 
     --brand: 240 100% 50%;
@@ -48,6 +48,9 @@
     font-family: var(--font-geist-sans), system-ui, monospace;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    position: fixed;
+    width: 100%;
+    height: 100%;
   }
 
   h1 {

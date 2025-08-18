@@ -7,8 +7,8 @@ import { ThemeProvider } from "next-themes";
 import { TRPCReactProvider } from "@/trpc/client";
 
 export const metadata: Metadata = {
-  title: "Create v1",
-  description: "Production ready Next.js app",
+  title: "Avelero",
+  description: "Create engaging digital product passports for your fashion brand. Upload any data format and launch your DPPs in minutes, not days.",
 };
 
 export const viewport = {
@@ -62,7 +62,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TRPCReactProvider>
-            {children}
+            <div className="h-screen w-screen">
+              {children}
+            </div>
           </TRPCReactProvider>
         </ThemeProvider>
       </body>

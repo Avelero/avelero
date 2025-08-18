@@ -10,6 +10,7 @@ import { AvatarUpload } from "@/components/avatar-upload";
 import { useTRPC } from "@/trpc/client";
 import { createClient as createSupabaseClient } from "@v1/supabase/client";
 import { hueFromName } from "@/utils/avatar-hue";
+import { useUserQuery, CurrentUser } from "@/hooks/use-user";
 
 const schema = z.object({
   full_name: z.string().min(2, "Please enter your full name"),
@@ -17,10 +18,10 @@ const schema = z.object({
 
 export function SetupForm() {
   const [fullName, setFullName] = useState("");
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const { data: user } = useUserQuery();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -42,9 +43,8 @@ export function SetupForm() {
     }),
   );
 
-  const onAvatarChange = (file: File | null, preview: string | null) => {
-    setAvatarFile(file);
-    setAvatarPreview(preview);
+  const onAvatarUpload = (url: string) => {
+    setAvatarUrl(url);
   };
 
   const onSubmit = async () => {
@@ -58,27 +58,9 @@ export function SetupForm() {
     }
 
     try {
-      let avatarUrl: string | undefined;
-      if (avatarFile) {
-        const supabase = createSupabaseClient();
-        const { data: userData, error: userErr } = await supabase.auth.getUser();
-        if (userErr || !userData?.user) throw new Error("Unauthorized");
-        const objectPath = `${userData.user.id}/${Date.now()}.webp`;
-        const arrayBuffer = await avatarFile.arrayBuffer();
-        const { error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(objectPath, new Uint8Array(arrayBuffer), {
-            contentType: "image/webp",
-            upsert: false,
-          });
-        if (uploadError) throw new Error(uploadError.message);
-        const { data: pub } = supabase.storage.from("avatars").getPublicUrl(objectPath);
-        avatarUrl = pub.publicUrl;
-      }
-
       updateUserMutation.mutate({ 
         full_name: parsed.data.full_name, 
-        avatar_url: avatarUrl,
+        avatar_url: avatarUrl || undefined,
         avatar_hue: hueFromName(parsed.data.full_name)
       });
     } catch (e: unknown) {
@@ -96,7 +78,12 @@ export function SetupForm() {
       </div>
 
       <div className="flex flex-col items-center gap-6">
-        <AvatarUpload value={avatarPreview} onChange={onAvatarChange} />
+        <AvatarUpload 
+          userId={(user as CurrentUser | null | undefined)?.id!}
+          avatarUrl={avatarUrl}
+          name={fullName || undefined}
+          onUpload={onAvatarUpload}
+        />
         <TextField
           id="full_name"
           label="Full name"

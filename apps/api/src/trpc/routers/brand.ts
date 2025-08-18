@@ -21,7 +21,7 @@ export const brandRouter = createTRPCRouter({
         name: z.string().min(1),
         country_code: z.string().optional().nullable(),
         logo_url: z.string().url().optional().nullable(),
-        avatar_hue: z.number().int().min(160).max(259).optional(),
+        avatar_hue: z.number().int().min(1).max(359).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {

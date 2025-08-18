@@ -5,12 +5,20 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 export function useUserBrandsQuery() {
   const trpc = useTRPC();
-  return useQuery(trpc.brand.list.queryOptions());
+  const opts = trpc.brand.list.queryOptions();
+  return useQuery({ ...(opts as any), enabled: typeof window !== "undefined" } as any);
+}
+
+export function useUserBrandsQuerySuspense() {
+  const trpc = useTRPC();
+  const opts = trpc.brand.list.queryOptions();
+  return useSuspenseQuery({ ...(opts as any), enabled: typeof window !== "undefined" } as any);
 }
 
 export function useSetActiveBrandMutation() {

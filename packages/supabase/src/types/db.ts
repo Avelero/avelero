@@ -1151,7 +1151,7 @@ export type Database = {
     }
     Functions: {
       can_insert_object: {
-        Args: { bucketid: string; name: string; owner: string; metadata: Json }
+        Args: { owner: string; name: string; bucketid: string; metadata: Json }
         Returns: undefined
       }
       extension: {
@@ -1175,33 +1175,33 @@ export type Database = {
       }
       list_multipart_uploads_with_delimiter: {
         Args: {
-          prefix_param: string
-          next_upload_token?: string
-          next_key_token?: string
           max_keys?: number
           delimiter_param: string
+          prefix_param: string
           bucket_id: string
+          next_key_token?: string
+          next_upload_token?: string
         }
         Returns: {
-          id: string
           key: string
           created_at: string
+          id: string
         }[]
       }
       list_objects_with_delimiter: {
         Args: {
-          start_after?: string
           bucket_id: string
           prefix_param: string
           delimiter_param: string
           max_keys?: number
+          start_after?: string
           next_token?: string
         }
         Returns: {
-          name: string
           id: string
           metadata: Json
           updated_at: string
+          name: string
         }[]
       }
       operation: {
@@ -1210,22 +1210,22 @@ export type Database = {
       }
       search: {
         Args: {
-          search?: string
           levels?: number
-          limits?: number
-          bucketname: string
           prefix: string
+          bucketname: string
+          limits?: number
+          offsets?: number
+          search?: string
           sortcolumn?: string
           sortorder?: string
-          offsets?: number
         }
         Returns: {
           name: string
+          id: string
           updated_at: string
           created_at: string
-          metadata: Json
           last_accessed_at: string
-          id: string
+          metadata: Json
         }[]
       }
     }

@@ -45,7 +45,14 @@ export async function createTRPCContextFromHeaders(headers: Record<string, strin
   const supabase = createSupabaseForRequest(authHeader ?? null);
   const supabaseAdmin = createSupabaseAdmin();
 
-  const { data: userRes } = await supabase.auth.getUser();
+  // Extract bearer token and explicitly resolve user with it for reliability
+  const bearerToken = authHeader
+    ? authHeader.startsWith("Bearer ")
+      ? authHeader.slice("Bearer ".length)
+      : authHeader
+    : undefined;
+
+  const { data: userRes } = await supabase.auth.getUser(bearerToken);
   const user = userRes?.user ?? null;
 
   let brandId: string | null | undefined = undefined;
@@ -69,8 +76,30 @@ export async function createTRPCContextFromHeaders(headers: Record<string, strin
 
 // Hono adapter wrapper: accepts Hono context shape ({ req: Request })
 export async function createTRPCContext(c: { req: Request }): Promise<TRPCContext> {
-  const headers = Object.fromEntries(c.req.headers as any) as Record<string, string | undefined>;
-  return createTRPCContextFromHeaders(headers);
+  // Support both Hono's c.req.header(name) and Web Request headers.get(name)
+  const reqAny = c.req as any;
+  const getHeader = (name: string): string | undefined => {
+    const viaMethod: string | undefined = reqAny?.header?.(name);
+    if (viaMethod) return viaMethod;
+    try {
+      const viaHeaders = c.req.headers?.get?.(name) ?? c.req.headers?.get?.(name.toLowerCase());
+      return viaHeaders ?? undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const authorization = getHeader("authorization") ?? getHeader("Authorization");
+  const xForwardedFor = getHeader("x-forwarded-for");
+  const xRealIp = getHeader("x-real-ip");
+
+  const headerRecord: Record<string, string | undefined> = {
+    authorization,
+    "x-forwarded-for": xForwardedFor,
+    "x-real-ip": xRealIp,
+  };
+
+  return createTRPCContextFromHeaders(headerRecord);
 }
 
 const t = initTRPC.context<TRPCContext>().create({

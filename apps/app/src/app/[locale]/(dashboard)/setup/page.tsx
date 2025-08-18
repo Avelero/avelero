@@ -1,6 +1,9 @@
 import { SetupForm } from "@/components/forms/setup-form";
+import type { Metadata } from "next";
 
-export const metadata = { title: "Setup" };
+export const metadata: Metadata = {
+  title: "Setup | Avelero",
+};
 
 export default async function Page() {
   return (

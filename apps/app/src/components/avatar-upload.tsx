@@ -1,99 +1,112 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState, forwardRef } from "react";
+import { Avatar, AvatarImage, AvatarFallback } from "@v1/ui/avatar";
+import { Icons } from "@v1/ui/icons";
+import { cn } from "@v1/ui/cn";
+import { Loader2 } from "lucide-react";
+import { useUpload } from "@/hooks/use-upload";
+import { stripSpecialCharacters } from "@v1/utils";
+import { useUserMutation } from "@/hooks/use-user";
 
 interface AvatarUploadProps {
-  value?: string | null;
-  onChange: (file: File | null, previewUrl: string | null) => void;
+  userId: string;
+  avatarUrl?: string | null;
+  name?: string | null;
+  hue?: number | null;
+  size?: number;
+  className?: string;
+  onUpload?: (url: string) => void;
 }
 
-function fileToWebp(original: File): Promise<File> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("Canvas not supported"));
-        ctx.drawImage(img, 0, 0);
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) return reject(new Error("Failed to encode WebP"));
-            const webp = new File([blob], "avatar.webp", { type: "image/webp" });
-            resolve(webp);
-          },
-          "image/webp",
-          0.92,
-        );
-      };
-      img.onerror = () => reject(new Error("Invalid image"));
-      img.src = String(reader.result);
-    };
-    reader.onerror = () => reject(new Error("Failed to read image"));
-    reader.readAsDataURL(original);
-  });
-}
+export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
+  ({ userId, avatarUrl: initialAvatarUrl, name, hue, size = 52, className, onUpload }, ref) => {
+    const [avatar, setAvatar] = useState(initialAvatarUrl);
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const { isLoading, uploadFile } = useUpload();
+    const updateUserMutation = useUserMutation();
 
-export function AvatarUpload({ value, onChange }: AvatarUploadProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [preview, setPreview] = useState<string | null>(value ?? null);
 
-  const handlePick = useCallback(() => {
-    inputRef.current?.click();
-  }, []);
 
-  const handleFile = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      try {
-        const webp = await fileToWebp(file);
-        const url = URL.createObjectURL(webp);
-        setPreview((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return url;
-        });
-        onChange(webp, url);
-      } catch {
-        onChange(null, null);
-      }
-    },
-    [onChange],
-  );
+    const handleUpload = useCallback(
+      async (evt: React.ChangeEvent<HTMLInputElement>) => {
+        const { files } = evt.target;
+        const selectedFile = files as FileList;
+        const file = selectedFile[0];
+        
+        if (!file) return;
 
-  const style = useMemo(
-    () => ({
-      backgroundImage: preview ? `url(${preview})` : undefined,
-    }),
-    [preview],
-  );
+        const filename = stripSpecialCharacters(file.name);
 
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <button
-        type="button"
-        onClick={handlePick}
-        className="h-24 w-24 rounded-full bg-muted flex items-center justify-center overflow-hidden border border-border hover:opacity-90 transition"
-        aria-label="Upload avatar"
-        style={style as React.CSSProperties}
-      >
-        {!preview && (
-          <span className="text-muted-foreground text-xl" aria-hidden>
-            ⦿
-          </span>
+        try {
+          const { url } = await uploadFile({
+            bucket: "avatars",
+            path: [userId, filename],
+            file,
+          });
+
+          if (url) {
+            setAvatar(url);
+            // Persist immediately so callers don't need extra save UI
+            updateUserMutation.mutate({ 
+              avatar_url: url,
+            });
+            onUpload?.(url);
+          }
+        } catch (error) {
+          console.error("Upload failed:", error);
+        }
+      },
+      [userId, uploadFile, onUpload, updateUserMutation],
+    );
+
+    const handlePick = useCallback(() => {
+      const fileInput = ref && 'current' in ref ? ref.current : inputRef.current;
+      fileInput?.click();
+    }, [ref]);
+
+    const fileInputRef = ref || inputRef;
+
+    return (
+      <Avatar
+        className={cn(
+          "cursor-pointer hover:opacity-90 transition-opacity",
+          className,
         )}
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFile}
-      />
-    </div>
-  );
-}
+        width={size}
+        height={size}
+        onClick={handlePick}
+      >
+        {isLoading ? (
+          <div className="flex h-full w-full items-center justify-center bg-accent">
+            <Icons.UserRound className="text-tertiary" size={size * 0.5} />
+          </div>
+        ) : (
+          <>
+            <AvatarImage src={avatar || ""} alt={name || ""} />
+            {!avatar && (hue == null || hue === undefined) ? (
+              <div className="flex h-full w-full items-center justify-center bg-accent">
+                <Icons.UserRound className="text-tertiary" size={size * 0.5} />
+              </div>
+            ) : (
+              <AvatarFallback 
+                name={name || undefined} 
+                hue={hue || undefined}
+              />
+            )}
+          </>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleUpload}
+        />
+      </Avatar>
+    );
+  }
+);
+
+AvatarUpload.displayName = "AvatarUpload";
 

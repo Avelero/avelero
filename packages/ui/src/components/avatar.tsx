@@ -4,6 +4,7 @@ import * as AvatarPrimitive from "@radix-ui/react-avatar";
 import Image from "next/image";
 import * as React from "react";
 import { cn } from "../utils";
+import { Icons } from "./icons";
 
 type SizeValue = number | string;
 function cssSize(v?: SizeValue): string | undefined {
@@ -40,7 +41,7 @@ const Avatar = React.forwardRef<
     <AvatarPrimitive.Root
       ref={ref}
       className={cn(
-        "relative flex shrink-0 overflow-hidden rounded-full",
+        "relative flex shrink-0 overflow-hidden rounded-full border border-border",
         "h-10 w-10", // default 40px if width/height not provided
         className,
       )}
@@ -76,7 +77,10 @@ export const AvatarImageNext = React.forwardRef<
   return (
     <Image
       ref={ref}
-      className={cn("aspect-square h-full w-full absolute z-10", className)}
+      className={cn(
+        "absolute inset-0 z-10 h-full w-full object-cover object-center",
+        className,
+      )}
       onError={(e) => {
         setHasError(true);
         onError?.(e);
@@ -94,7 +98,7 @@ const AvatarImage = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AvatarPrimitive.Image
     ref={ref}
-    className={cn("aspect-square h-full w-full", className)}
+    className={cn("h-full w-full object-cover object-center", className)}
     {...props}
   />
 ));
@@ -130,7 +134,7 @@ const AvatarFallback = React.forwardRef<
       ref={ref}
       className={cn(
         "flex h-full w-full select-none items-center justify-center rounded-full",
-        hue == null && !color ? "bg-brand" : "", // strict rule: default token if DB has nothing
+        hue == null && !color ? "bg-brand" : "",
         "uppercase font-normal tracking-normal text-primary-foreground",
         className,
       )}

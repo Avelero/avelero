@@ -13,9 +13,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
-import { useUserBrandsQuery, useSetActiveBrandMutation } from "@/hooks/use-brand";
-import { useUserQuery } from "@/hooks/use-user";
+import { useUserBrandsQuery, useUserBrandsQuerySuspense, useSetActiveBrandMutation } from "@/hooks/use-brand";
+import { useUserQuery, useUserQuerySuspense, CurrentUser } from "@/hooks/use-user";
 import { useRouter, useParams } from "next/navigation";
+import { Suspense } from "react";
 
 interface Brand {
   id: string;
@@ -30,21 +31,38 @@ interface BrandDropdownProps {
   onPopupChange: (isOpen: boolean) => void;
 }
 
+function BrandAvatar() {
+  const { data: brandsData } = useUserBrandsQuerySuspense();
+  const { data: user } = useUserQuerySuspense();
+  const brands = (brandsData as { data: Brand[] } | undefined)?.data ?? [];
+  const activeBrand = brands.find((b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id);
+
+  return (
+    <Avatar 
+      className="w-6 h-6"
+      src={activeBrand?.logo_url ?? undefined}
+      name={activeBrand?.name}
+      hue={activeBrand?.avatar_hue ?? undefined}
+      width={24}
+      height={24}
+    />
+  );
+}
+
 export function BrandDropdown({ isExpanded, onPopupChange }: BrandDropdownProps) {
   const router = useRouter();
   const params = useParams<{ locale?: string }>();
   const locale = params?.locale ?? "en";
-
-  const { data: brandsData, isLoading: brandsLoading } = useUserBrandsQuery();
-  const { data: user, isLoading: userLoading } = useUserQuery();
+  const { data: brandsData } = useUserBrandsQuery();
+  const { data: user } = useUserQuery();
   const setActiveBrandMutation = useSetActiveBrandMutation();
 
-  const brands = brandsData?.data ?? [];
-  const activeBrand = brands.find((b) => b.id === user?.brand_id);
-  const isLoading = brandsLoading || userLoading;
+  const brands: Brand[] = (brandsData as { data: Brand[] } | undefined)?.data ?? [];
+  const currentUser = user as CurrentUser | null | undefined;
+  const activeBrand = brands.find((b: Brand) => b.id === currentUser?.brand_id);
 
   const handleBrandSelect = (brandId: string) => {
-    if (brandId !== user?.brand_id) {
+    if (brandId !== currentUser?.brand_id) {
       setActiveBrandMutation.mutate({ id: brandId });
     }
   };
@@ -68,7 +86,7 @@ export function BrandDropdown({ isExpanded, onPopupChange }: BrandDropdownProps)
           <div
             className={cn(
               "absolute top-0 h-10 border border-transparent",
-              "transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]",
+              "transition-all duration-150 ease-out",
               isExpanded ? "left-0 right-0" : "left-0 w-10",
               "group-hover:bg-accent"
             )}
@@ -76,32 +94,27 @@ export function BrandDropdown({ isExpanded, onPopupChange }: BrandDropdownProps)
 
           {/* Icon block: fixed 40×40, anchored to inner left edge */}
           <div className="absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center pointer-events-none">
-            <Avatar 
-              className="w-6 h-6"
-              src={activeBrand?.logo_url}
-              name={activeBrand?.name}
-              hue={activeBrand?.avatar_hue ?? undefined}
-              width={24}
-              height={24}
-            >
-              {isLoading && (
-                <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
-                  <div className="w-3 h-3 border border-primary/30 border-t-primary rounded-full animate-spin" />
-                </AvatarFallback>
-              )}
-            </Avatar>
+            <Suspense fallback={
+              <Avatar className="w-6 h-6">
+                <div className="flex h-full w-full items-center justify-center bg-accent">
+                  <Icons.UserRound className="text-tertiary" />
+                </div>
+              </Avatar>
+            }>
+              <BrandAvatar />
+            </Suspense>
           </div>
 
           {/* Label: always mounted, fades in on expand. Starts at 48px (40 icon + 8 gap). */}
           <div
             className={cn(
               "absolute inset-y-0 left-10 right-6 flex items-center pointer-events-none",
-              "transition-opacity duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]",
+              "transition-opacity duration-150 ease-out",
               isExpanded ? "opacity-100" : "opacity-0"
             )}
           >
             <span className="text-p !font-medium truncate text-secondary transition-colors group-hover:text-primary">
-              {isLoading ? "Loading..." : activeBrand?.name ?? "No Brand"}
+              {activeBrand?.name ?? "No Brand"}
             </span>
           </div>
 
@@ -109,7 +122,7 @@ export function BrandDropdown({ isExpanded, onPopupChange }: BrandDropdownProps)
           <div
             className={cn(
               "absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none",
-              "transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)]",
+              "transition-all duration-150 ease-out",
               isExpanded ? "opacity-100 translate-x-0" : "opacity-0 translate-x-1"
             )}
           >
@@ -130,29 +143,19 @@ export function BrandDropdown({ isExpanded, onPopupChange }: BrandDropdownProps)
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          {brands.map((brand) => (
+          {brands.map((brand: Brand) => (
             <DropdownMenuItem
               key={brand.id}
               className={cn(
                 "cursor-pointer",
-                user?.brand_id === brand.id && "bg-accent"
+                currentUser?.brand_id === brand.id && "bg-accent"
               )}
               onClick={() => handleBrandSelect(brand.id)}
             >
-              <div className="flex items-center gap-2 w-full">
-                <Avatar 
-                  className="w-4 h-4"
-                  src={brand.logo_url}
-                  name={brand.name}
-                  hue={brand.avatar_hue ?? undefined}
-                  width={16}
-                  height={16}
-                />
                 <span className="text-p truncate">{brand.name}</span>
-                {user?.brand_id === brand.id && (
+                {currentUser?.brand_id === brand.id && (
                   <Icons.Check className="ml-auto h-4 w-4 flex-shrink-0" />
                 )}
-              </div>
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>

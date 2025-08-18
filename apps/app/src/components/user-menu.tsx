@@ -1,7 +1,8 @@
 "use client";
 
 import { useUserQuery, useUserQuerySuspense, CurrentUser } from "@/hooks/use-user";
-import { Avatar } from "@v1/ui/avatar";
+import { SmartAvatar } from "@v1/ui/avatar";
+import { SignedAvatar } from "./signed-avatar";
 import { Icons } from "@v1/ui/icons";
 import { Suspense } from "react";
 import {
@@ -24,13 +25,12 @@ function UserAvatar() {
   const { data } = useUserQuerySuspense();
   const user = data as CurrentUser | null;
   return (
-    <Avatar 
-      className="rounded-full w-8 h-8 cursor-pointer"
-      src={user?.avatar_url ?? undefined}
+    <SignedAvatar
+      bucket="avatars"
+      path={user?.avatar_path ?? null}
       name={user?.full_name ?? undefined}
       hue={user?.avatar_hue ?? undefined}
-      width={32}
-      height={32}
+      size={32}
     />
   );
 }
@@ -42,13 +42,7 @@ export function UserMenu({ onlySignOut }: Props) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button type="button" className="rounded-full focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
-          <Suspense fallback={
-            <Avatar className="rounded-full w-8 h-8 cursor-pointer">
-              <div className="flex h-full w-full items-center justify-center bg-accent">
-                <Icons.UserRound className="text-tertiary" />
-              </div>
-            </Avatar>
-          }>
+          <Suspense fallback={<SmartAvatar size={32} loading />}> 
             <UserAvatar />
           </Suspense>
         </button>

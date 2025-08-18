@@ -28,7 +28,8 @@ export interface CurrentUser {
   id: string;
   email: string;
   full_name: string | null;
-  avatar_url: string | null;
+  avatar_url: string | null;   // legacy
+  avatar_path: string | null;  // new
   avatar_hue: number | null;
   brand_id: string | null;
 }

@@ -7,7 +7,7 @@ export const userRouter = createTRPCRouter({
     if (!user) return null;
     const { data, error } = await supabase
       .from("users")
-      .select("id, email, full_name, avatar_url, avatar_hue, brand_id")
+      .select("id, email, full_name, avatar_path, avatar_hue, brand_id")
       .eq("id", user.id)
       .single();
     if (error) throw error;
@@ -18,7 +18,8 @@ export const userRouter = createTRPCRouter({
     .input(
       z.object({
         full_name: z.string().optional(),
-        avatar_url: z.string().url().optional(),
+        avatar_url: z.string().url().optional(),  // legacy (ignored if column dropped)
+        avatar_path: z.string().optional(),       // new: "<uid>/<file>"
         avatar_hue: z.number().int().min(1).max(359).optional(),
       }),
     )

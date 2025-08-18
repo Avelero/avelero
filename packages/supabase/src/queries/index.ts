@@ -27,7 +27,7 @@ export async function getUserProfile() {
   try {
     const { data, error } = await supabase
       .from("users")
-      .select("id, email, full_name, avatar_url, brand_id")
+      .select("id, email, full_name, avatar_path, brand_id")
       .single();
     return { data: data as Tables<"users"> | null, error };
   } catch (error) {
@@ -42,7 +42,7 @@ export async function getMyBrands() {
   try {
     const { data, error } = await supabase
       .from("brands")
-      .select("id, name, logo_url, country_code")
+      .select("id, name, logo_path, country_code")
       .order("name", { ascending: true });
     return { data: data as Array<Pick<Tables<"brands">, "id" | "name">>, error };
   } catch (error) {

@@ -8,11 +8,13 @@ import { Icons } from "@v1/ui/icons";
 function InnerAvatarUpload() {
     const { data: user } = useUserQuerySuspense();
     return (
-        <AvatarUpload 
-            userId={(user as CurrentUser).id}
-            avatarUrl={(user as CurrentUser).avatar_url}
+        <AvatarUpload
+            entity="user"
+            entityId={(user as CurrentUser).id}
+            avatarUrl={(user as any).avatar_path}
             name={(user as CurrentUser).full_name}
             hue={(user as CurrentUser).avatar_hue}
+            size={52}
         />
     );
 }

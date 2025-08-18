@@ -1,112 +1,172 @@
 "use client";
 
-import { useCallback, useRef, useState, forwardRef } from "react";
-import { Avatar, AvatarImage, AvatarFallback } from "@v1/ui/avatar";
-import { Icons } from "@v1/ui/icons";
+import { useCallback, useRef, useState, forwardRef, useEffect } from "react";
+import { SmartAvatar as Avatar } from "@v1/ui/avatar";
 import { cn } from "@v1/ui/cn";
-import { Loader2 } from "lucide-react";
 import { useUpload } from "@/hooks/use-upload";
 import { stripSpecialCharacters } from "@v1/utils";
 import { useUserMutation } from "@/hooks/use-user";
+import { useBrandUpdateMutation } from "@/hooks/use-brand";
+import { createClient } from "@v1/supabase/client";
+
+type Entity = "user" | "brand";
 
 interface AvatarUploadProps {
-  userId: string;
-  avatarUrl?: string | null;
+  entity: Entity;
+  entityId: string;
+
+  // display props
+  avatarUrl?: string | null; // legacy prop, now path if provided
   name?: string | null;
   hue?: number | null;
+
   size?: number;
   className?: string;
+
+  // optional external persistence override
   onUpload?: (url: string) => void;
 }
 
+const ACCEPTED_MIME = ["image/jpeg", "image/jpg", "image/png"];
+const MAX_SIZE = 4 * 1024 * 1024; // 4MB
+
 export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
-  ({ userId, avatarUrl: initialAvatarUrl, name, hue, size = 52, className, onUpload }, ref) => {
-    const [avatar, setAvatar] = useState(initialAvatarUrl);
+  (
+    {
+      entity,
+      entityId,
+      avatarUrl: initialUrl,
+      name,
+      hue,
+      size = 52,
+      className,
+      onUpload,
+    },
+    ref,
+  ) => {
+    // Always store a displayable absolute URL here, or null
+    const [avatar, setAvatar] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const { isLoading, uploadFile } = useUpload();
-    const updateUserMutation = useUserMutation();
+    // If parent provided a path, sign it for preview. If it provided an absolute URL, use it.
+    useEffect(() => {
+      const val = initialUrl?.trim();
+      if (!val) {
+        setAvatar(null);
+        return;
+      }
+      const isAbsolute = /^https?:\/\//i.test(val) || val.startsWith("/");
+      if (isAbsolute) {
+        setAvatar(val);
+        return;
+      }
+      const bucket = entity === "user" ? "avatars" : "brand-avatars";
+      const supabase = createClient();
+      supabase.storage
+        .from(bucket)
+        .createSignedUrl(val, 60 * 60 * 24 * 30)
+        .then(({ data }) => setAvatar(data?.signedUrl ?? null))
+        .catch(() => setAvatar(null));
+    }, [initialUrl, entity]);
 
+    const userMutation = useUserMutation();            // updates users.avatar_path
+    const brandMutation = useBrandUpdateMutation();    // updates brands.logo_path
 
-
-    const handleUpload = useCallback(
-      async (evt: React.ChangeEvent<HTMLInputElement>) => {
-        const { files } = evt.target;
-        const selectedFile = files as FileList;
-        const file = selectedFile[0];
-        
-        if (!file) return;
-
-        const filename = stripSpecialCharacters(file.name);
-
-        try {
-          const { url } = await uploadFile({
-            bucket: "avatars",
-            path: [userId, filename],
-            file,
-          });
-
-          if (url) {
-            setAvatar(url);
-            // Persist immediately so callers don't need extra save UI
-            updateUserMutation.mutate({ 
-              avatar_url: url,
-            });
-            onUpload?.(url);
-          }
-        } catch (error) {
-          console.error("Upload failed:", error);
-        }
-      },
-      [userId, uploadFile, onUpload, updateUserMutation],
-    );
-
-    const handlePick = useCallback(() => {
-      const fileInput = ref && 'current' in ref ? ref.current : inputRef.current;
+    const clickPicker = useCallback(() => {
+      const fileInput = ref && "current" in ref ? ref.current : inputRef.current;
       fileInput?.click();
     }, [ref]);
+
+    const persistUrl = useCallback(
+      (objectPath: string) => {
+        if (onUpload) {
+          onUpload(objectPath);
+          return;
+        }
+        if (entity === "user") {
+          userMutation.mutate({ avatar_path: objectPath });
+        } else {
+          brandMutation.mutate({ id: entityId, logo_path: objectPath });
+        }
+      },
+      [onUpload, entity, entityId, userMutation, brandMutation],
+    );
+
+    const validate = (file: File): string | null => {
+      if (!ACCEPTED_MIME.includes(file.type)) {
+        return "Only JPG, JPEG, or PNG files are allowed.";
+      }
+      if (file.size > MAX_SIZE) {
+        return "File is larger than 4MB.";
+      }
+      return null;
+    };
+
+    const handleChange = useCallback(
+      async (evt: React.ChangeEvent<HTMLInputElement>) => {
+        const f = evt.target.files?.[0];
+        if (!f) return;
+
+        const msg = validate(f);
+        if (msg) {
+          console.error(msg);
+          // optionally wire a toast here
+          return;
+        }
+
+        const filename = stripSpecialCharacters(f.name);
+        try {
+          const { url } = await uploadFile({
+            bucket: entity === "user" ? "avatars" : "brand-avatars",
+            path: [entityId, filename],
+            file: f,
+          });
+
+          const objectPath = [entityId, filename].join("/");
+          persistUrl(objectPath);
+          const supabase = createClient();
+          const { data } = await supabase.storage
+            .from(entity === "user" ? "avatars" : "brand-avatars")
+            .createSignedUrl(objectPath, 60 * 60 * 24 * 30);
+          setAvatar(data?.signedUrl ?? null);
+        } catch (e) {
+          console.error("Upload failed:", e);
+        } finally {
+          // reset value so user can re-pick same file if needed
+          evt.target.value = "";
+        }
+      },
+      [entity, entityId, uploadFile, persistUrl],
+    );
 
     const fileInputRef = ref || inputRef;
 
     return (
-      <Avatar
+      <div
         className={cn(
-          "cursor-pointer hover:opacity-90 transition-opacity",
+          "relative inline-block cursor-pointer hover:opacity-90 transition-opacity",
           className,
         )}
-        width={size}
-        height={size}
-        onClick={handlePick}
+        onClick={clickPicker}
       >
-        {isLoading ? (
-          <div className="flex h-full w-full items-center justify-center bg-accent">
-            <Icons.UserRound className="text-tertiary" size={size * 0.5} />
-          </div>
-        ) : (
-          <>
-            <AvatarImage src={avatar || ""} alt={name || ""} />
-            {!avatar && (hue == null || hue === undefined) ? (
-              <div className="flex h-full w-full items-center justify-center bg-accent">
-                <Icons.UserRound className="text-tertiary" size={size * 0.5} />
-              </div>
-            ) : (
-              <AvatarFallback 
-                name={name || undefined} 
-                hue={hue || undefined}
-              />
-            )}
-          </>
-        )}
+        <Avatar
+          size={size}
+          name={name ?? undefined}
+          src={avatar ?? undefined}
+          hue={hue ?? null}
+          loading={isLoading}
+        />
+
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/jpg"
           className="hidden"
-          onChange={handleUpload}
+          onChange={handleChange}
         />
-      </Avatar>
+      </div>
     );
-  }
+  },
 );
 
 AvatarUpload.displayName = "AvatarUpload";
-

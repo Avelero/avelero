@@ -11,16 +11,17 @@ type UploadParams = {
 export async function upload(
   client: SupabaseClient,
   { file, path, bucket }: UploadParams,
-) {
+): Promise<{ bucket: string; path: string[] }> {
   const storage = client.storage.from(bucket);
+  const objectPath = path.join("/");
 
-  const result = await storage.upload(path.join("/"), file, {
+  const result = await storage.upload(objectPath, file, {
     upsert: true,
     cacheControl: "3600",
   });
 
   if (!result.error) {
-    return storage.getPublicUrl(path.join("/")).data.publicUrl;
+    return { bucket, path };
   }
 
   throw result.error;

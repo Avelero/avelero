@@ -7,9 +7,8 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "*.supabase.co",
-        port: "",
-        pathname: "/storage/v1/object/public/**",
+        hostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname,
+        pathname: "/storage/**", // allow both public and sign URLs
       },
     ],
   },

@@ -16,7 +16,7 @@ export async function updateUser(userId: string, data: TablesUpdate<"users">) {
   }
 }
 
-export async function createBrand(params: { name: string; country_code?: string | null; logo_url?: string | null; ownerId: string }) {
+export async function createBrand(params: { name: string; country_code?: string | null; logo_path?: string | null; ownerId: string }) {
   const supabase = await createClient();
 
   try {
@@ -26,7 +26,7 @@ export async function createBrand(params: { name: string; country_code?: string 
       .insert({
         name: params.name,
         country_code: params.country_code ?? null,
-        logo_url: params.logo_url ?? null,
+        logo_path: params.logo_path ?? null,
         created_by: params.ownerId,
       })
       .select("id")

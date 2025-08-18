@@ -3,7 +3,8 @@
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { Button } from "@v1/ui/button";
-import { Avatar, AvatarFallback } from "@v1/ui/avatar";
+import { SmartAvatar } from "@v1/ui/avatar";
+import { SignedAvatar } from "./signed-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +22,8 @@ import { Suspense } from "react";
 interface Brand {
   id: string;
   name: string;
-  logo_url?: string | null;
+  logo_url?: string | null; // legacy
+  logo_path?: string | null;
   avatar_hue?: number | null;
   country_code?: string | null;
 }
@@ -38,13 +40,12 @@ function BrandAvatar() {
   const activeBrand = brands.find((b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id);
 
   return (
-    <Avatar 
-      className="w-6 h-6"
-      src={activeBrand?.logo_url ?? undefined}
+    <SignedAvatar 
+      bucket="brand-avatars"
+      size={24}
       name={activeBrand?.name}
+      path={activeBrand?.logo_path ?? null}
       hue={activeBrand?.avatar_hue ?? undefined}
-      width={24}
-      height={24}
     />
   );
 }
@@ -94,13 +95,7 @@ export function BrandDropdown({ isExpanded, onPopupChange }: BrandDropdownProps)
 
           {/* Icon block: fixed 40×40, anchored to inner left edge */}
           <div className="absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center pointer-events-none">
-            <Suspense fallback={
-              <Avatar className="w-6 h-6">
-                <div className="flex h-full w-full items-center justify-center bg-accent">
-                  <Icons.UserRound className="text-tertiary" />
-                </div>
-              </Avatar>
-            }>
+            <Suspense fallback={<SmartAvatar size={24} loading />}> 
               <BrandAvatar />
             </Suspense>
           </div>

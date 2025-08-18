@@ -18,31 +18,17 @@ export function useUpload() {
   const supabase: SupabaseClient = createClient();
   const [isLoading, setLoading] = useState<boolean>(false);
 
-  const uploadFile = async ({
-    file,
-    path,
-    bucket,
-  }: UploadParams): Promise<UploadResult> => {
+  const uploadFile = async ({ file, path, bucket }: UploadParams): Promise<UploadResult> => {
     setLoading(true);
-
     try {
-      const url = await upload(supabase, {
-        path,
-        file,
-        bucket,
-      });
-
-      return {
-        url,
-        path,
-      };
+      const result = await upload(supabase, { path, file, bucket });
+      const servedPath = result.path.join("/");
+      const url = `/api/images/${result.bucket}/${servedPath}`;
+      return { url, path: result.path };
     } finally {
       setLoading(false);
     }
   };
 
-  return {
-    uploadFile,
-    isLoading,
-  };
+  return { uploadFile, isLoading };
 }

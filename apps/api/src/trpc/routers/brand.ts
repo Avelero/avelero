@@ -9,7 +9,7 @@ export const brandRouter = createTRPCRouter({
     const { supabase } = ctx;
     const { data, error } = await supabase
       .from("brands")
-      .select("id, name, logo_url, avatar_hue, country_code")
+      .select("id, name, logo_path, avatar_hue, country_code")
       .order("name", { ascending: true });
     if (error) throw error;
     return { data } as const;
@@ -20,7 +20,7 @@ export const brandRouter = createTRPCRouter({
       z.object({
         name: z.string().min(1),
         country_code: z.string().optional().nullable(),
-        logo_url: z.string().url().optional().nullable(),
+        logo_path: z.string().optional().nullable(),
         avatar_hue: z.number().int().min(1).max(359).optional(),
       }),
     )
@@ -33,7 +33,7 @@ export const brandRouter = createTRPCRouter({
         .insert({
           name: input.name,
           country_code: input.country_code ?? null,
-          logo_url: input.logo_url ?? null,
+          logo_path: input.logo_path ?? null,
           avatar_hue: input.avatar_hue ?? null,
           created_by: user.id,
         })
@@ -54,6 +54,37 @@ export const brandRouter = createTRPCRouter({
       if (userError) throw userError;
 
       return { id: brand.id } as const;
+    }),
+
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        name: z.string().min(1).optional(),
+        logo_path: z.string().optional().nullable(),
+        avatar_hue: z.number().int().min(1).max(359).optional().nullable(),
+        country_code: z.string().optional().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { supabase, user } = ctx;
+      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+      // Require membership in brand. You can tighten to owners only if you want.
+      const { count, error: memErr } = await supabase
+        .from("users_on_brand")
+        .select("*", { count: "exact", head: true })
+        .eq("brand_id", input.id)
+        .eq("user_id", user.id);
+
+      if (memErr) throw memErr;
+      if (!count) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const { id, ...payload } = input as any;
+      const { error } = await supabase.from("brands").update(payload).eq("id", id);
+      if (error) throw error;
+
+      return { success: true } as const;
     }),
 
   delete: protectedProcedure
@@ -242,9 +273,7 @@ export const brandRouter = createTRPCRouter({
 
       const { data, error } = await supabase
         .from("users_on_brand")
-        .select(
-          "user_id, role, users:users(id, email, full_name, avatar_url, avatar_hue)"
-        )
+        .select("user_id, role, users:users(id, email, full_name, avatar_path, avatar_hue)")
         .eq("brand_id", brandId);
       if (error) throw error;
 
@@ -256,7 +285,7 @@ export const brandRouter = createTRPCRouter({
           id: row.users?.id ?? null,
           email: row.users?.email ?? null,
           fullName: row.users?.full_name ?? null,
-          avatarUrl: row.users?.avatar_url ?? null,
+          avatarUrl: row.users?.avatar_path ?? null,
           avatarHue: row.users?.avatar_hue ?? null,
         },
       }));

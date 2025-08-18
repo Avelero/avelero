@@ -80,3 +80,27 @@ export function useCreateBrandMutation() {
     }),
   );
 }
+
+export function useBrandUpdateMutation() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    trpc.brand.update.mutationOptions({
+      onMutate: async (variables) => {
+        await queryClient.cancelQueries();
+        const prevUser = queryClient.getQueryData(trpc.user.me.queryKey());
+        // best-effort optimistic touch: nothing heavy here
+        return { prevUser };
+      },
+      onError: (_err, _vars, ctx) => {
+        if (ctx?.prevUser) {
+          queryClient.setQueryData(trpc.user.me.queryKey(), ctx.prevUser);
+        }
+      },
+      onSettled: async () => {
+        await queryClient.invalidateQueries(); // refresh brand and user reads
+      },
+    }),
+  );
+}

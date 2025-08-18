@@ -12,103 +12,126 @@ function cssSize(v?: SizeValue): string | undefined {
   return typeof v === "number" ? `${v}px` : v;
 }
 
-interface AvatarProps
-  extends Omit<React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>, 'color'> {
-  name?: string;
+export interface SmartAvatarProps
+  extends Omit<React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>, "color"> {
+  name?: string | null;
   src?: string | null;
-  color?: string | null; // full color string, e.g. "hsl(177 100% 33%)"
-  hue?: number | null;   // stored hue integer 160..259
-  width?: SizeValue;     // explicit width
-  height?: SizeValue;    // explicit height
+  hue?: number | null;
+  size?: number;              // single source of truth for size
+  loading?: boolean;
+  className?: string;
 }
 
-const Avatar = React.forwardRef<
+/**
+ * SmartAvatar implements the 4 states:
+ * 1) src present → render image
+ * 2) no src and hue present → initials with HSL(hue 100% 33%)
+ * 3) no src and no hue → default empty state (bg-accent + user icon)
+ * 4) loading → default empty state
+ */
+export const SmartAvatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
-  AvatarProps
->(({ className, style, children, name, src, color, hue, width, height, ...props }, ref) => {
-  const w = cssSize(width);
-  const h = cssSize(height);
+  SmartAvatarProps
+>(({ name, src, hue, size = 40, loading = false, className, style, ...props }, ref) => {
+  const w = cssSize(size);
+  const h = cssSize(size);
   const box = w ?? h ?? "40px";
 
   const styleWithVar: React.CSSProperties & { ["--avatar-size"]?: string } = {
     ...style,
-    width: w ?? h,
-    height: h ?? w,
+    width: w,
+    height: h,
     ["--avatar-size"]: box,
   };
+
+  // Internal decision once, so AvatarPrimitive subtree stays minimal.
+  const showDefault = loading || (!src && (hue == null));
+  const showImage = !loading && !!src;
+  const showFallback = !loading && !src && hue != null;
 
   return (
     <AvatarPrimitive.Root
       ref={ref}
       className={cn(
         "relative flex shrink-0 overflow-hidden rounded-full border border-border",
-        "h-10 w-10", // default 40px if width/height not provided
+        "h-10 w-10",
         className,
       )}
       style={styleWithVar}
       {...props}
     >
-      {children || (
-        <>
-          <AvatarImageNext 
-            src={src || ""} 
-            alt={name ?? ""} 
-            width={typeof width === 'number' ? width : (typeof width === 'string' ? parseInt(width) : 40)} 
-            height={typeof height === 'number' ? height : (typeof height === 'string' ? parseInt(height) : 40)}
-          />
-          <AvatarFallback name={name} color={color ?? undefined} hue={hue ?? undefined} />
-        </>
-      )}
+      {showImage ? (
+        <AvatarImageNext
+          src={src || ""}
+          alt={name ?? ""}
+          width={typeof size === "number" ? size : 40}
+          height={typeof size === "number" ? size : 40}
+        />
+      ) : null}
+
+      {showFallback ? (
+        <InitialsFallback name={name ?? undefined} hue={hue!} />
+      ) : null}
+
+      {showDefault ? <DefaultFallback size={typeof size === "number" ? size : 40} /> : null}
     </AvatarPrimitive.Root>
   );
 });
-Avatar.displayName = AvatarPrimitive.Root.displayName;
+SmartAvatar.displayName = "SmartAvatar";
 
-export const AvatarImageNext = React.forwardRef<
+/** Next.js Image wrapper that disappears on error or empty src */
+const AvatarImageNext = React.forwardRef<
   React.ElementRef<typeof Image>,
   React.ComponentPropsWithoutRef<typeof Image>
->(({ className, onError, ...props }, ref) => {
+>(({ className, onError, src, ...rest }, ref) => {
   const [hasError, setHasError] = React.useState(false);
-
-  if (hasError || !props.src || (typeof props.src === 'string' && props.src.trim() === "")) {
-    return null;
-  }
+  const srcStr = src as unknown as string | undefined;
+  const isAbsoluteHttp = typeof srcStr === "string" && /^https?:\/\//i.test(srcStr);
+  if (hasError || !isAbsoluteHttp) return null;
 
   return (
     <Image
       ref={ref}
-      className={cn(
-        "absolute inset-0 z-10 h-full w-full object-cover object-center",
-        className,
-      )}
+      className={cn("absolute inset-0 z-10 h-full w-full object-cover object-center", className)}
       onError={(e) => {
         setHasError(true);
         onError?.(e);
       }}
-      {...props}
+      unoptimized
+      src={srcStr!}
+      {...rest}
     />
   );
 });
-
 AvatarImageNext.displayName = "AvatarImageNext";
 
-const AvatarImage = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Image>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Image
-    ref={ref}
-    className={cn("h-full w-full object-cover object-center", className)}
-    {...props}
-  />
-));
-AvatarImage.displayName = AvatarPrimitive.Image.displayName;
+/** Initials over HSL hue background */
+function InitialsFallback({ name, hue }: { name?: string; hue: number }) {
+  const label = firstLetter(name);
+  return (
+    <div
+      className={cn(
+        "flex h-full w-full select-none items-center justify-center rounded-full",
+        "uppercase font-normal tracking-normal text-primary-foreground",
+      )}
+      style={{
+        backgroundColor: `hsl(${hue} 100% 33%)`,
+        fontSize: "calc(var(--avatar-size) * 0.5)",
+        lineHeight: "var(--avatar-size)",
+      }}
+    >
+      {label}
+    </div>
+  );
+}
 
-interface FallbackProps
-  extends React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback> {
-  name?: string;
-  color?: string;
-  hue?: number;
+/** Default empty state: bg-accent + user icon sized at 50% */
+function DefaultFallback({ size }: { size: number }) {
+  return (
+    <div className="flex h-full w-full items-center justify-center rounded-full bg-accent">
+      <Icons.UserRound className="text-tertiary" size={size * 0.5} />
+    </div>
+  );
 }
 
 function firstLetter(name?: string): string {
@@ -117,39 +140,5 @@ function firstLetter(name?: string): string {
   return ch ? ch.toUpperCase() : "?";
 }
 
-const AvatarFallback = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Fallback>,
-  FallbackProps
->(({ className, name, color, hue, style, children, ...props }, ref) => {
-  // Build color string if hue is provided. If neither color nor hue, use bg-accent via class only.
-  const bgStyle: React.CSSProperties | undefined =
-    color ? { backgroundColor: color }
-    : hue != null ? { backgroundColor: `hsl(${hue} 100% 33%)` }
-    : undefined;
-
-  const label = (children as React.ReactNode) ?? firstLetter(name);
-
-  return (
-    <AvatarPrimitive.Fallback
-      ref={ref}
-      className={cn(
-        "flex h-full w-full select-none items-center justify-center rounded-full",
-        hue == null && !color ? "bg-brand" : "",
-        "uppercase font-normal tracking-normal text-primary-foreground",
-        className,
-      )}
-      style={{
-        fontSize: "calc(var(--avatar-size) * 0.5)",
-        lineHeight: "var(--avatar-size)",
-        ...bgStyle,
-        ...style,
-      }}
-      {...props}
-    >
-      {label}
-    </AvatarPrimitive.Fallback>
-  );
-});
-AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
-
-export { Avatar, AvatarImage, AvatarFallback };
+// Backwards-compat named exports in case other code imports these symbols
+export { SmartAvatar as Avatar };

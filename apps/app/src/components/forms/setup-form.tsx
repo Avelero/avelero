@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
@@ -8,8 +8,6 @@ import { Button } from "@v1/ui/button";
 import { TextField } from "@/components/text-field";
 import { AvatarUpload } from "@/components/avatar-upload";
 import { useTRPC } from "@/trpc/client";
-import { createClient as createSupabaseClient } from "@v1/supabase/client";
-import { hueFromName } from "@/utils/avatar-hue";
 import { useUserQuery, CurrentUser } from "@/hooks/use-user";
 
 const schema = z.object({
@@ -28,14 +26,20 @@ export function SetupForm() {
   const params = useParams<{ locale: string }>();
   const locale = params?.locale ?? "en";
 
+  // Prefill if anything exists, but initial setup usually has nothing.
+  useEffect(() => {
+    const u = user as CurrentUser | null | undefined;
+    if (!u) return;
+    if (!fullName && u.full_name) setFullName(u.full_name);
+    if (!avatarUrl && (u as any).avatar_path) setAvatarUrl((u as any).avatar_path);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   const updateUserMutation = useMutation(
     trpc.user.update.mutationOptions({
       onSuccess: async () => {
         await queryClient.invalidateQueries();
-        // decide destination based on brand membership
-        const brands = await queryClient.fetchQuery(
-          trpc.brand.list.queryOptions(),
-        );
+        const brands = await queryClient.fetchQuery(trpc.brand.list.queryOptions());
         const hasBrands = Array.isArray(brands?.data) && brands.data.length > 0;
         router.push(hasBrands ? `/${locale}` : `/${locale}/brands/create`);
       },
@@ -43,9 +47,7 @@ export function SetupForm() {
     }),
   );
 
-  const onAvatarUpload = (url: string) => {
-    setAvatarUrl(url);
-  };
+  const onAvatarUpload = (url: string) => setAvatarUrl(url);
 
   const onSubmit = async () => {
     setIsSubmitting(true);
@@ -58,10 +60,10 @@ export function SetupForm() {
     }
 
     try {
-      updateUserMutation.mutate({ 
-        full_name: parsed.data.full_name, 
-        avatar_url: avatarUrl || undefined,
-        avatar_hue: hueFromName(parsed.data.full_name)
+      // Do not compute hue here. Server will set hue from full_name.
+      updateUserMutation.mutate({
+        full_name: parsed.data.full_name,
+        ...(avatarUrl ? { avatar_path: avatarUrl } : {}),
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save profile";
@@ -69,6 +71,9 @@ export function SetupForm() {
       setIsSubmitting(false);
     }
   };
+
+  const u = user as CurrentUser | null | undefined;
+  const userId = u?.id ?? "";
 
   return (
     <div className="mx-auto w-full max-w-md space-y-6">
@@ -78,12 +83,16 @@ export function SetupForm() {
       </div>
 
       <div className="flex flex-col items-center gap-6">
-        <AvatarUpload 
-          userId={(user as CurrentUser | null | undefined)?.id!}
+        <AvatarUpload
+          entity="user"
+          entityId={userId}
           avatarUrl={avatarUrl}
           name={fullName || undefined}
+          hue={null}              // important: no fallback hue before submit
+          size={72}
           onUpload={onAvatarUpload}
         />
+
         <TextField
           id="full_name"
           label="Full name"
@@ -96,10 +105,13 @@ export function SetupForm() {
 
       {error ? <p className="text-sm text-destructive text-center">{error}</p> : null}
 
-      <Button className="w-full" onClick={onSubmit} disabled={isSubmitting || updateUserMutation.isPending}>
+      <Button
+        className="w-full"
+        onClick={onSubmit}
+        disabled={isSubmitting || updateUserMutation.isPending || !userId}
+      >
         {isSubmitting || updateUserMutation.isPending ? "Saving..." : "Continue"}
       </Button>
     </div>
   );
 }
-

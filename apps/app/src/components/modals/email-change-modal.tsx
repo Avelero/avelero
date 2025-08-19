@@ -17,7 +17,7 @@ interface Props {
   onSuccess?: () => void;
 }
 
-type Step = "otp_old" | "otp_new" | "success";
+type Step = "otp_old" | "otp_new";
 
 export function EmailChangeModal({
   open,
@@ -152,56 +152,84 @@ export function EmailChangeModal({
       // ignore errors to avoid blocking success UX
     }
     setBusy(false);
-    setStep("success");
     onSuccess?.();
+    onOpenChange(false);
   }
 
   const title =
-    step === "otp_old"
-      ? "Confirm your current email"
-      : step === "otp_new"
-      ? "Confirm your new email"
-      : "Email updated";
+    step === "otp_old" ? "Verify current email" : "Verify new email";
 
-  const description =
-    step === "otp_old"
-      ? `Enter the 6-digit code sent to ${currentEmail}`
-      : step === "otp_new"
-      ? `Enter the 6-digit code sent to ${newEmail}`
-      : `You can continue using the app. We updated your account to ${newEmail}.`;
+  const descriptionNode =
+    step === "otp_old" ? (
+      <>
+        Enter the 6-digit code sent to {" "}
+        <span className="text-p !font-medium text-foreground">{currentEmail}</span>
+      </>
+    ) : step === "otp_new" ? (
+      <>
+        Enter the 6-digit code sent to {" "}
+        <span className="text-p !font-medium text-foreground">{newEmail}</span>
+      </>
+    ) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none w-auto max-w-fit">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle className="text-foreground">{title}</DialogTitle>
+          <DialogDescription className="text-secondary w-full whitespace-normal break-words">{descriptionNode}</DialogDescription>
         </DialogHeader>
 
         {step === "otp_old" && (
-          <div className="space-y-4">
-            <InputOTP
-              maxLength={6}
-              value={codeOld}
-              onChange={setCodeOld}
-              render={({ slots }) => (
-                <InputOTPGroup>
-                  {slots.map((slot, index) => (
-                    <InputOTPSlot key={index} {...slot} />
-                  ))}
-                </InputOTPGroup>
-              )}
-            />
+          <div className="space-y-2">
+            <div className="w-full">
+              <InputOTP
+                maxLength={6}
+                value={codeOld}
+                onChange={setCodeOld}
+                className="!mt-0 !mb-0 !m-0"
+                render={({ slots }) => (
+                  <InputOTPGroup className="gap-2">
+                    {slots.map((slot, index) => (
+                      <InputOTPSlot key={index} {...slot} className="h-10 w-14" />
+                    ))}
+                  </InputOTPGroup>
+                )}
+              />
+            </div>
             {error ? <p className="text-sm text-red-500">{error}</p> : null}
-            <div className="flex items-center gap-3">
+            <div className="w-full flex gap-2 mt-2">
               <Button
-                variant="default"
-                disabled={isBusy || codeOld.length !== 6}
-                onClick={verifyOtpOldThenRequestChange}
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isBusy}
+                className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
               >
-                {isBusy ? "Verifying..." : "Continue"}
+                Cancel
               </Button>
-              <Button variant="ghost" disabled={isBusy || cooldownOld > 0} onClick={sendOtpOld}>
+              <Button
+                type="button"
+                variant="default"
+                onClick={verifyOtpOldThenRequestChange}
+                disabled={isBusy || codeOld.length !== 6}
+                className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+              >
+                {isBusy && !sentOldOnce
+                  ? "Sending..."
+                  : codeOld.length === 6 && isBusy
+                  ? "Verifying..."
+                  : "Continue"}
+              </Button>
+            </div>
+            <div className="w-full mt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={sendOtpOld}
+                disabled={isBusy || cooldownOld > 0}
+                className="w-full h-10 text-secondary hover:bg-accent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+              >
                 {cooldownOld > 0 ? `Resend in ${cooldownOld}s` : "Resend code"}
               </Button>
             </div>
@@ -209,41 +237,57 @@ export function EmailChangeModal({
         )}
 
         {step === "otp_new" && (
-          <div className="space-y-4">
-            <InputOTP
-              maxLength={6}
-              value={codeNew}
-              onChange={setCodeNew}
-              render={({ slots }) => (
-                <InputOTPGroup>
-                  {slots.map((slot, index) => (
-                    <InputOTPSlot key={index} {...slot} />
-                  ))}
-                </InputOTPGroup>
-              )}
-            />
+          <div className="space-y-2">
+            <div className="w-full">
+              <InputOTP
+                maxLength={6}
+                value={codeNew}
+                onChange={setCodeNew}
+                className="!mt-0 !mb-0 !m-0"
+                render={({ slots }) => (
+                  <InputOTPGroup className="gap-2">
+                    {slots.map((slot, index) => (
+                      <InputOTPSlot key={index} {...slot} className="h-10 w-14" />
+                    ))}
+                  </InputOTPGroup>
+                )}
+              />
+            </div>
             {error ? <p className="text-sm text-red-500">{error}</p> : null}
-            <div className="flex items-center gap-3">
-              <Button variant="default" disabled={isBusy || codeNew.length !== 6} onClick={verifyOtpNew}>
-                {isBusy ? "Verifying..." : "Update email"}
+            <div className="w-full flex gap-2 mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isBusy}
+                className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+              >
+                Cancel
               </Button>
-              <Button variant="ghost" disabled={isBusy || cooldownNew > 0} onClick={resendOtpNew}>
+              <Button
+                type="button"
+                variant="default"
+                onClick={verifyOtpNew}
+                disabled={isBusy || codeNew.length !== 6}
+                className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+              >
+                {codeNew.length === 6 && isBusy ? "Verifying..." : "Update email"}
+              </Button>
+            </div>
+            <div className="w-full mt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={resendOtpNew}
+                disabled={isBusy || cooldownNew > 0}
+                className="w-full h-10 text-secondary hover:bg-accent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+              >
                 {cooldownNew > 0 ? `Resend in ${cooldownNew}s` : "Resend code"}
               </Button>
             </div>
           </div>
         )}
 
-        {step === "success" && (
-          <div className="space-y-4">
-            <p className="text-sm text-secondary">Email updated successfully. You may close this window.</p>
-            <div className="flex justify-end">
-              <Button variant="default" onClick={() => onOpenChange(false)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );

@@ -7,11 +7,9 @@ export default function AccountPage() {
   return (
     <div className="w-[700px]">
         <div className="flex flex-col gap-12">
-            <div className="flex flex-col gap-4">
-                <SetAvatar />
-                <SetName />
-                <SetEmail />
-            </div>
+            <SetAvatar />
+            <SetName />
+            <SetEmail />
             <DeleteAccount />
         </div>
     </div>

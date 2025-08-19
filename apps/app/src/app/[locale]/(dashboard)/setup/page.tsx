@@ -1,5 +1,6 @@
 import { SetupForm } from "@/components/forms/setup-form";
 import type { Metadata } from "next";
+import { Header } from "@/components/header";
 
 export const metadata: Metadata = {
   title: "Setup | Avelero",
@@ -7,8 +8,11 @@ export const metadata: Metadata = {
 
 export default async function Page() {
   return (
-    <div className="px-4 py-12 flex justify-center">
-      <SetupForm />
+    <div className="h-full w-full">
+      <Header pathname="/setup" locale="en" hideUserMenu disableLogoLink/>
+      <div className="h-[calc(100%-112px)] w-full flex justify-center items-center">
+        <SetupForm />
+      </div>
     </div>
   );
 }

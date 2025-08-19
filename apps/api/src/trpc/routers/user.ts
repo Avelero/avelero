@@ -17,6 +17,7 @@ export const userRouter = createTRPCRouter({
   update: protectedProcedure
     .input(
       z.object({
+        email: z.string().email().optional(),
         full_name: z.string().optional(),
         avatar_url: z.string().url().optional(),  // legacy (ignored if column dropped)
         avatar_path: z.string().optional(),       // new: "<uid>/<file>"

@@ -5,7 +5,8 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Button } from "@v1/ui/button";
-import { TextField } from "@/components/text-field";
+import { Input } from "@v1/ui/input";
+import { Label } from "@v1/ui/label";
 import { CountrySelect } from "@/components/country-select";
 import { useTRPC } from "@/trpc/client";
 import { hueFromName } from "@/utils/avatar-hue";
@@ -49,14 +50,17 @@ export function CreateBrandForm() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-6">
+    <div className="mx-auto w-full  max-w-[360px] space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-xl font-semibold">Create your brand</h1>
-        <p className="text-sm text-muted-foreground">Name your brand and select the country where it operates.</p>
+        <h6 className="text-foreground">Create your brand</h6>
+        <p className="text-secondary">Name your brand and select the country where it operates.</p>
       </div>
 
-      <div className="space-y-4">
-        <TextField id="brand_name" label="Brand name" placeholder="Acme Inc." value={name} onChange={setName} />
+      <div className="flex flex-col items-center gap-4 w-full">
+        <div className="flex flex-col gap-1 w-full">
+          <Label>Brand name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Inc." />
+        </div>
         <CountrySelect
           id="country_code"
           label="Country"
@@ -66,7 +70,7 @@ export function CreateBrandForm() {
         />
       </div>
 
-      {error ? <p className="text-sm text-destructive text-center">{error}</p> : null}
+      {error ? <p className="text-p text-destructive text-center">{error}</p> : null}
 
       <Button className="w-full" onClick={onSubmit} disabled={createBrandMutation.isPending}>
         {createBrandMutation.isPending ? "Creating..." : "Create"}

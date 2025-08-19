@@ -11,11 +11,14 @@ export function NavigationLabel({ pathname, locale = "en" }: NavigationLabelProp
   
   // Split path into segments and format them
   const segments = path.split("/").filter(Boolean);
-  const formattedSegments = segments.map(segment => 
-    segment.split("-").map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(" ")
-  );
+  const formattedSegments = segments.map((segment) => {
+    const words = segment.split("-").filter(Boolean);
+    const firstWord = words.at(0);
+    if (!firstWord) return "";
+    const firstFormatted = firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase();
+    const restFormatted = words.slice(1).map((w) => w.toLowerCase());
+    return [firstFormatted, ...restFormatted].join(" ");
+  });
 
   // Build breadcrumb items based on segment count
   const items: Array<{ label: string; href: string; show: boolean }> = [];
@@ -61,15 +64,15 @@ export function NavigationLabel({ pathname, locale = "en" }: NavigationLabelProp
     <nav className="flex items-center text-sm">
       {items.map((item, index) => (
         <div key={index} className="flex items-center">
-          {index > 0 && <span className="mx-2 text-secondary">/</span>}
+          {index > 0 && <span className="mx-2 text-h5 text-tertiary">/</span>}
           {!item.show ? (
-            <span className="text-secondary">{item.label}</span>
+            <span className="text-h5 text-tertiary">{item.label}</span>
           ) : index === items.length - 1 ? (
             <span className="text-h5 text-primary">{item.label}</span>
           ) : (
             <Link 
               href={item.href} 
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-h5 text-tertiary hover:text-foreground transition-colors"
             >
               {item.label}
             </Link>

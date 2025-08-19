@@ -48,6 +48,7 @@ function SetName() {
             placeholder="Name"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
+            className="max-w-[250px]"
         />
         </div>
             <div className="flex flex-row justify-end border-x border-b p-6">

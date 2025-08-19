@@ -5,7 +5,9 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@v1/ui/button";
-import { TextField } from "@/components/text-field";
+import { Input } from "@v1/ui/input";
+import { Label } from "@v1/ui/label";
+import { CountrySelect } from "@/components/country-select";
 import { AvatarUpload } from "@/components/avatar-upload";
 import { useTRPC } from "@/trpc/client";
 import { useUserQuery, CurrentUser } from "@/hooks/use-user";
@@ -76,13 +78,13 @@ export function SetupForm() {
   const userId = u?.id ?? "";
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-6">
+    <div className="mx-auto w-full max-w-[360px] space-y-6">
       <div className="text-center space-y-2">
-        <h1 className="text-xl font-semibold">Update your account</h1>
-        <p className="text-sm text-muted-foreground">Add your name and an optional avatar.</p>
+        <h6 className="text-foreground">Complete your account</h6>
+        <p className="text-secondary">Add your name and an optional avatar.</p>
       </div>
 
-      <div className="flex flex-col items-center gap-6">
+      <div className="flex flex-col items-center gap-6 w-full">
         <AvatarUpload
           entity="user"
           entityId={userId}
@@ -93,14 +95,10 @@ export function SetupForm() {
           onUpload={onAvatarUpload}
         />
 
-        <TextField
-          id="full_name"
-          label="Full name"
-          placeholder="John Doe"
-          helperText="This is your first and last name."
-          value={fullName}
-          onChange={setFullName}
-        />
+        <div className="flex flex-col gap-1 w-full">
+          <Label>Full name</Label>
+          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="John Doe" />
+        </div>
       </div>
 
       {error ? <p className="text-sm text-destructive text-center">{error}</p> : null}

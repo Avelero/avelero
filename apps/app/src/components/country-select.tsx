@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { countries } from "@v1/location/countries";
+import { Label } from "@v1/ui/label";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -35,15 +36,13 @@ export function CountrySelect({ id, label, placeholder = "Select country", value
   const selected = useMemo(() => options.find((c) => c.code === internal || c.name === internal), [options, internal]);
 
   return (
-    <div className="space-y-2">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
+    <div className="flex flex-col gap-1 w-full">
+      <Label htmlFor={id}>{label}</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" aria-expanded={open} className="w-full justify-between font-normal truncate">
+          <Button variant="outline" size="popover" aria-expanded={open} className="w-full justify-between items-center text-p text-foreground truncate">
             {internal ? selected?.name : placeholder}
-            <span className="ml-2 h-4 w-4 shrink-0 opacity-50">▾</span>
+            <Icons.ChevronDown className="h-4 w-4" strokeWidth={1.5} />
           </Button>
         </PopoverTrigger>
           <PopoverContent className="w-[280px] p-0" align="start">
@@ -51,7 +50,7 @@ export function CountrySelect({ id, label, placeholder = "Select country", value
             <CommandInput placeholder="Search country..." className="h-9 px-2" autoComplete="off" />
             <CommandEmpty>No country found.</CommandEmpty>
             <CommandGroup>
-              <CommandList className="overflow-y-auto max-h-[230px] pt-2">
+              <CommandList className="overflow-y-auto max-h-[222px]">
                 {options.map((country) => (
                   <CommandItem
                     key={country.code}

@@ -1,27 +1,54 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Input } from "@v1/ui/input";
 import { Button } from "@v1/ui/button";
+import { useUserQuery, type CurrentUser } from "@/hooks/use-user";
+import { EmailChangeModal } from "@/components/modals/email-change-modal";
 
 function SetEmail() {
+  const { data } = useUserQuery();
+  const currentEmail = ((data as CurrentUser | null | undefined)?.email) ?? "";
+
+  const [email, setEmail] = useState(currentEmail);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setEmail(currentEmail);
+  }, [currentEmail]);
+
+  const isValidEmail = /\S+@\S+\.\S+/.test(email);
+  const canSave = isValidEmail && email !== currentEmail;
 
   return (
     <div className="relative">
-        <div className="flex flex-row p-6 border justify-between items-center">
+      <div className="flex flex-row p-6 border justify-between items-center gap-4">
         <div className="flex flex-col gap-2">
-            <h6 className="text-foreground">Email</h6>
-            <p className="text-secondary">Enter your email address on the right.</p>
+          <h6 className="text-foreground">Email</h6>
+          <p className="text-secondary">Enter your email address on the right.</p>
         </div>
-        <Input 
-            type="email"
-            placeholder="Email" 
+        <Input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="max-w-[250px]"
         />
-        </div>
-            <div className="flex flex-row justify-end border-x border-b p-6">
-            <Button variant="default">Save</Button>
-        </div>
+      </div>
+      <div className="flex flex-row justify-end border-x border-b p-6">
+        <Button variant="default" disabled={!canSave} onClick={() => setOpen(true)}>
+          Save
+        </Button>
+      </div>
+
+      <EmailChangeModal
+        open={open}
+        onOpenChange={setOpen}
+        currentEmail={currentEmail}
+        newEmail={email}
+      />
     </div>
   );
 }
-  
+
 export { SetEmail };

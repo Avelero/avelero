@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Body,
   Container,
@@ -11,6 +10,7 @@ import {
   Tailwind,
   Text,
 } from "@react-email/components";
+import React from "react";
 
 interface InviteEmailProps {
   recipientEmail: string;
@@ -31,14 +31,19 @@ export default function InviteEmail({
   appName = "Avelero",
   ctaMode = "accept",
 }: InviteEmailProps) {
-  const expiryText = expiresAt ? new Date(expiresAt).toLocaleString() : undefined;
-  const mode = ctaMode ?? (acceptUrl.includes("/account/brands") ? "view" : "accept");
+  const expiryText = expiresAt
+    ? new Date(expiresAt).toLocaleString()
+    : undefined;
+  const mode =
+    ctaMode ?? (acceptUrl.includes("/account/brands") ? "view" : "accept");
   const ctaLabel = mode === "view" ? "View invitation" : "Accept invitation";
 
   return (
     <Html>
       <Head />
-      <Preview>You're invited to {brandName} on {appName}</Preview>
+      <Preview>
+        You're invited to {brandName} on {appName}
+      </Preview>
       <Tailwind>
         <Body className="bg-white my-auto mx-auto font-sans">
           <Container className="my-[40px] mx-auto max-w-[600px]">
@@ -48,7 +53,8 @@ export default function InviteEmail({
 
             <Section className="mb-4 text-center">
               <Text className="text-neutral-600">
-                You have been invited to join <strong>{brandName}</strong> as <strong>{role}</strong>.
+                You have been invited to join <strong>{brandName}</strong> as{" "}
+                <strong>{role}</strong>.
               </Text>
             </Section>
 
@@ -63,7 +69,8 @@ export default function InviteEmail({
 
             <Section className="mb-6 text-center">
               <Text className="text-neutral-600">
-                Please continue the sign up or log in process using this email: <strong>{recipientEmail}</strong>.
+                Please continue the sign up or log in process using this email:{" "}
+                <strong>{recipientEmail}</strong>.
               </Text>
               {expiryText ? (
                 <Text className="text-neutral-500 text-sm">
@@ -93,4 +100,3 @@ export const previewProps: InviteEmailProps = {
   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
   appName: "Avelero",
 };
-

@@ -1,5 +1,5 @@
-import React from "react";
 import { Img } from "@react-email/components";
+import React from "react";
 
 export function Logo({ baseUrl }: { baseUrl: string }) {
   return (

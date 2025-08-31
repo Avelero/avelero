@@ -19,6 +19,7 @@ interface InviteEmailProps {
   acceptUrl: string;
   expiresAt?: string; // ISO string for display
   appName?: string;
+  ctaMode?: "accept" | "view";
 }
 
 export default function InviteEmail({
@@ -28,8 +29,11 @@ export default function InviteEmail({
   acceptUrl,
   expiresAt,
   appName = "Avelero",
+  ctaMode = "accept",
 }: InviteEmailProps) {
   const expiryText = expiresAt ? new Date(expiresAt).toLocaleString() : undefined;
+  const mode = ctaMode ?? (acceptUrl.includes("/account/brands") ? "view" : "accept");
+  const ctaLabel = mode === "view" ? "View invitation" : "Accept invitation";
 
   return (
     <Html>
@@ -53,7 +57,7 @@ export default function InviteEmail({
                 href={acceptUrl}
                 className="inline-block rounded-md bg-black text-white px-4 py-3 text-sm font-medium"
               >
-                Accept invitation
+                {ctaLabel}
               </a>
             </Section>
 

@@ -11,6 +11,7 @@ type InvitePayload = {
     acceptUrl: string;
     expiresAt?: string | null;
     appName?: string;
+    ctaMode?: "accept" | "view";
   }>;
   from?: string;
 };

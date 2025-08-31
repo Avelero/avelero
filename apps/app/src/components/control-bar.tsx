@@ -70,7 +70,11 @@ function ControlBarNavButton({
   className 
 }: ControlBarNavButtonProps) {
   const pathname = usePathname();
-  const isActive = providedIsActive ?? pathname === href;
+  function normalize(path?: string) {
+    return (path ?? "").replace(/\/+$/, "");
+  }
+  const computedActive = normalize(pathname).endsWith(normalize(href));
+  const isActive = providedIsActive ?? computedActive;
 
   return (
     <Link

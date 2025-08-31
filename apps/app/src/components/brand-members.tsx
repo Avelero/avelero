@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@v1/ui/tabs";
-import { MemberInvitesTable } from "@/components/tables/member-invites";
-import { PendingInvitesSkeleton } from "@/components/tables/member-invites/skeleton";
-import { DataTable as MembersTable } from "@/components/tables/members";
+// Legacy skeleton import removed; using unified members table, keep fallback minimal
+import { Skeleton } from "@v1/ui/skeleton";
+import { MembersTable } from "@/components/tables/members/members";
 
 export function TeamMembers({ brandId }: { brandId: string }) {
   return (
@@ -17,14 +17,36 @@ export function TeamMembers({ brandId }: { brandId: string }) {
       </TabsList>
 
       <TabsContent value="members">
-        <Suspense fallback={<PendingInvitesSkeleton brandId={brandId} />}>
+        <Suspense fallback={<div className="p-4 space-y-2">{Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between p-3 border rounded">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+            <Skeleton className="h-8 w-20" />
+          </div>
+        ))}</div>}>
           <MembersTable />
         </Suspense>
       </TabsContent>
 
       <TabsContent value="pending">
-        <Suspense fallback={<PendingInvitesSkeleton brandId={brandId} />}>
-          <MemberInvitesTable brandId={brandId} />
+        <Suspense fallback={<div className="p-4 space-y-2">{Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between p-3 border rounded">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+            <Skeleton className="h-8 w-20" />
+          </div>
+        ))}</div>}>
+          <MembersTable />
         </Suspense>
       </TabsContent>
     </Tabs>

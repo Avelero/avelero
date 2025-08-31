@@ -16,45 +16,36 @@ export type Database = {
     Tables: {
       brand_invites: {
         Row: {
-          accepted_at: string | null
           brand_id: string
           created_at: string
           created_by: string | null
           email: string
           expires_at: string | null
-          fulfilled_at: string | null
           id: string
           role: string
-          status: string
-          token_hash: string
+          token_hash: string | null
           updated_at: string
         }
         Insert: {
-          accepted_at?: string | null
           brand_id: string
           created_at?: string
           created_by?: string | null
           email: string
           expires_at?: string | null
-          fulfilled_at?: string | null
           id?: string
           role: string
-          status?: string
-          token_hash: string
+          token_hash?: string | null
           updated_at?: string
         }
         Update: {
-          accepted_at?: string | null
           brand_id?: string
           created_at?: string
           created_by?: string | null
           email?: string
           expires_at?: string | null
-          fulfilled_at?: string | null
           id?: string
           role?: string
-          status?: string
-          token_hash?: string
+          token_hash?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -203,8 +194,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      claim_invites_for_user: {
-        Args: { p_user_id: string }
+      accept_invite_from_cookie: {
+        Args: { p_token: string }
         Returns: undefined
       }
       get_brands_for_authenticated_user: {

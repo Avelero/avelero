@@ -1,4 +1,4 @@
-import { Check, Copy, Loader2, LogOut, Settings, BarChart3, ChevronDown, Plus, ChartLine, QrCode, ChevronsUpDown, UserRound } from "lucide-react";
+import { Check, Copy, Loader2, LogOut, Settings, BarChart3, ChevronDown, Plus, ChartLine, QrCode, ChevronsUpDown, UserRound, EllipsisVertical, Minus, X } from "lucide-react";
 
 export const Icons = {
   SignOut: LogOut,
@@ -13,4 +13,7 @@ export const Icons = {
   QrCode,
   ChevronsUpDown,
   UserRound,
+  EllipsisVertical,
+  Minus,
+  X,
 };

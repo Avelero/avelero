@@ -8,6 +8,7 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export function useUserBrandsQuery() {
   const trpc = useTRPC();
@@ -103,4 +104,43 @@ export function useBrandUpdateMutation() {
       },
     }),
   );
+}
+
+export function useCanLeaveBrandQuery(brandId: string | null | undefined) {
+  const trpc = useTRPC();
+  const opts = trpc.brand.canLeave.queryOptions({ id: brandId as string } as any);
+  return useQuery({
+    ...(opts as any),
+    enabled: Boolean(brandId) && typeof window !== "undefined",
+  } as any);
+}
+
+export function useLeaveBrandMutation() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+
+  return useMutation(
+    trpc.brand.leave.mutationOptions({
+      onSuccess: async (res: any) => {
+        await queryClient.invalidateQueries();
+        // Only redirect when user has no brands left
+        if (!res?.nextBrandId) router.push("/brands/create");
+        router.refresh();
+      },
+    }) as any,
+  );
+}
+
+export function usePrefetchCanLeaveForBrands(brandIds: string[]) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!brandIds?.length) return;
+    for (const id of brandIds) {
+      const opts = trpc.brand.canLeave.queryOptions({ id } as any);
+      queryClient.prefetchQuery(opts as any);
+    }
+  }, [brandIds, trpc, queryClient]);
 }

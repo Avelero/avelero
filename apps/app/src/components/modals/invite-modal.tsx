@@ -6,6 +6,7 @@ import { useTRPC } from "@/trpc/client";
 import { Button } from "@v1/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@v1/ui/dialog";
 import { Input } from "@v1/ui/input";
+import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@v1/ui/command";
 
@@ -21,9 +22,12 @@ function RoleSelector({ value, onChange }: { value: Invitee["role"]; onChange: (
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm">{value === "owner" ? "Owner" : "Member"}</Button>
+        <Button className="h-[39px] min-w-[110px] justify-between items-center" variant="outline">
+          {value === "owner" ? "Owner" : "Member"}
+          <Icons.ChevronDown className="h-4 w-4" strokeWidth={1} />
+        </Button>
       </PopoverTrigger>
-      <PopoverContent className="p-0 w-40">
+      <PopoverContent className="p-0 w-40 rounded-none" align="start">
         <Command>
           <CommandList>
             <CommandEmpty>No roles</CommandEmpty>
@@ -87,38 +91,56 @@ export function InviteModal({ brandId }: { brandId: string }) {
       <DialogTrigger asChild>
         <Button variant="default">Invite members</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none w-auto w-max-fit">
         <DialogHeader>
-          <DialogTitle>Invite members</DialogTitle>
+          <DialogTitle className="text-foreground">Invite members</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          {invitees.map((inv, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input
-                type="email"
-                placeholder="email@example.com"
-                value={inv.email}
-                onChange={(e) => updateInvitee(i, { email: e.target.value })}
-              />
-              <RoleSelector value={inv.role} onChange={(role) => updateInvitee(i, { role })} />
-              {invitees.length > 1 ? (
-                <Button variant="outline" size="icon" onClick={() => removeInvitee(i)}>
-                  −
-                </Button>
-              ) : null}
+        <div className="space-y-6">
+          <div className="flex flex-col gap-2">
+            {invitees.map((inv, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={inv.email}
+                  onChange={(e) => updateInvitee(i, { email: e.target.value })}
+                  className="w-[300px]"
+                />
+                <RoleSelector value={inv.role} onChange={(role) => updateInvitee(i, { role })} />
+                {invitees.length > 1 ? (
+                  <Button className="!h-[39px] !w-[39px]" variant="outline" size="icon" onClick={() => removeInvitee(i)}>
+                    <Icons.X className="h-4 w-4" strokeWidth={1} />
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+            <div>
+              <Button className="text-secondary" variant="ghost" size="sm" onClick={addInvitee}>+ Add another</Button>
             </div>
-          ))}
-          <div>
-            <Button variant="ghost" size="sm" onClick={addInvitee}>+ Add another</Button>
           </div>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <div className="pt-2">
-            <Button onClick={onSend} disabled={isSubmitting}>Send invite{invitees.length > 1 ? "s" : ""}</Button>
+          {error ? <p className="text-sm text-red-500">{error}</p> : null}
+          <div className="w-full flex gap-2 mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={isSubmitting}
+              className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              onClick={onSend}
+              disabled={isSubmitting}
+              className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
+            >
+              {isSubmitting ? "Sending..." : `Send invite${invitees.length > 1 ? "s" : ""}`}
+            </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-
-

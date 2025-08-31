@@ -1,58 +1,55 @@
-import "@v1/ui/globals.css";;
+import "@v1/ui/globals.css";
 import { cn } from "@v1/ui/cn";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "next-themes";
 import { TRPCReactProvider } from "@/trpc/client";
 
 export const metadata: Metadata = {
   title: "Avelero",
-  description: "Create engaging digital product passports for your fashion brand. Upload any data format and launch your DPPs in minutes, not days.",
+  description:
+    "Create engaging digital product passports for your fashion brand. Upload any data format and launch your DPPs in minutes, not days.",
+  icons: {
+    // Root fallback so legacy agents and default requests succeed
+    icon: [
+      { url: "/favicon.ico" },
+
+      // Themed ICO
+      { url: "/favicon/FaviconDark.ico", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon/FaviconLight.ico",  media: "(prefers-color-scheme: dark)" },
+
+      // Themed PNG sizes
+      { url: "/favicon/FaviconDark32.png", type: "image/png", sizes: "32x32", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon/FaviconLight32.png",  type: "image/png", sizes: "32x32", media: "(prefers-color-scheme: dark)" },
+      { url: "/favicon/FaviconDark16.png", type: "image/png", sizes: "16x16", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon/FaviconLight16.png",  type: "image/png", sizes: "16x16", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: [
+      { url: "/favicon/AppleTouchIconDark.png", media: "(prefers-color-scheme: light)" },
+      { url: "/favicon/AppleTouchIconLight.png",  media: "(prefers-color-scheme: dark)" },
+    ],
+    other: [
+      { rel: "mask-icon", url: "/favicon/MaskIconDark.svg", color: "#020212", media: "(prefers-color-scheme: light)" },
+      { rel: "mask-icon", url: "/favicon/MaskIconLight.svg",  color: "#FAFAFF", media: "(prefers-color-scheme: dark)" },
+    ],
+  },
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)" },
-    { media: "(prefers-color-scheme: dark)" },
+    { media: "(prefers-color-scheme: light)", color: "#020212" },
+    { media: "(prefers-color-scheme: dark)", color: "#FAFAFF" },
   ],
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* ====== STANDARD BROWSERS ====== */}
-        {/* Light mode favicon (dark icon) */}
-        <link rel="icon" href="/favicon/FaviconDark.ico" media="(prefers-color-scheme: light)" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon/FaviconDark32.png" media="(prefers-color-scheme: light)" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon/FaviconDark16.png" media="(prefers-color-scheme: light)" />
-
-        {/* Dark mode favicon (light icon) */}
-        <link rel="icon" href="/favicon/FaviconLight.ico" media="(prefers-color-scheme: dark)" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon/FaviconLight32.png" media="(prefers-color-scheme: dark)" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon/FaviconLight16.png" media="(prefers-color-scheme: dark)" />
-
-        {/* ====== APPLE TOUCH ICONS ====== */}
-        <link rel="apple-touch-icon" href="/favicon/AppleTouchIconDark.png" media="(prefers-color-scheme: light)" />
-        <link rel="apple-touch-icon" href="/favicon/AppleTouchIconLight.png" media="(prefers-color-scheme: dark)" />
-
-        {/* ====== SAFARI PINNED TABS ====== */}
-        <link rel="mask-icon" href="/favicon/MaskIconDark.svg" color="#000000" media="(prefers-color-scheme: light)" />
-        <link rel="mask-icon" href="/favicon/MaskIconLight.svg" color="#ffffff" media="(prefers-color-scheme: dark)" />
-
-        {/* ====== FALLBACK (OLD BROWSERS) ====== */}
-        <link rel="icon" href="/favicon/FaviconDark.ico" />
-      </head>
       <body
-        className={cn(
-          `${GeistSans.variable} ${GeistMono.variable}`,
-          "antialiased",
-        )}
+        className={cn(`${GeistSans.variable} ${GeistMono.variable}`, "antialiased")}
         suppressHydrationWarning
       >
         <ThemeProvider
@@ -62,9 +59,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TRPCReactProvider>
-            <div className="h-screen w-screen">
-              {children}
-            </div>
+            <div className="h-screen w-screen">{children}</div>
           </TRPCReactProvider>
         </ThemeProvider>
       </body>

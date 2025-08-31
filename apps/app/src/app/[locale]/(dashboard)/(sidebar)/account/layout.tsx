@@ -4,6 +4,11 @@ import {
   ControlBarRight,
   ControlBarNavButton,
 } from "@/components/control-bar";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Account | Avelero",
+};
 
 export default function AccountLayout({
   children,
@@ -14,7 +19,7 @@ export default function AccountLayout({
     <div className="flex flex-col h-full">
       <ControlBar>
         <ControlBarLeft>
-          <ControlBarNavButton href="/account" isActive>
+          <ControlBarNavButton href="/account">
             General
           </ControlBarNavButton>
           <ControlBarNavButton href="/account/brands">

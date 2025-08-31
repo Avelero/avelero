@@ -1,5 +1,6 @@
 import { createClient } from "@v1/supabase/server";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
 
 export async function GET(request: Request) {
@@ -18,26 +19,19 @@ export async function GET(request: Request) {
     }
   }
 
-  // Claim any accepted invites for this user (best effort)
+  // Post-auth invite redemption via cookie (best effort)
   const { data: userRes } = await supabase.auth.getUser();
   const user = userRes?.user ?? null;
-  if (user) {
+  const cookieStore = await cookies();
+  const cookieHash = cookieStore.get("brand_invite_token_hash")?.value ?? null;
+  let acceptedBrand: boolean = false;
+  if (user && cookieHash) {
     try {
-      await supabase.rpc("claim_invites_for_user", { p_user_id: user.id });
-      // Ensure active brand is set to the most recent membership
-      const { data: recentMembership } = await supabase
-        .from("users_on_brand")
-        .select("brand_id, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const selectedBrandId = recentMembership?.brand_id ?? null;
-      if (selectedBrandId) {
-        await supabase.from("users").update({ brand_id: selectedBrandId }).eq("id", user.id);
-      }
-    } catch (e) {
-      // ignore failures; redirect policy will still work
+      // Use SECURITY DEFINER RPC to accept invite atomically
+      const { error: rpcError } = await supabase.rpc("accept_invite_from_cookie", { p_token: cookieHash });
+      if (!rpcError) acceptedBrand = true;
+    } catch {
+      // ignore failures
     }
   }
 
@@ -54,10 +48,15 @@ export async function GET(request: Request) {
     baseUrl = origin;
   }
 
-  const redirectPath = await resolveAuthRedirectPath(supabase, {
+  const redirectPath = acceptedBrand ? "/" : await resolveAuthRedirectPath(supabase, {
     next,
     returnTo,
   });
 
-  return NextResponse.redirect(`${baseUrl}${redirectPath}`, 303);
+  // Build response and clear the invite cookie if present
+  const response = NextResponse.redirect(`${baseUrl}${redirectPath}`, 303);
+  if (cookieHash) {
+    response.cookies.set("brand_invite_token_hash", "", { maxAge: 0, path: "/" });
+  }
+  return response;
 }

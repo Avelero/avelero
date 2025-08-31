@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@v1/supabase/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
@@ -52,31 +53,27 @@ export const verifyOtpAction = actionClient
       throw new Error("Authentication failed. Please try again.");
     }
 
-    // Successful verification: claim invites then compute final destination
+    // Successful verification: redeem invite cookie if present, then compute final destination
     const { data: userRes } = await supabase.auth.getUser();
     const user = userRes?.user ?? null;
-    if (user) {
+    const cookieStore = await cookies();
+    const cookieHash = cookieStore.get("brand_invite_token_hash")?.value ?? null;
+    let acceptedBrand: boolean = false;
+    if (user && cookieHash) {
       try {
-        await supabase.rpc("claim_invites_for_user", { p_user_id: user.id });
-        // Ensure active brand is set to the most recent membership
-        const { data: recentMembership } = await supabase
-          .from("users_on_brand")
-          .select("brand_id, created_at")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const selectedBrandId = recentMembership?.brand_id ?? null;
-        if (selectedBrandId) {
-          await supabase.from("users").update({ brand_id: selectedBrandId }).eq("id", user.id);
-        }
-      } catch (e) {
-        // ignore failures; redirect policy will still work
+        const { error: rpcError } = await supabase.rpc("accept_invite_from_cookie", { p_token: cookieHash });
+        if (!rpcError) acceptedBrand = true;
+      } catch {
+        // ignore failures
+      } finally {
+        // clear cookie regardless
+        const cs = await cookies();
+        cs.set("brand_invite_token_hash", "", { maxAge: 0, path: "/" });
       }
     }
 
-    const destination = await resolveAuthRedirectPath(supabase, { 
-      next: sanitizeRedirectPath(redirectTo) 
+    const destination = acceptedBrand ? "/" : await resolveAuthRedirectPath(supabase, {
+      next: sanitizeRedirectPath(redirectTo)
     });
     redirect(destination);
   });

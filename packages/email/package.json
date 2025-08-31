@@ -8,26 +8,21 @@
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
     "dev": "email dev -p 3003",
-    "build": "email build",
+    "build": "email build -p bun",
     "build:lib": "tsc -p tsconfig.build.json",
     "start": "email start"
   },
   "dependencies": {
     "@react-email/components": "0.0.42",
-    "@react-email/tailwind": "1.0.5"
+    "@react-email/tailwind": "1.0.5",
+    "react-email": "^4.2.8"
   },
   "devDependencies": {
-    "react-email": "4.0.16",
+    "@react-email/preview-server": "4.2.8",
+    "chalk": "4.1.2",
     "typescript": "^5.9.2"
   },
   "exports": {
-    "./emails/*": {
-      "require": "./dist/emails/*.js",
-      "types": "./dist/emails/*.d.ts"
-    },
-    "./components/*": {
-      "require": "./dist/components/*.js",
-      "types": "./dist/components/*.d.ts"
-    }
+    "./emails/*": "./emails/*.tsx"
   }
 }

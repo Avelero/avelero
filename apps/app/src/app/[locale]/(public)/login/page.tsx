@@ -2,7 +2,7 @@ import { GoogleSignin } from "@/components/auth/google-signin";
 import { OTPSignIn } from "@/components/auth/otp-signin";
 import type { Metadata } from "next";
 import Image from "next/image";
-import LoginPageImage from "/marketing/LoginPageImage.webp";
+import LoginPageImage from "public/marketing/LoginPageImage.webp";
 
 export const metadata: Metadata = {
   title: "Login | Avelero",

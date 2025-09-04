@@ -7,9 +7,7 @@
     "build:app": "turbo build --filter=@v1/app",
     "clean": "git clean -xdf node_modules",
     "clean:workspaces": "turbo clean",
-    "dev": "turbo dev --parallel --filter='!@v1/email'",
-    "dev:all": "turbo dev --parallel",
-    "dev:email": "turbo dev --filter=@v1/email",
+    "dev": "turbo dev --parallel",
     "dev:web": "turbo dev --filter=@v1/web",
     "dev:jobs": "turbo jobs --filter=@v1/jobs",
     "dev:app": "turbo dev --filter=@v1/app",
@@ -27,8 +25,8 @@
     "@biomejs/biome": "1.8.3",
     "@v1/tsconfig": "workspace:*",
     "entities": "^6.0.1",
-    "turbo": "2.1.1",
+    "turbo": "2.5.6",
     "typescript": "^5.9.2"
   },
-  "packageManager": "bun@1.2.19"
+  "packageManager": "bun@1.2.21"
 }

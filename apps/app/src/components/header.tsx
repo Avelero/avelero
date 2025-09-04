@@ -2,7 +2,7 @@ import { NavigationLabel } from "@/components/navigation-label";
 import { UserMenu } from "@/components/user-menu";
 import Image from "next/image";
 import Link from "next/link";
-import LogoIcon from "public/LogoIcon256.svg";
+import LogoIcon from "/LogoIcon256.svg";
 
 interface HeaderProps {
   locale: string;

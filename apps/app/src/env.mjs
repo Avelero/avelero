@@ -17,13 +17,11 @@ export const env = createEnv({
     UPSTASH_REDIS_REST_URL: z.string(),
   },
   client: {
-    NEXT_PUBLIC_API_URL: z.string(),
     NEXT_PUBLIC_OPENPANEL_CLIENT_ID: z.string(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string(),
     NEXT_PUBLIC_SUPABASE_URL: z.string(),
   },
   runtimeEnv: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_OPENPANEL_CLIENT_ID:
       process.env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID,
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,

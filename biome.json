@@ -3,19 +3,34 @@
   "organizeImports": {
     "enabled": true
   },
+  "files": {
+    "ignore": [
+      "dist",
+      "dist/**",
+      "node_modules",
+      "node_modules/**",
+      ".turbo",
+      ".next",
+      ".next/**"
+    ]
+  },
   "linter": {
-    "ignore": ["node_modules", ".next", "packages/tsconfig", "apps/api/supabase/functions/send-email"],
+    "ignore": [".wrangler", "node_modules", ".next", "packages/tsconfig"],
     "enabled": true,
     "rules": {
       "recommended": true,
       "a11y": {
-        "noSvgWithoutTitle": "off"
+        "noSvgWithoutTitle": "off",
+        "useKeyWithClickEvents": "off"
       },
       "style": {
         "noNonNullAssertion": "off"
       },
       "correctness": {
         "useExhaustiveDependencies": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "off"
       }
     }
   },

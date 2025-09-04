@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useRef, useState, forwardRef, useEffect } from "react";
+import { useBrandUpdateMutation } from "@/hooks/use-brand";
+import { useUpload } from "@/hooks/use-upload";
+import { useUserMutation } from "@/hooks/use-user";
+import { createClient } from "@v1/supabase/client";
 import { SmartAvatar as Avatar } from "@v1/ui/avatar";
 import { cn } from "@v1/ui/cn";
-import { useUpload } from "@/hooks/use-upload";
 import { stripSpecialCharacters } from "@v1/utils";
-import { useUserMutation } from "@/hooks/use-user";
-import { useBrandUpdateMutation } from "@/hooks/use-brand";
-import { createClient } from "@v1/supabase/client";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 
 type Entity = "user" | "brand";
 
@@ -69,11 +69,12 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
         .catch(() => setAvatar(null));
     }, [initialUrl, entity]);
 
-    const userMutation = useUserMutation();            // updates users.avatar_path
-    const brandMutation = useBrandUpdateMutation();    // updates brands.logo_path
+    const userMutation = useUserMutation(); // updates users.avatar_path
+    const brandMutation = useBrandUpdateMutation(); // updates brands.logo_path
 
     const clickPicker = useCallback(() => {
-      const fileInput = ref && "current" in ref ? ref.current : inputRef.current;
+      const fileInput =
+        ref && "current" in ref ? ref.current : inputRef.current;
       fileInput?.click();
     }, [ref]);
 
@@ -148,6 +149,14 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           className,
         )}
         onClick={clickPicker}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            clickPicker();
+          }
+        }}
       >
         <Avatar
           size={size}

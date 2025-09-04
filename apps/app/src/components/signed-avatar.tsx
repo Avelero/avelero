@@ -1,7 +1,7 @@
 "use client";
 
-import { SmartAvatar } from "@v1/ui/avatar";
 import { useSignedStorageUrl } from "@/hooks/use-signed-url";
+import { SmartAvatar } from "@v1/ui/avatar";
 
 type Props = {
   bucket: "avatars" | "brand-avatars";
@@ -12,7 +12,14 @@ type Props = {
   loading?: boolean;
 };
 
-export function SignedAvatar({ bucket, path, name, hue, size = 40, loading }: Props) {
+export function SignedAvatar({
+  bucket,
+  path,
+  name,
+  hue,
+  size = 40,
+  loading,
+}: Props) {
   const signed = useSignedStorageUrl(bucket, path ?? null);
   return (
     <SmartAvatar
@@ -24,5 +31,3 @@ export function SignedAvatar({ bucket, path, name, hue, size = 40, loading }: Pr
     />
   );
 }
-
-

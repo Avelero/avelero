@@ -7,19 +7,30 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type Me = RouterOutputs["user"]["me"];
+type LeaveBrandResult = RouterOutputs["brand"]["leave"];
 
 export function useUserBrandsQuery() {
   const trpc = useTRPC();
   const opts = trpc.brand.list.queryOptions();
-  return useQuery({ ...(opts as any), enabled: typeof window !== "undefined" } as any);
+  return useQuery({
+    ...opts,
+    enabled: typeof window !== "undefined",
+  });
 }
 
 export function useUserBrandsQuerySuspense() {
   const trpc = useTRPC();
   const opts = trpc.brand.list.queryOptions();
-  return useSuspenseQuery({ ...(opts as any), enabled: typeof window !== "undefined" } as any);
+  return useSuspenseQuery({
+    ...opts,
+  });
 }
 
 export function useSetActiveBrandMutation() {
@@ -36,13 +47,16 @@ export function useSetActiveBrandMutation() {
         });
 
         // Get current user data
-        const previousUserData = queryClient.getQueryData(trpc.user.me.queryKey());
+        const previousUserData = queryClient.getQueryData<Me>(
+          trpc.user.me.queryKey(),
+        );
 
         // Optimistically update user's active brand
-        queryClient.setQueryData(trpc.user.me.queryKey(), (old: any) => ({
-          ...old,
-          brand_id: variables.id,
-        }));
+        queryClient.setQueryData<Me | undefined>(
+          trpc.user.me.queryKey(),
+          (old: Me | undefined) =>
+            old ? { ...old, brand_id: variables.id } : old,
+        );
 
         return { previousUserData };
       },
@@ -108,11 +122,13 @@ export function useBrandUpdateMutation() {
 
 export function useCanLeaveBrandQuery(brandId: string | null | undefined) {
   const trpc = useTRPC();
-  const opts = trpc.brand.canLeave.queryOptions({ id: brandId as string } as any);
+  const opts = trpc.brand.canLeave.queryOptions({
+    id: brandId as string,
+  });
   return useQuery({
-    ...(opts as any),
+    ...opts,
     enabled: Boolean(brandId) && typeof window !== "undefined",
-  } as any);
+  });
 }
 
 export function useLeaveBrandMutation() {
@@ -122,13 +138,13 @@ export function useLeaveBrandMutation() {
 
   return useMutation(
     trpc.brand.leave.mutationOptions({
-      onSuccess: async (res: any) => {
+      onSuccess: async (res: LeaveBrandResult) => {
         await queryClient.invalidateQueries();
         // Only redirect when user has no brands left
         if (!res?.nextBrandId) router.push("/brands/create");
         router.refresh();
       },
-    }) as any,
+    }),
   );
 }
 
@@ -139,8 +155,8 @@ export function usePrefetchCanLeaveForBrands(brandIds: string[]) {
   useEffect(() => {
     if (!brandIds?.length) return;
     for (const id of brandIds) {
-      const opts = trpc.brand.canLeave.queryOptions({ id } as any);
-      queryClient.prefetchQuery(opts as any);
+      const opts = trpc.brand.canLeave.queryOptions({ id });
+      queryClient.prefetchQuery(opts);
     }
   }, [brandIds, trpc, queryClient]);
 }

@@ -29,5 +29,3 @@ export const listInvitesSchema = z.object({ brand_id: z.string().uuid() });
 
 export const acceptInviteSchema = z.object({ id: z.string().uuid() });
 export const rejectInviteSchema = z.object({ id: z.string().uuid() });
-
-

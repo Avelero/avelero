@@ -1,10 +1,10 @@
 import {
   ControlBar,
   ControlBarLeft,
-  ControlBarRight,
   ControlBarNavButton,
+  ControlBarRight,
 } from "@/components/control-bar";
-import { Metadata } from "next";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Account | Avelero",
@@ -19,9 +19,7 @@ export default function AccountLayout({
     <div className="flex flex-col h-full">
       <ControlBar>
         <ControlBarLeft>
-          <ControlBarNavButton href="/account">
-            General
-          </ControlBarNavButton>
+          <ControlBarNavButton href="/account">General</ControlBarNavButton>
           <ControlBarNavButton href="/account/brands">
             Brands
           </ControlBarNavButton>

@@ -1,5 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import type { Database } from "@v1/supabase/types";
+import type { Database, TablesUpdate } from "@v1/supabase/types";
 // invite-related utilities have been moved to queries/invites.ts
 
 export async function listBrandsForUser(
@@ -8,11 +8,23 @@ export async function listBrandsForUser(
 ) {
   const { data, error } = await supabase
     .from("users_on_brand")
-    .select("role, brands:brands(id, name, logo_path, avatar_hue, country_code)")
+    .select(
+      "role, brands:brands(id, name, logo_path, avatar_hue, country_code)",
+    )
     .eq("user_id", userId)
     .order("brands(name)", { ascending: true });
   if (error) throw error;
-  return (data ?? []).map((r: any) => ({
+  const rows = (data ?? []) as Array<{
+    role: string | null;
+    brands: {
+      id: string | null;
+      name: string | null;
+      logo_path: string | null;
+      avatar_hue: number | null;
+      country_code: string | null;
+    } | null;
+  }>;
+  return rows.map((r) => ({
     id: r.brands?.id ?? null,
     name: r.brands?.name ?? null,
     logo_path: r.brands?.logo_path ?? null,
@@ -25,7 +37,12 @@ export async function listBrandsForUser(
 export async function createBrand(
   supabase: SupabaseClient<Database>,
   userId: string,
-  input: { name: string; country_code?: string | null; logo_path?: string | null; avatar_hue?: number | null },
+  input: {
+    name: string;
+    country_code?: string | null;
+    logo_path?: string | null;
+    avatar_hue?: number | null;
+  },
 ) {
   const { data: brand, error: brandError } = await supabase
     .from("brands")
@@ -58,7 +75,7 @@ export async function createBrand(
 export async function updateBrand(
   supabase: SupabaseClient<Database>,
   userId: string,
-  input: { id: string } & Record<string, unknown>,
+  input: { id: string } & TablesUpdate<"brands">,
 ) {
   const { count, error: memErr } = await supabase
     .from("users_on_brand")
@@ -68,8 +85,11 @@ export async function updateBrand(
   if (memErr) throw memErr;
   if (!count) throw new Error("FORBIDDEN");
 
-  const { id, ...payload } = input as any;
-  const { error } = await supabase.from("brands").update(payload).eq("id", id);
+  const { id, ...payload } = input;
+  const { error } = await supabase
+    .from("brands")
+    .update(payload as TablesUpdate<"brands">)
+    .eq("id", id);
   if (error) throw error;
   return { success: true } as const;
 }
@@ -96,7 +116,10 @@ export async function setActiveBrand(
   if (countError) throw countError;
   if (!count) throw new Error("Not a member of this brand");
 
-  const { error } = await supabase.from("users").update({ brand_id: brandId }).eq("id", userId);
+  const { error } = await supabase
+    .from("users")
+    .update({ brand_id: brandId })
+    .eq("id", userId);
   if (error) throw error;
   return { success: true } as const;
 }
@@ -104,7 +127,6 @@ export async function setActiveBrand(
 // ---------------------- Invites & Users helpers ----------------------
 
 // (invite-related functions have been removed)
-
 
 // ---------------------- Leave brand helpers ----------------------
 
@@ -143,7 +165,9 @@ export async function leaveBrand(
   supabase: SupabaseClient<Database>,
   userId: string,
   brandId: string,
-): Promise<{ ok: true; nextBrandId: string | null } | { ok: false; code: "SOLE_OWNER" }> {
+): Promise<
+  { ok: true; nextBrandId: string | null } | { ok: false; code: "SOLE_OWNER" }
+> {
   // Verify membership and role
   const { data: membership, error: membershipError } = await supabase
     .from("users_on_brand")
@@ -195,7 +219,8 @@ export async function leaveBrand(
       .maybeSingle();
     if (nextError) throw nextError;
 
-    resultingActiveBrandId = (next as any)?.brand_id ?? null;
+    const nextRow = next as { brand_id: string | null } | null;
+    resultingActiveBrandId = nextRow?.brand_id ?? null;
 
     const { error: updateUserError } = await supabase
       .from("users")
@@ -206,4 +231,3 @@ export async function leaveBrand(
 
   return { ok: true, nextBrandId: resultingActiveBrandId } as const;
 }
-

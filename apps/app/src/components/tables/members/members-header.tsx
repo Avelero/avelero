@@ -1,9 +1,9 @@
 "use client";
 
+import { InviteModal } from "@/components/modals/invite-modal";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { useRouter } from "next/navigation";
-import { InviteModal } from "@/components/modals/invite-modal";
 
 interface Props {
   activeTab: "members" | "invites";
@@ -12,7 +12,12 @@ interface Props {
   brandId?: string;
 }
 
-export function MembersHeader({ activeTab, onTabChange, locale, brandId }: Props) {
+export function MembersHeader({
+  activeTab,
+  onTabChange,
+  locale,
+  brandId,
+}: Props) {
   const router = useRouter();
 
   return (
@@ -52,5 +57,3 @@ export function MembersHeader({ activeTab, onTabChange, locale, brandId }: Props
     </div>
   );
 }
-
-

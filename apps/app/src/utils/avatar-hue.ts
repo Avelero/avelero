@@ -26,6 +26,8 @@ export function clampHue(hue: number): number {
   return HUE_START;
 }
 
-export function hslFromHue(hue: number): `hsl(${number} ${number}% ${number}%)` {
+export function hslFromHue(
+  hue: number,
+): `hsl(${number} ${number}% ${number}%)` {
   return `hsl(${clampHue(hue)} ${SATURATION}% ${LIGHTNESS}%)`;
 }

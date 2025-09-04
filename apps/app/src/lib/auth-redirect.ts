@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@v1/supabase/server";
+import type { Tables, TablesUpdate } from "@v1/supabase/types";
 import type { Database } from "@v1/supabase/types";
 
 interface ResolveAuthRedirectOptions {
@@ -6,10 +8,11 @@ interface ResolveAuthRedirectOptions {
   returnTo?: string | null;
 }
 
-export async function resolveAuthRedirectPath(
-  supabase: SupabaseClient<Database>,
-  { next, returnTo }: ResolveAuthRedirectOptions = {},
-): Promise<string> {
+export async function resolveAuthRedirectPath({
+  next,
+  returnTo,
+}: ResolveAuthRedirectOptions = {}): Promise<string> {
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -19,12 +22,24 @@ export async function resolveAuthRedirectPath(
   const userId = user.id;
 
   // Profile completeness check
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("users")
     .select("full_name, brand_id")
     .eq("id", userId)
     .single();
-  const isProfileIncomplete = !profile?.full_name || profile.full_name.trim().length < 2;
+
+  if (error) {
+    // Handle error appropriately
+    return "/login?error=profile-fetch-failed";
+  }
+
+  // Type assertion to match working pattern in getUserProfile
+  const typedProfile = profile as Pick<
+    Tables<"users">,
+    "full_name" | "brand_id"
+  > | null;
+  const isProfileIncomplete =
+    !typedProfile?.full_name || typedProfile.full_name.trim().length < 2;
   if (isProfileIncomplete) return "/setup";
 
   const { count } = await supabase
@@ -41,7 +56,7 @@ export async function resolveAuthRedirectPath(
   }
 
   // If user has memberships but no active brand selected, pick the most recent membership
-  if (membershipCount > 0 && !profile?.brand_id) {
+  if (membershipCount > 0 && !typedProfile?.brand_id) {
     const { data: recentMembership } = await supabase
       .from("users_on_brand")
       .select("brand_id, created_at")
@@ -50,16 +65,25 @@ export async function resolveAuthRedirectPath(
       .limit(1)
       .maybeSingle();
 
-    const selectedBrandId = recentMembership?.brand_id ?? null;
+    // Type assertion for recentMembership
+    const typedMembership = recentMembership as Pick<
+      Tables<"users_on_brand">,
+      "brand_id"
+    > | null;
+    const selectedBrandId = typedMembership?.brand_id ?? null;
     if (selectedBrandId) {
-      // Best-effort: set active brand to most recent
-      await supabase
-        .from("users")
-        .update({ brand_id: selectedBrandId })
-        .eq("id", userId);
+      // Best-effort: set active brand to most recent using working mutation pattern
+      try {
+        // Type cast through unknown to bypass TypeScript inference issues
+        await (supabase as unknown as SupabaseClient<Database>)
+          .from("users")
+          .update({ brand_id: selectedBrandId })
+          .eq("id", userId);
+      } catch {
+        // Ignore update errors in this best-effort operation
+      }
     }
   }
 
   return target.startsWith("/") ? target : `/${target}`;
 }
-

@@ -33,5 +33,3 @@ export async function deleteUserAuth(
   if (error) throw error;
   return { success: true } as const;
 }
-
-

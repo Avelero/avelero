@@ -1,9 +1,10 @@
 {
   "name": "v1",
   "private": true,
-  "workspaces": ["packages/*", "apps/*", "tooling/*"],
+  "workspaces": ["packages/*", "apps/*"],
   "scripts": {
     "build": "turbo build",
+    "build:app": "turbo build --filter=@v1/app",
     "clean": "git clean -xdf node_modules",
     "clean:workspaces": "turbo clean",
     "dev": "turbo dev --parallel",
@@ -22,12 +23,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.8.3",
-    "@t3-oss/env-nextjs": "^0.11.1",
+    "@v1/tsconfig": "workspace:*",
     "turbo": "2.1.1",
-    "typescript": "^5.5.4"
+    "typescript": "^5.9.2"
   },
-  "packageManager": "bun@1.1.26",
-  "dependencies": {
-    "@radix-ui/react-icons": "^1.3.2"
-  }
+  "packageManager": "bun@1.2.19"
 }

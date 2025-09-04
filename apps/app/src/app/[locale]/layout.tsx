@@ -1,10 +1,10 @@
 import "@v1/ui/globals.css";
+import { TRPCReactProvider } from "@/trpc/client";
 import { cn } from "@v1/ui/cn";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "next-themes";
-import { TRPCReactProvider } from "@/trpc/client";
 
 export const metadata: Metadata = {
   title: "Avelero",
@@ -16,22 +16,64 @@ export const metadata: Metadata = {
       { url: "/favicon.ico" },
 
       // Themed ICO
-      { url: "/favicon/FaviconDark.ico", media: "(prefers-color-scheme: light)" },
-      { url: "/favicon/FaviconLight.ico",  media: "(prefers-color-scheme: dark)" },
+      {
+        url: "/favicon/FaviconDark.ico",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/favicon/FaviconLight.ico",
+        media: "(prefers-color-scheme: dark)",
+      },
 
       // Themed PNG sizes
-      { url: "/favicon/FaviconDark32.png", type: "image/png", sizes: "32x32", media: "(prefers-color-scheme: light)" },
-      { url: "/favicon/FaviconLight32.png",  type: "image/png", sizes: "32x32", media: "(prefers-color-scheme: dark)" },
-      { url: "/favicon/FaviconDark16.png", type: "image/png", sizes: "16x16", media: "(prefers-color-scheme: light)" },
-      { url: "/favicon/FaviconLight16.png",  type: "image/png", sizes: "16x16", media: "(prefers-color-scheme: dark)" },
+      {
+        url: "/favicon/FaviconDark32.png",
+        type: "image/png",
+        sizes: "32x32",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/favicon/FaviconLight32.png",
+        type: "image/png",
+        sizes: "32x32",
+        media: "(prefers-color-scheme: dark)",
+      },
+      {
+        url: "/favicon/FaviconDark16.png",
+        type: "image/png",
+        sizes: "16x16",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/favicon/FaviconLight16.png",
+        type: "image/png",
+        sizes: "16x16",
+        media: "(prefers-color-scheme: dark)",
+      },
     ],
     apple: [
-      { url: "/favicon/AppleTouchIconDark.png", media: "(prefers-color-scheme: light)" },
-      { url: "/favicon/AppleTouchIconLight.png",  media: "(prefers-color-scheme: dark)" },
+      {
+        url: "/favicon/AppleTouchIconDark.png",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        url: "/favicon/AppleTouchIconLight.png",
+        media: "(prefers-color-scheme: dark)",
+      },
     ],
     other: [
-      { rel: "mask-icon", url: "/favicon/MaskIconDark.svg", color: "#020212", media: "(prefers-color-scheme: light)" },
-      { rel: "mask-icon", url: "/favicon/MaskIconLight.svg",  color: "#FAFAFF", media: "(prefers-color-scheme: dark)" },
+      {
+        rel: "mask-icon",
+        url: "/favicon/MaskIconDark.svg",
+        color: "#020212",
+        media: "(prefers-color-scheme: light)",
+      },
+      {
+        rel: "mask-icon",
+        url: "/favicon/MaskIconLight.svg",
+        color: "#FAFAFF",
+        media: "(prefers-color-scheme: dark)",
+      },
     ],
   },
 };
@@ -49,7 +91,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={cn(`${GeistSans.variable} ${GeistMono.variable}`, "antialiased")}
+        className={cn(
+          `${GeistSans.variable} ${GeistMono.variable}`,
+          "antialiased",
+        )}
         suppressHydrationWarning
       >
         <ThemeProvider

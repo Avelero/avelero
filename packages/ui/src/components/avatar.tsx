@@ -13,11 +13,14 @@ function cssSize(v?: SizeValue): string | undefined {
 }
 
 export interface SmartAvatarProps
-  extends Omit<React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>, "color"> {
+  extends Omit<
+    React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>,
+    "color"
+  > {
   name?: string | null;
   src?: string | null;
   hue?: number | null;
-  size?: number;              // single source of truth for size
+  size?: number; // single source of truth for size
   loading?: boolean;
   className?: string;
 }
@@ -32,51 +35,58 @@ export interface SmartAvatarProps
 export const SmartAvatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
   SmartAvatarProps
->(({ name, src, hue, size = 40, loading = false, className, style, ...props }, ref) => {
-  const w = cssSize(size);
-  const h = cssSize(size);
-  const box = w ?? h ?? "40px";
+>(
+  (
+    { name, src, hue, size = 40, loading = false, className, style, ...props },
+    ref,
+  ) => {
+    const w = cssSize(size);
+    const h = cssSize(size);
+    const box = w ?? h ?? "40px";
 
-  const styleWithVar: React.CSSProperties & { ["--avatar-size"]?: string } = {
-    ...style,
-    width: w,
-    height: h,
-    ["--avatar-size"]: box,
-  };
+    const styleWithVar: React.CSSProperties & { "--avatar-size"?: string } = {
+      ...style,
+      width: w,
+      height: h,
+      "--avatar-size": box,
+    };
 
-  // Internal decision once, so AvatarPrimitive subtree stays minimal.
-  const showDefault = loading || (!src && (hue == null));
-  const showImage = !loading && !!src;
-  const showFallback = !loading && !src && hue != null;
+    // Internal decision once, so AvatarPrimitive subtree stays minimal.
+    const showDefault = loading || (!src && hue == null);
+    const showImage = !loading && !!src;
+    const showFallback = !loading && !src && hue != null;
 
-  return (
-    <AvatarPrimitive.Root
-      ref={ref}
-      className={cn(
-        "relative flex shrink-0 overflow-hidden rounded-full border border-border",
-        "h-10 w-10",
-        className,
-      )}
-      style={styleWithVar}
-      {...props}
-    >
-      {showImage ? (
-        <AvatarImageNext
-          src={src || ""}
-          alt={name ?? ""}
-          width={typeof size === "number" ? size : 40}
-          height={typeof size === "number" ? size : 40}
-        />
-      ) : null}
+    return (
+      <AvatarPrimitive.Root
+        ref={ref}
+        className={cn(
+          "relative flex shrink-0 overflow-hidden rounded-full border border-border",
+          "h-10 w-10",
+          className,
+        )}
+        style={styleWithVar}
+        {...props}
+      >
+        {showImage ? (
+          <AvatarImageNext
+            src={src || ""}
+            alt={name ?? ""}
+            width={typeof size === "number" ? size : 40}
+            height={typeof size === "number" ? size : 40}
+          />
+        ) : null}
 
-      {showFallback ? (
-        <InitialsFallback name={name ?? undefined} hue={hue!} />
-      ) : null}
+        {showFallback ? (
+          <InitialsFallback name={name ?? undefined} hue={hue!} />
+        ) : null}
 
-      {showDefault ? <DefaultFallback size={typeof size === "number" ? size : 40} /> : null}
-    </AvatarPrimitive.Root>
-  );
-});
+        {showDefault ? (
+          <DefaultFallback size={typeof size === "number" ? size : 40} />
+        ) : null}
+      </AvatarPrimitive.Root>
+    );
+  },
+);
 SmartAvatar.displayName = "SmartAvatar";
 
 /** Next.js Image wrapper that disappears on error or empty src */
@@ -86,13 +96,17 @@ const AvatarImageNext = React.forwardRef<
 >(({ className, onError, src, ...rest }, ref) => {
   const [hasError, setHasError] = React.useState(false);
   const srcStr = src as unknown as string | undefined;
-  const isAbsoluteHttp = typeof srcStr === "string" && /^https?:\/\//i.test(srcStr);
+  const isAbsoluteHttp =
+    typeof srcStr === "string" && /^https?:\/\//i.test(srcStr);
   if (hasError || !isAbsoluteHttp) return null;
 
   return (
     <Image
       ref={ref}
-      className={cn("absolute inset-0 z-10 h-full w-full object-cover object-center", className)}
+      className={cn(
+        "absolute inset-0 z-10 h-full w-full object-cover object-center",
+        className,
+      )}
       onError={(e) => {
         setHasError(true);
         onError?.(e);

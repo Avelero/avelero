@@ -1,5 +1,5 @@
-import { logger, task } from "@trigger.dev/sdk/v3";
 import { render } from "@react-email/render";
+import { logger, task } from "@trigger.dev/sdk/v3";
 import InviteEmail from "@v1/email/emails/invite";
 import { resend } from "../utils/resend";
 
@@ -39,11 +39,13 @@ export const inviteBrandMembers = task({
         subject: `Invitation to join ${invite.brandName}`,
         html,
       });
-      logger.log("invite email sent", { to: invite.recipientEmail, id: res.data?.id, error: res.error });
+      logger.log("invite email sent", {
+        to: invite.recipientEmail,
+        id: res.data?.id,
+        error: res.error,
+      });
     });
 
     await Promise.all(jobs);
   },
 });
-
-

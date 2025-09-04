@@ -9,5 +9,3 @@ export const updateUserSchema = z.object({
   avatar_path: z.string().optional(),
   avatar_hue: z.number().int().min(1).max(359).optional(),
 });
-
-

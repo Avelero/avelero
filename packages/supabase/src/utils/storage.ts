@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../types";
 
 export const EMPTY_FOLDER_PLACEHOLDER_FILE_NAME = ".emptyFolderPlaceholder";
 
@@ -9,7 +10,7 @@ type UploadParams = {
 };
 
 export async function upload(
-  client: SupabaseClient,
+  client: Pick<SupabaseClient<Database>, "storage">,
   { file, path, bucket }: UploadParams,
 ): Promise<{ bucket: string; path: string[] }> {
   const storage = client.storage.from(bucket);
@@ -33,7 +34,7 @@ type RemoveParams = {
 };
 
 export async function remove(
-  client: SupabaseClient,
+  client: Pick<SupabaseClient<Database>, "storage">,
   { bucket, path }: RemoveParams,
 ) {
   return client.storage
@@ -47,7 +48,7 @@ type DownloadParams = {
 };
 
 export async function download(
-  client: SupabaseClient,
+  client: Pick<SupabaseClient<Database>, "storage">,
   { bucket, path }: DownloadParams,
 ) {
   return client.storage.from(bucket).download(path);
@@ -63,7 +64,7 @@ type SignedUrlParams = {
 };
 
 export async function signedUrl(
-  client: SupabaseClient,
+  client: Pick<SupabaseClient<Database>, "storage">,
   { bucket, path, expireIn, options }: SignedUrlParams,
 ) {
   return client.storage.from(bucket).createSignedUrl(path, expireIn, options);

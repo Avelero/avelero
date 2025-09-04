@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Input } from "@v1/ui/input";
+import {
+  type CurrentUser,
+  useUserMutation,
+  useUserQuery,
+} from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
-import { type CurrentUser, useUserMutation, useUserQuery } from "@/hooks/use-user";
+import { Input } from "@v1/ui/input";
+import { useEffect, useRef, useState } from "react";
 
 function SetName() {
   const userQuery = useUserQuery();
@@ -14,7 +18,7 @@ function SetName() {
   const [fullName, setFullName] = useState<string>("");
 
   useEffect(() => {
-    const initial = (data?.full_name ?? "");
+    const initial = data?.full_name ?? "";
     initialFullNameRef.current = initial;
     setFullName(initial);
   }, [data?.full_name]);
@@ -39,29 +43,29 @@ function SetName() {
 
   return (
     <div className="relative">
-        <div className="flex flex-row p-6 border justify-between items-center">
+      <div className="flex flex-row p-6 border justify-between items-center">
         <div className="flex flex-col gap-2">
-            <h6 className="text-foreground">Name</h6>
-            <p className="text-secondary">Enter your full name on the right.</p>
+          <h6 className="text-foreground">Name</h6>
+          <p className="text-secondary">Enter your full name on the right.</p>
         </div>
         <Input
-            placeholder="Name"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="max-w-[250px]"
+          placeholder="Name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className="max-w-[250px]"
         />
-        </div>
-            <div className="flex flex-row justify-end border-x border-b p-6">
-            <Button
-              variant="default"
-              disabled={!isDirty || isEmpty || isSaving}
-              onClick={handleSave}
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </Button>
-        </div>
+      </div>
+      <div className="flex flex-row justify-end border-x border-b p-6">
+        <Button
+          variant="default"
+          disabled={!isDirty || isEmpty || isSaving}
+          onClick={handleSave}
+        >
+          {isSaving ? "Saving..." : "Save"}
+        </Button>
+      </div>
     </div>
   );
 }
-  
+
 export { SetName };

@@ -1,6 +1,5 @@
 "use client";
 
-import NextError from "next/error";
 import { useEffect } from "react";
 
 export default function GlobalError({ error }: { error: Error }) {
@@ -9,9 +8,12 @@ export default function GlobalError({ error }: { error: Error }) {
   }, [error]);
 
   return (
-    <html>
+    <html lang="en">
       <body>
-      <NextError statusCode={0} />;
+        <div style={{ padding: "20px", textAlign: "center" }}>
+          <h2>Something went wrong!</h2>
+          <p>An error occurred. Please try again later.</p>
+        </div>
       </body>
     </html>
   );

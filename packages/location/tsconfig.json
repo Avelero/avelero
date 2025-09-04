@@ -1,9 +1,8 @@
 {
-  "extends": "@v1/typescript/react-library.json",
+  "extends": "@v1/tsconfig/react-library.json",
   "compilerOptions": {
     "baseUrl": "."
   },
   "include": ["."],
   "exclude": ["node_modules"]
 }
-

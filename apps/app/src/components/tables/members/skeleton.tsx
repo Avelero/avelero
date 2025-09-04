@@ -5,8 +5,11 @@ import { Skeleton } from "@v1/ui/skeleton";
 export function MembersSkeleton() {
   return (
     <div className="p-4 space-y-2">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between p-3 border rounded">
+      {["a", "b", "c"].map((k) => (
+        <div
+          key={`members-skel-${k}`}
+          className="flex items-center justify-between p-3 border rounded"
+        >
           <div className="flex items-center gap-3">
             <Skeleton className="h-8 w-8 rounded-full" />
             <div className="space-y-2">
@@ -20,5 +23,3 @@ export function MembersSkeleton() {
     </div>
   );
 }
-
-

@@ -1,9 +1,9 @@
 "use client";
 
 import { cn } from "@v1/ui/cn";
-import { useState, useRef, useEffect } from "react";
-import { MainMenu } from "./main-menu";
+import { useEffect, useRef, useState } from "react";
 import { BrandDropdown } from "./brand-dropdown";
+import { MainMenu } from "./main-menu";
 
 export function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -16,15 +16,17 @@ export function Sidebar() {
       mousePositionRef.current = { x: e.clientX, y: e.clientY };
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    return () => document.removeEventListener('mousemove', handleMouseMove);
+    document.addEventListener("mousemove", handleMouseMove);
+    return () => document.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
   const isMouseOverSidebar = () => {
     if (!sidebarRef.current) return false;
     const rect = sidebarRef.current.getBoundingClientRect();
     const { x, y } = mousePositionRef.current;
-    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    return (
+      x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+    );
   };
 
   const handleMouseEnter = () => setIsExpanded(true);
@@ -52,7 +54,7 @@ export function Sidebar() {
         "bg-background border-r border-border",
         "desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px]",
         "transition-all duration-200 ease-out",
-        isExpanded ? "w-60" : "w-14" // 56px collapsed rail is preserved
+        isExpanded ? "w-60" : "w-14", // 56px collapsed rail is preserved
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

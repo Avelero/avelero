@@ -14,7 +14,7 @@ const icons = {
 const items = [
   { path: "/passports", name: "Passports" },
   { path: "/analytics", name: "Analytics" },
-  { path: "/settings",  name: "Settings"  },
+  { path: "/settings", name: "Settings" },
 ] as const;
 
 type Props = {
@@ -45,7 +45,9 @@ export function MainMenu({ onSelectAction, isExpanded = false }: Props) {
               isActive={isActive}
               isExpanded={isExpanded}
               isItemExpanded={expandedItem === item.path}
-              onToggle={(path) => setExpandedItem(expandedItem === path ? null : path)}
+              onToggle={(path) =>
+                setExpandedItem(expandedItem === path ? null : path)
+              }
               onSelect={onSelectAction}
             />
           );

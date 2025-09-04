@@ -12,13 +12,10 @@ export default async function DashboardPage() {
   // Get current user for basic info (already prefetched in layout)
   const user = await queryClient.fetchQuery(trpc.user.me.queryOptions());
 
-
   return (
     <HydrateClient>
       <div className="flex justify-center items-center relative">
-        <div className="text-2xl font-bold">
-          Dashboard
-        </div>
+        <div className="text-2xl font-bold">Dashboard</div>
       </div>
     </HydrateClient>
   );

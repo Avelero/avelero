@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Body,
   Container,
@@ -11,6 +10,7 @@ import {
   Tailwind,
   Text,
 } from "@react-email/components";
+import React from "react";
 
 interface OtpEmailProps {
   code: string;
@@ -18,7 +18,11 @@ interface OtpEmailProps {
   appName?: string;
 }
 
-export default function OtpEmail({ code, siteUrl = "", appName = "Avelero" }: OtpEmailProps) {
+export default function OtpEmail({
+  code,
+  siteUrl = "",
+  appName = "Avelero",
+}: OtpEmailProps) {
   return (
     <Html>
       <Head />
@@ -38,7 +42,9 @@ export default function OtpEmail({ code, siteUrl = "", appName = "Avelero" }: Ot
 
             <Section className="mb-6 text-center">
               <div className="inline-block rounded-md border border-neutral-200 px-4 py-3">
-                <code className="text-2xl tracking-[6px] font-mono">{code}</code>
+                <code className="text-2xl tracking-[6px] font-mono">
+                  {code}
+                </code>
               </div>
             </Section>
 
@@ -62,4 +68,3 @@ export default function OtpEmail({ code, siteUrl = "", appName = "Avelero" }: Ot
     </Html>
   );
 }
-

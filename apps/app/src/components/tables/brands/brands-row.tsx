@@ -1,14 +1,22 @@
 "use client";
 
-import { Button } from "@v1/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@v1/ui/dropdown-menu";
+import { LeaveBrandModal } from "@/components/modals/leave-brand-modal";
 import { SignedAvatar } from "@/components/signed-avatar";
 import { useSetActiveBrandMutation } from "@/hooks/use-brand";
-import { useAcceptInviteMutation, useRejectInviteMutation } from "@/hooks/use-invites";
+import {
+  useAcceptInviteMutation,
+  useRejectInviteMutation,
+} from "@/hooks/use-invites";
+import { Button } from "@v1/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import { useRouter, useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { LeaveBrandModal } from "@/components/modals/leave-brand-modal";
 
 interface BrandWithRole {
   id: string;
@@ -21,13 +29,19 @@ interface BrandWithRole {
 interface InviteRow {
   id: string;
   role: "owner" | "member";
-  brand: { id: string; name: string; logo_path?: string | null; avatar_hue?: number | null };
+  brand: {
+    id: string;
+    name: string;
+    logo_path?: string | null;
+    avatar_hue?: number | null;
+  };
 }
 
 type Props = { membership: BrandWithRole } | { invite: InviteRow };
 
 export function BrandsRow(props: Props) {
-  if ("membership" in props) return <MembershipRow membership={props.membership} />;
+  if ("membership" in props)
+    return <MembershipRow membership={props.membership} />;
   return <InviteRowComp invite={props.invite} />;
 }
 
@@ -49,7 +63,9 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
         />
         <div className="flex flex-col">
           <span className="text-p !font-medium">{membership.name}</span>
-          <span className="text-p text-secondary">{membership.role === "owner" ? "Owner" : "Member"}</span>
+          <span className="text-p text-secondary">
+            {membership.role === "owner" ? "Owner" : "Member"}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -75,15 +91,15 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            className="text-destructive"
-            onSelect={() => {
-              // Let Radix close the dropdown first, then open the modal
-              setTimeout(() => setLeaveOpen(true), 0);
-            }}
-          >
-            Leave brand
-          </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive"
+              onSelect={() => {
+                // Let Radix close the dropdown first, then open the modal
+                setTimeout(() => setLeaveOpen(true), 0);
+              }}
+            >
+              Leave brand
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <LeaveBrandModal
@@ -116,11 +132,18 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
         />
         <div className="flex flex-col">
           <span className="text-p !font-medium">{invite.brand.name}</span>
-          <span className="text-p text-secondary">{invite.role === "owner" ? "Owner" : "Member"}</span>
+          <span className="text-p text-secondary">
+            {invite.role === "owner" ? "Owner" : "Member"}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" onClick={() => reject.mutate({ id: invite.id })} aria-label="Reject">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => reject.mutate({ id: invite.id })}
+          aria-label="Reject"
+        >
           <Icons.X className="w-4 h-4" strokeWidth={1} />
         </Button>
         <Button
@@ -144,5 +167,3 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
     </div>
   );
 }
-
-

@@ -44,7 +44,10 @@ export async function getMyBrands() {
       .from("brands")
       .select("id, name, logo_path, country_code")
       .order("name", { ascending: true });
-    return { data: data as Array<Pick<Tables<"brands">, "id" | "name">>, error };
+    return {
+      data: data as Array<Pick<Tables<"brands">, "id" | "name">>,
+      error,
+    };
   } catch (error) {
     logger.error(error);
     throw error;

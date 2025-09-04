@@ -1,4 +1,3 @@
 {
-  "extends": "@v1/typescript/base.json",
-  "exclude": ["apps/api/supabase/functions/**"]
+  "extends": "@v1/tsconfig/base.json"
 }

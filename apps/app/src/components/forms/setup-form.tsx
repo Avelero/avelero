@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { z } from "zod";
+import { AvatarUpload } from "@/components/avatar-upload";
+import { CountrySelect } from "@/components/country-select";
+import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
+import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useParams } from "next/navigation";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
-import { CountrySelect } from "@/components/country-select";
-import { AvatarUpload } from "@/components/avatar-upload";
-import { useTRPC } from "@/trpc/client";
-import { useUserQuery, CurrentUser } from "@/hooks/use-user";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 
 const schema = z.object({
   full_name: z.string().min(2, "Please enter your full name"),
@@ -33,7 +33,7 @@ export function SetupForm() {
     const u = user as CurrentUser | null | undefined;
     if (!u) return;
     if (!fullName && u.full_name) setFullName(u.full_name);
-    if (!avatarUrl && (u as any).avatar_path) setAvatarUrl((u as any).avatar_path);
+    if (!avatarUrl && u.avatar_path) setAvatarUrl(u.avatar_path);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -41,7 +41,9 @@ export function SetupForm() {
     trpc.user.update.mutationOptions({
       onSuccess: async () => {
         await queryClient.invalidateQueries();
-        const brands = await queryClient.fetchQuery(trpc.brand.list.queryOptions());
+        const brands = await queryClient.fetchQuery(
+          trpc.brand.list.queryOptions(),
+        );
         const hasBrands = Array.isArray(brands?.data) && brands.data.length > 0;
         router.push(hasBrands ? `/${locale}` : `/${locale}/brands/create`);
       },
@@ -90,25 +92,33 @@ export function SetupForm() {
           entityId={userId}
           avatarUrl={avatarUrl}
           name={fullName || undefined}
-          hue={null}              // important: no fallback hue before submit
+          hue={null} // important: no fallback hue before submit
           size={72}
           onUpload={onAvatarUpload}
         />
 
         <div className="flex flex-col gap-1 w-full">
           <Label>Full name</Label>
-          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="John Doe" />
+          <Input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="John Doe"
+          />
         </div>
       </div>
 
-      {error ? <p className="text-sm text-destructive text-center">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-destructive text-center">{error}</p>
+      ) : null}
 
       <Button
         className="w-full"
         onClick={onSubmit}
         disabled={isSubmitting || updateUserMutation.isPending || !userId}
       >
-        {isSubmitting || updateUserMutation.isPending ? "Saving..." : "Continue"}
+        {isSubmitting || updateUserMutation.isPending
+          ? "Saving..."
+          : "Continue"}
       </Button>
     </div>
   );

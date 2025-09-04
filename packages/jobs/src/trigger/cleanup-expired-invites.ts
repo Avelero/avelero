@@ -1,5 +1,5 @@
-import { logger, schedules } from "@trigger.dev/sdk/v3";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { logger, schedules } from "@trigger.dev/sdk/v3";
 import type { Database } from "@v1/supabase/types";
 
 export const deleteExpiredInvites = schedules.task({
@@ -10,7 +10,10 @@ export const deleteExpiredInvites = schedules.task({
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
     const serviceKey = process.env.SUPABASE_SERVICE_KEY as string | undefined;
     if (!url || !serviceKey) {
-      logger.error("Supabase env vars missing for cleanup", { hasUrl: !!url, hasKey: !!serviceKey });
+      logger.error("Supabase env vars missing for cleanup", {
+        hasUrl: !!url,
+        hasKey: !!serviceKey,
+      });
       throw new Error("Missing Supabase configuration");
     }
 
@@ -25,12 +28,12 @@ export const deleteExpiredInvites = schedules.task({
       .not("expires_at", "is", null);
 
     if (error) {
-      logger.error("Failed to delete expired invites", { error: error.message });
+      logger.error("Failed to delete expired invites", {
+        error: error.message,
+      });
       throw error;
     }
 
     logger.log("Expired invites cleanup completed", { at: nowIso });
   },
 });
-
-

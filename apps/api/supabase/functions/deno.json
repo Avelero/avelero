@@ -1,4 +1,4 @@
 {
-    "importMap": "./import_map.json",
-    "unstable": true
-  }
+  "importMap": "./import_map.json",
+  "unstable": true
+}

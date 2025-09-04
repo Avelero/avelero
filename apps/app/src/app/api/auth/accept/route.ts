@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -15,7 +15,10 @@ export async function GET(request: Request) {
 
   const tokenHash = tokenHashParam
     ? tokenHashParam
-    : crypto.createHash("sha256").update(rawToken as string).digest("hex");
+    : crypto
+        .createHash("sha256")
+        .update(rawToken as string)
+        .digest("hex");
 
   const res = NextResponse.redirect(loginUrl);
   res.cookies.set("brand_invite_token_hash", tokenHash, {

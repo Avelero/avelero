@@ -1,9 +1,9 @@
 "use client";
 
+import { cn } from "@v1/ui/cn";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
-import { cn } from "@v1/ui/cn";
 
 interface ControlBarProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -27,13 +27,13 @@ const ControlBar = React.forwardRef<HTMLDivElement, ControlBarProps>(
       className={cn(
         "w-full px-6 h-14 border-b border-border bg-background",
         "flex items-center justify-between",
-        className
+        className,
       )}
       {...props}
     >
       {children}
     </div>
-  )
+  ),
 );
 ControlBar.displayName = "ControlBar";
 
@@ -46,28 +46,29 @@ const ControlBarLeft = React.forwardRef<HTMLDivElement, ControlBarSectionProps>(
     >
       {children}
     </div>
-  )
+  ),
 );
 ControlBarLeft.displayName = "ControlBarLeft";
 
-const ControlBarRight = React.forwardRef<HTMLDivElement, ControlBarSectionProps>(
-  ({ className, children, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn("flex items-center gap-2 h-full", className)}
-      {...props}
-    >
-      {children}
-    </div>
-  )
-);
+const ControlBarRight = React.forwardRef<
+  HTMLDivElement,
+  ControlBarSectionProps
+>(({ className, children, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn("flex items-center gap-2 h-full", className)}
+    {...props}
+  >
+    {children}
+  </div>
+));
 ControlBarRight.displayName = "ControlBarRight";
 
-function ControlBarNavButton({ 
-  href, 
-  children, 
-  isActive: providedIsActive, 
-  className 
+function ControlBarNavButton({
+  href,
+  children,
+  isActive: providedIsActive,
+  className,
 }: ControlBarNavButtonProps) {
   const pathname = usePathname();
   function normalize(path?: string) {
@@ -82,27 +83,22 @@ function ControlBarNavButton({
       prefetch
       className={cn(
         "h-full px-1 flex items-center",
-        isActive 
-          ? "border-b-2 border-primary -mb-px" 
+        isActive
+          ? "border-b-2 border-primary -mb-px"
           : "border-b border-transparent",
-        className
+        className,
       )}
     >
-      <p className={cn(
-        "text-p",
-        isActive 
-          ? "text-primary !font-medium" 
-          : "text-secondary"
-      )}>
+      <p
+        className={cn(
+          "text-p",
+          isActive ? "text-primary !font-medium" : "text-secondary",
+        )}
+      >
         {children}
       </p>
     </Link>
   );
 }
 
-export {
-  ControlBar,
-  ControlBarLeft,
-  ControlBarRight,
-  ControlBarNavButton,
-};
+export { ControlBar, ControlBarLeft, ControlBarRight, ControlBarNavButton };

@@ -1,12 +1,10 @@
-import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { BrandsTable } from "@/components/tables/brands/brands";
+import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 
 export default async function Page() {
   // Prefetch memberships and invites for better UX
-  batchPrefetch([
-    trpc.brand.list.queryOptions(),
-    trpc.brand.myInvites.queryOptions(),
-  ]);
+  await batchPrefetch([trpc.brand.list.queryOptions()]);
+  await batchPrefetch([trpc.brand.myInvites.queryOptions()]);
 
   return (
     <HydrateClient>
@@ -16,5 +14,3 @@ export default async function Page() {
     </HydrateClient>
   );
 }
-
-

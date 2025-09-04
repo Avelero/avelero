@@ -19,9 +19,10 @@ export function BrandsHeader({ activeTab, onTabChange, locale }: Props) {
         <Button
           variant={activeTab === "brands" ? "outline" : "ghost"}
           onClick={() => onTabChange("brands")}
-          className={cn(activeTab === "brands" 
-            ? "!font-medium hover:bg-background hover:cursor-default w-[84px]"
-            : "text-secondary hover:text-foreground hover:bg-transparent w-[84px]"
+          className={cn(
+            activeTab === "brands"
+              ? "!font-medium hover:bg-background hover:cursor-default w-[84px]"
+              : "text-secondary hover:text-foreground hover:bg-transparent w-[84px]",
           )}
         >
           Brands
@@ -29,18 +30,19 @@ export function BrandsHeader({ activeTab, onTabChange, locale }: Props) {
         <Button
           variant={activeTab === "invites" ? "outline" : "ghost"}
           onClick={() => onTabChange("invites")}
-          className={cn(activeTab === "invites"
-            ? "!font-medium hover:bg-background hover:cursor-default w-[81px]"
-            : "text-secondary hover:text-foreground hover:bg-transparent w-[81px]"
+          className={cn(
+            activeTab === "invites"
+              ? "!font-medium hover:bg-background hover:cursor-default w-[81px]"
+              : "text-secondary hover:text-foreground hover:bg-transparent w-[81px]",
           )}
         >
           Invites
         </Button>
       </div>
 
-      <Button onClick={() => router.push(`/${locale}/brands/create`)}>Create brand</Button>
+      <Button onClick={() => router.push(`/${locale}/brands/create`)}>
+        Create brand
+      </Button>
     </div>
   );
 }
-
-

@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Input } from "@v1/ui/input";
-import { Button } from "@v1/ui/button";
-import { useUserQuery, type CurrentUser } from "@/hooks/use-user";
 import { EmailChangeModal } from "@/components/modals/email-change-modal";
+import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
+import { Button } from "@v1/ui/button";
+import { Input } from "@v1/ui/input";
+import { useEffect, useState } from "react";
 
 function SetEmail() {
   const { data } = useUserQuery();
-  const currentEmail = ((data as CurrentUser | null | undefined)?.email) ?? "";
+  const currentEmail = (data as CurrentUser | null | undefined)?.email ?? "";
 
   const [email, setEmail] = useState(currentEmail);
   const [open, setOpen] = useState(false);
@@ -25,7 +25,9 @@ function SetEmail() {
       <div className="flex flex-row p-6 border justify-between items-center gap-4">
         <div className="flex flex-col gap-2">
           <h6 className="text-foreground">Email</h6>
-          <p className="text-secondary">Enter your email address on the right.</p>
+          <p className="text-secondary">
+            Enter your email address on the right.
+          </p>
         </div>
         <Input
           type="email"
@@ -36,7 +38,11 @@ function SetEmail() {
         />
       </div>
       <div className="flex flex-row justify-end border-x border-b p-6">
-        <Button variant="default" disabled={!canSave} onClick={() => setOpen(true)}>
+        <Button
+          variant="default"
+          disabled={!canSave}
+          onClick={() => setOpen(true)}
+        >
           Save
         </Button>
       </div>

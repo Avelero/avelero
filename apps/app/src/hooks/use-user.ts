@@ -1,44 +1,52 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { createClient as createSupabaseClient } from "@v1/supabase/client";
 import {
   useMutation,
   useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import { createClient as createSupabaseClient } from "@v1/supabase/client";
 
 function useIsSessionReady(): boolean {
   if (typeof window === "undefined") return true;
   const supabase = createSupabaseClient();
   // We can't subscribe synchronously without state; assume presence if local storage has a token
   // Minimal: check access_token in memory via getSession() lazily handled by query enabled flag
-  return !!(supabase as any);
+  return !!supabase;
 }
 
 export function useUserQuery() {
   const trpc = useTRPC();
-  const isSessionReady = typeof window === "undefined" ? true : !!window?.localStorage;
+  const isSessionReady =
+    typeof window === "undefined" ? true : !!window?.localStorage;
   const opts = trpc.user.me.queryOptions();
-  return useQuery({ ...(opts as any), enabled: typeof window !== "undefined" && isSessionReady } as any);
+  return useQuery({
+    ...opts,
+    enabled: typeof window !== "undefined" && isSessionReady,
+  });
 }
 
 export interface CurrentUser {
   id: string;
   email: string;
   full_name: string | null;
-  avatar_url: string | null;   // legacy
-  avatar_path: string | null;  // new
+  avatar_url: string | null; // legacy
+  avatar_path: string | null; // new
   avatar_hue: number | null;
   brand_id: string | null;
 }
 
 export function useUserQuerySuspense() {
   const trpc = useTRPC();
-  const isSessionReady = typeof window === "undefined" ? true : !!window?.localStorage;
+  const isSessionReady =
+    typeof window === "undefined" ? true : !!window?.localStorage;
   const opts = trpc.user.me.queryOptions();
-  return useSuspenseQuery({ ...(opts as any), enabled: typeof window !== "undefined" && isSessionReady } as any);
+  // Suspense queries are always enabled; avoid passing `enabled`
+  return useSuspenseQuery({
+    ...opts,
+  });
 }
 
 export function useUserMutation() {
@@ -57,19 +65,22 @@ export function useUserMutation() {
         const previousData = queryClient.getQueryData(trpc.user.me.queryKey());
 
         // Optimistically update
-        queryClient.setQueryData(trpc.user.me.queryKey(), (old: any) => ({
-          ...old,
-          ...newData,
-        }));
+        queryClient.setQueryData(trpc.user.me.queryKey(), (old) => {
+          const prev = old as CurrentUser | null | undefined;
+          const patch = newData as Partial<CurrentUser>;
+          return prev
+            ? { ...prev, ...patch }
+            : (patch as unknown as CurrentUser) ?? null;
+        });
 
-        return { previousData };
+        return { previousData } as const;
       },
-      onError: (_, __, context) => {
+      onError: (_err, _vars, context) => {
         // Rollback on error
-        queryClient.setQueryData(
-          trpc.user.me.queryKey(),
-          context?.previousData,
-        );
+        const previous = (
+          context as { previousData: CurrentUser | null } | undefined
+        )?.previousData;
+        queryClient.setQueryData(trpc.user.me.queryKey(), previous);
       },
       onSettled: () => {
         // Refetch after error or success

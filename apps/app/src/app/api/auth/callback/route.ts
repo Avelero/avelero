@@ -1,7 +1,7 @@
-import { createClient } from "@v1/supabase/server";
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
+import { createClient } from "@v1/supabase/server";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -24,11 +24,14 @@ export async function GET(request: Request) {
   const user = userRes?.user ?? null;
   const cookieStore = await cookies();
   const cookieHash = cookieStore.get("brand_invite_token_hash")?.value ?? null;
-  let acceptedBrand: boolean = false;
+  let acceptedBrand = false;
   if (user && cookieHash) {
     try {
       // Use SECURITY DEFINER RPC to accept invite atomically
-      const { error: rpcError } = await supabase.rpc("accept_invite_from_cookie", { p_token: cookieHash });
+      const { error: rpcError } = await supabase.rpc(
+        "accept_invite_from_cookie",
+        { p_token: cookieHash },
+      );
       if (!rpcError) acceptedBrand = true;
     } catch {
       // ignore failures
@@ -48,15 +51,20 @@ export async function GET(request: Request) {
     baseUrl = origin;
   }
 
-  const redirectPath = acceptedBrand ? "/" : await resolveAuthRedirectPath(supabase, {
-    next,
-    returnTo,
-  });
+  const redirectPath = acceptedBrand
+    ? "/"
+    : await resolveAuthRedirectPath({
+        next,
+        returnTo,
+      });
 
   // Build response and clear the invite cookie if present
   const response = NextResponse.redirect(`${baseUrl}${redirectPath}`, 303);
   if (cookieHash) {
-    response.cookies.set("brand_invite_token_hash", "", { maxAge: 0, path: "/" });
+    response.cookies.set("brand_invite_token_hash", "", {
+      maxAge: 0,
+      path: "/",
+    });
   }
   return response;
 }

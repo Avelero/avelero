@@ -12,7 +12,8 @@ const I18nMiddleware = createI18nMiddleware({
 });
 
 export async function middleware(request: NextRequest) {
-  const response = await updateSession(request, I18nMiddleware(request));
+  const i18nResponse = I18nMiddleware(request);
+  const response = await updateSession(request, i18nResponse);
   const supabase = await createClient();
   const url = new URL("/", request.url);
   const nextUrl = request.nextUrl;
@@ -38,7 +39,11 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getSession();
 
   // Not authenticated - redirect to login
-  if (!session && newUrl.pathname !== "/login" && !newUrl.pathname.includes("/api/")) {
+  if (
+    !session &&
+    newUrl.pathname !== "/login" &&
+    !newUrl.pathname.includes("/api/")
+  ) {
     const url = new URL("/login", request.url);
     if (encodedSearchParams) {
       url.searchParams.append("return_to", encodedSearchParams);

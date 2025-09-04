@@ -9,13 +9,11 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-
   return (
     <div className="h-screen w-screen flex p-2">
       {/* Left side - Auth forms */}
       <div className="flex-1 flex flex-col items-center justify-center p-8">
         <div className="w-full max-w-sm space-y-6">
-
           {/* Header */}
           <div className="text-center space-y-2">
             <h3 className="text-primary">Welcome</h3>
@@ -28,7 +26,7 @@ export default function Page() {
           <div className="space-y-4">
             {/* Google Sign-in */}
             <GoogleSignin />
-            
+
             {/* Separator */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -49,14 +47,14 @@ export default function Page() {
 
       {/* Background Image Section - Hidden on mobile, visible on desktop */}
       <div className="hidden lg:flex lg:w-1/2 relative">
-          <Image
-            src={LoginPageImage}
-            alt="Background"
-            className="object-cover object-left"
-            priority
-            fill
-          />
-        </div>
+        <Image
+          src={LoginPageImage}
+          alt="Background"
+          className="object-cover object-left"
+          priority
+          fill
+        />
+      </div>
     </div>
   );
 }

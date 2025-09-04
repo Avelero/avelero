@@ -16,7 +16,12 @@ export async function updateUser(userId: string, data: TablesUpdate<"users">) {
   }
 }
 
-export async function createBrand(params: { name: string; country_code?: string | null; logo_path?: string | null; ownerId: string }) {
+export async function createBrand(params: {
+  name: string;
+  country_code?: string | null;
+  logo_path?: string | null;
+  ownerId: string;
+}) {
   const supabase = await createClient();
 
   try {
@@ -33,7 +38,8 @@ export async function createBrand(params: { name: string; country_code?: string 
       .single();
 
     if (brandError) return { error: brandError };
-    if (!brand) return { error: { message: "Failed to create brand" } } as const;
+    if (!brand)
+      return { error: { message: "Failed to create brand" } } as const;
 
     // 2) add owner membership
     const { error: membershipError } = await supabase
@@ -66,9 +72,13 @@ export async function setActiveBrand(userId: string, brandId: string) {
       .eq("user_id", userId)
       .eq("brand_id", brandId);
     if (countError) return { error: countError };
-    if (!count) return { error: { message: "Not a member of this brand" } } as const;
+    if (!count)
+      return { error: { message: "Not a member of this brand" } } as const;
 
-    const { error } = await supabase.from("users").update({ brand_id: brandId }).eq("id", userId);
+    const { error } = await supabase
+      .from("users")
+      .update({ brand_id: brandId })
+      .eq("id", userId);
     if (error) return { error };
 
     return { data: { brandId } } as const;

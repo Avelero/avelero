@@ -1,8 +1,12 @@
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
-import { batchPrefetch, getQueryClient, trpc, HydrateClient } from "@/trpc/server";
+import {
+  HydrateClient,
+  batchPrefetch,
+  getQueryClient,
+  trpc,
+} from "@/trpc/server";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { Suspense } from "react";
 
 export default async function Layout({
@@ -15,7 +19,7 @@ export default async function Layout({
   const queryClient = getQueryClient();
 
   // Prefetch common data used across the dashboard
-  batchPrefetch([
+  await batchPrefetch([
     trpc.user.me.queryOptions(),
     trpc.brand.list.queryOptions(),
   ]);
@@ -35,19 +39,16 @@ export default async function Layout({
     redirect("/brands/create");
   }
 
-  // Get pathname from headers for navigation breadcrumbs
-  const pathname = (await headers()).get('x-pathname') || '/';
-  
   // Await params to access locale
   const { locale } = await params;
 
   return (
     <HydrateClient>
       <div className="relative h-full">
-        <Header pathname={pathname} locale={locale} />
+        <Header locale={locale} />
         <div className="flex flex-row justify-start h-[calc(100%-56px)]">
-            <Sidebar />
-            <div className="relative w-full h-full ml-[56px]">{children}</div>
+          <Sidebar />
+          <div className="relative w-full h-full ml-[56px]">{children}</div>
         </div>
       </div>
     </HydrateClient>

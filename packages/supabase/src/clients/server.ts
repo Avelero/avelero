@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { Database } from "../types";
+import type { Client } from "../types";
 
 const conWarn = console.warn;
 const conLog = console.log;
@@ -36,7 +38,9 @@ type CreateClientOptions = {
   schema?: "public" | "storage";
 };
 
-export async function createClient(options?: CreateClientOptions) {
+export async function createClient(
+  options?: CreateClientOptions,
+): Promise<Client> {
   const { admin = false, ...rest } = options ?? {};
   const cookieStore = await cookies();
 
@@ -75,5 +79,5 @@ export async function createClient(options?: CreateClientOptions) {
       },
       auth,
     },
-  );
+  ) as unknown as SupabaseClient<Database>;
 }

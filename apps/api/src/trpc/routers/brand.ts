@@ -1,19 +1,34 @@
-import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "../init.js";
 import { TRPCError } from "@trpc/server";
-import { listBrandsForUser, createBrand as qCreateBrand, updateBrand as qUpdateBrand, deleteBrand as qDeleteBrand, setActiveBrand as qSetActiveBrand, canLeaveBrand as qCanLeaveBrand, leaveBrand as qLeaveBrand } from "../../queries/brands.js";
+import { z } from "zod";
 import { getMembersByBrandId } from "../../queries/brand-members.js";
-import { sendBrandInvite, revokeBrandInviteByOwner, listBrandInvites, listInvitesByEmail, acceptInviteForRecipientById, rejectInviteForRecipientById } from "../../queries/invites.js";
 import {
-  createBrandSchema,
-  updateBrandSchema,
-  idParamSchema,
-  sendInviteSchema,
-  revokeInviteSchema,
-  listInvitesSchema,
+  listBrandsForUser,
+  canLeaveBrand as qCanLeaveBrand,
+  createBrand as qCreateBrand,
+  deleteBrand as qDeleteBrand,
+  leaveBrand as qLeaveBrand,
+  setActiveBrand as qSetActiveBrand,
+  updateBrand as qUpdateBrand,
+} from "../../queries/brands.js";
+import {
+  acceptInviteForRecipientById,
+  listBrandInvites,
+  listInvitesByEmail,
+  rejectInviteForRecipientById,
+  revokeBrandInviteByOwner,
+  sendBrandInvite,
+} from "../../queries/invites.js";
+import {
   acceptInviteSchema,
+  createBrandSchema,
+  idParamSchema,
+  listInvitesSchema,
   rejectInviteSchema,
+  revokeInviteSchema,
+  sendInviteSchema,
+  updateBrandSchema,
 } from "../../schemas/brand.js";
+import { createTRPCRouter, protectedProcedure } from "../init.js";
 // acceptInviteForUser is imported from queries/brands.ts above
 
 export const brandRouter = createTRPCRouter({
@@ -37,7 +52,7 @@ export const brandRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { supabase, user } = ctx;
       if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
-      return qUpdateBrand(supabase, user.id, input as any);
+      return qUpdateBrand(supabase, user.id, input);
     }),
 
   delete: protectedProcedure
@@ -72,13 +87,20 @@ export const brandRouter = createTRPCRouter({
       if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
       const res = await qLeaveBrand(supabase, user.id, input.id);
       if (!res.ok && res.code === "SOLE_OWNER") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "You are the sole owner of this brand. Promote another owner or delete the brand." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "You are the sole owner of this brand. Promote another owner or delete the brand.",
+        });
       }
       if (res.ok) {
         return { success: true, nextBrandId: res.nextBrandId } as const;
       }
       // Fallback safeguard (should never reach here due to checks above)
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Unable to leave brand" });
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Unable to leave brand",
+      });
     }),
 
   // Invites
@@ -113,14 +135,13 @@ export const brandRouter = createTRPCRouter({
     }),
 
   // Recipient view: list invites addressed to current user's email
-  myInvites: protectedProcedure
-    .query(async ({ ctx }) => {
-      const { supabase, user } = ctx;
-      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
-      const userEmail = user.email;
-      if (!userEmail) throw new TRPCError({ code: "UNAUTHORIZED" });
-      return listInvitesByEmail(supabase, userEmail);
-    }),
+  myInvites: protectedProcedure.query(async ({ ctx }) => {
+    const { supabase, user } = ctx;
+    if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+    const userEmail = user.email;
+    if (!userEmail) throw new TRPCError({ code: "UNAUTHORIZED" });
+    return listInvitesByEmail(supabase, userEmail);
+  }),
 
   acceptInvite: protectedProcedure
     .input(acceptInviteSchema)
@@ -128,7 +149,11 @@ export const brandRouter = createTRPCRouter({
       const { supabase, supabaseAdmin, user } = ctx;
       if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
       const res = await acceptInviteForRecipientById(supabase, user, input.id);
-      if (!res.ok) throw new TRPCError({ code: "BAD_REQUEST", message: `${res.code}: ${res.message}` });
+      if (!res.ok)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${res.code}: ${res.message}`,
+        });
       return { success: true, brandId: res.brandId } as const;
     }),
 
@@ -138,16 +163,15 @@ export const brandRouter = createTRPCRouter({
       const { supabase, user } = ctx;
       if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
       const res = await rejectInviteForRecipientById(supabase, user, input.id);
-      if (!res.ok) throw new TRPCError({ code: "BAD_REQUEST", message: res.code });
+      if (!res.ok)
+        throw new TRPCError({ code: "BAD_REQUEST", message: res.code });
       return { success: true } as const;
     }),
 
-  members: protectedProcedure
-    .query(async ({ ctx }) => {
-      const { supabase, brandId } = ctx;
-      if (!brandId) throw new TRPCError({ code: "BAD_REQUEST", message: "No active brand" });
-      return getMembersByBrandId(supabase, brandId);
-    }),
+  members: protectedProcedure.query(async ({ ctx }) => {
+    const { supabase, brandId } = ctx;
+    if (!brandId)
+      throw new TRPCError({ code: "BAD_REQUEST", message: "No active brand" });
+    return getMembersByBrandId(supabase, brandId);
+  }),
 });
-
-

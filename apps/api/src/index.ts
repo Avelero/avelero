@@ -2,8 +2,8 @@ import { trpcServer } from "@hono/trpc-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
-import { appRouter } from "./trpc/routers/_app.js";
 import { createTRPCContext } from "./trpc/init.js";
+import { appRouter } from "./trpc/routers/_app.js";
 
 const app = new Hono();
 
@@ -32,15 +32,16 @@ app.use(
   "/trpc/*",
   trpcServer({
     router: appRouter,
-    createContext: createTRPCContext as any,
+    createContext: async (opts) => {
+      const ctx = await createTRPCContext({ req: opts.req });
+      return ctx as unknown as Record<string, unknown>;
+    },
   }),
 );
 
-app.get("/health", (c: any) => c.json({ status: "ok" }, 200));
+app.get("/health", (c) => c.json({ status: "ok" }, 200));
 
 export default {
   port: process.env.PORT ? Number.parseInt(process.env.PORT) : 4000,
   fetch: app.fetch,
 };
-
-

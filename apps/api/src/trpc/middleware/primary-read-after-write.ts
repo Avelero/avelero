@@ -8,5 +8,3 @@ export async function withPrimaryReadAfterWrite<TReturn>(opts: {
 }) {
   return opts.next({ ctx: opts.ctx });
 }
-
-

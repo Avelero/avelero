@@ -27,32 +27,37 @@ InputOTPGroup.displayName = "InputOTPGroup";
 const InputOTPSlot = React.forwardRef<
   React.ElementRef<"div">,
   SlotProps & React.ComponentPropsWithoutRef<"div">
->(({ char, hasFakeCaret, isActive, className, placeholderChar, ...props }, ref) => {
-  // Filter out any other input-otp specific props that shouldn't be passed to DOM
-  const { 
-    // Remove any other potential OTP-specific props
-    ...domProps 
-  } = props;
-  
-  return (
-    <div
-      ref={ref}
-      className={cn(
-        "relative flex h-10 w-10 items-center justify-center border bg-background text-p font-sans transition-all focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-        isActive && "z-10 ring-1 ring-ring",
-        className,
-      )}
-      {...domProps}
-    >
-      {char}
-      {hasFakeCaret && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="animate-pulse h-4 w-px bg-foreground duration-1000" />
-        </div>
-      )}
-    </div>
-  );
-});
+>(
+  (
+    { char, hasFakeCaret, isActive, className, placeholderChar, ...props },
+    ref,
+  ) => {
+    // Filter out any other input-otp specific props that shouldn't be passed to DOM
+    const {
+      // Remove any other potential OTP-specific props
+      ...domProps
+    } = props;
+
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "relative flex h-10 w-10 items-center justify-center border bg-background text-p font-sans transition-all focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+          isActive && "z-10 ring-1 ring-ring",
+          className,
+        )}
+        {...domProps}
+      >
+        {char}
+        {hasFakeCaret && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="animate-pulse h-4 w-px bg-foreground duration-1000" />
+          </div>
+        )}
+      </div>
+    );
+  },
+);
 InputOTPSlot.displayName = "InputOTPSlot";
 
 const InputOTPSeparator = React.forwardRef<

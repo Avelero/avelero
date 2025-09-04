@@ -1,10 +1,12 @@
 "use client";
 
-import { useUserQuery, useUserQuerySuspense, CurrentUser } from "@/hooks/use-user";
+import { SignOut } from "@/components/auth/sign-out";
+import {
+  type CurrentUser,
+  useUserQuery,
+  useUserQuerySuspense,
+} from "@/hooks/use-user";
 import { SmartAvatar } from "@v1/ui/avatar";
-import { SignedAvatar } from "./signed-avatar";
-import { Icons } from "@v1/ui/icons";
-import { Suspense } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,8 +16,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
+import { Icons } from "@v1/ui/icons";
 import Link from "next/link";
-import { SignOut } from "@/components/auth/sign-out";
+import { Suspense } from "react";
+import { SignedAvatar } from "./signed-avatar";
 
 type Props = {
   onlySignOut?: boolean;
@@ -41,8 +45,11 @@ export function UserMenu({ onlySignOut }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="rounded-full focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">
-          <Suspense fallback={<SmartAvatar size={32} loading />}> 
+        <button
+          type="button"
+          className="rounded-full focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+        >
+          <Suspense fallback={<SmartAvatar size={32} loading />}>
             <UserAvatar />
           </Suspense>
         </button>

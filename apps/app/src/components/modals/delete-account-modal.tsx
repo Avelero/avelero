@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@v1/ui/dialog";
-import { Button } from "@v1/ui/button";
-import { Input } from "@v1/ui/input";
 import { useTRPC } from "@/trpc/client";
+import { useMutation } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
+import { Button } from "@v1/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@v1/ui/dialog";
+import { Input } from "@v1/ui/input";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface Props {
   open: boolean;
@@ -20,14 +27,14 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
   const trpc = useTRPC();
   const supabase = createClient();
   const router = useRouter();
+  const deleteMutation = useMutation(trpc.user.delete.mutationOptions());
 
   async function onConfirm() {
     if (confirmText !== "DELETE" || isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
     try {
-      const { mutationFn } = trpc.user.delete.mutationOptions() as any;
-      await mutationFn();
+      await deleteMutation.mutateAsync();
       await supabase.auth.signOut({ scope: "local" });
       router.push("/login");
     } catch (e: unknown) {
@@ -54,7 +61,11 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
           />
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button
@@ -72,5 +83,3 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
 }
 
 export { DeleteAccountModal };
-
-

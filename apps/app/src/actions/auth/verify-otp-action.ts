@@ -1,11 +1,11 @@
 "use server";
 
+import { actionClient } from "@/actions/safe-action";
+import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
 import { createClient } from "@v1/supabase/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { resolveAuthRedirectPath } from "@/lib/auth-redirect";
-import { actionClient } from "@/actions/safe-action";
 
 const schema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -40,12 +40,14 @@ export const verifyOtpAction = actionClient
     if (error) {
       // Provide user-friendly error messages
       if (error.message.includes("expired")) {
-        throw new Error("Verification code has expired. Please request a new one.");
+        throw new Error(
+          "Verification code has expired. Please request a new one.",
+        );
       }
       if (error.message.includes("invalid")) {
         throw new Error("Invalid verification code. Please try again.");
       }
-      
+
       throw new Error(error.message || "Invalid verification code");
     }
 
@@ -57,11 +59,15 @@ export const verifyOtpAction = actionClient
     const { data: userRes } = await supabase.auth.getUser();
     const user = userRes?.user ?? null;
     const cookieStore = await cookies();
-    const cookieHash = cookieStore.get("brand_invite_token_hash")?.value ?? null;
-    let acceptedBrand: boolean = false;
+    const cookieHash =
+      cookieStore.get("brand_invite_token_hash")?.value ?? null;
+    let acceptedBrand = false;
     if (user && cookieHash) {
       try {
-        const { error: rpcError } = await supabase.rpc("accept_invite_from_cookie", { p_token: cookieHash });
+        const { error: rpcError } = await supabase.rpc(
+          "accept_invite_from_cookie",
+          { p_token: cookieHash },
+        );
         if (!rpcError) acceptedBrand = true;
       } catch {
         // ignore failures
@@ -72,8 +78,10 @@ export const verifyOtpAction = actionClient
       }
     }
 
-    const destination = acceptedBrand ? "/" : await resolveAuthRedirectPath(supabase, {
-      next: sanitizeRedirectPath(redirectTo)
-    });
+    const destination = acceptedBrand
+      ? "/"
+      : await resolveAuthRedirectPath({
+          next: sanitizeRedirectPath(redirectTo),
+        });
     redirect(destination);
   });

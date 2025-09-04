@@ -1,9 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useCanLeaveBrandQuery, useLeaveBrandMutation } from "@/hooks/use-brand";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@v1/ui/dialog";
+import {
+  useCanLeaveBrandQuery,
+  useLeaveBrandMutation,
+} from "@/hooks/use-brand";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { Button } from "@v1/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@v1/ui/dialog";
+import { useEffect, useMemo, useState } from "react";
 
 interface Props {
   open: boolean;
@@ -14,7 +25,14 @@ interface Props {
   onLeft?: (nextBrandId: string | null) => void;
 }
 
-export function LeaveBrandModal({ open, onOpenChange, brandId, brandName, role, onLeft }: Props) {
+export function LeaveBrandModal({
+  open,
+  onOpenChange,
+  brandId,
+  brandName,
+  role,
+  onLeft,
+}: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,24 +47,28 @@ export function LeaveBrandModal({ open, onOpenChange, brandId, brandName, role, 
   const { data: canLeaveData } = useCanLeaveBrandQuery(brandId);
   const leaveMutation = useLeaveBrandMutation();
 
+  type RouterOutputs = inferRouterOutputs<AppRouter>;
+  type CanLeave = RouterOutputs["brand"]["canLeave"];
+  type LeaveBrandResult = RouterOutputs["brand"]["leave"];
+
   const isSoleOwnerBlocked = useMemo(() => {
-    const res = canLeaveData as any;
-    if (!res) return false;
-    if (res.canLeave === false && res.reason === "SOLE_OWNER") return true;
-    return false;
+    const res = canLeaveData as CanLeave | undefined;
+    return res?.canLeave === false && res?.reason === "SOLE_OWNER";
   }, [canLeaveData]);
 
-  const title = isSoleOwnerBlocked
-    ? "Cannot leave brand"
-    : "Leave brand";
+  const title = isSoleOwnerBlocked ? "Cannot leave brand" : "Leave brand";
 
   const descriptionNode = isSoleOwnerBlocked ? (
     <>
-      You are the sole owner of <span className="text-p !font-medium text-foreground">{brandName}</span>. Promote another member to owner or delete the brand to proceed.
+      You are the sole owner of{" "}
+      <span className="text-p !font-medium text-foreground">{brandName}</span>.
+      Promote another member to owner or delete the brand to proceed.
     </>
   ) : (
     <>
-      You are about to leave <span className="text-p !font-medium text-foreground">{brandName}</span>. You will lose access until re-invited.
+      You are about to leave{" "}
+      <span className="text-p !font-medium text-foreground">{brandName}</span>.
+      You will lose access until re-invited.
     </>
   );
 
@@ -54,15 +76,16 @@ export function LeaveBrandModal({ open, onOpenChange, brandId, brandName, role, 
     if (!brandId || isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
-    (leaveMutation as any).mutate(
+    leaveMutation.mutate(
       { id: brandId },
       {
-        onError: (e: any) => {
-          const message = e?.message || "Unable to leave brand";
+        onError: (e) => {
+          const message =
+            e instanceof Error ? e.message : "Unable to leave brand";
           setError(message);
           setIsSubmitting(false);
         },
-        onSuccess: (res: any) => {
+        onSuccess: (res: LeaveBrandResult) => {
           setIsSubmitting(false);
           onLeft?.(res?.nextBrandId ?? null);
           onOpenChange(false);
@@ -109,5 +132,3 @@ export function LeaveBrandModal({ open, onOpenChange, brandId, brandName, role, 
     </Dialog>
   );
 }
-
-

@@ -10,10 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@trigger.dev/sdk": "4.0.2",
     "@react-email/render": "^1.2.0",
-    "resend": "^4.0.0",
-    "react": "^18.3.1",
-    "@v1/email": "workspace:*"
+    "@trigger.dev/sdk": "4.0.2",
+    "@v1/email": "workspace:*",
+    "react": "19.1.1",
+    "resend": "^4.0.0"
   }
 }

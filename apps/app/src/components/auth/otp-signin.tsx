@@ -3,11 +3,11 @@
 import { verifyOtpAction } from "@/actions/auth/verify-otp-action";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createClient } from "@v1/supabase/client";
-import { cn } from "@v1/ui/cn";
 import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
-import { Label } from "@v1/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@v1/ui/input-otp";
+import { Label } from "@v1/ui/label";
 import { useAction } from "next-safe-action/hooks";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -134,11 +134,7 @@ export function OTPSignIn({ className }: Props) {
           />
         </div>
 
-        <Button
-          type="submit"
-          className="w-full h-10"
-          disabled={isLoading}
-        >
+        <Button type="submit" className="w-full h-10" disabled={isLoading}>
           {isLoading ? "Sending..." : "Continue"}
         </Button>
       </div>

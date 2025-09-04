@@ -1,5 +1,8 @@
 "use client";
 
+import { SignedAvatar } from "@/components/signed-avatar";
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import {
   DropdownMenu,
@@ -10,16 +13,19 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
-import { SignedAvatar } from "@/components/signed-avatar";
 import { Icons } from "@v1/ui/icons";
 import { useMemo } from "react";
-import { useTRPC } from "@/trpc/client";
-import { useQueryClient } from "@tanstack/react-query";
 
 interface MemberRow {
   id: string;
   role: "owner" | "member" | null;
-  user: { id: string | null; email: string | null; fullName: string | null; avatarUrl: string | null; avatarHue?: number | null } | null;
+  user: {
+    id: string | null;
+    email: string | null;
+    fullName: string | null;
+    avatarUrl: string | null;
+    avatarHue?: number | null;
+  } | null;
   created_at?: string | null;
 }
 
@@ -31,19 +37,34 @@ interface InviteRow {
   created_at: string | null;
 }
 
-type Props = ({ membership: MemberRow; currentUserId: string | null; locale: string } | { invite: InviteRow; locale: string });
+type Props =
+  | { membership: MemberRow; currentUserId: string | null; locale: string }
+  | { invite: InviteRow; locale: string };
 
 export function MembersRow(props: Props) {
-  if ("membership" in props) return <MembershipRow membership={props.membership} currentUserId={props.currentUserId} locale={props.locale} />;
+  if ("membership" in props)
+    return (
+      <MembershipRow
+        membership={props.membership}
+        currentUserId={props.currentUserId}
+        locale={props.locale}
+      />
+    );
   return <InviteRowComp invite={props.invite} locale={props.locale} />;
 }
 
-function MembershipRow({ membership, currentUserId, locale }: { membership: MemberRow; currentUserId: string | null; locale: string }) {
+function MembershipRow({
+  membership,
+  currentUserId,
+  locale,
+}: { membership: MemberRow; currentUserId: string | null; locale: string }) {
   const email = membership.user?.email ?? "";
   const role = membership.role === "owner" ? "Owner" : "Member";
   const isSelf = currentUserId && membership.user?.id === currentUserId;
 
-  const joinedDate = membership.created_at ? new Date(membership.created_at) : null;
+  const joinedDate = membership.created_at
+    ? new Date(membership.created_at)
+    : null;
   const joinedText = joinedDate
     ? `Joined ${joinedDate.toLocaleDateString(locale || "en", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })}`
     : "Joined";
@@ -56,7 +77,9 @@ function MembershipRow({ membership, currentUserId, locale }: { membership: Memb
           path={membership.user?.avatarUrl ?? null}
           hue={membership.user?.avatarHue ?? undefined}
           size={32}
-          name={membership.user?.fullName ?? membership.user?.email ?? undefined}
+          name={
+            membership.user?.fullName ?? membership.user?.email ?? undefined
+          }
         />
         <div className="flex flex-col">
           <span className="text-p !font-medium">{email}</span>
@@ -75,11 +98,18 @@ function MembershipRow({ membership, currentUserId, locale }: { membership: Memb
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>Assign role</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                <DropdownMenuItem disabled={membership.role === "owner"}>Owner</DropdownMenuItem>
-                <DropdownMenuItem disabled={membership.role === "member"}>Member</DropdownMenuItem>
+                <DropdownMenuItem disabled={membership.role === "owner"}>
+                  Owner
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={membership.role === "member"}>
+                  Member
+                </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuItem disabled={!!isSelf} className={isSelf ? undefined : "text-destructive"}>
+            <DropdownMenuItem
+              disabled={!!isSelf}
+              className={isSelf ? undefined : "text-destructive"}
+            >
               Remove member
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -89,9 +119,15 @@ function MembershipRow({ membership, currentUserId, locale }: { membership: Memb
   );
 }
 
-function InviteRowComp({ invite, locale }: { invite: InviteRow; locale: string }) {
+function InviteRowComp({
+  invite,
+  locale,
+}: { invite: InviteRow; locale: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const revokeInviteMutation = useMutation(
+    trpc.brand.revokeInvite.mutationOptions(),
+  );
 
   const expiresInDays = useMemo(() => {
     if (!invite.expires_at) return null;
@@ -103,21 +139,28 @@ function InviteRowComp({ invite, locale }: { invite: InviteRow; locale: string }
   }, [invite.expires_at]);
 
   async function onWithdraw() {
-    const mutation = trpc.brand.revokeInvite.mutationOptions();
-    await (mutation.mutationFn as any)({ invite_id: invite.id });
-    await queryClient.invalidateQueries({ queryKey: trpc.brand.listInvites.queryKey() });
+    await revokeInviteMutation.mutateAsync({ invite_id: invite.id });
+    await queryClient.invalidateQueries({
+      queryKey: trpc.brand.listInvites.queryKey(),
+    });
   }
 
   return (
     <div className="flex items-center justify-between">
       <div className="flex flex-col">
-          <span className="text-p !font-medium">{invite.email}</span>
-          <span className="text-p text-secondary">{invite.role === "owner" ? "Owner" : "Member"}</span>
+        <span className="text-p !font-medium">{invite.email}</span>
+        <span className="text-p text-secondary">
+          {invite.role === "owner" ? "Owner" : "Member"}
+        </span>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-p text-secondary">
-          {invite.created_at ? `Sent on ${new Date(invite.created_at).toLocaleDateString(locale || "en", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })}` : "Sent"}
-          {typeof expiresInDays === "number" ? `, expires in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}` : ""}
+          {invite.created_at
+            ? `Sent on ${new Date(invite.created_at).toLocaleDateString(locale || "en", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })}`
+            : "Sent"}
+          {typeof expiresInDays === "number"
+            ? `, expires in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}`
+            : ""}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -126,12 +169,12 @@ function InviteRowComp({ invite, locale }: { invite: InviteRow; locale: string }
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onWithdraw} className="text-destructive">Withdraw invite</DropdownMenuItem>
+            <DropdownMenuItem onClick={onWithdraw} className="text-destructive">
+              Withdraw invite
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
     </div>
   );
 }
-
-

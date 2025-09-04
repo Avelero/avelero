@@ -1,8 +1,8 @@
-import { initTRPC, TRPCError } from "@trpc/server";
-import superjson from "superjson";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
+import { TRPCError, initTRPC } from "@trpc/server";
 import type { Database } from "@v1/supabase/types";
+import superjson from "superjson";
 
 interface GeoContext {
   ip?: string | null;
@@ -16,7 +16,9 @@ export interface TRPCContext {
   brandId?: string | null;
 }
 
-function createSupabaseForRequest(authHeader?: string | null): SupabaseClient<Database> {
+function createSupabaseForRequest(
+  authHeader?: string | null,
+): SupabaseClient<Database> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
   return createSupabaseJsClient<Database>(url, anon, {
@@ -39,8 +41,10 @@ function createSupabaseAdmin(): SupabaseClient<Database> | null {
   return createSupabaseJsClient<Database>(url, serviceKey);
 }
 
-export async function createTRPCContextFromHeaders(headers: Record<string, string | undefined>): Promise<TRPCContext> {
-  const authHeader = headers["authorization"] ?? headers["Authorization"];
+export async function createTRPCContextFromHeaders(
+  headers: Record<string, string | undefined>,
+): Promise<TRPCContext> {
+  const authHeader = headers.authorization ?? headers.Authorization;
   const ip = headers["x-forwarded-for"] || headers["x-real-ip"];
   const supabase = createSupabaseForRequest(authHeader ?? null);
   const supabaseAdmin = createSupabaseAdmin();
@@ -62,7 +66,7 @@ export async function createTRPCContextFromHeaders(headers: Record<string, strin
       .select("brand_id")
       .eq("id", user.id)
       .single();
-    brandId = (data as any)?.brand_id ?? null;
+    brandId = (data as { brand_id: string | null } | null)?.brand_id ?? null;
   }
 
   return {
@@ -75,21 +79,26 @@ export async function createTRPCContextFromHeaders(headers: Record<string, strin
 }
 
 // Hono adapter wrapper: accepts Hono context shape ({ req: Request })
-export async function createTRPCContext(c: { req: Request }): Promise<TRPCContext> {
+export async function createTRPCContext(c: {
+  req: Request;
+}): Promise<TRPCContext> {
   // Support both Hono's c.req.header(name) and Web Request headers.get(name)
-  const reqAny = c.req as any;
+  const reqLike = c.req as Request &
+    Partial<{ header: (name: string) => string | undefined }>;
   const getHeader = (name: string): string | undefined => {
-    const viaMethod: string | undefined = reqAny?.header?.(name);
+    const viaMethod: string | undefined = reqLike.header?.(name);
     if (viaMethod) return viaMethod;
     try {
-      const viaHeaders = c.req.headers?.get?.(name) ?? c.req.headers?.get?.(name.toLowerCase());
+      const viaHeaders =
+        c.req.headers?.get?.(name) ?? c.req.headers?.get?.(name.toLowerCase());
       return viaHeaders ?? undefined;
     } catch {
       return undefined;
     }
   };
 
-  const authorization = getHeader("authorization") ?? getHeader("Authorization");
+  const authorization =
+    getHeader("authorization") ?? getHeader("Authorization");
   const xForwardedFor = getHeader("x-forwarded-for");
   const xRealIp = getHeader("x-real-ip");
 
@@ -122,10 +131,8 @@ export const publicProcedure = t.procedure.use(withPrimaryDbMiddleware);
 export const protectedProcedure = t.procedure
   .use(withTeamPermissionMiddleware)
   .use(withPrimaryDbMiddleware)
-  .use(async (opts: any) => {
+  .use(async (opts) => {
     const { user, brandId } = opts.ctx;
     if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
     return opts.next({ ctx: { ...opts.ctx, user, brandId } });
   });
-
-

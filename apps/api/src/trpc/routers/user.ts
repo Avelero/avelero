@@ -1,6 +1,10 @@
-import { createTRPCRouter, protectedProcedure } from "../init.js";
+import {
+  deleteUserAuth,
+  getUserById,
+  updateUser,
+} from "../../queries/users.js";
 import { updateUserSchema } from "../../schemas/user.js";
-import { deleteUserAuth, getUserById, updateUser } from "../../queries/users.js";
+import { createTRPCRouter, protectedProcedure } from "../init.js";
 
 export const userRouter = createTRPCRouter({
   me: protectedProcedure.query(async ({ ctx }) => {
@@ -23,5 +27,3 @@ export const userRouter = createTRPCRouter({
     return deleteUserAuth(supabaseAdmin ?? null, user.id);
   }),
 });
-
-

@@ -1,13 +1,20 @@
 // apps/app/src/components/modals/email-change-modal.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createClient as createSupabaseClient } from "@v1/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@v1/ui/dialog";
-import { Button } from "@v1/ui/button";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@v1/ui/input-otp";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createClient as createSupabaseClient } from "@v1/supabase/client";
+import { Button } from "@v1/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@v1/ui/dialog";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@v1/ui/input-otp";
+import * as React from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface Props {
   open: boolean;
@@ -30,6 +37,7 @@ export function EmailChangeModal({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const updateUserMutation = useMutation(trpc.user.update.mutationOptions());
+  const slotKeys = useMemo(() => ["a", "b", "c", "d", "e", "f"], []);
   const [step, setStep] = useState<Step>("otp_old");
   const [codeOld, setCodeOld] = useState("");
   const [codeNew, setCodeNew] = useState("");
@@ -59,13 +67,19 @@ export function EmailChangeModal({
 
   useEffect(() => {
     if (cooldownOld <= 0) return;
-    const i = setInterval(() => setCooldownOld((s) => (s > 0 ? s - 1 : 0)), 1000);
+    const i = setInterval(
+      () => setCooldownOld((s) => (s > 0 ? s - 1 : 0)),
+      1000,
+    );
     return () => clearInterval(i);
   }, [cooldownOld]);
 
   useEffect(() => {
     if (cooldownNew <= 0) return;
-    const i = setInterval(() => setCooldownNew((s) => (s > 0 ? s - 1 : 0)), 1000);
+    const i = setInterval(
+      () => setCooldownNew((s) => (s > 0 ? s - 1 : 0)),
+      1000,
+    );
     return () => clearInterval(i);
   }, [cooldownNew]);
 
@@ -147,7 +161,9 @@ export function EmailChangeModal({
     // Best-effort: mirror email to public.users and refresh cache
     try {
       await updateUserMutation.mutateAsync({ email: newEmail });
-      await queryClient.invalidateQueries({ queryKey: trpc.user.me.queryKey() });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.user.me.queryKey(),
+      });
     } catch {
       // ignore errors to avoid blocking success UX
     }
@@ -162,12 +178,14 @@ export function EmailChangeModal({
   const descriptionNode =
     step === "otp_old" ? (
       <>
-        Enter the 6-digit code sent to {" "}
-        <span className="text-p !font-medium text-foreground">{currentEmail}</span>
+        Enter the 6-digit code sent to{" "}
+        <span className="text-p !font-medium text-foreground">
+          {currentEmail}
+        </span>
       </>
     ) : step === "otp_new" ? (
       <>
-        Enter the 6-digit code sent to {" "}
+        Enter the 6-digit code sent to{" "}
         <span className="text-p !font-medium text-foreground">{newEmail}</span>
       </>
     ) : null;
@@ -177,7 +195,9 @@ export function EmailChangeModal({
       <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none w-auto max-w-fit">
         <DialogHeader>
           <DialogTitle className="text-foreground">{title}</DialogTitle>
-          <DialogDescription className="text-secondary w-full whitespace-normal break-words">{descriptionNode}</DialogDescription>
+          <DialogDescription className="text-secondary w-full whitespace-normal break-words">
+            {descriptionNode}
+          </DialogDescription>
         </DialogHeader>
 
         {step === "otp_old" && (
@@ -190,8 +210,15 @@ export function EmailChangeModal({
                 className="!mt-0 !mb-0 !m-0"
                 render={({ slots }) => (
                   <InputOTPGroup className="gap-2">
-                    {slots.map((slot, index) => (
-                      <InputOTPSlot key={index} {...slot} className="h-10 w-14" />
+                    {slots.map((slot, idx) => (
+                      <InputOTPSlot
+                        key={`old-${slotKeys[idx]}`}
+                        char={slot.char}
+                        hasFakeCaret={slot.hasFakeCaret}
+                        isActive={slot.isActive}
+                        placeholderChar={slot.placeholderChar}
+                        className="h-10 w-14"
+                      />
                     ))}
                   </InputOTPGroup>
                 )}
@@ -218,8 +245,8 @@ export function EmailChangeModal({
                 {isBusy && !sentOldOnce
                   ? "Sending..."
                   : codeOld.length === 6 && isBusy
-                  ? "Verifying..."
-                  : "Continue"}
+                    ? "Verifying..."
+                    : "Continue"}
               </Button>
             </div>
             <div className="w-full mt-2">
@@ -246,8 +273,15 @@ export function EmailChangeModal({
                 className="!mt-0 !mb-0 !m-0"
                 render={({ slots }) => (
                   <InputOTPGroup className="gap-2">
-                    {slots.map((slot, index) => (
-                      <InputOTPSlot key={index} {...slot} className="h-10 w-14" />
+                    {slots.map((slot, idx) => (
+                      <InputOTPSlot
+                        key={`new-${slotKeys[idx]}`}
+                        char={slot.char}
+                        hasFakeCaret={slot.hasFakeCaret}
+                        isActive={slot.isActive}
+                        placeholderChar={slot.placeholderChar}
+                        className="h-10 w-14"
+                      />
                     ))}
                   </InputOTPGroup>
                 )}
@@ -271,7 +305,9 @@ export function EmailChangeModal({
                 disabled={isBusy || codeNew.length !== 6}
                 className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
               >
-                {codeNew.length === 6 && isBusy ? "Verifying..." : "Update email"}
+                {codeNew.length === 6 && isBusy
+                  ? "Verifying..."
+                  : "Update email"}
               </Button>
             </div>
             <div className="w-full mt-2">
@@ -287,7 +323,6 @@ export function EmailChangeModal({
             </div>
           </div>
         )}
-
       </DialogContent>
     </Dialog>
   );

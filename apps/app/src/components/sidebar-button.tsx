@@ -28,7 +28,7 @@ export function SidebarButton({
   isActive,
   isExpanded,
   isItemExpanded, // reserved for nested items
-  onToggle,       // reserved for nested items
+  onToggle, // reserved for nested items
   onSelect,
 }: SidebarButtonProps) {
   return (
@@ -46,7 +46,7 @@ export function SidebarButton({
             "absolute top-0 h-10 border border-transparent",
             "transition-all duration-150 ease-out",
             isExpanded ? "left-0 right-0" : "left-0 w-10",
-            isActive ? "bg-accent-blue" : "group-hover:bg-accent"
+            isActive ? "bg-accent-blue" : "group-hover:bg-accent",
           )}
         />
 
@@ -56,7 +56,7 @@ export function SidebarButton({
             size={20}
             className={cn(
               "transition-colors duration-150 ease-out",
-              isActive ? "text-brand" : "group-hover:text-primary"
+              isActive ? "text-brand" : "group-hover:text-primary",
             )}
           />
         </div>
@@ -66,14 +66,16 @@ export function SidebarButton({
           className={cn(
             "absolute inset-y-0 left-10 right-2 flex items-center pointer-events-none",
             "transition-opacity duration-150 ease-out",
-            isExpanded ? "opacity-100" : "opacity-0"
+            isExpanded ? "opacity-100" : "opacity-0",
           )}
         >
           <span
             className={cn(
               "text-sm leading-[21px] font-medium truncate",
-              isActive ? "text-brand font-medium" : "text-secondary group-hover:text-primary",
-              "transition-colors duration-150 ease-out"
+              isActive
+                ? "text-brand font-medium"
+                : "text-secondary group-hover:text-primary",
+              "transition-colors duration-150 ease-out",
             )}
           >
             {item.name}

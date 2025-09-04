@@ -2,7 +2,9 @@ import type { TRPCContext } from "../init.js";
 
 export async function withTeamPermission<TReturn>(opts: {
   ctx: TRPCContext;
-  next: (opts: { ctx: TRPCContext & { brandId: string | null } }) => Promise<TReturn>;
+  next: (opts: {
+    ctx: TRPCContext & { brandId: string | null };
+  }) => Promise<TReturn>;
 }) {
   const { ctx, next } = opts;
 
@@ -16,5 +18,3 @@ export async function withTeamPermission<TReturn>(opts: {
   // here we only attach the brandId to ctx and allow routers to require it when needed.
   return next({ ctx: { ...ctx, brandId } });
 }
-
-

@@ -22,10 +22,25 @@ export async function getMembersByBrandId(
 ) {
   const { data, error } = await supabase
     .from("users_on_brand")
-    .select("user_id, role, created_at, users:users(id, email, full_name, avatar_path, avatar_hue)")
+    .select(
+      "user_id, role, created_at, users:users(id, email, full_name, avatar_path, avatar_hue)",
+    )
     .eq("brand_id", brandId);
   if (error) throw error;
-  return (data ?? []).map((row: any) => ({
+  type MemberRow = {
+    user_id: string | null;
+    role: string | null;
+    created_at: string | null;
+    users: {
+      id: string | null;
+      email: string | null;
+      full_name: string | null;
+      avatar_path: string | null;
+      avatar_hue: number | null;
+    } | null;
+  };
+  const rows = (data ?? []) as MemberRow[];
+  return rows.map((row) => ({
     id: row.user_id as string,
     role: (row.role as string) ?? null,
     teamId: brandId,
@@ -39,5 +54,3 @@ export async function getMembersByBrandId(
     },
   }));
 }
-
-

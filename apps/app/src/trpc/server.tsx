@@ -8,13 +8,14 @@ import {
 } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { createClient as createSupabaseServerClient } from "@v1/supabase/server";
+import { getApiUrl } from "@v1/utils/envs";
 import { cache } from "react";
 import superjson from "superjson";
 import { makeQueryClient } from "./query-client";
 
 export const getQueryClient = cache(makeQueryClient);
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const apiUrl = getApiUrl();
 
 export const trpc = createTRPCOptionsProxy<AppRouter>({
   queryClient: getQueryClient,

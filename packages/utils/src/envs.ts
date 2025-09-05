@@ -5,11 +5,15 @@
 
 export function getApiUrl() {
   // Temporary debugging - remove after fixing
-  if (typeof window === "undefined") {
-    console.log("🔍 DEBUG getApiUrl:");
-    console.log("  VERCEL_ENV =", process.env.VERCEL_ENV);
-    console.log("  NODE_ENV =", process.env.NODE_ENV);
-    console.log("  VERCEL_URL =", process.env.VERCEL_URL);
+  if (
+    typeof globalThis !== "undefined" &&
+    typeof globalThis.window === "undefined"
+  ) {
+    console.error("🚨 DEBUG getApiUrl:", {
+      VERCEL_ENV: process.env.VERCEL_ENV,
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL_URL: process.env.VERCEL_URL,
+    });
   }
 
   // Production environment

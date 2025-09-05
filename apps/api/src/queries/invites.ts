@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { tasks } from "@trigger.dev/sdk/v3";
 import type { Database } from "@v1/supabase/types";
+import { getAppUrl } from "@v1/utils/envs";
 import { assertOwner } from "./brand-members.js";
 
 interface ErrorResult {
@@ -151,8 +152,7 @@ export async function sendBrandInvite(
   // Ensure inviter is owner of the brand
   await assertOwner(supabase, params.created_by, params.brand_id);
 
-  const appUrl = process.env.APP_URL as string | undefined;
-  if (!appUrl) throw new Error("APP_URL missing");
+  const appUrl = getAppUrl();
 
   // check if user exists
   async function isExistingUserByEmail(email: string) {

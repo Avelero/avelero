@@ -4,35 +4,20 @@
  */
 
 export function getApiUrl() {
-  // Temporary debugging - remove after fixing
-  if (
-    typeof globalThis !== "undefined" &&
-    typeof globalThis.window === "undefined"
-  ) {
-    console.error("🚨 DEBUG getApiUrl:", {
-      VERCEL_ENV: process.env.VERCEL_ENV,
-      NODE_ENV: process.env.NODE_ENV,
-      VERCEL_URL: process.env.VERCEL_URL,
-    });
-  }
-
   // Production environment
   if (
     process.env.VERCEL_ENV === "production" ||
     process.env.NODE_ENV === "production"
   ) {
-    console.log("🚀 Using PRODUCTION API");
     return "https://avelero-api.fly.dev";
   }
 
   // Preview/staging environment
   if (process.env.VERCEL_ENV === "preview") {
-    console.log("🔧 Using STAGING API");
     return "https://avelero-api-staging.fly.dev";
   }
 
   // Local development - use localhost API server
-  console.log("🏠 Using LOCALHOST API");
   return "http://localhost:4000";
 }
 

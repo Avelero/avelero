@@ -1,24 +1,12 @@
-/**
- * Dynamic environment utilities for Avelero
- * Automatically detects the environment and returns appropriate URLs
- */
-
-// TEMPORARY DEBUG - Remove after fixing CORS issue
-console.log("BUILD TIME - VERCEL_ENV:", process.env.VERCEL_ENV);
-console.log("BUILD TIME - NODE_ENV:", process.env.NODE_ENV);
-
 export function getApiUrl() {
-  // Production environment
-  if (
-    process.env.VERCEL_ENV === "production" ||
-    process.env.NODE_ENV === "production"
-  ) {
-    return "https://avelero-api.fly.dev";
-  }
-
-  // Preview/staging environment
+  // Preview/staging environment - check first
   if (process.env.VERCEL_ENV === "preview") {
     return "https://avelero-api-staging.fly.dev";
+  }
+
+  // Production environment
+  if (process.env.VERCEL_ENV === "production") {
+    return "https://avelero-api.fly.dev";
   }
 
   // Local development - use localhost API server
@@ -26,17 +14,14 @@ export function getApiUrl() {
 }
 
 export function getAppUrl() {
-  // Production environment
-  if (
-    process.env.VERCEL_ENV === "production" ||
-    process.env.NODE_ENV === "production"
-  ) {
-    return "https://app.avelero.com";
-  }
-
-  // Preview/staging environment
+  // Preview/staging environment - check first
   if (process.env.VERCEL_ENV === "preview") {
     return `https://${process.env.VERCEL_URL}`;
+  }
+
+  // Production environment
+  if (process.env.VERCEL_ENV === "production") {
+    return "https://app.avelero.com";
   }
 
   // Local development
@@ -44,17 +29,14 @@ export function getAppUrl() {
 }
 
 export function getWebsiteUrl() {
-  // Production environment
-  if (
-    process.env.VERCEL_ENV === "production" ||
-    process.env.NODE_ENV === "production"
-  ) {
-    return "https://avelero.com";
-  }
-
-  // Preview/staging environment
+  // Preview/staging environment - check first
   if (process.env.VERCEL_ENV === "preview") {
     return `https://${process.env.VERCEL_URL}`;
+  }
+
+  // Production environment
+  if (process.env.VERCEL_ENV === "production") {
+    return "https://avelero.com";
   }
 
   // Local development - use localhost

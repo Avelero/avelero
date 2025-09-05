@@ -2,3 +2,4 @@
 # Trigger workflow test
 # Final test
 # Test successful deployment
+# Test with explicit env vars

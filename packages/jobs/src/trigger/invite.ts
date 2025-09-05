@@ -1,7 +1,7 @@
 import { render } from "@react-email/render";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import InviteEmail from "@v1/email/emails/invite";
-import { resend } from "../utils/resend";
+import { getResend } from "../utils/resend";
 
 type InvitePayload = {
   invites: Array<{
@@ -33,6 +33,7 @@ export const inviteBrandMembers = task({
         }),
       );
 
+      const resend = getResend();
       const res = await resend.emails.send({
         from,
         to: [invite.recipientEmail],

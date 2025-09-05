@@ -3,6 +3,10 @@
  * Automatically detects the environment and returns appropriate URLs
  */
 
+// TEMPORARY DEBUG - Remove after fixing CORS issue
+console.log("BUILD TIME - VERCEL_ENV:", process.env.VERCEL_ENV);
+console.log("BUILD TIME - NODE_ENV:", process.env.NODE_ENV);
+
 export function getApiUrl() {
   // Production environment
   if (

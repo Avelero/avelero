@@ -1,12 +1,15 @@
 export function getApiUrl() {
-  // Preview/staging environment - check first
-  if (process.env.VERCEL_ENV === "preview") {
-    return "https://avelero-api-staging.fly.dev";
+  // Production environment
+  if (
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NODE_ENV === "production"
+  ) {
+    return "https://avelero-api.fly.dev";
   }
 
-  // Production environment
-  if (process.env.VERCEL_ENV === "production") {
-    return "https://avelero-api.fly.dev";
+  // Preview/staging environment
+  if (process.env.VERCEL_ENV === "preview") {
+    return "https://avelero-api-staging.fly.dev";
   }
 
   // Local development - use localhost API server
@@ -14,14 +17,17 @@ export function getApiUrl() {
 }
 
 export function getAppUrl() {
-  // Preview/staging environment - check first
-  if (process.env.VERCEL_ENV === "preview") {
-    return `https://${process.env.VERCEL_URL}`;
+  // Production environment
+  if (
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NODE_ENV === "production"
+  ) {
+    return "https://app.avelero.com";
   }
 
-  // Production environment
-  if (process.env.VERCEL_ENV === "production") {
-    return "https://app.avelero.com";
+  // Preview/staging environment
+  if (process.env.VERCEL_ENV === "preview") {
+    return `https://${process.env.VERCEL_URL}`;
   }
 
   // Local development
@@ -29,14 +35,17 @@ export function getAppUrl() {
 }
 
 export function getWebsiteUrl() {
-  // Preview/staging environment - check first
-  if (process.env.VERCEL_ENV === "preview") {
-    return `https://${process.env.VERCEL_URL}`;
+  // Production environment
+  if (
+    process.env.VERCEL_ENV === "production" ||
+    process.env.NODE_ENV === "production"
+  ) {
+    return "https://avelero.com";
   }
 
-  // Production environment
-  if (process.env.VERCEL_ENV === "production") {
-    return "https://avelero.com";
+  // Preview/staging environment
+  if (process.env.VERCEL_ENV === "preview") {
+    return `https://${process.env.VERCEL_URL}`;
   }
 
   // Local development - use localhost

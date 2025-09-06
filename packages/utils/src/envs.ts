@@ -36,6 +36,6 @@ export function getWebsiteUrl() {
   return "http://localhost:3000";
 }
 
-export function getCdnUrl() {
-  return "https://cdn.avelero.com";
-}
+// export function getCdnUrl() {
+//   return "https://cdn.avelero.com";
+// }

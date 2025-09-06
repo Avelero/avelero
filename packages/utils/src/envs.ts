@@ -1,32 +1,4 @@
-/**
- * Dynamic environment utilities for Avelero
- * Automatically detects the environment and returns appropriate URLs
- */
-
-// TEMPORARY DEBUG - Remove after fixing CORS issue
-console.log("BUILD TIME - VERCEL_ENV:", process.env.VERCEL_ENV);
-console.log("BUILD TIME - NODE_ENV:", process.env.NODE_ENV);
-
-export function getApiUrl() {
-  // Production environment
-  if (
-    process.env.VERCEL_ENV === "production" ||
-    process.env.NODE_ENV === "production"
-  ) {
-    return "https://avelero-api.fly.dev";
-  }
-
-  // Preview/staging environment
-  if (process.env.VERCEL_ENV === "preview") {
-    return "https://avelero-api-staging.fly.dev";
-  }
-
-  // Local development - use localhost API server
-  return "http://localhost:4000";
-}
-
 export function getAppUrl() {
-  // Production environment
   if (
     process.env.VERCEL_ENV === "production" ||
     process.env.NODE_ENV === "production"
@@ -34,17 +6,22 @@ export function getAppUrl() {
     return "https://app.avelero.com";
   }
 
-  // Preview/staging environment
   if (process.env.VERCEL_ENV === "preview") {
     return `https://${process.env.VERCEL_URL}`;
   }
 
-  // Local development
-  return "http://localhost:3000";
+  return "http://localhost:3001";
+}
+
+export function getEmailUrl() {
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:3000";
+  }
+
+  return "https://avelero.com";
 }
 
 export function getWebsiteUrl() {
-  // Production environment
   if (
     process.env.VERCEL_ENV === "production" ||
     process.env.NODE_ENV === "production"
@@ -52,11 +29,13 @@ export function getWebsiteUrl() {
     return "https://avelero.com";
   }
 
-  // Preview/staging environment
   if (process.env.VERCEL_ENV === "preview") {
     return `https://${process.env.VERCEL_URL}`;
   }
 
-  // Local development - use localhost
   return "http://localhost:3000";
+}
+
+export function getCdnUrl() {
+  return "https://cdn.avelero.com";
 }

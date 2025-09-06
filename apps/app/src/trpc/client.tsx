@@ -6,7 +6,7 @@ import { createTRPCClient, httpBatchLink, loggerLink } from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { createClient as createSupabaseClient } from "@v1/supabase/client";
-import { getApiUrl } from "@v1/utils/envs";
+// API base URL is configured via NEXT_PUBLIC_API_URL per environment
 import { useState } from "react";
 import superjson from "superjson";
 import { makeQueryClient } from "./query-client";
@@ -21,7 +21,7 @@ function getQueryClient(): QueryClient {
   return browserQueryClient;
 }
 
-const apiUrl = getApiUrl();
+const apiUrl = process.env.NEXT_PUBLIC_API_URL as string;
 
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
   const queryClient = getQueryClient();

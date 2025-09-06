@@ -58,9 +58,72 @@ function MembershipRow({
   currentUserId,
   locale,
 }: { membership: MemberRow; currentUserId: string | null; locale: string }) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const email = membership.user?.email ?? "";
   const role = membership.role === "owner" ? "Owner" : "Member";
   const isSelf = currentUserId && membership.user?.id === currentUserId;
+  const updateMemberMutation = useMutation(
+    trpc.brand.updateMember.mutationOptions({
+      onMutate: async (variables) => {
+        await queryClient.cancelQueries({
+          queryKey: trpc.brand.members.queryKey(),
+        });
+        const previous = queryClient.getQueryData(
+          trpc.brand.members.queryKey(),
+        ) as Array<MemberRow> | undefined;
+        queryClient.setQueryData(
+          trpc.brand.members.queryKey(),
+          (old: Array<MemberRow> | undefined) =>
+            (old ?? []).map((m) =>
+              m.user?.id === variables.user_id
+                ? { ...m, role: variables.role }
+                : m,
+            ),
+        );
+        return { previous } as const;
+      },
+      onError: (_e, _v, ctx) => {
+        if (ctx?.previous) {
+          queryClient.setQueryData(trpc.brand.members.queryKey(), ctx.previous);
+        }
+      },
+      onSettled: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.brand.members.queryKey(),
+        });
+      },
+    }),
+  );
+
+  const deleteMemberMutation = useMutation(
+    trpc.brand.deleteMember.mutationOptions({
+      onMutate: async (variables) => {
+        await queryClient.cancelQueries({
+          queryKey: trpc.brand.members.queryKey(),
+        });
+        const previous = queryClient.getQueryData(
+          trpc.brand.members.queryKey(),
+        ) as Array<MemberRow> | undefined;
+        queryClient.setQueryData(
+          trpc.brand.members.queryKey(),
+          (old: Array<MemberRow> | undefined) =>
+            (old ?? []).filter((m) => m.user?.id !== variables.user_id),
+        );
+        return { previous } as const;
+      },
+      onError: (_e, _v, ctx) => {
+        if (ctx?.previous) {
+          queryClient.setQueryData(trpc.brand.members.queryKey(), ctx.previous);
+        }
+      },
+      onSettled: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.brand.members.queryKey(),
+        });
+      },
+    }),
+  );
 
   const joinedDate = membership.created_at
     ? new Date(membership.created_at)
@@ -98,10 +161,26 @@ function MembershipRow({
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>Assign role</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
-                <DropdownMenuItem disabled={membership.role === "owner"}>
+                <DropdownMenuItem
+                  disabled={membership.role === "owner"}
+                  onClick={() =>
+                    updateMemberMutation.mutate({
+                      user_id: membership.user?.id as string,
+                      role: "owner",
+                    })
+                  }
+                >
                   Owner
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled={membership.role === "member"}>
+                <DropdownMenuItem
+                  disabled={membership.role === "member"}
+                  onClick={() =>
+                    updateMemberMutation.mutate({
+                      user_id: membership.user?.id as string,
+                      role: "member",
+                    })
+                  }
+                >
                   Member
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
@@ -109,6 +188,11 @@ function MembershipRow({
             <DropdownMenuItem
               disabled={!!isSelf}
               className={isSelf ? undefined : "text-destructive"}
+              onClick={() =>
+                deleteMemberMutation.mutate({
+                  user_id: membership.user?.id as string,
+                })
+              }
             >
               Remove member
             </DropdownMenuItem>
@@ -126,7 +210,42 @@ function InviteRowComp({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const revokeInviteMutation = useMutation(
-    trpc.brand.revokeInvite.mutationOptions(),
+    trpc.brand.revokeInvite.mutationOptions({
+      onMutate: async (variables) => {
+        await queryClient.cancelQueries({
+          queryKey: trpc.brand.listInvites.queryKey(),
+        });
+
+        const previous = queryClient.getQueryData(
+          trpc.brand.listInvites.queryKey(),
+        ) as { data?: InviteRow[] } | undefined;
+
+        queryClient.setQueryData(
+          trpc.brand.listInvites.queryKey(),
+          (old: { data?: InviteRow[] } | undefined) => {
+            const current = old?.data ?? [];
+            return {
+              data: current.filter((i) => i.id !== variables.invite_id),
+            };
+          },
+        );
+
+        return { previous } as const;
+      },
+      onError: (_err, _vars, ctx) => {
+        if (ctx?.previous) {
+          queryClient.setQueryData(
+            trpc.brand.listInvites.queryKey(),
+            ctx.previous,
+          );
+        }
+      },
+      onSettled: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.brand.listInvites.queryKey(),
+        });
+      },
+    }),
   );
 
   const expiresInDays = useMemo(() => {
@@ -140,9 +259,6 @@ function InviteRowComp({
 
   async function onWithdraw() {
     await revokeInviteMutation.mutateAsync({ invite_id: invite.id });
-    await queryClient.invalidateQueries({
-      queryKey: trpc.brand.listInvites.queryKey(),
-    });
   }
 
   return (

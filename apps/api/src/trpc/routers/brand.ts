@@ -1,6 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { getMembersByBrandId } from "../../queries/brand-members.js";
+import {
+  getMembersByBrandId,
+  deleteMember as qDeleteMember,
+  updateMemberRole as qUpdateMemberRole,
+} from "../../queries/brand-members.js";
 import {
   listBrandsForUser,
   canLeaveBrand as qCanLeaveBrand,
@@ -21,12 +25,14 @@ import {
 import {
   acceptInviteSchema,
   createBrandSchema,
+  deleteMemberSchema,
   idParamSchema,
   listInvitesSchema,
   rejectInviteSchema,
   revokeInviteSchema,
   sendInviteSchema,
   updateBrandSchema,
+  updateMemberSchema,
 } from "../../schemas/brand.js";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
 // acceptInviteForUser is imported from queries/brands.ts above
@@ -174,4 +180,45 @@ export const brandRouter = createTRPCRouter({
       throw new TRPCError({ code: "BAD_REQUEST", message: "No active brand" });
     return getMembersByBrandId(supabase, brandId);
   }),
+
+  updateMember: protectedProcedure
+    .input(updateMemberSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { supabase, user, brandId } = ctx;
+      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+      if (!brandId)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No active brand",
+        });
+      await qUpdateMemberRole(
+        supabase,
+        user.id,
+        brandId,
+        input.user_id,
+        input.role,
+      );
+      return { success: true } as const;
+    }),
+
+  deleteMember: protectedProcedure
+    .input(deleteMemberSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { supabase, user, brandId } = ctx;
+      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+      if (!brandId)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No active brand",
+        });
+      try {
+        await qDeleteMember(supabase, user.id, brandId, input.user_id);
+        return { success: true } as const;
+      } catch (e) {
+        if (e instanceof Error && e.message === "SOLE_OWNER") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "SOLE_OWNER" });
+        }
+        throw e;
+      }
+    }),
 });

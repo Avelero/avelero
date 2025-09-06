@@ -7,7 +7,6 @@ export const env = createEnv({
       .string()
       .optional()
       .transform((v) => (v ? `https://${v}` : undefined)),
-    VERCEL_TARGET_ENV: z.string().optional(),
     PORT: z.coerce.number().default(3000),
   },
   server: {
@@ -35,7 +34,6 @@ export const env = createEnv({
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     VERCEL_URL: process.env.VERCEL_URL,
-    VERCEL_TARGET_ENV: process.env.VERCEL_TARGET_ENV,
   },
   skipValidation: !!process.env.CI || !!process.env.SKIP_ENV_VALIDATION,
 });

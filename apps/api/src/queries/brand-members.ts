@@ -54,3 +54,55 @@ export async function getMembersByBrandId(
     },
   }));
 }
+
+export async function updateMemberRole(
+  supabase: SupabaseClient<Database>,
+  actingUserId: string,
+  brandId: string,
+  userId: string,
+  role: "owner" | "member",
+) {
+  // Ensure acting user is owner
+  await assertOwner(supabase, actingUserId, brandId);
+  const { error } = await supabase
+    .from("users_on_brand")
+    .update({ role })
+    .eq("brand_id", brandId)
+    .eq("user_id", userId);
+  if (error) throw error;
+  return { success: true } as const;
+}
+
+export async function deleteMember(
+  supabase: SupabaseClient<Database>,
+  actingUserId: string,
+  brandId: string,
+  userId: string,
+) {
+  // Ensure acting user is owner and prevent removing last owner
+  await assertOwner(supabase, actingUserId, brandId);
+  // Check target role
+  const { data: target, error: readErr } = await supabase
+    .from("users_on_brand")
+    .select("role")
+    .eq("brand_id", brandId)
+    .eq("user_id", userId)
+    .single();
+  if (readErr) throw readErr;
+  if ((target?.role as string) === "owner") {
+    const { count, error: countErr } = await supabase
+      .from("users_on_brand")
+      .select("*", { count: "exact", head: true })
+      .eq("brand_id", brandId)
+      .eq("role", "owner");
+    if (countErr) throw countErr;
+    if ((count ?? 0) <= 1) throw new Error("SOLE_OWNER");
+  }
+  const { error } = await supabase
+    .from("users_on_brand")
+    .delete()
+    .eq("brand_id", brandId)
+    .eq("user_id", userId);
+  if (error) throw error;
+  return { success: true } as const;
+}

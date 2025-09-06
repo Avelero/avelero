@@ -1,7 +1,14 @@
 {
   "name": "v1",
+  "devDependencies": {
+    "@biomejs/biome": "1.8.3",
+    "@v1/tsconfig": "workspace:*",
+    "entities": "^6.0.1",
+    "turbo": "2.5.6",
+    "typescript": "^5.9.2"
+  },
+  "packageManager": "bun@1.2.21",
   "private": true,
-  "workspaces": ["packages/*", "apps/*"],
   "scripts": {
     "build": "turbo build",
     "build:app": "turbo build --filter=@v1/app",
@@ -21,12 +28,5 @@
     "lint:repo:fix": "bunx sherif@latest --fix",
     "typecheck": "turbo typecheck"
   },
-  "devDependencies": {
-    "@biomejs/biome": "1.8.3",
-    "@v1/tsconfig": "workspace:*",
-    "entities": "^6.0.1",
-    "turbo": "2.5.6",
-    "typescript": "^5.9.2"
-  },
-  "packageManager": "bun@1.2.21"
+  "workspaces": ["packages/*", "apps/*"]
 }

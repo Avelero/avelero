@@ -1,7 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import {
   Command,
@@ -78,6 +78,7 @@ function RoleSelector({
 
 export function InviteModal({ brandId }: { brandId: string }) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [invitees, setInvitees] = useState<Invitee[]>([
     {
@@ -89,7 +90,15 @@ export function InviteModal({ brandId }: { brandId: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const sendInvite = useMutation(trpc.brand.sendInvite.mutationOptions());
+  const sendInvite = useMutation(
+    trpc.brand.sendInvite.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({
+          queryKey: trpc.brand.listInvites.queryKey(),
+        });
+      },
+    }),
+  );
 
   function updateInvitee(index: number, patch: Partial<Invitee>) {
     setInvitees((prev) =>

@@ -29,3 +29,12 @@ export const listInvitesSchema = z.object({ brand_id: z.string().uuid() });
 
 export const acceptInviteSchema = z.object({ id: z.string().uuid() });
 export const rejectInviteSchema = z.object({ id: z.string().uuid() });
+
+export const updateMemberSchema = z.object({
+  user_id: z.string().uuid(),
+  role: z.enum(["owner", "member"]),
+});
+
+export const deleteMemberSchema = z.object({
+  user_id: z.string().uuid(),
+});

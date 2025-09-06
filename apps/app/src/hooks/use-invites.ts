@@ -7,6 +7,8 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 
 export function useMyInvitesQuery() {
   const trpc = useTRPC();
@@ -23,9 +25,37 @@ export function useMyInvitesQuerySuspense() {
 export function useAcceptInviteMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  type RouterOutputs = inferRouterOutputs<AppRouter>;
+  type MyInvites = RouterOutputs["brand"]["myInvites"];
   return useMutation(
     trpc.brand.acceptInvite.mutationOptions({
-      onSuccess: async () => {
+      onMutate: async (variables) => {
+        await queryClient.cancelQueries({
+          queryKey: trpc.brand.myInvites.queryKey(),
+        });
+        const previous = queryClient.getQueryData<MyInvites | undefined>(
+          trpc.brand.myInvites.queryKey(),
+        );
+
+        queryClient.setQueryData<MyInvites | undefined>(
+          trpc.brand.myInvites.queryKey(),
+          (old) =>
+            old
+              ? {
+                  data: old.data.filter((i) => i.id !== variables.id),
+                }
+              : old,
+        );
+
+        return { previous } as const;
+      },
+      onError: (_err, _vars, ctx) => {
+        queryClient.setQueryData(
+          trpc.brand.myInvites.queryKey(),
+          ctx?.previous,
+        );
+      },
+      onSettled: async () => {
         // refresh invite inbox and memberships
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.myInvites.queryKey(),
@@ -44,9 +74,35 @@ export function useAcceptInviteMutation() {
 export function useRejectInviteMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  type RouterOutputs = inferRouterOutputs<AppRouter>;
+  type MyInvites = RouterOutputs["brand"]["myInvites"];
   return useMutation(
     trpc.brand.rejectInvite.mutationOptions({
-      onSuccess: async () => {
+      onMutate: async (variables) => {
+        await queryClient.cancelQueries({
+          queryKey: trpc.brand.myInvites.queryKey(),
+        });
+        const previous = queryClient.getQueryData<MyInvites | undefined>(
+          trpc.brand.myInvites.queryKey(),
+        );
+        queryClient.setQueryData<MyInvites | undefined>(
+          trpc.brand.myInvites.queryKey(),
+          (old) =>
+            old
+              ? {
+                  data: old.data.filter((i) => i.id !== variables.id),
+                }
+              : old,
+        );
+        return { previous } as const;
+      },
+      onError: (_err, _vars, ctx) => {
+        queryClient.setQueryData(
+          trpc.brand.myInvites.queryKey(),
+          ctx?.previous,
+        );
+      },
+      onSettled: async () => {
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.myInvites.queryKey(),
         });

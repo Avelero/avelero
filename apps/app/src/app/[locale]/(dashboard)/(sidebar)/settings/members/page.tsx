@@ -1,6 +1,8 @@
 import { MembersTable } from "@/components/tables/members/members";
+import { MembersSkeleton } from "@/components/tables/members/skeleton";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import { createClient as createSupabaseServerClient } from "@v1/supabase/server";
+import { Suspense } from "react";
 
 export default async function Page() {
   // Prefetch members and invites for better UX using server-side brand context
@@ -32,7 +34,9 @@ export default async function Page() {
   return (
     <HydrateClient>
       <div className="w-full max-w-[700px]">
-        <MembersTable />
+        <Suspense fallback={<MembersSkeleton />}>
+          <MembersTable />
+        </Suspense>
       </div>
     </HydrateClient>
   );

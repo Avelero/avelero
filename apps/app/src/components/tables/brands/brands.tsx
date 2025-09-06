@@ -2,14 +2,14 @@
 
 import {
   usePrefetchCanLeaveForBrands,
-  useUserBrandsQuery,
+  useUserBrandsQuerySuspense,
 } from "@/hooks/use-brand";
-import { useMyInvitesQuery } from "@/hooks/use-invites";
+import { useMyInvitesQuerySuspense } from "@/hooks/use-invites";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { Skeleton } from "@v1/ui/skeleton";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { BrandsHeader } from "./brands-header";
 import { BrandsRow } from "./brands-row";
 
@@ -33,11 +33,9 @@ export function BrandsTable() {
   const params = useParams<{ locale?: string }>();
   const locale = params?.locale ?? "en";
   const [tab, setTab] = useState<TabKey>("brands");
-  const search = useSearchParams();
-  const router = useRouter();
 
-  const { data: brandsRes, isLoading: loadingBrands } = useUserBrandsQuery();
-  const { data: invitesRes, isLoading: loadingInvites } = useMyInvitesQuery();
+  const { data: brandsRes } = useUserBrandsQuerySuspense();
+  const { data: invitesRes } = useMyInvitesQuerySuspense();
 
   const memberships = useMemo(
     (): Membership[] => brandsRes?.data ?? [],
@@ -100,12 +98,7 @@ export function BrandsTable() {
       .filter((id): id is string => Boolean(id)),
   );
 
-  useEffect(() => {
-    const t = search?.get("tab");
-    if (t === "invites" || t === "brands") setTab(t);
-  }, [search]);
-
-  const isLoading = tab === "brands" ? loadingBrands : loadingInvites;
+  // Local-only tab state: no URL or router coupling
 
   return (
     <div className="space-y-4">
@@ -113,33 +106,12 @@ export function BrandsTable() {
         activeTab={tab}
         onTabChange={(t) => {
           setTab(t);
-          const sp = new URLSearchParams(search ?? undefined);
-          sp.set("tab", t);
-          router.replace(`?${sp.toString()}`);
         }}
         locale={String(locale)}
       />
 
       <div className="border">
-        {isLoading ? (
-          <div className="p-4 space-y-2">
-            {[0, 1, 2].map((k) => (
-              <div
-                key={k}
-                className="flex items-center justify-between p-3 border rounded"
-              >
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-8 w-8 rounded-full" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-40" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                </div>
-                <Skeleton className="h-8 w-20" />
-              </div>
-            ))}
-          </div>
-        ) : tab === "brands" ? (
+        {tab === "brands" ? (
           displayMemberships.length ? (
             <div className="divide-y">
               {displayMemberships.map((row) => (

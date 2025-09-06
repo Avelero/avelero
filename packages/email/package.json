@@ -14,10 +14,14 @@
   },
   "dependencies": {
     "@react-email/components": "0.0.42",
+    "@react-email/render": "1.1.2",
     "@react-email/tailwind": "1.0.5",
-    "react-email": "4.0.16"
+    "@v1/ui": "workspace:*",
+    "@v1/utils": "workspace:*",
+    "react-email": "4.2.8"
   },
   "devDependencies": {
+    "@react-email/preview-server": "4.2.8",
     "typescript": "^5.9.2"
   },
   "exports": {

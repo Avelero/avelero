@@ -4,8 +4,8 @@ import { useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Skeleton } from "@v1/ui/skeleton";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { MembersHeader } from "./members-header";
 import { MembersRow } from "./members-row";
 
@@ -15,8 +15,6 @@ export function MembersTable() {
   const params = useParams<{ locale?: string }>();
   const locale = params?.locale ?? "en";
   const [tab, setTab] = useState<TabKey>("members");
-  const search = useSearchParams();
-  const router = useRouter();
 
   const trpc = useTRPC();
   const { data: me } = useUserQuery();
@@ -24,15 +22,9 @@ export function MembersTable() {
   const meUser = (me as unknown as CurrentUserLike | null | undefined) ?? null;
   const brandId = meUser?.brand_id ?? null;
 
-  const membersOptions = useMemo(
-    () => ({
-      ...trpc.brand.members.queryOptions(),
-      enabled: typeof window !== "undefined",
-    }),
-    [trpc],
+  const { data: membersRes } = useSuspenseQuery(
+    trpc.brand.members.queryOptions(),
   );
-  const { data: membersRes, isLoading: loadingMembers } =
-    useQuery(membersOptions);
 
   const invitesOptions = useMemo(
     () => ({
@@ -74,12 +66,7 @@ export function MembersTable() {
     return Array.isArray(inv) ? (inv as InviteItem[]) : [];
   }, [invitesRes]);
 
-  useEffect(() => {
-    const t = search?.get("tab");
-    if (t === "invites" || t === "members") setTab(t);
-  }, [search]);
-
-  const isLoading = tab === "members" ? loadingMembers : loadingInvites;
+  const isLoading = tab === "invites" ? loadingInvites : false;
   const rows = tab === "members" ? members : invites;
 
   return (
@@ -88,9 +75,6 @@ export function MembersTable() {
         activeTab={tab}
         onTabChange={(t) => {
           setTab(t);
-          const sp = new URLSearchParams(search ?? undefined);
-          sp.set("tab", t);
-          router.replace(`?${sp.toString()}`);
         }}
         locale={String(locale)}
         brandId={brandId ?? undefined}

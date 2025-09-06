@@ -3,6 +3,8 @@
 import { SignedAvatar } from "@/components/signed-avatar";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { Button } from "@v1/ui/button";
 import {
   DropdownMenu,
@@ -36,6 +38,10 @@ interface InviteRow {
   expires_at: string | null;
   created_at: string | null;
 }
+
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type Members = RouterOutputs["brand"]["members"];
+type ListInvites = RouterOutputs["brand"]["listInvites"];
 
 type Props =
   | { membership: MemberRow; currentUserId: string | null; locale: string }
@@ -71,21 +77,26 @@ function MembershipRow({
         });
         const previous = queryClient.getQueryData(
           trpc.brand.members.queryKey(),
-        ) as Array<MemberRow> | undefined;
-        queryClient.setQueryData(
+        ) as Members | undefined;
+        queryClient.setQueryData<Members | undefined>(
           trpc.brand.members.queryKey(),
-          (old: Array<MemberRow> | undefined) =>
-            (old ?? []).map((m) =>
+          (old) => {
+            const current = (old ?? []) as Members;
+            return current.map((m) =>
               m.user?.id === variables.user_id
                 ? { ...m, role: variables.role }
                 : m,
-            ),
+            ) as Members;
+          },
         );
         return { previous } as const;
       },
       onError: (_e, _v, ctx) => {
         if (ctx?.previous) {
-          queryClient.setQueryData(trpc.brand.members.queryKey(), ctx.previous);
+          queryClient.setQueryData<Members | undefined>(
+            trpc.brand.members.queryKey(),
+            ctx.previous,
+          );
         }
       },
       onSettled: async () => {
@@ -104,17 +115,24 @@ function MembershipRow({
         });
         const previous = queryClient.getQueryData(
           trpc.brand.members.queryKey(),
-        ) as Array<MemberRow> | undefined;
-        queryClient.setQueryData(
+        ) as Members | undefined;
+        queryClient.setQueryData<Members | undefined>(
           trpc.brand.members.queryKey(),
-          (old: Array<MemberRow> | undefined) =>
-            (old ?? []).filter((m) => m.user?.id !== variables.user_id),
+          (old) => {
+            const current = (old ?? []) as Members;
+            return current.filter(
+              (m) => m.user?.id !== variables.user_id,
+            ) as Members;
+          },
         );
         return { previous } as const;
       },
       onError: (_e, _v, ctx) => {
         if (ctx?.previous) {
-          queryClient.setQueryData(trpc.brand.members.queryKey(), ctx.previous);
+          queryClient.setQueryData<Members | undefined>(
+            trpc.brand.members.queryKey(),
+            ctx.previous,
+          );
         }
       },
       onSettled: async () => {
@@ -218,16 +236,16 @@ function InviteRowComp({
 
         const previous = queryClient.getQueryData(
           trpc.brand.listInvites.queryKey(),
-        ) as { data?: InviteRow[] } | undefined;
+        ) as ListInvites | undefined;
 
-        queryClient.setQueryData(
+        queryClient.setQueryData<ListInvites | undefined>(
           trpc.brand.listInvites.queryKey(),
-          (old: { data?: InviteRow[] } | undefined) => {
-            const current = old?.data ?? [];
-            return {
-              data: current.filter((i) => i.id !== variables.invite_id),
-            };
-          },
+          (old) =>
+            old
+              ? ({
+                  data: old.data.filter((i) => i.id !== variables.invite_id),
+                } as ListInvites)
+              : old,
         );
 
         return { previous } as const;

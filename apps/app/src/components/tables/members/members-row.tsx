@@ -25,7 +25,7 @@ interface MemberRow {
     id: string | null;
     email: string | null;
     fullName: string | null;
-    avatarUrl: string | null;
+    avatarPath: string | null;
     avatarHue?: number | null;
   } | null;
   created_at?: string | null;
@@ -155,7 +155,7 @@ function MembershipRow({
       <div className="flex items-center gap-3">
         <SignedAvatar
           bucket="avatars"
-          path={membership.user?.avatarUrl ?? null}
+          path={membership.user?.avatarPath ?? null}
           hue={membership.user?.avatarHue ?? undefined}
           size={32}
           name={

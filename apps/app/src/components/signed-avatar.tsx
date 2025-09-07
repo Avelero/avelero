@@ -21,13 +21,17 @@ export function SignedAvatar({
   loading,
 }: Props) {
   const signed = useSignedStorageUrl(bucket, path ?? null);
+  const isAwaitingSignedUrl = !!path && !signed;
+  const effectiveLoading = Boolean(loading) || isAwaitingSignedUrl;
+  const effectiveHue = path ? null : hue;
+
   return (
     <SmartAvatar
       size={size}
       name={name ?? undefined}
       src={signed ?? undefined}
-      hue={hue ?? undefined}
-      loading={loading}
+      hue={effectiveHue ?? undefined}
+      loading={effectiveLoading}
     />
   );
 }

@@ -4,6 +4,7 @@ import { AvatarUpload } from "@/components/avatar-upload";
 import { CountrySelect } from "@/components/country-select";
 import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
+import { hueFromName } from "@/utils/avatar-hue";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
@@ -64,9 +65,11 @@ export function SetupForm() {
     }
 
     try {
-      // Do not compute hue here. Server will set hue from full_name.
+      const rawHue = hueFromName(parsed.data.full_name);
+      const avatar_hue = Math.min(rawHue, 359);
       updateUserMutation.mutate({
         full_name: parsed.data.full_name,
+        avatar_hue,
         ...(avatarUrl ? { avatar_path: avatarUrl } : {}),
       });
     } catch (e: unknown) {

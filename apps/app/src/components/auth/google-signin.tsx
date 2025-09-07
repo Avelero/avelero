@@ -17,10 +17,7 @@ export function GoogleSignin() {
     setIsLoading(true);
     try {
       const redirectTo = new URL("/api/auth/callback", window.location.origin);
-
-      // Inform the callback of the provider we used (handy for analytics)
       redirectTo.searchParams.append("provider", "google");
-
       if (returnTo) {
         redirectTo.searchParams.append("return_to", returnTo);
       }
@@ -29,12 +26,10 @@ export function GoogleSignin() {
         provider: "google",
         options: {
           redirectTo: redirectTo.toString(),
-          // Force the Google account picker in case the user is logged in with multiple accounts
           queryParams: { prompt: "select_account" },
         },
       });
     } catch (error) {
-      console.error("Google signin error:", error);
       setIsLoading(false);
     }
   };

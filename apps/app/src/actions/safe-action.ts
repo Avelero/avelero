@@ -12,7 +12,8 @@ import { headers } from "next/headers";
 import { z } from "zod";
 
 const handleServerError = (e: Error) => {
-  console.error("Action error:", e.message);
+  // Also log with our logger for development
+  logger.error(`Action error: ${e.message}`);
 
   if (e instanceof Error) {
     return e.message;

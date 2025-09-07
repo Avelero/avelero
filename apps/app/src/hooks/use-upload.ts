@@ -24,6 +24,7 @@ export function useUpload() {
     bucket,
   }: UploadParams): Promise<UploadResult> => {
     setLoading(true);
+
     try {
       const result = await upload(supabase, { path, file, bucket });
       const servedPath = result.path.join("/");

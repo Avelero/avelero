@@ -45,7 +45,7 @@ export function MembersTable() {
       id: string | null;
       email: string | null;
       fullName: string | null;
-      avatarUrl: string | null;
+      avatarPath: string | null;
       avatarHue?: number | null;
     } | null;
     created_at?: string | null;

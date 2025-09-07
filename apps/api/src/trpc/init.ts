@@ -1,27 +1,31 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
 import { TRPCError, initTRPC } from "@trpc/server";
-import type { Database } from "@v1/supabase/types";
+import { db as drizzleDb } from "@v1/db/client";
+import type { Database as DrizzleDatabase } from "@v1/db/client";
+import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
+import { withBrandPermission } from "./middleware/brand-permission";
 
 interface GeoContext {
   ip?: string | null;
 }
 
 export interface TRPCContext {
-  supabase: SupabaseClient<Database>;
-  supabaseAdmin?: SupabaseClient<Database> | null;
+  supabase: SupabaseClient<SupabaseDatabase>;
+  supabaseAdmin?: SupabaseClient<SupabaseDatabase> | null;
   user: User | null;
   geo: GeoContext;
   brandId?: string | null;
+  db: DrizzleDatabase;
 }
 
 function createSupabaseForRequest(
   authHeader?: string | null,
-): SupabaseClient<Database> {
+): SupabaseClient<SupabaseDatabase> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
-  return createSupabaseJsClient<Database>(url, anon, {
+  return createSupabaseJsClient<SupabaseDatabase>(url, anon, {
     global: authHeader
       ? {
           headers: {
@@ -34,11 +38,11 @@ function createSupabaseForRequest(
   });
 }
 
-function createSupabaseAdmin(): SupabaseClient<Database> | null {
+function createSupabaseAdmin(): SupabaseClient<SupabaseDatabase> | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
   const serviceKey = process.env.SUPABASE_SERVICE_KEY as string | undefined;
   if (!url || !serviceKey) return null;
-  return createSupabaseJsClient<Database>(url, serviceKey);
+  return createSupabaseJsClient<SupabaseDatabase>(url, serviceKey);
 }
 
 export async function createTRPCContextFromHeaders(
@@ -48,6 +52,7 @@ export async function createTRPCContextFromHeaders(
   const ip = headers["x-forwarded-for"] || headers["x-real-ip"];
   const supabase = createSupabaseForRequest(authHeader ?? null);
   const supabaseAdmin = createSupabaseAdmin();
+  const db = drizzleDb;
 
   // Extract bearer token and explicitly resolve user with it for reliability
   const bearerToken = authHeader
@@ -75,6 +80,7 @@ export async function createTRPCContextFromHeaders(
     user,
     brandId,
     geo: { ip: ip ?? null },
+    db,
   };
 }
 
@@ -121,15 +127,14 @@ const withPrimaryDbMiddleware = t.middleware(async (opts) => {
   return opts.next();
 });
 
-const withTeamPermissionMiddleware = t.middleware(async (opts) => {
-  const brandId = opts.ctx.brandId ?? null;
-  return opts.next({ ctx: { ...opts.ctx, brandId } });
+const withBrandPermissionMiddleware = t.middleware(async (opts) => {
+  return withBrandPermission({ ctx: opts.ctx, next: opts.next });
 });
 
 export const publicProcedure = t.procedure.use(withPrimaryDbMiddleware);
 
 export const protectedProcedure = t.procedure
-  .use(withTeamPermissionMiddleware)
+  .use(withBrandPermissionMiddleware)
   .use(withPrimaryDbMiddleware)
   .use(async (opts) => {
     const { user, brandId } = opts.ctx;

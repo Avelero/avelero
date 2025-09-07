@@ -28,6 +28,7 @@ export const verifyOtpAction = actionClient
   .schema(schema)
   .action(async ({ parsedInput }) => {
     const { email, token, redirectTo } = parsedInput;
+
     const supabase = await createClient();
 
     // Verify OTP with Supabase
@@ -38,7 +39,6 @@ export const verifyOtpAction = actionClient
     });
 
     if (error) {
-      // Provide user-friendly error messages
       if (error.message.includes("expired")) {
         throw new Error(
           "Verification code has expired. Please request a new one.",
@@ -62,6 +62,7 @@ export const verifyOtpAction = actionClient
     const cookieHash =
       cookieStore.get("brand_invite_token_hash")?.value ?? null;
     let acceptedBrand = false;
+
     if (user && cookieHash) {
       try {
         const { error: rpcError } = await supabase.rpc(
@@ -69,8 +70,6 @@ export const verifyOtpAction = actionClient
           { p_token: cookieHash },
         );
         if (!rpcError) acceptedBrand = true;
-      } catch {
-        // ignore failures
       } finally {
         // clear cookie regardless
         const cs = await cookies();
@@ -83,5 +82,6 @@ export const verifyOtpAction = actionClient
       : await resolveAuthRedirectPath({
           next: sanitizeRedirectPath(redirectTo),
         });
+
     redirect(destination);
   });

@@ -110,20 +110,30 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
 
         const msg = validate(f);
         if (msg) {
-          console.error(msg);
-          // optionally wire a toast here
           return;
         }
 
         const filename = stripSpecialCharacters(f.name);
+
         try {
-          const { url } = await uploadFile({
+          // Resolve folder id from auth for user uploads to satisfy RLS
+          let folderId: string = entityId;
+          if (entity === "user") {
+            const supabase = createClient();
+            const { data } = await supabase.auth.getUser();
+            folderId = data?.user?.id ?? "";
+          }
+          if (!folderId) {
+            return;
+          }
+
+          await uploadFile({
             bucket: entity === "user" ? "avatars" : "brand-avatars",
-            path: [entityId, filename],
+            path: [folderId, filename],
             file: f,
           });
 
-          const objectPath = [entityId, filename].join("/");
+          const objectPath = [folderId, filename].join("/");
           persistUrl(objectPath);
           const supabase = createClient();
           const { data } = await supabase.storage
@@ -131,7 +141,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
             .createSignedUrl(objectPath, 60 * 60 * 24 * 30);
           setAvatar(data?.signedUrl ?? null);
         } catch (e) {
-          console.error("Upload failed:", e);
+          /* noop */
         } finally {
           // reset value so user can re-pick same file if needed
           evt.target.value = "";
@@ -158,13 +168,26 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           }
         }}
       >
-        <Avatar
-          size={size}
-          name={name ?? undefined}
-          src={avatar ?? undefined}
-          hue={hue ?? null}
-          loading={isLoading}
-        />
+        {(() => {
+          const hasInitialPath = Boolean(
+            initialUrl &&
+              !/^https?:\/\//i.test(initialUrl) &&
+              !initialUrl.startsWith("/"),
+          );
+          const isAwaitingSignedUrl = hasInitialPath && !avatar;
+          const effectiveLoading = Boolean(isLoading) || isAwaitingSignedUrl;
+          const effectiveHue = hasInitialPath ? null : hue;
+
+          return (
+            <Avatar
+              size={size}
+              name={name ?? undefined}
+              src={avatar ?? undefined}
+              hue={effectiveHue ?? null}
+              loading={effectiveLoading}
+            />
+          );
+        })()}
 
         <input
           ref={fileInputRef}

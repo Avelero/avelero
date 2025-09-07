@@ -1,0 +1,38 @@
+import { brandMembers } from "@v1/db/schema";
+import { and, eq } from "drizzle-orm";
+import type { TRPCContext } from "../init.js";
+
+export async function withBrandPermission<TReturn>(opts: {
+  ctx: TRPCContext;
+  next: (opts: {
+    ctx: TRPCContext & { brandId: string | null };
+  }) => Promise<TReturn>;
+}) {
+  const { ctx, next } = opts;
+
+  if (!ctx.user) return next({ ctx: { ...ctx, brandId: null } });
+
+  const brandId = ctx.brandId ?? null;
+  if (!brandId) return next({ ctx: { ...ctx, brandId } });
+
+  try {
+    const rows = await ctx.db
+      .select({ id: brandMembers.id })
+      .from(brandMembers)
+      .where(
+        and(
+          eq(brandMembers.brandId, brandId),
+          eq(brandMembers.userId, ctx.user.id),
+        ),
+      )
+      .limit(1);
+
+    if (!rows.length) {
+      return next({ ctx: { ...ctx, brandId: null } });
+    }
+  } catch {
+    return next({ ctx: { ...ctx, brandId: null } });
+  }
+
+  return next({ ctx: { ...ctx, brandId } });
+}

@@ -62,3 +62,6 @@ tailwind.css
 
 # LLM Context
 llm_context/
+
+# Sentry
+.env.sentry-build-plugin

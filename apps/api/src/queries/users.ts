@@ -28,8 +28,22 @@ export async function deleteUserAuth(
   supabaseAdmin: SupabaseClient<Database> | null,
   id: string,
 ) {
-  if (!supabaseAdmin) throw new Error("Service key not configured");
-  const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
-  if (error) throw error;
+  if (!supabaseAdmin) {
+    throw new Error("Service key not configured");
+  }
+  // Idempotent pre-check: if the user does not exist in GoTrue, treat as success
+  const { data: getData, error: getErr } =
+    await supabaseAdmin.auth.admin.getUserById(id);
+  if (getErr) {
+    // no-op: temporary diagnostics removed
+  }
+  const userFromAuth =
+    typeof getData === "object" && getData !== null && "user" in getData
+      ? (getData as { user: unknown }).user
+      : undefined;
+  if (!userFromAuth) return { success: true } as const;
+
+  const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(id);
+  if (delErr) throw new Error(`Failed to delete user: ${delErr.message}`);
   return { success: true } as const;
 }

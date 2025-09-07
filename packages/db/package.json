@@ -1,0 +1,25 @@
+{
+  "name": "@v1/db",
+  "version": "0.1.0",
+  "private": true,
+  "sideEffects": false,
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "drizzle:generate": "drizzle-kit generate"
+  },
+  "exports": {
+    "./client": "./src/client.ts",
+    "./schema": "./src/schema/index.ts",
+    "./queries": "./src/queries/index.ts",
+    "./index": "./src/index.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.5",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.1",
+    "typescript": "^5.9.2"
+  }
+}

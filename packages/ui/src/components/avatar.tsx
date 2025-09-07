@@ -51,10 +51,20 @@ export const SmartAvatar = React.forwardRef<
       "--avatar-size": box,
     };
 
+    const [isLoaded, setIsLoaded] = React.useState(false);
+    const [hadError, setHadError] = React.useState(false);
+    React.useEffect(() => {
+      setIsLoaded(false);
+      setHadError(false);
+    }, [src]);
+
+    const hasSrc = !!src;
+    const isImagePending = hasSrc && !isLoaded && !hadError;
+
     // Internal decision once, so AvatarPrimitive subtree stays minimal.
-    const showDefault = loading || (!src && hue == null);
-    const showImage = !loading && !!src;
-    const showFallback = !loading && !src && hue != null;
+    const showDefault = loading || (!hasSrc && hue == null) || isImagePending;
+    const showImage = hasSrc && !hadError;
+    const showFallback = !loading && !hasSrc && hue != null;
 
     return (
       <AvatarPrimitive.Root
@@ -73,6 +83,9 @@ export const SmartAvatar = React.forwardRef<
             alt={name ?? ""}
             width={typeof size === "number" ? size : 40}
             height={typeof size === "number" ? size : 40}
+            onLoadingComplete={() => setIsLoaded(true)}
+            onError={() => setHadError(true)}
+            style={{ opacity: isLoaded ? 1 : 0 }}
           />
         ) : null}
 

@@ -168,13 +168,26 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           }
         }}
       >
-        <Avatar
-          size={size}
-          name={name ?? undefined}
-          src={avatar ?? undefined}
-          hue={hue ?? null}
-          loading={isLoading}
-        />
+        {(() => {
+          const hasInitialPath = Boolean(
+            initialUrl &&
+              !/^https?:\/\//i.test(initialUrl) &&
+              !initialUrl.startsWith("/"),
+          );
+          const isAwaitingSignedUrl = hasInitialPath && !avatar;
+          const effectiveLoading = Boolean(isLoading) || isAwaitingSignedUrl;
+          const effectiveHue = hasInitialPath ? null : hue;
+
+          return (
+            <Avatar
+              size={size}
+              name={name ?? undefined}
+              src={avatar ?? undefined}
+              hue={effectiveHue ?? null}
+              loading={effectiveLoading}
+            />
+          );
+        })()}
 
         <input
           ref={fileInputRef}

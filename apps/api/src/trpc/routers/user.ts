@@ -48,16 +48,30 @@ export const userRouter = createTRPCRouter({
   delete: protectedProcedure.mutation(async ({ ctx }) => {
     const { db, supabaseAdmin, user } = ctx;
     if (!user) throw new Error("Unauthorized");
+
     try {
-      const [appDeleted] = await Promise.all([
-        deleteUser(db, user.id),
-        (async () => {
-          if (!supabaseAdmin)
-            throw new Error("Supabase admin client not configured");
-          const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
-          if (error) throw new Error(`Failed to delete user: ${error.message}`);
-        })(),
-      ]);
+      // Delete all files in avatars/{userId}/ folder before deleting user
+      if (supabaseAdmin) {
+        const { data: files } = await supabaseAdmin.storage
+          .from("avatars")
+          .list(user.id);
+
+        if (files && files.length > 0) {
+          const filePaths = files.map((file) => `${user.id}/${file.name}`);
+          await supabaseAdmin.storage.from("avatars").remove(filePaths);
+        }
+      }
+
+      // Delete DB user and orphan brands FIRST (must happen before auth deletion)
+      const appDeleted = await deleteUser(db, user.id);
+
+      // Then delete the auth user (after DB deletion is complete)
+      if (supabaseAdmin) {
+        const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+        if (error)
+          throw new Error(`Failed to delete auth user: ${error.message}`);
+      }
+
       return appDeleted ?? { id: user.id };
     } catch (error) {
       if (

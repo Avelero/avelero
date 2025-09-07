@@ -53,28 +53,40 @@ export async function updateUser(db: Database, params: UpdateUserParams) {
 }
 
 export async function deleteUser(db: Database, id: string) {
-  // Find brands where this user is a member and count members per brand
-  const memberships = await db
-    .select({
-      brandId: brandMembers.brandId,
-      memberCount: sql<number>`count(${brandMembers.userId})`.as(
-        "member_count",
-      ),
-    })
+  // Get user's brands
+  const userBrands = await db
+    .select({ brandId: brandMembers.brandId })
     .from(brandMembers)
-    .where(eq(brandMembers.userId, id))
-    .groupBy(brandMembers.brandId);
+    .where(eq(brandMembers.userId, id));
 
-  const brandIdsToDelete = memberships
-    .filter((m) => m.memberCount === 1)
-    .map((m) => m.brandId);
+  if (userBrands.length > 0) {
+    // Count members for each brand
+    const brandIds = userBrands.map((b) => b.brandId);
+    const memberCounts = await db
+      .select({
+        brandId: brandMembers.brandId,
+        count: sql<number>`COUNT(*)::int`,
+      })
+      .from(brandMembers)
+      .where(inArray(brandMembers.brandId, brandIds))
+      .groupBy(brandMembers.brandId);
 
-  await Promise.all([
-    db.delete(users).where(eq(users.id, id)),
-    brandIdsToDelete.length > 0
-      ? db.delete(brands).where(inArray(brands.id, brandIdsToDelete))
-      : Promise.resolve(),
-  ]);
+    // Identify orphan brands (only 1 member)
+    const orphanBrandIds = memberCounts
+      .filter((b) => b.count === 1)
+      .map((b) => b.brandId);
 
-  return { id } as const;
+    // Delete user (cascades brandMembers)
+    await db.delete(users).where(eq(users.id, id));
+
+    // Delete orphan brands
+    if (orphanBrandIds.length > 0) {
+      await db.delete(brands).where(inArray(brands.id, orphanBrandIds));
+    }
+  } else {
+    // No brands, just delete user
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  return { id };
 }

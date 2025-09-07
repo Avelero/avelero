@@ -116,13 +116,24 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
         const filename = stripSpecialCharacters(f.name);
 
         try {
+          // Resolve folder id from auth for user uploads to satisfy RLS
+          let folderId: string = entityId;
+          if (entity === "user") {
+            const supabase = createClient();
+            const { data } = await supabase.auth.getUser();
+            folderId = data?.user?.id ?? "";
+          }
+          if (!folderId) {
+            return;
+          }
+
           await uploadFile({
             bucket: entity === "user" ? "avatars" : "brand-avatars",
-            path: [entityId, filename],
+            path: [folderId, filename],
             file: f,
           });
 
-          const objectPath = [entityId, filename].join("/");
+          const objectPath = [folderId, filename].join("/");
           persistUrl(objectPath);
           const supabase = createClient();
           const { data } = await supabase.storage

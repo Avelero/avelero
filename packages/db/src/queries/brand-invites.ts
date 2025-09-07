@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { brandInvites, brandMembers, brands, users } from "../schema";
@@ -154,6 +155,21 @@ export async function createBrandInvites(
 
   const inserted = await Promise.all(
     valid.map(async (i) => {
+      const emailLower = i.email.toLowerCase();
+
+      const existingUser = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(sql`LOWER("users"."email") = ${emailLower}`)
+        .limit(1);
+      const isExistingUser = existingUser.length > 0;
+
+      const rawToken = randomBytes(32).toString("hex");
+      const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+      const expiresAt = new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+
       const [row] = await db
         .insert(brandInvites)
         .values({
@@ -161,6 +177,8 @@ export async function createBrandInvites(
           email: i.email,
           role: i.role,
           createdBy: i.createdBy,
+          tokenHash,
+          expiresAt,
         })
         .onConflictDoNothing()
         .returning({
@@ -168,6 +186,7 @@ export async function createBrandInvites(
           email: brandInvites.email,
           role: brandInvites.role,
           brandId: brandInvites.brandId,
+          tokenHash: brandInvites.tokenHash,
         });
       if (!row) return null;
       const brand = await db
@@ -175,7 +194,13 @@ export async function createBrandInvites(
         .from(brands)
         .where(eq(brands.id, params.brandId))
         .limit(1);
-      return { email: row.email, role: row.role, brand: brand[0] ?? null };
+      return {
+        email: row.email,
+        role: row.role,
+        brand: brand[0] ?? null,
+        tokenHash: row.tokenHash ?? null,
+        isExistingUser,
+      } as const;
     }),
   );
 

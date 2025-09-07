@@ -1,3 +1,4 @@
+import { tasks } from "@trigger.dev/sdk/v3";
 import { TRPCError } from "@trpc/server";
 import {
   getMembersByBrandId,
@@ -21,6 +22,7 @@ import {
   revokeBrandInviteByOwner,
   createBrandInvites as sendBrandInvite,
 } from "@v1/db/queries";
+import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
 import {
   acceptInviteSchema,
@@ -117,10 +119,47 @@ export const brandRouter = createTRPCRouter({
       const { db, user } = ctx;
       if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
 
-      return sendBrandInvite(db, {
+      const res = await sendBrandInvite(db, {
         brandId: input.brand_id,
         invites: [{ email: input.email, role: input.role, createdBy: user.id }],
       });
+
+      type InviteResult = {
+        email: string;
+        role: "owner" | "member";
+        brand: { id: string | null; name: string | null } | null;
+        tokenHash: string | null;
+        isExistingUser: boolean;
+      };
+
+      const appUrl = getAppUrl();
+      const results = (res.results as InviteResult[]) ?? [];
+      if (results.length > 0) {
+        const invites = results.map((r) => {
+          const isExisting = r.isExistingUser;
+          const acceptUrl = isExisting
+            ? `${appUrl}/account/brands`
+            : `${appUrl}/api/auth/accept?token_hash=${r.tokenHash ?? ""}`;
+          return {
+            recipientEmail: r.email,
+            brandName: r.brand?.name ?? "Avelero",
+            role: r.role,
+            acceptUrl,
+            ctaMode: isExisting ? ("view" as const) : ("accept" as const),
+          };
+        });
+        try {
+          await tasks.trigger("invite-brand-members", {
+            invites,
+            from: "Avelero <no-reply@welcome.avelero.com>",
+          });
+        } catch (e) {
+          // Log and continue; API should still succeed even if email fails to enqueue
+          console.error("Failed to enqueue invite emails", e);
+        }
+      }
+
+      return res;
     }),
 
   revokeInvite: protectedProcedure

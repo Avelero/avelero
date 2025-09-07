@@ -110,14 +110,13 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
 
         const msg = validate(f);
         if (msg) {
-          console.error(msg);
-          // optionally wire a toast here
           return;
         }
 
         const filename = stripSpecialCharacters(f.name);
+
         try {
-          const { url } = await uploadFile({
+          await uploadFile({
             bucket: entity === "user" ? "avatars" : "brand-avatars",
             path: [entityId, filename],
             file: f,
@@ -131,7 +130,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
             .createSignedUrl(objectPath, 60 * 60 * 24 * 30);
           setAvatar(data?.signedUrl ?? null);
         } catch (e) {
-          console.error("Upload failed:", e);
+          /* noop */
         } finally {
           // reset value so user can re-pick same file if needed
           evt.target.value = "";

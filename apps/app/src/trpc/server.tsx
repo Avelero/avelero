@@ -1,5 +1,4 @@
 import "server-only";
-
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink, loggerLink } from "@trpc/client";
 import {
@@ -50,6 +49,12 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
         enabled: (opts: { direction: "up" | "down"; result?: unknown }) =>
           process.env.NODE_ENV === "development" ||
           (opts.direction === "down" && opts.result instanceof Error),
+        logger: (opts) => {
+          // Use default console logging
+          const defaultLogger =
+            typeof window === "undefined" ? console : console;
+          defaultLogger.log(opts);
+        },
       }),
     ],
   }),

@@ -31,7 +31,7 @@ Everything you need to build a production ready SaaS, it's a opinionated stack b
 [React Email](https://react.email/) - Email templates<br>
 [Resend](https://resend.com/) - Email delivery<br>
 [i18n](https://next-international.vercel.app/) - Internationalization<br>
-[Sentry](https://sentry.io/) - Error handling/monitoring<br>
+<!-- Sentry removed from this repo -->
 [Dub](https://dub.sh/) - Sharable links<br>
 [Trigger.dev](https://trigger.dev/) - Background jobs<br>
 [OpenPanel](https://openpanel.dev/) - Analytics<br>
@@ -75,7 +75,7 @@ Dub<br>
 Trigger.dev<br>
 Resend<br>
 Supabase<br>
-Sentry<br>
+<!-- Sentry removed from this repo -->
 OpenPanel<br>
 
 ## Getting Started

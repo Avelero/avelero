@@ -25,14 +25,13 @@ export async function createBrand(params: {
   const supabase = await createClient();
 
   try {
-    // 1) create the brand (created_by must be ownerId; types model may omit it, so pass via insert)
+    // 1) create the brand
     const { data: brand, error: brandError } = await supabase
       .from("brands")
       .insert({
         name: params.name,
         country_code: params.country_code ?? null,
         logo_path: params.logo_path ?? null,
-        created_by: params.ownerId,
       })
       .select("id")
       .single();

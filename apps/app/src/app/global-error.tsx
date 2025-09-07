@@ -2,9 +2,14 @@
 
 import { useEffect } from "react";
 
-export default function GlobalError({ error }: { error: Error }) {
+interface GlobalErrorProps {
+  error: Error & { digest?: string };
+  reset: () => void;
+}
+
+export default function GlobalError({ error }: GlobalErrorProps) {
   useEffect(() => {
-    console.error(error);
+    // Intentionally left blank: Sentry removed
   }, [error]);
 
   return (

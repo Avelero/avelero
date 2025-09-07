@@ -125,6 +125,7 @@ export function InviteModal({ brandId }: { brandId: string }) {
   async function onSend() {
     setIsSubmitting(true);
     setError(null);
+
     try {
       for (const inv of invitees) {
         const parsed = emailSchema.safeParse(inv.email);
@@ -135,6 +136,7 @@ export function InviteModal({ brandId }: { brandId: string }) {
           role: inv.role,
         });
       }
+
       setOpen(false);
       setInvitees([
         {

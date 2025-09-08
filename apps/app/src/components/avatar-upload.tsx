@@ -48,7 +48,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
     const [avatar, setAvatar] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const { isLoading, uploadFile } = useUpload();
-    // If parent provided a path, sign it for preview. If it provided an absolute URL, use it.
+    // If parent provided a storage path, use proxy URL for optimized delivery. If absolute URL, use as-is.
     useEffect(() => {
       const val = initialUrl?.trim();
       if (!val) {
@@ -61,12 +61,11 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
         return;
       }
       const bucket = entity === "user" ? "avatars" : "brand-avatars";
-      const supabase = createClient();
-      supabase.storage
-        .from(bucket)
-        .createSignedUrl(val, 60 * 60 * 24 * 30)
-        .then(({ data }) => setAvatar(data?.signedUrl ?? null))
-        .catch(() => setAvatar(null));
+      const encoded = val
+        .split("/")
+        .map((s) => encodeURIComponent(s))
+        .join("/");
+      setAvatar(`/api/storage/${bucket}/${encoded}`);
     }, [initialUrl, entity]);
 
     const userMutation = useUserMutation(); // updates users.avatar_path
@@ -135,11 +134,11 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
 
           const objectPath = [folderId, filename].join("/");
           persistUrl(objectPath);
-          const supabase = createClient();
-          const { data } = await supabase.storage
-            .from(entity === "user" ? "avatars" : "brand-avatars")
-            .createSignedUrl(objectPath, 60 * 60 * 24 * 30);
-          setAvatar(data?.signedUrl ?? null);
+          const bucket = entity === "user" ? "avatars" : "brand-avatars";
+          const encoded = [folderId, filename]
+            .map((s) => encodeURIComponent(s))
+            .join("/");
+          setAvatar(`/api/storage/${bucket}/${encoded}`);
         } catch (e) {
           /* noop */
         } finally {

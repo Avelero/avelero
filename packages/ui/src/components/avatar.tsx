@@ -83,7 +83,7 @@ export const SmartAvatar = React.forwardRef<
             alt={name ?? ""}
             width={typeof size === "number" ? size : 40}
             height={typeof size === "number" ? size : 40}
-            onLoadingComplete={() => setIsLoaded(true)}
+            onLoad={() => setIsLoaded(true)}
             onError={() => setHadError(true)}
             style={{ opacity: isLoaded ? 1 : 0 }}
           />
@@ -111,7 +111,9 @@ const AvatarImageNext = React.forwardRef<
   const srcStr = src as unknown as string | undefined;
   const isAbsoluteHttp =
     typeof srcStr === "string" && /^https?:\/\//i.test(srcStr);
-  if (hasError || !isAbsoluteHttp) return null;
+  const isSameOriginRelative =
+    typeof srcStr === "string" && srcStr.startsWith("/");
+  if (hasError || !(isAbsoluteHttp || isSameOriginRelative)) return null;
 
   return (
     <Image
@@ -124,7 +126,7 @@ const AvatarImageNext = React.forwardRef<
         setHasError(true);
         onError?.(e);
       }}
-      unoptimized
+      unoptimized={isAbsoluteHttp}
       src={srcStr!}
       {...rest}
     />

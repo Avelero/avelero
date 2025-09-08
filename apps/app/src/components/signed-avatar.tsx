@@ -1,6 +1,5 @@
 "use client";
 
-import { useSignedStorageUrl } from "@/hooks/use-signed-url";
 import { SmartAvatar } from "@v1/ui/avatar";
 
 type Props = {
@@ -20,18 +19,21 @@ export function SignedAvatar({
   size = 40,
   loading,
 }: Props) {
-  const signed = useSignedStorageUrl(bucket, path ?? null);
-  const isAwaitingSignedUrl = !!path && !signed;
-  const effectiveLoading = Boolean(loading) || isAwaitingSignedUrl;
   const effectiveHue = path ? null : hue;
+  const src = path
+    ? `/api/storage/${bucket}/${path
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/")}`
+    : undefined;
 
   return (
     <SmartAvatar
       size={size}
       name={name ?? undefined}
-      src={signed ?? undefined}
+      src={src}
       hue={effectiveHue ?? undefined}
-      loading={effectiveLoading}
+      loading={loading}
     />
   );
 }

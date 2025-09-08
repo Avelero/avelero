@@ -2,6 +2,30 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import type { Database } from "../client";
 import { brandMembers, brands, users } from "../schema";
 
+// Compute the next active brand for a user, excluding a specific brand if provided.
+// Strategy: first alphabetical brand by name among memberships, excluding `excludeBrandId`.
+export async function computeNextBrandIdForUser(
+  db: Database,
+  userId: string,
+  excludeBrandId?: string | null,
+): Promise<string | null> {
+  const rows = await db
+    .select({ brandId: brandMembers.brandId, name: brands.name })
+    .from(brandMembers)
+    .leftJoin(brands, eq(brandMembers.brandId, brands.id))
+    .where(
+      excludeBrandId
+        ? and(
+            eq(brandMembers.userId, userId),
+            ne(brandMembers.brandId, excludeBrandId),
+          )
+        : eq(brandMembers.userId, userId),
+    )
+    .orderBy(asc(brands.name))
+    .limit(1);
+  return rows[0]?.brandId ?? null;
+}
+
 export async function getBrandsByUserId(db: Database, userId: string) {
   // list brands via membership table
   const rows = await db
@@ -118,60 +142,51 @@ export async function deleteBrand(
     .limit(1);
   if (!owner.length) throw new Error("FORBIDDEN");
 
-  // Update all users who have this brand as their active brand BEFORE deleting the brand
-  // First, handle the acting user
-  const currentUser = await db
-    .select({ brandId: users.brandId })
-    .from(users)
-    .where(eq(users.id, actingUserId))
-    .limit(1);
+  let actingUserNextBrandId: string | null = null;
 
-  const userCurrentBrandId = currentUser[0]?.brandId ?? null;
-  let nextBrandId: string | null = null;
+  await db.transaction(async (tx) => {
+    // Determine and set acting user's next active brand (if they currently have this brand active)
+    const currentUser = await tx
+      .select({ brandId: users.brandId })
+      .from(users)
+      .where(eq(users.id, actingUserId))
+      .limit(1);
 
-  if (userCurrentBrandId === brandId) {
-    // Get acting user's remaining brands (excluding the one being deleted)
-    const remainingBrands = await db
-      .select({ brandId: brandMembers.brandId, name: brands.name })
-      .from(brandMembers)
-      .leftJoin(brands, eq(brandMembers.brandId, brands.id))
-      .where(
-        and(
-          eq(brandMembers.userId, actingUserId),
-          ne(brandMembers.brandId, brandId),
-        ),
-      )
-      .orderBy(asc(brands.name));
+    const userCurrentBrandId = currentUser[0]?.brandId ?? null;
+    if (userCurrentBrandId === brandId) {
+      actingUserNextBrandId = await computeNextBrandIdForUser(
+        tx,
+        actingUserId,
+        brandId,
+      );
+      await tx
+        .update(users)
+        .set({ brandId: actingUserNextBrandId })
+        .where(eq(users.id, actingUserId));
+    } else {
+      actingUserNextBrandId = userCurrentBrandId;
+    }
 
-    // Determine next active brand (first alphabetically or null)
-    nextBrandId = remainingBrands[0]?.brandId ?? null;
+    // Promote other users who have this brand active to their next brand (or null if none)
+    const affectedUsers = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.brandId, brandId), ne(users.id, actingUserId)));
 
-    // Update acting user's active brand before deleting the brand
-    await db
-      .update(users)
-      .set({ brandId: nextBrandId })
-      .where(eq(users.id, actingUserId));
-  } else {
-    // User's active brand is not being deleted, keep it unchanged
-    nextBrandId = userCurrentBrandId;
-  }
+    for (const u of affectedUsers) {
+      const nextId = await computeNextBrandIdForUser(tx, u.id, brandId);
+      await tx.update(users).set({ brandId: nextId }).where(eq(users.id, u.id));
+    }
 
-  // Update any other users who had this brand as their active brand
-  // For other users, we'll set their active brand to null since we can't determine their next preferred brand
-  await db
-    .update(users)
-    .set({ brandId: null })
-    .where(and(eq(users.brandId, brandId), ne(users.id, actingUserId)));
+    // Delete the brand (cascades will handle brandMembers and brandInvites)
+    const [row] = await tx
+      .delete(brands)
+      .where(eq(brands.id, brandId))
+      .returning({ id: brands.id });
+    if (!row) throw new Error("Failed to delete brand");
+  });
 
-  // Now delete the brand (cascades will handle brandMembers and brandInvites)
-  const [row] = await db
-    .delete(brands)
-    .where(eq(brands.id, brandId))
-    .returning({ id: brands.id });
-
-  if (!row) throw new Error("Failed to delete brand");
-
-  return { success: true, nextBrandId };
+  return { success: true, nextBrandId: actingUserNextBrandId };
 }
 
 export async function setActiveBrand(
@@ -258,14 +273,8 @@ export async function leaveBrand(
     .limit(1);
   let nextBrandId: string | null = current[0]?.brandId ?? null;
   if (nextBrandId === brandId) {
-    const next = await db
-      .select({ brandId: brandMembers.brandId })
-      .from(brandMembers)
-      .leftJoin(brands, eq(brandMembers.brandId, brands.id))
-      .where(eq(brandMembers.userId, userId))
-      .orderBy(asc(brands.name))
-      .limit(1);
-    nextBrandId = next[0]?.brandId ?? null;
+    const computed = await computeNextBrandIdForUser(db, userId, brandId);
+    nextBrandId = computed;
     await db
       .update(users)
       .set({ brandId: nextBrandId })

@@ -43,6 +43,13 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
       await queryClient.invalidateQueries({
         queryKey: trpc.user.me.queryKey(),
       });
+      // Invalidate members list and invites for safety
+      await queryClient.invalidateQueries({
+        queryKey: trpc.brand.members.queryKey(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.brand.listInvites.queryKey({ brand_id: brandId }),
+      });
       // Also invalidate any canLeave queries for the deleted brand
       await queryClient.invalidateQueries({
         queryKey: trpc.brand.canLeave.queryKey({ id: brandId }),
@@ -55,9 +62,11 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
       if (result.nextBrandId) {
         // User has other brands, redirect to dashboard
         router.push("/");
+        router.refresh();
       } else {
         // User has no brands left, redirect to brand creation
         router.push("/brands/create");
+        router.refresh();
       }
     } catch (e: unknown) {
       const error =

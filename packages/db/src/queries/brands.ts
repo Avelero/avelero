@@ -2,10 +2,13 @@ import { and, asc, eq, ne } from "drizzle-orm";
 import type { Database } from "../client";
 import { brandMembers, brands, users } from "../schema";
 
+// Type for database operations that works with both regular db and transactions
+type DatabaseLike = Pick<Database, "select">;
+
 // Compute the next active brand for a user, excluding a specific brand if provided.
 // Strategy: first alphabetical brand by name among memberships, excluding `excludeBrandId`.
 export async function computeNextBrandIdForUser(
-  db: Database,
+  db: DatabaseLike,
   userId: string,
   excludeBrandId?: string | null,
 ): Promise<string | null> {

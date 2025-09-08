@@ -1,7 +1,7 @@
-import { DeleteAccount } from "@/components/delete-account";
-import { SetAvatar } from "@/components/set-avatar";
-import { SetEmail } from "@/components/set-email";
-import { SetName } from "@/components/set-name";
+import { DeleteAccount } from "@/components/account/delete-account";
+import { SetAvatar } from "@/components/account/set-avatar";
+import { SetEmail } from "@/components/account/set-email";
+import { SetName } from "@/components/account/set-name";
 
 export default function AccountPage() {
   return (

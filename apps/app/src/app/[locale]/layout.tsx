@@ -1,6 +1,7 @@
 import "@v1/ui/globals.css";
 import { TRPCReactProvider } from "@/trpc/client";
 import { cn } from "@v1/ui/cn";
+import { Toaster } from "@v1/ui/sonner";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
@@ -105,6 +106,7 @@ export default function RootLayout({
         >
           <TRPCReactProvider>
             <div className="h-screen w-screen">{children}</div>
+            <Toaster />
           </TRPCReactProvider>
         </ThemeProvider>
       </body>

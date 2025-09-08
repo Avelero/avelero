@@ -31,6 +31,7 @@ const PopoverContent = React.forwardRef<
         "data-[side=left]:slide-in-from-right-2",
         "data-[side=right]:slide-in-from-left-2",
         "data-[side=top]:slide-in-from-bottom-2",
+        "[&_*]:scrollbar-none [&_*::-webkit-scrollbar]:hidden",
         className,
       )}
       {...props}

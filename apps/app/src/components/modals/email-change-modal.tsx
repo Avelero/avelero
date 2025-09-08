@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@v1/ui/dialog";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@v1/ui/input-otp";
+import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -168,6 +169,7 @@ export function EmailChangeModal({
       // ignore errors to avoid blocking success UX
     }
     setBusy(false);
+    toast.success("Email changed successfully");
     onSuccess?.();
     onOpenChange(false);
   }

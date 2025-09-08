@@ -5,7 +5,8 @@
   "scripts": {
     "clean": "rm -rf .turbo node_modules",
     "lint": "biome check .",
-    "jobs": "bunx trigger.dev@latest dev",
+    "dev": "trigger dev",
+    "deploy": "trigger deploy",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit"
   },
@@ -15,5 +16,8 @@
     "@v1/email": "workspace:*",
     "react": "19.1.1",
     "resend": "^4.0.0"
+  },
+  "devDependencies": {
+    "trigger.dev": "^4.0.2"
   }
 }

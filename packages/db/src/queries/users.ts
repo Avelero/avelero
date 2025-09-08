@@ -14,6 +14,7 @@ export async function getUserById(db: Database, id: string) {
       brand: {
         id: brands.id,
         name: brands.name,
+        email: brands.email,
         logoPath: brands.logoPath,
         avatarHue: brands.avatarHue,
         countryCode: brands.countryCode,

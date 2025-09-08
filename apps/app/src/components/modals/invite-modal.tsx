@@ -20,6 +20,7 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import { toast } from "@v1/ui/sonner";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -40,7 +41,7 @@ function RoleSelector({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          className="h-[39px] min-w-[110px] justify-between items-center"
+          className="h-[39px] w-[110px] justify-between items-center flex-shrink-0"
           variant="outline"
         >
           {value === "owner" ? "Owner" : "Member"}
@@ -52,22 +53,17 @@ function RoleSelector({
           <CommandList>
             <CommandEmpty>No roles</CommandEmpty>
             <CommandGroup>
-              <CommandItem
-                onSelect={() => {
-                  onChange("member");
-                  setOpen(false);
-                }}
-              >
-                Member
-              </CommandItem>
-              <CommandItem
-                onSelect={() => {
-                  onChange("owner");
-                  setOpen(false);
-                }}
-              >
-                Owner
-              </CommandItem>
+              {["member", "owner"].map((role) => (
+                <CommandItem
+                  key={role}
+                  onSelect={() => {
+                    onChange(role as Invitee["role"]);
+                    setOpen(false);
+                  }}
+                >
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -82,7 +78,7 @@ export function InviteModal({ brandId }: { brandId: string }) {
   const [open, setOpen] = useState(false);
   const [invitees, setInvitees] = useState<Invitee[]>([
     {
-      id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
       email: "",
       role: "member",
     },
@@ -100,32 +96,9 @@ export function InviteModal({ brandId }: { brandId: string }) {
     }),
   );
 
-  function updateInvitee(index: number, patch: Partial<Invitee>) {
-    setInvitees((prev) =>
-      prev.map((it, i) => (i === index ? { ...it, ...patch } : it)),
-    );
-  }
-
-  function addInvitee() {
-    setInvitees((prev) => [
-      ...prev,
-      {
-        id:
-          globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
-        email: "",
-        role: "member",
-      },
-    ]);
-  }
-
-  function removeInvitee(index: number) {
-    setInvitees((prev) => prev.filter((_, i) => i !== index));
-  }
-
   async function onSend() {
     setIsSubmitting(true);
     setError(null);
-
     try {
       for (const inv of invitees) {
         const parsed = emailSchema.safeParse(inv.email);
@@ -135,21 +108,19 @@ export function InviteModal({ brandId }: { brandId: string }) {
           email: inv.email,
           role: inv.role,
         });
+        toast.success(`Invite sent to ${inv.email}`);
       }
-
       setOpen(false);
       setInvitees([
         {
-          id:
-            globalThis.crypto?.randomUUID?.() ??
-            `${Date.now()}-${Math.random()}`,
+          id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
           email: "",
           role: "member",
         },
       ]);
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to send invites";
-      setError(message);
+      setError(e instanceof Error ? e.message : "Failed to send invites");
+      toast.error("Action failed, please try again");
     } finally {
       setIsSubmitting(false);
     }
@@ -160,7 +131,7 @@ export function InviteModal({ brandId }: { brandId: string }) {
       <DialogTrigger asChild>
         <Button variant="default">Invite members</Button>
       </DialogTrigger>
-      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none w-auto w-max-fit">
+      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none w-[468px]">
         <DialogHeader>
           <DialogTitle className="text-foreground">Invite members</DialogTitle>
         </DialogHeader>
@@ -172,37 +143,62 @@ export function InviteModal({ brandId }: { brandId: string }) {
                   type="email"
                   placeholder="email@example.com"
                   value={inv.email}
-                  onChange={(e) => updateInvitee(i, { email: e.target.value })}
-                  className="w-[300px]"
+                  onChange={(e) =>
+                    setInvitees((prev) =>
+                      prev.map((it, j) =>
+                        j === i ? { ...it, email: e.target.value } : it,
+                      ),
+                    )
+                  }
+                  className="w-full"
                 />
                 <RoleSelector
                   value={inv.role}
-                  onChange={(role) => updateInvitee(i, { role })}
+                  onChange={(role) =>
+                    setInvitees((prev) =>
+                      prev.map((it, j) => (j === i ? { ...it, role } : it)),
+                    )
+                  }
                 />
-                {invitees.length > 1 ? (
+                {invitees.length > 1 && (
                   <Button
-                    className="!h-[39px] !w-[39px]"
+                    className="w-[39px] h-[39px] flex-shrink-0"
                     variant="outline"
                     size="icon"
-                    onClick={() => removeInvitee(i)}
+                    onClick={() =>
+                      setInvitees((prev) => prev.filter((_, j) => j !== i))
+                    }
                   >
                     <Icons.X className="h-4 w-4" strokeWidth={1} />
                   </Button>
-                ) : null}
+                )}
               </div>
             ))}
-            <div>
-              <Button
-                className="text-secondary"
-                variant="ghost"
-                size="sm"
-                onClick={addInvitee}
-              >
-                + Add another
-              </Button>
-            </div>
+            {invitees.length < 5 && (
+              <div>
+                <Button
+                  className="text-secondary"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setInvitees((prev) => [
+                      ...prev,
+                      {
+                        id:
+                          crypto.randomUUID?.() ??
+                          `${Date.now()}-${Math.random()}`,
+                        email: "",
+                        role: "member",
+                      },
+                    ])
+                  }
+                >
+                  + Add another
+                </Button>
+              </div>
+            )}
           </div>
-          {error ? <p className="text-sm text-red-500">{error}</p> : null}
+          {error && <p className="text-sm text-red-500">{error}</p>}
           <div className="w-full flex gap-2 mt-2">
             <Button
               type="button"

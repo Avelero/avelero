@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const createBrandSchema = z.object({
   name: z.string().min(1),
+  email: z.string().email().optional().nullable(),
   country_code: z.string().optional().nullable(),
   logo_path: z.string().optional().nullable(),
   avatar_hue: z.number().int().min(1).max(359).optional(),
@@ -10,6 +11,7 @@ export const createBrandSchema = z.object({
 export const updateBrandSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).optional(),
+  email: z.string().email().optional().nullable(),
   logo_path: z.string().optional().nullable(),
   avatar_hue: z.number().int().min(1).max(359).optional().nullable(),
   country_code: z.string().optional().nullable(),

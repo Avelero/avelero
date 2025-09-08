@@ -7,6 +7,7 @@ import {
 } from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
+import { toast } from "@v1/ui/sonner";
 import { useEffect, useRef, useState } from "react";
 
 function SetName() {
@@ -36,6 +37,10 @@ function SetName() {
         onSuccess: () => {
           initialFullNameRef.current = trimmed;
           setFullName(trimmed);
+          toast.success("Name changed successfully");
+        },
+        onError: () => {
+          toast.error("Action failed, please try again");
         },
       },
     );

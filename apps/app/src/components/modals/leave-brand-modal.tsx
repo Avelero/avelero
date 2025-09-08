@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@v1/ui/dialog";
+import { toast } from "@v1/ui/sonner";
 import { useEffect, useMemo, useState } from "react";
 
 interface Props {
@@ -84,9 +85,11 @@ export function LeaveBrandModal({
             e instanceof Error ? e.message : "Unable to leave brand";
           setError(message);
           setIsSubmitting(false);
+          toast.error("Action failed, please try again");
         },
         onSuccess: (res: LeaveBrandResult) => {
           setIsSubmitting(false);
+          toast.success(`Left ${brandName}`);
           onLeft?.(res?.nextBrandId ?? null);
           onOpenChange(false);
         },

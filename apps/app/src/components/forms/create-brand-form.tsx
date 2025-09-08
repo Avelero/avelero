@@ -20,6 +20,7 @@ export function CreateBrandForm() {
   const [name, setName] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -32,18 +33,21 @@ export function CreateBrandForm() {
       },
       onError: (err) => {
         setError(err.message || "Failed to create brand");
+        setIsSubmitting(false);
       },
     }),
   );
 
   const onSubmit = async () => {
     setError("");
+    setIsSubmitting(true);
     const parsed = schema.safeParse({
       name: name.trim(),
       country_code: countryCode || undefined,
     });
     if (!parsed.success) {
       setError(parsed.error.errors[0]?.message ?? "Invalid input");
+      setIsSubmitting(false);
       return;
     }
     createBrandMutation.mutate({
@@ -86,9 +90,11 @@ export function CreateBrandForm() {
       <Button
         className="w-full"
         onClick={onSubmit}
-        disabled={createBrandMutation.isPending}
+        disabled={isSubmitting || createBrandMutation.isPending}
       >
-        {createBrandMutation.isPending ? "Creating..." : "Create"}
+        {isSubmitting || createBrandMutation.isPending
+          ? "Creating..."
+          : "Create"}
       </Button>
     </div>
   );

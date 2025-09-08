@@ -100,7 +100,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
             { id: entityId, logo_path: objectPath },
             {
               onSuccess: () => {
-                toast.success("Avatar changed successfully");
+                toast.success("Logo changed successfully");
               },
               onError: () => {
                 toast.error("Action failed, please try again");

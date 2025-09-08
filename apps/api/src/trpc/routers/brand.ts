@@ -53,7 +53,13 @@ export const brandRouter = createTRPCRouter({
       const { db, user } = ctx;
       if (!user) throw new Error("Unauthorized");
 
-      return qCreateBrand(db, user.id, input);
+      // Default email to user's email if not provided
+      const brandData = {
+        ...input,
+        email: input.email ?? user.email,
+      };
+
+      return qCreateBrand(db, user.id, brandData);
     }),
 
   update: protectedProcedure
@@ -67,8 +73,34 @@ export const brandRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(idParamSchema)
     .mutation(async ({ ctx, input }) => {
-      const { db, user } = ctx;
-      return qDeleteBrand(db, input.id, user?.id as string);
+      const { db, user, supabaseAdmin } = ctx;
+      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+      try {
+        // Delete brand storage folder before deleting brand
+        if (supabaseAdmin) {
+          const { data: files } = await supabaseAdmin.storage
+            .from("brand-avatars")
+            .list(input.id);
+
+          if (files && files.length > 0) {
+            const filePaths = files.map((file) => `${input.id}/${file.name}`);
+            await supabaseAdmin.storage.from("brand-avatars").remove(filePaths);
+          }
+        }
+
+        // Delete brand and get next active brand
+        const result = await qDeleteBrand(db, input.id, user.id);
+        return result;
+      } catch (error) {
+        if (error instanceof Error && error.message === "FORBIDDEN") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only brand owners can delete brands",
+          });
+        }
+        throw error;
+      }
     }),
 
   setActive: protectedProcedure

@@ -63,6 +63,7 @@ export type Database = {
           avatar_hue: number | null;
           country_code: string | null;
           created_at: string;
+          email: string | null;
           id: string;
           logo_path: string | null;
           name: string;
@@ -72,6 +73,7 @@ export type Database = {
           avatar_hue?: number | null;
           country_code?: string | null;
           created_at?: string;
+          email?: string | null;
           id?: string;
           logo_path?: string | null;
           name: string;
@@ -81,6 +83,7 @@ export type Database = {
           avatar_hue?: number | null;
           country_code?: string | null;
           created_at?: string;
+          email?: string | null;
           id?: string;
           logo_path?: string | null;
           name?: string;

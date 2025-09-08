@@ -18,10 +18,11 @@ import { useEffect, useMemo, useState } from "react";
 
 interface CountrySelectProps {
   id: string;
-  label: string;
+  label?: string;
   placeholder?: string;
   value: string;
   onChange: (code: string, name?: string) => void;
+  className?: string;
 }
 
 export function CountrySelect({
@@ -30,6 +31,7 @@ export function CountrySelect({
   placeholder = "Select country",
   value,
   onChange,
+  className,
 }: CountrySelectProps) {
   const [open, setOpen] = useState(false);
   const [internal, setInternal] = useState(value);
@@ -45,8 +47,8 @@ export function CountrySelect({
   );
 
   return (
-    <div className="flex flex-col gap-1 w-full">
-      <Label htmlFor={id}>{label}</Label>
+    <div className={cn("flex flex-col gap-1 w-full", className)}>
+      {label && <Label htmlFor={id}>{label}</Label>}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -68,7 +70,7 @@ export function CountrySelect({
             />
             <CommandEmpty>No country found.</CommandEmpty>
             <CommandGroup>
-              <CommandList className="overflow-y-auto max-h-[222px]">
+              <CommandList className="overflow-y-auto max-h-[222px] scrollbar-none [&::-webkit-scrollbar]:hidden">
                 {options.map((country) => (
                   <CommandItem
                     key={country.code}

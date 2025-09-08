@@ -26,7 +26,7 @@ export default function AccountLayout({
         </ControlBarLeft>
         <ControlBarRight />
       </ControlBar>
-      <div className="flex w-full h-full justify-center items-start p-12 overflow-y-auto">
+      <div className="flex w-full h-full justify-center items-start p-12 overflow-y-auto scrollbar-hide">
         {children}
       </div>
     </div>

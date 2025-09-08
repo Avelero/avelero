@@ -6,7 +6,7 @@ import { useUserMutation } from "@/hooks/use-user";
 import { createClient } from "@v1/supabase/client";
 import { SmartAvatar as Avatar } from "@v1/ui/avatar";
 import { cn } from "@v1/ui/cn";
-import { stripSpecialCharacters } from "@v1/utils";
+import { toast } from "@v1/ui/sonner";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 
 type Entity = "user" | "brand";
@@ -84,9 +84,29 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           return;
         }
         if (entity === "user") {
-          userMutation.mutate({ avatar_path: objectPath });
+          userMutation.mutate(
+            { avatar_path: objectPath },
+            {
+              onSuccess: () => {
+                toast.success("Avatar changed successfully");
+              },
+              onError: () => {
+                toast.error("Action failed, please try again");
+              },
+            },
+          );
         } else {
-          brandMutation.mutate({ id: entityId, logo_path: objectPath });
+          brandMutation.mutate(
+            { id: entityId, logo_path: objectPath },
+            {
+              onSuccess: () => {
+                toast.success("Avatar changed successfully");
+              },
+              onError: () => {
+                toast.error("Action failed, please try again");
+              },
+            },
+          );
         }
       },
       [onUpload, entity, entityId, userMutation, brandMutation],
@@ -112,7 +132,10 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           return;
         }
 
-        const filename = stripSpecialCharacters(f.name);
+        // Generate timestamp-based filename to prevent duplicates
+        const fileExtension = f.name.split(".").pop() || "jpg";
+        const timestamp = Date.now();
+        const filename = `${timestamp}.${fileExtension}`;
 
         try {
           // Resolve folder id from auth for user uploads to satisfy RLS
@@ -126,21 +149,39 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
             return;
           }
 
+          // Clean up old avatar files before uploading new one
+          const bucket = entity === "user" ? "avatars" : "brand-avatars";
+          try {
+            const supabase = createClient();
+            const { data: existingFiles } = await supabase.storage
+              .from(bucket)
+              .list(folderId);
+
+            if (existingFiles && existingFiles.length > 0) {
+              const filePaths = existingFiles.map(
+                (file) => `${folderId}/${file.name}`,
+              );
+              await supabase.storage.from(bucket).remove(filePaths);
+            }
+          } catch (cleanupError) {
+            // Don't fail the upload if cleanup fails, just log it
+            console.warn("Failed to cleanup old avatar files:", cleanupError);
+          }
+
           await uploadFile({
-            bucket: entity === "user" ? "avatars" : "brand-avatars",
+            bucket,
             path: [folderId, filename],
             file: f,
           });
 
           const objectPath = [folderId, filename].join("/");
           persistUrl(objectPath);
-          const bucket = entity === "user" ? "avatars" : "brand-avatars";
           const encoded = [folderId, filename]
             .map((s) => encodeURIComponent(s))
             .join("/");
           setAvatar(`/api/storage/${bucket}/${encoded}`);
         } catch (e) {
-          /* noop */
+          toast.error("Action failed, please try again");
         } finally {
           // reset value so user can re-pick same file if needed
           evt.target.value = "";

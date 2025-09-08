@@ -20,6 +20,7 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import { toast } from "@v1/ui/sonner";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -135,6 +136,7 @@ export function InviteModal({ brandId }: { brandId: string }) {
           email: inv.email,
           role: inv.role,
         });
+        toast.success(`Invite sent to ${inv.email}`);
       }
 
       setOpen(false);
@@ -150,6 +152,7 @@ export function InviteModal({ brandId }: { brandId: string }) {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to send invites";
       setError(message);
+      toast.error("Action failed, please try again");
     } finally {
       setIsSubmitting(false);
     }

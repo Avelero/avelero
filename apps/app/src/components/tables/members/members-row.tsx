@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
+import { toast } from "@v1/ui/sonner";
 import { useMemo } from "react";
 
 interface MemberRow {
@@ -98,6 +99,11 @@ function MembershipRow({
             ctx.previous,
           );
         }
+        toast.error("Action failed, please try again");
+      },
+      onSuccess: (_data, variables) => {
+        const roleText = variables.role === "owner" ? "Owner" : "Member";
+        toast.success(`Role changed to ${roleText}`);
       },
       onSettled: async () => {
         await queryClient.invalidateQueries({
@@ -116,6 +122,13 @@ function MembershipRow({
         const previous = queryClient.getQueryData(
           trpc.brand.members.queryKey(),
         ) as Members | undefined;
+
+        // Find the member to get their email for the toast
+        const memberToDelete = previous?.find(
+          (m) => m.user?.id === variables.user_id,
+        );
+        const memberEmail = memberToDelete?.user?.email || "user";
+
         queryClient.setQueryData<Members | undefined>(
           trpc.brand.members.queryKey(),
           (old) => {
@@ -125,7 +138,7 @@ function MembershipRow({
             ) as Members;
           },
         );
-        return { previous } as const;
+        return { previous, memberEmail } as const;
       },
       onError: (_e, _v, ctx) => {
         if (ctx?.previous) {
@@ -134,6 +147,11 @@ function MembershipRow({
             ctx.previous,
           );
         }
+        toast.error("Action failed, please try again");
+      },
+      onSuccess: (_data, _vars, ctx) => {
+        const memberEmail = ctx?.memberEmail || "user";
+        toast.success(`Removed ${memberEmail}`);
       },
       onSettled: async () => {
         await queryClient.invalidateQueries({

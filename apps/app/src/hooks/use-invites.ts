@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
+import { toast } from "@v1/ui/sonner";
 
 export function useMyInvitesQuery() {
   const trpc = useTRPC();
@@ -37,6 +38,10 @@ export function useAcceptInviteMutation() {
           trpc.brand.myInvites.queryKey(),
         );
 
+        // Find the invite to get brand name for toast
+        const invite = previous?.data.find((i) => i.id === variables.id);
+        const brandName = invite?.brand?.name || "brand";
+
         queryClient.setQueryData<MyInvites | undefined>(
           trpc.brand.myInvites.queryKey(),
           (old) =>
@@ -47,13 +52,18 @@ export function useAcceptInviteMutation() {
               : old,
         );
 
-        return { previous } as const;
+        return { previous, brandName } as const;
       },
       onError: (_err, _vars, ctx) => {
         queryClient.setQueryData(
           trpc.brand.myInvites.queryKey(),
           ctx?.previous,
         );
+        toast.error("Action failed, please try again");
+      },
+      onSuccess: (_data, _vars, ctx) => {
+        const brandName = ctx?.brandName || "brand";
+        toast.success(`Accepted invite from ${brandName}`);
       },
       onSettled: async () => {
         // refresh invite inbox and memberships

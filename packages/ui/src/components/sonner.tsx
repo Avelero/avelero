@@ -27,9 +27,9 @@ function Toast({ id, message, state }: ToastProps) {
 
   return (
     <div
-      className={`flex w-full max-w-md items-center justify-between gap-4 border p-3 shadow-sm ${styles.container}`}
+      className={`flex w-[360px] items-center justify-between gap-4 border p-4 shadow-sm ${styles.container}`}
     >
-      <p className="flex-1 text-[13px] font-normal leading-[21px] tracking-wide">
+      <p className="flex-1 text-[13px] font-normal leading-[21px] tracking-wide line-clamp-2">
         {message}
       </p>
       <button

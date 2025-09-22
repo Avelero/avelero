@@ -50,7 +50,7 @@ export const productEcoClaims = pgTable(
       withCheck: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
-        AND is_brand_owner(products.brand_id)
+        AND is_brand_member(products.brand_id)
       )`,
     }),
     pgPolicy("product_eco_claims_update_by_brand_owner", {
@@ -60,7 +60,7 @@ export const productEcoClaims = pgTable(
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
-        AND is_brand_owner(products.brand_id)
+        AND is_brand_member(products.brand_id)
       )`,
     }),
     pgPolicy("product_eco_claims_delete_by_brand_owner", {
@@ -70,7 +70,7 @@ export const productEcoClaims = pgTable(
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
-        AND is_brand_owner(products.brand_id)
+        AND is_brand_member(products.brand_id)
       )`,
     }),
   ],

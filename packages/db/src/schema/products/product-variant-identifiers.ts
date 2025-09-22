@@ -48,7 +48,7 @@ export const productVariantIdentifiers = pgTable(
         SELECT 1 FROM product_variants 
         JOIN products ON products.id = product_variants.product_id
         WHERE product_variants.id = variant_id 
-        AND is_brand_owner(products.brand_id)
+        AND is_brand_member(products.brand_id)
       )`,
     }),
     pgPolicy("product_variant_identifiers_update_by_brand_owner", {
@@ -59,7 +59,7 @@ export const productVariantIdentifiers = pgTable(
         SELECT 1 FROM product_variants 
         JOIN products ON products.id = product_variants.product_id
         WHERE product_variants.id = variant_id 
-        AND is_brand_owner(products.brand_id)
+        AND is_brand_member(products.brand_id)
       )`,
     }),
     pgPolicy("product_variant_identifiers_delete_by_brand_owner", {
@@ -70,7 +70,7 @@ export const productVariantIdentifiers = pgTable(
         SELECT 1 FROM product_variants 
         JOIN products ON products.id = product_variants.product_id
         WHERE product_variants.id = variant_id 
-        AND is_brand_owner(products.brand_id)
+        AND is_brand_member(products.brand_id)
       )`,
     }),
   ],

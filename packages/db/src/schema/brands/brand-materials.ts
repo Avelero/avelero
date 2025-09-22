@@ -46,19 +46,19 @@ export const brandMaterials = pgTable(
       as: "permissive",
       for: "insert",
       to: ["authenticated"],
-      withCheck: sql`is_brand_owner(brand_id)`,
+      withCheck: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("brand_materials_update_by_brand_owner", {
       as: "permissive",
       for: "update",
       to: ["authenticated"],
-      using: sql`is_brand_owner(brand_id)`,
+      using: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("brand_materials_delete_by_brand_owner", {
       as: "permissive",
       for: "delete",
       to: ["authenticated"],
-      using: sql`is_brand_owner(brand_id)`,
+      using: sql`is_brand_member(brand_id)`,
     }),
   ],
 );

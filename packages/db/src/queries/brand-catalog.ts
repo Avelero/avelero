@@ -539,4 +539,3 @@ export async function deleteShowcaseBrand(db: Database, id: string) {
     .returning({ id: showcaseBrands.id });
   return row;
 }
-

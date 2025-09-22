@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# Script to create and push a feature branch with format features/AFT-<task_number>
+
+# Use the global git command (avoid local ./git)
+GIT_CMD=$(which git)
+if [ -z "$GIT_CMD" ]; then
+  echo "Error: Git is not installed. Please install Git."
+  exit 1
+fi
+
+# Check if the repository is initialized
+if [ ! -d ".git" ]; then
+  echo "Error: Not a Git repository. Please initialize a repository with '$GIT_CMD init'."
+  exit 1
+fi
+
+# Check if origin remote is configured
+if ! $GIT_CMD remote | grep -q "^origin$"; then
+  echo "Error: No remote 'origin' configured. Please set it up with:"
+  echo "  $GIT_CMD remote add origin https://github.com/Avelero/Avelero-Webversion.git"
+  exit 1
+fi
+
+# Set the default branch name
+DEFAULT_BRANCH="Tr4m0ryp"
+
+# Verify the default branch exists
+if ! $GIT_CMD rev-parse --verify "$DEFAULT_BRANCH" >/dev/null 2>&1; then
+  echo "Error: Branch '$DEFAULT_BRANCH' does not exist."
+  exit 1
+fi
+
+# Switch to the default branch
+$GIT_CMD checkout "$DEFAULT_BRANCH" || { echo "Error: Failed to switch to $DEFAULT_BRANCH"; exit 1; }
+
+# Pull the latest changes from the default branch
+$GIT_CMD pull origin "$DEFAULT_BRANCH" || { echo "Warning: Failed to pull from origin/$DEFAULT_BRANCH. Continuing anyway..."; }
+
+# Prompt user for task description
+read -p "Enter task description: " TASK_DESC
+
+# Validate task description (non-empty)
+if [ -z "$TASK_DESC" ]; then
+  echo "Error: Task description cannot be empty"
+  exit 1
+fi
+
+# Prompt user for task number
+read -p "Enter task number (e.g., 123): " TASK_NUMBER
+
+# Validate task number (ensure it's numeric)
+if ! [[ "$TASK_NUMBER" =~ ^[0-9]+$ ]]; then
+  echo "Error: Task number must be numeric"
+  exit 1
+fi
+
+# Check if there are changes to commit
+if [ -z "$($GIT_CMD status --porcelain)" ]; then
+  echo "Error: No changes to commit"
+  exit 1
+fi
+
+# Stage all changes
+$GIT_CMD add . || { echo "Error: Failed to stage changes"; exit 1; }
+
+# Commit with task description
+$GIT_CMD commit -m "$TASK_DESC" || { echo "Error: Failed to commit changes"; exit 1; }
+
+# Create branch with format features/AFT-<task_number>
+BRANCH_NAME="features/AFT-$TASK_NUMBER"
+
+# Create the branch
+$GIT_CMD branch "$BRANCH_NAME" || { echo "Error: Failed to create branch $BRANCH_NAME"; exit 1; }
+
+# Push the branch to the remote repository
+$GIT_CMD push origin "$BRANCH_NAME" || { echo "Error: Failed to push branch $BRANCH_NAME to origin"; exit 1; }
+
+# Switch back to the default branch
+$GIT_CMD checkout "$DEFAULT_BRANCH" || { echo "Error: Failed to switch back to $DEFAULT_BRANCH"; exit 1; }
+
+echo "Created and pushed branch: $BRANCH_NAME"

@@ -44,4 +44,31 @@ Key Conventions:
   - Use only for Web API access in small components
   - Avoid for data fetching or state management
 
+Monorepo Patterns:
+- Use workspace imports for internal packages: `import { db } from "@v1/db"`
+- Import from specific package exports: `@v1/supabase/server`, `@v1/supabase/client`
+- Use absolute imports with `@/` alias for app-internal modules
+
+Server Actions:
+- Use `next-safe-action` for all server actions with proper error handling
+- Define action metadata with name and optional tracking
+- Use `authActionClient` for authenticated actions, `actionClient` for public ones
+- Handle errors as return values, not thrown exceptions
+
+API Communication:
+- Use tRPC for type-safe API communication between client and server
+- Define procedures in `apps/api/src/trpc/routers/`
+- Use Hono for API framework with proper CORS and security headers
+
+Database & Data:
+- Use Drizzle ORM for all database operations
+- Define schemas in `packages/db/src/schema/` with proper foreign keys
+- Use Supabase clients: `@v1/supabase/server` for server-side, `@v1/supabase/client` for client-side
+- Validate environment variables with `@t3-oss/env-nextjs`
+
+Code Quality:
+- Format and lint with Biome: `bun run format` and `bun run lint`
+- Use TypeScript strict mode with centralized tsconfig from `packages/tsconfig/`
+- Follow Turborepo conventions for build dependencies and caching
+
 Follow Next.js docs for Data Fetching, Rendering, and Routing

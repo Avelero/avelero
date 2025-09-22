@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import * as schema from "./schema/index.js";
 
 // Minimal primary connection. We can extend with replicas later.
 const connection = postgres(process.env.DATABASE_URL as string, {
@@ -7,7 +8,7 @@ const connection = postgres(process.env.DATABASE_URL as string, {
 });
 
 export const db = drizzle(connection, {
-  // schema added after we create it; for now keep minimal to unblock wiring
+  schema,
 });
 
 export type Database = typeof db;

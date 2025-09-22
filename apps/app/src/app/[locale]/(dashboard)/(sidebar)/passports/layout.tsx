@@ -7,7 +7,7 @@ import {
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Settings | Avelero",
+  title: "Passports | Avelero",
 };
 
 export default function AccountLayout({
@@ -19,10 +19,7 @@ export default function AccountLayout({
     <div className="flex flex-col h-full">
       <ControlBar>
         <ControlBarLeft>
-          <ControlBarNavButton href="/settings">General</ControlBarNavButton>
-          <ControlBarNavButton href="/settings/members">
-            Members
-          </ControlBarNavButton>
+          <ControlBarNavButton href="/passports">Passports</ControlBarNavButton>
         </ControlBarLeft>
         <ControlBarRight />
       </ControlBar>

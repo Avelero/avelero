@@ -87,19 +87,16 @@ export function NavigationLabel({ locale = "en" }: NavigationLabelProps) {
   }, [pathname, locale]);
 
   return (
-    <nav className="flex items-center text-sm">
+    <nav className="flex items-center text-h6">
       {items.map((item, index) => (
         <div key={`${item.href}-${item.label}`} className="flex items-center">
-          {index > 0 && <span className="mx-2 text-h6 text-tertiary">/</span>}
+          {index > 0 && <span className="mx-2 text-secondary">/</span>}
           {!item.show ? (
-            <span className="text-h6 text-tertiary">{item.label}</span>
+            <span className="text-secondary">{item.label}</span>
           ) : index === items.length - 1 ? (
-            <span className="text-h6 text-primary">{item.label}</span>
+            <span className="text-primary !font-medium">{item.label}</span>
           ) : (
-            <Link
-              href={item.href}
-              className="text-h6 text-tertiary hover:text-foreground transition-colors"
-            >
+            <Link href={item.href} className="text-secondary">
               {item.label}
             </Link>
           )}

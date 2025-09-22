@@ -11,11 +11,19 @@
       "node_modules/**",
       ".turbo",
       ".next",
-      ".next/**"
+      ".next/**",
+      ".react-email",
+      ".react-email/**"
     ]
   },
   "linter": {
-    "ignore": [".wrangler", "node_modules", ".next", "packages/tsconfig"],
+    "ignore": [
+      ".wrangler",
+      "node_modules",
+      ".next",
+      "packages/tsconfig",
+      ".react-email"
+    ],
     "enabled": true,
     "rules": {
       "recommended": true,

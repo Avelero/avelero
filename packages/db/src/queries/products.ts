@@ -50,10 +50,11 @@ export async function listProducts(
     .orderBy(desc(products.createdAt))
     .limit(limit);
 
-  const [{ value: total }] = await db
+  const result = await db
     .select({ value: count(products.id) })
     .from(products)
     .where(and(...whereClauses));
+  const total = result[0]?.value ?? 0;
 
   return { data: rows, meta: { total } } as const;
 }
@@ -273,4 +274,3 @@ export async function upsertVariantIdentifier(
     .returning({ id: productVariantIdentifiers.id });
   return row;
 }
-

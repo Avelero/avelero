@@ -67,8 +67,8 @@ $GIT_CMD add . || { echo "Error: Failed to stage changes"; exit 1; }
 # Commit with task description
 $GIT_CMD commit -m "$TASK_DESC" || { echo "Error: Failed to commit changes"; exit 1; }
 
-# Create branch with format features/AFT-<task_number>
-BRANCH_NAME="features/AFT-$TASK_NUMBER"
+# Create branch with format features/<task_name>
+BRANCH_NAME="features/$TASK_NAME"
 
 # Create the branch
 $GIT_CMD branch "$BRANCH_NAME" || { echo "Error: Failed to create branch $BRANCH_NAME"; exit 1; }

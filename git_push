@@ -23,7 +23,7 @@ if ! $GIT_CMD remote | grep -q "^origin$"; then
 fi
 
 # Set the default branch name
-DEFAULT_BRANCH="Tr4m0ryp"
+DEFAULT_BRANCH="main"
 
 # Verify the default branch exists
 if ! $GIT_CMD rev-parse --verify "$DEFAULT_BRANCH" >/dev/null 2>&1; then

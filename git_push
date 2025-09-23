@@ -46,12 +46,12 @@ if [ -z "$TASK_DESC" ]; then
   exit 1
 fi
 
-# Prompt user for task number
-read -p "Enter task number (e.g., 123): " TASK_NUMBER
+# Prompt user for task name
+read -p "Enter task name: " TASK_NAME
 
-# Validate task number (ensure it's numeric)
-if ! [[ "$TASK_NUMBER" =~ ^[0-9]+$ ]]; then
-  echo "Error: Task number must be numeric"
+# Validate task name (ensure it's not empty)
+if [ -z "$TASK_NAME" ]; then
+  echo "Error: Task name cannot be empty"
   exit 1
 fi
 

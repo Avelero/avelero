@@ -86,3 +86,7 @@ node_modules/
 # Task files
 # tasks.json
 # tasks/ 
+.taskmaster/
+.gemini/
+.cursor/
+.vscode/

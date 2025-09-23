@@ -34,6 +34,12 @@ export async function middleware(request: NextRequest) {
 
   const encodedSearchParams = `${newUrl.pathname.substring(1)}${newUrl.search}`;
 
+  // Add redirect for old /brands/create path
+  if (newUrl.pathname === "/brands/create") {
+    const redirectUrl = new URL(`/${seg1}/create-brand`, request.url);
+    return NextResponse.redirect(redirectUrl, 308);
+  }
+
   const {
     data: { session },
   } = await supabase.auth.getSession();

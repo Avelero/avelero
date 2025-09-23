@@ -1,11 +1,10 @@
-# IMPORTANT: Please read ARCHITECTURE.md and CONTRIBUTING.md for project structure and guidelines.
 # Task Master AI - Agent Integration Guide
 
 ## Essential Commands
 
 ### Core Workflow Commands
 
-```bas
+```bash
 # Project Setup
 task-master init                                    # Initialize Task Master in current project
 task-master parse-prd .taskmaster/docs/prd.txt      # Generate tasks from PRD document
@@ -416,5 +415,3 @@ These commands make AI calls and may take up to a minute:
 ---
 
 _This guide ensures Claude Code has immediate access to Task Master's essential functionality for agentic development workflows._
-
-

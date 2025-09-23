@@ -19,13 +19,7 @@ function useIsSessionReady(): boolean {
 
 export function useUserQuery() {
   const trpc = useTRPC();
-  const isSessionReady =
-    typeof window === "undefined" ? true : !!window?.localStorage;
-  const opts = trpc.user.me.queryOptions();
-  return useQuery({
-    ...opts,
-    enabled: typeof window !== "undefined" && isSessionReady,
-  });
+  return useSuspenseQuery(trpc.user.me.queryOptions());
 }
 
 export interface CurrentUser {

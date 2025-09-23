@@ -83,8 +83,8 @@ $GIT_CMD add . || { echo "Error: Failed to stage changes"; exit 1; }
 $GIT_CMD commit -m "$TASK_DESC" || { echo "Error: Failed to commit changes"; exit 1; }
 
 if [ "$CREATE_FEATURE_BRANCH" = true ]; then
-  # Create branch with format features/<task_name>
-  BRANCH_NAME="features/$TASK_NAME"
+  # Create branch with format feature/AFT-<task_name>
+  BRANCH_NAME="feature/AFT-$TASK_NAME"
 
   # Create the branch
   $GIT_CMD branch "$BRANCH_NAME" || { echo "Error: Failed to create branch $BRANCH_NAME"; exit 1; }

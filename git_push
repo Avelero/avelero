@@ -1,6 +1,13 @@
 #!/bin/bash
 
 # Script to create and push a feature branch with format features/AFT-<task_number>
+# Usage: ./git_push [--main]
+
+# Parse arguments
+PUSH_TO_MAIN=false
+if [ "$1" = "--main" ]; then
+  PUSH_TO_MAIN=true
+fi
 
 # Use the global git command (avoid local ./git)
 GIT_CMD=$(which git)
@@ -37,22 +44,28 @@ $GIT_CMD checkout "$DEFAULT_BRANCH" || { echo "Error: Failed to switch to $DEFAU
 # Pull the latest changes from the default branch
 $GIT_CMD pull origin "$DEFAULT_BRANCH" || { echo "Warning: Failed to pull from origin/$DEFAULT_BRANCH. Continuing anyway..."; }
 
-# Prompt user for task description
-read -p "Enter task description: " TASK_DESC
+if [ "$PUSH_TO_MAIN" = false ]; then
+  # Prompt user for task description
+  read -p "Enter task description: " TASK_DESC
 
-# Validate task description (non-empty)
-if [ -z "$TASK_DESC" ]; then
-  echo "Error: Task description cannot be empty"
-  exit 1
-fi
+  # Validate task description (non-empty)
+  if [ -z "$TASK_DESC" ]; then
+    echo "Error: Task description cannot be empty"
+    exit 1
+  fi
 
-# Prompt user for task name
-read -p "Enter task name: " TASK_NAME
+  # Prompt user for task name
+  read -p "Enter task name: " TASK_NAME
 
-# Validate task name (ensure it's not empty)
-if [ -z "$TASK_NAME" ]; then
-  echo "Error: Task name cannot be empty"
-  exit 1
+  # Validate task name (ensure it's not empty)
+  if [ -z "$TASK_NAME" ]; then
+    echo "Error: Task name cannot be empty"
+    exit 1
+  fi
+else
+  # Use default values for main branch push
+  TASK_DESC="Update main branch"
+  TASK_NAME="main-update"
 fi
 
 # Check if there are changes to commit
@@ -67,16 +80,23 @@ $GIT_CMD add . || { echo "Error: Failed to stage changes"; exit 1; }
 # Commit with task description
 $GIT_CMD commit -m "$TASK_DESC" || { echo "Error: Failed to commit changes"; exit 1; }
 
-# Create branch with format features/<task_name>
-BRANCH_NAME="features/$TASK_NAME"
+if [ "$PUSH_TO_MAIN" = false ]; then
+  # Create branch with format features/<task_name>
+  BRANCH_NAME="features/$TASK_NAME"
 
-# Create the branch
-$GIT_CMD branch "$BRANCH_NAME" || { echo "Error: Failed to create branch $BRANCH_NAME"; exit 1; }
+  # Create the branch
+  $GIT_CMD branch "$BRANCH_NAME" || { echo "Error: Failed to create branch $BRANCH_NAME"; exit 1; }
 
-# Push the branch to the remote repository
-$GIT_CMD push origin "$BRANCH_NAME" || { echo "Error: Failed to push branch $BRANCH_NAME to origin"; exit 1; }
+  # Push the branch to the remote repository
+  $GIT_CMD push origin "$BRANCH_NAME" || { echo "Error: Failed to push branch $BRANCH_NAME to origin"; exit 1; }
 
-# Switch back to the default branch
-$GIT_CMD checkout "$DEFAULT_BRANCH" || { echo "Error: Failed to switch back to $DEFAULT_BRANCH"; exit 1; }
+  # Switch back to the default branch
+  $GIT_CMD checkout "$DEFAULT_BRANCH" || { echo "Error: Failed to switch back to $DEFAULT_BRANCH"; exit 1; }
 
-echo "Created and pushed branch: $BRANCH_NAME"
+  echo "Created and pushed branch: $BRANCH_NAME"
+else
+  # Push directly to main branch
+  $GIT_CMD push origin "$DEFAULT_BRANCH" || { echo "Error: Failed to push to origin/$DEFAULT_BRANCH"; exit 1; }
+
+  echo "Pushed changes directly to $DEFAULT_BRANCH"
+fi

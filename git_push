@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Script to create and push a feature branch or push directly to staging
-# Usage: ./git_push [--feature]
+# Usage: ./git_push [--staging]
 
 # Parse arguments
-CREATE_FEATURE_BRANCH=false
-if [ "$1" = "--feature" ]; then
-  CREATE_FEATURE_BRANCH=true
+CREATE_FEATURE_BRANCH=true
+if [ "$1" = "--staging" ]; then
+  CREATE_FEATURE_BRANCH=false
 fi
 
 # Use the global git command (avoid local ./git)

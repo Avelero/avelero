@@ -136,6 +136,15 @@ update; // = task-master update
 // Analysis
 analyze_project_complexity; // = task-master analyze-complexity
 complexity_report; // = task-master complexity-report
+
+// Playwright Testing Tools
+run_e2e_tests; // = npx playwright test
+run_e2e_tests --headed; // = npx playwright test --headed (run tests in browser)
+run_e2e_tests --debug; // = npx playwright test --debug (debug mode)
+run_e2e_tests --grep "test name"; // = npx playwright test --grep "test name"
+generate_e2e_test; // = npx playwright codegen (generate test from browser actions)
+show_test_report; // = npx playwright show-report (view test results)
+install_browsers; // = npx playwright install (install browser binaries)
 ```
 
 ## Gemini CLI Workflow Integration
@@ -228,6 +237,9 @@ Add to `.gemini/settings.json`:
     "Bash(git commit:*)",
     "Bash(git add:*)",
     "Bash(npm run *)",
+    "Bash(npx playwright *)",
+    "Bash(bun run test:e2e)",
+    "Bash(bun run test:unit)",
     "mcp__task_master_ai__*"
   ]
 }
@@ -309,8 +321,10 @@ task-master models --set-fallback gpt-4o-mini
 3. `task-master update-subtask --id=<id> --prompt="detailed plan"` - Log plan
 4. `task-master set-status --id=<id> --status=in-progress` - Start work
 5. Implement code following logged plan
-6. `task-master update-subtask --id=<id> --prompt="what worked/didn't work"` - Log progress
-7. `task-master set-status --id=<id> --status=done` - Complete task
+6. Write/update unit tests for the implemented functionality
+7. Run E2E tests with `npx playwright test` to verify end-to-end flows
+8. `task-master update-subtask --id=<id> --prompt="what worked/didn't work"` - Log progress
+9. `task-master set-status --id=<id> --status=done` - Complete task
 
 ### Complex Workflows with Checklists
 
@@ -321,6 +335,8 @@ For large migrations or multi-step processes:
 3. Use Taskmaster to expand the newly generated tasks into subtasks. Consdier using `analyze-complexity` with the correct --to and --from IDs (the new ids) to identify the ideal subtask amounts for each task. Then expand them.
 4. Work through items systematically, checking them off as completed
 5. Use `task-master update-subtask` to log progress on each task/subtask and/or updating/researching them before/during implementation if getting stuck
+6. **CRITICAL:** Run comprehensive E2E tests with `npx playwright test` after each major change to ensure no regressions
+7. Use `npx playwright test --grep "specific flow"` to test particular user journeys affected by changes
 
 ### Git Integration
 
@@ -537,6 +553,7 @@ The project leverages a modern web development stack:
 *   **Package Manager:** [Bun](https://bun.sh/).
 *   **Monorepo Tooling:** [Turborepo](https://turbo.build/).
 *   **Code Formatting & Linting:** [Biome](https://biomejs.dev/).
+*   **Testing:** [Playwright](https://playwright.dev/) for E2E tests, Jest/Vitest for unit tests.
 *   **Cloud Platform:** [Vercel](https://vercel.com/) (for frontend apps), [Fly.io](https://fly.io/) (for API).
 
 ## 6. Configuration Management
@@ -568,7 +585,12 @@ The project leverages a modern web development stack:
 *   **Installation:** Use `bun install` at the monorepo root.
 *   **Development Server:** Use `turbo dev` to run all applications in development mode.
 *   **Linting & Formatting:** `biome check .` and `biome format .` should be run regularly. These are enforced via pre-commit hooks or CI/CD.
-*   **Testing:** (Further details to be added here once a comprehensive testing strategy is defined).
+*   **Testing:** 
+    - **Unit Tests:** `bun run test:unit` or `npm run test:unit`
+    - **E2E Tests:** `bun run test:e2e` or `npx playwright test`
+    - **Test Generation:** `npx playwright codegen` to record browser actions
+    - **Test Debugging:** `npx playwright test --debug` for step-by-step debugging
+*   **Browser Installation:** Run `npx playwright install` after first setup.
 
 ## 8. Testing Guidelines
 
@@ -576,8 +598,59 @@ A comprehensive testing strategy is crucial for monorepos.
 
 *   **Unit Tests:** Should reside alongside the code they test (e.g., `src/__tests__/` or `src/*.test.ts`).
 *   **Integration Tests:** For interactions between packages or services.
-*   **End-to-End (E2E) Tests:** For critical user flows across applications.
-*   **Frameworks:** (e.g., Jest, Vitest, Playwright - to be specified).
+*   **End-to-End (E2E) Tests:** For critical user flows across applications using Playwright.
+*   **Frameworks:** Jest/Vitest for unit tests, Playwright for E2E tests.
+
+### Playwright E2E Testing
+
+**MANDATORY:** All E2E tests MUST use Playwright following these exact patterns.
+
+#### Test Structure
+- **Location:** Tests in `apps/app/e2e/` or `apps/web/e2e/` for respective applications.
+- **File Naming:** `*.spec.ts` (e.g., `auth.spec.ts`, `checkout.spec.ts`).
+- **Test Organization:** Group related tests in describe blocks with clear naming.
+
+#### Test Patterns
+```typescript
+// Example test structure
+import { test, expect } from '@playwright/test';
+
+test.describe('Authentication Flow', () => {
+  test('should login successfully', async ({ page }) => {
+    await page.goto('/');
+    await page.fill('[data-testid="email"]', 'user@example.com');
+    await page.fill('[data-testid="password"]', 'password');
+    await page.click('[data-testid="login-button"]');
+    await expect(page).toHaveURL('/dashboard');
+  });
+
+  test('should show error for invalid credentials', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('[data-testid="email"]', 'invalid@example.com');
+    await page.fill('[data-testid="password"]', 'wrong');
+    await page.click('[data-testid="login-button"]');
+    await expect(page.locator('[data-testid="error-message"]')).toBeVisible();
+  });
+});
+```
+
+#### Best Practices
+- **Data Attributes:** Use `data-testid` attributes for element selection (never CSS classes).
+- **Page Objects:** Create page object classes for complex pages in `e2e/pages/`.
+- **Test Data:** Use fixtures for test data, avoid hardcoded values.
+- **Assertions:** Use Playwright's expect API with descriptive messages.
+- **Parallel Execution:** Tests run in parallel by default for speed.
+- **Visual Testing:** Use `toHaveScreenshot()` for visual regression tests.
+
+#### Configuration
+- **playwright.config.ts:** Configure browsers, base URL, and test settings.
+- **Browsers:** Test on Chromium, Firefox, and WebKit.
+- **Base URL:** Set to local development server or staging environment.
+
+#### CI/CD Integration
+- **Commands:** `npx playwright test` for all tests, `npx playwright test --project=chromium` for specific browser.
+- **Artifacts:** Screenshots and videos automatically captured on failures.
+- **Reporting:** HTML reports generated with `npx playwright show-report`.
 
 ## 9. Deployment Overview
 

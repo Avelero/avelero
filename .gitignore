@@ -103,6 +103,18 @@ mcp.json
 #prompts
 ./prompts
 
+#rules
+.cursor
+.gemini
+.github
+.vscode
+.cursorrules
+GEMINI.md
+
+#mcp_files
+.env.example
+.taskmaster
+=======
 # Task files
 # tasks.json
 # tasks/ 

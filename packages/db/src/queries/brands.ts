@@ -131,20 +131,6 @@ export async function deleteBrand(
   brandId: string,
   actingUserId: string,
 ): Promise<{ success: true; nextBrandId: string | null }> {
-  // Require acting user to be an owner on the brand
-  const owner = await db
-    .select({ id: brandMembers.id })
-    .from(brandMembers)
-    .where(
-      and(
-        eq(brandMembers.brandId, brandId),
-        eq(brandMembers.userId, actingUserId),
-        eq(brandMembers.role, "owner"),
-      ),
-    )
-    .limit(1);
-  if (!owner.length) throw new Error("FORBIDDEN");
-
   let actingUserNextBrandId: string | null = null;
 
   await db.transaction(async (tx) => {

@@ -25,6 +25,7 @@ create table if not exists public.users (
   email text unique not null,
   full_name text,
   avatar_url text,
+  role text not null default 'member' check (role in ('owner','member')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint fk_auth_user foreign key (id) references auth.users(id) on delete cascade
@@ -43,12 +44,26 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  user_count integer;
+  user_role text;
 begin
-  insert into public.users (id, email, full_name)
+  -- Check if any users already exist
+  select count(*) into user_count from public.users;
+
+  -- Determine the role based on user count
+  if user_count = 0 then
+    user_role := 'owner';
+  else
+    user_role := 'member';
+  end if;
+
+  insert into public.users (id, email, full_name, role)
   values (
     new.id,
     new.email,
-    new.raw_user_meta_data ->> 'full_name'
+    new.raw_user_meta_data ->> 'full_name',
+    user_role
   );
   return new;
 end;

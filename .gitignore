@@ -83,6 +83,7 @@ node_modules/
 *.sw?
 # OS specific
 
+
 # Task files
 # tasks.json
 # tasks/ 
@@ -90,7 +91,6 @@ node_modules/
 .gemini/
 .cursor/
 .vscode/
-=======
 
 #mcp_servers
 .vscode
@@ -101,3 +101,13 @@ mcp.json
 
 #prompts
 ./prompts
+
+# Task files
+# tasks.json
+# tasks/ 
+.gemini
+.github
+.taskmaster
+.vscode
+.cursor
+GEMINI.md

@@ -1,5 +1,6 @@
 # Task Master AI - Agent Integration Guide
-=======
+
+
 # Gemini AI - Strict Project Guidelines and Integration Guide
 
 ## Strict Adherence Requirements
@@ -11,6 +12,7 @@
 - **UI Style:** Use only the specified UI components, Tailwind classes, and design system elements.
 - **Processing:** Implement data flow, API calls, and business logic according to the defined patterns.
 - **Validation:** Before implementing, verify against existing codebase examples. If uncertain, ask for clarification rather than assume.
+
 
 ## Essential Commands
 
@@ -57,11 +59,11 @@ task-master generate                                         # Update task markd
 - `.taskmaster/tasks/*.txt` - Individual task files (auto-generated from tasks.json)
 - `.env` - API keys for CLI usage
 
-### Gemini CLI Integration Files
+### Claude Code Integration Files
 
-- `GEMINI.md` - Auto-loaded context for Gemini CLI (this file)
-- `.gemini/settings.json` - Gemini CLI tool allowlist and preferences
-- `.gemini/commands/` - Custom slash commands for repeated workflows
+- `CLAUDE.md` - Auto-loaded context for Claude Code (this file)
+- `.claude/settings.json` - Claude Code tool allowlist and preferences
+- `.claude/commands/` - Custom slash commands for repeated workflows
 - `.mcp.json` - MCP server configuration (project-specific)
 
 ### Directory Structure
@@ -80,24 +82,24 @@ project/
 │   ├── templates/         # Template files
 │   │   └── example_prd.txt  # Example PRD template
 │   └── config.json        # AI models & settings
-├── .gemini/
-│   ├── settings.json      # Gemini CLI configuration
+├── .claude/
+│   ├── settings.json      # Claude Code configuration
 │   └── commands/         # Custom slash commands
 ├── .env                  # API keys
 ├── .mcp.json            # MCP configuration
-└── GEMINI.md            # This file - auto-loaded by Gemini CLI
+└── CLAUDE.md            # This file - auto-loaded by Claude Code
 ```
 
 ## MCP Integration
 
-Task Master provides an MCP server that Gemini CLI can connect to. Configure in `.mcp.json`:
+Task Master provides an MCP server that Claude Code can connect to. Configure in `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "task-master-ai": {
       "command": "npx",
-      "args": ["-y", "--package=task-master-ai", "task-master-ai"],
+      "args": ["-y", "task-master-ai"],
       "env": {
         "ANTHROPIC_API_KEY": "your_key_here",
         "PERPLEXITY_API_KEY": "your_key_here",
@@ -138,18 +140,9 @@ update; // = task-master update
 // Analysis
 analyze_project_complexity; // = task-master analyze-complexity
 complexity_report; // = task-master complexity-report
-
-// Playwright Testing Tools
-run_e2e_tests; // = npx playwright test
-run_e2e_tests --headed; // = npx playwright test --headed (run tests in browser)
-run_e2e_tests --debug; // = npx playwright test --debug (debug mode)
-run_e2e_tests --grep "test name"; // = npx playwright test --grep "test name"
-generate_e2e_test; // = npx playwright codegen (generate test from browser actions)
-show_test_report; // = npx playwright show-report (view test results)
-install_browsers; // = npx playwright install (install browser binaries)
 ```
 
-## Gemini CLI Workflow Integration
+## Claude Code Workflow Integration
 
 ### Standard Development Workflow
 
@@ -183,24 +176,24 @@ task-master update-subtask --id=<id> --prompt="implementation notes..."
 task-master set-status --id=<id> --status=done
 ```
 
-#### 3. Multi-Gemini Workflows
+#### 3. Multi-Claude Workflows
 
-For complex projects, use multiple Gemini CLI sessions:
+For complex projects, use multiple Claude Code sessions:
 
 ```bash
 # Terminal 1: Main implementation
-cd project && gemini
+cd project && claude
 
 # Terminal 2: Testing and validation
-cd project-test-worktree && gemini
+cd project-test-worktree && claude
 
 # Terminal 3: Documentation updates
-cd project-docs-worktree && gemini
+cd project-docs-worktree && claude
 ```
 
 ### Custom Slash Commands
 
-Create `.gemini/commands/taskmaster-next.md`:
+Create `.claude/commands/taskmaster-next.md`:
 
 ```markdown
 Find the next available Task Master task and show its details.
@@ -213,7 +206,7 @@ Steps:
 4. Suggest the first implementation step
 ```
 
-Create `.gemini/commands/taskmaster-complete.md`:
+Create `.claude/commands/taskmaster-complete.md`:
 
 ```markdown
 Complete a Task Master task: $ARGUMENTS
@@ -229,7 +222,7 @@ Steps:
 
 ## Tool Allowlist Recommendations
 
-Add to `.gemini/settings.json`:
+Add to `.claude/settings.json`:
 
 ```json
 {
@@ -239,9 +232,6 @@ Add to `.gemini/settings.json`:
     "Bash(git commit:*)",
     "Bash(git add:*)",
     "Bash(npm run *)",
-    "Bash(npx playwright *)",
-    "Bash(bun run test:e2e)",
-    "Bash(bun run test:unit)",
     "mcp__task_master_ai__*"
   ]
 }
@@ -308,12 +298,12 @@ task-master models --set-fallback gpt-4o-mini
 }
 ```
 
-## Gemini CLI Best Practices with Task Master
+## Claude Code Best Practices with Task Master
 
 ### Context Management
 
 - Use `/clear` between different tasks to maintain focus
-- This GEMINI.md file is automatically loaded for context
+- This CLAUDE.md file is automatically loaded for context
 - Use `task-master show <id>` to pull specific task context when needed
 
 ### Iterative Implementation
@@ -323,10 +313,8 @@ task-master models --set-fallback gpt-4o-mini
 3. `task-master update-subtask --id=<id> --prompt="detailed plan"` - Log plan
 4. `task-master set-status --id=<id> --status=in-progress` - Start work
 5. Implement code following logged plan
-6. Write/update unit tests for the implemented functionality
-7. Run E2E tests with `npx playwright test` to verify end-to-end flows
-8. `task-master update-subtask --id=<id> --prompt="what worked/didn't work"` - Log progress
-9. `task-master set-status --id=<id> --status=done` - Complete task
+6. `task-master update-subtask --id=<id> --prompt="what worked/didn't work"` - Log progress
+7. `task-master set-status --id=<id> --status=done` - Complete task
 
 ### Complex Workflows with Checklists
 
@@ -337,8 +325,6 @@ For large migrations or multi-step processes:
 3. Use Taskmaster to expand the newly generated tasks into subtasks. Consdier using `analyze-complexity` with the correct --to and --from IDs (the new ids) to identify the ideal subtask amounts for each task. Then expand them.
 4. Work through items systematically, checking them off as completed
 5. Use `task-master update-subtask` to log progress on each task/subtask and/or updating/researching them before/during implementation if getting stuck
-6. **CRITICAL:** Run comprehensive E2E tests with `npx playwright test` after each major change to ensure no regressions
-7. Use `npx playwright test --grep "specific flow"` to test particular user journeys affected by changes
 
 ### Git Integration
 
@@ -359,9 +345,9 @@ git commit -m "feat: implement JWT auth (task 1.2)"
 git worktree add ../project-auth feature/auth-system
 git worktree add ../project-api feature/api-refactor
 
-# Run Gemini CLI in each worktree
-cd ../project-auth && gemini    # Terminal 1: Auth work
-cd ../project-api && gemini     # Terminal 2: API work
+# Run Claude Code in each worktree
+cd ../project-auth && claude    # Terminal 1: Auth work
+cd ../project-api && claude     # Terminal 2: API work
 ```
 
 ## Troubleshooting
@@ -383,7 +369,7 @@ task-master models --set-fallback gpt-4o-mini
 
 - Check `.mcp.json` configuration
 - Verify Node.js installation
-- Use `--mcp-debug` flag when starting Gemini CLI
+- Use `--mcp-debug` flag when starting Claude Code
 - Use CLI as fallback if MCP unavailable
 
 ### Task File Sync Issues
@@ -420,12 +406,12 @@ These commands make AI calls and may take up to a minute:
 - Task markdown files in `tasks/` are auto-generated
 - Run `task-master generate` after manual changes to tasks.json
 
-### Gemini CLI Session Management
+### Claude Code Session Management
 
 - Use `/clear` frequently to maintain focused context
 - Create custom slash commands for repeated Task Master workflows
 - Configure tool allowlist to streamline permissions
-- Use headless mode for automation: `gemini -p "task-master next"`
+- Use headless mode for automation: `claude -p "task-master next"`
 
 ### Multi-Task Updates
 
@@ -439,6 +425,7 @@ These commands make AI calls and may take up to a minute:
 - Requires a research model API key like Perplexity (`PERPLEXITY_API_KEY`) in environment
 - Provides more informed task creation and updates
 - Recommended for complex technical tasks
+
 
 ## Final Enforcement Note
 
@@ -638,26 +625,5 @@ test.describe('Authentication Flow', () => {
 });
 ```
 
-#### Best Practices
-- **Data Attributes:** Use `data-testid` attributes for element selection (never CSS classes).
-- **Page Objects:** Create page object classes for complex pages in `e2e/pages/`.
-- **Test Data:** Use fixtures for test data, avoid hardcoded values.
-- **Assertions:** Use Playwright's expect API with descriptive messages.
-- **Parallel Execution:** Tests run in parallel by default for speed.
-- **Visual Testing:** Use `toHaveScreenshot()` for visual regression tests.
 
-#### Configuration
-- **playwright.config.ts:** Configure browsers, base URL, and test settings.
-- **Browsers:** Test on Chromium, Firefox, and WebKit.
-- **Base URL:** Set to local development server or staging environment.
-
-#### CI/CD Integration
-- **Commands:** `npx playwright test` for all tests, `npx playwright test --project=chromium` for specific browser.
-- **Artifacts:** Screenshots and videos automatically captured on failures.
-- **Reporting:** HTML reports generated with `npx playwright show-report`.
-
-## 9. Deployment Overview
-
-*   **Frontend Applications (`apps/app`, `apps/web`):** Deployed via Vercel, leveraging its integration with Next.js.
-*   **Backend API (`apps/api`):** Deployed to Fly.io using Docker.
-*   **Database:** Supabase.
+_This guide ensures Claude Code has immediate access to Task Master's essential functionality for agentic development workflows._

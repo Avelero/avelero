@@ -1,15 +1,27 @@
 import { TRPCError } from "@trpc/server";
 import { brandRouter } from "./brand";
 import { createTRPCContext } from "../init";
-import { hasPermission, Permission, Role } from "../../config/permissions";
+import { hasPermission, type Permission, type Role } from "../../config/permissions";
 import { updateMemberRole as qUpdateMemberRole } from "@v1/db/queries";
-import { createClient as createSupabaseJsClient, User } from "@supabase/supabase-js";
-import { ROLES } from "../../../config/roles";
+import { createClient as createSupabaseJsClient, type User } from "@supabase/supabase-js";
+import { ROLES } from "../../config/roles";
+import type { Database as DrizzleDatabase } from "@v1/db/client";
 
 // Mock external dependencies
+const mockUpdateMemberRole = jest.fn();
+const mockHasPermission = jest.fn();
+
 jest.mock("@v1/db/queries", () => ({
-  updateMemberRole: jest.fn(),
+  updateMemberRole: mockUpdateMemberRole,
 }));
+
+jest.mock("../../config/permissions", () => ({
+  hasPermission: mockHasPermission,
+}));
+
+const mockDb = {} as DrizzleDatabase;
+const mockSupabase = createSupabaseJsClient("", "");
+const mockSupabaseAdmin = createSupabaseJsClient("", "");
 jest.mock("@supabase/supabase-js", () => ({
   createClient: jest.fn(() => ({
     auth: {
@@ -50,7 +62,6 @@ describe("brandRouter.updateMember", () => {
         phone: "",
         confirmed_at: new Date().toISOString(),
         last_sign_in_at: new Date().toISOString(),
-        role: ROLES.OWNER,
         updated_at: new Date().toISOString(),
         app_metadata: {},
         user_metadata: {},
@@ -58,14 +69,15 @@ describe("brandRouter.updateMember", () => {
         created_at: new Date().toISOString(),
       },
       brandId: mockBrandId,
-      db: {}, // Mock db as needed
-      supabase: createSupabaseJsClient("", ""),
-      supabaseAdmin: createSupabaseJsClient("", ""),
+      role: ROLES.OWNER,
+      db: mockDb,
+      supabase: mockSupabase,
+      supabaseAdmin: mockSupabaseAdmin,
       geo: {},
     };
 
     hasPermission.mockReturnValue(true);
-    qUpdateMemberRole.mockResolvedValue({ success: true });
+    mockUpdateMemberRole.mockResolvedValue({ success: true });
 
     const caller = brandRouter.createCaller(mockOwnerCtx);
 
@@ -75,7 +87,7 @@ describe("brandRouter.updateMember", () => {
       success: true,
     });
     expect(hasPermission).toHaveBeenCalledWith(ROLES.OWNER, "member:change_role");
-    expect(qUpdateMemberRole).toHaveBeenCalledWith(
+    expect(mockUpdateMemberRole).toHaveBeenCalledWith(
       expect.any(Object),
       mockUserId,
       mockBrandId,
@@ -94,7 +106,6 @@ describe("brandRouter.updateMember", () => {
         phone: "",
         confirmed_at: new Date().toISOString(),
         last_sign_in_at: new Date().toISOString(),
-        role: ROLES.MEMBER,
         updated_at: new Date().toISOString(),
         app_metadata: {},
         user_metadata: {},
@@ -102,9 +113,10 @@ describe("brandRouter.updateMember", () => {
         created_at: new Date().toISOString(),
       },
       brandId: mockBrandId,
-      db: {}, // Mock db as needed
-      supabase: createSupabaseJsClient("", ""),
-      supabaseAdmin: createSupabaseJsClient("", ""),
+      role: ROLES.MEMBER,
+      db: mockDb,
+      supabase: mockSupabase,
+      supabaseAdmin: mockSupabaseAdmin,
       geo: {},
     };
 
@@ -118,16 +130,17 @@ describe("brandRouter.updateMember", () => {
       new TRPCError({ code: "FORBIDDEN", message: "Insufficient permissions" })
     );
     expect(hasPermission).toHaveBeenCalledWith(ROLES.MEMBER, "member:change_role");
-    expect(qUpdateMemberRole).not.toHaveBeenCalled();
+    expect(mockUpdateMemberRole).not.toHaveBeenCalled();
   });
 
   it("should throw UNAUTHORIZED if user is not authenticated", async () => {
     const mockUnauthCtx = {
       user: null,
       brandId: mockBrandId,
-      db: {}, // Mock db as needed
-      supabase: createSupabaseJsClient("", ""),
-      supabaseAdmin: createSupabaseJsClient("", ""),
+      role: null,
+      db: mockDb,
+      supabase: mockSupabase,
+      supabaseAdmin: mockSupabaseAdmin,
       geo: {},
     };
 
@@ -139,6 +152,6 @@ describe("brandRouter.updateMember", () => {
       new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" })
     );
     expect(hasPermission).not.toHaveBeenCalled();
-    expect(qUpdateMemberRole).not.toHaveBeenCalled();
+    expect(mockUpdateMemberRole).not.toHaveBeenCalled();
   });
 });

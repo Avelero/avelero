@@ -5,6 +5,7 @@ import { db as drizzleDb } from "@v1/db/client";
 import type { Database as DrizzleDatabase } from "@v1/db/client";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
+import type { Role } from "../config/roles";
 import { withBrandPermission } from "./middleware/brand-permission";
 
 interface GeoContext {
@@ -17,6 +18,7 @@ export interface TRPCContext {
   user: User | null;
   geo: GeoContext;
   brandId?: string | null;
+  role?: Role | null;
   db: DrizzleDatabase;
 }
 
@@ -137,14 +139,14 @@ export const protectedProcedure = t.procedure
   .use(withBrandPermissionMiddleware)
   .use(withPrimaryDbMiddleware)
   .use(async (opts) => {
-    const { user, brandId } = opts.ctx;
+    const { user, brandId, role } = opts.ctx;
     if (!user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
 
     // Explicitly cast user to User (non-nullable)
     const authenticatedUser = user as User;
 
     // Refine the type of ctx to ensure user is non-nullable
-    const newCtx = { ...opts.ctx, user: authenticatedUser, brandId } as TRPCContext & { user: User };
+    const newCtx = { ...opts.ctx, user: authenticatedUser, brandId, role } as TRPCContext & { user: User; brandId: string | null; role: Role | null };
 
     return opts.next({ ctx: newCtx });
   });

@@ -1,29 +1,22 @@
-// apps/api/src/trpc/middleware/rbac.middleware.ts
+import { TRPCError } from "@trpc/server";
+import { protectedProcedure } from "../init";
+import { ROLES, type Role } from "../../config/roles";
 
-import { TRPCError } from '@trpc/server';
-import { t } from '../init';
-import { hasPermission, type Permission, type Role } from "../../config/permissions";
-
-export const enforceRbac = (requiredPermission: Permission) =>
-  t.middleware(async ({ ctx, next }) => {
-    if (!ctx.user) {
+/**
+ * Middleware to check if the authenticated user has one of the allowed roles.
+ * Throws a TRPCError with code 'FORBIDDEN' if the user does not have the required role.
+ *
+ * @param allowedRoles An array of roles that are permitted to access the resource.
+ * @returns A tRPC middleware that checks user roles.
+ */
+export const hasRole = (allowedRoles: Role[]) => {
+  return protectedProcedure.use(async ({ ctx, next }) => {
+    if (!ctx.user || !allowedRoles.includes(ctx.user.role)) {
       throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'Not authenticated',
+        code: "FORBIDDEN",
+        message: "You do not have the required role to access this resource.",
       });
     }
-
-    const userRole = ctx.user.role as Role; // Assuming role is part of the session user
-    if (!userRole || !hasPermission(userRole, requiredPermission)) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Insufficient permissions',
-      });
-    }
-
-    return next({
-      ctx: {
-        ...ctx,
-      },
-    });
+    return next();
   });
+};

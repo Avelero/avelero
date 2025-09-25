@@ -1,13 +1,16 @@
 import { TRPCError } from "@trpc/server";
 import { brandRouter } from "./brand";
 import { createTRPCContext } from "../init";
-import { hasPermission, type Permission, type Role } from "../../config/permissions";
-import { deleteBrand as qDeleteBrand } from "@db/queries/brands";
-import { createClient as createSupabaseJsClient, type User } from "@supabase/supabase-js";
+import { hasPermission, Permission, Role } from "../../config/permissions";
+import { deleteBrand as qDeleteBrand, updateBrand as qUpdateBrand, getBrandsByUserId as listBrandsForUser } from "@db/queries/brands";
+import { createClient as createSupabaseJsClient, User } from "@supabase/supabase-js";
+import { ROLES } from "../../../config/roles";
 
 // Mock external dependencies
 jest.mock("@db/queries/brands", () => ({
   deleteBrand: jest.fn(),
+  updateBrand: jest.fn(),
+  listBrandsForUser: jest.fn(),
 }));
 jest.mock("@supabase/supabase-js", () => ({
   createClient: jest.fn(() => ({
@@ -22,13 +25,7 @@ jest.mock("@supabase/supabase-js", () => ({
     },
   })),
 }));
-jest.mock("../../config/permissions", () => ({
-  hasPermission: jest.fn(),
-  PERMISSIONS: {
-    owner: ["brand:delete"],
-    member: [],
-  },
-}));
+
 
 describe("brandRouter.delete", () => {
   const mockBrandId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
@@ -48,16 +45,16 @@ describe("brandRouter.delete", () => {
         phone: "",
         confirmed_at: new Date().toISOString(),
         last_sign_in_at: new Date().toISOString(),
-        role: "owner" as Role,
+        role: ROLES.OWNER,
         updated_at: new Date().toISOString(),
         app_metadata: {},
         user_metadata: {},
         aud: "authenticated",
         created_at: new Date().toISOString(),
-      } as User,
+      },
       brandId: mockBrandId,
-      db: {} as any, // Mock db as needed
-      supabase: createSupabaseJsClient("", "") as any,
+      db: {}, // Mock db as needed
+      supabase: createSupabaseJsClient("", ""),
       supabaseAdmin: {
         storage: {
           from: jest.fn(() => ({
@@ -65,12 +62,12 @@ describe("brandRouter.delete", () => {
             remove: jest.fn(() => Promise.resolve({ data: {}, error: null })),
           })),
         },
-      } as any,
+      },
       geo: {},
     };
 
-    (hasPermission as jest.Mock).mockReturnValue(true);
-    (qDeleteBrand as jest.Mock).mockResolvedValue({ success: true, nextBrandId: null });
+
+    qDeleteBrand.mockResolvedValue({ success: true, nextBrandId: null });
 
     const caller = brandRouter.createCaller(mockOwnerCtx);
 
@@ -78,7 +75,7 @@ describe("brandRouter.delete", () => {
       success: true,
       nextBrandId: null,
     });
-    expect(hasPermission).toHaveBeenCalledWith("owner", "brand:delete");
+    expect(hasPermission).toHaveBeenCalledWith(ROLES.OWNER, "brand:delete");
     expect(qDeleteBrand).toHaveBeenCalledWith(expect.any(Object), mockBrandId, mockUserId);
   });
 
@@ -92,28 +89,26 @@ describe("brandRouter.delete", () => {
         phone: "",
         confirmed_at: new Date().toISOString(),
         last_sign_in_at: new Date().toISOString(),
-        role: "member" as Role,
+        role: ROLES.MEMBER,
         updated_at: new Date().toISOString(),
         app_metadata: {},
         user_metadata: {},
         aud: "authenticated",
         created_at: new Date().toISOString(),
-      } as User,
+      },
       brandId: mockBrandId,
-      db: {} as any, // Mock db as needed
-      supabase: createSupabaseJsClient("", "") as any,
-      supabaseAdmin: createSupabaseJsClient("", "") as any,
+      db: {}, // Mock db as needed
+      supabase: createSupabaseJsClient("", ""),
+      supabaseAdmin: createSupabaseJsClient("", ""),
       geo: {},
     };
 
-    (hasPermission as jest.Mock).mockReturnValue(false);
-
-    const caller = brandRouter.createCaller(mockMemberCtx);
-
     await expect(caller.delete({ id: mockBrandId })).rejects.toThrow(
-      new TRPCError({ code: "FORBIDDEN", message: "Insufficient permissions" })
+      new TRPCError({
+        code: "FORBIDDEN",
+        message: "You do not have the required role to access this resource.",
+      }),
     );
-    expect(hasPermission).toHaveBeenCalledWith("member", "brand:delete");
     expect(qDeleteBrand).not.toHaveBeenCalled();
   });
 
@@ -121,9 +116,9 @@ describe("brandRouter.delete", () => {
     const mockUnauthCtx = {
       user: null,
       brandId: mockBrandId,
-      db: {} as any,
-      supabase: createSupabaseJsClient("", "") as any,
-      supabaseAdmin: createSupabaseJsClient("", "") as any,
+      db: {}, // Mock db as needed
+      supabase: createSupabaseJsClient("", ""),
+      supabaseAdmin: createSupabaseJsClient("", ""),
       geo: {},
     };
 
@@ -134,5 +129,167 @@ describe("brandRouter.delete", () => {
     );
     expect(hasPermission).not.toHaveBeenCalled();
     expect(qDeleteBrand).not.toHaveBeenCalled();
+  });
+});
+
+describe("brandRouter.update", () => {
+  const mockBrandId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+  const mockUserId = "test-user-id";
+  const mockUpdateInput = {
+    id: mockBrandId,
+    name: "Updated Brand Name",
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should allow an owner to update a brand", async () => {
+    const mockOwnerCtx = {
+      user: {
+        id: mockUserId,
+        email: "owner@example.com",
+        email_confirmed_at: new Date().toISOString(),
+        phone: "",
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        role: ROLES.OWNER,
+        updated_at: new Date().toISOString(),
+        app_metadata: {},
+        user_metadata: {},
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      },
+      brandId: mockBrandId,
+      db: {},
+      supabase: createSupabaseJsClient("", ""),
+      supabaseAdmin: createSupabaseJsClient("", ""),
+      geo: {},
+    };
+
+    qUpdateBrand.mockResolvedValue({ success: true });
+
+    const caller = brandRouter.createCaller(mockOwnerCtx);
+
+    await expect(caller.update(mockUpdateInput)).resolves.toEqual({
+      success: true,
+    });
+    expect(qUpdateBrand).toHaveBeenCalledWith(
+      expect.any(Object),
+      mockUserId,
+      mockUpdateInput,
+    );
+  });
+
+  it("should prevent a member from updating a brand", async () => {
+    const mockMemberCtx = {
+      user: {
+        id: mockUserId,
+        email: "member@example.com",
+        email_confirmed_at: new Date().toISOString(),
+        phone: "",
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        role: ROLES.MEMBER,
+        updated_at: new Date().toISOString(),
+        app_metadata: {},
+        user_metadata: {},
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      },
+      brandId: mockBrandId,
+      db: {},
+      supabase: createSupabaseJsClient("", ""),
+      supabaseAdmin: createSupabaseJsClient("", ""),
+      geo: {},
+    };
+
+    const caller = brandRouter.createCaller(mockMemberCtx);
+
+    await expect(caller.update(mockUpdateInput)).rejects.toThrow(
+      new TRPCError({
+        code: "FORBIDDEN",
+        message: "You do not have the required role to access this resource.",
+      }),
+    );
+    expect(qUpdateBrand).not.toHaveBeenCalled();
+  });
+
+  it("should throw UNAUTHORIZED if user is not authenticated", async () => {
+    const mockUnauthCtx = {
+      user: null,
+      brandId: mockBrandId,
+      db: {},
+      supabase: createSupabaseJsClient("", ""),
+      supabaseAdmin: createSupabaseJsClient("", ""),
+      geo: {},
+    };
+
+    const caller = brandRouter.createCaller(mockUnauthCtx);
+
+    await expect(caller.update(mockUpdateInput)).rejects.toThrow(
+      new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" }),
+    );
+    expect(qUpdateBrand).not.toHaveBeenCalled();
+  });
+});
+
+describe("brandRouter.list", () => {
+  const mockBrandId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+  const mockUserId = "test-user-id";
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should allow a member to list brands", async () => {
+    const mockMemberCtx = {
+      user: {
+        id: mockUserId,
+        email: "member@example.com",
+        email_confirmed_at: new Date().toISOString(),
+        phone: "",
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        role: ROLES.MEMBER,
+        updated_at: new Date().toISOString(),
+        app_metadata: {},
+        user_metadata: {},
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      },
+      brandId: mockBrandId,
+      db: {}, // Mock db as needed
+      supabase: createSupabaseJsClient("", ""),
+      supabaseAdmin: createSupabaseJsClient("", ""),
+      geo: {},
+    };
+
+    listBrandsForUser.mockResolvedValue([{ id: mockBrandId, name: "Test Brand" }]);
+
+    const caller = brandRouter.createCaller(mockMemberCtx);
+
+    await expect(caller.list()).resolves.toEqual({
+      data: [{ id: mockBrandId, name: "Test Brand" }],
+    });
+    expect(listBrandsForUser).toHaveBeenCalledWith(expect.any(Object), mockUserId);
+  });
+
+  it("should throw UNAUTHORIZED if user is not authenticated", async () => {
+    const mockUnauthCtx = {
+      user: null,
+      brandId: mockBrandId,
+      db: {}, // Mock db as needed
+      supabase: createSupabaseJsClient("", ""),
+      supabaseAdmin: createSupabaseJsClient("", ""),
+      geo: {},
+    };
+
+    const caller = brandRouter.createCaller(mockUnauthCtx);
+
+    await expect(caller.list()).rejects.toThrow(
+      new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" })
+    );
+    expect(listBrandsForUser).not.toHaveBeenCalled();
   });
 });

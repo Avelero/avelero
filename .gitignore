@@ -83,10 +83,6 @@ node_modules/
 *.sw?
 # OS specific
 
-# Task files
-# tasks.json
-# tasks/ 
-
 #mcp_servers
 .vscode
 .cursor
@@ -96,3 +92,7 @@ mcp.json
 
 #prompts
 ./prompts
+
+# Task files
+# tasks.json
+# tasks/ 

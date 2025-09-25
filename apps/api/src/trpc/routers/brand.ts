@@ -37,8 +37,9 @@ import {
   updateMemberSchema,
 } from "../../schemas/brand.js";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
-import { enforceRbac } from "../middleware/rbac.middleware.js";
+import { hasRole } from "../middleware/rbac.middleware.js";
 import { type Permission } from "../../config/permissions.js";
+import { ROLES } from "../../config/roles";
 import type { User } from "@supabase/supabase-js";
 // acceptInviteForUser is imported from queries/brands.ts above
 
@@ -66,6 +67,7 @@ export const brandRouter = createTRPCRouter({
     }),
 
   update: protectedProcedure
+    .use(hasRole([ROLES.OWNER]))
     .input(updateBrandSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user } = ctx;
@@ -74,7 +76,7 @@ export const brandRouter = createTRPCRouter({
     }),
 
   delete: protectedProcedure
-    .use(enforceRbac("brand:delete" as Permission))
+    .use(hasRole([ROLES.OWNER]))
     .input(idParamSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, supabaseAdmin } = ctx;
@@ -150,7 +152,7 @@ export const brandRouter = createTRPCRouter({
 
       type InviteResult = {
         email: string;
-        role: "owner" | "member";
+        role: typeof ROLES.OWNER | typeof ROLES.MEMBER;
         brand: { id: string | null; name: string | null } | null;
         tokenHash: string | null;
         isExistingUser: boolean;
@@ -243,7 +245,7 @@ export const brandRouter = createTRPCRouter({
   }),
 
   updateMember: protectedProcedure
-    .use(enforceRbac("member:change_role" as Permission))
+    .use(hasRole([ROLES.OWNER]))
     .input(updateMemberSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, brandId } = ctx;

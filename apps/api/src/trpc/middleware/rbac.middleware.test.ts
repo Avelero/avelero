@@ -1,83 +1,43 @@
-// apps/api/src/trpc/middleware/rbac.middleware.test.ts
+import { TRPCError } from "@trpc/server";
+import { hasRole } from "./rbac.middleware";
+import { protectedProcedure } from "../init";
 
-import { TRPCError } from '@trpc/server';
-import { enforceRbac } from './rbac.middleware';
-import { hasPermission, type Permission, type Role } from "../../config/permissions";
+describe("hasRole middleware", () => {
+  it("should allow access if user has an allowed role", async () => {
+    const next = jest.fn();
+    const ctx = {
+      user: { id: "123", email: "test@example.com", role: "owner" },
+      db: {}, // Mock db if needed
+    };
 
-// Mock the tRPC init module to control `t.middleware`
-jest.mock('../init', () => ({
-  t: {
-    middleware: jest.fn((factory) => ({
-      _middleware: factory, // Store the factory function in _middleware
-    })),
-  },
-}));
-
-// Mock the hasPermission helper
-jest.mock('../../config/permissions', () => ({
-  hasPermission: jest.fn(),
-  PERMISSIONS: {
-    owner: ['brand:delete', 'brand:update'],
-    member: ['brand:read'],
-  },
-}));
-
-describe('enforceRbac middleware', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+    const middleware = hasRole(["owner"]);
+    await expect(middleware._def.fn({ ctx, next, rawInput: undefined, path: "" })).resolves.toBeUndefined();
+    expect(next).toHaveBeenCalled();
   });
 
-  it('should throw UNAUTHORIZED if user is not authenticated', async () => {
-    const middlewareBuilder = enforceRbac('brand:delete' as Permission);
-    const middlewareFn = (middlewareBuilder as any)._middleware;
-    const ctx = { user: null };
+  it("should throw FORBIDDEN error if user does not have an allowed role", async () => {
     const next = jest.fn();
+    const ctx = {
+      user: { id: "123", email: "test@example.com", role: "member" },
+      db: {}, // Mock db if needed
+    };
 
-    await expect(middlewareFn({ ctx, next })).rejects.toThrow(
-      new TRPCError({ code: 'UNAUTHORIZED', message: 'Not authenticated' })
-    );
+    const middleware = hasRole(["owner"]);
+    await expect(middleware._def.fn({ ctx, next, rawInput: undefined, path: "" })).rejects.toThrow(TRPCError);
+    await expect(middleware._def.fn({ ctx, next, rawInput: undefined, path: "" })).rejects.toHaveProperty("code", "FORBIDDEN");
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('should throw FORBIDDEN if user has no role', async () => {
-    const middlewareBuilder = enforceRbac('brand:delete' as Permission);
-    const middlewareFn = (middlewareBuilder as any)._middleware;
-    const ctx = { user: { id: '123', email: 'test@example.com', role: undefined } }; // No role
+  it("should throw FORBIDDEN error if no user in context", async () => {
     const next = jest.fn();
+    const ctx = {
+      user: null,
+      db: {}, // Mock db if needed
+    };
 
-    (hasPermission as jest.Mock).mockReturnValue(false);
-
-    await expect(middlewareFn({ ctx, next })).rejects.toThrow(
-      new TRPCError({ code: 'FORBIDDEN', message: 'Insufficient permissions' })
-    );
+    const middleware = hasRole(["owner"]);
+    await expect(middleware._def.fn({ ctx, next, rawInput: undefined, path: "" })).rejects.toThrow(TRPCError);
+    await expect(middleware._def.fn({ ctx, next, rawInput: undefined, path: "" })).rejects.toHaveProperty("code", "FORBIDDEN");
     expect(next).not.toHaveBeenCalled();
-  });
-
-  it('should throw FORBIDDEN if user lacks required permission', async () => {
-    const middlewareBuilder = enforceRbac('brand:delete' as Permission);
-    const middlewareFn = (middlewareBuilder as any)._middleware;
-    const ctx = { user: { id: '123', email: 'test@example.com', role: 'member' as Role } };
-    const next = jest.fn();
-
-    (hasPermission as jest.Mock).mockReturnValue(false);
-
-    await expect(middlewareFn({ ctx, next })).rejects.toThrow(
-      new TRPCError({ code: 'FORBIDDEN', message: 'Insufficient permissions' })
-    );
-    expect(hasPermission).toHaveBeenCalledWith('member', 'brand:delete');
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  it('should call next if user has required permission', async () => {
-    const middlewareBuilder = enforceRbac('brand:delete' as Permission);
-    const middlewareFn = (middlewareBuilder as any)._middleware;
-    const ctx = { user: { id: '123', email: 'test@example.com', role: 'owner' as Role } };
-    const next = jest.fn(() => ({ ctx })); // Mock next to return ctx
-
-    (hasPermission as jest.Mock).mockReturnValue(true);
-
-    await expect(middlewareFn({ ctx, next })).resolves.toEqual({ ctx });
-    expect(hasPermission).toHaveBeenCalledWith('owner', 'brand:delete');
-    expect(next).toHaveBeenCalledTimes(1);
   });
 });

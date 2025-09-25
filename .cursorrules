@@ -1,74 +1,134 @@
-Code Style and Structure:
-- Write concise, technical TypeScript code with accurate examples
-- Use functional and declarative programming patterns; avoid classes
-- Prefer iteration and modularization over code duplication
-- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError)
-- Structure files: exported component, subcomponents, helpers, static content, types
+# STRICT PROJECT GUIDELINES - MANDATORY COMPLIANCE
 
-Naming Conventions:
-- Use lowercase with dashes for directories (e.g., components/auth-wizard)
-- Favor named exports for components
+**CRITICAL:** You MUST follow ALL guidelines in this file without exception. Any deviation from the established coding style, architecture patterns, UI conventions, and processing methodologies is prohibited. Reference GEMINI.md for additional context.
 
-TypeScript Usage:
-- Use TypeScript for all code; prefer interfaces over types
-- Avoid enums; use maps instead
-- Use functional components with TypeScript interfaces
+## Strict Coding Standards
 
-Syntax and Formatting:
-- Use the "function" keyword for pure functions
-- Avoid unnecessary curly braces in conditionals; use concise syntax for simple statements
-- Use declarative JSX
+**MANDATORY:** All code MUST follow these exact standards. No deviations allowed.
 
-Error Handling and Validation:
-- Prioritize error handling: handle errors and edge cases early
-- Use early returns and guard clauses
-- Implement proper error logging and user-friendly messages
-- Use Zod for form validation
-- Model expected errors as return values in Server Actions
-- Use error boundaries for unexpected errors
+### TypeScript/JavaScript Conventions
+- **Naming:** Use camelCase for variables/functions, PascalCase for classes/components/types, UPPER_SNAKE_CASE for constants.
+- **File Structure:** One export per file where possible. Use `index.ts` for barrel exports.
+- **Imports:** Group imports: React/Next, third-party libraries, internal packages, relative imports. Use absolute imports for packages.
+- **Types:** Always use explicit types. Prefer interfaces over types for object shapes. Use `type` for unions/aliases.
+- **Error Handling:** Use try/catch with specific error types. Never use generic `any` or `unknown` without justification.
+- **Async/Await:** Always use async/await over Promises. Handle errors properly.
 
-UI and Styling:
-- Use Shadcn UI, Radix, and Tailwind Aria for components and styling
+### React/Next.js Patterns
+- **Components:** Use functional components with hooks. Name files as `ComponentName.tsx`.
+- **Hooks:** Custom hooks in `hooks/` directory. Prefix with `use`.
+- **Pages:** Use App Router. Server components by default, client components only when necessary.
+- **API Routes:** Use tRPC procedures in `trpc/` directory. No REST endpoints.
+- **Styling:** Tailwind CSS only. No CSS modules or styled-components.
 
-Performance Optimization:
-- Minimize 'use client', 'useEffect', and 'setState'; favor React Server Components (RSC)
-- Wrap client components in Suspense with fallback
-- Use dynamic loading for non-critical components
-- Optimize images: use WebP format, include size data, implement lazy loading
+### Database/ORM
+- **Queries:** Use Drizzle ORM exclusively. Define schemas in `packages/db/src/schema/`.
+- **Migrations:** Run via Supabase CLI. Never manual SQL.
+- **Types:** Auto-generate from schema. Import from `packages/db`.
 
-Key Conventions:
-- Use 'nuqs' for URL search parameter state management
-- Optimize Web Vitals (LCP, CLS, FID)
-- Limit 'use client':
-  - Favor server components and Next.js SSR
-  - Use only for Web API access in small components
-  - Avoid for data fetching or state management
+### Package Boundaries
+- **Imports:** Never import from `apps/` into `packages/`. Keep packages independent.
+- **Dependencies:** Add to appropriate `package.json`. Use workspace versions for internal packages.
 
-Monorepo Patterns:
-- Use workspace imports for internal packages: `import { db } from "@v1/db"`
-- Import from specific package exports: `@v1/supabase/server`, `@v1/supabase/client`
-- Use absolute imports with `@/` alias for app-internal modules
+## UI/UX Design System
 
-Server Actions:
-- Use `next-safe-action` for all server actions with proper error handling
-- Define action metadata with name and optional tracking
-- Use `authActionClient` for authenticated actions, `actionClient` for public ones
-- Handle errors as return values, not thrown exceptions
+**MANDATORY:** All UI elements MUST use the established design system.
 
-API Communication:
-- Use tRPC for type-safe API communication between client and server
-- Define procedures in `apps/api/src/trpc/routers/`
-- Use Hono for API framework with proper CORS and security headers
+### Component Library
+- **Base Components:** Use components from `packages/ui/src/`. Examples: Button, Input, Card.
+- **Icons:** Use Lucide React icons. Import from `lucide-react`.
+- **Layout:** Use Tailwind grid/flexbox. Avoid custom CSS.
 
-Database & Data:
-- Use Drizzle ORM for all database operations
-- Define schemas in `packages/db/src/schema/` with proper foreign keys
-- Use Supabase clients: `@v1/supabase/server` for server-side, `@v1/supabase/client` for client-side
-- Validate environment variables with `@t3-oss/env-nextjs`
+### Styling Guidelines
+- **Colors:** Use Tailwind color palette. Define custom colors in `tailwind.config.ts`.
+- **Typography:** Use Tailwind text utilities. Consistent font sizes: text-sm, text-base, text-lg, etc.
+- **Spacing:** Use Tailwind spacing scale: p-4, m-2, gap-3, etc.
+- **Responsive:** Mobile-first approach. Use sm:, md:, lg: breakpoints.
 
-Code Quality:
-- Format and lint with Biome: `bun run format` and `bun run lint`
-- Use TypeScript strict mode with centralized tsconfig from `packages/tsconfig/`
-- Follow Turborepo conventions for build dependencies and caching
+### User Experience
+- **Loading States:** Always show loading indicators for async operations.
+- **Error States:** Display user-friendly error messages. Use toast notifications.
+- **Accessibility:** ARIA labels, keyboard navigation, screen reader support.
+- **Performance:** Lazy load components, optimize images, minimize bundle size.
 
-Follow Next.js docs for Data Fetching, Rendering, and Routing
+## Data Processing and API Patterns
+
+**MANDATORY:** Follow exact data flow patterns.
+
+### API Communication
+- **tRPC:** All client-server communication via tRPC. Define procedures in `apps/api/src/trpc/`.
+- **Validation:** Use Zod schemas for input validation. Share schemas between client/server.
+- **Error Handling:** Standardized error responses. Use tRPC error codes.
+
+### State Management
+- **Local State:** React hooks (useState, useReducer).
+- **Server State:** tRPC queries with React Query.
+- **Global State:** Minimal. Use context only for theme/auth.
+
+### Data Flow
+- **Fetch:** Use tRPC queries for data fetching.
+- **Mutations:** Use tRPC mutations for updates.
+- **Caching:** React Query handles caching. Configure staleTime appropriately.
+- **Optimistic Updates:** Implement for better UX on mutations.
+
+## Core Technologies & Patterns
+
+### Frameworks & Libraries
+- **Next.js:** App Router only. Server Components by default.
+- **tRPC:** Type-safe API communication.
+- **Drizzle ORM:** Database operations with PostgreSQL/Supabase.
+- **Tailwind CSS:** Styling with PostCSS.
+- **Bun:** Package manager.
+- **Turborepo:** Monorepo tooling.
+- **Biome:** Code formatting and linting.
+
+### Monorepo Structure
+- **apps/:** Independent applications (api/, app/, web/).
+- **packages/:** Shared code (db/, ui/, utils/, etc.).
+- **Workspace Imports:** Use `@v1/package-name` for internal packages.
+
+### Development Workflow
+- **Installation:** `bun install` at monorepo root.
+- **Development:** `turbo dev` for all apps.
+- **Linting:** `biome check .` and `biome format .`.
+- **Testing:** Unit tests alongside code, integration tests for packages.
+
+## Code Quality & Performance
+
+### TypeScript Configuration
+- **Strict Mode:** Enabled via `packages/tsconfig/`.
+- **Centralized Config:** All tsconfig.json extend from `packages/tsconfig/`.
+
+### Performance Optimization
+- **Minimize 'use client':** Use only when necessary.
+- **Server Components:** Prefer over client components.
+- **Image Optimization:** WebP, lazy loading, size data.
+- **Bundle Size:** Minimize with dynamic imports.
+
+### Error Handling
+- **Early Returns:** Use guard clauses.
+- **Error Boundaries:** For unexpected errors.
+- **User-Friendly Messages:** Always provide context.
+- **Logging:** Use `packages/logger/`.
+
+## Deployment & Infrastructure
+
+### Platforms
+- **Frontend:** Vercel (apps/app, apps/web).
+- **Backend:** Fly.io (apps/api).
+- **Database:** Supabase.
+
+### Environment Variables
+- **Validation:** Use `@t3-oss/env-nextjs`.
+- **Shared Package:** Implement `packages/env` for consistency.
+
+## Final Enforcement
+
+**ABSOLUTE REQUIREMENT:** Before any code generation, architectural decision, UI implementation, or data processing design:
+
+1. **Review GEMINI.md thoroughly**
+2. **Check existing codebase for examples**
+3. **Verify compliance with all standards**
+4. **If uncertain, stop and seek clarification**
+
+Failure to adhere will result in immediate rejection of all outputs. This ensures the project's integrity, maintainability, and consistency.

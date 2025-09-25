@@ -65,7 +65,7 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
         router.refresh();
       } else {
         // User has no brands left, redirect to brand creation
-        router.push("/brands/create");
+        router.push("/create-brand");
         router.refresh();
       }
     } catch (e: unknown) {

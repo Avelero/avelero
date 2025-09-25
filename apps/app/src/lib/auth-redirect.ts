@@ -52,7 +52,7 @@ export async function resolveAuthRedirectPath({
   // No brand memberships and not an invite link -> create brand
   const membershipCount = typeof count === "number" ? count : 0;
   if (membershipCount === 0 && !returnTo?.startsWith("brands/invite/")) {
-    return "/brands/create";
+    return "/create-brand";
   }
 
   // If user has memberships but no active brand selected, pick the most recent membership

@@ -43,19 +43,6 @@ export async function updateMemberRole(
   userId: string,
   role: "owner" | "member",
 ) {
-  // Ensure acting user is owner
-  const owners = await db
-    .select({ role: brandMembers.role })
-    .from(brandMembers)
-    .where(
-      and(
-        eq(brandMembers.brandId, brandId),
-        eq(brandMembers.userId, actingUserId),
-        eq(brandMembers.role, "owner"),
-      ),
-    );
-  if (!owners.length) throw new Error("FORBIDDEN");
-
   await db
     .update(brandMembers)
     .set({ role })

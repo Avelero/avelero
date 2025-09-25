@@ -37,12 +37,16 @@ import {
   updateMemberSchema,
 } from "../../schemas/brand.js";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
+import { hasRole } from "../middleware/rbac.middleware.js";
+import { type Permission } from "../../config/permissions.js";
+import { ROLES } from "../../config/roles";
+import type { User } from "@supabase/supabase-js";
 // acceptInviteForUser is imported from queries/brands.ts above
 
 export const brandRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
     const { db, user } = ctx;
-    if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+    // @ts-ignore
     const data = await listBrandsForUser(db, user.id);
     return { data } as const;
   }),
@@ -63,6 +67,7 @@ export const brandRouter = createTRPCRouter({
     }),
 
   update: protectedProcedure
+    .use(hasRole([ROLES.OWNER]))
     .input(updateBrandSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user } = ctx;
@@ -71,36 +76,25 @@ export const brandRouter = createTRPCRouter({
     }),
 
   delete: protectedProcedure
+    .use(hasRole([ROLES.OWNER]))
     .input(idParamSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, supabaseAdmin } = ctx;
-      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+      // Delete brand storage folder before deleting brand
+      if (supabaseAdmin) {
+        const { data: files } = await supabaseAdmin.storage
+          .from("brand-avatars")
+          .list(input.id);
 
-      try {
-        // Delete brand storage folder before deleting brand
-        if (supabaseAdmin) {
-          const { data: files } = await supabaseAdmin.storage
-            .from("brand-avatars")
-            .list(input.id);
-
-          if (files && files.length > 0) {
-            const filePaths = files.map((file) => `${input.id}/${file.name}`);
-            await supabaseAdmin.storage.from("brand-avatars").remove(filePaths);
-          }
+        if (files && files.length > 0) {
+          const filePaths = files.map((file) => `${input.id}/${file.name}`);
+          await supabaseAdmin.storage.from("brand-avatars").remove(filePaths);
         }
-
-        // Delete brand and get next active brand
-        const result = await qDeleteBrand(db, input.id, user.id);
-        return result;
-      } catch (error) {
-        if (error instanceof Error && error.message === "FORBIDDEN") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Only brand owners can delete brands",
-          });
-        }
-        throw error;
       }
+
+      // Delete brand and get next active brand
+      const result = await qDeleteBrand(db, input.id, user.id);
+      return result;
     }),
 
   setActive: protectedProcedure
@@ -158,7 +152,7 @@ export const brandRouter = createTRPCRouter({
 
       type InviteResult = {
         email: string;
-        role: "owner" | "member";
+        role: typeof ROLES.OWNER | typeof ROLES.MEMBER;
         brand: { id: string | null; name: string | null } | null;
         tokenHash: string | null;
         isExistingUser: boolean;
@@ -213,7 +207,7 @@ export const brandRouter = createTRPCRouter({
   // Recipient view: list invites addressed to current user's email
   myInvites: protectedProcedure.query(async ({ ctx }) => {
     const { db, user } = ctx;
-    if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+    // @ts-ignore
     const userEmail = user.email;
     if (!userEmail) throw new TRPCError({ code: "UNAUTHORIZED" });
     return listInvitesByEmail(db, userEmail);
@@ -251,10 +245,10 @@ export const brandRouter = createTRPCRouter({
   }),
 
   updateMember: protectedProcedure
+    .use(hasRole([ROLES.OWNER]))
     .input(updateMemberSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, brandId } = ctx;
-      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
       if (!brandId)
         throw new TRPCError({
           code: "BAD_REQUEST",

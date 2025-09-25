@@ -10,13 +10,13 @@ import { ROLES, type Role } from "../../config/roles";
  * @returns A tRPC middleware that checks user roles.
  */
 export const hasRole = (allowedRoles: Role[]) => {
-  return protectedProcedure.use(async ({ ctx, next }) => {
-    if (!ctx.user || !allowedRoles.includes(ctx.user.role)) {
+  return async ({ ctx, next }: any) => {
+    if (!ctx.user || !ctx.role || !allowedRoles.includes(ctx.role)) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "You do not have the required role to access this resource.",
       });
     }
     return next();
-  });
+  };
 };

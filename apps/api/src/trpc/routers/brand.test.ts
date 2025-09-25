@@ -1,16 +1,21 @@
 import { TRPCError } from "@trpc/server";
 import { brandRouter } from "./brand";
 import { createTRPCContext } from "../init";
-import { hasPermission, Permission, Role } from "../../config/permissions";
+import { hasPermission, type Permission, type Role } from "../../config/permissions";
 import { deleteBrand as qDeleteBrand, updateBrand as qUpdateBrand, getBrandsByUserId as listBrandsForUser } from "@db/queries/brands";
-import { createClient as createSupabaseJsClient, User } from "@supabase/supabase-js";
-import { ROLES } from "../../../config/roles";
+import { createClient as createSupabaseJsClient, type User } from "@supabase/supabase-js";
+import { ROLES } from "../../config/roles";
+import type { Database as DrizzleDatabase } from "@v1/db/client";
 
 // Mock external dependencies
+const mockDeleteBrand = jest.fn();
+const mockUpdateBrand = jest.fn();
+const mockListBrandsForUser = jest.fn();
+
 jest.mock("@db/queries/brands", () => ({
-  deleteBrand: jest.fn(),
-  updateBrand: jest.fn(),
-  listBrandsForUser: jest.fn(),
+  deleteBrand: mockDeleteBrand,
+  updateBrand: mockUpdateBrand,
+  getBrandsByUserId: mockListBrandsForUser,
 }));
 jest.mock("@supabase/supabase-js", () => ({
   createClient: jest.fn(() => ({
@@ -26,6 +31,10 @@ jest.mock("@supabase/supabase-js", () => ({
   })),
 }));
 
+
+const mockDb = {} as DrizzleDatabase;
+const mockSupabase = createSupabaseJsClient("", "");
+const mockSupabaseAdmin = createSupabaseJsClient("", "");
 
 describe("brandRouter.delete", () => {
   const mockBrandId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
@@ -67,7 +76,7 @@ describe("brandRouter.delete", () => {
     };
 
 
-    qDeleteBrand.mockResolvedValue({ success: true, nextBrandId: null });
+    mockDeleteBrand.mockResolvedValue({ success: true, nextBrandId: null });
 
     const caller = brandRouter.createCaller(mockOwnerCtx);
 
@@ -167,7 +176,7 @@ describe("brandRouter.update", () => {
       geo: {},
     };
 
-    qUpdateBrand.mockResolvedValue({ success: true });
+    mockUpdateBrand.mockResolvedValue({ success: true });
 
     const caller = brandRouter.createCaller(mockOwnerCtx);
 
@@ -265,7 +274,7 @@ describe("brandRouter.list", () => {
       geo: {},
     };
 
-    listBrandsForUser.mockResolvedValue([{ id: mockBrandId, name: "Test Brand" }]);
+    mockListBrandsForUser.mockResolvedValue([{ id: mockBrandId, name: "Test Brand" }]);
 
     const caller = brandRouter.createCaller(mockMemberCtx);
 

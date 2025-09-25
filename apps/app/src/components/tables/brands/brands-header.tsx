@@ -40,7 +40,7 @@ export function BrandsHeader({ activeTab, onTabChange, locale }: Props) {
         </Button>
       </div>
 
-      <Button onClick={() => router.push(`/${locale}/brands/create`)}>
+      <Button onClick={() => router.push(`/${locale}/create-brand`)}>
         Create brand
       </Button>
     </div>

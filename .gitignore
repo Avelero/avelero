@@ -75,7 +75,7 @@ node_modules/
 # Environment variables
 # Editor directories and files
 .idea
-.vscode
+
 *.suo
 *.ntvs*
 *.njsproj
@@ -90,3 +90,14 @@ node_modules/
 .gemini/
 .cursor/
 .vscode/
+=======
+
+#mcp_servers
+.vscode
+.cursor
+.taskmaster
+.gemini
+mcp.json
+
+#prompts
+./prompts

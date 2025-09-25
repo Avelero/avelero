@@ -1,4 +1,16 @@
 # Task Master AI - Agent Integration Guide
+=======
+# Gemini AI - Strict Project Guidelines and Integration Guide
+
+## Strict Adherence Requirements
+
+**CRITICAL:** As Gemini AI, you MUST strictly follow ALL guidelines in this document. Any deviation from the established coding style, architecture patterns, UI conventions, and processing methodologies is prohibited. Always reference this file before making any changes or suggestions.
+
+- **Coding Style:** Adhere exactly to the TypeScript, JavaScript, and framework conventions outlined below. No exceptions.
+- **Architecture:** Follow the monorepo structure, package boundaries, and design patterns precisely.
+- **UI Style:** Use only the specified UI components, Tailwind classes, and design system elements.
+- **Processing:** Implement data flow, API calls, and business logic according to the defined patterns.
+- **Validation:** Before implementing, verify against existing codebase examples. If uncertain, ask for clarification rather than assume.
 
 ## Essential Commands
 
@@ -45,11 +57,11 @@ task-master generate                                         # Update task markd
 - `.taskmaster/tasks/*.txt` - Individual task files (auto-generated from tasks.json)
 - `.env` - API keys for CLI usage
 
-### Claude Code Integration Files
+### Gemini CLI Integration Files
 
-- `CLAUDE.md` - Auto-loaded context for Claude Code (this file)
-- `.claude/settings.json` - Claude Code tool allowlist and preferences
-- `.claude/commands/` - Custom slash commands for repeated workflows
+- `GEMINI.md` - Auto-loaded context for Gemini CLI (this file)
+- `.gemini/settings.json` - Gemini CLI tool allowlist and preferences
+- `.gemini/commands/` - Custom slash commands for repeated workflows
 - `.mcp.json` - MCP server configuration (project-specific)
 
 ### Directory Structure
@@ -68,17 +80,17 @@ project/
 │   ├── templates/         # Template files
 │   │   └── example_prd.txt  # Example PRD template
 │   └── config.json        # AI models & settings
-├── .claude/
-│   ├── settings.json      # Claude Code configuration
+├── .gemini/
+│   ├── settings.json      # Gemini CLI configuration
 │   └── commands/         # Custom slash commands
 ├── .env                  # API keys
 ├── .mcp.json            # MCP configuration
-└── CLAUDE.md            # This file - auto-loaded by Claude Code
+└── GEMINI.md            # This file - auto-loaded by Gemini CLI
 ```
 
 ## MCP Integration
 
-Task Master provides an MCP server that Claude Code can connect to. Configure in `.mcp.json`:
+Task Master provides an MCP server that Gemini CLI can connect to. Configure in `.mcp.json`:
 
 ```json
 {
@@ -126,9 +138,18 @@ update; // = task-master update
 // Analysis
 analyze_project_complexity; // = task-master analyze-complexity
 complexity_report; // = task-master complexity-report
+
+// Playwright Testing Tools
+run_e2e_tests; // = npx playwright test
+run_e2e_tests --headed; // = npx playwright test --headed (run tests in browser)
+run_e2e_tests --debug; // = npx playwright test --debug (debug mode)
+run_e2e_tests --grep "test name"; // = npx playwright test --grep "test name"
+generate_e2e_test; // = npx playwright codegen (generate test from browser actions)
+show_test_report; // = npx playwright show-report (view test results)
+install_browsers; // = npx playwright install (install browser binaries)
 ```
 
-## Claude Code Workflow Integration
+## Gemini CLI Workflow Integration
 
 ### Standard Development Workflow
 
@@ -162,24 +183,24 @@ task-master update-subtask --id=<id> --prompt="implementation notes..."
 task-master set-status --id=<id> --status=done
 ```
 
-#### 3. Multi-Claude Workflows
+#### 3. Multi-Gemini Workflows
 
-For complex projects, use multiple Claude Code sessions:
+For complex projects, use multiple Gemini CLI sessions:
 
 ```bash
 # Terminal 1: Main implementation
-cd project && claude
+cd project && gemini
 
 # Terminal 2: Testing and validation
-cd project-test-worktree && claude
+cd project-test-worktree && gemini
 
 # Terminal 3: Documentation updates
-cd project-docs-worktree && claude
+cd project-docs-worktree && gemini
 ```
 
 ### Custom Slash Commands
 
-Create `.claude/commands/taskmaster-next.md`:
+Create `.gemini/commands/taskmaster-next.md`:
 
 ```markdown
 Find the next available Task Master task and show its details.
@@ -192,7 +213,7 @@ Steps:
 4. Suggest the first implementation step
 ```
 
-Create `.claude/commands/taskmaster-complete.md`:
+Create `.gemini/commands/taskmaster-complete.md`:
 
 ```markdown
 Complete a Task Master task: $ARGUMENTS
@@ -208,7 +229,7 @@ Steps:
 
 ## Tool Allowlist Recommendations
 
-Add to `.claude/settings.json`:
+Add to `.gemini/settings.json`:
 
 ```json
 {
@@ -218,6 +239,9 @@ Add to `.claude/settings.json`:
     "Bash(git commit:*)",
     "Bash(git add:*)",
     "Bash(npm run *)",
+    "Bash(npx playwright *)",
+    "Bash(bun run test:e2e)",
+    "Bash(bun run test:unit)",
     "mcp__task_master_ai__*"
   ]
 }
@@ -284,12 +308,12 @@ task-master models --set-fallback gpt-4o-mini
 }
 ```
 
-## Claude Code Best Practices with Task Master
+## Gemini CLI Best Practices with Task Master
 
 ### Context Management
 
 - Use `/clear` between different tasks to maintain focus
-- This CLAUDE.md file is automatically loaded for context
+- This GEMINI.md file is automatically loaded for context
 - Use `task-master show <id>` to pull specific task context when needed
 
 ### Iterative Implementation
@@ -299,8 +323,10 @@ task-master models --set-fallback gpt-4o-mini
 3. `task-master update-subtask --id=<id> --prompt="detailed plan"` - Log plan
 4. `task-master set-status --id=<id> --status=in-progress` - Start work
 5. Implement code following logged plan
-6. `task-master update-subtask --id=<id> --prompt="what worked/didn't work"` - Log progress
-7. `task-master set-status --id=<id> --status=done` - Complete task
+6. Write/update unit tests for the implemented functionality
+7. Run E2E tests with `npx playwright test` to verify end-to-end flows
+8. `task-master update-subtask --id=<id> --prompt="what worked/didn't work"` - Log progress
+9. `task-master set-status --id=<id> --status=done` - Complete task
 
 ### Complex Workflows with Checklists
 
@@ -311,6 +337,8 @@ For large migrations or multi-step processes:
 3. Use Taskmaster to expand the newly generated tasks into subtasks. Consdier using `analyze-complexity` with the correct --to and --from IDs (the new ids) to identify the ideal subtask amounts for each task. Then expand them.
 4. Work through items systematically, checking them off as completed
 5. Use `task-master update-subtask` to log progress on each task/subtask and/or updating/researching them before/during implementation if getting stuck
+6. **CRITICAL:** Run comprehensive E2E tests with `npx playwright test` after each major change to ensure no regressions
+7. Use `npx playwright test --grep "specific flow"` to test particular user journeys affected by changes
 
 ### Git Integration
 
@@ -331,9 +359,9 @@ git commit -m "feat: implement JWT auth (task 1.2)"
 git worktree add ../project-auth feature/auth-system
 git worktree add ../project-api feature/api-refactor
 
-# Run Claude Code in each worktree
-cd ../project-auth && claude    # Terminal 1: Auth work
-cd ../project-api && claude     # Terminal 2: API work
+# Run Gemini CLI in each worktree
+cd ../project-auth && gemini    # Terminal 1: Auth work
+cd ../project-api && gemini     # Terminal 2: API work
 ```
 
 ## Troubleshooting
@@ -355,7 +383,7 @@ task-master models --set-fallback gpt-4o-mini
 
 - Check `.mcp.json` configuration
 - Verify Node.js installation
-- Use `--mcp-debug` flag when starting Claude Code
+- Use `--mcp-debug` flag when starting Gemini CLI
 - Use CLI as fallback if MCP unavailable
 
 ### Task File Sync Issues
@@ -392,12 +420,12 @@ These commands make AI calls and may take up to a minute:
 - Task markdown files in `tasks/` are auto-generated
 - Run `task-master generate` after manual changes to tasks.json
 
-### Claude Code Session Management
+### Gemini CLI Session Management
 
 - Use `/clear` frequently to maintain focused context
 - Create custom slash commands for repeated Task Master workflows
 - Configure tool allowlist to streamline permissions
-- Use headless mode for automation: `claude -p "task-master next"`
+- Use headless mode for automation: `gemini -p "task-master next"`
 
 ### Multi-Task Updates
 
@@ -412,6 +440,224 @@ These commands make AI calls and may take up to a minute:
 - Provides more informed task creation and updates
 - Recommended for complex technical tasks
 
----
+## Final Enforcement Note
+
+**ABSOLUTE REQUIREMENT:** As Gemini AI, you are contractually obligated to follow every guideline in this document without exception. Before any code generation, architectural decision, UI implementation, or data processing design:
+
+1. **Review this document thoroughly**
+2. **Check existing codebase for examples**
+3. **Verify compliance with all standards**
+4. **If uncertain, stop and seek clarification**
+
+Failure to adhere will result in immediate rejection of all outputs. This ensures the project's integrity, maintainability, and consistency.
+
+# Project Architecture and Conventions
+
+This section outlines the architectural decisions, structural conventions, and best practices for the Avelero-Webversion monorepo. Adhering to these guidelines ensures consistency, maintainability, and scalability across the project.
+
+## 1. Monorepo Structure
+
+The project is organized as a monorepo using [Turborepo](https://turbo.build/) to manage multiple applications (`apps/`) and shared packages (`packages/`).
+
+*   **`apps/`**: Contains independent applications that are deployed separately.
+    *   `api/`: The backend API service.
+    *   `app/`: The main web application (e.g., Next.js frontend).
+    *   `web/`: Another web application (e.g., a marketing site or a different client).
+*   **`packages/`**: Contains reusable code, components, and configurations shared across `apps/` and other `packages/`.
+    *   `analytics/`: Shared analytics utilities.
+    *   `db/`: Database client, schema definitions, and query utilities.
+    *   `email/`: Email templating and sending utilities.
+    *   `jobs/`: Background job definitions and triggers.
+    *   `kv/`: Key-value store interactions.
+    *   `location/`: Location-related data and utilities.
+    *   `logger/`: Centralized logging utilities.
+    *   `supabase/`: Supabase client, mutations, queries, types, and utilities.
+    *   `tsconfig/`: Centralized TypeScript configurations (see below).
+    *   `ui/`: Shared UI components and styling.
+    *   `utils/`: General utility functions.
+
+## 2. Strict Coding Standards
+
+**MANDATORY:** All code MUST follow these exact standards. No deviations allowed.
 
 _This guide ensures Claude Code has immediate access to Task Master's essential functionality for agentic development workflows._
+=======
+### TypeScript/JavaScript Conventions
+- **Naming:** Use camelCase for variables/functions, PascalCase for classes/components/types, UPPER_SNAKE_CASE for constants.
+- **File Structure:** One export per file where possible. Use `index.ts` for barrel exports.
+- **Imports:** Group imports: React/Next, third-party libraries, internal packages, relative imports. Use absolute imports for packages.
+- **Types:** Always use explicit types. Prefer interfaces over types for object shapes. Use `type` for unions/aliases.
+- **Error Handling:** Use try/catch with specific error types. Never use generic `any` or `unknown` without justification.
+- **Async/Await:** Always use async/await over Promises. Handle errors properly.
+
+### React/Next.js Patterns
+- **Components:** Use functional components with hooks. Name files as `ComponentName.tsx`.
+- **Hooks:** Custom hooks in `hooks/` directory. Prefix with `use`.
+- **Pages:** Use App Router. Server components by default, client components only when necessary.
+- **API Routes:** Use tRPC procedures in `trpc/` directory. No REST endpoints.
+- **Styling:** Tailwind CSS only. No CSS modules or styled-components.
+
+### Database/ORM
+- **Queries:** Use Drizzle ORM exclusively. Define schemas in `packages/db/src/schema/`.
+- **Migrations:** Run via Supabase CLI. Never manual SQL.
+- **Types:** Auto-generate from schema. Import from `packages/db`.
+
+### Package Boundaries
+- **Imports:** Never import from `apps/` into `packages/`. Keep packages independent.
+- **Dependencies:** Add to appropriate `package.json`. Use workspace versions for internal packages.
+
+## 3. UI/UX Design System
+
+**MANDATORY:** All UI elements MUST use the established design system.
+
+### Component Library
+- **Base Components:** Use components from `packages/ui/src/`. Examples: Button, Input, Card.
+- **Icons:** Use Lucide React icons. Import from `lucide-react`.
+- **Layout:** Use Tailwind grid/flexbox. Avoid custom CSS.
+
+### Styling Guidelines
+- **Colors:** Use Tailwind color palette. Define custom colors in `tailwind.config.ts`.
+- **Typography:** Use Tailwind text utilities. Consistent font sizes: text-sm, text-base, text-lg, etc.
+- **Spacing:** Use Tailwind spacing scale: p-4, m-2, gap-3, etc.
+- **Responsive:** Mobile-first approach. Use sm:, md:, lg: breakpoints.
+
+### User Experience
+- **Loading States:** Always show loading indicators for async operations.
+- **Error States:** Display user-friendly error messages. Use toast notifications.
+- **Accessibility:** ARIA labels, keyboard navigation, screen reader support.
+- **Performance:** Lazy load components, optimize images, minimize bundle size.
+
+## 4. Data Processing and API Patterns
+
+**MANDATORY:** Follow exact data flow patterns.
+
+### API Communication
+- **tRPC:** All client-server communication via tRPC. Define procedures in `apps/api/src/trpc/`.
+- **Validation:** Use Zod schemas for input validation. Share schemas between client/server.
+- **Error Handling:** Standardized error responses. Use tRPC error codes.
+
+### State Management
+- **Local State:** React hooks (useState, useReducer).
+- **Server State:** tRPC queries with React Query.
+- **Global State:** Minimal. Use context only for theme/auth.
+
+### Data Flow
+- **Fetch:** Use tRPC queries for data fetching.
+- **Mutations:** Use tRPC mutations for updates.
+- **Caching:** React Query handles caching. Configure staleTime appropriately.
+- **Optimistic Updates:** Implement for better UX on mutations.
+
+## 5. Core Technologies
+
+The project leverages a modern web development stack:
+
+*   **Frameworks:** [Next.js](https://nextjs.org/) (for `app/` and `web/`), [tRPC](https://trpc.io/) (for API communication).
+*   **Database:** [Drizzle ORM](https://orm.drizzle.team/) (with PostgreSQL/Supabase).
+*   **Styling:** [Tailwind CSS](https://tailwindcss.com/) with [PostCSS](https://postcss.org/).
+*   **Package Manager:** [Bun](https://bun.sh/).
+*   **Monorepo Tooling:** [Turborepo](https://turbo.build/).
+*   **Code Formatting & Linting:** [Biome](https://biomejs.dev/).
+*   **Testing:** [Playwright](https://playwright.dev/) for E2E tests, Jest/Vitest for unit tests.
+*   **Cloud Platform:** [Vercel](https://vercel.com/) (for frontend apps), [Fly.io](https://fly.io/) (for API).
+
+## 6. Configuration Management
+
+### TypeScript Configurations
+
+**CRITICAL IMPROVEMENT:** The project must consolidate TypeScript configurations. The existence of both `packages/tsconfig/` and `tooling/typescript/` is redundant and confusing.
+
+*   **Strategy:** `packages/tsconfig/` will be the *single source of truth* for all TypeScript configurations.
+    *   `base.json`: Provides foundational TypeScript settings for all packages and applications.
+    *   `nextjs.json`: Extends `base.json` with Next.js specific configurations.
+    *   `react-library.json`: Extends `base.json` with React library specific configurations.
+    *   `api.json`: Extends `base.json` with API specific configurations.
+*   **Usage:** Every `tsconfig.json` in `apps/` and `packages/` *must* extend from one of these centralized configurations.
+*   **Action:** Remove `tooling/typescript/` and ensure all projects correctly extend from `packages/tsconfig/`.
+
+### Shared Styling Configurations (Tailwind CSS & PostCSS)
+
+*   **Strategy:** Centralize base `tailwind.config.ts` and `postcss.config.mjs` in a shared package (e.g., `packages/ui` or a new `packages/config`).
+*   **Usage:** Applications (`apps/app`, `apps/web`) and other UI-related packages (`packages/ui`) should extend these base configurations to maintain consistency while allowing for app-specific overrides.
+
+### Environment Variable Management
+
+*   **Strategy:** Implement a shared environment variable package (e.g., `packages/env` or within `packages/utils`) that defines and validates environment variables.
+*   **Usage:** All applications and packages requiring environment variables will import and use this shared package, ensuring type safety and consistency. This reduces duplication of `.env.example` files and prevents runtime errors due to missing or incorrectly typed variables.
+
+## 7. Development Workflow
+
+*   **Installation:** Use `bun install` at the monorepo root.
+*   **Development Server:** Use `turbo dev` to run all applications in development mode.
+*   **Linting & Formatting:** `biome check .` and `biome format .` should be run regularly. These are enforced via pre-commit hooks or CI/CD.
+*   **Testing:** 
+    - **Unit Tests:** `bun run test:unit` or `npm run test:unit`
+    - **E2E Tests:** `bun run test:e2e` or `npx playwright test`
+    - **Test Generation:** `npx playwright codegen` to record browser actions
+    - **Test Debugging:** `npx playwright test --debug` for step-by-step debugging
+*   **Browser Installation:** Run `npx playwright install` after first setup.
+
+## 8. Testing Guidelines
+
+A comprehensive testing strategy is crucial for monorepos.
+
+*   **Unit Tests:** Should reside alongside the code they test (e.g., `src/__tests__/` or `src/*.test.ts`).
+*   **Integration Tests:** For interactions between packages or services.
+*   **End-to-End (E2E) Tests:** For critical user flows across applications using Playwright.
+*   **Frameworks:** Jest/Vitest for unit tests, Playwright for E2E tests.
+
+### Playwright E2E Testing
+
+**MANDATORY:** All E2E tests MUST use Playwright following these exact patterns.
+
+#### Test Structure
+- **Location:** Tests in `apps/app/e2e/` or `apps/web/e2e/` for respective applications.
+- **File Naming:** `*.spec.ts` (e.g., `auth.spec.ts`, `checkout.spec.ts`).
+- **Test Organization:** Group related tests in describe blocks with clear naming.
+
+#### Test Patterns
+```typescript
+// Example test structure
+import { test, expect } from '@playwright/test';
+
+test.describe('Authentication Flow', () => {
+  test('should login successfully', async ({ page }) => {
+    await page.goto('/');
+    await page.fill('[data-testid="email"]', 'user@example.com');
+    await page.fill('[data-testid="password"]', 'password');
+    await page.click('[data-testid="login-button"]');
+    await expect(page).toHaveURL('/dashboard');
+  });
+
+  test('should show error for invalid credentials', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('[data-testid="email"]', 'invalid@example.com');
+    await page.fill('[data-testid="password"]', 'wrong');
+    await page.click('[data-testid="login-button"]');
+    await expect(page.locator('[data-testid="error-message"]')).toBeVisible();
+  });
+});
+```
+
+#### Best Practices
+- **Data Attributes:** Use `data-testid` attributes for element selection (never CSS classes).
+- **Page Objects:** Create page object classes for complex pages in `e2e/pages/`.
+- **Test Data:** Use fixtures for test data, avoid hardcoded values.
+- **Assertions:** Use Playwright's expect API with descriptive messages.
+- **Parallel Execution:** Tests run in parallel by default for speed.
+- **Visual Testing:** Use `toHaveScreenshot()` for visual regression tests.
+
+#### Configuration
+- **playwright.config.ts:** Configure browsers, base URL, and test settings.
+- **Browsers:** Test on Chromium, Firefox, and WebKit.
+- **Base URL:** Set to local development server or staging environment.
+
+#### CI/CD Integration
+- **Commands:** `npx playwright test` for all tests, `npx playwright test --project=chromium` for specific browser.
+- **Artifacts:** Screenshots and videos automatically captured on failures.
+- **Reporting:** HTML reports generated with `npx playwright show-report`.
+
+## 9. Deployment Overview
+
+*   **Frontend Applications (`apps/app`, `apps/web`):** Deployed via Vercel, leveraging its integration with Next.js.
+*   **Backend API (`apps/api`):** Deployed to Fly.io using Docker.
+*   **Database:** Supabase.

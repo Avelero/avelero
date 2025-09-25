@@ -117,7 +117,7 @@ export async function createTRPCContext(c: {
   return createTRPCContextFromHeaders(headerRecord);
 }
 
-const t = initTRPC.context<TRPCContext>().create({
+export const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
 });
 
@@ -138,6 +138,6 @@ export const protectedProcedure = t.procedure
   .use(withPrimaryDbMiddleware)
   .use(async (opts) => {
     const { user, brandId } = opts.ctx;
-    if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if (!user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
     return opts.next({ ctx: { ...opts.ctx, user, brandId } });
   });

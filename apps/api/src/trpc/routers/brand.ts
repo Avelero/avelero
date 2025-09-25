@@ -37,6 +37,8 @@ import {
   updateMemberSchema,
 } from "../../schemas/brand.js";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
+import { enforceRbac } from "../middleware/rbac.middleware.js";
+import { Permission } from "../../config/permissions.js";
 // acceptInviteForUser is imported from queries/brands.ts above
 
 export const brandRouter = createTRPCRouter({
@@ -71,36 +73,25 @@ export const brandRouter = createTRPCRouter({
     }),
 
   delete: protectedProcedure
+    .use(enforceRbac("brand:delete" as Permission))
     .input(idParamSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, supabaseAdmin } = ctx;
-      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+      // Delete brand storage folder before deleting brand
+      if (supabaseAdmin) {
+        const { data: files } = await supabaseAdmin.storage
+          .from("brand-avatars")
+          .list(input.id);
 
-      try {
-        // Delete brand storage folder before deleting brand
-        if (supabaseAdmin) {
-          const { data: files } = await supabaseAdmin.storage
-            .from("brand-avatars")
-            .list(input.id);
-
-          if (files && files.length > 0) {
-            const filePaths = files.map((file) => `${input.id}/${file.name}`);
-            await supabaseAdmin.storage.from("brand-avatars").remove(filePaths);
-          }
+        if (files && files.length > 0) {
+          const filePaths = files.map((file) => `${input.id}/${file.name}`);
+          await supabaseAdmin.storage.from("brand-avatars").remove(filePaths);
         }
-
-        // Delete brand and get next active brand
-        const result = await qDeleteBrand(db, input.id, user.id);
-        return result;
-      } catch (error) {
-        if (error instanceof Error && error.message === "FORBIDDEN") {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Only brand owners can delete brands",
-          });
-        }
-        throw error;
       }
+
+      // Delete brand and get next active brand
+      const result = await qDeleteBrand(db, input.id, user.id);
+      return result;
     }),
 
   setActive: protectedProcedure
@@ -251,10 +242,10 @@ export const brandRouter = createTRPCRouter({
   }),
 
   updateMember: protectedProcedure
+    .use(enforceRbac("member:change_role" as Permission))
     .input(updateMemberSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, brandId } = ctx;
-      if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
       if (!brandId)
         throw new TRPCError({
           code: "BAD_REQUEST",

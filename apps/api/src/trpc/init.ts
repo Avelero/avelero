@@ -139,5 +139,12 @@ export const protectedProcedure = t.procedure
   .use(async (opts) => {
     const { user, brandId } = opts.ctx;
     if (!user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
-    return opts.next({ ctx: { ...opts.ctx, user, brandId } });
+
+    // Explicitly cast user to User (non-nullable)
+    const authenticatedUser = user as User;
+
+    // Refine the type of ctx to ensure user is non-nullable
+    const newCtx = { ...opts.ctx, user: authenticatedUser, brandId } as TRPCContext & { user: User };
+
+    return opts.next({ ctx: newCtx });
   });

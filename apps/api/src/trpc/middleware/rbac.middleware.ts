@@ -2,7 +2,7 @@
 
 import { TRPCError } from '@trpc/server';
 import { t } from '../init';
-import { hasPermission, Permission, Role } from '../../config/permissions';
+import { hasPermission, type Permission, type Role } from "../../config/permissions";
 
 export const enforceRbac = (requiredPermission: Permission) =>
   t.middleware(async ({ ctx, next }) => {
@@ -23,8 +23,7 @@ export const enforceRbac = (requiredPermission: Permission) =>
 
     return next({
       ctx: {
-        // Infers the `session` as non-nullable
-        session: ctx.session,
+        ...ctx,
       },
     });
   });

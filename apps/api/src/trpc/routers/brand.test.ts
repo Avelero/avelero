@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { brandRouter } from "./brand";
 import { createTRPCContext } from "../init";
-import { hasPermission, Permission, Role } from "../../config/permissions";
+import { hasPermission, type Permission, type Role } from "../../config/permissions";
 import { deleteBrand as qDeleteBrand } from "@db/queries/brands";
-import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
+import { createClient as createSupabaseJsClient, type User } from "@supabase/supabase-js";
 
 // Mock external dependencies
 jest.mock("@db/queries/brands", () => ({
@@ -41,7 +41,20 @@ describe("brandRouter.delete", () => {
   it("should allow an owner to delete a brand", async () => {
     // Mock user as owner
     const mockOwnerCtx = {
-      user: { id: mockUserId, role: "owner" as Role },
+      user: {
+        id: mockUserId,
+        email: "owner@example.com",
+        email_confirmed_at: new Date().toISOString(),
+        phone: "",
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        role: "owner" as Role,
+        updated_at: new Date().toISOString(),
+        app_metadata: {},
+        user_metadata: {},
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      } as User,
       brandId: mockBrandId,
       db: {} as any, // Mock db as needed
       supabase: createSupabaseJsClient("", "") as any,
@@ -72,7 +85,20 @@ describe("brandRouter.delete", () => {
   it("should prevent a member from deleting a brand", async () => {
     // Mock user as member
     const mockMemberCtx = {
-      user: { id: mockUserId, role: "member" as Role },
+      user: {
+        id: mockUserId,
+        email: "member@example.com",
+        email_confirmed_at: new Date().toISOString(),
+        phone: "",
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        role: "member" as Role,
+        updated_at: new Date().toISOString(),
+        app_metadata: {},
+        user_metadata: {},
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      } as User,
       brandId: mockBrandId,
       db: {} as any, // Mock db as needed
       supabase: createSupabaseJsClient("", "") as any,

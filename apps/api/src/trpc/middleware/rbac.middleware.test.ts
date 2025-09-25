@@ -2,12 +2,14 @@
 
 import { TRPCError } from '@trpc/server';
 import { enforceRbac } from './rbac.middleware';
-import { hasPermission, Permission, Role } from '../../config/permissions';
+import { hasPermission, type Permission, type Role } from "../../config/permissions";
 
 // Mock the tRPC init module to control `t.middleware`
 jest.mock('../init', () => ({
   t: {
-    middleware: jest.fn((fn) => fn), // Mock t.middleware to just return the passed function
+    middleware: jest.fn((factory) => ({
+      _middleware: factory, // Store the factory function in _middleware
+    })),
   },
 }));
 
@@ -26,7 +28,8 @@ describe('enforceRbac middleware', () => {
   });
 
   it('should throw UNAUTHORIZED if user is not authenticated', async () => {
-    const middlewareFn = enforceRbac('brand:delete' as Permission);
+    const middlewareBuilder = enforceRbac('brand:delete' as Permission);
+    const middlewareFn = (middlewareBuilder as any)._middleware;
     const ctx = { user: null };
     const next = jest.fn();
 
@@ -37,7 +40,8 @@ describe('enforceRbac middleware', () => {
   });
 
   it('should throw FORBIDDEN if user has no role', async () => {
-    const middlewareFn = enforceRbac('brand:delete' as Permission);
+    const middlewareBuilder = enforceRbac('brand:delete' as Permission);
+    const middlewareFn = (middlewareBuilder as any)._middleware;
     const ctx = { user: { id: '123', email: 'test@example.com', role: undefined } }; // No role
     const next = jest.fn();
 
@@ -50,7 +54,8 @@ describe('enforceRbac middleware', () => {
   });
 
   it('should throw FORBIDDEN if user lacks required permission', async () => {
-    const middlewareFn = enforceRbac('brand:delete' as Permission);
+    const middlewareBuilder = enforceRbac('brand:delete' as Permission);
+    const middlewareFn = (middlewareBuilder as any)._middleware;
     const ctx = { user: { id: '123', email: 'test@example.com', role: 'member' as Role } };
     const next = jest.fn();
 
@@ -64,7 +69,8 @@ describe('enforceRbac middleware', () => {
   });
 
   it('should call next if user has required permission', async () => {
-    const middlewareFn = enforceRbac('brand:delete' as Permission);
+    const middlewareBuilder = enforceRbac('brand:delete' as Permission);
+    const middlewareFn = (middlewareBuilder as any)._middleware;
     const ctx = { user: { id: '123', email: 'test@example.com', role: 'owner' as Role } };
     const next = jest.fn(() => ({ ctx })); // Mock next to return ctx
 

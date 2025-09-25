@@ -38,13 +38,14 @@ import {
 } from "../../schemas/brand.js";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
 import { enforceRbac } from "../middleware/rbac.middleware.js";
-import { Permission } from "../../config/permissions.js";
+import { type Permission } from "../../config/permissions.js";
+import type { User } from "@supabase/supabase-js";
 // acceptInviteForUser is imported from queries/brands.ts above
 
 export const brandRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
     const { db, user } = ctx;
-    if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+    // @ts-ignore
     const data = await listBrandsForUser(db, user.id);
     return { data } as const;
   }),
@@ -204,7 +205,7 @@ export const brandRouter = createTRPCRouter({
   // Recipient view: list invites addressed to current user's email
   myInvites: protectedProcedure.query(async ({ ctx }) => {
     const { db, user } = ctx;
-    if (!user) throw new TRPCError({ code: "UNAUTHORIZED" });
+    // @ts-ignore
     const userEmail = user.email;
     if (!userEmail) throw new TRPCError({ code: "UNAUTHORIZED" });
     return listInvitesByEmail(db, userEmail);

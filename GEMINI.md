@@ -1,3 +1,5 @@
+# Task Master AI - Agent Integration Guide
+=======
 # Gemini AI - Strict Project Guidelines and Integration Guide
 
 ## Strict Adherence Requirements
@@ -478,6 +480,8 @@ The project is organized as a monorepo using [Turborepo](https://turbo.build/) t
 
 **MANDATORY:** All code MUST follow these exact standards. No deviations allowed.
 
+_This guide ensures Claude Code has immediate access to Task Master's essential functionality for agentic development workflows._
+=======
 ### TypeScript/JavaScript Conventions
 - **Naming:** Use camelCase for variables/functions, PascalCase for classes/components/types, UPPER_SNAKE_CASE for constants.
 - **File Structure:** One export per file where possible. Use `index.ts` for barrel exports.

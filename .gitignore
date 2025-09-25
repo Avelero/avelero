@@ -66,7 +66,6 @@ llm_context/
 # Sentry
 .env.sentry-build-plugin
 
-
 # Logs
 logs
 *.log
@@ -76,6 +75,7 @@ node_modules/
 # Environment variables
 # Editor directories and files
 .idea
+
 *.suo
 *.ntvs*
 *.njsproj
@@ -86,6 +86,11 @@ node_modules/
 # Task files
 # tasks.json
 # tasks/ 
+.taskmaster/
+.gemini/
+.cursor/
+.vscode/
+=======
 
 #mcp_servers
 .vscode

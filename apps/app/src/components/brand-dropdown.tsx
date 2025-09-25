@@ -83,7 +83,7 @@ export function BrandDropdown({
   };
 
   const handleCreateBrand = () => {
-    router.push(`/${locale}/brands/create`);
+    router.push(`/${locale}/create-brand`);
   };
 
   return (

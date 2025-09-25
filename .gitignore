@@ -96,3 +96,9 @@ mcp.json
 # Task files
 # tasks.json
 # tasks/ 
+.gemini
+.github
+.taskmaster
+.vscode
+.cursor
+GEMINI.md

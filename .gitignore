@@ -86,6 +86,7 @@ node_modules/
 #mcp_servers
 .vscode
 .cursor
+.cursorrules
 .taskmaster
 .gemini
 mcp.json

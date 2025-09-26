@@ -9,27 +9,20 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline:
-          "border bg-transparent hover:bg-accent hover:text-accent-foreground",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        outline: "border border-border bg-background hover:bg-accent",
+        subtle: "bg-background text-secondary border border-border hover:bg-accent",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         brand: "text-primary-foreground bg-brand hover:bg-brand/90",
-        "default-secondary":
-          "bg-background text-secondary border border-border hover:bg-accent",
-        "default-primary":
-          "bg-primary text-primary-foreground border border-primary hover:bg-primary/90",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        popover: "px-3 py-2",
+        default: "px-4 py-2",
         sm: "p-2",
-        lg: "h-9 px-8",
-        icon: "p-2",
-        iconSm: "p-2",
+        lg: "px-8 py-2",
+        icon: "p-2",        // 16x16 icon (default icon-only)
+        "icon-sm": "p-2",   // 14x14 icon (smaller icon-only)
       },
     },
     defaultVariants: {
@@ -45,7 +38,6 @@ export interface ButtonProps
   asChild?: boolean;
   icon?: React.ReactNode;
   iconPosition?: "left" | "right";
-  iconOnly?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -57,42 +49,27 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       asChild = false,
       icon,
       iconPosition = "right",
-      iconOnly = false,
       children,
       ...props
     },
     ref,
   ) => {
     const Comp = asChild ? Slot : "button";
-    const isSmall = size === "sm" || size === "iconSm";
-    const iconSizeClass = isSmall ? "h-[14px] w-[14px]" : "h-4 w-4";
-    const textSizeClass = isSmall
-      ? "text-[14px] leading-[14px]"
+    
+    // Auto-detect icon-only button
+    const isIconOnly = icon && !children;
+    
+    // Determine icon size based on the size prop
+    // size="sm" or size="icon-sm" uses 14x14 icons
+    // everything else (including size="icon") uses 16x16 icons
+    const useSmallIcon = size === "sm" || size === "icon-sm";
+    
+    // Icon and text size classes
+    const iconSizeClass = useSmallIcon ? "h-[14px] w-[14px]" : "h-4 w-4";
+    const textSizeClass = size === "sm" 
+      ? "text-[14px] leading-[14px]" 
       : "text-[14px] leading-[16px]";
-
-    const content = (
-      <>
-        {icon && iconPosition === "left" ? (
-          <span className={cn("inline-flex items-center", iconSizeClass)}>
-            {icon}
-          </span>
-        ) : null}
-        <span
-          className={cn(
-            "inline-flex items-center px-1",
-            isSmall ? "leading-[14px]" : "leading-[16px]",
-          )}
-        >
-          <span className={textSizeClass}>{children}</span>
-        </span>
-        {icon && iconPosition === "right" ? (
-          <span className={cn("inline-flex items-center", iconSizeClass)}>
-            {icon}
-          </span>
-        ) : null}
-      </>
-    );
-
+    
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
@@ -101,17 +78,30 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {asChild ? (
           children
-        ) : iconOnly && icon ? (
-          <span className={cn("inline-flex items-center", iconSizeClass)}>
-            {icon}
-          </span>
         ) : (
-          content
+          <>
+            {icon && iconPosition === "left" && (
+              <span className={cn("inline-flex items-center", iconSizeClass)}>
+                {icon}
+              </span>
+            )}
+            {children && (
+              <span className={cn("inline-flex items-center px-1", textSizeClass)}>
+                {children}
+              </span>
+            )}
+            {icon && iconPosition === "right" && (
+              <span className={cn("inline-flex items-center", iconSizeClass)}>
+                {icon}
+              </span>
+            )}
+          </>
         )}
       </Comp>
     );
   },
 );
+
 Button.displayName = "Button";
 
 export { Button, buttonVariants };

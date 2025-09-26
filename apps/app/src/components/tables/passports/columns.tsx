@@ -59,7 +59,7 @@ export const columns: ColumnDef<Passport>[] = [
             <input
               type="checkbox"
               aria-label={`Select ${product.title}`}
-              className="block h-4 w-4 shrink-0 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand"
+              className="block h-4 w-4 shrink-0 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand cursor-pointer"
               checked={row.getIsSelected()}
               onChange={(event) => row.toggleSelected(event.target.checked)}
               onClick={(event) => event.stopPropagation()}
@@ -73,7 +73,7 @@ export const columns: ColumnDef<Passport>[] = [
           <div className="min-w-0 space-y-1">
             <button
               type="button"
-              className="block max-w-full truncate text-p text-primary"
+              className="block max-w-full truncate text-p text-primary hover:text-brand cursor-pointer"
               onClick={(event) => {
                 event.stopPropagation();
                 router.push(`/passports/${product.id}`);
@@ -109,7 +109,7 @@ export const columns: ColumnDef<Passport>[] = [
 
       return (
         <div className="flex items-center gap-3">
-          <Icon className="h-4 w-4" />
+          <Icon className="h-[14px] w-[14px]" />
           <span className="truncate text-p text-primary capitalize">
             {status}
           </span>
@@ -252,7 +252,7 @@ export const columns: ColumnDef<Passport>[] = [
     cell: ({ row }) => (
       <div className="flex items-center justify-end gap-4">
         <Button
-          variant="default-secondary"
+          variant="outline"
           size="sm"
           className="hidden md:inline-flex"
           aria-label="Open passport"
@@ -269,12 +269,12 @@ export const columns: ColumnDef<Passport>[] = [
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="default-secondary"
-              size="iconSm"
+              variant="outline"
+              size="icon-sm"
               aria-label="Open actions menu"
               onClick={(e) => e.stopPropagation()}
               icon={<Icons.EllipsisVertical className="h-[14px] w-[14px]" />}
-              iconOnly
+              iconPosition="right"
             />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[220px]">

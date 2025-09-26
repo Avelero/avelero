@@ -54,7 +54,7 @@ function IndeterminateCheckbox({
         type="checkbox"
         aria-label={ariaLabel}
         aria-checked={indeterminate ? "mixed" : checked ? "true" : "false"}
-        className="block h-4 w-4 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand aria-[checked=mixed]:border-brand"
+        className="block h-4 w-4 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand aria-[checked=mixed]:border-brand cursor-pointer"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
       />

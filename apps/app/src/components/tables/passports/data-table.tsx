@@ -78,14 +78,8 @@ export function PassportDataTable() {
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="h-14 cursor-pointer border-b border-border hover:bg-accent-blue data-[state=selected]:bg-accent-blue"
+                  className="h-14 cursor-default border-b border-border hover:bg-accent-blue data-[state=selected]:bg-accent-blue"
                   data-state={row.getIsSelected() && "selected"}
-                  onClick={(e) => {
-                    const target = e.target as HTMLElement;
-                    if (target.closest("button, a, [role='menuitem'], input"))
-                      return;
-                    // Placeholder: navigate to details page when available
-                  }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

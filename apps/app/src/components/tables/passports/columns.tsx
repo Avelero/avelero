@@ -2,60 +2,94 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@v1/ui/tooltip";
+import { useRouter } from "next/navigation";
 import type { Passport } from "./types";
 
+const MAX_COLUMN_WIDTH = 320;
+const CELL_PADDING_X = "px-4";
+const CELL_HEIGHT = "h-14";
+
 export const columns: ColumnDef<Passport>[] = [
-  // 1) Select checkbox (header-level select handled in header component)
   {
-    id: "select",
-    header: () => null,
-    cell: ({ row }) => (
-      <input
-        type="checkbox"
-        aria-label="Select row"
-        className="h-4 w-4 appearance-none border border-border bg-background checked:bg-brand checked:border-brand"
-        checked={row.getIsSelected()}
-        onChange={(e) => row.toggleSelected(e.target.checked)}
-        onClick={(e) => e.stopPropagation()}
-      />
-    ),
+    id: "product",
+    header: "Product",
     enableSorting: false,
     enableHiding: false,
+    size: MAX_COLUMN_WIDTH,
+    minSize: 200,
     meta: {
-      className: "sticky left-0 z-10 bg-background",
+      sticky: "left",
+      headerClassName: cn(CELL_PADDING_X, CELL_HEIGHT, "min-w-[260px]"),
+      cellClassName: cn(
+        CELL_PADDING_X,
+        CELL_HEIGHT,
+        // Sticky first column with its own always-on divider (no native border to avoid double lines)
+        "relative min-w-[260px] sticky left-0 z-[12] bg-background border-r-0",
+        "before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-border",
+        // Sync background with row hover/selected
+        "[tr:hover_&]:bg-accent-blue [tr[data-state=selected]_&]:bg-accent-blue",
+      ),
     },
-  },
-  // 2) Product title + SKU
-  {
-    accessorKey: "title",
-    header: "Product title",
-    cell: ({ row }) => (
-      <div className="min-w-[240px]">
-        <div className="font-medium truncate" title={row.original.title}>
-          {row.original.title}
-        </div>
-        {row.original.sku ? (
-          <div className="text-xs text-muted-foreground truncate">
-            {row.original.sku}
+    cell: ({ row }) => {
+      const router = useRouter();
+      const product = row.original;
+
+      return (
+        <div className="flex h-full items-center gap-4">
+          <div className="relative inline-flex h-4 w-4 items-center justify-center">
+            <input
+              type="checkbox"
+              aria-label={`Select ${product.title}`}
+              className="block h-4 w-4 shrink-0 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand"
+              checked={row.getIsSelected()}
+              onChange={(event) => row.toggleSelected(event.target.checked)}
+              onClick={(event) => event.stopPropagation()}
+            />
+            {row.getIsSelected() && (
+              <div className="absolute top-0 left-0 w-4 h-4 flex items-center justify-center pointer-events-none">
+                <div className="w-[10px] h-[10px] bg-brand" />
+              </div>
+            )}
           </div>
-        ) : null}
-      </div>
-    ),
-    meta: { className: "min-w-[240px]" },
+          <div className="min-w-0 space-y-1">
+            <button
+              type="button"
+              className="block max-w-full truncate text-p text-primary"
+              onClick={(event) => {
+                event.stopPropagation();
+                router.push(`/passports/${product.id}`);
+              }}
+            >
+              {product.title}
+            </button>
+            {product.sku ? (
+              <span className="block max-w-full truncate text-small text-secondary">
+                {product.sku}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      );
+    },
   },
   // 3) Status with icon
   {
@@ -63,15 +97,26 @@ export const columns: ColumnDef<Passport>[] = [
     header: "Status",
     cell: ({ row }) => {
       const { status } = row.original;
-      const Dot = Icons.EllipsisVertical; // placeholder icon mapping
+
+      const Icon =
+        status === "published"
+          ? Icons.StatusPublished
+          : status === "scheduled"
+            ? Icons.StatusScheduled
+            : status === "unpublished"
+              ? Icons.StatusUnpublished
+              : Icons.StatusArchived;
+
       return (
-        <div className="flex items-center gap-2">
-          <Dot className="h-3 w-3" />
-          <span className="capitalize">{status}</span>
+        <div className="flex items-center gap-3">
+          <Icon className="h-4 w-4" />
+          <span className="truncate text-p text-primary capitalize">
+            {status}
+          </span>
         </div>
       );
     },
-    meta: { className: "min-w-[140px]" },
+    meta: { className: "min-w-[140px] max-w-[320px]" },
   },
   // 4) Completion: X / 6 + progress bar popover
   {
@@ -79,43 +124,54 @@ export const columns: ColumnDef<Passport>[] = [
     header: "Completion",
     cell: ({ row }) => {
       const { completedSections, totalSections } = row.original;
-      const pct = Math.max(
-        0,
-        Math.min(100, Math.round((completedSections / totalSections) * 100)),
-      );
+      const clamped = Math.max(0, Math.min(totalSections, completedSections));
+      const stepped = Math.round((clamped / totalSections) * 6);
+      const pct = (stepped / 6) * 100;
       return (
-        <div className="min-w-[220px]">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                className="text-sm text-foreground"
-                type="button"
-                aria-label="Show completion details"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {completedSections} / {totalSections}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-[280px] p-3">
-              <div className="space-y-2">
-                {Array.from({ length: totalSections }).map((_, i) => (
-                  <div
-                    key={`section-${row.id}-${i}`}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    {i < completedSections ? (
-                      <Icons.Check className="h-4 w-4 text-brand" />
-                    ) : (
-                      <span className="h-4 w-4 border border-border" />
-                    )}
-                    <span>Section {i + 1}</span>
+        <div className="min-w-[220px] max-w-[320px] flex items-center gap-3">
+          <TooltipProvider delayDuration={120}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="text-p flex items-center gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="text-primary w-3 text-center">
+                    {completedSections}
                   </div>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-          <div className="mt-2 h-1.5 w-full bg-border">
-            <div className="h-full bg-brand" style={{ width: `${pct}%` }} />
+                  <div className="text-tertiary w-2 text-center">/</div>
+                  <div className="text-tertiary w-3 text-center">
+                    {totalSections}
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent
+                align="start"
+                className="w-[240px] p-2 cursor-default"
+              >
+                <div className="space-y-1.5">
+                  {Array.from({ length: totalSections }).map((_, i) => (
+                    <div
+                      key={`section-${row.id}-${i}`}
+                      className="flex items-center gap-2 text-small "
+                    >
+                      {i < completedSections ? (
+                        <Icons.Check className="h-[14px] w-[14px] text-brand" />
+                      ) : (
+                        <span className="h-[14px] w-[14px] shrink-0" />
+                      )}
+                      <span>Section {i + 1}</span>
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <div className="h-[6px] w-full rounded-[6px] bg-border">
+            <div
+              className="h-full rounded-[6px] bg-brand"
+              style={{ width: `${pct}%` }}
+            />
           </div>
         </div>
       );
@@ -126,28 +182,45 @@ export const columns: ColumnDef<Passport>[] = [
   {
     id: "category",
     header: "Category",
-    cell: ({ row }) => (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="truncate inline-block max-w-[180px] align-middle">
-              {row.original.category}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            {row.original.categoryPath.join(" › ")}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    ),
-    meta: { className: "min-w-[180px]" },
+    cell: ({ row }) => {
+      const path = row.original.categoryPath ?? [];
+      const leafCategory =
+        path.length > 0 ? path[path.length - 1] : row.original.category;
+      return (
+        <TooltipProvider delayDuration={120}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block max-w-[180px] truncate align-middle">
+                {leafCategory}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="flex items-center gap-1">
+                {path.map((segment, i) => (
+                  <span
+                    key={`cat-${row.id}-${i}`}
+                    className="flex items-center gap-1"
+                  >
+                    {i > 0 ? (
+                      <Icons.ChevronRight className="h-[14px] w-[14px]" />
+                    ) : null}
+                    <span className="text-small">{segment}</span>
+                  </span>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    },
+    meta: { className: "min-w-[180px] hidden xl:table-cell" },
   },
   // 6) Season chip
   {
     accessorKey: "season",
     header: "Season",
     cell: ({ row }) => (
-      <span className="inline-flex items-center border px-2 py-1 text-xs">
+      <span className="inline-flex h-6 items-center rounded-full border bg-background px-2 text-small text-primary">
         {row.original.season ?? "-"}
       </span>
     ),
@@ -161,7 +234,7 @@ export const columns: ColumnDef<Passport>[] = [
       const tpl = row.original.template;
       if (!tpl) return <span className="text-muted-foreground">-</span>;
       return (
-        <span className="inline-flex max-w-[200px] items-center gap-2 truncate border px-2 py-1 text-xs">
+        <span className="inline-flex h-6 max-w-[220px] items-center gap-[6px] truncate rounded-full border bg-background px-2 text-small text-primary">
           <span
             className="h-2 w-2 shrink-0 rounded-full"
             style={{ backgroundColor: tpl.color }}
@@ -170,60 +243,79 @@ export const columns: ColumnDef<Passport>[] = [
         </span>
       );
     },
-    meta: { className: "min-w-[220px]" },
+    meta: { className: "min-w-[220px] hidden lg:table-cell" },
   },
   // 8) Actions
   {
     id: "actions",
     header: "Actions",
     cell: ({ row }) => (
-      <div className="flex items-center justify-between">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Open passport"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (row.original.passportUrl)
-                    window.open(row.original.passportUrl, "_blank");
-                }}
-              >
-                Passport →
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Open passport in a new tab</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <div className="flex items-center justify-end gap-4">
+        <Button
+          variant="default-secondary"
+          size="sm"
+          className="hidden md:inline-flex"
+          aria-label="Open passport"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (row.original.passportUrl)
+              window.open(row.original.passportUrl, "_blank");
+          }}
+          icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
+          iconPosition="right"
+        >
+          Passport
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="ghost"
-              size="icon"
+              variant="default-secondary"
+              size="iconSm"
               aria-label="Open actions menu"
               onClick={(e) => e.stopPropagation()}
-            >
-              <Icons.EllipsisVertical className="h-4 w-4" />
-            </Button>
+              icon={<Icons.EllipsisVertical className="h-[14px] w-[14px]" />}
+              iconOnly
+            />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              Edit
+          <DropdownMenuContent align="end" className="w-[220px]">
+            <DropdownMenuItem
+              className="h-9 py-3"
+              onSelect={(e) => e.preventDefault()}
+            >
+              Open Edit Passport
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              Change status
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              Delete
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="h-9 py-3">
+                Change status
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-[220px]">
+                <DropdownMenuItem className="h-9 py-3">
+                  Published
+                </DropdownMenuItem>
+                <DropdownMenuItem className="h-9 py-3">
+                  Scheduled
+                </DropdownMenuItem>
+                <DropdownMenuItem className="h-9 py-3">
+                  Unpublished
+                </DropdownMenuItem>
+                <DropdownMenuItem className="h-9 py-3">
+                  Archived
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="h-9 py-3 text-destructive"
+              onSelect={(e) => e.preventDefault()}
+            >
+              Delete Product
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
     ),
     meta: {
-      className: "sticky right-0 bg-background z-20 min-w-[220px]",
+      className: "w-fit",
     },
     enableSorting: false,
   },

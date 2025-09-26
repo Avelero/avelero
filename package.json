@@ -28,5 +28,8 @@
     "lint:repo:fix": "bunx sherif@latest --fix",
     "typecheck": "turbo typecheck"
   },
-  "workspaces": ["packages/*", "apps/*"]
+  "workspaces": ["packages/*", "apps/*"],
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.13.12"
+  }
 }

@@ -33,6 +33,7 @@
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "react-hook-form": "^7.62.0",
+    "react-hotkeys-hook": "^5.1.0",
     "superjson": "^2.2.1",
     "zod": "3.25.64"
   },

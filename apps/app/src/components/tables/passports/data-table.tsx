@@ -1,12 +1,14 @@
 "use client";
 
+import { useTableScroll } from "@/hooks/use-table-scroll";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import type { ColumnDef } from "@tanstack/react-table";
+import { cn } from "@v1/ui/cn";
 import { Table, TableBody, TableCell, TableRow } from "@v1/ui/table";
 import * as React from "react";
 import { columns } from "./columns";
@@ -46,39 +48,71 @@ export function PassportDataTable() {
     onRowSelectionChange: setRowSelection,
     state: { rowSelection },
   });
+  const {
+    containerRef,
+    canScrollLeft,
+    canScrollRight,
+    scrollLeft,
+    scrollRight,
+  } = useTableScroll({
+    useColumnWidths: true,
+    startFromColumn: 1,
+    scrollAmount: 120,
+    scrollBehavior: "smooth",
+    enableKeyboardNavigation: true,
+  });
 
   if (isLoading) return <PassportTableSkeleton />;
   if (!data.length) return <EmptyState.NoPassports />;
 
   return (
-    <div className="w-full">
-      <div className="overflow-x-auto border-l border-r border-border">
-        <Table>
-          <PassportTableHeader table={table} />
-          <TableBody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                className="cursor-pointer hover:bg-accent"
-                data-state={row.getIsSelected() && "selected"}
-                onClick={(e) => {
-                  const target = e.target as HTMLElement;
-                  if (target.closest("button, a, [role='menuitem'], input"))
-                    return;
-                  // Placeholder: navigate to details page when available
-                }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+    <div className="relative w-full">
+      <div className="relative w-full overflow-hidden border border-border">
+        <div
+          ref={containerRef}
+          className="scrollbar-hide overflow-x-auto max-w-full w-full"
+        >
+          <Table className="min-w-full">
+            <PassportTableHeader table={table} />
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  className="h-14 cursor-pointer border-b border-border hover:bg-accent-blue data-[state=selected]:bg-accent-blue"
+                  data-state={row.getIsSelected() && "selected"}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest("button, a, [role='menuitem'], input"))
+                      return;
+                    // Placeholder: navigate to details page when available
+                  }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        "border-r px-4 align-middle",
+                        (
+                          cell.column.columnDef.meta as
+                            | { cellClassName?: string }
+                            | undefined
+                        )?.cellClassName,
+                      )}
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        {null}
       </div>
-      <div className="flex items-center justify-end gap-2 py-3">
+      <div className="flex items-center justify-end gap-2 py-3 px-4">
         <button
           type="button"
           className="border px-3 py-1 text-sm"

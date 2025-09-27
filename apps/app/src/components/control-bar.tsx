@@ -25,8 +25,8 @@ const ControlBar = React.forwardRef<HTMLDivElement, ControlBarProps>(
     <div
       ref={ref}
       className={cn(
-        "w-full px-5 h-14 border-b border-border bg-background",
-        "flex items-center justify-between",
+        "w-full px-5 h-[56px] min-h-[56px] border-b border-border bg-background",
+        "flex items-center justify-between flex-none",
         className,
       )}
       {...props}

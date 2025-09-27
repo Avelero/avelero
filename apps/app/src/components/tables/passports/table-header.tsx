@@ -3,6 +3,8 @@
 import type { HeaderContext, Table as ReactTable } from "@tanstack/react-table";
 import { cn } from "@v1/ui/cn";
 import { TableHead, TableHeader, TableRow } from "@v1/ui/table";
+import { Button } from "@v1/ui/button";
+import { Icons } from "@v1/ui/icons";
 import * as React from "react";
 import type { Passport } from "./types";
 
@@ -69,8 +71,14 @@ function IndeterminateCheckbox({
 
 export function PassportTableHeader({
   table,
+  isScrollable,
+  onScrollLeftAction,
+  onScrollRightAction,
 }: {
   table: ReactTable<Passport>;
+  isScrollable?: boolean;
+  onScrollLeftAction?: () => void;
+  onScrollRightAction?: () => void;
 }) {
   const isAllSelected = table.getIsAllPageRowsSelected();
   const isSomeSelected = table.getIsSomePageRowsSelected();
@@ -91,19 +99,45 @@ export function PassportTableHeader({
                 className={getHeaderClassName(header, meta)}
               >
                 {isProductHeader ? (
-                  <div className="flex items-center gap-4">
-                    <IndeterminateCheckbox
-                      checked={isAllSelected}
-                      indeterminate={isSomeSelected}
-                      onChange={(_next) => {
-                        const hasAnySelected =
-                          table.getIsAllPageRowsSelected() ||
-                          table.getIsSomePageRowsSelected();
-                        table.toggleAllPageRowsSelected(!hasAnySelected);
-                      }}
-                      ariaLabel="Select all"
-                    />
-                    <span className="whitespace-nowrap">Product title</span>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <IndeterminateCheckbox
+                        checked={isAllSelected}
+                        indeterminate={isSomeSelected}
+                        onChange={(_next) => {
+                          const hasAnySelected =
+                            table.getIsAllPageRowsSelected() ||
+                            table.getIsSomePageRowsSelected();
+                          table.toggleAllPageRowsSelected(!hasAnySelected);
+                        }}
+                        ariaLabel="Select all"
+                      />
+                      <span className="whitespace-nowrap">Product title</span>
+                    </div>
+                    {isScrollable && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label="Scroll left"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onScrollLeftAction?.();
+                          }}
+                          icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label="Scroll right"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onScrollRightAction?.();
+                          }}
+                          icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
+                        />
+                      </div>
+                    )}
                   </div>
                 ) : header.isPlaceholder ? null : (
                   <span className="whitespace-nowrap">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 interface UseTableScrollOptions {
@@ -89,7 +89,18 @@ export function useTableScroll(
     }
 
     if (currentScrollLeft >= maxScrollLeft - 10) {
-      currentColumnIndex.current = positions.length - 1;
+      // When at the end, find the rightmost visible column instead of just setting to last
+      let visibleColumn = startFromColumn;
+      let accumulatedWidth = 0;
+      for (let i = startFromColumn; i < widths.length; i += 1) {
+        if (accumulatedWidth + (widths[i] ?? 0) > currentScrollLeft) {
+          visibleColumn = i;
+          break;
+        }
+        accumulatedWidth += widths[i] ?? 0;
+        visibleColumn = i + 1;
+      }
+      currentColumnIndex.current = Math.min(visibleColumn, positions.length - 1);
       return;
     }
 
@@ -249,46 +260,85 @@ export function useTableScroll(
     scrollToPosition(container.scrollWidth - container.clientWidth);
   }, [scrollToPosition]);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  useLayoutEffect(() => {
+    let rafId: number | null = null;
+    let cleanup: (() => void) | null = null;
 
-    currentColumnIndex.current = startFromColumn;
-    updateScrollState();
+    const setup = (container: HTMLDivElement) => {
+      currentColumnIndex.current = startFromColumn;
 
-    const handleScroll = () => {
-      if (isScrollingProgrammatically.current) return;
+      // Initial measurement and a follow-up on next frame for accurate widths
+      updateScrollState();
+      requestAnimationFrame(() => updateScrollState());
 
-      if (scrollTimeoutRef.current !== null)
-        clearTimeout(scrollTimeoutRef.current);
+      const handleScroll = () => {
+        if (isScrollingProgrammatically.current) return;
 
-      scrollTimeoutRef.current = window.setTimeout(() => {
+        if (scrollTimeoutRef.current !== null)
+          clearTimeout(scrollTimeoutRef.current);
+
+        scrollTimeoutRef.current = window.setTimeout(() => {
+          updateScrollState();
+        }, 80);
+      };
+
+      const handleResize = () => {
+        currentColumnIndex.current = startFromColumn;
         updateScrollState();
-      }, 80);
+      };
+
+      container.addEventListener("scroll", handleScroll, { passive: true });
+      window.addEventListener("resize", handleResize, { passive: true });
+
+      // Observe container and table; attach to table when it appears
+      const resizeObserver = new ResizeObserver(() => {
+        currentColumnIndex.current = startFromColumn;
+        updateScrollState();
+      });
+
+      resizeObserver.observe(container);
+
+      let observedTable: HTMLTableElement | null = null;
+      const observeTableIfPresent = () => {
+        const table = container.querySelector("table");
+        if (table && table !== observedTable) {
+          observedTable = table as HTMLTableElement;
+          resizeObserver.observe(observedTable);
+          updateScrollState();
+        }
+      };
+
+      observeTableIfPresent();
+
+      const mutationObserver = new MutationObserver(() => {
+        observeTableIfPresent();
+      });
+      mutationObserver.observe(container, { childList: true, subtree: true });
+
+      cleanup = () => {
+        container.removeEventListener("scroll", handleScroll);
+        window.removeEventListener("resize", handleResize);
+        mutationObserver.disconnect();
+        resizeObserver.disconnect();
+        if (scrollTimeoutRef.current !== null)
+          clearTimeout(scrollTimeoutRef.current);
+      };
     };
 
-    const handleResize = () => {
-      currentColumnIndex.current = startFromColumn;
-      updateScrollState();
+    const ensureContainerThenSetup = () => {
+      const container = containerRef.current;
+      if (!container) {
+        rafId = requestAnimationFrame(ensureContainerThenSetup);
+        return;
+      }
+      setup(container);
     };
 
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", handleResize, { passive: true });
-
-    const observer = new ResizeObserver(() => {
-      currentColumnIndex.current = startFromColumn;
-      updateScrollState();
-    });
-
-    observer.observe(container);
+    ensureContainerThenSetup();
 
     return () => {
-      container.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleResize);
-      observer.disconnect();
-
-      if (scrollTimeoutRef.current !== null)
-        clearTimeout(scrollTimeoutRef.current);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (cleanup) cleanup();
     };
   }, [startFromColumn, updateScrollState]);
 

@@ -38,12 +38,16 @@ export const columns: ColumnDef<Passport>[] = [
     minSize: 200,
     meta: {
       sticky: "left",
-      headerClassName: cn(CELL_PADDING_X, CELL_HEIGHT, "min-w-[260px]"),
+      headerClassName: cn(
+        CELL_PADDING_X,
+        CELL_HEIGHT,
+        "min-w-[320px] max-w-[680px]",
+      ),
       cellClassName: cn(
         CELL_PADDING_X,
         CELL_HEIGHT,
         // Sticky first column with its own always-on divider (no native border to avoid double lines)
-        "relative min-w-[260px] sticky left-0 z-[12] bg-background border-r-0",
+        "relative min-w-[260px] max-w-[680px] sticky left-0 z-[12] bg-background border-r-0",
         "before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-border",
         // Sync background with row hover/selected
         "[tr:hover_&]:bg-accent-blue [tr[data-state=selected]_&]:bg-accent-blue",
@@ -70,7 +74,7 @@ export const columns: ColumnDef<Passport>[] = [
               </div>
             )}
           </div>
-          <div className="min-w-0 space-y-1">
+          <div className="min-w-0 max-w-[680px] space-y-1">
             <button
               type="button"
               className="block max-w-full truncate text-p text-primary hover:text-brand cursor-pointer"
@@ -116,7 +120,10 @@ export const columns: ColumnDef<Passport>[] = [
         </div>
       );
     },
-    meta: { className: "min-w-[140px] max-w-[320px]" },
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
   },
   // 4) Completion: X / 6 + progress bar popover
   {
@@ -128,7 +135,7 @@ export const columns: ColumnDef<Passport>[] = [
       const stepped = Math.round((clamped / totalSections) * 6);
       const pct = (stepped / 6) * 100;
       return (
-        <div className="min-w-[220px] max-w-[320px] flex items-center gap-3">
+        <div className="w-full flex items-center gap-3">
           <TooltipProvider delayDuration={120}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -176,7 +183,10 @@ export const columns: ColumnDef<Passport>[] = [
         </div>
       );
     },
-    meta: { className: "min-w-[220px]" },
+    meta: {
+      headerClassName: cn("w-[280px] min-w-[280px] max-w-[280px]"),
+      cellClassName: cn("w-[280px] min-w-[280px] max-w-[280px]"),
+    },
   },
   // 5) Category with hover path
   {
@@ -190,7 +200,7 @@ export const columns: ColumnDef<Passport>[] = [
         <TooltipProvider delayDuration={120}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-block max-w-[180px] truncate align-middle">
+              <span className="inline-block max-w-[200px] truncate align-middle">
                 {leafCategory}
               </span>
             </TooltipTrigger>
@@ -213,7 +223,10 @@ export const columns: ColumnDef<Passport>[] = [
         </TooltipProvider>
       );
     },
-    meta: { className: "min-w-[180px] hidden xl:table-cell" },
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
   },
   // 6) Season chip
   {
@@ -224,7 +237,10 @@ export const columns: ColumnDef<Passport>[] = [
         {row.original.season ?? "-"}
       </span>
     ),
-    meta: { className: "min-w-[140px]" },
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
   },
   // 7) Template chip with color dot
   {
@@ -243,7 +259,10 @@ export const columns: ColumnDef<Passport>[] = [
         </span>
       );
     },
-    meta: { className: "min-w-[220px] hidden lg:table-cell" },
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
   },
   // 8) Actions
   {
@@ -254,7 +273,6 @@ export const columns: ColumnDef<Passport>[] = [
         <Button
           variant="outline"
           size="sm"
-          className="hidden md:inline-flex"
           aria-label="Open passport"
           onClick={(e) => {
             e.stopPropagation();
@@ -315,7 +333,8 @@ export const columns: ColumnDef<Passport>[] = [
       </div>
     ),
     meta: {
-      className: "w-fit",
+      headerClassName: cn("w-[1%]"),
+      cellClassName: cn("w-[1%] whitespace-nowrap"),
     },
     enableSorting: false,
   },

@@ -10,7 +10,7 @@ export function DataCard({ title, value }: DataCardProps) {
         <div className="text-h4 text-primary">{value}</div>
       </div>
       <div className="px-6 pb-6 w-full">
-        <div className="text-h6 text-secondary">{title}</div>
+        <div className="text-h6 !font-normal text-secondary">{title}</div>
       </div>
     </div>
   );

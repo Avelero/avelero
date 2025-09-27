@@ -5,12 +5,19 @@ import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { cn } from "@v1/ui/cn";
 import * as React from "react";
+import { DisplayPopover } from "./display-popover";
 
 interface PassportControlsProps {
   selectedCount?: number;
+  displayProps?: {
+    productLabel?: string;
+    allColumns: { id: string; label: string }[];
+    initialVisible: string[];
+    onSave: (visibleOrdered: string[]) => void;
+  };
 }
 
-export function PassportControls({ selectedCount = 0 }: PassportControlsProps) {
+export function PassportControls({ selectedCount = 0, displayProps }: PassportControlsProps) {
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
 
   const hasSelection = selectedCount > 0;
@@ -53,7 +60,26 @@ export function PassportControls({ selectedCount = 0 }: PassportControlsProps) {
         <div className="flex-1" />
 
         {/* Display */}
-        <Button variant="subtle" size="default" iconPosition="left" icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}>Display</Button>
+        {displayProps ? (
+          <DisplayPopover
+            trigger={
+              <Button
+                variant="subtle"
+                size="default"
+                iconPosition="left"
+                icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}
+              >
+                Display
+              </Button>
+            }
+            productLabel={displayProps.productLabel}
+            allColumns={displayProps.allColumns}
+            initialVisible={displayProps.initialVisible}
+            onSave={displayProps.onSave}
+          />
+        ) : (
+          <Button variant="subtle" size="default" iconPosition="left" icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}>Display</Button>
+        )}
 
         {/* Actions */}
         <Button

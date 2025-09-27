@@ -17,8 +17,12 @@ import type { Passport } from "./types";
 
 export function PassportDataTable({
   onSelectionChangeAction,
+  columnOrder,
+  columnVisibility,
 }: {
   onSelectionChangeAction?: (count: number) => void;
+  columnOrder?: string[];
+  columnVisibility?: Record<string, boolean>;
 }) {
   const [page, setPage] = React.useState(0);
   const pageSize = 50;
@@ -56,7 +60,7 @@ export function PassportDataTable({
         return next;
       });
     },
-    state: { rowSelection },
+    state: { rowSelection, columnOrder, columnVisibility },
   });
   const {
     containerRef,

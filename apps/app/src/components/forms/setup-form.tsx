@@ -46,7 +46,7 @@ export function SetupForm() {
           trpc.brand.list.queryOptions(),
         );
         const hasBrands = Array.isArray(brands?.data) && brands.data.length > 0;
-        router.push(hasBrands ? `/${locale}` : `/${locale}/brands/create`);
+        router.push(hasBrands ? `/${locale}` : `/${locale}/create-brand`);
       },
       onError: (err) => setError(err.message || "Failed to save profile"),
     }),

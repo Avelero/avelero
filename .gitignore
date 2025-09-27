@@ -119,7 +119,6 @@ GEMINI.md
 # tasks.json
 # tasks/ 
 .gemini
-.github
 .taskmaster
 .vscode
 .cursor

@@ -15,7 +15,11 @@ import { PassportTableHeader } from "./table-header";
 import { PassportTableSkeleton } from "./table-skeleton";
 import type { Passport } from "./types";
 
-export function PassportDataTable() {
+export function PassportDataTable({
+  onSelectionChangeAction,
+}: {
+  onSelectionChangeAction?: (count: number) => void;
+}) {
   const [page, setPage] = React.useState(0);
   const pageSize = 50;
   const [data, setData] = React.useState<Passport[]>([]);
@@ -43,7 +47,15 @@ export function PassportDataTable() {
     data,
     columns: columns as ColumnDef<Passport, unknown>[],
     getCoreRowModel: getCoreRowModel(),
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: (updater) => {
+      setRowSelection((prev) => {
+        const next =
+          typeof updater === "function" ? (updater as any)(prev) : updater;
+        const count = Object.values(next).filter(Boolean).length;
+        onSelectionChangeAction?.(count);
+        return next;
+      });
+    },
     state: { rowSelection },
   });
   const {

@@ -77,7 +77,7 @@ export async function deleteUser(db: Database, id: string) {
       .filter((b) => b.count === 1)
       .map((b) => b.brandId);
 
-    // Delete user (cascades brandMembers add)
+    // Delete user (cascades brandMembers)
     await db.delete(users).where(eq(users.id, id));
 
     // Delete orphan brands

@@ -27,7 +27,7 @@
 
     --accent: 240 10% 94%;
     --accent-foreground: 240 80% 4%;
-    --accent-blue: 219 100% 97%;
+    --accent-blue: 219 100% 97.5%;
     --accent-red: 1 100% 97%;
 
     --destructive: 1 97% 30%;
@@ -205,7 +205,7 @@ input:-webkit-autofill:active {
   }
   
   .text-h6 {
-    @apply text-[16px] font-normal leading-[24px] tracking-wide;
+    @apply text-[16px] font-medium leading-[24px] tracking-wide;
   }
   
   .text-p {

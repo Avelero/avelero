@@ -65,3 +65,63 @@ llm_context/
 
 # Sentry
 .env.sentry-build-plugin
+
+# Logs
+logs
+*.log
+dev-debug.log
+# Dependency directories
+node_modules/
+# Environment variables
+# Editor directories and files
+.idea
+
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+
+
+# Task files
+# tasks.json
+# tasks/ 
+.taskmaster/
+.gemini/
+.cursor/
+.vscode/
+
+#mcp_servers
+.vscode
+.cursor
+.cursorrules
+.taskmaster
+.gemini
+mcp.json
+
+#prompts
+./prompts
+
+#rules
+.cursor
+.gemini
+.github
+.vscode
+.cursorrules
+GEMINI.md
+
+#mcp_files
+.env.example
+.taskmaster
+=======
+# Task files
+# tasks.json
+# tasks/ 
+.gemini
+.github
+.taskmaster
+.vscode
+.cursor
+.cursorrules
+GEMINI.md

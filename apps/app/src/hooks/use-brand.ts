@@ -141,7 +141,7 @@ export function useLeaveBrandMutation() {
       onSuccess: async (res: LeaveBrandResult) => {
         await queryClient.invalidateQueries();
         // Only redirect when user has no brands left
-        if (!res?.nextBrandId) router.push("/brands/create");
+        if (!res?.nextBrandId) router.push("/create-brand");
         router.refresh();
       },
     }),

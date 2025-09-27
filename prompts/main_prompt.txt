@@ -1,0 +1,81 @@
+General-Purpose Prompt for Web Application Development
+Main prompt to do; you task for now:
+Currently the role-level permissions are not properly set. Members are able to change the role of other users, members are able to delete the brand, change the name, and so on. This should not be possible. First, clearly define what a member should be allowed to do vs what an owner should be allowed to do. Then, implement this.
+More details about the task is given in taskmaster. follow the next task in there.
+
+
+Head Rules to follow:
+
+Code Structure: Adhere to @gemini.md for coding standards and project requirements. Follow @gemini.md-defined patterns:
+Modular backend APIs in src/api (e.g., /summarize, /quiz).
+React components in src/components for UI (e.g., file upload, quiz display).
+AI inference in src/lib/ai for content processing (e.g., summarization, quiz generation).
+
+
+Search Integration: Use google_search to fetch context, examples, and documentation for tasks (e.g., Next.js tutorials, @gemini.md-aligned API designs, or Vercel AI SDK patterns).
+Testing: Write unit tests (e.g., tests/unit/test_api.js with Jest) and integration tests (e.g., API-to-AI flows) with a timeout 300s. Ensure tests cover @gemini.md-defined features (e.g., RLS policies, API scalability).
+Error Handling: If errors occur (e.g., missing dependencies like @vercel/ai, test failures, or missing API keys), pause, summarize the issue with google_search-fetched context, suggest a @gemini.md-aligned fix, and prompt the user for confirmation.
+Documentation: Include comments in code referencing @gemini.md-defined design (e.g., "Handles document summarization per @gemini.md AI integration guidelines").
+API Keys: Check .env for required third-party API keys (e.g., GEMINI_API_KEY, SUPABASE keys). Prompt user if missing: "Please add [API_NAME] key to .env and confirm to proceed."
+
+Taskmaster AI MCP Usage
+
+Fetch Next Task: Execute next_task on the Taskmaster MCP server to retrieve the next available task.
+Display Task Details: Format and display task details (description, dependencies, subtasks) in a markdown summary, highlighting alignment with @gemini.md-defined features (e.g., modular API endpoints, AI pipelines, or Supabase integration).
+Generate Subtasks (if Needed): If no subtasks are defined, use google_search to analyze the task against @gemini.md and relevant external resources (e.g., Next.js docs, Vercel AI SDK examples, Supabase tutorials), then generate actionable subtasks with Taskmaster. Each subtask must include:
+Implementation Steps: Specific actions (e.g., "Create src/api/summarize/route.ts with POST endpoint for document upload, using Next.js API routes per @gemini.md").
+@gemini.md Alignment: Reference patterns like modular services or AI prompts (e.g., "Implements summarization in src/lib/ai per @gemini.md AI integration guidelines").
+Test Strategies: Unit tests (e.g., tests/unit/test_summarize.js) and integration tests (e.g., upload-to-summary flow). Use Jest for JavaScript/TypeScript.
+Examples: Pull google_search results (e.g., Next.js API routes tutorials, AI summarization examples aligned with @gemini.md).
+
+
+Subtask Execution:
+Retrieve details with get_task.
+Check .env for required API keys. If missing, pause and prompt: "Please add [API_NAME] key to .env (e.g., GEMINI_API_KEY for summarization) and confirm."
+Use google_search to fetch task requirements, pulling context from external resources and @gemini.md-aligned examples.
+Generate/modify code, ensuring:
+Alignment with @gemini.md (e.g., API logic in src/api, AI in src/lib/ai).
+@gemini.md-defined patterns (e.g., Server Components, RLS policies).
+Comments like "Generates quiz per @gemini.md prompt design guidelines."
+
+
+Write and execute tests in tests/ with timeout 300s (e.g., npm run test). Log results or errors.
+Update subtask with update_subtask, noting code changes, test outcomes, challenges, and @gemini.md alignment.
+Mark subtask complete with set_task_status after test verification.
+
+
+Complete Task:
+After all subtasks are done, run integration tests from the task or @gemini.md with timeout 300s (e.g., npm run dev or npm run test).
+Log task notes, summarizing changes, test results, and @gemini.md-aligned decisions.
+Mark task complete with set_task_status.
+
+
+Repeat: Fetch the next task with next_task until no tasks remain.
+
+Playwright MCP Checks (If Needed)
+
+When to Use: Use Playwright MCP for tasks involving frontend interactions (e.g., testing file upload UI, quiz rendering) or end-to-end flows (e.g., user uploads document, receives quiz).
+Execution:
+Run npx @playwright/mcp@latest to start the Playwright MCP server.
+Generate Playwright scripts (e.g., tests/e2e/test_file_upload.js) to simulate user actions in a browser (Chromium, Firefox, or WebKit).
+Execute tests with timeout 300s npx playwright test. Log results or errors.
+Example: Test src/components/FileUploader.tsx to ensure file submission triggers API calls to src/api/summarize/route.ts.
+
+
+Integration with Taskmaster: If a subtask involves UI testing, use Taskmaster to generate Playwright test scripts and validate them via Playwright MCP.
+@gemini.md Alignment: Ensure tests verify features defined in @gemini.md (e.g., "Handles multiple file uploads per @gemini.md UI guidelines").
+
+Error Handling
+
+Issue Detection: If errors occur (e.g., missing @vercel/ai, test failures, or unclear requirements), pause and provide:
+A summary of the issue with google_search-fetched context (e.g., Next.js error handling guides, AI integration tutorials).
+A @gemini.md-aligned resolution (e.g., "Install @vercel/ai via npm install @vercel/ai for AI processing per @gemini.md AI integration guidelines").
+Prompt: "Please resolve [ISSUE] (e.g., install @vercel/ai, add GEMINI_API_KEY to .env) and confirm to proceed."
+
+
+Examples:
+Command: npm install @vercel/ai
+Search Query: google_search > Next.js API routes for AI summarization
+Test Generation: google_search > Playwright test examples for React file upload component
+
+ANOTHER IMPORTANT THING TO ADD FOR USING TASKMASTER MCP IS WHEN ALL TASK ARE COMPLETEDED, CLEAR THE TASK LIST BEFORE WORKING ON A DIFFERENT SUBJECT PROMPT.

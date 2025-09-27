@@ -36,7 +36,7 @@ export default async function Layout({
   }
 
   if (!user.brand_id) {
-    redirect("/brands/create");
+    redirect("/create-brand");
   }
 
   // Await params to access locale

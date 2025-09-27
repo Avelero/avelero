@@ -12,7 +12,8 @@
     "reset": "supabase db reset",
     "generate": "supabase gen types --lang=typescript --local --schema public > ../../packages/supabase/src/types/db.ts",
     "lint": "biome lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
   },
   "dependencies": {
     "@hono/trpc-server": "^0.3.0",
@@ -28,6 +29,8 @@
     "zod": "3.25.64"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.16"
+    "@types/bun": "^1.2.16",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.1.4"
   }
 }

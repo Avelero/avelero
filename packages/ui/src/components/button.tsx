@@ -8,11 +8,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground box-border hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground box-border hover:bg-destructive/90",
+        default:
+          "bg-primary text-primary-foreground box-border hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-destructive-foreground box-border hover:bg-destructive/90",
         outline: "border border-border bg-background hover:bg-accent",
-        subtle: "bg-background text-secondary border border-border box-border hover:bg-accent",
-        secondary: "bg-secondary text-secondary-foreground box-border hover:bg-secondary/80",
+        subtle:
+          "bg-background text-secondary border border-border box-border hover:bg-accent",
+        secondary:
+          "bg-secondary text-secondary-foreground box-border hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         brand: "text-primary-foreground bg-brand hover:bg-brand/90",
@@ -21,8 +25,8 @@ const buttonVariants = cva(
         default: "h-9 px-2 py-[10px]",
         sm: "h-[30px]p-2",
         lg: "px-8 py-2",
-        icon: "h-9 p-2",        // 16x16 icon (default icon-only)
-        "icon-sm": "h-[30px] p-2",   // 14x14 icon (smaller icon-only)
+        icon: "h-9 p-2", // 16x16 icon (default icon-only)
+        "icon-sm": "h-[30px] p-2", // 14x14 icon (smaller icon-only)
       },
     },
     defaultVariants: {
@@ -55,21 +59,22 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref,
   ) => {
     const Comp = asChild ? Slot : "button";
-    
+
     // Auto-detect icon-only button
     const isIconOnly = icon && !children;
-    
+
     // Determine icon size based on the size prop
     // size="sm" or size="icon-sm" uses 14x14 icons
     // everything else (including size="icon") uses 16x16 icons
     const useSmallIcon = size === "sm" || size === "icon-sm";
-    
+
     // Icon and text size classes
     const iconSizeClass = useSmallIcon ? "h-[14px] w-[14px]" : "h-4 w-4";
-    const textSizeClass = size === "sm" 
-      ? "text-[14px] leading-[14px]" 
-      : "text-[14px] leading-[16px]";
-    
+    const textSizeClass =
+      size === "sm"
+        ? "text-[14px] leading-[14px]"
+        : "text-[14px] leading-[16px]";
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
@@ -86,7 +91,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
               </span>
             )}
             {children && (
-              <span className={cn("inline-flex items-center px-1", textSizeClass)}>
+              <span
+                className={cn("inline-flex items-center px-1", textSizeClass)}
+              >
                 {children}
               </span>
             )}

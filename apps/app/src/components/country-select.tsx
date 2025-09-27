@@ -53,7 +53,7 @@ export function CountrySelect({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            size="popover"
+            size="default"
             aria-expanded={open}
             className="w-full justify-between items-center text-p text-foreground truncate"
           >

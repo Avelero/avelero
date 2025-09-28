@@ -20,10 +20,12 @@ export function PassportDataTable({
   onSelectionChangeAction,
   columnOrder,
   columnVisibility,
+  onTotalCountChangeAction,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
   columnVisibility?: Record<string, boolean>;
+  onTotalCountChangeAction?: (hasAny: boolean) => void;
 }) {
   const [page, setPage] = React.useState(0);
   const pageSize = 50;
@@ -40,6 +42,10 @@ export function PassportDataTable({
     const t = (m?.total as number | undefined) ?? 0;
     return typeof t === "number" ? t : 0;
   }, [listRes]);
+
+  React.useEffect(() => {
+    onTotalCountChangeAction?.(total > 0);
+  }, [total, onTotalCountChangeAction]);
   const [rowSelection, setRowSelection] = React.useState<
     Record<string, boolean>
   >({});
@@ -52,13 +58,19 @@ export function PassportDataTable({
       setRowSelection((prev) => {
         const next =
           typeof updater === "function" ? (updater as any)(prev) : updater;
-        const count = Object.values(next).filter(Boolean).length;
-        onSelectionChangeAction?.(count);
         return next;
       });
     },
     state: { rowSelection, columnOrder, columnVisibility },
   });
+
+  const selectedCount = React.useMemo(() => {
+    return Object.values(rowSelection).filter(Boolean).length;
+  }, [rowSelection]);
+
+  React.useEffect(() => {
+    onSelectionChangeAction?.(selectedCount);
+  }, [selectedCount, onSelectionChangeAction]);
   const {
     containerRef,
     canScrollLeft,
@@ -75,7 +87,12 @@ export function PassportDataTable({
   });
 
   if (isLoading) return <PassportTableSkeleton />;
-  if (!data.length) return <EmptyState.NoPassports />;
+  if (!data.length)
+    return total === 0 ? (
+      <EmptyState.NoPassports onCreateAction={() => {}} />
+    ) : (
+      <EmptyState.NoResults />
+    );
 
   return (
     <div className="relative w-full h-full">

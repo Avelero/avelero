@@ -9,6 +9,7 @@ import { DisplayPopover } from "./display-popover";
 
 interface PassportControlsProps {
   selectedCount?: number;
+  disabled?: boolean;
   displayProps?: {
     productLabel?: string;
     allColumns: { id: string; label: string }[];
@@ -17,7 +18,7 @@ interface PassportControlsProps {
   };
 }
 
-export function PassportControls({ selectedCount = 0, displayProps }: PassportControlsProps) {
+export function PassportControls({ selectedCount = 0, disabled = false, displayProps }: PassportControlsProps) {
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
 
   const hasSelection = selectedCount > 0;
@@ -44,47 +45,63 @@ export function PassportControls({ selectedCount = 0, displayProps }: PassportCo
             className={cn(
               "pl-8 pr-3 py-[6px] h-9",
               "transition-all",
+              // Ensure normal arrow cursor when disabled (not not-allowed)
+              "disabled:cursor-default disabled:hover:cursor-default",
               isSearchFocused ? "ring-1 ring-brand" : "ring-0",
             )}
+            disabled={disabled}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
           />
         </div>
 
         {/* Sort */}
-        <Button variant="subtle" size="default" iconPosition="left" icon={<Icons.ArrowDownUp className="h-[14px] w-[14px]" />}>Sort</Button>
+        <Button variant="subtle" size="default" disabled={disabled} iconPosition="left" icon={<Icons.ArrowDownUp className="h-[14px] w-[14px]" />}>Sort</Button>
 
         {/* Filter */}
-        <Button variant="subtle" size="default" iconPosition="left" icon={<Icons.Filter className="h-[14px] w-[14px]" />}>Filter</Button>
+        <Button variant="subtle" size="default" disabled={disabled} iconPosition="left" icon={<Icons.Filter className="h-[14px] w-[14px]" />}>Filter</Button>
 
         <div className="flex-1" />
 
         {/* Display */}
         {displayProps ? (
-          <DisplayPopover
-            trigger={
-              <Button
-                variant="subtle"
-                size="default"
-                iconPosition="left"
-                icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}
-              >
-                Display
-              </Button>
-            }
-            productLabel={displayProps.productLabel}
-            allColumns={displayProps.allColumns}
-            initialVisible={displayProps.initialVisible}
-            onSave={displayProps.onSave}
-          />
+          disabled ? (
+            <Button
+              variant="subtle"
+              size="default"
+              disabled
+              iconPosition="left"
+              icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}
+            >
+              Display
+            </Button>
+          ) : (
+            <DisplayPopover
+              trigger={
+                <Button
+                  variant="subtle"
+                  size="default"
+                  iconPosition="left"
+                  icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}
+                >
+                  Display
+                </Button>
+              }
+              productLabel={displayProps.productLabel}
+              allColumns={displayProps.allColumns}
+              initialVisible={displayProps.initialVisible}
+              onSave={displayProps.onSave}
+            />
+          )
         ) : (
-          <Button variant="subtle" size="default" iconPosition="left" icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}>Display</Button>
+          <Button variant="subtle" size="default" disabled={disabled} iconPosition="left" icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}>Display</Button>
         )}
 
         {/* Actions */}
         <Button
           variant="brand"
           size="default"
+          disabled={disabled}
           iconPosition="left"
           icon={<Icons.Globe className="h-[14px] w-[14px]" />}
         >

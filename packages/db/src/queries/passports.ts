@@ -8,6 +8,8 @@ import {
   productVariants,
   passportTemplates,
   categories,
+  brandColors,
+  brandSizes,
 } from "../schema";
 
 export type CompletionXofN = {
@@ -204,6 +206,8 @@ export async function listPassports(
       // variant
       variant_sku: productVariants.sku,
       variant_upid: productVariants.upid,
+      color_name: brandColors.name,
+      size_name: brandSizes.name,
       // template
       template_id: passportTemplates.id,
       template_name: passportTemplates.name,
@@ -211,6 +215,8 @@ export async function listPassports(
     .from(passports)
     .innerJoin(products, eq(products.id, passports.productId))
     .innerJoin(productVariants, eq(productVariants.id, passports.variantId))
+    .leftJoin(brandColors, eq(brandColors.id, productVariants.colorId))
+    .leftJoin(brandSizes, eq(brandSizes.id, productVariants.sizeId))
     .innerJoin(passportTemplates, eq(passportTemplates.id, passports.templateId))
     .where(eq(passports.brandId, brandId))
     .orderBy(desc(passports.createdAt))
@@ -306,6 +312,8 @@ export async function listPassports(
       id: r.id,
       title: r.title,
       sku,
+      color: r.color_name ?? undefined,
+      size: r.size_name ?? undefined,
       status: r.status as string,
       completedSections: completedCount,
       totalSections: totalCount,

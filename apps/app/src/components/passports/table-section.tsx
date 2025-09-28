@@ -7,6 +7,7 @@ import { useUserQuerySuspense } from "@/hooks/use-user";
 
 export function TableSection() {
   const [selectedCount, setSelectedCount] = React.useState(0);
+  const [hasAnyPassports, setHasAnyPassports] = React.useState(true);
   // Column preferences state (excludes locked `product` and fixed `actions`)
   const DEFAULT_VISIBLE: string[] = React.useMemo(
     () => ["status", "completion", "category", "season", "template"],
@@ -124,6 +125,8 @@ export function TableSection() {
       status: false,
       completion: false,
       category: false,
+      color: false,
+      size: false,
       season: false,
       template: false,
     };
@@ -136,6 +139,8 @@ export function TableSection() {
       { id: "status", label: "Status" },
       { id: "completion", label: "Completion" },
       { id: "category", label: "Category" },
+      { id: "color", label: "Color" },
+      { id: "size", label: "Size" },
       { id: "season", label: "Season" },
       { id: "template", label: "Template" },
     ],
@@ -145,6 +150,7 @@ export function TableSection() {
     <div className="w-full">
       <PassportControls
         selectedCount={selectedCount}
+        disabled={!hasAnyPassports}
         displayProps={{
           productLabel: "Product",
           allColumns: allCustomizable,
@@ -153,6 +159,7 @@ export function TableSection() {
         }}
       />
       <PassportDataTable
+        onTotalCountChangeAction={setHasAnyPassports}
         onSelectionChangeAction={setSelectedCount}
         columnOrder={columnOrder}
         columnVisibility={columnVisibility}

@@ -225,6 +225,34 @@ export const columns: ColumnDef<Passport>[] = [
       cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
     },
   },
+  // 5b) Color (simple text)
+  {
+    id: "color",
+    header: "Color",
+    cell: ({ row }) => (
+      <span className="inline-block max-w-[200px] truncate align-middle">
+        {row.original.color ?? "-"}
+      </span>
+    ),
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
+  },
+  // 5c) Size (simple text)
+  {
+    id: "size",
+    header: "Size",
+    cell: ({ row }) => (
+      <span className="inline-block max-w-[200px] truncate align-middle">
+        {row.original.size ?? "-"}
+      </span>
+    ),
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
+  },
   // 6) Season chip
   {
     accessorKey: "season",

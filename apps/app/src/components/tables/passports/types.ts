@@ -26,6 +26,9 @@ export interface Passport {
   title: string;
   // Primary SKU (may derive from a variant or identifier)
   sku?: string;
+  // Variant presentation
+  color?: string;
+  size?: string;
 
   // Publishing state
   status: PassportStatus;

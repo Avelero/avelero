@@ -10,10 +10,11 @@ import { Icons } from "@v1/ui/icons";
 import * as React from "react";
 import { columns } from "./columns";
 import { EmptyState } from "./empty-state";
-import { getMockPassports } from "./mock-data";
 import { PassportTableHeader } from "./table-header";
 import { PassportTableSkeleton } from "./table-skeleton";
 import type { Passport } from "./types";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 
 export function PassportDataTable({
   onSelectionChangeAction,
@@ -26,26 +27,22 @@ export function PassportDataTable({
 }) {
   const [page, setPage] = React.useState(0);
   const pageSize = 50;
-  const [data, setData] = React.useState<Passport[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [total, setTotal] = React.useState(0);
+  const trpc = useTRPC();
+  const { data: listRes, isLoading } = useQuery(
+    React.useMemo(() => trpc.passports.list.queryOptions({ page }), [trpc, page]),
+  );
+  const data = React.useMemo<Passport[]>(() => {
+    const d = (listRes as { data?: unknown } | undefined)?.data;
+    return Array.isArray(d) ? (d as Passport[]) : [];
+  }, [listRes]);
+  const total = React.useMemo<number>(() => {
+    const m = (listRes as { meta?: { total?: unknown } } | undefined)?.meta;
+    const t = (m?.total as number | undefined) ?? 0;
+    return typeof t === "number" ? t : 0;
+  }, [listRes]);
   const [rowSelection, setRowSelection] = React.useState<
     Record<string, boolean>
   >({});
-
-  React.useEffect(() => {
-    let mounted = true;
-    setIsLoading(true);
-    getMockPassports(page, pageSize).then((res) => {
-      if (!mounted) return;
-      setData(res.data);
-      setTotal(res.meta.total);
-      setIsLoading(false);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [page]);
 
   const table = useReactTable({
     data,

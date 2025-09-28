@@ -6,3 +6,5 @@ export * from "./catalog.js";
 export * from "./brand-catalog.js";
 export * from "./products.js";
 export * from "./product-attributes.js";
+export * from "./passports.js";
+export * from "./passport-templates.js";

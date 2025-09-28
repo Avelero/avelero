@@ -1,4 +1,5 @@
-import { and, asc, count, desc, eq, inArray, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, notInArray, sql, sum } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import type { Database } from "../client";
 import {
   passports,
@@ -359,4 +360,47 @@ export async function countPassportsByStatus(
     unpublished: number;
     archived: number;
   };
+}
+
+// Generic bulk update helper (extendable beyond status later)
+export type BulkSelection =
+  | { mode: "all"; excludeIds: string[] }
+  | { mode: "explicit"; includeIds: string[] };
+
+export type BulkChanges = {
+  status?: "published" | "scheduled" | "unpublished" | "archived";
+};
+
+export async function bulkUpdatePassports(
+  db: Database,
+  brandId: string,
+  selection: BulkSelection,
+  changes: BulkChanges,
+): Promise<number> {
+  // Build SET map from allowed fields
+  const setValues: Record<string, unknown> = {};
+  if (changes.status) setValues[passports.status.name] = changes.status;
+
+  if (Object.keys(setValues).length === 0) return 0;
+
+  // Base where by brand
+  let whereExpr: SQL = eq(passports.brandId, brandId) as unknown as SQL;
+  if (selection.mode === "explicit") {
+    if (!selection.includeIds.length) return 0;
+    const combined = and(whereExpr, inArray(passports.id, selection.includeIds));
+    whereExpr = (combined as SQL | undefined) ?? (whereExpr as SQL);
+  } else {
+    // all mode: optionally exclude ids
+    if (selection.excludeIds.length) {
+      const combined = and(whereExpr, notInArray(passports.id, selection.excludeIds));
+      whereExpr = (combined as SQL | undefined) ?? (whereExpr as SQL);
+    }
+  }
+
+  const res = await db
+    .update(passports)
+    .set(setValues as any)
+    .where(whereExpr)
+    .returning({ id: passports.id });
+  return res.length;
 }

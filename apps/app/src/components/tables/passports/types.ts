@@ -33,6 +33,8 @@ export interface Passport {
   // Completion overview (e.g., X of 6 sections complete)
   completedSections: number;
   totalSections: number;
+  // Module-by-module detail (keys ordered per template, completion state)
+  modules?: { key: string; completed: boolean }[];
 
   // Category presentation
   category: string; // lowest-level category label (e.g., "Hoodies")

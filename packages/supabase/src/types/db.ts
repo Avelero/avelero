@@ -4,1428 +4,1431 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[]
+  | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
-  }
+    PostgrestVersion: "13.0.4";
+  };
   public: {
     Tables: {
       brand_certifications: {
         Row: {
-          brand_id: string
-          certification_code: string | null
-          created_at: string
-          expiry_date: string | null
-          external_url: string | null
-          file_asset_id: string | null
-          id: string
-          institute_address: string | null
-          institute_contact: string | null
-          institute_name: string | null
-          issue_date: string | null
-          notes: string | null
-          title: string
-          updated_at: string
-        }
+          brand_id: string;
+          certification_code: string | null;
+          created_at: string;
+          expiry_date: string | null;
+          external_url: string | null;
+          file_asset_id: string | null;
+          id: string;
+          institute_address: string | null;
+          institute_contact: string | null;
+          institute_name: string | null;
+          issue_date: string | null;
+          notes: string | null;
+          title: string;
+          updated_at: string;
+        };
         Insert: {
-          brand_id: string
-          certification_code?: string | null
-          created_at?: string
-          expiry_date?: string | null
-          external_url?: string | null
-          file_asset_id?: string | null
-          id?: string
-          institute_address?: string | null
-          institute_contact?: string | null
-          institute_name?: string | null
-          issue_date?: string | null
-          notes?: string | null
-          title: string
-          updated_at?: string
-        }
+          brand_id: string;
+          certification_code?: string | null;
+          created_at?: string;
+          expiry_date?: string | null;
+          external_url?: string | null;
+          file_asset_id?: string | null;
+          id?: string;
+          institute_address?: string | null;
+          institute_contact?: string | null;
+          institute_name?: string | null;
+          issue_date?: string | null;
+          notes?: string | null;
+          title: string;
+          updated_at?: string;
+        };
         Update: {
-          brand_id?: string
-          certification_code?: string | null
-          created_at?: string
-          expiry_date?: string | null
-          external_url?: string | null
-          file_asset_id?: string | null
-          id?: string
-          institute_address?: string | null
-          institute_contact?: string | null
-          institute_name?: string | null
-          issue_date?: string | null
-          notes?: string | null
-          title?: string
-          updated_at?: string
-        }
+          brand_id?: string;
+          certification_code?: string | null;
+          created_at?: string;
+          expiry_date?: string | null;
+          external_url?: string | null;
+          file_asset_id?: string | null;
+          id?: string;
+          institute_address?: string | null;
+          institute_contact?: string | null;
+          institute_name?: string | null;
+          issue_date?: string | null;
+          notes?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "brand_certifications_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_certifications_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "brand_certifications_file_asset_id_file_assets_id_fk"
-            columns: ["file_asset_id"]
-            isOneToOne: false
-            referencedRelation: "file_assets"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_certifications_file_asset_id_file_assets_id_fk";
+            columns: ["file_asset_id"];
+            isOneToOne: false;
+            referencedRelation: "file_assets";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       brand_collections: {
         Row: {
-          brand_id: string
-          created_at: string
-          description: string | null
-          filter: Json
-          id: string
-          name: string
-          updated_at: string
-        }
+          brand_id: string;
+          created_at: string;
+          description: string | null;
+          filter: Json;
+          id: string;
+          name: string;
+          updated_at: string;
+        };
         Insert: {
-          brand_id: string
-          created_at?: string
-          description?: string | null
-          filter?: Json
-          id?: string
-          name: string
-          updated_at?: string
-        }
+          brand_id: string;
+          created_at?: string;
+          description?: string | null;
+          filter?: Json;
+          id?: string;
+          name: string;
+          updated_at?: string;
+        };
         Update: {
-          brand_id?: string
-          created_at?: string
-          description?: string | null
-          filter?: Json
-          id?: string
-          name?: string
-          updated_at?: string
-        }
+          brand_id?: string;
+          created_at?: string;
+          description?: string | null;
+          filter?: Json;
+          id?: string;
+          name?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "brand_collections_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_collections_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       brand_colors: {
         Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          name: string
-          updated_at: string
-        }
+          brand_id: string;
+          created_at: string;
+          id: string;
+          name: string;
+          updated_at: string;
+        };
         Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          name: string
-          updated_at?: string
-        }
+          brand_id: string;
+          created_at?: string;
+          id?: string;
+          name: string;
+          updated_at?: string;
+        };
         Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          name?: string
-          updated_at?: string
-        }
+          brand_id?: string;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "brand_colors_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_colors_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       brand_eco_claims: {
         Row: {
-          brand_id: string
-          claim: string
-          created_at: string
-          id: string
-          updated_at: string
-        }
+          brand_id: string;
+          claim: string;
+          created_at: string;
+          id: string;
+          updated_at: string;
+        };
         Insert: {
-          brand_id: string
-          claim: string
-          created_at?: string
-          id?: string
-          updated_at?: string
-        }
+          brand_id: string;
+          claim: string;
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+        };
         Update: {
-          brand_id?: string
-          claim?: string
-          created_at?: string
-          id?: string
-          updated_at?: string
-        }
+          brand_id?: string;
+          claim?: string;
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "brand_eco_claims_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_eco_claims_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       brand_facilities: {
         Row: {
-          address: string | null
-          brand_id: string
-          city: string | null
-          contact: string | null
-          country_code: string | null
-          created_at: string
-          display_name: string
-          id: string
-          legal_name: string | null
-          updated_at: string
-          vat_number: string | null
-        }
+          address: string | null;
+          brand_id: string;
+          city: string | null;
+          contact: string | null;
+          country_code: string | null;
+          created_at: string;
+          display_name: string;
+          id: string;
+          legal_name: string | null;
+          updated_at: string;
+          vat_number: string | null;
+        };
         Insert: {
-          address?: string | null
-          brand_id: string
-          city?: string | null
-          contact?: string | null
-          country_code?: string | null
-          created_at?: string
-          display_name: string
-          id?: string
-          legal_name?: string | null
-          updated_at?: string
-          vat_number?: string | null
-        }
+          address?: string | null;
+          brand_id: string;
+          city?: string | null;
+          contact?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          display_name: string;
+          id?: string;
+          legal_name?: string | null;
+          updated_at?: string;
+          vat_number?: string | null;
+        };
         Update: {
-          address?: string | null
-          brand_id?: string
-          city?: string | null
-          contact?: string | null
-          country_code?: string | null
-          created_at?: string
-          display_name?: string
-          id?: string
-          legal_name?: string | null
-          updated_at?: string
-          vat_number?: string | null
-        }
+          address?: string | null;
+          brand_id?: string;
+          city?: string | null;
+          contact?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          display_name?: string;
+          id?: string;
+          legal_name?: string | null;
+          updated_at?: string;
+          vat_number?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "brand_facilities_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_facilities_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       brand_invites: {
         Row: {
-          brand_id: string
-          created_at: string
-          created_by: string | null
-          email: string
-          expires_at: string | null
-          id: string
-          role: string
-          token_hash: string | null
-          updated_at: string
-        }
+          brand_id: string;
+          created_at: string;
+          created_by: string | null;
+          email: string;
+          expires_at: string | null;
+          id: string;
+          role: string;
+          token_hash: string | null;
+          updated_at: string;
+        };
         Insert: {
-          brand_id: string
-          created_at?: string
-          created_by?: string | null
-          email: string
-          expires_at?: string | null
-          id?: string
-          role: string
-          token_hash?: string | null
-          updated_at?: string
-        }
+          brand_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          email: string;
+          expires_at?: string | null;
+          id?: string;
+          role: string;
+          token_hash?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          brand_id?: string
-          created_at?: string
-          created_by?: string | null
-          email?: string
-          expires_at?: string | null
-          id?: string
-          role?: string
-          token_hash?: string | null
-          updated_at?: string
-        }
+          brand_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          email?: string;
+          expires_at?: string | null;
+          id?: string;
+          role?: string;
+          token_hash?: string | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "brand_invites_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_invites_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       brand_materials: {
         Row: {
-          brand_id: string
-          certification_id: string | null
-          country_of_origin: string | null
-          created_at: string
-          id: string
-          name: string
-          recyclable: boolean | null
-          updated_at: string
-        }
+          brand_id: string;
+          certification_id: string | null;
+          country_of_origin: string | null;
+          created_at: string;
+          id: string;
+          name: string;
+          recyclable: boolean | null;
+          updated_at: string;
+        };
         Insert: {
-          brand_id: string
-          certification_id?: string | null
-          country_of_origin?: string | null
-          created_at?: string
-          id?: string
-          name: string
-          recyclable?: boolean | null
-          updated_at?: string
-        }
+          brand_id: string;
+          certification_id?: string | null;
+          country_of_origin?: string | null;
+          created_at?: string;
+          id?: string;
+          name: string;
+          recyclable?: boolean | null;
+          updated_at?: string;
+        };
         Update: {
-          brand_id?: string
-          certification_id?: string | null
-          country_of_origin?: string | null
-          created_at?: string
-          id?: string
-          name?: string
-          recyclable?: boolean | null
-          updated_at?: string
-        }
+          brand_id?: string;
+          certification_id?: string | null;
+          country_of_origin?: string | null;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          recyclable?: boolean | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "brand_materials_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_materials_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "brand_materials_certification_id_brand_certifications_id_fk"
-            columns: ["certification_id"]
-            isOneToOne: false
-            referencedRelation: "brand_certifications"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_materials_certification_id_brand_certifications_id_fk";
+            columns: ["certification_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_certifications";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       brand_services: {
         Row: {
-          brand_id: string
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          service_url: string | null
-          updated_at: string
-        }
+          brand_id: string;
+          created_at: string;
+          description: string | null;
+          id: string;
+          name: string;
+          service_url: string | null;
+          updated_at: string;
+        };
         Insert: {
-          brand_id: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          service_url?: string | null
-          updated_at?: string
-        }
+          brand_id: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name: string;
+          service_url?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          brand_id?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          service_url?: string | null
-          updated_at?: string
-        }
+          brand_id?: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          service_url?: string | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "brand_services_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_services_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       brand_sizes: {
         Row: {
-          brand_id: string
-          category_id: string | null
-          created_at: string
-          id: string
-          name: string
-          sort_index: number | null
-          updated_at: string
-        }
+          brand_id: string;
+          category_id: string | null;
+          created_at: string;
+          id: string;
+          name: string;
+          sort_index: number | null;
+          updated_at: string;
+        };
         Insert: {
-          brand_id: string
-          category_id?: string | null
-          created_at?: string
-          id?: string
-          name: string
-          sort_index?: number | null
-          updated_at?: string
-        }
+          brand_id: string;
+          category_id?: string | null;
+          created_at?: string;
+          id?: string;
+          name: string;
+          sort_index?: number | null;
+          updated_at?: string;
+        };
         Update: {
-          brand_id?: string
-          category_id?: string | null
-          created_at?: string
-          id?: string
-          name?: string
-          sort_index?: number | null
-          updated_at?: string
-        }
+          brand_id?: string;
+          category_id?: string | null;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          sort_index?: number | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "brand_sizes_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_sizes_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "brand_sizes_category_id_categories_id_fk"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "brand_sizes_category_id_categories_id_fk";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       brands: {
         Row: {
-          avatar_hue: number | null
-          country_code: string | null
-          created_at: string
-          email: string | null
-          id: string
-          logo_path: string | null
-          name: string
-          updated_at: string
-        }
+          avatar_hue: number | null;
+          country_code: string | null;
+          created_at: string;
+          email: string | null;
+          id: string;
+          logo_path: string | null;
+          name: string;
+          updated_at: string;
+        };
         Insert: {
-          avatar_hue?: number | null
-          country_code?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          logo_path?: string | null
-          name: string
-          updated_at?: string
-        }
+          avatar_hue?: number | null;
+          country_code?: string | null;
+          created_at?: string;
+          email?: string | null;
+          id?: string;
+          logo_path?: string | null;
+          name: string;
+          updated_at?: string;
+        };
         Update: {
-          avatar_hue?: number | null
-          country_code?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          logo_path?: string | null
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          avatar_hue?: number | null;
+          country_code?: string | null;
+          created_at?: string;
+          email?: string | null;
+          id?: string;
+          logo_path?: string | null;
+          name?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       care_codes: {
         Row: {
-          code: string
-          created_at: string
-          description: string | null
-          icon_url: string | null
-          id: string
-          name: string
-          updated_at: string
-        }
+          code: string;
+          created_at: string;
+          description: string | null;
+          icon_url: string | null;
+          id: string;
+          name: string;
+          updated_at: string;
+        };
         Insert: {
-          code: string
-          created_at?: string
-          description?: string | null
-          icon_url?: string | null
-          id?: string
-          name: string
-          updated_at?: string
-        }
+          code: string;
+          created_at?: string;
+          description?: string | null;
+          icon_url?: string | null;
+          id?: string;
+          name: string;
+          updated_at?: string;
+        };
         Update: {
-          code?: string
-          created_at?: string
-          description?: string | null
-          icon_url?: string | null
-          id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          code?: string;
+          created_at?: string;
+          description?: string | null;
+          icon_url?: string | null;
+          id?: string;
+          name?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       categories: {
         Row: {
-          created_at: string
-          id: string
-          name: string
-          parent_id: string | null
-          updated_at: string
-        }
+          created_at: string;
+          id: string;
+          name: string;
+          parent_id: string | null;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          name: string
-          parent_id?: string | null
-          updated_at?: string
-        }
+          created_at?: string;
+          id?: string;
+          name: string;
+          parent_id?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          name?: string
-          parent_id?: string | null
-          updated_at?: string
-        }
+          created_at?: string;
+          id?: string;
+          name?: string;
+          parent_id?: string | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "categories_parent_id_categories_id_fk"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "categories_parent_id_categories_id_fk";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       file_assets: {
         Row: {
-          brand_id: string | null
-          bucket: string
-          bytes: number | null
-          created_at: string
-          id: string
-          mime_type: string | null
-          path: string
-        }
+          brand_id: string | null;
+          bucket: string;
+          bytes: number | null;
+          created_at: string;
+          id: string;
+          mime_type: string | null;
+          path: string;
+        };
         Insert: {
-          brand_id?: string | null
-          bucket: string
-          bytes?: number | null
-          created_at?: string
-          id?: string
-          mime_type?: string | null
-          path: string
-        }
+          brand_id?: string | null;
+          bucket: string;
+          bytes?: number | null;
+          created_at?: string;
+          id?: string;
+          mime_type?: string | null;
+          path: string;
+        };
         Update: {
-          brand_id?: string | null
-          bucket?: string
-          bytes?: number | null
-          created_at?: string
-          id?: string
-          mime_type?: string | null
-          path?: string
-        }
+          brand_id?: string | null;
+          bucket?: string;
+          bytes?: number | null;
+          created_at?: string;
+          id?: string;
+          mime_type?: string | null;
+          path?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "file_assets_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "file_assets_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       import_jobs: {
         Row: {
-          brand_id: string
-          filename: string
-          finished_at: string | null
-          id: string
-          started_at: string
-          status: string
-          summary: Json | null
-        }
+          brand_id: string;
+          filename: string;
+          finished_at: string | null;
+          id: string;
+          started_at: string;
+          status: string;
+          summary: Json | null;
+        };
         Insert: {
-          brand_id: string
-          filename: string
-          finished_at?: string | null
-          id?: string
-          started_at?: string
-          status?: string
-          summary?: Json | null
-        }
+          brand_id: string;
+          filename: string;
+          finished_at?: string | null;
+          id?: string;
+          started_at?: string;
+          status?: string;
+          summary?: Json | null;
+        };
         Update: {
-          brand_id?: string
-          filename?: string
-          finished_at?: string | null
-          id?: string
-          started_at?: string
-          status?: string
-          summary?: Json | null
-        }
+          brand_id?: string;
+          filename?: string;
+          finished_at?: string | null;
+          id?: string;
+          started_at?: string;
+          status?: string;
+          summary?: Json | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "import_jobs_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "import_jobs_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       import_rows: {
         Row: {
-          created_at: string
-          error: string | null
-          id: string
-          job_id: string
-          normalized: Json | null
-          raw: Json
-          row_number: number
-          status: string
-        }
+          created_at: string;
+          error: string | null;
+          id: string;
+          job_id: string;
+          normalized: Json | null;
+          raw: Json;
+          row_number: number;
+          status: string;
+        };
         Insert: {
-          created_at?: string
-          error?: string | null
-          id?: string
-          job_id: string
-          normalized?: Json | null
-          raw: Json
-          row_number: number
-          status?: string
-        }
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          job_id: string;
+          normalized?: Json | null;
+          raw: Json;
+          row_number: number;
+          status?: string;
+        };
         Update: {
-          created_at?: string
-          error?: string | null
-          id?: string
-          job_id?: string
-          normalized?: Json | null
-          raw?: Json
-          row_number?: number
-          status?: string
-        }
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          job_id?: string;
+          normalized?: Json | null;
+          raw?: Json;
+          row_number?: number;
+          status?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "import_rows_job_id_import_jobs_id_fk"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "import_jobs"
-            referencedColumns: ["id"]
+            foreignKeyName: "import_rows_job_id_import_jobs_id_fk";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "import_jobs";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       passport_module_completion: {
         Row: {
-          created_at: string
-          id: string
-          is_completed: boolean
-          last_evaluated_at: string | null
-          module_key: string
-          passport_id: string
-          updated_at: string
-        }
+          created_at: string;
+          id: string;
+          is_completed: boolean;
+          last_evaluated_at: string | null;
+          module_key: string;
+          passport_id: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          is_completed?: boolean
-          last_evaluated_at?: string | null
-          module_key: string
-          passport_id: string
-          updated_at?: string
-        }
+          created_at?: string;
+          id?: string;
+          is_completed?: boolean;
+          last_evaluated_at?: string | null;
+          module_key: string;
+          passport_id: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          is_completed?: boolean
-          last_evaluated_at?: string | null
-          module_key?: string
-          passport_id?: string
-          updated_at?: string
-        }
+          created_at?: string;
+          id?: string;
+          is_completed?: boolean;
+          last_evaluated_at?: string | null;
+          module_key?: string;
+          passport_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "passport_module_completion_passport_id_passports_id_fk"
-            columns: ["passport_id"]
-            isOneToOne: false
-            referencedRelation: "passports"
-            referencedColumns: ["id"]
+            foreignKeyName: "passport_module_completion_passport_id_passports_id_fk";
+            columns: ["passport_id"];
+            isOneToOne: false;
+            referencedRelation: "passports";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       passport_template_modules: {
         Row: {
-          created_at: string
-          enabled: boolean
-          id: string
-          module_key: string
-          sort_index: number
-          template_id: string
-          updated_at: string
-        }
+          created_at: string;
+          enabled: boolean;
+          id: string;
+          module_key: string;
+          sort_index: number;
+          template_id: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          module_key: string
-          sort_index: number
-          template_id: string
-          updated_at?: string
-        }
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          module_key: string;
+          sort_index: number;
+          template_id: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          enabled?: boolean
-          id?: string
-          module_key?: string
-          sort_index?: number
-          template_id?: string
-          updated_at?: string
-        }
+          created_at?: string;
+          enabled?: boolean;
+          id?: string;
+          module_key?: string;
+          sort_index?: number;
+          template_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "passport_template_modules_template_id_passport_templates_id_fk"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "passport_templates"
-            referencedColumns: ["id"]
+            foreignKeyName: "passport_template_modules_template_id_passport_templates_id_fk";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "passport_templates";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       passport_templates: {
         Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          name: string
-          theme: Json
-          updated_at: string
-        }
+          brand_id: string;
+          created_at: string;
+          id: string;
+          name: string;
+          theme: Json;
+          updated_at: string;
+        };
         Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          name: string
-          theme?: Json
-          updated_at?: string
-        }
+          brand_id: string;
+          created_at?: string;
+          id?: string;
+          name: string;
+          theme?: Json;
+          updated_at?: string;
+        };
         Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          name?: string
-          theme?: Json
-          updated_at?: string
-        }
+          brand_id?: string;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          theme?: Json;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "passport_templates_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "passport_templates_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       passports: {
         Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          product_id: string
-          slug: string
-          status: string
-          template_id: string
-          updated_at: string
-          variant_id: string
-        }
+          brand_id: string;
+          created_at: string;
+          id: string;
+          product_id: string;
+          slug: string;
+          status: string;
+          template_id: string;
+          updated_at: string;
+          variant_id: string;
+        };
         Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          product_id: string
-          slug: string
-          status: string
-          template_id: string
-          updated_at?: string
-          variant_id: string
-        }
+          brand_id: string;
+          created_at?: string;
+          id?: string;
+          product_id: string;
+          slug: string;
+          status: string;
+          template_id: string;
+          updated_at?: string;
+          variant_id: string;
+        };
         Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          product_id?: string
-          slug?: string
-          status?: string
-          template_id?: string
-          updated_at?: string
-          variant_id?: string
-        }
+          brand_id?: string;
+          created_at?: string;
+          id?: string;
+          product_id?: string;
+          slug?: string;
+          status?: string;
+          template_id?: string;
+          updated_at?: string;
+          variant_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "passports_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "passports_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "passports_product_id_products_id_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            foreignKeyName: "passports_product_id_products_id_fk";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "passports_template_id_passport_templates_id_fk"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "passport_templates"
-            referencedColumns: ["id"]
+            foreignKeyName: "passports_template_id_passport_templates_id_fk";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "passport_templates";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "passports_variant_id_product_variants_id_fk"
-            columns: ["variant_id"]
-            isOneToOne: false
-            referencedRelation: "product_variants"
-            referencedColumns: ["id"]
+            foreignKeyName: "passports_variant_id_product_variants_id_fk";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       product_care_codes: {
         Row: {
-          care_code_id: string
-          created_at: string
-          id: string
-          product_id: string
-          updated_at: string
-        }
+          care_code_id: string;
+          created_at: string;
+          id: string;
+          product_id: string;
+          updated_at: string;
+        };
         Insert: {
-          care_code_id: string
-          created_at?: string
-          id?: string
-          product_id: string
-          updated_at?: string
-        }
+          care_code_id: string;
+          created_at?: string;
+          id?: string;
+          product_id: string;
+          updated_at?: string;
+        };
         Update: {
-          care_code_id?: string
-          created_at?: string
-          id?: string
-          product_id?: string
-          updated_at?: string
-        }
+          care_code_id?: string;
+          created_at?: string;
+          id?: string;
+          product_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "product_care_codes_care_code_id_care_codes_id_fk"
-            columns: ["care_code_id"]
-            isOneToOne: false
-            referencedRelation: "care_codes"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_care_codes_care_code_id_care_codes_id_fk";
+            columns: ["care_code_id"];
+            isOneToOne: false;
+            referencedRelation: "care_codes";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "product_care_codes_product_id_products_id_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_care_codes_product_id_products_id_fk";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       product_eco_claims: {
         Row: {
-          created_at: string
-          eco_claim_id: string
-          id: string
-          product_id: string
-          updated_at: string
-        }
+          created_at: string;
+          eco_claim_id: string;
+          id: string;
+          product_id: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          eco_claim_id: string
-          id?: string
-          product_id: string
-          updated_at?: string
-        }
+          created_at?: string;
+          eco_claim_id: string;
+          id?: string;
+          product_id: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          eco_claim_id?: string
-          id?: string
-          product_id?: string
-          updated_at?: string
-        }
+          created_at?: string;
+          eco_claim_id?: string;
+          id?: string;
+          product_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "product_eco_claims_eco_claim_id_brand_eco_claims_id_fk"
-            columns: ["eco_claim_id"]
-            isOneToOne: false
-            referencedRelation: "brand_eco_claims"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_eco_claims_eco_claim_id_brand_eco_claims_id_fk";
+            columns: ["eco_claim_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_eco_claims";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "product_eco_claims_product_id_products_id_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_eco_claims_product_id_products_id_fk";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       product_environment: {
         Row: {
-          carbon_kg_co2e: number | null
-          created_at: string
-          product_id: string
-          updated_at: string
-          water_liters: number | null
-        }
+          carbon_kg_co2e: number | null;
+          created_at: string;
+          product_id: string;
+          updated_at: string;
+          water_liters: number | null;
+        };
         Insert: {
-          carbon_kg_co2e?: number | null
-          created_at?: string
-          product_id: string
-          updated_at?: string
-          water_liters?: number | null
-        }
+          carbon_kg_co2e?: number | null;
+          created_at?: string;
+          product_id: string;
+          updated_at?: string;
+          water_liters?: number | null;
+        };
         Update: {
-          carbon_kg_co2e?: number | null
-          created_at?: string
-          product_id?: string
-          updated_at?: string
-          water_liters?: number | null
-        }
+          carbon_kg_co2e?: number | null;
+          created_at?: string;
+          product_id?: string;
+          updated_at?: string;
+          water_liters?: number | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "product_environment_product_id_products_id_fk"
-            columns: ["product_id"]
-            isOneToOne: true
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_environment_product_id_products_id_fk";
+            columns: ["product_id"];
+            isOneToOne: true;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       product_identifiers: {
         Row: {
-          created_at: string
-          id: string
-          id_type: string
-          product_id: string
-          updated_at: string
-          value: string
-        }
+          created_at: string;
+          id: string;
+          id_type: string;
+          product_id: string;
+          updated_at: string;
+          value: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          id_type: string
-          product_id: string
-          updated_at?: string
-          value: string
-        }
+          created_at?: string;
+          id?: string;
+          id_type: string;
+          product_id: string;
+          updated_at?: string;
+          value: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          id_type?: string
-          product_id?: string
-          updated_at?: string
-          value?: string
-        }
+          created_at?: string;
+          id?: string;
+          id_type?: string;
+          product_id?: string;
+          updated_at?: string;
+          value?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "product_identifiers_product_id_products_id_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_identifiers_product_id_products_id_fk";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       product_journey_steps: {
         Row: {
-          created_at: string
-          facility_id: string
-          id: string
-          product_id: string
-          sort_index: number
-          step_type: string
-          updated_at: string
-        }
+          created_at: string;
+          facility_id: string;
+          id: string;
+          product_id: string;
+          sort_index: number;
+          step_type: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          facility_id: string
-          id?: string
-          product_id: string
-          sort_index: number
-          step_type: string
-          updated_at?: string
-        }
+          created_at?: string;
+          facility_id: string;
+          id?: string;
+          product_id: string;
+          sort_index: number;
+          step_type: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          facility_id?: string
-          id?: string
-          product_id?: string
-          sort_index?: number
-          step_type?: string
-          updated_at?: string
-        }
+          created_at?: string;
+          facility_id?: string;
+          id?: string;
+          product_id?: string;
+          sort_index?: number;
+          step_type?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "product_journey_steps_facility_id_brand_facilities_id_fk"
-            columns: ["facility_id"]
-            isOneToOne: false
-            referencedRelation: "brand_facilities"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_journey_steps_facility_id_brand_facilities_id_fk";
+            columns: ["facility_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_facilities";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "product_journey_steps_product_id_products_id_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_journey_steps_product_id_products_id_fk";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       product_materials: {
         Row: {
-          brand_material_id: string
-          created_at: string
-          id: string
-          percentage: number | null
-          product_id: string
-          updated_at: string
-        }
+          brand_material_id: string;
+          created_at: string;
+          id: string;
+          percentage: number | null;
+          product_id: string;
+          updated_at: string;
+        };
         Insert: {
-          brand_material_id: string
-          created_at?: string
-          id?: string
-          percentage?: number | null
-          product_id: string
-          updated_at?: string
-        }
+          brand_material_id: string;
+          created_at?: string;
+          id?: string;
+          percentage?: number | null;
+          product_id: string;
+          updated_at?: string;
+        };
         Update: {
-          brand_material_id?: string
-          created_at?: string
-          id?: string
-          percentage?: number | null
-          product_id?: string
-          updated_at?: string
-        }
+          brand_material_id?: string;
+          created_at?: string;
+          id?: string;
+          percentage?: number | null;
+          product_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "product_materials_brand_material_id_brand_materials_id_fk"
-            columns: ["brand_material_id"]
-            isOneToOne: false
-            referencedRelation: "brand_materials"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_materials_brand_material_id_brand_materials_id_fk";
+            columns: ["brand_material_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_materials";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "product_materials_product_id_products_id_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_materials_product_id_products_id_fk";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       product_variant_identifiers: {
         Row: {
-          created_at: string
-          id: string
-          id_type: string
-          updated_at: string
-          value: string
-          variant_id: string
-        }
+          created_at: string;
+          id: string;
+          id_type: string;
+          updated_at: string;
+          value: string;
+          variant_id: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          id_type: string
-          updated_at?: string
-          value: string
-          variant_id: string
-        }
+          created_at?: string;
+          id?: string;
+          id_type: string;
+          updated_at?: string;
+          value: string;
+          variant_id: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          id_type?: string
-          updated_at?: string
-          value?: string
-          variant_id?: string
-        }
+          created_at?: string;
+          id?: string;
+          id_type?: string;
+          updated_at?: string;
+          value?: string;
+          variant_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "product_variant_identifiers_variant_id_product_variants_id_fk"
-            columns: ["variant_id"]
-            isOneToOne: false
-            referencedRelation: "product_variants"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_variant_identifiers_variant_id_product_variants_id_fk";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       product_variants: {
         Row: {
-          color_id: string | null
-          created_at: string
-          id: string
-          product_id: string
-          product_image_url: string | null
-          size_id: string | null
-          sku: string | null
-          updated_at: string
-          upid: string
-        }
+          color_id: string | null;
+          created_at: string;
+          id: string;
+          product_id: string;
+          product_image_url: string | null;
+          size_id: string | null;
+          sku: string | null;
+          updated_at: string;
+          upid: string;
+        };
         Insert: {
-          color_id?: string | null
-          created_at?: string
-          id?: string
-          product_id: string
-          product_image_url?: string | null
-          size_id?: string | null
-          sku?: string | null
-          updated_at?: string
-          upid: string
-        }
+          color_id?: string | null;
+          created_at?: string;
+          id?: string;
+          product_id: string;
+          product_image_url?: string | null;
+          size_id?: string | null;
+          sku?: string | null;
+          updated_at?: string;
+          upid: string;
+        };
         Update: {
-          color_id?: string | null
-          created_at?: string
-          id?: string
-          product_id?: string
-          product_image_url?: string | null
-          size_id?: string | null
-          sku?: string | null
-          updated_at?: string
-          upid?: string
-        }
+          color_id?: string | null;
+          created_at?: string;
+          id?: string;
+          product_id?: string;
+          product_image_url?: string | null;
+          size_id?: string | null;
+          sku?: string | null;
+          updated_at?: string;
+          upid?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "product_variants_color_id_brand_colors_id_fk"
-            columns: ["color_id"]
-            isOneToOne: false
-            referencedRelation: "brand_colors"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_variants_color_id_brand_colors_id_fk";
+            columns: ["color_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_colors";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "product_variants_product_id_products_id_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_variants_product_id_products_id_fk";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "product_variants_size_id_brand_sizes_id_fk"
-            columns: ["size_id"]
-            isOneToOne: false
-            referencedRelation: "brand_sizes"
-            referencedColumns: ["id"]
+            foreignKeyName: "product_variants_size_id_brand_sizes_id_fk";
+            columns: ["size_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_sizes";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       products: {
         Row: {
-          brand_certification_id: string | null
-          brand_id: string
-          category_id: string | null
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          primary_image_url: string | null
-          season: string | null
-          showcase_brand_id: string | null
-          updated_at: string
-        }
+          brand_certification_id: string | null;
+          brand_id: string;
+          category_id: string | null;
+          created_at: string;
+          description: string | null;
+          id: string;
+          name: string;
+          primary_image_url: string | null;
+          season: string | null;
+          showcase_brand_id: string | null;
+          updated_at: string;
+        };
         Insert: {
-          brand_certification_id?: string | null
-          brand_id: string
-          category_id?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          primary_image_url?: string | null
-          season?: string | null
-          showcase_brand_id?: string | null
-          updated_at?: string
-        }
+          brand_certification_id?: string | null;
+          brand_id: string;
+          category_id?: string | null;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name: string;
+          primary_image_url?: string | null;
+          season?: string | null;
+          showcase_brand_id?: string | null;
+          updated_at?: string;
+        };
         Update: {
-          brand_certification_id?: string | null
-          brand_id?: string
-          category_id?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          primary_image_url?: string | null
-          season?: string | null
-          showcase_brand_id?: string | null
-          updated_at?: string
-        }
+          brand_certification_id?: string | null;
+          brand_id?: string;
+          category_id?: string | null;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          primary_image_url?: string | null;
+          season?: string | null;
+          showcase_brand_id?: string | null;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "products_brand_certification_id_brand_certifications_id_fk"
-            columns: ["brand_certification_id"]
-            isOneToOne: false
-            referencedRelation: "brand_certifications"
-            referencedColumns: ["id"]
+            foreignKeyName: "products_brand_certification_id_brand_certifications_id_fk";
+            columns: ["brand_certification_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_certifications";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "products_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "products_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "products_category_id_categories_id_fk"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
+            foreignKeyName: "products_category_id_categories_id_fk";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "products_showcase_brand_id_showcase_brands_id_fk"
-            columns: ["showcase_brand_id"]
-            isOneToOne: false
-            referencedRelation: "showcase_brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "products_showcase_brand_id_showcase_brands_id_fk";
+            columns: ["showcase_brand_id"];
+            isOneToOne: false;
+            referencedRelation: "showcase_brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       showcase_brands: {
         Row: {
-          address_line_1: string | null
-          address_line_2: string | null
-          brand_id: string
-          city: string | null
-          country_code: string | null
-          created_at: string
-          email: string | null
-          id: string
-          legal_name: string | null
-          name: string
-          phone: string | null
-          state: string | null
-          updated_at: string
-          website: string | null
-          zip: string | null
-        }
+          address_line_1: string | null;
+          address_line_2: string | null;
+          brand_id: string;
+          city: string | null;
+          country_code: string | null;
+          created_at: string;
+          email: string | null;
+          id: string;
+          legal_name: string | null;
+          name: string;
+          phone: string | null;
+          state: string | null;
+          updated_at: string;
+          website: string | null;
+          zip: string | null;
+        };
         Insert: {
-          address_line_1?: string | null
-          address_line_2?: string | null
-          brand_id: string
-          city?: string | null
-          country_code?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          legal_name?: string | null
-          name: string
-          phone?: string | null
-          state?: string | null
-          updated_at?: string
-          website?: string | null
-          zip?: string | null
-        }
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          brand_id: string;
+          city?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          email?: string | null;
+          id?: string;
+          legal_name?: string | null;
+          name: string;
+          phone?: string | null;
+          state?: string | null;
+          updated_at?: string;
+          website?: string | null;
+          zip?: string | null;
+        };
         Update: {
-          address_line_1?: string | null
-          address_line_2?: string | null
-          brand_id?: string
-          city?: string | null
-          country_code?: string | null
-          created_at?: string
-          email?: string | null
-          id?: string
-          legal_name?: string | null
-          name?: string
-          phone?: string | null
-          state?: string | null
-          updated_at?: string
-          website?: string | null
-          zip?: string | null
-        }
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          brand_id?: string;
+          city?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          email?: string | null;
+          id?: string;
+          legal_name?: string | null;
+          name?: string;
+          phone?: string | null;
+          state?: string | null;
+          updated_at?: string;
+          website?: string | null;
+          zip?: string | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "showcase_brands_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "showcase_brands_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       users: {
         Row: {
-          avatar_hue: number | null
-          avatar_path: string | null
-          brand_id: string | null
-          created_at: string
-          email: string
-          full_name: string | null
-          id: string
-          role: Database["public"]["Enums"]["user_role"]
-          updated_at: string
-        }
+          avatar_hue: number | null;
+          avatar_path: string | null;
+          brand_id: string | null;
+          created_at: string;
+          email: string;
+          full_name: string | null;
+          id: string;
+          role: Database["public"]["Enums"]["user_role"];
+          updated_at: string;
+        };
         Insert: {
-          avatar_hue?: number | null
-          avatar_path?: string | null
-          brand_id?: string | null
-          created_at?: string
-          email: string
-          full_name?: string | null
-          id: string
-          role?: Database["public"]["Enums"]["user_role"]
-          updated_at?: string
-        }
+          avatar_hue?: number | null;
+          avatar_path?: string | null;
+          brand_id?: string | null;
+          created_at?: string;
+          email: string;
+          full_name?: string | null;
+          id: string;
+          role?: Database["public"]["Enums"]["user_role"];
+          updated_at?: string;
+        };
         Update: {
-          avatar_hue?: number | null
-          avatar_path?: string | null
-          brand_id?: string | null
-          created_at?: string
-          email?: string
-          full_name?: string | null
-          id?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          avatar_hue?: number | null;
+          avatar_path?: string | null;
+          brand_id?: string | null;
+          created_at?: string;
+          email?: string;
+          full_name?: string | null;
+          id?: string;
+          role?: Database["public"]["Enums"]["user_role"];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       users_on_brand: {
         Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          role: string
-          updated_at: string
-          user_id: string
-        }
+          brand_id: string;
+          created_at: string;
+          id: string;
+          role: string;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          role: string
-          updated_at?: string
-          user_id: string
-        }
+          brand_id: string;
+          created_at?: string;
+          id?: string;
+          role: string;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          role?: string
-          updated_at?: string
-          user_id?: string
-        }
+          brand_id?: string;
+          created_at?: string;
+          id?: string;
+          role?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "users_on_brand_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "users_on_brand_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "users_on_brand_user_id_users_id_fk"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
+            foreignKeyName: "users_on_brand_user_id_users_id_fk";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       value_mappings: {
         Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          raw_value: string
-          source_column: string
-          target: string
-          target_id: string
-        }
+          brand_id: string;
+          created_at: string;
+          id: string;
+          raw_value: string;
+          source_column: string;
+          target: string;
+          target_id: string;
+        };
         Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          raw_value: string
-          source_column: string
-          target: string
-          target_id: string
-        }
+          brand_id: string;
+          created_at?: string;
+          id?: string;
+          raw_value: string;
+          source_column: string;
+          target: string;
+          target_id: string;
+        };
         Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          raw_value?: string
-          source_column?: string
-          target?: string
-          target_id?: string
-        }
+          brand_id?: string;
+          created_at?: string;
+          id?: string;
+          raw_value?: string;
+          source_column?: string;
+          target?: string;
+          target_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "value_mappings_brand_id_brands_id_fk"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
+            foreignKeyName: "value_mappings_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
           },
-        ]
-      }
-    }
+        ];
+      };
+    };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
       accept_invite_from_cookie: {
-        Args: { p_token: string }
-        Returns: undefined
-      }
+        Args: { p_token: string };
+        Returns: undefined;
+      };
       get_brands_for_authenticated_user: {
-        Args: Record<PropertyKey, never>
+        Args: Record<PropertyKey, never>;
         Returns: {
-          member_brand_id: string
-        }[]
-      }
+          member_brand_id: string;
+        }[];
+      };
       is_brand_member: {
-        Args: { b_id: string }
-        Returns: boolean
-      }
+        Args: { b_id: string };
+        Returns: boolean;
+      };
       is_brand_owner: {
-        Args: { b_id: string }
-        Returns: boolean
-      }
+        Args: { b_id: string };
+        Returns: boolean;
+      };
       shares_brand_with: {
-        Args: { p_user_id: string }
-        Returns: boolean
-      }
-    }
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
+    };
     Enums: {
-      user_role: "owner" | "member"
-    }
+      user_role: "owner" | "member";
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
+      [_ in never]: never;
+    };
+  };
+};
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<
+  keyof Database,
+  "public"
+>];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
+      Row: infer R;
     }
     ? R
     : never
@@ -1433,95 +1436,95 @@ export type Tables<
         DefaultSchema["Views"])
     ? (DefaultSchema["Tables"] &
         DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
+        Row: infer R;
       }
       ? R
       : never
-    : never
+    : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
+      Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
+        Insert: infer I;
       }
       ? I
       : never
-    : never
+    : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
+      Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
+        Update: infer U;
       }
       ? U
       : never
-    : never
+    : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+    : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+    : never;
 
 export const Constants = {
   public: {
@@ -1529,4 +1532,4 @@ export const Constants = {
       user_role: ["owner", "member"],
     },
   },
-} as const
+} as const;

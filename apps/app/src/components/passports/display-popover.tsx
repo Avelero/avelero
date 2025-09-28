@@ -51,6 +51,8 @@ function SortableRow({ item, onToggle }: { item: RowState; onToggle: (id: string
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
+    position: isDragging ? "relative" as const : undefined,
+    zIndex: isDragging ? 10000 : undefined,
   };
 
   return (
@@ -81,6 +83,7 @@ function SortableRow({ item, onToggle }: { item: RowState; onToggle: (id: string
 export function DisplayPopover({ trigger, productLabel = "Product", allColumns, initialVisible, onSave }: DisplayPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [rows, setRows] = React.useState<RowState[]>([]);
+  const [isDraggingAny, setIsDraggingAny] = React.useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -122,19 +125,32 @@ export function DisplayPopover({ trigger, productLabel = "Product", allColumns, 
     setOpen(false);
   };
 
+  const handleDragStart = React.useCallback(() => {
+    setIsDraggingAny(true);
+  }, []);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align="end" className="w-[360px] p-0">
-        <div className="flex flex-col max-h-[360px] overflow-auto p-2 gap-2">
+      <PopoverContent align="end" className="w-[360px] p-0 overflow-visible">
+        <div className={cn("flex flex-col max-h-[360px] p-2 gap-2", isDraggingAny ? "overflow-visible" : "overflow-auto") }>
           {/* Locked Product row */}
-        <div className="flex h-10 items-center gap-3 px-3 border border-border bg-background">
+        <div className="flex h-10 min-h-10 items-center gap-3 px-3 border border-border bg-background">
             <Icons.Lock className="h-4 w-4 text-tertiary" />
             <div className="flex-1 truncate text-p text-primary">{productLabel}</div>
             <div className="h-4 w-4" />
         </div>
 
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={(event) => {
+              handleDragEnd(event);
+              setIsDraggingAny(false);
+            }}
+            onDragCancel={() => setIsDraggingAny(false)}
+          >
             <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
                 <div className="flex flex-col gap-2">
               {rows.map((item) => (

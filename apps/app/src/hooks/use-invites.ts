@@ -76,6 +76,9 @@ export function useAcceptInviteMutation() {
         await queryClient.invalidateQueries({
           queryKey: trpc.user.me.queryKey(),
         });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.brand.members.queryKey(),
+        });
       },
     }),
   );

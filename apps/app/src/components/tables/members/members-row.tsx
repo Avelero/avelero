@@ -109,6 +109,16 @@ function MembershipRow({
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.members.queryKey(),
         });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.brand.list.queryKey(),
+        });
+        await queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === "brand.canLeave" ||
+            (Array.isArray(query.queryKey[0]) &&
+              query.queryKey[0]?.[0] === "brand" &&
+              query.queryKey[0]?.[1] === "canLeave"),
+        });
       },
     }),
   );
@@ -156,6 +166,16 @@ function MembershipRow({
       onSettled: async () => {
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.members.queryKey(),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.brand.list.queryKey(),
+        });
+        await queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === "brand.canLeave" ||
+            (Array.isArray(query.queryKey[0]) &&
+              query.queryKey[0]?.[0] === "brand" &&
+              query.queryKey[0]?.[1] === "canLeave"),
         });
       },
     }),

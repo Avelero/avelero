@@ -102,6 +102,8 @@ export const passportsRouter = createTRPCRouter({
         include = {},
       } = input;
 
+      console.log('[SEARCH DEBUG] Input filter:', JSON.stringify(filter, null, 2));
+
       const { cursor, limit = 20, page, includeTotalCount = false } = pagination;
 
       // Validate includes and get performance metrics
@@ -122,26 +124,29 @@ export const passportsRouter = createTRPCRouter({
       const conditions = [eq(passports.brandId, brandId)];
 
       // Apply comprehensive search filter - search across ALL relevant fields
-      // Use AND with isNotNull to handle NULL values properly (NULL ilike returns NULL, not false)
+      // Use raw SQL to handle NULL values properly and ensure correct query generation
+      // ILIKE is case-insensitive by design (e.g., "SKU" matches "sku", "Sku", etc.)
       if (filter.search?.trim()) {
-        const searchTerm = `%${filter.search.trim()}%`;
+        const rawSearchTerm = filter.search.trim();
+        const searchTerm = `%${rawSearchTerm}%`;
+        console.log('[SEARCH DEBUG] Raw search:', rawSearchTerm, '| Pattern:', searchTerm, '| Case-insensitive: YES (ILIKE)');
+        
+        // Use sql template with COALESCE to handle NULLs properly
+        // ILIKE performs case-insensitive pattern matching (ILIKE = case-Insensitive LIKE)
+        // Example: "SKU-123" will match "sku-123", "SKU-123", "Sku-123", etc.
         conditions.push(
-          or(
-            // Product fields (name is NOT NULL, but description and season can be NULL)
-            ilike(products.name, searchTerm),
-            and(isNotNull(products.description), ilike(products.description, searchTerm))!,
-            and(isNotNull(products.season), ilike(products.season, searchTerm))!,
-            // Variant identifiers (sku can be NULL, upid is NOT NULL)
-            and(isNotNull(productVariants.sku), ilike(productVariants.sku, searchTerm))!,
-            ilike(productVariants.upid, searchTerm),
-            // Passport identifiers (both NOT NULL)
-            ilike(passports.id, searchTerm),
-            ilike(passports.slug, searchTerm),
-            // Category, color, size names (can be NULL through LEFT JOINs)
-            and(isNotNull(categories.name), ilike(categories.name, searchTerm))!,
-            and(isNotNull(brandColors.name), ilike(brandColors.name, searchTerm))!,
-            and(isNotNull(brandSizes.name), ilike(brandSizes.name, searchTerm))!,
-          )!,
+          sql`(
+            ${products.name} ILIKE ${searchTerm}
+            OR COALESCE(${products.description}, '') ILIKE ${searchTerm}
+            OR COALESCE(${products.season}, '') ILIKE ${searchTerm}
+            OR COALESCE(${productVariants.sku}, '') ILIKE ${searchTerm}
+            OR ${productVariants.upid} ILIKE ${searchTerm}
+            OR ${passports.id}::text ILIKE ${searchTerm}
+            OR ${passports.slug} ILIKE ${searchTerm}
+            OR COALESCE(${categories.name}, '') ILIKE ${searchTerm}
+            OR COALESCE(${brandColors.name}, '') ILIKE ${searchTerm}
+            OR COALESCE(${brandSizes.name}, '') ILIKE ${searchTerm}
+          )`
         );
       }
 
@@ -279,6 +284,8 @@ export const passportsRouter = createTRPCRouter({
       let results: any[];
       const needsJoins = include.product || include.variant || include.template || filter.search?.trim() ||
         filter.categoryIds?.length || filter.colorIds?.length || filter.sizeIds?.length;
+      
+      console.log('[SEARCH DEBUG] needsJoins:', needsJoins, '| hasSearch:', !!filter.search?.trim());
       
       if (needsJoins) {
         const query = db

@@ -16,34 +16,25 @@ export interface SearchState {
 export interface SearchActions {
   setQuery: (query: string) => void;
   clearQuery: () => void;
+  executeSearch: () => void; // Manually trigger search
 }
 
 /**
- * Hook for managing search state with debouncing
+ * Hook for managing search state with manual trigger
  *
- * Provides search query state with automatic debouncing for performance.
- * The debounced query can be used for API calls while the immediate query
- * is used for the input field.
+ * Provides search query state that only executes when the user explicitly
+ * triggers it (via Enter key or blur event). This prevents unnecessary API
+ * calls while the user is still typing.
  *
  * @param initialQuery - Initial search query
- * @param debounceMs - Debounce delay in milliseconds (default: 300)
  * @returns [searchState, searchActions]
  */
 export function useSearchState(
   initialQuery: string = "",
-  debounceMs: number = 300,
+  debounceMs?: number, // Kept for backward compatibility but unused
 ): [SearchState, SearchActions] {
   const [query, setQuery] = React.useState(initialQuery);
-  const [debouncedQuery, setDebouncedQuery] = React.useState(initialQuery);
-
-  // Debounce the search query
-  React.useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedQuery(query);
-    }, debounceMs);
-
-    return () => clearTimeout(timeoutId);
-  }, [query, debounceMs]);
+  const [executedQuery, setExecutedQuery] = React.useState(initialQuery);
 
   // Create actions object
   const actions: SearchActions = React.useMemo(
@@ -55,18 +46,23 @@ export function useSearchState(
       clearQuery: () => {
         console.log("useSearchState: clearQuery called");
         setQuery("");
+        setExecutedQuery("");
+      },
+      executeSearch: () => {
+        console.log("useSearchState: executeSearch called with:", query);
+        setExecutedQuery(query);
       },
     }),
-    [],
+    [query],
   );
 
-  // Create state object
+  // Create state object - executedQuery is used as debouncedQuery for backward compatibility
   const state: SearchState = React.useMemo(
     () => ({
       query,
-      debouncedQuery,
+      debouncedQuery: executedQuery,
     }),
-    [query, debouncedQuery],
+    [query, executedQuery],
   );
 
   return [state, actions];

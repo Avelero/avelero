@@ -141,6 +141,12 @@ export function PassportControls({
             placeholder={"Search by SKU, name, category, color, size..."}
             value={searchState?.query || ""}
             onChange={(e) => searchActions?.setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                searchActions?.executeSearch();
+              }
+            }}
             className={cn(
               "pl-8 pr-3 py-[6px] h-9",
               "transition-all",
@@ -150,7 +156,10 @@ export function PassportControls({
             )}
             disabled={disabled}
             onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
+            onBlur={() => {
+              setIsSearchFocused(false);
+              searchActions?.executeSearch();
+            }}
           />
         </div>
 

@@ -9,17 +9,54 @@ import type {
 import * as React from "react";
 
 /**
- * Hook for managing filter state
+ * Hook for managing filter state with smart debouncing
  *
- * Provides state and actions for the passport filtering system.
+ * Provides dual state (immediate + debounced) and actions for the passport filtering system.
+ * - Immediate state: Updates instantly for UI responsiveness
+ * - Debounced state: Updates after delay for API calls, but only when filter menu is closed
  * Supports AND logic between groups, OR logic within groups.
  *
- * @returns [filterState, filterActions]
+ * @param debounceMs - Milliseconds to wait before updating debounced state (default: 2000ms)
+ * @param isFilterMenuOpen - Whether any filter menu is currently open (pauses debouncing)
+ * @returns [immediateState, debouncedState, filterActions]
  */
-export function useFilterState(): [FilterState, FilterActions] {
-  const [state, setState] = React.useState<FilterState>({
+export function useFilterState(debounceMs: number = 2000, isFilterMenuOpen: boolean = false): [FilterState, FilterState, FilterActions] {
+  const [immediateState, setImmediateState] = React.useState<FilterState>({
     groups: [],
   });
+  
+  const [debouncedState, setDebouncedState] = React.useState<FilterState>({
+    groups: [],
+  });
+
+  // Track if we have pending changes
+  const [hasPendingChanges, setHasPendingChanges] = React.useState(false);
+
+  // Mark as having pending changes whenever immediate state changes
+  React.useEffect(() => {
+    setHasPendingChanges(true);
+  }, [immediateState]);
+
+  // Smart debouncing: Only update debounced state when filter menu is closed AND we have pending changes
+  React.useEffect(() => {
+    // If menu is open, don't start the timer
+    if (isFilterMenuOpen) {
+      return;
+    }
+
+    // If no pending changes, nothing to do
+    if (!hasPendingChanges) {
+      return;
+    }
+
+    // Menu is closed and we have pending changes - start debounce timer
+    const timer = setTimeout(() => {
+      setDebouncedState(immediateState);
+      setHasPendingChanges(false);
+    }, debounceMs);
+
+    return () => clearTimeout(timer);
+  }, [immediateState, debounceMs, isFilterMenuOpen, hasPendingChanges]);
 
   // ==========================================================================
   // Helper Functions
@@ -62,7 +99,7 @@ export function useFilterState(): [FilterState, FilterActions] {
    * Add a new filter group
    */
   const addGroup = React.useCallback(() => {
-    setState((prev) => ({
+    setImmediateState((prev) => ({
       ...prev,
       groups: [...prev.groups, createEmptyGroup()],
     }));
@@ -72,7 +109,7 @@ export function useFilterState(): [FilterState, FilterActions] {
    * Remove a filter group by ID
    */
   const removeGroup = React.useCallback((groupId: string) => {
-    setState((prev) => ({
+    setImmediateState((prev) => ({
       ...prev,
       groups: prev.groups.filter((group) => group.id !== groupId),
     }));
@@ -82,7 +119,7 @@ export function useFilterState(): [FilterState, FilterActions] {
    * Set groups directly (useful for quick filters)
    */
   const setGroups = React.useCallback((groups: FilterGroup[]) => {
-    setState({ groups });
+    setImmediateState({ groups });
   }, []);
 
   // ==========================================================================
@@ -94,7 +131,7 @@ export function useFilterState(): [FilterState, FilterActions] {
    */
   const addCondition = React.useCallback(
     (groupId: string, initial?: Partial<FilterCondition>) => {
-      setState((prev) => ({
+      setImmediateState((prev) => ({
         ...prev,
         groups: prev.groups.map((group) =>
           group.id === groupId
@@ -121,7 +158,7 @@ export function useFilterState(): [FilterState, FilterActions] {
       conditionId: string,
       updates: Partial<FilterCondition>,
     ) => {
-      setState((prev) => ({
+      setImmediateState((prev) => ({
         ...prev,
         groups: prev.groups.map((group) =>
           group.id === groupId
@@ -146,7 +183,7 @@ export function useFilterState(): [FilterState, FilterActions] {
    */
   const removeCondition = React.useCallback(
     (groupId: string, conditionId: string) => {
-      setState((prev) => {
+      setImmediateState((prev) => {
         const updatedGroups = prev.groups
           .map((group) => {
             if (group.id !== groupId) return group;
@@ -179,7 +216,7 @@ export function useFilterState(): [FilterState, FilterActions] {
    * Clear all filters
    */
   const clearAll = React.useCallback(() => {
-    setState({ groups: [] });
+    setImmediateState({ groups: [] });
   }, []);
 
   // ==========================================================================
@@ -190,18 +227,18 @@ export function useFilterState(): [FilterState, FilterActions] {
    * Check if any filters are active
    */
   const hasActiveFilters = React.useMemo(() => {
-    return state.groups.some((group) =>
+    return immediateState.groups.some((group) =>
       group.conditions.some(
         (condition) => condition.fieldId && condition.value != null,
       ),
     );
-  }, [state.groups]);
+  }, [immediateState.groups]);
 
   /**
    * Get total number of active filter conditions
    */
   const activeFilterCount = React.useMemo(() => {
-    return state.groups.reduce((total, group) => {
+    return immediateState.groups.reduce((total, group) => {
       return (
         total +
         group.conditions.filter(
@@ -209,7 +246,7 @@ export function useFilterState(): [FilterState, FilterActions] {
         ).length
       );
     }, 0);
-  }, [state.groups]);
+  }, [immediateState.groups]);
 
   // ==========================================================================
   // Actions Object
@@ -243,15 +280,16 @@ export function useFilterState(): [FilterState, FilterActions] {
   React.useEffect(() => {
     if (process.env.NODE_ENV === "development") {
       console.log("[useFilterState] State updated:", {
-        groupCount: state.groups.length,
+        groupCount: immediateState.groups.length,
         hasActiveFilters,
         activeFilterCount,
-        state,
+        immediateState,
+        debouncedState,
       });
     }
-  }, [state, hasActiveFilters, activeFilterCount]);
+  }, [immediateState, debouncedState, hasActiveFilters, activeFilterCount]);
 
-  return [state, actions];
+  return [immediateState, debouncedState, actions];
 }
 
 /**

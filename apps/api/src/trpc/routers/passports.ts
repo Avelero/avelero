@@ -786,8 +786,8 @@ export const passportsRouter = createTRPCRouter({
       const transformedData = transformPassportData(updateData);
 
       // Handle status transitions for bulk updates
-      const statusUpdates = {};
-      if (transformedData.passportStatus === "published") {
+      const statusUpdates: Record<string, any> = {};
+      if (transformedData.status === "published") {
         statusUpdates.publishedAt = new Date().toISOString();
       }
 

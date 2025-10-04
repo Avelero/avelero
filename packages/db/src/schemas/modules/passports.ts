@@ -512,7 +512,7 @@ export const calculatePassportCompliance = (passport: {
  * Transforms passport data before validation
  */
 export const transformPassportData = (data: any): any => {
-  return {
+  const transformed: any = {
     ...data,
     // Ensure customData and moduleData are objects
     customData: data.customData || {},
@@ -521,6 +521,14 @@ export const transformPassportData = (data: any): any => {
     primaryLanguage: data.primaryLanguage?.toLowerCase(),
     availableLanguages: data.availableLanguages?.map((lang: string) => lang.toLowerCase()),
   };
+  
+  // Map passportStatus to status for database column
+  if (data.passportStatus !== undefined) {
+    transformed.status = data.passportStatus;
+    delete transformed.passportStatus;
+  }
+  
+  return transformed;
 };
 
 /**

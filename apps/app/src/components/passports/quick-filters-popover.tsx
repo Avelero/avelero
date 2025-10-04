@@ -30,6 +30,7 @@ interface QuickFiltersPopoverProps {
   filterActions: FilterActions;
   onOpenAdvanced: () => void;
   disabled?: boolean;
+  onOpenChange?: (isOpen: boolean) => void; // Callback to track dropdown state
 }
 
 const QUICK_FIELDS = getQuickFilterFields();
@@ -51,8 +52,18 @@ export function QuickFiltersPopover({
   filterActions,
   onOpenAdvanced,
   disabled = false,
+  onOpenChange,
 }: QuickFiltersPopoverProps) {
   const [open, setOpen] = React.useState(false);
+
+  // Notify parent when dropdown opens/closes
+  const handleOpenChange = React.useCallback(
+    (newOpen: boolean) => {
+      setOpen(newOpen);
+      onOpenChange?.(newOpen);
+    },
+    [onOpenChange]
+  );
 
   const activeFilters = React.useMemo(() => {
     const filters: Array<{
@@ -98,13 +109,13 @@ export function QuickFiltersPopover({
   );
 
   const handleAdvancedClick = React.useCallback(() => {
-    setOpen(false);
+    handleOpenChange(false);
     onOpenAdvanced();
-  }, [onOpenAdvanced]);
+  }, [onOpenAdvanced, handleOpenChange]);
 
   return (
     <>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenu open={open} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="subtle"

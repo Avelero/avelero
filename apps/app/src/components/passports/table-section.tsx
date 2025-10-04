@@ -18,8 +18,11 @@ export function TableSection() {
   const [selectionVersion, setSelectionVersion] = React.useState(0);
   const [hasAnyPassports, setHasAnyPassports] = React.useState(true);
 
-  // Filter state management
-  const [filterState, filterActions] = useFilterState();
+  // Track filter menu open state for smart debouncing
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = React.useState(false);
+
+  // Filter state management (2000ms debounce for API calls, paused while menu is open)
+  const [immediateFilterState, debouncedFilterState, filterActions] = useFilterState(2000, isFilterMenuOpen);
   
   // Sort state management
   const [sortState, sortActions] = useSortState();
@@ -182,8 +185,9 @@ export function TableSection() {
           initialVisible: visibleColumns,
           onSave: handleSavePrefs,
         }}
-        filterState={filterState}
+        filterState={immediateFilterState}
         filterActions={filterActions}
+        onFilterMenuOpenChange={setIsFilterMenuOpen}
         sortState={sortState}
         sortActions={sortActions}
       />
@@ -197,7 +201,7 @@ export function TableSection() {
         key={`passports-table-${selectionVersion}`}
         columnOrder={columnOrder}
         columnVisibility={columnVisibility}
-        filterState={filterState}
+        filterState={debouncedFilterState}
       />
     </div>
   );

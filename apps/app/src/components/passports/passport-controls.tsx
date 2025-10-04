@@ -44,6 +44,7 @@ interface PassportControlsProps {
   };
   filterState?: FilterState;
   filterActions?: FilterActions;
+  onFilterMenuOpenChange?: (isOpen: boolean) => void; // Callback to track filter menu state
   searchState?: SearchState;
   searchActions?: SearchActions;
   sortState?: SortState;
@@ -58,6 +59,7 @@ export function PassportControls({
   displayProps,
   filterState,
   filterActions,
+  onFilterMenuOpenChange,
   searchState,
   searchActions,
   sortState,
@@ -65,6 +67,13 @@ export function PassportControls({
 }: PassportControlsProps) {
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
   const [advancedFilterOpen, setAdvancedFilterOpen] = React.useState(false);
+  const [quickFilterOpen, setQuickFilterOpen] = React.useState(false);
+
+  // Notify parent when either filter menu opens/closes
+  React.useEffect(() => {
+    const isAnyFilterMenuOpen = advancedFilterOpen || quickFilterOpen;
+    onFilterMenuOpenChange?.(isAnyFilterMenuOpen);
+  }, [advancedFilterOpen, quickFilterOpen, onFilterMenuOpenChange]);
 
   const hasSelection = selectedCount > 0;
   const trpc = useTRPC();
@@ -78,17 +87,21 @@ export function PassportControls({
   ) {
     if (!selection) return;
     try {
+      // Convert frontend selection format to API format
+      // Note: API doesn't support "all with excludes" - if mode is "all", 
+      // we update ALL items matching current filters
+      const apiSelection = selection.mode === "all"
+        ? "all" as const
+        : { ids: selection.includeIds };
+
       const res = await bulkUpdateMutation.mutateAsync({
-        selection:
-          selection.mode === "all"
-            ? { mode: "all", excludeIds: selection.excludeIds }
-            : { mode: "explicit", includeIds: selection.includeIds },
-        changes: { status },
-      } as any);
+        selection: apiSelection,
+        data: { passportStatus: status },
+      });
       const affected =
         (res as { affectedCount?: number } | undefined)?.affectedCount ??
         selectedCount;
-      toast.success(`Edited ${affected} passports successfully`);
+      toast.success(`Edited ${affected} passport${affected === 1 ? '' : 's'} successfully`);
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: trpc.passports.list.queryKey(),
@@ -100,6 +113,7 @@ export function PassportControls({
       // Clear selection and close popover after success
       onClearSelectionAction?.();
     } catch (err) {
+      console.error("Bulk update error:", err);
       toast.error("Bulk update failed, please try again");
     }
   }
@@ -179,6 +193,7 @@ export function PassportControls({
               filterActions={filterActions}
               onOpenAdvanced={() => setAdvancedFilterOpen(true)}
               disabled={disabled}
+              onOpenChange={setQuickFilterOpen}
             />
             <AdvancedFilterPanel
               open={advancedFilterOpen}

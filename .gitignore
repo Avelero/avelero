@@ -121,3 +121,5 @@ GEMINI.md
 # Task files
 # tasks.json
 # tasks/ 
+.claude
+CLAUDE.md

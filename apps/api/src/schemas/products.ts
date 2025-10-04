@@ -1,9 +1,47 @@
 import { z } from "zod";
 
 // Products core
+export const filterSchemaV2 = z.object({
+  brandIds: z.array(z.string().uuid()).optional(),
+  categoryIds: z.array(z.string().uuid()).optional(),
+  minPrice: z.number().optional(),
+  maxPrice: z.number().optional(),
+  search: z.string().optional(),
+  fuzzySearchEnabled: z.boolean().optional(),
+  status: z.enum(["active", "inactive", "archived"]).optional(),
+  seasonIds: z.array(z.string().uuid()).optional(),
+  certificationIds: z.array(z.string().uuid()).optional(),
+  showcaseBrandIds: z.array(z.string().uuid()).optional(),
+  dateRange: z.object({
+    startDate: z.string().datetime().optional(),
+    endDate: z.string().datetime().optional(),
+  }).optional(),
+});
+
+export const sortSchemaV2 = z.object({
+  sortBy: z.enum(["createdAt", "price", "name"]).default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("asc"),
+});
+
+export const paginationSchemaV2 = z.object({
+  page: z.number().int().min(1).default(1),
+  pageSize: z.number().int().min(10).max(1000).default(10),
+});
+
+export const productListSchemaV2 = z.object({
+  pagination: z.object({
+    method: z.enum(["cursor", "offset"]).default("offset"),
+    cursor: z.string().optional(),
+    page: z.number().int().min(1).default(1),
+    limit: z.number().int().min(10).max(1000).default(50),
+  }).optional(),
+  sort: sortSchemaV2.optional(),
+  filters: filterSchemaV2.optional(),
+});
+
 export const listProductsSchema = z.object({
   cursor: z.string().optional(),
-  limit: z.number().int().min(1).max(100).optional(),
+  limit: z.number().int().min(1).max(1000).optional(),
   filters: z
     .object({
       category_id: z.string().uuid().optional(),

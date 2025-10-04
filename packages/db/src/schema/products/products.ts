@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { brandCertifications } from "../brands/brand-certifications";
 import { categories } from "../brands/categories";
 import { showcaseBrands } from "../brands/showcase-brands";
@@ -41,31 +41,40 @@ export const products = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [
+  (table) => ({
+    // Performance indexes for new query patterns
+    brandCreatedIdx: index("products_brand_created_idx").on(table.brandId, table.createdAt),
+    brandNameIdx: index("products_brand_name_idx").on(table.brandId, table.name),
+    nameSearchIdx: index("products_name_search_idx").on(table.name),
+    categoryIdx: index("products_category_idx").on(table.categoryId),
+    showcaseBrandIdx: index("products_showcase_brand_idx").on(table.showcaseBrandId),
+    seasonIdx: index("products_season_idx").on(table.season),
+    updatedAtIdx: index("products_updated_at_idx").on(table.updatedAt),
+
     // RLS policies
-    pgPolicy("products_select_for_brand_members", {
+    productsSelectForBrandMembers: pgPolicy("products_select_for_brand_members", {
       as: "permissive",
       for: "select",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("products_insert_by_brand_owner", {
+    productsInsertByBrandOwner: pgPolicy("products_insert_by_brand_owner", {
       as: "permissive",
       for: "insert",
       to: ["authenticated"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("products_update_by_brand_owner", {
+    productsUpdateByBrandOwner: pgPolicy("products_update_by_brand_owner", {
       as: "permissive",
       for: "update",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("products_delete_by_brand_owner", {
+    productsDeleteByBrandOwner: pgPolicy("products_delete_by_brand_owner", {
       as: "permissive",
       for: "delete",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-  ],
+  }),
 );

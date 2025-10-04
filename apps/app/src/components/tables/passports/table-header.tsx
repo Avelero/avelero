@@ -74,11 +74,19 @@ export function PassportTableHeader({
   isScrollable,
   onScrollLeftAction,
   onScrollRightAction,
+  onSelectAllAction,
+  onClearSelectionAction,
+  isAllMode,
+  hasAnySelection,
 }: {
   table: ReactTable<Passport>;
   isScrollable?: boolean;
   onScrollLeftAction?: () => void;
   onScrollRightAction?: () => void;
+  onSelectAllAction?: () => void;
+  onClearSelectionAction?: () => void;
+  isAllMode?: boolean;
+  hasAnySelection?: boolean;
 }) {
   const isAllSelected = table.getIsAllPageRowsSelected();
   const isSomeSelected = table.getIsSomePageRowsSelected();
@@ -105,10 +113,17 @@ export function PassportTableHeader({
                         checked={isAllSelected}
                         indeterminate={isSomeSelected}
                         onChange={(_next) => {
-                          const hasAnySelected =
-                            table.getIsAllPageRowsSelected() ||
-                            table.getIsSomePageRowsSelected();
-                          table.toggleAllPageRowsSelected(!hasAnySelected);
+                          if (isAllMode) {
+                            // In all-mode, clicking header toggles clear
+                            if (hasAnySelection) onClearSelectionAction?.();
+                            else onSelectAllAction?.();
+                          } else {
+                            const hasAnySelected =
+                              table.getIsAllPageRowsSelected() ||
+                              table.getIsSomePageRowsSelected();
+                            table.toggleAllPageRowsSelected(!hasAnySelected);
+                            if (!hasAnySelection) onSelectAllAction?.();
+                          }
                         }}
                         ariaLabel="Select all"
                       />

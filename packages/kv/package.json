@@ -7,11 +7,15 @@
     "clean": "rm -rf .turbo node_modules",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "exports": {
     "./client": "./src/index.ts",
-    "./ratelimit": "./src/ratelimit.ts"
+    "./ratelimit": "./src/ratelimit.ts",
+    "./cache": "./src/cache.ts",
+    "./invalidation": "./src/invalidation.ts"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.2",

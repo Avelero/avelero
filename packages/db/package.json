@@ -17,12 +17,20 @@
   "exports": {
     "./client": "./src/client.ts",
     "./schema": "./src/schema/index.ts",
+    "./schemas/shared": "./src/schemas/shared.ts",
+    "./schemas/modules": "./src/schemas/modules/index.ts",
     "./queries": "./src/queries/index.ts",
+    "./queries/cache-utils": "./src/queries/cache-utils.ts",
+    "./queries/product-query-builder": "./src/queries/product-query-builder.ts",
+    "./utils/cross-module-transactions": "./src/utils/cross-module-transactions.ts",
     "./index": "./src/index.ts"
   },
   "dependencies": {
+    "@upstash/redis": "^1.35.4",
+    "dotenv": "^17.2.2",
     "drizzle-orm": "^0.44.5",
-    "postgres": "^3.4.7"
+    "postgres": "^3.4.7",
+    "zod": "3.25.64"
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.1",

@@ -1,8 +1,6 @@
 {
   "name": "v1",
   "devDependencies": {
-    "@babel/preset-env": "^7.28.3",
-    "@babel/preset-typescript": "^7.27.1",
     "@biomejs/biome": "1.8.3",
     "@tanstack/react-virtual": "^3.13.12",
     "@types/jest": "^30.0.0",

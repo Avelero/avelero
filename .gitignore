@@ -84,9 +84,6 @@ node_modules/
 # OS specific
 
 
-# Task files
-# tasks.json
-# tasks/ 
 .taskmaster/
 .gemini/
 .cursor/
@@ -114,12 +111,13 @@ GEMINI.md
 .env.example
 .taskmaster
 =======
-# Task files
-# tasks.json
-# tasks/ 
 .gemini
 .taskmaster
 .vscode
 .cursor
 .cursorrules
 GEMINI.md
+
+# Task files
+# tasks.json
+# tasks/ 

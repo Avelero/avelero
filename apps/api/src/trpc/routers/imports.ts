@@ -1,4 +1,5 @@
 import { createProduct } from "@v1/db/queries";
+import { redis } from "@v1/db/queries/cache-utils";
 import {
   createProductSchema,
   listProductsSchema,
@@ -29,6 +30,7 @@ export const importsRouter = createTRPCRouter({
           });
           if (row?.id) created.push({ id: row.id });
         }
+        await redis.incr(`brand_version:${brandId}`);
         return { created: created.length, products: created } as const;
       }),
   },

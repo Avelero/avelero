@@ -130,7 +130,7 @@ export const columns: ColumnDef<Passport>[] = [
     id: "completion",
     header: "Completion",
     cell: ({ row }) => {
-      const { completedSections, totalSections } = row.original;
+      const { completedSections, totalSections, modules } = row.original;
       const clamped = Math.max(0, Math.min(totalSections, completedSections));
       const stepped = Math.round((clamped / totalSections) * 6);
       const pct = (stepped / 6) * 100;
@@ -157,17 +157,14 @@ export const columns: ColumnDef<Passport>[] = [
                 className="w-[240px] p-2 cursor-default"
               >
                 <div className="space-y-1.5">
-                  {Array.from({ length: totalSections }).map((_, i) => (
-                    <div
-                      key={`section-${row.id}-${i}`}
-                      className="flex items-center gap-2 text-small "
-                    >
-                      {i < completedSections ? (
+                  {(modules?.length ? modules : Array.from({ length: totalSections }).map((_, i) => ({ key: `section_${i+1}`, completed: i < completedSections })) ).map((m, i) => (
+                    <div key={`section-${row.id}-${m.key}-${i}`} className="flex items-center gap-2 text-small ">
+                      {m.completed ? (
                         <Icons.Check className="h-[14px] w-[14px] text-brand" />
                       ) : (
                         <span className="h-[14px] w-[14px] shrink-0" />
                       )}
-                      <span>Section {i + 1}</span>
+                      <span className="capitalize">{m.key.replaceAll("_"," ")}</span>
                     </div>
                   ))}
                 </div>
@@ -223,6 +220,34 @@ export const columns: ColumnDef<Passport>[] = [
         </TooltipProvider>
       );
     },
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
+  },
+  // 5b) Color (simple text)
+  {
+    id: "color",
+    header: "Color",
+    cell: ({ row }) => (
+      <span className="inline-block max-w-[200px] truncate align-middle">
+        {row.original.color ?? "-"}
+      </span>
+    ),
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
+  },
+  // 5c) Size (simple text)
+  {
+    id: "size",
+    header: "Size",
+    cell: ({ row }) => (
+      <span className="inline-block max-w-[200px] truncate align-middle">
+        {row.original.size ?? "-"}
+      </span>
+    ),
     meta: {
       headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
       cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),

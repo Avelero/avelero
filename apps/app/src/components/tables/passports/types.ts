@@ -26,6 +26,9 @@ export interface Passport {
   title: string;
   // Primary SKU (may derive from a variant or identifier)
   sku?: string;
+  // Variant presentation
+  color?: string;
+  size?: string;
 
   // Publishing state
   status: PassportStatus;
@@ -33,6 +36,8 @@ export interface Passport {
   // Completion overview (e.g., X of 6 sections complete)
   completedSections: number;
   totalSections: number;
+  // Module-by-module detail (keys ordered per template, completion state)
+  modules?: { key: string; completed: boolean }[];
 
   // Category presentation
   category: string; // lowest-level category label (e.g., "Hoodies")
@@ -52,3 +57,20 @@ export interface Passport {
   createdAt: string | Date;
   updatedAt: string | Date;
 }
+
+// Selection model for scalable bulk actions
+export type SelectionMode = "all" | "explicit";
+
+export interface SelectionState {
+  mode: SelectionMode;
+  includeIds: string[]; // used when mode === 'explicit'
+  excludeIds: string[]; // used when mode === 'all'
+}
+
+export type BulkSelection =
+  | { mode: "all"; excludeIds: string[] }
+  | { mode: "explicit"; includeIds: string[] };
+
+export type BulkChanges = {
+  status?: PassportStatus;
+};

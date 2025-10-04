@@ -4,5 +4,7 @@ export * from "./brand-members.js";
 export * from "./brand-invites.js";
 export * from "./catalog.js";
 export * from "./brand-catalog.js";
+export * from "./brand-scoping.js";
 export * from "./products.js";
 export * from "./product-attributes.js";
+export * from "./categories.js";

@@ -20,6 +20,10 @@ export * from "./brands/showcase-brands";
 // Product schemas
 export * from "./products/products";
 export * from "./products/product-variants";
+export * from "./products/passports";
+export * from "./products/passport-templates";
+export * from "./products/templates";
+export * from "./products/modules";
 export * from "./products/product-materials";
 export * from "./products/product-journey-steps";
 export * from "./products/product-environment";
@@ -33,3 +37,19 @@ export * from "./data/file-assets";
 export * from "./data/import-jobs";
 export * from "./data/import-rows";
 export * from "./data/value-mappings";
+
+// Shared schemas
+export * from "../schemas/shared";
+// export * from "../schemas/enums"; // Commented out to avoid userRoleEnum conflict
+export * from "../schemas/validation-utils";
+
+// Module schema extensions (NEW: Task 1.3)
+export * from "../schemas/modules";
+
+// Templates and Modules module schemas (NEW: Task 5.1)
+export * from "../schemas/modules/templates";
+export * from "../schemas/modules/modules";
+
+// Cross-module relationship system (NEW: Task 7.1)
+export * from "../schemas/cross-module-includes";
+export * from "../schemas/cross-module-relationships";

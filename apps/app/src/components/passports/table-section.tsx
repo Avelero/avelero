@@ -1,10 +1,12 @@
 "use client";
 
-import { PassportDataTable } from "../tables/passports";
-import * as React from "react";
-import { PassportControls } from "./passport-controls";
+import { useFilterState } from "@/hooks/use-filter-state";
+import { useSortState } from "@/hooks/use-sort-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
+import * as React from "react";
+import { PassportDataTable } from "../tables/passports";
 import type { SelectionState } from "../tables/passports/types";
+import { PassportControls } from "./passport-controls";
 
 export function TableSection() {
   const [selectedCount, setSelectedCount] = React.useState(0);
@@ -15,6 +17,12 @@ export function TableSection() {
   });
   const [selectionVersion, setSelectionVersion] = React.useState(0);
   const [hasAnyPassports, setHasAnyPassports] = React.useState(true);
+
+  // Filter state management
+  const [filterState, filterActions] = useFilterState();
+  
+  // Sort state management
+  const [sortState, sortActions] = useSortState();
   // Column preferences state (excludes locked `product` and fixed `actions`)
   const DEFAULT_VISIBLE: string[] = React.useMemo(
     () => ["status", "completion", "category", "season", "template"],
@@ -22,7 +30,10 @@ export function TableSection() {
   );
 
   const userQuery = useUserQuerySuspense();
-  const brandId = (userQuery.data as any)?.brand_id as string | null | undefined;
+  const brandId = (userQuery.data as any)?.brand_id as
+    | string
+    | null
+    | undefined;
   const userId = (userQuery.data as any)?.id as string | null | undefined;
 
   const buildCookieKeys = React.useCallback(() => {
@@ -59,7 +70,8 @@ export function TableSection() {
       if (typeof document === "undefined") return;
       const base = "avelero.passports.columns.v1";
       let key = base;
-      if (scope === "specific" && brandId && userId) key = `${base}:${brandId}:${userId}`;
+      if (scope === "specific" && brandId && userId)
+        key = `${base}:${brandId}:${userId}`;
       else if (scope === "brand" && brandId) key = `${base}:${brandId}`;
       else if (scope === "user" && userId) key = `${base}::user:${userId}`;
       const value = encodeURIComponent(JSON.stringify({ visible }));
@@ -97,7 +109,8 @@ export function TableSection() {
     [brandId, userId, writeCookie, deleteCookie],
   );
 
-  const [visibleColumns, setVisibleColumns] = React.useState<string[]>(DEFAULT_VISIBLE);
+  const [visibleColumns, setVisibleColumns] =
+    React.useState<string[]>(DEFAULT_VISIBLE);
 
   React.useEffect(() => {
     const saved = readCookie();
@@ -157,27 +170,34 @@ export function TableSection() {
     <div className="w-full">
       <PassportControls
         selectedCount={selectedCount}
-        disabled={!hasAnyPassports}
+        disabled={false}
         selection={selection}
-        onClearSelectionAction={() =>
-          { setSelection({ mode: "explicit", includeIds: [], excludeIds: [] }); setSelectionVersion((v) => v + 1); }
-        }
+        onClearSelectionAction={() => {
+          setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+          setSelectionVersion((v) => v + 1);
+        }}
         displayProps={{
           productLabel: "Product",
           allColumns: allCustomizable,
           initialVisible: visibleColumns,
           onSave: handleSavePrefs,
         }}
+        filterState={filterState}
+        filterActions={filterActions}
+        sortState={sortState}
+        sortActions={sortActions}
       />
       <PassportDataTable
         onTotalCountChangeAction={setHasAnyPassports}
         onSelectionChangeAction={setSelectedCount}
         selection={selection}
         onSelectionStateChangeAction={setSelection}
+        sortState={sortState}
         // bump key to force internal rowSelection recompute after clearing
         key={`passports-table-${selectionVersion}`}
         columnOrder={columnOrder}
         columnVisibility={columnVisibility}
+        filterState={filterState}
       />
     </div>
   );

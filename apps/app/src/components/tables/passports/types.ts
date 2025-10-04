@@ -1,6 +1,15 @@
 // Passport table domain types
 // NOTE: Avoid enums per repo conventions; use string unions and maps instead.
 
+// Re-export filter types for convenience
+export type {
+  FilterState,
+  FilterActions,
+  FilterCondition,
+  FilterGroup,
+  FilterOperator,
+} from "@/components/passports/filter-types";
+
 export type PassportStatus =
   | "published"
   | "scheduled"

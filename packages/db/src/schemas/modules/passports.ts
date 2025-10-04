@@ -27,6 +27,14 @@ const passportFilterExtensions = {
   productIds: z.array(z.string().uuid()).optional(),
   variantIds: z.array(z.string().uuid()).optional(),
 
+  // Product-related filters
+  categoryIds: z.array(z.string().uuid()).optional(),
+  season: z.array(z.string()).optional(),
+
+  // Variant-related filters
+  colorIds: z.array(z.string().uuid()).optional(),
+  sizeIds: z.array(z.string().uuid()).optional(),
+
   // Passport status and visibility
   passportStatus: z.array(entityStatusEnum).optional(),
   visibility: z.array(visibilityEnum).optional(),

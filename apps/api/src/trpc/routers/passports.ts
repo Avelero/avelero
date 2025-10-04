@@ -4,6 +4,7 @@ import {
   type PassportStatus,
   type Visibility,
   passports,
+  passportTemplates,
   productVariants,
   products,
 } from "@v1/db/schema";
@@ -116,8 +117,20 @@ export const passportsRouter = createTRPCRouter({
       // Build base conditions
       const conditions = [eq(passports.brandId, brandId)];
 
+      // Apply search filter - search across product name, SKU, and passport ID
+      if (filter.search?.trim()) {
+        const searchTerm = `%${filter.search.trim()}%`;
+        conditions.push(
+          or(
+            ilike(products.name, searchTerm),
+            ilike(productVariants.sku, searchTerm),
+            ilike(passports.id, searchTerm),
+          )!,
+        );
+      }
+
       // Apply filters
-      if (filter.passportStatus) {
+      if (filter.passportStatus && filter.passportStatus.length > 0) {
         conditions.push(
           or(
             ...filter.passportStatus.map((status) =>
@@ -144,6 +157,34 @@ export const passportsRouter = createTRPCRouter({
       if (filter.templateIds && filter.templateIds.length > 0) {
         conditions.push(
           or(...filter.templateIds.map((id) => eq(passports.templateId, id)))!,
+        );
+      }
+
+      // Season filter (direct field on passports table)
+      if (filter.season && filter.season.length > 0) {
+        conditions.push(
+          or(...filter.season.map((season) => eq(passports.season, season)))!,
+        );
+      }
+
+      // Color filter (through variant join)
+      if (filter.colorIds && filter.colorIds.length > 0) {
+        conditions.push(
+          or(...filter.colorIds.map((colorId) => eq(productVariants.colorId, colorId)))!,
+        );
+      }
+
+      // Size filter (through variant join)
+      if (filter.sizeIds && filter.sizeIds.length > 0) {
+        conditions.push(
+          or(...filter.sizeIds.map((sizeId) => eq(productVariants.sizeId, sizeId)))!,
+        );
+      }
+
+      // Category filter (through product join)
+      if (filter.categoryIds && filter.categoryIds.length > 0) {
+        conditions.push(
+          or(...filter.categoryIds.map((categoryId) => eq(products.categoryId, categoryId)))!,
         );
       }
 
@@ -203,18 +244,7 @@ export const passportsRouter = createTRPCRouter({
         }
       }
 
-      // Build query with enhanced cross-module includes
-      let baseQuery = db.select().from(passports).where(and(...conditions));
-
-      // Apply cross-module includes using the new system
-      const queryWithIncludes = applyCrossModuleIncludes(
-        baseQuery,
-        include,
-        "passports",
-        passports
-      );
-
-      // Apply sorting
+      // Build query with proper joins based on includes
       const sortField =
         sort.field === "createdAt"
           ? passports.createdAt
@@ -222,15 +252,50 @@ export const passportsRouter = createTRPCRouter({
             ? passports.updatedAt
             : sort.field === "passportStatus"
               ? passports.status
-              : passports.createdAt;
+              : sort.field === "name"
+                ? products.name
+                : passports.createdAt;
 
-      const finalQuery = queryWithIncludes.orderBy(
-        sort.direction === "asc" ? asc(sortField) : desc(sortField),
-        sort.direction === "asc" ? asc(passports.id) : desc(passports.id), // Secondary sort for consistency
-      ).limit(limit + 1);
+      // Execute query with joins - always join for search functionality
+      let results: any[];
+      const needsJoins = include.product || include.variant || include.template || filter.search?.trim();
+      
+      if (needsJoins) {
+        const queryResults = await db
+          .select({
+            passport: passports,
+            ...(include.product && { product: products }),
+            ...(include.variant && { variant: productVariants }),
+            ...(include.template && { template: passportTemplates }),
+          })
+          .from(passports)
+          .leftJoin(products, eq(passports.productId, products.id))
+          .leftJoin(productVariants, eq(passports.variantId, productVariants.id))
+          .leftJoin(passportTemplates, eq(passports.templateId, passportTemplates.id))
+          .where(and(...conditions))
+          .orderBy(
+            sort.direction === "asc" ? asc(sortField) : desc(sortField),
+            sort.direction === "asc" ? asc(passports.id) : desc(passports.id),
+          )
+          .limit(limit + 1);
 
-      // Execute query
-      const results = await finalQuery;
+        results = queryResults.map((row) => ({
+          ...row.passport,
+          ...(include.product && row.product && { product: row.product }),
+          ...(include.variant && row.variant && { variant: row.variant }),
+          ...(include.template && row.template && { template: row.template }),
+        }));
+      } else {
+        results = await db
+          .select()
+          .from(passports)
+          .where(and(...conditions))
+          .orderBy(
+            sort.direction === "asc" ? asc(sortField) : desc(sortField),
+            sort.direction === "asc" ? asc(passports.id) : desc(passports.id),
+          )
+          .limit(limit + 1);
+      }
 
       // Check if there are more results
       const hasMore = results.length > limit;
@@ -238,12 +303,7 @@ export const passportsRouter = createTRPCRouter({
         results.pop(); // Remove the extra item
       }
 
-      // Transform results using cross-module system
-      const transformedResults = transformCrossModuleResults(
-        results,
-        include,
-        "passports"
-      );
+      const transformedResults = results;
 
       // Generate next cursor
       const nextCursor =
@@ -962,4 +1022,87 @@ export const passportsRouter = createTRPCRouter({
         },
       };
     }),
+
+  /**
+   * Get available filter options from actual database values
+   */
+  getFilterOptions: protectedProcedure.query(async ({ ctx }) => {
+    const { db, brandId } = ctx;
+
+    if (!brandId) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "No active brand context",
+      });
+    }
+
+    // Get distinct seasons used in passports
+    const seasonsQuery = await db
+      .selectDistinct({ season: passports.season })
+      .from(passports)
+      .where(and(eq(passports.brandId, brandId), isNotNull(passports.season)));
+    
+    const seasons = seasonsQuery
+      .map(row => row.season)
+      .filter(Boolean)
+      .sort();
+
+    // Get categories from products linked to passports
+    const categoriesQuery = await db
+      .selectDistinct({
+        id: products.categoryId,
+        name: products.category,
+      })
+      .from(passports)
+      .innerJoin(products, eq(passports.productId, products.id))
+      .where(and(
+        eq(passports.brandId, brandId),
+        isNotNull(products.categoryId)
+      ));
+
+    const categories = categoriesQuery
+      .filter(cat => cat.id && cat.name)
+      .map(cat => ({ id: cat.id!, name: cat.name! }));
+
+    // Get colors from variants linked to passports
+    const colorsQuery = await db
+      .selectDistinct({
+        id: productVariants.colorId,
+        name: productVariants.color,
+      })
+      .from(passports)
+      .innerJoin(productVariants, eq(passports.variantId, productVariants.id))
+      .where(and(
+        eq(passports.brandId, brandId),
+        isNotNull(productVariants.colorId)
+      ));
+
+    const colors = colorsQuery
+      .filter(color => color.id && color.name)
+      .map(color => ({ id: color.id!, name: color.name! }));
+
+    // Get sizes from variants linked to passports
+    const sizesQuery = await db
+      .selectDistinct({
+        id: productVariants.sizeId,
+        name: productVariants.size,
+      })
+      .from(passports)
+      .innerJoin(productVariants, eq(passports.variantId, productVariants.id))
+      .where(and(
+        eq(passports.brandId, brandId),
+        isNotNull(productVariants.sizeId)
+      ));
+
+    const sizes = sizesQuery
+      .filter(size => size.id && size.name)
+      .map(size => ({ id: size.id!, name: size.name! }));
+
+    return {
+      seasons,
+      categories,
+      colors,
+      sizes,
+    };
+  }),
 });

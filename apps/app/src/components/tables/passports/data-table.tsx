@@ -1,20 +1,27 @@
 "use client";
 
 import { useTableScroll } from "@/hooks/use-table-scroll";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { cn } from "@v1/ui/cn";
-import { Table, TableBody, TableCell, TableRow } from "@v1/ui/table";
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
+import { Table, TableBody, TableCell, TableRow } from "@v1/ui/table";
 import * as React from "react";
 import { columns } from "./columns";
 import { EmptyState } from "./empty-state";
 import { PassportTableHeader } from "./table-header";
 import { PassportTableSkeleton } from "./table-skeleton";
 import type { Passport, SelectionState } from "./types";
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import type { SearchState } from "@/hooks/use-search-state";
+import type { SortState } from "@/hooks/use-sort-state";
+import type { FilterState } from "@/components/passports/filter-types";
 
 export function PassportDataTable({
   onSelectionChangeAction,
@@ -23,6 +30,9 @@ export function PassportDataTable({
   onTotalCountChangeAction,
   selection,
   onSelectionStateChangeAction,
+  searchState,
+  sortState,
+  filterState,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
@@ -30,16 +40,150 @@ export function PassportDataTable({
   onTotalCountChangeAction?: (hasAny: boolean) => void;
   selection: SelectionState;
   onSelectionStateChangeAction: (next: SelectionState) => void;
+  searchState?: SearchState;
+  sortState?: SortState;
+  filterState?: FilterState;
 }) {
   const [page, setPage] = React.useState(0);
   const pageSize = 50;
   const trpc = useTRPC();
+
+  // Reset page when search, sort, or filter changes
+  React.useEffect(() => {
+    setPage(0);
+  }, [searchState?.debouncedQuery, sortState?.field, sortState?.direction, filterState]);
+
+  // Convert frontend filter state to backend filter format
+  const convertFiltersToBackend = React.useCallback((filterState?: FilterState) => {
+    if (!filterState || filterState.groups.length === 0) return {};
+
+    const backendFilter: any = {};
+
+    // Process all filter groups (AND logic between groups)
+    filterState.groups.forEach(group => {
+      group.conditions.forEach(condition => {
+        if (!condition.fieldId || condition.value == null) return;
+
+        const value = condition.value;
+        const values = Array.isArray(value) ? value : [value];
+
+        switch (condition.fieldId) {
+          case 'status':
+            // passportStatus expects array of status values
+            if (!backendFilter.passportStatus) backendFilter.passportStatus = [];
+            backendFilter.passportStatus.push(...values);
+            break;
+
+          case 'categoryId':
+            // Category filtering through product join
+            if (!backendFilter.categoryIds) backendFilter.categoryIds = [];
+            backendFilter.categoryIds.push(...values);
+            break;
+
+          case 'colorId':
+            // Color filtering through variant join
+            if (!backendFilter.colorIds) backendFilter.colorIds = [];
+            backendFilter.colorIds.push(...values);
+            break;
+
+          case 'sizeId':
+            // Size filtering through variant join  
+            if (!backendFilter.sizeIds) backendFilter.sizeIds = [];
+            backendFilter.sizeIds.push(...values);
+            break;
+
+          case 'season':
+            // Season is a direct field on passport
+            if (!backendFilter.season) backendFilter.season = [];
+            backendFilter.season.push(...values);
+            break;
+
+          case 'moduleCompletion':
+            // Module completion - complex logic, placeholder for now
+            // TODO: Implement module completion filtering
+            break;
+        }
+      });
+    });
+
+    // Deduplicate arrays
+    Object.keys(backendFilter).forEach(key => {
+      if (Array.isArray(backendFilter[key])) {
+        backendFilter[key] = [...new Set(backendFilter[key])];
+      }
+    });
+
+    return backendFilter;
+  }, []);
+
+  // Build query parameters with search, sort, and filters
+  const queryParams = React.useMemo(() => {
+    const params: any = {
+      pagination: {
+        limit: pageSize,
+      },
+      include: {
+        product: true,
+        variant: true,
+        template: true,
+      },
+    };
+
+    // Initialize filter object
+    params.filter = {};
+
+    // Add search if active
+    if (searchState?.debouncedQuery?.trim()) {
+      params.filter.search = searchState.debouncedQuery.trim();
+    }
+
+    // Add converted filters
+    const convertedFilters = convertFiltersToBackend(filterState);
+    params.filter = { ...params.filter, ...convertedFilters };
+
+    // Add sort if active
+    if (sortState?.field && sortState?.direction) {
+      params.sort = {
+        field: sortState.field,
+        direction: sortState.direction,
+      };
+    }
+
+    return params;
+  }, [searchState?.debouncedQuery, sortState?.field, sortState?.direction, filterState, pageSize, convertFiltersToBackend]);
+
   const { data: listRes, isLoading } = useQuery(
-    React.useMemo(() => trpc.passports.list.queryOptions({ page }), [trpc, page]),
+    React.useMemo(
+      () => trpc.passports.list.queryOptions(queryParams),
+      [trpc, queryParams],
+    ),
   );
   const data = React.useMemo<Passport[]>(() => {
-    const d = (listRes as { data?: unknown } | undefined)?.data;
-    return Array.isArray(d) ? (d as Passport[]) : [];
+    const rawData = (listRes as { data?: unknown } | undefined)?.data;
+    if (!Array.isArray(rawData)) return [];
+    
+    // Map the API response to the Passport type expected by the frontend
+    return rawData.map((item: any) => ({
+      id: item.id,
+      title: item.product?.name || item.productId || 'Untitled',
+      sku: item.variant?.sku || undefined,
+      color: item.variant?.color || undefined,
+      size: item.variant?.size || undefined,
+      status: (item.status === 'draft' || item.status === 'blocked' ? 'unpublished' : item.status) as "published" | "scheduled" | "unpublished" | "archived",
+      completedSections: 0, // TODO: Calculate from actual data
+      totalSections: 6, // TODO: Get from template
+      category: item.product?.category || 'Uncategorized',
+      categoryPath: [], // TODO: Build from category hierarchy
+      season: item.season || undefined,
+      template: item.template ? {
+        id: item.template.id,
+        name: item.template.name,
+        color: item.template.brandColor || '#3B82F6',
+      } : undefined,
+      passportUrl: item.publicUrl || undefined,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    }));
   }, [listRes]);
   const total = React.useMemo<number>(() => {
     const m = (listRes as { meta?: { total?: unknown } } | undefined)?.meta;
@@ -61,7 +205,8 @@ export function PassportDataTable({
     getRowId: (row) => row.id,
     onRowSelectionChange: (updater) => {
       setRowSelection((prev) => {
-        const next = typeof updater === "function" ? (updater as any)(prev) : updater;
+        const next =
+          typeof updater === "function" ? (updater as any)(prev) : updater;
         return next;
       });
     },
@@ -121,9 +266,15 @@ export function PassportDataTable({
     if (skipPropagateRef.current) {
       const expect = skipPropagateRef.current;
       let same = true;
-      const keys = new Set([...Object.keys(expect), ...Object.keys(rowSelection)]);
+      const keys = new Set([
+        ...Object.keys(expect),
+        ...Object.keys(rowSelection),
+      ]);
       for (const k of keys) {
-        if (!!expect[k] !== !!rowSelection[k]) { same = false; break; }
+        if (!!expect[k] !== !!rowSelection[k]) {
+          same = false;
+          break;
+        }
       }
       if (same) {
         skipPropagateRef.current = null;
@@ -147,7 +298,10 @@ export function PassportDataTable({
       const nextExcludeSet = exclude;
       const currExcludeSet = new Set(selection.excludeIds);
       if (!setsEqual(nextExcludeSet, currExcludeSet)) {
-        onSelectionStateChangeAction({ ...selection, excludeIds: Array.from(nextExcludeSet) });
+        onSelectionStateChangeAction({
+          ...selection,
+          excludeIds: Array.from(nextExcludeSet),
+        });
       }
     } else {
       const include = new Set(selection.includeIds);
@@ -159,7 +313,10 @@ export function PassportDataTable({
       const nextIncludeSet = include;
       const currIncludeSet = new Set(selection.includeIds);
       if (!setsEqual(nextIncludeSet, currIncludeSet)) {
-        onSelectionStateChangeAction({ ...selection, includeIds: Array.from(nextIncludeSet) });
+        onSelectionStateChangeAction({
+          ...selection,
+          includeIds: Array.from(nextIncludeSet),
+        });
       }
     }
   }, [rowSelection, data, selection, onSelectionStateChangeAction]);
@@ -188,7 +345,11 @@ export function PassportDataTable({
               onSelectAllAction={() => {
                 // switch to all mode and clear excludes
                 if (selection.mode !== "all" || selection.excludeIds.length) {
-                  onSelectionStateChangeAction({ mode: "all", includeIds: [], excludeIds: [] });
+                  onSelectionStateChangeAction({
+                    mode: "all",
+                    includeIds: [],
+                    excludeIds: [],
+                  });
                 }
                 // visually select all on page
                 const next: Record<string, boolean> = {};
@@ -196,7 +357,11 @@ export function PassportDataTable({
                 setRowSelection(next);
               }}
               onClearSelectionAction={() => {
-                onSelectionStateChangeAction({ mode: "explicit", includeIds: [], excludeIds: [] });
+                onSelectionStateChangeAction({
+                  mode: "explicit",
+                  includeIds: [],
+                  excludeIds: [],
+                });
                 setRowSelection({});
               }}
               isAllMode={selection.mode === "all"}
@@ -232,7 +397,6 @@ export function PassportDataTable({
             </TableBody>
           </Table>
         </div>
-        
       </div>
       {(() => {
         const start = total === 0 ? 0 : page * pageSize + 1;
@@ -282,7 +446,6 @@ export function PassportDataTable({
           </div>
         );
       })()}
-      
     </div>
   );
 }

@@ -6,23 +6,20 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Skeleton } from "@v1/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@v1/ui/table";
 import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
 import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
+import { Skeleton } from "@v1/ui/skeleton";
+import { Table, TableBody, TableCell, TableRow } from "@v1/ui/table";
 import { columns } from "./columns";
 import { PassportTableHeader } from "./table-header";
 import type { Passport } from "./types";
 
 export function PassportTableSkeleton({ rows = 16 }: { rows?: number }) {
   // Force Actions column to a fixed width in the skeleton
-  const skeletonColumns: ColumnDef<Passport, unknown>[] = (columns as ColumnDef<Passport, unknown>[]).map((col) => {
+  const skeletonColumns: ColumnDef<Passport, unknown>[] = (
+    columns as ColumnDef<Passport, unknown>[]
+  ).map((col) => {
     if ((col as { id?: string }).id === "actions") {
       const fixedWidth = "w-[181.12px] min-w-[181.12px] max-w-[181.12px]";
       return {
@@ -51,9 +48,7 @@ export function PassportTableSkeleton({ rows = 16 }: { rows?: number }) {
         <div className="scrollbar-hide overflow-x-auto overflow-y-auto max-w-full w-full h-[calc(100vh_-_202px)]">
           <Table className="min-w-full">
             <PassportTableHeader table={mockTable} />
-            <TableBody>
-              {/* Empty table body - no rows */}
-            </TableBody>
+            <TableBody>{/* Empty table body - no rows */}</TableBody>
           </Table>
           {/* Supabase-style skeleton bars below the header */}
           <div className="p-4 space-y-3">

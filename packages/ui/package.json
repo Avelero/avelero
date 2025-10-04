@@ -38,6 +38,7 @@
     "./input-otp": "./src/components/input-otp.tsx",
     "./card": "./src/components/card.tsx",
     "./badge": "./src/components/badge.tsx",
+    "./sheet": "./src/components/sheet.tsx",
     "./tailwind.config": "./tailwind.config.ts",
     "./postcss": "./postcss.config.js",
     "./sonner": "./src/components/sonner.tsx"

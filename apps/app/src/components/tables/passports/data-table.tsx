@@ -1,20 +1,24 @@
 "use client";
 
 import { useTableScroll } from "@/hooks/use-table-scroll";
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { cn } from "@v1/ui/cn";
-import { Table, TableBody, TableCell, TableRow } from "@v1/ui/table";
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
 import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
+import { Table, TableBody, TableCell, TableRow } from "@v1/ui/table";
 import * as React from "react";
 import { columns } from "./columns";
 import { EmptyState } from "./empty-state";
 import { PassportTableHeader } from "./table-header";
 import { PassportTableSkeleton } from "./table-skeleton";
 import type { Passport, SelectionState } from "./types";
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
 
 export function PassportDataTable({
   onSelectionChangeAction,
@@ -37,7 +41,10 @@ export function PassportDataTable({
   const pageSize = 50;
   const trpc = useTRPC();
   const { data: listRes, isLoading } = useQuery(
-    React.useMemo(() => trpc.passports.list.queryOptions({ page }), [trpc, page]),
+    React.useMemo(
+      () => trpc.passports.list.queryOptions({ page }),
+      [trpc, page],
+    ),
   );
   const data = React.useMemo<Passport[]>(() => {
     const d = (listRes as { data?: unknown } | undefined)?.data;
@@ -63,7 +70,8 @@ export function PassportDataTable({
     getRowId: (row) => row.id,
     onRowSelectionChange: (updater) => {
       setRowSelection((prev) => {
-        const next = typeof updater === "function" ? (updater as any)(prev) : updater;
+        const next =
+          typeof updater === "function" ? (updater as any)(prev) : updater;
         return next;
       });
     },
@@ -123,9 +131,15 @@ export function PassportDataTable({
     if (skipPropagateRef.current) {
       const expect = skipPropagateRef.current;
       let same = true;
-      const keys = new Set([...Object.keys(expect), ...Object.keys(rowSelection)]);
+      const keys = new Set([
+        ...Object.keys(expect),
+        ...Object.keys(rowSelection),
+      ]);
       for (const k of keys) {
-        if (!!expect[k] !== !!rowSelection[k]) { same = false; break; }
+        if (!!expect[k] !== !!rowSelection[k]) {
+          same = false;
+          break;
+        }
       }
       if (same) {
         skipPropagateRef.current = null;
@@ -149,7 +163,10 @@ export function PassportDataTable({
       const nextExcludeSet = exclude;
       const currExcludeSet = new Set(selection.excludeIds);
       if (!setsEqual(nextExcludeSet, currExcludeSet)) {
-        onSelectionStateChangeAction({ ...selection, excludeIds: Array.from(nextExcludeSet) });
+        onSelectionStateChangeAction({
+          ...selection,
+          excludeIds: Array.from(nextExcludeSet),
+        });
       }
     } else {
       const include = new Set(selection.includeIds);
@@ -161,7 +178,10 @@ export function PassportDataTable({
       const nextIncludeSet = include;
       const currIncludeSet = new Set(selection.includeIds);
       if (!setsEqual(nextIncludeSet, currIncludeSet)) {
-        onSelectionStateChangeAction({ ...selection, includeIds: Array.from(nextIncludeSet) });
+        onSelectionStateChangeAction({
+          ...selection,
+          includeIds: Array.from(nextIncludeSet),
+        });
       }
     }
   }, [rowSelection, data, selection, onSelectionStateChangeAction]);
@@ -190,7 +210,11 @@ export function PassportDataTable({
               onSelectAllAction={() => {
                 // switch to all mode and clear excludes
                 if (selection.mode !== "all" || selection.excludeIds.length) {
-                  onSelectionStateChangeAction({ mode: "all", includeIds: [], excludeIds: [] });
+                  onSelectionStateChangeAction({
+                    mode: "all",
+                    includeIds: [],
+                    excludeIds: [],
+                  });
                 }
                 // visually select all on page
                 const next: Record<string, boolean> = {};
@@ -198,7 +222,11 @@ export function PassportDataTable({
                 setRowSelection(next);
               }}
               onClearSelectionAction={() => {
-                onSelectionStateChangeAction({ mode: "explicit", includeIds: [], excludeIds: [] });
+                onSelectionStateChangeAction({
+                  mode: "explicit",
+                  includeIds: [],
+                  excludeIds: [],
+                });
                 setRowSelection({});
               }}
               isAllMode={selection.mode === "all"}
@@ -234,7 +262,6 @@ export function PassportDataTable({
             </TableBody>
           </Table>
         </div>
-        
       </div>
       {(() => {
         const start = total === 0 ? 0 : page * pageSize + 1;
@@ -284,7 +311,6 @@ export function PassportDataTable({
           </div>
         );
       })()}
-      
     </div>
   );
 }

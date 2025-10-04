@@ -1,24 +1,27 @@
 "use client";
 
-import * as React from "react";
+import {
+  getAdvancedFieldsByCategoryForUI,
+  getFieldConfig,
+} from "@/config/filters";
 import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
+import { cn } from "@v1/ui/cn";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
-import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
+import * as React from "react";
 import type {
   FilterCondition,
   FilterFieldConfig,
   FilterOperator,
 } from "./filter-types";
 import { FilterValueInput } from "./filter-value-input";
-import { getFieldConfig, getAdvancedFieldsByCategoryForUI } from "@/config/filters";
 
 interface FilterRowProps {
   groupId: string;
@@ -32,10 +35,10 @@ interface FilterRowProps {
 
 /**
  * Core reusable filter row component
- * 
+ *
  * Displays the Field → Operator → Value pattern with dropdowns for
  * field selection and operator selection, plus dynamic value input.
- * 
+ *
  * Can be used for both top-level filters and nested conditions.
  */
 export function FilterRow({
@@ -54,7 +57,9 @@ export function FilterRow({
   // Get categorized fields if not provided
   const categorizedFields = React.useMemo(() => {
     if (availableFields) {
-      return [{ category: "all", label: "All Fields", fields: availableFields }];
+      return [
+        { category: "all", label: "All Fields", fields: availableFields },
+      ];
     }
     return getAdvancedFieldsByCategoryForUI();
   }, [availableFields]);
@@ -87,7 +92,7 @@ export function FilterRow({
     <div
       className={cn(
         "flex items-start gap-2 p-3 border border-border bg-background",
-        isNested && "bg-accent/20"
+        isNested && "bg-accent/20",
       )}
     >
       {/* Field Selector */}
@@ -104,7 +109,10 @@ export function FilterRow({
               <Icons.ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[280px] max-h-[400px] overflow-y-auto">
+          <DropdownMenuContent
+            align="start"
+            className="w-[280px] max-h-[400px] overflow-y-auto"
+          >
             {categorizedFields.map(({ category, label, fields }) => (
               <React.Fragment key={category}>
                 {categorizedFields.length > 1 && (
@@ -121,7 +129,9 @@ export function FilterRow({
                     <Icons.Check
                       className={cn(
                         "h-4 w-4 mt-0.5 shrink-0",
-                        condition.fieldId === field.id ? "opacity-100" : "opacity-0"
+                        condition.fieldId === field.id
+                          ? "opacity-100"
+                          : "opacity-0",
                       )}
                     />
                     <div className="flex flex-col">
@@ -134,9 +144,10 @@ export function FilterRow({
                     </div>
                   </DropdownMenuItem>
                 ))}
-                {categorizedFields.length > 1 && category !== categorizedFields[categorizedFields.length - 1]?.category && (
-                  <DropdownMenuSeparator />
-                )}
+                {categorizedFields.length > 1 &&
+                  category !==
+                    categorizedFields[categorizedFields.length - 1]
+                      ?.category && <DropdownMenuSeparator />}
               </React.Fragment>
             ))}
           </DropdownMenuContent>
@@ -167,7 +178,9 @@ export function FilterRow({
                   <Icons.Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      condition.operator === operator ? "opacity-100" : "opacity-0"
+                      condition.operator === operator
+                        ? "opacity-100"
+                        : "opacity-0",
                     )}
                   />
                   {operator}
@@ -205,4 +218,3 @@ export function FilterRow({
     </div>
   );
 }
-

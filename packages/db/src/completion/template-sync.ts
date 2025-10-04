@@ -1,11 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../client";
-import {
-  passportTemplateModules,
-  passports,
-} from "../schema";
-import type { ModuleKey } from "./module-keys";
+import { passportTemplateModules, passports } from "../schema";
 import { evaluateAndUpsertCompletion } from "./evaluate";
+import type { ModuleKey } from "./module-keys";
 
 async function getEnabledModulesForTemplate(
   db: Database,
@@ -107,5 +104,3 @@ export async function reassignPassportTemplate(
     });
   }
 }
-
-

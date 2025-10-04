@@ -1,29 +1,31 @@
 /**
  * Filter Query Builder
- * 
+ *
  * Converts FilterState to backend-compatible query format.
- * 
+ *
  * NOTE: This is structured for future backend integration but NOT currently
  * connected to actual queries. The query format is designed but not executed.
  */
 
 import type {
-  FilterState,
   FilterCondition,
   FilterGroup,
+  FilterState,
   PassportFilterQuery,
-  QueryGroup,
   QueryCondition,
+  QueryGroup,
 } from "@/components/passports/filter-types";
 import { getFieldConfig } from "@/config/filters";
 
 /**
  * Build a complete filter query from FilterState
- * 
+ *
  * @param filterState - Current filter state
  * @returns Query object ready for backend (not currently used)
  */
-export function buildFilterQuery(filterState: FilterState): PassportFilterQuery {
+export function buildFilterQuery(
+  filterState: FilterState,
+): PassportFilterQuery {
   return {
     groups: filterState.groups.map(buildQueryGroup),
     groupOperator: "AND",
@@ -46,11 +48,7 @@ function buildQueryGroup(group: FilterGroup): QueryGroup {
  * Check if a condition is valid and ready to be queried
  */
 function isValidCondition(condition: FilterCondition): boolean {
-  return !!(
-    condition.fieldId &&
-    condition.operator &&
-    condition.value != null
-  );
+  return !!(condition.fieldId && condition.operator && condition.value != null);
 }
 
 /**
@@ -82,7 +80,7 @@ function buildQueryCondition(condition: FilterCondition): QueryCondition {
  */
 function buildSimpleCondition(
   condition: FilterCondition,
-  fieldConfig: any
+  fieldConfig: any,
 ): QueryCondition {
   return {
     field: condition.fieldId,
@@ -96,7 +94,7 @@ function buildSimpleCondition(
  */
 function buildHierarchicalCondition(
   condition: FilterCondition,
-  fieldConfig: any
+  fieldConfig: any,
 ): QueryCondition {
   const operator = condition.operator;
 
@@ -125,7 +123,7 @@ function buildHierarchicalCondition(
  */
 function buildDateCondition(
   condition: FilterCondition,
-  fieldConfig: any
+  fieldConfig: any,
 ): QueryCondition {
   const value = condition.value as any;
 
@@ -163,12 +161,12 @@ function buildDateCondition(
 
 /**
  * Build a nested query condition (Materials, Facilities)
- * 
+ *
  * Example: "Products with Cotton where percentage > 80%"
  */
 function buildNestedCondition(
   condition: FilterCondition,
-  fieldConfig: any
+  fieldConfig: any,
 ): QueryCondition {
   const value = condition.value as any;
 
@@ -200,7 +198,7 @@ function buildNestedCondition(
 
 /**
  * Map frontend operators to backend format
- * 
+ *
  * This ensures consistent operator naming between UI and API
  */
 function mapOperatorToBackend(operator: string): string {
@@ -257,7 +255,7 @@ function mapOperatorToBackend(operator: string): string {
  */
 export function hasActiveFilters(filterState: FilterState): boolean {
   return filterState.groups.some((group) =>
-    group.conditions.some(isValidCondition)
+    group.conditions.some(isValidCondition),
   );
 }
 
@@ -266,15 +264,14 @@ export function hasActiveFilters(filterState: FilterState): boolean {
  */
 export function countActiveFilters(filterState: FilterState): number {
   return filterState.groups.reduce(
-    (total, group) =>
-      total + group.conditions.filter(isValidCondition).length,
-    0
+    (total, group) => total + group.conditions.filter(isValidCondition).length,
+    0,
   );
 }
 
 /**
  * Serialize filter state for URL or storage
- * 
+ *
  * @param filterState - Current filter state
  * @returns Base64 encoded JSON string
  */
@@ -288,7 +285,7 @@ export function serializeFilterState(filterState: FilterState): string {
 
 /**
  * Deserialize filter state from URL or storage
- * 
+ *
  * @param serialized - Base64 encoded filter state
  * @returns Deserialized FilterState
  */
@@ -306,7 +303,7 @@ export function deserializeFilterState(serialized: string): FilterState {
 
 /**
  * Generate a human-readable summary of active filters
- * 
+ *
  * Useful for displaying "Filtered by: Status = Published, Color = Red"
  */
 export function getFilterSummary(filterState: FilterState): string[] {
@@ -314,7 +311,7 @@ export function getFilterSummary(filterState: FilterState): string[] {
 
   for (const group of filterState.groups) {
     const validConditions = group.conditions.filter(isValidCondition);
-    
+
     for (const condition of validConditions) {
       const fieldConfig = getFieldConfig(condition.fieldId);
       if (!fieldConfig) continue;
@@ -373,4 +370,3 @@ function formatValueForDisplay(value: any, fieldConfig: any): string {
 
   return String(value);
 }
-

@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { pgPolicy, pgTable, timestamp, uuid, text, boolean, integer, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { passportTemplates } from "./passport-templates";
 
 export const passportTemplateModules = pgTable(
@@ -7,11 +16,14 @@ export const passportTemplateModules = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     templateId: uuid("template_id")
-      .references(() => passportTemplates.id, { onDelete: "cascade", onUpdate: "cascade" })
+      .references(() => passportTemplates.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      })
       .notNull(),
     moduleKey: text("module_key").notNull(),
     enabled: boolean("enabled").notNull().default(true),
-    sortIndex: integer("sort_index").notNull(), 
+    sortIndex: integer("sort_index").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

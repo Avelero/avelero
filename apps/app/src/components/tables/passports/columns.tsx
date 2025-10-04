@@ -157,14 +157,25 @@ export const columns: ColumnDef<Passport>[] = [
                 className="w-[240px] p-2 cursor-default"
               >
                 <div className="space-y-1.5">
-                  {(modules?.length ? modules : Array.from({ length: totalSections }).map((_, i) => ({ key: `section_${i+1}`, completed: i < completedSections })) ).map((m, i) => (
-                    <div key={`section-${row.id}-${m.key}-${i}`} className="flex items-center gap-2 text-small ">
+                  {(modules?.length
+                    ? modules
+                    : Array.from({ length: totalSections }).map((_, i) => ({
+                        key: `section_${i + 1}`,
+                        completed: i < completedSections,
+                      }))
+                  ).map((m, i) => (
+                    <div
+                      key={`section-${row.id}-${m.key}-${i}`}
+                      className="flex items-center gap-2 text-small "
+                    >
                       {m.completed ? (
                         <Icons.Check className="h-[14px] w-[14px] text-brand" />
                       ) : (
                         <span className="h-[14px] w-[14px] shrink-0" />
                       )}
-                      <span className="capitalize">{m.key.replaceAll("_"," ")}</span>
+                      <span className="capitalize">
+                        {m.key.replaceAll("_", " ")}
+                      </span>
                     </div>
                   ))}
                 </div>

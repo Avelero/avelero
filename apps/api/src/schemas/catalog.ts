@@ -6,4 +6,3 @@ export const listCategoriesSchema = z.object({});
 export const listCareCodesSchema = z.object({});
 
 export const idParamSchema = z.object({ id: z.string().uuid() });
-

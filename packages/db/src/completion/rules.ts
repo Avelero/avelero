@@ -1,11 +1,11 @@
 import { and, count, eq, isNotNull } from "drizzle-orm";
 import type { Database } from "../client";
 import {
+  productEnvironment,
+  productJourneySteps,
+  productMaterials,
   productVariants,
   products,
-  productEnvironment,
-  productMaterials,
-  productJourneySteps,
 } from "../schema";
 import type { ModuleKey } from "./module-keys";
 
@@ -41,7 +41,12 @@ const coreRule: ModuleRule = {
     const [{ value: variantWithSkuCount = 0 } = { value: 0 }] = await db
       .select({ value: count(productVariants.id) })
       .from(productVariants)
-      .where(and(eq(productVariants.productId, productId), isNotNull(productVariants.sku)))
+      .where(
+        and(
+          eq(productVariants.productId, productId),
+          isNotNull(productVariants.sku),
+        ),
+      )
       .limit(1);
     return variantWithSkuCount > 0;
   },
@@ -110,5 +115,3 @@ export const RULES: Record<ModuleKey, ModuleRule> = {
   carousel: carouselRule,
   cta_banner: ctaBannerRule,
 };
-
-

@@ -1,19 +1,19 @@
 "use client";
 
-import * as React from "react";
 import type {
-  FilterState,
-  FilterGroup,
-  FilterCondition,
   FilterActions,
+  FilterCondition,
+  FilterGroup,
+  FilterState,
 } from "@/components/passports/filter-types";
+import * as React from "react";
 
 /**
  * Hook for managing filter state
- * 
+ *
  * Provides state and actions for the passport filtering system.
  * Supports AND logic between groups, OR logic within groups.
- * 
+ *
  * @returns [filterState, filterActions]
  */
 export function useFilterState(): [FilterState, FilterActions] {
@@ -105,11 +105,11 @@ export function useFilterState(): [FilterState, FilterActions] {
                   { ...createEmptyCondition(), ...(initial ?? {}) },
                 ],
               }
-            : group
+            : group,
         ),
       }));
     },
-    [createEmptyCondition]
+    [createEmptyCondition],
   );
 
   /**
@@ -119,7 +119,7 @@ export function useFilterState(): [FilterState, FilterActions] {
     (
       groupId: string,
       conditionId: string,
-      updates: Partial<FilterCondition>
+      updates: Partial<FilterCondition>,
     ) => {
       setState((prev) => ({
         ...prev,
@@ -130,14 +130,14 @@ export function useFilterState(): [FilterState, FilterActions] {
                 conditions: group.conditions.map((condition) =>
                   condition.id === conditionId
                     ? { ...condition, ...updates }
-                    : condition
+                    : condition,
                 ),
               }
-            : group
+            : group,
         ),
       }));
     },
-    []
+    [],
   );
 
   /**
@@ -152,7 +152,7 @@ export function useFilterState(): [FilterState, FilterActions] {
             if (group.id !== groupId) return group;
 
             const updatedConditions = group.conditions.filter(
-              (condition) => condition.id !== conditionId
+              (condition) => condition.id !== conditionId,
             );
 
             // If no conditions left, mark group for removal
@@ -168,7 +168,7 @@ export function useFilterState(): [FilterState, FilterActions] {
         return { groups: updatedGroups };
       });
     },
-    []
+    [],
   );
 
   // ==========================================================================
@@ -192,8 +192,8 @@ export function useFilterState(): [FilterState, FilterActions] {
   const hasActiveFilters = React.useMemo(() => {
     return state.groups.some((group) =>
       group.conditions.some(
-        (condition) => condition.fieldId && condition.value != null
-      )
+        (condition) => condition.fieldId && condition.value != null,
+      ),
     );
   }, [state.groups]);
 
@@ -205,7 +205,7 @@ export function useFilterState(): [FilterState, FilterActions] {
       return (
         total +
         group.conditions.filter(
-          (condition) => condition.fieldId && condition.value != null
+          (condition) => condition.fieldId && condition.value != null,
         ).length
       );
     }, 0);
@@ -233,7 +233,7 @@ export function useFilterState(): [FilterState, FilterActions] {
       removeCondition,
       clearAll,
       setGroups,
-    ]
+    ],
   );
 
   // ==========================================================================
@@ -261,8 +261,8 @@ export function useFilterMetadata(state: FilterState) {
   const hasActiveFilters = React.useMemo(() => {
     return state.groups.some((group) =>
       group.conditions.some(
-        (condition) => condition.fieldId && condition.value != null
-      )
+        (condition) => condition.fieldId && condition.value != null,
+      ),
     );
   }, [state.groups]);
 
@@ -271,7 +271,7 @@ export function useFilterMetadata(state: FilterState) {
       return (
         total +
         group.conditions.filter(
-          (condition) => condition.fieldId && condition.value != null
+          (condition) => condition.fieldId && condition.value != null,
         ).length
       );
     }, 0);
@@ -282,8 +282,8 @@ export function useFilterMetadata(state: FilterState) {
   const hasIncompleteFilters = React.useMemo(() => {
     return state.groups.some((group) =>
       group.conditions.some(
-        (condition) => !condition.fieldId || condition.value == null
-      )
+        (condition) => !condition.fieldId || condition.value == null,
+      ),
     );
   }, [state.groups]);
 
@@ -294,4 +294,3 @@ export function useFilterMetadata(state: FilterState) {
     hasIncompleteFilters,
   };
 }
-

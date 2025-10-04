@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js";
 import { tasks } from "@trigger.dev/sdk/v3";
 import { TRPCError } from "@trpc/server";
 import {
@@ -24,6 +25,8 @@ import {
 } from "@v1/db/queries";
 import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
+import type { Permission } from "../../config/permissions.js";
+import { ROLES } from "../../config/roles";
 import {
   acceptInviteSchema,
   createBrandSchema,
@@ -38,9 +41,6 @@ import {
 } from "../../schemas/brand.js";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
 import { hasRole } from "../middleware/rbac.middleware.js";
-import type { Permission } from "../../config/permissions.js";
-import { ROLES } from "../../config/roles";
-import type { User } from "@supabase/supabase-js";
 // acceptInviteForUser is imported from queries/brands.ts above
 
 export const brandRouter = createTRPCRouter({

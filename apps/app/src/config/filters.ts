@@ -1,6 +1,6 @@
 /**
  * Filter Configuration
- * 
+ *
  * Complete filter field definitions, operators, and tRPC endpoint mappings
  * for the passport filtering system.
  */
@@ -29,12 +29,7 @@ export const OPERATORS = {
 
   number: ["=", "≠", ">", "≥", "<", "≤", "between"] as const,
 
-  multiSelect: [
-    "is any of",
-    "is none of",
-    "is empty",
-    "is not empty",
-  ] as const,
+  multiSelect: ["is any of", "is none of", "is empty", "is not empty"] as const,
 
   relational: [
     "contains any of",
@@ -124,9 +119,13 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     tier: 1,
     category: "metadata",
     inputType: "multi-select",
-    operators: ["is complete", "is not complete"] as unknown as FilterOperator[],
+    operators: [
+      "is complete",
+      "is not complete",
+    ] as unknown as FilterOperator[],
     options: MODULE_OPTIONS,
-    description: "Filter by specific module completion status (e.g., Environment complete, Journey not complete)",
+    description:
+      "Filter by specific module completion status (e.g., Environment complete, Journey not complete)",
   },
 
   categoryId: {
@@ -481,7 +480,13 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     tier: 3,
     category: "product",
     inputType: "select",
-    operators: ["is", "is not", "is any of", "is empty", "is not empty"] as FilterOperator[],
+    operators: [
+      "is",
+      "is not",
+      "is any of",
+      "is empty",
+      "is not empty",
+    ] as FilterOperator[],
     optionsSource: {
       type: "trpc",
       endpoint: "brandCatalog.showcaseBrands.list",
@@ -506,7 +511,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     placeholder: "Search descriptions...",
     description: "Search product descriptions",
   },
-
 };
 
 // ============================================================================
@@ -516,7 +520,14 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
 export const FIELD_CATEGORIES = {
   product: {
     label: "Product",
-    fields: ["productName", "description", "season", "categoryId", "hasImage", "showcaseBrandId"],
+    fields: [
+      "productName",
+      "description",
+      "season",
+      "categoryId",
+      "hasImage",
+      "showcaseBrandId",
+    ],
   },
   sustainability: {
     label: "Sustainability",
@@ -569,9 +580,16 @@ export function getFieldsByTier(tier: 1 | 2 | 3): FilterFieldConfig[] {
  * Get all fields in a specific category
  */
 export function getFieldsByCategory(
-  category: "product" | "sustainability" | "variants" | "manufacturing" | "metadata"
+  category:
+    | "product"
+    | "sustainability"
+    | "variants"
+    | "manufacturing"
+    | "metadata",
 ): FilterFieldConfig[] {
-  return Object.values(FILTER_FIELDS).filter((field) => field.category === category);
+  return Object.values(FILTER_FIELDS).filter(
+    (field) => field.category === category,
+  );
 }
 
 /**
@@ -617,7 +635,9 @@ export function getFieldsByCategoryForUI(): Array<{
  * Get advanced filter fields (Tier 2 and 3 only - excludes quick filters)
  */
 export function getAdvancedFilterFields(): FilterFieldConfig[] {
-  return Object.values(FILTER_FIELDS).filter((field) => field.tier === 2 || field.tier === 3);
+  return Object.values(FILTER_FIELDS).filter(
+    (field) => field.tier === 2 || field.tier === 3,
+  );
 }
 
 /**
@@ -628,12 +648,13 @@ export function getAdvancedFieldsByCategoryForUI(): Array<{
   label: string;
   fields: FilterFieldConfig[];
 }> {
-  return Object.entries(FIELD_CATEGORIES).map(([category, config]) => ({
-    category,
-    label: config.label,
-    fields: config.fields
-      .map((fieldId) => FILTER_FIELDS[fieldId])
-      .filter((field) => field && field.tier !== 1) as FilterFieldConfig[],
-  })).filter(categoryGroup => categoryGroup.fields.length > 0);
+  return Object.entries(FIELD_CATEGORIES)
+    .map(([category, config]) => ({
+      category,
+      label: config.label,
+      fields: config.fields
+        .map((fieldId) => FILTER_FIELDS[fieldId])
+        .filter((field) => field && field.tier !== 1) as FilterFieldConfig[],
+    }))
+    .filter((categoryGroup) => categoryGroup.fields.length > 0);
 }
-

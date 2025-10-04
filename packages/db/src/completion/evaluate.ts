@@ -1,10 +1,10 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import type { Database } from "../client";
 import {
-  passports,
-  passportTemplateModules,
-  products,
   passportModuleCompletion,
+  passportTemplateModules,
+  passports,
+  products,
 } from "../schema";
 import type { ModuleKey } from "./module-keys";
 import { RULES } from "./rules";
@@ -40,8 +40,9 @@ export async function evaluateAndUpsertCompletion(
     enabledModulesRows.map((r) => r.moduleKey as ModuleKey),
   );
 
-  const targetModules: ModuleKey[] = (opts?.onlyModules ?? Array.from(enabled))
-    .filter((k) => enabled.has(k)) as ModuleKey[];
+  const targetModules: ModuleKey[] = (
+    opts?.onlyModules ?? Array.from(enabled)
+  ).filter((k) => enabled.has(k)) as ModuleKey[];
   if (!targetModules.length) {
     // Nothing to evaluate; still prune rows for modules no longer enabled
     await pruneDisabledModules(db, pp.passportId, Array.from(enabled));
@@ -52,9 +53,7 @@ export async function evaluateAndUpsertCompletion(
   const results = await Promise.all(
     targetModules.map(async (key) => {
       const rule = RULES[key];
-      const isCompleted = rule
-        ? await rule.evaluate({ db, productId })
-        : false;
+      const isCompleted = rule ? await rule.evaluate({ db, productId }) : false;
       return { key, isCompleted } as const;
     }),
   );
@@ -106,5 +105,3 @@ async function pruneDisabledModules(
       ),
     );
 }
-
-

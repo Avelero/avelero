@@ -1,20 +1,23 @@
 "use client";
 
-import * as React from "react";
 import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
 import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
+import * as React from "react";
+import { FilterRow } from "./filter-row";
 import type {
-  FilterGroup as FilterGroupType,
   FilterCondition,
   FilterFieldConfig,
+  FilterGroup as FilterGroupType,
 } from "./filter-types";
-import { FilterRow } from "./filter-row";
 
 interface FilterGroupProps {
   group: FilterGroupType;
   onAddCondition: () => void;
-  onUpdateCondition: (conditionId: string, updates: Partial<FilterCondition>) => void;
+  onUpdateCondition: (
+    conditionId: string,
+    updates: Partial<FilterCondition>,
+  ) => void;
   onRemoveCondition: (conditionId: string) => void;
   onRemoveGroup: () => void;
   availableFields?: FilterFieldConfig[];
@@ -24,10 +27,10 @@ interface FilterGroupProps {
 
 /**
  * Filter Group Component
- * 
+ *
  * Wraps multiple FilterRow components with OR logic.
  * Multiple groups are combined with AND logic at a higher level.
- * 
+ *
  * Structure:
  * - Group Label (AND/WHERE)
  * - FilterRow 1
@@ -119,4 +122,3 @@ export function FilterGroup({
     </div>
   );
 }
-

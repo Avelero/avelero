@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { pgPolicy, pgTable, timestamp, uuid, text, jsonb } from "drizzle-orm/pg-core";
+import {
+  jsonb,
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
 
 export const passportTemplates = pgTable(
@@ -10,7 +17,7 @@ export const passportTemplates = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     name: text("name").notNull(),
-    theme: jsonb("theme").notNull().default({}), 
+    theme: jsonb("theme").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

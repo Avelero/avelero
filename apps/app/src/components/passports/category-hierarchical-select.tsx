@@ -1,11 +1,18 @@
 "use client";
 
-import * as React from "react";
 import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
-import { cn } from "@v1/ui/cn";
+import * as React from "react";
 import type { SelectOption } from "./filter-types";
 
 interface CategoryHierarchicalSelectProps {
@@ -18,13 +25,13 @@ interface CategoryHierarchicalSelectProps {
 
 /**
  * Hierarchical Category Selector
- * 
+ *
  * Supports tree-structured category selection with special operators:
  * - "is" / "is not" - exact category match
  * - "is any of" - multiple category selection
  * - "is descendant of" - category or any child category
  * - "is ancestor of" - parent categories only
- * 
+ *
  * For now, displays flat list. Tree structure can be added later.
  */
 export function CategoryHierarchicalSelect({
@@ -60,7 +67,7 @@ export function CategoryHierarchicalSelect({
     if (selectedValues.length === 0) {
       return "Select category...";
     }
-    
+
     if (selectedValues.length === 1) {
       const selectedOption = options.find((o) => o.value === selectedValues[0]);
       return selectedOption?.label ?? selectedValues[0];
@@ -119,7 +126,7 @@ export function CategoryHierarchicalSelect({
                         <Icons.Check
                           className={cn(
                             "mr-2 h-4 w-4",
-                            isSelected ? "opacity-100" : "opacity-0"
+                            isSelected ? "opacity-100" : "opacity-0",
                           )}
                         />
                       )}
@@ -142,4 +149,3 @@ export function CategoryHierarchicalSelect({
     </div>
   );
 }
-

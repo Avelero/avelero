@@ -1,20 +1,27 @@
 "use client";
 
-import * as React from "react";
-import { Input } from "@v1/ui/input";
+import { RELATIVE_DATE_OPTIONS } from "@/config/filters";
+import { useFieldOptions } from "@/hooks/use-field-options";
 import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
 import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
+import { Icons } from "@v1/ui/icons";
+import { Input } from "@v1/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import * as React from "react";
 import type {
   FilterFieldConfig,
   FilterOperator,
   FilterValue,
   SelectOption,
 } from "./filter-types";
-import { useFieldOptions } from "@/hooks/use-field-options";
-import { RELATIVE_DATE_OPTIONS } from "@/config/filters";
 
 interface FilterValueInputProps {
   fieldConfig: FilterFieldConfig;
@@ -45,7 +52,13 @@ export function FilterValueInput({
   // Route to appropriate input component
   switch (fieldConfig.inputType) {
     case "text":
-      return <TextInput value={value} onChange={onChange} placeholder={fieldConfig.placeholder} />;
+      return (
+        <TextInput
+          value={value}
+          onChange={onChange}
+          placeholder={fieldConfig.placeholder}
+        />
+      );
 
     case "number":
     case "percentage":
@@ -82,11 +95,7 @@ export function FilterValueInput({
 
     case "date":
       return (
-        <DateInput
-          value={value}
-          onChange={onChange}
-          operator={operator}
-        />
+        <DateInput value={value} onChange={onChange} operator={operator} />
       );
 
     case "date-relative":
@@ -94,7 +103,13 @@ export function FilterValueInput({
 
     case "country":
       // Note: We have a country-select.tsx component we could import
-      return <TextInput value={value} onChange={onChange} placeholder="Country code" />;
+      return (
+        <TextInput
+          value={value}
+          onChange={onChange}
+          placeholder="Country code"
+        />
+      );
 
     case "hierarchical":
     case "nested":
@@ -196,7 +211,9 @@ function NumberInput({
         placeholder={placeholder ?? "0"}
         className="h-9 flex-1"
       />
-      {unit && <span className="text-tertiary text-p whitespace-nowrap">{unit}</span>}
+      {unit && (
+        <span className="text-tertiary text-p whitespace-nowrap">{unit}</span>
+      )}
     </div>
   );
 }
@@ -254,11 +271,12 @@ function SelectInput({
   // Get options from static list or dynamic fetch
   const { options: dynamicOptions, isLoading } = useFieldOptions(
     fieldConfig.optionsSource?.endpoint,
-    fieldConfig.optionsSource?.transform
+    fieldConfig.optionsSource?.transform,
   );
 
   const options = fieldConfig.options ?? dynamicOptions;
-  const selectedLabel = options.find((o) => o.value === value)?.label ?? "Select...";
+  const selectedLabel =
+    options.find((o) => o.value === value)?.label ?? "Select...";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -293,7 +311,7 @@ function SelectInput({
                   <Icons.Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === option.value ? "opacity-100" : "opacity-0"
+                      value === option.value ? "opacity-100" : "opacity-0",
                     )}
                   />
                   {option.label}
@@ -325,7 +343,7 @@ export function MultiSelectInput({
   // Get options from static list or dynamic fetch
   const { options: dynamicOptions, isLoading } = useFieldOptions(
     fieldConfig.optionsSource?.endpoint,
-    fieldConfig.optionsSource?.transform
+    fieldConfig.optionsSource?.transform,
   );
 
   const options = fieldConfig.options ?? dynamicOptions;
@@ -418,17 +436,25 @@ function DateInput({
   // Handle "is between" with date range
   if (operator === "is between") {
     const rangeValue = value as any;
-    const startDate = rangeValue?.start ? new Date(rangeValue.start) : undefined;
+    const startDate = rangeValue?.start
+      ? new Date(rangeValue.start)
+      : undefined;
     const endDate = rangeValue?.end ? new Date(rangeValue.end) : undefined;
 
     return (
       <div className="flex items-center gap-2">
         <Input
           type="date"
-          value={rangeValue?.start ? new Date(rangeValue.start).toISOString().split('T')[0] : ""}
+          value={
+            rangeValue?.start
+              ? new Date(rangeValue.start).toISOString().split("T")[0]
+              : ""
+          }
           onChange={(e) => {
             onChange({
-              start: e.target.value ? new Date(e.target.value).toISOString() : "",
+              start: e.target.value
+                ? new Date(e.target.value).toISOString()
+                : "",
               end: rangeValue?.end ?? "",
             });
           }}
@@ -437,7 +463,11 @@ function DateInput({
         <span className="text-tertiary">–</span>
         <Input
           type="date"
-          value={rangeValue?.end ? new Date(rangeValue.end).toISOString().split('T')[0] : ""}
+          value={
+            rangeValue?.end
+              ? new Date(rangeValue.end).toISOString().split("T")[0]
+              : ""
+          }
           onChange={(e) => {
             onChange({
               start: rangeValue?.start ?? "",
@@ -452,14 +482,18 @@ function DateInput({
 
   // Single date picker
   const dateValue = value as any;
-  const selectedDate = dateValue?.date ? new Date(dateValue.date).toISOString().split('T')[0] : "";
+  const selectedDate = dateValue?.date
+    ? new Date(dateValue.date).toISOString().split("T")[0]
+    : "";
 
   return (
     <Input
       type="date"
       value={selectedDate}
       onChange={(e) => {
-        onChange({ date: e.target.value ? new Date(e.target.value).toISOString() : "" });
+        onChange({
+          date: e.target.value ? new Date(e.target.value).toISOString() : "",
+        });
       }}
       className="h-9"
     />
@@ -481,7 +515,8 @@ function RelativeDateInput({
   const relativeValue = value as any;
   const selectedOption = relativeValue?.option ?? "";
   const selectedLabel =
-    RELATIVE_DATE_OPTIONS.find((o) => o.value === selectedOption)?.label ?? "Select...";
+    RELATIVE_DATE_OPTIONS.find((o) => o.value === selectedOption)?.label ??
+    "Select...";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -515,7 +550,9 @@ function RelativeDateInput({
                   <Icons.Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      selectedOption === option.value ? "opacity-100" : "opacity-0"
+                      selectedOption === option.value
+                        ? "opacity-100"
+                        : "opacity-0",
                     )}
                   />
                   {option.label}
@@ -528,4 +565,3 @@ function RelativeDateInput({
     </Popover>
   );
 }
-

@@ -1,6 +1,6 @@
 /**
  * Filter Types for Passport Table Filtering
- * 
+ *
  * This file contains all TypeScript type definitions for the filtering system.
  * Supports both quick filters (Tier 1) and advanced filters with nested logic.
  */
@@ -10,18 +10,18 @@
 // ============================================================================
 
 export type FilterInputType =
-  | "text"                    // Simple text input
-  | "number"                  // Numeric input
-  | "percentage"              // Percentage input (0-100)
-  | "boolean"                 // Boolean toggle
-  | "select"                  // Single select dropdown
-  | "multi-select"            // Multiple selection with checkboxes
-  | "date"                    // Date picker
-  | "date-relative"           // Relative date (last 7 days, etc.)
-  | "hierarchical"            // Tree select for categories
-  | "nested"                  // Nested filter (Materials, Facilities)
-  | "country"                 // Country selector
-  | "module-picker";          // Module completion picker
+  | "text" // Simple text input
+  | "number" // Numeric input
+  | "percentage" // Percentage input (0-100)
+  | "boolean" // Boolean toggle
+  | "select" // Single select dropdown
+  | "multi-select" // Multiple selection with checkboxes
+  | "date" // Date picker
+  | "date-relative" // Relative date (last 7 days, etc.)
+  | "hierarchical" // Tree select for categories
+  | "nested" // Nested filter (Materials, Facilities)
+  | "country" // Country selector
+  | "module-picker"; // Module completion picker
 
 // ============================================================================
 // Operator Types
@@ -37,14 +37,7 @@ export type TextOperator =
   | "is empty"
   | "is not empty";
 
-export type NumberOperator =
-  | "="
-  | "≠"
-  | ">"
-  | "≥"
-  | "<"
-  | "≤"
-  | "between";
+export type NumberOperator = "=" | "≠" | ">" | "≥" | "<" | "≤" | "between";
 
 export type MultiSelectOperator =
   | "is any of"
@@ -110,25 +103,31 @@ export type RelativeDateOption =
 
 export interface NestedFilterConfig {
   type: "materials" | "facilities";
-  primaryField: string;         // Field to select (e.g., "brandMaterialId")
-  nestedFields: string[];        // Fields available in WHERE conditions
+  primaryField: string; // Field to select (e.g., "brandMaterialId")
+  nestedFields: string[]; // Fields available in WHERE conditions
 }
 
 export interface FilterFieldConfig {
   id: string;
   label: string;
-  tier: 1 | 2 | 3;              // Quick (1), Advanced (2), Power User (3)
-  category: "product" | "sustainability" | "variants" | "manufacturing" | "metadata";
+  tier: 1 | 2 | 3; // Quick (1), Advanced (2), Power User (3)
+  category:
+    | "product"
+    | "sustainability"
+    | "variants"
+    | "manufacturing"
+    | "metadata";
   inputType: FilterInputType;
   operators: FilterOperator[];
-  options?: SelectOption[];      // Static options
-  optionsSource?: {              // Dynamic options from tRPC
+  options?: SelectOption[]; // Static options
+  optionsSource?: {
+    // Dynamic options from tRPC
     type: "trpc";
-    endpoint: string;            // e.g., "brandCatalog.colors.list"
+    endpoint: string; // e.g., "brandCatalog.colors.list"
     transform?: (data: any) => SelectOption[];
   };
-  nested?: NestedFilterConfig;   // For nested filters
-  unit?: string;                 // Display unit (kg, L, %)
+  nested?: NestedFilterConfig; // For nested filters
+  unit?: string; // Display unit (kg, L, %)
   placeholder?: string;
   description?: string;
 }
@@ -148,16 +147,16 @@ export interface FilterCondition {
   fieldId: string;
   operator: FilterOperator;
   value: FilterValue;
-  nestedConditions?: FilterCondition[];  // For Materials/Facilities WHERE clauses
+  nestedConditions?: FilterCondition[]; // For Materials/Facilities WHERE clauses
 }
 
 export interface FilterGroup {
   id: string;
-  conditions: FilterCondition[];  // OR logic within group
+  conditions: FilterCondition[]; // OR logic within group
 }
 
 export interface FilterState {
-  groups: FilterGroup[];  // AND logic between groups
+  groups: FilterGroup[]; // AND logic between groups
 }
 
 // ============================================================================
@@ -165,26 +164,26 @@ export interface FilterState {
 // ============================================================================
 
 export type FilterValue =
-  | string                          // text, select
-  | number                          // number, percentage
-  | boolean                         // boolean
-  | string[]                        // multi-select, relational
-  | DateValue                       // date
-  | RelativeDateValue               // relative date
-  | NumberRangeValue                // between operator
-  | DateRangeValue                  // date range
-  | NestedFilterValue               // nested (materials/facilities)
+  | string // text, select
+  | number // number, percentage
+  | boolean // boolean
+  | string[] // multi-select, relational
+  | DateValue // date
+  | RelativeDateValue // relative date
+  | NumberRangeValue // between operator
+  | DateRangeValue // date range
+  | NestedFilterValue // nested (materials/facilities)
   | null
   | undefined;
 
 export interface DateValue {
-  date: string;  // ISO date string
+  date: string; // ISO date string
 }
 
 export interface RelativeDateValue {
   type: "relative";
   option: RelativeDateOption;
-  customDays?: number;  // For "more than X days ago"
+  customDays?: number; // For "more than X days ago"
 }
 
 export interface NumberRangeValue {
@@ -193,13 +192,13 @@ export interface NumberRangeValue {
 }
 
 export interface DateRangeValue {
-  start: string;  // ISO date string
-  end: string;    // ISO date string
+  start: string; // ISO date string
+  end: string; // ISO date string
 }
 
 export interface NestedFilterValue {
-  primarySelection: string | string[];  // Selected material/facility IDs
-  whereConditions?: FilterCondition[];  // Nested filter conditions
+  primarySelection: string | string[]; // Selected material/facility IDs
+  whereConditions?: FilterCondition[]; // Nested filter conditions
 }
 
 // ============================================================================
@@ -213,7 +212,7 @@ export interface FilterActions {
   updateCondition: (
     groupId: string,
     conditionId: string,
-    updates: Partial<FilterCondition>
+    updates: Partial<FilterCondition>,
   ) => void;
   removeCondition: (groupId: string, conditionId: string) => void;
   clearAll: () => void;
@@ -257,7 +256,10 @@ export interface FilterRowProps {
 export interface FilterGroupProps {
   group: FilterGroup;
   onAddCondition: () => void;
-  onUpdateCondition: (conditionId: string, updates: Partial<FilterCondition>) => void;
+  onUpdateCondition: (
+    conditionId: string,
+    updates: Partial<FilterCondition>,
+  ) => void;
   onRemoveCondition: (conditionId: string) => void;
   onRemoveGroup: () => void;
   availableFields: FilterFieldConfig[];
@@ -288,4 +290,3 @@ export interface AdvancedFilterPanelProps {
   filterState: FilterState;
   filterActions: FilterActions;
 }
-

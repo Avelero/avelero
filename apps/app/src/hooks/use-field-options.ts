@@ -1,23 +1,23 @@
 "use client";
 
-import * as React from "react";
+import type { SelectOption } from "@/components/passports/filter-types";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
-import type { SelectOption } from "@/components/passports/filter-types";
+import * as React from "react";
 
 /**
  * Hook for loading dynamic field options from tRPC endpoints
- * 
+ *
  * Handles loading, caching, and transformation of options for filter fields
  * that fetch their data from the backend (colors, sizes, materials, etc.)
- * 
+ *
  * @param endpoint - tRPC endpoint path (e.g., "brandCatalog.colors.list")
  * @param transform - Optional transform function to convert data to SelectOption[]
  * @returns { options, isLoading, error }
  */
 export function useFieldOptions(
   endpoint: string | undefined,
-  transform?: (data: any) => SelectOption[]
+  transform?: (data: any) => SelectOption[],
 ) {
   const trpc = useTRPC();
 
@@ -29,7 +29,7 @@ export function useFieldOptions(
 
       // Parse endpoint like "brandCatalog.colors.list"
       const parts = endpoint.split(".");
-      
+
       // Navigate to the correct tRPC procedure
       let procedure: any = trpc;
       for (const part of parts) {
@@ -51,7 +51,7 @@ export function useFieldOptions(
   // Transform the data to SelectOption[] format
   const options = React.useMemo<SelectOption[]>(() => {
     if (!data) return [];
-    
+
     if (transform) {
       return transform(data);
     }
@@ -75,9 +75,9 @@ export function useFieldOptions(
 
 /**
  * Hook for loading multiple field options in parallel
- * 
+ *
  * Useful when you need to load options for multiple fields at once
- * 
+ *
  * @param configs - Array of endpoint configurations
  * @returns Map of endpoint to options
  */
@@ -85,11 +85,11 @@ export function useMultipleFieldOptions(
   configs: Array<{
     endpoint: string;
     transform?: (data: any) => SelectOption[];
-  }>
+  }>,
 ) {
   const results = configs.map(({ endpoint, transform }) =>
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    useFieldOptions(endpoint, transform)
+    useFieldOptions(endpoint, transform),
   );
 
   const optionsMap = React.useMemo(() => {
@@ -112,7 +112,7 @@ export function useMultipleFieldOptions(
 
 /**
  * Hook for pre-loading common filter options
- * 
+ *
  * Call this early in the component tree to warm up the cache
  * for frequently used filter options
  */
@@ -130,7 +130,7 @@ export function usePrefetchFilterOptions() {
     for (const endpoint of prefetchEndpoints) {
       const parts = endpoint.split(".");
       let procedure: any = trpc;
-      
+
       for (const part of parts) {
         procedure = procedure[part];
       }
@@ -144,4 +144,3 @@ export function usePrefetchFilterOptions() {
     }
   }, [trpc]);
 }
-

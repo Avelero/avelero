@@ -1,22 +1,29 @@
 "use client";
 
-import * as React from "react";
+import { getQuickFilterFields } from "@/config/filters";
+import { useFieldOptions } from "@/hooks/use-field-options";
 import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
+import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
   DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
-import { cn } from "@v1/ui/cn";
-import type { FilterState, FilterActions } from "./filter-types";
-import { getQuickFilterFields } from "@/config/filters";
-import { useFieldOptions } from "@/hooks/use-field-options";
+import { Icons } from "@v1/ui/icons";
+import * as React from "react";
+import type { FilterActions, FilterState } from "./filter-types";
 
 interface QuickFiltersPopoverProps {
   filterState: FilterState;
@@ -48,12 +55,20 @@ export function QuickFiltersPopover({
   const [open, setOpen] = React.useState(false);
 
   const activeFilters = React.useMemo(() => {
-    const filters: Array<{ fieldId: string; fieldLabel: string; value: any[]; groupId: string; conditionId: string }> = [];
+    const filters: Array<{
+      fieldId: string;
+      fieldLabel: string;
+      value: any[];
+      groupId: string;
+      conditionId: string;
+    }> = [];
     for (const group of filterState.groups) {
       for (const condition of group.conditions) {
         const field = QUICK_FIELDS.find((f) => f.id === condition.fieldId);
         if (field && condition.value != null) {
-          const values = Array.isArray(condition.value) ? condition.value : [condition.value];
+          const values = Array.isArray(condition.value)
+            ? condition.value
+            : [condition.value];
           if (values.length > 0) {
             filters.push({
               fieldId: field.id,
@@ -75,9 +90,12 @@ export function QuickFiltersPopover({
     return option?.label ?? value;
   }, []);
 
-  const removeFilter = React.useCallback((groupId: string, conditionId: string) => {
-    filterActions.removeCondition(groupId, conditionId);
-  }, [filterActions]);
+  const removeFilter = React.useCallback(
+    (groupId: string, conditionId: string) => {
+      filterActions.removeCondition(groupId, conditionId);
+    },
+    [filterActions],
+  );
 
   const handleAdvancedClick = React.useCallback(() => {
     setOpen(false);
@@ -127,11 +145,16 @@ export function QuickFiltersPopover({
           </div>
         </DropdownMenuContent>
       </DropdownMenu>
-    
+
       {activeFilters.map((filter) => {
-        const displayText = filter.value.map((v) => getOptionLabel(filter.fieldId, v)).join(", ");
-        const truncatedText = displayText.length > 30 ? `${displayText.substring(0, 30)}...` : displayText;
-        
+        const displayText = filter.value
+          .map((v) => getOptionLabel(filter.fieldId, v))
+          .join(", ");
+        const truncatedText =
+          displayText.length > 30
+            ? `${displayText.substring(0, 30)}...`
+            : displayText;
+
         return (
           <div
             key={`${filter.groupId}-${filter.conditionId}`}
@@ -166,12 +189,12 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
 }) {
   const { options: dynamicOptions, isLoading } = useFieldOptions(
     field.optionsSource?.endpoint,
-    field.optionsSource?.transform
+    field.optionsSource?.transform,
   );
 
   const options = React.useMemo(
     () => field.options ?? dynamicOptions,
-    [field.options, dynamicOptions]
+    [field.options, dynamicOptions],
   );
 
   const existingCondition = React.useMemo(() => {
@@ -185,32 +208,42 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
   const selectedValues = (existingCondition?.condition.value as string[]) ?? [];
   const hideSearch = field.id === "status" || field.id === "moduleCompletion";
 
-  const toggleValue = React.useCallback((optionValue: string) => {
-    const newValues = selectedValues.includes(optionValue)
-      ? selectedValues.filter((v) => v !== optionValue)
-      : [...selectedValues, optionValue];
-    
-    if (existingCondition) {
-      filterActions.updateCondition(
-        existingCondition.groupId,
-        existingCondition.condition.id,
-        { value: newValues }
-      );
-      return;
-    }
+  const toggleValue = React.useCallback(
+    (optionValue: string) => {
+      const newValues = selectedValues.includes(optionValue)
+        ? selectedValues.filter((v) => v !== optionValue)
+        : [...selectedValues, optionValue];
 
-    const targetGroupId = filterState.groups[0]?.id;
-    if (!targetGroupId) {
-      filterActions.addGroup();
-      return;
-    }
-    
-    filterActions.addCondition(targetGroupId, {
-      fieldId: field.id,
-      operator: field.operators[0],
-      value: newValues,
-    });
-  }, [selectedValues, existingCondition, filterState.groups, filterActions, field.id, field.operators]);
+      if (existingCondition) {
+        filterActions.updateCondition(
+          existingCondition.groupId,
+          existingCondition.condition.id,
+          { value: newValues },
+        );
+        return;
+      }
+
+      const targetGroupId = filterState.groups[0]?.id;
+      if (!targetGroupId) {
+        filterActions.addGroup();
+        return;
+      }
+
+      filterActions.addCondition(targetGroupId, {
+        fieldId: field.id,
+        operator: field.operators[0],
+        value: newValues,
+      });
+    },
+    [
+      selectedValues,
+      existingCondition,
+      filterState.groups,
+      filterActions,
+      field.id,
+      field.operators,
+    ],
+  );
 
   return (
     <DropdownMenuSub>
@@ -226,7 +259,10 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
         <DropdownMenuSubContent sideOffset={0} className="w-[280px] p-0 ml-1">
           <Command>
             {!hideSearch && (
-              <CommandInput placeholder={`Search ${field.label.toLowerCase()}...`} className="h-9 px-2" />
+              <CommandInput
+                placeholder={`Search ${field.label.toLowerCase()}...`}
+                className="h-9 px-2"
+              />
             )}
             <CommandList>
               <CommandEmpty>
@@ -244,7 +280,9 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
                     >
                       <div className="flex items-center gap-2">
                         {renderStatusIcon(field.id, option.value)}
-                        <span className="text-p text-primary">{option.label}</span>
+                        <span className="text-p text-primary">
+                          {option.label}
+                        </span>
                       </div>
                       {isSelected && (
                         <Icons.Check className="h-4 w-4 text-foreground" />

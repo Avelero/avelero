@@ -7,7 +7,7 @@ export const MODULE_KEYS = [
   "cta_banner",
 ] as const;
 
-export type ModuleKey = typeof MODULE_KEYS[number];
+export type ModuleKey = (typeof MODULE_KEYS)[number];
 
 // Maps mutation identifiers to the module keys they affect.
 // Routers/queries will reference these to decide which modules to recompute.
@@ -46,5 +46,3 @@ export const MUTATION_TO_MODULES: Record<string, ModuleKey[]> = {
     "cta_banner",
   ],
 };
-
-

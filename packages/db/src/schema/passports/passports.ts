@@ -1,9 +1,17 @@
 import { sql } from "drizzle-orm";
-import { pgPolicy, pgTable, timestamp, uuid, varchar, text, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
-import { products } from "../products/products";
-import { productVariants } from "../products/product-variants";
 import { passportTemplates } from "../passports/passport-templates";
+import { productVariants } from "../products/product-variants";
+import { products } from "../products/products";
 
 export const passports = pgTable(
   "passports",
@@ -13,13 +21,22 @@ export const passports = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     productId: uuid("product_id")
-      .references(() => products.id, { onDelete: "cascade", onUpdate: "cascade" })
+      .references(() => products.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      })
       .notNull(),
     variantId: uuid("variant_id")
-      .references(() => productVariants.id, { onDelete: "cascade", onUpdate: "cascade" })
+      .references(() => productVariants.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      })
       .notNull(),
     templateId: uuid("template_id")
-      .references(() => passportTemplates.id, { onDelete: "cascade", onUpdate: "cascade" })
+      .references(() => passportTemplates.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      })
       .notNull(),
     status: varchar("status").notNull(),
     slug: text("slug").notNull(),

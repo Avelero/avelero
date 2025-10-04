@@ -45,7 +45,7 @@ export const users = pgTable(
     unique("users_email_key").on(table.email),
     check(
       "users_avatar_hue_check",
-      sql`(avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360))`
+      sql`(avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360))`,
     ),
     // RLS policies
     pgPolicy("users_select_own_profile", {
@@ -84,6 +84,5 @@ export const users = pgTable(
       to: ["authenticated"],
       withCheck: sql`auth.uid() = id`,
     }),
-  ]
+  ],
 );
-

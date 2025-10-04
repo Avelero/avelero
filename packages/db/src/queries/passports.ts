@@ -1,16 +1,26 @@
-import { and, asc, count, desc, eq, inArray, notInArray, sql, sum } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  notInArray,
+  sql,
+  sum,
+} from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Database } from "../client";
 import {
-  passports,
-  passportTemplateModules,
-  passportModuleCompletion,
-  products,
-  productVariants,
-  passportTemplates,
-  categories,
   brandColors,
   brandSizes,
+  categories,
+  passportModuleCompletion,
+  passportTemplateModules,
+  passportTemplates,
+  passports,
+  productVariants,
+  products,
 } from "../schema";
 
 export type CompletionXofN = {
@@ -48,10 +58,18 @@ export async function getCompletionForProducts(
       passportModuleCompletion,
       and(
         eq(passportModuleCompletion.passportId, passports.id),
-        eq(passportModuleCompletion.moduleKey, passportTemplateModules.moduleKey),
+        eq(
+          passportModuleCompletion.moduleKey,
+          passportTemplateModules.moduleKey,
+        ),
       ),
     )
-    .where(and(eq(passports.brandId, brandId), inArray(passports.productId, productIds)))
+    .where(
+      and(
+        eq(passports.brandId, brandId),
+        inArray(passports.productId, productIds),
+      ),
+    )
     .groupBy(passports.id, passports.productId);
 
   return rows.map((r) => ({
@@ -93,7 +111,10 @@ export async function getIncompleteCountsByModuleForBrand(
       passportModuleCompletion,
       and(
         eq(passportModuleCompletion.passportId, passports.id),
-        eq(passportModuleCompletion.moduleKey, passportTemplateModules.moduleKey),
+        eq(
+          passportModuleCompletion.moduleKey,
+          passportTemplateModules.moduleKey,
+        ),
       ),
     )
     .where(eq(passports.brandId, brandId))
@@ -115,7 +136,9 @@ export async function getPassportStatusByProduct(
   const rows = await db
     .select({ id: passports.id, status: passports.status })
     .from(passports)
-    .where(and(eq(passports.brandId, brandId), eq(passports.productId, productId)))
+    .where(
+      and(eq(passports.brandId, brandId), eq(passports.productId, productId)),
+    )
     .limit(1);
   return rows[0] ?? null;
 }
@@ -129,7 +152,9 @@ export async function setPassportStatusByProduct(
   const [row] = await db
     .update(passports)
     .set({ status })
-    .where(and(eq(passports.brandId, brandId), eq(passports.productId, productId)))
+    .where(
+      and(eq(passports.brandId, brandId), eq(passports.productId, productId)),
+    )
     .returning({ id: passports.id, status: passports.status });
   return row ?? null;
 }
@@ -218,7 +243,10 @@ export async function listPassports(
     .innerJoin(productVariants, eq(productVariants.id, passports.variantId))
     .leftJoin(brandColors, eq(brandColors.id, productVariants.colorId))
     .leftJoin(brandSizes, eq(brandSizes.id, productVariants.sizeId))
-    .innerJoin(passportTemplates, eq(passportTemplates.id, passports.templateId))
+    .innerJoin(
+      passportTemplates,
+      eq(passportTemplates.id, passports.templateId),
+    )
     .where(eq(passports.brandId, brandId))
     .orderBy(desc(passports.createdAt))
     .limit(pageSize)
@@ -276,10 +304,20 @@ export async function listPassports(
 
   // Fetch categories (id, name, parentId) to compute breadcrumb path
   const allCategories = await db
-    .select({ id: categories.id, name: categories.name, parent_id: categories.parentId })
+    .select({
+      id: categories.id,
+      name: categories.name,
+      parent_id: categories.parentId,
+    })
     .from(categories);
-  const catById = new Map<string, { id: string; name: string; parent_id: string | null }>(
-    allCategories.map((c) => [c.id, { id: c.id, name: c.name, parent_id: c.parent_id ?? null }]),
+  const catById = new Map<
+    string,
+    { id: string; name: string; parent_id: string | null }
+  >(
+    allCategories.map((c) => [
+      c.id,
+      { id: c.id, name: c.name, parent_id: c.parent_id ?? null },
+    ]),
   );
 
   function buildCategoryPath(categoryId?: string | null): string[] {
@@ -308,7 +346,9 @@ export async function listPassports(
     const totalCount = modules.length;
     const sku = r.variant_sku ?? r.variant_upid ?? undefined;
     const categoryPath = buildCategoryPath(r.category_id);
-    const category = categoryPath.length ? categoryPath[categoryPath.length - 1] : "-";
+    const category = categoryPath.length
+      ? categoryPath[categoryPath.length - 1]
+      : "-";
     return {
       id: r.id,
       title: r.title,
@@ -337,10 +377,7 @@ export async function listPassports(
   return { data, meta: { total } } as const;
 }
 
-export async function countPassportsByStatus(
-  db: Database,
-  brandId: string,
-) {
+export async function countPassportsByStatus(db: Database, brandId: string) {
   const rows = await db
     .select({ status: passports.status, value: count(passports.id) })
     .from(passports)
@@ -387,12 +424,18 @@ export async function bulkUpdatePassports(
   let whereExpr: SQL = eq(passports.brandId, brandId) as unknown as SQL;
   if (selection.mode === "explicit") {
     if (!selection.includeIds.length) return 0;
-    const combined = and(whereExpr, inArray(passports.id, selection.includeIds));
+    const combined = and(
+      whereExpr,
+      inArray(passports.id, selection.includeIds),
+    );
     whereExpr = (combined as SQL | undefined) ?? (whereExpr as SQL);
   } else {
     // all mode: optionally exclude ids
     if (selection.excludeIds.length) {
-      const combined = and(whereExpr, notInArray(passports.id, selection.excludeIds));
+      const combined = and(
+        whereExpr,
+        notInArray(passports.id, selection.excludeIds),
+      );
       whereExpr = (combined as SQL | undefined) ?? (whereExpr as SQL);
     }
   }

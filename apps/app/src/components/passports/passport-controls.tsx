@@ -1,11 +1,9 @@
 "use client";
 
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
-import { Input } from "@v1/ui/input";
 import { cn } from "@v1/ui/cn";
-import * as React from "react";
-import { DisplayPopover } from "./display-popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,12 +13,19 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
+import { Icons } from "@v1/ui/icons";
+import { Input } from "@v1/ui/input";
 import { toast } from "@v1/ui/sonner";
-import type { BulkChanges, SelectionState, FilterState, FilterActions } from "../tables/passports/types";
-import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { QuickFiltersPopover } from "./quick-filters-popover";
+import * as React from "react";
+import type {
+  BulkChanges,
+  FilterActions,
+  FilterState,
+  SelectionState,
+} from "../tables/passports/types";
 import { AdvancedFilterPanel } from "./advanced-filter-panel";
+import { DisplayPopover } from "./display-popover";
+import { QuickFiltersPopover } from "./quick-filters-popover";
 
 interface PassportControlsProps {
   selectedCount?: number;
@@ -38,27 +43,48 @@ interface PassportControlsProps {
   filterActions?: FilterActions;
 }
 
-export function PassportControls({ selectedCount = 0, disabled = false, selection, onClearSelectionAction, displayProps, filterState, filterActions }: PassportControlsProps) {
+export function PassportControls({
+  selectedCount = 0,
+  disabled = false,
+  selection,
+  onClearSelectionAction,
+  displayProps,
+  filterState,
+  filterActions,
+}: PassportControlsProps) {
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
   const [advancedFilterOpen, setAdvancedFilterOpen] = React.useState(false);
 
   const hasSelection = selectedCount > 0;
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const bulkUpdateMutation = useMutation(trpc.passports.bulkUpdate.mutationOptions());
+  const bulkUpdateMutation = useMutation(
+    trpc.passports.bulkUpdate.mutationOptions(),
+  );
 
-  async function handleBulkStatusChange(status: "published" | "scheduled" | "unpublished" | "archived") {
+  async function handleBulkStatusChange(
+    status: "published" | "scheduled" | "unpublished" | "archived",
+  ) {
     if (!selection) return;
     try {
       const res = await bulkUpdateMutation.mutateAsync({
-        selection: selection.mode === "all" ? { mode: "all", excludeIds: selection.excludeIds } : { mode: "explicit", includeIds: selection.includeIds },
+        selection:
+          selection.mode === "all"
+            ? { mode: "all", excludeIds: selection.excludeIds }
+            : { mode: "explicit", includeIds: selection.includeIds },
         changes: { status },
       } as any);
-      const affected = (res as { affectedCount?: number } | undefined)?.affectedCount ?? selectedCount;
+      const affected =
+        (res as { affectedCount?: number } | undefined)?.affectedCount ??
+        selectedCount;
       toast.success(`Edited ${affected} passports successfully`);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: trpc.passports.list.queryKey() }),
-        queryClient.invalidateQueries({ queryKey: trpc.passports.countByStatus.queryKey() }),
+        queryClient.invalidateQueries({
+          queryKey: trpc.passports.list.queryKey(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: trpc.passports.countByStatus.queryKey(),
+        }),
       ]);
       // Clear selection and close popover after success
       onClearSelectionAction?.();
@@ -77,10 +103,12 @@ export function PassportControls({ selectedCount = 0, disabled = false, selectio
             isSearchFocused ? "w-[340px]" : "w-[240px]",
           )}
         >
-          <div className={cn(
-            "absolute left-2 pointer-events-none text-tertiary",
-            isSearchFocused ? "text-secondary" : "text-tertiary",
-          )}>
+          <div
+            className={cn(
+              "absolute left-2 pointer-events-none text-tertiary",
+              isSearchFocused ? "text-secondary" : "text-tertiary",
+            )}
+          >
             <Icons.Search className="h-4 w-4" />
           </div>
           <Input
@@ -100,7 +128,15 @@ export function PassportControls({ selectedCount = 0, disabled = false, selectio
         </div>
 
         {/* Sort */}
-        <Button variant="subtle" size="default" disabled={disabled} iconPosition="left" icon={<Icons.ArrowDownUp className="h-[14px] w-[14px]" />}>Sort</Button>
+        <Button
+          variant="subtle"
+          size="default"
+          disabled={disabled}
+          iconPosition="left"
+          icon={<Icons.ArrowDownUp className="h-[14px] w-[14px]" />}
+        >
+          Sort
+        </Button>
 
         {/* Filter */}
         {filterState && filterActions ? (
@@ -119,7 +155,15 @@ export function PassportControls({ selectedCount = 0, disabled = false, selectio
             />
           </>
         ) : (
-          <Button variant="subtle" size="default" disabled={disabled} iconPosition="left" icon={<Icons.Filter className="h-[14px] w-[14px]" />}>Filter</Button>
+          <Button
+            variant="subtle"
+            size="default"
+            disabled={disabled}
+            iconPosition="left"
+            icon={<Icons.Filter className="h-[14px] w-[14px]" />}
+          >
+            Filter
+          </Button>
         )}
 
         <div className="flex-1" />
@@ -143,7 +187,9 @@ export function PassportControls({ selectedCount = 0, disabled = false, selectio
                   variant="subtle"
                   size="default"
                   iconPosition="left"
-                  icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}
+                  icon={
+                    <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
+                  }
                 >
                   Display
                 </Button>
@@ -155,7 +201,15 @@ export function PassportControls({ selectedCount = 0, disabled = false, selectio
             />
           )
         ) : (
-          <Button variant="subtle" size="default" disabled={disabled} iconPosition="left" icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}>Display</Button>
+          <Button
+            variant="subtle"
+            size="default"
+            disabled={disabled}
+            iconPosition="left"
+            icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}
+          >
+            Display
+          </Button>
         )}
 
         {/* Actions */}
@@ -182,25 +236,45 @@ export function PassportControls({ selectedCount = 0, disabled = false, selectio
                 Change status
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-[220px]">
-                <DropdownMenuItem className="h-9 py-3" onSelect={() => { handleBulkStatusChange("published"); }}>
+                <DropdownMenuItem
+                  className="h-9 py-3"
+                  onSelect={() => {
+                    handleBulkStatusChange("published");
+                  }}
+                >
                   <span className="inline-flex items-center gap-2">
                     <Icons.StatusPublished width={12} height={12} />
                     <span>Published</span>
                   </span>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="h-9 py-3" onSelect={() => { handleBulkStatusChange("scheduled"); }}>
+                <DropdownMenuItem
+                  className="h-9 py-3"
+                  onSelect={() => {
+                    handleBulkStatusChange("scheduled");
+                  }}
+                >
                   <span className="inline-flex items-center gap-2">
                     <Icons.StatusScheduled width={12} height={12} />
                     <span>Scheduled</span>
                   </span>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="h-9 py-3" onSelect={() => { handleBulkStatusChange("unpublished"); }}>
+                <DropdownMenuItem
+                  className="h-9 py-3"
+                  onSelect={() => {
+                    handleBulkStatusChange("unpublished");
+                  }}
+                >
                   <span className="inline-flex items-center gap-2">
                     <Icons.StatusUnpublished width={12} height={12} />
                     <span>Unpublished</span>
                   </span>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="h-9 py-3" onSelect={() => { handleBulkStatusChange("archived"); }}>
+                <DropdownMenuItem
+                  className="h-9 py-3"
+                  onSelect={() => {
+                    handleBulkStatusChange("archived");
+                  }}
+                >
                   <span className="inline-flex items-center gap-2">
                     <Icons.StatusArchived width={12} height={12} />
                     <span>Archived</span>
@@ -214,5 +288,3 @@ export function PassportControls({ selectedCount = 0, disabled = false, selectio
     </div>
   );
 }
-
-

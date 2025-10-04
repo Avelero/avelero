@@ -1,10 +1,10 @@
 "use client";
 
 import type { HeaderContext, Table as ReactTable } from "@tanstack/react-table";
-import { cn } from "@v1/ui/cn";
-import { TableHead, TableHeader, TableRow } from "@v1/ui/table";
 import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
+import { TableHead, TableHeader, TableRow } from "@v1/ui/table";
 import * as React from "react";
 import type { Passport } from "./types";
 
@@ -139,7 +139,9 @@ export function PassportTableHeader({
                             e.preventDefault();
                             onScrollLeftAction?.();
                           }}
-                          icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
+                          icon={
+                            <Icons.ChevronLeft className="h-[14px] w-[14px]" />
+                          }
                         />
                         <Button
                           variant="outline"
@@ -149,7 +151,9 @@ export function PassportTableHeader({
                             e.preventDefault();
                             onScrollRightAction?.();
                           }}
-                          icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
+                          icon={
+                            <Icons.ChevronRight className="h-[14px] w-[14px]" />
+                          }
                         />
                       </div>
                     )}

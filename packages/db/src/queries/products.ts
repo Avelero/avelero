@@ -1,5 +1,7 @@
 import { and, asc, count, desc, eq, ilike, isNotNull } from "drizzle-orm";
 import type { Database } from "../client";
+import { evaluateAndUpsertCompletion } from "../completion/evaluate";
+import type { ModuleKey } from "../completion/module-keys";
 import {
   brandCertifications,
   brandColors,
@@ -11,8 +13,6 @@ import {
   products,
   showcaseBrands,
 } from "../schema";
-import { evaluateAndUpsertCompletion } from "../completion/evaluate";
-import type { ModuleKey } from "../completion/module-keys";
 
 type ListFilters = {
   categoryId?: string;
@@ -112,9 +112,14 @@ export async function createProduct(
     created = row;
     if (row?.id) {
       // Evaluate only core module for product basics
-      await evaluateAndUpsertCompletion(tx as unknown as Database, brandId, row.id, {
-        onlyModules: ["core"] as ModuleKey[],
-      });
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        row.id,
+        {
+          onlyModules: ["core"] as ModuleKey[],
+        },
+      );
     }
   });
   return created;
@@ -151,9 +156,14 @@ export async function updateProduct(
       .returning({ id: products.id });
     updated = row;
     if (row?.id) {
-      await evaluateAndUpsertCompletion(tx as unknown as Database, brandId, row.id, {
-        onlyModules: ["core"] as ModuleKey[],
-      });
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        row.id,
+        {
+          onlyModules: ["core"] as ModuleKey[],
+        },
+      );
     }
   });
   return updated;
@@ -246,9 +256,14 @@ export async function createVariant(
         .where(eq(products.id, productId))
         .limit(1);
       if (brandId) {
-        await evaluateAndUpsertCompletion(tx as unknown as Database, brandId, productId, {
-          onlyModules: ["core"] as ModuleKey[],
-        });
+        await evaluateAndUpsertCompletion(
+          tx as unknown as Database,
+          brandId,
+          productId,
+          {
+            onlyModules: ["core"] as ModuleKey[],
+          },
+        );
       }
     }
   });
@@ -278,7 +293,10 @@ export async function updateVariant(
         productImageUrl: input.productImageUrl ?? null,
       })
       .where(eq(productVariants.id, id))
-      .returning({ id: productVariants.id, productId: productVariants.productId });
+      .returning({
+        id: productVariants.id,
+        productId: productVariants.productId,
+      });
     updated = row ? { id: row.id } : undefined;
     if (row?.productId) {
       const [{ brandId } = { brandId: undefined } as any] = await tx
@@ -287,9 +305,14 @@ export async function updateVariant(
         .where(eq(products.id, row.productId))
         .limit(1);
       if (brandId) {
-        await evaluateAndUpsertCompletion(tx as unknown as Database, brandId, row.productId, {
-          onlyModules: ["core"] as ModuleKey[],
-        });
+        await evaluateAndUpsertCompletion(
+          tx as unknown as Database,
+          brandId,
+          row.productId,
+          {
+            onlyModules: ["core"] as ModuleKey[],
+          },
+        );
       }
     }
   });

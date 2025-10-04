@@ -48,7 +48,9 @@ export default async function Layout({
         <Header locale={locale} />
         <div className="flex flex-row justify-start h-[calc(100%-56px)]">
           <Sidebar />
-          <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">{children}</div>
+          <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
+            {children}
+          </div>
         </div>
       </div>
     </HydrateClient>

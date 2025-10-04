@@ -40,4 +40,3 @@ export const setJourneyStepsSchema = z.object({
     )
     .default([]),
 });
-

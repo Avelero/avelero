@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../client";
-import { passportTemplateModules } from "../schema";
 import type { ModuleKey } from "../completion/module-keys";
 import { syncTemplateModuleDelta } from "../completion/template-sync";
+import { passportTemplateModules } from "../schema";
 
 export async function enableTemplateModules(
   db: Database,
@@ -17,13 +17,19 @@ export async function enableTemplateModules(
         .insert(passportTemplateModules)
         .values({ templateId, moduleKey: m, enabled: true, sortIndex: 0 })
         .onConflictDoUpdate({
-          target: [passportTemplateModules.templateId, passportTemplateModules.moduleKey],
+          target: [
+            passportTemplateModules.templateId,
+            passportTemplateModules.moduleKey,
+          ],
           set: { enabled: true },
         });
     }
   });
   // Evaluate only added modules for all passports on this template
-  await syncTemplateModuleDelta(db, templateId, { added: modules, removed: [] });
+  await syncTemplateModuleDelta(db, templateId, {
+    added: modules,
+    removed: [],
+  });
   return { count: modules.length } as const;
 }
 
@@ -61,8 +67,9 @@ export async function disableTemplateModules(
       );
   }
   // Prune-only path via delta with removed modules
-  await syncTemplateModuleDelta(db, templateId, { added: [], removed: modules });
+  await syncTemplateModuleDelta(db, templateId, {
+    added: [],
+    removed: modules,
+  });
   return { count: modules.length } as const;
 }
-
-

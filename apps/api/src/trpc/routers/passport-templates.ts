@@ -1,6 +1,6 @@
+import { disableTemplateModules, enableTemplateModules } from "@v1/db/queries";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
-import { enableTemplateModules, disableTemplateModules } from "@v1/db/queries";
 
 const moduleKeySchema = z.enum([
   "core",
@@ -36,5 +36,3 @@ export const passportTemplatesRouter = createTRPCRouter({
       return disableTemplateModules(db, input.template_id, input.modules);
     }),
 });
-
-

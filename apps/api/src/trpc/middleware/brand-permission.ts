@@ -1,7 +1,7 @@
 import { brandMembers } from "@v1/db/schema";
 import { and, eq } from "drizzle-orm";
-import type { TRPCContext } from "../init.js";
 import type { Role } from "../../config/roles";
+import type { TRPCContext } from "../init.js";
 
 export async function withBrandPermission<TReturn>(opts: {
   ctx: TRPCContext;

@@ -1,21 +1,16 @@
 "use client";
 
-import * as React from "react";
+import { useFilterMetadata } from "@/hooks/use-filter-state";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@v1/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@v1/ui/sheet";
+import * as React from "react";
+import { FilterGroup } from "./filter-group";
 import type {
-  FilterState,
   FilterActions,
   FilterFieldConfig,
+  FilterState,
 } from "./filter-types";
-import { FilterGroup } from "./filter-group";
-import { useFilterMetadata } from "@/hooks/use-filter-state";
 
 interface AdvancedFilterPanelProps {
   open: boolean;
@@ -27,10 +22,10 @@ interface AdvancedFilterPanelProps {
 
 /**
  * Advanced Filter Panel Component
- * 
+ *
  * Renders as a Sheet sliding in from the right (~33% screen width).
  * Contains all the filter groups with full AND/OR logic support.
- * 
+ *
  * Structure:
  * - Header (title, description, close button)
  * - Scrollable Area (filter groups)
@@ -70,7 +65,9 @@ export function AdvancedFilterPanel({
       >
         {/* Header */}
         <SheetHeader className="px-6 pt-6">
-          <SheetTitle className="text-h6 text-primary">Advanced filters</SheetTitle>
+          <SheetTitle className="text-h6 text-primary">
+            Advanced filters
+          </SheetTitle>
         </SheetHeader>
 
         {/* Scrollable Content Area */}
@@ -112,9 +109,15 @@ export function AdvancedFilterPanel({
                     {/* Filter Group */}
                     <FilterGroup
                       group={group}
-                      onAddCondition={() => filterActions.addCondition(group.id)}
+                      onAddCondition={() =>
+                        filterActions.addCondition(group.id)
+                      }
                       onUpdateCondition={(conditionId, updates) =>
-                        filterActions.updateCondition(group.id, conditionId, updates)
+                        filterActions.updateCondition(
+                          group.id,
+                          conditionId,
+                          updates,
+                        )
                       }
                       onRemoveCondition={(conditionId) =>
                         filterActions.removeCondition(group.id, conditionId)
@@ -168,4 +171,3 @@ export function AdvancedFilterPanel({
     </Sheet>
   );
 }
-

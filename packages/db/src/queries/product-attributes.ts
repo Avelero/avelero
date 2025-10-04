@@ -1,5 +1,7 @@
 import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import type { Database } from "../client";
+import { evaluateAndUpsertCompletion } from "../completion/evaluate";
+import type { ModuleKey } from "../completion/module-keys";
 import {
   productCareCodes,
   productEcoClaims,
@@ -8,8 +10,6 @@ import {
   productMaterials,
   products,
 } from "../schema";
-import { evaluateAndUpsertCompletion } from "../completion/evaluate";
-import type { ModuleKey } from "../completion/module-keys";
 
 export async function upsertProductMaterials(
   db: Database,
@@ -31,7 +31,8 @@ export async function upsertProductMaterials(
           items.map((i) => ({
             productId,
             brandMaterialId: i.brandMaterialId,
-            percentage: i.percentage !== undefined ? String(i.percentage) : null,
+            percentage:
+              i.percentage !== undefined ? String(i.percentage) : null,
           })),
         )
         .returning({ id: productMaterials.id });
@@ -43,9 +44,14 @@ export async function upsertProductMaterials(
       .where(eq(products.id, productId))
       .limit(1);
     if (brandId) {
-      await evaluateAndUpsertCompletion(tx as unknown as Database, brandId, productId, {
-        onlyModules: ["materials"] as ModuleKey[],
-      });
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        productId,
+        {
+          onlyModules: ["materials"] as ModuleKey[],
+        },
+      );
     }
   });
   return { count: countInserted } as const;
@@ -143,9 +149,14 @@ export async function upsertProductEnvironment(
       .where(eq(products.id, productId))
       .limit(1);
     if (brandId) {
-      await evaluateAndUpsertCompletion(tx as unknown as Database, brandId, productId, {
-        onlyModules: ["environment"] as ModuleKey[],
-      });
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        productId,
+        {
+          onlyModules: ["environment"] as ModuleKey[],
+        },
+      );
     }
   });
   return result as { product_id: string };
@@ -183,11 +194,15 @@ export async function setProductJourneySteps(
       .where(eq(products.id, productId))
       .limit(1);
     if (brandId) {
-      await evaluateAndUpsertCompletion(tx as unknown as Database, brandId, productId, {
-        onlyModules: ["journey"] as ModuleKey[],
-      });
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        productId,
+        {
+          onlyModules: ["journey"] as ModuleKey[],
+        },
+      );
     }
   });
   return { count: countInserted } as const;
 }
-

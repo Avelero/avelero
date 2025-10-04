@@ -16,9 +16,11 @@ import {
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { toast } from "@v1/ui/sonner";
-import type { BulkChanges, SelectionState } from "../tables/passports/types";
+import type { BulkChanges, SelectionState, FilterState, FilterActions } from "../tables/passports/types";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { QuickFiltersPopover } from "./quick-filters-popover";
+import { AdvancedFilterPanel } from "./advanced-filter-panel";
 
 interface PassportControlsProps {
   selectedCount?: number;
@@ -32,10 +34,13 @@ interface PassportControlsProps {
     initialVisible: string[];
     onSave: (visibleOrdered: string[]) => void;
   };
+  filterState?: FilterState;
+  filterActions?: FilterActions;
 }
 
-export function PassportControls({ selectedCount = 0, disabled = false, selection, onClearSelectionAction, displayProps }: PassportControlsProps) {
+export function PassportControls({ selectedCount = 0, disabled = false, selection, onClearSelectionAction, displayProps, filterState, filterActions }: PassportControlsProps) {
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
+  const [advancedFilterOpen, setAdvancedFilterOpen] = React.useState(false);
 
   const hasSelection = selectedCount > 0;
   const trpc = useTRPC();
@@ -98,7 +103,24 @@ export function PassportControls({ selectedCount = 0, disabled = false, selectio
         <Button variant="subtle" size="default" disabled={disabled} iconPosition="left" icon={<Icons.ArrowDownUp className="h-[14px] w-[14px]" />}>Sort</Button>
 
         {/* Filter */}
-        <Button variant="subtle" size="default" disabled={disabled} iconPosition="left" icon={<Icons.Filter className="h-[14px] w-[14px]" />}>Filter</Button>
+        {filterState && filterActions ? (
+          <>
+            <QuickFiltersPopover
+              filterState={filterState}
+              filterActions={filterActions}
+              onOpenAdvanced={() => setAdvancedFilterOpen(true)}
+              disabled={disabled}
+            />
+            <AdvancedFilterPanel
+              open={advancedFilterOpen}
+              onOpenChange={setAdvancedFilterOpen}
+              filterState={filterState}
+              filterActions={filterActions}
+            />
+          </>
+        ) : (
+          <Button variant="subtle" size="default" disabled={disabled} iconPosition="left" icon={<Icons.Filter className="h-[14px] w-[14px]" />}>Filter</Button>
+        )}
 
         <div className="flex-1" />
 

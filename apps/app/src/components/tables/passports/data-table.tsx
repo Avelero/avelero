@@ -23,6 +23,7 @@ export function PassportDataTable({
   onTotalCountChangeAction,
   selection,
   onSelectionStateChangeAction,
+  filterState,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
@@ -30,6 +31,7 @@ export function PassportDataTable({
   onTotalCountChangeAction?: (hasAny: boolean) => void;
   selection: SelectionState;
   onSelectionStateChangeAction: (next: SelectionState) => void;
+  filterState?: any; // FilterState type - not used yet, ready for backend integration
 }) {
   const [page, setPage] = React.useState(0);
   const pageSize = 50;

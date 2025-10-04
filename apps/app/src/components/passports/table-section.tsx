@@ -5,6 +5,7 @@ import * as React from "react";
 import { PassportControls } from "./passport-controls";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import type { SelectionState } from "../tables/passports/types";
+import { useFilterState } from "@/hooks/use-filter-state";
 
 export function TableSection() {
   const [selectedCount, setSelectedCount] = React.useState(0);
@@ -15,6 +16,9 @@ export function TableSection() {
   });
   const [selectionVersion, setSelectionVersion] = React.useState(0);
   const [hasAnyPassports, setHasAnyPassports] = React.useState(true);
+  
+  // Filter state management
+  const [filterState, filterActions] = useFilterState();
   // Column preferences state (excludes locked `product` and fixed `actions`)
   const DEFAULT_VISIBLE: string[] = React.useMemo(
     () => ["status", "completion", "category", "season", "template"],
@@ -168,6 +172,8 @@ export function TableSection() {
           initialVisible: visibleColumns,
           onSave: handleSavePrefs,
         }}
+        filterState={filterState}
+        filterActions={filterActions}
       />
       <PassportDataTable
         onTotalCountChangeAction={setHasAnyPassports}
@@ -178,6 +184,7 @@ export function TableSection() {
         key={`passports-table-${selectionVersion}`}
         columnOrder={columnOrder}
         columnVisibility={columnVisibility}
+        filterState={filterState}
       />
     </div>
   );

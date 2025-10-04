@@ -121,6 +121,8 @@ export function PassportDataTable({
     const params: any = {
       pagination: {
         limit: pageSize,
+        page: page + 1, // Convert 0-based to 1-based page number
+        includeTotalCount: true, // Request total count for pagination
       },
       include: {
         product: true,
@@ -150,7 +152,7 @@ export function PassportDataTable({
     }
 
     return params;
-  }, [searchState?.debouncedQuery, sortState?.field, sortState?.direction, filterState, pageSize, convertFiltersToBackend]);
+  }, [searchState?.debouncedQuery, sortState?.field, sortState?.direction, filterState, pageSize, page, convertFiltersToBackend]);
 
   const { data: listRes, isLoading } = useQuery(
     React.useMemo(

@@ -7,6 +7,9 @@ import {
   passportTemplates,
   productVariants,
   products,
+  categories,
+  brandColors,
+  brandSizes,
 } from "@v1/db/schema";
 import {
   bulkUpdatePassportSchema,
@@ -46,6 +49,7 @@ import {
   isNull,
   lte,
   or,
+  sql,
 } from "drizzle-orm";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
@@ -98,7 +102,7 @@ export const passportsRouter = createTRPCRouter({
         include = {},
       } = input;
 
-      const { cursor, limit = 20 } = pagination;
+      const { cursor, limit = 20, page, includeTotalCount = false } = pagination;
 
       // Validate includes and get performance metrics
       const startTime = Date.now();
@@ -117,14 +121,26 @@ export const passportsRouter = createTRPCRouter({
       // Build base conditions
       const conditions = [eq(passports.brandId, brandId)];
 
-      // Apply search filter - search across product name, SKU, and passport ID
+      // Apply comprehensive search filter - search across ALL relevant fields
+      // Use AND with isNotNull to handle NULL values properly (NULL ilike returns NULL, not false)
       if (filter.search?.trim()) {
         const searchTerm = `%${filter.search.trim()}%`;
         conditions.push(
           or(
+            // Product fields (name is NOT NULL, but description and season can be NULL)
             ilike(products.name, searchTerm),
-            ilike(productVariants.sku, searchTerm),
+            and(isNotNull(products.description), ilike(products.description, searchTerm))!,
+            and(isNotNull(products.season), ilike(products.season, searchTerm))!,
+            // Variant identifiers (sku can be NULL, upid is NOT NULL)
+            and(isNotNull(productVariants.sku), ilike(productVariants.sku, searchTerm))!,
+            ilike(productVariants.upid, searchTerm),
+            // Passport identifiers (both NOT NULL)
             ilike(passports.id, searchTerm),
+            ilike(passports.slug, searchTerm),
+            // Category, color, size names (can be NULL through LEFT JOINs)
+            and(isNotNull(categories.name), ilike(categories.name, searchTerm))!,
+            and(isNotNull(brandColors.name), ilike(brandColors.name, searchTerm))!,
+            and(isNotNull(brandSizes.name), ilike(brandSizes.name, searchTerm))!,
           )!,
         );
       }
@@ -200,7 +216,7 @@ export const passportsRouter = createTRPCRouter({
         );
       }
 
-      // Cursor-based pagination
+      // Cursor-based pagination (preferred)
       if (cursor) {
         try {
           const cursorData = JSON.parse(
@@ -244,6 +260,9 @@ export const passportsRouter = createTRPCRouter({
         }
       }
 
+      // Calculate offset for offset-based pagination (fallback)
+      const offset = page && page > 1 ? (page - 1) * limit : 0;
+
       // Build query with proper joins based on includes
       const sortField =
         sort.field === "createdAt"
@@ -256,12 +275,13 @@ export const passportsRouter = createTRPCRouter({
                 ? products.name
                 : passports.createdAt;
 
-      // Execute query with joins - always join for search functionality
+      // Execute query with joins - always join for search/filter functionality
       let results: any[];
-      const needsJoins = include.product || include.variant || include.template || filter.search?.trim();
+      const needsJoins = include.product || include.variant || include.template || filter.search?.trim() ||
+        filter.categoryIds?.length || filter.colorIds?.length || filter.sizeIds?.length;
       
       if (needsJoins) {
-        const queryResults = await db
+        const query = db
           .select({
             passport: passports,
             ...(include.product && { product: products }),
@@ -272,12 +292,21 @@ export const passportsRouter = createTRPCRouter({
           .leftJoin(products, eq(passports.productId, products.id))
           .leftJoin(productVariants, eq(passports.variantId, productVariants.id))
           .leftJoin(passportTemplates, eq(passports.templateId, passportTemplates.id))
+          // Join for comprehensive search across category, color, size
+          .leftJoin(categories, eq(products.categoryId, categories.id))
+          .leftJoin(brandColors, eq(productVariants.colorId, brandColors.id))
+          .leftJoin(brandSizes, eq(productVariants.sizeId, brandSizes.id))
           .where(and(...conditions))
           .orderBy(
             sort.direction === "asc" ? asc(sortField) : desc(sortField),
             sort.direction === "asc" ? asc(passports.id) : desc(passports.id),
           )
           .limit(limit + 1);
+        
+        // Apply offset for offset-based pagination (only when not using cursor)
+        const queryResults = !cursor && offset > 0 
+          ? await query.offset(offset)
+          : await query;
 
         results = queryResults.map((row) => ({
           ...row.passport,
@@ -286,7 +315,7 @@ export const passportsRouter = createTRPCRouter({
           ...(include.template && row.template && { template: row.template }),
         }));
       } else {
-        results = await db
+        const query = db
           .select()
           .from(passports)
           .where(and(...conditions))
@@ -295,6 +324,11 @@ export const passportsRouter = createTRPCRouter({
             sort.direction === "asc" ? asc(passports.id) : desc(passports.id),
           )
           .limit(limit + 1);
+        
+        // Apply offset for offset-based pagination (only when not using cursor)
+        results = !cursor && offset > 0 
+          ? await query.offset(offset)
+          : await query;
       }
 
       // Check if there are more results
@@ -319,6 +353,22 @@ export const passportsRouter = createTRPCRouter({
       // Get performance metrics
       const performanceMetrics = performanceTracker.trackQuery(include, startTime);
 
+      // Get total count if requested (expensive operation for large datasets)
+      let totalCount: number | undefined = undefined;
+      if (includeTotalCount) {
+        const countResult = await db
+          .select({ count: count() })
+          .from(passports)
+          .leftJoin(products, eq(passports.productId, products.id))
+          .leftJoin(productVariants, eq(passports.variantId, productVariants.id))
+          .leftJoin(passportTemplates, eq(passports.templateId, passportTemplates.id))
+          .leftJoin(categories, eq(products.categoryId, categories.id))
+          .leftJoin(brandColors, eq(productVariants.colorId, brandColors.id))
+          .leftJoin(brandSizes, eq(productVariants.sizeId, brandSizes.id))
+          .where(and(...conditions));
+        totalCount = Number(countResult[0]?.count ?? 0);
+      }
+
       return {
         data: transformedResults,
         cursorInfo: {
@@ -326,7 +376,7 @@ export const passportsRouter = createTRPCRouter({
           hasMore,
         },
         meta: {
-          total: undefined, // Optional: could add total count if needed
+          total: totalCount,
           performance: performanceMetrics,
           includeValidation: {
             warnings: includeValidation.warnings,

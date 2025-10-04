@@ -138,7 +138,7 @@ export function PassportControls({
           </div>
           <Input
             aria-label="Search"
-            placeholder={"Search..."}
+            placeholder={"Search by SKU, name, category, color, size..."}
             value={searchState?.query || ""}
             onChange={(e) => searchActions?.setQuery(e.target.value)}
             className={cn(

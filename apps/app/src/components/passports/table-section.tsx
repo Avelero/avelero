@@ -1,6 +1,7 @@
 "use client";
 
 import { useFilterState } from "@/hooks/use-filter-state";
+import { useSearchState } from "@/hooks/use-search-state";
 import { useSortState } from "@/hooks/use-sort-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import * as React from "react";
@@ -21,6 +22,9 @@ export function TableSection() {
   // Track filter menu open state for smart debouncing
   const [isFilterMenuOpen, setIsFilterMenuOpen] = React.useState(false);
 
+  // Search state management (300ms debounce for API calls)
+  const [searchState, searchActions] = useSearchState("", 300);
+  
   // Filter state management (2000ms debounce for API calls, paused while menu is open)
   const [immediateFilterState, debouncedFilterState, filterActions] = useFilterState(2000, isFilterMenuOpen);
   
@@ -185,6 +189,8 @@ export function TableSection() {
           initialVisible: visibleColumns,
           onSave: handleSavePrefs,
         }}
+        searchState={searchState}
+        searchActions={searchActions}
         filterState={immediateFilterState}
         filterActions={filterActions}
         onFilterMenuOpenChange={setIsFilterMenuOpen}
@@ -196,6 +202,7 @@ export function TableSection() {
         onSelectionChangeAction={setSelectedCount}
         selection={selection}
         onSelectionStateChangeAction={setSelection}
+        searchState={searchState}
         sortState={sortState}
         // bump key to force internal rowSelection recompute after clearing
         key={`passports-table-${selectionVersion}`}

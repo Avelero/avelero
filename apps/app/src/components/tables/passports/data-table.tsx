@@ -349,6 +349,17 @@ export function PassportDataTable({
     }
   }, [rowSelection, data, selection, onSelectionStateChangeAction]);
 
+  // Debug logging
+  React.useEffect(() => {
+    console.log('🐛 DEBUG - PassportDataTable:', {
+      isLoading,
+      dataLength: data.length,
+      total,
+      rawListRes: listRes,
+      data: data.slice(0, 2), // Show first 2 items
+    });
+  }, [isLoading, data.length, total, listRes, data]);
+
   if (isLoading) return <PassportTableSkeleton />;
   if (!data.length)
     return total === 0 ? (

@@ -18,6 +18,15 @@ export function DataSection() {
       [trpc, brandId] // brandId as dependency ensures re-fetch when brand changes
     )
   );
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('🐛 DEBUG - DataSection:', {
+      brandId,
+      data,
+      apiUrl: process.env.NEXT_PUBLIC_API_URL,
+    });
+  }, [brandId, data]);
   
   const counts = (data as
     | {

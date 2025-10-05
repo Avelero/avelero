@@ -111,15 +111,6 @@ export function FilterValueInput({
         />
       );
 
-    case "hierarchical":
-    case "nested":
-      // These have their own dedicated components
-      return (
-        <div className="text-p text-tertiary italic px-3 py-2">
-          Use specialized selector
-        </div>
-      );
-
     default:
       return <TextInput value={value} onChange={onChange} />;
   }

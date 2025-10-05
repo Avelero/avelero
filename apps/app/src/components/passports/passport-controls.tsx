@@ -23,7 +23,7 @@ import type {
   FilterState,
   SelectionState,
 } from "../tables/passports/types";
-import { AdvancedFilterPanel } from "./advanced-filter-panel";
+import { AdvancedFilterPanel } from "../sheets/filter-sheet";
 import { DisplayPopover } from "./display-popover";
 import { QuickFiltersPopover } from "./quick-filters-popover";
 

@@ -51,6 +51,7 @@ export function useFilterState(): [FilterState, FilterActions] {
     return {
       id: generateId(),
       conditions: [createEmptyCondition()],
+      asGroup: false,
     };
   }, [generateId, createEmptyCondition]);
 
@@ -77,6 +78,21 @@ export function useFilterState(): [FilterState, FilterActions] {
       groups: prev.groups.filter((group) => group.id !== groupId),
     }));
   }, []);
+
+  /**
+   * Update a group's properties
+   */
+  const updateGroup = React.useCallback(
+    (groupId: string, updates: Partial<FilterGroup>) => {
+      setState((prev) => ({
+        ...prev,
+        groups: prev.groups.map((group) =>
+          group.id === groupId ? { ...group, ...updates } : group,
+        ),
+      }));
+    },
+    [],
+  );
 
   /**
    * Set groups directly (useful for quick filters)
@@ -219,6 +235,7 @@ export function useFilterState(): [FilterState, FilterActions] {
     () => ({
       addGroup,
       removeGroup,
+      updateGroup,
       addCondition,
       updateCondition,
       removeCondition,
@@ -228,6 +245,7 @@ export function useFilterState(): [FilterState, FilterActions] {
     [
       addGroup,
       removeGroup,
+      updateGroup,
       addCondition,
       updateCondition,
       removeCondition,
@@ -235,21 +253,6 @@ export function useFilterState(): [FilterState, FilterActions] {
       setGroups,
     ],
   );
-
-  // ==========================================================================
-  // Debug Logging (Development Only)
-  // ==========================================================================
-
-  React.useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      console.log("[useFilterState] State updated:", {
-        groupCount: state.groups.length,
-        hasActiveFilters,
-        activeFilterCount,
-        state,
-      });
-    }
-  }, [state, hasActiveFilters, activeFilterCount]);
 
   return [state, actions];
 }

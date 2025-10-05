@@ -18,8 +18,6 @@ export type FilterInputType =
   | "multi-select" // Multiple selection with checkboxes
   | "date" // Date picker
   | "date-relative" // Relative date (last 7 days, etc.)
-  | "hierarchical" // Tree select for categories
-  | "nested" // Nested filter (Materials, Facilities)
   | "country" // Country selector
   | "module-picker"; // Module completion picker
 
@@ -45,20 +43,6 @@ export type MultiSelectOperator =
   | "is empty"
   | "is not empty";
 
-export type RelationalOperator =
-  | "contains any of"
-  | "contains all of"
-  | "does not contain"
-  | "is empty"
-  | "is not empty";
-
-export type HierarchicalOperator =
-  | "is"
-  | "is not"
-  | "is any of"
-  | "is descendant of"
-  | "is ancestor of";
-
 export type DateOperator =
   | "is"
   | "is before"
@@ -76,8 +60,6 @@ export type FilterOperator =
   | TextOperator
   | NumberOperator
   | MultiSelectOperator
-  | RelationalOperator
-  | HierarchicalOperator
   | DateOperator
   | BooleanOperator
   | ModuleCompletionOperator;
@@ -101,12 +83,6 @@ export type RelativeDateOption =
 // Filter Field Configuration
 // ============================================================================
 
-export interface NestedFilterConfig {
-  type: "materials" | "facilities";
-  primaryField: string; // Field to select (e.g., "brandMaterialId")
-  nestedFields: string[]; // Fields available in WHERE conditions
-}
-
 export interface FilterFieldConfig {
   id: string;
   label: string;
@@ -126,7 +102,6 @@ export interface FilterFieldConfig {
     endpoint: string; // e.g., "brandCatalog.colors.list"
     transform?: (data: any) => SelectOption[];
   };
-  nested?: NestedFilterConfig; // For nested filters
   unit?: string; // Display unit (kg, L, %)
   placeholder?: string;
   description?: string;
@@ -153,6 +128,8 @@ export interface FilterCondition {
 export interface FilterGroup {
   id: string;
   conditions: FilterCondition[]; // OR logic within group
+  // UI-only flag: when true, render as a visible group container even if only one condition
+  asGroup?: boolean;
 }
 
 export interface FilterState {
@@ -167,12 +144,11 @@ export type FilterValue =
   | string // text, select
   | number // number, percentage
   | boolean // boolean
-  | string[] // multi-select, relational
+  | string[] // multi-select
   | DateValue // date
   | RelativeDateValue // relative date
   | NumberRangeValue // between operator
   | DateRangeValue // date range
-  | NestedFilterValue // nested (materials/facilities)
   | null
   | undefined;
 
@@ -196,11 +172,6 @@ export interface DateRangeValue {
   end: string; // ISO date string
 }
 
-export interface NestedFilterValue {
-  primarySelection: string | string[]; // Selected material/facility IDs
-  whereConditions?: FilterCondition[]; // Nested filter conditions
-}
-
 // ============================================================================
 // Filter Actions
 // ============================================================================
@@ -208,6 +179,7 @@ export interface NestedFilterValue {
 export interface FilterActions {
   addGroup: () => void;
   removeGroup: (groupId: string) => void;
+  updateGroup: (groupId: string, updates: Partial<FilterGroup>) => void;
   addCondition: (groupId: string, initial?: Partial<FilterCondition>) => void;
   updateCondition: (
     groupId: string,
@@ -270,12 +242,6 @@ export interface FilterValueInputProps {
   operator: FilterOperator;
   value: FilterValue;
   onChange: (value: FilterValue) => void;
-}
-
-export interface NestedFilterInputProps {
-  fieldConfig: FilterFieldConfig;
-  value: NestedFilterValue | null | undefined;
-  onChange: (value: NestedFilterValue) => void;
 }
 
 export interface QuickFiltersPopoverProps {

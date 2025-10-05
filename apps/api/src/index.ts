@@ -145,6 +145,64 @@ app.get("/user-debug", async (c) => {
   }
 });
 
+// Add a database query endpoint to check user brand status directly
+app.get("/brand-debug", async (c) => {
+  try {
+    const ctx = await createTRPCContext({ req: c.req });
+    
+    if (!ctx.user) {
+      return c.json({ error: "Not authenticated" }, 401);
+    }
+
+    // Import db here to avoid top-level import issues
+    const { db } = await import("@v1/db/client");
+    
+    // Query user's brand information
+    const userResult = await db.execute(`
+      SELECT id, email, brand_id, full_name 
+      FROM users 
+      WHERE id = $1
+    `, [ctx.user.id]);
+    
+    // Query user's brand memberships
+    const membershipResult = await db.execute(`
+      SELECT brand_id, role, created_at 
+      FROM users_on_brand 
+      WHERE user_id = $1
+    `, [ctx.user.id]);
+    
+    // Count products for each brand
+    const productCounts = await db.execute(`
+      SELECT b.id as brand_id, b.name as brand_name, COUNT(p.id) as product_count
+      FROM brands b
+      LEFT JOIN products p ON b.id = p.brand_id
+      WHERE b.id IN (
+        SELECT brand_id FROM users_on_brand WHERE user_id = $1
+      )
+      GROUP BY b.id, b.name
+    `, [ctx.user.id]);
+
+    return c.json({
+      status: "brand debug complete",
+      timestamp: new Date().toISOString(),
+      userId: ctx.user.id,
+      userRecord: userResult.rows[0],
+      memberships: membershipResult.rows,
+      brandProductCounts: productCounts.rows,
+    });
+  } catch (error) {
+    console.error("Brand debug failed:", error);
+    return c.json(
+      {
+        status: "brand debug failed",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
+      },
+      500,
+    );
+  }
+});
+
 app.get("/", (c) => {
   return c.json(
     {

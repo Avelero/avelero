@@ -54,8 +54,15 @@ export interface TRPCContext {
 function createSupabaseForRequest(
   authHeader?: string | null,
 ): SupabaseClient<SupabaseDatabase> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anon) {
+    throw new Error(
+      "Missing required Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    );
+  }
+
   return createSupabaseJsClient<SupabaseDatabase>(url, anon, {
     global: authHeader
       ? {
@@ -70,9 +77,12 @@ function createSupabaseForRequest(
 }
 
 function createSupabaseAdmin(): SupabaseClient<SupabaseDatabase> | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined;
-  const serviceKey = process.env.SUPABASE_SERVICE_KEY as string | undefined;
-  if (!url || !serviceKey) return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !serviceKey) {
+    console.warn("⚠️  Supabase admin client not available - missing service key");
+    return null;
+  }
   return createSupabaseJsClient<SupabaseDatabase>(url, serviceKey);
 }
 

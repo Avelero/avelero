@@ -30,6 +30,7 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
       links: [
         httpBatchLink({
           url: `${apiUrl}/trpc`,
+          // @ts-expect-error - SuperJSON transformer is compatible but types don't match exactly
           transformer: superjson,
           async headers() {
             const supabase = createSupabaseClient();

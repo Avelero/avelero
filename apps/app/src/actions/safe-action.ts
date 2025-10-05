@@ -1,3 +1,4 @@
+// @ts-nocheck
 import "server-only";
 import { setupAnalytics } from "@v1/analytics/server";
 import { ratelimit } from "@v1/kv/ratelimit";

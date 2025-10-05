@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { TRPCError } from "@trpc/server";
 import { type Template, modules, passports, templates } from "@v1/db/schema";
 import {

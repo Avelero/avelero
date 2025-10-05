@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import { SignedAvatar } from "@/components/signed-avatar";

@@ -31,16 +31,6 @@
     },
     "types": ["bun-types", "jest"]
   },
-  "exclude": [
-    "node_modules",
-    "src/trpc/routers/analytics.ts",
-    "src/trpc/routers/brand.ts",
-    "src/trpc/routers/categories.ts",
-    "src/trpc/routers/modules.ts",
-    "src/trpc/routers/passports.ts",
-    "src/trpc/routers/products.ts",
-    "src/trpc/routers/templates.ts",
-    "src/trpc/routers/variants.ts"
-  ],
+  "exclude": ["node_modules"],
   "include": ["src/**/*.ts"]
 }

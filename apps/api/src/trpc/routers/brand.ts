@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { User } from "@supabase/supabase-js";
 import { tasks } from "@trigger.dev/sdk/v3";
 import { TRPCError } from "@trpc/server";

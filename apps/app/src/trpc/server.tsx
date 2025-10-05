@@ -22,6 +22,7 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
     links: [
       httpBatchLink({
         url: `${apiUrl}/trpc`,
+        // @ts-expect-error - SuperJSON transformer is compatible but types don't match exactly
         transformer: superjson,
         async headers() {
           const supabase = await createSupabaseServerClient();

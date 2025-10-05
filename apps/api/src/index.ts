@@ -94,6 +94,39 @@ app.get("/trpc-test", (c) => {
   );
 });
 
+// Add a database connectivity test endpoint
+app.get("/db-test", async (c) => {
+  try {
+    // Import db here to avoid top-level import issues
+    const { db } = await import("@v1/db/client");
+    const { sql } = await import("drizzle-orm");
+    
+    // Simple database connectivity test
+    const result = await db.execute(sql`SELECT 1 as test, NOW() as timestamp`);
+    
+    return c.json(
+      {
+        status: "database connected",
+        timestamp: new Date().toISOString(),
+        dbResponse: result[0],
+        environment: process.env.NODE_ENV || "development",
+      },
+      200,
+    );
+  } catch (error) {
+    console.error("❌ Database connection error:", error);
+    return c.json(
+      {
+        status: "database connection failed",
+        timestamp: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown error",
+        environment: process.env.NODE_ENV || "development",
+      },
+      500,
+    );
+  }
+});
+
 app.get("/", (c) => {
   return c.json(
     {

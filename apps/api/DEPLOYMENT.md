@@ -1,5 +1,11 @@
 # API Deployment Guide
 
+## ⚠️ CRITICAL: Set Secrets BEFORE Deploying
+
+**YOU MUST SET FLY.IO SECRETS BEFORE DEPLOYING OR THE APP WILL CRASH!**
+
+The API validates required environment variables on startup and will exit immediately if they're missing.
+
 ## Prerequisites
 
 Before deploying the API, ensure you have the following environment variables set in your Fly.io secrets:

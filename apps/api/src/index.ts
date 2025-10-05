@@ -92,5 +92,6 @@ console.log("✅ API server initialized successfully");
 
 export default {
   port: process.env.PORT ? Number.parseInt(process.env.PORT) : 4000,
+  hostname: "0.0.0.0", // Listen on all interfaces for Docker/Fly.io
   fetch: app.fetch,
 };

@@ -21,7 +21,33 @@ function getQueryClient(): QueryClient {
   return browserQueryClient;
 }
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL as string;
+const getApiUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  
+  // Fallback logic for production
+  if (!envUrl) {
+    if (typeof window !== 'undefined') {
+      // Client-side fallback
+      console.warn('⚠️ NEXT_PUBLIC_API_URL not found, using fallback');
+      return 'https://avelero-api.fly.dev';
+    }
+    // Server-side fallback
+    return 'https://avelero-api.fly.dev';
+  }
+  
+  return envUrl;
+};
+
+const apiUrl = getApiUrl();
+
+// Validate API URL in development
+if (process.env.NODE_ENV === "development" && !process.env.NEXT_PUBLIC_API_URL) {
+  console.error("❌ NEXT_PUBLIC_API_URL is not set");
+}
+
+if (process.env.NODE_ENV === "development") {
+  console.log("🔗 tRPC API URL:", `${apiUrl}/trpc`);
+}
 
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
@@ -41,6 +67,34 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
             return token
               ? ({ Authorization: `Bearer ${token}` } as Record<string, string>)
               : ({} as Record<string, string>);
+          },
+          fetch: async (url, opts) => {
+            try {
+              const response = await fetch(url, opts);
+              
+              // Log response details in development
+              if (process.env.NODE_ENV === "development") {
+                console.log(`🌐 tRPC ${opts?.method || 'GET'}`, url, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: Object.fromEntries(response.headers.entries()),
+                });
+              }
+              
+              // Check if response is empty
+              if (response.status === 200) {
+                const contentLength = response.headers.get('content-length');
+                if (contentLength === '0' || contentLength === null) {
+                  console.error('❌ Empty response from API:', url);
+                  throw new Error('Empty response from API server');
+                }
+              }
+              
+              return response;
+            } catch (error) {
+              console.error('❌ tRPC fetch error:', error, 'URL:', url);
+              throw error;
+            }
           },
         }),
         loggerLink({

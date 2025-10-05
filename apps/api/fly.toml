@@ -5,6 +5,8 @@ primary_region = 'ams'
 
 [env]
   PORT = '3000'
+  NODE_ENV = 'production'
+  ALLOWED_API_ORIGINS = 'https://avelero-app-preview-9215.vercel.app/,https://avelero.vercel.app'
 
 [http_service]
   internal_port = 3000

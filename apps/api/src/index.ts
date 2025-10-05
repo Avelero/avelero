@@ -35,7 +35,7 @@ app.use(secureHeaders());
 app.use(
   "*",
   cors({
-    origin: process.env.ALLOWED_API_ORIGINS?.split(",") ?? [],
+    origin: process.env.ALLOWED_API_ORIGINS?.split(",") ?? ["*"], // Allow all origins in development, or specific origins in production
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowHeaders: [
       "Authorization",
@@ -48,6 +48,7 @@ app.use(
     ],
     exposeHeaders: ["Content-Length"],
     maxAge: 86400,
+    credentials: true, // Allow credentials for authentication
   }),
 );
 
@@ -56,8 +57,16 @@ app.use(
   trpcServer({
     router: appRouter,
     createContext: async (opts) => {
-      const ctx = await createTRPCContext({ req: opts.req });
-      return ctx as unknown as Record<string, unknown>;
+      try {
+        const ctx = await createTRPCContext({ req: opts.req });
+        return ctx as unknown as Record<string, unknown>;
+      } catch (error) {
+        console.error("❌ Error creating tRPC context:", error);
+        throw error;
+      }
+    },
+    onError: ({ error, path }) => {
+      console.error("❌ tRPC Error:", { path, error: error.message });
     },
   }),
 );
@@ -68,6 +77,18 @@ app.get("/health", (c) => {
       status: "ok",
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || "development",
+    },
+    200,
+  );
+});
+
+// Add a test endpoint for tRPC debugging
+app.get("/trpc-test", (c) => {
+  return c.json(
+    {
+      status: "tRPC endpoint accessible",
+      timestamp: new Date().toISOString(),
+      corsOrigins: process.env.ALLOWED_API_ORIGINS?.split(",") ?? ["*"],
     },
     200,
   );
@@ -91,7 +112,7 @@ app.get("/", (c) => {
 console.log("✅ API server initialized successfully");
 
 export default {
-  port: process.env.PORT ? Number.parseInt(process.env.PORT) : 4000,
+  port: process.env.PORT ? Number.parseInt(process.env.PORT) : 3000,
   hostname: "0.0.0.0", // Listen on all interfaces for Docker/Fly.io
   fetch: app.fetch,
 };

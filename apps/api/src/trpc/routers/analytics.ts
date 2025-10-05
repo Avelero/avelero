@@ -1,19 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import {
-  categories,
-  products,
-  productVariants,
-  passports,
   brandColors,
   brandSizes,
+  categories,
+  passports,
+  productVariants,
+  products,
 } from "@v1/db/schema";
-import {
-  and,
-  count,
-  desc,
-  eq,
-  sql,
-} from "drizzle-orm";
+import { and, count, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
 
@@ -30,7 +24,9 @@ const analyticsFilterSchema = z.object({
   // Entity filters
   categoryIds: z.array(z.string().uuid()).optional(),
   productIds: z.array(z.string().uuid()).optional(),
-  passportStatus: z.array(z.enum(["draft", "published", "archived", "blocked"])).optional(),
+  passportStatus: z
+    .array(z.enum(["draft", "published", "archived", "blocked"]))
+    .optional(),
 
   // Completeness filters
   minCompleteness: z.number().min(0).max(100).optional(),
@@ -39,15 +35,17 @@ const analyticsFilterSchema = z.object({
 
 const crossModuleMetricsSchema = z.object({
   filter: analyticsFilterSchema.optional(),
-  metrics: z.array(z.enum([
-    "overallHealth", // Overall system health metrics
-    "categoryVariantPassportFlow", // Full flow from categories to variants to passports
-    "completenessAnalysis", // Completeness analysis across all modules
-    "productCatalogMaturity", // Product catalog maturity score
-    "passportAdoptionFunnel", // Passport adoption funnel analysis
-    "contentGaps", // Identify content gaps across the system
-    "topPerformingCategories", // Categories with best variant/passport coverage
-  ])),
+  metrics: z.array(
+    z.enum([
+      "overallHealth", // Overall system health metrics
+      "categoryVariantPassportFlow", // Full flow from categories to variants to passports
+      "completenessAnalysis", // Completeness analysis across all modules
+      "productCatalogMaturity", // Product catalog maturity score
+      "passportAdoptionFunnel", // Passport adoption funnel analysis
+      "contentGaps", // Identify content gaps across the system
+      "topPerformingCategories", // Categories with best variant/passport coverage
+    ]),
+  ),
 });
 
 export const analyticsRouter = createTRPCRouter({
@@ -74,16 +72,20 @@ export const analyticsRouter = createTRPCRouter({
 
       // Apply date range filters if provided
       if (filter?.dateRange?.from) {
-        baseConditions.push(sql`${products.createdAt} >= ${filter.dateRange.from.toISOString()}`);
+        baseConditions.push(
+          sql`${products.createdAt} >= ${filter.dateRange.from.toISOString()}`,
+        );
       }
       if (filter?.dateRange?.to) {
-        baseConditions.push(sql`${products.createdAt} <= ${filter.dateRange.to.toISOString()}`);
+        baseConditions.push(
+          sql`${products.createdAt} <= ${filter.dateRange.to.toISOString()}`,
+        );
       }
 
       // Process each requested metric
       for (const metric of metrics) {
         switch (metric) {
-          case "overallHealth":
+          case "overallHealth": {
             const healthQuery = await db.execute(sql`
               SELECT
                 COUNT(DISTINCT c.id) as total_categories,
@@ -106,8 +108,9 @@ export const analyticsRouter = createTRPCRouter({
             `);
             results.overallHealth = healthQuery.rows[0];
             break;
+          }
 
-          case "categoryVariantPassportFlow":
+          case "categoryVariantPassportFlow": {
             const flowQuery = await db.execute(sql`
               SELECT
                 c.id as category_id,
@@ -134,8 +137,9 @@ export const analyticsRouter = createTRPCRouter({
             `);
             results.categoryVariantPassportFlow = flowQuery.rows;
             break;
+          }
 
-          case "completenessAnalysis":
+          case "completenessAnalysis": {
             const completenessQuery = await db.execute(sql`
               SELECT
                 'variants' as entity_type,
@@ -173,8 +177,9 @@ export const analyticsRouter = createTRPCRouter({
             `);
             results.completenessAnalysis = completenessQuery.rows;
             break;
+          }
 
-          case "productCatalogMaturity":
+          case "productCatalogMaturity": {
             const maturityQuery = await db.execute(sql`
               WITH category_scores AS (
                 SELECT
@@ -207,8 +212,9 @@ export const analyticsRouter = createTRPCRouter({
             `);
             results.productCatalogMaturity = maturityQuery.rows[0];
             break;
+          }
 
-          case "passportAdoptionFunnel":
+          case "passportAdoptionFunnel": {
             const funnelQuery = await db.execute(sql`
               SELECT
                 'Products Created' as stage,
@@ -272,8 +278,9 @@ export const analyticsRouter = createTRPCRouter({
             `);
             results.passportAdoptionFunnel = funnelQuery.rows;
             break;
+          }
 
-          case "contentGaps":
+          case "contentGaps": {
             const gapsQuery = await db.execute(sql`
               SELECT
                 'Products without variants' as gap_type,
@@ -318,8 +325,9 @@ export const analyticsRouter = createTRPCRouter({
             `);
             results.contentGaps = gapsQuery.rows;
             break;
+          }
 
-          case "topPerformingCategories":
+          case "topPerformingCategories": {
             const topCategoriesQuery = await db.execute(sql`
               SELECT
                 c.id as category_id,
@@ -354,6 +362,7 @@ export const analyticsRouter = createTRPCRouter({
             `);
             results.topPerformingCategories = topCategoriesQuery.rows;
             break;
+          }
 
           default:
             // For any metrics not explicitly handled, return empty result
@@ -381,7 +390,7 @@ export const analyticsRouter = createTRPCRouter({
       z.object({
         includeComparisons: z.boolean().default(false),
         timeframe: z.enum(["7d", "30d", "90d"]).default("30d"),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;

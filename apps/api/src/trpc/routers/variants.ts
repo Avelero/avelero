@@ -1,19 +1,20 @@
 import { TRPCError } from "@trpc/server";
 import {
   type ProductVariant,
-  productVariants,
-  productVariantIdentifiers,
-  products,
   brandColors,
   brandSizes,
-  passports,
   categories,
+  passports,
+  productVariantIdentifiers,
+  productVariants,
+  products,
 } from "@v1/db/schema";
 import {
   bulkUpdateVariantSchema,
   calculateVariantCompleteness,
   checkVariantIdentifierDuplicates,
   createVariantSchema,
+  generateVariantDisplayName,
   getVariantSchema,
   listVariantsSchema,
   transformVariantData,
@@ -21,7 +22,6 @@ import {
   validateVariantSku,
   validateVariantUpid,
   variantMetricsSchema,
-  generateVariantDisplayName,
 } from "@v1/db/schemas/modules";
 import {
   and,
@@ -210,10 +210,17 @@ export const variantsRouter = createTRPCRouter({
 
       // Date range filters
       if (filter.createdRange?.from) {
-        conditions.push(gte(productVariants.createdAt, filter.createdRange.from.toISOString()));
+        conditions.push(
+          gte(
+            productVariants.createdAt,
+            filter.createdRange.from.toISOString(),
+          ),
+        );
       }
       if (filter.createdRange?.to) {
-        conditions.push(lte(productVariants.createdAt, filter.createdRange.to.toISOString()));
+        conditions.push(
+          lte(productVariants.createdAt, filter.createdRange.to.toISOString()),
+        );
       }
 
       // Search filter (across variant and product fields)
@@ -231,7 +238,9 @@ export const variantsRouter = createTRPCRouter({
       // Cursor-based pagination
       if (cursor) {
         try {
-          const cursorData = JSON.parse(Buffer.from(cursor, "base64").toString());
+          const cursorData = JSON.parse(
+            Buffer.from(cursor, "base64").toString(),
+          );
           const cursorField =
             sort.field === "createdAt"
               ? productVariants.createdAt
@@ -275,7 +284,12 @@ export const variantsRouter = createTRPCRouter({
       // Build query with optional includes
       let query: any;
 
-      if (include.product || include.color || include.size || include.passports) {
+      if (
+        include.product ||
+        include.color ||
+        include.size ||
+        include.passports
+      ) {
         // Use joins when includes are requested
         query = db
           .select({
@@ -289,10 +303,16 @@ export const variantsRouter = createTRPCRouter({
           .where(and(...conditions));
 
         if (include.color) {
-          query = query.leftJoin(brandColors, eq(productVariants.colorId, brandColors.id));
+          query = query.leftJoin(
+            brandColors,
+            eq(productVariants.colorId, brandColors.id),
+          );
         }
         if (include.size) {
-          query = query.leftJoin(brandSizes, eq(productVariants.sizeId, brandSizes.id));
+          query = query.leftJoin(
+            brandSizes,
+            eq(productVariants.sizeId, brandSizes.id),
+          );
         }
       } else {
         // Simple select when no includes needed
@@ -323,7 +343,9 @@ export const variantsRouter = createTRPCRouter({
 
       query = query.orderBy(
         sort.direction === "asc" ? asc(sortField) : desc(sortField),
-        sort.direction === "asc" ? asc(productVariants.id) : desc(productVariants.id), // Secondary sort for consistency
+        sort.direction === "asc"
+          ? asc(productVariants.id)
+          : desc(productVariants.id), // Secondary sort for consistency
       );
 
       // Apply limit (+1 to check for more results)
@@ -380,7 +402,9 @@ export const variantsRouter = createTRPCRouter({
         const passportsByVariantId = variantPassports.reduce(
           (acc, passport) => {
             if (passport.variantId) {
-              acc[passport.variantId] = (acc[passport.variantId] || []).concat(passport);
+              acc[passport.variantId] = (acc[passport.variantId] || []).concat(
+                passport,
+              );
             }
             return acc;
           },
@@ -404,7 +428,9 @@ export const variantsRouter = createTRPCRouter({
 
         const identifiersByVariantId = identifiers.reduce(
           (acc, identifier) => {
-            acc[identifier.variantId] = (acc[identifier.variantId] || []).concat(identifier);
+            acc[identifier.variantId] = (
+              acc[identifier.variantId] || []
+            ).concat(identifier);
             return acc;
           },
           {} as Record<string, typeof identifiers>,
@@ -503,7 +529,7 @@ export const variantsRouter = createTRPCRouter({
         if (result.length === 0) return null;
 
         const item = result[0];
-        let variant: any = {
+        const variant: any = {
           ...item.variant,
           ...(include.product && item.product && { product: item.product }),
           ...(include.color && item.color && { color: item.color }),
@@ -523,9 +549,11 @@ export const variantsRouter = createTRPCRouter({
 
         // Add identifier data if requested
         if (include.identifiers) {
-          const identifiers = await db.query.productVariantIdentifiers.findMany({
-            where: eq(productVariantIdentifiers.variantId, variant.id),
-          });
+          const identifiers = await db.query.productVariantIdentifiers.findMany(
+            {
+              where: eq(productVariantIdentifiers.variantId, variant.id),
+            },
+          );
           variant.identifiers = identifiers;
         }
 
@@ -546,7 +574,7 @@ export const variantsRouter = createTRPCRouter({
 
       if (result.length === 0) return null;
 
-      let variant: any = result[0].variant;
+      const variant: any = result[0].variant;
 
       // Add includes even for simple queries if requested
       if (include.passports || include.identifiers || include.statistics) {
@@ -561,9 +589,11 @@ export const variantsRouter = createTRPCRouter({
         }
 
         if (include.identifiers) {
-          const identifiers = await db.query.productVariantIdentifiers.findMany({
-            where: eq(productVariantIdentifiers.variantId, variant.id),
-          });
+          const identifiers = await db.query.productVariantIdentifiers.findMany(
+            {
+              where: eq(productVariantIdentifiers.variantId, variant.id),
+            },
+          );
           variant.identifiers = identifiers;
         }
 
@@ -592,7 +622,10 @@ export const variantsRouter = createTRPCRouter({
 
       // Validate product belongs to brand
       const product = await db.query.products.findFirst({
-        where: and(eq(products.id, input.productId), eq(products.brandId, brandId)),
+        where: and(
+          eq(products.id, input.productId),
+          eq(products.brandId, brandId),
+        ),
       });
 
       if (!product) {
@@ -605,7 +638,10 @@ export const variantsRouter = createTRPCRouter({
       // Validate color and size belong to brand if provided
       if (input.colorId) {
         const color = await db.query.brandColors.findFirst({
-          where: and(eq(brandColors.id, input.colorId), eq(brandColors.brandId, brandId)),
+          where: and(
+            eq(brandColors.id, input.colorId),
+            eq(brandColors.brandId, brandId),
+          ),
         });
 
         if (!color) {
@@ -618,7 +654,10 @@ export const variantsRouter = createTRPCRouter({
 
       if (input.sizeId) {
         const size = await db.query.brandSizes.findFirst({
-          where: and(eq(brandSizes.id, input.sizeId), eq(brandSizes.brandId, brandId)),
+          where: and(
+            eq(brandSizes.id, input.sizeId),
+            eq(brandSizes.brandId, brandId),
+          ),
         });
 
         if (!size) {
@@ -634,7 +673,12 @@ export const variantsRouter = createTRPCRouter({
         .select()
         .from(productVariants)
         .innerJoin(products, eq(productVariants.productId, products.id))
-        .where(and(eq(products.brandId, brandId), eq(productVariants.upid, input.upid)))
+        .where(
+          and(
+            eq(products.brandId, brandId),
+            eq(productVariants.upid, input.upid),
+          ),
+        )
         .limit(1);
 
       if (existingUpid.length > 0) {
@@ -650,7 +694,12 @@ export const variantsRouter = createTRPCRouter({
           .select()
           .from(productVariants)
           .innerJoin(products, eq(productVariants.productId, products.id))
-          .where(and(eq(products.brandId, brandId), eq(productVariants.sku, input.sku)))
+          .where(
+            and(
+              eq(products.brandId, brandId),
+              eq(productVariants.sku, input.sku),
+            ),
+          )
           .limit(1);
 
         if (existingSku.length > 0) {
@@ -664,7 +713,8 @@ export const variantsRouter = createTRPCRouter({
         if (!validateVariantSku(input.sku)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "SKU format is invalid. Must be 6-15 characters, alphanumeric with dashes.",
+            message:
+              "SKU format is invalid. Must be 6-15 characters, alphanumeric with dashes.",
           });
         }
       }
@@ -673,7 +723,8 @@ export const variantsRouter = createTRPCRouter({
       if (!validateVariantUpid(input.upid)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "UPID format is invalid. Must be 8-12 characters, alphanumeric.",
+          message:
+            "UPID format is invalid. Must be 8-12 characters, alphanumeric.",
         });
       }
 
@@ -690,7 +741,8 @@ export const variantsRouter = createTRPCRouter({
         if (existingCombination) {
           throw new TRPCError({
             code: "CONFLICT",
-            message: "A variant with this color and size combination already exists for this product",
+            message:
+              "A variant with this color and size combination already exists for this product",
           });
         }
       }
@@ -776,7 +828,8 @@ export const variantsRouter = createTRPCRouter({
         if (!validateVariantSku(updateData.sku)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "SKU format is invalid. Must be 6-15 characters, alphanumeric with dashes.",
+            message:
+              "SKU format is invalid. Must be 6-15 characters, alphanumeric with dashes.",
           });
         }
       }
@@ -807,7 +860,8 @@ export const variantsRouter = createTRPCRouter({
         if (!validateVariantUpid(updateData.upid)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "UPID format is invalid. Must be 8-12 characters, alphanumeric.",
+            message:
+              "UPID format is invalid. Must be 8-12 characters, alphanumeric.",
           });
         }
       }
@@ -815,7 +869,10 @@ export const variantsRouter = createTRPCRouter({
       // Validate color belongs to brand if changing
       if (updateData.colorId && updateData.colorId !== currentVariant.colorId) {
         const color = await db.query.brandColors.findFirst({
-          where: and(eq(brandColors.id, updateData.colorId), eq(brandColors.brandId, brandId)),
+          where: and(
+            eq(brandColors.id, updateData.colorId),
+            eq(brandColors.brandId, brandId),
+          ),
         });
 
         if (!color) {
@@ -829,7 +886,10 @@ export const variantsRouter = createTRPCRouter({
       // Validate size belongs to brand if changing
       if (updateData.sizeId && updateData.sizeId !== currentVariant.sizeId) {
         const size = await db.query.brandSizes.findFirst({
-          where: and(eq(brandSizes.id, updateData.sizeId), eq(brandSizes.brandId, brandId)),
+          where: and(
+            eq(brandSizes.id, updateData.sizeId),
+            eq(brandSizes.brandId, brandId),
+          ),
         });
 
         if (!size) {
@@ -894,7 +954,9 @@ export const variantsRouter = createTRPCRouter({
 
         // Apply variant-specific filters
         if (filter.productIds) {
-          conditions.push(inArray(productVariants.productId, filter.productIds));
+          conditions.push(
+            inArray(productVariants.productId, filter.productIds),
+          );
         }
         if (filter.colorIds) {
           conditions.push(inArray(productVariants.colorId, filter.colorIds));
@@ -1003,7 +1065,9 @@ export const variantsRouter = createTRPCRouter({
 
       // Apply filters to base conditions if provided
       if (filter.productIds) {
-        baseConditions.push(inArray(productVariants.productId, filter.productIds));
+        baseConditions.push(
+          inArray(productVariants.productId, filter.productIds),
+        );
       }
 
       if (filter.colorIds) {
@@ -1025,7 +1089,7 @@ export const variantsRouter = createTRPCRouter({
       // Process each requested metric
       for (const metric of metrics) {
         switch (metric) {
-          case "colorDistribution":
+          case "colorDistribution": {
             const colorCounts = await db
               .select({
                 colorId: productVariants.colorId,
@@ -1034,13 +1098,17 @@ export const variantsRouter = createTRPCRouter({
               })
               .from(productVariants)
               .innerJoin(products, eq(productVariants.productId, products.id))
-              .leftJoin(brandColors, eq(productVariants.colorId, brandColors.id))
+              .leftJoin(
+                brandColors,
+                eq(productVariants.colorId, brandColors.id),
+              )
               .where(and(...baseConditions))
               .groupBy(productVariants.colorId, brandColors.name);
             results.colorDistribution = colorCounts;
             break;
+          }
 
-          case "sizeDistribution":
+          case "sizeDistribution": {
             const sizeCounts = await db
               .select({
                 sizeId: productVariants.sizeId,
@@ -1054,8 +1122,9 @@ export const variantsRouter = createTRPCRouter({
               .groupBy(productVariants.sizeId, brandSizes.name);
             results.sizeDistribution = sizeCounts;
             break;
+          }
 
-          case "productVariantCounts":
+          case "productVariantCounts": {
             const productCounts = await db
               .select({
                 productId: productVariants.productId,
@@ -1069,8 +1138,9 @@ export const variantsRouter = createTRPCRouter({
               .orderBy(desc(count()));
             results.productVariantCounts = productCounts;
             break;
+          }
 
-          case "imageStatistics":
+          case "imageStatistics": {
             const imageStats = await db
               .select({
                 totalVariants: count(),
@@ -1082,8 +1152,9 @@ export const variantsRouter = createTRPCRouter({
               .where(and(...baseConditions));
             results.imageStatistics = imageStats[0];
             break;
+          }
 
-          case "skuStatistics":
+          case "skuStatistics": {
             const skuStats = await db
               .select({
                 totalVariants: count(),
@@ -1095,8 +1166,9 @@ export const variantsRouter = createTRPCRouter({
               .where(and(...baseConditions));
             results.skuStatistics = skuStats[0];
             break;
+          }
 
-          case "upidStatistics":
+          case "upidStatistics": {
             const upidStats = await db
               .select({
                 totalVariants: count(),
@@ -1107,6 +1179,7 @@ export const variantsRouter = createTRPCRouter({
               .where(and(...baseConditions));
             results.upidStatistics = upidStats[0];
             break;
+          }
 
           case "identifierDuplication":
             // This is a complex query that would require additional logic
@@ -1117,7 +1190,7 @@ export const variantsRouter = createTRPCRouter({
             };
             break;
 
-          case "attributeCombinations":
+          case "attributeCombinations": {
             const combinations = await db
               .select({
                 colorId: productVariants.colorId,
@@ -1128,7 +1201,10 @@ export const variantsRouter = createTRPCRouter({
               })
               .from(productVariants)
               .innerJoin(products, eq(productVariants.productId, products.id))
-              .leftJoin(brandColors, eq(productVariants.colorId, brandColors.id))
+              .leftJoin(
+                brandColors,
+                eq(productVariants.colorId, brandColors.id),
+              )
               .leftJoin(brandSizes, eq(productVariants.sizeId, brandSizes.id))
               .where(and(...baseConditions))
               .groupBy(
@@ -1140,8 +1216,9 @@ export const variantsRouter = createTRPCRouter({
               .orderBy(desc(count()));
             results.attributeCombinations = combinations;
             break;
+          }
 
-          case "completenessStatistics":
+          case "completenessStatistics": {
             // This would require calculating completeness scores for all variants
             // For performance, we'll return a simplified version
             const completenessStats = await db
@@ -1154,8 +1231,9 @@ export const variantsRouter = createTRPCRouter({
               .where(and(...baseConditions));
             results.completenessStatistics = completenessStats[0];
             break;
+          }
 
-          case "passportLinkageStats":
+          case "passportLinkageStats": {
             const passportStats = await db
               .select({
                 totalVariants: count(),
@@ -1171,8 +1249,9 @@ export const variantsRouter = createTRPCRouter({
               .where(and(...baseConditions));
             results.passportLinkageStats = passportStats[0];
             break;
+          }
 
-          case "categoryDistribution":
+          case "categoryDistribution": {
             const categoryStats = await db
               .select({
                 categoryId: products.categoryId,
@@ -1189,6 +1268,7 @@ export const variantsRouter = createTRPCRouter({
               .orderBy(desc(count()));
             results.categoryDistribution = categoryStats;
             break;
+          }
 
           default:
             // For any metrics not explicitly handled, return empty result
@@ -1250,7 +1330,9 @@ export const variantsRouter = createTRPCRouter({
         .delete(productVariants)
         .where(
           and(
-            ...(where.variantId ? [eq(productVariants.id, where.variantId)] : []),
+            ...(where.variantId
+              ? [eq(productVariants.id, where.variantId)]
+              : []),
             ...(where.ids ? [inArray(productVariants.id, where.ids)] : []),
             // Brand isolation through EXISTS subquery
             sql`EXISTS (

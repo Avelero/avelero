@@ -1,11 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import {
   type Product,
-  products,
-  productVariants,
-  categories,
-  showcaseBrands,
   brandCertifications,
+  categories,
+  productVariants,
+  products,
+  showcaseBrands,
 } from "@v1/db/schema";
 import {
   bulkUpdateProductSchema,
@@ -17,6 +17,14 @@ import {
   transformProductData,
   updateProductSchema,
 } from "@v1/db/schemas/modules";
+import {
+  bulkStatusUpdateTransaction,
+  createProductWithVariantsTransaction,
+  createTransactionFromTRPCContext,
+  deleteWithCascadeTransaction,
+} from "@v1/db/utils/cross-module-transactions";
+import { CACHE_TTL, getOrComputeMetrics } from "@v1/kv/cache";
+import { invalidateProductCaches } from "@v1/kv/invalidation";
 import {
   and,
   asc,
@@ -33,14 +41,6 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
-import { getOrComputeMetrics, CACHE_TTL } from "@v1/kv/cache";
-import { invalidateProductCaches } from "@v1/kv/invalidation";
-import {
-  createProductWithVariantsTransaction,
-  bulkStatusUpdateTransaction,
-  deleteWithCascadeTransaction,
-  createTransactionFromTRPCContext,
-} from "@v1/db/utils/cross-module-transactions";
 
 // Shared schemas for consistent API patterns
 const paginationSchema = z.object({
@@ -49,13 +49,7 @@ const paginationSchema = z.object({
 });
 
 const sortSchema = z.object({
-  field: z.enum([
-    "createdAt",
-    "updatedAt",
-    "name",
-    "season",
-    "variantCount",
-  ]),
+  field: z.enum(["createdAt", "updatedAt", "name", "season", "variantCount"]),
   direction: z.enum(["asc", "desc"]).default("desc"),
 });
 
@@ -69,7 +63,12 @@ export const productsRouter = createTRPCRouter({
     .input(listProductsSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
-      const { filter = {}, sort = { field: "createdAt", direction: "desc" }, pagination = {}, include = {} } = input;
+      const {
+        filter = {},
+        sort = { field: "createdAt", direction: "desc" },
+        pagination = {},
+        include = {},
+      } = input;
 
       if (!brandId) {
         throw new TRPCError({
@@ -88,7 +87,7 @@ export const productsRouter = createTRPCRouter({
         conditions.push(
           or(
             ilike(products.name, `%${filter.search}%`),
-            ilike(products.description, `%${filter.search}%`)
+            ilike(products.description, `%${filter.search}%`),
           )!,
         );
       }
@@ -102,7 +101,9 @@ export const productsRouter = createTRPCRouter({
       }
 
       if (filter.showcaseBrandIds && filter.showcaseBrandIds.length > 0) {
-        conditions.push(inArray(products.showcaseBrandId, filter.showcaseBrandIds));
+        conditions.push(
+          inArray(products.showcaseBrandId, filter.showcaseBrandIds),
+        );
       }
 
       if (filter.hasDescription !== undefined) {
@@ -123,19 +124,26 @@ export const productsRouter = createTRPCRouter({
 
       // Date range filters
       if (filter.createdRange?.from) {
-        conditions.push(gte(products.createdAt, filter.createdRange.from.toISOString()));
+        conditions.push(
+          gte(products.createdAt, filter.createdRange.from.toISOString()),
+        );
       }
       if (filter.createdRange?.to) {
-        conditions.push(lte(products.createdAt, filter.createdRange.to.toISOString()));
+        conditions.push(
+          lte(products.createdAt, filter.createdRange.to.toISOString()),
+        );
       }
 
       // Cursor-based pagination
       if (cursor) {
         try {
-          const cursorData = JSON.parse(Buffer.from(cursor, 'base64').toString());
-          const cursorCondition = sort.direction === "asc"
-            ? gte(products[sort.field], cursorData[sort.field])
-            : lte(products[sort.field], cursorData[sort.field]);
+          const cursorData = JSON.parse(
+            Buffer.from(cursor, "base64").toString(),
+          );
+          const cursorCondition =
+            sort.direction === "asc"
+              ? gte(products[sort.field], cursorData[sort.field])
+              : lte(products[sort.field], cursorData[sort.field]);
           conditions.push(cursorCondition);
         } catch (error) {
           throw new TRPCError({
@@ -147,7 +155,10 @@ export const productsRouter = createTRPCRouter({
 
       const data = await db.query.products.findMany({
         where: and(...conditions),
-        orderBy: sort.direction === "asc" ? asc(products[sort.field]) : desc(products[sort.field]),
+        orderBy:
+          sort.direction === "asc"
+            ? asc(products[sort.field])
+            : desc(products[sort.field]),
         limit: limit + 1, // +1 to check if there are more results
         with: {
           category: include.category,
@@ -160,12 +171,15 @@ export const productsRouter = createTRPCRouter({
       const hasMore = data.length > limit;
       if (hasMore) data.pop(); // Remove extra item
 
-      const nextCursor = hasMore && data.length > 0
-        ? Buffer.from(JSON.stringify({
-            [sort.field]: data[data.length - 1][sort.field],
-            id: data[data.length - 1].id
-          })).toString('base64')
-        : null;
+      const nextCursor =
+        hasMore && data.length > 0
+          ? Buffer.from(
+              JSON.stringify({
+                [sort.field]: data[data.length - 1][sort.field],
+                id: data[data.length - 1].id,
+              }),
+            ).toString("base64")
+          : null;
 
       return {
         data,
@@ -267,16 +281,22 @@ export const productsRouter = createTRPCRouter({
 
   // Create product with variants and optional passports using transactions
   createWithVariants: protectedProcedure
-    .input(z.object({
-      productData: createProductSchema,
-      variants: z.array(z.object({
-        name: z.string().min(1).max(200),
-        description: z.string().optional(),
-        customData: z.record(z.any()).optional(),
-      })).optional(),
-      createDefaultPassports: z.boolean().default(false),
-      templateId: z.string().uuid().optional(),
-    }))
+    .input(
+      z.object({
+        productData: createProductSchema,
+        variants: z
+          .array(
+            z.object({
+              name: z.string().min(1).max(200),
+              description: z.string().optional(),
+              customData: z.record(z.any()).optional(),
+            }),
+          )
+          .optional(),
+        createDefaultPassports: z.boolean().default(false),
+        templateId: z.string().uuid().optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const txContext = createTransactionFromTRPCContext(ctx);
 
@@ -302,9 +322,9 @@ export const productsRouter = createTRPCRouter({
         transactionInput,
         {
           timeout: 30000,
-          isolation: 'read committed',
+          isolation: "read committed",
           maxRetries: 3,
-        }
+        },
       );
 
       if (!result.success) {
@@ -358,13 +378,20 @@ export const productsRouter = createTRPCRouter({
 
       // Recalculate completeness if relevant fields changed
       let completenessScore: number | undefined;
-      if (transformedData.name || transformedData.description || transformedData.categoryId ||
-          transformedData.primaryImageUrl || transformedData.season) {
+      if (
+        transformedData.name ||
+        transformedData.description ||
+        transformedData.categoryId ||
+        transformedData.primaryImageUrl ||
+        transformedData.season
+      ) {
         completenessScore = calculateProductCompleteness({
           name: transformedData.name || existingProduct.name,
-          description: transformedData.description || existingProduct.description,
+          description:
+            transformedData.description || existingProduct.description,
           categoryId: transformedData.categoryId || existingProduct.categoryId,
-          primaryImageUrl: transformedData.primaryImageUrl || existingProduct.primaryImageUrl,
+          primaryImageUrl:
+            transformedData.primaryImageUrl || existingProduct.primaryImageUrl,
           season: transformedData.season || existingProduct.season,
         });
       }
@@ -411,7 +438,9 @@ export const productsRouter = createTRPCRouter({
         conditions.push(inArray(products.id, selection.ids));
       } else if (typeof selection === "object" && "filter" in selection) {
         if (selection.filter.categoryIds) {
-          conditions.push(inArray(products.categoryId, selection.filter.categoryIds));
+          conditions.push(
+            inArray(products.categoryId, selection.filter.categoryIds),
+          );
         }
         if (selection.filter.seasons) {
           conditions.push(inArray(products.season, selection.filter.seasons));
@@ -477,12 +506,14 @@ export const productsRouter = createTRPCRouter({
 
   // Soft delete
   delete: protectedProcedure
-    .input(z.object({
-      where: z.object({
-        productId: z.string().uuid().optional(),
-        ids: z.array(z.string().uuid()).optional(),
+    .input(
+      z.object({
+        where: z.object({
+          productId: z.string().uuid().optional(),
+          ids: z.array(z.string().uuid()).optional(),
+        }),
       }),
-    }))
+    )
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
       const { where } = input;
@@ -575,7 +606,7 @@ export const productsRouter = createTRPCRouter({
                 .where(and(...baseConditions, isNotNull(products.categoryId)))
                 .groupBy(products.categoryId);
 
-            case "contentCompleteness":
+            case "contentCompleteness": {
               const stats = await db
                 .select({
                   withDescription: count(),
@@ -585,25 +616,37 @@ export const productsRouter = createTRPCRouter({
                 .from(products)
                 .where(and(...baseConditions));
               return stats[0];
+            }
 
-            case "variantStatistics":
+            case "variantStatistics": {
               const variantStats = await db
                 .select({
                   productId: products.id,
                   variantCount: count(productVariants.id),
                 })
                 .from(products)
-                .leftJoin(productVariants, eq(products.id, productVariants.productId))
+                .leftJoin(
+                  productVariants,
+                  eq(products.id, productVariants.productId),
+                )
                 .where(and(...baseConditions))
                 .groupBy(products.id);
 
               return {
-                productsWithVariants: variantStats.filter(s => s.variantCount > 0).length,
-                totalVariants: variantStats.reduce((sum, s) => sum + s.variantCount, 0),
-                avgVariantsPerProduct: variantStats.length > 0
-                  ? variantStats.reduce((sum, s) => sum + s.variantCount, 0) / variantStats.length
-                  : 0,
+                productsWithVariants: variantStats.filter(
+                  (s) => s.variantCount > 0,
+                ).length,
+                totalVariants: variantStats.reduce(
+                  (sum, s) => sum + s.variantCount,
+                  0,
+                ),
+                avgVariantsPerProduct:
+                  variantStats.length > 0
+                    ? variantStats.reduce((sum, s) => sum + s.variantCount, 0) /
+                      variantStats.length
+                    : 0,
               };
+            }
 
             case "showcaseBrandDistribution":
               return await db
@@ -612,7 +655,9 @@ export const productsRouter = createTRPCRouter({
                   count: count(),
                 })
                 .from(products)
-                .where(and(...baseConditions, isNotNull(products.showcaseBrandId)))
+                .where(
+                  and(...baseConditions, isNotNull(products.showcaseBrandId)),
+                )
                 .groupBy(products.showcaseBrandId);
 
             case "certificationDistribution":
@@ -622,7 +667,12 @@ export const productsRouter = createTRPCRouter({
                   count: count(),
                 })
                 .from(products)
-                .where(and(...baseConditions, isNotNull(products.brandCertificationId)))
+                .where(
+                  and(
+                    ...baseConditions,
+                    isNotNull(products.brandCertificationId),
+                  ),
+                )
                 .groupBy(products.brandCertificationId);
 
             default:
@@ -640,7 +690,7 @@ export const productsRouter = createTRPCRouter({
           {
             filters: filter,
             ttl: CACHE_TTL.METRICS, // 5 minutes TTL
-          }
+          },
         );
       }
 

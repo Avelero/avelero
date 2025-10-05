@@ -1,27 +1,19 @@
 import { TRPCError } from "@trpc/server";
-import { categories, products, productVariants, passports } from "@v1/db/schema";
 import {
-  listCategoriesSchema,
-  getCategorySchema,
-  createCategorySchema,
-  updateCategorySchema,
-  moveCategorySchema,
-  bulkUpdateCategoriesSchema,
-  getCategoryTreeSchema,
-  getCategoryPathSchema,
-  categoryMetricsSchema,
-  validateCategoryHierarchySchema,
-  reorderCategoriesSchema,
-} from "../../schemas/categories.js";
-import {
-  getCategoryTree,
-  getCategoryPath,
+  getCategoriesWithProductCounts,
   getCategoryAncestors,
   getCategoryDescendants,
-  validateCategoryHierarchy,
   getCategoryHierarchyStats,
-  getCategoriesWithProductCounts,
+  getCategoryPath,
+  getCategoryTree,
+  validateCategoryHierarchy,
 } from "@v1/db/queries";
+import {
+  categories,
+  passports,
+  productVariants,
+  products,
+} from "@v1/db/schema";
 import {
   and,
   asc,
@@ -38,6 +30,19 @@ import {
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
+import {
+  bulkUpdateCategoriesSchema,
+  categoryMetricsSchema,
+  createCategorySchema,
+  getCategoryPathSchema,
+  getCategorySchema,
+  getCategoryTreeSchema,
+  listCategoriesSchema,
+  moveCategorySchema,
+  reorderCategoriesSchema,
+  updateCategorySchema,
+  validateCategoryHierarchySchema,
+} from "../../schemas/categories.js";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
 
 // Safety guards for bulk operations
@@ -82,7 +87,7 @@ export const categoriesRouter = createTRPCRouter({
       if (filter.leafOnly) {
         // Categories with no children
         conditions.push(
-          sql`NOT EXISTS (SELECT 1 FROM ${categories} child WHERE child.parent_id = ${categories}.id)`
+          sql`NOT EXISTS (SELECT 1 FROM ${categories} child WHERE child.parent_id = ${categories}.id)`,
         );
       }
 
@@ -93,7 +98,9 @@ export const categoriesRouter = createTRPCRouter({
       // Cursor-based pagination
       if (cursor) {
         try {
-          const cursorData = JSON.parse(Buffer.from(cursor, "base64").toString());
+          const cursorData = JSON.parse(
+            Buffer.from(cursor, "base64").toString(),
+          );
           const cursorCondition =
             sort.direction === "asc"
               ? gte(categories[sort.field], cursorData[sort.field])
@@ -130,7 +137,10 @@ export const categoriesRouter = createTRPCRouter({
           }
 
           if (include.descendants) {
-            enhanced.descendants = await getCategoryDescendants(db, category.id);
+            enhanced.descendants = await getCategoryDescendants(
+              db,
+              category.id,
+            );
           }
 
           if (include.children) {
@@ -154,13 +164,15 @@ export const categoriesRouter = createTRPCRouter({
 
           if (include.productCount) {
             const productCountResult = await db.execute(
-              sql`SELECT COUNT(*) as count FROM products WHERE category_id = ${category.id}`
+              sql`SELECT COUNT(*) as count FROM products WHERE category_id = ${category.id}`,
             );
-            enhanced.productCount = Number(productCountResult.rows[0]?.count || 0);
+            enhanced.productCount = Number(
+              productCountResult.rows[0]?.count || 0,
+            );
           }
 
           return enhanced;
-        })
+        }),
       );
 
       const nextCursor =
@@ -169,7 +181,7 @@ export const categoriesRouter = createTRPCRouter({
               JSON.stringify({
                 [sort.field]: enhancedData[enhancedData.length - 1][sort.field],
                 id: enhancedData[enhancedData.length - 1].id,
-              })
+              }),
             ).toString("base64")
           : null;
 
@@ -251,7 +263,7 @@ export const categoriesRouter = createTRPCRouter({
 
       if (include.productCount) {
         const productCountResult = await db.execute(
-          sql`SELECT COUNT(*) as count FROM products WHERE category_id = ${category.id}`
+          sql`SELECT COUNT(*) as count FROM products WHERE category_id = ${category.id}`,
         );
         enhanced.productCount = Number(productCountResult.rows[0]?.count || 0);
       }
@@ -342,14 +354,17 @@ export const categoriesRouter = createTRPCRouter({
       const existingCategory = await db.query.categories.findFirst({
         where: and(
           eq(categories.name, name),
-          parentId ? eq(categories.parentId, parentId) : isNull(categories.parentId)
+          parentId
+            ? eq(categories.parentId, parentId)
+            : isNull(categories.parentId),
         ),
       });
 
       if (existingCategory) {
         throw new TRPCError({
           code: "CONFLICT",
-          message: "Category with this name already exists under the same parent",
+          message:
+            "Category with this name already exists under the same parent",
         });
       }
 
@@ -409,15 +424,16 @@ export const categoriesRouter = createTRPCRouter({
                 ? eq(categories.parentId, parentId)
                 : isNull(categories.parentId)
               : existingCategory.parentId
-              ? eq(categories.parentId, existingCategory.parentId)
-              : isNull(categories.parentId)
+                ? eq(categories.parentId, existingCategory.parentId)
+                : isNull(categories.parentId),
           ),
         });
 
         if (conflictCategory && conflictCategory.id !== id) {
           throw new TRPCError({
             code: "CONFLICT",
-            message: "Category with this name already exists under the same parent",
+            message:
+              "Category with this name already exists under the same parent",
           });
         }
       }
@@ -485,7 +501,10 @@ export const categoriesRouter = createTRPCRouter({
         const stats = await getCategoryHierarchyStats(db);
         return {
           isValid: stats.maxDepth <= maxDepth,
-          issues: stats.maxDepth > maxDepth ? [`Maximum depth exceeded: ${stats.maxDepth}`] : [],
+          issues:
+            stats.maxDepth > maxDepth
+              ? [`Maximum depth exceeded: ${stats.maxDepth}`]
+              : [],
           stats,
         };
       }
@@ -503,7 +522,11 @@ export const categoriesRouter = createTRPCRouter({
       }
 
       if (checkCycles && category.parentId) {
-        const validation = await validateCategoryHierarchy(db, categoryId, category.parentId);
+        const validation = await validateCategoryHierarchy(
+          db,
+          categoryId,
+          category.parentId,
+        );
         return validation;
       }
 
@@ -527,11 +550,13 @@ export const categoriesRouter = createTRPCRouter({
           conditions.push(
             selection.filter.parentId === null
               ? isNull(categories.parentId)
-              : eq(categories.parentId, selection.filter.parentId)
+              : eq(categories.parentId, selection.filter.parentId),
           );
         }
         if (selection.filter.search) {
-          conditions.push(ilike(categories.name, `%${selection.filter.search}%`));
+          conditions.push(
+            ilike(categories.name, `%${selection.filter.search}%`),
+          );
         }
       }
       // "all" selection uses no additional conditions
@@ -594,7 +619,7 @@ export const categoriesRouter = createTRPCRouter({
           ids: z.array(z.string().uuid()).optional(),
         }),
         cascade: z.boolean().default(false), // Delete children too
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { db } = ctx;
@@ -617,15 +642,16 @@ export const categoriesRouter = createTRPCRouter({
           .where(
             and(
               conditions.length > 0 ? or(...conditions) : sql`true`,
-              sql`EXISTS (SELECT 1 FROM ${categories} child WHERE child.parent_id = ${categories}.id)`
-            )
+              sql`EXISTS (SELECT 1 FROM ${categories} child WHERE child.parent_id = ${categories}.id)`,
+            ),
           )
           .limit(1);
 
         if (hasChildrenQuery.length > 0) {
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
-            message: "Cannot delete categories with children. Use cascade=true or move children first.",
+            message:
+              "Cannot delete categories with children. Use cascade=true or move children first.",
           });
         }
       }
@@ -652,19 +678,21 @@ export const categoriesRouter = createTRPCRouter({
 
       for (const metric of metrics) {
         switch (metric) {
-          case "hierarchyDistribution":
+          case "hierarchyDistribution": {
             const hierarchyStats = await getCategoryHierarchyStats(db);
             results.hierarchyDistribution = hierarchyStats;
             break;
+          }
 
-          case "productDistribution":
+          case "productDistribution": {
             const productDist = await getCategoriesWithProductCounts(db, {
               includeEmpty: false,
             });
             results.productDistribution = productDist;
             break;
+          }
 
-          case "pathAnalysis":
+          case "pathAnalysis": {
             // Get path length analysis
             const pathAnalysis = await db.execute(sql`
               WITH RECURSIVE category_paths AS (
@@ -687,8 +715,9 @@ export const categoriesRouter = createTRPCRouter({
             `);
             results.pathAnalysis = pathAnalysis.rows[0];
             break;
+          }
 
-          case "utilizationStats":
+          case "utilizationStats": {
             const utilizationQuery = await db.execute(sql`
               SELECT
                 COUNT(*) as total_categories,
@@ -705,8 +734,9 @@ export const categoriesRouter = createTRPCRouter({
             `);
             results.utilizationStats = utilizationQuery.rows[0];
             break;
+          }
 
-          case "branchingFactor":
+          case "branchingFactor": {
             const branchingQuery = await db.execute(sql`
               SELECT
                 AVG(child_count) as avg_children_per_parent,
@@ -721,8 +751,9 @@ export const categoriesRouter = createTRPCRouter({
             `);
             results.branchingFactor = branchingQuery.rows[0];
             break;
+          }
 
-          case "variantAnalytics":
+          case "variantAnalytics": {
             const variantAnalyticsQuery = await db.execute(sql`
               SELECT
                 c.id as category_id,
@@ -741,8 +772,9 @@ export const categoriesRouter = createTRPCRouter({
             `);
             results.variantAnalytics = variantAnalyticsQuery.rows;
             break;
+          }
 
-          case "passportCoverage":
+          case "passportCoverage": {
             const passportCoverageQuery = await db.execute(sql`
               SELECT
                 c.id as category_id,
@@ -763,6 +795,7 @@ export const categoriesRouter = createTRPCRouter({
             `);
             results.passportCoverage = passportCoverageQuery.rows;
             break;
+          }
         }
       }
 

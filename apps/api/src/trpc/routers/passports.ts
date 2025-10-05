@@ -3,15 +3,18 @@ import {
   type Passport,
   type PassportStatus,
   type Visibility,
-  passports,
-  passportTemplates,
-  productVariants,
-  products,
-  categories,
   brandColors,
   brandSizes,
+  categories,
+  passportTemplates,
+  passports,
+  productVariants,
+  products,
 } from "@v1/db/schema";
 import {
+  type PassportsFilter,
+  type PassportsInclude,
+  type PassportsSort,
   bulkUpdatePassportSchema,
   calculatePassportCompleteness,
   calculatePassportCompliance,
@@ -19,18 +22,15 @@ import {
   getPassportSchema,
   listPassportsSchema,
   passportMetricsSchema,
+  passportsSchemas,
   transformPassportData,
   updatePassportSchema,
-  passportsSchemas,
-  type PassportsInclude,
-  type PassportsFilter,
-  type PassportsSort,
 } from "@v1/db/schemas/modules";
 import {
-  createCrossModuleQueryCapabilities,
   applyCrossModuleIncludes,
-  transformCrossModuleResults,
   createCrossModulePerformanceTracker,
+  createCrossModuleQueryCapabilities,
+  transformCrossModuleResults,
 } from "@v1/db/schemas/shared";
 import {
   createPassportTransaction,
@@ -55,18 +55,14 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
 
 // Enhanced schemas with cross-module capabilities
-const {
-  filterSchema,
-  sortSchema,
-  includeSchema,
-  paginationSchema,
-} = passportsSchemas;
+const { filterSchema, sortSchema, includeSchema, paginationSchema } =
+  passportsSchemas;
 
 // Create cross-module query capabilities for passports
 const crossModuleCapabilities = createCrossModuleQueryCapabilities(
   "passports",
   passports,
-  z.any() // Passport data schema placeholder
+  z.any(), // Passport data schema placeholder
 );
 
 // Create performance tracker
@@ -102,15 +98,23 @@ export const passportsRouter = createTRPCRouter({
         include = {},
       } = input;
 
-      console.log('[SEARCH DEBUG] Input filter:', JSON.stringify(filter, null, 2));
+      console.log(
+        "[SEARCH DEBUG] Input filter:",
+        JSON.stringify(filter, null, 2),
+      );
 
-      const { cursor, limit = 20, page, includeTotalCount = false } = pagination;
+      const {
+        cursor,
+        limit = 20,
+        page,
+        includeTotalCount = false,
+      } = pagination;
 
       // Validate includes and get performance metrics
       const startTime = Date.now();
       const includeValidation = crossModuleCapabilities.validateIncludes(
         include,
-        ctx.role || "member"
+        ctx.role || "member",
       );
 
       if (!includeValidation.isValid) {
@@ -129,8 +133,14 @@ export const passportsRouter = createTRPCRouter({
       if (filter.search?.trim()) {
         const rawSearchTerm = filter.search.trim();
         const searchTerm = `%${rawSearchTerm}%`;
-        console.log('[SEARCH DEBUG] Raw search:', rawSearchTerm, '| Pattern:', searchTerm, '| Case-insensitive: YES (ILIKE)');
-        
+        console.log(
+          "[SEARCH DEBUG] Raw search:",
+          rawSearchTerm,
+          "| Pattern:",
+          searchTerm,
+          "| Case-insensitive: YES (ILIKE)",
+        );
+
         // Use sql template with COALESCE to handle NULLs properly
         // ILIKE performs case-insensitive pattern matching (ILIKE = case-Insensitive LIKE)
         // Example: "SKU-123" will match "sku-123", "SKU-123", "Sku-123", etc.
@@ -146,7 +156,7 @@ export const passportsRouter = createTRPCRouter({
             OR COALESCE(${categories.name}, '') ILIKE ${searchTerm}
             OR COALESCE(${brandColors.name}, '') ILIKE ${searchTerm}
             OR COALESCE(${brandSizes.name}, '') ILIKE ${searchTerm}
-          )`
+          )`,
         );
       }
 
@@ -191,21 +201,33 @@ export const passportsRouter = createTRPCRouter({
       // Color filter (through variant join)
       if (filter.colorIds && filter.colorIds.length > 0) {
         conditions.push(
-          or(...filter.colorIds.map((colorId) => eq(productVariants.colorId, colorId)))!,
+          or(
+            ...filter.colorIds.map((colorId) =>
+              eq(productVariants.colorId, colorId),
+            ),
+          )!,
         );
       }
 
       // Size filter (through variant join)
       if (filter.sizeIds && filter.sizeIds.length > 0) {
         conditions.push(
-          or(...filter.sizeIds.map((sizeId) => eq(productVariants.sizeId, sizeId)))!,
+          or(
+            ...filter.sizeIds.map((sizeId) =>
+              eq(productVariants.sizeId, sizeId),
+            ),
+          )!,
         );
       }
 
       // Category filter (through product join)
       if (filter.categoryIds && filter.categoryIds.length > 0) {
         conditions.push(
-          or(...filter.categoryIds.map((categoryId) => eq(products.categoryId, categoryId)))!,
+          or(
+            ...filter.categoryIds.map((categoryId) =>
+              eq(products.categoryId, categoryId),
+            ),
+          )!,
         );
       }
 
@@ -282,11 +304,22 @@ export const passportsRouter = createTRPCRouter({
 
       // Execute query with joins - always join for search/filter functionality
       let results: any[];
-      const needsJoins = include.product || include.variant || include.template || filter.search?.trim() ||
-        filter.categoryIds?.length || filter.colorIds?.length || filter.sizeIds?.length;
-      
-      console.log('[SEARCH DEBUG] needsJoins:', needsJoins, '| hasSearch:', !!filter.search?.trim());
-      
+      const needsJoins =
+        include.product ||
+        include.variant ||
+        include.template ||
+        filter.search?.trim() ||
+        filter.categoryIds?.length ||
+        filter.colorIds?.length ||
+        filter.sizeIds?.length;
+
+      console.log(
+        "[SEARCH DEBUG] needsJoins:",
+        needsJoins,
+        "| hasSearch:",
+        !!filter.search?.trim(),
+      );
+
       if (needsJoins) {
         const query = db
           .select({
@@ -297,8 +330,14 @@ export const passportsRouter = createTRPCRouter({
           })
           .from(passports)
           .leftJoin(products, eq(passports.productId, products.id))
-          .leftJoin(productVariants, eq(passports.variantId, productVariants.id))
-          .leftJoin(passportTemplates, eq(passports.templateId, passportTemplates.id))
+          .leftJoin(
+            productVariants,
+            eq(passports.variantId, productVariants.id),
+          )
+          .leftJoin(
+            passportTemplates,
+            eq(passports.templateId, passportTemplates.id),
+          )
           // Join for comprehensive search across category, color, size
           .leftJoin(categories, eq(products.categoryId, categories.id))
           .leftJoin(brandColors, eq(productVariants.colorId, brandColors.id))
@@ -309,11 +348,10 @@ export const passportsRouter = createTRPCRouter({
             sort.direction === "asc" ? asc(passports.id) : desc(passports.id),
           )
           .limit(limit + 1);
-        
+
         // Apply offset for offset-based pagination (only when not using cursor)
-        const queryResults = !cursor && offset > 0 
-          ? await query.offset(offset)
-          : await query;
+        const queryResults =
+          !cursor && offset > 0 ? await query.offset(offset) : await query;
 
         results = queryResults.map((row) => ({
           ...row.passport,
@@ -331,11 +369,10 @@ export const passportsRouter = createTRPCRouter({
             sort.direction === "asc" ? asc(passports.id) : desc(passports.id),
           )
           .limit(limit + 1);
-        
+
         // Apply offset for offset-based pagination (only when not using cursor)
-        results = !cursor && offset > 0 
-          ? await query.offset(offset)
-          : await query;
+        results =
+          !cursor && offset > 0 ? await query.offset(offset) : await query;
       }
 
       // Check if there are more results
@@ -351,14 +388,20 @@ export const passportsRouter = createTRPCRouter({
         hasMore && transformedResults.length > 0
           ? Buffer.from(
               JSON.stringify({
-                [sort.field]: (transformedResults[transformedResults.length - 1] as any)[sort.field],
-                id: (transformedResults[transformedResults.length - 1] as any).id,
+                [sort.field]: (
+                  transformedResults[transformedResults.length - 1] as any
+                )[sort.field],
+                id: (transformedResults[transformedResults.length - 1] as any)
+                  .id,
               }),
             ).toString("base64")
           : null;
 
       // Get performance metrics
-      const performanceMetrics = performanceTracker.trackQuery(include, startTime);
+      const performanceMetrics = performanceTracker.trackQuery(
+        include,
+        startTime,
+      );
 
       // Get total count if requested (expensive operation for large datasets)
       let totalCount: number | undefined = undefined;
@@ -367,8 +410,14 @@ export const passportsRouter = createTRPCRouter({
           .select({ count: count() })
           .from(passports)
           .leftJoin(products, eq(passports.productId, products.id))
-          .leftJoin(productVariants, eq(passports.variantId, productVariants.id))
-          .leftJoin(passportTemplates, eq(passports.templateId, passportTemplates.id))
+          .leftJoin(
+            productVariants,
+            eq(passports.variantId, productVariants.id),
+          )
+          .leftJoin(
+            passportTemplates,
+            eq(passports.templateId, passportTemplates.id),
+          )
           .leftJoin(categories, eq(products.categoryId, categories.id))
           .leftJoin(brandColors, eq(productVariants.colorId, brandColors.id))
           .leftJoin(brandSizes, eq(productVariants.sizeId, brandSizes.id))
@@ -495,8 +544,6 @@ export const passportsRouter = createTRPCRouter({
           case "unpublished":
             results.unpublished += countValue;
             break;
-          case "draft":
-          case "blocked":
           default:
             results.unpublished += countValue;
             break;
@@ -639,15 +686,11 @@ export const passportsRouter = createTRPCRouter({
       };
 
       // Execute transaction with automatic rollback on failure
-      const result = await createPassportTransaction(
-        ctx.db,
-        transactionInput,
-        {
-          timeout: 30000, // 30 second timeout
-          isolation: 'read committed',
-          maxRetries: 3,
-        }
-      );
+      const result = await createPassportTransaction(ctx.db, transactionInput, {
+        timeout: 30000, // 30 second timeout
+        isolation: "read committed",
+        maxRetries: 3,
+      });
 
       if (!result.success) {
         throw new TRPCError({
@@ -727,7 +770,10 @@ export const passportsRouter = createTRPCRouter({
 
       // Handle status transitions with automatic timestamp updates
       const statusUpdates = {};
-      if (transformedData.passportStatus === "published" && existingPassport.passportStatus !== "published") {
+      if (
+        transformedData.passportStatus === "published" &&
+        existingPassport.passportStatus !== "published"
+      ) {
         statusUpdates.publishedAt = new Date().toISOString();
       }
 
@@ -916,7 +962,7 @@ export const passportsRouter = createTRPCRouter({
       // Process each requested metric
       for (const metric of metrics) {
         switch (metric) {
-          case "passportStatusDistribution":
+          case "passportStatusDistribution": {
             const statusCounts = await db
               .select({
                 status: passports.status,
@@ -927,8 +973,9 @@ export const passportsRouter = createTRPCRouter({
               .groupBy(passports.status);
             results.passportStatusDistribution = statusCounts;
             break;
+          }
 
-          case "visibilityDistribution":
+          case "visibilityDistribution": {
             const visibilityCounts = await db
               .select({
                 visibility: passports.visibility,
@@ -939,8 +986,9 @@ export const passportsRouter = createTRPCRouter({
               .groupBy(passports.visibility);
             results.visibilityDistribution = visibilityCounts;
             break;
+          }
 
-          case "dataCompletenessStatistics":
+          case "dataCompletenessStatistics": {
             const completenessStats = await db
               .select({
                 avgCompleteness: count(passports.dataCompleteness),
@@ -949,33 +997,42 @@ export const passportsRouter = createTRPCRouter({
                 completePassports: count(),
               })
               .from(passports)
-              .where(and(...baseConditions, gte(passports.dataCompleteness, 100)));
+              .where(
+                and(...baseConditions, gte(passports.dataCompleteness, 100)),
+              );
             results.dataCompletenessStatistics = completenessStats[0];
             break;
+          }
 
-          case "validationStatistics":
+          case "validationStatistics": {
             const validationStats = await db
               .select({
                 avgValidationScore: count(passports.validationScore),
                 validPassports: count(),
               })
               .from(passports)
-              .where(and(...baseConditions, gte(passports.validationScore, 80)));
+              .where(
+                and(...baseConditions, gte(passports.validationScore, 80)),
+              );
             results.validationStatistics = validationStats[0];
             break;
+          }
 
-          case "complianceStatistics":
+          case "complianceStatistics": {
             const complianceStats = await db
               .select({
                 avgComplianceScore: count(passports.complianceScore),
                 compliantPassports: count(),
               })
               .from(passports)
-              .where(and(...baseConditions, gte(passports.complianceScore, 80)));
+              .where(
+                and(...baseConditions, gte(passports.complianceScore, 80)),
+              );
             results.complianceStatistics = complianceStats[0];
             break;
+          }
 
-          case "sharingStatistics":
+          case "sharingStatistics": {
             const sharingStats = await db
               .select({
                 publicPassports: count(),
@@ -994,8 +1051,9 @@ export const passportsRouter = createTRPCRouter({
               );
             results.sharingStatistics = sharingStats[0];
             break;
+          }
 
-          case "qrCodeUsage":
+          case "qrCodeUsage": {
             const qrStats = await db
               .select({
                 withQrCode: count(),
@@ -1006,8 +1064,9 @@ export const passportsRouter = createTRPCRouter({
               .groupBy(passports.qrCodeFormat);
             results.qrCodeUsage = qrStats;
             break;
+          }
 
-          case "syncHealthMetrics":
+          case "syncHealthMetrics": {
             const syncStats = await db
               .select({
                 status: passports.syncStatus,
@@ -1018,8 +1077,9 @@ export const passportsRouter = createTRPCRouter({
               .groupBy(passports.syncStatus);
             results.syncHealthMetrics = syncStats;
             break;
+          }
 
-          case "templateUsage":
+          case "templateUsage": {
             const templateStats = await db
               .select({
                 templateId: passports.templateId,
@@ -1030,8 +1090,9 @@ export const passportsRouter = createTRPCRouter({
               .groupBy(passports.templateId);
             results.templateUsage = templateStats;
             break;
+          }
 
-          case "accessStatistics":
+          case "accessStatistics": {
             const accessStats = await db
               .select({
                 totalAccesses: count(passports.shareCount),
@@ -1043,14 +1104,17 @@ export const passportsRouter = createTRPCRouter({
                   ...baseConditions,
                   gte(
                     passports.lastAccessedAt,
-                    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+                    new Date(
+                      Date.now() - 30 * 24 * 60 * 60 * 1000,
+                    ).toISOString(),
                   ),
                 ),
               );
             results.accessStatistics = accessStats[0];
             break;
+          }
 
-          case "languageDistribution":
+          case "languageDistribution": {
             const languageStats = await db
               .select({
                 language: passports.primaryLanguage,
@@ -1061,6 +1125,7 @@ export const passportsRouter = createTRPCRouter({
               .groupBy(passports.primaryLanguage);
             results.languageDistribution = languageStats;
             break;
+          }
 
           default:
             // For any metrics not explicitly handled, return empty result
@@ -1098,9 +1163,9 @@ export const passportsRouter = createTRPCRouter({
       .selectDistinct({ season: passports.season })
       .from(passports)
       .where(and(eq(passports.brandId, brandId), isNotNull(passports.season)));
-    
+
     const seasons = seasonsQuery
-      .map(row => row.season)
+      .map((row) => row.season)
       .filter(Boolean)
       .sort();
 
@@ -1112,14 +1177,13 @@ export const passportsRouter = createTRPCRouter({
       })
       .from(passports)
       .innerJoin(products, eq(passports.productId, products.id))
-      .where(and(
-        eq(passports.brandId, brandId),
-        isNotNull(products.categoryId)
-      ));
+      .where(
+        and(eq(passports.brandId, brandId), isNotNull(products.categoryId)),
+      );
 
     const categories = categoriesQuery
-      .filter(cat => cat.id && cat.name)
-      .map(cat => ({ id: cat.id!, name: cat.name! }));
+      .filter((cat) => cat.id && cat.name)
+      .map((cat) => ({ id: cat.id!, name: cat.name! }));
 
     // Get colors from variants linked to passports
     const colorsQuery = await db
@@ -1129,14 +1193,13 @@ export const passportsRouter = createTRPCRouter({
       })
       .from(passports)
       .innerJoin(productVariants, eq(passports.variantId, productVariants.id))
-      .where(and(
-        eq(passports.brandId, brandId),
-        isNotNull(productVariants.colorId)
-      ));
+      .where(
+        and(eq(passports.brandId, brandId), isNotNull(productVariants.colorId)),
+      );
 
     const colors = colorsQuery
-      .filter(color => color.id && color.name)
-      .map(color => ({ id: color.id!, name: color.name! }));
+      .filter((color) => color.id && color.name)
+      .map((color) => ({ id: color.id!, name: color.name! }));
 
     // Get sizes from variants linked to passports
     const sizesQuery = await db
@@ -1146,14 +1209,13 @@ export const passportsRouter = createTRPCRouter({
       })
       .from(passports)
       .innerJoin(productVariants, eq(passports.variantId, productVariants.id))
-      .where(and(
-        eq(passports.brandId, brandId),
-        isNotNull(productVariants.sizeId)
-      ));
+      .where(
+        and(eq(passports.brandId, brandId), isNotNull(productVariants.sizeId)),
+      );
 
     const sizes = sizesQuery
-      .filter(size => size.id && size.name)
-      .map(size => ({ id: size.id!, name: size.name! }));
+      .filter((size) => size.id && size.name)
+      .map((size) => ({ id: size.id!, name: size.name! }));
 
     return {
       seasons,

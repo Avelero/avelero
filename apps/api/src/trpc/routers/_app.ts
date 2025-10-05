@@ -1,5 +1,6 @@
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { createTRPCRouter } from "../init.js";
+import { analyticsRouter } from "./analytics.js";
 import { brandCatalogRouter } from "./brand-catalog.js";
 import { brandRouter } from "./brand.js";
 import { catalogRouter } from "./catalog.js";
@@ -12,7 +13,6 @@ import { productsRouter } from "./products.js";
 import { templatesRouter } from "./templates.js";
 import { userRouter } from "./user.js";
 import { variantsRouter } from "./variants.js";
-import { analyticsRouter } from "./analytics.js";
 
 export const appRouter = createTRPCRouter({
   brand: brandRouter,

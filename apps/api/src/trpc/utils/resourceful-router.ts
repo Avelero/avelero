@@ -365,10 +365,12 @@ export function createGetEndpoint<TTable extends PgTable>(
       );
 
       // Execute query with enhanced includes
-      const result = await (ctx.db.query as any)[config.table._.name].findFirst({
-        where: and(...conditions),
-        with: validatedIncludes,
-      });
+      const result = await (ctx.db.query as any)[config.table._.name].findFirst(
+        {
+          where: and(...conditions),
+          with: validatedIncludes,
+        },
+      );
 
       if (!result) {
         throw new TRPCError({
@@ -441,7 +443,10 @@ export function createCreateEndpoint<TTable extends PgTable>(
           .returning();
 
         return createSuccessMutationResponse([newRecord], 1, {
-          ...({ operation: "create", resourceType: config.resourceName } as any),
+          ...({
+            operation: "create",
+            resourceType: config.resourceName,
+          } as any),
         });
       } catch (error) {
         console.error(`Error creating ${config.resourceName}:`, error);
@@ -496,7 +501,9 @@ export function createUpdateEndpoint<TTable extends PgTable>(
 
         // Build brand-scoped base conditions
         const brandColumn = config.brandColumn || "brandId";
-        const conditions = [eq((config.table as any)[brandColumn], ctx.brandId!)];
+        const conditions = [
+          eq((config.table as any)[brandColumn], ctx.brandId!),
+        ];
 
         if (where.id) {
           conditions.push(eq((config.table as any).id, where.id));
@@ -508,7 +515,9 @@ export function createUpdateEndpoint<TTable extends PgTable>(
 
         // Apply soft delete filter
         if (config.deletedAtColumn) {
-          conditions.push(isNull((config.table as any)[config.deletedAtColumn]));
+          conditions.push(
+            isNull((config.table as any)[config.deletedAtColumn]),
+          );
         }
 
         const dataWithTimestamp = {
@@ -526,7 +535,10 @@ export function createUpdateEndpoint<TTable extends PgTable>(
           updatedRecords,
           updatedRecords.length,
           {
-            ...({ operation: "update", resourceType: config.resourceName } as any),
+            ...({
+              operation: "update",
+              resourceType: config.resourceName,
+            } as any),
           },
         );
       } catch (error) {
@@ -678,7 +690,8 @@ export function createDeleteEndpoint<TTable extends PgTable>(
               resourceType: config.resourceName,
               affectedCount,
               safetyStatus: safetyValidator.getSafetyStatus(affectedCount),
-              estimatedDuration: safetyValidator.estimateDuration(affectedCount),
+              estimatedDuration:
+                safetyValidator.estimateDuration(affectedCount),
             } as any),
           },
         );
@@ -841,7 +854,8 @@ export function createBulkUpdateEndpoint<TTable extends PgTable>(
               resourceType: config.resourceName,
               affectedCount,
               safetyStatus: safetyValidator.getSafetyStatus(affectedCount),
-              estimatedDuration: safetyValidator.estimateDuration(affectedCount),
+              estimatedDuration:
+                safetyValidator.estimateDuration(affectedCount),
             } as any),
           },
         );

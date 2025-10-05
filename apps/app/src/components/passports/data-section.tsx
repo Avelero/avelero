@@ -1,12 +1,24 @@
 "use client";
 
+import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
+import * as React from "react";
 import { DataCard } from "../data-card";
 
 export function DataSection() {
   const trpc = useTRPC();
-  const { data } = useQuery(trpc.passports.countByStatus.queryOptions());
+  const { data: user } = useUserQuerySuspense();
+  const brandId = (user as any)?.brand_id as string | null | undefined;
+  
+  // Use the original query options but add brandId to dependencies via useMemo
+  const { data } = useQuery(
+    React.useMemo(
+      () => trpc.passports.countByStatus.queryOptions(),
+      [trpc, brandId] // brandId as dependency ensures re-fetch when brand changes
+    )
+  );
+  
   const counts = (data as
     | {
         published: number;

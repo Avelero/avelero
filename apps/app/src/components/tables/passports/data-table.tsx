@@ -1,6 +1,7 @@
 "use client";
 
 import { useTableScroll } from "@/hooks/use-table-scroll";
+import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -47,6 +48,8 @@ export function PassportDataTable({
   const [page, setPage] = React.useState(0);
   const pageSize = 50;
   const trpc = useTRPC();
+  const { data: user } = useUserQuerySuspense();
+  const brandId = (user as any)?.brand_id as string | null | undefined;
 
   // Reset page when search, sort, or filter changes
   React.useEffect(() => {
@@ -56,6 +59,7 @@ export function PassportDataTable({
     sortState?.field,
     sortState?.direction,
     filterState,
+    brandId, // Reset page when brand changes
   ]);
 
   // Convert frontend filter state to backend filter format
@@ -165,6 +169,7 @@ export function PassportDataTable({
     convertedFilters,
     pageSize,
     page,
+    brandId, // Include brandId in dependencies so query cache invalidates when brand changes
   ]);
 
   const { data: listRes, isLoading } = useQuery(

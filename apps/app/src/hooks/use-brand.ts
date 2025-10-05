@@ -69,9 +69,20 @@ export function useSetActiveBrandMutation() {
         );
       },
       onSuccess: async () => {
-        // Invalidate all queries to refresh with new brand context
-        await queryClient.invalidateQueries();
-        // Refresh the page to update server-side brand context
+        // First, invalidate user query to get updated brand_id
+        await queryClient.invalidateQueries({
+          queryKey: trpc.user.me.queryKey(),
+        });
+        
+        // Then invalidate all other queries to refresh with new brand context
+        await queryClient.invalidateQueries({
+          predicate: (query) => {
+            // Invalidate all queries except the user query (already invalidated above)
+            return !query.queryKey.includes('user.me');
+          },
+        });
+        
+        // Finally refresh the page to update server-side brand context
         router.refresh();
       },
     }),

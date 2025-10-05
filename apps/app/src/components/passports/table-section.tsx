@@ -120,6 +120,7 @@ export function TableSection() {
   const [visibleColumns, setVisibleColumns] =
     React.useState<string[]>(DEFAULT_VISIBLE);
 
+  // Load saved column preferences on mount only
   React.useEffect(() => {
     const saved = readCookie();
     if (saved?.length) {
@@ -128,7 +129,8 @@ export function TableSection() {
     } else {
       setVisibleColumns(DEFAULT_VISIBLE);
     }
-  }, [readCookie, migrateIfNeeded, DEFAULT_VISIBLE]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   const handleSavePrefs = React.useCallback(
     (nextVisible: string[]) => {

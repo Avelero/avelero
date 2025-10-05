@@ -59,71 +59,69 @@ export function PassportDataTable({
   ]);
 
   // Convert frontend filter state to backend filter format
-  const convertFiltersToBackend = React.useCallback(
-    (filterState?: FilterState) => {
-      if (!filterState || filterState.groups.length === 0) return {};
+  // Memoize based on filterState to prevent unnecessary recalculations
+  const convertedFilters = React.useMemo(() => {
+    if (!filterState || filterState.groups.length === 0) return {};
 
-      const backendFilter: any = {};
+    const backendFilter: any = {};
 
-      // Process all filter groups (AND logic between groups)
-      for (const group of filterState.groups) {
-        for (const condition of group.conditions) {
-          if (!condition.fieldId || condition.value == null) continue;
+    // Process all filter groups (AND logic between groups)
+    for (const group of filterState.groups) {
+      for (const condition of group.conditions) {
+        if (!condition.fieldId || condition.value == null) continue;
 
-          const value = condition.value;
-          const values = Array.isArray(value) ? value : [value];
+        const value = condition.value;
+        const values = Array.isArray(value) ? value : [value];
 
-          switch (condition.fieldId) {
-            case "status":
-              // passportStatus expects array of status values
-              if (!backendFilter.passportStatus)
-                backendFilter.passportStatus = [];
-              backendFilter.passportStatus.push(...values);
-              break;
+        switch (condition.fieldId) {
+          case "status":
+            // passportStatus expects array of status values
+            if (!backendFilter.passportStatus)
+              backendFilter.passportStatus = [];
+            backendFilter.passportStatus.push(...values);
+            break;
 
-            case "categoryId":
-              // Category filtering through product join
-              if (!backendFilter.categoryIds) backendFilter.categoryIds = [];
-              backendFilter.categoryIds.push(...values);
-              break;
+          case "categoryId":
+            // Category filtering through product join
+            if (!backendFilter.categoryIds) backendFilter.categoryIds = [];
+            backendFilter.categoryIds.push(...values);
+            break;
 
-            case "colorId":
-              // Color filtering through variant join
-              if (!backendFilter.colorIds) backendFilter.colorIds = [];
-              backendFilter.colorIds.push(...values);
-              break;
+          case "colorId":
+            // Color filtering through variant join
+            if (!backendFilter.colorIds) backendFilter.colorIds = [];
+            backendFilter.colorIds.push(...values);
+            break;
 
-            case "sizeId":
-              // Size filtering through variant join
-              if (!backendFilter.sizeIds) backendFilter.sizeIds = [];
-              backendFilter.sizeIds.push(...values);
-              break;
+          case "sizeId":
+            // Size filtering through variant join
+            if (!backendFilter.sizeIds) backendFilter.sizeIds = [];
+            backendFilter.sizeIds.push(...values);
+            break;
 
-            case "season":
-              // Season is a direct field on passport
-              if (!backendFilter.season) backendFilter.season = [];
-              backendFilter.season.push(...values);
-              break;
+          case "season":
+            // Season is a direct field on passport
+            if (!backendFilter.season) backendFilter.season = [];
+            backendFilter.season.push(...values);
+            break;
 
-            case "moduleCompletion":
-              // Module completion - complex logic, placeholder for now
-              // TODO: Implement module completion filtering
-              break;
-          }
+          case "moduleCompletion":
+            // Module completion - complex logic, placeholder for now
+            // TODO: Implement module completion filtering
+            break;
         }
       }
+    }
 
-      // Deduplicate arrays
-      for (const key of Object.keys(backendFilter)) {
-        if (Array.isArray(backendFilter[key])) {
-          backendFilter[key] = [...new Set(backendFilter[key])];
-        }
+    // Deduplicate arrays
+    for (const key of Object.keys(backendFilter)) {
+      if (Array.isArray(backendFilter[key])) {
+        backendFilter[key] = [...new Set(backendFilter[key])];
       }
+    }
 
-      return backendFilter;
-    },
-    [],
-  );
+    return backendFilter;
+  }, [filterState]);
 
   // Build query parameters with search, sort, and filters
   const queryParams = React.useMemo(() => {
@@ -149,7 +147,6 @@ export function PassportDataTable({
     }
 
     // Add converted filters
-    const convertedFilters = convertFiltersToBackend(filterState);
     params.filter = { ...params.filter, ...convertedFilters };
 
     // Add sort if active
@@ -165,10 +162,9 @@ export function PassportDataTable({
     searchState?.debouncedQuery,
     sortState?.field,
     sortState?.direction,
-    filterState,
+    convertedFilters,
     pageSize,
     page,
-    convertFiltersToBackend,
   ]);
 
   const { data: listRes, isLoading } = useQuery(

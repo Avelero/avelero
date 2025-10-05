@@ -276,21 +276,7 @@ export function useFilterState(
     ],
   );
 
-  // ==========================================================================
-  // Debug Logging (Development Only)
-  // ==========================================================================
-
-  React.useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      console.log("[useFilterState] State updated:", {
-        groupCount: immediateState.groups.length,
-        hasActiveFilters,
-        activeFilterCount,
-        immediateState,
-        debouncedState,
-      });
-    }
-  }, [immediateState, debouncedState, hasActiveFilters, activeFilterCount]);
+  // Debug logging removed to improve performance
 
   return [immediateState, debouncedState, actions];
 }

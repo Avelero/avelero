@@ -40,16 +40,13 @@ export function useSearchState(
   const actions: SearchActions = React.useMemo(
     () => ({
       setQuery: (newQuery: string) => {
-        console.log("useSearchState: setQuery called with:", newQuery);
         setQuery(newQuery);
       },
       clearQuery: () => {
-        console.log("useSearchState: clearQuery called");
         setQuery("");
         setExecutedQuery("");
       },
       executeSearch: () => {
-        console.log("useSearchState: executeSearch called with:", query);
         setExecutedQuery(query);
       },
     }),

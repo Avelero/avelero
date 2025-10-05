@@ -99,28 +99,46 @@ app.get("/db-test", async (c) => {
   try {
     // Import db here to avoid top-level import issues
     const { db } = await import("@v1/db/client");
-    const { sql } = await import("drizzle-orm");
-    
-    // Simple database connectivity test
-    const result = await db.execute(sql`SELECT 1 as test, NOW() as timestamp`);
-    
-    return c.json(
-      {
-        status: "database connected",
-        timestamp: new Date().toISOString(),
-        dbResponse: result[0],
-        environment: process.env.NODE_ENV || "development",
-      },
-      200,
-    );
+    const result = await db.execute("SELECT 1 as test");
+    return c.json({
+      status: "database connected",
+      timestamp: new Date().toISOString(),
+      dbResponse: result.rows[0],
+    });
   } catch (error) {
-    console.error("❌ Database connection error:", error);
+    console.error("Database test failed:", error);
     return c.json(
       {
         status: "database connection failed",
-        timestamp: new Date().toISOString(),
         error: error instanceof Error ? error.message : "Unknown error",
-        environment: process.env.NODE_ENV || "development",
+        timestamp: new Date().toISOString(),
+      },
+      500,
+    );
+  }
+});
+
+// Add a user debug endpoint to check authentication and brand context
+app.get("/user-debug", async (c) => {
+  try {
+    const ctx = await createTRPCContext({ req: c.req });
+    return c.json({
+      status: "user context retrieved",
+      timestamp: new Date().toISOString(),
+      hasUser: !!ctx.user,
+      userId: ctx.user?.id || null,
+      brandId: ctx.brandId || null,
+      userEmail: ctx.user?.email || null,
+      hasBrandContext: !!ctx.brandContext,
+      hasUserContext: !!ctx.userContext,
+    });
+  } catch (error) {
+    console.error("User debug failed:", error);
+    return c.json(
+      {
+        status: "user context failed",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
       },
       500,
     );

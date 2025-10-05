@@ -27,6 +27,7 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     OPENPANEL_SECRET_KEY: process.env.OPENPANEL_SECRET_KEY,
     PORT: process.env.PORT,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
@@ -34,7 +35,6 @@ export const env = createEnv({
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     VERCEL_URL: process.env.VERCEL_URL,
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
   skipValidation: !!process.env.CI || !!process.env.SKIP_ENV_VALIDATION,
 });

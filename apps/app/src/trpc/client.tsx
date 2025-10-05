@@ -71,7 +71,7 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
           fetch: async (url, opts) => {
             try {
               const response = await fetch(url, opts);
-              
+
               // Log response details in development
               if (process.env.NODE_ENV === "development") {
                 console.log(`🌐 tRPC ${opts?.method || 'GET'}`, url, {
@@ -80,16 +80,17 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
                   headers: Object.fromEntries(response.headers.entries()),
                 });
               }
-              
-              // Check if response is empty
+
+              // Only check for explicitly empty responses (content-length: 0)
+              // Don't throw on null content-length as it's valid for chunked responses
               if (response.status === 200) {
                 const contentLength = response.headers.get('content-length');
-                if (contentLength === '0' || contentLength === null) {
+                if (contentLength === '0') {
                   console.error('❌ Empty response from API:', url);
                   throw new Error('Empty response from API server');
                 }
               }
-              
+
               return response;
             } catch (error) {
               console.error('❌ tRPC fetch error:', error, 'URL:', url);

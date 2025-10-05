@@ -43,14 +43,18 @@ const variantFilterExtensions = {
   // Identifier validation
   hasValidSku: z.boolean().optional(),
   hasValidUpid: z.boolean().optional(),
-  identifierValidationStatus: z.enum(["valid", "invalid", "missing", "duplicate"]).optional(),
+  identifierValidationStatus: z
+    .enum(["valid", "invalid", "missing", "duplicate"])
+    .optional(),
 
   // Variant completion status
   isComplete: z.boolean().optional(),
-  completenessScore: z.object({
-    min: z.number().min(0).max(100).optional(),
-    max: z.number().min(0).max(100).optional(),
-  }).optional(),
+  completenessScore: z
+    .object({
+      min: z.number().min(0).max(100).optional(),
+      max: z.number().min(0).max(100).optional(),
+    })
+    .optional(),
 
   // Product relationship filters
   productSeasons: z.array(z.string()).optional(),
@@ -203,7 +207,7 @@ export const variantsSchemas = registerModuleSchemas(
     dataExtensions: variantDataExtensions,
     additionalMetrics: variantAdditionalMetrics,
     strict: true,
-  })
+  }),
 );
 
 // ================================
@@ -224,60 +228,73 @@ export type VariantsMetrics = InferModuleMetrics<typeof variantsSchemas>;
 /**
  * Variant creation schema with extended validation
  */
-export const createVariantSchema = variantsSchemas.dataSchema.extend({
-  // Required fields for creation
-  productId: z.string().uuid(),
-  upid: z.string().min(1).max(50),
+export const createVariantSchema = variantsSchemas.dataSchema
+  .extend({
+    // Required fields for creation
+    productId: z.string().uuid(),
+    upid: z.string().min(1).max(50),
 
-  // Optional but validated fields
-  sku: z.string().max(50).optional(),
-  colorId: z.string().uuid().optional(),
-  sizeId: z.string().uuid().optional(),
-  productImageUrl: validationPatterns.url.optional(),
-}).strict();
+    // Optional but validated fields
+    sku: z.string().max(50).optional(),
+    colorId: z.string().uuid().optional(),
+    sizeId: z.string().uuid().optional(),
+    productImageUrl: validationPatterns.url.optional(),
+  })
+  .strict();
 
 /**
  * Variant update schema with extended validation
  */
-export const updateVariantSchema = variantsSchemas.dataSchema.partial().extend({
-  // Always require ID for updates
-  id: z.string().uuid(),
-}).strict();
+export const updateVariantSchema = variantsSchemas.dataSchema
+  .partial()
+  .extend({
+    // Always require ID for updates
+    id: z.string().uuid(),
+  })
+  .strict();
 
 /**
  * Variant bulk update schema
  */
-export const bulkUpdateVariantSchema = z.object({
-  selection: variantsSchemas.createSelectionSchema(),
-  data: variantsSchemas.dataSchema.partial(),
-  preview: z.boolean().default(false),
-}).strict();
+export const bulkUpdateVariantSchema = z
+  .object({
+    selection: variantsSchemas.createSelectionSchema(),
+    data: variantsSchemas.dataSchema.partial(),
+    preview: z.boolean().default(false),
+  })
+  .strict();
 
 /**
  * Variant list input schema
  */
-export const listVariantsSchema = z.object({
-  filter: variantsSchemas.filterSchema.optional(),
-  sort: variantsSchemas.sortSchema.optional(),
-  pagination: variantsSchemas.paginationSchema.optional(),
-  include: variantsSchemas.includeSchema.optional(),
-}).strict();
+export const listVariantsSchema = z
+  .object({
+    filter: variantsSchemas.filterSchema.optional(),
+    sort: variantsSchemas.sortSchema.optional(),
+    pagination: variantsSchemas.paginationSchema.optional(),
+    include: variantsSchemas.includeSchema.optional(),
+  })
+  .strict();
 
 /**
  * Variant get input schema
  */
-export const getVariantSchema = z.object({
-  where: variantsSchemas.whereSchema,
-  include: variantsSchemas.includeSchema.optional(),
-}).strict();
+export const getVariantSchema = z
+  .object({
+    where: variantsSchemas.whereSchema,
+    include: variantsSchemas.includeSchema.optional(),
+  })
+  .strict();
 
 /**
  * Variant metrics input schema
  */
-export const variantMetricsSchema = z.object({
-  filter: variantsSchemas.filterSchema.optional(),
-  metrics: variantsSchemas.metricsSchema,
-}).strict();
+export const variantMetricsSchema = z
+  .object({
+    filter: variantsSchemas.filterSchema.optional(),
+    metrics: variantsSchemas.metricsSchema,
+  })
+  .strict();
 
 // ================================
 // Variant-Specific Helper Functions
@@ -341,18 +358,20 @@ export const transformVariantData = (data: any): any => {
 /**
  * Checks for duplicate identifiers within a dataset
  */
-export const checkVariantIdentifierDuplicates = (variants: Array<{
-  id?: string;
-  sku?: string;
-  upid?: string;
-}>): {
+export const checkVariantIdentifierDuplicates = (
+  variants: Array<{
+    id?: string;
+    sku?: string;
+    upid?: string;
+  }>,
+): {
   duplicateSkus: Array<{ sku: string; variantIds: string[] }>;
   duplicateUpids: Array<{ upid: string; variantIds: string[] }>;
 } => {
   const skuGroups = new Map<string, string[]>();
   const upidGroups = new Map<string, string[]>();
 
-  variants.forEach(variant => {
+  variants.forEach((variant) => {
     if (!variant.id) return;
 
     if (variant.sku) {

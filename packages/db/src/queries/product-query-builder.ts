@@ -1,4 +1,15 @@
-import { sql, eq, gte, lte, and, asc, desc, or, isNull, ilike } from "drizzle-orm";
+import {
+  sql,
+  eq,
+  gte,
+  lte,
+  and,
+  asc,
+  desc,
+  or,
+  isNull,
+  ilike,
+} from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { db, type Database } from "../client";
 import { products } from "../schema";
@@ -39,13 +50,15 @@ export class ProductQueryBuilder {
       const searchTerm = `%${filters.search}%`;
       const searchConditions = [
         ilike(products.name, searchTerm),
-        ilike(products.description, searchTerm)
+        ilike(products.description, searchTerm),
       ];
       this.whereConditions.push(or(...searchConditions));
     }
 
     if (filters?.categoryIds && filters.categoryIds.length > 0) {
-      this.whereConditions.push(eq(products.categoryId, filters.categoryIds[0])); // Support single category for now
+      this.whereConditions.push(
+        eq(products.categoryId, filters.categoryIds[0]),
+      ); // Support single category for now
     }
 
     if (filters?.season) {
@@ -53,15 +66,21 @@ export class ProductQueryBuilder {
     }
 
     if (filters?.showcaseBrandIds && filters.showcaseBrandIds.length > 0) {
-      this.whereConditions.push(eq(products.showcaseBrandId, filters.showcaseBrandIds[0])); // Support single showcase brand for now
+      this.whereConditions.push(
+        eq(products.showcaseBrandId, filters.showcaseBrandIds[0]),
+      ); // Support single showcase brand for now
     }
 
     if (filters?.dateRange) {
       if (filters.dateRange.startDate) {
-        this.whereConditions.push(gte(products.createdAt, filters.dateRange.startDate));
+        this.whereConditions.push(
+          gte(products.createdAt, filters.dateRange.startDate),
+        );
       }
       if (filters.dateRange.endDate) {
-        this.whereConditions.push(lte(products.createdAt, filters.dateRange.endDate));
+        this.whereConditions.push(
+          lte(products.createdAt, filters.dateRange.endDate),
+        );
       }
     }
 
@@ -90,12 +109,13 @@ export class ProductQueryBuilder {
       const page = pagination?.page || 1;
       const offset = (page - 1) * limit;
       this.query = this.query.limit(limit).offset(offset);
-    }
-    else if (method === "cursor") {
+    } else if (method === "cursor") {
       this.query = this.query.limit(limit);
       if (pagination?.cursor) {
         const [createdAt, id] = pagination.cursor.split("_");
-        this.query = this.query.where(and(lte(products.createdAt, createdAt), lte(products.id, id)));
+        this.query = this.query.where(
+          and(lte(products.createdAt, createdAt), lte(products.id, id)),
+        );
       }
     }
 
@@ -103,7 +123,10 @@ export class ProductQueryBuilder {
   }
 
   public async getTotalCount() {
-    const [countResult] = await this.db.select({ count: sql<number>`count(*)` }).from(products).where(and(...this.whereConditions));
+    const [countResult] = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(products)
+      .where(and(...this.whereConditions));
     return countResult?.count || 0;
   }
 
@@ -122,7 +145,8 @@ export class ProductQueryBuilder {
       const endTime = process.hrtime.bigint();
       this.queryTimeMs = Number(endTime - startTime) / 1_000_000;
 
-      if (this.queryTimeMs > 500) { // Log if query takes longer than 500ms
+      if (this.queryTimeMs > 500) {
+        // Log if query takes longer than 500ms
         console.warn("Slow query detected in ProductQueryBuilder", {
           queryTimeMs: this.queryTimeMs,
           brandId: this.brandId,
@@ -142,10 +166,9 @@ export class ProductQueryBuilder {
 
       if (method === "offset") {
         const page = this.pagination?.page || 1;
-        hasNextPage = (page * limit) < totalCount;
+        hasNextPage = page * limit < totalCount;
         hasPreviousPage = page > 1;
-      }
-      else if (method === "cursor") {
+      } else if (method === "cursor") {
         if (products.length > 0) {
           startCursor = `${products[0].createdAt}_${products[0].id}`;
           endCursor = `${products[products.length - 1].createdAt}_${products[products.length - 1].id}`;
@@ -157,7 +180,15 @@ export class ProductQueryBuilder {
         }
       }
 
-      return { products, totalCount, hasNextPage, hasPreviousPage, startCursor, endCursor, queryTimeMs: this.queryTimeMs };
+      return {
+        products,
+        totalCount,
+        hasNextPage,
+        hasPreviousPage,
+        startCursor,
+        endCursor,
+        queryTimeMs: this.queryTimeMs,
+      };
     } catch (error) {
       console.error("Database error:", error);
       throw new TRPCError({

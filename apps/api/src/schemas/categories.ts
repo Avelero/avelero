@@ -7,13 +7,7 @@ const paginationSchema = z.object({
 });
 
 const sortSchema = z.object({
-  field: z.enum([
-    "createdAt",
-    "updatedAt",
-    "name",
-    "depth",
-    "path",
-  ]),
+  field: z.enum(["createdAt", "updatedAt", "name", "depth", "path"]),
   direction: z.enum(["asc", "desc"]).default("asc"),
 });
 
@@ -32,10 +26,12 @@ const filterSchema = z.object({
   parentId: z.string().uuid().nullable().optional(),
   rootOnly: z.boolean().optional(), // Only root categories (parentId is null)
   leafOnly: z.boolean().optional(), // Only leaf categories (no children)
-  depth: z.object({
-    min: z.number().min(0).optional(),
-    max: z.number().min(0).optional(),
-  }).optional(),
+  depth: z
+    .object({
+      min: z.number().min(0).optional(),
+      max: z.number().min(0).optional(),
+    })
+    .optional(),
   hasProducts: z.boolean().optional(), // Categories with/without products
   name: z.string().optional(), // Exact name match
   pathContains: z.string().optional(), // Path contains substring
@@ -103,10 +99,12 @@ export const getCategoryTreeSchema = z.object({
   rootId: z.string().uuid().nullable().optional(), // Start from this category
   maxDepth: z.number().min(1).max(10).default(5),
   includeProductCounts: z.boolean().default(false),
-  filter: z.object({
-    search: z.string().optional(),
-    hasProducts: z.boolean().optional(),
-  }).optional(),
+  filter: z
+    .object({
+      search: z.string().optional(),
+      hasProducts: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 // Category path operations
@@ -119,16 +117,18 @@ export const getCategoryPathSchema = z.object({
 // Category metrics/aggregations
 export const categoryMetricsSchema = z.object({
   filter: filterSchema.optional(),
-  metrics: z.array(z.enum([
-    "hierarchyDistribution", // Count by depth level
-    "productDistribution", // Products per category
-    "parentChildCounts", // Parent/child relationship stats
-    "pathAnalysis", // Path length analysis
-    "utilizationStats", // Categories with/without products
-    "branchingFactor", // Average children per parent
-    "variantAnalytics", // Variant distribution across categories
-    "passportCoverage", // Passport coverage per category
-  ])),
+  metrics: z.array(
+    z.enum([
+      "hierarchyDistribution", // Count by depth level
+      "productDistribution", // Products per category
+      "parentChildCounts", // Parent/child relationship stats
+      "pathAnalysis", // Path length analysis
+      "utilizationStats", // Categories with/without products
+      "branchingFactor", // Average children per parent
+      "variantAnalytics", // Variant distribution across categories
+      "passportCoverage", // Passport coverage per category
+    ]),
+  ),
 });
 
 // Validation schemas
@@ -150,9 +150,13 @@ export type GetCategoryInput = z.infer<typeof getCategorySchema>;
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 export type MoveCategoryInput = z.infer<typeof moveCategorySchema>;
-export type BulkUpdateCategoriesInput = z.infer<typeof bulkUpdateCategoriesSchema>;
+export type BulkUpdateCategoriesInput = z.infer<
+  typeof bulkUpdateCategoriesSchema
+>;
 export type GetCategoryTreeInput = z.infer<typeof getCategoryTreeSchema>;
 export type GetCategoryPathInput = z.infer<typeof getCategoryPathSchema>;
 export type CategoryMetricsInput = z.infer<typeof categoryMetricsSchema>;
-export type ValidateCategoryHierarchyInput = z.infer<typeof validateCategoryHierarchySchema>;
+export type ValidateCategoryHierarchyInput = z.infer<
+  typeof validateCategoryHierarchySchema
+>;
 export type ReorderCategoriesInput = z.infer<typeof reorderCategoriesSchema>;

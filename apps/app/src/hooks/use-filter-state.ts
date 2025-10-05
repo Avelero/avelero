@@ -20,11 +20,14 @@ import * as React from "react";
  * @param isFilterMenuOpen - Whether any filter menu is currently open (pauses debouncing)
  * @returns [immediateState, debouncedState, filterActions]
  */
-export function useFilterState(debounceMs: number = 2000, isFilterMenuOpen: boolean = false): [FilterState, FilterState, FilterActions] {
+export function useFilterState(
+  debounceMs = 2000,
+  isFilterMenuOpen = false,
+): [FilterState, FilterState, FilterActions] {
   const [immediateState, setImmediateState] = React.useState<FilterState>({
     groups: [],
   });
-  
+
   const [debouncedState, setDebouncedState] = React.useState<FilterState>({
     groups: [],
   });

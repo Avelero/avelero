@@ -1,48 +1,60 @@
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, inArray, count, desc, asc, ilike, isNull, gt, lt, sql } from "drizzle-orm";
+import {
+  type ResponseMeta,
+  baseFilterSchema,
+  basePaginationSchema,
+  baseSortSchema,
+  createCommonErrors,
+  createErrorResponse,
+  createExtendedFilterSchema,
+  createExtendedIncludeSchema,
+  createExtendedMetricsSchema,
+  createExtendedSortSchema,
+  createSuccessGetResponse,
+  createSuccessListResponse,
+  createSuccessMutationResponse,
+} from "@v1/db/schemas/shared";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  ilike,
+  inArray,
+  isNull,
+  lt,
+  sql,
+} from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { z } from "zod";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../init";
 import type { TRPCContext } from "../init";
 import {
-  baseFilterSchema,
-  baseSortSchema,
-  basePaginationSchema,
-  createExtendedFilterSchema,
-  createExtendedSortSchema,
-  createExtendedIncludeSchema,
-  createExtendedMetricsSchema,
-  createSuccessListResponse,
-  createSuccessGetResponse,
-  createSuccessMutationResponse,
-  createErrorResponse,
-  createCommonErrors,
-  type ResponseMeta,
-} from "@v1/db/schemas/shared";
+  type BulkOperationType,
+  type BulkPreviewResult,
+  BulkSafetyValidator,
+  type BulkSelectionCriteria,
+  bulkSafetyOptionsSchema,
+  bulkSelectionSchema,
+  countAffectedRecords,
+  createBulkOperationSchema,
+  createBulkPreview,
+} from "./bulk-safety";
 import {
+  type IncludeConfig,
+  type SortConfig,
+  createEnhancedIncludeSchema,
   createPaginatedQuery,
-  validatePaginationConfig,
   createPaginationInfo,
   decodeCursor,
   encodeCursor,
-  validateIncludeConfig,
   enhancedPaginationSchema,
   enhancedSortSchema,
-  createEnhancedIncludeSchema,
-  type SortConfig,
-  type IncludeConfig,
+  validateIncludeConfig,
+  validatePaginationConfig,
 } from "./pagination-includes";
-import {
-  BulkSafetyValidator,
-  createBulkPreview,
-  countAffectedRecords,
-  bulkSelectionSchema,
-  bulkSafetyOptionsSchema,
-  createBulkOperationSchema,
-  type BulkOperationType,
-  type BulkSelectionCriteria,
-  type BulkPreviewResult,
-} from "./bulk-safety";
 
 // ================================
 // Core Types and Interfaces
@@ -55,7 +67,7 @@ export interface ResourcefulRouterConfig<
   TTable extends PgTable,
   TEntity = any,
   TCreateInput = any,
-  TUpdateInput = any
+  TUpdateInput = any,
 > {
   /**
    * The database table for this resource
@@ -154,132 +166,140 @@ export interface CursorInfo {
  * Creates a standardized list endpoint with enhanced filtering, sorting, and pagination
  */
 export function createListEndpoint<TTable extends PgTable>(
-  config: ResourcefulRouterConfig<TTable>
+  config: ResourcefulRouterConfig<TTable>,
 ) {
   // Get module name from resource name (default mapping)
-  const moduleName = config.resourceName.toLowerCase().replace(/s$/, ''); // Remove plural 's'
+  const moduleName = config.resourceName.toLowerCase().replace(/s$/, ""); // Remove plural 's'
 
   const inputSchema = z.object({
-    filter: createExtendedFilterSchema(config.filterExtensions || {}).optional(),
-    sort: enhancedSortSchema.extend({
-      field: z.enum([
-        "createdAt", "updatedAt", "name", "id",
-        ...(config.sortFields || [])
-      ] as [string, ...string[]]).default("createdAt"),
-    }).optional(),
+    filter: createExtendedFilterSchema(
+      config.filterExtensions || {},
+    ).optional(),
+    sort: enhancedSortSchema
+      .extend({
+        field: z
+          .enum([
+            "createdAt",
+            "updatedAt",
+            "name",
+            "id",
+            ...(config.sortFields || []),
+          ] as [string, ...string[]])
+          .default("createdAt"),
+      })
+      .optional(),
     pagination: enhancedPaginationSchema.optional(),
     include: createEnhancedIncludeSchema(
-      Object.keys(config.includeConfig || {})
+      Object.keys(config.includeConfig || {}),
     ).optional(),
   });
 
-  return protectedProcedure
-    .input(inputSchema)
-    .query(async ({ ctx, input }) => {
-      try {
-        // Permission check
-        if (config.permissions?.list && !(await config.permissions.list(ctx))) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: `Insufficient permissions to list ${config.resourceName}`,
-          });
-        }
-
-        const {
-          filter = {},
-          sort = { field: "createdAt", direction: "desc", fallbackField: "id" },
-          pagination = {},
-          include = {}
-        } = input;
-
-        // Build brand-scoped base conditions
-        const brandColumn = config.brandColumn || "brandId";
-        const conditions = [eq((config.table as any)[brandColumn], ctx.brandId!)];
-
-        // Apply basic filters
-        if (filter.ids && filter.ids.length > 0) {
-          conditions.push(inArray((config.table as any).id, filter.ids));
-        }
-
-        if (filter.search && (config.table as any).name) {
-          conditions.push(ilike((config.table as any).name, `%${filter.search}%`));
-        }
-
-        // Apply soft delete filter
-        if (config.deletedAtColumn && !filter.includeDeleted) {
-          conditions.push(isNull((config.table as any)[config.deletedAtColumn]));
-        }
-
-        // Apply custom filter extensions
-        Object.entries(filter).forEach(([key, value]) => {
-          if (value !== undefined && config.filterExtensions?.[key] && (config.table as any)[key]) {
-            if (Array.isArray(value)) {
-              conditions.push(inArray((config.table as any)[key], value));
-            } else {
-              conditions.push(eq((config.table as any)[key], value));
-            }
-          }
-        });
-
-        // Use enhanced pagination system
-        const result = await createPaginatedQuery({
-          table: config.table,
-          moduleName,
-          pagination: {
-            cursor: (pagination as any).cursor,
-            limit: (pagination as any).limit,
-          },
-          sort: {
-            field: sort.field,
-            direction: sort.direction,
-            fallbackField: sort.fallbackField || "id",
-          },
-          include: include as IncludeConfig,
-          conditions,
-          ctx,
-        });
-
-        // Apply post-query modifiers
-        let processedData = result.data;
-        if (config.queryModifiers?.afterQuery) {
-          processedData = config.queryModifiers.afterQuery(processedData, ctx);
-        }
-
-        return createSuccessListResponse(
-          processedData,
-          result.cursorInfo,
-          {
-            pageSize: result.cursorInfo.pageSize,
-            hasMore: result.cursorInfo.hasMore,
-            totalCount: result.cursorInfo.totalCount,
-            ...result.meta,
-          }
-        );
-
-      } catch (error) {
-        console.error(`Error listing ${config.resourceName}:`, error);
-
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-
+  return protectedProcedure.input(inputSchema).query(async ({ ctx, input }) => {
+    try {
+      // Permission check
+      if (config.permissions?.list && !(await config.permissions.list(ctx))) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to list ${config.resourceName}`,
-          cause: error,
+          code: "FORBIDDEN",
+          message: `Insufficient permissions to list ${config.resourceName}`,
         });
       }
-    });
+
+      const {
+        filter = {},
+        sort = { field: "createdAt", direction: "desc", fallbackField: "id" },
+        pagination = {},
+        include = {},
+      } = input;
+
+      // Build brand-scoped base conditions
+      const brandColumn = config.brandColumn || "brandId";
+      const conditions = [eq((config.table as any)[brandColumn], ctx.brandId!)];
+
+      // Apply basic filters
+      if (filter.ids && filter.ids.length > 0) {
+        conditions.push(inArray((config.table as any).id, filter.ids));
+      }
+
+      if (filter.search && (config.table as any).name) {
+        conditions.push(
+          ilike((config.table as any).name, `%${filter.search}%`),
+        );
+      }
+
+      // Apply soft delete filter
+      if (config.deletedAtColumn && !filter.includeDeleted) {
+        conditions.push(isNull((config.table as any)[config.deletedAtColumn]));
+      }
+
+      // Apply custom filter extensions
+      for (const [key, value] of Object.entries(filter)) {
+        if (
+          value !== undefined &&
+          config.filterExtensions?.[key] &&
+          (config.table as any)[key]
+        ) {
+          if (Array.isArray(value)) {
+            conditions.push(inArray((config.table as any)[key], value));
+          } else {
+            conditions.push(eq((config.table as any)[key], value));
+          }
+        }
+      }
+
+      // Use enhanced pagination system
+      const result = await createPaginatedQuery({
+        table: config.table,
+        moduleName,
+        pagination: {
+          cursor: (pagination as any).cursor,
+          limit: (pagination as any).limit,
+        },
+        sort: {
+          field: sort.field,
+          direction: sort.direction,
+          fallbackField: sort.fallbackField || "id",
+        },
+        include: include as IncludeConfig,
+        conditions,
+        ctx,
+      });
+
+      // Apply post-query modifiers
+      let processedData = result.data;
+      if (config.queryModifiers?.afterQuery) {
+        processedData = config.queryModifiers.afterQuery(processedData, ctx);
+      }
+
+      return createSuccessListResponse(processedData, result.cursorInfo, {
+        ...(result.meta as any),
+        pageSize: result.cursorInfo.pageSize,
+        hasMore: result.cursorInfo.hasMore,
+        totalCount: result.cursorInfo.totalCount,
+      });
+    } catch (error) {
+      console.error(`Error listing ${config.resourceName}:`, error);
+
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Failed to list ${config.resourceName}`,
+        cause: error,
+      });
+    }
+  });
 }
 
 /**
  * Creates a standardized get endpoint with enhanced includes and flexible where conditions
  */
 export function createGetEndpoint<TTable extends PgTable>(
-  config: ResourcefulRouterConfig<TTable>
+  config: ResourcefulRouterConfig<TTable>,
 ) {
   // Get module name from resource name (default mapping)
-  const moduleName = config.resourceName.toLowerCase().replace(/s$/, ''); // Remove plural 's'
+  const moduleName = config.resourceName.toLowerCase().replace(/s$/, ""); // Remove plural 's'
 
   const inputSchema = z.object({
     where: z.object({
@@ -288,98 +308,104 @@ export function createGetEndpoint<TTable extends PgTable>(
       ...config.filterExtensions,
     }),
     include: createEnhancedIncludeSchema(
-      Object.keys(config.includeConfig || {})
+      Object.keys(config.includeConfig || {}),
     ).optional(),
   });
 
-  return protectedProcedure
-    .input(inputSchema)
-    .query(async ({ ctx, input }) => {
-      try {
-        // Permission check
-        if (config.permissions?.get && !(await config.permissions.get(ctx))) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: `Insufficient permissions to get ${config.resourceName}`,
-          });
-        }
-
-        const { where, include = {} } = input;
-
-        // Build brand-scoped base conditions
-        const brandColumn = config.brandColumn || "brandId";
-        const conditions = [eq(config.table[brandColumn as any], ctx.brandId!)];
-
-        // Apply where conditions
-        if (where.id) {
-          conditions.push(eq(config.table.id, where.id));
-        }
-
-        if (where.ids && where.ids.length > 0) {
-          conditions.push(inArray(config.table.id, where.ids));
-        }
-
-        // Apply soft delete filter
-        if (config.deletedAtColumn) {
-          conditions.push(isNull(config.table[config.deletedAtColumn as any]));
-        }
-
-        // Apply additional where conditions
-        Object.entries(where).forEach(([key, value]) => {
-          if (value !== undefined && key !== 'id' && key !== 'ids' && config.table[key as any]) {
-            if (Array.isArray(value)) {
-              conditions.push(inArray(config.table[key as any], value));
-            } else {
-              conditions.push(eq(config.table[key as any], value));
-            }
-          }
-        });
-
-        // Validate and build include query
-        const validatedIncludes = validateIncludeConfig(include as IncludeConfig, moduleName);
-
-        // Execute query with enhanced includes
-        const result = await ctx.db.query[config.table._.name as any].findFirst({
-          where: and(...conditions),
-          with: validatedIncludes,
-        });
-
-        if (!result) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: `${config.resourceName} not found`,
-          });
-        }
-
-        return createSuccessGetResponse(
-          result,
-          {
-            includes: Object.keys(validatedIncludes).filter(key => validatedIncludes[key]),
-            resourceType: config.resourceName,
-          }
-        );
-
-      } catch (error) {
-        console.error(`Error getting ${config.resourceName}:`, error);
-
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-
+  return protectedProcedure.input(inputSchema).query(async ({ ctx, input }) => {
+    try {
+      // Permission check
+      if (config.permissions?.get && !(await config.permissions.get(ctx))) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to get ${config.resourceName}`,
-          cause: error,
+          code: "FORBIDDEN",
+          message: `Insufficient permissions to get ${config.resourceName}`,
         });
       }
-    });
+
+      const { where, include = {} } = input;
+
+      // Build brand-scoped base conditions
+      const brandColumn = config.brandColumn || "brandId";
+      const conditions = [eq((config.table as any)[brandColumn], ctx.brandId!)];
+
+      // Apply where conditions
+      if (where.id) {
+        conditions.push(eq((config.table as any).id, where.id));
+      }
+
+      if (where.ids && where.ids.length > 0) {
+        conditions.push(inArray((config.table as any).id, where.ids));
+      }
+
+      // Apply soft delete filter
+      if (config.deletedAtColumn) {
+        conditions.push(isNull((config.table as any)[config.deletedAtColumn]));
+      }
+
+      // Apply additional where conditions
+      for (const [key, value] of Object.entries(where)) {
+        if (
+          value !== undefined &&
+          key !== "id" &&
+          key !== "ids" &&
+          (config.table as any)[key]
+        ) {
+          if (Array.isArray(value)) {
+            conditions.push(inArray((config.table as any)[key], value));
+          } else {
+            conditions.push(eq((config.table as any)[key], value));
+          }
+        }
+      }
+
+      // Validate and build include query
+      const validatedIncludes = validateIncludeConfig(
+        include as IncludeConfig,
+        moduleName,
+      );
+
+      // Execute query with enhanced includes
+      const result = await (ctx.db.query as any)[config.table._.name].findFirst({
+        where: and(...conditions),
+        with: validatedIncludes,
+      });
+
+      if (!result) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `${config.resourceName} not found`,
+        });
+      }
+
+      return createSuccessGetResponse(result, {
+        ...({
+          includes: Object.keys(validatedIncludes).filter(
+            (key) => validatedIncludes[key],
+          ),
+          resourceType: config.resourceName,
+        } as any),
+      });
+    } catch (error) {
+      console.error(`Error getting ${config.resourceName}:`, error);
+
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Failed to get ${config.resourceName}`,
+        cause: error,
+      });
+    }
+  });
 }
 
 /**
  * Creates a standardized create endpoint
  */
 export function createCreateEndpoint<TTable extends PgTable>(
-  config: ResourcefulRouterConfig<TTable>
+  config: ResourcefulRouterConfig<TTable>,
 ) {
   if (!config.createSchema) {
     throw new Error(`Create schema required for ${config.resourceName}`);
@@ -390,7 +416,10 @@ export function createCreateEndpoint<TTable extends PgTable>(
     .mutation(async ({ ctx, input }) => {
       try {
         // Permission check
-        if (config.permissions?.create && !(await config.permissions.create(ctx))) {
+        if (
+          config.permissions?.create &&
+          !(await config.permissions.create(ctx))
+        ) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: `Insufficient permissions to create ${config.resourceName}`,
@@ -406,17 +435,14 @@ export function createCreateEndpoint<TTable extends PgTable>(
           updatedAt: new Date(),
         };
 
-        const [newRecord] = await ctx.db.insert(config.table).values(dataWithBrand).returning();
+        const [newRecord] = await ctx.db
+          .insert(config.table)
+          .values(dataWithBrand)
+          .returning();
 
-        return createSuccessMutationResponse(
-          [newRecord],
-          1,
-          {
-            operation: "create",
-            resourceType: config.resourceName,
-          }
-        );
-
+        return createSuccessMutationResponse([newRecord], 1, {
+          ...({ operation: "create", resourceType: config.resourceName } as any),
+        });
       } catch (error) {
         console.error(`Error creating ${config.resourceName}:`, error);
 
@@ -437,7 +463,7 @@ export function createCreateEndpoint<TTable extends PgTable>(
  * Creates a standardized update endpoint
  */
 export function createUpdateEndpoint<TTable extends PgTable>(
-  config: ResourcefulRouterConfig<TTable>
+  config: ResourcefulRouterConfig<TTable>,
 ) {
   if (!config.updateSchema) {
     throw new Error(`Update schema required for ${config.resourceName}`);
@@ -456,7 +482,10 @@ export function createUpdateEndpoint<TTable extends PgTable>(
     .mutation(async ({ ctx, input }) => {
       try {
         // Permission check
-        if (config.permissions?.update && !(await config.permissions.update(ctx))) {
+        if (
+          config.permissions?.update &&
+          !(await config.permissions.update(ctx))
+        ) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: `Insufficient permissions to update ${config.resourceName}`,
@@ -467,19 +496,19 @@ export function createUpdateEndpoint<TTable extends PgTable>(
 
         // Build brand-scoped base conditions
         const brandColumn = config.brandColumn || "brandId";
-        const conditions = [eq(config.table[brandColumn as any], ctx.brandId!)];
+        const conditions = [eq((config.table as any)[brandColumn], ctx.brandId!)];
 
         if (where.id) {
-          conditions.push(eq(config.table.id, where.id));
+          conditions.push(eq((config.table as any).id, where.id));
         }
 
         if (where.ids && where.ids.length > 0) {
-          conditions.push(inArray(config.table.id, where.ids));
+          conditions.push(inArray((config.table as any).id, where.ids));
         }
 
         // Apply soft delete filter
         if (config.deletedAtColumn) {
-          conditions.push(isNull(config.table[config.deletedAtColumn as any]));
+          conditions.push(isNull((config.table as any)[config.deletedAtColumn]));
         }
 
         const dataWithTimestamp = {
@@ -497,11 +526,9 @@ export function createUpdateEndpoint<TTable extends PgTable>(
           updatedRecords,
           updatedRecords.length,
           {
-            operation: "update",
-            resourceType: config.resourceName,
-          }
+            ...({ operation: "update", resourceType: config.resourceName } as any),
+          },
         );
-
       } catch (error) {
         console.error(`Error updating ${config.resourceName}:`, error);
 
@@ -522,16 +549,17 @@ export function createUpdateEndpoint<TTable extends PgTable>(
  * Creates an enhanced delete endpoint with bulk safety guards (soft delete)
  */
 export function createDeleteEndpoint<TTable extends PgTable>(
-  config: ResourcefulRouterConfig<TTable>
+  config: ResourcefulRouterConfig<TTable>,
 ) {
   const inputSchema = z.object({
-    selection: z.object({
-      id: z.string().uuid().optional(),
-      ids: z.array(z.string().uuid()).optional(),
-    }).refine(
-      (data) => data.id || data.ids,
-      { message: "Must provide either 'id' or 'ids' for deletion" }
-    ),
+    selection: z
+      .object({
+        id: z.string().uuid().optional(),
+        ids: z.array(z.string().uuid()).optional(),
+      })
+      .refine((data) => data.id || data.ids, {
+        message: "Must provide either 'id' or 'ids' for deletion",
+      }),
     options: bulkSafetyOptionsSchema.optional(),
   });
 
@@ -540,23 +568,34 @@ export function createDeleteEndpoint<TTable extends PgTable>(
     .mutation(async ({ ctx, input }) => {
       try {
         // Permission check
-        if (config.permissions?.delete && !(await config.permissions.delete(ctx))) {
+        if (
+          config.permissions?.delete &&
+          !(await config.permissions.delete(ctx))
+        ) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: `Insufficient permissions to delete ${config.resourceName}`,
           });
         }
 
-        const { selection, options = {} } = input;
-        const { preview = false, confirmed = false, skipSafetyChecks = false } = options;
+        const { selection, options = {} as any } = input;
+        const {
+          preview = false,
+          confirmed = false,
+          skipSafetyChecks = false,
+        } = options as any;
 
         // Build brand-scoped base conditions
         const brandColumn = config.brandColumn || "brandId";
-        const baseConditions = [eq((config.table as any)[brandColumn], ctx.brandId!)];
+        const baseConditions = [
+          eq((config.table as any)[brandColumn], ctx.brandId!),
+        ];
 
         // Apply existing soft delete filter to prevent double-deletion
         if (config.deletedAtColumn) {
-          baseConditions.push(isNull((config.table as any)[config.deletedAtColumn]));
+          baseConditions.push(
+            isNull((config.table as any)[config.deletedAtColumn]),
+          );
         }
 
         // Convert where conditions to bulk selection format
@@ -565,7 +604,10 @@ export function createDeleteEndpoint<TTable extends PgTable>(
         };
 
         // Create bulk safety validator for delete operations
-        const safetyValidator = new BulkSafetyValidator("delete", config.resourceName);
+        const safetyValidator = new BulkSafetyValidator(
+          "delete",
+          config.resourceName,
+        );
 
         if (preview) {
           // Return comprehensive preview information
@@ -575,7 +617,7 @@ export function createDeleteEndpoint<TTable extends PgTable>(
             bulkSelection,
             "delete",
             config.resourceName,
-            baseConditions
+            baseConditions,
           );
 
           return {
@@ -597,7 +639,12 @@ export function createDeleteEndpoint<TTable extends PgTable>(
         }
 
         // Count affected records for safety validation
-        const affectedCount = await countAffectedRecords(ctx.db, config.table, bulkSelection, baseConditions);
+        const affectedCount = await countAffectedRecords(
+          ctx.db,
+          config.table,
+          bulkSelection,
+          baseConditions,
+        );
 
         // Apply safety validation unless skipped by admin
         if (!skipSafetyChecks) {
@@ -626,14 +673,15 @@ export function createDeleteEndpoint<TTable extends PgTable>(
           deletedRecords,
           deletedRecords.length,
           {
-            operation: "delete",
-            resourceType: config.resourceName,
-            affectedCount,
-            safetyStatus: safetyValidator.getSafetyStatus(affectedCount),
-            estimatedDuration: safetyValidator.estimateDuration(affectedCount),
-          }
+            ...({
+              operation: "delete",
+              resourceType: config.resourceName,
+              affectedCount,
+              safetyStatus: safetyValidator.getSafetyStatus(affectedCount),
+              estimatedDuration: safetyValidator.estimateDuration(affectedCount),
+            } as any),
+          },
         );
-
       } catch (error) {
         console.error(`Error deleting ${config.resourceName}:`, error);
 
@@ -654,10 +702,12 @@ export function createDeleteEndpoint<TTable extends PgTable>(
  * Creates an enhanced bulk update endpoint with comprehensive safety guards
  */
 export function createBulkUpdateEndpoint<TTable extends PgTable>(
-  config: ResourcefulRouterConfig<TTable>
+  config: ResourcefulRouterConfig<TTable>,
 ) {
   if (!config.updateSchema) {
-    throw new Error(`Update schema required for bulk update on ${config.resourceName}`);
+    throw new Error(
+      `Update schema required for bulk update on ${config.resourceName}`,
+    );
   }
 
   const inputSchema = createBulkOperationSchema(config.updateSchema);
@@ -667,27 +717,41 @@ export function createBulkUpdateEndpoint<TTable extends PgTable>(
     .mutation(async ({ ctx, input }) => {
       try {
         // Permission check
-        if (config.permissions?.bulkUpdate && !(await config.permissions.bulkUpdate(ctx))) {
+        if (
+          config.permissions?.bulkUpdate &&
+          !(await config.permissions.bulkUpdate(ctx))
+        ) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: `Insufficient permissions to bulk update ${config.resourceName}`,
           });
         }
 
-        const { selection, data, options = {} } = input;
-        const { preview = false, confirmed = false, skipSafetyChecks = false } = options;
+        const { selection, data, options = {} as any } = input;
+        const {
+          preview = false,
+          confirmed = false,
+          skipSafetyChecks = false,
+        } = options as any;
 
         // Build brand-scoped base conditions
         const brandColumn = config.brandColumn || "brandId";
-        const baseConditions = [eq((config.table as any)[brandColumn], ctx.brandId!)];
+        const baseConditions = [
+          eq((config.table as any)[brandColumn], ctx.brandId!),
+        ];
 
         // Apply soft delete filter
         if (config.deletedAtColumn) {
-          baseConditions.push(isNull((config.table as any)[config.deletedAtColumn]));
+          baseConditions.push(
+            isNull((config.table as any)[config.deletedAtColumn]),
+          );
         }
 
         // Create bulk safety validator
-        const safetyValidator = new BulkSafetyValidator("update", config.resourceName);
+        const safetyValidator = new BulkSafetyValidator(
+          "update",
+          config.resourceName,
+        );
 
         if (preview) {
           // Return comprehensive preview information
@@ -697,7 +761,7 @@ export function createBulkUpdateEndpoint<TTable extends PgTable>(
             selection,
             "update",
             config.resourceName,
-            baseConditions
+            baseConditions,
           );
 
           return {
@@ -719,7 +783,12 @@ export function createBulkUpdateEndpoint<TTable extends PgTable>(
         }
 
         // Count affected records for safety validation
-        const affectedCount = await countAffectedRecords(ctx.db, config.table, selection, baseConditions);
+        const affectedCount = await countAffectedRecords(
+          ctx.db,
+          config.table,
+          selection,
+          baseConditions,
+        );
 
         // Apply safety validation unless skipped by admin
         if (!skipSafetyChecks) {
@@ -732,7 +801,7 @@ export function createBulkUpdateEndpoint<TTable extends PgTable>(
         if (selection.ids && selection.ids.length > 0) {
           conditions.push(inArray((config.table as any).id, selection.ids));
         } else if (selection.filter) {
-          Object.entries(selection.filter).forEach(([key, value]) => {
+          for (const [key, value] of Object.entries(selection.filter)) {
             if (value !== undefined && (config.table as any)[key]) {
               if (Array.isArray(value)) {
                 conditions.push(inArray((config.table as any)[key], value));
@@ -740,14 +809,16 @@ export function createBulkUpdateEndpoint<TTable extends PgTable>(
                 conditions.push(eq((config.table as any)[key], value));
               }
             }
-          });
+          }
         }
         // For "all" selection, use only base conditions
 
         // Exclude specific IDs if provided
         if (selection.excludeIds && selection.excludeIds.length > 0) {
           // Note: This is a simplified exclusion, in production you'd want proper NOT IN
-          console.warn("excludeIds not fully implemented in this basic version");
+          console.warn(
+            "excludeIds not fully implemented in this basic version",
+          );
         }
 
         const dataWithTimestamp = {
@@ -765,14 +836,15 @@ export function createBulkUpdateEndpoint<TTable extends PgTable>(
           updatedRecords,
           updatedRecords.length,
           {
-            operation: "bulkUpdate",
-            resourceType: config.resourceName,
-            affectedCount,
-            safetyStatus: safetyValidator.getSafetyStatus(affectedCount),
-            estimatedDuration: safetyValidator.estimateDuration(affectedCount),
-          }
+            ...({
+              operation: "bulkUpdate",
+              resourceType: config.resourceName,
+              affectedCount,
+              safetyStatus: safetyValidator.getSafetyStatus(affectedCount),
+              estimatedDuration: safetyValidator.estimateDuration(affectedCount),
+            } as any),
+          },
         );
-
       } catch (error) {
         console.error(`Error bulk updating ${config.resourceName}:`, error);
 
@@ -793,114 +865,121 @@ export function createBulkUpdateEndpoint<TTable extends PgTable>(
  * Creates a standardized aggregate endpoint for metrics
  */
 export function createAggregateEndpoint<TTable extends PgTable>(
-  config: ResourcefulRouterConfig<TTable>
+  config: ResourcefulRouterConfig<TTable>,
 ) {
   const inputSchema = z.object({
-    filter: createExtendedFilterSchema(config.filterExtensions || {}).optional(),
+    filter: createExtendedFilterSchema(
+      config.filterExtensions || {},
+    ).optional(),
     metrics: createExtendedMetricsSchema(config.customMetrics || []),
   });
 
-  return protectedProcedure
-    .input(inputSchema)
-    .query(async ({ ctx, input }) => {
-      try {
-        // Permission check
-        if (config.permissions?.aggregate && !(await config.permissions.aggregate(ctx))) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: `Insufficient permissions to aggregate ${config.resourceName}`,
-          });
-        }
-
-        const { filter = {}, metrics } = input;
-
-        // Build brand-scoped base conditions
-        const brandColumn = config.brandColumn || "brandId";
-        const conditions = [eq(config.table[brandColumn as any], ctx.brandId!)];
-
-        // Apply soft delete filter
-        if (config.deletedAtColumn && !filter.includeDeleted) {
-          conditions.push(isNull(config.table[config.deletedAtColumn as any]));
-        }
-
-        // Apply basic filters
-        if (filter.ids && filter.ids.length > 0) {
-          conditions.push(inArray(config.table.id, filter.ids));
-        }
-
-        // Apply custom filter extensions
-        Object.entries(filter).forEach(([key, value]) => {
-          if (value !== undefined && config.filterExtensions?.[key] && config.table[key as any]) {
-            if (Array.isArray(value)) {
-              conditions.push(inArray(config.table[key as any], value));
-            } else {
-              conditions.push(eq(config.table[key as any], value));
-            }
-          }
-        });
-
-        const results: Record<string, any> = {};
-
-        // Compute requested metrics
-        for (const metric of metrics) {
-          switch (metric) {
-            case "count":
-              const countResult = await ctx.db
-                .select({ total: count() })
-                .from(config.table)
-                .where(and(...conditions));
-              results.count = countResult[0].total;
-              break;
-
-            case "countByStatus":
-              if (config.table.status) {
-                const statusCounts = await ctx.db
-                  .select({
-                    status: config.table.status,
-                    count: count(),
-                  })
-                  .from(config.table)
-                  .where(and(...conditions))
-                  .groupBy(config.table.status);
-                results.countByStatus = statusCounts;
-              }
-              break;
-
-            default:
-              // Handle custom metrics defined in config
-              if (config.customMetrics?.includes(metric)) {
-                // Custom metric implementation would go here
-                // For now, just acknowledge the metric was requested
-                results[metric] = null;
-              }
-              break;
-          }
-        }
-
-        return {
-          success: true,
-          data: results,
-          meta: {
-            resourceType: config.resourceName,
-            timestamp: new Date(),
-            filterApplied: Object.keys(filter).length > 0,
-          },
-        };
-
-      } catch (error) {
-        console.error(`Error aggregating ${config.resourceName}:`, error);
-
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-
+  return protectedProcedure.input(inputSchema).query(async ({ ctx, input }) => {
+    try {
+      // Permission check
+      if (
+        config.permissions?.aggregate &&
+        !(await config.permissions.aggregate(ctx))
+      ) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to aggregate ${config.resourceName}`,
-          cause: error,
+          code: "FORBIDDEN",
+          message: `Insufficient permissions to aggregate ${config.resourceName}`,
         });
       }
-    });
+
+      const { filter = {}, metrics } = input;
+
+      // Build brand-scoped base conditions
+      const brandColumn = config.brandColumn || "brandId";
+      const conditions = [eq((config.table as any)[brandColumn], ctx.brandId!)];
+
+      // Apply soft delete filter
+      if (config.deletedAtColumn && !filter.includeDeleted) {
+        conditions.push(isNull((config.table as any)[config.deletedAtColumn]));
+      }
+
+      // Apply basic filters
+      if (filter.ids && filter.ids.length > 0) {
+        conditions.push(inArray((config.table as any).id, filter.ids));
+      }
+
+      // Apply custom filter extensions
+      for (const [key, value] of Object.entries(filter)) {
+        if (
+          value !== undefined &&
+          config.filterExtensions?.[key] &&
+          (config.table as any)[key]
+        ) {
+          if (Array.isArray(value)) {
+            conditions.push(inArray((config.table as any)[key], value));
+          } else {
+            conditions.push(eq((config.table as any)[key], value));
+          }
+        }
+      }
+
+      const results: Record<string, any> = {};
+
+      // Compute requested metrics
+      for (const metric of metrics as unknown as any[]) {
+        switch (metric) {
+          case "count": {
+            const countResult = await ctx.db
+              .select({ total: count() })
+              .from(config.table as any)
+              .where(and(...conditions));
+            results.count = countResult[0]?.total ?? 0;
+            break;
+          }
+
+          case "countByStatus":
+            if ((config.table as any).status) {
+              const statusCounts = await ctx.db
+                .select({
+                  status: (config.table as any).status,
+                  count: count(),
+                })
+                .from(config.table as any)
+                .where(and(...conditions))
+                .groupBy((config.table as any).status);
+              results.countByStatus = statusCounts;
+            }
+            break;
+
+          default:
+            // Handle custom metrics defined in config
+            if (config.customMetrics?.includes(metric)) {
+              // Custom metric implementation would go here
+              // For now, just acknowledge the metric was requested
+              results[metric] = null;
+            }
+            break;
+        }
+      }
+
+      return {
+        success: true,
+        data: results,
+        meta: {
+          resourceType: config.resourceName,
+          timestamp: new Date(),
+          filterApplied: Object.keys(filter).length > 0,
+        },
+      };
+    } catch (error) {
+      console.error(`Error aggregating ${config.resourceName}:`, error);
+
+      if (error instanceof TRPCError) {
+        throw error;
+      }
+
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Failed to aggregate ${config.resourceName}`,
+        cause: error,
+      });
+    }
+  });
 }
 
 // ================================
@@ -911,7 +990,7 @@ export function createAggregateEndpoint<TTable extends PgTable>(
  * Creates a complete resourceful router with standard CRUD + bulk operations
  */
 export function createResourcefulRouter<TTable extends PgTable>(
-  config: ResourcefulRouterConfig<TTable>
+  config: ResourcefulRouterConfig<TTable>,
 ) {
   const router: Record<string, any> = {};
 
@@ -949,9 +1028,9 @@ export function createResourcefulRouter<TTable extends PgTable>(
 export function createBrandScopedConditions<TTable extends PgTable>(
   table: TTable,
   brandId: string,
-  brandColumn: keyof TTable["$inferSelect"] = "brandId" as any
+  brandColumn: keyof TTable["$inferSelect"] = "brandId" as any,
 ) {
-  return [eq(table[brandColumn as any], brandId)];
+  return [eq((table as any)[brandColumn], brandId)];
 }
 
 // Legacy bulk validation and cursor utilities are now imported from enhanced modules

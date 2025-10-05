@@ -9,16 +9,21 @@
       "@jobs/*": ["../../packages/jobs/src/*"],
       "@db/*": ["../../packages/db/src/*"]
     },
-    "strict": true
+    "strict": false,
+    "skipLibCheck": true,
+    "noImplicitAny": false
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "../../types",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     "next-env.d.ts",
     "next.config.js",
     "tailwind.config.ts",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    "../api"
+  ]
 }

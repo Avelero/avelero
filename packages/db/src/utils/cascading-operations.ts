@@ -44,13 +44,21 @@ export interface CascadeOperationResult {
 
 export interface CascadeStrategy {
   /** Action to take on dependent records */
-  action: 'cascade_delete' | 'set_null' | 'set_default' | 'prevent' | 'soft_delete';
+  action:
+    | "cascade_delete"
+    | "set_null"
+    | "set_default"
+    | "prevent"
+    | "soft_delete";
   /** Priority of the cascade operation (higher numbers execute first) */
   priority: number;
   /** Whether to validate before cascading */
   validate: boolean;
   /** Custom validation function */
-  customValidation?: (db: TransactionContext, entityIds: string[]) => Promise<boolean>;
+  customValidation?: (
+    db: TransactionContext,
+    entityIds: string[],
+  ) => Promise<boolean>;
 }
 
 export interface CascadeDefinition {
@@ -72,48 +80,48 @@ export interface CascadeDefinition {
 export const CASCADE_DEFINITIONS: CascadeDefinition[] = [
   // Brand deletions
   {
-    sourceTable: 'brands',
-    targetTable: 'products',
-    sourceField: 'id',
-    targetField: 'brandId',
+    sourceTable: "brands",
+    targetTable: "products",
+    sourceField: "id",
+    targetField: "brandId",
     strategy: {
-      action: 'cascade_delete',
+      action: "cascade_delete",
       priority: 100,
       validate: true,
     },
     brandScoped: false,
   },
   {
-    sourceTable: 'brands',
-    targetTable: 'passports',
-    sourceField: 'id',
-    targetField: 'brandId',
+    sourceTable: "brands",
+    targetTable: "passports",
+    sourceField: "id",
+    targetField: "brandId",
     strategy: {
-      action: 'cascade_delete',
+      action: "cascade_delete",
       priority: 90,
       validate: true,
     },
     brandScoped: false,
   },
   {
-    sourceTable: 'brands',
-    targetTable: 'templates',
-    sourceField: 'id',
-    targetField: 'brandId',
+    sourceTable: "brands",
+    targetTable: "templates",
+    sourceField: "id",
+    targetField: "brandId",
     strategy: {
-      action: 'cascade_delete',
+      action: "cascade_delete",
       priority: 95,
       validate: true,
     },
     brandScoped: false,
   },
   {
-    sourceTable: 'brands',
-    targetTable: 'categories',
-    sourceField: 'id',
-    targetField: 'brandId',
+    sourceTable: "brands",
+    targetTable: "categories",
+    sourceField: "id",
+    targetField: "brandId",
     strategy: {
-      action: 'cascade_delete',
+      action: "cascade_delete",
       priority: 85,
       validate: true,
     },
@@ -122,24 +130,24 @@ export const CASCADE_DEFINITIONS: CascadeDefinition[] = [
 
   // Product deletions
   {
-    sourceTable: 'products',
-    targetTable: 'product_variants',
-    sourceField: 'id',
-    targetField: 'productId',
+    sourceTable: "products",
+    targetTable: "product_variants",
+    sourceField: "id",
+    targetField: "productId",
     strategy: {
-      action: 'cascade_delete',
+      action: "cascade_delete",
       priority: 100,
       validate: true,
     },
     brandScoped: true,
   },
   {
-    sourceTable: 'products',
-    targetTable: 'passports',
-    sourceField: 'id',
-    targetField: 'productId',
+    sourceTable: "products",
+    targetTable: "passports",
+    sourceField: "id",
+    targetField: "productId",
     strategy: {
-      action: 'cascade_delete',
+      action: "cascade_delete",
       priority: 90,
       validate: true,
     },
@@ -148,24 +156,24 @@ export const CASCADE_DEFINITIONS: CascadeDefinition[] = [
 
   // Template deletions
   {
-    sourceTable: 'templates',
-    targetTable: 'modules',
-    sourceField: 'id',
-    targetField: 'templateId',
+    sourceTable: "templates",
+    targetTable: "modules",
+    sourceField: "id",
+    targetField: "templateId",
     strategy: {
-      action: 'cascade_delete',
+      action: "cascade_delete",
       priority: 100,
       validate: true,
     },
     brandScoped: true,
   },
   {
-    sourceTable: 'templates',
-    targetTable: 'passports',
-    sourceField: 'id',
-    targetField: 'templateId',
+    sourceTable: "templates",
+    targetTable: "passports",
+    sourceField: "id",
+    targetField: "templateId",
     strategy: {
-      action: 'set_null',
+      action: "set_null",
       priority: 90,
       validate: true,
     },
@@ -174,24 +182,24 @@ export const CASCADE_DEFINITIONS: CascadeDefinition[] = [
 
   // Category deletions
   {
-    sourceTable: 'categories',
-    targetTable: 'products',
-    sourceField: 'id',
-    targetField: 'categoryId',
+    sourceTable: "categories",
+    targetTable: "products",
+    sourceField: "id",
+    targetField: "categoryId",
     strategy: {
-      action: 'set_null',
+      action: "set_null",
       priority: 90,
       validate: true,
     },
     brandScoped: true,
   },
   {
-    sourceTable: 'categories',
-    targetTable: 'categories',
-    sourceField: 'id',
-    targetField: 'parentId',
+    sourceTable: "categories",
+    targetTable: "categories",
+    sourceField: "id",
+    targetField: "parentId",
     strategy: {
-      action: 'set_null',
+      action: "set_null",
       priority: 95,
       validate: true,
     },
@@ -200,12 +208,12 @@ export const CASCADE_DEFINITIONS: CascadeDefinition[] = [
 
   // Variant deletions (passports may reference variants directly)
   {
-    sourceTable: 'product_variants',
-    targetTable: 'passports',
-    sourceField: 'id',
-    targetField: 'variantId',
+    sourceTable: "product_variants",
+    targetTable: "passports",
+    sourceField: "id",
+    targetField: "variantId",
     strategy: {
-      action: 'set_null',
+      action: "set_null",
       priority: 90,
       validate: true,
     },
@@ -225,47 +233,63 @@ export async function executeCascadingDeletion(
   sourceTable: string,
   entityIds: string[],
   brandId?: string,
-  config?: TransactionConfig
+  config?: TransactionConfig,
 ): Promise<CascadeOperationResult> {
   const operations: TransactionOperation[] = [];
   const warnings: string[] = [];
   let affectedRecords: { [table: string]: number } = {};
 
   // Get all cascade definitions for this source table
-  const cascades = CASCADE_DEFINITIONS
-    .filter(def => def.sourceTable === sourceTable)
-    .sort((a, b) => b.strategy.priority - a.strategy.priority); // Higher priority first
+  const cascades = CASCADE_DEFINITIONS.filter(
+    (def) => def.sourceTable === sourceTable,
+  ).sort((a, b) => b.strategy.priority - a.strategy.priority); // Higher priority first
 
   // Add validation operation
   operations.push(
-    createValidationOperation('validate-deletion-constraints', async (tx) => {
-      const validation = await validateBeforeDeletion(tx, sourceTable, entityIds, brandId);
+    createValidationOperation("validate-deletion-constraints", async (tx) => {
+      const validation = await validateBeforeDeletion(
+        tx,
+        sourceTable,
+        entityIds,
+        brandId,
+      );
 
       if (!validation.canDelete) {
         throw new TRPCError({
-          code: 'CONFLICT',
+          code: "CONFLICT",
           message: `Cannot delete ${sourceTable}: blocking references exist`,
           cause: validation.blockingReferences,
         });
       }
 
       // Add warnings for cascade effects
-      validation.blockingReferences.forEach(ref => {
-        warnings.push(`${ref.constraint}: ${ref.count} records in ${ref.table}.${ref.field}`);
+      validation.blockingReferences.forEach((ref) => {
+        warnings.push(
+          `${ref.constraint}: ${ref.count} records in ${ref.table}.${ref.field}`,
+        );
       });
 
       return validation;
-    })
+    }),
   );
 
   // Create cascade operations
   for (const cascade of cascades) {
     operations.push(
-      createDataOperation(`cascade-${cascade.action}-${cascade.targetTable}`, async (tx) => {
-        const result = await executeSingleCascade(tx, cascade, entityIds, brandId);
-        affectedRecords[cascade.targetTable] = (affectedRecords[cascade.targetTable] || 0) + result.count;
-        return result;
-      })
+      createDataOperation(
+        `cascade-${cascade.strategy.action}-${cascade.targetTable}`,
+        async (tx) => {
+          const result = await executeSingleCascade(
+            tx,
+            cascade,
+            entityIds,
+            brandId,
+          );
+          affectedRecords[cascade.targetTable] =
+            (affectedRecords[cascade.targetTable] || 0) + result.count;
+          return result;
+        },
+      ),
     );
   }
 
@@ -275,7 +299,7 @@ export async function executeCascadingDeletion(
       const result = await executeMainDeletion(tx, sourceTable, entityIds);
       affectedRecords[sourceTable] = result.count;
       return result;
-    })
+    }),
   );
 
   const transactionResult = await executeTransaction(db, operations, config);
@@ -307,64 +331,88 @@ export async function executeCascadingUpdate(
   entityId: string,
   updateData: Record<string, any>,
   brandId?: string,
-  config?: TransactionConfig
+  config?: TransactionConfig,
 ): Promise<CascadeOperationResult> {
   const operations: TransactionOperation[] = [];
   const warnings: string[] = [];
   let affectedRecords: { [table: string]: number } = {};
 
   // Check if any updated fields would affect cascade relationships
-  const affectedCascades = CASCADE_DEFINITIONS.filter(def =>
-    def.sourceTable === sourceTable && updateData[def.sourceField] !== undefined
+  const affectedCascades = CASCADE_DEFINITIONS.filter(
+    (def) =>
+      def.sourceTable === sourceTable &&
+      updateData[def.sourceField] !== undefined,
   );
 
   if (affectedCascades.length === 0) {
     // No cascading needed, just do the update
     operations.push(
       createDataOperation(`update-${sourceTable}`, async (tx) => {
-        const result = await executeMainUpdate(tx, sourceTable, entityId, updateData);
+        const result = await executeMainUpdate(
+          tx,
+          sourceTable,
+          entityId,
+          updateData,
+        );
         affectedRecords[sourceTable] = 1;
         return result;
-      })
+      }),
     );
   } else {
     // Need to handle cascading updates
     operations.push(
-      createValidationOperation('validate-cascading-update', async (tx) => {
+      createValidationOperation("validate-cascading-update", async (tx) => {
         // Validate that the update won't break constraints
         for (const cascade of affectedCascades) {
           if (cascade.strategy.validate && cascade.strategy.customValidation) {
-            const isValid = await cascade.strategy.customValidation(tx, [entityId]);
+            const isValid = await cascade.strategy.customValidation(tx, [
+              entityId,
+            ]);
             if (!isValid) {
               throw new TRPCError({
-                code: 'CONFLICT',
+                code: "CONFLICT",
                 message: `Update would violate cascade constraint for ${cascade.targetTable}`,
               });
             }
           }
         }
         return true;
-      })
+      }),
     );
 
     // Handle each cascade
     for (const cascade of affectedCascades) {
       operations.push(
-        createDataOperation(`cascade-update-${cascade.targetTable}`, async (tx) => {
-          const result = await handleCascadingUpdate(tx, cascade, entityId, updateData, brandId);
-          affectedRecords[cascade.targetTable] = (affectedRecords[cascade.targetTable] || 0) + result.count;
-          return result;
-        })
+        createDataOperation(
+          `cascade-update-${cascade.targetTable}`,
+          async (tx) => {
+            const result = await handleCascadingUpdate(
+              tx,
+              cascade,
+              entityId,
+              updateData,
+              brandId,
+            );
+            affectedRecords[cascade.targetTable] =
+              (affectedRecords[cascade.targetTable] || 0) + result.count;
+            return result;
+          },
+        ),
       );
     }
 
     // Do the main update
     operations.push(
       createDataOperation(`update-${sourceTable}`, async (tx) => {
-        const result = await executeMainUpdate(tx, sourceTable, entityId, updateData);
+        const result = await executeMainUpdate(
+          tx,
+          sourceTable,
+          entityId,
+          updateData,
+        );
         affectedRecords[sourceTable] = 1;
         return result;
-      })
+      }),
     );
   }
 
@@ -399,58 +447,61 @@ async function executeSingleCascade(
   tx: TransactionContext,
   cascade: CascadeDefinition,
   entityIds: string[],
-  brandId?: string
+  brandId?: string,
 ): Promise<{ count: number; details?: any }> {
-  const sourceFilter = inArray(getTableColumn(cascade.targetTable, cascade.targetField), entityIds);
+  const sourceFilter = inArray(
+    getTableColumn(cascade.targetTable, cascade.targetField),
+    entityIds,
+  );
   let whereCondition = sourceFilter;
 
   // Add brand scoping if required
   if (cascade.brandScoped && brandId) {
-    const brandColumn = getTableColumn(cascade.targetTable, 'brandId');
+    const brandColumn = getTableColumn(cascade.targetTable, "brandId");
     if (brandColumn) {
-      whereCondition = and(sourceFilter, eq(brandColumn, brandId));
+      whereCondition = and(sourceFilter, eq(brandColumn, brandId)) || sourceFilter;
     }
   }
 
   switch (cascade.strategy.action) {
-    case 'cascade_delete':
+    case "cascade_delete":
       const deleteResult = await tx
         .delete(getTableSchema(cascade.targetTable))
         .where(whereCondition)
-        .returning({ id: getTableColumn(cascade.targetTable, 'id') });
+        .returning({ id: getTableColumn(cascade.targetTable, "id") });
 
       return { count: deleteResult.length };
 
-    case 'set_null':
+    case "set_null":
       const nullField = cascade.targetField;
       const updateResult = await tx
         .update(getTableSchema(cascade.targetTable))
         .set({ [nullField]: null })
         .where(whereCondition)
-        .returning({ id: getTableColumn(cascade.targetTable, 'id') });
+        .returning({ id: getTableColumn(cascade.targetTable, "id") });
 
       return { count: updateResult.length };
 
-    case 'soft_delete':
+    case "soft_delete":
       const softDeleteResult = await tx
         .update(getTableSchema(cascade.targetTable))
         .set({ deletedAt: new Date().toISOString() })
         .where(whereCondition)
-        .returning({ id: getTableColumn(cascade.targetTable, 'id') });
+        .returning({ id: getTableColumn(cascade.targetTable, "id") });
 
       return { count: softDeleteResult.length };
 
-    case 'prevent':
+    case "prevent":
       // Check if any records exist that would prevent the operation
       const existingRecords = await tx
-        .select({ id: getTableColumn(cascade.targetTable, 'id') })
+        .select({ id: getTableColumn(cascade.targetTable, "id") })
         .from(getTableSchema(cascade.targetTable))
         .where(whereCondition)
         .limit(1);
 
       if (existingRecords.length > 0) {
         throw new TRPCError({
-          code: 'CONFLICT',
+          code: "CONFLICT",
           message: `Cannot proceed: dependent records exist in ${cascade.targetTable}`,
         });
       }
@@ -468,10 +519,10 @@ async function executeSingleCascade(
 async function executeMainDeletion(
   tx: TransactionContext,
   tableName: string,
-  entityIds: string[]
+  entityIds: string[],
 ): Promise<{ count: number }> {
   const table = getTableSchema(tableName);
-  const idColumn = getTableColumn(tableName, 'id');
+  const idColumn = getTableColumn(tableName, "id");
 
   const result = await tx
     .delete(table)
@@ -488,10 +539,10 @@ async function executeMainUpdate(
   tx: TransactionContext,
   tableName: string,
   entityId: string,
-  updateData: Record<string, any>
+  updateData: Record<string, any>,
 ): Promise<{ count: number }> {
   const table = getTableSchema(tableName);
-  const idColumn = getTableColumn(tableName, 'id');
+  const idColumn = getTableColumn(tableName, "id");
 
   const result = await tx
     .update(table)
@@ -510,7 +561,7 @@ async function handleCascadingUpdate(
   cascade: CascadeDefinition,
   entityId: string,
   updateData: Record<string, any>,
-  brandId?: string
+  brandId?: string,
 ): Promise<{ count: number }> {
   // This is a simplified implementation
   // In practice, you'd need more complex logic based on what's being updated
@@ -534,13 +585,20 @@ async function handleCascadingUpdate(
  */
 function getTableSchema(tableName: string): any {
   switch (tableName) {
-    case 'brands': return brands;
-    case 'products': return products;
-    case 'product_variants': return productVariants;
-    case 'passports': return passports;
-    case 'templates': return templates;
-    case 'modules': return modules;
-    case 'categories': return categories;
+    case "brands":
+      return brands;
+    case "products":
+      return products;
+    case "product_variants":
+      return productVariants;
+    case "passports":
+      return passports;
+    case "templates":
+      return templates;
+    case "modules":
+      return modules;
+    case "categories":
+      return categories;
     default:
       throw new Error(`Unknown table: ${tableName}`);
   }
@@ -566,7 +624,7 @@ export async function previewCascadeEffects(
   db: Database,
   sourceTable: string,
   entityIds: string[],
-  brandId?: string
+  brandId?: string,
 ): Promise<{
   cascades: Array<{
     targetTable: string;
@@ -575,22 +633,25 @@ export async function previewCascadeEffects(
   }>;
   warnings: string[];
 }> {
-  const cascades = CASCADE_DEFINITIONS
-    .filter(def => def.sourceTable === sourceTable)
-    .sort((a, b) => b.strategy.priority - a.strategy.priority);
+  const cascades = CASCADE_DEFINITIONS.filter(
+    (def) => def.sourceTable === sourceTable,
+  ).sort((a, b) => b.strategy.priority - a.strategy.priority);
 
   const results = [];
   const warnings: string[] = [];
 
   for (const cascade of cascades) {
     try {
-      const sourceFilter = inArray(getTableColumn(cascade.targetTable, cascade.targetField), entityIds);
+      const sourceFilter = inArray(
+        getTableColumn(cascade.targetTable, cascade.targetField),
+        entityIds,
+      );
       let whereCondition = sourceFilter;
 
       if (cascade.brandScoped && brandId) {
-        const brandColumn = getTableColumn(cascade.targetTable, 'brandId');
+        const brandColumn = getTableColumn(cascade.targetTable, "brandId");
         if (brandColumn) {
-          whereCondition = and(sourceFilter, eq(brandColumn, brandId));
+          whereCondition = and(sourceFilter, eq(brandColumn, brandId)) || sourceFilter;
         }
       }
 
@@ -608,10 +669,15 @@ export async function previewCascadeEffects(
       });
 
       if (affectedCount > 100) {
-        warnings.push(`High impact: ${affectedCount} records in ${cascade.targetTable} will be affected`);
+        warnings.push(
+          `High impact: ${affectedCount} records in ${cascade.targetTable} will be affected`,
+        );
       }
-    } catch (error) {
-      warnings.push(`Could not estimate impact on ${cascade.targetTable}: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      warnings.push(
+        `Could not estimate impact on ${cascade.targetTable}: ${errorMessage}`,
+      );
     }
   }
 
@@ -626,10 +692,10 @@ export async function previewCascadeEffects(
  */
 export function getCascadeDefinition(
   sourceTable: string,
-  targetTable: string
+  targetTable: string,
 ): CascadeDefinition | undefined {
   return CASCADE_DEFINITIONS.find(
-    def => def.sourceTable === sourceTable && def.targetTable === targetTable
+    (def) => def.sourceTable === sourceTable && def.targetTable === targetTable,
   );
 }
 
@@ -638,9 +704,9 @@ export function getCascadeDefinition(
  */
 export function hasCascadeRelationship(
   sourceTable: string,
-  targetTable: string
+  targetTable: string,
 ): boolean {
   return CASCADE_DEFINITIONS.some(
-    def => def.sourceTable === sourceTable && def.targetTable === targetTable
+    (def) => def.sourceTable === sourceTable && def.targetTable === targetTable,
   );
 }

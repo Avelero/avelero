@@ -221,9 +221,21 @@ type BaseMetrics = z.infer<typeof baseMetricsSchema>;
  * HTTP status code enum for consistent error reporting
  */
 export const httpStatusEnum = z.enum([
-  "200", "201", "202", "204",
-  "400", "401", "403", "404", "409", "422", "429",
-  "500", "502", "503", "504"
+  "200",
+  "201",
+  "202",
+  "204",
+  "400",
+  "401",
+  "403",
+  "404",
+  "409",
+  "422",
+  "429",
+  "500",
+  "502",
+  "503",
+  "504",
 ]);
 
 /**
@@ -239,7 +251,7 @@ export const errorTypeEnum = z.enum([
   "INTERNAL_SERVER_ERROR",
   "SERVICE_UNAVAILABLE_ERROR",
   "TIMEOUT_ERROR",
-  "BUSINESS_LOGIC_ERROR"
+  "BUSINESS_LOGIC_ERROR",
 ]);
 
 /**
@@ -399,7 +411,11 @@ export const createErrorResponseSchema = () =>
  */
 export const createResponseUnionSchema = <T extends z.ZodTypeAny>(
   dataSchema: T,
-) => z.union([createSuccessResponseSchema(dataSchema), createErrorResponseSchema()]);
+) =>
+  z.union([
+    createSuccessResponseSchema(dataSchema),
+    createErrorResponseSchema(),
+  ]);
 
 // ================================
 // Standardized Output Envelopes
@@ -459,12 +475,14 @@ export const createAggregateResponseSchema = <T extends z.ZodTypeAny>(
       metrics: metricsSchema,
       meta: responseMetaSchema.extend({
         asOf: z.date(),
-        computation: z.object({
-          cached: z.boolean().optional(),
-          approximation: z.boolean().default(false),
-          sampleSize: z.number().int().optional(),
-          confidence: z.number().min(0).max(1).optional(),
-        }).optional(),
+        computation: z
+          .object({
+            cached: z.boolean().optional(),
+            approximation: z.boolean().default(false),
+            sampleSize: z.number().int().optional(),
+            confidence: z.number().min(0).max(1).optional(),
+          })
+          .optional(),
       }),
     })
     .strict();
@@ -478,10 +496,12 @@ export const createBulkResponseSchema = <T extends z.ZodTypeAny>(
   z
     .object({
       successful: z.array(dataSchema),
-      failed: z.array(z.object({
-        item: z.any(),
-        error: errorSchema,
-      })),
+      failed: z.array(
+        z.object({
+          item: z.any(),
+          error: errorSchema,
+        }),
+      ),
       totalProcessed: z.number().int(),
       successCount: z.number().int(),
       failureCount: z.number().int(),
@@ -539,12 +559,7 @@ export const brandRoleEnum = z.enum(["owner", "member"]);
  * Permission levels for operations within a brand
  * Extended from standardized permission types with brand-specific levels
  */
-export const permissionLevelEnum = z.enum([
-  "read",
-  "write",
-  "admin",
-  "owner"
-]);
+export const permissionLevelEnum = z.enum(["read", "write", "admin", "owner"]);
 
 /**
  * Brand context schema for multi-tenant operations
@@ -676,7 +691,7 @@ export const operationPermissionSchema = z
       "import",
       "manage_members",
       "manage_settings",
-      "manage_billing"
+      "manage_billing",
     ]),
     resource: z.string(), // e.g., "products", "categories", "users"
     brandId: z.string().uuid(),
@@ -736,7 +751,10 @@ export const validationConstraints = {
  * Permission mapping from roles to permission levels
  * Defines what permissions each role has within a brand
  */
-export const rolePermissionMap: Record<z.infer<typeof brandRoleEnum>, z.infer<typeof permissionLevelEnum>[]> = {
+export const rolePermissionMap: Record<
+  z.infer<typeof brandRoleEnum>,
+  z.infer<typeof permissionLevelEnum>[]
+> = {
   owner: ["read", "write", "admin", "owner"],
   member: ["read", "write"],
 };
@@ -745,7 +763,10 @@ export const rolePermissionMap: Record<z.infer<typeof brandRoleEnum>, z.infer<ty
  * Operation permission requirements
  * Maps operations to minimum required permission level
  */
-export const operationPermissionMap: Record<string, z.infer<typeof permissionLevelEnum>> = {
+export const operationPermissionMap: Record<
+  string,
+  z.infer<typeof permissionLevelEnum>
+> = {
   read: "read",
   create: "write",
   update: "write",
@@ -764,7 +785,7 @@ export const operationPermissionMap: Record<string, z.infer<typeof permissionLev
  */
 export const hasPermission = (
   userRole: z.infer<typeof brandRoleEnum> | null,
-  requiredPermission: z.infer<typeof permissionLevelEnum>
+  requiredPermission: z.infer<typeof permissionLevelEnum>,
 ): boolean => {
   if (!userRole) return false;
 
@@ -777,7 +798,7 @@ export const hasPermission = (
  */
 export const canPerformOperation = (
   userRole: z.infer<typeof brandRoleEnum> | null,
-  operation: string
+  operation: string,
 ): boolean => {
   const requiredPermission = operationPermissionMap[operation];
   if (!requiredPermission) return false;
@@ -789,7 +810,7 @@ export const canPerformOperation = (
  * Get all permissions for a given role
  */
 export const getPermissionsForRole = (
-  role: z.infer<typeof brandRoleEnum>
+  role: z.infer<typeof brandRoleEnum>,
 ): z.infer<typeof permissionLevelEnum>[] => {
   return rolePermissionMap[role] || [];
 };
@@ -799,10 +820,10 @@ export const getPermissionsForRole = (
  */
 export const validateBrandAccess = (
   userBrandMemberships: BrandMembership[],
-  targetBrandId: string
+  targetBrandId: string,
 ): BrandAccessResult => {
   const membership = userBrandMemberships.find(
-    (m) => m.brandId === targetBrandId && m.isActive
+    (m) => m.brandId === targetBrandId && m.isActive,
   );
 
   if (!membership) {
@@ -825,7 +846,7 @@ export const validateBrandAccess = (
  * Create a brand context from membership information
  */
 export const createBrandContext = (
-  membership: BrandMembership
+  membership: BrandMembership,
 ): BrandContext => {
   return {
     brandId: membership.brandId,
@@ -845,7 +866,7 @@ export const createUserContext = (
   fullName: string | null,
   primaryBrandId: string | null,
   memberships: BrandMembership[],
-  currentBrandId?: string
+  currentBrandId?: string,
 ): UserContext => {
   const accessibleBrands = memberships
     .filter((m) => m.isActive)
@@ -853,7 +874,8 @@ export const createUserContext = (
 
   const currentBrand = currentBrandId
     ? accessibleBrands.find((b) => b.brandId === currentBrandId)
-    : accessibleBrands.find((b) => b.brandId === primaryBrandId) || accessibleBrands[0];
+    : accessibleBrands.find((b) => b.brandId === primaryBrandId) ||
+      accessibleBrands[0];
 
   return {
     userId,
@@ -862,7 +884,9 @@ export const createUserContext = (
     primaryBrandId,
     currentBrand,
     accessibleBrands,
-    globalRole: memberships.find((m) => m.role === "owner") ? "owner" : "member",
+    globalRole: memberships.find((m) => m.role === "owner")
+      ? "owner"
+      : "member",
   };
 };
 
@@ -872,9 +896,11 @@ export const createUserContext = (
  */
 export const buildBrandScopedConditions = (
   brandId: string,
-  additionalConditions?: any[]
+  additionalConditions?: any[],
 ): any[] => {
-  const conditions = [/* eq(table.brandId, brandId) */]; // Placeholder for actual Drizzle condition
+  const conditions = [
+    /* eq(table.brandId, brandId) */
+  ]; // Placeholder for actual Drizzle condition
 
   if (additionalConditions) {
     conditions.push(...additionalConditions);
@@ -891,7 +917,7 @@ export const validateBulkOperationScope = (
   affectedCount: number,
   operation: string,
   userRole: z.infer<typeof brandRoleEnum> | null,
-  skipPreview = false
+  skipPreview = false,
 ): { isValid: boolean; requiresPreview: boolean; error?: string } => {
   if (!canPerformOperation(userRole, operation)) {
     return {
@@ -923,11 +949,15 @@ export const createBrandErrors = {
    * Error for when user doesn't have access to the brand
    */
   brandAccessDenied: (brandId: string, requestId?: string): ErrorResponse =>
-    createErrorResponse("AUTHORIZATION_ERROR", `Access denied to brand ${brandId}`, {
-      statusCode: "403",
-      code: "BRAND_ACCESS_DENIED",
-      requestId,
-    }),
+    createErrorResponse(
+      "AUTHORIZATION_ERROR",
+      `Access denied to brand ${brandId}`,
+      {
+        statusCode: "403",
+        code: "BRAND_ACCESS_DENIED",
+        requestId,
+      },
+    ),
 
   /**
    * Error for when brand doesn't exist
@@ -946,7 +976,7 @@ export const createBrandErrors = {
     operation: string,
     requiredPermission: string,
     userRole?: string,
-    requestId?: string
+    requestId?: string,
   ): ErrorResponse =>
     createErrorResponse(
       "AUTHORIZATION_ERROR",
@@ -955,7 +985,7 @@ export const createBrandErrors = {
         statusCode: "403",
         code: "INSUFFICIENT_BRAND_PERMISSIONS",
         requestId,
-      }
+      },
     ),
 
   /**
@@ -969,7 +999,7 @@ export const createBrandErrors = {
         statusCode: "409",
         code: "BRAND_MEMBERSHIP_LIMIT",
         requestId,
-      }
+      },
     ),
 
   /**
@@ -983,7 +1013,7 @@ export const createBrandErrors = {
         statusCode: "409",
         code: "USER_BRAND_LIMIT",
         requestId,
-      }
+      },
     ),
 };
 
@@ -1018,7 +1048,7 @@ export type {
 export const createSuccessListResponse = <T>(
   data: T[],
   cursorInfo: CursorInfo,
-  meta?: Partial<ResponseMeta>
+  meta?: Partial<ResponseMeta>,
 ) => ({
   data,
   cursorInfo,
@@ -1030,7 +1060,7 @@ export const createSuccessListResponse = <T>(
  */
 export const createSuccessGetResponse = <T>(
   data: T | T[] | null,
-  meta?: Partial<ResponseMeta>
+  meta?: Partial<ResponseMeta>,
 ) => ({
   data,
   meta,
@@ -1044,7 +1074,7 @@ export const createSuccessMutationResponse = <T>(
   affectedCount: number,
   meta?: Partial<ResponseMeta>,
   warnings?: string[],
-  partial = false
+  partial = false,
 ) => ({
   data,
   affectedCount,
@@ -1058,7 +1088,7 @@ export const createSuccessMutationResponse = <T>(
  */
 export const createSuccessAggregateResponse = <T>(
   metrics: T,
-  meta: ResponseMeta & { asOf: Date }
+  meta: ResponseMeta & { asOf: Date },
 ) => ({
   metrics,
   meta,
@@ -1071,7 +1101,7 @@ export const createBulkOperationResponse = <T>(
   successful: T[],
   failed: Array<{ item: any; error: ErrorResponse }>,
   totalProcessed: number,
-  meta?: Partial<ResponseMeta>
+  meta?: Partial<ResponseMeta>,
 ) => ({
   successful,
   failed,
@@ -1088,7 +1118,7 @@ export const createPreviewResponse = <T>(
   affectedCount: number,
   sampleData?: T[],
   warnings?: string[],
-  meta?: Partial<ResponseMeta>
+  meta?: Partial<ResponseMeta>,
 ) => ({
   preview: true as const,
   affectedCount,
@@ -1108,7 +1138,7 @@ export const createValidationError = (
   field: string,
   message: string,
   code?: string,
-  receivedValue?: any
+  receivedValue?: any,
 ): ValidationError => ({
   field,
   message,
@@ -1129,7 +1159,7 @@ export const createErrorResponse = (
     requestId?: string;
     path?: string;
     retryable?: boolean;
-  }
+  },
 ): ErrorResponse => ({
   type,
   message,
@@ -1142,7 +1172,11 @@ export const createErrorResponse = (
  * Common error creators for frequent use cases
  */
 export const createCommonErrors = {
-  notFound: (resource: string, id?: string, requestId?: string): ErrorResponse =>
+  notFound: (
+    resource: string,
+    id?: string,
+    requestId?: string,
+  ): ErrorResponse =>
     createErrorResponse("NOT_FOUND_ERROR", `${resource} not found`, {
       statusCode: "404",
       requestId,
@@ -1156,7 +1190,10 @@ export const createCommonErrors = {
       requestId,
     }),
 
-  unauthorized: (message = "Authentication required", requestId?: string): ErrorResponse =>
+  unauthorized: (
+    message = "Authentication required",
+    requestId?: string,
+  ): ErrorResponse =>
     createErrorResponse("AUTHENTICATION_ERROR", message, {
       statusCode: "401",
       requestId,
@@ -1168,11 +1205,19 @@ export const createCommonErrors = {
       requestId,
     }),
 
-  conflict: (resource: string, details?: string, requestId?: string): ErrorResponse =>
-    createErrorResponse("CONFLICT_ERROR", `${resource} conflict: ${details || "Resource already exists"}`, {
-      statusCode: "409",
-      requestId,
-    }),
+  conflict: (
+    resource: string,
+    details?: string,
+    requestId?: string,
+  ): ErrorResponse =>
+    createErrorResponse(
+      "CONFLICT_ERROR",
+      `${resource} conflict: ${details || "Resource already exists"}`,
+      {
+        statusCode: "409",
+        requestId,
+      },
+    ),
 
   rateLimit: (retryAfter?: number, requestId?: string): ErrorResponse =>
     createErrorResponse("RATE_LIMIT_ERROR", "Rate limit exceeded", {
@@ -1181,7 +1226,10 @@ export const createCommonErrors = {
       requestId,
     }),
 
-  internal: (message = "Internal server error", requestId?: string): ErrorResponse =>
+  internal: (
+    message = "Internal server error",
+    requestId?: string,
+  ): ErrorResponse =>
     createErrorResponse("INTERNAL_SERVER_ERROR", message, {
       statusCode: "500",
       retryable: true,
@@ -1217,7 +1265,7 @@ export const createRequestTracking = (
     brandId?: string;
     userId?: string;
     sessionId?: string;
-  }
+  },
 ) => ({
   requestId,
   ...options,
@@ -1245,7 +1293,7 @@ export const createCursorInfo = (
     hasPrevious?: boolean;
     totalPages?: number;
     currentPage?: number;
-  }
+  },
 ): CursorInfo => ({
   nextCursor,
   hasMore,
@@ -1277,7 +1325,7 @@ export interface ModuleExtensionConfig<
   TInclude extends z.ZodRawShape = z.ZodRawShape,
   TWhere extends z.ZodRawShape = z.ZodRawShape,
   TData extends z.ZodRawShape = z.ZodRawShape,
-  TMetrics extends z.ZodRawShape = z.ZodRawShape
+  TMetrics extends z.ZodRawShape = z.ZodRawShape,
 > {
   /** Module identifier for debugging and documentation */
   moduleId: string;
@@ -1318,7 +1366,7 @@ export const createExtendedFilterSchema = <T extends z.ZodRawShape>(
   options?: {
     strict?: boolean;
     description?: string;
-  }
+  },
 ): z.ZodObject<z.ZodRawShape & T> => {
   const extended = baseFilterSchema.extend(extensions);
 
@@ -1338,7 +1386,7 @@ export const createExtendedSortSchema = <T extends readonly string[]>(
     strict?: boolean;
     defaultField?: string;
     description?: string;
-  }
+  },
 ) => {
   const baseFields = ["createdAt", "updatedAt", "name"] as const;
   const allFields = [...baseFields, ...additionalFields] as const;
@@ -1365,7 +1413,7 @@ export const createExtendedIncludeSchema = <T extends z.ZodRawShape>(
     strict?: boolean;
     description?: string;
     moduleId?: string;
-  }
+  },
 ): z.ZodObject<z.ZodRawShape & T> => {
   let extended = baseIncludeSchema.extend(extensions);
 
@@ -1390,7 +1438,7 @@ export const createExtendedWhereSchema = <T extends z.ZodRawShape>(
   options?: {
     strict?: boolean;
     description?: string;
-  }
+  },
 ): z.ZodObject<z.ZodRawShape & T> => {
   const extended = baseWhereSchema.extend(extensions);
 
@@ -1409,7 +1457,7 @@ export const createExtendedDataSchema = <T extends z.ZodRawShape>(
   options?: {
     strict?: boolean;
     description?: string;
-  }
+  },
 ): z.ZodObject<z.ZodRawShape & T> => {
   const extended = baseDataSchema.extend(extensions);
 
@@ -1428,7 +1476,7 @@ export const createExtendedMetricsSchema = <T extends readonly string[]>(
   options?: {
     strict?: boolean;
     description?: string;
-  }
+  },
 ) => {
   const baseMetrics = [
     "countByStatus",
@@ -1461,7 +1509,7 @@ export const createModuleSchemas = <
   TInclude extends z.ZodRawShape,
   TWhere extends z.ZodRawShape,
   TData extends z.ZodRawShape,
-  TMetrics extends readonly [string, ...string[]]
+  TMetrics extends readonly [string, ...string[]],
 >(config: {
   moduleId: string;
   filterExtensions?: TFilter;
@@ -1489,15 +1537,16 @@ export const createModuleSchemas = <
     // Extended schemas
     filterSchema: createExtendedFilterSchema(filterExtensions, {
       strict,
-      description: `${moduleId} filter schema`
+      description: `${moduleId} filter schema`,
     }),
 
-    sortSchema: sortFields.length > 0
-      ? createExtendedSortSchema(sortFields, {
-          strict,
-          description: `${moduleId} sort schema`
-        })
-      : baseSortSchema,
+    sortSchema:
+      sortFields.length > 0
+        ? createExtendedSortSchema(sortFields, {
+            strict,
+            description: `${moduleId} sort schema`,
+          })
+        : baseSortSchema,
 
     includeSchema: createExtendedIncludeSchema(includeExtensions, {
       strict,
@@ -1507,20 +1556,21 @@ export const createModuleSchemas = <
 
     whereSchema: createExtendedWhereSchema(whereExtensions, {
       strict,
-      description: `${moduleId} where schema`
+      description: `${moduleId} where schema`,
     }),
 
     dataSchema: createExtendedDataSchema(dataExtensions, {
       strict,
-      description: `${moduleId} data schema`
+      description: `${moduleId} data schema`,
     }),
 
-    metricsSchema: additionalMetrics.length > 0
-      ? createExtendedMetricsSchema(additionalMetrics, {
-          strict,
-          description: `${moduleId} metrics schema`
-        })
-      : baseMetricsSchema,
+    metricsSchema:
+      additionalMetrics.length > 0
+        ? createExtendedMetricsSchema(additionalMetrics, {
+            strict,
+            description: `${moduleId} metrics schema`,
+          })
+        : baseMetricsSchema,
 
     // Standard schemas (unchanged)
     paginationSchema: basePaginationSchema,
@@ -1545,9 +1595,10 @@ export const createModuleSchemas = <
       createPreviewResponseSchema(dataSchema),
 
     // Selection schema for bulk operations
-    createSelectionSchema: () => createSelectionSchema(
-      createExtendedFilterSchema(filterExtensions, { strict })
-    ),
+    createSelectionSchema: () =>
+      createSelectionSchema(
+        createExtendedFilterSchema(filterExtensions, { strict }),
+      ),
   };
 };
 
@@ -1557,22 +1608,25 @@ export const createModuleSchemas = <
 export type ModuleSchemas<T extends ReturnType<typeof createModuleSchemas>> = T;
 
 export type InferModuleFilter<T extends { filterSchema: z.ZodTypeAny }> =
-  z.infer<T['filterSchema']>;
+  z.infer<T["filterSchema"]>;
 
-export type InferModuleSort<T extends { sortSchema: z.ZodTypeAny }> =
-  z.infer<T['sortSchema']>;
+export type InferModuleSort<T extends { sortSchema: z.ZodTypeAny }> = z.infer<
+  T["sortSchema"]
+>;
 
 export type InferModuleInclude<T extends { includeSchema: z.ZodTypeAny }> =
-  z.infer<T['includeSchema']>;
+  z.infer<T["includeSchema"]>;
 
-export type InferModuleWhere<T extends { whereSchema: z.ZodTypeAny }> =
-  z.infer<T['whereSchema']>;
+export type InferModuleWhere<T extends { whereSchema: z.ZodTypeAny }> = z.infer<
+  T["whereSchema"]
+>;
 
-export type InferModuleData<T extends { dataSchema: z.ZodTypeAny }> =
-  z.infer<T['dataSchema']>;
+export type InferModuleData<T extends { dataSchema: z.ZodTypeAny }> = z.infer<
+  T["dataSchema"]
+>;
 
 export type InferModuleMetrics<T extends { metricsSchema: z.ZodTypeAny }> =
-  z.infer<T['metricsSchema']>;
+  z.infer<T["metricsSchema"]>;
 
 /**
  * Validation utilities for modules
@@ -1582,7 +1636,7 @@ export const createModuleValidator = <T extends z.ZodSchema>(
   options?: {
     onError?: (error: z.ZodError) => void;
     transform?: (data: z.infer<T>) => z.infer<T>;
-  }
+  },
 ) => {
   return (data: unknown): z.infer<T> => {
     try {
@@ -1605,8 +1659,10 @@ const moduleSchemaRegistry = new Map<string, ModuleSchemas<any>>();
 /**
  * Register a module's schemas for reuse across the application
  */
-export const registerModuleSchemas = <T extends ReturnType<typeof createModuleSchemas>>(
-  schemas: T
+export const registerModuleSchemas = <
+  T extends ReturnType<typeof createModuleSchemas>,
+>(
+  schemas: T,
 ): T => {
   moduleSchemaRegistry.set(schemas.moduleId, schemas);
   return schemas;
@@ -1616,7 +1672,7 @@ export const registerModuleSchemas = <T extends ReturnType<typeof createModuleSc
  * Get registered module schemas by module ID
  */
 export const getModuleSchemas = <T extends ModuleSchemas<any>>(
-  moduleId: string
+  moduleId: string,
 ): T | undefined => {
   return moduleSchemaRegistry.get(moduleId) as T | undefined;
 };
@@ -1645,7 +1701,7 @@ export const clearModuleSchemaRegistry = (): void => {
 export const createCrossModuleQueryCapabilities = <T extends z.ZodTypeAny>(
   moduleId: string,
   sourceTable: any, // AnyPgTable type from drizzle
-  dataSchema: T
+  dataSchema: T,
 ) => {
   const queryBuilder = createCrossModuleQueryBuilder(moduleId, sourceTable);
 
@@ -1669,7 +1725,10 @@ export const createCrossModuleQueryCapabilities = <T extends z.ZodTypeAny>(
     /**
      * Validate include permissions and performance
      */
-    validateIncludes: (includes: Record<string, boolean>, userRole?: string) => {
+    validateIncludes: (
+      includes: Record<string, boolean>,
+      userRole?: string,
+    ) => {
       const performance = analyzeQueryPerformance(moduleId, includes);
 
       // Basic validation rules
@@ -1700,7 +1759,7 @@ export const applyCrossModuleIncludes = <T extends any>(
   query: T,
   includes: Record<string, boolean>,
   moduleId: string,
-  sourceTable: any
+  sourceTable: any,
 ): T => {
   if (!includes || Object.keys(includes).length === 0) {
     return query;
@@ -1716,7 +1775,7 @@ export const applyCrossModuleIncludes = <T extends any>(
 export const transformCrossModuleResults = <T extends any[]>(
   results: T,
   includes: Record<string, boolean>,
-  moduleId: string
+  moduleId: string,
 ): T => {
   if (!includes || Object.keys(includes).length === 0 || !results.length) {
     return results;

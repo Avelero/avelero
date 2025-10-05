@@ -29,4 +29,3 @@ export async function listCareCodes(db: Database) {
     .from(careCodes)
     .orderBy(asc(careCodes.name));
 }
-

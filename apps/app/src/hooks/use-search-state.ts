@@ -30,7 +30,7 @@ export interface SearchActions {
  * @returns [searchState, searchActions]
  */
 export function useSearchState(
-  initialQuery: string = "",
+  initialQuery = "",
   debounceMs?: number, // Kept for backward compatibility but unused
 ): [SearchState, SearchActions] {
   const [query, setQuery] = React.useState(initialQuery);

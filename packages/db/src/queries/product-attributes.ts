@@ -139,4 +139,3 @@ export async function setProductJourneySteps(
     .returning({ id: productJourneySteps.id });
   return { count: rows.length } as const;
 }
-

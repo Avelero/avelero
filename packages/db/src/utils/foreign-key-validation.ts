@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNull, isNotNull, inArray, exists, not } from "drizzle-orm";
+import { and, eq, isNull, isNotNull, inArray, exists, not, count } from "drizzle-orm";
 import {
   passports,
   products,
@@ -59,33 +59,33 @@ export interface ForeignKeyConstraint {
 export const FOREIGN_KEY_CONSTRAINTS = {
   passports: [
     {
-      sourceField: 'brandId',
-      targetTable: 'brands',
-      targetField: 'id',
+      sourceField: "brandId",
+      targetTable: "brands",
+      targetField: "id",
       nullable: false,
       cascadeDelete: true,
       brandScoped: false, // This is the brand reference itself
     },
     {
-      sourceField: 'productId',
-      targetTable: 'products',
-      targetField: 'id',
+      sourceField: "productId",
+      targetTable: "products",
+      targetField: "id",
       nullable: true,
       cascadeDelete: true,
       brandScoped: true,
     },
     {
-      sourceField: 'variantId',
-      targetTable: 'product_variants',
-      targetField: 'id',
+      sourceField: "variantId",
+      targetTable: "product_variants",
+      targetField: "id",
       nullable: true,
       cascadeDelete: true,
       brandScoped: true,
     },
     {
-      sourceField: 'templateId',
-      targetTable: 'templates',
-      targetField: 'id',
+      sourceField: "templateId",
+      targetTable: "templates",
+      targetField: "id",
       nullable: true,
       cascadeDelete: false, // SET NULL on template deletion
       brandScoped: true,
@@ -94,33 +94,33 @@ export const FOREIGN_KEY_CONSTRAINTS = {
 
   products: [
     {
-      sourceField: 'brandId',
-      targetTable: 'brands',
-      targetField: 'id',
+      sourceField: "brandId",
+      targetTable: "brands",
+      targetField: "id",
       nullable: false,
       cascadeDelete: true,
       brandScoped: false,
     },
     {
-      sourceField: 'categoryId',
-      targetTable: 'categories',
-      targetField: 'id',
+      sourceField: "categoryId",
+      targetTable: "categories",
+      targetField: "id",
       nullable: true,
       cascadeDelete: false, // SET NULL on category deletion
       brandScoped: true,
     },
     {
-      sourceField: 'showcaseBrandId',
-      targetTable: 'showcase_brands',
-      targetField: 'id',
+      sourceField: "showcaseBrandId",
+      targetTable: "showcase_brands",
+      targetField: "id",
       nullable: true,
       cascadeDelete: false, // SET NULL on showcase brand deletion
       brandScoped: false, // Showcase brands might be cross-brand
     },
     {
-      sourceField: 'brandCertificationId',
-      targetTable: 'brand_certifications',
-      targetField: 'id',
+      sourceField: "brandCertificationId",
+      targetTable: "brand_certifications",
+      targetField: "id",
       nullable: true,
       cascadeDelete: false, // SET NULL on certification deletion
       brandScoped: true,
@@ -129,25 +129,25 @@ export const FOREIGN_KEY_CONSTRAINTS = {
 
   productVariants: [
     {
-      sourceField: 'productId',
-      targetTable: 'products',
-      targetField: 'id',
+      sourceField: "productId",
+      targetTable: "products",
+      targetField: "id",
       nullable: false,
       cascadeDelete: true,
       brandScoped: true, // Variants must belong to products in same brand
     },
     {
-      sourceField: 'colorId',
-      targetTable: 'brand_colors',
-      targetField: 'id',
+      sourceField: "colorId",
+      targetTable: "brand_colors",
+      targetField: "id",
       nullable: true,
       cascadeDelete: false, // SET NULL on color deletion
       brandScoped: true,
     },
     {
-      sourceField: 'sizeId',
-      targetTable: 'brand_sizes',
-      targetField: 'id',
+      sourceField: "sizeId",
+      targetTable: "brand_sizes",
+      targetField: "id",
       nullable: true,
       cascadeDelete: false, // SET NULL on size deletion
       brandScoped: true,
@@ -156,9 +156,9 @@ export const FOREIGN_KEY_CONSTRAINTS = {
 
   templates: [
     {
-      sourceField: 'brandId',
-      targetTable: 'brands',
-      targetField: 'id',
+      sourceField: "brandId",
+      targetTable: "brands",
+      targetField: "id",
       nullable: false,
       cascadeDelete: true,
       brandScoped: false,
@@ -167,9 +167,9 @@ export const FOREIGN_KEY_CONSTRAINTS = {
 
   modules: [
     {
-      sourceField: 'templateId',
-      targetTable: 'templates',
-      targetField: 'id',
+      sourceField: "templateId",
+      targetTable: "templates",
+      targetField: "id",
       nullable: false,
       cascadeDelete: true,
       brandScoped: true,
@@ -178,17 +178,17 @@ export const FOREIGN_KEY_CONSTRAINTS = {
 
   categories: [
     {
-      sourceField: 'brandId',
-      targetTable: 'brands',
-      targetField: 'id',
+      sourceField: "brandId",
+      targetTable: "brands",
+      targetField: "id",
       nullable: false,
       cascadeDelete: true,
       brandScoped: false,
     },
     {
-      sourceField: 'parentId',
-      targetTable: 'categories',
-      targetField: 'id',
+      sourceField: "parentId",
+      targetTable: "categories",
+      targetField: "id",
       nullable: true,
       cascadeDelete: false, // SET NULL on parent deletion
       brandScoped: true,
@@ -207,7 +207,7 @@ export async function validateEntityForeignKeys(
   db: Database | TransactionContext,
   tableName: keyof typeof FOREIGN_KEY_CONSTRAINTS,
   entityData: Record<string, any>,
-  brandId?: string
+  brandId?: string,
 ): Promise<ForeignKeyValidationResult> {
   const constraints = FOREIGN_KEY_CONSTRAINTS[tableName];
   if (!constraints) {
@@ -240,7 +240,7 @@ export async function validateEntityForeignKeys(
       db,
       constraint,
       fieldValue,
-      brandId
+      brandId,
     );
 
     if (!referenceValid.isValid) {
@@ -248,7 +248,9 @@ export async function validateEntityForeignKeys(
         field: constraint.sourceField,
         value: fieldValue,
         targetTable: constraint.targetTable,
-        message: referenceValid.error || `Invalid reference to ${constraint.targetTable}`,
+        message:
+          referenceValid.error ||
+          `Invalid reference to ${constraint.targetTable}`,
       });
     }
   }
@@ -271,7 +273,7 @@ async function validateForeignKeyReference(
   db: Database | TransactionContext,
   constraint: ForeignKeyConstraint,
   value: string,
-  brandId?: string
+  brandId?: string,
 ): Promise<{ isValid: boolean; error?: string }> {
   try {
     let targetExists = false;
@@ -279,19 +281,20 @@ async function validateForeignKeyReference(
 
     // Check if the referenced record exists
     switch (constraint.targetTable) {
-      case 'brands':
-        const brand = await db.query.brands.findFirst({
+      case "brands":
+        const brand = await (db.query.brands as any).findFirst({
           where: eq(brands.id, value),
         });
         targetExists = !!brand;
         break;
 
-      case 'products':
-        const productWhere = constraint.brandScoped && brandId
-          ? and(eq(products.id, value), eq(products.brandId, brandId))
-          : eq(products.id, value);
+      case "products":
+        const productWhere =
+          constraint.brandScoped && brandId
+            ? and(eq(products.id, value), eq(products.brandId, brandId))
+            : eq(products.id, value);
 
-        const product = await db.query.products.findFirst({
+        const product = await (db.query.products as any).findFirst({
           where: productWhere,
         });
         targetExists = !!product;
@@ -302,11 +305,11 @@ async function validateForeignKeyReference(
         }
         break;
 
-      case 'product_variants':
+      case "product_variants":
         let variantQuery;
         if (constraint.brandScoped && brandId) {
           // Need to join with products to check brand
-          variantQuery = db.query.productVariants.findFirst({
+          variantQuery = (db.query.productVariants as any).findFirst({
             where: eq(productVariants.id, value),
             with: {
               product: {
@@ -315,7 +318,7 @@ async function validateForeignKeyReference(
             },
           });
         } else {
-          variantQuery = db.query.productVariants.findFirst({
+          variantQuery = (db.query.productVariants as any).findFirst({
             where: eq(productVariants.id, value),
           });
         }
@@ -328,63 +331,69 @@ async function validateForeignKeyReference(
         }
         break;
 
-      case 'templates':
-        const templateWhere = constraint.brandScoped && brandId
-          ? and(eq(templates.id, value), eq(templates.brandId, brandId))
-          : eq(templates.id, value);
+      case "templates":
+        const templateWhere =
+          constraint.brandScoped && brandId
+            ? and(eq(templates.id, value), eq(templates.brandId, brandId))
+            : eq(templates.id, value);
 
-        const template = await db.query.templates.findFirst({
+        const template = await (db.query.templates as any).findFirst({
           where: templateWhere,
         });
         targetExists = !!template;
         break;
 
-      case 'categories':
-        const categoryWhere = constraint.brandScoped && brandId
-          ? and(eq(categories.id, value), eq(categories.brandId, brandId))
-          : eq(categories.id, value);
+      case "categories":
+        // Categories are global, no brand scoping
+        const categoryWhere = eq(categories.id, value);
 
-        const category = await db.query.categories.findFirst({
+        const category = await (db.query.categories as any).findFirst({
           where: categoryWhere,
         });
         targetExists = !!category;
         break;
 
-      case 'brand_colors':
-        const colorWhere = constraint.brandScoped && brandId
-          ? and(eq(brandColors.id, value), eq(brandColors.brandId, brandId))
-          : eq(brandColors.id, value);
+      case "brand_colors":
+        const colorWhere =
+          constraint.brandScoped && brandId
+            ? and(eq(brandColors.id, value), eq(brandColors.brandId, brandId))
+            : eq(brandColors.id, value);
 
-        const color = await db.query.brandColors.findFirst({
+        const color = await (db.query.brandColors as any).findFirst({
           where: colorWhere,
         });
         targetExists = !!color;
         break;
 
-      case 'brand_sizes':
-        const sizeWhere = constraint.brandScoped && brandId
-          ? and(eq(brandSizes.id, value), eq(brandSizes.brandId, brandId))
-          : eq(brandSizes.id, value);
+      case "brand_sizes":
+        const sizeWhere =
+          constraint.brandScoped && brandId
+            ? and(eq(brandSizes.id, value), eq(brandSizes.brandId, brandId))
+            : eq(brandSizes.id, value);
 
-        const size = await db.query.brandSizes.findFirst({
+        const size = await (db.query.brandSizes as any).findFirst({
           where: sizeWhere,
         });
         targetExists = !!size;
         break;
 
-      case 'showcase_brands':
-        const showcaseBrand = await db.query.showcaseBrands.findFirst({
+      case "showcase_brands":
+        const showcaseBrand = await (db.query.showcaseBrands as any).findFirst({
           where: eq(showcaseBrands.id, value),
         });
         targetExists = !!showcaseBrand;
         break;
 
-      case 'brand_certifications':
-        const certWhere = constraint.brandScoped && brandId
-          ? and(eq(brandCertifications.id, value), eq(brandCertifications.brandId, brandId))
-          : eq(brandCertifications.id, value);
+      case "brand_certifications":
+        const certWhere =
+          constraint.brandScoped && brandId
+            ? and(
+                eq(brandCertifications.id, value),
+                eq(brandCertifications.brandId, brandId),
+              )
+            : eq(brandCertifications.id, value);
 
-        const certification = await db.query.brandCertifications.findFirst({
+        const certification = await (db.query.brandCertifications as any).findFirst({
           where: certWhere,
         });
         targetExists = !!certification;
@@ -427,17 +436,22 @@ export async function validateBulkForeignKeys(
   db: Database | TransactionContext,
   tableName: keyof typeof FOREIGN_KEY_CONSTRAINTS,
   entities: Record<string, any>[],
-  brandId?: string
+  brandId?: string,
 ): Promise<ForeignKeyValidationResult> {
   const allViolations: ForeignKeyViolation[] = [];
   let entityIndex = 0;
 
   for (const entity of entities) {
-    const result = await validateEntityForeignKeys(db, tableName, entity, brandId);
+    const result = await validateEntityForeignKeys(
+      db,
+      tableName,
+      entity,
+      brandId,
+    );
 
     if (!result.isValid && result.invalidReferences) {
       // Add entity index to violations for better error reporting
-      const indexedViolations = result.invalidReferences.map(violation => ({
+      const indexedViolations = result.invalidReferences.map((violation) => ({
         ...violation,
         message: `Entity ${entityIndex}: ${violation.message}`,
       }));
@@ -449,9 +463,9 @@ export async function validateBulkForeignKeys(
     // Limit validation to prevent performance issues
     if (entityIndex >= 100) {
       allViolations.push({
-        field: 'bulk_limit',
+        field: "bulk_limit",
         value: null,
-        targetTable: 'system',
+        targetTable: "system",
         message: `Bulk validation limited to first 100 entities`,
       });
       break;
@@ -474,10 +488,10 @@ export async function validateBulkForeignKeys(
  */
 export async function checkCircularDependencies(
   db: Database | TransactionContext,
-  tableName: 'categories',
+  tableName: "categories",
   entityId: string,
   parentId: string,
-  brandId?: string
+  brandId?: string,
 ): Promise<{ hasCircularDependency: boolean; path?: string[] }> {
   const visited = new Set<string>();
   const path: string[] = [];
@@ -498,12 +512,11 @@ export async function checkCircularDependencies(
 
     // Get the parent of the current entity
     switch (tableName) {
-      case 'categories':
-        const categoryWhere = brandId
-          ? and(eq(categories.id, currentId), eq(categories.brandId, brandId))
-          : eq(categories.id, currentId);
+      case "categories":
+        // Categories are global, no brand scoping
+        const categoryWhere: any = eq(categories.id, currentId);
 
-        const category = await db.query.categories.findFirst({
+        const category: any = await (db.query.categories as any).findFirst({
           where: categoryWhere,
           columns: { parentId: true },
         });
@@ -519,7 +532,7 @@ export async function checkCircularDependencies(
     if (path.length > 50) {
       return {
         hasCircularDependency: true,
-        path: [...path, '...depth_limit_reached'],
+        path: [...path, "...depth_limit_reached"],
       };
     }
   }
@@ -534,7 +547,7 @@ export async function validateBeforeDeletion(
   db: Database | TransactionContext,
   tableName: string,
   entityIds: string[],
-  brandId?: string
+  brandId?: string,
 ): Promise<{
   canDelete: boolean;
   blockingReferences: Array<{
@@ -554,19 +567,19 @@ export async function validateBeforeDeletion(
   try {
     // Check for references that would prevent deletion
     switch (tableName) {
-      case 'brands':
+      case "brands":
         // Check products
         const productCount = await db
           .select({ count: count() })
           .from(products)
           .where(inArray(products.brandId, entityIds));
 
-        if (productCount[0].count > 0) {
+        if (productCount[0] && productCount[0].count > 0) {
           blockingReferences.push({
-            table: 'products',
-            field: 'brandId',
+            table: "products",
+            field: "brandId",
             count: productCount[0].count,
-            constraint: 'CASCADE - will delete dependent records',
+            constraint: "CASCADE - will delete dependent records",
           });
         }
 
@@ -576,12 +589,12 @@ export async function validateBeforeDeletion(
           .from(passports)
           .where(inArray(passports.brandId, entityIds));
 
-        if (passportCount[0].count > 0) {
+        if (passportCount[0] && passportCount[0].count > 0) {
           blockingReferences.push({
-            table: 'passports',
-            field: 'brandId',
+            table: "passports",
+            field: "brandId",
             count: passportCount[0].count,
-            constraint: 'CASCADE - will delete dependent records',
+            constraint: "CASCADE - will delete dependent records",
           });
         }
 
@@ -591,29 +604,29 @@ export async function validateBeforeDeletion(
           .from(templates)
           .where(inArray(templates.brandId, entityIds));
 
-        if (templateCount[0].count > 0) {
+        if (templateCount[0] && templateCount[0].count > 0) {
           blockingReferences.push({
-            table: 'templates',
-            field: 'brandId',
+            table: "templates",
+            field: "brandId",
             count: templateCount[0].count,
-            constraint: 'CASCADE - will delete dependent records',
+            constraint: "CASCADE - will delete dependent records",
           });
         }
         break;
 
-      case 'products':
+      case "products":
         // Check variants
         const variantCount = await db
           .select({ count: count() })
           .from(productVariants)
           .where(inArray(productVariants.productId, entityIds));
 
-        if (variantCount[0].count > 0) {
+        if (variantCount[0] && variantCount[0].count > 0) {
           blockingReferences.push({
-            table: 'product_variants',
-            field: 'productId',
+            table: "product_variants",
+            field: "productId",
             count: variantCount[0].count,
-            constraint: 'CASCADE - will delete dependent records',
+            constraint: "CASCADE - will delete dependent records",
           });
         }
 
@@ -623,29 +636,29 @@ export async function validateBeforeDeletion(
           .from(passports)
           .where(inArray(passports.productId, entityIds));
 
-        if (passportByProductCount[0].count > 0) {
+        if (passportByProductCount[0] && passportByProductCount[0].count > 0) {
           blockingReferences.push({
-            table: 'passports',
-            field: 'productId',
+            table: "passports",
+            field: "productId",
             count: passportByProductCount[0].count,
-            constraint: 'CASCADE - will delete dependent records',
+            constraint: "CASCADE - will delete dependent records",
           });
         }
         break;
 
-      case 'templates':
+      case "templates":
         // Check modules
         const moduleCount = await db
           .select({ count: count() })
           .from(modules)
-          .where(inArray(modules.templateId, entityIds));
+          .where(inArray((modules as any).templateId, entityIds));
 
-        if (moduleCount[0].count > 0) {
+        if (moduleCount[0] && moduleCount[0].count > 0) {
           blockingReferences.push({
-            table: 'modules',
-            field: 'templateId',
+            table: "modules",
+            field: "templateId",
             count: moduleCount[0].count,
-            constraint: 'CASCADE - will delete dependent records',
+            constraint: "CASCADE - will delete dependent records",
           });
         }
 
@@ -655,29 +668,29 @@ export async function validateBeforeDeletion(
           .from(passports)
           .where(inArray(passports.templateId, entityIds));
 
-        if (passportByTemplateCount[0].count > 0) {
+        if (passportByTemplateCount[0] && passportByTemplateCount[0].count > 0) {
           blockingReferences.push({
-            table: 'passports',
-            field: 'templateId',
+            table: "passports",
+            field: "templateId",
             count: passportByTemplateCount[0].count,
-            constraint: 'SET NULL - will remove template references',
+            constraint: "SET NULL - will remove template references",
           });
         }
         break;
 
-      case 'categories':
+      case "categories":
         // Check products by category
         const productByCategoryCount = await db
           .select({ count: count() })
           .from(products)
           .where(inArray(products.categoryId, entityIds));
 
-        if (productByCategoryCount[0].count > 0) {
+        if (productByCategoryCount[0] && productByCategoryCount[0].count > 0) {
           blockingReferences.push({
-            table: 'products',
-            field: 'categoryId',
+            table: "products",
+            field: "categoryId",
             count: productByCategoryCount[0].count,
-            constraint: 'SET NULL - will remove category references',
+            constraint: "SET NULL - will remove category references",
           });
         }
 
@@ -687,12 +700,12 @@ export async function validateBeforeDeletion(
           .from(categories)
           .where(inArray(categories.parentId, entityIds));
 
-        if (childCategoryCount[0].count > 0) {
+        if (childCategoryCount[0] && childCategoryCount[0].count > 0) {
           blockingReferences.push({
-            table: 'categories',
-            field: 'parentId',
+            table: "categories",
+            field: "parentId",
             count: childCategoryCount[0].count,
-            constraint: 'SET NULL - will orphan child categories',
+            constraint: "SET NULL - will orphan child categories",
           });
         }
         break;
@@ -705,12 +718,14 @@ export async function validateBeforeDeletion(
   } catch (error: any) {
     return {
       canDelete: false,
-      blockingReferences: [{
-        table: 'system',
-        field: 'error',
-        count: 0,
-        constraint: `Validation error: ${error.message}`,
-      }],
+      blockingReferences: [
+        {
+          table: "system",
+          field: "error",
+          count: 0,
+          constraint: `Validation error: ${error.message}`,
+        },
+      ],
     };
   }
 }
@@ -719,7 +734,7 @@ export async function validateBeforeDeletion(
  * Create a foreign key validation error with details
  */
 export function createForeignKeyValidationError(
-  result: ForeignKeyValidationResult
+  result: ForeignKeyValidationResult,
 ): TRPCError {
   const details = {
     violations: result.invalidReferences || [],
@@ -727,8 +742,8 @@ export function createForeignKeyValidationError(
   };
 
   return new TRPCError({
-    code: 'BAD_REQUEST',
-    message: result.error || 'Foreign key validation failed',
+    code: "BAD_REQUEST",
+    message: result.error || "Foreign key validation failed",
     cause: details,
   });
 }

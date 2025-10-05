@@ -1,20 +1,23 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
 import { TRPCError, initTRPC } from "@trpc/server";
-import { ZodError } from "zod";
 import { db as drizzleDb } from "@v1/db/client";
 import type { Database as DrizzleDatabase } from "@v1/db/client";
+import {
+  type BrandAccessManager,
+  createBrandAccessManager,
+} from "@v1/db/queries";
+import type {
+  BrandAccessResult,
+  BrandContext,
+  BrandMembership,
+  UserContext,
+} from "@v1/db/schemas/shared";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
+import { ZodError } from "zod";
 import type { Role } from "../config/roles";
 import { withBrandPermission } from "./middleware/brand-permission";
-import type {
-  BrandContext,
-  UserContext,
-  BrandMembership,
-  BrandAccessResult,
-} from "@v1/db/schemas/shared";
-import { createBrandAccessManager, type BrandAccessManager } from "@v1/db/queries";
 
 interface GeoContext {
   ip?: string | null;
@@ -78,7 +81,9 @@ export async function createTRPCContextFromHeaders(
 ): Promise<TRPCContext> {
   const authHeader = headers.authorization ?? headers.Authorization;
   const ip = headers["x-forwarded-for"] || headers["x-real-ip"];
-  const requestId = headers["x-request-id"] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const requestId =
+    headers["x-request-id"] ||
+    `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   const supabase = createSupabaseForRequest(authHeader ?? null);
   const supabaseAdmin = createSupabaseAdmin();
@@ -142,25 +147,31 @@ export async function createTRPCContextFromHeaders(
           accessibleBrands: brandMemberships.map((m) => ({
             brandId: m.brandId,
             role: m.role,
-            permissions: m.role === "owner"
-              ? ["read", "write", "admin", "owner"] as const
-              : ["read", "write"] as const,
+            permissions:
+              m.role === "owner"
+                ? (["read", "write", "admin", "owner"] as const)
+                : (["read", "write"] as const),
             isBrandOwner: m.role === "owner",
             canAccessBrand: m.isActive,
           })),
-          globalRole: brandMemberships.some((m) => m.role === "owner") ? "owner" : "member",
+          globalRole: brandMemberships.some((m) => m.role === "owner")
+            ? "owner"
+            : "member",
         };
 
         // Set current brand context if user has a primary brand
         if (brandId) {
-          const currentMembership = brandMemberships.find((m) => m.brandId === brandId);
+          const currentMembership = brandMemberships.find(
+            (m) => m.brandId === brandId,
+          );
           if (currentMembership) {
             brandContext = {
               brandId: currentMembership.brandId,
               role: currentMembership.role,
-              permissions: currentMembership.role === "owner"
-                ? ["read", "write", "admin", "owner"] as const
-                : ["read", "write"] as const,
+              permissions:
+                currentMembership.role === "owner"
+                  ? (["read", "write", "admin", "owner"] as const)
+                  : (["read", "write"] as const),
               isBrandOwner: currentMembership.role === "owner",
               canAccessBrand: currentMembership.isActive,
             };
@@ -169,7 +180,10 @@ export async function createTRPCContextFromHeaders(
         }
 
         // Create brand access manager for dynamic brand operations
-        brandAccessManager = createBrandAccessManager(brandMemberships, brandId);
+        brandAccessManager = createBrandAccessManager(
+          brandMemberships,
+          brandId,
+        );
       }
     } catch (error) {
       console.error("Error fetching enhanced brand context:", error);
@@ -232,7 +246,8 @@ export const t = initTRPC.context<TRPCContext>().create({
       ...shape,
       data: {
         ...shape.data,
-        zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+        zodError:
+          error.cause instanceof ZodError ? error.cause.flatten() : null,
       },
     };
   },
@@ -258,8 +273,19 @@ export const protectedProcedure = t.procedure
   .use(withBrandPermissionMiddleware)
   .use(withPrimaryDbMiddleware)
   .use(async (opts) => {
-    const { user, brandId, role, brandContext, userContext, brandAccessManager } = opts.ctx;
-    if (!user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Not authenticated" });
+    const {
+      user,
+      brandId,
+      role,
+      brandContext,
+      userContext,
+      brandAccessManager,
+    } = opts.ctx;
+    if (!user)
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated",
+      });
 
     // Explicitly cast user to User (non-nullable)
     const authenticatedUser = user as User;
@@ -315,9 +341,10 @@ export const protectedProcedure = t.procedure
           const requiredPermission = operationPermissionMap[operation];
           if (!requiredPermission) return false;
 
-          const rolePermissions = role === "owner"
-            ? ["read", "write", "admin", "owner"]
-            : ["read", "write"];
+          const rolePermissions =
+            role === "owner"
+              ? ["read", "write", "admin", "owner"]
+              : ["read", "write"];
 
           return rolePermissions.includes(requiredPermission);
         },
@@ -365,7 +392,8 @@ export const protectedProcedure = t.procedure
          * Validate operation permission in current brand
          */
         requireOperationPermission: (operation: string) => {
-          const hasPermission = enhancedCtx.helpers.canPerformOperation(operation);
+          const hasPermission =
+            enhancedCtx.helpers.canPerformOperation(operation);
           if (!hasPermission) {
             throw new TRPCError({
               code: "FORBIDDEN",
@@ -386,7 +414,11 @@ export const protectedProcedure = t.procedure
         canPerformOperation: (operation: string) => boolean;
         requireBrandId: () => string;
         requireBrandContext: () => BrandContext;
-        switchBrand: (newBrandId: string) => { success: boolean; context?: BrandContext; error?: string };
+        switchBrand: (newBrandId: string) => {
+          success: boolean;
+          context?: BrandContext;
+          error?: string;
+        };
         requireOperationPermission: (operation: string) => void;
       };
     };

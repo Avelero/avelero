@@ -51,13 +51,13 @@ describe("Relationship Validation System", () => {
     mockDb = {
       query: {
         brands: {
-          findFirst: jest.fn().mockResolvedValue({
+          findFirst: jest.fn<() => Promise<any>>().mockResolvedValue({
             id: testBrandId,
             name: "Test Brand",
           }),
         },
         products: {
-          findFirst: jest.fn().mockImplementation(async (options) => {
+          findFirst: jest.fn<(options?: any) => Promise<any>>().mockImplementation(async (options: any) => {
             if (options?.where?.toString().includes("non-existent")) {
               return null;
             }
@@ -67,10 +67,10 @@ describe("Relationship Validation System", () => {
               brandId: testBrandId,
             };
           }),
-          findMany: jest.fn().mockResolvedValue([]),
+          findMany: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
         },
         productVariants: {
-          findFirst: jest.fn().mockImplementation(async (options) => {
+          findFirst: jest.fn<(options?: any) => Promise<any>>().mockImplementation(async (options: any) => {
             if (options?.where?.toString().includes("non-existent")) {
               return null;
             }
@@ -80,10 +80,10 @@ describe("Relationship Validation System", () => {
               product: { brandId: testBrandId },
             };
           }),
-          findMany: jest.fn().mockResolvedValue([]),
+          findMany: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
         },
         passports: {
-          findFirst: jest.fn().mockImplementation(async (options) => {
+          findFirst: jest.fn<(options?: any) => Promise<any>>().mockImplementation(async (options: any) => {
             if (options?.where?.toString().includes("non-existent")) {
               return null;
             }
@@ -95,10 +95,10 @@ describe("Relationship Validation System", () => {
               templateId: testTemplateId,
             };
           }),
-          findMany: jest.fn().mockResolvedValue([]),
+          findMany: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
         },
         templates: {
-          findFirst: jest.fn().mockImplementation(async (options) => {
+          findFirst: jest.fn<(options?: any) => Promise<any>>().mockImplementation(async (options: any) => {
             if (options?.where?.toString().includes("non-existent")) {
               return null;
             }
@@ -110,7 +110,7 @@ describe("Relationship Validation System", () => {
           }),
         },
         modules: {
-          findFirst: jest.fn().mockImplementation(async (options) => {
+          findFirst: jest.fn<(options?: any) => Promise<any>>().mockImplementation(async (options: any) => {
             return {
               id: "test-module-id",
               templateId: testTemplateId,
@@ -122,76 +122,92 @@ describe("Relationship Validation System", () => {
           }),
         },
         categories: {
-          findFirst: jest.fn().mockResolvedValue({
+          findFirst: jest.fn<() => Promise<any>>().mockResolvedValue({
             id: "test-category-id",
             brandId: testBrandId,
             name: "Test Category",
             parentId: null,
           }),
-          findMany: jest.fn().mockResolvedValue([]),
+          findMany: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
         },
         brandColors: {
-          findFirst: jest.fn().mockResolvedValue({
+          findFirst: jest.fn<() => Promise<any>>().mockResolvedValue({
             id: "test-color-id",
             brandId: testBrandId,
           }),
         },
         brandSizes: {
-          findFirst: jest.fn().mockResolvedValue({
+          findFirst: jest.fn<() => Promise<any>>().mockResolvedValue({
             id: "test-size-id",
             brandId: testBrandId,
           }),
         },
         showcaseBrands: {
-          findFirst: jest.fn().mockResolvedValue({
+          findFirst: jest.fn<() => Promise<any>>().mockResolvedValue({
             id: "test-showcase-brand-id",
           }),
         },
         brandCertifications: {
-          findFirst: jest.fn().mockResolvedValue({
+          findFirst: jest.fn<() => Promise<any>>().mockResolvedValue({
             id: "test-certification-id",
             brandId: testBrandId,
           }),
         },
       },
-      select: jest.fn().mockReturnValue({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockImplementation(async (condition) => {
+      select: jest.fn<() => any>().mockReturnValue({
+        from: jest.fn<() => any>().mockReturnValue({
+          where: jest.fn<(condition?: any) => Promise<any>>().mockImplementation(async (condition: any) => {
             // For bulk brand isolation validation queries, always return entities with correct brand
-            const conditionStr = condition?.toString() || '';
+            const conditionStr = condition?.toString() || "";
 
             // For brand isolation queries - return entities with correct brandId
-            if (conditionStr.includes(testProductId) && conditionStr.includes("products")) {
+            if (
+              conditionStr.includes(testProductId) &&
+              conditionStr.includes("products")
+            ) {
               return [{ id: testProductId, brandId: testBrandId }];
             }
-            if (conditionStr.includes(testVariantId) && conditionStr.includes("variants")) {
+            if (
+              conditionStr.includes(testVariantId) &&
+              conditionStr.includes("variants")
+            ) {
               return [{ id: testVariantId, brandId: testBrandId }];
             }
-            if (conditionStr.includes(testPassportId) && conditionStr.includes("passports")) {
+            if (
+              conditionStr.includes(testPassportId) &&
+              conditionStr.includes("passports")
+            ) {
               return [{ id: testPassportId, brandId: testBrandId }];
             }
-            if (conditionStr.includes(testTemplateId) && conditionStr.includes("templates")) {
+            if (
+              conditionStr.includes(testTemplateId) &&
+              conditionStr.includes("templates")
+            ) {
               return [{ id: testTemplateId, brandId: testBrandId }];
             }
 
             // For orphaned record checks - return empty arrays (no orphans)
-            if (conditionStr.includes("productVariants") || conditionStr.includes("passports") || conditionStr.includes("modules")) {
+            if (
+              conditionStr.includes("productVariants") ||
+              conditionStr.includes("passports") ||
+              conditionStr.includes("modules")
+            ) {
               return []; // No orphaned records would be created
             }
 
             // Default case - return empty for count queries
             return [{ count: 0 }];
           }),
-          leftJoin: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([]),
-            limit: jest.fn().mockResolvedValue([]),
+          leftJoin: jest.fn<() => any>().mockReturnValue({
+            where: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
+            limit: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
           }),
-          innerJoin: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([]),
-            limit: jest.fn().mockResolvedValue([]),
+          innerJoin: jest.fn<() => any>().mockReturnValue({
+            where: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
+            limit: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
           }),
-          groupBy: jest.fn().mockReturnValue({
-            having: jest.fn().mockResolvedValue([]),
+          groupBy: jest.fn<() => any>().mockReturnValue({
+            having: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
           }),
         }),
       }),
@@ -203,7 +219,7 @@ describe("Relationship Validation System", () => {
       const result = await validatePassportProductVariantConsistency(
         mockDb,
         testPassportId,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(true);
@@ -217,11 +233,13 @@ describe("Relationship Validation System", () => {
       const result = await validatePassportProductVariantConsistency(
         mockDb,
         testPassportId,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.error).toContain("does not belong to the specified product");
+      expect(result.error).toContain(
+        "does not belong to the specified product",
+      );
     });
 
     it("should handle non-existent passport", async () => {
@@ -230,7 +248,7 @@ describe("Relationship Validation System", () => {
       const result = await validatePassportProductVariantConsistency(
         mockDb,
         "non-existent-passport",
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(false);
@@ -242,9 +260,9 @@ describe("Relationship Validation System", () => {
     it("should validate entities belonging to correct brand", async () => {
       const result = await validateBrandIsolation(
         mockDb,
-        'product',
+        "product",
         testProductId,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(true);
@@ -259,9 +277,9 @@ describe("Relationship Validation System", () => {
 
       const result = await validateBrandIsolation(
         mockDb,
-        'product',
+        "product",
         testProductId,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(false);
@@ -273,9 +291,9 @@ describe("Relationship Validation System", () => {
 
       const result = await validateBrandIsolation(
         mockDb,
-        'product',
+        "product",
         "non-existent-product",
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(false);
@@ -289,7 +307,7 @@ describe("Relationship Validation System", () => {
         mockDb,
         "test-module-id",
         testTemplateId,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(true);
@@ -310,11 +328,13 @@ describe("Relationship Validation System", () => {
         mockDb,
         "test-module-id",
         testTemplateId,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.error).toContain("does not belong to the specified template");
+      expect(result.error).toContain(
+        "does not belong to the specified template",
+      );
     });
   });
 
@@ -329,9 +349,9 @@ describe("Relationship Validation System", () => {
 
       const result = await validateCrossModuleReferences(
         mockDb,
-        'passport',
+        "passport",
         passportData,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(true);
@@ -347,9 +367,9 @@ describe("Relationship Validation System", () => {
 
       const result = await validateCrossModuleReferences(
         mockDb,
-        'passport',
+        "passport",
         passportData,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(false);
@@ -364,7 +384,7 @@ describe("Relationship Validation System", () => {
         productId: testProductId,
       };
 
-      const result = validateRequiredRelationships('passport', passportData);
+      const result = validateRequiredRelationships("passport", passportData);
 
       expect(result.isValid).toBe(true);
     });
@@ -375,7 +395,7 @@ describe("Relationship Validation System", () => {
         productId: testProductId,
       };
 
-      const result = validateRequiredRelationships('passport', passportData);
+      const result = validateRequiredRelationships("passport", passportData);
 
       expect(result.isValid).toBe(false);
       expect(result.error).toContain("brandId is required");
@@ -387,10 +407,12 @@ describe("Relationship Validation System", () => {
         // Missing both productId and variantId
       };
 
-      const result = validateRequiredRelationships('passport', passportData);
+      const result = validateRequiredRelationships("passport", passportData);
 
       expect(result.isValid).toBe(false);
-      expect(result.error).toContain("Either productId or variantId must be provided");
+      expect(result.error).toContain(
+        "Either productId or variantId must be provided",
+      );
     });
   });
 
@@ -398,15 +420,15 @@ describe("Relationship Validation System", () => {
     it("should validate bulk delete operations", async () => {
       const result = await validateBulkOperation(
         mockDb,
-        'delete',
-        'product',
+        "delete",
+        "product",
         [testProductId],
-        testBrandId
+        testBrandId,
       );
 
       // The function should run without throwing errors, result may vary based on cascade checks
       expect(result).toBeDefined();
-      expect(typeof result.isValid).toBe('boolean');
+      expect(typeof result.isValid).toBe("boolean");
     });
 
     it("should validate bulk update operations", async () => {
@@ -416,16 +438,16 @@ describe("Relationship Validation System", () => {
 
       const result = await validateBulkOperation(
         mockDb,
-        'update',
-        'product',
+        "update",
+        "product",
         [testProductId],
         testBrandId,
-        updateData
+        updateData,
       );
 
       // The function should run without throwing errors, result may vary based on validation
       expect(result).toBeDefined();
-      expect(typeof result.isValid).toBe('boolean');
+      expect(typeof result.isValid).toBe("boolean");
     });
   });
 
@@ -439,9 +461,9 @@ describe("Relationship Validation System", () => {
 
       const result = await validateEntityForeignKeys(
         mockDb,
-        'passports',
+        "passports",
         entityData,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(true);
@@ -457,9 +479,9 @@ describe("Relationship Validation System", () => {
 
       const result = await validateEntityForeignKeys(
         mockDb,
-        'passports',
+        "passports",
         entityData,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(false);
@@ -475,9 +497,9 @@ describe("Relationship Validation System", () => {
 
       const result = await validateBulkForeignKeys(
         mockDb,
-        'passports',
+        "passports",
         entities,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(true);
@@ -488,10 +510,10 @@ describe("Relationship Validation System", () => {
     it("should detect circular dependencies in categories", async () => {
       const result = await checkCircularDependencies(
         mockDb,
-        'categories',
+        "categories",
         "category-1",
         "category-2",
-        testBrandId
+        testBrandId,
       );
 
       expect(result.hasCircularDependency).toBe(false);
@@ -511,9 +533,9 @@ describe("Relationship Validation System", () => {
     it("should check entity integrity", async () => {
       const result = await checkEntityIntegrity(
         mockDb,
-        'passport',
+        "passport",
         testPassportId,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(true);
@@ -525,16 +547,16 @@ describe("Relationship Validation System", () => {
     it("should preview cascade effects", async () => {
       // Mock count results for cascade preview
       mockDb.select.mockReturnValue({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue([{ count: 5 }]),
+        from: jest.fn<() => any>().mockReturnValue({
+          where: jest.fn<() => Promise<any[]>>().mockResolvedValue([{ count: 5 }]),
         }),
       });
 
       const result = await previewCascadeEffects(
         mockDb,
-        'products',
+        "products",
         [testProductId],
-        testBrandId
+        testBrandId,
       );
 
       expect(result.cascades).toBeDefined();
@@ -545,13 +567,13 @@ describe("Relationship Validation System", () => {
   describe("Error Creation Utilities", () => {
     it("should create validation errors with correct format", () => {
       const error = createValidationError(
-        'BAD_REQUEST',
-        'Test validation error',
-        { field: 'test' }
+        "BAD_REQUEST",
+        "Test validation error",
+        { field: "test" },
       );
 
-      expect(error.code).toBe('BAD_REQUEST');
-      expect(error.message).toBe('Test validation error');
+      expect(error.code).toBe("BAD_REQUEST");
+      expect(error.message).toBe("Test validation error");
       // TRPCError might handle cause differently, just verify it's set
       expect(error.cause).toBeDefined();
       expect(error).toBeInstanceOf(Error);
@@ -560,33 +582,35 @@ describe("Relationship Validation System", () => {
     it("should create foreign key validation errors", () => {
       const validationResult = {
         isValid: false,
-        error: 'Foreign key violation',
+        error: "Foreign key violation",
         invalidReferences: [
           {
-            field: 'productId',
-            value: 'invalid-id',
-            targetTable: 'products',
-            message: 'Product not found',
+            field: "productId",
+            value: "invalid-id",
+            targetTable: "products",
+            message: "Product not found",
           },
         ],
       };
 
       const error = createForeignKeyValidationError(validationResult);
 
-      expect(error.code).toBe('BAD_REQUEST');
-      expect(error.message).toBe('Foreign key violation');
+      expect(error.code).toBe("BAD_REQUEST");
+      expect(error.message).toBe("Foreign key violation");
       expect(error.cause).toBeDefined();
     });
   });
 
   describe("Edge Cases and Error Handling", () => {
     it("should handle database connection errors gracefully", async () => {
-      mockDb.query.passports.findFirst.mockRejectedValueOnce(new Error("Database connection failed"));
+      mockDb.query.passports.findFirst.mockRejectedValueOnce(
+        new Error("Database connection failed"),
+      );
 
       const result = await validatePassportProductVariantConsistency(
         mockDb,
         testPassportId,
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(false);
@@ -596,10 +620,10 @@ describe("Relationship Validation System", () => {
     it("should handle empty entity lists in bulk operations", async () => {
       const result = await validateBulkOperation(
         mockDb,
-        'delete',
-        'product',
+        "delete",
+        "product",
         [], // Empty array
-        testBrandId
+        testBrandId,
       );
 
       expect(result.isValid).toBe(true);
@@ -610,9 +634,9 @@ describe("Relationship Validation System", () => {
 
       const result = await validateBrandIsolation(
         mockDb,
-        'product',
+        "product",
         maliciousId,
-        testBrandId
+        testBrandId,
       );
 
       // Should not crash and should handle safely
@@ -626,10 +650,10 @@ describe("Relationship Validation System", () => {
 
       const result = await validateBulkOperation(
         mockDb,
-        'delete',
-        'product',
+        "delete",
+        "product",
         manyIds,
-        testBrandId
+        testBrandId,
       );
 
       // Should still work but may have limits applied
@@ -639,8 +663,12 @@ describe("Relationship Validation System", () => {
     it("should handle large datasets in integrity checks", async () => {
       // Mock large dataset
       mockDb.select.mockReturnValue({
-        from: jest.fn().mockReturnValue({
-          where: jest.fn().mockResolvedValue(Array.from({ length: 1000 }, (_, i) => ({ id: `record-${i}` }))),
+        from: jest.fn<() => any>().mockReturnValue({
+          where: jest
+            .fn<() => Promise<any[]>>()
+            .mockResolvedValue(
+              Array.from({ length: 1000 }, (_, i) => ({ id: `record-${i}` })),
+            ),
         }),
       });
 

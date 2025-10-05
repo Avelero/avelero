@@ -48,10 +48,12 @@ const passportFilterExtensions = {
 
   // Content and data filters
   hasCustomData: z.boolean().optional(),
-  dataCompleteness: z.object({
-    min: z.number().min(0).max(100).optional(),
-    max: z.number().min(0).max(100).optional(),
-  }).optional(),
+  dataCompleteness: z
+    .object({
+      min: z.number().min(0).max(100).optional(),
+      max: z.number().min(0).max(100).optional(),
+    })
+    .optional(),
 
   // QR code and sharing
   hasQrCode: z.boolean().optional(),
@@ -59,28 +61,38 @@ const passportFilterExtensions = {
   hasPublicUrl: z.boolean().optional(),
 
   // Validation and compliance
-  validationStatus: z.enum(["valid", "invalid", "pending", "warning"]).optional(),
-  complianceStatus: z.enum(["compliant", "non-compliant", "pending", "partial"]).optional(),
+  validationStatus: z
+    .enum(["valid", "invalid", "pending", "warning"])
+    .optional(),
+  complianceStatus: z
+    .enum(["compliant", "non-compliant", "pending", "partial"])
+    .optional(),
   hasValidationErrors: z.boolean().optional(),
 
   // Dates and activity
-  publishedDateRange: z.object({
-    from: z.date().optional(),
-    to: z.date().optional(),
-  }).optional(),
-  lastAccessedRange: z.object({
-    from: z.date().optional(),
-    to: z.date().optional(),
-  }).optional(),
+  publishedDateRange: z
+    .object({
+      from: z.date().optional(),
+      to: z.date().optional(),
+    })
+    .optional(),
+  lastAccessedRange: z
+    .object({
+      from: z.date().optional(),
+      to: z.date().optional(),
+    })
+    .optional(),
 
   // Module and field filters
   moduleIds: z.array(z.string().uuid()).optional(),
   moduleNames: z.array(z.string()).optional(),
   hasModules: z.boolean().optional(),
-  moduleCount: z.object({
-    min: z.number().int().min(0).optional(),
-    max: z.number().int().min(0).optional(),
-  }).optional(),
+  moduleCount: z
+    .object({
+      min: z.number().int().min(0).optional(),
+      max: z.number().int().min(0).optional(),
+    })
+    .optional(),
 
   // External system integration
   externalSystemIds: z.array(z.string()).optional(),
@@ -302,7 +314,7 @@ export const passportsSchemas = registerModuleSchemas(
     dataExtensions: passportDataExtensions,
     additionalMetrics: passportAdditionalMetrics,
     strict: true,
-  })
+  }),
 );
 
 // ================================
@@ -323,77 +335,92 @@ export type PassportsMetrics = InferModuleMetrics<typeof passportsSchemas>;
 /**
  * Passport creation schema with extended validation
  */
-export const createPassportSchema = passportsSchemas.dataSchema.extend({
-  // Required fields for creation
-  templateId: z.string().uuid(),
-  productId: z.string().uuid().optional(),
-  variantId: z.string().uuid().optional(),
+export const createPassportSchema = passportsSchemas.dataSchema
+  .extend({
+    // Required fields for creation
+    templateId: z.string().uuid(),
+    productId: z.string().uuid().optional(),
+    variantId: z.string().uuid().optional(),
 
-  // Initial status and visibility
-  passportStatus: entityStatusEnum.default("draft"),
-  visibility: visibilityEnum.default("private"),
+    // Initial status and visibility
+    passportStatus: entityStatusEnum.default("draft"),
+    visibility: visibilityEnum.default("private"),
 
-  // Optional initialization data
-  customData: z.record(z.any()).optional(),
-  moduleData: z.record(z.any()).optional(),
-  primaryLanguage: z.string().default("en"),
-}).strict();
+    // Optional initialization data
+    customData: z.record(z.any()).optional(),
+    moduleData: z.record(z.any()).optional(),
+    primaryLanguage: z.string().default("en"),
+  })
+  .strict();
 
 /**
  * Passport update schema with extended validation
  */
-export const updatePassportSchema = passportsSchemas.dataSchema.partial().extend({
-  // Always require ID for updates
-  id: z.string().uuid(),
-}).strict();
+export const updatePassportSchema = passportsSchemas.dataSchema
+  .partial()
+  .extend({
+    // Always require ID for updates
+    id: z.string().uuid(),
+  })
+  .strict();
 
 /**
  * Passport publishing schema
  */
-export const publishPassportSchema = z.object({
-  id: z.string().uuid(),
-  visibility: visibilityEnum.default("public"),
-  publishedAt: z.date().optional(),
-  allowSharing: z.boolean().default(true),
-  shareableUntil: z.date().optional(),
-  includeQrCode: z.boolean().default(true),
-  qrCodeFormat: z.enum(["png", "svg", "pdf"]).default("png"),
-}).strict();
+export const publishPassportSchema = z
+  .object({
+    id: z.string().uuid(),
+    visibility: visibilityEnum.default("public"),
+    publishedAt: z.date().optional(),
+    allowSharing: z.boolean().default(true),
+    shareableUntil: z.date().optional(),
+    includeQrCode: z.boolean().default(true),
+    qrCodeFormat: z.enum(["png", "svg", "pdf"]).default("png"),
+  })
+  .strict();
 
 /**
  * Passport bulk update schema
  */
-export const bulkUpdatePassportSchema = z.object({
-  selection: passportsSchemas.createSelectionSchema(),
-  data: passportsSchemas.dataSchema.partial(),
-  preview: z.boolean().default(false),
-}).strict();
+export const bulkUpdatePassportSchema = z
+  .object({
+    selection: passportsSchemas.createSelectionSchema(),
+    data: passportsSchemas.dataSchema.partial(),
+    preview: z.boolean().default(false),
+  })
+  .strict();
 
 /**
  * Passport list input schema
  */
-export const listPassportsSchema = z.object({
-  filter: passportsSchemas.filterSchema.optional(),
-  sort: passportsSchemas.sortSchema.optional(),
-  pagination: passportsSchemas.paginationSchema.optional(),
-  include: passportsSchemas.includeSchema.optional(),
-}).strict();
+export const listPassportsSchema = z
+  .object({
+    filter: passportsSchemas.filterSchema.optional(),
+    sort: passportsSchemas.sortSchema.optional(),
+    pagination: passportsSchemas.paginationSchema.optional(),
+    include: passportsSchemas.includeSchema.optional(),
+  })
+  .strict();
 
 /**
  * Passport get input schema
  */
-export const getPassportSchema = z.object({
-  where: passportsSchemas.whereSchema,
-  include: passportsSchemas.includeSchema.optional(),
-}).strict();
+export const getPassportSchema = z
+  .object({
+    where: passportsSchemas.whereSchema,
+    include: passportsSchemas.includeSchema.optional(),
+  })
+  .strict();
 
 /**
  * Passport metrics input schema
  */
-export const passportMetricsSchema = z.object({
-  filter: passportsSchemas.filterSchema.optional(),
-  metrics: passportsSchemas.metricsSchema,
-}).strict();
+export const passportMetricsSchema = z
+  .object({
+    filter: passportsSchemas.filterSchema.optional(),
+    metrics: passportsSchemas.metricsSchema,
+  })
+  .strict();
 
 // ================================
 // Passport-Specific Helper Functions
@@ -413,9 +440,12 @@ export const calculatePassportCompleteness = (passport: {
   const maxScore = 5;
 
   if (passport.templateId) score += 1;
-  if (passport.customData && Object.keys(passport.customData).length > 0) score += 1;
-  if (passport.moduleData && Object.keys(passport.moduleData).length > 0) score += 1;
-  if (passport.passportStatus && passport.passportStatus !== "draft") score += 1;
+  if (passport.customData && Object.keys(passport.customData).length > 0)
+    score += 1;
+  if (passport.moduleData && Object.keys(passport.moduleData).length > 0)
+    score += 1;
+  if (passport.passportStatus && passport.passportStatus !== "draft")
+    score += 1;
   if (passport.visibility) score += 1;
 
   return Math.round((score / maxScore) * 100);
@@ -426,15 +456,20 @@ export const calculatePassportCompleteness = (passport: {
  */
 export const validatePassportData = (
   passportData: Record<string, any>,
-  templateRequirements: Record<string, { required: boolean; type: string }>
+  templateRequirements: Record<string, { required: boolean; type: string }>,
 ): { isValid: boolean; missingFields: string[]; invalidFields: string[] } => {
   const missingFields: string[] = [];
   const invalidFields: string[] = [];
 
-  for (const [fieldName, requirements] of Object.entries(templateRequirements)) {
+  for (const [fieldName, requirements] of Object.entries(
+    templateRequirements,
+  )) {
     const value = passportData[fieldName];
 
-    if (requirements.required && (value === undefined || value === null || value === "")) {
+    if (
+      requirements.required &&
+      (value === undefined || value === null || value === "")
+    ) {
       missingFields.push(fieldName);
     } else if (value !== undefined && value !== null && value !== "") {
       // Basic type validation (extend as needed)
@@ -442,7 +477,10 @@ export const validatePassportData = (
         invalidFields.push(fieldName);
       } else if (requirements.type === "string" && typeof value !== "string") {
         invalidFields.push(fieldName);
-      } else if (requirements.type === "boolean" && typeof value !== "boolean") {
+      } else if (
+        requirements.type === "boolean" &&
+        typeof value !== "boolean"
+      ) {
         invalidFields.push(fieldName);
       }
     }
@@ -467,7 +505,8 @@ export const generatePassportQrCodeData = (passport: {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.avelero.com";
   const url = `${baseUrl}/passport/${passport.id}`;
 
-  const isAccessible = passport.visibility === "public" || passport.isPublic === true;
+  const isAccessible =
+    passport.visibility === "public" || passport.isPublic === true;
   const requiresAuth = !isAccessible;
 
   return {
@@ -519,15 +558,17 @@ export const transformPassportData = (data: any): any => {
     moduleData: data.moduleData || {},
     // Normalize language codes
     primaryLanguage: data.primaryLanguage?.toLowerCase(),
-    availableLanguages: data.availableLanguages?.map((lang: string) => lang.toLowerCase()),
+    availableLanguages: data.availableLanguages?.map((lang: string) =>
+      lang.toLowerCase(),
+    ),
   };
-  
+
   // Map passportStatus to status for database column
   if (data.passportStatus !== undefined) {
     transformed.status = data.passportStatus;
     delete transformed.passportStatus;
   }
-  
+
   return transformed;
 };
 
@@ -554,7 +595,10 @@ export const canPublishPassport = (passport: {
     reasons.push("Validation score must be at least 80%");
   }
 
-  if (passport.passportStatus === "blocked" || passport.passportStatus === "cancelled") {
+  if (
+    passport.passportStatus === "blocked" ||
+    passport.passportStatus === "cancelled"
+  ) {
     reasons.push("Passport status prevents publishing");
   }
 

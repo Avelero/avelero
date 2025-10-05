@@ -15,8 +15,7 @@
  */
 
 // Core extension framework exports
-export {
-  // Extension framework functions
+import {
   createModuleSchemas,
   createExtendedFilterSchema,
   createExtendedSortSchema,
@@ -24,14 +23,11 @@ export {
   createExtendedWhereSchema,
   createExtendedDataSchema,
   createExtendedMetricsSchema,
-
-  // Registry functions
   registerModuleSchemas,
   getModuleSchemas,
   getRegisteredModuleIds,
   clearModuleSchemaRegistry,
-
-  // Type helpers
+  createModuleValidator,
   type ModuleSchemas,
   type ModuleExtensionConfig,
   type InferModuleFilter,
@@ -40,10 +36,31 @@ export {
   type InferModuleWhere,
   type InferModuleData,
   type InferModuleMetrics,
-
-  // Validation utilities
-  createModuleValidator,
 } from "../shared";
+
+// Re-export for external use
+export {
+  createModuleSchemas,
+  createExtendedFilterSchema,
+  createExtendedSortSchema,
+  createExtendedIncludeSchema,
+  createExtendedWhereSchema,
+  createExtendedDataSchema,
+  createExtendedMetricsSchema,
+  registerModuleSchemas,
+  getModuleSchemas,
+  getRegisteredModuleIds,
+  clearModuleSchemaRegistry,
+  createModuleValidator,
+  type ModuleSchemas,
+  type ModuleExtensionConfig,
+  type InferModuleFilter,
+  type InferModuleSort,
+  type InferModuleInclude,
+  type InferModuleWhere,
+  type InferModuleData,
+  type InferModuleMetrics,
+};
 
 // ================================
 // Module-Specific Exports
@@ -58,20 +75,17 @@ export {
   type ProductsWhere,
   type ProductsData,
   type ProductsMetrics,
-
   // Products validation schemas
   createProductSchema,
   updateProductSchema,
   bulkUpdateProductSchema,
   listProductsSchema,
   getProductSchema,
-
   // Products helper functions
   validateProductSku,
   validateProductUpid,
   calculateProductCompleteness,
   transformProductData,
-
   // Products schema re-exports
   productFilterSchema,
   productSortSchema,
@@ -97,14 +111,12 @@ export {
   type VariantsWhere,
   type VariantsData,
   type VariantsMetrics,
-
   // Variants validation schemas
   createVariantSchema,
   updateVariantSchema,
   bulkUpdateVariantSchema,
   listVariantsSchema,
   getVariantSchema,
-
   // Variants helper functions
   validateVariantSku,
   validateVariantUpid,
@@ -112,7 +124,6 @@ export {
   transformVariantData,
   checkVariantIdentifierDuplicates,
   generateVariantDisplayName,
-
   // Variants schema re-exports
   variantFilterSchema,
   variantSortSchema,
@@ -138,7 +149,6 @@ export {
   type PassportsWhere,
   type PassportsData,
   type PassportsMetrics,
-
   // Passports validation schemas
   createPassportSchema,
   updatePassportSchema,
@@ -146,7 +156,6 @@ export {
   bulkUpdatePassportSchema,
   listPassportsSchema,
   getPassportSchema,
-
   // Passports helper functions
   calculatePassportCompleteness,
   validatePassportData,
@@ -154,7 +163,6 @@ export {
   calculatePassportCompliance,
   transformPassportData,
   canPublishPassport,
-
   // Passports schema re-exports
   passportFilterSchema,
   passportSortSchema,
@@ -180,7 +188,7 @@ export {
  */
 export const getAllModuleSchemas = () => {
   const moduleIds = getRegisteredModuleIds();
-  return moduleIds.map(id => ({
+  return moduleIds.map((id: string) => ({
     moduleId: id,
     schemas: getModuleSchemas(id),
   }));
@@ -189,7 +197,9 @@ export const getAllModuleSchemas = () => {
 /**
  * Validate that a module is properly registered
  */
-export const validateModuleRegistration = (moduleId: string): {
+export const validateModuleRegistration = (
+  moduleId: string,
+): {
   isRegistered: boolean;
   hasAllSchemas: boolean;
   missingSchemas: string[];
@@ -205,16 +215,16 @@ export const validateModuleRegistration = (moduleId: string): {
   }
 
   const requiredSchemas = [
-    'filterSchema',
-    'sortSchema',
-    'includeSchema',
-    'whereSchema',
-    'dataSchema',
-    'metricsSchema',
-    'paginationSchema'
+    "filterSchema",
+    "sortSchema",
+    "includeSchema",
+    "whereSchema",
+    "dataSchema",
+    "metricsSchema",
+    "paginationSchema",
   ];
 
-  const missingSchemas = requiredSchemas.filter(schema => !schemas[schema]);
+  const missingSchemas = requiredSchemas.filter((schema) => !(schemas as any)[schema]);
 
   return {
     isRegistered: true,
@@ -231,7 +241,7 @@ export const getModuleSchemaStats = () => {
 
   return {
     totalModules: moduleIds.length,
-    modules: moduleIds.map(id => {
+    modules: moduleIds.map((id: string) => {
       const validation = validateModuleRegistration(id);
       return {
         moduleId: id,
@@ -239,8 +249,12 @@ export const getModuleSchemaStats = () => {
         missingSchemas: validation.missingSchemas,
       };
     }),
-    validModules: moduleIds.filter(id => validateModuleRegistration(id).hasAllSchemas).length,
-    invalidModules: moduleIds.filter(id => !validateModuleRegistration(id).hasAllSchemas).length,
+    validModules: moduleIds.filter(
+      (id: string) => validateModuleRegistration(id).hasAllSchemas,
+    ).length,
+    invalidModules: moduleIds.filter(
+      (id: string) => !validateModuleRegistration(id).hasAllSchemas,
+    ).length,
   };
 };
 
@@ -381,7 +395,8 @@ export const ${moduleId}Router = createTRPCRouter({
  */
 export const FRAMEWORK_DOCUMENTATION = {
   version: "1.0.0",
-  description: "Module Schema Extension Framework for type-safe API development",
+  description:
+    "Module Schema Extension Framework for type-safe API development",
   features: [
     "Type-safe schema extension",
     "Automatic base schema merging",

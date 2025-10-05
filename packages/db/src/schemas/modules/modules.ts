@@ -23,7 +23,17 @@ import { entityStatusEnum } from "../enums";
 const moduleFilterExtensions = {
   // Module-specific identifiers
   moduleIds: z.array(z.string().uuid()).optional(),
-  moduleTypes: z.array(z.enum(["data_collection", "validation", "compliance", "reporting", "custom"])).optional(),
+  moduleTypes: z
+    .array(
+      z.enum([
+        "data_collection",
+        "validation",
+        "compliance",
+        "reporting",
+        "custom",
+      ]),
+    )
+    .optional(),
   moduleStatus: z.array(entityStatusEnum).optional(),
 
   // Module behavior filters
@@ -35,29 +45,37 @@ const moduleFilterExtensions = {
   // Template relationship filters
   templateIds: z.array(z.string().uuid()).optional(),
   hasTemplates: z.boolean().optional(),
-  templateCount: z.object({
-    min: z.number().int().min(0).optional(),
-    max: z.number().int().min(0).optional(),
-  }).optional(),
+  templateCount: z
+    .object({
+      min: z.number().int().min(0).optional(),
+      max: z.number().int().min(0).optional(),
+    })
+    .optional(),
 
   // Dependency filters
   dependsOnModules: z.array(z.string().uuid()).optional(),
   hasDependencies: z.boolean().optional(),
-  dependencyCount: z.object({
-    min: z.number().int().min(0).optional(),
-    max: z.number().int().min(0).optional(),
-  }).optional(),
+  dependencyCount: z
+    .object({
+      min: z.number().int().min(0).optional(),
+      max: z.number().int().min(0).optional(),
+    })
+    .optional(),
 
   // Usage filters
-  usageCount: z.object({
-    min: z.number().int().min(0).optional(),
-    max: z.number().int().min(0).optional(),
-  }).optional(),
+  usageCount: z
+    .object({
+      min: z.number().int().min(0).optional(),
+      max: z.number().int().min(0).optional(),
+    })
+    .optional(),
   hasBeenUsed: z.boolean().optional(),
-  lastUsedRange: z.object({
-    from: z.date().optional(),
-    to: z.date().optional(),
-  }).optional(),
+  lastUsedRange: z
+    .object({
+      from: z.date().optional(),
+      to: z.date().optional(),
+    })
+    .optional(),
 
   // Content filters
   namePattern: z.string().optional(),
@@ -65,18 +83,24 @@ const moduleFilterExtensions = {
   hasDescription: z.boolean().optional(),
 
   // Validation and compliance filters
-  validationScore: z.object({
-    min: z.number().min(0).max(100).optional(),
-    max: z.number().min(0).max(100).optional(),
-  }).optional(),
-  complianceImpact: z.object({
-    min: z.number().int().min(0).optional(),
-    max: z.number().int().min(0).optional(),
-  }).optional(),
-  completionWeight: z.object({
-    min: z.number().int().min(1).optional(),
-    max: z.number().int().min(1).optional(),
-  }).optional(),
+  validationScore: z
+    .object({
+      min: z.number().min(0).max(100).optional(),
+      max: z.number().min(0).max(100).optional(),
+    })
+    .optional(),
+  complianceImpact: z
+    .object({
+      min: z.number().int().min(0).optional(),
+      max: z.number().int().min(0).optional(),
+    })
+    .optional(),
+  completionWeight: z
+    .object({
+      min: z.number().int().min(1).optional(),
+      max: z.number().int().min(1).optional(),
+    })
+    .optional(),
 
   // Language filters
   languages: z.array(z.string()).optional(),
@@ -141,7 +165,15 @@ const moduleIncludeExtensions = {
 const moduleWhereExtensions = {
   // Exact module matches
   moduleId: z.string().uuid().optional(),
-  moduleType: z.enum(["data_collection", "validation", "compliance", "reporting", "custom"]).optional(),
+  moduleType: z
+    .enum([
+      "data_collection",
+      "validation",
+      "compliance",
+      "reporting",
+      "custom",
+    ])
+    .optional(),
   exactStatus: entityStatusEnum.optional(),
 
   // Module behavior conditions
@@ -190,7 +222,15 @@ const moduleDataExtensions = {
   // Core module fields
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(2000).optional(),
-  moduleType: z.enum(["data_collection", "validation", "compliance", "reporting", "custom"]).optional(),
+  moduleType: z
+    .enum([
+      "data_collection",
+      "validation",
+      "compliance",
+      "reporting",
+      "custom",
+    ])
+    .optional(),
   moduleStatus: entityStatusEnum.optional(),
 
   // Module configuration
@@ -258,7 +298,7 @@ export const modulesSchemas = registerModuleSchemas(
     dataExtensions: moduleDataExtensions,
     additionalMetrics: moduleAdditionalMetrics,
     strict: true,
-  })
+  }),
 );
 
 // ================================
@@ -279,73 +319,94 @@ export type ModulesMetrics = InferModuleMetrics<typeof modulesSchemas>;
 /**
  * Module creation schema with extended validation
  */
-export const createModuleSchema = modulesSchemas.dataSchema.extend({
-  // Required fields for creation
-  name: z.string().min(1).max(255),
-  description: z.string().max(2000).optional(),
-  moduleType: z.enum(["data_collection", "validation", "compliance", "reporting", "custom"]).default("data_collection"),
+export const createModuleSchema = modulesSchemas.dataSchema
+  .extend({
+    // Required fields for creation
+    name: z.string().min(1).max(255),
+    description: z.string().max(2000).optional(),
+    moduleType: z
+      .enum([
+        "data_collection",
+        "validation",
+        "compliance",
+        "reporting",
+        "custom",
+      ])
+      .default("data_collection"),
 
-  // Initial configuration
-  config: z.record(z.any()).default({}),
-  fieldDefinitions: z.array(z.record(z.any())).default([]),
-  validationRules: z.record(z.any()).default({}),
-  displaySettings: z.record(z.any()).default({}),
+    // Initial configuration
+    config: z.record(z.any()).default({}),
+    fieldDefinitions: z.array(z.record(z.any())).default([]),
+    validationRules: z.record(z.any()).default({}),
+    displaySettings: z.record(z.any()).default({}),
 
-  // Initial behavior settings
-  enabled: z.boolean().default(true),
-  required: z.boolean().default(false),
-  allowMultiple: z.boolean().default(false),
+    // Initial behavior settings
+    enabled: z.boolean().default(true),
+    required: z.boolean().default(false),
+    allowMultiple: z.boolean().default(false),
 
-  // Dependencies (empty by default)
-  dependsOnModules: z.array(z.string().uuid()).default([]),
-  compatibleWith: z.array(z.string()).default([]),
+    // Dependencies (empty by default)
+    dependsOnModules: z.array(z.string().uuid()).default([]),
+    compatibleWith: z.array(z.string()).default([]),
 
-  // Initial scoring
-  completionWeight: z.number().int().min(1).default(1),
-}).strict();
+    // Initial scoring
+    completionWeight: z.number().int().min(1).default(1),
+  })
+  .strict();
 
 /**
  * Module update schema with extended validation
  */
-export const updateModuleSchema = modulesSchemas.dataSchema.partial().extend({
-  // Always require ID for updates
-  id: z.string().uuid(),
-}).strict();
+export const updateModuleSchema = modulesSchemas.dataSchema
+  .partial()
+  .extend({
+    // Always require ID for updates
+    id: z.string().uuid(),
+  })
+  .strict();
 
 /**
  * Module bulk update schema
  */
-export const bulkUpdateModuleSchema = z.object({
-  selection: modulesSchemas.createSelectionSchema(),
-  data: modulesSchemas.dataSchema.partial(),
-  preview: z.boolean().default(false),
-}).strict();
+export const bulkUpdateModuleSchema = z
+  .object({
+    selection: modulesSchemas.createSelectionSchema(),
+    data: modulesSchemas.dataSchema.partial(),
+    preview: z.boolean().default(false),
+  })
+  .strict();
 
 /**
  * Module list input schema
  */
-export const listModulesSchema = z.object({
-  filter: modulesSchemas.filterSchema.optional(),
-  sort: modulesSchemas.sortSchema.optional(),
-  pagination: modulesSchemas.paginationSchema.optional(),
-  include: modulesSchemas.includeSchema.optional(),
-}).strict();
+export const listModulesSchema = z
+  .object({
+    filter: modulesSchemas.filterSchema.optional(),
+    sort: modulesSchemas.sortSchema.optional(),
+    pagination: modulesSchemas.paginationSchema.optional(),
+    include: modulesSchemas.includeSchema.optional(),
+  })
+  .strict();
 
 /**
  * Module get input schema
  */
-export const getModuleSchema = z.object({
-  where: modulesSchemas.whereSchema,
-  include: modulesSchemas.includeSchema.optional(),
-}).strict();
+export const getModuleSchema = z
+  .object({
+    where: modulesSchemas.whereSchema,
+    include: modulesSchemas.includeSchema.optional(),
+  })
+  .strict();
 
 /**
  * Module metrics input schema
  */
-export const moduleMetricsSchema = z.object({
-  filter: modulesSchemas.filterSchema.optional(),
-  metrics: modulesSchemas.metricsSchema.shape.metrics,
-}).strict();
+export const moduleMetricsSchema = z
+  .object({
+    filter: modulesSchemas.filterSchema.optional(),
+    metrics: modulesSchemas.metricsSchema.shape.metrics,
+  })
+  .strict();
 
 // ================================
 // Module-Specific Helper Functions
@@ -369,8 +430,10 @@ export const calculateModuleCompleteness = (module: {
   if (module.description && module.description.length > 10) score += 1;
   if (module.config && Object.keys(module.config).length > 0) score += 1;
   if (module.fieldDefinitions && module.fieldDefinitions.length > 0) score += 1;
-  if (module.validationRules && Object.keys(module.validationRules).length > 0) score += 1;
-  if (module.displaySettings && Object.keys(module.displaySettings).length > 0) score += 1;
+  if (module.validationRules && Object.keys(module.validationRules).length > 0)
+    score += 1;
+  if (module.displaySettings && Object.keys(module.displaySettings).length > 0)
+    score += 1;
 
   return Math.round((score / maxScore) * 100);
 };
@@ -380,7 +443,7 @@ export const calculateModuleCompleteness = (module: {
  */
 export const validateModuleConfig = (config: Record<string, any>): boolean => {
   // Add module-specific configuration validation logic
-  return config && typeof config === 'object';
+  return config && typeof config === "object";
 };
 
 /**
@@ -388,7 +451,7 @@ export const validateModuleConfig = (config: Record<string, any>): boolean => {
  */
 export const validateFieldDefinitions = (fieldDefs: any[]): boolean => {
   if (!Array.isArray(fieldDefs)) return false;
-  return fieldDefs.every(def => def && typeof def === 'object' && def.name);
+  return fieldDefs.every((def) => def && typeof def === "object" && def.name);
 };
 
 /**
@@ -404,14 +467,28 @@ export const transformModuleData = (data: any): any => {
     // Clean description
     description: data.description?.trim() || undefined,
     // Ensure arrays are defined
-    dependsOnModules: Array.isArray(data.dependsOnModules) ? data.dependsOnModules : [],
-    compatibleWith: Array.isArray(data.compatibleWith) ? data.compatibleWith : [],
-    fieldDefinitions: Array.isArray(data.fieldDefinitions) ? data.fieldDefinitions : [],
-    availableLanguages: Array.isArray(data.availableLanguages) ? data.availableLanguages : ["en"],
+    dependsOnModules: Array.isArray(data.dependsOnModules)
+      ? data.dependsOnModules
+      : [],
+    compatibleWith: Array.isArray(data.compatibleWith)
+      ? data.compatibleWith
+      : [],
+    fieldDefinitions: Array.isArray(data.fieldDefinitions)
+      ? data.fieldDefinitions
+      : [],
+    availableLanguages: Array.isArray(data.availableLanguages)
+      ? data.availableLanguages
+      : ["en"],
     // Ensure objects are defined
-    config: data.config && typeof data.config === 'object' ? data.config : {},
-    validationRules: data.validationRules && typeof data.validationRules === 'object' ? data.validationRules : {},
-    displaySettings: data.displaySettings && typeof data.displaySettings === 'object' ? data.displaySettings : {},
+    config: data.config && typeof data.config === "object" ? data.config : {},
+    validationRules:
+      data.validationRules && typeof data.validationRules === "object"
+        ? data.validationRules
+        : {},
+    displaySettings:
+      data.displaySettings && typeof data.displaySettings === "object"
+        ? data.displaySettings
+        : {},
   };
 };
 

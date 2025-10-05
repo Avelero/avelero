@@ -1,7 +1,7 @@
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, desc, asc, gt, lt, gte, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, lt, lte } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { z } from "zod";
 import type { TRPCContext } from "../init";
 
 // ================================
@@ -68,7 +68,7 @@ export function encodeCursor(data: CursorData): string {
       timestamp: new Date().toISOString(),
     };
 
-    return Buffer.from(JSON.stringify(cursorWithTimestamp)).toString('base64');
+    return Buffer.from(JSON.stringify(cursorWithTimestamp)).toString("base64");
   } catch (error) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
@@ -83,11 +83,11 @@ export function encodeCursor(data: CursorData): string {
  */
 export function decodeCursor(cursor: string): CursorData {
   try {
-    if (!cursor || typeof cursor !== 'string') {
+    if (!cursor || typeof cursor !== "string") {
       throw new Error("Cursor must be a non-empty string");
     }
 
-    const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString());
+    const decoded = JSON.parse(Buffer.from(cursor, "base64").toString());
 
     // Validate decoded cursor structure
     if (!decoded.sortField || !decoded.id || !decoded.direction) {
@@ -113,7 +113,7 @@ export function decodeCursor(cursor: string): CursorData {
  */
 export function createCursorConditions<TTable extends PgTable>(
   table: TTable,
-  cursorData: CursorData
+  cursorData: CursorData,
 ) {
   const { sortField, sortValue, id, direction } = cursorData;
   const sortColumn = (table as any)[sortField];
@@ -127,25 +127,15 @@ export function createCursorConditions<TTable extends PgTable>(
   }
 
   // Handle different cursor positioning strategies
-  if (sortField === 'id') {
+  if (sortField === "id") {
     // Simple ID-based cursor
-    return direction === "asc"
-      ? gt(idColumn, id)
-      : lt(idColumn, id);
-  } else {
-    // Multi-field cursor (sort field + ID for uniqueness)
-    if (direction === "asc") {
-      return and(
-        gte(sortColumn, sortValue),
-        gt(idColumn, id)
-      );
-    } else {
-      return and(
-        lte(sortColumn, sortValue),
-        lt(idColumn, id)
-      );
-    }
+    return direction === "asc" ? gt(idColumn, id) : lt(idColumn, id);
   }
+  // Multi-field cursor (sort field + ID for uniqueness)
+  if (direction === "asc") {
+    return and(gte(sortColumn, sortValue), gt(idColumn, id));
+  }
+  return and(lte(sortColumn, sortValue), lt(idColumn, id));
 }
 
 /**
@@ -153,12 +143,9 @@ export function createCursorConditions<TTable extends PgTable>(
  */
 export function validatePaginationConfig(
   config: PaginationConfig,
-  defaults: { limit: number; maxLimit: number } = { limit: 20, maxLimit: 100 }
-): Required<Omit<PaginationConfig, 'cursor'>> & { cursor?: string | null } {
-  const limit = Math.min(
-    config.limit || defaults.limit,
-    defaults.maxLimit
-  );
+  defaults: { limit: number; maxLimit: number } = { limit: 20, maxLimit: 100 },
+): Required<Omit<PaginationConfig, "cursor">> & { cursor?: string | null } {
+  const limit = Math.min(config.limit || defaults.limit, defaults.maxLimit);
 
   if (limit < 1) {
     throw new TRPCError({
@@ -178,11 +165,13 @@ export function validatePaginationConfig(
 /**
  * Creates pagination info from query results
  */
-export function createPaginationInfo<T extends { id: string; [key: string]: any }>(
+export function createPaginationInfo<
+  T extends { id: string; [key: string]: any },
+>(
   data: T[],
   requestedLimit: number,
   sortConfig: SortConfig,
-  totalCount?: number
+  totalCount?: number,
 ): { paginatedData: T[]; cursorInfo: CursorInfo } {
   const hasMore = data.length > requestedLimit;
   const paginatedData = hasMore ? data.slice(0, requestedLimit) : data;
@@ -316,17 +305,22 @@ export const moduleRelations: ModuleRelations = {
 export function validateIncludeConfig(
   include: IncludeConfig,
   moduleName: string,
-  maxDepth: number = 2
+  maxDepth = 2,
 ): IncludeConfig {
   const allowedRelations = moduleRelations[moduleName];
 
   if (!allowedRelations) {
     // If module not found, return empty config (allow but don't validate)
-    console.warn(`Module relations not found for: ${moduleName}. Allowing includes without validation.`);
+    console.warn(
+      `Module relations not found for: ${moduleName}. Allowing includes without validation.`,
+    );
     return include;
   }
 
-  function validateRecursive(config: IncludeConfig, depth: number): IncludeConfig {
+  function validateRecursive(
+    config: IncludeConfig,
+    depth: number,
+  ): IncludeConfig {
     if (depth > maxDepth) {
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -367,7 +361,10 @@ export function validateIncludeConfig(
 /**
  * Gets the related module name for a given relation
  */
-function getRelatedModuleName(moduleName: string, relationName: string): string {
+function getRelatedModuleName(
+  moduleName: string,
+  relationName: string,
+): string {
   const relation = moduleRelations[moduleName]?.[relationName];
   if (!relation) {
     throw new Error(`Unknown relation: ${moduleName}.${relationName}`);
@@ -375,12 +372,12 @@ function getRelatedModuleName(moduleName: string, relationName: string): string 
 
   // Map table names to module names
   const tableToModule: Record<string, string> = {
-    "products": "products",
-    "categories": "categories",
-    "product_variants": "variants",
-    "passport_templates": "templates",
-    "product_passports": "passports",
-    "variant_passports": "passports",
+    products: "products",
+    categories: "categories",
+    product_variants: "variants",
+    passport_templates: "templates",
+    product_passports: "passports",
+    variant_passports: "passports",
   };
 
   return tableToModule[relation.table] || relation.table;
@@ -391,7 +388,7 @@ function getRelatedModuleName(moduleName: string, relationName: string): string 
  */
 export function buildIncludeQuery(
   include: IncludeConfig,
-  moduleName: string
+  moduleName: string,
 ): Record<string, any> {
   const drizzleIncludes: Record<string, any> = {};
 
@@ -414,13 +411,13 @@ export function buildIncludeQuery(
 export async function getTotalCount<TTable extends PgTable>(
   db: TRPCContext["db"],
   table: TTable,
-  conditions: any[]
+  conditions: any[],
 ): Promise<number> {
   try {
     // Use a simple count approach
     const result = await db
       .select()
-      .from(table)
+      .from(table as any)
       .where(and(...conditions));
 
     return result.length;
@@ -456,7 +453,7 @@ export const enhancedSortSchema = z.object({
  * Enhanced include schema factory
  */
 export function createEnhancedIncludeSchema(
-  allowedIncludes: string[]
+  allowedIncludes: string[],
 ): z.ZodType<IncludeConfig> {
   const includeSchema: Record<string, z.ZodTypeAny> = {};
 
@@ -474,18 +471,17 @@ export function createEnhancedIncludeSchema(
 /**
  * Creates a complete pagination + include query for resourceful endpoints
  */
-export async function createPaginatedQuery<TTable extends PgTable>(
-  config: {
-    table: TTable;
-    moduleName: string;
-    pagination: PaginationConfig;
-    sort: SortConfig;
-    include: IncludeConfig;
-    conditions: any[];
-    ctx: TRPCContext;
-  }
-) {
-  const { table, moduleName, pagination, sort, include, conditions, ctx } = config;
+export async function createPaginatedQuery<TTable extends PgTable>(config: {
+  table: TTable;
+  moduleName: string;
+  pagination: PaginationConfig;
+  sort: SortConfig;
+  include: IncludeConfig;
+  conditions: any[];
+  ctx: TRPCContext;
+}) {
+  const { table, moduleName, pagination, sort, include, conditions, ctx } =
+    config;
 
   // Validate and normalize pagination
   const validatedPagination = validatePaginationConfig(pagination);
@@ -509,12 +505,12 @@ export async function createPaginatedQuery<TTable extends PgTable>(
   // Execute query with +1 for hasMore check
   const data = await ctx.db
     .select()
-    .from(table)
+    .from(table as any)
     .where(and(...allConditions))
     .orderBy(
       sort.direction === "asc"
         ? asc((table as any)[sort.field])
-        : desc((table as any)[sort.field])
+        : desc((table as any)[sort.field]),
     )
     .limit(validatedPagination.limit + 1);
 
@@ -527,10 +523,10 @@ export async function createPaginatedQuery<TTable extends PgTable>(
 
   // Create pagination info
   const { paginatedData, cursorInfo } = createPaginationInfo(
-    data,
+    data as any,
     validatedPagination.limit,
     sort,
-    totalCount
+    totalCount,
   );
 
   return {
@@ -538,7 +534,9 @@ export async function createPaginatedQuery<TTable extends PgTable>(
     cursorInfo,
     meta: {
       moduleName,
-      includes: Object.keys(validatedIncludes).filter(key => validatedIncludes[key]),
+      includes: Object.keys(validatedIncludes).filter(
+        (key) => validatedIncludes[key],
+      ),
       sortField: sort.field,
       sortDirection: sort.direction,
     },

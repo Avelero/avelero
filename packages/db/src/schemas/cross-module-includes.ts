@@ -11,10 +11,10 @@ import { eq, and } from "drizzle-orm";
  * Defines the relationship types between modules
  */
 export const relationshipTypeEnum = z.enum([
-  "one-to-one",      // 1:1 relationship (e.g., passport -> template)
-  "one-to-many",     // 1:N relationship (e.g., product -> variants)
-  "many-to-one",     // N:1 relationship (e.g., variants -> product)
-  "many-to-many",    // N:N relationship (e.g., products -> categories via junction)
+  "one-to-one", // 1:1 relationship (e.g., passport -> template)
+  "one-to-many", // 1:N relationship (e.g., product -> variants)
+  "many-to-one", // N:1 relationship (e.g., variants -> product)
+  "many-to-many", // N:N relationship (e.g., products -> categories via junction)
 ]);
 
 export type RelationshipType = z.infer<typeof relationshipTypeEnum>;
@@ -61,7 +61,10 @@ export interface CrossModuleRelationship {
  * Registry of all cross-module relationships
  */
 export class CrossModuleRelationshipRegistry {
-  private relationships = new Map<string, Map<string, CrossModuleRelationship>>();
+  private relationships = new Map<
+    string,
+    Map<string, CrossModuleRelationship>
+  >();
 
   /**
    * Register a relationship between two modules
@@ -69,7 +72,7 @@ export class CrossModuleRelationshipRegistry {
   register(
     sourceModule: string,
     targetKey: string,
-    relationship: CrossModuleRelationship
+    relationship: CrossModuleRelationship,
   ): void {
     if (!this.relationships.has(sourceModule)) {
       this.relationships.set(sourceModule, new Map());
@@ -88,7 +91,10 @@ export class CrossModuleRelationshipRegistry {
   /**
    * Get a specific relationship
    */
-  getRelationship(sourceModule: string, targetKey: string): CrossModuleRelationship | undefined {
+  getRelationship(
+    sourceModule: string,
+    targetKey: string,
+  ): CrossModuleRelationship | undefined {
     return this.relationships.get(sourceModule)?.get(targetKey);
   }
 
@@ -121,7 +127,8 @@ export const crossModuleRegistry = new CrossModuleRelationshipRegistry();
  * Creates a cross-module include schema for a specific module
  */
 export function createCrossModuleIncludeSchema(sourceModule: string) {
-  const availableIncludes = crossModuleRegistry.getAvailableIncludes(sourceModule);
+  const availableIncludes =
+    crossModuleRegistry.getAvailableIncludes(sourceModule);
 
   // Create dynamic schema object with all available cross-module includes
   const schemaShape: Record<string, z.ZodDefault<z.ZodBoolean>> = {};
@@ -152,7 +159,7 @@ export interface CrossModuleQueryBuilder {
  */
 export function createCrossModuleQueryBuilder(
   sourceModule: string,
-  sourceTable: AnyPgTable
+  sourceTable: AnyPgTable,
 ): CrossModuleQueryBuilder {
   return {
     buildSelectFields(includes: Record<string, boolean>) {
@@ -163,7 +170,10 @@ export function createCrossModuleQueryBuilder(
       for (const [includeKey, isIncluded] of Object.entries(includes)) {
         if (!isIncluded) continue;
 
-        const relationship = crossModuleRegistry.getRelationship(sourceModule, includeKey);
+        const relationship = crossModuleRegistry.getRelationship(
+          sourceModule,
+          includeKey,
+        );
         if (relationship?.includeSupported) {
           selectFields[includeKey] = relationship.targetTable;
         }
@@ -178,29 +188,44 @@ export function createCrossModuleQueryBuilder(
       for (const [includeKey, isIncluded] of Object.entries(includes)) {
         if (!isIncluded) continue;
 
-        const relationship = crossModuleRegistry.getRelationship(sourceModule, includeKey);
+        const relationship = crossModuleRegistry.getRelationship(
+          sourceModule,
+          includeKey,
+        );
         if (!relationship?.includeSupported) continue;
 
-        const joinCondition = relationship.joinCondition(sourceTable, relationship.targetTable);
+        const joinCondition = relationship.joinCondition(
+          sourceTable,
+          relationship.targetTable,
+        );
         const conditions = relationship.targetFilter
-          ? and(joinCondition, relationship.targetFilter(relationship.targetTable))
+          ? and(
+              joinCondition,
+              relationship.targetFilter(relationship.targetTable),
+            )
           : joinCondition;
 
         // Use leftJoin to preserve source records even if target doesn't exist
-        joinedQuery = joinedQuery.leftJoin(relationship.targetTable, conditions);
+        joinedQuery = joinedQuery.leftJoin(
+          relationship.targetTable,
+          conditions,
+        );
       }
 
       return joinedQuery;
     },
 
     transformResults(results: any[], includes: Record<string, boolean>) {
-      return results.map(result => {
+      return results.map((result) => {
         const transformed: any = { ...result[sourceModule] };
 
         for (const [includeKey, isIncluded] of Object.entries(includes)) {
           if (!isIncluded) continue;
 
-          const relationship = crossModuleRegistry.getRelationship(sourceModule, includeKey);
+          const relationship = crossModuleRegistry.getRelationship(
+            sourceModule,
+            includeKey,
+          );
           if (relationship?.includeSupported && result[includeKey]) {
             transformed[includeKey] = result[includeKey];
           }
@@ -208,7 +233,7 @@ export function createCrossModuleQueryBuilder(
 
         return transformed;
       });
-    }
+    },
   };
 }
 
@@ -234,7 +259,7 @@ export interface QueryPerformanceMetrics {
  */
 export function analyzeQueryPerformance(
   sourceModule: string,
-  includes: Record<string, boolean>
+  includes: Record<string, boolean>,
 ): QueryPerformanceMetrics {
   let joinCount = 0;
   let hasExpensiveRelationships = false;
@@ -243,7 +268,10 @@ export function analyzeQueryPerformance(
   for (const [includeKey, isIncluded] of Object.entries(includes)) {
     if (!isIncluded) continue;
 
-    const relationship = crossModuleRegistry.getRelationship(sourceModule, includeKey);
+    const relationship = crossModuleRegistry.getRelationship(
+      sourceModule,
+      includeKey,
+    );
     if (!relationship?.includeSupported) continue;
 
     joinCount++;
@@ -253,7 +281,10 @@ export function analyzeQueryPerformance(
     }
 
     const cardinality = relationship.performance?.expectedCardinality || "low";
-    if (cardinality === "high" || (cardinality === "medium" && maxCardinality === "low")) {
+    if (
+      cardinality === "high" ||
+      (cardinality === "medium" && maxCardinality === "low")
+    ) {
       maxCardinality = cardinality;
     }
   }
@@ -281,7 +312,7 @@ export function analyzeQueryPerformance(
 export function registerCrossModuleRelationship(
   sourceModule: string,
   targetKey: string,
-  relationship: CrossModuleRelationship
+  relationship: CrossModuleRelationship,
 ) {
   return function (target: any) {
     crossModuleRegistry.register(sourceModule, targetKey, relationship);

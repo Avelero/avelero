@@ -8,17 +8,28 @@ import {
   boolean,
   integer,
   pgPolicy,
-  index
+  index,
 } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
 
 // Module status enum
-export const moduleStatusEnum = ["draft", "published", "archived", "disabled"] as const;
-export type ModuleStatus = typeof moduleStatusEnum[number];
+export const moduleStatusEnum = [
+  "draft",
+  "published",
+  "archived",
+  "disabled",
+] as const;
+export type ModuleStatus = (typeof moduleStatusEnum)[number];
 
 // Module type enum
-export const moduleTypeEnum = ["data_collection", "validation", "compliance", "reporting", "custom"] as const;
-export type ModuleType = typeof moduleTypeEnum[number];
+export const moduleTypeEnum = [
+  "data_collection",
+  "validation",
+  "compliance",
+  "reporting",
+  "custom",
+] as const;
+export type ModuleType = (typeof moduleTypeEnum)[number];
 
 export const modules = pgTable(
   "modules",
@@ -57,7 +68,10 @@ export const modules = pgTable(
 
     // Usage tracking
     usageCount: integer("usage_count").default(0).notNull(),
-    lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "string" }),
+    lastUsedAt: timestamp("last_used_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
 
     // Scoring and weights
     completionWeight: integer("completion_weight").default(1).notNull(), // Weight for completion calculations
@@ -77,10 +91,22 @@ export const modules = pgTable(
   },
   (table) => ({
     // Performance indexes for brand-scoped queries
-    brandTypeIdx: index("modules_brand_type_idx").on(table.brandId, table.moduleType),
-    brandStatusIdx: index("modules_brand_status_idx").on(table.brandId, table.moduleStatus),
-    brandEnabledIdx: index("modules_brand_enabled_idx").on(table.brandId, table.enabled),
-    brandCreatedIdx: index("modules_brand_created_idx").on(table.brandId, table.createdAt),
+    brandTypeIdx: index("modules_brand_type_idx").on(
+      table.brandId,
+      table.moduleType,
+    ),
+    brandStatusIdx: index("modules_brand_status_idx").on(
+      table.brandId,
+      table.moduleStatus,
+    ),
+    brandEnabledIdx: index("modules_brand_enabled_idx").on(
+      table.brandId,
+      table.enabled,
+    ),
+    brandCreatedIdx: index("modules_brand_created_idx").on(
+      table.brandId,
+      table.createdAt,
+    ),
 
     // Module search and filtering indexes
     nameSearchIdx: index("modules_name_search_idx").on(table.name),
@@ -91,20 +117,30 @@ export const modules = pgTable(
     systemIdx: index("modules_system_idx").on(table.isSystem),
 
     // Module hierarchy and dependencies
-    parentModuleIdx: index("modules_parent_module_idx").on(table.parentModuleId),
+    parentModuleIdx: index("modules_parent_module_idx").on(
+      table.parentModuleId,
+    ),
 
     // Usage tracking indexes
     usageCountIdx: index("modules_usage_count_idx").on(table.usageCount),
     lastUsedAtIdx: index("modules_last_used_at_idx").on(table.lastUsedAt),
 
     // Scoring indexes
-    validationScoreIdx: index("modules_validation_score_idx").on(table.validationScore),
-    complianceImpactIdx: index("modules_compliance_impact_idx").on(table.complianceImpact),
-    completionWeightIdx: index("modules_completion_weight_idx").on(table.completionWeight),
+    validationScoreIdx: index("modules_validation_score_idx").on(
+      table.validationScore,
+    ),
+    complianceImpactIdx: index("modules_compliance_impact_idx").on(
+      table.complianceImpact,
+    ),
+    completionWeightIdx: index("modules_completion_weight_idx").on(
+      table.completionWeight,
+    ),
 
     // Version and language indexes
     versionIdx: index("modules_version_idx").on(table.version),
-    primaryLanguageIdx: index("modules_primary_language_idx").on(table.primaryLanguage),
+    primaryLanguageIdx: index("modules_primary_language_idx").on(
+      table.primaryLanguage,
+    ),
 
     // Temporal indexes for cursor pagination
     updatedAtIdx: index("modules_updated_at_idx").on(table.updatedAt),

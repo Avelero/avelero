@@ -1,7 +1,11 @@
 // Note: Removed server-only import as it conflicts with Bun runtime
 // The KV package is inherently server-side only by design
 
-import { CACHE_KEYS, invalidateBrandMetrics, invalidateCachePattern } from "./cache.js";
+import {
+  CACHE_KEYS,
+  invalidateBrandMetrics,
+  invalidateCachePattern,
+} from "./cache.js";
 
 /**
  * Invalidation strategies for different data mutation types
@@ -98,15 +102,13 @@ export async function invalidateAllBrandCaches(brandId: string): Promise<void> {
 export async function invalidateSpecificMetrics(
   resource: keyof typeof CACHE_KEYS,
   brandId: string,
-  metricNames: string[]
+  metricNames: string[],
 ): Promise<void> {
   const patterns = metricNames.map(
-    metric => `metrics:${CACHE_KEYS[resource]}:${brandId}:${metric}*`
+    (metric) => `metrics:${CACHE_KEYS[resource]}:${brandId}:${metric}*`,
   );
 
-  await Promise.all(
-    patterns.map(pattern => invalidateCachePattern(pattern))
-  );
+  await Promise.all(patterns.map((pattern) => invalidateCachePattern(pattern)));
 }
 
 /**
@@ -135,10 +137,13 @@ export async function warmupCache(config: CacheWarmupConfig): Promise<void> {
           // Force recomputation by skipping cache
           await computeFn(metric);
         } catch (error) {
-          console.error(`Cache warmup failed for ${resource}:${brandId}:${metric}:`, error);
+          console.error(
+            `Cache warmup failed for ${resource}:${brandId}:${metric}:`,
+            error,
+          );
           // Continue with other metrics even if one fails
         }
-      })
+      }),
     );
   }
 }
@@ -164,7 +169,7 @@ export async function checkCacheHealth(): Promise<{
       // For now, just return basic counts
     };
   } catch (error) {
-    console.error('Cache health check failed:', error);
+    console.error("Cache health check failed:", error);
     return {
       totalKeys: 0,
       metricKeys: 0,

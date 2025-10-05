@@ -51,70 +51,79 @@ export function PassportDataTable({
   // Reset page when search, sort, or filter changes
   React.useEffect(() => {
     setPage(0);
-  }, [searchState?.debouncedQuery, sortState?.field, sortState?.direction, filterState]);
+  }, [
+    searchState?.debouncedQuery,
+    sortState?.field,
+    sortState?.direction,
+    filterState,
+  ]);
 
   // Convert frontend filter state to backend filter format
-  const convertFiltersToBackend = React.useCallback((filterState?: FilterState) => {
-    if (!filterState || filterState.groups.length === 0) return {};
+  const convertFiltersToBackend = React.useCallback(
+    (filterState?: FilterState) => {
+      if (!filterState || filterState.groups.length === 0) return {};
 
-    const backendFilter: any = {};
+      const backendFilter: any = {};
 
-    // Process all filter groups (AND logic between groups)
-    filterState.groups.forEach(group => {
-      group.conditions.forEach(condition => {
-        if (!condition.fieldId || condition.value == null) return;
+      // Process all filter groups (AND logic between groups)
+      for (const group of filterState.groups) {
+        for (const condition of group.conditions) {
+          if (!condition.fieldId || condition.value == null) continue;
 
-        const value = condition.value;
-        const values = Array.isArray(value) ? value : [value];
+          const value = condition.value;
+          const values = Array.isArray(value) ? value : [value];
 
-        switch (condition.fieldId) {
-          case 'status':
-            // passportStatus expects array of status values
-            if (!backendFilter.passportStatus) backendFilter.passportStatus = [];
-            backendFilter.passportStatus.push(...values);
-            break;
+          switch (condition.fieldId) {
+            case "status":
+              // passportStatus expects array of status values
+              if (!backendFilter.passportStatus)
+                backendFilter.passportStatus = [];
+              backendFilter.passportStatus.push(...values);
+              break;
 
-          case 'categoryId':
-            // Category filtering through product join
-            if (!backendFilter.categoryIds) backendFilter.categoryIds = [];
-            backendFilter.categoryIds.push(...values);
-            break;
+            case "categoryId":
+              // Category filtering through product join
+              if (!backendFilter.categoryIds) backendFilter.categoryIds = [];
+              backendFilter.categoryIds.push(...values);
+              break;
 
-          case 'colorId':
-            // Color filtering through variant join
-            if (!backendFilter.colorIds) backendFilter.colorIds = [];
-            backendFilter.colorIds.push(...values);
-            break;
+            case "colorId":
+              // Color filtering through variant join
+              if (!backendFilter.colorIds) backendFilter.colorIds = [];
+              backendFilter.colorIds.push(...values);
+              break;
 
-          case 'sizeId':
-            // Size filtering through variant join  
-            if (!backendFilter.sizeIds) backendFilter.sizeIds = [];
-            backendFilter.sizeIds.push(...values);
-            break;
+            case "sizeId":
+              // Size filtering through variant join
+              if (!backendFilter.sizeIds) backendFilter.sizeIds = [];
+              backendFilter.sizeIds.push(...values);
+              break;
 
-          case 'season':
-            // Season is a direct field on passport
-            if (!backendFilter.season) backendFilter.season = [];
-            backendFilter.season.push(...values);
-            break;
+            case "season":
+              // Season is a direct field on passport
+              if (!backendFilter.season) backendFilter.season = [];
+              backendFilter.season.push(...values);
+              break;
 
-          case 'moduleCompletion':
-            // Module completion - complex logic, placeholder for now
-            // TODO: Implement module completion filtering
-            break;
+            case "moduleCompletion":
+              // Module completion - complex logic, placeholder for now
+              // TODO: Implement module completion filtering
+              break;
+          }
         }
-      });
-    });
-
-    // Deduplicate arrays
-    Object.keys(backendFilter).forEach(key => {
-      if (Array.isArray(backendFilter[key])) {
-        backendFilter[key] = [...new Set(backendFilter[key])];
       }
-    });
 
-    return backendFilter;
-  }, []);
+      // Deduplicate arrays
+      for (const key of Object.keys(backendFilter)) {
+        if (Array.isArray(backendFilter[key])) {
+          backendFilter[key] = [...new Set(backendFilter[key])];
+        }
+      }
+
+      return backendFilter;
+    },
+    [],
+  );
 
   // Build query parameters with search, sort, and filters
   const queryParams = React.useMemo(() => {
@@ -152,7 +161,15 @@ export function PassportDataTable({
     }
 
     return params;
-  }, [searchState?.debouncedQuery, sortState?.field, sortState?.direction, filterState, pageSize, page, convertFiltersToBackend]);
+  }, [
+    searchState?.debouncedQuery,
+    sortState?.field,
+    sortState?.direction,
+    filterState,
+    pageSize,
+    page,
+    convertFiltersToBackend,
+  ]);
 
   const { data: listRes, isLoading } = useQuery(
     React.useMemo(
@@ -163,25 +180,33 @@ export function PassportDataTable({
   const data = React.useMemo<Passport[]>(() => {
     const rawData = (listRes as { data?: unknown } | undefined)?.data;
     if (!Array.isArray(rawData)) return [];
-    
+
     // Map the API response to the Passport type expected by the frontend
     return rawData.map((item: any) => ({
       id: item.id,
-      title: item.product?.name || item.productId || 'Untitled',
+      title: item.product?.name || item.productId || "Untitled",
       sku: item.variant?.sku || undefined,
       color: item.variant?.color || undefined,
       size: item.variant?.size || undefined,
-      status: (item.status === 'draft' || item.status === 'blocked' ? 'unpublished' : item.status) as "published" | "scheduled" | "unpublished" | "archived",
+      status: (item.status === "draft" || item.status === "blocked"
+        ? "unpublished"
+        : item.status) as
+        | "published"
+        | "scheduled"
+        | "unpublished"
+        | "archived",
       completedSections: 0, // TODO: Calculate from actual data
       totalSections: 6, // TODO: Get from template
-      category: item.product?.category || 'Uncategorized',
+      category: item.product?.category || "Uncategorized",
       categoryPath: [], // TODO: Build from category hierarchy
       season: item.season || undefined,
-      template: item.template ? {
-        id: item.template.id,
-        name: item.template.name,
-        color: item.template.brandColor || '#3B82F6',
-      } : undefined,
+      template: item.template
+        ? {
+            id: item.template.id,
+            name: item.template.name,
+            color: item.template.brandColor || "#3B82F6",
+          }
+        : undefined,
       passportUrl: item.publicUrl || undefined,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,

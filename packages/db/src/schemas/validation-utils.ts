@@ -170,7 +170,7 @@ export function validateEnum<T extends string>(
   value: unknown,
   enumSchema: z.ZodEnum<[T, ...T[]]>,
   fieldName: string,
-  customMessage?: string
+  customMessage?: string,
 ): ValidationResult<T> {
   try {
     const validatedValue = enumSchema.parse(value);
@@ -180,14 +180,15 @@ export function validateEnum<T extends string>(
     };
   } catch (error) {
     const validValues = enumSchema.options;
-    const message = customMessage ||
+    const message =
+      customMessage ||
       `Invalid ${fieldName}. Expected one of: ${validValues.join(", ")}. Received: ${String(value)}`;
 
     const validationError = createValidationError(
       fieldName,
       message,
       "INVALID_ENUM_VALUE",
-      value
+      value,
     );
 
     const errorResponse = createCommonErrors.validation([validationError]);
@@ -206,7 +207,7 @@ export function validateEnum<T extends string>(
 export function validateEntityStatus(
   value: unknown,
   currentStatus?: EntityStatus,
-  context?: ValidationContext
+  context?: ValidationContext,
 ): ValidationResult<EntityStatus> {
   // First validate the enum value
   const baseResult = validateEnum(value, entityStatusEnum, "status");
@@ -223,7 +224,7 @@ export function validateEntityStatus(
       "status",
       `Invalid status transition from "${currentStatus}" to "${newStatus}"`,
       "INVALID_STATUS_TRANSITION",
-      { from: currentStatus, to: newStatus }
+      { from: currentStatus, to: newStatus },
     );
 
     return {
@@ -235,7 +236,9 @@ export function validateEntityStatus(
 
   // Add warnings for potentially risky transitions
   if (currentStatus === "published" && newStatus === "draft") {
-    warnings.push("Moving from published to draft may affect public visibility");
+    warnings.push(
+      "Moving from published to draft may affect public visibility",
+    );
   }
 
   if (currentStatus === "active" && newStatus === "archived") {
@@ -254,7 +257,7 @@ export function validateEntityStatus(
  */
 export function validatePriority(
   value: unknown,
-  context?: ValidationContext
+  context?: ValidationContext,
 ): ValidationResult<Priority> {
   const baseResult = validateEnum(value, priorityEnum, "priority");
   if (!baseResult.success) {
@@ -274,7 +277,7 @@ export function validatePriority(
         "priority",
         "Insufficient permissions to set critical priority",
         "INSUFFICIENT_PERMISSIONS",
-        { userRole: role, requiredRole: "admin" }
+        { userRole: role, requiredRole: "admin" },
       );
 
       return {
@@ -282,7 +285,7 @@ export function validatePriority(
         errors: [validationError],
         errorResponse: createCommonErrors.forbidden(
           "Cannot set critical priority",
-          context.request?.id
+          context.request?.id,
         ),
       };
     }
@@ -305,7 +308,7 @@ export function validatePriority(
  */
 export function validateUserRole(
   value: unknown,
-  context?: ValidationContext
+  context?: ValidationContext,
 ): ValidationResult<UserRole> {
   const baseResult = validateEnum(value, userRoleEnum, "role");
   if (!baseResult.success) {
@@ -324,7 +327,7 @@ export function validateUserRole(
         "role",
         "Only brand owners can assign owner role",
         "INSUFFICIENT_PERMISSIONS",
-        { currentUserId: user.id, brandOwnerId: brand.ownerId }
+        { currentUserId: user.id, brandOwnerId: brand.ownerId },
       );
 
       return {
@@ -332,7 +335,7 @@ export function validateUserRole(
         errors: [validationError],
         errorResponse: createCommonErrors.forbidden(
           "Cannot assign owner role",
-          context.request?.id
+          context.request?.id,
         ),
       };
     }
@@ -343,7 +346,7 @@ export function validateUserRole(
         "role",
         "Insufficient permissions to assign admin role",
         "INSUFFICIENT_PERMISSIONS",
-        { userRole: user.role, requiredRole: "admin" }
+        { userRole: user.role, requiredRole: "admin" },
       );
 
       return {
@@ -351,7 +354,7 @@ export function validateUserRole(
         errors: [validationError],
         errorResponse: createCommonErrors.forbidden(
           "Cannot assign admin role",
-          context.request?.id
+          context.request?.id,
         ),
       };
     }
@@ -369,7 +372,7 @@ export function validateUserRole(
 export function validateJobStatus(
   value: unknown,
   currentStatus?: JobStatus,
-  context?: ValidationContext
+  context?: ValidationContext,
 ): ValidationResult<JobStatus> {
   const baseResult = validateEnum(value, jobStatusEnum, "status");
   if (!baseResult.success) {
@@ -384,7 +387,7 @@ export function validateJobStatus(
       "status",
       `Invalid job status transition from "${currentStatus}" to "${newStatus}"`,
       "INVALID_STATUS_TRANSITION",
-      { from: currentStatus, to: newStatus }
+      { from: currentStatus, to: newStatus },
     );
 
     return {
@@ -411,7 +414,7 @@ export function validateEnumBatch<T extends string>(
   values: unknown[],
   enumSchema: z.ZodEnum<[T, ...T[]]>,
   fieldName: string,
-  context?: ValidationContext
+  context?: ValidationContext,
 ): BatchValidationResult<T> {
   const validItems: T[] = [];
   const invalidItems: Array<{ item: any; errors: ValidationError[] }> = [];
@@ -451,8 +454,12 @@ export function validateEnumBatch<T extends string>(
  * Validates entity statuses in batch with transition checking
  */
 export function validateEntityStatusBatch(
-  statusUpdates: Array<{ id: string; status: unknown; currentStatus?: EntityStatus }>,
-  context?: ValidationContext
+  statusUpdates: Array<{
+    id: string;
+    status: unknown;
+    currentStatus?: EntityStatus;
+  }>,
+  context?: ValidationContext,
 ): BatchValidationResult<{ id: string; status: EntityStatus }> {
   const validItems: Array<{ id: string; status: EntityStatus }> = [];
   const invalidItems: Array<{ item: any; errors: ValidationError[] }> = [];
@@ -462,7 +469,7 @@ export function validateEntityStatusBatch(
     const result = validateEntityStatus(
       update.status,
       update.currentStatus,
-      context
+      context,
     );
 
     if (result.success) {
@@ -512,12 +519,17 @@ const validStatusTransitions: Record<EntityStatus, EntityStatus[]> = {
   deferred: ["pending", "cancelled"],
   cancelled: [], // Terminal state
   archived: [], // Terminal state
+  scheduled: ["active", "published", "cancelled"], // Scheduled can transition to active/published
+  unpublished: ["draft", "pending", "published"], // Unpublished can be re-drafted or published
 };
 
 /**
  * Checks if a status transition is valid
  */
-function isValidStatusTransition(from: EntityStatus, to: EntityStatus): boolean {
+function isValidStatusTransition(
+  from: EntityStatus,
+  to: EntityStatus,
+): boolean {
   return validStatusTransitions[from]?.includes(to) ?? false;
 }
 
@@ -599,7 +611,7 @@ export function getEnumSortOrder(value: string, enumType: string): number {
  */
 export function sortEnumValues<T extends string>(
   values: T[],
-  enumType: string
+  enumType: string,
 ): T[] {
   return [...values].sort((a, b) => {
     const orderA = getEnumSortOrder(a, enumType);
@@ -614,7 +626,7 @@ export function sortEnumValues<T extends string>(
 export function filterEnumByPermissions<T extends string>(
   values: T[],
   enumType: string,
-  context?: ValidationContext
+  context?: ValidationContext,
 ): T[] {
   if (!context?.user) {
     return values;
@@ -625,7 +637,7 @@ export function filterEnumByPermissions<T extends string>(
     const { role } = context.user;
     if (role === "viewer") {
       // Viewers can only see non-draft statuses
-      return values.filter(v => v !== "draft");
+      return values.filter((v) => v !== "draft");
     }
   }
 
@@ -634,7 +646,7 @@ export function filterEnumByPermissions<T extends string>(
     const { role } = context.user;
     if (!["admin", "owner"].includes(role)) {
       // Non-admins cannot see critical priority
-      return values.filter(v => v !== "critical");
+      return values.filter((v) => v !== "critical");
     }
   }
 

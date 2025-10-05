@@ -1,4 +1,15 @@
-import { sql, and, eq, isNull, ilike, desc, asc, gte, lte, isNotNull } from "drizzle-orm";
+import {
+  sql,
+  and,
+  eq,
+  isNull,
+  ilike,
+  desc,
+  asc,
+  gte,
+  lte,
+  isNotNull,
+} from "drizzle-orm";
 import type { Database } from "../client";
 import { categories, products } from "../schema";
 
@@ -35,9 +46,14 @@ export async function getCategoryTree(
       search?: string;
       hasProducts?: boolean;
     };
-  } = {}
+  } = {},
 ): Promise<CategoryWithHierarchy[]> {
-  const { rootId = null, maxDepth = 5, includeProductCounts = false, filter } = options;
+  const {
+    rootId = null,
+    maxDepth = 5,
+    includeProductCounts = false,
+    filter,
+  } = options;
 
   let query = sql`
     WITH RECURSIVE category_tree AS (
@@ -90,7 +106,9 @@ export async function getCategoryTree(
   }
   if (filter?.hasProducts !== undefined) {
     if (includeProductCounts) {
-      conditions.push(filter.hasProducts ? sql`product_count > 0` : sql`product_count = 0`);
+      conditions.push(
+        filter.hasProducts ? sql`product_count > 0` : sql`product_count = 0`,
+      );
     }
   }
 
@@ -113,8 +131,12 @@ export async function getCategoryPath(
   options: {
     separator?: string;
     includeIds?: boolean;
-  } = {}
-): Promise<{ path: string; pathIds?: string[]; categories: CategoryWithHierarchy[] }> {
+  } = {},
+): Promise<{
+  path: string;
+  pathIds?: string[];
+  categories: CategoryWithHierarchy[];
+}> {
   const { separator = " > ", includeIds = false } = options;
 
   const query = sql`
@@ -148,10 +170,12 @@ export async function getCategoryPath(
   `;
 
   const result = await db.execute(query);
-  const pathCategories = result as unknown as (CategoryWithHierarchy & { level: number })[];
+  const pathCategories = result as unknown as (CategoryWithHierarchy & {
+    level: number;
+  })[];
 
-  const path = pathCategories.map(cat => cat.name).join(separator);
-  const pathIds = includeIds ? pathCategories.map(cat => cat.id) : undefined;
+  const path = pathCategories.map((cat) => cat.name).join(separator);
+  const pathIds = includeIds ? pathCategories.map((cat) => cat.id) : undefined;
 
   return {
     path,
@@ -165,7 +189,7 @@ export async function getCategoryPath(
  */
 export async function getCategoryAncestors(
   db: Database,
-  categoryId: string
+  categoryId: string,
 ): Promise<CategoryWithHierarchy[]> {
   const query = sql`
     WITH RECURSIVE category_ancestors AS (
@@ -207,7 +231,7 @@ export async function getCategoryAncestors(
 export async function getCategoryDescendants(
   db: Database,
   categoryId: string,
-  maxDepth = 10
+  maxDepth = 10,
 ): Promise<CategoryWithHierarchy[]> {
   const query = sql`
     WITH RECURSIVE category_descendants AS (
@@ -252,7 +276,7 @@ export async function getCategoryDescendants(
 export async function validateCategoryHierarchy(
   db: Database,
   categoryId: string,
-  newParentId: string | null
+  newParentId: string | null,
 ): Promise<{ isValid: boolean; issues: string[] }> {
   const issues: string[] = [];
 
@@ -268,10 +292,12 @@ export async function validateCategoryHierarchy(
 
   // Check if newParentId is a descendant of categoryId (would create cycle)
   const descendants = await getCategoryDescendants(db, categoryId);
-  const isDescendant = descendants.some(desc => desc.id === newParentId);
+  const isDescendant = descendants.some((desc) => desc.id === newParentId);
 
   if (isDescendant) {
-    issues.push("Cannot move category under its own descendant (would create cycle)");
+    issues.push(
+      "Cannot move category under its own descendant (would create cycle)",
+    );
     return { isValid: false, issues };
   }
 
@@ -297,8 +323,12 @@ export async function getCategoryHierarchyStats(db: Database): Promise<{
   branchingFactor: number;
 }> {
   // Get basic counts
-  const totalResult = await db.execute(sql`SELECT COUNT(*) as total FROM ${categories}`);
-  const rootResult = await db.execute(sql`SELECT COUNT(*) as count FROM ${categories} WHERE parent_id IS NULL`);
+  const totalResult = await db.execute(
+    sql`SELECT COUNT(*) as total FROM ${categories}`,
+  );
+  const rootResult = await db.execute(
+    sql`SELECT COUNT(*) as count FROM ${categories} WHERE parent_id IS NULL`,
+  );
   const leafResult = await db.execute(sql`
     SELECT COUNT(*) as count
     FROM ${categories} c1
@@ -357,15 +387,16 @@ export async function getCategoriesWithProductCounts(
   options: {
     parentId?: string | null;
     includeEmpty?: boolean;
-  } = {}
+  } = {},
 ): Promise<Array<CategoryWithHierarchy & { productCount: number }>> {
   const { parentId, includeEmpty = true } = options;
 
   let whereCondition = sql`1 = 1`;
   if (parentId !== undefined) {
-    whereCondition = parentId === null
-      ? sql`c.parent_id IS NULL`
-      : sql`c.parent_id = ${parentId}`;
+    whereCondition =
+      parentId === null
+        ? sql`c.parent_id IS NULL`
+        : sql`c.parent_id = ${parentId}`;
   }
 
   const query = sql`
@@ -394,5 +425,7 @@ export async function getCategoriesWithProductCounts(
   `;
 
   const result = await db.execute(query);
-  return result as unknown as Array<CategoryWithHierarchy & { productCount: number }>;
+  return result as unknown as Array<
+    CategoryWithHierarchy & { productCount: number }
+  >;
 }

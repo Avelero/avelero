@@ -102,7 +102,8 @@ export function useSortState(
   initialDirection: SortDirection = "desc",
 ): [SortState, SortActions] {
   const [field, setField] = React.useState<PassportSortField>(initialField);
-  const [direction, setDirection] = React.useState<SortDirection>(initialDirection);
+  const [direction, setDirection] =
+    React.useState<SortDirection>(initialDirection);
 
   // Create actions object
   const actions: SortActions = React.useMemo(
@@ -148,7 +149,8 @@ export function useSortMetadata(sortState: SortState) {
   const currentSortOption = React.useMemo(() => {
     return SORT_OPTIONS.find(
       (option) =>
-        option.field === sortState.field && option.direction === sortState.direction,
+        option.field === sortState.field &&
+        option.direction === sortState.direction,
     );
   }, [sortState.field, sortState.direction]);
 
@@ -159,7 +161,9 @@ export function useSortMetadata(sortState: SortState) {
 
   // Get display label for current sort
   const sortLabel = React.useMemo(() => {
-    return currentSortOption?.label || `${sortState.field} (${sortState.direction})`;
+    return (
+      currentSortOption?.label || `${sortState.field} (${sortState.direction})`
+    );
   }, [currentSortOption, sortState.field, sortState.direction]);
 
   return {

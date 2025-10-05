@@ -26,7 +26,7 @@ export function generateCacheKey(
   resource: keyof typeof CACHE_KEYS,
   brandId: string,
   metric: string,
-  filters?: Record<string, any>
+  filters?: Record<string, any>,
 ): string {
   const baseKey = `metrics:${CACHE_KEYS[resource]}:${brandId}:${metric}`;
 
@@ -36,7 +36,7 @@ export function generateCacheKey(
 
   // Create deterministic hash of filters for consistent cache keys
   const filterStr = JSON.stringify(filters);
-  const filterHash = Buffer.from(filterStr).toString('base64url').slice(0, 8);
+  const filterHash = Buffer.from(filterStr).toString("base64url").slice(0, 8);
   return `${baseKey}:${filterHash}`;
 }
 
@@ -44,7 +44,7 @@ export function generateCacheKey(
  * Get cached metrics with automatic JSON parsing
  */
 export async function getCachedMetrics<T = any>(
-  cacheKey: string
+  cacheKey: string,
 ): Promise<T | null> {
   if (!isRedisAvailable() || !client) {
     return null;
@@ -65,7 +65,7 @@ export async function getCachedMetrics<T = any>(
 export async function setCachedMetrics<T = any>(
   cacheKey: string,
   data: T,
-  ttlSeconds: number = CACHE_TTL.METRICS
+  ttlSeconds: number = CACHE_TTL.METRICS,
 ): Promise<void> {
   if (!isRedisAvailable() || !client) {
     return;
@@ -92,7 +92,7 @@ export async function getOrComputeMetrics<T = any>(
     filters?: Record<string, any>;
     ttl?: number;
     skipCache?: boolean;
-  } = {}
+  } = {},
 ): Promise<T> {
   const { filters, ttl = CACHE_TTL.METRICS, skipCache = false } = options;
 
@@ -148,7 +148,7 @@ export async function invalidateCachePattern(pattern: string): Promise<number> {
  */
 export async function invalidateBrandMetrics(
   resource: keyof typeof CACHE_KEYS,
-  brandId: string
+  brandId: string,
 ): Promise<number> {
   const pattern = `metrics:${CACHE_KEYS[resource]}:${brandId}:*`;
   return invalidateCachePattern(pattern);
@@ -164,7 +164,7 @@ export async function getCacheStats(): Promise<{
 }> {
   if (!isRedisAvailable() || !client) {
     return {
-      info: { status: 'Redis not available' },
+      info: { status: "Redis not available" },
       keyCount: 0,
     };
   }
@@ -175,13 +175,13 @@ export async function getCacheStats(): Promise<{
 
     // Parse info string into object
     const infoObj: Record<string, string> = {};
-    if (typeof info === 'string') {
-      info.split('\n').forEach(line => {
-        const [key, value] = line.split(':');
+    if (typeof info === "string") {
+      for (const line of info.split("\n")) {
+        const [key, value] = line.split(":");
         if (key && value) {
           infoObj[key.trim()] = value.trim();
         }
-      });
+      }
     }
 
     return {
@@ -190,7 +190,7 @@ export async function getCacheStats(): Promise<{
       memoryUsage: infoObj.used_memory_human,
     };
   } catch (error) {
-    console.error('Failed to get cache stats:', error);
+    console.error("Failed to get cache stats:", error);
     return {
       info: {},
       keyCount: 0,

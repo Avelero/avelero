@@ -7,7 +7,9 @@ let _initialized = false;
 
 // Helper to check if Redis is available
 export const isRedisAvailable = () => {
-  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  return !!(
+    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  );
 };
 
 // Lazy initialization of Redis client to avoid import errors
@@ -33,9 +35,11 @@ export const client = new Proxy({} as any, {
     }
 
     if (!_client) {
-      throw new Error("Redis client not available - check UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables");
+      throw new Error(
+        "Redis client not available - check UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables",
+      );
     }
 
     return _client[prop];
-  }
+  },
 });

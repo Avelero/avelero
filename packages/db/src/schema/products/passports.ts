@@ -8,13 +8,12 @@ import {
   boolean,
   integer,
   pgPolicy,
-  index
+  index,
 } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
 import { products } from "./products";
 import { productVariants } from "./product-variants";
 import { passportTemplates } from "./passport-templates";
-
 
 export const passports = pgTable(
   "passports",
@@ -26,15 +25,24 @@ export const passports = pgTable(
 
     // Product/variant relationship
     productId: uuid("product_id")
-      .references(() => products.id, { onDelete: "cascade", onUpdate: "cascade" })
+      .references(() => products.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      })
       .notNull(),
     variantId: uuid("variant_id")
-      .references(() => productVariants.id, { onDelete: "cascade", onUpdate: "cascade" })
+      .references(() => productVariants.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      })
       .notNull(),
 
     // Template relationship
     templateId: uuid("template_id")
-      .references(() => passportTemplates.id, { onDelete: "cascade", onUpdate: "cascade" })
+      .references(() => passportTemplates.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      })
       .notNull(),
 
     // Core passport fields - matching actual database column
@@ -52,9 +60,18 @@ export const passports = pgTable(
   },
   (table) => ({
     // Performance indexes for brand-scoped queries
-    brandStatusIdx: index("passports_brand_status_idx").on(table.brandId, table.status),
-    brandCreatedIdx: index("passports_brand_created_idx").on(table.brandId, table.createdAt),
-    brandUpdatedIdx: index("passports_brand_updated_idx").on(table.brandId, table.updatedAt),
+    brandStatusIdx: index("passports_brand_status_idx").on(
+      table.brandId,
+      table.status,
+    ),
+    brandCreatedIdx: index("passports_brand_created_idx").on(
+      table.brandId,
+      table.createdAt,
+    ),
+    brandUpdatedIdx: index("passports_brand_updated_idx").on(
+      table.brandId,
+      table.updatedAt,
+    ),
 
     // Product and variant relationship indexes
     productIdx: index("passports_product_idx").on(table.productId),
@@ -65,12 +82,15 @@ export const passports = pgTable(
     slugIdx: index("passports_slug_idx").on(table.slug),
 
     // RLS policies for brand isolation
-    passportsSelectForBrandMembers: pgPolicy("passports_select_for_brand_members", {
-      as: "permissive",
-      for: "select",
-      to: ["authenticated"],
-      using: sql`is_brand_member(brand_id)`,
-    }),
+    passportsSelectForBrandMembers: pgPolicy(
+      "passports_select_for_brand_members",
+      {
+        as: "permissive",
+        for: "select",
+        to: ["authenticated"],
+        using: sql`is_brand_member(brand_id)`,
+      },
+    ),
     passportsInsertByBrandOwner: pgPolicy("passports_insert_by_brand_owner", {
       as: "permissive",
       for: "insert",

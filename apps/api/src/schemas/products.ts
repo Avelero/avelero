@@ -12,10 +12,12 @@ export const filterSchemaV2 = z.object({
   seasonIds: z.array(z.string().uuid()).optional(),
   certificationIds: z.array(z.string().uuid()).optional(),
   showcaseBrandIds: z.array(z.string().uuid()).optional(),
-  dateRange: z.object({
-    startDate: z.string().datetime().optional(),
-    endDate: z.string().datetime().optional(),
-  }).optional(),
+  dateRange: z
+    .object({
+      startDate: z.string().datetime().optional(),
+      endDate: z.string().datetime().optional(),
+    })
+    .optional(),
 });
 
 export const sortSchemaV2 = z.object({
@@ -29,12 +31,14 @@ export const paginationSchemaV2 = z.object({
 });
 
 export const productListSchemaV2 = z.object({
-  pagination: z.object({
-    method: z.enum(["cursor", "offset"]).default("offset"),
-    cursor: z.string().optional(),
-    page: z.number().int().min(1).default(1),
-    limit: z.number().int().min(10).max(1000).default(50),
-  }).optional(),
+  pagination: z
+    .object({
+      method: z.enum(["cursor", "offset"]).default("offset"),
+      cursor: z.string().optional(),
+      page: z.number().int().min(1).default(1),
+      limit: z.number().int().min(10).max(1000).default(50),
+    })
+    .optional(),
   sort: sortSchemaV2.optional(),
   filters: filterSchemaV2.optional(),
 });
@@ -110,4 +114,3 @@ export const upsertVariantIdentifierSchema = z.object({
   id_type: z.string().min(1),
   value: z.string().min(1),
 });
-

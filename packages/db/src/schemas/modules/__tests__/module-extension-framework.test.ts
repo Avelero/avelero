@@ -19,7 +19,7 @@ import {
   type InferModuleWhere,
   type InferModuleData,
   type InferModuleMetrics,
-} from "../shared";
+} from "../../shared";
 
 // Test modules
 import { productsSchemas } from "../products";
@@ -45,17 +45,27 @@ describe("Module Extension Framework", () => {
       const extendedSchema = createExtendedFilterSchema(extensions);
 
       // Should include base fields
-      expect(() => extendedSchema.parse({ ids: ["123e4567-e89b-12d3-a456-426614174000"] })).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ ids: ["123e4567-e89b-12d3-a456-426614174000"] }),
+      ).not.toThrow();
       expect(() => extendedSchema.parse({ search: "test" })).not.toThrow();
       expect(() => extendedSchema.parse({ enabled: true })).not.toThrow();
 
       // Should include extended fields
-      expect(() => extendedSchema.parse({ moduleSpecificField: "test" })).not.toThrow();
-      expect(() => extendedSchema.parse({ moduleArray: [1, 2, 3] })).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ moduleSpecificField: "test" }),
+      ).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ moduleArray: [1, 2, 3] }),
+      ).not.toThrow();
 
       // Should reject invalid data
-      expect(() => extendedSchema.parse({ moduleSpecificField: 123 })).toThrow();
-      expect(() => extendedSchema.parse({ moduleArray: ["invalid"] })).toThrow();
+      expect(() =>
+        extendedSchema.parse({ moduleSpecificField: 123 }),
+      ).toThrow();
+      expect(() =>
+        extendedSchema.parse({ moduleArray: ["invalid"] }),
+      ).toThrow();
     });
 
     test("createExtendedSortSchema should add fields to base sort options", () => {
@@ -63,16 +73,28 @@ describe("Module Extension Framework", () => {
       const extendedSchema = createExtendedSortSchema(additionalFields);
 
       // Should include base fields
-      expect(() => extendedSchema.parse({ field: "createdAt", direction: "desc" })).not.toThrow();
-      expect(() => extendedSchema.parse({ field: "updatedAt", direction: "asc" })).not.toThrow();
-      expect(() => extendedSchema.parse({ field: "name", direction: "desc" })).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ field: "createdAt", direction: "desc" }),
+      ).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ field: "updatedAt", direction: "asc" }),
+      ).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ field: "name", direction: "desc" }),
+      ).not.toThrow();
 
       // Should include extended fields
-      expect(() => extendedSchema.parse({ field: "customField", direction: "asc" })).not.toThrow();
-      expect(() => extendedSchema.parse({ field: "moduleSpecific", direction: "desc" })).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ field: "customField", direction: "asc" }),
+      ).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ field: "moduleSpecific", direction: "desc" }),
+      ).not.toThrow();
 
       // Should reject invalid fields
-      expect(() => extendedSchema.parse({ field: "invalidField", direction: "asc" })).toThrow();
+      expect(() =>
+        extendedSchema.parse({ field: "invalidField", direction: "asc" }),
+      ).toThrow();
     });
 
     test("createExtendedIncludeSchema should merge base and module relations", () => {
@@ -88,8 +110,12 @@ describe("Module Extension Framework", () => {
       expect(() => extendedSchema.parse({ category: false })).not.toThrow();
 
       // Should include extended fields
-      expect(() => extendedSchema.parse({ moduleRelation: true })).not.toThrow();
-      expect(() => extendedSchema.parse({ optionalRelation: false })).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ moduleRelation: true }),
+      ).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ optionalRelation: false }),
+      ).not.toThrow();
 
       // Should apply defaults
       const parsed = extendedSchema.parse({});
@@ -102,15 +128,27 @@ describe("Module Extension Framework", () => {
       const extendedSchema = createExtendedMetricsSchema(additionalMetrics);
 
       // Should include base metrics
-      expect(() => extendedSchema.parse({ metrics: ["countByStatus"] })).not.toThrow();
-      expect(() => extendedSchema.parse({ metrics: ["totalCount", "activeCount"] })).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ metrics: ["countByStatus"] }),
+      ).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ metrics: ["totalCount", "activeCount"] }),
+      ).not.toThrow();
 
       // Should include extended metrics
-      expect(() => extendedSchema.parse({ metrics: ["customMetric"] })).not.toThrow();
-      expect(() => extendedSchema.parse({ metrics: ["moduleStatistics", "countByStatus"] })).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({ metrics: ["customMetric"] }),
+      ).not.toThrow();
+      expect(() =>
+        extendedSchema.parse({
+          metrics: ["moduleStatistics", "countByStatus"],
+        }),
+      ).not.toThrow();
 
       // Should reject invalid metrics
-      expect(() => extendedSchema.parse({ metrics: ["invalidMetric"] })).toThrow();
+      expect(() =>
+        extendedSchema.parse({ metrics: ["invalidMetric"] }),
+      ).toThrow();
     });
   });
 
@@ -227,7 +265,7 @@ describe("Module Extension Framework", () => {
       const retrieved = getModuleSchemas("retrieval-test");
 
       expect(retrieved).toBe(testSchemas);
-      expect(retrieved?.moduleId).toBe("retrieval-test");
+      expect((retrieved as any)?.moduleId).toBe("retrieval-test");
     });
 
     test("getModuleSchemas should return undefined for unregistered modules", () => {
@@ -348,7 +386,8 @@ describe("Module Extension Framework", () => {
       });
 
       // Test list response
-      const listResponseSchema = productsSchemas.createListResponse(testDataSchema);
+      const listResponseSchema =
+        productsSchemas.createListResponse(testDataSchema);
       const listResult = listResponseSchema.safeParse({
         data: [{ id: "1", name: "Test" }],
         cursorInfo: { nextCursor: null, hasMore: false },
@@ -356,7 +395,8 @@ describe("Module Extension Framework", () => {
       expect(listResult.success).toBe(true);
 
       // Test mutation response
-      const mutationResponseSchema = variantsSchemas.createMutationResponse(testDataSchema);
+      const mutationResponseSchema =
+        variantsSchemas.createMutationResponse(testDataSchema);
       const mutationResult = mutationResponseSchema.safeParse({
         data: [{ id: "1", name: "Test" }],
         affectedCount: 1,
@@ -365,7 +405,7 @@ describe("Module Extension Framework", () => {
 
       // Test aggregate response
       const aggregateResponseSchema = passportsSchemas.createAggregateResponse(
-        z.object({ totalCount: z.number() })
+        z.object({ totalCount: z.number() }),
       );
       const aggregateResult = aggregateResponseSchema.safeParse({
         metrics: { totalCount: 42 },
@@ -385,8 +425,7 @@ describe("Module Extension Framework", () => {
 
       expect(() => {
         createExtendedFilterSchema({
-          // @ts-expect-error - Testing invalid config
-          invalidField: "not a zod schema",
+          invalidField: "not a zod schema" as any,
         });
       }).toThrow();
     });
@@ -446,9 +485,11 @@ describe("Module Extension Framework", () => {
     test("should not leak memory on registry clearing", () => {
       // Register modules
       for (let i = 0; i < 10; i++) {
-        registerModuleSchemas(createModuleSchemas({
-          moduleId: `memory-test-${i}`,
-        }));
+        registerModuleSchemas(
+          createModuleSchemas({
+            moduleId: `memory-test-${i}`,
+          }),
+        );
       }
 
       expect(getRegisteredModuleIds()).toHaveLength(10);

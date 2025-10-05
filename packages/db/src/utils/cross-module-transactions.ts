@@ -128,53 +128,65 @@ export interface BulkStatusUpdateTransactionInput {
 export async function createPassportTransaction(
   db: Database,
   input: CreatePassportTransactionInput,
-  config?: TransactionConfig
+  config?: TransactionConfig,
 ) {
   const operations: TransactionOperation[] = [];
 
   // Enhanced Validation: Comprehensive relationship and foreign key validation
   operations.push(
-    createValidationOperation("validate-comprehensive-requirements", async (tx) => {
-      // 1. Validate required relationships
-      const passportData = {
-        brandId: input.brandId,
-        productId: input.productId,
-        variantId: input.variantId,
-        templateId: input.templateId,
-        ...input.passportData,
-      };
+    createValidationOperation(
+      "validate-comprehensive-requirements",
+      async (tx) => {
+        // 1. Validate required relationships
+        const passportData = {
+          brandId: input.brandId,
+          productId: input.productId,
+          variantId: input.variantId,
+          templateId: input.templateId,
+          ...input.passportData,
+        };
 
-      const requirementValidation = validateRequiredRelationships('passport', passportData);
-      if (!requirementValidation.isValid) {
-        throw createValidationError('BAD_REQUEST', requirementValidation.error!);
-      }
+        const requirementValidation = validateRequiredRelationships(
+          "passport",
+          passportData,
+        );
+        if (!requirementValidation.isValid) {
+          throw createValidationError(
+            "BAD_REQUEST",
+            requirementValidation.error!,
+          );
+        }
 
-      // 2. Validate foreign key constraints
-      const foreignKeyValidation = await validateEntityForeignKeys(
-        tx,
-        'passports',
-        passportData,
-        input.brandId
-      );
+        // 2. Validate foreign key constraints
+        const foreignKeyValidation = await validateEntityForeignKeys(
+          tx,
+          "passports",
+          passportData,
+          input.brandId,
+        );
 
-      if (!foreignKeyValidation.isValid) {
-        throw createForeignKeyValidationError(foreignKeyValidation);
-      }
+        if (!foreignKeyValidation.isValid) {
+          throw createForeignKeyValidationError(foreignKeyValidation);
+        }
 
-      // 3. Validate cross-module references
-      const crossModuleValidation = await validateCrossModuleReferences(
-        tx,
-        'passport',
-        passportData,
-        input.brandId
-      );
+        // 3. Validate cross-module references
+        const crossModuleValidation = await validateCrossModuleReferences(
+          tx,
+          "passport",
+          passportData,
+          input.brandId,
+        );
 
-      if (!crossModuleValidation.isValid) {
-        throw createValidationError('BAD_REQUEST', crossModuleValidation.error!);
-      }
+        if (!crossModuleValidation.isValid) {
+          throw createValidationError(
+            "BAD_REQUEST",
+            crossModuleValidation.error!,
+          );
+        }
 
-      return { validated: true };
-    })
+        return { validated: true };
+      },
+    ),
   );
 
   // Enhanced Validation: Brand isolation and access control
@@ -185,59 +197,66 @@ export async function createPassportTransaction(
       });
 
       if (!brand) {
-        throw createValidationError('NOT_FOUND', 'Brand not found');
+        throw createValidationError("NOT_FOUND", "Brand not found");
       }
 
       // Validate brand isolation for all referenced entities
       if (input.productId) {
         const brandIsolationResult = await validateBrandIsolation(
           tx,
-          'product',
+          "product",
           input.productId,
-          input.brandId
+          input.brandId,
         );
 
         if (!brandIsolationResult.isValid) {
-          throw createValidationError('FORBIDDEN', brandIsolationResult.error!);
+          throw createValidationError("FORBIDDEN", brandIsolationResult.error!);
         }
       }
 
       if (input.variantId) {
         const variantBrandResult = await validateBrandIsolation(
           tx,
-          'variant',
+          "variant",
           input.variantId,
-          input.brandId
+          input.brandId,
         );
 
         if (!variantBrandResult.isValid) {
-          throw createValidationError('FORBIDDEN', variantBrandResult.error!);
+          throw createValidationError("FORBIDDEN", variantBrandResult.error!);
         }
       }
 
       return brand;
-    })
+    }),
   );
 
   // Enhanced Validation: Product-Variant consistency
   if (input.productId && input.variantId) {
     operations.push(
-      createValidationOperation("validate-product-variant-consistency", async (tx) => {
-        // Create a temporary passport ID for validation
-        const tempPassportId = 'temp-validation-id';
+      createValidationOperation(
+        "validate-product-variant-consistency",
+        async (tx) => {
+          // Create a temporary passport ID for validation
+          const tempPassportId = "temp-validation-id";
 
-        const consistencyResult = await validatePassportProductVariantConsistency(
-          tx,
-          tempPassportId,
-          input.brandId
-        );
+          const consistencyResult =
+            await validatePassportProductVariantConsistency(
+              tx,
+              tempPassportId,
+              input.brandId,
+            );
 
-        if (!consistencyResult.isValid) {
-          throw createValidationError('BAD_REQUEST', consistencyResult.error!);
-        }
+          if (!consistencyResult.isValid) {
+            throw createValidationError(
+              "BAD_REQUEST",
+              consistencyResult.error!,
+            );
+          }
 
-        return { consistent: true };
-      })
+          return { consistent: true };
+        },
+      ),
     );
   }
 
@@ -248,16 +267,19 @@ export async function createPassportTransaction(
         const template = await tx.query.templates.findFirst({
           where: and(
             eq(templates.id, input.templateId!),
-            eq(templates.brandId, input.brandId)
+            eq(templates.brandId, input.brandId),
           ),
         });
 
         if (!template) {
-          throw createValidationError('NOT_FOUND', 'Template not found or not accessible');
+          throw createValidationError(
+            "NOT_FOUND",
+            "Template not found or not accessible",
+          );
         }
 
         return template;
-      })
+      }),
     );
   }
 
@@ -285,13 +307,13 @@ export async function createPassportTransaction(
 
         if (existingPassport) {
           throw createValidationError(
-            'CONFLICT',
-            'A passport already exists for this brand+product+variant combination'
+            "CONFLICT",
+            "A passport already exists for this brand+product+variant combination",
           );
         }
 
         return null;
-      })
+      }),
     );
   }
 
@@ -318,7 +340,7 @@ export async function createPassportTransaction(
         .returning();
 
       return newPassport;
-    })
+    }),
   );
 
   return executeTransaction(db, operations, config);
@@ -332,7 +354,7 @@ export async function createPassportTransaction(
 export async function createProductWithVariantsTransaction(
   db: Database,
   input: CreateProductWithVariantsInput,
-  config?: TransactionConfig
+  config?: TransactionConfig,
 ) {
   const operations: TransactionOperation[] = [];
 
@@ -351,7 +373,7 @@ export async function createProductWithVariantsTransaction(
       }
 
       return brand;
-    })
+    }),
   );
 
   // Validation: Category exists (if provided)
@@ -370,7 +392,7 @@ export async function createProductWithVariantsTransaction(
         }
 
         return category;
-      })
+      }),
     );
   }
 
@@ -381,7 +403,7 @@ export async function createProductWithVariantsTransaction(
         const template = await tx.query.templates.findFirst({
           where: and(
             eq(templates.id, input.templateId!),
-            eq(templates.brandId, input.brandId)
+            eq(templates.brandId, input.brandId),
           ),
         });
 
@@ -393,7 +415,7 @@ export async function createProductWithVariantsTransaction(
         }
 
         return template;
-      })
+      }),
     );
   }
 
@@ -413,7 +435,7 @@ export async function createProductWithVariantsTransaction(
         .returning();
 
       return newProduct;
-    })
+    }),
   );
 
   // Data Operation: Create variants (if provided)
@@ -427,7 +449,7 @@ export async function createProductWithVariantsTransaction(
           orderBy: [desc(products.createdAt)],
         });
 
-        if (!recentProduct) {
+        if (!recentProduct || !(recentProduct as any).id) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Product creation failed - cannot create variants",
@@ -437,7 +459,7 @@ export async function createProductWithVariantsTransaction(
         const variantsData = input.variants!.map((variant) => ({
           ...variant,
           brandId: input.brandId,
-          productId: recentProduct.id,
+          productId: (recentProduct as any).id,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }));
@@ -448,7 +470,7 @@ export async function createProductWithVariantsTransaction(
           .returning();
 
         return newVariants;
-      })
+      }),
     );
   }
 
@@ -462,7 +484,7 @@ export async function createProductWithVariantsTransaction(
           orderBy: [desc(products.createdAt)],
         });
 
-        if (!recentProduct) {
+        if (!recentProduct || !(recentProduct as any).id) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Product not found for passport creation",
@@ -474,16 +496,11 @@ export async function createProductWithVariantsTransaction(
         // Create passport for the product
         const productPassportData = {
           brandId: input.brandId,
-          productId: recentProduct.id,
+          productId: (recentProduct as any).id,
           variantId: null,
           templateId: input.templateId || null,
-          passportStatus: "draft" as const,
-          visibility: "private" as const,
-          dataCompleteness: 0,
-          complianceScore: 0,
-          validationScore: 75,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          status: "draft" as const,
+          slug: `passport-${(recentProduct as any).id}`,
         };
 
         const [productPassport] = await tx
@@ -494,23 +511,21 @@ export async function createProductWithVariantsTransaction(
 
         // Create passports for variants if they exist
         if (input.variants && input.variants.length > 0) {
-          const productVariantsCreated = await tx.query.productVariants.findMany({
-            where: eq(productVariants.productId, recentProduct.id),
-          });
+          const productVariantsCreated =
+            await tx.query.productVariants.findMany({
+              where: eq(productVariants.productId, (recentProduct as any).id),
+            });
 
           for (const variant of productVariantsCreated) {
+            if (!variant || !(variant as any)?.id) continue;
+
             const variantPassportData = {
               brandId: input.brandId,
-              productId: recentProduct.id,
-              variantId: variant.id,
+              productId: (recentProduct as any).id,
+              variantId: (variant as any).id,
               templateId: input.templateId || null,
-              passportStatus: "draft" as const,
-              visibility: "private" as const,
-              dataCompleteness: 0,
-              complianceScore: 0,
-              validationScore: 75,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              status: "draft" as const,
+              slug: `passport-variant-${(variant as any).id}`,
             };
 
             const [variantPassport] = await tx
@@ -522,7 +537,7 @@ export async function createProductWithVariantsTransaction(
         }
 
         return createdPassports;
-      })
+      }),
     );
   }
 
@@ -537,17 +552,21 @@ export async function createProductWithVariantsTransaction(
 export async function bulkStatusUpdateTransaction(
   db: Database,
   input: BulkStatusUpdateTransactionInput,
-  config?: TransactionConfig
+  config?: TransactionConfig,
 ) {
   const operations: TransactionOperation[] = [];
 
   // Get the table reference based on module type
   const getTable = () => {
     switch (input.module) {
-      case "passports": return passports;
-      case "products": return products;
-      case "variants": return productVariants;
-      case "templates": return templates;
+      case "passports":
+        return passports;
+      case "products":
+        return products;
+      case "variants":
+        return productVariants;
+      case "templates":
+        return templates;
       default:
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -560,15 +579,17 @@ export async function bulkStatusUpdateTransaction(
   operations.push(
     createValidationOperation("validate-bulk-operation-size", async (tx) => {
       const table = getTable();
-      const conditions = [eq(table.brandId, input.brandId)];
+      const conditions = [eq((table as any).brandId, input.brandId)];
 
       // Add selection filters
       if (input.selection.ids) {
-        conditions.push(inArray(table.id, input.selection.ids));
+        conditions.push(inArray((table as any).id, input.selection.ids));
       } else if (input.selection.filter) {
         // Add filter conditions based on module type and filter
         if (input.selection.filter.status && table === passports) {
-          conditions.push(inArray(passports.passportStatus, input.selection.filter.status));
+          conditions.push(
+            inArray(passports.status, input.selection.filter.status),
+          );
         }
         // Add more filter conditions as needed
       }
@@ -589,21 +610,23 @@ export async function bulkStatusUpdateTransaction(
       }
 
       return { affectedCount };
-    })
+    }),
   );
 
   // Data Operation: Update primary entities
   operations.push(
     createDataOperation("update-primary-entities", async (tx) => {
       const table = getTable();
-      const conditions = [eq(table.brandId, input.brandId)];
+      const conditions = [eq((table as any).brandId, input.brandId)];
 
       // Add selection filters
       if (input.selection.ids) {
-        conditions.push(inArray(table.id, input.selection.ids));
+        conditions.push(inArray((table as any).id, input.selection.ids));
       } else if (input.selection.filter) {
         if (input.selection.filter.status && table === passports) {
-          conditions.push(inArray(passports.passportStatus, input.selection.filter.status));
+          conditions.push(
+            inArray(passports.status, input.selection.filter.status),
+          );
         }
       }
 
@@ -613,11 +636,8 @@ export async function bulkStatusUpdateTransaction(
       };
 
       if (input.statusUpdate.status) {
-        if (table === passports) {
-          updateData.passportStatus = input.statusUpdate.status;
-        } else if (table === products || table === templates) {
-          updateData.status = input.statusUpdate.status;
-        }
+        // All tables use 'status' field
+        updateData.status = input.statusUpdate.status;
       }
 
       if (input.statusUpdate.visibility && table === passports) {
@@ -635,7 +655,7 @@ export async function bulkStatusUpdateTransaction(
         .returning();
 
       return updatedRecords;
-    })
+    }),
   );
 
   // Data Operation: Cascade updates to related entities (if requested)
@@ -647,7 +667,7 @@ export async function bulkStatusUpdateTransaction(
           const relatedPassports = await tx
             .update(passports)
             .set({
-              passportStatus: input.statusUpdate.status as any,
+              status: input.statusUpdate.status as any,
               updatedAt: new Date().toISOString(),
             })
             .where(
@@ -655,8 +675,8 @@ export async function bulkStatusUpdateTransaction(
                 eq(passports.brandId, input.brandId),
                 input.selection.ids
                   ? inArray(passports.productId, input.selection.ids)
-                  : eq(passports.brandId, input.brandId) // For filter-based selection
-              )
+                  : eq(passports.brandId, input.brandId), // For filter-based selection
+              ),
             )
             .returning();
 
@@ -664,7 +684,7 @@ export async function bulkStatusUpdateTransaction(
         }
 
         return [];
-      })
+      }),
     );
   }
 
@@ -684,7 +704,7 @@ export async function deleteWithCascadeTransaction(
     entityId: string;
     cascadeStrategy: "soft-delete" | "hard-delete" | "block-if-referenced";
   },
-  config?: TransactionConfig
+  config?: TransactionConfig,
 ) {
   const operations: TransactionOperation[] = [];
 
@@ -700,7 +720,7 @@ export async function deleteWithCascadeTransaction(
           .from(productVariants)
           .where(eq(productVariants.productId, input.entityId));
 
-        if (variantCount[0]?.count > 0) {
+        if (variantCount[0]?.count && variantCount[0].count > 0) {
           references.push({ table: "variants", count: variantCount[0].count });
         }
 
@@ -710,8 +730,11 @@ export async function deleteWithCascadeTransaction(
           .from(passports)
           .where(eq(passports.productId, input.entityId));
 
-        if (passportCount[0]?.count > 0) {
-          references.push({ table: "passports", count: passportCount[0].count });
+        if (passportCount[0]?.count && passportCount[0].count > 0) {
+          references.push({
+            table: "passports",
+            count: passportCount[0].count,
+          });
         }
       } else if (input.module === "variants") {
         // Check for passports
@@ -720,8 +743,11 @@ export async function deleteWithCascadeTransaction(
           .from(passports)
           .where(eq(passports.variantId, input.entityId));
 
-        if (passportCount[0]?.count > 0) {
-          references.push({ table: "passports", count: passportCount[0].count });
+        if (passportCount[0]?.count && passportCount[0].count > 0) {
+          references.push({
+            table: "passports",
+            count: passportCount[0].count,
+          });
         }
       } else if (input.module === "templates") {
         // Check for passports using this template
@@ -730,8 +756,11 @@ export async function deleteWithCascadeTransaction(
           .from(passports)
           .where(eq(passports.templateId, input.entityId));
 
-        if (passportCount[0]?.count > 0) {
-          references.push({ table: "passports", count: passportCount[0].count });
+        if (passportCount[0]?.count && passportCount[0].count > 0) {
+          references.push({
+            table: "passports",
+            count: passportCount[0].count,
+          });
         }
       }
 
@@ -740,7 +769,7 @@ export async function deleteWithCascadeTransaction(
       // Handle block-if-referenced strategy
       if (hasReferences && input.cascadeStrategy === "block-if-referenced") {
         const referenceSummary = references
-          .map(ref => `${ref.count} ${ref.table}`)
+          .map((ref) => `${ref.count} ${ref.table}`)
           .join(", ");
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -749,7 +778,7 @@ export async function deleteWithCascadeTransaction(
       }
 
       return { hasReferences, references };
-    })
+    }),
   );
 
   // Data Operation: Perform deletion/update
@@ -759,80 +788,67 @@ export async function deleteWithCascadeTransaction(
 
       if (input.module === "products") {
         if (input.cascadeStrategy === "soft-delete") {
-          // Soft delete the product
+          // Soft delete the product (products don't have status, so we just update timestamp)
           const [updated] = await tx
             .update(products)
-            .set({ deletedAt: new Date().toISOString() })
-            .where(and(
-              eq(products.id, input.entityId),
-              eq(products.brandId, input.brandId)
-            ))
-            .returning();
-          deletedEntity = updated;
-
-          // Soft delete related variants and passports
-          await tx
-            .update(productVariants)
-            .set({ deletedAt: new Date().toISOString() })
-            .where(eq(productVariants.productId, input.entityId));
-
-          await tx
-            .update(passports)
-            .set({ deletedAt: new Date().toISOString() })
-            .where(eq(passports.productId, input.entityId));
-        } else {
-          // Hard delete: Delete passports first, then variants, then product
-          await tx.delete(passports).where(eq(passports.productId, input.entityId));
-          await tx.delete(productVariants).where(eq(productVariants.productId, input.entityId));
-          const [deleted] = await tx
-            .delete(products)
-            .where(and(
-              eq(products.id, input.entityId),
-              eq(products.brandId, input.brandId)
-            ))
-            .returning();
-          deletedEntity = deleted;
-        }
-      } else if (input.module === "variants") {
-        if (input.cascadeStrategy === "soft-delete") {
-          // Soft delete the variant
-          const [updated] = await tx
-            .update(productVariants)
-            .set({ deletedAt: new Date().toISOString() })
-            .where(and(
-              eq(productVariants.id, input.entityId),
-              eq(productVariants.brandId, input.brandId)
-            ))
+            .set({ updatedAt: new Date().toISOString() } as any)
+            .where(
+              and(
+                eq(products.id, input.entityId),
+                eq(products.brandId, input.brandId),
+              ),
+            )
             .returning();
           deletedEntity = updated;
 
           // Soft delete related passports
           await tx
             .update(passports)
-            .set({ deletedAt: new Date().toISOString() })
-            .where(eq(passports.variantId, input.entityId));
+            .set({ status: "archived", updatedAt: new Date().toISOString() } as any)
+            .where(eq(passports.productId, input.entityId));
         } else {
-          // Hard delete: Delete passports first, then variant
-          await tx.delete(passports).where(eq(passports.variantId, input.entityId));
-          const [deleted] = await tx
+          // Hard delete: Delete passports first, then variants, then product
+          await tx
+            .delete(passports)
+            .where(eq(passports.productId, input.entityId));
+          await tx
             .delete(productVariants)
-            .where(and(
-              eq(productVariants.id, input.entityId),
-              eq(productVariants.brandId, input.brandId)
-            ))
+            .where(eq(productVariants.productId, input.entityId));
+          const [deleted] = await tx
+            .delete(products)
+            .where(
+              and(
+                eq(products.id, input.entityId),
+                eq(products.brandId, input.brandId),
+              ),
+            )
             .returning();
           deletedEntity = deleted;
         }
+      } else if (input.module === "variants") {
+        // Variants don't have brandId or status, so always hard delete
+        // Delete passports first, then variant
+        await tx
+          .delete(passports)
+          .where(eq(passports.variantId, input.entityId));
+
+        const [deleted] = await tx
+          .delete(productVariants)
+          .where(eq(productVariants.id, input.entityId))
+          .returning();
+        deletedEntity = deleted;
       } else if (input.module === "templates") {
         if (input.cascadeStrategy === "soft-delete") {
-          // Soft delete the template
+          // Soft delete the template (using templateStatus)
           const [updated] = await tx
             .update(templates)
-            .set({ deletedAt: new Date().toISOString() })
-            .where(and(
-              eq(templates.id, input.entityId),
-              eq(templates.brandId, input.brandId)
-            ))
+            .set({ templateStatus: "archived", updatedAt: new Date().toISOString() } as any)
+            .where(
+              and(
+                eq(templates.id, input.entityId),
+                eq(templates.brandId, input.brandId),
+              ),
+            )
             .returning();
           deletedEntity = updated;
 
@@ -842,15 +858,17 @@ export async function deleteWithCascadeTransaction(
           // Hard delete: Clear template references first, then delete template
           await tx
             .update(passports)
-            .set({ templateId: null })
+            .set({ templateId: null } as any)
             .where(eq(passports.templateId, input.entityId));
 
           const [deleted] = await tx
             .delete(templates)
-            .where(and(
-              eq(templates.id, input.entityId),
-              eq(templates.brandId, input.brandId)
-            ))
+            .where(
+              and(
+                eq(templates.id, input.entityId),
+                eq(templates.brandId, input.brandId),
+              ),
+            )
             .returning();
           deletedEntity = deleted;
         }
@@ -861,7 +879,7 @@ export async function deleteWithCascadeTransaction(
         entity: deletedEntity,
         strategy: input.cascadeStrategy,
       };
-    })
+    }),
   );
 
   return executeTransaction(db, operations, config);
@@ -881,15 +899,15 @@ export async function enhancedBulkOperationTransaction(
   db: Database,
   input: {
     brandId: string;
-    operation: 'delete' | 'update';
-    entityType: 'passport' | 'product' | 'variant' | 'template';
+    operation: "delete" | "update";
+    entityType: "passport" | "product" | "variant" | "template";
     entityIds: string[];
     updateData?: Record<string, any>;
     previewOnly?: boolean;
     forceIgnoreWarnings?: boolean;
-    cascadeStrategy?: 'cascade' | 'set_null' | 'prevent';
+    cascadeStrategy?: "cascade" | "set_null" | "prevent";
   },
-  config?: TransactionConfig
+  config?: TransactionConfig,
 ) {
   const operations: TransactionOperation[] = [];
 
@@ -902,23 +920,23 @@ export async function enhancedBulkOperationTransaction(
         input.entityType,
         input.entityIds,
         input.brandId,
-        input.updateData
+        input.updateData,
       );
 
       if (!bulkValidation.isValid) {
-        throw createValidationError('BAD_REQUEST', bulkValidation.error!);
+        throw createValidationError("BAD_REQUEST", bulkValidation.error!);
       }
 
       return { validated: true };
-    })
+    }),
   );
 
   // Validation: Foreign key validation for bulk operations
-  if (input.operation === 'update' && input.updateData) {
+  if (input.operation === "update" && input.updateData) {
     operations.push(
       createValidationOperation("validate-bulk-foreign-keys", async (tx) => {
         // Create mock entities with updated data for validation
-        const mockEntities = input.entityIds.slice(0, 10).map(id => ({
+        const mockEntities = input.entityIds.slice(0, 10).map((id) => ({
           id,
           ...input.updateData,
           brandId: input.brandId,
@@ -926,9 +944,9 @@ export async function enhancedBulkOperationTransaction(
 
         const foreignKeyValidation = await validateBulkForeignKeys(
           tx,
-          `${input.entityType}s` as keyof typeof import('./foreign-key-validation.js').FOREIGN_KEY_CONSTRAINTS,
+          `${input.entityType}s` as keyof typeof import("./foreign-key-validation.js").FOREIGN_KEY_CONSTRAINTS,
           mockEntities,
-          input.brandId
+          input.brandId,
         );
 
         if (!foreignKeyValidation.isValid) {
@@ -936,57 +954,57 @@ export async function enhancedBulkOperationTransaction(
         }
 
         return { validated: true };
-      })
+      }),
     );
   }
 
   // Preview cascade effects if deletion
-  if (input.operation === 'delete') {
+  if (input.operation === "delete") {
     operations.push(
       createValidationOperation("preview-cascade-effects", async (tx) => {
         const cascadePreview = await previewCascadeEffects(
-          tx,
+          tx as any,
           `${input.entityType}s`,
           input.entityIds,
-          input.brandId
+          input.brandId,
         );
 
         const highImpactCascades = cascadePreview.cascades.filter(
-          c => c.estimatedAffectedRecords > 100
+          (c) => c.estimatedAffectedRecords > 100,
         );
 
         if (highImpactCascades.length > 0 && !input.forceIgnoreWarnings) {
           throw createValidationError(
-            'PRECONDITION_FAILED',
-            `High impact cascade detected: ${highImpactCascades.length} cascades would affect >100 records each. Use forceIgnoreWarnings=true to proceed.`
+            "BAD_REQUEST",
+            `High impact cascade detected: ${highImpactCascades.length} cascades would affect >100 records each. Use forceIgnoreWarnings=true to proceed.`,
           );
         }
 
         return cascadePreview;
-      })
+      }),
     );
   }
 
   // Execute operation if not preview only
   if (!input.previewOnly) {
-    if (input.operation === 'delete') {
+    if (input.operation === "delete") {
       operations.push(
         createDataOperation("execute-cascading-deletion", async (tx) => {
           const cascadeResult = await executeCascadingDeletion(
-            tx,
+            tx as any,
             `${input.entityType}s`,
             input.entityIds,
-            input.brandId
+            input.brandId,
           );
 
           if (!cascadeResult.success) {
-            throw createValidationError('CONFLICT', cascadeResult.error!);
+            throw createValidationError("CONFLICT", cascadeResult.error!);
           }
 
           return cascadeResult;
-        })
+        }),
       );
-    } else if (input.operation === 'update') {
+    } else if (input.operation === "update") {
       operations.push(
         createDataOperation("execute-bulk-update", async (tx) => {
           // Perform the bulk update with proper validation
@@ -1006,7 +1024,7 @@ export async function enhancedBulkOperationTransaction(
             updatedCount: updatedRecords.length,
             updatedRecords,
           };
-        })
+        }),
       );
     }
   }
@@ -1027,7 +1045,7 @@ export async function integrityCheckTransaction(
     dryRun?: boolean;
     maxViolationsPerType?: number;
   },
-  config?: TransactionConfig
+  config?: TransactionConfig,
 ) {
   const operations: TransactionOperation[] = [];
 
@@ -1041,18 +1059,18 @@ export async function integrityCheckTransaction(
           skipWarnings: false,
           includePerformanceChecks: true,
           maxViolationsPerType: input.maxViolationsPerType || 100,
-        }
+        },
       );
 
       if (!integrityResult.isValid && !input.repairViolations) {
         throw createValidationError(
-          'CONFLICT',
-          `Integrity violations detected: ${integrityResult.summary.criticalViolations} critical violations found`
+          "CONFLICT",
+          `Integrity violations detected: ${integrityResult.summary.criticalViolations} critical violations found`,
         );
       }
 
       return integrityResult;
-    })
+    }),
   );
 
   // Repair violations if requested
@@ -1065,7 +1083,7 @@ export async function integrityCheckTransaction(
           message: "Automatic repair not fully implemented",
           needsManualIntervention: true,
         };
-      })
+      }),
     );
   }
 
@@ -1081,12 +1099,12 @@ export async function validateCrossModuleRelationshipsTransaction(
   db: Database,
   input: {
     brandId: string;
-    entityType: 'passport' | 'product' | 'variant';
+    entityType: "passport" | "product" | "variant";
     entityId: string;
     validateReferences?: boolean;
     repairInconsistencies?: boolean;
   },
-  config?: TransactionConfig
+  config?: TransactionConfig,
 ) {
   const operations: TransactionOperation[] = [];
 
@@ -1097,39 +1115,45 @@ export async function validateCrossModuleRelationshipsTransaction(
         tx,
         input.entityType,
         input.entityId,
-        input.brandId
+        input.brandId,
       );
 
       if (!entityIntegrity.isValid) {
-        const criticalViolations = entityIntegrity.violations.filter(v => v.severity === 'critical');
+        const criticalViolations = entityIntegrity.violations.filter(
+          (v) => v.severity === "critical",
+        );
         if (criticalViolations.length > 0) {
           throw createValidationError(
-            'CONFLICT',
-            `Entity integrity check failed: ${criticalViolations.length} critical violations`
+            "CONFLICT",
+            `Entity integrity check failed: ${criticalViolations.length} critical violations`,
           );
         }
       }
 
       return entityIntegrity;
-    })
+    }),
   );
 
   // Validate specific relationships based on entity type
-  if (input.entityType === 'passport') {
+  if (input.entityType === "passport") {
     operations.push(
-      createValidationOperation("validate-passport-relationships", async (tx) => {
-        const consistencyResult = await validatePassportProductVariantConsistency(
-          tx,
-          input.entityId,
-          input.brandId
-        );
+      createValidationOperation(
+        "validate-passport-relationships",
+        async (tx) => {
+          const consistencyResult =
+            await validatePassportProductVariantConsistency(
+              tx,
+              input.entityId,
+              input.brandId,
+            );
 
-        if (!consistencyResult.isValid) {
-          throw createValidationError('CONFLICT', consistencyResult.error!);
-        }
+          if (!consistencyResult.isValid) {
+            throw createValidationError("CONFLICT", consistencyResult.error!);
+          }
 
-        return consistencyResult;
-      })
+          return consistencyResult;
+        },
+      ),
     );
   }
 
@@ -1140,15 +1164,15 @@ export async function validateCrossModuleRelationshipsTransaction(
         tx,
         input.entityType,
         input.entityId,
-        input.brandId
+        input.brandId,
       );
 
       if (!brandIsolationResult.isValid) {
-        throw createValidationError('FORBIDDEN', brandIsolationResult.error!);
+        throw createValidationError("FORBIDDEN", brandIsolationResult.error!);
       }
 
       return brandIsolationResult;
-    })
+    }),
   );
 
   return executeTransaction(db, operations, config);
@@ -1163,22 +1187,30 @@ export async function validateCrossModuleRelationshipsTransaction(
  */
 function getTableByEntityType(entityType: string): any {
   switch (entityType) {
-    case 'passport': return passports;
-    case 'product': return products;
-    case 'variant': return productVariants;
-    case 'template': return templates;
-    case 'module': return modules;
-    case 'category': return categories;
-    default: throw new Error(`Unknown entity type: ${entityType}`);
+    case "passport":
+      return passports;
+    case "product":
+      return products;
+    case "variant":
+      return productVariants;
+    case "template":
+      return templates;
+    case "module":
+      return modules;
+    case "category":
+      return categories;
+    default:
+      throw new Error(`Unknown entity type: ${entityType}`);
   }
 }
 
 /**
  * Helper: Create operation from tRPC context
  */
-export function createTransactionFromTRPCContext(
-  ctx: { db: Database; brandId: string | null }
-) {
+export function createTransactionFromTRPCContext(ctx: {
+  db: Database;
+  brandId: string | null;
+}) {
   if (!ctx.brandId) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
@@ -1189,15 +1221,38 @@ export function createTransactionFromTRPCContext(
   return {
     db: ctx.db,
     brandId: ctx.brandId,
-    executeTransaction: (operations: TransactionOperation[], config?: TransactionConfig) =>
-      executeTransaction(ctx.db, operations, config),
-    executeTransactionWithRollback: (operations: TransactionOperation[], config?: TransactionConfig) =>
-      executeTransactionWithRollback(ctx.db, operations, config),
-    enhancedBulkOperation: (input: Parameters<typeof enhancedBulkOperationTransaction>[1]) =>
-      enhancedBulkOperationTransaction(ctx.db, { ...input, brandId: ctx.brandId }, {}),
+    executeTransaction: (
+      operations: TransactionOperation[],
+      config?: TransactionConfig,
+    ) => executeTransaction(ctx.db, operations, config),
+    executeTransactionWithRollback: (
+      operations: TransactionOperation[],
+      config?: TransactionConfig,
+    ) => executeTransactionWithRollback(ctx.db, operations, config),
+    enhancedBulkOperation: (
+      input: Parameters<typeof enhancedBulkOperationTransaction>[1],
+    ) =>
+      enhancedBulkOperationTransaction(
+        ctx.db,
+        { ...input, brandId: ctx.brandId as string },
+        {},
+      ),
     integrityCheck: (input: Parameters<typeof integrityCheckTransaction>[1]) =>
-      integrityCheckTransaction(ctx.db, { ...input, brandId: ctx.brandId || undefined }, {}),
-    validateCrossModuleRelationships: (input: Omit<Parameters<typeof validateCrossModuleRelationshipsTransaction>[1], 'brandId'>) =>
-      validateCrossModuleRelationshipsTransaction(ctx.db, { ...input, brandId: ctx.brandId }, {}),
+      integrityCheckTransaction(
+        ctx.db,
+        { ...input, brandId: ctx.brandId || undefined },
+        {},
+      ),
+    validateCrossModuleRelationships: (
+      input: Omit<
+        Parameters<typeof validateCrossModuleRelationshipsTransaction>[1],
+        "brandId"
+      >,
+    ) =>
+      validateCrossModuleRelationshipsTransaction(
+        ctx.db,
+        { ...input, brandId: ctx.brandId as string },
+        {},
+      ),
   };
 }

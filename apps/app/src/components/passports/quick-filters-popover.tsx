@@ -62,7 +62,7 @@ export function QuickFiltersPopover({
       setOpen(newOpen);
       onOpenChange?.(newOpen);
     },
-    [onOpenChange]
+    [onOpenChange],
   );
 
   const activeFilters = React.useMemo(() => {

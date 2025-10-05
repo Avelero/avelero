@@ -1,17 +1,17 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 export default {
-  preset: 'ts-jest/presets/default-esm',
-  testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
-  testMatch: [
-    "<rootDir>/apps/**/*.test.ts",
-    "<rootDir>/packages/**/*.test.ts"
-  ],
+  preset: "ts-jest/presets/default-esm",
+  testEnvironment: "node",
+  extensionsToTreatAsEsm: [".ts"],
+  testMatch: ["<rootDir>/apps/**/*.test.ts", "<rootDir>/packages/**/*.test.ts"],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: '<rootDir>/tsconfig.jest.json',
-      useESM: true,
-    }],
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        tsconfig: "<rootDir>/tsconfig.jest.json",
+        useESM: true,
+      },
+    ],
   },
   moduleNameMapper: {
     "^@v1/db/(.*)$": "<rootDir>/packages/db/src/$1",

@@ -134,4 +134,3 @@ export const updateShowcaseBrandSchema = z.object({
   country_code: z.string().optional().nullable(),
 });
 export const deleteShowcaseBrandSchema = z.object({ id: z.string().uuid() });
-

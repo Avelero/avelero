@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { index, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { brandCertifications } from "../brands/brand-certifications";
 import { categories } from "../brands/categories";
 import { showcaseBrands } from "../brands/showcase-brands";
@@ -43,21 +50,32 @@ export const products = pgTable(
   },
   (table) => ({
     // Performance indexes for new query patterns
-    brandCreatedIdx: index("products_brand_created_idx").on(table.brandId, table.createdAt),
-    brandNameIdx: index("products_brand_name_idx").on(table.brandId, table.name),
+    brandCreatedIdx: index("products_brand_created_idx").on(
+      table.brandId,
+      table.createdAt,
+    ),
+    brandNameIdx: index("products_brand_name_idx").on(
+      table.brandId,
+      table.name,
+    ),
     nameSearchIdx: index("products_name_search_idx").on(table.name),
     categoryIdx: index("products_category_idx").on(table.categoryId),
-    showcaseBrandIdx: index("products_showcase_brand_idx").on(table.showcaseBrandId),
+    showcaseBrandIdx: index("products_showcase_brand_idx").on(
+      table.showcaseBrandId,
+    ),
     seasonIdx: index("products_season_idx").on(table.season),
     updatedAtIdx: index("products_updated_at_idx").on(table.updatedAt),
 
     // RLS policies
-    productsSelectForBrandMembers: pgPolicy("products_select_for_brand_members", {
-      as: "permissive",
-      for: "select",
-      to: ["authenticated"],
-      using: sql`is_brand_member(brand_id)`,
-    }),
+    productsSelectForBrandMembers: pgPolicy(
+      "products_select_for_brand_members",
+      {
+        as: "permissive",
+        for: "select",
+        to: ["authenticated"],
+        using: sql`is_brand_member(brand_id)`,
+      },
+    ),
     productsInsertByBrandOwner: pgPolicy("products_insert_by_brand_owner", {
       as: "permissive",
       for: "insert",

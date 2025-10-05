@@ -88,11 +88,12 @@ export function PassportControls({
     if (!selection) return;
     try {
       // Convert frontend selection format to API format
-      // Note: API doesn't support "all with excludes" - if mode is "all", 
+      // Note: API doesn't support "all with excludes" - if mode is "all",
       // we update ALL items matching current filters
-      const apiSelection = selection.mode === "all"
-        ? "all" as const
-        : { ids: selection.includeIds };
+      const apiSelection =
+        selection.mode === "all"
+          ? ("all" as const)
+          : { ids: selection.includeIds };
 
       const res = await bulkUpdateMutation.mutateAsync({
         selection: apiSelection,
@@ -101,7 +102,9 @@ export function PassportControls({
       const affected =
         (res as { affectedCount?: number } | undefined)?.affectedCount ??
         selectedCount;
-      toast.success(`Edited ${affected} passport${affected === 1 ? '' : 's'} successfully`);
+      toast.success(
+        `Edited ${affected} passport${affected === 1 ? "" : "s"} successfully`,
+      );
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: trpc.passports.list.queryKey(),
@@ -181,13 +184,16 @@ export function PassportControls({
               <DropdownMenuItem
                 key={option.id}
                 className="h-9 py-3"
-                onSelect={() => sortActions?.setSort(option.field, option.direction)}
+                onSelect={() =>
+                  sortActions?.setSort(option.field, option.direction)
+                }
               >
                 <span className="inline-flex items-center gap-2">
                   <span>{option.label}</span>
-                  {sortState?.field === option.field && sortState?.direction === option.direction && (
-                    <Icons.Check className="h-3 w-3" />
-                  )}
+                  {sortState?.field === option.field &&
+                    sortState?.direction === option.direction && (
+                      <Icons.Check className="h-3 w-3" />
+                    )}
                 </span>
               </DropdownMenuItem>
             ))}

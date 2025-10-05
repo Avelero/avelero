@@ -66,17 +66,17 @@ export const analyticsRouter = createTRPCRouter({
         });
       }
 
-      const { filter = {}, metrics } = input;
+      const { filter, metrics } = input;
       const results: Record<string, any> = {};
 
       // Base conditions for brand isolation
       const baseConditions = [eq(products.brandId, brandId)];
 
       // Apply date range filters if provided
-      if (filter.dateRange?.from) {
+      if (filter?.dateRange?.from) {
         baseConditions.push(sql`${products.createdAt} >= ${filter.dateRange.from.toISOString()}`);
       }
-      if (filter.dateRange?.to) {
+      if (filter?.dateRange?.to) {
         baseConditions.push(sql`${products.createdAt} <= ${filter.dateRange.to.toISOString()}`);
       }
 

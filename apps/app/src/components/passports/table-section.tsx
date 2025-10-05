@@ -24,10 +24,11 @@ export function TableSection() {
 
   // Search state management (300ms debounce for API calls)
   const [searchState, searchActions] = useSearchState("", 300);
-  
+
   // Filter state management (2000ms debounce for API calls, paused while menu is open)
-  const [immediateFilterState, debouncedFilterState, filterActions] = useFilterState(2000, isFilterMenuOpen);
-  
+  const [immediateFilterState, debouncedFilterState, filterActions] =
+    useFilterState(2000, isFilterMenuOpen);
+
   // Sort state management
   const [sortState, sortActions] = useSortState();
   // Column preferences state (excludes locked `product` and fixed `actions`)

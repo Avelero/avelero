@@ -45,7 +45,7 @@ export class BrandScopedQueryBuilder {
    */
   withMultiBrandScope<T extends PgTable>(
     table: T & { brandId: any },
-    additionalBrandIds: string[]
+    additionalBrandIds: string[],
   ): SQL {
     const allBrandIds = [this.brandId, ...additionalBrandIds];
     return inArray(table.brandId, allBrandIds);
@@ -56,7 +56,7 @@ export class BrandScopedQueryBuilder {
    */
   buildWhereConditions<T extends PgTable>(
     table: T & { brandId: any },
-    additionalConditions?: SQL[]
+    additionalConditions?: SQL[],
   ): SQL {
     const conditions = [this.withBrandScope(table)];
 
@@ -94,7 +94,7 @@ export class BrandScopedQueryBuilder {
  */
 export const createBrandScopedQuery = (
   brandId: string,
-  userRole?: string | null
+  userRole?: string | null,
 ): BrandScopedQueryBuilder => {
   return new BrandScopedQueryBuilder(brandId, userRole);
 };
@@ -110,7 +110,10 @@ export class BrandAccessManager {
   private userMemberships: BrandMembership[];
   private currentBrandId: string | null;
 
-  constructor(userMemberships: BrandMembership[], currentBrandId?: string | null) {
+  constructor(
+    userMemberships: BrandMembership[],
+    currentBrandId?: string | null,
+  ) {
     this.userMemberships = userMemberships;
     this.currentBrandId = currentBrandId || null;
   }
@@ -125,7 +128,9 @@ export class BrandAccessManager {
   /**
    * Check if user can access multiple brands (for cross-brand operations)
    */
-  validateMultiBrandAccess(brandIds: string[]): Record<string, BrandAccessResult> {
+  validateMultiBrandAccess(
+    brandIds: string[],
+  ): Record<string, BrandAccessResult> {
     const results: Record<string, BrandAccessResult> = {};
 
     for (const brandId of brandIds) {
@@ -151,7 +156,7 @@ export class BrandAccessManager {
     if (!this.currentBrandId) return null;
 
     const membership = this.userMemberships.find(
-      (m) => m.brandId === this.currentBrandId && m.isActive
+      (m) => m.brandId === this.currentBrandId && m.isActive,
     );
 
     return membership ? createBrandContext(membership) : null;
@@ -160,7 +165,11 @@ export class BrandAccessManager {
   /**
    * Switch to a different brand (with validation)
    */
-  switchBrand(newBrandId: string): { success: boolean; context?: BrandContext; error?: string } {
+  switchBrand(newBrandId: string): {
+    success: boolean;
+    context?: BrandContext;
+    error?: string;
+  } {
     const access = this.validateAccess(newBrandId);
 
     if (!access.hasAccess) {
@@ -171,7 +180,7 @@ export class BrandAccessManager {
     }
 
     const membership = this.userMemberships.find(
-      (m) => m.brandId === newBrandId && m.isActive
+      (m) => m.brandId === newBrandId && m.isActive,
     );
 
     if (!membership) {
@@ -201,7 +210,7 @@ export class BrandAccessManager {
    */
   isOwnerOfBrand(brandId: string): boolean {
     const membership = this.userMemberships.find(
-      (m) => m.brandId === brandId && m.isActive
+      (m) => m.brandId === brandId && m.isActive,
     );
     return membership?.role === "owner" || false;
   }
@@ -211,7 +220,7 @@ export class BrandAccessManager {
    */
   getRoleInBrand(brandId: string): string | null {
     const membership = this.userMemberships.find(
-      (m) => m.brandId === brandId && m.isActive
+      (m) => m.brandId === brandId && m.isActive,
     );
     return membership?.role || null;
   }
@@ -230,7 +239,7 @@ export class BrandAccessManager {
  */
 export const createBrandAccessManager = (
   userMemberships: BrandMembership[],
-  currentBrandId?: string | null
+  currentBrandId?: string | null,
 ): BrandAccessManager => {
   return new BrandAccessManager(userMemberships, currentBrandId);
 };
@@ -248,7 +257,7 @@ export const createEnhancedUserContext = async (
   fullName: string | null,
   primaryBrandId: string | null,
   getMemberships: () => Promise<BrandMembership[]>,
-  currentBrandId?: string
+  currentBrandId?: string,
 ): Promise<UserContext> => {
   const memberships = await getMemberships();
 
@@ -258,7 +267,7 @@ export const createEnhancedUserContext = async (
     fullName,
     primaryBrandId,
     memberships,
-    currentBrandId
+    currentBrandId,
   );
 };
 
@@ -268,7 +277,7 @@ export const createEnhancedUserContext = async (
 export const createBrandOperationContext = (
   brandId: string,
   userMemberships: BrandMembership[],
-  operation: string
+  operation: string,
 ): {
   isAllowed: boolean;
   context?: BrandContext;
@@ -294,7 +303,7 @@ export const createBrandOperationContext = (
   }
 
   const membership = userMemberships.find(
-    (m) => m.brandId === brandId && m.isActive
+    (m) => m.brandId === brandId && m.isActive,
   );
 
   if (!membership) {
@@ -324,7 +333,7 @@ export const createBrandOperationContext = (
 export const validateBrandMembershipConstraints = (
   currentMemberCount: number,
   operation: "add" | "remove",
-  count = 1
+  count = 1,
 ): { isValid: boolean; error?: string } => {
   if (operation === "add") {
     const newTotal = currentMemberCount + count;
@@ -345,7 +354,7 @@ export const validateBrandMembershipConstraints = (
 export const validateUserBrandConstraints = (
   currentBrandCount: number,
   operation: "add" | "remove",
-  count = 1
+  count = 1,
 ): { isValid: boolean; error?: string } => {
   if (operation === "add") {
     const newTotal = currentBrandCount + count;
@@ -368,7 +377,7 @@ export const validateBrandBulkOperation = (
   operation: string,
   userRole: string | null,
   brandId: string,
-  skipPreview = false
+  skipPreview = false,
 ): {
   isValid: boolean;
   requiresPreview: boolean;
@@ -384,7 +393,7 @@ export const validateBrandBulkOperation = (
       errorResponse: createBrandErrors.insufficientBrandPermissions(
         operation,
         "admin", // Most bulk operations require admin
-        userRole || "none"
+        userRole || "none",
       ),
     };
   }
@@ -415,7 +424,7 @@ export const brandQueryPatterns = {
   buildListQuery: <T extends PgTable>(
     table: T & { brandId: any },
     brandId: string,
-    additionalConditions?: SQL[]
+    additionalConditions?: SQL[],
   ) => {
     const builder = createBrandScopedQuery(brandId);
     return builder.buildWhereConditions(table, additionalConditions);
@@ -427,7 +436,7 @@ export const brandQueryPatterns = {
   buildGetQuery: <T extends PgTable>(
     table: T & { brandId: any; id: any },
     brandId: string,
-    recordId: string
+    recordId: string,
   ) => {
     const builder = createBrandScopedQuery(brandId);
     return builder.buildWhereConditions(table, [eq(table.id, recordId)]);
@@ -439,7 +448,7 @@ export const brandQueryPatterns = {
   buildUpdateQuery: <T extends PgTable>(
     table: T & { brandId: any; id: any },
     brandId: string,
-    recordIds: string[]
+    recordIds: string[],
   ) => {
     const builder = createBrandScopedQuery(brandId);
     return builder.buildWhereConditions(table, [inArray(table.id, recordIds)]);
@@ -451,7 +460,7 @@ export const brandQueryPatterns = {
   buildDeleteQuery: <T extends PgTable>(
     table: T & { brandId: any; id: any },
     brandId: string,
-    recordIds: string[]
+    recordIds: string[],
   ) => {
     const builder = createBrandScopedQuery(brandId);
     return builder.buildWhereConditions(table, [inArray(table.id, recordIds)]);

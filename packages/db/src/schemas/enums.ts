@@ -103,10 +103,7 @@ export const environmentPgEnum = pgEnum("environment_type", [
 /**
  * Sort direction for ordering queries
  */
-export const sortDirectionPgEnum = pgEnum("sort_direction", [
-  "asc",
-  "desc",
-]);
+export const sortDirectionPgEnum = pgEnum("sort_direction", ["asc", "desc"]);
 
 /**
  * Content visibility levels
@@ -142,22 +139,12 @@ export const entityStatusEnum = z.enum([
 /**
  * Priority levels enum
  */
-export const priorityEnum = z.enum([
-  "low",
-  "medium",
-  "high",
-  "critical",
-]);
+export const priorityEnum = z.enum(["low", "medium", "high", "critical"]);
 
 /**
  * User roles enum for brand context
  */
-export const userRoleEnum = z.enum([
-  "owner",
-  "admin",
-  "member",
-  "viewer",
-]);
+export const userRoleEnum = z.enum(["owner", "admin", "member", "viewer"]);
 
 /**
  * Permission types enum
@@ -221,10 +208,7 @@ export const environmentEnum = z.enum([
 /**
  * Sort direction enum
  */
-export const sortDirectionEnum = z.enum([
-  "asc",
-  "desc",
-]);
+export const sortDirectionEnum = z.enum(["asc", "desc"]);
 
 /**
  * Visibility level enum

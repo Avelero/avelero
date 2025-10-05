@@ -33,7 +33,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "many-to-one",
     sourceTable: passports,
     targetTable: products,
-    joinCondition: (source, target) => eq((source as any).productId, (target as any).id),
+    joinCondition: (source, target) =>
+      eq((source as any).productId, (target as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "low",
@@ -48,7 +49,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "many-to-one",
     sourceTable: passports,
     targetTable: productVariants,
-    joinCondition: (source, target) => eq((source as any).variantId, (target as any).id),
+    joinCondition: (source, target) =>
+      eq((source as any).variantId, (target as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "low",
@@ -63,7 +65,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "many-to-one",
     sourceTable: passports,
     targetTable: passportTemplates,
-    joinCondition: (source, target) => eq((source as any).templateId, (target as any).id),
+    joinCondition: (source, target) =>
+      eq((source as any).templateId, (target as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "low",
@@ -78,7 +81,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "many-to-one",
     sourceTable: passports,
     targetTable: brands,
-    joinCondition: (source, target) => eq((source as any).brandId, (target as any).id),
+    joinCondition: (source, target) =>
+      eq((source as any).brandId, (target as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "low",
@@ -97,7 +101,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "one-to-many",
     sourceTable: products,
     targetTable: productVariants,
-    joinCondition: (source, target) => eq((target as any).productId, (source as any).id),
+    joinCondition: (source, target) =>
+      eq((target as any).productId, (source as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "medium",
@@ -112,7 +117,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "many-to-one",
     sourceTable: products,
     targetTable: categories,
-    joinCondition: (source, target) => eq((source as any).categoryId, (target as any).id),
+    joinCondition: (source, target) =>
+      eq((source as any).categoryId, (target as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "low",
@@ -127,7 +133,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "one-to-many",
     sourceTable: products,
     targetTable: passports,
-    joinCondition: (source, target) => eq((target as any).productId, (source as any).id),
+    joinCondition: (source, target) =>
+      eq((target as any).productId, (source as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "medium",
@@ -142,7 +149,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "many-to-one",
     sourceTable: products,
     targetTable: brands,
-    joinCondition: (source, target) => eq((source as any).brandId, (target as any).id),
+    joinCondition: (source, target) =>
+      eq((source as any).brandId, (target as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "low",
@@ -161,7 +169,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "many-to-one",
     sourceTable: productVariants,
     targetTable: products,
-    joinCondition: (source, target) => eq((source as any).productId, (target as any).id),
+    joinCondition: (source, target) =>
+      eq((source as any).productId, (target as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "low",
@@ -176,7 +185,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "one-to-many",
     sourceTable: productVariants,
     targetTable: passports,
-    joinCondition: (source, target) => eq((target as any).variantId, (source as any).id),
+    joinCondition: (source, target) =>
+      eq((target as any).variantId, (source as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "low",
@@ -193,7 +203,10 @@ export function initializeCrossModuleRelationships() {
     targetTable: categories,
     joinCondition: (source, target) => {
       // Join through products table
-      const condition = and(eq((source as any).productId, (products as any).id), eq((products as any).categoryId, (target as any).id));
+      const condition = and(
+        eq((source as any).productId, (products as any).id),
+        eq((products as any).categoryId, (target as any).id),
+      );
       return condition!;
     },
     includeSupported: true,
@@ -214,7 +227,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "one-to-many",
     sourceTable: categories,
     targetTable: products,
-    joinCondition: (source, target) => eq((target as any).categoryId, (source as any).id),
+    joinCondition: (source, target) =>
+      eq((target as any).categoryId, (source as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "high",
@@ -229,7 +243,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "many-to-one",
     sourceTable: categories,
     targetTable: categories,
-    joinCondition: (source, target) => eq((source as any).parentId, (target as any).id),
+    joinCondition: (source, target) =>
+      eq((source as any).parentId, (target as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "low",
@@ -244,7 +259,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "one-to-many",
     sourceTable: categories,
     targetTable: categories,
-    joinCondition: (source, target) => eq((target as any).parentId, (source as any).id),
+    joinCondition: (source, target) =>
+      eq((target as any).parentId, (source as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "medium",
@@ -263,7 +279,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "one-to-many",
     sourceTable: passportTemplates,
     targetTable: passports,
-    joinCondition: (source, target) => eq((target as any).templateId, (source as any).id),
+    joinCondition: (source, target) =>
+      eq((target as any).templateId, (source as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "medium",
@@ -289,7 +306,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "one-to-many",
     sourceTable: brands,
     targetTable: products,
-    joinCondition: (source, target) => eq((target as any).brandId, (source as any).id),
+    joinCondition: (source, target) =>
+      eq((target as any).brandId, (source as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "high",
@@ -304,7 +322,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "one-to-many",
     sourceTable: brands,
     targetTable: passports,
-    joinCondition: (source, target) => eq((target as any).brandId, (source as any).id),
+    joinCondition: (source, target) =>
+      eq((target as any).brandId, (source as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "high",
@@ -319,7 +338,8 @@ export function initializeCrossModuleRelationships() {
     relationshipType: "one-to-many",
     sourceTable: brands,
     targetTable: passportTemplates,
-    joinCondition: (source, target) => eq((target as any).brandId, (source as any).id),
+    joinCondition: (source, target) =>
+      eq((target as any).brandId, (source as any).id),
     includeSupported: true,
     performance: {
       expectedCardinality: "medium",

@@ -1,7 +1,7 @@
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, and, inArray, count } from "drizzle-orm";
+import { and, count, eq, inArray, not } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { z } from "zod";
 import type { TRPCContext } from "../init";
 
 // ================================
@@ -53,7 +53,10 @@ export interface BulkSafetyConfig {
 /**
  * Default safety configurations for different operation types
  */
-export const defaultBulkSafetyConfigs: Record<BulkOperationType, BulkSafetyConfig> = {
+export const defaultBulkSafetyConfigs: Record<
+  BulkOperationType,
+  BulkSafetyConfig
+> = {
   update: {
     maxWithoutPreview: 1000,
     absoluteMax: 10000,
@@ -180,14 +183,14 @@ export interface BulkPreviewResult {
  * Enhanced bulk operation validator with granular safety controls
  */
 export class BulkSafetyValidator {
-  private config: BulkSafetyConfig;
+  public config: BulkSafetyConfig;
   private operationType: BulkOperationType;
   private resourceName: string;
 
   constructor(
     operationType: BulkOperationType,
     resourceName: string,
-    customConfig?: Partial<BulkSafetyConfig>
+    customConfig?: Partial<BulkSafetyConfig>,
   ) {
     this.operationType = operationType;
     this.resourceName = resourceName;
@@ -202,10 +205,15 @@ export class BulkSafetyValidator {
    */
   validateSafety(
     affectedCount: number,
-    isPreview: boolean = false,
-    hasConfirmation: boolean = false
+    isPreview = false,
+    hasConfirmation = false,
   ): void {
-    const { maxWithoutPreview, absoluteMax, requireConfirmation, safetyMessage } = this.config;
+    const {
+      maxWithoutPreview,
+      absoluteMax,
+      requireConfirmation,
+      safetyMessage,
+    } = this.config;
 
     // Check absolute maximum
     if (affectedCount > absoluteMax) {
@@ -259,13 +267,14 @@ export class BulkSafetyValidator {
 
     if (affectedCount > absoluteMax) {
       return "blocked";
-    } else if (affectedCount > maxWithoutPreview) {
-      return "dangerous";
-    } else if (affectedCount > warningThreshold) {
-      return "warning";
-    } else {
-      return "safe";
     }
+    if (affectedCount > maxWithoutPreview) {
+      return "dangerous";
+    }
+    if (affectedCount > warningThreshold) {
+      return "warning";
+    }
+    return "safe";
   }
 
   /**
@@ -273,18 +282,30 @@ export class BulkSafetyValidator {
    */
   generateWarnings(affectedCount: number): string[] {
     const warnings: string[] = [];
-    const { maxWithoutPreview, warningThreshold, requireConfirmation, safetyMessage } = this.config;
+    const {
+      maxWithoutPreview,
+      warningThreshold,
+      requireConfirmation,
+      safetyMessage,
+    } = this.config;
 
     if (affectedCount > maxWithoutPreview) {
-      warnings.push(`High impact operation: ${affectedCount} records will be affected`);
+      warnings.push(
+        `High impact operation: ${affectedCount} records will be affected`,
+      );
     }
 
     if (affectedCount > warningThreshold) {
-      warnings.push(`This operation will modify a significant number of ${this.resourceName} records`);
+      warnings.push(
+        `This operation will modify a significant number of ${this.resourceName} records`,
+      );
     }
 
     if (requireConfirmation) {
-      warnings.push(safetyMessage || `This ${this.operationType} operation has permanent effects`);
+      warnings.push(
+        safetyMessage ||
+          `This ${this.operationType} operation has permanent effects`,
+      );
     }
 
     if (this.operationType === "delete") {
@@ -301,7 +322,9 @@ export class BulkSafetyValidator {
   /**
    * Estimates operation duration
    */
-  estimateDuration(affectedCount: number): BulkPreviewResult["estimatedDuration"] {
+  estimateDuration(
+    affectedCount: number,
+  ): BulkPreviewResult["estimatedDuration"] {
     // Rough estimates based on operation type and count
     const baseTimePerRecord = {
       update: 0.01, // 10ms per record
@@ -341,7 +364,7 @@ export async function countAffectedRecords<TTable extends PgTable>(
   db: TRPCContext["db"],
   table: TTable,
   selection: BulkSelectionCriteria,
-  baseConditions: any[] = []
+  baseConditions: any[] = [],
 ): Promise<number> {
   const conditions = [...baseConditions];
 
@@ -350,7 +373,7 @@ export async function countAffectedRecords<TTable extends PgTable>(
     conditions.push(inArray((table as any).id, selection.ids));
   } else if (selection.filter) {
     // Apply filter conditions
-    Object.entries(selection.filter).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(selection.filter)) {
       if (value !== undefined && (table as any)[key]) {
         if (Array.isArray(value)) {
           conditions.push(inArray((table as any)[key], value));
@@ -358,19 +381,19 @@ export async function countAffectedRecords<TTable extends PgTable>(
           conditions.push(eq((table as any)[key], value));
         }
       }
-    });
+    }
   }
   // For "all" selection, use only base conditions
 
   // Exclude specific IDs if provided
   if (selection.excludeIds && selection.excludeIds.length > 0) {
-    conditions.push(eq((table as any).id, selection.excludeIds).not());
+    conditions.push(not(inArray((table as any).id, selection.excludeIds)));
   }
 
   try {
     const result = await db
       .select({ count: count() })
-      .from(table)
+      .from(table as any)
       .where(and(...conditions));
 
     return result[0].count;
@@ -388,7 +411,7 @@ export async function getSampleRecords<TTable extends PgTable>(
   table: TTable,
   selection: BulkSelectionCriteria,
   baseConditions: any[] = [],
-  sampleSize: number = 10
+  sampleSize = 10,
 ): Promise<any[]> {
   const conditions = [...baseConditions];
 
@@ -396,7 +419,7 @@ export async function getSampleRecords<TTable extends PgTable>(
   if (selection.ids && selection.ids.length > 0) {
     conditions.push(inArray((table as any).id, selection.ids));
   } else if (selection.filter) {
-    Object.entries(selection.filter).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(selection.filter)) {
       if (value !== undefined && (table as any)[key]) {
         if (Array.isArray(value)) {
           conditions.push(inArray((table as any)[key], value));
@@ -404,17 +427,17 @@ export async function getSampleRecords<TTable extends PgTable>(
           conditions.push(eq((table as any)[key], value));
         }
       }
-    });
+    }
   }
 
   if (selection.excludeIds && selection.excludeIds.length > 0) {
-    conditions.push(eq((table as any).id, selection.excludeIds).not());
+    conditions.push(not(inArray((table as any).id, selection.excludeIds)));
   }
 
   try {
     const results = await db
       .select()
-      .from(table)
+      .from(table as any)
       .where(and(...conditions))
       .limit(sampleSize);
 
@@ -435,15 +458,30 @@ export async function createBulkPreview<TTable extends PgTable>(
   operationType: BulkOperationType,
   resourceName: string,
   baseConditions: any[] = [],
-  customSafetyConfig?: Partial<BulkSafetyConfig>
+  customSafetyConfig?: Partial<BulkSafetyConfig>,
 ): Promise<BulkPreviewResult> {
-  const validator = new BulkSafetyValidator(operationType, resourceName, customSafetyConfig);
+  const validator = new BulkSafetyValidator(
+    operationType,
+    resourceName,
+    customSafetyConfig,
+  );
 
   // Count affected records
-  const affectedCount = await countAffectedRecords(db, table, selection, baseConditions);
+  const affectedCount = await countAffectedRecords(
+    db,
+    table,
+    selection,
+    baseConditions,
+  );
 
   // Get sample records
-  const sampleRecords = await getSampleRecords(db, table, selection, baseConditions, 10);
+  const sampleRecords = await getSampleRecords(
+    db,
+    table,
+    selection,
+    baseConditions,
+    10,
+  );
 
   // Generate safety information
   const safetyStatus = validator.getSafetyStatus(affectedCount);
@@ -475,20 +513,23 @@ export async function createBulkPreview<TTable extends PgTable>(
 /**
  * Schema for bulk selection criteria
  */
-export const bulkSelectionSchema = z.object({
-  ids: z.array(z.string().uuid()).optional(),
-  filter: z.record(z.any()).optional(),
-  all: z.boolean().optional(),
-  excludeIds: z.array(z.string().uuid()).optional(),
-}).refine(
-  (data) => {
-    // Ensure at least one selection method is provided
-    return data.ids || data.filter || data.all;
-  },
-  {
-    message: "Must provide either 'ids', 'filter', or 'all' for bulk selection",
-  }
-);
+export const bulkSelectionSchema = z
+  .object({
+    ids: z.array(z.string().uuid()).optional(),
+    filter: z.record(z.any()).optional(),
+    all: z.boolean().optional(),
+    excludeIds: z.array(z.string().uuid()).optional(),
+  })
+  .refine(
+    (data) => {
+      // Ensure at least one selection method is provided
+      return data.ids || data.filter || data.all;
+    },
+    {
+      message:
+        "Must provide either 'ids', 'filter', or 'all' for bulk selection",
+    },
+  );
 
 /**
  * Schema for bulk operation safety options
@@ -503,7 +544,7 @@ export const bulkSafetyOptionsSchema = z.object({
  * Creates a complete bulk operation input schema
  */
 export function createBulkOperationSchema<TDataSchema extends z.ZodTypeAny>(
-  dataSchema: TDataSchema
+  dataSchema: TDataSchema,
 ) {
   return z.object({
     selection: bulkSelectionSchema,
@@ -521,9 +562,9 @@ export function createBulkOperationSchema<TDataSchema extends z.ZodTypeAny>(
  */
 export function validateBulkOperation(
   affectedCount: number,
-  preview: boolean = false,
+  preview = false,
   operationType: BulkOperationType = "update",
-  resourceName: string = "records"
+  resourceName = "records",
 ): void {
   const validator = new BulkSafetyValidator(operationType, resourceName);
   validator.validateSafety(affectedCount, preview);
@@ -534,7 +575,7 @@ export function validateBulkOperation(
  */
 export function checkBulkSafety(
   affectedCount: number,
-  operationType: BulkOperationType = "update"
+  operationType: BulkOperationType = "update",
 ): { safe: boolean; requiresPreview: boolean; message?: string } {
   const config = defaultBulkSafetyConfigs[operationType];
 

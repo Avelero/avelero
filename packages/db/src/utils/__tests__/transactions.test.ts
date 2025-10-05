@@ -31,56 +31,78 @@ describe("Transaction Management", () => {
 
     // Create a comprehensive mock database
     mockDb = {
-      transaction: jest.fn().mockImplementation(async (callback) => {
+      transaction: jest.fn().mockImplementation(async (callback: any) => {
         // Mock transaction context
         const mockTx = {
           query: {
             brands: {
-              findFirst: jest.fn().mockResolvedValue({ id: testBrandId, name: "Test Brand" }),
+              findFirst: jest
+                .fn<() => Promise<any>>()
+                .mockResolvedValue({ id: testBrandId, name: "Test Brand" }),
             },
             products: {
-              findFirst: jest.fn().mockResolvedValue({ id: testProductId, name: "Test Product", brandId: testBrandId }),
-              findMany: jest.fn().mockResolvedValue([]),
+              findFirst: jest
+                .fn<() => Promise<any>>()
+                .mockResolvedValue({
+                  id: testProductId,
+                  name: "Test Product",
+                  brandId: testBrandId,
+                }),
+              findMany: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
             },
             productVariants: {
-              findMany: jest.fn().mockResolvedValue([]),
+              findMany: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
             },
             templates: {
-              findFirst: jest.fn().mockResolvedValue({ id: "test-template-id", brandId: testBrandId }),
+              findFirst: jest
+                .fn<() => Promise<any>>()
+                .mockResolvedValue({
+                  id: "test-template-id",
+                  brandId: testBrandId,
+                }),
             },
             categories: {
-              findFirst: jest.fn().mockResolvedValue({ id: "test-category-id", name: "Test Category" }),
+              findFirst: jest
+                .fn<() => Promise<any>>()
+                .mockResolvedValue({
+                  id: "test-category-id",
+                  name: "Test Category",
+                }),
             },
             passports: {
-              findFirst: jest.fn().mockResolvedValue(null), // Default to no passport found
+              findFirst: jest.fn<() => Promise<any>>().mockResolvedValue(null), // Default to no passport found
             },
           },
-          insert: jest.fn().mockReturnValue({
-            values: jest.fn().mockReturnValue({
-              returning: jest.fn().mockResolvedValue([{
-                id: "new-record-id",
-                brandId: testBrandId,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              }]),
+          insert: jest.fn<() => any>().mockReturnValue({
+            values: jest.fn<() => any>().mockReturnValue({
+              returning: jest.fn<() => Promise<any[]>>().mockResolvedValue([
+                {
+                  id: "new-record-id",
+                  brandId: testBrandId,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                },
+              ]),
             }),
           }),
-          update: jest.fn().mockReturnValue({
-            set: jest.fn().mockReturnValue({
-              where: jest.fn().mockReturnValue({
-                returning: jest.fn().mockResolvedValue([{ id: "updated-record-id" }]),
+          update: jest.fn<() => any>().mockReturnValue({
+            set: jest.fn<() => any>().mockReturnValue({
+              where: jest.fn<() => any>().mockReturnValue({
+                returning: jest
+                  .fn<() => Promise<any[]>>()
+                  .mockResolvedValue([{ id: "updated-record-id" }]),
               }),
             }),
           }),
-          delete: jest.fn().mockReturnValue({
-            where: jest.fn().mockResolvedValue([]),
+          delete: jest.fn<() => any>().mockReturnValue({
+            where: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
           }),
-          select: jest.fn().mockReturnValue({
-            from: jest.fn().mockReturnValue({
-              where: jest.fn().mockResolvedValue([{ count: 0 }]),
+          select: jest.fn<() => any>().mockReturnValue({
+            from: jest.fn<() => any>().mockReturnValue({
+              where: jest.fn<() => Promise<any[]>>().mockResolvedValue([{ count: 0 }]),
             }),
           }),
-          execute: jest.fn().mockResolvedValue(undefined),
+          execute: jest.fn<() => Promise<any>>().mockResolvedValue(undefined),
         };
 
         try {
@@ -93,41 +115,61 @@ describe("Transaction Management", () => {
       // Add query interface for direct database calls
       query: {
         brands: {
-          findFirst: jest.fn().mockResolvedValue({ id: testBrandId, name: "Test Brand" }),
+          findFirst: jest
+            .fn<() => Promise<any>>()
+            .mockResolvedValue({ id: testBrandId, name: "Test Brand" }),
         },
         products: {
-          findFirst: jest.fn().mockResolvedValue({ id: testProductId, name: "Test Product", brandId: testBrandId }),
-          findMany: jest.fn().mockResolvedValue([]),
+          findFirst: jest
+            .fn<() => Promise<any>>()
+            .mockResolvedValue({
+              id: testProductId,
+              name: "Test Product",
+              brandId: testBrandId,
+            }),
+          findMany: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
         },
         productVariants: {
-          findMany: jest.fn().mockResolvedValue([]),
+          findMany: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
         },
         templates: {
-          findFirst: jest.fn().mockResolvedValue({ id: "test-template-id", brandId: testBrandId }),
+          findFirst: jest
+            .fn<() => Promise<any>>()
+            .mockResolvedValue({
+              id: "test-template-id",
+              brandId: testBrandId,
+            }),
         },
         categories: {
-          findFirst: jest.fn().mockResolvedValue({ id: "test-category-id", name: "Test Category" }),
+          findFirst: jest
+            .fn<() => Promise<any>>()
+            .mockResolvedValue({
+              id: "test-category-id",
+              name: "Test Category",
+            }),
         },
         passports: {
-          findFirst: jest.fn().mockResolvedValue(null), // Default to no passport found
+          findFirst: jest.fn<() => Promise<any>>().mockResolvedValue(null), // Default to no passport found
         },
       },
 
       // Add insert interface for direct database calls
-      insert: jest.fn().mockReturnValue({
-        values: jest.fn().mockReturnValue({
-          returning: jest.fn().mockResolvedValue([{
-            id: "new-passport-id",
-            brandId: testBrandId,
-            productId: testProductId,
-            passportStatus: "draft",
-            visibility: "private",
-            dataCompleteness: 50,
-            complianceScore: 60,
-            validationScore: 75,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }]),
+      insert: jest.fn<() => any>().mockReturnValue({
+        values: jest.fn<() => any>().mockReturnValue({
+          returning: jest.fn<() => Promise<any[]>>().mockResolvedValue([
+            {
+              id: "new-passport-id",
+              brandId: testBrandId,
+              productId: testProductId,
+              status: "draft",
+              visibility: "private",
+              dataCompleteness: 50,
+              complianceScore: 60,
+              validationScore: 75,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          ]),
         }),
       }),
     };
@@ -149,13 +191,10 @@ describe("Transaction Management", () => {
             .values({
               brandId: testBrandId,
               productId: testProductId,
-              passportStatus: "draft",
-              visibility: "private",
-              dataCompleteness: 50,
-              complianceScore: 60,
-              validationScore: 75,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              variantId: "test-variant-id",
+              templateId: "test-template-id",
+              status: "draft",
+              slug: "test-passport-slug",
             })
             .returning();
           return passport;
@@ -174,20 +213,17 @@ describe("Transaction Management", () => {
     });
 
     it("should rollback on operation failure", async () => {
-      const operations = [
+      const operations: any[] = [
         createDataOperation("create-passport", async (tx) => {
           const [passport] = await tx
             .insert(passports)
             .values({
               brandId: testBrandId,
               productId: testProductId,
-              passportStatus: "draft",
-              visibility: "private",
-              dataCompleteness: 50,
-              complianceScore: 60,
-              validationScore: 75,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              variantId: "test-variant-id",
+              templateId: "test-template-id",
+              status: "draft",
+              slug: "test-passport-slug",
             })
             .returning();
           return passport;
@@ -216,7 +252,7 @@ describe("Transaction Management", () => {
         brandId: testBrandId,
         productId: testProductId,
         passportData: {
-          passportStatus: "draft" as const,
+          status: "draft" as const,
           visibility: "private" as const,
           dataCompleteness: 75,
           complianceScore: 80,
@@ -231,7 +267,9 @@ describe("Transaction Management", () => {
       const result = await createPassportTransaction(mockDb, transactionInput);
 
       expect(result.success).toBe(true);
-      expect(result.operations).toContain("validate-comprehensive-requirements");
+      expect(result.operations).toContain(
+        "validate-comprehensive-requirements",
+      );
       expect(result.operations).toContain("validate-brand-access");
       expect(result.operations).toContain("create-passport");
       expect(result.operations.length).toBeGreaterThan(3);
@@ -242,31 +280,39 @@ describe("Transaction Management", () => {
 
     it("should fail on duplicate passport creation", async () => {
       // Update the transaction mock to simulate duplicate passport
-      mockDb.transaction.mockImplementationOnce(async (callback) => {
+      mockDb.transaction.mockImplementationOnce(async (callback: any) => {
         const mockTx = {
           query: {
             brands: {
-              findFirst: jest.fn().mockResolvedValue({ id: testBrandId, name: "Test Brand" }),
+              findFirst: jest
+                .fn<() => Promise<any>>()
+                .mockResolvedValue({ id: testBrandId, name: "Test Brand" }),
             },
             products: {
-              findFirst: jest.fn().mockResolvedValue({ id: testProductId, name: "Test Product", brandId: testBrandId }),
+              findFirst: jest
+                .fn<() => Promise<any>>()
+                .mockResolvedValue({
+                  id: testProductId,
+                  name: "Test Product",
+                  brandId: testBrandId,
+                }),
             },
             passports: {
-              findFirst: jest.fn().mockResolvedValue({
+              findFirst: jest.fn<() => Promise<any>>().mockResolvedValue({
                 id: "existing-passport-id",
                 brandId: testBrandId,
                 productId: testProductId,
-                passportStatus: "draft",
+                status: "draft",
                 visibility: "private",
               }),
             },
           },
-          insert: jest.fn().mockReturnValue({
-            values: jest.fn().mockReturnValue({
-              returning: jest.fn().mockResolvedValue([]),
+          insert: jest.fn<() => any>().mockReturnValue({
+            values: jest.fn<() => any>().mockReturnValue({
+              returning: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
             }),
           }),
-          execute: jest.fn().mockResolvedValue(undefined),
+          execute: jest.fn<() => Promise<any>>().mockResolvedValue(undefined),
         };
 
         try {
@@ -280,7 +326,7 @@ describe("Transaction Management", () => {
         brandId: testBrandId,
         productId: testProductId,
         passportData: {
-          passportStatus: "draft" as const,
+          status: "draft" as const,
           visibility: "private" as const,
         },
         enforceUniquePassport: true,
@@ -294,25 +340,27 @@ describe("Transaction Management", () => {
 
     it("should fail on invalid product", async () => {
       // Update the transaction mock to simulate invalid product
-      mockDb.transaction.mockImplementationOnce(async (callback) => {
+      mockDb.transaction.mockImplementationOnce(async (callback: any) => {
         const mockTx = {
           query: {
             brands: {
-              findFirst: jest.fn().mockResolvedValue({ id: testBrandId, name: "Test Brand" }),
+              findFirst: jest
+                .fn<() => Promise<any>>()
+                .mockResolvedValue({ id: testBrandId, name: "Test Brand" }),
             },
             products: {
-              findFirst: jest.fn().mockResolvedValue(null), // No product found
+              findFirst: jest.fn<() => Promise<any>>().mockResolvedValue(null), // No product found
             },
             passports: {
-              findFirst: jest.fn().mockResolvedValue(null),
+              findFirst: jest.fn<() => Promise<any>>().mockResolvedValue(null),
             },
           },
-          insert: jest.fn().mockReturnValue({
-            values: jest.fn().mockReturnValue({
-              returning: jest.fn().mockResolvedValue([]),
+          insert: jest.fn<() => any>().mockReturnValue({
+            values: jest.fn<() => any>().mockReturnValue({
+              returning: jest.fn<() => Promise<any[]>>().mockResolvedValue([]),
             }),
           }),
-          execute: jest.fn().mockResolvedValue(undefined),
+          execute: jest.fn<() => Promise<any>>().mockResolvedValue(undefined),
         };
 
         try {
@@ -326,7 +374,7 @@ describe("Transaction Management", () => {
         brandId: testBrandId,
         productId: "non-existent-product-id",
         passportData: {
-          passportStatus: "draft" as const,
+          status: "draft" as const,
           visibility: "private" as const,
         },
         enforceUniquePassport: true,
@@ -349,7 +397,7 @@ describe("Transaction Management", () => {
 
       const result = await executeTransaction(mockDb, operations, {
         timeout: 5000, // 5 second timeout
-        isolation: 'read committed',
+        isolation: "read committed",
         maxRetries: 1,
       });
 

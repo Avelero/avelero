@@ -38,10 +38,12 @@ const productFilterExtensions = {
 
   // Variant-related filters
   hasVariants: z.boolean().optional(),
-  variantCount: z.object({
-    min: z.number().int().min(0).optional(),
-    max: z.number().int().min(0).optional(),
-  }).optional(),
+  variantCount: z
+    .object({
+      min: z.number().int().min(0).optional(),
+      max: z.number().int().min(0).optional(),
+    })
+    .optional(),
 
   // Content filtering
   namePattern: z.string().optional(),
@@ -62,7 +64,9 @@ const productFilterExtensions = {
   collectionIds: z.array(z.string().uuid()).optional(),
 
   // Validation status
-  validationStatus: z.enum(["valid", "invalid", "pending", "warning"]).optional(),
+  validationStatus: z
+    .enum(["valid", "invalid", "pending", "warning"])
+    .optional(),
   hasValidationIssues: z.boolean().optional(),
 } as const;
 
@@ -199,7 +203,7 @@ export const productsSchemas = registerModuleSchemas(
     dataExtensions: productDataExtensions,
     additionalMetrics: productAdditionalMetrics,
     strict: true,
-  })
+  }),
 );
 
 // ================================
@@ -220,63 +224,76 @@ export type ProductsMetrics = InferModuleMetrics<typeof productsSchemas>;
 /**
  * Product creation schema with extended validation
  */
-export const createProductSchema = productsSchemas.dataSchema.extend({
-  // Required fields for creation
-  name: z.string().min(1).max(255),
-  description: z.string().max(2000).optional(),
+export const createProductSchema = productsSchemas.dataSchema
+  .extend({
+    // Required fields for creation
+    name: z.string().min(1).max(255),
+    description: z.string().max(2000).optional(),
 
-  // Required relationships
-  categoryId: z.string().uuid(),
+    // Required relationships
+    categoryId: z.string().uuid(),
 
-  // Optional but validated fields
-  season: z.string().max(50).optional(),
-  primaryImageUrl: validationPatterns.url.optional(),
-  showcaseBrandId: z.string().uuid().optional(),
-  certificationId: z.string().uuid().optional(),
-}).strict();
+    // Optional but validated fields
+    season: z.string().max(50).optional(),
+    primaryImageUrl: validationPatterns.url.optional(),
+    showcaseBrandId: z.string().uuid().optional(),
+    certificationId: z.string().uuid().optional(),
+  })
+  .strict();
 
 /**
  * Product update schema with extended validation
  */
-export const updateProductSchema = productsSchemas.dataSchema.partial().extend({
-  // Always require ID for updates
-  id: z.string().uuid(),
-}).strict();
+export const updateProductSchema = productsSchemas.dataSchema
+  .partial()
+  .extend({
+    // Always require ID for updates
+    id: z.string().uuid(),
+  })
+  .strict();
 
 /**
  * Product bulk update schema
  */
-export const bulkUpdateProductSchema = z.object({
-  selection: productsSchemas.createSelectionSchema(),
-  data: productsSchemas.dataSchema.partial(),
-  preview: z.boolean().default(false),
-}).strict();
+export const bulkUpdateProductSchema = z
+  .object({
+    selection: productsSchemas.createSelectionSchema(),
+    data: productsSchemas.dataSchema.partial(),
+    preview: z.boolean().default(false),
+  })
+  .strict();
 
 /**
  * Product list input schema
  */
-export const listProductsSchema = z.object({
-  filter: productsSchemas.filterSchema.optional(),
-  sort: productsSchemas.sortSchema.optional(),
-  pagination: productsSchemas.paginationSchema.optional(),
-  include: productsSchemas.includeSchema.optional(),
-}).strict();
+export const listProductsSchema = z
+  .object({
+    filter: productsSchemas.filterSchema.optional(),
+    sort: productsSchemas.sortSchema.optional(),
+    pagination: productsSchemas.paginationSchema.optional(),
+    include: productsSchemas.includeSchema.optional(),
+  })
+  .strict();
 
 /**
  * Product get input schema
  */
-export const getProductSchema = z.object({
-  where: productsSchemas.whereSchema,
-  include: productsSchemas.includeSchema.optional(),
-}).strict();
+export const getProductSchema = z
+  .object({
+    where: productsSchemas.whereSchema,
+    include: productsSchemas.includeSchema.optional(),
+  })
+  .strict();
 
 /**
  * Product metrics input schema
  */
-export const productMetricsSchema = z.object({
-  filter: productsSchemas.filterSchema.optional(),
-  metrics: productsSchemas.metricsSchema,
-}).strict();
+export const productMetricsSchema = z
+  .object({
+    filter: productsSchemas.filterSchema.optional(),
+    metrics: productsSchemas.metricsSchema,
+  })
+  .strict();
 
 // ================================
 // Product-Specific Helper Functions

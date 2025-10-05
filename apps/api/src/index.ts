@@ -127,6 +127,37 @@ app.get("/db-test", async (c) => {
   }
 });
 
+// Add auth debug endpoint to check authentication flow
+app.get("/auth-debug", async (c) => {
+  try {
+    const ctx = await createTRPCContext({ req: c.req as unknown as Request });
+    
+    return c.json({
+      status: "auth debug complete",
+      timestamp: new Date().toISOString(),
+      hasUser: !!ctx.user,
+      userId: ctx.user?.id || null,
+      userEmail: ctx.user?.email || null,
+      brandId: ctx.brandId || null,
+      hasBrandContext: !!ctx.brandContext,
+      headers: {
+        authorization: c.req.header("authorization") || null,
+        origin: c.req.header("origin") || null,
+      },
+    });
+  } catch (error) {
+    console.error("Auth debug failed:", error);
+    return c.json(
+      {
+        status: "auth debug failed",
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
+      },
+      500,
+    );
+  }
+});
+
 app.get("/", (c) => {
   return c.json(
     {

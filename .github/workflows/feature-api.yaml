@@ -12,10 +12,19 @@ on:
       - packages/**
       - "!packages/email/**"
       - "!packages/ui/**"
+  pull_request:
+    branches:
+      - staging
+    paths:
+      - apps/api/**
+      - packages/**
 jobs:
   deploy:
-    name: 🚀 Deploy Feature API to Fly
+    name: 🚀 Deploy Feature API to Fly Staging
     runs-on: ubuntu-latest
+    concurrency:
+      group: fly-api-staging
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -30,37 +39,13 @@ jobs:
         run: bun run typecheck
         working-directory: ./apps/api
       
-      # Create a branch-specific Fly app name
-      - name: Set Fly app name
-        id: fly-app
-        run: |
-          BRANCH_NAME=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9-]/-/g' | cut -c1-30)
-          APP_NAME="avelero-api-${BRANCH_NAME}"
-          echo "app_name=${APP_NAME}" >> $GITHUB_OUTPUT
-          echo "Deploying to: ${APP_NAME}"
-      
       - uses: superfly/flyctl-actions/setup-flyctl@master
       
-      # Deploy to branch-specific Fly app
-      - name: Deploy to Fly
-        run: |
-          flyctl deploy --remote-only \
-            --dockerfile apps/api/Dockerfile \
-            --config apps/api/fly-preview.yml \
-            --app ${{ steps.fly-app.outputs.app_name }} \
-            --auto-confirm || flyctl apps create ${{ steps.fly-app.outputs.app_name }} && \
-          flyctl deploy --remote-only \
-            --dockerfile apps/api/Dockerfile \
-            --config apps/api/fly-preview.yml \
-            --app ${{ steps.fly-app.outputs.app_name }}
+      # Just deploy to staging app (same as preview-api.yaml)
+      - name: Deploy to Fly Staging
+        run: flyctl deploy --remote-only --dockerfile apps/api/Dockerfile --config apps/api/fly-preview.yml
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
-      
-      - name: Get deployment URL
-        id: deploy-url
-        run: |
-          URL="https://${{ steps.fly-app.outputs.app_name }}.fly.dev"
-          echo "url=${URL}" >> $GITHUB_OUTPUT
       
       - name: Comment on PR
         if: github.event_name == 'pull_request'
@@ -71,5 +56,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '🚀 API Preview deployed to: ${{ steps.deploy-url.outputs.url }}'
+              body: '🚀 API Preview: https://avelero-api-staging.fly.dev (shared staging environment)'
             })

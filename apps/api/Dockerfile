@@ -8,7 +8,7 @@ RUN bun add -g turbo
 # Builder stage
 FROM turbo-cli AS builder
 WORKDIR /app
-# Copy only the API directory and necessary shared files
+# Copy all files
 COPY . .
 # Use turbo CLI from Bun global install to prune workspaces
 RUN turbo prune @v1/api --docker
@@ -39,3 +39,36 @@ EXPOSE 3000
 
 # Run the API directly with Bun
 CMD ["bun", "run", "src/index.ts"]
+
+</apps/api/Dockerfile>
+
+<apps/api/fly-preview.yml>
+app = "avelero-api-pr-preview"
+primary_region = 'ams'
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = '3000'
+  ALLOWED_API_ORIGINS = 'https://*.vercel.app,http://localhost:3000'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "45s"
+    method = "GET"
+    timeout = "10s"
+    path = "/health"
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1

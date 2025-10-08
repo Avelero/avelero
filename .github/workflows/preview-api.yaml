@@ -52,7 +52,7 @@ jobs:
   preview:
     name: 🚀 Deploy Preview
     needs: test
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
       group: pr-${{ github.event.number }}-api

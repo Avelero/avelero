@@ -46,8 +46,7 @@ jobs:
       - name: 🪐 Check TypeScript
         run: NODE_OPTIONS="--max-old-space-size=8192" bun run typecheck
         working-directory: ./apps/app
-
-  # Only deploy on PR (not on push)
+        # Only deploy on PR (not on push)
   preview:
     name: 🚀 Deploy Preview
     needs: test
@@ -106,8 +105,8 @@ jobs:
               repo: context.repo.repo,
               body: `## 🚀 Preview Deployments Ready!
               
-              **Frontend:** ${{ steps.deploy.outputs.url }}
-              **API:** ${{ steps.api-url.outputs.url }}
+              Frontend: ${{ steps.deploy.outputs.url }}
+              API: ${{ steps.api-url.outputs.url }}
               
               Preview environments will auto-delete when PR closes.`
             })

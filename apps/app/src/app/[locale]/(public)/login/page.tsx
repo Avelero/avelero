@@ -33,7 +33,7 @@ export default function Page() {
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center uppercase">
-                <span className="bg-background px-2 text-small text-secondary">
+                <span className="bg-background px-2 type-small text-secondary">
                   Or continue with
                 </span>
               </div>

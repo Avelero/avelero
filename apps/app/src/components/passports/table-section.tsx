@@ -14,11 +14,17 @@ export function TableSection() {
     includeIds: [],
     excludeIds: [],
   });
-  const [selectionVersion, setSelectionVersion] = React.useState(0);
   const [hasAnyPassports, setHasAnyPassports] = React.useState(true);
 
   // Filter state management
   const [filterState, filterActions] = useFilterState();
+
+  // Sort state management (UI only for now)
+  const [sortState, setSortState] = React.useState<{
+    field: string;
+    direction: "asc" | "desc";
+  } | null>(null);
+
   // Column preferences state (excludes locked `product` and fixed `actions`)
   const DEFAULT_VISIBLE: string[] = React.useMemo(
     () => ["status", "completion", "category", "season", "template"],
@@ -170,7 +176,6 @@ export function TableSection() {
         selection={selection}
         onClearSelectionAction={() => {
           setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
-          setSelectionVersion((v) => v + 1);
         }}
         displayProps={{
           productLabel: "Product",
@@ -180,14 +185,14 @@ export function TableSection() {
         }}
         filterState={filterState}
         filterActions={filterActions}
+        sortState={sortState}
+        onSortChange={setSortState}
       />
       <PassportDataTable
         onTotalCountChangeAction={setHasAnyPassports}
         onSelectionChangeAction={setSelectedCount}
         selection={selection}
         onSelectionStateChangeAction={setSelection}
-        // bump key to force internal rowSelection recompute after clearing
-        key={`passports-table-${selectionVersion}`}
         columnOrder={columnOrder}
         columnVisibility={columnVisibility}
         filterState={filterState}

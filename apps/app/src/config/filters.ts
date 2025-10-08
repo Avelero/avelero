@@ -27,7 +27,7 @@ export const OPERATORS = {
     "is not empty",
   ] as const,
 
-  number: ["=", "≠", ">", "≥", "<", "≤", "between"] as const,
+  number: ["equals", "does not equal", "greater than", "greater than or equal to", "less than", "less than or equal to", "between"] as const,
 
   multiSelect: ["is any of", "is none of", "is empty", "is not empty"] as const,
 
@@ -48,13 +48,9 @@ export const OPERATORS = {
   ] as const,
 
   date: [
-    "is",
     "is before",
     "is after",
-    "is on or before",
-    "is on or after",
     "is between",
-    "relative",
   ] as const,
 
   boolean: ["is true", "is false"] as const,
@@ -236,7 +232,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "sustainability",
     inputType: "number",
     operators: [...OPERATORS.number] as FilterOperator[],
-    unit: "L",
+    unit: "Liter",
     placeholder: "0.00",
     description: "Filter by water consumption",
   },

@@ -19,7 +19,9 @@ export type FilterInputType =
   | "date" // Date picker
   | "date-relative" // Relative date (last 7 days, etc.)
   | "country" // Country selector
-  | "module-picker"; // Module completion picker
+  | "module-picker" // Module completion picker
+  | "hierarchical" // Hierarchical select (e.g., categories with parent/child)
+  | "nested"; // Nested conditions (e.g., materials, facilities)
 
 // ============================================================================
 // Operator Types
@@ -35,7 +37,7 @@ export type TextOperator =
   | "is empty"
   | "is not empty";
 
-export type NumberOperator = "=" | "≠" | ">" | "≥" | "<" | "≤" | "between";
+export type NumberOperator = "equals" | "does not equal" | "greater than" | "greater than or equal to" | "less than" | "less than or equal to" | "between";
 
 export type MultiSelectOperator =
   | "is any of"
@@ -105,6 +107,12 @@ export interface FilterFieldConfig {
   unit?: string; // Display unit (kg, L, %)
   placeholder?: string;
   description?: string;
+  nested?: {
+    // For nested input types (materials, facilities)
+    type: string;
+    primaryField: string;
+    nestedFields: string[];
+  };
 }
 
 export interface SelectOption {
@@ -163,13 +171,13 @@ export interface RelativeDateValue {
 }
 
 export interface NumberRangeValue {
-  min: number;
-  max: number;
+  min?: number;
+  max?: number;
 }
 
 export interface DateRangeValue {
-  start: string; // ISO date string
-  end: string; // ISO date string
+  after?: string; // ISO date string - on or after this date
+  before?: string; // ISO date string - on or before this date
 }
 
 // ============================================================================
@@ -235,13 +243,6 @@ export interface FilterGroupProps {
   onRemoveCondition: (conditionId: string) => void;
   onRemoveGroup: () => void;
   availableFields: FilterFieldConfig[];
-}
-
-export interface FilterValueInputProps {
-  fieldConfig: FilterFieldConfig;
-  operator: FilterOperator;
-  value: FilterValue;
-  onChange: (value: FilterValue) => void;
 }
 
 export interface QuickFiltersPopoverProps {

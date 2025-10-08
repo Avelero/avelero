@@ -38,6 +38,9 @@
     "./input-otp": "./src/components/input-otp.tsx",
     "./sheet": "./src/components/sheet.tsx",
     "./calendar": "./src/components/calendar.tsx",
+    "./select": "./src/components/select.tsx",
+    "./date-picker": "./src/components/date-picker.tsx",
+    "./min-max": "./src/components/min-max.tsx",
     "./tailwind.config": "./tailwind.config.ts",
     "./postcss": "./postcss.config.js",
     "./sonner": "./src/components/sonner.tsx"

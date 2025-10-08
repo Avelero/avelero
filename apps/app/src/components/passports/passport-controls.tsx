@@ -25,7 +25,8 @@ import type {
 } from "../tables/passports/types";
 import { AdvancedFilterPanel } from "../sheets/filter-sheet";
 import { DisplayPopover } from "./display-popover";
-import { QuickFiltersPopover } from "./quick-filters-popover";
+import { QuickFiltersPopover } from "../filter-select";
+import { SortPopover } from "../sort-select";
 
 interface PassportControlsProps {
   selectedCount?: number;
@@ -41,6 +42,8 @@ interface PassportControlsProps {
   };
   filterState?: FilterState;
   filterActions?: FilterActions;
+  sortState?: { field: string; direction: "asc" | "desc" } | null;
+  onSortChange?: (sort: { field: string; direction: "asc" | "desc" } | null) => void;
 }
 
 export function PassportControls({
@@ -51,6 +54,8 @@ export function PassportControls({
   displayProps,
   filterState,
   filterActions,
+  sortState,
+  onSortChange,
 }: PassportControlsProps) {
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
   const [advancedFilterOpen, setAdvancedFilterOpen] = React.useState(false);
@@ -128,15 +133,23 @@ export function PassportControls({
         </div>
 
         {/* Sort */}
-        <Button
-          variant="subtle"
-          size="default"
-          disabled={disabled}
-          iconPosition="left"
-          icon={<Icons.ArrowDownUp className="h-[14px] w-[14px]" />}
-        >
-          Sort
-        </Button>
+        {sortState !== undefined && onSortChange ? (
+          <SortPopover
+            sortState={sortState}
+            onSortChange={onSortChange}
+            disabled={disabled}
+          />
+        ) : (
+          <Button
+            variant="subtle"
+            size="default"
+            disabled={disabled}
+            iconPosition="left"
+            icon={<Icons.ArrowDownUp className="h-[14px] w-[14px]" />}
+          >
+            Sort
+          </Button>
+        )}
 
         {/* Filter */}
         {filterState && filterActions ? (

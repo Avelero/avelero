@@ -60,7 +60,7 @@ export function PassportTableSkeleton({ rows = 16 }: { rows?: number }) {
       </div>
       {/* Pagination footer placeholder (outside bordered container) */}
       <div className="flex items-center justify-end gap-4 py-3">
-        <div className="text-p text-secondary">0 - 0 of 0</div>
+        <div className="type-p text-secondary">0 - 0 of 0</div>
         <div className="flex items-center gap-1">
           <Button
             variant="outline"

@@ -38,24 +38,131 @@ export function AdvancedFilterPanel({
   filterActions,
   availableFields,
 }: AdvancedFilterPanelProps) {
-  const metadata = useFilterMetadata(filterState);
+  // Local state for editing - only syncs back on Apply
+  const [localState, setLocalState] = React.useState<FilterState>(filterState);
 
-  // Handle apply - closes the panel
+  // Sync local state when panel opens with new applied filters
+  React.useEffect(() => {
+    if (open) {
+      setLocalState(filterState);
+    }
+  }, [open, filterState]);
+
+  // Initialize with empty group if needed
+  React.useEffect(() => {
+    if (open && localState.groups.length === 0) {
+      setLocalState((prev) => ({
+        ...prev,
+        groups: [{
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          conditions: [{
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            fieldId: "",
+            operator: "is" as any,
+            value: null,
+          }],
+          asGroup: false,
+        }],
+      }));
+    }
+  }, [open, localState.groups.length]);
+
+  const metadata = useFilterMetadata(localState);
+
+  // Local actions that only update local state
+  const localActions = React.useMemo(() => ({
+    addGroup: () => {
+      setLocalState((prev) => ({
+        ...prev,
+        groups: [...prev.groups, {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          conditions: [{
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            fieldId: "",
+            operator: "is" as any,
+            value: null,
+          }],
+          asGroup: false,
+        }],
+      }));
+    },
+    removeGroup: (groupId: string) => {
+      setLocalState((prev) => ({
+        ...prev,
+        groups: prev.groups.filter((g) => g.id !== groupId),
+      }));
+    },
+    updateGroup: (groupId: string, updates: any) => {
+      setLocalState((prev) => ({
+        ...prev,
+        groups: prev.groups.map((g) => g.id === groupId ? { ...g, ...updates } : g),
+      }));
+    },
+    addCondition: (groupId: string, initial?: any) => {
+      setLocalState((prev) => ({
+        ...prev,
+        groups: prev.groups.map((g) => 
+          g.id === groupId 
+            ? {
+                ...g,
+                conditions: [...g.conditions, {
+                  id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  fieldId: "",
+                  operator: "is" as any,
+                  value: null,
+                  ...(initial ?? {}),
+                }],
+              }
+            : g
+        ),
+      }));
+    },
+    updateCondition: (groupId: string, conditionId: string, updates: any) => {
+      setLocalState((prev) => ({
+        ...prev,
+        groups: prev.groups.map((g) => 
+          g.id === groupId
+            ? {
+                ...g,
+                conditions: g.conditions.map((c) => 
+                  c.id === conditionId ? { ...c, ...updates } : c
+                ),
+              }
+            : g
+        ),
+      }));
+    },
+    removeCondition: (groupId: string, conditionId: string) => {
+      setLocalState((prev) => {
+        const updatedGroups = prev.groups
+          .map((g) => {
+            if (g.id !== groupId) return g;
+            const updatedConditions = g.conditions.filter((c) => c.id !== conditionId);
+            if (updatedConditions.length === 0) return null;
+            return { ...g, conditions: updatedConditions };
+          })
+          .filter((g): g is any => g !== null);
+        return { groups: updatedGroups };
+      });
+    },
+    clearAll: () => {
+      setLocalState({ groups: [] });
+    },
+    setGroups: (groups: any[]) => {
+      setLocalState({ groups });
+    },
+  }), []);
+
+  // Handle apply - sync to real state and close
   const handleApply = () => {
+    filterActions.setGroups(localState.groups);
     onOpenChange(false);
   };
 
-  // Handle cancel - closes the panel without applying
+  // Handle cancel - discard changes and close
   const handleCancel = () => {
     onOpenChange(false);
   };
-
-  // Initialize with empty group if no groups exist
-  React.useEffect(() => {
-    if (open && filterState.groups.length === 0) {
-      filterActions.addGroup();
-    }
-  }, [open, filterState.groups.length, filterActions]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -70,18 +177,18 @@ export function AdvancedFilterPanel({
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
-          <div className="space-y-4">
-            {filterState.groups.length === 0 ? (
+          <div className="flex flex-col items-start gap-4">
+            {localState.groups.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Icons.Filter className="h-12 w-12 text-tertiary mb-4" />
-                <p className="text-p text-secondary mb-2">No filters yet</p>
-                <p className="text-small text-tertiary mb-4">
+                <p className="type-p text-secondary mb-2">No filters yet</p>
+                <p className="type-small text-tertiary mb-4">
                   Add your first filter condition to get started
                 </p>
                 <Button
                   variant="brand"
                   size="sm"
-                  onClick={() => filterActions.addGroup()}
+                  onClick={() => localActions.addGroup()}
                   iconPosition="left"
                   icon={<Icons.Plus className="h-4 w-4" />}
                 >
@@ -90,15 +197,15 @@ export function AdvancedFilterPanel({
               </div>
             ) : (
               <>
-                {filterState.groups.map((group, index) => {
+                {localState.groups.map((group, index) => {
                   const isGroupUI = group.asGroup || group.conditions.length > 1;
                   const firstCondition = group.conditions[0]!; // groups always have at least 1 condition
                   return (
                     <React.Fragment key={group.id}>
                       {index > 0 && (
-                        <div className="flex items-center gap-3 py-2">
+                        <div className="flex items-center gap-3 w-full">
                           <div className="h-px flex-1 bg-border" />
-                          <span className="text-small font-medium text-secondary uppercase tracking-wide">
+                          <span className="type-small font-medium text-secondary uppercase tracking-wide">
                             and
                           </span>
                           <div className="h-px flex-1 bg-border" />
@@ -109,20 +216,20 @@ export function AdvancedFilterPanel({
                         <FilterGroup
                           group={group}
                           onAddCondition={() =>
-                            filterActions.addCondition(group.id)
+                            localActions.addCondition(group.id)
                           }
                           onUpdateCondition={(conditionId, updates) =>
-                            filterActions.updateCondition(
+                            localActions.updateCondition(
                               group.id,
                               conditionId,
                               updates,
                             )
                           }
                           onRemoveCondition={(conditionId) =>
-                            filterActions.removeCondition(group.id, conditionId)
+                            localActions.removeCondition(group.id, conditionId)
                           }
                           onRemoveGroup={() =>
-                            filterActions.removeGroup(group.id)
+                            localActions.removeGroup(group.id)
                           }
                           availableFields={availableFields}
                         />
@@ -131,20 +238,20 @@ export function AdvancedFilterPanel({
                           groupId={group.id}
                           condition={firstCondition}
                           onUpdate={(updates) =>
-                            filterActions.updateCondition(
+                            localActions.updateCondition(
                               group.id,
                               firstCondition.id,
                               updates,
                             )
                           }
                           onDelete={() =>
-                            filterActions.removeCondition(
+                            localActions.removeCondition(
                               group.id,
                               firstCondition.id,
                             )
                           }
                           onConvertToGroup={() =>
-                            filterActions.updateGroup(group.id, { asGroup: true })
+                            localActions.updateGroup(group.id, { asGroup: true })
                           }
                           availableFields={availableFields}
                         />
@@ -153,16 +260,14 @@ export function AdvancedFilterPanel({
                   );
                 })}
 
-                {/* Panel-level Create filter CTA */}
-                <div className="pt-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => filterActions.addGroup()}
-                  >
-                    <Icons.Plus className="h-4 w-4 mr-1" /> Create filter
-                  </Button>
-                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => localActions.addGroup()}
+                >
+                  <Icons.Plus className="h-4 w-4 mr-1" /> Create filter
+                </Button>
               </>
             )}
           </div>

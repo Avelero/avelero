@@ -12,9 +12,9 @@ function EmptyPanel({ title, description, action }: BaseProps) {
   return (
     <div className="flex w-full h-[280px] items-center justify-center border border-border">
       <div className="flex max-w-[520px] flex-col items-center gap-3 text-center">
-        <h3 className="text-h5 text-primary">{title}</h3>
+        <h3 className="type-h5 text-primary">{title}</h3>
         {description ? (
-          <p className="text-p text-secondary">{description}</p>
+          <p className="type-p text-secondary">{description}</p>
         ) : null}
         {action ? (
           <div className="pt-2">

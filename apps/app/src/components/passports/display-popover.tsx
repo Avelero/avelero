@@ -99,7 +99,7 @@ function SortableRow({
       >
         <Icons.GripVertical className="h-4 w-4" />
       </button>
-      <div className="flex-1 truncate text-p text-primary">{item.label}</div>
+      <div className="flex-1 truncate type-p text-primary">{item.label}</div>
       <CheckboxLike
         checked={item.checked}
         onChange={(n) => onToggle(item.id, n)}
@@ -181,7 +181,7 @@ export function DisplayPopover({
           {/* Locked Product row */}
           <div className="flex h-10 min-h-10 items-center gap-3 px-3 border border-border bg-background">
             <Icons.Lock className="h-4 w-4 text-tertiary" />
-            <div className="flex-1 truncate text-p text-primary">
+            <div className="flex-1 truncate type-p text-primary">
               {productLabel}
             </div>
             <div className="h-4 w-4" />

@@ -3,7 +3,6 @@
 import { getQuickFilterFields } from "@/config/filters";
 import { useFieldOptions } from "@/hooks/use-field-options";
 import { Button } from "@v1/ui/button";
-import { cn } from "@v1/ui/cn";
 import {
   Command,
   CommandEmpty,
@@ -15,7 +14,10 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -23,7 +25,10 @@ import {
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
 import * as React from "react";
-import type { FilterActions, FilterState } from "./filter-types";
+import { useQueryClient } from "@tanstack/react-query";
+import { useHotkeys } from "react-hotkeys-hook";
+import { useTRPC } from "@/trpc/client";
+import type { FilterActions, FilterState } from "./passports/filter-types";
 
 interface QuickFiltersPopoverProps {
   filterState: FilterState;
@@ -47,42 +52,48 @@ const renderStatusIcon = (fieldId: string, value: string) => {
 };
 
 export function QuickFiltersPopover({
-  filterState,
-  filterActions,
+  filterState: _filterState,
+  filterActions: _filterActions,
   onOpenAdvanced,
   disabled = false,
 }: QuickFiltersPopoverProps) {
   const [open, setOpen] = React.useState(false);
+  // Local quick-filter state (decoupled from Advanced filters)
+  const [quickFilters, setQuickFilters] = React.useState<Record<string, string[]>>({});
+  const queryClient = useQueryClient();
+  const trpc = useTRPC();
+
+  // Prefetch dynamic quick-filter options on mount
+  React.useEffect(() => {
+    const prefetchEndpoints = [
+      trpc.catalog.categories.list.queryOptions({}),
+      trpc.brandCatalog.colors.list.queryOptions({}),
+      trpc.brandCatalog.sizes.list.queryOptions({}),
+    ];
+
+    for (const queryOptions of prefetchEndpoints) {
+      queryClient
+        .prefetchQuery(
+          queryOptions as Parameters<typeof queryClient.prefetchQuery>[0],
+        )
+        .catch(() => undefined);
+    }
+  }, [queryClient, trpc]);
 
   const activeFilters = React.useMemo(() => {
     const filters: Array<{
       fieldId: string;
       fieldLabel: string;
-      value: any[];
-      groupId: string;
-      conditionId: string;
+      value: string[];
     }> = [];
-    for (const group of filterState.groups) {
-      for (const condition of group.conditions) {
-        const field = QUICK_FIELDS.find((f) => f.id === condition.fieldId);
-        if (field && condition.value != null) {
-          const values = Array.isArray(condition.value)
-            ? condition.value
-            : [condition.value];
-          if (values.length > 0) {
-            filters.push({
-              fieldId: field.id,
-              fieldLabel: field.label,
-              value: values,
-              groupId: group.id,
-              conditionId: condition.id,
-            });
-          }
-        }
+    for (const field of QUICK_FIELDS) {
+      const values = quickFilters[field.id] ?? [];
+      if (values.length > 0) {
+        filters.push({ fieldId: field.id, fieldLabel: field.label, value: values });
       }
     }
     return filters;
-  }, [filterState.groups]);
+  }, [quickFilters]);
 
   const getOptionLabel = React.useCallback((fieldId: string, value: string) => {
     const field = QUICK_FIELDS.find((f) => f.id === fieldId);
@@ -90,17 +101,24 @@ export function QuickFiltersPopover({
     return option?.label ?? value;
   }, []);
 
-  const removeFilter = React.useCallback(
-    (groupId: string, conditionId: string) => {
-      filterActions.removeCondition(groupId, conditionId);
-    },
-    [filterActions],
-  );
+  const removeFilter = React.useCallback((fieldId: string) => {
+    setQuickFilters((prev) => {
+      const next = { ...prev };
+      delete next[fieldId];
+      return next;
+    });
+  }, []);
 
   const handleAdvancedClick = React.useCallback(() => {
     setOpen(false);
     onOpenAdvanced();
   }, [onOpenAdvanced]);
+
+  // Keyboard shortcut: Shift + Cmd/Ctrl + F
+  useHotkeys('shift+mod+f', (event) => {
+    event.preventDefault();
+    handleAdvancedClick();
+  });
 
   return (
     <>
@@ -121,28 +139,40 @@ export function QuickFiltersPopover({
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[320px] p-0">
+        <DropdownMenuContent align="start" className="p-0">
           <div className="max-h-[400px] overflow-y-auto">
             <div>
-              {QUICK_FIELDS.map((field) => (
-                <QuickFilterItem
-                  key={field.id}
-                  field={field}
-                  filterState={filterState}
-                  filterActions={filterActions}
-                />
-              ))}
+              {QUICK_FIELDS.map((field) => {
+                const selectedValues = quickFilters[field.id] ?? [];
+                return (
+                  <QuickFilterItem
+                    key={field.id}
+                    field={field}
+                    selectedValues={selectedValues}
+                    onToggleValue={(optionValue: string) => {
+                      setQuickFilters((prev) => {
+                        const current = prev[field.id] ?? [];
+                        const nextValues = current.includes(optionValue)
+                          ? current.filter((v) => v !== optionValue)
+                          : [...current, optionValue];
+                        const next = { ...prev } as Record<string, string[]>;
+                        if (nextValues.length > 0) next[field.id] = nextValues;
+                        else delete next[field.id];
+                        return next;
+                      });
+                    }}
+                  />
+                );
+              })}
             </div>
           </div>
-          <div className="border-t border-border">
-            <button
-              type="button"
-              className="w-full px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors text-center"
-              onClick={handleAdvancedClick}
-            >
-              Advanced filters
-            </button>
-          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handleAdvancedClick}
+          >
+            Advanced filters
+            <DropdownMenuShortcut>⇧⌘F</DropdownMenuShortcut>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -157,16 +187,16 @@ export function QuickFiltersPopover({
 
         return (
           <div
-            key={`${filter.groupId}-${filter.conditionId}`}
-            className="group relative flex items-center h-9 px-2 rounded-none bg-accent text-p text-secondary"
+            key={filter.fieldId}
+            className="group relative flex items-center h-9 px-2 rounded-none bg-accent type-p text-secondary"
             title={displayText}
           >
             <span className="truncate">{truncatedText}</span>
             <button
               type="button"
               disabled={disabled}
-              onClick={() => removeFilter(filter.groupId, filter.conditionId)}
-              className="absolute right-0 top-0 h-full px-2 bg-accent opacity-0 group-hover:opacity-100 transition-opacity disabled:cursor-not-allowed flex items-center"
+              onClick={() => removeFilter(filter.fieldId)}
+              className="absolute right-0 h-full px-2 bg-accent opacity-0 group-hover:opacity-100 transition-opacity disabled:cursor-not-allowed flex items-center"
               aria-label="Remove filter"
             >
               <Icons.X className="h-3 w-3 text-secondary flex-shrink-0" />
@@ -180,12 +210,12 @@ export function QuickFiltersPopover({
 
 const QuickFilterItem = React.memo(function QuickFilterItem({
   field,
-  filterState,
-  filterActions,
+  selectedValues,
+  onToggleValue,
 }: {
   field: any;
-  filterState: FilterState;
-  filterActions: FilterActions;
+  selectedValues: string[];
+  onToggleValue: (optionValue: string) => void;
 }) {
   const { options: dynamicOptions, isLoading } = useFieldOptions(
     field.optionsSource?.endpoint,
@@ -196,72 +226,26 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
     () => field.options ?? dynamicOptions,
     [field.options, dynamicOptions],
   );
-
-  const existingCondition = React.useMemo(() => {
-    for (const group of filterState.groups) {
-      const condition = group.conditions.find((c) => c.fieldId === field.id);
-      if (condition) return { groupId: group.id, condition };
-    }
-    return null;
-  }, [filterState.groups, field.id]);
-
-  const selectedValues = (existingCondition?.condition.value as string[]) ?? [];
   const hideSearch = field.id === "status" || field.id === "moduleCompletion";
 
   const toggleValue = React.useCallback(
     (optionValue: string) => {
-      const newValues = selectedValues.includes(optionValue)
-        ? selectedValues.filter((v) => v !== optionValue)
-        : [...selectedValues, optionValue];
-
-      if (existingCondition) {
-        filterActions.updateCondition(
-          existingCondition.groupId,
-          existingCondition.condition.id,
-          { value: newValues },
-        );
-        return;
-      }
-
-      const targetGroupId = filterState.groups[0]?.id;
-      if (!targetGroupId) {
-        filterActions.addGroup();
-        return;
-      }
-
-      filterActions.addCondition(targetGroupId, {
-        fieldId: field.id,
-        operator: field.operators[0],
-        value: newValues,
-      });
+      onToggleValue(optionValue);
     },
-    [
-      selectedValues,
-      existingCondition,
-      filterState.groups,
-      filterActions,
-      field.id,
-      field.operators,
-    ],
+    [onToggleValue],
   );
 
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger
-        className={cn(
-          "flex items-center justify-between w-full px-3 py-2 !text-p text-primary",
-          "[&_svg]:!text-foreground",
-        )}
-      >
+      <DropdownMenuSubTrigger>
         <span>{field.label}</span>
       </DropdownMenuSubTrigger>
       <DropdownMenuPortal>
-        <DropdownMenuSubContent sideOffset={0} className="w-[280px] p-0 ml-1">
+        <DropdownMenuSubContent>
           <Command>
             {!hideSearch && (
               <CommandInput
                 placeholder={`Search ${field.label.toLowerCase()}...`}
-                className="h-9 px-2"
               />
             )}
             <CommandList>
@@ -276,16 +260,14 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
                       key={option.value}
                       value={option.value}
                       onSelect={() => toggleValue(option.value)}
-                      className="flex items-center justify-between !text-p text-foreground [&_.status-icon]:!h-[14px] [&_.status-icon]:!w-[14px]"
+                      className="[&_.status-icon]:h-[14px] [&_.status-icon]:w-[14px]"
                     >
                       <div className="flex items-center gap-2">
                         {renderStatusIcon(field.id, option.value)}
-                        <span className="text-p text-primary">
-                          {option.label}
-                        </span>
+                        <span>{option.label}</span>
                       </div>
                       {isSelected && (
-                        <Icons.Check className="h-4 w-4 text-foreground" />
+                        <Icons.Check className="h-4 w-4" />
                       )}
                     </CommandItem>
                   );

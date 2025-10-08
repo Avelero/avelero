@@ -124,4 +124,7 @@ GEMINI.md
 .claude
 CLAUDE.md
 .mcp.jsonCLAUDE.md
+
+# Ignore internal GitHub instruction files (kept locally but not tracked)
+.github/instructions/
 .claude/

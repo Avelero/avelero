@@ -25,7 +25,7 @@ const ControlBar = React.forwardRef<HTMLDivElement, ControlBarProps>(
     <div
       ref={ref}
       className={cn(
-        "w-full px-5 h-[56px] min-h-[56px] border-b border-border bg-background",
+        "w-full pl-5 pr-6 h-[56px] min-h-[56px] border-b border-border bg-background",
         "flex items-center justify-between flex-none",
         className,
       )}
@@ -56,7 +56,7 @@ const ControlBarRight = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex items-center gap-2 h-full", className)}
+    className={cn("flex items-center gap-3 h-full", className)}
     {...props}
   >
     {children}

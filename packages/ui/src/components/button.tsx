@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "../utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center text-p transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 p-2",
+  "inline-flex items-center justify-center transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 p-2 min-w-[70px]",
   {
     variants: {
       variant: {
@@ -22,11 +22,11 @@ const buttonVariants = cva(
         brand: "text-primary-foreground bg-brand hover:bg-brand/90",
       },
       size: {
-        default: "h-9 px-2 py-[10px]",
-        sm: "h-[30px]p-2",
-        lg: "px-8 py-2",
-        icon: "h-9 p-2", // 16x16 icon (default icon-only)
-        "icon-sm": "h-[30px] p-2", // 14x14 icon (smaller icon-only)
+        default: "h-9 px-2 py-[10px] text-[14px] leading-[16px]",
+        sm: "h-[30px] p-2 text-[14px] leading-[14px]",
+        lg: "px-8 py-2 text-[14px] leading-[16px]",
+        icon: "h-9 p-2 text-[14px] leading-[16px]", // 16x16 icon (default icon-only)
+        "icon-sm": "h-[30px] p-2 text-[14px] leading-[14px]", // 14x14 icon (smaller icon-only)
       },
     },
     defaultVariants: {
@@ -67,13 +67,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     // size="sm" or size="icon-sm" uses 14x14 icons
     // everything else (including size="icon") uses 16x16 icons
     const useSmallIcon = size === "sm" || size === "icon-sm";
-
-    // Icon and text size classes
     const iconSizeClass = useSmallIcon ? "h-[14px] w-[14px]" : "h-4 w-4";
-    const textSizeClass =
-      size === "sm"
-        ? "text-[14px] leading-[14px]"
-        : "text-[14px] leading-[16px]";
 
     return (
       <Comp
@@ -91,9 +85,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
               </span>
             )}
             {children && (
-              <span
-                className={cn("inline-flex items-center px-1", textSizeClass)}
-              >
+              <span className="inline-flex items-center px-1">
                 {children}
               </span>
             )}

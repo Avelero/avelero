@@ -1,10 +1,12 @@
-app = "avelero-api-staging"
+app = "avelero-api-pr-preview"
 primary_region = 'ams'
 
 [build]
+  dockerfile = "apps/api/Dockerfile"
 
 [env]
   PORT = '3000'
+  ALLOWED_API_ORIGINS = 'https://*.vercel.app,http://localhost:3000'
 
 [http_service]
   internal_port = 3000

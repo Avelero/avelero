@@ -123,4 +123,5 @@ GEMINI.md
 # tasks/ 
 .claude
 CLAUDE.md
-.mcp.json
+.mcp.jsonCLAUDE.md
+.claude/

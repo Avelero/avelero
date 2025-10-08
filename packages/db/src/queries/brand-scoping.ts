@@ -1,6 +1,6 @@
 import { and, eq, inArray, type SQL } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
-import { userRoleEnum, permissionTypeEnum } from "../schemas/enums";
+import { userRoleEnum, permissionTypeEnum } from "../extensions/enums";
 import {
   type BrandContext,
   type BrandAccessResult,
@@ -13,7 +13,7 @@ import {
   createBrandErrors,
   brandValidationConstraints,
   hasPermission,
-} from "../schemas/shared";
+} from "../extensions/shared";
 
 // ================================
 // Brand Scoping Query Utilities

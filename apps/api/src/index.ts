@@ -35,7 +35,7 @@ app.use(secureHeaders());
 app.use(
   "*",
   cors({
-    origin: process.env.ALLOWED_API_ORIGINS?.split(",") ?? ["*"], // Allow all origins in development, or specific origins in production
+  origin: process.env.ALLOWED_API_ORIGINS?.split(",") ?? ["http://localhost:3000"], // Safer default: only allow local dev origin when ALLOWED_API_ORIGINS is unset
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowHeaders: [
       "Authorization",
@@ -82,13 +82,16 @@ app.get("/health", (c) => {
   );
 });
 
+// TODO: DEBUG ENDPOINTS - remove these before deploying to production.
+// These endpoints expose internal system information and user data (e.g. /auth-debug exposes user emails and IDs).
+// They are intended for local development only.
 // Add a test endpoint for tRPC debugging
 app.get("/trpc-test", (c) => {
   return c.json(
     {
       status: "tRPC endpoint accessible",
       timestamp: new Date().toISOString(),
-      corsOrigins: process.env.ALLOWED_API_ORIGINS?.split(",") ?? ["*"],
+      corsOrigins: process.env.ALLOWED_API_ORIGINS?.split(",") ?? ["http://localhost:3000"],
     },
     200,
   );

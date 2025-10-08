@@ -12,7 +12,7 @@ import type {
   BrandContext,
   BrandMembership,
   UserContext,
-} from "@v1/db/schemas/shared";
+} from "@v1/db/extensions/shared";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
 import { ZodError } from "zod";
@@ -37,7 +37,9 @@ export interface TRPCContext {
   user: User | null;
   geo: GeoContext;
 
-  // Legacy brand context (maintained for backward compatibility)
+  // Basic brand id/role (temporary). Prefer using `brandContext` and `userContext`.
+  // These fields remain for now during migration and should be removed
+  // once all callers use the enhanced `brandContext` APIs.
   brandId?: string | null;
   role?: Role | null;
 
@@ -109,7 +111,9 @@ export async function createTRPCContextFromHeaders(
   const { data: userRes } = await supabase.auth.getUser(bearerToken);
   const user = userRes?.user ?? null;
 
-  // Legacy brand ID retrieval (maintained for backward compatibility)
+  // Basic brand ID retrieval (temporary). This populates `brandId` to ease
+  // migration; prefer `brandContext`/`userContext` and remove this block
+  // after completing the migration.
   let brandId: string | null | undefined = undefined;
   let brandContext: BrandContext | null = null;
   let userContext: UserContext | null = null;

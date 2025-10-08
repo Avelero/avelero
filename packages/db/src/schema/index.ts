@@ -39,17 +39,17 @@ export * from "./data/import-rows";
 export * from "./data/value-mappings";
 
 // Shared schemas
-export * from "../schemas/shared";
-// export * from "../schemas/enums"; // Commented out to avoid userRoleEnum conflict
-export * from "../schemas/validation-utils";
+export * from "../extensions/shared";
+// export * from "../extensions/enums"; // Commented out to avoid userRoleEnum conflict
+export * from "../extensions/validation-utils";
 
 // Module schema extensions (NEW: Task 1.3)
-export * from "../schemas/modules";
+export * from "../extensions/modules";
 
 // Templates and Modules module schemas (NEW: Task 5.1)
-export * from "../schemas/modules/templates";
-export * from "../schemas/modules/modules";
+export * from "../extensions/modules/templates";
+export * from "../extensions/modules/modules";
 
 // Cross-module relationship system (NEW: Task 7.1)
-export * from "../schemas/cross-module-includes";
-export * from "../schemas/cross-module-relationships";
+export * from "../extensions/cross-module-includes";
+export * from "../extensions/cross-module-relationships";

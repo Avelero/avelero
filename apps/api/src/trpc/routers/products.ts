@@ -17,7 +17,7 @@ import {
   productMetricsSchema,
   transformProductData,
   updateProductSchema,
-} from "@v1/db/schemas/modules";
+} from "@v1/db/extensions/modules";
 import {
   bulkStatusUpdateTransaction,
   createProductWithVariantsTransaction,

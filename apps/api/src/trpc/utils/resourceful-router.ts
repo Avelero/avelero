@@ -13,7 +13,7 @@ import {
   createSuccessGetResponse,
   createSuccessListResponse,
   createSuccessMutationResponse,
-} from "@v1/db/schemas/shared";
+} from "@v1/db/extensions/shared";
 import {
   and,
   asc,

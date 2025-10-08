@@ -33,3 +33,9 @@ export * from "./data/file-assets";
 export * from "./data/import-jobs";
 export * from "./data/import-rows";
 export * from "./data/value-mappings";
+
+// Passport schemas
+export * from "./passports/passports";
+export * from "./passports/passport-templates";
+export * from "./passports/passport-template-modules";
+export * from "./passports/passport-module-completion";

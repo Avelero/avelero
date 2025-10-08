@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure } from "../init";
 import { ROLES, type Role } from "../../config/roles";
+import { protectedProcedure } from "../init";
 
 /**
  * Middleware to check if the authenticated user has one of the allowed roles.

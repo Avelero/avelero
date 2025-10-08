@@ -42,26 +42,26 @@ export const products = pgTable(
       .notNull(),
   },
   (table) => [
-    // RLS policies
+    // RLS policies - both members and owners can perform all operations
     pgPolicy("products_select_for_brand_members", {
       as: "permissive",
       for: "select",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("products_insert_by_brand_owner", {
+    pgPolicy("products_insert_by_brand_members", {
       as: "permissive",
       for: "insert",
       to: ["authenticated"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("products_update_by_brand_owner", {
+    pgPolicy("products_update_by_brand_members", {
       as: "permissive",
       for: "update",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("products_delete_by_brand_owner", {
+    pgPolicy("products_delete_by_brand_members", {
       as: "permissive",
       for: "delete",
       to: ["authenticated"],

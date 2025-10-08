@@ -1,12 +1,30 @@
 "use client";
 
-import { PassportDataTable } from "../tables/passports";
-import * as React from "react";
-import { PassportControls } from "./passport-controls";
+import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
+import * as React from "react";
+import { PassportDataTable } from "../tables/passports";
+import type { SelectionState } from "../tables/passports/types";
+import { PassportControls } from "./passport-controls";
 
 export function TableSection() {
   const [selectedCount, setSelectedCount] = React.useState(0);
+  const [selection, setSelection] = React.useState<SelectionState>({
+    mode: "explicit",
+    includeIds: [],
+    excludeIds: [],
+  });
+  const [hasAnyPassports, setHasAnyPassports] = React.useState(true);
+
+  // Filter state management
+  const [filterState, filterActions] = useFilterState();
+
+  // Sort state management (UI only for now)
+  const [sortState, setSortState] = React.useState<{
+    field: string;
+    direction: "asc" | "desc";
+  } | null>(null);
+
   // Column preferences state (excludes locked `product` and fixed `actions`)
   const DEFAULT_VISIBLE: string[] = React.useMemo(
     () => ["status", "completion", "category", "season", "template"],
@@ -14,7 +32,10 @@ export function TableSection() {
   );
 
   const userQuery = useUserQuerySuspense();
-  const brandId = (userQuery.data as any)?.brand_id as string | null | undefined;
+  const brandId = (userQuery.data as any)?.brand_id as
+    | string
+    | null
+    | undefined;
   const userId = (userQuery.data as any)?.id as string | null | undefined;
 
   const buildCookieKeys = React.useCallback(() => {
@@ -51,7 +72,8 @@ export function TableSection() {
       if (typeof document === "undefined") return;
       const base = "avelero.passports.columns.v1";
       let key = base;
-      if (scope === "specific" && brandId && userId) key = `${base}:${brandId}:${userId}`;
+      if (scope === "specific" && brandId && userId)
+        key = `${base}:${brandId}:${userId}`;
       else if (scope === "brand" && brandId) key = `${base}:${brandId}`;
       else if (scope === "user" && userId) key = `${base}::user:${userId}`;
       const value = encodeURIComponent(JSON.stringify({ visible }));
@@ -89,7 +111,8 @@ export function TableSection() {
     [brandId, userId, writeCookie, deleteCookie],
   );
 
-  const [visibleColumns, setVisibleColumns] = React.useState<string[]>(DEFAULT_VISIBLE);
+  const [visibleColumns, setVisibleColumns] =
+    React.useState<string[]>(DEFAULT_VISIBLE);
 
   React.useEffect(() => {
     const saved = readCookie();
@@ -124,6 +147,8 @@ export function TableSection() {
       status: false,
       completion: false,
       category: false,
+      color: false,
+      size: false,
       season: false,
       template: false,
     };
@@ -136,6 +161,8 @@ export function TableSection() {
       { id: "status", label: "Status" },
       { id: "completion", label: "Completion" },
       { id: "category", label: "Category" },
+      { id: "color", label: "Color" },
+      { id: "size", label: "Size" },
       { id: "season", label: "Season" },
       { id: "template", label: "Template" },
     ],
@@ -145,17 +172,30 @@ export function TableSection() {
     <div className="w-full">
       <PassportControls
         selectedCount={selectedCount}
+        disabled={!hasAnyPassports}
+        selection={selection}
+        onClearSelectionAction={() => {
+          setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+        }}
         displayProps={{
           productLabel: "Product",
           allColumns: allCustomizable,
           initialVisible: visibleColumns,
           onSave: handleSavePrefs,
         }}
+        filterState={filterState}
+        filterActions={filterActions}
+        sortState={sortState}
+        onSortChange={setSortState}
       />
       <PassportDataTable
+        onTotalCountChangeAction={setHasAnyPassports}
         onSelectionChangeAction={setSelectedCount}
+        selection={selection}
+        onSelectionStateChangeAction={setSelection}
         columnOrder={columnOrder}
         columnVisibility={columnVisibility}
+        filterState={filterState}
       />
     </div>
   );

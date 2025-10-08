@@ -1,7 +1,18 @@
 "use client";
 
-import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -26,7 +37,11 @@ interface RowState extends DisplayColumnItem {
   checked: boolean;
 }
 
-function CheckboxLike({ checked, onChange, ariaLabel }: { checked: boolean; onChange: (next: boolean) => void; ariaLabel: string; }) {
+function CheckboxLike({
+  checked,
+  onChange,
+  ariaLabel,
+}: { checked: boolean; onChange: (next: boolean) => void; ariaLabel: string }) {
   return (
     <div className="relative inline-flex h-4 w-4 items-center justify-center">
       <input
@@ -46,11 +61,23 @@ function CheckboxLike({ checked, onChange, ariaLabel }: { checked: boolean; onCh
   );
 }
 
-function SortableRow({ item, onToggle }: { item: RowState; onToggle: (id: string, next: boolean) => void; }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+function SortableRow({
+  item,
+  onToggle,
+}: { item: RowState; onToggle: (id: string, next: boolean) => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
+    position: isDragging ? ("relative" as const) : undefined,
+    zIndex: isDragging ? 10000 : undefined,
   };
 
   return (
@@ -72,15 +99,26 @@ function SortableRow({ item, onToggle }: { item: RowState; onToggle: (id: string
       >
         <Icons.GripVertical className="h-4 w-4" />
       </button>
-      <div className="flex-1 truncate text-p text-primary">{item.label}</div>
-      <CheckboxLike checked={item.checked} onChange={(n) => onToggle(item.id, n)} ariaLabel={`Toggle ${item.label}`} />
+      <div className="flex-1 truncate type-p text-primary">{item.label}</div>
+      <CheckboxLike
+        checked={item.checked}
+        onChange={(n) => onToggle(item.id, n)}
+        ariaLabel={`Toggle ${item.label}`}
+      />
     </div>
   );
 }
 
-export function DisplayPopover({ trigger, productLabel = "Product", allColumns, initialVisible, onSave }: DisplayPopoverProps) {
+export function DisplayPopover({
+  trigger,
+  productLabel = "Product",
+  allColumns,
+  initialVisible,
+  onSave,
+}: DisplayPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [rows, setRows] = React.useState<RowState[]>([]);
+  const [isDraggingAny, setIsDraggingAny] = React.useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -90,7 +128,9 @@ export function DisplayPopover({ trigger, productLabel = "Product", allColumns, 
     const visibleSet = new Set(initialVisible);
     const visibleOrdered = allColumns
       .filter((c) => visibleSet.has(c.id))
-      .sort((a, b) => initialVisible.indexOf(a.id) - initialVisible.indexOf(b.id))
+      .sort(
+        (a, b) => initialVisible.indexOf(a.id) - initialVisible.indexOf(b.id),
+      )
       .map((c) => ({ ...c, checked: true }));
     const hiddenOrdered = allColumns
       .filter((c) => !visibleSet.has(c.id))
@@ -113,7 +153,9 @@ export function DisplayPopover({ trigger, productLabel = "Product", allColumns, 
   };
 
   const handleToggle = (id: string, next: boolean) => {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, checked: next } : r)));
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, checked: next } : r)),
+    );
   };
 
   const handleSave = () => {
@@ -122,30 +164,62 @@ export function DisplayPopover({ trigger, productLabel = "Product", allColumns, 
     setOpen(false);
   };
 
+  const handleDragStart = React.useCallback(() => {
+    setIsDraggingAny(true);
+  }, []);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align="end" className="w-[360px] p-0">
-        <div className="flex flex-col max-h-[360px] overflow-auto p-2 gap-2">
+      <PopoverContent align="end" className="w-[360px] p-0 overflow-visible">
+        <div
+          className={cn(
+            "flex flex-col max-h-[360px] p-2 gap-2",
+            isDraggingAny ? "overflow-visible" : "overflow-auto",
+          )}
+        >
           {/* Locked Product row */}
-        <div className="flex h-10 items-center gap-3 px-3 border border-border bg-background">
+          <div className="flex h-10 min-h-10 items-center gap-3 px-3 border border-border bg-background">
             <Icons.Lock className="h-4 w-4 text-tertiary" />
-            <div className="flex-1 truncate text-p text-primary">{productLabel}</div>
+            <div className="flex-1 truncate type-p text-primary">
+              {productLabel}
+            </div>
             <div className="h-4 w-4" />
-        </div>
+          </div>
 
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-                <div className="flex flex-col gap-2">
-              {rows.map((item) => (
-                  <SortableRow key={item.id} item={item} onToggle={handleToggle} />
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={(event) => {
+              handleDragEnd(event);
+              setIsDraggingAny(false);
+            }}
+            onDragCancel={() => setIsDraggingAny(false)}
+          >
+            <SortableContext
+              items={rows.map((r) => r.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex flex-col gap-2">
+                {rows.map((item) => (
+                  <SortableRow
+                    key={item.id}
+                    item={item}
+                    onToggle={handleToggle}
+                  />
                 ))}
               </div>
             </SortableContext>
           </DndContext>
         </div>
         <div className="border-t border-border p-2">
-          <Button variant="brand" size="sm" className="w-full" onClick={handleSave}>
+          <Button
+            variant="brand"
+            size="sm"
+            className="w-full"
+            onClick={handleSave}
+          >
             Save
           </Button>
         </div>
@@ -153,5 +227,3 @@ export function DisplayPopover({ trigger, productLabel = "Product", allColumns, 
     </Popover>
   );
 }
-
-

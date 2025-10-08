@@ -62,8 +62,8 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
           name={membership.name}
         />
         <div className="flex flex-col">
-          <span className="text-p !font-medium">{membership.name}</span>
-          <span className="text-p text-secondary">
+          <span className="type-p !font-medium">{membership.name}</span>
+          <span className="type-p text-secondary">
             {membership.role === "owner" ? "Owner" : "Member"}
           </span>
         </div>
@@ -131,8 +131,8 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
           name={invite.brand.name}
         />
         <div className="flex flex-col">
-          <span className="text-p !font-medium">{invite.brand.name}</span>
-          <span className="text-p text-secondary">
+          <span className="type-p !font-medium">{invite.brand.name}</span>
+          <span className="type-p text-secondary">
             {invite.role === "owner" ? "Owner" : "Member"}
           </span>
         </div>

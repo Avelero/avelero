@@ -2,9 +2,11 @@ app = 'avelero-api'
 primary_region = 'ams'
 
 [build]
+  dockerfile = "Dockerfile"
 
 [env]
   PORT = '3000'
+  ALLOWED_API_ORIGINS = 'https://app.avelero.com,http://localhost:3000'
 
 [http_service]
   internal_port = 3000

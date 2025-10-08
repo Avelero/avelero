@@ -1,5 +1,7 @@
 import { and, asc, count, desc, eq, ilike, isNotNull } from "drizzle-orm";
 import type { Database } from "../client";
+import { evaluateAndUpsertCompletion } from "../completion/evaluate";
+import type { ModuleKey } from "../completion/module-keys";
 import {
   brandCertifications,
   brandColors,
@@ -92,20 +94,35 @@ export async function createProduct(
     primaryImageUrl?: string;
   },
 ) {
-  const [row] = await db
-    .insert(products)
-    .values({
-      brandId,
-      name: input.name,
-      description: input.description ?? null,
-      categoryId: input.categoryId ?? null,
-      season: input.season ?? null,
-      brandCertificationId: input.brandCertificationId ?? null,
-      showcaseBrandId: input.showcaseBrandId ?? null,
-      primaryImageUrl: input.primaryImageUrl ?? null,
-    })
-    .returning({ id: products.id });
-  return row;
+  let created: { id: string } | undefined;
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(products)
+      .values({
+        brandId,
+        name: input.name,
+        description: input.description ?? null,
+        categoryId: input.categoryId ?? null,
+        season: input.season ?? null,
+        brandCertificationId: input.brandCertificationId ?? null,
+        showcaseBrandId: input.showcaseBrandId ?? null,
+        primaryImageUrl: input.primaryImageUrl ?? null,
+      })
+      .returning({ id: products.id });
+    created = row;
+    if (row?.id) {
+      // Evaluate only core module for product basics
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        row.id,
+        {
+          onlyModules: ["core"] as ModuleKey[],
+        },
+      );
+    }
+  });
+  return created;
 }
 
 export async function updateProduct(
@@ -122,20 +139,34 @@ export async function updateProduct(
     primaryImageUrl?: string | null;
   },
 ) {
-  const [row] = await db
-    .update(products)
-    .set({
-      name: input.name,
-      description: input.description ?? null,
-      categoryId: input.categoryId ?? null,
-      season: input.season ?? null,
-      brandCertificationId: input.brandCertificationId ?? null,
-      showcaseBrandId: input.showcaseBrandId ?? null,
-      primaryImageUrl: input.primaryImageUrl ?? null,
-    })
-    .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
-    .returning({ id: products.id });
-  return row;
+  let updated: { id: string } | undefined;
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(products)
+      .set({
+        name: input.name,
+        description: input.description ?? null,
+        categoryId: input.categoryId ?? null,
+        season: input.season ?? null,
+        brandCertificationId: input.brandCertificationId ?? null,
+        showcaseBrandId: input.showcaseBrandId ?? null,
+        primaryImageUrl: input.primaryImageUrl ?? null,
+      })
+      .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
+      .returning({ id: products.id });
+    updated = row;
+    if (row?.id) {
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        row.id,
+        {
+          onlyModules: ["core"] as ModuleKey[],
+        },
+      );
+    }
+  });
+  return updated;
 }
 
 export async function deleteProduct(db: Database, brandId: string, id: string) {
@@ -203,18 +234,40 @@ export async function createVariant(
     productImageUrl?: string;
   },
 ) {
-  const [row] = await db
-    .insert(productVariants)
-    .values({
-      productId,
-      colorId: input.colorId ?? null,
-      sizeId: input.sizeId ?? null,
-      sku: input.sku ?? null,
-      upid: input.upid,
-      productImageUrl: input.productImageUrl ?? null,
-    })
-    .returning({ id: productVariants.id });
-  return row;
+  let created: { id: string } | undefined;
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(productVariants)
+      .values({
+        productId,
+        colorId: input.colorId ?? null,
+        sizeId: input.sizeId ?? null,
+        sku: input.sku ?? null,
+        upid: input.upid,
+        productImageUrl: input.productImageUrl ?? null,
+      })
+      .returning({ id: productVariants.id });
+    created = row;
+    if (row?.id) {
+      // Need brandId for evaluator: read via product
+      const [{ brandId } = { brandId: undefined } as any] = await tx
+        .select({ brandId: products.brandId })
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1);
+      if (brandId) {
+        await evaluateAndUpsertCompletion(
+          tx as unknown as Database,
+          brandId,
+          productId,
+          {
+            onlyModules: ["core"] as ModuleKey[],
+          },
+        );
+      }
+    }
+  });
+  return created;
 }
 
 export async function updateVariant(
@@ -228,18 +281,42 @@ export async function updateVariant(
     productImageUrl?: string | null;
   },
 ) {
-  const [row] = await db
-    .update(productVariants)
-    .set({
-      colorId: input.colorId ?? null,
-      sizeId: input.sizeId ?? null,
-      sku: input.sku ?? null,
-      upid: input.upid,
-      productImageUrl: input.productImageUrl ?? null,
-    })
-    .where(eq(productVariants.id, id))
-    .returning({ id: productVariants.id });
-  return row;
+  let updated: { id: string } | undefined;
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(productVariants)
+      .set({
+        colorId: input.colorId ?? null,
+        sizeId: input.sizeId ?? null,
+        sku: input.sku ?? null,
+        upid: input.upid,
+        productImageUrl: input.productImageUrl ?? null,
+      })
+      .where(eq(productVariants.id, id))
+      .returning({
+        id: productVariants.id,
+        productId: productVariants.productId,
+      });
+    updated = row ? { id: row.id } : undefined;
+    if (row?.productId) {
+      const [{ brandId } = { brandId: undefined } as any] = await tx
+        .select({ brandId: products.brandId })
+        .from(products)
+        .where(eq(products.id, row.productId))
+        .limit(1);
+      if (brandId) {
+        await evaluateAndUpsertCompletion(
+          tx as unknown as Database,
+          brandId,
+          row.productId,
+          {
+            onlyModules: ["core"] as ModuleKey[],
+          },
+        );
+      }
+    }
+  });
+  return updated;
 }
 
 export async function deleteVariant(db: Database, id: string) {

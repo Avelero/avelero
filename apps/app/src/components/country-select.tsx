@@ -1,20 +1,10 @@
 "use client";
 
 import { countries } from "@v1/location/countries";
-import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@v1/ui/command";
-import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { useEffect, useMemo, useState } from "react";
+import { Select } from "@v1/ui/select";
+import { useMemo } from "react";
 
 interface CountrySelectProps {
   id: string;
@@ -33,68 +23,26 @@ export function CountrySelect({
   onChange,
   className,
 }: CountrySelectProps) {
-  const [open, setOpen] = useState(false);
-  const [internal, setInternal] = useState(value);
-
-  useEffect(() => {
-    if (internal !== value) setInternal(value);
-  }, [value, internal]);
-
-  const options = useMemo(() => Object.values(countries), []);
-  const selected = useMemo(
-    () => options.find((c) => c.code === internal || c.name === internal),
-    [options, internal],
+  const options = useMemo(
+    () => Object.values(countries).map((c) => ({ value: c.code, label: c.name })),
+    [],
   );
 
   return (
     <div className={cn("flex flex-col gap-1 w-full", className)}>
       {label && <Label htmlFor={id}>{label}</Label>}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="default"
-            aria-expanded={open}
-            className="w-full justify-between items-center text-p text-foreground truncate"
-          >
-            {internal ? selected?.name : placeholder}
-            <Icons.ChevronDown className="h-4 w-4" strokeWidth={1.5} />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[280px] p-0" align="start">
-          <Command loop>
-            <CommandInput
-              placeholder="Search country..."
-              className="h-9 px-2"
-              autoComplete="off"
-            />
-            <CommandEmpty>No country found.</CommandEmpty>
-            <CommandGroup>
-              <CommandList className="overflow-y-auto max-h-[222px] scrollbar-none [&::-webkit-scrollbar]:hidden">
-                {options.map((country) => (
-                  <CommandItem
-                    key={country.code}
-                    value={country.name}
-                    onSelect={() => {
-                      setInternal(country.code);
-                      onChange(country.code, country.name);
-                      setOpen(false);
-                    }}
-                  >
-                    {country.name}
-                    <Icons.Check
-                      className={cn(
-                        "ml-auto h-4 w-4",
-                        internal === country.code ? "opacity-100" : "opacity-0",
-                      )}
-                    />
-                  </CommandItem>
-                ))}
-              </CommandList>
-            </CommandGroup>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <Select
+        options={options}
+        value={value}
+        onValueChange={(code) => {
+          const country = countries[code as keyof typeof countries];
+          onChange(code, country?.name);
+        }}
+        placeholder={placeholder}
+        searchable
+        searchPlaceholder="Search country..."
+        inline
+      />
     </div>
   );
 }

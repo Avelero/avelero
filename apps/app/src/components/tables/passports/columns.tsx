@@ -50,34 +50,60 @@ export const columns: ColumnDef<Passport>[] = [
         "relative min-w-[260px] max-w-[680px] sticky left-0 z-[12] bg-background border-r-0",
         "before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-border",
         // Sync background with row hover/selected
-        "[tr:hover_&]:bg-accent-blue [tr[data-state=selected]_&]:bg-accent-blue",
+        "[tr:hover_&]:bg-accent-light [tr[data-state=selected]_&]:bg-accent-blue",
       ),
     },
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       const router = useRouter();
       const product = row.original;
+      const meta = table.options.meta as
+        | { handleRangeSelection?: (index: number, shift: boolean, id: string) => void }
+        | undefined;
 
       return (
         <div className="flex h-full items-center gap-4">
-          <div className="relative inline-flex h-4 w-4 items-center justify-center">
+          <label 
+            className="relative inline-flex h-4 w-4 items-center justify-center cursor-pointer before:absolute before:right-[-12px] before:left-[-16px] before:top-[-21px] before:bottom-[-21px] before:content-['']"
+            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => {
+              // Prevent text selection on shift-click
+              if (event.shiftKey) {
+                event.preventDefault();
+              }
+            }}
+          >
             <input
               type="checkbox"
               aria-label={`Select ${product.title}`}
-              className="block h-4 w-4 shrink-0 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand cursor-pointer"
+              className="block h-4 w-4 shrink-0 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand cursor-pointer outline-none focus:outline-none"
               checked={row.getIsSelected()}
-              onChange={(event) => row.toggleSelected(event.target.checked)}
-              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                const shiftKey = (event.nativeEvent as MouseEvent).shiftKey;
+                
+                // Prevent focus ring on checkbox
+                (event.target as HTMLInputElement).blur();
+                
+                // For range selection (shift-click), let handleRangeSelection handle everything
+                // For regular clicks, toggle immediately for instant feedback
+                if (!shiftKey) {
+                  row.toggleSelected(checked);
+                }
+                
+                // Handle range selection or update last clicked index
+                meta?.handleRangeSelection?.(row.index, shiftKey, product.id);
+              }}
             />
             {row.getIsSelected() && (
               <div className="absolute top-0 left-0 w-4 h-4 flex items-center justify-center pointer-events-none">
                 <div className="w-[10px] h-[10px] bg-brand" />
               </div>
             )}
-          </div>
+          </label>
           <div className="min-w-0 max-w-[680px] space-y-1">
             <button
               type="button"
-              className="block max-w-full truncate text-p text-primary hover:text-brand cursor-pointer"
+              className="block max-w-full truncate type-p text-primary hover:text-brand cursor-pointer"
               onClick={(event) => {
                 event.stopPropagation();
                 router.push(`/passports/${product.id}`);
@@ -86,7 +112,7 @@ export const columns: ColumnDef<Passport>[] = [
               {product.title}
             </button>
             {product.sku ? (
-              <span className="block max-w-full truncate text-small text-secondary">
+              <span className="block max-w-full truncate type-small text-secondary">
                 {product.sku}
               </span>
             ) : null}
@@ -114,7 +140,7 @@ export const columns: ColumnDef<Passport>[] = [
       return (
         <div className="flex items-center gap-3">
           <Icon className="h-[14px] w-[14px]" />
-          <span className="truncate text-p text-primary capitalize">
+          <span className="truncate type-p text-primary capitalize">
             {status}
           </span>
         </div>
@@ -130,7 +156,7 @@ export const columns: ColumnDef<Passport>[] = [
     id: "completion",
     header: "Completion",
     cell: ({ row }) => {
-      const { completedSections, totalSections } = row.original;
+      const { completedSections, totalSections, modules } = row.original;
       const clamped = Math.max(0, Math.min(totalSections, completedSections));
       const stepped = Math.round((clamped / totalSections) * 6);
       const pct = (stepped / 6) * 100;
@@ -140,7 +166,7 @@ export const columns: ColumnDef<Passport>[] = [
             <Tooltip>
               <TooltipTrigger asChild>
                 <div
-                  className="text-p flex items-center gap-1"
+                  className="type-p flex items-center gap-1"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="text-primary w-3 text-center">
@@ -157,17 +183,25 @@ export const columns: ColumnDef<Passport>[] = [
                 className="w-[240px] p-2 cursor-default"
               >
                 <div className="space-y-1.5">
-                  {Array.from({ length: totalSections }).map((_, i) => (
+                  {(modules?.length
+                    ? modules
+                    : Array.from({ length: totalSections }).map((_, i) => ({
+                        key: `section_${i + 1}`,
+                        completed: i < completedSections,
+                      }))
+                  ).map((m, i) => (
                     <div
-                      key={`section-${row.id}-${i}`}
-                      className="flex items-center gap-2 text-small "
+                      key={`section-${row.id}-${m.key}-${i}`}
+                      className="flex items-center gap-2 type-small "
                     >
-                      {i < completedSections ? (
+                      {m.completed ? (
                         <Icons.Check className="h-[14px] w-[14px] text-brand" />
                       ) : (
                         <span className="h-[14px] w-[14px] shrink-0" />
                       )}
-                      <span>Section {i + 1}</span>
+                      <span className="capitalize">
+                        {m.key.replaceAll("_", " ")}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -214,7 +248,7 @@ export const columns: ColumnDef<Passport>[] = [
                     {i > 0 ? (
                       <Icons.ChevronRight className="h-[14px] w-[14px]" />
                     ) : null}
-                    <span className="text-small">{segment}</span>
+                    <span className="type-small">{segment}</span>
                   </span>
                 ))}
               </div>
@@ -228,12 +262,40 @@ export const columns: ColumnDef<Passport>[] = [
       cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
     },
   },
+  // 5b) Color (simple text)
+  {
+    id: "color",
+    header: "Color",
+    cell: ({ row }) => (
+      <span className="inline-block max-w-[200px] truncate align-middle">
+        {row.original.color ?? "-"}
+      </span>
+    ),
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
+  },
+  // 5c) Size (simple text)
+  {
+    id: "size",
+    header: "Size",
+    cell: ({ row }) => (
+      <span className="inline-block max-w-[200px] truncate align-middle">
+        {row.original.size ?? "-"}
+      </span>
+    ),
+    meta: {
+      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+    },
+  },
   // 6) Season chip
   {
     accessorKey: "season",
     header: "Season",
     cell: ({ row }) => (
-      <span className="inline-flex h-6 items-center rounded-full border bg-background px-2 text-small text-primary">
+      <span className="inline-flex h-6 items-center rounded-full border bg-background px-2 type-small text-primary">
         {row.original.season ?? "-"}
       </span>
     ),
@@ -250,7 +312,7 @@ export const columns: ColumnDef<Passport>[] = [
       const tpl = row.original.template;
       if (!tpl) return <span className="text-muted-foreground">-</span>;
       return (
-        <span className="inline-flex h-6 max-w-[220px] items-center gap-[6px] truncate rounded-full border bg-background px-2 text-small text-primary">
+        <span className="inline-flex h-6 max-w-[220px] items-center gap-[6px] truncate rounded-full border bg-background px-2 type-small text-primary">
           <span
             className="h-2 w-2 shrink-0 rounded-full"
             style={{ backgroundColor: tpl.color }}

@@ -101,7 +101,7 @@ node_modules/
 mcp.json
 
 #prompts
-./prompts
+.prompts
 
 #rules
 .cursor

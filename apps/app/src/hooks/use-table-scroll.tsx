@@ -100,7 +100,10 @@ export function useTableScroll(
         accumulatedWidth += widths[i] ?? 0;
         visibleColumn = i + 1;
       }
-      currentColumnIndex.current = Math.min(visibleColumn, positions.length - 1);
+      currentColumnIndex.current = Math.min(
+        visibleColumn,
+        positions.length - 1,
+      );
       return;
     }
 

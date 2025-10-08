@@ -105,7 +105,7 @@ export function OTPSignIn({ className }: Props) {
           </Button>
         </div>
 
-        <div className="flex items-center justify-center gap-1 text-small text-secondary">
+        <div className="flex items-center justify-center gap-1 type-small text-secondary">
           <span>Didn't receive an email?</span>
           <button
             onClick={() => setSent(false)}

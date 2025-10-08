@@ -4,6 +4,8 @@ import { brandCatalogRouter } from "./brand-catalog.js";
 import { brandRouter } from "./brand.js";
 import { catalogRouter } from "./catalog.js";
 import { importsRouter } from "./imports.js";
+import { passportTemplatesRouter } from "./passport-templates.js";
+import { passportsRouter } from "./passports.js";
 import { productAttributesRouter } from "./product-attributes.js";
 import { productsRouter } from "./products.js";
 import { userRouter } from "./user.js";
@@ -16,6 +18,8 @@ export const appRouter = createTRPCRouter({
   products: productsRouter,
   productAttributes: productAttributesRouter,
   imports: importsRouter,
+  passports: passportsRouter,
+  passportTemplates: passportTemplatesRouter,
 });
 
 export type AppRouter = typeof appRouter;

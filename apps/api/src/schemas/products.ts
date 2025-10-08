@@ -72,4 +72,3 @@ export const upsertVariantIdentifierSchema = z.object({
   id_type: z.string().min(1),
   value: z.string().min(1),
 });
-

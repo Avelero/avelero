@@ -84,12 +84,8 @@
           "tableFrom": "users",
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": [
-            "id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -99,9 +95,7 @@
         "users_email_key": {
           "name": "users_email_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {
@@ -109,34 +103,26 @@
           "name": "users_insert_by_service",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "service_role"
-          ],
+          "to": ["service_role"],
           "withCheck": "true"
         },
         "select_own_profile": {
           "name": "select_own_profile",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "public"
-          ]
+          "to": ["public"]
         },
         "update_own_profile": {
           "name": "update_own_profile",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "users_select_for_brand_members": {
           "name": "users_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         }
       },
       "checkConstraints": {
@@ -246,42 +232,32 @@
           "name": "brands_update_by_owner",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated"
-          ],
+          "to": ["authenticated"],
           "using": "is_brand_owner(id)"
         },
         "brands_delete_by_owner": {
           "name": "brands_delete_by_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "brands_select_for_invite_recipients": {
           "name": "brands_select_for_invite_recipients",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "brands_select_for_members": {
           "name": "brands_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "brands_insert_by_authenticated": {
           "name": "brands_insert_by_authenticated",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         }
       },
       "checkConstraints": {
@@ -398,12 +374,8 @@
           "name": "users_on_brand_user_id_users_id_fk",
           "tableFrom": "users_on_brand",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -411,12 +383,8 @@
           "name": "users_on_brand_brand_id_brands_id_fk",
           "tableFrom": "users_on_brand",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -426,10 +394,7 @@
         "users_on_brand_user_id_brand_id_key": {
           "name": "users_on_brand_user_id_brand_id_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "brand_id"
-          ]
+          "columns": ["user_id", "brand_id"]
         }
       },
       "policies": {
@@ -437,42 +402,32 @@
           "name": "users_on_brand_update_by_owner",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated"
-          ],
+          "to": ["authenticated"],
           "using": "is_brand_owner(brand_id)"
         },
         "users_on_brand_select_for_members": {
           "name": "users_on_brand_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "users_on_brand_delete_self": {
           "name": "users_on_brand_delete_self",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "users_on_brand_delete_owner_non_owner": {
           "name": "users_on_brand_delete_owner_non_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "users_on_brand_insert_first_owner_self": {
           "name": "users_on_brand_insert_first_owner_self",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         }
       },
       "checkConstraints": {
@@ -640,12 +595,8 @@
           "name": "brand_invites_brand_id_brands_id_fk",
           "tableFrom": "brand_invites",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -657,50 +608,38 @@
           "name": "brand_invites_update_by_owner",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": [
-            "authenticated"
-          ],
+          "to": ["authenticated"],
           "using": "is_brand_owner(brand_id)"
         },
         "brand_invites_insert_by_owner": {
           "name": "brand_invites_insert_by_owner",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "brand_invites_delete_by_owner": {
           "name": "brand_invites_delete_by_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "brand_invites_select_for_recipient": {
           "name": "brand_invites_select_for_recipient",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "brand_invites_delete_by_recipient": {
           "name": "brand_invites_delete_by_recipient",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         },
         "brand_invites_select_for_members": {
           "name": "brand_invites_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": [
-            "authenticated"
-          ]
+          "to": ["authenticated"]
         }
       },
       "checkConstraints": {
@@ -792,12 +731,8 @@
           "name": "categories_parent_id_categories_id_fk",
           "tableFrom": "categories",
           "tableTo": "categories",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -906,12 +841,8 @@
           "name": "brand_certifications_brand_id_brands_id_fk",
           "tableFrom": "brand_certifications",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -919,12 +850,8 @@
           "name": "brand_certifications_file_asset_id_file_assets_id_fk",
           "tableFrom": "brand_certifications",
           "tableTo": "file_assets",
-          "columnsFrom": [
-            "file_asset_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["file_asset_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -1014,12 +941,8 @@
           "name": "brand_collections_brand_id_brands_id_fk",
           "tableFrom": "brand_collections",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1096,12 +1019,8 @@
           "name": "brand_colors_brand_id_brands_id_fk",
           "tableFrom": "brand_colors",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1178,12 +1097,8 @@
           "name": "brand_eco_claims_brand_id_brands_id_fk",
           "tableFrom": "brand_eco_claims",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1274,12 +1189,8 @@
           "name": "brand_facilities_brand_id_brands_id_fk",
           "tableFrom": "brand_facilities",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1352,12 +1263,8 @@
           "name": "brand_materials_brand_id_brands_id_fk",
           "tableFrom": "brand_materials",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -1365,12 +1272,8 @@
           "name": "brand_materials_certification_id_brand_certifications_id_fk",
           "tableFrom": "brand_materials",
           "tableTo": "brand_certifications",
-          "columnsFrom": [
-            "certification_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["certification_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -1459,12 +1362,8 @@
           "name": "brand_services_brand_id_brands_id_fk",
           "tableFrom": "brand_services",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1559,12 +1458,8 @@
           "name": "brand_sizes_brand_id_brands_id_fk",
           "tableFrom": "brand_sizes",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -1572,12 +1467,8 @@
           "name": "brand_sizes_category_id_categories_id_fk",
           "tableFrom": "brand_sizes",
           "tableTo": "categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -1788,12 +1679,8 @@
           "name": "showcase_brands_brand_id_brands_id_fk",
           "tableFrom": "showcase_brands",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -1884,12 +1771,8 @@
           "name": "products_brand_id_brands_id_fk",
           "tableFrom": "products",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -1897,12 +1780,8 @@
           "name": "products_showcase_brand_id_showcase_brands_id_fk",
           "tableFrom": "products",
           "tableTo": "showcase_brands",
-          "columnsFrom": [
-            "showcase_brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["showcase_brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -1910,12 +1789,8 @@
           "name": "products_category_id_categories_id_fk",
           "tableFrom": "products",
           "tableTo": "categories",
-          "columnsFrom": [
-            "category_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -1923,12 +1798,8 @@
           "name": "products_brand_certification_id_brand_certifications_id_fk",
           "tableFrom": "products",
           "tableTo": "brand_certifications",
-          "columnsFrom": [
-            "brand_certification_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_certification_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -2007,12 +1878,8 @@
           "name": "product_variants_product_id_products_id_fk",
           "tableFrom": "product_variants",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -2020,12 +1887,8 @@
           "name": "product_variants_color_id_brand_colors_id_fk",
           "tableFrom": "product_variants",
           "tableTo": "brand_colors",
-          "columnsFrom": [
-            "color_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["color_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         },
@@ -2033,12 +1896,8 @@
           "name": "product_variants_size_id_brand_sizes_id_fk",
           "tableFrom": "product_variants",
           "tableTo": "brand_sizes",
-          "columnsFrom": [
-            "size_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["size_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }
@@ -2121,12 +1980,8 @@
           "name": "product_materials_product_id_products_id_fk",
           "tableFrom": "product_materials",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -2134,12 +1989,8 @@
           "name": "product_materials_brand_material_id_brand_materials_id_fk",
           "tableFrom": "product_materials",
           "tableTo": "brand_materials",
-          "columnsFrom": [
-            "brand_material_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_material_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "cascade"
         }
@@ -2228,12 +2079,8 @@
           "name": "product_journey_steps_product_id_products_id_fk",
           "tableFrom": "product_journey_steps",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -2241,12 +2088,8 @@
           "name": "product_journey_steps_facility_id_brand_facilities_id_fk",
           "tableFrom": "product_journey_steps",
           "tableTo": "brand_facilities",
-          "columnsFrom": [
-            "facility_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["facility_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "cascade"
         }
@@ -2300,12 +2143,8 @@
           "name": "product_environment_product_id_products_id_fk",
           "tableFrom": "product_environment",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -2394,12 +2233,8 @@
           "name": "product_identifiers_product_id_products_id_fk",
           "tableFrom": "product_identifiers",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -2488,12 +2323,8 @@
           "name": "product_variant_identifiers_variant_id_product_variants_id_fk",
           "tableFrom": "product_variant_identifiers",
           "tableTo": "product_variants",
-          "columnsFrom": [
-            "variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -2570,12 +2401,8 @@
           "name": "product_eco_claims_product_id_products_id_fk",
           "tableFrom": "product_eco_claims",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -2583,12 +2410,8 @@
           "name": "product_eco_claims_eco_claim_id_brand_eco_claims_id_fk",
           "tableFrom": "product_eco_claims",
           "tableTo": "brand_eco_claims",
-          "columnsFrom": [
-            "eco_claim_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["eco_claim_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "cascade"
         }
@@ -2665,12 +2488,8 @@
           "name": "product_care_codes_product_id_products_id_fk",
           "tableFrom": "product_care_codes",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         },
@@ -2678,12 +2497,8 @@
           "name": "product_care_codes_care_code_id_care_codes_id_fk",
           "tableFrom": "product_care_codes",
           "tableTo": "care_codes",
-          "columnsFrom": [
-            "care_code_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["care_code_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "cascade"
         }
@@ -2771,12 +2586,8 @@
           "name": "file_assets_brand_id_brands_id_fk",
           "tableFrom": "file_assets",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -2843,12 +2654,8 @@
           "name": "import_jobs_brand_id_brands_id_fk",
           "tableFrom": "import_jobs",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -2943,12 +2750,8 @@
           "name": "import_rows_job_id_import_jobs_id_fk",
           "tableFrom": "import_rows",
           "tableTo": "import_jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }
@@ -3042,12 +2845,8 @@
           "name": "value_mappings_brand_id_brands_id_fk",
           "tableFrom": "value_mappings",
           "tableTo": "brands",
-          "columnsFrom": [
-            "brand_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["brand_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "cascade"
         }

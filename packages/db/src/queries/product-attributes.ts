@@ -1,11 +1,14 @@
 import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import type { Database } from "../client";
+import { evaluateAndUpsertCompletion } from "../completion/evaluate";
+import type { ModuleKey } from "../completion/module-keys";
 import {
   productCareCodes,
   productEcoClaims,
   productEnvironment,
   productJourneySteps,
   productMaterials,
+  products,
 } from "../schema";
 
 export async function upsertProductMaterials(
@@ -13,22 +16,45 @@ export async function upsertProductMaterials(
   productId: string,
   items: { brandMaterialId: string; percentage?: string | number }[],
 ) {
-  // Replace existing rows for product with provided set (idempotent by unique index)
-  await db
-    .delete(productMaterials)
-    .where(eq(productMaterials.productId, productId));
-  if (!items.length) return { count: 0 } as const;
-  const rows = await db
-    .insert(productMaterials)
-    .values(
-      items.map((i) => ({
+  let countInserted = 0;
+  await db.transaction(async (tx) => {
+    // Replace existing rows for product with provided set (idempotent by unique index)
+    await tx
+      .delete(productMaterials)
+      .where(eq(productMaterials.productId, productId));
+    if (!items.length) {
+      countInserted = 0;
+    } else {
+      const rows = await tx
+        .insert(productMaterials)
+        .values(
+          items.map((i) => ({
+            productId,
+            brandMaterialId: i.brandMaterialId,
+            percentage:
+              i.percentage !== undefined ? String(i.percentage) : null,
+          })),
+        )
+        .returning({ id: productMaterials.id });
+      countInserted = rows.length;
+    }
+    const [{ brandId } = { brandId: undefined } as any] = await tx
+      .select({ brandId: products.brandId })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+    if (brandId) {
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
         productId,
-        brandMaterialId: i.brandMaterialId,
-        percentage: i.percentage !== undefined ? String(i.percentage) : null,
-      })),
-    )
-    .returning({ id: productMaterials.id });
-  return { count: rows.length } as const;
+        {
+          onlyModules: ["materials"] as ModuleKey[],
+        },
+      );
+    }
+  });
+  return { count: countInserted } as const;
 }
 
 export async function setProductCareCodes(
@@ -99,22 +125,41 @@ export async function upsertProductEnvironment(
   productId: string,
   input: { carbonKgCo2e?: string; waterLiters?: string },
 ) {
-  const [row] = await db
-    .insert(productEnvironment)
-    .values({
-      productId,
-      carbonKgCo2e: input.carbonKgCo2e ?? null,
-      waterLiters: input.waterLiters ?? null,
-    })
-    .onConflictDoUpdate({
-      target: productEnvironment.productId,
-      set: {
+  let result: { product_id: string } | undefined;
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(productEnvironment)
+      .values({
+        productId,
         carbonKgCo2e: input.carbonKgCo2e ?? null,
         waterLiters: input.waterLiters ?? null,
-      },
-    })
-    .returning({ product_id: productEnvironment.productId });
-  return row;
+      })
+      .onConflictDoUpdate({
+        target: productEnvironment.productId,
+        set: {
+          carbonKgCo2e: input.carbonKgCo2e ?? null,
+          waterLiters: input.waterLiters ?? null,
+        },
+      })
+      .returning({ product_id: productEnvironment.productId });
+    result = row;
+    const [{ brandId } = { brandId: undefined } as any] = await tx
+      .select({ brandId: products.brandId })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+    if (brandId) {
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        productId,
+        {
+          onlyModules: ["environment"] as ModuleKey[],
+        },
+      );
+    }
+  });
+  return result as { product_id: string };
 }
 
 export async function setProductJourneySteps(
@@ -122,20 +167,42 @@ export async function setProductJourneySteps(
   productId: string,
   steps: { sortIndex: number; stepType: string; facilityId: string }[],
 ) {
-  await db
-    .delete(productJourneySteps)
-    .where(eq(productJourneySteps.productId, productId));
-  if (!steps.length) return { count: 0 } as const;
-  const rows = await db
-    .insert(productJourneySteps)
-    .values(
-      steps.map((s) => ({
+  let countInserted = 0;
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(productJourneySteps)
+      .where(eq(productJourneySteps.productId, productId));
+    if (!steps.length) {
+      countInserted = 0;
+    } else {
+      const rows = await tx
+        .insert(productJourneySteps)
+        .values(
+          steps.map((s) => ({
+            productId,
+            sortIndex: s.sortIndex,
+            stepType: s.stepType,
+            facilityId: s.facilityId,
+          })),
+        )
+        .returning({ id: productJourneySteps.id });
+      countInserted = rows.length;
+    }
+    const [{ brandId } = { brandId: undefined } as any] = await tx
+      .select({ brandId: products.brandId })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+    if (brandId) {
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
         productId,
-        sortIndex: s.sortIndex,
-        stepType: s.stepType,
-        facilityId: s.facilityId,
-      })),
-    )
-    .returning({ id: productJourneySteps.id });
-  return { count: rows.length } as const;
+        {
+          onlyModules: ["journey"] as ModuleKey[],
+        },
+      );
+    }
+  });
+  return { count: countInserted } as const;
 }

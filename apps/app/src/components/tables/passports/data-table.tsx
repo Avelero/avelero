@@ -238,7 +238,10 @@ export function PassportDataTable({
         return next;
       });
     },
-    state: { rowSelection, columnOrder, columnVisibility },
+    state: { rowSelection: optimisticRowSelection, columnOrder, columnVisibility },
+    meta: {
+      handleRangeSelection,
+    },
   });
 
   const selectedCount = React.useMemo(() => {
@@ -410,7 +413,7 @@ export function PassportDataTable({
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="h-14 cursor-default border-b border-border hover:bg-accent-blue data-[state=selected]:bg-accent-blue"
+                  className="h-14 cursor-default border-b border-border hover:bg-accent-light data-[state=selected]:bg-accent-blue"
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -445,7 +448,7 @@ export function PassportDataTable({
         const canGoNext = page < lastPage;
         return (
           <div className="flex items-center justify-end gap-4 py-3">
-            <div className="text-p text-secondary">
+            <div className="type-p text-secondary">
               {start} - {end} of {total}
             </div>
             <div className="flex items-center gap-1">

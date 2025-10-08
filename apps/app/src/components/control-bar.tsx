@@ -91,7 +91,7 @@ function ControlBarNavButton({
     >
       <p
         className={cn(
-          "text-p",
+          "type-p",
           isActive ? "text-primary !font-medium" : "text-secondary",
         )}
       >

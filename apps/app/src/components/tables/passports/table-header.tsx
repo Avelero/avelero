@@ -26,7 +26,7 @@ function getHeaderClassName(
         : "";
 
   return cn(
-    "h-14 px-4 text-left align-middle text-secondary text-p",
+    "h-14 px-4 text-left align-middle text-secondary type-p",
     "bg-background",
     stickyClass,
     meta?.headerClassName,
@@ -41,7 +41,7 @@ function IndeterminateCheckbox({
 }: {
   checked: boolean;
   indeterminate: boolean;
-  onChange: (next: boolean) => void;
+  onChange: () => void;
   ariaLabel: string;
 }) {
   const ref = React.useRef<HTMLInputElement | null>(null);
@@ -50,22 +50,29 @@ function IndeterminateCheckbox({
   }, [indeterminate, checked]);
 
   return (
-    <div className="relative inline-flex h-4 w-4 items-center justify-center">
+    <label 
+      className="relative inline-flex h-4 w-4 items-center justify-center cursor-pointer before:absolute before:right-[-12px] before:left-[-16px] before:top-[-20px] before:bottom-[-19px] before:content-['']"
+      onClick={(event) => event.stopPropagation()}
+    >
       <input
         ref={ref}
         type="checkbox"
         aria-label={ariaLabel}
         aria-checked={indeterminate ? "mixed" : checked ? "true" : "false"}
-        className="block h-4 w-4 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand aria-[checked=mixed]:border-brand cursor-pointer"
+        className="block h-4 w-4 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand aria-[checked=mixed]:border-brand cursor-pointer outline-none focus:outline-none"
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={(e) => {
+          // Prevent focus ring
+          (e.target as HTMLInputElement).blur();
+          onChange();
+        }}
       />
       {(checked || indeterminate) && (
         <div className="absolute top-0 left-0 w-4 h-4 flex items-center justify-center pointer-events-none">
           <div className="w-[10px] h-[10px] bg-brand" />
         </div>
       )}
-    </div>
+    </label>
   );
 }
 
@@ -88,8 +95,13 @@ export function PassportTableHeader({
   isAllMode?: boolean;
   hasAnySelection?: boolean;
 }) {
-  const isAllSelected = table.getIsAllPageRowsSelected();
-  const isSomeSelected = table.getIsSomePageRowsSelected();
+  // In "all" mode, checkbox is always checked
+  // In "explicit" mode, check if all/some visible rows are selected
+  const isAllPageSelected = table.getIsAllPageRowsSelected();
+  const isSomePageSelected = table.getIsSomePageRowsSelected();
+  
+  const checked = isAllMode || isAllPageSelected;
+  const indeterminate = !isAllMode && isSomePageSelected && !isAllPageSelected;
 
   return (
     <TableHeader className="sticky top-0 z-20 border-b border-border bg-background">
@@ -125,7 +137,7 @@ export function PassportTableHeader({
                             if (!hasAnySelection) onSelectAllAction?.();
                           }
                         }}
-                        ariaLabel="Select all"
+                        ariaLabel="Select all products"
                       />
                       <span className="whitespace-nowrap">Product title</span>
                     </div>

@@ -6,96 +6,72 @@ on:
       - 'feature/**'
       - 'feat/**'
     paths:
-      - apps/api/**
-      - packages/**
-      - "!packages/email/**"
-      - "!packages/ui/**"
-  
-  # Deploy preview only on PR to main
-  pull_request:
-    types: [opened, reopened, synchronize, closed]
-    branches:
-      - main
-    paths:
-      - apps/api/**
-      - packages/**
+      name: Preview API Deploy
+      on:
+        # Run tests on every push to feature branches
+        push:
+          branches:
+            - 'feature/**'
+            - 'feat/**'
+          paths:
+            - apps/api/**
+            - packages/**
+            - '!packages/email/**'
+            - '!packages/ui/**'
 
-permissions:
-  contents: read
-  pull-requests: write
+        # Deploy preview only on PR to main
+        pull_request:
+          types: [opened, reopened, synchronize, closed]
+          branches:
+            - main
+          paths:
+            - apps/api/**
+            - packages/**
 
-env:
-  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  FLY_REGION: ams
-  FLY_ORG: personal
+      permissions:
+        contents: read
+        pull-requests: write
 
-jobs:
-  name: Preview API Deploy
-  on:
-    # Run tests on every push to feature branches
-    push:
-      branches:
-        - 'feature/**'
-        - 'feat/**'
-      paths:
-        - apps/api/**
-        - packages/**
-        - '!packages/email/**'
-        - '!packages/ui/**'
+      env:
+        FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        FLY_REGION: ams
+        FLY_ORG: personal
 
-    # Deploy preview only on PR to main
-    pull_request:
-      types: [opened, reopened, synchronize, closed]
-      branches:
-        - main
-      paths:
-        - apps/api/**
-        - packages/**
+      jobs:
+        test:
+          name: Run checks
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - uses: oven-sh/setup-bun@v1
+              with:
+                bun-version: latest
+            - name: Install dependencies
+              run: bun install
+              working-directory: ./apps/api
+            - name: Run linter
+              run: bun run lint
+              working-directory: ./apps/api
+            - name: Check TypeScript
+              run: bun run typecheck
+              working-directory: ./apps/api
 
-  permissions:
-    contents: read
-    pull-requests: write
-
-  env:
-    FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-    FLY_REGION: ams
-    FLY_ORG: personal
-
-  jobs:
-    test:
-      name: Run checks
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-        - uses: oven-sh/setup-bun@v1
-          with:
-            bun-version: latest
-        - name: Install dependencies
-          run: bun install
-          working-directory: ./apps/api
-        - name: Run linter
-          run: bun run lint
-          working-directory: ./apps/api
-        - name: Check TypeScript
-          run: bun run typecheck
-          working-directory: ./apps/api
-
-    preview:
-      name: Deploy Preview
-      needs: test
-      if: github.event_name == 'pull_request'
-      runs-on: ubuntu-latest
-      concurrency:
-        group: pr-${{ github.event.number }}-api
-        cancel-in-progress: true
-      environment:
-        name: preview
-      steps:
-        - uses: actions/checkout@v4
-        - name: Deploy PR API to Fly.io
-          id: deploy
-          uses: superfly/fly-pr-review-apps@1.2.1
-          with:
-            name: pr-${{ github.event.number }}-avelero-api
-            config: apps/api/fly-preview.yml
-            secrets: DATABASE_URL=${{ secrets.DATABASE_URL }} NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}
+        preview:
+          name: Deploy Preview
+          needs: test
+          if: github.event_name == 'pull_request'
+          runs-on: ubuntu-latest
+          concurrency:
+            group: pr-${{ github.event.number }}-api
+            cancel-in-progress: true
+          environment:
+            name: preview
+          steps:
+            - uses: actions/checkout@v4
+            - name: Deploy PR API to Fly.io
+              id: deploy
+              uses: superfly/fly-pr-review-apps@1.2.1
+              with:
+                name: pr-${{ github.event.number }}-avelero-api
+                config: apps/api/fly-preview.yml
+                secrets: DATABASE_URL=${{ secrets.DATABASE_URL }} NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}

@@ -109,32 +109,42 @@
           "name": "brands_update_by_owner",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "using": "is_brand_owner(id)"
         },
         "brands_delete_by_owner": {
           "name": "brands_delete_by_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "brands_select_for_invite_recipients": {
           "name": "brands_select_for_invite_recipients",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "brands_select_for_members": {
           "name": "brands_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "brands_insert_by_authenticated": {
           "name": "brands_insert_by_authenticated",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         }
       },
       "isRLSEnabled": true
@@ -246,8 +256,12 @@
           "tableFrom": "users_on_brand",
           "tableTo": "brands",
           "schemaTo": "public",
-          "columnsFrom": ["brand_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "brand_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -256,8 +270,12 @@
           "tableFrom": "users_on_brand",
           "tableTo": "users",
           "schemaTo": "public",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -265,7 +283,10 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "users_on_brand_user_id_brand_id_key": {
-          "columns": ["user_id", "brand_id"],
+          "columns": [
+            "user_id",
+            "brand_id"
+          ],
           "nullsNotDistinct": false,
           "name": "users_on_brand_user_id_brand_id_key"
         }
@@ -281,32 +302,42 @@
           "name": "users_on_brand_update_by_owner",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "using": "is_brand_owner(brand_id)"
         },
         "users_on_brand_select_for_members": {
           "name": "users_on_brand_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "users_on_brand_delete_self": {
           "name": "users_on_brand_delete_self",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "users_on_brand_delete_owner_non_owner": {
           "name": "users_on_brand_delete_owner_non_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "users_on_brand_insert_first_owner_self": {
           "name": "users_on_brand_insert_first_owner_self",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         }
       },
       "isRLSEnabled": true
@@ -391,8 +422,12 @@
           "tableFrom": "users",
           "tableTo": "users",
           "schemaTo": "auth",
-          "columnsFrom": ["id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -400,7 +435,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "users_email_key": {
-          "columns": ["email"],
+          "columns": [
+            "email"
+          ],
           "nullsNotDistinct": false,
           "name": "users_email_key"
         }
@@ -416,26 +453,34 @@
           "name": "users_insert_by_service",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": ["service_role"],
+          "to": [
+            "service_role"
+          ],
           "withCheck": "true"
         },
         "select_own_profile": {
           "name": "select_own_profile",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"]
+          "to": [
+            "public"
+          ]
         },
         "update_own_profile": {
           "name": "update_own_profile",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "users_select_for_brand_members": {
           "name": "users_select_for_brand_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         }
       },
       "isRLSEnabled": true
@@ -630,8 +675,12 @@
           "tableFrom": "brand_invites",
           "tableTo": "brands",
           "schemaTo": "public",
-          "columnsFrom": ["brand_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "brand_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -649,38 +698,50 @@
           "name": "brand_invites_update_by_owner",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "using": "is_brand_owner(brand_id)"
         },
         "brand_invites_insert_by_owner": {
           "name": "brand_invites_insert_by_owner",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "brand_invites_delete_by_owner": {
           "name": "brand_invites_delete_by_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "brand_invites_select_for_recipient": {
           "name": "brand_invites_select_for_recipient",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "brand_invites_delete_by_recipient": {
           "name": "brand_invites_delete_by_recipient",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "brand_invites_select_for_members": {
           "name": "brand_invites_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         }
       },
       "isRLSEnabled": true

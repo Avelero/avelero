@@ -82,7 +82,7 @@ function createSupabaseAdmin(): SupabaseClient<SupabaseDatabase> | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_KEY;
   if (!url || !serviceKey) {
-    console.warn("⚠️  Supabase admin client not available - missing service key");
+  console.warn("Supabase admin client not available - missing service key");
     return null;
   }
   return createSupabaseJsClient<SupabaseDatabase>(url, serviceKey);

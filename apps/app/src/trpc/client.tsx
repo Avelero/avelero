@@ -28,7 +28,7 @@ const getApiUrl = () => {
   if (!envUrl) {
     if (typeof window !== 'undefined') {
       // Client-side fallback
-      console.warn('⚠️ NEXT_PUBLIC_API_URL not found, using fallback');
+  console.warn('NEXT_PUBLIC_API_URL not found, using fallback');
       return 'https://avelero-api.fly.dev';
     }
     // Server-side fallback
@@ -42,11 +42,11 @@ const apiUrl = getApiUrl();
 
 // Validate API URL in development
 if (process.env.NODE_ENV === "development" && !process.env.NEXT_PUBLIC_API_URL) {
-  console.error("❌ NEXT_PUBLIC_API_URL is not set");
+  console.error("NEXT_PUBLIC_API_URL is not set");
 }
 
 if (process.env.NODE_ENV === "development") {
-  console.log("🔗 tRPC API URL:", `${apiUrl}/trpc`);
+  console.log("tRPC API URL:", `${apiUrl}/trpc`);
 }
 
 export function TRPCReactProvider(props: { children: React.ReactNode }) {
@@ -74,7 +74,7 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
 
               // Log response details in development
               if (process.env.NODE_ENV === "development") {
-                console.log(`🌐 tRPC ${opts?.method || 'GET'}`, url, {
+                console.log(`tRPC ${opts?.method || 'GET'}`, url, {
                   status: response.status,
                   statusText: response.statusText,
                   headers: Object.fromEntries(response.headers.entries()),
@@ -86,14 +86,14 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
               if (response.status === 200) {
                 const contentLength = response.headers.get('content-length');
                 if (contentLength === '0') {
-                  console.error('❌ Empty response from API:', url);
+                  console.error('Empty response from API:', url);
                   throw new Error('Empty response from API server');
                 }
               }
 
               return response;
             } catch (error) {
-              console.error('❌ tRPC fetch error:', error, 'URL:', url);
+              console.error('tRPC fetch error:', error, 'URL:', url);
               throw error;
             }
           },

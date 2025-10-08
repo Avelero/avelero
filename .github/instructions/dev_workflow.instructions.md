@@ -259,7 +259,7 @@ Taskmaster offers two primary ways to interact:
 - **description**: Concise summary of what the task involves (Example: `"Create a new repository, set up initial structure."`)
 - **status**: Current state of the task (Example: `"pending"`, `"done"`, `"deferred"`)
 - **dependencies**: IDs of prerequisite tasks (Example: `[1, 2.1]`)
-    - Dependencies are displayed with status indicators (✅ for completed, ⏱️ for pending)
+    - Dependencies are displayed with status indicators (for completed, for pending)
     - This helps quickly identify which prerequisite tasks are blocking work
 - **priority**: Importance level (Example: `"high"`, `"medium"`, `"low"`)
 - **details**: In-depth implementation instructions (Example: `"Use GitHub client ID/secret, handle callback, set session token."`) 

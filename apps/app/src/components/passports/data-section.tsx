@@ -21,7 +21,7 @@ export function DataSection() {
 
   // Debug logging
   React.useEffect(() => {
-    console.log('🐛 DEBUG - DataSection:', {
+  console.log('DEBUG - DataSection:', {
       brandId,
       data,
       apiUrl: process.env.NEXT_PUBLIC_API_URL,

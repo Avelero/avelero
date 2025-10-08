@@ -17,7 +17,7 @@ const missingEnvVars = requiredEnvVars.filter(
 );
 
 if (missingEnvVars.length > 0) {
-  console.error("❌ Missing required environment variables:");
+  console.error("Missing required environment variables:");
   for (const varName of missingEnvVars) {
     console.error(`   - ${varName}`);
   }
@@ -25,8 +25,8 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-console.log("✅ Environment variables validated");
-console.log(`🚀 Starting API server on port ${process.env.PORT || 4000}...`);
+console.log("Environment variables validated");
+console.log(`Starting API server on port ${process.env.PORT || 4000}...`);
 
 const app = new Hono();
 
@@ -61,12 +61,12 @@ app.use(
         const ctx = await createTRPCContext({ req: opts.req });
         return ctx as unknown as Record<string, unknown>;
       } catch (error) {
-        console.error("❌ Error creating tRPC context:", error);
+  console.error("Error creating tRPC context:", error);
         throw error;
       }
     },
     onError: ({ error, path }) => {
-      console.error("❌ tRPC Error:", { path, error: error.message });
+  console.error("tRPC Error:", { path, error: error.message });
     },
   }),
 );
@@ -117,7 +117,7 @@ app.get("/db-test", async (c) => {
       200,
     );
   } catch (error) {
-    console.error("❌ Database connection error:", error);
+  console.error("Database connection error:", error);
     return c.json(
       {
         status: "database connection failed",
@@ -176,7 +176,7 @@ app.get("/", (c) => {
   );
 });
 
-console.log("✅ API server initialized successfully");
+console.log("API server initialized successfully");
 
 export default {
   port: process.env.PORT ? Number.parseInt(process.env.PORT) : 3000,

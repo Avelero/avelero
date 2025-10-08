@@ -21,7 +21,7 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
-      - name: 🔦 Run linter
+  - name: Run linter
         run: bun run lint
         working-directory: ./apps/app
       - name: 🪐 Check TypeScript
@@ -30,19 +30,19 @@ jobs:
       # - name: 🧪 Run unit tests
       #   run: bun run test
       #   working-directory: ./apps/app
-      - name: 📤 Pull Vercel Environment Information
+  - name: Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-      - name: 🏗 Build Project Artifacts
+  - name: Build Project Artifacts
         run: bunx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-      - name: 📤 Pull Environment Variables to .env
+  - name: Pull Environment Variables to .env
         run: bunx vercel env pull .env --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-      - name: 🔄 Deploy Background Jobs
+  - name: Deploy Background Jobs
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
         run: |
           TRIGGER_PROJECT_ID=${{ secrets.TRIGGER_PROJECT_ID }} bunx trigger.dev@4.0.2 deploy
         working-directory: packages/jobs
-      - name: 🚀 Deploy to Vercel
+  - name: Deploy to Vercel
         run: |
           bunx vercel deploy --prebuilt --prod --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} > domain.txt
           bunx vercel alias --scope=${{ secrets.VERCEL_ORG_ID }} --token=${{ secrets.VERCEL_TOKEN }} set `cat domain.txt` app.avelero.com

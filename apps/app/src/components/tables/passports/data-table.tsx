@@ -351,7 +351,7 @@ export function PassportDataTable({
 
   // Debug logging
   React.useEffect(() => {
-    console.log('🐛 DEBUG - PassportDataTable:', {
+  console.log('DEBUG - PassportDataTable:', {
       isLoading,
       dataLength: data.length,
       total,

@@ -24,10 +24,10 @@ applyTo: ".github/instructions/*.instructions.md"
 - **Code Examples:**
   - Use language-specific code blocks
   ```typescript
-  // ✅ DO: Show good examples
+  // DO: Show good examples
   const goodExample = true;
   
-  // ❌ DON'T: Show anti-patterns
+  // DON'T: Show anti-patterns
   const badExample = false;
   ```
 

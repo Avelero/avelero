@@ -1,1 +1,2 @@
-export * from "../schemas/modules/index";
+export * from "./templates";
+export * from "./modules";

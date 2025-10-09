@@ -122,9 +122,9 @@ export function PassportTableHeader({
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <IndeterminateCheckbox
-                        checked={isAllSelected}
-                        indeterminate={isSomeSelected}
-                        onChange={(_next) => {
+                        checked={checked}
+                        indeterminate={indeterminate}
+                        onChange={() => {
                           if (isAllMode) {
                             // In all-mode, clicking header toggles clear
                             if (hasAnySelection) onClearSelectionAction?.();

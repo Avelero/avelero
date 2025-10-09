@@ -32,6 +32,10 @@ export * from "./products/product-variant-identifiers";
 export * from "./products/product-eco-claims";
 export * from "./products/product-care-codes";
 
+// Passport schemas
+export * from "./passports/passport-module-completion";
+export * from "./passports/passport-template-modules";
+
 // Data schemas
 export * from "./data/file-assets";
 export * from "./data/import-jobs";

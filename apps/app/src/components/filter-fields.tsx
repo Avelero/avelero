@@ -136,7 +136,7 @@ export function FilterFieldInput({
         return (
           <MinMaxInput
             value={value as { min?: number; max?: number }}
-            onChange={onValueChange}
+            onChange={(v) => onValueChange(v)}
             unit={fieldConfig.unit}
           />
         );
@@ -199,8 +199,8 @@ export function FilterFieldInput({
           
           onOperatorChange(newOperator);
           onValueChange({
-            after: newAfter?.toISOString() ?? "",
-            before: newBefore?.toISOString() ?? "",
+            start: newAfter?.toISOString() ?? "",
+            end: newBefore?.toISOString() ?? "",
           });
         };
 
@@ -222,8 +222,8 @@ export function FilterFieldInput({
           
           onOperatorChange(newOperator);
           onValueChange({
-            after: newAfter?.toISOString() ?? "",
-            before: newBefore?.toISOString() ?? "",
+            start: newAfter?.toISOString() ?? "",
+            end: newBefore?.toISOString() ?? "",
           });
         };
 

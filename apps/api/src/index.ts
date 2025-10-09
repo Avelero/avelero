@@ -35,7 +35,11 @@ app.use(secureHeaders());
 app.use(
   "*",
   cors({
-  origin: process.env.ALLOWED_API_ORIGINS?.split(",") ?? ["http://localhost:3000"], // Safer default: only allow local dev origin when ALLOWED_API_ORIGINS is unset
+<<<<<<< HEAD
+  origin: process.env.ALLOWED_API_ORIGINS?.split(",") ?? (process.env.NODE_ENV === "production" ? ["https://avelero.vercel.app"] : ["*"]), // Safer default: only allow local dev origin when ALLOWED_API_ORIGINS is unset
+=======
+    origin: process.env.ALLOWED_API_ORIGINS?.split(",") ?? ["*"], // Allow all origins in development, or specific origins in production
+>>>>>>> staging
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowHeaders: [
       "Authorization",

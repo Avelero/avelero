@@ -39,14 +39,14 @@ const CommandInput = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, ...props }, ref) => (
   <div
-    className="flex items-center border-b border-border px-2"
+    className="flex items-center border-b border-border p-2 gap-2"
     cmdk-input-wrapper=""
   >
-    <MagnifyingGlassIcon className="h-4 w-4 shrink-0 text-secondary" />
+    <MagnifyingGlassIcon className="h-4 w-4 shrink-0 text-tertiary" />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        "flex h-10 w-full rounded-none bg-transparent py-3 !text-p outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        "flex w-full rounded-none bg-transparent !type-p outline-none placeholder:text-tertiary disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -117,7 +117,7 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer gap-2 select-none items-center rounded-none p-2 !text-p outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "relative flex cursor-pointer gap-2 select-none items-center justify-between rounded-none px-3 py-2 !type-p outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       className,
     )}
     {...props}
@@ -133,7 +133,7 @@ const CommandShortcut = ({
   return (
     <span
       className={cn(
-        "ml-auto !text-small text-secondary tracking-widest",
+        "ml-auto !type-small text-secondary tracking-widest",
         className,
       )}
       {...props}

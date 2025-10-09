@@ -98,7 +98,7 @@ node_modules/
 mcp.json
 
 #prompts
-./prompts
+.prompts
 
 #rules
 .cursor
@@ -123,4 +123,9 @@ GEMINI.md
 # tasks/ 
 .claude
 CLAUDE.md
-.mcp.json
+.mcp.jsonCLAUDE.md
+
+# Ignore internal GitHub instruction files (kept locally but not tracked)
+.github/instructions/
+.claude/
+API_ARCHITECTURE_ANALYSIS.md

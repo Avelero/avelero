@@ -84,7 +84,7 @@ export function CreateBrandForm() {
       </div>
 
       {error ? (
-        <p className="text-p text-destructive text-center">{error}</p>
+        <p className="type-p text-destructive text-center">{error}</p>
       ) : null}
 
       <Button

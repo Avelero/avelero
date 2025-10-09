@@ -20,44 +20,122 @@
   },
   "exports": {
     "./globals.css": "./src/globals.css",
-    "./cn": "./src/utils/cn.ts",
-    "./button": "./src/components/button.tsx",
-    "./input": "./src/components/input.tsx",
-    "./label": "./src/components/label.tsx",
-    "./command": "./src/components/command.tsx",
-    "./popover": "./src/components/popover.tsx",
-    "./tooltip": "./src/components/tooltip.tsx",
-    "./tabs": "./src/components/tabs.tsx",
-    "./dialog": "./src/components/dialog.tsx",
-    "./dropdown-menu": "./src/components/dropdown-menu.tsx",
-    "./icons": "./src/components/icons.tsx",
-    "./avatar": "./src/components/avatar.tsx",
-    "./form": "./src/components/form.tsx",
-    "./table": "./src/components/table.tsx",
-    "./skeleton": "./src/components/skeleton.tsx",
-    "./input-otp": "./src/components/input-otp.tsx",
-    "./card": "./src/components/card.tsx",
-    "./badge": "./src/components/badge.tsx",
-    "./sheet": "./src/components/sheet.tsx",
+    "./cn": {
+      "import": "./src/utils/cn.ts",
+      "types": "./src/utils/cn.ts"
+    },
+    "./button": {
+      "import": "./src/components/button.tsx",
+      "types": "./src/components/button.tsx"
+    },
+    "./input": {
+      "import": "./src/components/input.tsx",
+      "types": "./src/components/input.tsx"
+    },
+    "./label": {
+      "import": "./src/components/label.tsx",
+      "types": "./src/components/label.tsx"
+    },
+    "./command": {
+      "import": "./src/components/command.tsx",
+      "types": "./src/components/command.tsx"
+    },
+    "./popover": {
+      "import": "./src/components/popover.tsx",
+      "types": "./src/components/popover.tsx"
+    },
+    "./tooltip": {
+      "import": "./src/components/tooltip.tsx",
+      "types": "./src/components/tooltip.tsx"
+    },
+    "./tabs": {
+      "import": "./src/components/tabs.tsx",
+      "types": "./src/components/tabs.tsx"
+    },
+    "./dialog": {
+      "import": "./src/components/dialog.tsx",
+      "types": "./src/components/dialog.tsx"
+    },
+    "./dropdown-menu": {
+      "import": "./src/components/dropdown-menu.tsx",
+      "types": "./src/components/dropdown-menu.tsx"
+    },
+    "./icons": {
+      "import": "./src/components/icons.tsx",
+      "types": "./src/components/icons.tsx"
+    },
+    "./select": {
+      "import": "./src/components/select.tsx",
+      "types": "./src/components/select.tsx"
+    },
+    "./date-picker": {
+      "import": "./src/components/date-picker.tsx",
+      "types": "./src/components/date-picker.tsx"
+    },
+    "./min-max": {
+      "import": "./src/components/min-max.tsx",
+      "types": "./src/components/min-max.tsx"
+    },
+    "./calendar": {
+      "import": "./src/components/calendar.tsx",
+      "types": "./src/components/calendar.tsx"
+    },
+    "./avatar": {
+      "import": "./src/components/avatar.tsx",
+      "types": "./src/components/avatar.tsx"
+    },
+    "./form": {
+      "import": "./src/components/form.tsx",
+      "types": "./src/components/form.tsx"
+    },
+    "./table": {
+      "import": "./src/components/table.tsx",
+      "types": "./src/components/table.tsx"
+    },
+    "./skeleton": {
+      "import": "./src/components/skeleton.tsx",
+      "types": "./src/components/skeleton.tsx"
+    },
+    "./input-otp": {
+      "import": "./src/components/input-otp.tsx",
+      "types": "./src/components/input-otp.tsx"
+    },
+    "./card": {
+      "import": "./src/components/card.tsx",
+      "types": "./src/components/card.tsx"
+    },
+    "./badge": {
+      "import": "./src/components/badge.tsx",
+      "types": "./src/components/badge.tsx"
+    },
+    "./sheet": {
+      "import": "./src/components/sheet.tsx",
+      "types": "./src/components/sheet.tsx"
+    },
     "./tailwind.config": "./tailwind.config.ts",
     "./postcss": "./postcss.config.js",
-    "./sonner": "./src/components/sonner.tsx"
+    "./sonner": {
+      "import": "./src/components/sonner.tsx",
+      "types": "./src/components/sonner.tsx"
+    }
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
-    "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-label": "2.1.7",
     "@radix-ui/react-popover": "^1.1.14",
-    "@radix-ui/react-slot": "^1.1.0",
+    "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.1.2",
     "class-variance-authority": "^0.7.0",
     "cmdk": "^1.1.1",
+    "date-fns": "^4.1.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.438.0",
     "next-themes": "^0.4.6",
+    "react-day-picker": "^9.11.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7"

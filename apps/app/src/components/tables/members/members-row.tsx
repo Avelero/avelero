@@ -202,12 +202,12 @@ function MembershipRow({
           }
         />
         <div className="flex flex-col">
-          <span className="text-p !font-medium">{email}</span>
-          <span className="text-p text-secondary">{role}</span>
+          <span className="type-p !font-medium">{email}</span>
+          <span className="type-p text-secondary">{role}</span>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-p text-secondary">{joinedText}</span>
+        <span className="type-p text-secondary">{joinedText}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Member options">
@@ -321,13 +321,13 @@ function InviteRowComp({
   return (
     <div className="flex items-center justify-between">
       <div className="flex flex-col">
-        <span className="text-p !font-medium">{invite.email}</span>
-        <span className="text-p text-secondary">
+        <span className="type-p !font-medium">{invite.email}</span>
+        <span className="type-p text-secondary">
           {invite.role === "owner" ? "Owner" : "Member"}
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-p text-secondary">
+        <span className="type-p text-secondary">
           {invite.created_at
             ? `Sent on ${new Date(invite.created_at).toLocaleDateString(locale || "en", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })}`
             : "Sent"}

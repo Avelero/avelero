@@ -1,20 +1,39 @@
 name: Preview API Deploy
-permissions:
-  contents: read
 on:
+  # Run tests on every push to feature branches
   push:
     branches:
-      - staging
+      - 'feature/**'
+      - 'feat/**'
     paths:
       - apps/api/**
       - packages/**
       - "!packages/email/**"
       - "!packages/ui/**"
+  
+  # Deploy preview only on PR to main
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    branches:
+      - main
+    paths:
+      - apps/api/**
+      - packages/**
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  FLY_REGION: ams
+  FLY_ORG: personal
+
 jobs:
-  deploy:
-    name: 🚀 Deploy to Fly Preview
+  # Always run tests (on push and PR)
+  test:
+    name: 🧪 Lint & Type Check
     runs-on: ubuntu-latest
-    concurrency: fly-preview
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -28,10 +47,27 @@ jobs:
       - name: 🪐 Check TypeScript
         run: bun run typecheck
         working-directory: ./apps/api
-      # - name: 🧪 Run unit tests
-      #   run: bun run test
-      #   working-directory: ./apps/api
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only --dockerfile apps/api/Dockerfile --config apps/api/fly-preview.yml
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
+
+  # Only deploy on PR (not on push)
+  preview:
+    name: 🚀 Deploy Preview
+    needs: test
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.number }}-api
+      cancel-in-progress: true
+    # Surface the URL in the PR UI (per Fly docs)
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy PR API to Fly.io
+        id: deploy
+        uses: superfly/fly-pr-review-apps@1.2.1
+        with:
+          name: pr-${{ github.event.number }}-avelero-api
+          config: apps/api/fly-preview.yml
+          secrets: DATABASE_URL=${{ secrets.DATABASE_URL }} NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}

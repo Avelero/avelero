@@ -8,8 +8,8 @@ RUN bun add -g turbo
 # Builder stage
 FROM turbo-cli AS builder
 WORKDIR /app
-# Copy all files from the monorepo root (two levels up)
-COPY ../../ .
+# Copy all files
+COPY . .
 # Use turbo CLI from Bun global install to prune workspaces
 RUN turbo prune @v1/api --docker
 

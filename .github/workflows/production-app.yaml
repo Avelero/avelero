@@ -40,9 +40,9 @@ jobs:
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
         run: |
-          TRIGGER_PROJECT_ID=${{ secrets.TRIGGER_PROJECT_ID }} bunx trigger.dev@4.0.2 deploy
+          TRIGGER_PROJECT_ID=${{ secrets.TRIGGER_PROJECT_ID }} bunx trigger.dev@4.0.4 deploy
         working-directory: packages/jobs
       - name: 🚀 Deploy to Vercel
         run: |
           bunx vercel deploy --prebuilt --prod --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} > domain.txt
-          bunx vercel alias --scope=${{ secrets.VERCEL_ORG_ID }} --token=${{ secrets.VERCEL_TOKEN }} set `cat domain.txt` app.avelero.com
+          bunx vercel alias --scope=${{ secrets.VERCEL_ORG_ID }} --token=${{ secrets.VERCEL_TOKEN }} set cat domain.txt app.avelero.com

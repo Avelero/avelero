@@ -26,13 +26,13 @@ import {
   passportsSchemas,
   transformPassportData,
   updatePassportSchema,
-} from "@v1/db/schemas/modules";
+} from "@v1/db/extensions/modules";
 import {
   applyCrossModuleIncludes,
   createCrossModulePerformanceTracker,
   createCrossModuleQueryCapabilities,
   transformCrossModuleResults,
-} from "@v1/db/schemas/shared";
+} from "@v1/db/extensions/shared";
 import {
   createPassportTransaction,
   createTransactionFromTRPCContext,

@@ -1,18 +1,37 @@
-name: Preview Deployment - App
+name: Preview App Deploy
+on:
+  # Run tests on every push to feature branches
+  push:
+    branches:
+      - 'feature/**'
+      - 'feat/**'
+    paths:
+      - apps/app/**
+      - packages/**
+  
+  # Deploy preview only on PR to main
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    branches:
+      - main
+    paths:
+      - apps/app/**
+      - packages/**
+
+permissions:
+  contents: read
+  pull-requests: write
+
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_APP }}
   TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
   TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
-on:
-  push:
-    branches:
-      - staging
-    paths:
-      - apps/app/**
-      - packages/**
+
 jobs:
-  deploy-preview:
+  # Always run tests (on push and PR)
+  test:
+    name: 🧪 Lint & Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,22 +46,67 @@ jobs:
       - name: 🪐 Check TypeScript
         run: NODE_OPTIONS="--max-old-space-size=8192" bun run typecheck
         working-directory: ./apps/app
-      # - name: 🧪 Run unit tests
-      #   run: bunx run test
-      #   working-directory: ./apps/app
+        # Only deploy on PR (not on push)
+  preview:
+    name: 🚀 Deploy Preview
+    needs: test
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.number }}-app
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      
+      # Get the API URL from the PR
+      - name: Set API URL
+        id: api-url
+        run: |
+          API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
+          echo "url=${API_URL}" >> $GITHUB_OUTPUT
+      
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      
       - name: 🏗 Build Project Artifacts
         run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
-      - name: 📤 Pull Environment Variables to .env
+        env:
+          # Use PR-specific API
+          NEXT_PUBLIC_API_URL: ${{ steps.api-url.outputs.url }}
+      
+      - name: 📤 Pull Environment Variables
         run: bunx vercel env pull .env --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      
       - name: 🔄 Deploy Background Jobs
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
         run: |
-          TRIGGER_PROJECT_ID=${{ secrets.TRIGGER_PROJECT_ID }} bunx trigger.dev@4.0.2 deploy
+          TRIGGER_PROJECT_ID=${{ secrets.TRIGGER_PROJECT_ID }} bunx trigger.dev@4.0.4 deploy
         working-directory: packages/jobs
+      
       - name: 🚀 Deploy to Vercel
+        id: deploy
         run: |
-          bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} > domain.txt
-          bunx vercel alias --scope=${{ secrets.VERCEL_ORG_ID }} --token=${{ secrets.VERCEL_TOKEN }} set `cat domain.txt` avelero-app-preview-9215.vercel.app
+          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+      
+      - name: Comment Preview URLs
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Preview Deployments Ready!
+              
+              Frontend: ${{ steps.deploy.outputs.url }}
+              API: ${{ steps.api-url.outputs.url }}
+              
+              Preview environments will auto-delete when PR closes.`
+            })

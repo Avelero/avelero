@@ -8,3 +8,4 @@ export * from "./brand-scoping.js";
 export * from "./products.js";
 export * from "./product-attributes.js";
 export * from "./categories.js";
+export * from "./passport-templates.js";

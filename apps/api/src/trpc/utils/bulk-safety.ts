@@ -396,7 +396,7 @@ export async function countAffectedRecords<TTable extends PgTable>(
       .from(table as any)
       .where(and(...conditions));
 
-    return result[0].count;
+    return result[0]?.count ?? 0;
   } catch (error) {
     console.error("Error counting affected records:", error);
     return 0;

@@ -331,7 +331,7 @@ export function validateIncludeConfig(
     const validated: IncludeConfig = {};
 
     for (const [relationName, includeValue] of Object.entries(config)) {
-      if (!allowedRelations[relationName]) {
+      if (!allowedRelations?.[relationName]) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: `Invalid relation '${relationName}' for module '${moduleName}'`,

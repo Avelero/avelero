@@ -205,8 +205,8 @@ export function createListEndpoint<TTable extends PgTable>(
       }
 
       const {
-        filter = {},
-        sort = { field: "createdAt", direction: "desc", fallbackField: "id" },
+        filter = {} as any,
+        sort = { field: "createdAt", direction: "desc", fallbackField: "id" } as any,
         pagination = {},
         include = {},
       } = input;
@@ -901,7 +901,7 @@ export function createAggregateEndpoint<TTable extends PgTable>(
         });
       }
 
-      const { filter = {}, metrics } = input;
+      const { filter = {} as any, metrics } = input;
 
       // Build brand-scoped base conditions
       const brandColumn = config.brandColumn || "brandId";

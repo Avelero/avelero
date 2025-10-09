@@ -170,7 +170,7 @@ export async function getCacheStats(): Promise<{
   }
 
   try {
-    const info = await client.info();
+    const info = await (client as any).info();
     const dbsize = await client.dbsize();
 
     // Parse info string into object

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { productListSchemaV2 } from "./products";
 
 export const ProductListResponseSchema = z.object({
   products: z.array(z.any()), // TODO: Define actual product schema

@@ -128,7 +128,7 @@ export function BrandsTable() {
                 ))}
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-p text-secondary">
+                <p className="type-p text-secondary">
                   {"You don't have any brands yet."}
                 </p>
               </div>
@@ -150,7 +150,7 @@ export function BrandsTable() {
               ))}
             </div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-p text-secondary">
+              <p className="type-p text-secondary">
                 {"There are no pending invites."}
               </p>
             </div>

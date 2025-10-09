@@ -126,7 +126,7 @@ export function MembersTable() {
               ))}
             </div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <p className="text-p text-secondary">
+              <p className="type-p text-secondary">
                 {tab === "members"
                   ? "No members yet."
                   : "There are no pending invites."}

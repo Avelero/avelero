@@ -181,14 +181,14 @@ export function EmailChangeModal({
     step === "otp_old" ? (
       <>
         Enter the 6-digit code sent to{" "}
-        <span className="text-p !font-medium text-foreground">
+        <span className="type-p !font-medium text-foreground">
           {currentEmail}
         </span>
       </>
     ) : step === "otp_new" ? (
       <>
         Enter the 6-digit code sent to{" "}
-        <span className="text-p !font-medium text-foreground">{newEmail}</span>
+        <span className="type-p !font-medium text-foreground">{newEmail}</span>
       </>
     ) : null;
 

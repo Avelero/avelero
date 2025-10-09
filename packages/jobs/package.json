@@ -12,12 +12,12 @@
   },
   "dependencies": {
     "@react-email/render": "^1.2.0",
-    "@trigger.dev/sdk": "4.0.2",
+    "@trigger.dev/sdk": "4.0.4",
     "@v1/email": "workspace:*",
     "react": "19.1.1",
     "resend": "^4.0.0"
   },
   "devDependencies": {
-    "trigger.dev": "^4.0.2"
+    "trigger.dev": "^4.0.4"
   }
 }

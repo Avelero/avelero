@@ -62,13 +62,13 @@ export function LeaveBrandModal({
   const descriptionNode = isSoleOwnerBlocked ? (
     <>
       You are the sole owner of{" "}
-      <span className="text-p !font-medium text-foreground">{brandName}</span>.
+      <span className="type-p !font-medium text-foreground">{brandName}</span>.
       Promote another member to owner or delete the brand to proceed.
     </>
   ) : (
     <>
       You are about to leave{" "}
-      <span className="text-p !font-medium text-foreground">{brandName}</span>.
+      <span className="type-p !font-medium text-foreground">{brandName}</span>.
       You will lose access until re-invited.
     </>
   );

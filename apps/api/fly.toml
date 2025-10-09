@@ -2,7 +2,7 @@ app = 'avelero-api'
 primary_region = 'ams'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = "apps/api/Dockerfile"
 
 [env]
   PORT = '3000'

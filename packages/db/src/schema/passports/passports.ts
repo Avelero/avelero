@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  index,
   pgPolicy,
   pgTable,
   text,
@@ -47,39 +48,65 @@ export const passports = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [
+  (table) => ({
     // One passport per (brand, product, variant)
-    uniqueIndex("passports_brand_product_variant_unq").on(
+    uniqueIndexBrandProductVariant: uniqueIndex("passports_brand_product_variant_unq").on(
       table.brandId,
       table.productId,
       table.variantId,
     ),
     // Ensure slug uniqueness (UPID-driven)
-    uniqueIndex("passports_slug_unq").on(table.slug),
+    uniqueIndexSlug: uniqueIndex("passports_slug_unq").on(table.slug),
+
+    // Performance indexes for brand-scoped queries
+    brandStatusIdx: index("passports_brand_status_idx").on(
+      table.brandId,
+      table.status,
+    ),
+    brandCreatedIdx: index("passports_brand_created_idx").on(
+      table.brandId,
+      table.createdAt,
+    ),
+    brandUpdatedIdx: index("passports_brand_updated_idx").on(
+      table.brandId,
+      table.updatedAt,
+    ),
+
+    // Product and variant relationship indexes
+    productIdx: index("passports_product_idx").on(table.productId),
+    variantIdx: index("passports_variant_idx").on(table.variantId),
+    templateIdx: index("passports_template_idx").on(table.templateId),
+
+    // Slug index for lookups
+    slugIdx: index("passports_slug_idx").on(table.slug),
+
     // RLS policies
-    pgPolicy("passports_select_for_brand_members", {
+    passportsSelectForBrandMembers: pgPolicy("passports_select_for_brand_members", {
       as: "permissive",
       for: "select",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("passports_insert_by_brand_owner", {
+    passportsInsertByBrandOwner: pgPolicy("passports_insert_by_brand_owner", {
       as: "permissive",
       for: "insert",
       to: ["authenticated"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("passports_update_by_brand_owner", {
+    passportsUpdateByBrandOwner: pgPolicy("passports_update_by_brand_owner", {
       as: "permissive",
       for: "update",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("passports_delete_by_brand_owner", {
+    passportsDeleteByBrandOwner: pgPolicy("passports_delete_by_brand_owner", {
       as: "permissive",
       for: "delete",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-  ],
+  }),
 );
+
+export type Passport = typeof passports.$inferSelect;
+export type NewPassport = typeof passports.$inferInsert;

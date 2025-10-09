@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  index,
   jsonb,
   pgPolicy,
   pgTable,
@@ -25,31 +26,44 @@ export const passportTemplates = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => [
+  (table) => ({
+    // Performance indexes for brand-scoped queries
+    brandNameIdx: index("passport_templates_brand_name_idx").on(
+      table.brandId,
+      table.name,
+    ),
+    brandCreatedIdx: index("passport_templates_brand_created_idx").on(
+      table.brandId,
+      table.createdAt,
+    ),
+
     // RLS policies
-    pgPolicy("passport_templates_select_for_brand_members", {
+    passportTemplatesSelectForBrandMembers: pgPolicy("passport_templates_select_for_brand_members", {
       as: "permissive",
       for: "select",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("passport_templates_insert_by_brand_owner", {
+    passportTemplatesInsertByBrandOwner: pgPolicy("passport_templates_insert_by_brand_owner", {
       as: "permissive",
       for: "insert",
       to: ["authenticated"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("passport_templates_update_by_brand_owner", {
+    passportTemplatesUpdateByBrandOwner: pgPolicy("passport_templates_update_by_brand_owner", {
       as: "permissive",
       for: "update",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("passport_templates_delete_by_brand_owner", {
+    passportTemplatesDeleteByBrandOwner: pgPolicy("passport_templates_delete_by_brand_owner", {
       as: "permissive",
       for: "delete",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-  ],
+  }),
 );
+
+export type PassportTemplate = typeof passportTemplates.$inferSelect;
+export type NewPassportTemplate = typeof passportTemplates.$inferInsert;

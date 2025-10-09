@@ -28,6 +28,7 @@ export function OTPSignIn({ className }: Props) {
   const [isSent, setSent] = useState(false);
   const [email, setEmail] = useState<string>();
   const [error, setError] = useState<string>();
+  const [otpValue, setOtpValue] = useState("");
   const supabase = createClient();
   const searchParams = useSearchParams();
 
@@ -69,6 +70,7 @@ export function OTPSignIn({ className }: Props) {
   const handleCancel = () => {
     setSent(false);
     setError(undefined);
+    setOtpValue("");
     form.reset();
   };
 
@@ -78,6 +80,8 @@ export function OTPSignIn({ className }: Props) {
         <InputOTP
           maxLength={6}
           autoFocus
+          value={otpValue}
+          onChange={setOtpValue}
           onComplete={onComplete}
           disabled={verifyOtp.status === "executing"}
           className="!mt-0 !mb-0 !m-0"
@@ -93,6 +97,9 @@ export function OTPSignIn({ className }: Props) {
             </InputOTPGroup>
           )}
         />
+        {verifyOtp.result.serverError && (
+          <p className="text-sm text-destructive">{verifyOtp.result.serverError}</p>
+        )}
 
         <div className="flex gap-2">
           <Button
@@ -106,11 +113,11 @@ export function OTPSignIn({ className }: Props) {
           </Button>
           <Button
             type="button"
-            onClick={() => onComplete("")}
-            disabled={verifyOtp.status === "executing"}
+            onClick={() => onComplete(otpValue)}
+            disabled={verifyOtp.status === "executing" || otpValue.length !== 6}
             className="flex-1"
           >
-            {verifyOtp.status === "executing" ? "Verifying..." : "Send"}
+            {verifyOtp.status === "executing" ? "Verifying..." : "Verify"}
           </Button>
         </div>
 
@@ -120,6 +127,7 @@ export function OTPSignIn({ className }: Props) {
             onClick={() => {
               setSent(false);
               setError(undefined);
+              setOtpValue("");
             }}
             type="button"
             className="text-primary underline font-medium hover:no-underline"

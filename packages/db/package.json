@@ -17,8 +17,8 @@
   "exports": {
     "./client": "./src/client.ts",
     "./schema": "./src/schema/index.ts",
-    "./schemas/shared": "./src/schemas/shared.ts",
-    "./schemas/modules": "./src/schemas/modules/index.ts",
+  "./extensions/shared": "./src/extensions/shared.ts",
+  "./extensions/modules": "./src/extensions/modules/index.ts",
     "./queries": "./src/queries/index.ts",
     "./queries/cache-utils": "./src/queries/cache-utils.ts",
     "./queries/product-query-builder": "./src/queries/product-query-builder.ts",

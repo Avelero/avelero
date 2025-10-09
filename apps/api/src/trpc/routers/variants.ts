@@ -23,7 +23,7 @@ import {
   validateVariantSku,
   validateVariantUpid,
   variantMetricsSchema,
-} from "@v1/db/schemas/modules";
+} from "@v1/db/extensions/modules";
 import {
   and,
   asc,

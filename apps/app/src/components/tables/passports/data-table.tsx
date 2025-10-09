@@ -222,9 +222,65 @@ export function PassportDataTable({
   React.useEffect(() => {
     onTotalCountChangeAction?.(total > 0);
   }, [total, onTotalCountChangeAction]);
-  const [rowSelection, setRowSelection] = React.useState<
+
+  // Optimistic local state for instant UI updates
+  const [optimisticRowSelection, setOptimisticRowSelection] = React.useState<
     Record<string, boolean>
   >({});
+  const [lastClickedIndex, setLastClickedIndex] = React.useState<number | null>(
+    null,
+  );
+  const [isPending, startTransition] = React.useTransition();
+
+  const handleRangeSelection = React.useCallback(
+    (rowIndex: number, shiftKey: boolean, rowId: string) => {
+      const globalIndex = page * pageSize + rowIndex;
+
+      if (!shiftKey) {
+        setLastClickedIndex(globalIndex);
+        return;
+      }
+
+      // Prevent text selection on shift-click
+      window.getSelection()?.removeAllRanges();
+
+      if (lastClickedIndex === null) {
+        setLastClickedIndex(globalIndex);
+        return;
+      }
+
+      // Simple same-page range selection
+      const start = Math.min(lastClickedIndex % pageSize, rowIndex);
+      const end = Math.max(lastClickedIndex % pageSize, rowIndex);
+      const idsToSelect: string[] = [];
+
+      for (let i = start; i <= end; i++) {
+        if (data[i]) {
+          idsToSelect.push(data[i].id);
+        }
+      }
+
+      setLastClickedIndex(globalIndex);
+
+      // INSTANT UPDATE - synchronous, no delays
+      const next: Record<string, boolean> = { ...optimisticRowSelection };
+      for (const id of idsToSelect) {
+        next[id] = true;
+      }
+      setOptimisticRowSelection(next);
+
+      // Defer parent update (non-blocking)
+      startTransition(() => {
+        const newSelection = {
+          mode: selection.mode,
+          includeIds: [...new Set([...selection.includeIds, ...idsToSelect])],
+          excludeIds: selection.excludeIds.filter(id => !idsToSelect.includes(id)),
+        } as SelectionState;
+        onSelectionStateChangeAction(newSelection);
+      });
+    },
+    [page, pageSize, lastClickedIndex, data, selection, onSelectionStateChangeAction, optimisticRowSelection],
+  );
 
   const table = useReactTable({
     data,
@@ -232,13 +288,26 @@ export function PassportDataTable({
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     onRowSelectionChange: (updater) => {
-      setRowSelection((prev) => {
-        const next =
-          typeof updater === "function" ? (updater as any)(prev) : updater;
-        return next;
+      // INSTANT UPDATE - synchronous, no delays
+      const prev = optimisticRowSelection;
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      setOptimisticRowSelection(next);
+
+      // Defer parent sync (non-blocking)
+      startTransition(() => {
+        const selectedIds = Object.keys(next).filter(id => next[id]);
+        const newSelection = {
+          mode: "explicit" as const,
+          includeIds: selectedIds,
+          excludeIds: [],
+        };
+        onSelectionStateChangeAction(newSelection);
       });
     },
-    state: { rowSelection, columnOrder, columnVisibility },
+    state: { rowSelection: optimisticRowSelection, columnOrder, columnVisibility },
+    meta: {
+      handleRangeSelection,
+    },
   });
 
   const selectedCount = React.useMemo(() => {
@@ -269,7 +338,7 @@ export function PassportDataTable({
 
   React.useEffect(() => {
     if (!data.length) {
-      setRowSelection({});
+      setOptimisticRowSelection({});
       return;
     }
     // sync visible page selection with SelectionState
@@ -284,7 +353,7 @@ export function PassportDataTable({
       }
     }
     skipPropagateRef.current = nextMap;
-    setRowSelection(nextMap);
+    setOptimisticRowSelection(nextMap);
   }, [data, selection]);
 
   // After user toggles row checkboxes, update SelectionState based on current page selections.
@@ -296,10 +365,10 @@ export function PassportDataTable({
       let same = true;
       const keys = new Set([
         ...Object.keys(expect),
-        ...Object.keys(rowSelection),
+        ...Object.keys(optimisticRowSelection),
       ]);
       for (const k of keys) {
-        if (!!expect[k] !== !!rowSelection[k]) {
+        if (!!expect[k] !== !!optimisticRowSelection[k]) {
           same = false;
           break;
         }
@@ -319,7 +388,7 @@ export function PassportDataTable({
     if (selection.mode === "all") {
       const exclude = new Set(selection.excludeIds);
       for (const row of data) {
-        const checked = !!rowSelection[row.id];
+        const checked = !!optimisticRowSelection[row.id];
         if (checked) exclude.delete(row.id);
         else exclude.add(row.id);
       }
@@ -334,7 +403,7 @@ export function PassportDataTable({
     } else {
       const include = new Set(selection.includeIds);
       for (const row of data) {
-        const checked = !!rowSelection[row.id];
+        const checked = !!optimisticRowSelection[row.id];
         if (checked) include.add(row.id);
         else include.delete(row.id);
       }
@@ -347,11 +416,11 @@ export function PassportDataTable({
         });
       }
     }
-  }, [rowSelection, data, selection, onSelectionStateChangeAction]);
+  }, [optimisticRowSelection, data, selection, onSelectionStateChangeAction]);
 
   // Debug logging
   React.useEffect(() => {
-    console.log('🐛 DEBUG - PassportDataTable:', {
+  console.log('DEBUG - PassportDataTable:', {
       isLoading,
       dataLength: data.length,
       total,
@@ -393,7 +462,7 @@ export function PassportDataTable({
                 // visually select all on page
                 const next: Record<string, boolean> = {};
                 for (const row of data) next[row.id] = true;
-                setRowSelection(next);
+                setOptimisticRowSelection(next);
               }}
               onClearSelectionAction={() => {
                 onSelectionStateChangeAction({
@@ -401,7 +470,7 @@ export function PassportDataTable({
                   includeIds: [],
                   excludeIds: [],
                 });
-                setRowSelection({});
+                setOptimisticRowSelection({});
               }}
               isAllMode={selection.mode === "all"}
               hasAnySelection={selectedCount > 0}
@@ -410,7 +479,7 @@ export function PassportDataTable({
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="h-14 cursor-default border-b border-border hover:bg-accent-blue data-[state=selected]:bg-accent-blue"
+                  className="h-14 cursor-default border-b border-border hover:bg-accent-light data-[state=selected]:bg-accent-blue"
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -445,7 +514,7 @@ export function PassportDataTable({
         const canGoNext = page < lastPage;
         return (
           <div className="flex items-center justify-end gap-4 py-3">
-            <div className="text-p text-secondary">
+            <div className="type-p text-secondary">
               {start} - {end} of {total}
             </div>
             <div className="flex items-center gap-1">

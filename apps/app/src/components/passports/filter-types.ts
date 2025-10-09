@@ -153,6 +153,7 @@ export interface FilterCondition {
 export interface FilterGroup {
   id: string;
   conditions: FilterCondition[]; // OR logic within group
+  asGroup?: boolean; // Whether to display as a group UI
 }
 
 export interface FilterState {
@@ -187,8 +188,8 @@ export interface RelativeDateValue {
 }
 
 export interface NumberRangeValue {
-  min: number;
-  max: number;
+  min?: number;
+  max?: number;
 }
 
 export interface DateRangeValue {

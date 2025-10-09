@@ -122,7 +122,7 @@ export function BrandDropdown({
               isExpanded ? "opacity-100" : "opacity-0",
             )}
           >
-            <span className="text-p !font-medium truncate text-secondary transition-colors group-hover:text-primary">
+            <span className="type-p !font-medium truncate text-secondary transition-colors group-hover:text-primary">
               {activeBrand?.name ?? "No Brand"}
             </span>
           </div>
@@ -147,9 +147,7 @@ export function BrandDropdown({
         sideOffset={8} // match the 8px grid of the sidebar padding
         align="start"
       >
-        <DropdownMenuLabel>
-          <span className="!text-small text-foreground">Select Brand</span>
-        </DropdownMenuLabel>
+        <DropdownMenuLabel>Select Brand</DropdownMenuLabel>
 
         <DropdownMenuSeparator />
 
@@ -163,7 +161,7 @@ export function BrandDropdown({
               )}
               onClick={() => handleBrandSelect(brand.id)}
             >
-              <span className="text-p truncate">{brand.name}</span>
+              <span className="type-p truncate">{brand.name}</span>
               {currentUser?.brand_id === brand.id && (
                 <Icons.Check className="ml-auto h-4 w-4 flex-shrink-0" />
               )}
@@ -179,7 +177,7 @@ export function BrandDropdown({
             onClick={handleCreateBrand}
           >
             <div className="flex items-center gap-2">
-              <span className="text-p">Create Brand</span>
+              <span className="type-p">Create Brand</span>
             </div>
           </DropdownMenuItem>
         </DropdownMenuGroup>

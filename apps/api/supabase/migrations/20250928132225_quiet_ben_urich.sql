@@ -1,0 +1,3 @@
+CREATE UNIQUE INDEX "passport_module_completion_passport_module_unq" ON "passport_module_completion" USING btree ("passport_id","module_key");--> statement-breakpoint
+CREATE INDEX "passport_module_completion_passport_id_idx" ON "passport_module_completion" USING btree ("passport_id");--> statement-breakpoint
+CREATE INDEX "passport_module_completion_module_completed_idx" ON "passport_module_completion" USING btree ("module_key","is_completed");

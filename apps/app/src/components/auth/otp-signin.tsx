@@ -27,6 +27,7 @@ export function OTPSignIn({ className }: Props) {
   const [isLoading, setLoading] = useState(false);
   const [isSent, setSent] = useState(false);
   const [email, setEmail] = useState<string>();
+  const [error, setError] = useState<string>();
   const supabase = createClient();
   const searchParams = useSearchParams();
 
@@ -39,10 +40,17 @@ export function OTPSignIn({ className }: Props) {
 
   async function onSubmit({ email }: z.infer<typeof formSchema>) {
     setLoading(true);
+    setError(undefined);
 
     setEmail(email);
 
-    await supabase.auth.signInWithOtp({ email });
+    const { error: otpError } = await supabase.auth.signInWithOtp({ email });
+
+    if (otpError) {
+      setError(otpError.message || "Failed to send verification code. Please try again.");
+      setLoading(false);
+      return;
+    }
 
     setSent(true);
     setLoading(false);
@@ -60,6 +68,7 @@ export function OTPSignIn({ className }: Props) {
 
   const handleCancel = () => {
     setSent(false);
+    setError(undefined);
     form.reset();
   };
 
@@ -108,7 +117,10 @@ export function OTPSignIn({ className }: Props) {
         <div className="flex items-center justify-center gap-1 type-small text-secondary">
           <span>Didn't receive an email?</span>
           <button
-            onClick={() => setSent(false)}
+            onClick={() => {
+              setSent(false);
+              setError(undefined);
+            }}
             type="button"
             className="text-primary underline font-medium hover:no-underline"
           >
@@ -132,6 +144,9 @@ export function OTPSignIn({ className }: Props) {
             spellCheck={false}
             {...form.register("email")}
           />
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
         </div>
 
         <Button type="submit" className="w-full h-10" disabled={isLoading}>

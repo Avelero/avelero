@@ -128,3 +128,4 @@ CLAUDE.md
 # Ignore internal GitHub instruction files (kept locally but not tracked)
 .github/instructions/
 .claude/
+API_ARCHITECTURE_ANALYSIS.md

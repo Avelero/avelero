@@ -69,6 +69,6 @@ jobs:
         uses: superfly/fly-pr-review-apps@1.2.1
         with:
           name: pr-${{ github.event.number }}-avelero-api
-          path: apps/api
-          config: fly-preview.yml
+          path: .
+          config: apps/api/fly-preview.yml
           secrets: DATABASE_URL=${{ secrets.DATABASE_URL }} NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}

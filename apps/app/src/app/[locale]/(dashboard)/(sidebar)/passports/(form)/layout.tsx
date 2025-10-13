@@ -24,7 +24,7 @@ import {
             <Button variant="brand">Save</Button>
           </ControlBarRight>
         </ControlBar>
-        <div className="flex w-full h-full justify-center items-start p-6 overflow-y-auto scrollbar-hide">
+        <div className="flex w-full h-full justify-center items-start p-12 overflow-y-auto scrollbar-hide">
           {children}
         </div>
       </div>

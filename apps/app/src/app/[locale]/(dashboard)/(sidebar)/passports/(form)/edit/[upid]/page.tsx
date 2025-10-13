@@ -7,10 +7,11 @@ import { JourneySection } from "@/components/passports/form/blocks/journey-block
 import { StatusSection } from "@/components/passports/form/sidebar/status-block";
 import { IdentifiersSection } from "@/components/passports/form/sidebar/identifiers-block";
 
-export default function CreatePassportsPage() {
+export default function EditPassportPage({ params }: { params: { upid: string } }) {
+  // TODO: fetch initial passport data using params.upid when implementing backend
   return (
     <PassportFormScaffold
-      title="Create passport"
+      title="Edit passport"
       left={
         <>
           <BasicInfoSection />
@@ -29,3 +30,6 @@ export default function CreatePassportsPage() {
     />
   );
 }
+
+
+

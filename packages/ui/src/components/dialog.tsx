@@ -50,7 +50,7 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 text-secondary transition-colors hover:text-foreground disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted">
+      <DialogPrimitive.Close className="absolute right-6 top-6 text-secondary transition-colors hover:text-foreground disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted">
         <Cross2Icon className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -93,7 +93,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("!type-h5 text-foreground", className)}
+    className={cn("!type-h5 text-primary", className)}
     {...props}
   />
 ));

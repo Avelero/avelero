@@ -25,6 +25,7 @@ interface BaseSelectProps {
   onCreateNew?: (searchTerm: string) => void;
   createLabel?: string;
   className?: string;
+  width?: string; // Custom popover width class (e.g., "w-[200px]")
   inline?: boolean; // Prevents portal rendering for nested contexts like sheets
 }
 
@@ -54,6 +55,7 @@ export function Select(props: SelectProps) {
     onCreateNew,
     createLabel = "Create",
     className,
+    width = "w-[300px]",
     inline = false,
   } = props;
 
@@ -76,6 +78,14 @@ export function Select(props: SelectProps) {
     
     return options.find(o => o.value === selectedValues[0])?.label ?? placeholder;
   }, [selectedValues, options, placeholder, isMultiple]);
+
+  // Get selected option for displaying icon
+  const selectedOption = React.useMemo(() => {
+    if (selectedValues.length === 1) {
+      return options.find(o => o.value === selectedValues[0]);
+    }
+    return undefined;
+  }, [selectedValues, options]);
 
   // Handle selection
   const handleSelect = (value: string) => {
@@ -109,10 +119,17 @@ export function Select(props: SelectProps) {
           className={cn("w-full justify-between", className)}
           icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
-          <span className="truncate">{displayText}</span>
+          <div className="flex items-center gap-2 truncate">
+            {selectedOption?.icon && (
+              <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
+                {selectedOption.icon}
+              </div>
+            )}
+            <span className="truncate">{displayText}</span>
+          </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start" inline={inline}>
+      <PopoverContent className={cn(width, "p-0")} align="start" inline={inline}>
         <Command>
           {searchable && (
             <CommandInput
@@ -137,7 +154,11 @@ export function Select(props: SelectProps) {
                     className="justify-between"
                   >
                     <div className="flex items-center gap-2">
-                      {option.icon}
+                      {option.icon && (
+                        <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
+                          {option.icon}
+                        </div>
+                      )}
                       <span>{option.label}</span>
                     </div>
                     {isMultiple ? (

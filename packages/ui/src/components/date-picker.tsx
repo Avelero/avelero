@@ -95,7 +95,8 @@ export function DatePicker({
             onBlur={handleInputBlur}
             placeholder={placeholder}
             disabled={disabled}
-            className="h-9 pr-10"
+            className={cn("h-9 pr-10", disabled && "cursor-default")}
+            style={disabled ? { cursor: "default" } : undefined}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") {
                 e.preventDefault();

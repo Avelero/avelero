@@ -4,20 +4,17 @@ import { type VariantProps, cva } from "class-variance-authority";
 import * as React from "react";
 import { cn } from "../utils";
 
-const booleanVariants = cva(
-  "relative flex-1",
-  {
-    variants: {
-      size: {
-        default: "h-9",
-        sm: "h-8",
-      },
-    },
-    defaultVariants: {
-      size: "default",
+const booleanVariants = cva("relative flex-1", {
+  variants: {
+    size: {
+      default: "h-9",
+      sm: "h-8",
     },
   },
-);
+  defaultVariants: {
+    size: "default",
+  },
+});
 
 export interface BooleanProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, "onChange">,
@@ -87,7 +84,10 @@ const BooleanToggle = React.forwardRef<HTMLDivElement, BooleanProps>(
             className={cn(
               "flex items-center justify-center px-3 text-[14px] transition-colors",
               value === false
-                ? cn("text-primary cursor-default pointer-events-none", selectedClassName)
+                ? cn(
+                    "text-primary cursor-default pointer-events-none",
+                    selectedClassName,
+                  )
                 : "text-tertiary hover:text-primary cursor-pointer",
               disabled && "opacity-50 cursor-not-allowed",
             )}
@@ -106,7 +106,10 @@ const BooleanToggle = React.forwardRef<HTMLDivElement, BooleanProps>(
             className={cn(
               "flex items-center justify-center px-3 text-[14px] transition-colors",
               value === true
-                ? cn("text-primary cursor-default pointer-events-none", selectedClassName)
+                ? cn(
+                    "text-primary cursor-default pointer-events-none",
+                    selectedClassName,
+                  )
                 : "text-tertiary hover:text-primary cursor-pointer",
               disabled && "opacity-50 cursor-not-allowed",
             )}
@@ -122,4 +125,3 @@ const BooleanToggle = React.forwardRef<HTMLDivElement, BooleanProps>(
 BooleanToggle.displayName = "BooleanToggle";
 
 export { BooleanToggle, booleanVariants };
-

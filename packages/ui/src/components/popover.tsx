@@ -20,33 +20,38 @@ type PopoverContentProps = React.ComponentPropsWithoutRef<
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
   PopoverContentProps
->(({ className, align = "center", sideOffset = 4, inline = false, ...props }, ref) => {
-  const content = (
-    <PopoverPrimitive.Content
-      ref={ref}
-      align={align}
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-none",
-        "border border-border bg-background p-0 shadow-lg",
-        "text-foreground",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-        "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-        "data-[side=bottom]:slide-in-from-top-2",
-        "data-[side=left]:slide-in-from-right-2",
-        "data-[side=right]:slide-in-from-left-2",
-        "data-[side=top]:slide-in-from-bottom-2",
-        "[&_*]:scrollbar-none [&_*::-webkit-scrollbar]:hidden",
-        className,
-      )}
-      {...props}
-    />
-  );
+>(
+  (
+    { className, align = "center", sideOffset = 4, inline = false, ...props },
+    ref,
+  ) => {
+    const content = (
+      <PopoverPrimitive.Content
+        ref={ref}
+        align={align}
+        sideOffset={sideOffset}
+        className={cn(
+          "z-50 min-w-[8rem] overflow-hidden rounded-none",
+          "border border-border bg-background p-0 shadow-lg",
+          "text-foreground",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+          "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "data-[side=bottom]:slide-in-from-top-2",
+          "data-[side=left]:slide-in-from-right-2",
+          "data-[side=right]:slide-in-from-left-2",
+          "data-[side=top]:slide-in-from-bottom-2",
+          "[&_*]:scrollbar-none [&_*::-webkit-scrollbar]:hidden",
+          className,
+        )}
+        {...props}
+      />
+    );
 
-  if (inline) return content;
-  return <PopoverPrimitive.Portal>{content}</PopoverPrimitive.Portal>;
-});
+    if (inline) return content;
+    return <PopoverPrimitive.Portal>{content}</PopoverPrimitive.Portal>;
+  },
+);
 PopoverContent.displayName = PopoverPrimitive.Content.displayName;
 
 export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor };

@@ -3,7 +3,14 @@
 import * as React from "react";
 import { cn } from "../utils";
 import { Button } from "./button";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "./command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./command";
 import { Icons } from "./icons";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 
@@ -65,34 +72,43 @@ export function Select(props: SelectProps) {
   const [searchTerm, setSearchTerm] = React.useState("");
 
   const isMultiple = props.multiple === true;
-  const selectedValues = isMultiple ? props.value : props.value ? [props.value] : [];
+  const selectedValues = isMultiple
+    ? props.value
+    : props.value
+      ? [props.value]
+      : [];
 
   // Filter options based on search term
   const filteredOptions = React.useMemo(() => {
     if (!searchTerm) return options;
     return options.filter((option) =>
-      option.label.toLowerCase().includes(searchTerm.toLowerCase())
+      option.label.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [options, searchTerm]);
 
   // Display text for trigger button
   const displayText = React.useMemo(() => {
     if (selectedValues.length === 0) return placeholder;
-    
+
     if (isMultiple) {
       if (selectedValues.length === 1) {
-        return options.find(o => o.value === selectedValues[0])?.label ?? placeholder;
+        return (
+          options.find((o) => o.value === selectedValues[0])?.label ??
+          placeholder
+        );
       }
       return `${selectedValues.length} selected`;
     }
-    
-    return options.find(o => o.value === selectedValues[0])?.label ?? placeholder;
+
+    return (
+      options.find((o) => o.value === selectedValues[0])?.label ?? placeholder
+    );
   }, [selectedValues, options, placeholder, isMultiple]);
 
   // Get selected option for displaying icon
   const selectedOption = React.useMemo(() => {
     if (selectedValues.length === 1) {
-      return options.find(o => o.value === selectedValues[0]);
+      return options.find((o) => o.value === selectedValues[0]);
     }
     return undefined;
   }, [selectedValues, options]);
@@ -101,7 +117,7 @@ export function Select(props: SelectProps) {
   const handleSelect = (value: string) => {
     if (isMultiple) {
       const newValues = selectedValues.includes(value)
-        ? selectedValues.filter(v => v !== value)
+        ? selectedValues.filter((v) => v !== value)
         : [...selectedValues, value];
       (props as MultiSelectProps).onValueChange(newValues);
     } else {
@@ -140,7 +156,11 @@ export function Select(props: SelectProps) {
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={cn(width, "p-0")} align="start" inline={inline}>
+      <PopoverContent
+        className={cn(width, "p-0")}
+        align="start"
+        inline={inline}
+      >
         <Command shouldFilter={false}>
           {searchable && (
             <CommandInput
@@ -151,9 +171,7 @@ export function Select(props: SelectProps) {
           )}
           <CommandList>
             {!hasCreateOption && (
-              <CommandEmpty>
-                {loading ? "Loading..." : emptyText}
-              </CommandEmpty>
+              <CommandEmpty>{loading ? "Loading..." : emptyText}</CommandEmpty>
             )}
             <CommandGroup>
               {filteredOptions.length > 0 ? (
@@ -193,7 +211,7 @@ export function Select(props: SelectProps) {
                         <Icons.Check
                           className={cn(
                             "h-4 w-4",
-                            isSelected ? "opacity-100" : "opacity-0"
+                            isSelected ? "opacity-100" : "opacity-0",
                           )}
                         />
                       )}
@@ -201,10 +219,7 @@ export function Select(props: SelectProps) {
                   );
                 })
               ) : hasCreateOption && searchTerm.trim() ? (
-                <CommandItem
-                  value={searchTerm.trim()}
-                  onSelect={handleCreate}
-                >
+                <CommandItem value={searchTerm.trim()} onSelect={handleCreate}>
                   <div className="flex items-center gap-2">
                     <Icons.Plus className="h-3.5 w-3.5" />
                     <span className="type-p text-primary">
@@ -220,4 +235,3 @@ export function Select(props: SelectProps) {
     </Popover>
   );
 }
-

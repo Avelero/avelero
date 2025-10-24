@@ -123,4 +123,3 @@ export const certifications: Record<string, Certification> = {
 export const allCertifications = Object.values(certifications);
 
 export type CertificationId = keyof typeof certifications;
-

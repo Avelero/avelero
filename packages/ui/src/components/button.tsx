@@ -85,9 +85,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
               </span>
             )}
             {children && (
-              <span className="inline-flex items-center px-1">
-                {children}
-              </span>
+              <span className="inline-flex items-center px-1">{children}</span>
             )}
             {icon && iconPosition === "right" && (
               <span className={cn("inline-flex items-center", iconSizeClass)}>

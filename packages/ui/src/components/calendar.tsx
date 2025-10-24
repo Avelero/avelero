@@ -1,15 +1,19 @@
-"use client"
+"use client";
 
-import * as React from "react"
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-} from "lucide-react"
-import { type DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
+} from "lucide-react";
+import * as React from "react";
+import {
+  type DayButton,
+  DayPicker,
+  getDefaultClassNames,
+} from "react-day-picker";
 
-import { cn } from "../utils"
-import { Button, buttonVariants } from "../components/button"
+import { Button, buttonVariants } from "../components/button";
+import { cn } from "../utils";
 
 function Calendar({
   className,
@@ -21,9 +25,9 @@ function Calendar({
   components,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
-  buttonVariant?: React.ComponentProps<typeof Button>["variant"]
+  buttonVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
-  const defaultClassNames = getDefaultClassNames()
+  const defaultClassNames = getDefaultClassNames();
 
   return (
     <DayPicker
@@ -32,7 +36,7 @@ function Calendar({
         "bg-background group/calendar p-3 [--cell-size:2rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
-        className
+        className,
       )}
       captionLayout={captionLayout}
       formatters={{
@@ -44,83 +48,77 @@ function Calendar({
         root: cn("w-fit", defaultClassNames.root),
         months: cn(
           "relative flex flex-col gap-4 md:flex-row",
-          defaultClassNames.months
+          defaultClassNames.months,
         ),
         month: cn("flex w-full flex-col gap-4", defaultClassNames.month),
         nav: cn(
           "absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1",
-          defaultClassNames.nav
+          defaultClassNames.nav,
         ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
           "h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50 text-primary",
-          defaultClassNames.button_previous
+          defaultClassNames.button_previous,
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
           "h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50 text-primary",
-          defaultClassNames.button_next
+          defaultClassNames.button_next,
         ),
         month_caption: cn(
           "flex h-[--cell-size] w-full items-center justify-center px-[--cell-size]",
-          defaultClassNames.month_caption
+          defaultClassNames.month_caption,
         ),
         dropdowns: cn(
           "flex h-[--cell-size] w-full items-center justify-center gap-1.5 type-p font-medium",
-          defaultClassNames.dropdowns
+          defaultClassNames.dropdowns,
         ),
         dropdown_root: cn(
           "has-focus:border-ring border-input shadow-xs has-focus:ring-ring/50 has-focus:ring-[3px] relative border hover:bg-accent !cursor-pointer",
-          defaultClassNames.dropdown_root
+          defaultClassNames.dropdown_root,
         ),
         dropdown: cn(
           "bg-popover absolute inset-0 opacity-0 !cursor-pointer",
-          defaultClassNames.dropdown
+          defaultClassNames.dropdown,
         ),
         caption_label: cn(
           "select-none font-medium text-primary",
           captionLayout === "label"
             ? "type-p"
             : "[&>svg]:text-tertiary flex h-8 items-center gap-1 pl-2 pr-1 type-p hover:bg-accent !cursor-pointer [&>svg]:size-3.5",
-          defaultClassNames.caption_label
+          defaultClassNames.caption_label,
         ),
         table: "w-full border-collapse",
         weekdays: cn("flex", defaultClassNames.weekdays),
         weekday: cn(
           "text-tertiary flex-1 select-none type-small font-normal",
-          defaultClassNames.weekday
+          defaultClassNames.weekday,
         ),
         week: cn("mt-2 flex w-full", defaultClassNames.week),
         week_number_header: cn(
           "w-[--cell-size] select-none",
-          defaultClassNames.week_number_header
+          defaultClassNames.week_number_header,
         ),
         week_number: cn(
           "text-primary select-none type-p",
-          defaultClassNames.week_number
+          defaultClassNames.week_number,
         ),
         day: cn(
           "group/day relative aspect-square h-full w-full select-none p-0 text-center",
-          defaultClassNames.day
+          defaultClassNames.day,
         ),
-        range_start: cn(
-          "bg-accent",
-          defaultClassNames.range_start
-        ),
+        range_start: cn("bg-accent", defaultClassNames.range_start),
         range_middle: cn("rounded-none", defaultClassNames.range_middle),
         range_end: cn("bg-accent", defaultClassNames.range_end),
         today: cn(
           "bg-accent text-primary data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground",
-          defaultClassNames.today
+          defaultClassNames.today,
         ),
         outside: cn(
           "text-secondary aria-selected:text-secondary",
-          defaultClassNames.outside
+          defaultClassNames.outside,
         ),
-        disabled: cn(
-          "text-primary opacity-50",
-          defaultClassNames.disabled
-        ),
+        disabled: cn("text-primary opacity-50", defaultClassNames.disabled),
         hidden: cn("invisible", defaultClassNames.hidden),
         ...classNames,
       }}
@@ -133,13 +131,13 @@ function Calendar({
               className={cn(className)}
               {...props}
             />
-          )
+          );
         },
         Chevron: ({ className, orientation, ...props }) => {
           if (orientation === "left") {
             return (
               <ChevronLeftIcon className={cn("size-4", className)} {...props} />
-            )
+            );
           }
 
           if (orientation === "right") {
@@ -148,12 +146,12 @@ function Calendar({
                 className={cn("size-4", className)}
                 {...props}
               />
-            )
+            );
           }
 
           return (
             <ChevronDownIcon className={cn("size-4", className)} {...props} />
-          )
+          );
         },
         DayButton: CalendarDayButton,
         WeekNumber: ({ children, ...props }) => {
@@ -163,13 +161,13 @@ function Calendar({
                 {children}
               </div>
             </td>
-          )
+          );
         },
         ...components,
       }}
       {...props}
     />
-  )
+  );
 }
 
 function CalendarDayButton({
@@ -178,12 +176,12 @@ function CalendarDayButton({
   modifiers,
   ...props
 }: React.ComponentProps<typeof DayButton>) {
-  const defaultClassNames = getDefaultClassNames()
+  const defaultClassNames = getDefaultClassNames();
 
-  const ref = React.useRef<HTMLButtonElement>(null)
+  const ref = React.useRef<HTMLButtonElement>(null);
   React.useEffect(() => {
-    if (modifiers.focused) ref.current?.focus()
-  }, [modifiers.focused])
+    if (modifiers.focused) ref.current?.focus();
+  }, [modifiers.focused]);
 
   return (
     <Button
@@ -210,11 +208,11 @@ function CalendarDayButton({
         modifiers.outside ? "hover:text-secondary" : "hover:text-primary",
         "hover:bg-accent",
         defaultClassNames.day,
-        className
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
-export { Calendar, CalendarDayButton }
+export { Calendar, CalendarDayButton };

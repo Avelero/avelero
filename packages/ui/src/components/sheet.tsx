@@ -57,24 +57,29 @@ interface SheetContentProps
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, hideDefaultClose = false, ...props }, ref) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <SheetPrimitive.Content
-      ref={ref}
-      className={cn(sheetVariants({ side }), className)}
-      {...props}
-    >
-      {!hideDefaultClose && (
-        <SheetPrimitive.Close className="absolute right-6 top-6 ring-offset-background transition-all hover:text-primary disabled:pointer-events-none data-[state=open]:bg-secondary">
-          <Cross2Icon className="h-5 w-5" />
-          <span className="sr-only">Close</span>
-        </SheetPrimitive.Close>
-      )}
-      {children}
-    </SheetPrimitive.Content>
-  </SheetPortal>
-));
+>(
+  (
+    { side = "right", className, children, hideDefaultClose = false, ...props },
+    ref,
+  ) => (
+    <SheetPortal>
+      <SheetOverlay />
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(sheetVariants({ side }), className)}
+        {...props}
+      >
+        {!hideDefaultClose && (
+          <SheetPrimitive.Close className="absolute right-6 top-6 ring-offset-background transition-all hover:text-primary disabled:pointer-events-none data-[state=open]:bg-secondary">
+            <Cross2Icon className="h-5 w-5" />
+            <span className="sr-only">Close</span>
+          </SheetPrimitive.Close>
+        )}
+        {children}
+      </SheetPrimitive.Content>
+    </SheetPortal>
+  ),
+);
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
 const SheetHeader = ({
@@ -147,12 +152,10 @@ const SheetBreadcrumbHeader = ({
   const renderBreadcrumb = () => {
     // Get only the pages up to and including the current page
     const visiblePages = pages.slice(0, currentPageIndex + 1);
-    
+
     // Single page or on first page - just show the current title
     if (visiblePages.length === 1) {
-      return (
-        <p className="type-h6 text-primary">{visiblePages[0]}</p>
-      );
+      return <p className="type-h6 text-primary">{visiblePages[0]}</p>;
     }
 
     // Two pages - show both with separator
@@ -167,9 +170,7 @@ const SheetBreadcrumbHeader = ({
             {visiblePages[0]}
           </button>
           <p className="type-h6 text-tertiary mx-1.5">/</p>
-          <p className="type-h6 text-primary">
-            {visiblePages[1]}
-          </p>
+          <p className="type-h6 text-primary">{visiblePages[1]}</p>
         </>
       );
     }
@@ -198,7 +199,7 @@ const SheetBreadcrumbHeader = ({
     <div
       className={cn(
         "h-14 px-6 flex flex-row justify-between items-center border-b border-border",
-        className
+        className,
       )}
     >
       <SheetPrimitive.Title className="flex flex-row items-center">

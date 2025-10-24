@@ -1,5 +1,5 @@
-import { brandMembers } from "@v1/db/schema";
 import { and, eq } from "drizzle-orm";
+import { brandMembers } from "@v1/db/schema";
 import type { Role } from "../../config/roles";
 import type { TRPCContext } from "../init.js";
 

@@ -174,7 +174,7 @@ export function TagSelect({
         align="start"
       >
         {view === "main" ? (
-          <Command>
+          <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search or create tags..."
               value={searchTerm}
@@ -223,7 +223,7 @@ export function TagSelect({
             </CommandList>
           </Command>
         ) : (
-          <Command>
+          <Command shouldFilter={false}>
             <CommandInput
               placeholder="Select a color..."
               value={searchTerm}

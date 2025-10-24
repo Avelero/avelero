@@ -28,7 +28,7 @@ import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTRPC } from "@/trpc/client";
-import type { FilterActions, FilterState } from "./passports/filter-types";
+import type { FilterActions, FilterState } from "../passports/filter-types";
 
 interface QuickFiltersPopoverProps {
   filterState: FilterState;

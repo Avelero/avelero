@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { CategorySelect } from "@/components/category-select";
-import { SeasonSelect, type Season } from "@/components/season-select";
-import { ColorSelect, type ColorOption } from "@/components/color-select";
-import { SizeSelect } from "@/components/size-select";
-import { TagSelect, type TagOption } from "@/components/tag-select";
+import { CategorySelect } from "@/components/select/category-select";
+import { SeasonSelect, type Season } from "@/components/select/season-select";
+import { ColorSelect, type ColorOption } from "@/components/select/color-select";
+import { SizeSelect } from "@/components/select/size-select";
+import { TagSelect, type TagOption } from "@/components/select/tag-select";
 import { SeasonModal } from "@/components/modals/season-modal";
 import { SizeModal } from "@/components/modals/size-modal";
 import { Label } from "@v1/ui/label";

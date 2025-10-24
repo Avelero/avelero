@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@v1/ui/dropdown-menu";
 import { cn } from "@v1/ui/cn";
+import { MaterialSheet } from "../../../sheets/material-sheet";
 
 interface Material {
   id: string;
@@ -31,9 +32,11 @@ const MATERIAL_OPTIONS = [
 const MaterialDropdown = ({
   material,
   onMaterialChange,
+  onCreateMaterial,
 }: {
   material: string;
   onMaterialChange: (material: string) => void;
+  onCreateMaterial: (searchTerm: string) => void;
 }) => {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -45,9 +48,10 @@ const MaterialDropdown = ({
   };
 
   const handleCreate = () => {
-    if (searchQuery && !MATERIAL_OPTIONS.includes(searchQuery)) {
-      // TODO: Open material sheet for creation
-      onMaterialChange(searchQuery);
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery && !MATERIAL_OPTIONS.includes(trimmedQuery)) {
+      // Open material sheet for creation
+      onCreateMaterial(trimmedQuery);
       setSearchQuery("");
       setDropdownOpen(false);
     }
@@ -58,34 +62,39 @@ const MaterialDropdown = ({
   );
 
   return (
-    <div className="flex items-center w-full h-full px-4 py-2">
+    <div className="flex items-center w-full h-full">
       <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
         <PopoverTrigger asChild>
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className={cn(
-              "border-b border-border type-p cursor-pointer transition-colors",
-              material 
-                ? "text-primary hover:text-secondary hover:border-secondary" 
-                : "text-tertiary hover:text-secondary hover:border-secondary"
+              "group w-full h-full px-4 py-2 flex items-center cursor-pointer transition-all"
             )}
           >
-            {material || "Select material"}
+            <div
+              className={cn(
+                "border-b border-border type-p transition-colors",
+                material 
+                  ? "text-primary group-hover:text-secondary group-hover:border-secondary" 
+                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary"
+              )}
+            >
+              {material || "Select material"}
+            </div>
           </button>
         </PopoverTrigger>
         <PopoverContent className="p-0 w-64" align="start" sideOffset={4}>
-          <Command>
+          <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search materials..."
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
             <CommandList>
-              <CommandEmpty>No materials found.</CommandEmpty>
-              {(!searchQuery || filteredOptions.length > 0) && (
-                <CommandGroup>
-                  {filteredOptions.map((option) => {
+              <CommandGroup>
+                {filteredOptions.length > 0 ? (
+                  filteredOptions.map((option) => {
                     const isSelected = material === option;
                     return (
                       <CommandItem
@@ -98,21 +107,22 @@ const MaterialDropdown = ({
                         {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
                       </CommandItem>
                     );
-                  })}
-                </CommandGroup>
-              )}
+                  })
+                ) : searchQuery.trim() ? (
+                  <CommandItem
+                    value={searchQuery.trim()}
+                    onSelect={handleCreate}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icons.Plus className="h-3.5 w-3.5" />
+                      <span className="type-p text-primary">
+                        Create &quot;{searchQuery.trim()}&quot;
+                      </span>
+                    </div>
+                  </CommandItem>
+                ) : null}
+              </CommandGroup>
             </CommandList>
-            {searchQuery && !MATERIAL_OPTIONS.includes(searchQuery) && (
-              <div className="border-t border-border">
-                <button
-                  type="button"
-                  onClick={handleCreate}
-                  className="w-full flex items-center justify-start py-2 px-3 bg-background hover:bg-accent transition-colors"
-                >
-                  <span className="type-p text-primary">Create "{searchQuery}"</span>
-                </button>
-              </div>
-            )}
           </Command>
         </PopoverContent>
       </Popover>
@@ -208,6 +218,24 @@ const PercentageCell = ({
 
 export function MaterialsSection() {
   const [materials, setMaterials] = React.useState<Material[]>([]);
+  const [materialSheetOpen, setMaterialSheetOpen] = React.useState(false);
+  const [materialSheetInitialName, setMaterialSheetInitialName] = React.useState("");
+
+  const handleMaterialCreated = (material: any) => {
+    // Add the created material to the list
+    const newMaterial: Material = {
+      id: material.id,
+      name: material.name,
+      countries: material.countryOfOrigin ? [material.countryOfOrigin] : [],
+      percentage: "",
+    };
+    setMaterials((prev) => [...prev, newMaterial]);
+  };
+
+  const handleCreateMaterial = (searchTerm: string) => {
+    setMaterialSheetInitialName(searchTerm);
+    setMaterialSheetOpen(true);
+  };
 
   const updateMaterial = (id: string, field: keyof Material, value: any) => {
     setMaterials((prev) =>
@@ -281,18 +309,19 @@ export function MaterialsSection() {
                 <MaterialDropdown
                   material={material.name}
                   onMaterialChange={(value) => {
-                updateMaterial(material.id, "name", value);
-                // Mock: Set countries based on material selection
-                if (value === "Recycled Polyester") {
-                  updateMaterial(material.id, "countries", ["China"]);
-                } else if (value === "Organic Cotton") {
-                  updateMaterial(material.id, "countries", ["Portugal"]);
-                } else if (value === "Wool") {
-                  updateMaterial(material.id, "countries", ["India"]);
-                } else {
-                  updateMaterial(material.id, "countries", []);
-                }
+                    updateMaterial(material.id, "name", value);
+                    // Mock: Set countries based on material selection
+                    if (value === "Recycled Polyester") {
+                      updateMaterial(material.id, "countries", ["China"]);
+                    } else if (value === "Organic Cotton") {
+                      updateMaterial(material.id, "countries", ["Portugal"]);
+                    } else if (value === "Wool") {
+                      updateMaterial(material.id, "countries", ["India"]);
+                    } else {
+                      updateMaterial(material.id, "countries", []);
+                    }
                   }}
+                  onCreateMaterial={handleCreateMaterial}
                 />
               </div>
 
@@ -348,6 +377,14 @@ export function MaterialsSection() {
           </Button>
         </div>
       )}
+
+      {/* Material Creation Sheet */}
+      <MaterialSheet
+        open={materialSheetOpen}
+        onOpenChange={setMaterialSheetOpen}
+        initialName={materialSheetInitialName}
+        onMaterialCreated={handleMaterialCreated}
+      />
     </div>
   );
 }

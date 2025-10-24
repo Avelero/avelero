@@ -196,7 +196,7 @@ export function ColorSelect({
         align="start"
       >
         {view === "main" ? (
-          <Command>
+          <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search colors..."
               value={searchTerm}
@@ -250,7 +250,7 @@ export function ColorSelect({
             </CommandList>
           </Command>
         ) : (
-          <Command>
+          <Command shouldFilter={false}>
             <CommandInput
               placeholder="Select a color icon..."
               value={searchTerm}

@@ -22,6 +22,7 @@ interface BaseSelectProps {
   disabled?: boolean;
   loading?: boolean;
   emptyText?: string;
+  hasCreateOption?: boolean;
   onCreateNew?: (searchTerm: string) => void;
   createLabel?: string;
   className?: string;
@@ -52,6 +53,7 @@ export function Select(props: SelectProps) {
     disabled = false,
     loading = false,
     emptyText = "No results found.",
+    hasCreateOption = false,
     onCreateNew,
     createLabel = "Create",
     className,
@@ -64,6 +66,14 @@ export function Select(props: SelectProps) {
 
   const isMultiple = props.multiple === true;
   const selectedValues = isMultiple ? props.value : props.value ? [props.value] : [];
+
+  // Filter options based on search term
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm) return options;
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [options, searchTerm]);
 
   // Display text for trigger button
   const displayText = React.useMemo(() => {
@@ -102,8 +112,9 @@ export function Select(props: SelectProps) {
 
   // Handle create new
   const handleCreate = () => {
-    if (onCreateNew && searchTerm) {
-      onCreateNew(searchTerm);
+    const trimmedSearch = searchTerm.trim();
+    if (onCreateNew && trimmedSearch) {
+      onCreateNew(trimmedSearch);
       setSearchTerm("");
       setOpen(false);
     }
@@ -130,7 +141,7 @@ export function Select(props: SelectProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className={cn(width, "p-0")} align="start" inline={inline}>
-        <Command>
+        <Command shouldFilter={false}>
           {searchable && (
             <CommandInput
               placeholder={searchPlaceholder}
@@ -139,66 +150,71 @@ export function Select(props: SelectProps) {
             />
           )}
           <CommandList>
-            <CommandEmpty>
-              {loading ? "Loading..." : emptyText}
-            </CommandEmpty>
+            {!hasCreateOption && (
+              <CommandEmpty>
+                {loading ? "Loading..." : emptyText}
+              </CommandEmpty>
+            )}
             <CommandGroup>
-              {options.map((option) => {
-                const isSelected = selectedValues.includes(option.value);
-                return (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    disabled={option.disabled}
-                    onSelect={() => handleSelect(option.value)}
-                    className="justify-between"
-                  >
-                    <div className="flex items-center gap-2">
-                      {option.icon && (
-                        <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
-                          {option.icon}
-                        </div>
-                      )}
-                      <span>{option.label}</span>
-                    </div>
-                    {isMultiple ? (
-                      <div className="relative inline-flex h-4 w-4 items-center justify-center">
-                        <input
-                          type="checkbox"
-                          className="block h-4 w-4 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand cursor-pointer"
-                          checked={isSelected}
-                          readOnly
-                        />
-                        {isSelected && (
-                          <div className="absolute top-0 left-0 w-4 h-4 flex items-center justify-center pointer-events-none">
-                            <div className="w-[10px] h-[10px] bg-brand" />
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option) => {
+                  const isSelected = selectedValues.includes(option.value);
+                  return (
+                    <CommandItem
+                      key={option.value}
+                      value={option.value}
+                      disabled={option.disabled}
+                      onSelect={() => handleSelect(option.value)}
+                      className="justify-between"
+                    >
+                      <div className="flex items-center gap-2">
+                        {option.icon && (
+                          <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
+                            {option.icon}
                           </div>
                         )}
+                        <span>{option.label}</span>
                       </div>
-                    ) : (
-                      <Icons.Check
-                        className={cn(
-                          "h-4 w-4",
-                          isSelected ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                    )}
-                  </CommandItem>
-                );
-              })}
+                      {isMultiple ? (
+                        <div className="relative inline-flex h-4 w-4 items-center justify-center">
+                          <input
+                            type="checkbox"
+                            className="block h-4 w-4 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand cursor-pointer"
+                            checked={isSelected}
+                            readOnly
+                          />
+                          {isSelected && (
+                            <div className="absolute top-0 left-0 w-4 h-4 flex items-center justify-center pointer-events-none">
+                              <div className="w-[10px] h-[10px] bg-brand" />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <Icons.Check
+                          className={cn(
+                            "h-4 w-4",
+                            isSelected ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                      )}
+                    </CommandItem>
+                  );
+                })
+              ) : hasCreateOption && searchTerm.trim() ? (
+                <CommandItem
+                  value={searchTerm.trim()}
+                  onSelect={handleCreate}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icons.Plus className="h-3.5 w-3.5" />
+                    <span className="type-p text-primary">
+                      {createLabel} &quot;{searchTerm.trim()}&quot;
+                    </span>
+                  </div>
+                </CommandItem>
+              ) : null}
             </CommandGroup>
           </CommandList>
-          {onCreateNew && searchTerm && (
-            <div className="border-t border-border">
-              <button
-                type="button"
-                onClick={handleCreate}
-                className="w-full px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors text-left"
-              >
-                {createLabel} "{searchTerm}"
-              </button>
-            </div>
-          )}
         </Command>
       </PopoverContent>
     </Popover>

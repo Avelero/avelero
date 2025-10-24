@@ -31,7 +31,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CategorySelect } from "../category-select";
+import { CategorySelect } from "../select/category-select";
 
 interface SizeRow {
   id: string;

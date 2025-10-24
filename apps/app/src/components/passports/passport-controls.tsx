@@ -25,8 +25,8 @@ import type {
 } from "../tables/passports/types";
 import { AdvancedFilterPanel } from "../sheets/filter-sheet";
 import { DisplayPopover } from "./display-popover";
-import { QuickFiltersPopover } from "../filter-select";
-import { SortPopover } from "../sort-select";
+import { QuickFiltersPopover } from "../select/filter-select";
+import { SortPopover } from "../select/sort-select";
 
 interface PassportControlsProps {
   selectedCount?: number;

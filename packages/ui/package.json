@@ -43,6 +43,8 @@
     "./select": "./src/components/select.tsx",
     "./date-picker": "./src/components/date-picker.tsx",
     "./min-max": "./src/components/min-max.tsx",
+    "./switch": "./src/components/switch.tsx",
+    "./boolean": "./src/components/boolean.tsx",
     "./tailwind.config": "./tailwind.config.ts",
     "./postcss": "./postcss.config.js",
     "./sonner": "./src/components/sonner.tsx"
@@ -56,6 +58,7 @@
     "@radix-ui/react-popover": "^1.1.14",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.1.2",
     "class-variance-authority": "^0.7.0",

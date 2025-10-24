@@ -51,6 +51,7 @@
         "@trpc/tanstack-react-query": "^11.4.3",
         "@v1/analytics": "workspace:*",
         "@v1/kv": "workspace:*",
+        "@v1/selections": "workspace:*",
         "@v1/supabase": "workspace:*",
         "@v1/ui": "workspace:*",
         "@v1/utils": "workspace:*",
@@ -155,18 +156,18 @@
         "server-only": "^0.0.1",
       },
     },
-    "packages/location": {
-      "name": "@v1/location",
-      "version": "0.1.0",
-      "devDependencies": {
-        "typescript": "^5.9.2",
-      },
-    },
     "packages/logger": {
       "name": "@v1/logger",
       "version": "0.1.0",
       "dependencies": {
         "pino": "^9.3.2",
+      },
+    },
+    "packages/selections": {
+      "name": "@v1/selections",
+      "version": "0.1.0",
+      "devDependencies": {
+        "typescript": "^5.9.2",
       },
     },
     "packages/supabase": {
@@ -201,6 +202,7 @@
         "@radix-ui/react-popover": "^1.1.14",
         "@radix-ui/react-select": "^2.2.6",
         "@radix-ui/react-slot": "^1.2.3",
+        "@radix-ui/react-switch": "^1.2.6",
         "@radix-ui/react-tabs": "^1.1.12",
         "@radix-ui/react-tooltip": "^1.1.2",
         "class-variance-authority": "^0.7.0",
@@ -1029,9 +1031,9 @@
 
     "@v1/kv": ["@v1/kv@workspace:packages/kv"],
 
-    "@v1/location": ["@v1/location@workspace:packages/location"],
-
     "@v1/logger": ["@v1/logger@workspace:packages/logger"],
+
+    "@v1/selections": ["@v1/selections@workspace:packages/selections"],
 
     "@v1/supabase": ["@v1/supabase@workspace:packages/supabase"],
 

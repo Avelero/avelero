@@ -1,6 +1,6 @@
 "use client";
 
-import { CountrySelect } from "@/components/country-select";
+import { CountrySelect } from "@/components/select/country-select";
 import { useTRPC } from "@/trpc/client";
 import { hueFromName } from "@/utils/avatar-hue";
 import { useMutation, useQueryClient } from "@tanstack/react-query";

@@ -1,13 +1,17 @@
 {
-  "name": "@v1/location",
+  "name": "@v1/selections",
   "version": "0.1.0",
   "private": true,
   "sideEffects": false,
-  "files": ["src/countries.ts"],
+  "files": ["src/countries.ts", "src/certifications.ts"],
   "exports": {
     "./countries": {
       "types": "./src/countries.ts",
       "default": "./src/countries.ts"
+    },
+    "./certifications": {
+      "types": "./src/certifications.ts",
+      "default": "./src/certifications.ts"
     }
   },
   "scripts": {

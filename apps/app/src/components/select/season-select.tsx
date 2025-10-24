@@ -102,7 +102,7 @@ export function SeasonSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[360px] p-0" align="start">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search seasons..."
             value={searchTerm}

@@ -5,7 +5,7 @@ import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
 import { toast } from "@v1/ui/sonner";
 import { useEffect, useRef, useState } from "react";
-import { CountrySelect } from "../country-select";
+import { CountrySelect } from "../select/country-select";
 
 interface Brand {
   id: string;

@@ -24,6 +24,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { OperatorSheet, type OperatorData } from "../../../sheets/operator-sheet";
 
 interface JourneyStep {
   id: string;
@@ -78,96 +79,99 @@ const StepDropdown = ({
   };
 
   const handleCreate = () => {
-    if (searchQuery && !STEP_OPTIONS.includes(searchQuery)) {
-      onStepChange(searchQuery);
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery && !STEP_OPTIONS.includes(trimmedQuery)) {
+      onStepChange(trimmedQuery);
       setSearchQuery("");
       setDropdownOpen(false);
     }
   };
 
-  const handleCellClick = () => {
-    if (!isDragging) {
-      setDropdownOpen(true);
-    }
-  };
+  
 
   const filteredOptions = STEP_OPTIONS.filter((option) =>
     option.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="flex items-start w-full h-full px-2 py-[9.5px]">
-      <div className="flex items-center gap-2 flex-1">
-        {/* Drag Handle */}
+    <div className="flex items-stretch w-full h-full">
+      <div className="w-10 h-10 flex items-center justify-center">
         <div
           {...dragAttributes}
           {...dragListeners}
           role="button"
           aria-label="Drag to reorder journey step"
           tabIndex={0}
-          className="cursor-grab active:cursor-grabbing text-tertiary hover:text-secondary transition-colors flex-shrink-0"
+          className="cursor-grab active:cursor-grabbing text-tertiary hover:text-secondary transition-colors flex-shrink-0 w-10 h-10 flex items-center justify-center"
         >
           <Icons.GripVertical className="h-4 w-4" />
         </div>
-        {/* Clickable Step Text */}
-        <Popover open={dropdownOpen && !isDragging} onOpenChange={setDropdownOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              onClick={handleCellClick}
+      </div>
+      <Popover open={dropdownOpen && !isDragging} onOpenChange={setDropdownOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            onClick={() => {
+              if (!isDragging) setDropdownOpen(true);
+            }}
+            className={cn(
+              "group w-full h-full flex-1 pr-2 py-[9.5px] flex items-start cursor-pointer transition-all text-left"
+            )}
+          >
+            <div
               className={cn(
-                "border-b border-border type-p cursor-pointer transition-colors",
-                step 
-                  ? "text-primary hover:text-secondary hover:border-secondary" 
-                  : "text-tertiary hover:text-secondary hover:border-secondary"
+                "border-b border-border type-p transition-colors",
+                step
+                  ? "text-primary group-hover:text-secondary group-hover:border-secondary"
+                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary"
               )}
             >
               {step || "Select step"}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-64" align="start" sideOffset={4}>
-            <Command>
-              <CommandInput
-                placeholder="Search steps..."
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-              />
-              <CommandList>
-                <CommandEmpty>No steps found.</CommandEmpty>
-                {(!searchQuery || filteredOptions.length > 0) && (
-                  <CommandGroup>
-                    {filteredOptions.map((option) => {
-                      const isSelected = step === option;
-                      return (
-                        <CommandItem
-                          key={option}
-                          value={option}
-                          onSelect={() => handleSelect(option)}
-                          className="justify-between"
-                        >
-                          <span className="type-p">{option}</span>
-                          {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                )}
-              </CommandList>
-              {searchQuery && !STEP_OPTIONS.includes(searchQuery) && (
-                <div className="border-t border-border">
-                  <button
-                    type="button"
-                    onClick={handleCreate}
-                    className="w-full flex items-center justify-start py-2 px-3 bg-background hover:bg-accent transition-colors"
+            </div>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="p-0 w-64" align="start" alignOffset={-40} sideOffset={4}>
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder="Search steps..."
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+            />
+            <CommandList>
+              <CommandGroup>
+                {filteredOptions.length > 0 ? (
+                  filteredOptions.map((option) => {
+                    const isSelected = step === option;
+                    return (
+                      <CommandItem
+                        key={option}
+                        value={option}
+                        onSelect={() => handleSelect(option)}
+                        className="justify-between"
+                      >
+                        <span className="type-p">{option}</span>
+                        {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
+                      </CommandItem>
+                    );
+                  })
+                ) : searchQuery.trim() ? (
+                  <CommandItem
+                    value={searchQuery.trim()}
+                    onSelect={handleCreate}
                   >
-                    <span className="type-p text-primary">Create "{searchQuery}"</span>
-                  </button>
-                </div>
-              )}
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
+                    <div className="flex items-center gap-2">
+                      <Icons.Plus className="h-3.5 w-3.5" />
+                      <span className="type-p text-primary">
+                        Create &quot;{searchQuery.trim()}&quot;
+                      </span>
+                    </div>
+                  </CommandItem>
+                ) : null}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 };
@@ -186,7 +190,7 @@ const OperatorTags = ({
       {operators.map((operator) => (
         <div
           key={operator}
-          className="relative px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[120px]"
+          className="relative px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[132px]"
           onMouseEnter={() => setHoveredOperator(operator)}
           onMouseLeave={() => setHoveredOperator(null)}
         >
@@ -225,6 +229,8 @@ const OperatorCell = ({
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [operatorSheetOpen, setOperatorSheetOpen] = React.useState(false);
+  const [newOperatorName, setNewOperatorName] = React.useState("");
 
   const handleSelect = (selectedOperator: string) => {
     if (operators.includes(selectedOperator)) {
@@ -238,12 +244,20 @@ const OperatorCell = ({
   };
 
   const handleCreate = () => {
-    if (searchQuery && !OPERATOR_OPTIONS.includes(searchQuery) && !operators.includes(searchQuery)) {
-      // TODO: Open operator sheet
-      onOperatorsChange([...operators, searchQuery]);
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery && !OPERATOR_OPTIONS.includes(trimmedQuery) && !operators.includes(trimmedQuery)) {
+      // Open operator sheet with the searched name
+      setNewOperatorName(trimmedQuery);
+      setOperatorSheetOpen(true);
       setSearchQuery("");
       setDropdownOpen(false);
     }
+  };
+
+  const handleOperatorCreated = (operator: OperatorData) => {
+    // Add the newly created operator to the list
+    onOperatorsChange([...operators, operator.name]);
+    setNewOperatorName("");
   };
 
   const handleRemoveOperator = (operatorToRemove: string) => {
@@ -255,102 +269,112 @@ const OperatorCell = ({
   };
 
   return (
-    <div
-      className="flex items-start justify-between w-full h-full px-2 py-2"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="flex flex-wrap items-center flex-1 gap-1.5">
-        {operators.length > 0 && (
-          <OperatorTags operators={operators} onRemoveOperator={handleRemoveOperator} />
-        )}
-        <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="border-b border-border type-p ml-2 text-tertiary hover:text-secondary hover:border-secondary cursor-pointer transition-colors"
-            >
-              Add operator
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-60" align="start" sideOffset={4}>
-            <Command>
-              <CommandInput
-                placeholder="Search operators..."
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-              />
-              <CommandList>
-                <CommandEmpty>No operators found.</CommandEmpty>
-                {(!searchQuery || OPERATOR_OPTIONS.some(opt => 
-                  opt.toLowerCase().includes(searchQuery.toLowerCase())
-                )) && (
-                  <CommandGroup>
-                    {OPERATOR_OPTIONS.filter(
-                      (option) =>
-                        option.toLowerCase().includes(searchQuery.toLowerCase())
-                    ).map((option) => {
-                      const isSelected = operators.includes(option);
-                      return (
-                        <CommandItem
-                          key={option}
-                          value={option}
-                          onSelect={() => handleSelect(option)}
-                          className="justify-between"
-                        >
-                          <span className="type-p">{option}</span>
-                          {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                )}
-              </CommandList>
-              {searchQuery && !OPERATOR_OPTIONS.includes(searchQuery) && !operators.includes(searchQuery) && (
-                <div className="border-t border-border">
+    <>
+      <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
+        <PopoverTrigger asChild>
+          <div
+            className="group flex items-start justify-between w-full h-full px-2 py-2"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            role="button"
+            tabIndex={0}
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+          >
+            <div className="flex flex-1 flex-wrap items-center gap-1.5">
+              {operators.length > 0 && (
+                <OperatorTags operators={operators} onRemoveOperator={handleRemoveOperator} />
+              )}
+              <span className="border-b border-border type-p ml-2 text-tertiary group-hover:text-secondary group-hover:border-secondary transition-colors">
+                Add operator
+              </span>
+            </div>
+
+            <div className="w-6 flex justify-center ml-2" onClick={handleMenuClick}>
+              <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+                <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    onClick={handleCreate}
-                    className="w-full flex items-center justify-start py-2 px-3 bg-background hover:bg-accent transition-colors"
+                    className={cn(
+                      "p-1 hover:bg-accent transition-colors",
+                      isHovered ? "opacity-100" : "opacity-0"
+                    )}
                   >
-                    <span className="type-p text-primary">Create "{searchQuery}"</span>
+                    <Icons.EllipsisVertical className="h-4 w-4 text-tertiary" />
                   </button>
-                </div>
-              )}
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={4} className="min-w-[120px]">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      onDelete();
+                      setMenuOpen(false);
+                    }}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Icons.X className="h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </PopoverTrigger>
 
-      <div className="w-6 flex justify-center ml-2" onClick={handleMenuClick}>
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "p-1 hover:bg-accent transition-colors",
-                isHovered ? "opacity-100" : "opacity-0"
-              )}
-            >
-              <Icons.EllipsisVertical className="h-4 w-4 text-tertiary" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={4} className="min-w-[120px]">
-            <DropdownMenuItem
-              onClick={() => {
-                onDelete();
-                setMenuOpen(false);
-              }}
-              className="text-destructive focus:text-destructive"
-            >
-              <Icons.X className="h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
+        <PopoverContent className="p-0 w-60" align="start" sideOffset={4}>
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder="Search operators..."
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+            />
+            <CommandList>
+              <CommandGroup>
+                {OPERATOR_OPTIONS.filter(
+                  (option) =>
+                    option.toLowerCase().includes(searchQuery.toLowerCase())
+                ).length > 0 ? (
+                  OPERATOR_OPTIONS.filter(
+                    (option) =>
+                      option.toLowerCase().includes(searchQuery.toLowerCase())
+                  ).map((option) => {
+                    const isSelected = operators.includes(option);
+                    return (
+                      <CommandItem
+                        key={option}
+                        value={option}
+                        onSelect={() => handleSelect(option)}
+                        className="justify-between"
+                      >
+                        <span className="type-p">{option}</span>
+                        {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
+                      </CommandItem>
+                    );
+                  })
+                ) : searchQuery.trim() && !OPERATOR_OPTIONS.includes(searchQuery.trim()) && !operators.includes(searchQuery.trim()) ? (
+                  <CommandItem
+                    value={searchQuery.trim()}
+                    onSelect={handleCreate}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icons.Plus className="h-3.5 w-3.5" />
+                      <span className="type-p text-primary">
+                        Create &quot;{searchQuery.trim()}&quot;
+                      </span>
+                    </div>
+                  </CommandItem>
+                ) : null}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      <OperatorSheet
+        open={operatorSheetOpen}
+        onOpenChange={setOperatorSheetOpen}
+        initialName={newOperatorName}
+        onOperatorCreated={handleOperatorCreated}
+      />
+    </>
   );
 };
 
@@ -542,7 +566,7 @@ export function JourneySection() {
                                 {activeStep.operators.map((operator) => (
                                   <div
                                     key={operator}
-                                    className="px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[120px]"
+                                    className="px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[140px]"
                                   >
                                     <span className="truncate">{operator}</span>
                                   </div>

@@ -74,7 +74,7 @@ export function SizeSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-60 p-0" align="start">
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search sizes..."
             value={searchTerm}

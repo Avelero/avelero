@@ -3,7 +3,7 @@
 import { useFilterMetadata } from "@/hooks/use-filter-state";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@v1/ui/sheet";
+import { Sheet, SheetContent, SheetBreadcrumbHeader, SheetFooter } from "@v1/ui/sheet";
 import * as React from "react";
 import { FilterGroup, FilterRow } from "../filter-components";
 import type {
@@ -169,11 +169,14 @@ export function AdvancedFilterPanel({
       <SheetContent
         side="right"
         className="flex flex-col p-0 gap-0 w-full sm:w-[480px] lg:w-[560px] m-6 h-[calc(100vh-48px)]"
+        hideDefaultClose
       >
         {/* Header */}
-        <SheetHeader className="px-6 pt-6">
-          <SheetTitle>Advanced filters</SheetTitle>
-        </SheetHeader>
+        <SheetBreadcrumbHeader
+          pages={["Advanced filters"]}
+          currentPageIndex={0}
+          onClose={() => onOpenChange(false)}
+        />
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-hide">
@@ -274,7 +277,7 @@ export function AdvancedFilterPanel({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-[#F7F7FF] border-t border-border">
+        <SheetFooter>
           <div className="flex items-center justify-end gap-3">
             <Button
               variant="outline"
@@ -293,7 +296,7 @@ export function AdvancedFilterPanel({
               Apply
             </Button>
           </div>
-        </div>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

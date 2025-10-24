@@ -6,12 +6,14 @@ import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { cn } from "@v1/ui/cn";
+import { getSizesForCategory } from "@v1/selections/sizes";
 
 interface SizeSelectProps {
   value: string | null;
   onValueChange: (value: string) => void;
-  availableSizes: string[];
-  onCreateNew: (initialValue: string) => void;
+  selectedCategory?: string; // Full category path (e.g., "Men's / Tops / Jerseys")
+  availableSizes?: string[]; // Optional: override default sizes
+  onCreateNew?: (initialValue: string, categoryPath: string) => void; // Callback to open size modal
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -20,6 +22,7 @@ interface SizeSelectProps {
 export function SizeSelect({
   value,
   onValueChange,
+  selectedCategory,
   availableSizes,
   onCreateNew,
   placeholder = "Select size",
@@ -29,15 +32,23 @@ export function SizeSelect({
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
 
+  // Get default sizes based on category, or use provided availableSizes
+  const sizesForCategory = React.useMemo(() => {
+    if (availableSizes) {
+      return availableSizes;
+    }
+    return getSizesForCategory(selectedCategory || "");
+  }, [selectedCategory, availableSizes]);
+
   const filteredSizes = React.useMemo(() => {
-    if (!searchTerm) return availableSizes;
-    return availableSizes.filter((s) =>
+    if (!searchTerm) return sizesForCategory;
+    return sizesForCategory.filter((s) =>
       s.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [availableSizes, searchTerm]);
+  }, [sizesForCategory, searchTerm]);
 
   const showCreateOption = searchTerm && 
-    !availableSizes.some(s => s.toLowerCase() === searchTerm.toLowerCase());
+    !sizesForCategory.some(s => s.toLowerCase() === searchTerm.toLowerCase());
 
   const handleSelect = (size: string) => {
     onValueChange(size);
@@ -49,7 +60,9 @@ export function SizeSelect({
     setOpen(false);
     const term = searchTerm;
     setSearchTerm("");
-    if (term) onCreateNew(term);
+    if (term && onCreateNew) {
+      onCreateNew(term, selectedCategory || "");
+    }
   };
 
   // Reset search when popover closes
@@ -94,7 +107,7 @@ export function SizeSelect({
                     {value === s && <Icons.Check className="h-4 w-4" />}
                   </CommandItem>
                 ))
-              ) : searchTerm && showCreateOption ? (
+              ) : searchTerm && showCreateOption && onCreateNew ? (
                 <CommandItem
                   value={searchTerm}
                   onSelect={handleCreateClick}
@@ -106,6 +119,12 @@ export function SizeSelect({
                     </span>
                   </div>
                 </CommandItem>
+              ) : !searchTerm && selectedCategory ? (
+                <div className="px-3 py-8 text-center">
+                  <p className="type-p text-tertiary">
+                    No sizes available for this category
+                  </p>
+                </div>
               ) : !searchTerm ? (
                 <div className="px-3 py-8 text-center">
                   <p className="type-p text-tertiary">

@@ -16,17 +16,21 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.1",
     "@hookform/resolvers": "^5.2.1",
+    "@supabase/supabase-js": "^2.57.2",
     "@t3-oss/env-nextjs": "^0.11.1",
     "@tanstack/react-query": "^5.84.1",
     "@tanstack/react-table": "^8.21.3",
     "@trpc/client": "^11.4.3",
     "@trpc/tanstack-react-query": "^11.4.3",
     "@v1/analytics": "workspace:*",
+    "@v1/api": "workspace:*",
     "@v1/kv": "workspace:*",
+    "@v1/logger": "workspace:*",
     "@v1/selections": "workspace:*",
     "@v1/supabase": "workspace:*",
     "@v1/ui": "workspace:*",
     "@v1/utils": "workspace:*",
+    "date-fns": "^4.1.0",
     "dub": "^0.36.5",
     "geist": "^1.4.2",
     "next": "15.5.2",
@@ -42,9 +46,11 @@
     "zod": "3.25.64"
   },
   "devDependencies": {
+    "@trpc/server": "^11.4.3",
     "@types/node": "^24.0.1",
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
+    "tailwindcss": "^3.4.10",
     "typescript": "^5.9.2"
   }
 }

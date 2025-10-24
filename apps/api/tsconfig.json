@@ -25,7 +25,7 @@
       "@jobs/*": ["../../packages/jobs/src/*"],
       "@db/*": ["../../packages/db/src/*"]
     },
-    "types": ["bun-types", "jest"]
+    "types": ["bun", "jest"]
   },
   "exclude": ["node_modules"],
   "include": ["src/**/*.ts"]

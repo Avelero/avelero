@@ -32,6 +32,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CategorySelect } from "../select/category-select";
+import { 
+  getLevel2CategoryPath, 
+  getSizesForCategory,
+  getCategoryKey 
+} from "@v1/selections/sizes";
 
 interface SizeRow {
   id: string;
@@ -41,17 +46,10 @@ interface SizeRow {
 interface SizeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedCategory?: string;
-  onSave: (sizes: string[]) => void;
+  selectedCategory?: string; // Full category path (e.g., "Men's / Tops / Jerseys")
+  onSave: (sizes: string[], categoryKey: string) => void; // Save with category key
   prefillSize?: string | null;
 }
-
-// TODO: Load from API based on category
-const CATEGORY_OPTIONS = [
-  { value: "mens-tops", label: "Men's Tops" },
-  { value: "womens-tops", label: "Women's Tops" },
-  { value: "mens-footwear", label: "Men's Footwear" },
-];
 
 function DraggableSizeRow({
   row,
@@ -115,14 +113,13 @@ function DraggableSizeRow({
 }
 
 export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefillSize }: SizeModalProps) {
-  const [category, setCategory] = React.useState(selectedCategory || "Select category");
-  const [rows, setRows] = React.useState<SizeRow[]>([
-    { id: "1", value: "XS" },
-    { id: "2", value: "S" },
-    { id: "3", value: "M" },
-    { id: "4", value: "L" },
-    { id: "5", value: "XL" },
-  ]);
+  // Automatically trim to level 2 category
+  const level2Category = React.useMemo(() => {
+    return getLevel2CategoryPath(selectedCategory || "");
+  }, [selectedCategory]);
+
+  const [category, setCategory] = React.useState(level2Category);
+  const [rows, setRows] = React.useState<SizeRow[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
 
   const sensors = useSensors(
@@ -178,9 +175,14 @@ export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefil
   };
 
   const handleSave = () => {
-    // TODO: Save size system to backend
     const sizeValues = rows.map((r) => r.value).filter((v) => v.trim());
-    onSave(sizeValues);
+    const categoryKey = getCategoryKey(category);
+    
+    if (categoryKey) {
+      // Save with the category key (e.g., "mens-tops")
+      onSave(sizeValues, categoryKey);
+    }
+    
     onOpenChange(false);
   };
 
@@ -188,14 +190,28 @@ export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefil
     onOpenChange(false);
   };
 
-  // Keep local category in sync with the value chosen in Organization section
+  // Initialize rows based on category's default sizes
   React.useEffect(() => {
     if (open) {
-      setCategory(selectedCategory || "Select category");
+      const level2 = getLevel2CategoryPath(selectedCategory || "");
+      setCategory(level2);
+      
+      // Load default sizes for this category
+      const defaultSizes = getSizesForCategory(level2);
+      const initialRows: SizeRow[] = defaultSizes.map((size, index) => ({
+        id: `${index}-${size}`,
+        value: size,
+      }));
+
+      // If prefillSize is provided, add it to the end
       if (prefillSize?.trim()) {
-        // Append the new size to the end once on open
-        setRows((prev) => [...prev, { id: Date.now().toString(), value: prefillSize }]);
+        initialRows.push({ 
+          id: Date.now().toString(), 
+          value: prefillSize 
+        });
       }
+
+      setRows(initialRows);
     }
   }, [open, selectedCategory, prefillSize]);
 
@@ -207,13 +223,21 @@ export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefil
         </DialogHeader>
 
         <div className="px-6 flex flex-col gap-2 items-start">
-          {/* Category Dropdown */}
+          {/* Category Dropdown - Read-only, shows level 2 category */}
           <CategorySelect value={category} onChange={setCategory} className="w-full" />
-          {selectedCategory && selectedCategory !== "Select category" && category !== "Select category" && category !== selectedCategory && (
-            <p className="type-small text-tertiary w-full">
-              You’re editing the size system for “{category}”. This doesn’t change the
-              size system for “{selectedCategory}”.
-            </p>
+          
+          {/* Info message explaining level 2 category system */}
+          {category !== "Select category" && (
+            <div className="w-full space-y-1.5">
+              <p className="type-small text-tertiary">
+                You're editing the size system for <span className="font-medium text-primary">{category}</span>.
+              </p>
+              {selectedCategory && level2Category !== selectedCategory && (
+                <p className="type-small text-tertiary">
+                  This will apply to all subcategories under {category}.
+                </p>
+              )}
+            </div>
           )}
 
           {/* Draggable Size Rows */}

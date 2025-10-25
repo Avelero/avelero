@@ -13,7 +13,13 @@
   "dependencies": {
     "@openpanel/nextjs": "^1.0.0",
     "@v1/logger": "workspace:*",
-    "@vercel/functions": "^1.4.1"
+    "@vercel/functions": "^1.4.1",
+    "react": "19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "typescript": "^5.9.2"
   },
   "exports": {
     "./server": "./src/server.ts",

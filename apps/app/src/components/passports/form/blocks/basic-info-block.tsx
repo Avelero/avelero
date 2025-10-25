@@ -50,6 +50,8 @@ export function BasicInfoSection() {
       };
       reader.readAsDataURL(file);
     }
+    // Clear input value so same file can be selected again
+    e.target.value = "";
   }, []);
 
   const handleClick = useCallback(() => {
@@ -94,6 +96,15 @@ export function BasicInfoSection() {
               ? "border-brand bg-accent"
               : "border-border hover:border-tertiary hover:bg-accent",
           )}
+          role="button"
+          tabIndex={0}
+          aria-label="Upload image"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleClick();
+            }
+          }}
         >
           {image ? (
             <img

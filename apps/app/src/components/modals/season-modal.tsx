@@ -62,8 +62,19 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
     onOpenChange(false);
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Reset form when closing by any method (overlay, escape, etc.)
+      setName("");
+      setStartDate(null);
+      setEndDate(null);
+      setOngoing(false);
+    }
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-[500px]">
         <DialogHeader className="px-6 pt-6 pb-3">
           <DialogTitle>Add season</DialogTitle>

@@ -243,8 +243,7 @@ export function OperatorSheet({
 
         {/* Footer */}
         <SheetFooter>
-          <div className="flex items-center justify-end gap-3">
-            <Button
+          <Button
               variant="outline"
               size="default"
               onClick={handleCancel}
@@ -261,7 +260,6 @@ export function OperatorSheet({
             >
               Create
             </Button>
-          </div>
         </SheetFooter>
       </SheetContent>
     </Sheet>

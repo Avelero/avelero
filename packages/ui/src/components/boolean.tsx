@@ -77,8 +77,8 @@ const BooleanToggle = React.forwardRef<HTMLDivElement, BooleanProps>(
           <button
             type="button"
             aria-pressed={value === false}
-            aria-disabled={value === false || disabled}
-            tabIndex={value === false || disabled ? -1 : 0}
+            aria-disabled={disabled}
+            tabIndex={disabled ? -1 : 0}
             onClick={handleLeftClick}
             disabled={disabled}
             className={cn(
@@ -99,8 +99,8 @@ const BooleanToggle = React.forwardRef<HTMLDivElement, BooleanProps>(
           <button
             type="button"
             aria-pressed={value === true}
-            aria-disabled={value === true || disabled}
-            tabIndex={value === true || disabled ? -1 : 0}
+            aria-disabled={disabled}
+            tabIndex={disabled ? -1 : 0}
             onClick={handleRightClick}
             disabled={disabled}
             className={cn(

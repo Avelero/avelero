@@ -121,6 +121,7 @@ export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefil
   const [category, setCategory] = React.useState(level2Category);
   const [rows, setRows] = React.useState<SizeRow[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
+  const isInitializingRef = React.useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -142,7 +143,7 @@ export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefil
   const handleDragEnd = React.useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
+    if (over && active.id !== over?.id) {
       setRows((items) => {
         const oldIndex = items.findIndex((i) => i.id === active.id);
         const newIndex = items.findIndex((i) => i.id === over?.id);
@@ -193,6 +194,7 @@ export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefil
   // Initialize rows based on category's default sizes
   React.useEffect(() => {
     if (open) {
+      isInitializingRef.current = true;
       const level2 = getLevel2CategoryPath(selectedCategory || "");
       setCategory(level2);
       
@@ -212,8 +214,26 @@ export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefil
       }
 
       setRows(initialRows);
+      
+      // Reset flag after a brief delay to allow state updates to settle
+      setTimeout(() => {
+        isInitializingRef.current = false;
+      }, 0);
     }
   }, [open, selectedCategory, prefillSize]);
+
+  // Reload sizes when user changes category manually in the modal
+  React.useEffect(() => {
+    // Only run if modal is open, not initializing, and category has been set (not initial state)
+    if (open && !isInitializingRef.current && category && category !== "Select category") {
+      const defaultSizes = getSizesForCategory(category);
+      const newRows: SizeRow[] = defaultSizes.map((size, index) => ({
+        id: `${Date.now()}-${index}-${size}`,
+        value: size,
+      }));
+      setRows(newRows);
+    }
+  }, [category, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -242,7 +262,7 @@ export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefil
 
           {/* Draggable Size Rows */}
           {category !== "Select category" && (
-            <div className="flex flex-col gap-2 w-full mt-2">
+            <div className="flex flex-col gap-2 w-full mt-2 max-h-[320px] overflow-y-auto scrollbar-hide">
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}

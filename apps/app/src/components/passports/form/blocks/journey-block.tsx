@@ -25,6 +25,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { OperatorSheet, type OperatorData } from "../../../sheets/operator-sheet";
+import { productionStepNames } from "@v1/selections/production-steps";
 
 interface JourneyStep {
   id: string;
@@ -33,18 +34,10 @@ interface JourneyStep {
   position: number;
 }
 
-// TODO: Load from API
-const STEP_OPTIONS = [
-  "Raw Material",
-  "Weaving",
-  "Dyeing",
-  "Cutting",
-  "Assembly",
-  "Finishing",
-  "Packaging",
-  "Quality Control",
-];
+// Use production steps from selections package
+const STEP_OPTIONS = productionStepNames;
 
+// TODO: Load operators from API
 const OPERATOR_OPTIONS = [
   "Sinopec Group",
   "Indorama Ventures",
@@ -474,23 +467,32 @@ export function JourneySection() {
   const handleDragEnd = React.useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
-      setJourneySteps((items) => {
-        const oldIndex = items.findIndex((i) => i.id === active.id);
-        const newIndex = items.findIndex((i) => i.id === over?.id);
-
-        const next = [...items];
-        const [removed] = next.splice(oldIndex, 1);
-        if (removed) {
-          next.splice(newIndex, 0, removed);
-        }
-
-        return next.map((step, index) => ({
-          ...step,
-          position: index + 1,
-        }));
-      });
+    // Guard against dropping outside droppable area
+    if (!over || active.id === over.id) {
+      setActiveId(null);
+      return;
     }
+
+    setJourneySteps((items) => {
+      const oldIndex = items.findIndex((i) => i.id === active.id);
+      const newIndex = items.findIndex((i) => i.id === over.id);
+
+      // If we can't find the indices, don't reorder
+      if (oldIndex === -1 || newIndex === -1) {
+        return items;
+      }
+
+      const next = [...items];
+      const [removed] = next.splice(oldIndex, 1);
+      if (removed) {
+        next.splice(newIndex, 0, removed);
+      }
+
+      return next.map((step, index) => ({
+        ...step,
+        position: index + 1,
+      }));
+    });
     setActiveId(null);
   }, []);
 

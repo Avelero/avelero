@@ -13,7 +13,7 @@ export interface Season {
   isOngoing?: boolean;
 }
 
-export const seasons: Record<string, Season> = {
+export const seasons = {
   SPRING_SUMMER: {
     id: "spring-summer",
     name: "Spring/Summer",
@@ -82,7 +82,7 @@ export const seasons: Record<string, Season> = {
     description: "Continuous or year-round collection",
     isOngoing: true,
   },
-} as const;
+} satisfies Record<string, Season>;
 
 export const allSeasons: Season[] = Object.values(seasons);
 

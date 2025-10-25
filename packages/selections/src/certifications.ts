@@ -12,7 +12,7 @@ export interface Certification {
   description?: string;
 }
 
-export const certifications: Record<string, Certification> = {
+export const certifications = {
   GOTS: {
     id: "gots",
     title: "Global Organic Textile Standard",
@@ -118,7 +118,7 @@ export const certifications: Record<string, Certification> = {
     website: "https://wrapcompliance.org",
     description: "Ethical manufacturing certification for apparel",
   },
-};
+} satisfies Record<string, Certification>;
 
 export const allCertifications = Object.values(certifications);
 

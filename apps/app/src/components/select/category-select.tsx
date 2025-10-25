@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { Button } from "@v1/ui/button";
 import { Label } from "@v1/ui/label";
 import { cn } from "@v1/ui/cn";
+import { categoryHierarchy } from "@v1/selections/categories";
 
 interface CategorySelectProps {
   value: string;
@@ -14,144 +15,66 @@ interface CategorySelectProps {
   className?: string;
 }
 
-const categoryHierarchy = {
-  mens: {
-    label: "Men's",
-    children: {
-      bottoms: {
-        label: "Bottoms",
-        children: {
-          casual_pants: { label: "Casual Pants" },
-          cropped_pants: { label: "Cropped Pants" },
-          denim: { label: "Denim" },
-          jumpsuits: { label: "Jumpsuits" },
-          leggings: { label: "Leggings" },
-          shorts: { label: "Shorts" },
-          sweatpants_joggers: { label: "Sweatpants & Joggers" },
-          swimwear: { label: "Swimwear" },
-        },
-      },
-      outerwear: {
-        label: "Outerwear",
-        children: {
-          bombers: { label: "Bombers" },
-          cloaks_capes: { label: "Cloaks & Capes" },
-          denim_jackets: { label: "Denim Jackets" },
-          heavy_coats: { label: "Heavy Coats" },
-          leather_jackets: { label: "Leather Jackets" },
-          light_jackets: { label: "Light Jackets" },
-          parkas: { label: "Parkas" },
-          raincoats: { label: "Raincoats" },
-          vests: { label: "Vests" },
-        },
-      },
-      tops: {
-        label: "Tops",
-        children: {
-          jerseys: { label: "Jerseys" },
-          long_sleeve_shirts: { label: "Long Sleeve Shirts" },
-          polos: { label: "Polos" },
-          button_ups: { label: "Button-Ups" },
-          short_sleeve_shirts: { label: "Short Sleeve Shirts" },
-          sweaters_knitwear: { label: "Sweaters & Knitwear" },
-          sweatshirts_hoodies: { label: "Sweatshirts & Hoodies" },
-          sleeveless: { label: "Sleeveless" },
-        },
-      },
-      footwear: {
-        label: "Footwear",
-        children: {
-          sneakers: { label: "Sneakers" },
-          dress_shoes: { label: "Dress Shoes" },
-          boots: { label: "Boots" },
-          loafers: { label: "Loafers" },
-          sandals: { label: "Sandals" },
-          athletic_shoes: { label: "Athletic Shoes" },
-          casual_shoes: { label: "Casual Shoes" },
-        },
-      },
-    },
-  },
-  womens: {
-    label: "Women's",
-    children: {
-      bottoms: {
-        label: "Bottoms",
-        children: {
-          jeans: { label: "Jeans" },
-          joggers: { label: "Joggers" },
-          jumpsuits: { label: "Jumpsuits" },
-          leggings: { label: "Leggings" },
-          maxi_skirts: { label: "Maxi Skirts" },
-          midi_skirts: { label: "Midi Skirts" },
-          mini_skirts: { label: "Mini Skirts" },
-          pants: { label: "Pants" },
-          shorts: { label: "Shorts" },
-          sweatpants: { label: "Sweatpants" },
-        },
-      },
-      dresses: {
-        label: "Dresses",
-        children: {
-          gowns: { label: "Gowns" },
-          maxi: { label: "Maxi" },
-          midi: { label: "Midi" },
-          mini: { label: "Mini" },
-        },
-      },
-      outerwear: {
-        label: "Outerwear",
-        children: {
-          blazers: { label: "Blazers" },
-          bombers: { label: "Bombers" },
-          coats: { label: "Coats" },
-          denim_jackets: { label: "Denim Jackets" },
-          down_jackets: { label: "Down Jackets" },
-          fur_faux_fur: { label: "Fur & Faux Fur" },
-          jackets: { label: "Jackets" },
-          leather_jackets: { label: "Leather Jackets" },
-          rain_jackets: { label: "Rain Jackets" },
-          vests: { label: "Vests" },
-        },
-      },
-      tops: {
-        label: "Tops",
-        children: {
-          blouses: { label: "Blouses" },
-          bodysuits: { label: "Bodysuits" },
-          button_ups: { label: "Button-Ups" },
-          crop_tops: { label: "Crop Tops" },
-          hoodies: { label: "Hoodies" },
-          long_sleeve_shirts: { label: "Long Sleeve Shirts" },
-          polos: { label: "Polos" },
-          short_sleeve_shirts: { label: "Short Sleeve Shirts" },
-          sweaters: { label: "Sweaters" },
-          sweatshirts: { label: "Sweatshirts" },
-          tank_tops: { label: "Tank Tops" },
-        },
-      },
-      footwear: {
-        label: "Footwear",
-        children: {
-          sneakers: { label: "Sneakers" },
-          heels: { label: "Heels" },
-          boots: { label: "Boots" },
-          flats: { label: "Flats" },
-          sandals: { label: "Sandals" },
-          athletic_shoes: { label: "Athletic Shoes" },
-          casual_shoes: { label: "Casual Shoes" },
-        },
-      },
-    },
-  },
-} as const;
-
 export function CategorySelect({ value, onChange, label = "Category", className }: CategorySelectProps) {
   const [open, setOpen] = React.useState(false);
   const [categoryPath, setCategoryPath] = React.useState<string[]>([]);
   const [selectedCategoryPath, setSelectedCategoryPath] = React.useState<string[]>([]);
   const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
   const [hoveredArea, setHoveredArea] = React.useState<"selection" | "navigation" | null>(null);
+
+  // Helper function to find path from display string
+  const findPathFromDisplayString = React.useCallback((displayString: string): string[] => {
+    if (displayString === "Select category" || !displayString) {
+      return [];
+    }
+
+    const findPathRecursive = (current: any, currentPath: string[]): string[] | null => {
+      for (const [key, val] of Object.entries(current)) {
+        const newPath = [...currentPath, key];
+        const labels: string[] = [];
+        let temp: any = categoryHierarchy;
+
+        for (const pathKey of newPath) {
+          if (temp[pathKey]) {
+            labels.push(temp[pathKey].label);
+            temp = temp[pathKey].children || {};
+          }
+        }
+
+        const fullString = labels.join(" / ");
+        const truncatedString = 
+          labels.length <= 3
+            ? fullString
+            : `${labels[0]} / ... / ${labels[labels.length - 1]}`;
+
+        if (fullString === displayString || truncatedString === displayString) {
+          return newPath;
+        }
+
+        if ((val as any).children) {
+          const foundPath = findPathRecursive((val as any).children, newPath);
+          if (foundPath) return foundPath;
+        }
+      }
+      return null;
+    };
+
+    return findPathRecursive(categoryHierarchy, []) || [];
+  }, []);
+
+  // Sync selectedCategoryPath when value changes from outside
+  React.useEffect(() => {
+    const pathFromValue = findPathFromDisplayString(value);
+    
+    // Only update if the path is different from current selectedCategoryPath
+    setSelectedCategoryPath((currentPath) => {
+      const pathsMatch =
+        pathFromValue.length === currentPath.length &&
+        pathFromValue.every((segment, index) => segment === currentPath[index]);
+      
+      return pathsMatch ? currentPath : pathFromValue;
+    });
+  }, [value, findPathFromDisplayString]);
 
   // Helper function to get current level options
   const getCurrentLevelOptions = () => {

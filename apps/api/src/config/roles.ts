@@ -13,3 +13,12 @@ export const ROLES = {
  * Derived from the `ROLES` object to ensure type safety and consistency.
  */
 export type Role = (typeof ROLES)[keyof typeof ROLES];
+
+/**
+ * Type guard to validate if a value is a valid Role at runtime.
+ * Use this instead of type assertions to ensure type safety.
+ */
+export function isRole(value: unknown): value is Role {
+  if (typeof value !== "string") return false;
+  return Object.values(ROLES).includes(value as Role);
+}

@@ -9,7 +9,7 @@ export interface Color {
 }
 
 // Common fashion and textile industry colors
-export const colors: Record<string, Color> = {
+export const colors = {
   BLACK: {
     name: "Black",
     hex: "000000",
@@ -194,7 +194,7 @@ export const colors: Record<string, Color> = {
     name: "Wine",
     hex: "722F37",
   },
-} as const;
+} satisfies Record<string, Color>;
 
 export const allColors: Color[] = Object.values(colors);
 

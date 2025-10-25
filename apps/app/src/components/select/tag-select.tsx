@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
 import { cn } from "@v1/ui/cn";
+import { allColors } from "@v1/selections";
 
 export interface TagOption {
   name: string;
@@ -19,29 +20,14 @@ interface TagSelectProps {
   className?: string;
 }
 
-// Tailwind core colors at 500 shade
-const TAG_COLORS = [
-  { name: "Red", hex: "EF4444" },
-  { name: "Orange", hex: "F97316" },
-  { name: "Yellow", hex: "EAB308" },
-  { name: "Lime", hex: "84CC16" },
-  { name: "Green", hex: "10B981" },
-  { name: "Teal", hex: "14B8A6" },
-  { name: "Cyan", hex: "06B6D4" },
-  { name: "Blue", hex: "3B82F6" },
-  { name: "Violet", hex: "8B5CF6" },
-  { name: "Purple", hex: "A855F7" },
-  { name: "Pink", hex: "EC4899" },
-  { name: "Gray", hex: "6B7280" },
-  { name: "Stone", hex: "78716C" },
-];
-
 const TagLabel = ({ 
   tag, 
-  onRemove 
+  onRemove,
+  disabled = false,
 }: { 
   tag: TagOption; 
   onRemove: () => void;
+  disabled?: boolean;
 }) => {
   const [isHovered, setIsHovered] = React.useState(false);
 
@@ -58,7 +44,7 @@ const TagLabel = ({
         />
       </div>
       <p className="type-small leading-none text-primary ml-1.5">{tag.name}</p>
-      {isHovered && (
+      {isHovered && !disabled && (
         <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center">
           <div className="w-3 h-3 bg-gradient-to-r from-transparent to-background" />
           <button
@@ -120,8 +106,8 @@ export function TagSelect({
   }, [value, searchTerm]);
 
   const filteredColors = React.useMemo(() => {
-    if (!searchTerm) return TAG_COLORS;
-    return TAG_COLORS.filter((c) =>
+    if (!searchTerm) return allColors;
+    return allColors.filter((c) =>
       c.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [searchTerm]);
@@ -138,21 +124,30 @@ export function TagSelect({
     }
   }, [open]);
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (disabled) return;
+    setOpen(newOpen);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Popover open={disabled ? false : open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild disabled={disabled}>
         <div
           className={cn(
             "flex flex-wrap items-center py-[5px] px-2 w-full min-h-9 border border-border bg-background gap-1.5",
             disabled && "opacity-50 cursor-not-allowed",
             className
           )}
+          onClick={(e) => {
+            if (disabled) e.preventDefault();
+          }}
         >
           {value.map((tag) => (
             <TagLabel
               key={tag.name}
               tag={tag}
               onRemove={() => handleRemoveTag(tag.name)}
+              disabled={disabled}
             />
           ))}
           {!disabled && (

@@ -82,7 +82,7 @@ export function Select(props: SelectProps) {
   const filteredOptions = React.useMemo(() => {
     if (!searchTerm) return options;
     return options.filter((option) =>
-      option.label.toLowerCase().includes(searchTerm.toLowerCase()),
+      option.label.toLowerCase().includes(searchTerm.trim().toLowerCase()),
     );
   }, [options, searchTerm]);
 
@@ -173,6 +173,11 @@ export function Select(props: SelectProps) {
             {!hasCreateOption && (
               <CommandEmpty>{loading ? "Loading..." : emptyText}</CommandEmpty>
             )}
+            {hasCreateOption &&
+              filteredOptions.length === 0 &&
+              !searchTerm.trim() && (
+                <CommandEmpty>Start typing to create...</CommandEmpty>
+              )}
             <CommandGroup>
               {filteredOptions.length > 0 ? (
                 filteredOptions.map((option) => {

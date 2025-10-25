@@ -220,20 +220,38 @@ export function MaterialsSection() {
   const [materials, setMaterials] = React.useState<Material[]>([]);
   const [materialSheetOpen, setMaterialSheetOpen] = React.useState(false);
   const [materialSheetInitialName, setMaterialSheetInitialName] = React.useState("");
+  const [creatingForMaterialId, setCreatingForMaterialId] = React.useState<string | null>(null);
 
   const handleMaterialCreated = (material: any) => {
-    // Add the created material to the list
-    const newMaterial: Material = {
-      id: material.id,
-      name: material.name,
-      countries: material.countryOfOrigin ? [material.countryOfOrigin] : [],
-      percentage: "",
-    };
-    setMaterials((prev) => [...prev, newMaterial]);
+    if (creatingForMaterialId) {
+      // Update the existing material row that initiated the creation
+      setMaterials((prev) =>
+        prev.map((m) =>
+          m.id === creatingForMaterialId
+            ? {
+                ...m,
+                name: material.name,
+                countries: material.countryOfOrigin ? [material.countryOfOrigin] : [],
+              }
+            : m
+        )
+      );
+      setCreatingForMaterialId(null);
+    } else {
+      // Add a new material to the list (shouldn't happen in normal flow)
+      const newMaterial: Material = {
+        id: material.id,
+        name: material.name,
+        countries: material.countryOfOrigin ? [material.countryOfOrigin] : [],
+        percentage: "",
+      };
+      setMaterials((prev) => [...prev, newMaterial]);
+    }
   };
 
-  const handleCreateMaterial = (searchTerm: string) => {
+  const handleCreateMaterial = (searchTerm: string, materialId: string) => {
     setMaterialSheetInitialName(searchTerm);
+    setCreatingForMaterialId(materialId);
     setMaterialSheetOpen(true);
   };
 
@@ -321,7 +339,7 @@ export function MaterialsSection() {
                       updateMaterial(material.id, "countries", []);
                     }
                   }}
-                  onCreateMaterial={handleCreateMaterial}
+                  onCreateMaterial={(searchTerm) => handleCreateMaterial(searchTerm, material.id)}
                 />
               </div>
 
@@ -381,7 +399,14 @@ export function MaterialsSection() {
       {/* Material Creation Sheet */}
       <MaterialSheet
         open={materialSheetOpen}
-        onOpenChange={setMaterialSheetOpen}
+        onOpenChange={(open) => {
+          setMaterialSheetOpen(open);
+          if (!open) {
+            // Reset state when sheet closes
+            setCreatingForMaterialId(null);
+            setMaterialSheetInitialName("");
+          }
+        }}
         initialName={materialSheetInitialName}
         onMaterialCreated={handleMaterialCreated}
       />

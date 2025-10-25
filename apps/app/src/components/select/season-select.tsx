@@ -61,6 +61,7 @@ export function SeasonSelect({
   const handleCreate = () => {
     if (onCreateNew && searchTerm) {
       onCreateNew(searchTerm);
+      setOpen(false);
       setSearchTerm("");
     }
   };

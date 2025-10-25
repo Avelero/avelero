@@ -17,6 +17,54 @@ export function EnvironmentSection() {
   const [water, setWater] = React.useState("");
   const [ecoClaims, setEcoClaims] = React.useState<EcoClaim[]>([]);
 
+  // Normalize numeric input: handle commas, spaces, multiple decimals, and precision
+  const normalizeNumericInput = (value: string): string => {
+    if (!value || value.trim() === "") return "";
+    
+    // Remove spaces
+    let normalized = value.replace(/\s+/g, "");
+    
+    // Find the first decimal separator (. or ,)
+    const firstDecimalIndex = normalized.search(/[.,]/);
+    
+    if (firstDecimalIndex !== -1) {
+      // Split by the first decimal separator
+      const integerPart = normalized.substring(0, firstDecimalIndex);
+      const decimalPart = normalized.substring(firstDecimalIndex + 1);
+      
+      // Remove all non-digits from decimal part and limit to 4 digits
+      const cleanDecimal = decimalPart.replace(/[^\d]/g, "").substring(0, 4);
+      
+      // Remove non-digits from integer part
+      const cleanInteger = integerPart.replace(/[^\d]/g, "");
+      
+      // Remove leading zeros but keep "0" if that's the only digit
+      const trimmedInteger = cleanInteger.replace(/^0+/, "") || "0";
+      
+      // Combine, only add decimal if there's a decimal part
+      normalized = cleanDecimal ? `${trimmedInteger}.${cleanDecimal}` : trimmedInteger;
+    } else {
+      // No decimal separator, just clean digits and remove leading zeros
+      normalized = normalized.replace(/[^\d]/g, "");
+      normalized = normalized.replace(/^0+/, "") || "0";
+    }
+    
+    return normalized;
+  };
+
+  // Handle input change - allow any numeric characters while typing
+  const handleNumericChange = (value: string, setter: (value: string) => void) => {
+    // Allow only digits, spaces, commas, and periods while typing
+    const filtered = value.replace(/[^\d\s.,]/g, "");
+    setter(filtered);
+  };
+
+  // Handle blur - normalize the value
+  const handleNumericBlur = (value: string, setter: (value: string) => void) => {
+    const normalized = normalizeNumericInput(value);
+    setter(normalized);
+  };
+
   const addEcoClaim = () => {
     if (ecoClaims.length < 5) {
       const newClaim: EcoClaim = {
@@ -55,9 +103,10 @@ export function EnvironmentSection() {
               kgCO2e
             </div>
             <Input
-              type="number"
+              type="text"
               value={carbon}
-              onChange={(e) => setCarbon(e.target.value)}
+              onChange={(e) => handleNumericChange(e.target.value, setCarbon)}
+              onBlur={(e) => handleNumericBlur(e.target.value, setCarbon)}
               placeholder="Enter carbon value"
               className="h-9 flex-1"
             />
@@ -72,9 +121,10 @@ export function EnvironmentSection() {
               Liter
             </div>
             <Input
-              type="number"
+              type="text"
               value={water}
-              onChange={(e) => setWater(e.target.value)}
+              onChange={(e) => handleNumericChange(e.target.value, setWater)}
+              onBlur={(e) => handleNumericBlur(e.target.value, setWater)}
               placeholder="Enter water value"
               className="h-9 flex-1"
             />

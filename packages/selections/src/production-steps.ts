@@ -15,7 +15,7 @@ export interface ProductionStep {
     | "quality";
 }
 
-export const productionSteps: Record<string, ProductionStep> = {
+export const productionSteps = {
   RAW_MATERIAL: {
     id: "raw-material",
     name: "Raw Material",

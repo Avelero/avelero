@@ -1,4 +1,4 @@
-import type { Role } from "../../config/roles";
+import { isRole, type Role } from "../../config/roles";
 import type { TRPCContext } from "../init.js";
 
 export async function withBrandPermission<TReturn>(opts: {
@@ -33,7 +33,16 @@ export async function withBrandPermission<TReturn>(opts: {
       return next({ ctx: { ...ctx, brandId: null, role: null } });
     }
 
-    const role = result.role as Role | null;
+    // Validate role with runtime type guard instead of type assertion
+    const role = isRole(result.role) ? result.role : null;
+    
+    // Log invalid role for debugging and security monitoring
+    if (result.role !== null && !isRole(result.role)) {
+      console.warn(
+        `[brand-permission] Invalid role "${result.role}" found for user ${userId} in brand ${brandId}. Permission denied.`
+      );
+    }
+
     return next({ ctx: { ...ctx, brandId, role } });
   } catch {
     return next({ ctx: { ...ctx, brandId: null, role: null } });

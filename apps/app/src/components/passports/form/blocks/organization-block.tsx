@@ -11,29 +11,22 @@ import { SizeModal } from "@/components/modals/size-modal";
 import { Label } from "@v1/ui/label";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
+import { allColors } from "@v1/selections/colors";
+import { generateSeasonOptions } from "@v1/selections/seasons";
 
-// TODO: Load from API
-const SEASON_OPTIONS: Season[] = [
-  { name: "SS24", startDate: new Date(2024, 5, 1), endDate: new Date(2024, 9, 31) },
-  { name: "AW24", startDate: new Date(2024, 10, 1), endDate: new Date(2025, 2, 31) },
-  { name: "SS25", startDate: new Date(2025, 5, 1), endDate: new Date(2025, 9, 31) },
-  { name: "AW25", startDate: new Date(2025, 10, 1), endDate: new Date(2026, 2, 31) },
-  { name: "SS26", startDate: new Date(2026, 5, 12), endDate: new Date(2026, 9, 19) },
-  { name: "AW26", startDate: new Date(2026, 10, 1), endDate: new Date(2027, 2, 31) },
-];
+// Generate season options for the next 3 years
+const SEASON_OPTIONS: Season[] = generateSeasonOptions(2024, 3).map(opt => ({
+  name: opt.displayName,
+  startDate: new Date(opt.year, (opt.season.startMonth || 1) - 1, 1),
+  endDate: new Date(opt.year, (opt.season.endMonth || 12) - 1, 28),
+  isOngoing: opt.season.isOngoing,
+}));
 
-const COLOR_OPTIONS: ColorOption[] = [
-  { name: "Black", hex: "000000" },
-  { name: "White", hex: "FFFFFF" },
-  { name: "Navy", hex: "000080" },
-  { name: "Grey", hex: "808080" },
-  { name: "Red", hex: "FF0000" },
-  { name: "Blue", hex: "0000FF" },
-  { name: "Green", hex: "008000" },
-  { name: "Yellow", hex: "FFFF00" },
-  { name: "Pink", hex: "FFC0CB" },
-  { name: "Purple", hex: "800080" },
-];
+// Use colors from selections package
+const COLOR_OPTIONS: ColorOption[] = allColors.map(color => ({
+  name: color.name,
+  hex: color.hex,
+}));
 
 export function OrganizationSection() {
   const [category, setCategory] = React.useState("Select category");
@@ -157,7 +150,7 @@ export function OrganizationSection() {
                 <SizeSelect
                   value={size}
                   onValueChange={setSize}
-                  availableSizes={["XS", "S", "M", "L", "XL", "XXL"]}
+                  selectedCategory={category}
                   onCreateNew={(initial) => {
                     // Open modal and request a new row prefilled with the created term
                     setPrefillSize(initial);

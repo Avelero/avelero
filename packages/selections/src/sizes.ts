@@ -6,7 +6,7 @@
 
 // Category-dependent default size systems (Level 2)
 // Format: "gender-subcategory" (e.g., "mens-tops", "womens-bottoms")
-export const defaultSizesByCategory: Record<string, string[]> = {
+export const defaultSizesByCategory = {
   // Men's Categories
   "mens-bottoms": ["28", "30", "32", "34", "36", "38", "40", "42"],
   "mens-outerwear": ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
@@ -50,7 +50,7 @@ export const defaultSizesByCategory: Record<string, string[]> = {
 } as const;
 
 // Fallback sizes when no category is selected
-const FALLBACK_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+const FALLBACK_SIZES = ["XS", "S", "M", "L", "XL", "XXL"] as const;
 
 // Helper: Extract level 2 category key from full category path
 // Examples:
@@ -98,7 +98,7 @@ export function getLevel2CategoryPath(categoryPath: string): string {
 }
 
 // Helper: Get default sizes for a category path
-export function getSizesForCategory(categoryPath: string): string[] {
+export function getSizesForCategory(categoryPath: string): readonly string[] {
   const categoryKey = getCategoryKey(categoryPath);
 
   if (!categoryKey) {
@@ -108,9 +108,7 @@ export function getSizesForCategory(categoryPath: string): string[] {
 
   // Return category-specific sizes or fallback to generic sizes
   return (
-    defaultSizesByCategory[
-      categoryKey as keyof typeof defaultSizesByCategory
-    ] || FALLBACK_SIZES
+    defaultSizesByCategory[categoryKey as CategorySizeKey] || FALLBACK_SIZES
   );
 }
 

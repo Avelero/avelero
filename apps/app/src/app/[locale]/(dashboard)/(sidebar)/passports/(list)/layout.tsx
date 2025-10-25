@@ -25,7 +25,7 @@ export default function PassportsListLayout({
         </ControlBarLeft>
         <ControlBarRight>
           <Button variant="default" asChild>
-            <Link href="/passports/create"> <span className="px-1">Create</span></Link>
+            <Link href="/passports/create"><span className="px-1">Create</span></Link>
           </Button>
         </ControlBarRight>
       </ControlBar>

@@ -70,9 +70,11 @@ const DropdownMenuSubContent = React.forwardRef<
       />
     );
 
-    // Note: SubContent typically doesn't need inline support as it's already within a portal context
-    // But we provide it for consistency
-    return content;
+    // Apply same Portal wrapping logic as DropdownMenuContent for API consistency
+    if (inline) return content;
+    return (
+      <DropdownMenuPrimitive.Portal>{content}</DropdownMenuPrimitive.Portal>
+    );
   },
 );
 DropdownMenuSubContent.displayName =

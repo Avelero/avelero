@@ -111,7 +111,7 @@ export function MaterialSheet({
   };
 
   const handleCertificationCreate = () => {
-    if (!certTitle.trim() || !certNumber.trim()) {
+    if (!certTitle.trim() || !certNumber.trim() || !certExpiry) {
       return;
     }
 
@@ -311,7 +311,7 @@ export function MaterialSheet({
                               </div>
                             )}
                           </div>
-                          <div className="flex-1 text-left">
+                          <div className="flex flex-col gap-1 text-left mr-auto">
                             <p className="type-p !leading-[14px] text-primary font-medium">
                               {certificationData.title}
                             </p>
@@ -401,7 +401,7 @@ export function MaterialSheet({
                   <DatePicker
                     value={certExpiry || null}
                     onChange={(date) => setCertExpiry(date || undefined)}
-                    placeholder="31-01-2027"
+                    placeholder="31/01/2027"
                     inline
                   />
                 </div>
@@ -444,8 +444,7 @@ export function MaterialSheet({
 
         {/* Footer */}
         <SheetFooter>
-          <div className="flex items-center justify-end gap-3">
-            {currentPage === "material" ? (
+        {currentPage === "material" ? (
               <>
                 <Button
                   variant="outline"
@@ -486,7 +485,6 @@ export function MaterialSheet({
                 </Button>
               </>
             )}
-          </div>
         </SheetFooter>
       </SheetContent>
     </Sheet>

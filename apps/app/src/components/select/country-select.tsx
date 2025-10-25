@@ -29,7 +29,7 @@ export function CountrySelect({
   );
 
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-1.5 w-full", className)}>
       {label && <Label htmlFor={id}>{label}</Label>}
       <Select
         options={options}

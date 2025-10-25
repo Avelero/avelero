@@ -66,7 +66,7 @@ export function CreateBrandForm() {
       </div>
 
       <div className="flex flex-col items-center gap-4 w-full">
-        <div className="flex flex-col gap-1 w-full">
+        <div className="space-y-1.5 w-full">
           <Label>Brand name</Label>
           <Input
             value={name}

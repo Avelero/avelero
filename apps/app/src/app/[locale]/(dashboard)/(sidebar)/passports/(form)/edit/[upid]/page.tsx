@@ -10,24 +10,26 @@ import { IdentifiersSection } from "@/components/passports/form/sidebar/identifi
 export default function EditPassportPage({ params }: { params: { upid: string } }) {
   // TODO: fetch initial passport data using params.upid when implementing backend
   return (
-    <PassportFormScaffold
-      title="Edit passport"
-      left={
-        <>
-          <BasicInfoSection />
-          <OrganizationSection />
-          <EnvironmentSection />
-          <MaterialsSection />
-          <JourneySection />
-        </>
-      }
-      right={
-        <>
-          <StatusSection />
-          <IdentifiersSection />
-        </>
-      }
-    />
+    <form id="passport-form">
+      <PassportFormScaffold
+        title="Edit passport"
+        left={
+          <>
+            <BasicInfoSection />
+            <OrganizationSection />
+            <EnvironmentSection />
+            <MaterialsSection />
+            <JourneySection />
+          </>
+        }
+        right={
+          <>
+            <StatusSection />
+            <IdentifiersSection />
+          </>
+        }
+      />
+    </form>
   );
 }
 

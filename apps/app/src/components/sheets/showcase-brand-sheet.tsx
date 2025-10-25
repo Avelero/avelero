@@ -78,7 +78,7 @@ export function ShowcaseBrandSheet({
 
     // Generate a temporary UUID for local state
     const newBrand: ShowcaseBrandData = {
-      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       name: name.trim(),
       legalName: legalName.trim() || undefined,
       email: email.trim() || undefined,

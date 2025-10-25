@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   ArrowDown10,
   ArrowDownUp,
   ArrowDownZA,
@@ -204,6 +205,7 @@ function StatusArchived(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export const Icons = {
+  AlertCircle,
   SignOut: LogOut,
   Copy,
   Check,

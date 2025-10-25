@@ -11,6 +11,7 @@ import { DatePicker } from "@v1/ui/date-picker";
 import { Select } from "@v1/ui/select";
 import { cn } from "@v1/ui/cn";
 import { BooleanToggle } from "@v1/ui/boolean";
+import { toast } from "@v1/ui/sonner";
 import { CountrySelect } from "../select/country-select";
 import type { Certification } from "@v1/selections/certifications";
 import { allCertifications } from "@v1/selections/certifications";
@@ -58,6 +59,7 @@ export function MaterialSheet({
   const [certified, setCertified] = React.useState(false);
   const [selectedCertificationId, setSelectedCertificationId] = React.useState<string | null>(null);
   const [certificationData, setCertificationData] = React.useState<CertificationData | null>(null);
+  const [certSearchTerm, setCertSearchTerm] = React.useState("");
   
   // Certification form state
   const [certTitle, setCertTitle] = React.useState("");
@@ -87,6 +89,7 @@ export function MaterialSheet({
       setCertified(false);
       setSelectedCertificationId(null);
       setCertificationData(null);
+      setCertSearchTerm("");
       setCertTitle("");
       setCertCode("");
       setCertNumber("");
@@ -95,7 +98,23 @@ export function MaterialSheet({
     }
   }, [open]);
 
-  const handleCreateCertification = () => {
+  const handleCreateCertification = (prefillName?: string) => {
+    // Pre-fill certification name if provided from search
+    if (prefillName) {
+      // Check if it matches a predefined certification
+      const matchedCert = allCertifications.find(
+        c => c.title.toLowerCase() === prefillName.toLowerCase()
+      );
+      if (matchedCert) {
+        setCertTitle(matchedCert.title);
+        setCertCode(matchedCert.code);
+      } else {
+        // Use custom name
+        setCertTitle(prefillName);
+      }
+    }
+    // Clear search term when navigating to create page
+    setCertSearchTerm("");
     // Navigate to certification page
     setCurrentPage("certification");
   };
@@ -117,7 +136,7 @@ export function MaterialSheet({
 
     // Create certification data
     const newCert: CertificationData = {
-      id: `cert-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `cert-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       title: certTitle.trim(),
       code: certCode.trim(),
       certificationNumber: certNumber.trim(),
@@ -138,9 +157,15 @@ export function MaterialSheet({
       return;
     }
 
+    // Validate certification requirement
+    if (certified && !certificationData) {
+      toast.error("Please create a certification before saving");
+      return;
+    }
+
     // Generate material
     const newMaterial: MaterialData = {
-      id: `material-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `material-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       name: name.trim(),
       countryOfOrigin: countryOfOrigin || undefined,
       recyclable,
@@ -195,6 +220,7 @@ export function MaterialSheet({
   };
 
   const isNameValid = name.trim().length > 0;
+  const isMaterialValid = isNameValid && (!certified || (certified && certificationData));
 
   // Get certification options for the select on certification page
   const certificationOptions = allCertifications.map((cert: Certification) => ({
@@ -291,43 +317,80 @@ export function MaterialSheet({
                 {/* Certification List */}
                 {certified && (
                   <div className="space-y-3">
-                    {/* Certification List - Only shows user-created certifications */}
-                    <div className="border border-border bg-background overflow-hidden max-h-[280px] overflow-y-auto">
-                      {certificationData ? (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCertificationId(certificationData.id)}
-                          className={cn(
-                            "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border last:border-b-0",
-                            selectedCertificationId === certificationData.id && "bg-accent-blue"
-                          )}
-                        >
-                          <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                            {selectedCertificationId === certificationData.id ? (
-                              <Icons.Check className="h-5 w-5 text-brand" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-medium text-secondary">
-                                {certificationData.code.substring(0, 2)}
+                    {certificationData ? (
+                      <>
+                        {/* Search bar - shown when certifications exist */}
+                        <div className="relative">
+                          <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-tertiary" />
+                          <Input
+                            placeholder="Search certifications..."
+                            value={certSearchTerm}
+                            onChange={(e) => setCertSearchTerm(e.target.value)}
+                            className="pl-9 h-9"
+                          />
+                        </div>
+
+                        {/* Certification List */}
+                        <div className="border border-border bg-background overflow-hidden max-h-[280px] overflow-y-auto">
+                          {/* Show existing certification if it matches search */}
+                          {(!certSearchTerm || 
+                            certificationData.title.toLowerCase().includes(certSearchTerm.toLowerCase()) ||
+                            certificationData.certificationNumber.toLowerCase().includes(certSearchTerm.toLowerCase())) ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCertificationId(certificationData.id)}
+                              className={cn(
+                                "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border last:border-b-0",
+                                selectedCertificationId === certificationData.id && "bg-accent-blue"
+                              )}
+                            >
+                              <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                                {selectedCertificationId === certificationData.id ? (
+                                  <Icons.Check className="h-5 w-5 text-brand" />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-medium text-secondary">
+                                    {certificationData.code.substring(0, 2)}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          <div className="flex flex-col gap-1 text-left mr-auto">
-                            <p className="type-p !leading-[14px] text-primary font-medium">
-                              {certificationData.title}
-                            </p>
-                            <p className="type-small !leading-[14px] text-tertiary">
-                              {certificationData.certificationNumber}
-                            </p>
-                          </div>
-                          {certificationData.expiryDate && (
-                            <div className="text-right">
-                              <p className="type-small !leading-[14px] text-tertiary">
-                                Expires on {certificationData.expiryDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                              </p>
-                            </div>
+                              <div className="flex flex-col gap-1 text-left mr-auto">
+                                <p className="type-p !leading-[14px] text-primary font-medium">
+                                  {certificationData.title}
+                                </p>
+                                <p className="type-small !leading-[14px] text-tertiary">
+                                  {certificationData.certificationNumber}
+                                </p>
+                              </div>
+                              {certificationData.expiryDate && (
+                                <div className="text-right">
+                                  <p className="type-small !leading-[14px] text-tertiary">
+                                    Expires on {certificationData.expiryDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                  </p>
+                                </div>
+                              )}
+                            </button>
+                          ) : null}
+
+                          {/* Show "Create" option when search doesn't match */}
+                          {certSearchTerm && 
+                            !certificationData.title.toLowerCase().includes(certSearchTerm.toLowerCase()) &&
+                            !certificationData.certificationNumber.toLowerCase().includes(certSearchTerm.toLowerCase()) && (
+                            <button
+                              type="button"
+                              onClick={() => handleCreateCertification(certSearchTerm)}
+                              className="w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors"
+                            >
+                              <Icons.Plus className="h-4 w-4 text-tertiary" />
+                              <span className="type-p text-primary">
+                                Create &quot;{certSearchTerm}&quot;
+                              </span>
+                            </button>
                           )}
-                        </button>
-                      ) : (
+                        </div>
+                      </>
+                    ) : (
+                      // Empty state - shown when no certifications exist
+                      <div className="border border-border bg-background overflow-hidden">
                         <div className="flex flex-col items-center justify-center py-12 px-4">
                           <p className="type-p text-tertiary text-center mb-3">
                             No certifications yet
@@ -336,15 +399,15 @@ export function MaterialSheet({
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={handleCreateCertification}
+                            onClick={() => handleCreateCertification()}
                             icon={<Icons.Plus />}
                             iconPosition="left"
                           >
                             Create certification
                           </Button>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -458,7 +521,7 @@ export function MaterialSheet({
                   variant="brand"
                   size="default"
                   onClick={handleMaterialCreate}
-                  disabled={!isNameValid}
+                  disabled={!isMaterialValid}
                   className="w-[70px]"
                 >
                   Create
@@ -478,7 +541,7 @@ export function MaterialSheet({
                   variant="brand"
                   size="default"
                   onClick={handleCertificationCreate}
-                  disabled={!certTitle.trim() || !certNumber.trim()}
+                  disabled={!certTitle.trim() || !certNumber.trim() || !certExpiry}
                   className="w-[70px]"
                 >
                   Create

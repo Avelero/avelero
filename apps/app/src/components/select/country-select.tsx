@@ -15,6 +15,17 @@ interface CountrySelectProps {
   className?: string;
 }
 
+/**
+ * Renders a country dropdown with search and invokes a callback when the selection changes.
+ *
+ * @param id - The HTML id used for the select and label linkage.
+ * @param label - Optional label text displayed above the select.
+ * @param placeholder - Placeholder text shown when no country is selected.
+ * @param value - Currently selected country code.
+ * @param onChange - Called when a country is selected; receives the selected country code and the country name if available.
+ * @param className - Optional additional CSS class names applied to the wrapper.
+ * @returns A React element containing the labeled, searchable country select.
+ */
 export function CountrySelect({
   id,
   label,

@@ -21,15 +21,14 @@ interface AdvancedFilterPanelProps {
 }
 
 /**
- * Advanced Filter Panel Component
+ * Renders the advanced filter editor as a right-side sliding sheet that lets users create, edit, and manage filter groups and conditions with AND/OR logic.
  *
- * Renders as a Sheet sliding in from the right (~33% screen width).
- * Contains all the filter groups with full AND/OR logic support.
- *
- * Structure:
- * - Header (title, description, close button)
- * - Scrollable Area (filter groups)
- * - Footer (Clear All, Apply buttons)
+ * @param open - Whether the panel is visible.
+ * @param onOpenChange - Callback invoked when the panel should open or close; receives the new open state.
+ * @param filterState - Current external filter state used to initialize the panel's editable state.
+ * @param filterActions - Actions for applying changes back to the external filter state (e.g., `setGroups`).
+ * @param availableFields - Optional list of field configurations available for creating conditions.
+ * @returns The Advanced Filter Panel React element.
  */
 export function AdvancedFilterPanel({
   open,

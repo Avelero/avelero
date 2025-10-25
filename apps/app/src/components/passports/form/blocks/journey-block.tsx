@@ -378,6 +378,15 @@ const OperatorCell = ({
   );
 };
 
+/**
+ * Render a sortable row for a journey step containing a step selector and operator cell.
+ *
+ * @param journeyStep - The journey step data (id, step name, operators, position) to render.
+ * @param onStepChange - Callback invoked with the new step name when the step selection changes.
+ * @param onOperatorsChange - Callback invoked with the updated operator list when operators change.
+ * @param onDelete - Callback invoked to delete the entire journey step.
+ * @returns The rendered draggable row element for the provided `journeyStep`.
+ */
 function DraggableJourneyRow({
   journeyStep,
   onStepChange,
@@ -424,6 +433,15 @@ function DraggableJourneyRow({
   );
 }
 
+/**
+ * Render a draggable two-column Journey editor that manages a list of steps and their associated operators.
+ *
+ * The component maintains local state for journey steps and drag activity, allows adding, deleting, and editing steps,
+ * supports reordering via drag-and-drop with position reindexing, and displays a drag overlay preview while dragging.
+ * Inline controls allow selecting or creating step names and operators for each row.
+ *
+ * @returns The React element rendering the Journey editor UI.
+ */
 export function JourneySection() {
   const [journeySteps, setJourneySteps] = React.useState<JourneyStep[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);

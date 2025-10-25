@@ -72,6 +72,12 @@ function buildBreadcrumbItems(
   return items;
 }
 
+/**
+ * Render a breadcrumb-like navigation label derived from the current pathname and locale.
+ *
+ * @param locale - The active locale prefix to remove from the pathname and include in generated hrefs (defaults to `"en"`).
+ * @returns A <nav> element containing breadcrumb items (links, current label, and optional ellipsis) that reflect the current path.
+ */
 export function NavigationLabel({ locale = "en" }: NavigationLabelProps) {
   const pathname = usePathname();
 

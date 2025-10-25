@@ -25,6 +25,14 @@ interface SeasonSelectProps {
   className?: string;
 }
 
+/**
+ * Format a season's start and end dates as a human-readable month range.
+ *
+ * Returns an empty string if the season is marked ongoing or if either start or end date is missing.
+ *
+ * @param season - The season whose date range will be formatted
+ * @returns The date range as "Month Year to Month Year", or an empty string when unavailable
+ */
 function formatSeasonDateRange(season: Season): string {
   if (season.isOngoing) {
     return "";
@@ -40,6 +48,22 @@ function formatSeasonDateRange(season: Season): string {
   return `${startMonth} to ${endMonth}`;
 }
 
+/**
+ * Render a searchable popover dropdown for selecting an existing season or creating a new one.
+ *
+ * The control displays the selected season (name, optional formatted date range, and an "Ongoing" label),
+ * filters the provided seasons by name as the user types (case-insensitive), and optionally offers a
+ * "Create" option when the typed term does not match any existing season.
+ *
+ * @param value - The currently selected season, or `null` when none is selected.
+ * @param onValueChange - Called with the chosen `Season` when the user selects an item.
+ * @param seasons - Available seasons to display and filter.
+ * @param onCreateNew - Optional callback invoked with the current search term when the user chooses to create a new season.
+ * @param placeholder - Text shown when no season is selected.
+ * @param disabled - Whether the control is disabled.
+ * @param className - Additional CSS class names applied to the trigger button.
+ * @returns The SeasonSelect React element.
+ */
 export function SeasonSelect({
   value,
   onValueChange,
@@ -160,6 +184,5 @@ export function SeasonSelect({
     </Popover>
   );
 }
-
 
 

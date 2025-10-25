@@ -86,7 +86,14 @@ export const seasons: Record<string, Season> = {
 
 export const allSeasons: Season[] = Object.values(seasons);
 
-// Helper to get season by year
+/**
+ * Return a season object from the predefined seasons map with the provided year assigned.
+ *
+ * @param seasonId - The key identifying a season in the exported `seasons` map
+ * @param year - The calendar year to attach to the returned season object
+ * @returns A Season-like object that contains all base season properties plus a `year` property
+ * @throws Error if no season exists for the given `seasonId`
+ */
 export function getSeasonWithYear(seasonId: string, year: number) {
   const baseSeason = seasons[seasonId as keyof typeof seasons];
   if (!baseSeason) {
@@ -99,7 +106,13 @@ export function getSeasonWithYear(seasonId: string, year: number) {
   };
 }
 
-// Common season combinations with years
+/**
+ * Generate season options for consecutive years using the two main seasons.
+ *
+ * @param startYear - The starting year for the sequence.
+ * @param years - The number of consecutive years to generate options for (default: 3).
+ * @returns An array of objects, each with `season` (a Season), `year` (number), and `displayName` (string in the format "`<shortName> <year>`"). 
+ */
 export function generateSeasonOptions(startYear: number, years = 3) {
   const mainSeasons = [seasons.SPRING_SUMMER, seasons.FALL_WINTER] as const;
   const options: Array<{ season: Season; year: number; displayName: string }> =

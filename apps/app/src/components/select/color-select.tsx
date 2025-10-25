@@ -88,6 +88,19 @@ const ColorLabel = ({
   );
 };
 
+/**
+ * Renders a multi-select color picker UI that displays selected color chips, allows searching and toggling from a list of default colors, and supports creating a new color by entering a name and choosing a Tailwind shade.
+ *
+ * The component opens a popover containing a searchable list of default colors and a secondary picker view for Tailwind color families and shades. Users can toggle selection of existing colors, remove selected colors, or create a new named color by typing a name and selecting a shade.
+ *
+ * @param value - Currently selected colors as an array of `{ name, hex }`
+ * @param onValueChange - Callback invoked with the updated selected colors array
+ * @param defaultColors - List of available default colors to show in the main view
+ * @param placeholder - Text shown in the trigger when no action is active (default: "Add color")
+ * @param disabled - When true, disables interaction and applies disabled styling (default: false)
+ * @param className - Additional CSS classes applied to the trigger container
+ * @returns The rendered ColorSelect React element
+ */
 export function ColorSelect({
   value,
   onValueChange,
@@ -285,4 +298,3 @@ export function ColorSelect({
     </Popover>
   );
 }
-

@@ -29,6 +29,15 @@ interface ShowcaseBrandSheetProps {
   onBrandCreated: (brand: ShowcaseBrandData) => void;
 }
 
+/**
+ * Render a right-side sheet that collects brand details and creates a new local brand entry.
+ *
+ * @param open - Whether the sheet is visible.
+ * @param onOpenChange - Callback invoked with the new open state when the sheet is opened or closed.
+ * @param initialName - Optional pre-filled value for the brand name when the sheet opens.
+ * @param onBrandCreated - Callback invoked with the created ShowcaseBrandData object when the user submits the form.
+ * @returns A React element rendering the creation sheet UI for a brand.
+ */
 export function ShowcaseBrandSheet({
   open,
   onOpenChange,
@@ -284,4 +293,3 @@ export function ShowcaseBrandSheet({
     </Sheet>
   );
 }
-

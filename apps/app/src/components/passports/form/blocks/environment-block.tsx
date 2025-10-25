@@ -12,6 +12,13 @@ interface EcoClaim {
   value: string;
 }
 
+/**
+ * Render the Environment section with inputs for carbon, water, and a managed list of eco-claims.
+ *
+ * Renders inputs for carbon (kgCO2e) and water (Liter), a dynamic list of editable eco-claims (each limited to 50 characters), and an "Add eco-claim" button that appears while fewer than five claims exist.
+ *
+ * @returns A React element containing the carbon and water inputs, the eco-claims list (editable, removable), and an add control when the eco-claim count is less than five.
+ */
 export function EnvironmentSection() {
   const [carbon, setCarbon] = React.useState("");
   const [water, setWater] = React.useState("");

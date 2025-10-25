@@ -43,6 +43,20 @@ interface MaterialSheetProps {
 
 type Page = "material" | "certification";
 
+/**
+ * Renders a right-side sheet UI to create a material and optionally attach or create a certification.
+ *
+ * The sheet contains two pages: a "material" form (name, origin, recyclable flag, certification selection)
+ * and a "certification" form (select existing certification, certification number, institute, expiry, and file upload).
+ * Creating a certification stores it in local state and can be attached to the created material. Closing the sheet
+ * resets all form state.
+ *
+ * @param open - Whether the sheet is open
+ * @param onOpenChange - Callback invoked with the new open state when the sheet should be opened or closed
+ * @param initialName - Optional initial material name prefilled when the sheet opens
+ * @param onMaterialCreated - Callback invoked with the assembled MaterialData when the material is created
+ * @returns The MaterialSheet React element
+ */
 export function MaterialSheet({
   open,
   onOpenChange,
@@ -492,4 +506,3 @@ export function MaterialSheet({
     </Sheet>
   );
 }
-

@@ -13,14 +13,18 @@ interface MinMaxInputProps {
 }
 
 /**
- * Min-Max Range Input Component
+ * Input component for entering a numeric minimum and maximum with validation and formatting.
  *
- * A dual input component for entering numeric ranges with validation.
- * - Allows leaving one or both fields empty
- * - Shows validation errors when min > max
- * - Converts comma to dot as decimal separator
- * - Rounds to 4 decimals on blur
- * - Prevents negative values
+ * Accepts optional numeric `min`/`max` values and lets the user edit them as text; empty fields are allowed.
+ * On blur, input text is parsed (commas accepted as decimal separators), negative values are clamped to 0,
+ * and values are rounded to 4 decimal places before being propagated via `onChange`.
+ *
+ * @param value - Current value object with optional `min` and `max` numbers.
+ * @param onChange - Callback invoked with `{ min, max }` where each is a parsed number or `undefined` for empty.
+ * @param unit - Optional unit label displayed alongside the inputs.
+ * @param disabled - If true, both inputs are disabled.
+ * @param className - Optional additional container CSS classes.
+ * @returns A JSX element containing the paired min/max text inputs and an optional unit display.
  */
 export function MinMaxInput({
   value,

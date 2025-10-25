@@ -146,6 +146,28 @@ const categoryHierarchy = {
   },
 } as const;
 
+/**
+ * Render a multi-level category picker inside a popover.
+ *
+ * The component displays a trigger button showing `value` and opens a popover
+ * that lets the user navigate a two-level (or deeper) static category hierarchy,
+ * select or deselect categories, and emit a human-readable display string.
+ *
+ * Selection behavior:
+ * - Selecting a category updates the trigger with a display string composed of
+ *   the labels along the selected path. If the path contains more than three
+ *   labels it is abbreviated as `first / ... / last`.
+ * - Selecting the currently selected category clears the selection and calls
+ *   `onChange` with `"Select category"`.
+ * - Opening the popover initializes navigation to the current selection context;
+ *   closing it resets navigation.
+ *
+ * @param value - Current display value shown on the trigger (e.g., "Select category" or a category path)
+ * @param onChange - Callback invoked when the selection changes. Receives the computed display string or `"Select category"` when the selection is cleared.
+ * @param label - Optional label shown above the control; defaults to `"Category"`.
+ * @param className - Optional additional CSS classes applied to the outer container.
+ * @returns The CategorySelect React element.
+ */
 export function CategorySelect({ value, onChange, label = "Category", className }: CategorySelectProps) {
   const [open, setOpen] = React.useState(false);
   const [categoryPath, setCategoryPath] = React.useState<string[]>([]);
@@ -361,4 +383,3 @@ export function CategorySelect({ value, onChange, label = "Category", className 
     </div>
   );
 }
-

@@ -65,6 +65,13 @@ function CheckboxLike({
   );
 }
 
+/**
+ * Renders a sortable row with a drag handle, truncated label, and a visibility checkbox.
+ *
+ * @param item - Row state containing `id`, `label`, and `checked` indicating current visibility.
+ * @param onToggle - Callback invoked with the row `id` and the next `checked` value when the checkbox changes.
+ * @returns A JSX element representing the sortable row.
+ */
 function SortableRow({
   item,
   onToggle,
@@ -109,6 +116,19 @@ function SortableRow({
   );
 }
 
+/**
+ * Render a draggable, sortable popover UI for selecting and reordering display columns.
+ *
+ * The popover shows a locked product row, a list of all columns with visibility toggles,
+ * supports drag-and-drop reordering, and persists the current visible column order via `onSave`.
+ *
+ * @param trigger - Element that triggers opening the popover
+ * @param productLabel - Label text for the non-interactive locked product row
+ * @param allColumns - All available display columns (objects with `id` and `label`)
+ * @param initialVisible - Ordered array of column ids that should be initially visible
+ * @param onSave - Callback invoked with the ordered array of visible column ids when the user saves
+ * @returns The Popover React element containing the column controls
+ */
 export function DisplayPopover({
   trigger,
   productLabel = "Product",

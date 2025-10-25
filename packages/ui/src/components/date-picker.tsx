@@ -19,6 +19,22 @@ interface DatePickerProps {
   inline?: boolean;
 }
 
+/**
+ * Controlled date picker input with an optional calendar popover and DD/MM/YYYY text entry.
+ *
+ * Renders a text input that accepts dates in `DD/MM/YYYY` format, validates/parses input on blur,
+ * and optionally shows a calendar popover for selection.
+ *
+ * @param value - Currently selected date or `null` for no selection.
+ * @param onChange - Callback invoked when the selected date changes; receives `Date | null`.
+ * @param placeholder - Placeholder shown in the input (default: `"DD/MM/YYYY"`).
+ * @param disabled - When `true`, disables text input and calendar trigger (default: `false`).
+ * @param className - Additional CSS classes applied to the input wrapper.
+ * @param minDate - Minimum selectable date for the calendar (optional).
+ * @param maxDate - Maximum selectable date for the calendar (optional).
+ * @param inline - When `true`, renders the popover in inline mode (default: `false`).
+ * @returns The rendered DatePicker React element.
+ */
 export function DatePicker({
   value,
   onChange,

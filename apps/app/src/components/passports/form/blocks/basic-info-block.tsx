@@ -6,6 +6,13 @@ import { Textarea } from "@v1/ui/textarea";
 import { cn } from "@v1/ui/cn";
 import { useCallback, useRef, useState } from "react";
 
+/**
+ * Renders a basic information form section with title, description, and an image upload area.
+ *
+ * The component manages local state for title and description, and provides an image dropzone that supports drag-and-drop or click-to-select. Selected images are shown as a local preview.
+ *
+ * @returns The JSX element containing controlled inputs for title and description and an image upload area with preview and drag state feedback.
+ */
 export function BasicInfoSection() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");

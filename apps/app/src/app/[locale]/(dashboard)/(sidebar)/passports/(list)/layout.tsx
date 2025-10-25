@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   title: "Passports | Avelero",
 };
 
+/**
+ * Page layout that provides the Passports list UI shell with a control bar and centered content area.
+ *
+ * @param children - Content rendered inside the layout's scrollable main area
+ * @returns The layout element containing the control bar (with navigation and Create button) and the content container
+ */
 export default function PassportsListLayout({
   children,
 }: {

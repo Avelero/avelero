@@ -51,6 +51,13 @@ interface MultiSelectProps extends BaseSelectProps {
 
 type SelectProps = SingleSelectProps | MultiSelectProps;
 
+/**
+ * Renders a configurable select control with optional search, multi-select, and inline "create new" capability.
+ *
+ * Renders a trigger button that opens a popover listing provided `options`. Supports single or multiple selection based on `props.multiple`. When searchable, an input filters options by label. If `hasCreateOption` is true and the search field contains text, an inline create action is shown that invokes `onCreateNew` with the trimmed search text. The popover width can be customized via `width`, and `inline` controls portal rendering.
+ *
+ * @returns The Select component UI.
+ */
 export function Select(props: SelectProps) {
   const {
     options,

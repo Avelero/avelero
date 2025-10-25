@@ -32,9 +32,18 @@ interface FilterFieldInputProps {
 }
 
 /**
- * Integrated control that renders BOTH operator selector and value input
- * based on the field configuration. Some field types (e.g., boolean)
- * do not render an operator selector at all.
+ * Render a combined operator selector and value input for a filter field based on its configuration.
+ *
+ * Renders an operator dropdown when applicable and the appropriate value control for the field's inputType;
+ * boolean fields render a static "equals" label and a True/False toggle, date ranges auto-adjust the operator
+ * based on filled endpoints, and some operators (e.g., "is empty") suppress the value control.
+ *
+ * @param fieldConfig - Configuration for the filter field (type, available operators, options, placeholder, unit, etc.)
+ * @param operator - Currently selected operator or null/undefined when none is chosen
+ * @param value - Current value for the field; shape varies by inputType (string, number range, date range, selection, etc.)
+ * @param onOperatorChange - Callback invoked with a new operator when the user selects one
+ * @param onValueChange - Callback invoked with a new value when the user edits the value control
+ * @returns The rendered filter field input control (operator selector and/or value input)
  */
 export function FilterFieldInput({
   fieldConfig,
@@ -280,5 +289,4 @@ export function FilterFieldInput({
     </div>
   );
 }
-
 

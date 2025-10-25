@@ -51,6 +51,16 @@ interface SizeModalProps {
   prefillSize?: string | null;
 }
 
+/**
+ * Render a single draggable size row with an editable size input and a delete action.
+ *
+ * The row is sortable via a drag handle and visually reflects the drag state.
+ *
+ * @param row - The size row data (contains `id` and `value`)
+ * @param onUpdate - Callback invoked with `(id, value)` when the input value changes
+ * @param onDelete - Callback invoked with `(id)` when the row is requested to be removed
+ * @returns The JSX element representing the draggable size row
+ */
 function DraggableSizeRow({
   row,
   onUpdate,
@@ -112,6 +122,16 @@ function DraggableSizeRow({
   );
 }
 
+/**
+ * Render a modal for editing, reordering, and saving a list of sizes scoped to a level-2 category.
+ *
+ * @param open - Whether the modal is visible.
+ * @param onOpenChange - Callback invoked to request changing the modal open state.
+ * @param selectedCategory - Full category path; the modal constrains editing to its level-2 category.
+ * @param onSave - Callback invoked with the list of non-empty size strings and the computed category key when the user saves.
+ * @param prefillSize - Optional size value to append to the initial list when the modal opens.
+ * @returns The SizeModal React element.
+ */
 export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefillSize }: SizeModalProps) {
   // Automatically trim to level 2 category
   const level2Category = React.useMemo(() => {
@@ -310,4 +330,3 @@ export function SizeModal({ open, onOpenChange, selectedCategory, onSave, prefil
     </Dialog>
   );
 }
-

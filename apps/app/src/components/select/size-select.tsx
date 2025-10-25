@@ -19,6 +19,19 @@ interface SizeSelectProps {
   className?: string;
 }
 
+/**
+ * Renders a size selector popover with searchable sizes and an optional "create new" action.
+ *
+ * @param value - Currently selected size string or `null` to show the placeholder.
+ * @param onValueChange - Called with the chosen size when a user selects an existing size.
+ * @param selectedCategory - Optional full category path used to determine default sizes when `availableSizes` is not provided.
+ * @param availableSizes - Optional override list of sizes to display instead of deriving them from `selectedCategory`.
+ * @param onCreateNew - Optional callback invoked with `(initialValue, categoryPath)` when the user chooses to create a new custom size.
+ * @param placeholder - Text shown when no size is selected.
+ * @param disabled - Disables the trigger button when `true`.
+ * @param className - Additional CSS classes applied to the trigger button.
+ * @returns The rendered SizeSelect React element.
+ */
 export function SizeSelect({
   value,
   onValueChange,
@@ -139,4 +152,3 @@ export function SizeSelect({
     </Popover>
   );
 }
-

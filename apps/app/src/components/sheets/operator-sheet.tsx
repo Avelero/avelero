@@ -28,6 +28,15 @@ interface OperatorSheetProps {
   onOperatorCreated: (operator: OperatorData) => void;
 }
 
+/**
+ * Renders a right-side sheet UI for creating a new operator record.
+ *
+ * @param open - Controls whether the sheet is visible.
+ * @param onOpenChange - Called with the desired open state to request closing or opening the sheet.
+ * @param initialName - Optional name to pre-fill the Name field when the sheet opens.
+ * @param onOperatorCreated - Called with the newly created OperatorData when the user confirms creation.
+ * @returns The operator creation sheet JSX element.
+ */
 export function OperatorSheet({
   open,
   onOpenChange,
@@ -267,4 +276,3 @@ export function OperatorSheet({
     </Sheet>
   );
 }
-

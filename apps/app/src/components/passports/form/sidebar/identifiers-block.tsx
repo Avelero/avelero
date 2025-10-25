@@ -6,6 +6,15 @@ import { Select } from "@v1/ui/select";
 import { useState } from "react";
 import { ShowcaseBrandSheet, type ShowcaseBrandData } from "../../../sheets/showcase-brand-sheet";
 
+/**
+ * Render an Identifiers panel with SKU, EAN, and Brand fields and an integrated brand-creation workflow.
+ *
+ * The component manages local state for SKU, EAN, and the selected brand, provides a searchable brand
+ * select with a create option, opens a brand creation sheet prefilled with the search term when creating
+ * a new brand, and appends and auto-selects newly created brands.
+ *
+ * @returns The rendered Identifiers section as JSX.
+ */
 export function IdentifiersSection() {
   const [sku, setSku] = useState("");
   const [ean, setEan] = useState("");

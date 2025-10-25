@@ -10,6 +10,12 @@ import {
     title: "Passports | Avelero",
   };
   
+  /**
+   * Layout component that renders a passports form container with a top control bar and content area.
+   *
+   * @param children - Content to render inside the centered, padded, and scrollable form area
+   * @returns The JSX element containing a control bar with Cancel and Save actions and the provided children
+   */
   export default function PassportsFormLayout({
     children,
   }: {

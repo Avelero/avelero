@@ -7,6 +7,11 @@ import { JourneySection } from "@/components/passports/form/blocks/journey-block
 import { StatusSection } from "@/components/passports/form/sidebar/status-block";
 import { IdentifiersSection } from "@/components/passports/form/sidebar/identifiers-block";
 
+/**
+ * Render the Create passport page composed of main form sections on the left and status/identifier blocks on the right.
+ *
+ * @returns A JSX element rendering a PassportFormScaffold titled "Create passport" with BasicInfo, Organization, Environment, Materials, and Journey sections in the left column and Status and Identifiers sections in the right column.
+ */
 export default function CreatePassportsPage() {
   return (
     <PassportFormScaffold

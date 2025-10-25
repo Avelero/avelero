@@ -216,6 +216,13 @@ const PercentageCell = ({
   );
 };
 
+/**
+ * Render the Materials section UI for managing a list of materials, their country tags, and percentages.
+ *
+ * Renders an editable materials table with controls to add, edit, and delete materials, inline material selection (with creation flow), country tags, percentage editing with a delete action, and a summary row showing total percentage versus 100%.
+ *
+ * @returns The React element for the Materials section user interface.
+ */
 export function MaterialsSection() {
   const [materials, setMaterials] = React.useState<Material[]>([]);
   const [materialSheetOpen, setMaterialSheetOpen] = React.useState(false);

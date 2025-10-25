@@ -27,6 +27,13 @@ const STATUS_OPTIONS = [
   },
 ];
 
+/**
+ * Renders a labeled status selector used in the passport form sidebar.
+ *
+ * Displays a "Status" label and a Select control populated with predefined status options; the component holds and updates the selected status in local state (initial value "published").
+ *
+ * @returns The rendered StatusSection UI element.
+ */
 export function StatusSection() {
   const [status, setStatus] = useState<string>("published");
 

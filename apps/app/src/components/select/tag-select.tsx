@@ -77,6 +77,17 @@ const TagLabel = ({
   );
 };
 
+/**
+ * A multi-select tag input that displays selected tags and lets users remove existing tags,
+ * search available tags, or create a new tag by name and assign it a color via a color picker.
+ *
+ * @param value - Array of currently selected tag options.
+ * @param onValueChange - Callback invoked with the updated tag array when tags are added or removed.
+ * @param placeholder - Text shown in the trigger when there is space to add tags; defaults to `"Add tags"`.
+ * @param disabled - When `true`, interaction is disabled and the control is visually dimmed; defaults to `false`.
+ * @param className - Optional additional CSS class names applied to the trigger container.
+ * @returns The TagSelect React element.
+ */
 export function TagSelect({
   value,
   onValueChange,
@@ -256,4 +267,3 @@ export function TagSelect({
     </Popover>
   );
 }
-

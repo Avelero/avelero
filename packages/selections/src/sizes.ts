@@ -56,7 +56,12 @@ const FALLBACK_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 // Examples:
 //   "Men's / Tops / Jerseys" -> "mens-tops"
 //   "Women's / Bottoms" -> "womens-bottoms"
-//   "Men's" -> null (not level 2)
+/**
+ * Derives a kebab-case level-2 category key from a full category path.
+ *
+ * @param categoryPath - The category path string (e.g., "Men's / Tops / Jerseys").
+ * @returns The key in the form `level1-level2` (for example, `mens-tops`) if the path contains at least two valid levels; `null` if the input is empty, equals "Select category", or does not contain a valid first and second level.
+ */
 export function getCategoryKey(categoryPath: string): string | null {
   if (!categoryPath || categoryPath === "Select category") {
     return null;
@@ -80,7 +85,12 @@ export function getCategoryKey(categoryPath: string): string | null {
 // Examples:
 //   "Men's / Tops / Jerseys" -> "Men's / Tops"
 //   "Women's / Bottoms / Jeans" -> "Women's / Bottoms"
-//   "Men's" -> "Men's"
+/**
+ * Produce a human-friendly level-2 category path from a full category path.
+ *
+ * @param categoryPath - Full category path (e.g., "Men's / Tops / Jerseys")
+ * @returns `"Select category"` if `categoryPath` is empty or equal to `"Select category"`; otherwise the original `categoryPath` when it contains one or two levels, or the first two levels joined as `"Level1 / Level2"`
+ */
 export function getLevel2CategoryPath(categoryPath: string): string {
   if (!categoryPath || categoryPath === "Select category") {
     return "Select category";
@@ -97,7 +107,12 @@ export function getLevel2CategoryPath(categoryPath: string): string {
   return parts.slice(0, 2).join(" / ");
 }
 
-// Helper: Get default sizes for a category path
+/**
+ * Resolve the appropriate size options for a given category path.
+ *
+ * @param categoryPath - Full category path (e.g., "Men's / Tops / Jerseys"); may be empty or "Select category"
+ * @returns The size array associated with the resolved level-2 category, or the generic fallback sizes if the category cannot be resolved or has no predefined sizes
+ */
 export function getSizesForCategory(categoryPath: string): string[] {
   const categoryKey = getCategoryKey(categoryPath);
 
@@ -114,7 +129,13 @@ export function getSizesForCategory(categoryPath: string): string[] {
   );
 }
 
-// Helper: Get all level 2 category keys with their display names
+/**
+ * Provides a list of supported level-2 category keys paired with human-friendly display names.
+ *
+ * @returns An array of objects each containing:
+ *  - `key`: the level-2 category key (e.g., `"mens-tops"`)
+ *  - `displayName`: the human-readable "Level1 / Level2" string (e.g., `"Men's / Tops"`)
+ */
 export function getAllLevel2Categories(): Array<{
   key: string;
   displayName: string;

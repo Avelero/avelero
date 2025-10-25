@@ -21,6 +21,19 @@ interface SeasonModalProps {
   initialName?: string;
 }
 
+/**
+ * Renders a modal dialog for creating a season with name, date range, and an "ongoing" toggle.
+ *
+ * The modal prefills the name when opened using `initialName`, clears dates while `ongoing` is enabled,
+ * and exposes Cancel/Create actions. Create invokes `onSave` with `{ name, startDate, endDate, ongoing }`
+ * and then resets the form and closes the modal; Cancel resets the form and closes the modal.
+ *
+ * @param open - Whether the modal is visible
+ * @param onOpenChange - Callback invoked with the new open state when the modal should be opened or closed
+ * @param onSave - Callback invoked with the season object when the user confirms creation
+ * @param initialName - Optional initial value to prefill the season name when the modal opens
+ * @returns A React element rendering the season creation modal
+ */
 export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonModalProps) {
   const [name, setName] = React.useState("");
   const [startDate, setStartDate] = React.useState<Date | null>(null);
@@ -134,4 +147,3 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
     </Dialog>
   );
 }
-

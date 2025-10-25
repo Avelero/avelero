@@ -35,6 +35,13 @@ const COLOR_OPTIONS: ColorOption[] = [
   { name: "Purple", hex: "800080" },
 ];
 
+/**
+ * Render the Organization block containing a Category selector and optional Season, Color, Size, and Tags fields with creation flows.
+ *
+ * The component manages visibility and values for each optional field, provides footer buttons to add fields after client mount, and opens modals to create new seasons or sizes (new seasons are appended to the local season list and selected; new sizes can be prefilling and set on save).
+ *
+ * @returns The Organization section React element.
+ */
 export function OrganizationSection() {
   const [category, setCategory] = React.useState("Select category");
   

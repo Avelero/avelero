@@ -1,6 +1,6 @@
 "use client";
 
-import { countries } from "@v1/location/countries";
+import { countries } from "@v1/selections/countries";
 import { cn } from "@v1/ui/cn";
 import { Label } from "@v1/ui/label";
 import { Select } from "@v1/ui/select";
@@ -29,7 +29,7 @@ export function CountrySelect({
   );
 
   return (
-    <div className={cn("flex flex-col gap-1 w-full", className)}>
+    <div className={cn("space-y-1.5 w-full", className)}>
       {label && <Label htmlFor={id}>{label}</Label>}
       <Select
         options={options}

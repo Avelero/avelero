@@ -1,0 +1,59 @@
+{
+  "name": "@v1/selections",
+  "version": "0.1.0",
+  "private": true,
+  "sideEffects": false,
+  "files": [
+    "src/index.ts",
+    "src/countries.ts",
+    "src/certifications.ts",
+    "src/categories.ts",
+    "src/colors.ts",
+    "src/production-steps.ts",
+    "src/seasons.ts",
+    "src/sizes.ts"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./countries": {
+      "types": "./src/countries.ts",
+      "default": "./src/countries.ts"
+    },
+    "./certifications": {
+      "types": "./src/certifications.ts",
+      "default": "./src/certifications.ts"
+    },
+    "./categories": {
+      "types": "./src/categories.ts",
+      "default": "./src/categories.ts"
+    },
+    "./colors": {
+      "types": "./src/colors.ts",
+      "default": "./src/colors.ts"
+    },
+    "./production-steps": {
+      "types": "./src/production-steps.ts",
+      "default": "./src/production-steps.ts"
+    },
+    "./seasons": {
+      "types": "./src/seasons.ts",
+      "default": "./src/seasons.ts"
+    },
+    "./sizes": {
+      "types": "./src/sizes.ts",
+      "default": "./src/sizes.ts"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

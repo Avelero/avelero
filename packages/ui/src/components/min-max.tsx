@@ -14,7 +14,7 @@ interface MinMaxInputProps {
 
 /**
  * Min-Max Range Input Component
- * 
+ *
  * A dual input component for entering numeric ranges with validation.
  * - Allows leaving one or both fields empty
  * - Shows validation errors when min > max
@@ -41,46 +41,46 @@ export function MinMaxInput({
   // Helper to parse a text value
   const parseValue = (text: string): number | undefined => {
     const trimmed = text.trim();
-    if (trimmed === '') return undefined;
-    
-    const normalized = trimmed.replace(/,/g, '.');
+    if (trimmed === "") return undefined;
+
+    const normalized = trimmed.replace(/,/g, ".");
     let num = Number.parseFloat(normalized);
     if (Number.isNaN(num)) return undefined;
-    
+
     // No negatives
     if (num < 0) num = 0;
-    
+
     // Round to 4 decimals
     return Math.round(num * 10000) / 10000;
   };
 
   const handleMinChange = (input: string) => {
     // Only allow numbers, dots, and commas
-    if (input !== '' && !/^[\d.,]*$/.test(input)) return;
+    if (input !== "" && !/^[\d.,]*$/.test(input)) return;
     setMinText(input);
   };
 
   const handleMaxChange = (input: string) => {
     // Only allow numbers, dots, and commas
-    if (input !== '' && !/^[\d.,]*$/.test(input)) return;
+    if (input !== "" && !/^[\d.,]*$/.test(input)) return;
     setMaxText(input);
   };
 
   const handleMinBlur = () => {
     const minNum = parseValue(minText);
     const maxNum = parseValue(maxText);
-    
+
     // Update both fields
-    setMinText(minNum?.toString() ?? '');
+    setMinText(minNum?.toString() ?? "");
     onChange({ min: minNum, max: maxNum });
   };
 
   const handleMaxBlur = () => {
     const minNum = parseValue(minText);
     const maxNum = parseValue(maxText);
-    
+
     // Update both fields
-    setMaxText(maxNum?.toString() ?? '');
+    setMaxText(maxNum?.toString() ?? "");
     onChange({ min: minNum, max: maxNum });
   };
 
@@ -120,4 +120,3 @@ export function MinMaxInput({
     </div>
   );
 }
-

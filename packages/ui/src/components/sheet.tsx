@@ -50,27 +50,36 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
+    VariantProps<typeof sheetVariants> {
+  hideDefaultClose?: boolean;
+}
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <SheetPrimitive.Content
-      ref={ref}
-      className={cn(sheetVariants({ side }), className)}
-      {...props}
-    >
-      <SheetPrimitive.Close className="absolute right-6 top-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 disabled:pointer-events-none data-[state=open]:bg-secondary">
-        <Cross2Icon className="h-5 w-5" />
-        <span className="sr-only">Close</span>
-      </SheetPrimitive.Close>
-      {children}
-    </SheetPrimitive.Content>
-  </SheetPortal>
-));
+>(
+  (
+    { side = "right", className, children, hideDefaultClose = false, ...props },
+    ref,
+  ) => (
+    <SheetPortal>
+      <SheetOverlay />
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(sheetVariants({ side }), className)}
+        {...props}
+      >
+        {!hideDefaultClose && (
+          <SheetPrimitive.Close className="absolute right-6 top-6 ring-offset-background transition-all hover:text-primary disabled:pointer-events-none data-[state=open]:bg-secondary">
+            <Cross2Icon className="h-5 w-5" />
+            <span className="sr-only">Close</span>
+          </SheetPrimitive.Close>
+        )}
+        {children}
+      </SheetPrimitive.Content>
+    </SheetPortal>
+  ),
+);
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
 const SheetHeader = ({
@@ -93,7 +102,7 @@ const SheetFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      "h-14 px-6 flex items-center justify-end gap-3 bg-[#F7F7FF] border-t border-border",
       className,
     )}
     {...props}
@@ -125,6 +134,92 @@ const SheetDescription = React.forwardRef<
 ));
 SheetDescription.displayName = SheetPrimitive.Description.displayName;
 
+interface SheetBreadcrumbHeaderProps {
+  pages: string[];
+  currentPageIndex?: number;
+  onClose?: () => void;
+  onPageClick?: (pageIndex: number) => void;
+  className?: string;
+}
+
+const SheetBreadcrumbHeader = ({
+  pages,
+  currentPageIndex = 0,
+  onClose,
+  onPageClick,
+  className,
+}: SheetBreadcrumbHeaderProps) => {
+  const renderBreadcrumb = () => {
+    // Get only the pages up to and including the current page
+    const visiblePages = pages.slice(0, currentPageIndex + 1);
+
+    // Single page or on first page - just show the current title
+    if (visiblePages.length === 1) {
+      return <p className="type-h6 text-primary">{visiblePages[0]}</p>;
+    }
+
+    // Two pages - show both with separator
+    if (visiblePages.length === 2) {
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => onPageClick?.(0)}
+            className="type-h6 text-tertiary cursor-pointer"
+          >
+            {visiblePages[0]}
+          </button>
+          <p className="type-h6 text-tertiary mx-1.5">/</p>
+          <p className="type-h6 text-primary">{visiblePages[1]}</p>
+        </>
+      );
+    }
+
+    // Three or more pages - show first / ... / current
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => onPageClick?.(0)}
+          className="type-h6 text-tertiary cursor-pointer"
+        >
+          {visiblePages[0]}
+        </button>
+        <p className="type-h6 text-tertiary mx-1.5">/</p>
+        <p className="type-h6 text-tertiary">...</p>
+        <p className="type-h6 text-tertiary mx-1.5">/</p>
+        <p className="type-h6 text-primary">
+          {visiblePages[visiblePages.length - 1]}
+        </p>
+      </>
+    );
+  };
+
+  return (
+    <div
+      className={cn(
+        "h-14 px-6 flex flex-row justify-between items-center border-b border-border",
+        className,
+      )}
+    >
+      <SheetPrimitive.Title className="flex flex-row items-center">
+        {renderBreadcrumb()}
+      </SheetPrimitive.Title>
+      <SheetClose asChild>
+        <button
+          type="button"
+          className="text-tertiary h-5 w-5 hover:text-primary transition-colors"
+          onClick={onClose}
+        >
+          <Cross2Icon className="h-5 w-5" />
+          <span className="sr-only">Close</span>
+        </button>
+      </SheetClose>
+    </div>
+  );
+};
+SheetBreadcrumbHeader.displayName = "SheetBreadcrumbHeader";
+
 export {
   Sheet,
   SheetPortal,
@@ -136,4 +231,5 @@ export {
   SheetFooter,
   SheetTitle,
   SheetDescription,
+  SheetBreadcrumbHeader,
 };

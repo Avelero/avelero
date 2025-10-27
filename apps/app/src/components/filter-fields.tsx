@@ -15,6 +15,7 @@ import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { MinMaxInput } from "@v1/ui/min-max";
 import { Select } from "@v1/ui/select";
+import { BooleanToggle } from "@v1/ui/boolean";
 import * as React from "react";
 import type {
   FilterFieldConfig,
@@ -58,49 +59,12 @@ export function FilterFieldInput({
           <div className="flex items-center justify-center px-1">equals</div>
         </div>
 
-        {/* Segmented control with sliding thumb (no track bg) */}
-        <div className="relative h-9 flex-1">
-          {/* Thumb */}
-          <div
-            className={cn(
-              "pointer-events-none absolute inset-y-0 left-0 w-1/2 border border-border bg-background transition-transform duration-200 will-change-transform",
-              boolValue ? "translate-x-full" : "translate-x-0",
-            )}
-          />
-          {/* Labels */}
-          <div className="relative z-10 grid h-full grid-cols-2">
-            <button
-              type="button"
-              aria-pressed={!boolValue}
-              aria-disabled={!boolValue}
-              tabIndex={!boolValue ? -1 : 0}
-              onClick={boolValue ? () => onValueChange(false) : undefined}
-              className={cn(
-                "flex items-center justify-center px-3 text-[14px] transition-colors",
-                !boolValue
-                  ? "text-primary cursor-default pointer-events-none"
-                  : "text-tertiary hover:text-primary cursor-pointer",
-              )}
-            >
-              False
-            </button>
-            <button
-              type="button"
-              aria-pressed={boolValue}
-              aria-disabled={boolValue}
-              tabIndex={boolValue ? -1 : 0}
-              onClick={!boolValue ? () => onValueChange(true) : undefined}
-              className={cn(
-                "flex items-center justify-center px-3 text-[14px] transition-colors",
-                boolValue
-                  ? "text-primary cursor-default pointer-events-none"
-                  : "text-tertiary hover:text-primary cursor-pointer",
-              )}
-            >
-              True
-            </button>
-          </div>
-        </div>
+        <BooleanToggle
+          value={boolValue}
+          onChange={onValueChange}
+          leftLabel="False"
+          rightLabel="True"
+        />
       </div>
     );
   }

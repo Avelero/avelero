@@ -1,7 +1,7 @@
 "use client";
 
 import { AvatarUpload } from "@/components/avatar-upload";
-import { CountrySelect } from "@/components/country-select";
+import { CountrySelect } from "@/components/select/country-select";
 import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { hueFromName } from "@/utils/avatar-hue";

@@ -4,13 +4,15 @@ import {
   ControlBarNavButton,
   ControlBarRight,
 } from "@/components/control-bar";
+import { Button } from "@v1/ui/button";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Passports | Avelero",
 };
 
-export default function AccountLayout({
+export default function PassportsListLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -21,7 +23,11 @@ export default function AccountLayout({
         <ControlBarLeft>
           <ControlBarNavButton href="/passports">Passports</ControlBarNavButton>
         </ControlBarLeft>
-        <ControlBarRight />
+        <ControlBarRight>
+          <Button variant="default" asChild>
+            <Link href="/passports/create"><span className="px-1">Create</span></Link>
+          </Button>
+        </ControlBarRight>
       </ControlBar>
       <div className="flex w-full h-full justify-center items-start p-6 overflow-y-auto scrollbar-hide">
         {children}

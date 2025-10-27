@@ -1,6 +1,4 @@
-import { brandMembers } from "@v1/db/schema";
-import { and, eq } from "drizzle-orm";
-import type { Role } from "../../config/roles";
+import { isRole, type Role } from "../../config/roles";
 import type { TRPCContext } from "../init.js";
 
 export async function withBrandPermission<TReturn>(opts: {
@@ -16,23 +14,35 @@ export async function withBrandPermission<TReturn>(opts: {
   const brandId = ctx.brandId ?? null;
   if (!brandId) return next({ ctx: { ...ctx, brandId, role: null } });
 
+  const userId = ctx.user.id;
+
   try {
-    const rows = await ctx.db
-      .select({ id: brandMembers.id, role: brandMembers.role })
-      .from(brandMembers)
-      .where(
+    const result = await ctx.db.query.brandMembers.findFirst({
+      columns: {
+        id: true,
+        role: true,
+      },
+      where: (brandMembers, { eq, and }) =>
         and(
           eq(brandMembers.brandId, brandId),
-          eq(brandMembers.userId, ctx.user.id),
+          eq(brandMembers.userId, userId),
         ),
-      )
-      .limit(1);
+    });
 
-    if (!rows.length) {
+    if (!result) {
       return next({ ctx: { ...ctx, brandId: null, role: null } });
     }
 
-    const role = rows[0]?.role as Role | null;
+    // Validate role with runtime type guard instead of type assertion
+    const role = isRole(result.role) ? result.role : null;
+    
+    // Log invalid role for debugging and security monitoring
+    if (result.role !== null && !isRole(result.role)) {
+      console.warn(
+        `[brand-permission] Invalid role "${result.role}" found for user ${userId} in brand ${brandId}. Permission denied.`
+      );
+    }
+
     return next({ ctx: { ...ctx, brandId, role } });
   } catch {
     return next({ ctx: { ...ctx, brandId: null, role: null } });

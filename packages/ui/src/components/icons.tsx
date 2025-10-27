@@ -1,7 +1,14 @@
 import {
+  AlertCircle,
+  ArrowDown10,
   ArrowDownUp,
+  ArrowDownZA,
+  ArrowUp10,
+  ArrowUpZA,
   BarChart3,
   Calendar,
+  CalendarArrowDown,
+  CalendarArrowUp,
   ChartLine,
   Check,
   ChevronDown,
@@ -13,10 +20,6 @@ import {
   Copy,
   EllipsisVertical,
   Filter,
-  ArrowUpZA,
-  ArrowDownZA,
-  CalendarArrowUp,
-  CalendarArrowDown,
   Globe,
   GripVertical,
   Loader2,
@@ -24,15 +27,13 @@ import {
   LogOut,
   Minus,
   Plus,
-  Trash2,
   QrCode,
   Search,
   Settings,
   SlidersHorizontal,
+  Trash2,
   UserRound,
   X,
-  ArrowUp10,
-  ArrowDown10,
 } from "lucide-react";
 import type React from "react";
 
@@ -204,6 +205,7 @@ function StatusArchived(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export const Icons = {
+  AlertCircle,
   SignOut: LogOut,
   Copy,
   Check,

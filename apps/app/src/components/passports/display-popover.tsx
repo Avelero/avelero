@@ -1,11 +1,16 @@
 "use client";
 
+import * as React from "react";
+import { createPortal } from "react-dom";
 import {
   DndContext,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
+  DragOverlay,
+  type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -18,7 +23,6 @@ import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import * as React from "react";
 
 export interface DisplayColumnItem {
   id: string;
@@ -76,18 +80,14 @@ function SortableRow({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    position: isDragging ? ("relative" as const) : undefined,
-    zIndex: isDragging ? 10000 : undefined,
+    opacity: isDragging ? 0 : 1,
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={cn(
-        "flex h-10 items-center gap-3 px-3",
-        "border border-border bg-background",
-      )}
+      className="flex h-10 items-center gap-3 px-3 border border-border bg-background"
     >
       <button
         type="button"
@@ -118,10 +118,15 @@ export function DisplayPopover({
 }: DisplayPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [rows, setRows] = React.useState<RowState[]>([]);
-  const [isDraggingAny, setIsDraggingAny] = React.useState(false);
+  const [activeId, setActiveId] = React.useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+  );
+
+  const activeRow = React.useMemo(
+    () => rows.find((r) => r.id === activeId),
+    [activeId, rows]
   );
 
   const buildInitialRows = React.useCallback(() => {
@@ -143,14 +148,25 @@ export function DisplayPopover({
     if (open) setRows(buildInitialRows());
   }, [open, buildInitialRows]);
 
-  const handleDragEnd = (event: any) => {
+  const handleDragStart = React.useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  }, []);
+
+  const handleDragEnd = React.useCallback((event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id) {
+      setActiveId(null);
+      return;
+    }
     const oldIndex = rows.findIndex((r) => r.id === active.id);
     const newIndex = rows.findIndex((r) => r.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
+    if (oldIndex === -1 || newIndex === -1) {
+      setActiveId(null);
+      return;
+    }
     setRows((prev) => arrayMove(prev, oldIndex, newIndex));
-  };
+    setActiveId(null);
+  }, [rows]);
 
   const handleToggle = (id: string, next: boolean) => {
     setRows((prev) =>
@@ -164,20 +180,11 @@ export function DisplayPopover({
     setOpen(false);
   };
 
-  const handleDragStart = React.useCallback(() => {
-    setIsDraggingAny(true);
-  }, []);
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align="end" className="w-[360px] p-0 overflow-visible">
-        <div
-          className={cn(
-            "flex flex-col max-h-[360px] p-2 gap-2",
-            isDraggingAny ? "overflow-visible" : "overflow-auto",
-          )}
-        >
+      <PopoverContent align="end" className="w-[360px] p-0">
+        <div className="flex flex-col max-h-[360px] p-2 gap-2 overflow-auto">
           {/* Locked Product row */}
           <div className="flex h-10 min-h-10 items-center gap-3 px-3 border border-border bg-background">
             <Icons.Lock className="h-4 w-4 text-tertiary" />
@@ -191,11 +198,7 @@ export function DisplayPopover({
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
-            onDragEnd={(event) => {
-              handleDragEnd(event);
-              setIsDraggingAny(false);
-            }}
-            onDragCancel={() => setIsDraggingAny(false)}
+            onDragEnd={handleDragEnd}
           >
             <SortableContext
               items={rows.map((r) => r.id)}
@@ -211,6 +214,23 @@ export function DisplayPopover({
                 ))}
               </div>
             </SortableContext>
+            {typeof window !== "undefined" &&
+              createPortal(
+                <DragOverlay dropAnimation={null}>
+                  {activeRow ? (
+                    <div className="flex h-10 items-center gap-3 px-3 border border-border bg-background shadow-lg opacity-95">
+                      <Icons.GripVertical className="h-4 w-4 text-tertiary" />
+                      <div className="flex-1 truncate type-p text-primary">{activeRow.label}</div>
+                      <CheckboxLike
+                        checked={activeRow.checked}
+                        onChange={() => {}}
+                        ariaLabel={`Toggle ${activeRow.label}`}
+                      />
+                    </div>
+                  ) : null}
+                </DragOverlay>,
+                document.body
+              )}
           </DndContext>
         </div>
         <div className="border-t border-border p-2">

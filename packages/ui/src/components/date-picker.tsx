@@ -45,17 +45,19 @@ export function DatePicker({
   const parseDate = (input: string): Date | null => {
     const parts = input.split("/");
     if (parts.length !== 3) return null;
-    
+
     const day = Number.parseInt(parts[0] ?? "", 10);
     const month = Number.parseInt(parts[1] ?? "", 10);
     const year = Number.parseInt(parts[2] ?? "", 10);
-    
-    if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(year)) return null;
-    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) return null;
-    
+
+    if (Number.isNaN(day) || Number.isNaN(month) || Number.isNaN(year))
+      return null;
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900)
+      return null;
+
     const date = new Date(year, month - 1, day);
     if (date.getMonth() !== month - 1) return null; // Invalid date like 31/02/2024
-    
+
     return date;
   };
 
@@ -95,7 +97,8 @@ export function DatePicker({
             onBlur={handleInputBlur}
             placeholder={placeholder}
             disabled={disabled}
-            className="h-9 pr-10"
+            className={cn("h-9 pr-10", disabled && "cursor-default")}
+            style={disabled ? { cursor: "default" } : undefined}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") {
                 e.preventDefault();
@@ -117,9 +120,9 @@ export function DatePicker({
           </Button>
         </div>
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-fit p-0" 
-        align="start" 
+      <PopoverContent
+        className="w-fit p-0"
+        align="start"
         side="bottom"
         sideOffset={4}
         alignOffset={0}

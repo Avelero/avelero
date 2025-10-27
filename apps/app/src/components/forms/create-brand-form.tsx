@@ -1,6 +1,6 @@
 "use client";
 
-import { CountrySelect } from "@/components/country-select";
+import { CountrySelect } from "@/components/select/country-select";
 import { useTRPC } from "@/trpc/client";
 import { hueFromName } from "@/utils/avatar-hue";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -66,7 +66,7 @@ export function CreateBrandForm() {
       </div>
 
       <div className="flex flex-col items-center gap-4 w-full">
-        <div className="flex flex-col gap-1 w-full">
+        <div className="space-y-1.5 w-full">
           <Label>Brand name</Label>
           <Input
             value={name}

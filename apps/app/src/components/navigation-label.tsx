@@ -90,13 +90,13 @@ export function NavigationLabel({ locale = "en" }: NavigationLabelProps) {
     <nav className="flex items-center type-h6">
       {items.map((item, index) => (
         <div key={`${item.href}-${item.label}`} className="flex items-center">
-          {index > 0 && <span className="mx-2 text-secondary">/</span>}
+          {index > 0 && <span className="mx-1.5 text-tertiary">/</span>}
           {!item.show ? (
-            <span className="text-secondary">{item.label}</span>
+            <span className="text-tertiary">{item.label}</span>
           ) : index === items.length - 1 ? (
             <span className="text-primary !font-medium">{item.label}</span>
           ) : (
-            <Link href={item.href} className="text-secondary">
+            <Link href={item.href} className="text-tertiary">
               {item.label}
             </Link>
           )}

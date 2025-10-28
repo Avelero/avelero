@@ -10,6 +10,124 @@
        Section 2: py-xs (0.5rem * 2) + logo (12px) + border (1px)
        Total: 1.5rem + 18px + 1rem + 12px + 2px = 2.5rem + 32px */
     --header-height: calc(2.5rem + 32px);
+    
+    /* Design Token Defaults - These can be overridden by theme system */
+    /* Color Tokens */
+    --background: #FFFFFF;
+    --foreground: #1E2040;
+    --card: #FFFFFF;
+    --card-foreground: #1E2040;
+    --popover: #FFFFFF;
+    --popover-foreground: #1E2040;
+    --primary: #1E2040;
+    --primary-foreground: #FFFFFF;
+    --secondary: #62637A;
+    --secondary-foreground: #FFFFFF;
+    --accent: #F8F8F9;
+    --accent-foreground: #1E2040;
+    --destructive: #A40303;
+    --destructive-foreground: #A40303;
+    --highlight: #0000FF;
+    --highlight-foreground: #FFFFFF;
+    --success: #CDEDDE;
+    --success-foreground: 03A458;
+    --border: #E9E9EC;
+    --input: #E9E9EC;
+    --ring: #0000FF;
+    
+    /* Spacing Tokens - Used by Tailwind utilities */
+    --spacing-micro: 0.25rem;
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 0.75rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2x: 3rem;
+    --spacing-3x: 4.5rem;
+    
+    /* Border Radius Tokens */
+    --radius-none: 0rem;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 1rem;
+    --radius-full: 9999px;
+    
+    /* Container */
+    --container-max-width: 1100px;
+    
+    /* Font Family Tokens - Default fallback fonts */
+    --font-primary: var(--font-geist-sans, 'Inter', sans-serif);
+    --font-mono: var(--font-geist-mono, 'JetBrains Mono', monospace);
+    
+    /* Typography Tokens - These can be overridden by theme system */
+    /* Header */
+    --type-header-family: var(--font-primary);
+    --type-header-weight: 400;
+    --type-header-line-height: 1;
+    --type-header-letter-spacing: 0em;
+
+    /* Heading 1 */
+    --type-h1-family: var(--font-primary);
+    --type-h1-size: 2rem;
+    --type-h1-weight: 600;
+    --type-h1-line-height: 1.1;
+    --type-h1-letter-spacing: -0.02em;
+    
+    /* Heading 2 */
+    --type-h2-family: var(--font-primary);
+    --type-h2-size: 1.8125rem;
+    --type-h2-weight: 600;
+    --type-h2-line-height: 1.1;
+    --type-h2-letter-spacing: -0.01em;
+    
+    /* Heading 3 */
+    --type-h3-family: var(--font-primary);
+    --type-h3-size: 1.625rem;
+    --type-h3-weight: 600;
+    --type-h3-line-height: 1.2;
+    --type-h3-letter-spacing: -0.01em;
+    
+    /* Heading 4 */
+    --type-h4-family: var(--font-primary);
+    --type-h4-size: 1.4375rem;
+    --type-h4-weight: 600;
+    --type-h4-line-height: 1.25;
+    --type-h4-letter-spacing: -0.01em;
+    
+    /* Heading 5 */
+    --type-h5-family: var(--font-primary);
+    --type-h5-size: 1.25rem;
+    --type-h5-weight: 600;
+    --type-h5-line-height: 1.3;
+    --type-h5-letter-spacing: 0em;
+    
+    /* Heading 6 */
+    --type-h6-family: var(--font-primary);
+    --type-h6-size: 1.125rem;
+    --type-h6-weight: 600;
+    --type-h6-line-height: 1.3;
+    --type-h6-letter-spacing: 0em;
+    
+    /* Body Text */
+    --type-body-family: var(--font-primary);
+    --type-body-size: 1rem;
+    --type-body-weight: 400;
+    --type-body-line-height: 1.5;
+    --type-body-letter-spacing: 0em;
+    
+    /* Body Small */
+    --type-body-sm-family: var(--font-primary);
+    --type-body-sm-size: 0.875rem;
+    --type-body-sm-weight: 400;
+    --type-body-sm-line-height: 1.5;
+    --type-body-sm-letter-spacing: 0em;
+    
+    /* Body Extra Small */
+    --type-body-xs-family: var(--font-primary);
+    --type-body-xs-size: 0.75rem;
+    --type-body-xs-weight: 400;
+    --type-body-xs-line-height: 1.4;
+    --type-body-xs-letter-spacing: 0em;
   }
   
   * {
@@ -17,192 +135,379 @@
   }
   
   body {
-    @apply bg-background text-primary-text;
     font-family: var(--font-primary, var(--font-geist-sans, 'Inter', sans-serif));
+    background-color: var(--body-background-color, var(--background));
+    color: var(--body-text-color, var(--foreground));
   }
 }
 
-/* Utility Classes */
+/* Component Classes - Default styling for all components */
+@layer components {
+
+  /* Header */
+  .header {
+    background-color: var(--header-background-color, var(--background));
+    border-color: var(--header-border-color, var(--border));
+  }
+
+  .header__text-logo {
+    color: var(--header-text-logo-color, var(--foreground));
+    font-weight: var(--header-text-logo-weight, 400);
+    font-family: var(--header-text-logo-family, var(--font-primary));
+    letter-spacing: var(--header-text-logo-letter-spacing, 0em);
+  }
+  
+  /* Footer */
+  .footer {
+    background-color: var(--footer-background-color, var(--background));
+    border-color: var(--footer-border-color, var(--border));
+  }
+
+  .footer_legal-name {
+    font-family: var(--footer-legal-name-family, var(--type-body-sm-family));
+    font-size: var(--footer-legal-name-size, var(--type-body-sm-size));
+    font-weight: var(--footer-legal-name-weight, var(--type-body-sm-weight));
+    line-height: var(--footer-legal-name-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--footer-legal-name-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--footer-legal-name-color, var(--secondary));
+  }
+
+  .footer__social-icons {
+    font-family: var(--footer-social-icons-family, var(--type-body-sm-family));
+    font-size: var(--footer-social-icons-size, var(--type-body-sm-size));
+    font-weight: var(--footer-social-icons-weight, var(--type-body-sm-weight));
+    line-height: var(--footer-social-icons-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--footer-social-icons-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--footer-social-icons-color, var(--highlight));
+  }
+
+  /* Product */
+  .product__image {
+    border-color: var(--product-image-border-color, var(--border));
+    border-radius: var(--product-image-border-radius, var(--radius-none));
+  }
+  
+  .product__title {
+    font-family: var(--product-title-family, var(--type-h1-family));
+    font-size: var(--product-title-size, var(--type-h1-size));
+    font-weight: var(--product-title-weight, var(--type-h1-weight));
+    line-height: var(--product-title-line-height, var(--type-h1-line-height));
+    letter-spacing: var(--product-title-letter-spacing, var(--type-h1-letter-spacing));
+    color: var(--product-title-color, var(--primary));
+  }
+
+  .product__description {
+    font-family: var(--product-description-family, var(--type-body-family));
+    font-size: var(--product-description-size, var(--type-body-size));
+    font-weight: var(--product-description-weight, var(--type-body-weight));
+    line-height: var(--product-description-line-height, var(--type-body-line-height));
+    letter-spacing: var(--product-description-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--product-description-color, var(--secondary));
+  }
+
+  .product__brand {
+    font-family: var(--product-brand-family, var(--type-body-sm-family));
+    font-size: var(--product-brand-size, var(--type-body-sm-size));
+    font-weight: var(--product-brand-weight, var(--type-body-sm-weight));
+    line-height: var(--product-brand-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--product-brand-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--product-brand-color, var(--secondary));
+  }
+
+  .product__show-more {
+    font-family: var(--product-show-more-family, var(--type-body-xs-family));
+    font-weight: var(--product-show-more-weight, var(--type-body-xs-weight));
+    letter-spacing: var(--product-show-more-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--product-show-more-color, var(--highlight));
+  }
+
+  /* Product Details */
+  .product-details {
+    border-color: var(--product-details-border-color, var(--border));
+    border-radius: var(--product-details-border-radius, var(--radius-none));
+  }
+
+  .product-details__row {
+    border-color: var(--product-details-border-color, var(--border));
+  }
+
+  .product-details__row-label {
+    font-family: var(--product-details-row-label-family, var(--type-body-sm-family));
+    font-size: var(--product-details-row-label-size, var(--type-body-sm-size));
+    font-weight: var(--product-details-row-label-weight, var(--type-body-sm-weight));
+    line-height: var(--product-details-row-label-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--product-details-row-label-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--product-details-row-label-color, var(--primary));
+  }
+
+  .product-details__row-value {
+    font-family: var(--product-details-row-value-family, var(--type-body-sm-family));
+    font-size: var(--product-details-row-value-size, var(--type-body-sm-size));
+    font-weight: var(--product-details-row-value-weight, var(--type-body-sm-weight));
+    line-height: var(--product-details-row-value-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--product-details-row-value-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--product-details-row-value-color, var(--secondary));
+  }
+
+  /* Menu Button */
+  .menu-button {
+    border-color: var(--menu-button-border-color, var(--border));
+    font-family: var(--menu-button-family, var(--type-body-family));
+    font-size: var(--menu-button-size, var(--type-body-size));
+    font-weight: var(--menu-button-weight, var(--type-body-weight));
+    line-height: var(--menu-button-line-height, var(--type-body-line-height));
+    letter-spacing: var(--menu-button-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--menu-button-color, var(--primary));
+  }
+
+  /* Impact */
+  .impact-card {
+    border-color: var(--impact-card-border-color, var(--border));
+    border-radius: var(--impact-card-border-radius, var(--radius-none));
+    background-color: var(--impact-card-background-color, var(--background));
+  }
+
+  .impact-card__title {
+    font-family: var(--impact-title-family, var(--type-h6-family));
+    font-size: var(--impact-title-size, var(--type-h6-size));
+    font-weight: var(--impact-title-weight, var(--type-h6-weight));
+    line-height: var(--impact-title-line-height, var(--type-h6-line-height));
+    letter-spacing: var(--impact-title-letter-spacing, var(--type-h6-letter-spacing));
+    color: var(--impact-title-color, var(--primary));
+  }
+
+  .impact-card__type {
+    font-family: var(--impact-card-type-family, var(--type-body-xs-family));
+    font-size: var(--impact-card-type-size, var(--type-body-xs-size));
+    font-weight: var(--impact-card-type-weight, var(--type-body-xs-weight));
+    line-height: var(--impact-card-type-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--impact-card-type-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--impact-card-type-color, var(--secondary));
+  }
+
+  .impact-card__value {
+    font-family: var(--impact-card-value-family, var(--type-h2-family));
+    font-size: var(--impact-card-value-size, var(--type-h2-size));
+    font-weight: var(--impact-card-value-weight, var(--type-h2-weight));
+    line-height: var(--impact-card-value-line-height, var(--type-h2-line-height));
+    letter-spacing: var(--impact-card-value-letter-spacing, var(--type-h2-letter-spacing));
+  }
+
+  .impact-card__unit {
+    font-family: var(--impact-card-unit-family, var(--type-body-xs-family));
+    font-size: var(--impact-card-unit-size, var(--type-body-xs-size));
+    font-weight: var(--impact-card-unit-weight, var(--type-body-xs-weight));
+    line-height: var(--impact-card-unit-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--impact-card-unit-letter-spacing, var(--type-body-xs-letter-spacing));
+  }
+
+  .impact-card__eco-claim {
+    border-color: var(--impact-card-eco-claim-border-color, var(--border));
+    border-radius: var(--impact-card-eco-claim-border-radius, var(--radius-none));
+    background-color: var(--impact-card-eco-claim-background-color, var(--background));
+  }
+
+  .impact-card__eco-claim-text {
+    font-family: var(--impact-card-eco-claim-family, var(--type-body-sm-family));
+    font-size: var(--impact-card-eco-claim-size, var(--type-body-sm-size));
+    font-weight: var(--impact-card-eco-claim-weight, var(--type-body-sm-weight));
+    line-height: var(--impact-card-eco-claim-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--impact-card-eco-claim-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--impact-card-eco-claim-color, var(--primary));
+  }
+
+  /* Materials */
+  .materials-card {
+    border-color: var(--materials-card-border-color, var(--border));
+    border-radius: var(--materials-card-border-radius, var(--radius-none));
+    background-color: var(--materials-card-background-color, var(--background));
+  }
+
+  .materials-card__title {
+    font-family: var(--materials-card-title-family, var(--type-h6-family));
+    font-size: var(--materials-card-title-size, var(--type-h6-size));
+    font-weight: var(--materials-card-title-weight, var(--type-h6-weight));
+    line-height: var(--materials-card-title-line-height, var(--type-h6-line-height));
+    letter-spacing: var(--materials-card-title-letter-spacing, var(--type-h6-letter-spacing));
+    color: var(--materials-card-title-color, var(--primary));
+  }
+
+  .materials-card__percentage {
+    font-family: var(--materials-card-percentage-family, var(--type-body-family));
+    font-size: var(--materials-card-percentage-size, var(--type-body-size));
+    font-weight: var(--materials-card-percentage-weight, var(--type-body-weight));
+    line-height: var(--materials-card-percentage-line-height, var(--type-body-line-height));
+    letter-spacing: var(--materials-card-percentage-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--materials-card-percentage-color, var(--primary));
+  }
+
+  .materials-card__type {
+    font-family: var(--materials-card-type-family, var(--type-body-family));
+    font-size: var(--materials-card-type-size, var(--type-body-size));
+    font-weight: var(--materials-card-type-weight, var(--type-body-weight));
+    line-height: var(--materials-card-type-line-height, var(--type-body-line-height));
+    letter-spacing: var(--materials-card-type-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--materials-card-type-color, var(--primary));
+  }
+
+  .materials-card__certification {
+    font-family: var(--materials-card-certification-family, var(--type-body-xs-family));
+    font-size: var(--materials-card-certification-size, var(--type-body-xs-size));
+    font-weight: var(--materials-card-certification-weight, var(--type-body-xs-weight));
+    line-height: var(--materials-card-certification-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--materials-card-certification-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--materials-card-certification-color, var(--success-foreground));
+    background-color: var(--materials-card-certification-background-color, var(--success));
+    border-radius: var(--materials-card-certification-border-radius, var(--radius-sm));
+  }
+
+  .materials-card__origin {
+    font-family: var(--materials-card-origin-family, var(--type-body-xs-family));
+    font-size: var(--materials-card-origin-size, var(--type-body-xs-size));
+    font-weight: var(--materials-card-origin-weight, var(--type-body-xs-weight));
+    line-height: var(--materials-card-origin-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--materials-card-origin-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--materials-card-origin-color, var(--secondary));
+  }
+
+  .materials-card__certification-text {
+    font-family: var(--materials-card-certification-text-family, var(--type-body-xs-family));
+    font-size: var(--materials-card-certification-text-size, var(--type-body-xs-size));
+    font-weight: var(--materials-card-certification-text-weight, var(--type-body-xs-weight));
+    line-height: var(--materials-card-certification-text-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--materials-card-certification-text-letter-spacing, var(--type-body-xs-letter-spacing));
+  }
+
+  /* Journey */
+  .journey-card {
+    border-color: var(--journey-card-border-color, var(--border));
+    border-radius: var(--journey-card-border-radius, var(--radius-none));
+    background-color: var(--journey-card-background-color, var(--background));
+  }
+
+  .journey-card__title {
+    font-family: var(--journey-card-title-family, var(--type-h6-family));
+    font-size: var(--journey-card-title-size, var(--type-h6-size));
+    font-weight: var(--journey-card-title-weight, var(--type-h6-weight));
+    line-height: var(--journey-card-title-line-height, var(--type-h6-line-height));
+    letter-spacing: var(--journey-card-title-letter-spacing, var(--type-h6-letter-spacing));
+    color: var(--journey-card-title-color, var(--primary));
+  }
+
+  .journey-card__line {
+    background-color: var(--journey-card-line-color, var(--secondary));
+  }
+
+  .journey-card__type {
+    font-family: var(--journey-card-type-family, var(--type-body-family));
+    font-size: var(--journey-card-type-size, var(--type-body-size));
+    font-weight: var(--journey-card-type-weight, var(--type-body-weight));
+    line-height: var(--journey-card-type-line-height, var(--type-body-line-height));
+    letter-spacing: var(--journey-card-type-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--journey-card-type-color, var(--primary));
+  }
+
+  .journey-card__operator {
+    font-family: var(--journey-card-operator-family, var(--type-body-xs-family));
+    font-size: var(--journey-card-operator-size, var(--type-body-xs-size));
+    font-weight: var(--journey-card-operator-weight, var(--type-body-xs-weight));
+    line-height: var(--journey-card-operator-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--journey-card-operator-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--journey-card-operator-color, var(--secondary));
+  }
+
+  .carousel__title {
+    font-family: var(--carousel-title-family, var(--type-h6-family));
+    font-size: var(--carousel-title-size, var(--type-h6-size));
+    font-weight: var(--carousel-title-weight, var(--type-h6-weight));
+    line-height: var(--carousel-title-line-height, var(--type-h6-line-height));
+    letter-spacing: var(--carousel-title-letter-spacing, var(--type-h6-letter-spacing));
+    color: var(--carousel-title-color, var(--primary));
+  }
+
+  .carousel__nav-button {
+    border-color: var(--carousel-nav-button-border-color, var(--highlight));
+    background-color: var(--carousel-nav-button-background-color, transparent);
+    color: var(--carousel-nav-button-color, var(--highlight));
+    border-radius: var(--carousel-nav-button-border-radius, var(--radius-none));
+  }
+
+  .carousel__product-image {
+    border: var(--carousel-product-image-border, none);
+    border-color: var(--carousel-product-image-border-color, var(--border));
+    border-radius: var(--carousel-product-image-border-radius, var(--radius-none));
+  }
+
+  .carousel__product-details {
+    flex-direction: var(--carousel-product-details-flex-direction, column);
+    align-items: var(--carousel-product-details-align-items, flex-start);
+    justify-content: var(--carousel-product-details-justify-content, flex-start);
+  }
+
+  .carousel__product-name {
+    font-family: var(--carousel-product-name-family, var(--type-body-family));
+    font-size: var(--carousel-product-name-size, var(--type-body-size));
+    font-weight: var(--carousel-product-name-weight, var(--type-body-weight));
+    line-height: var(--carousel-product-name-line-height, var(--type-body-line-height));
+    letter-spacing: var(--carousel-product-name-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--carousel-product-name-color, var(--highlight));
+  }
+
+  .carousel__product-price {
+    font-family: var(--carousel-product-price-family, var(--type-body-family));
+    font-size: var(--carousel-product-price-size, var(--type-body-size));
+    font-weight: var(--carousel-product-price-weight, var(--type-body-weight));
+    line-height: var(--carousel-product-price-line-height, var(--type-body-line-height));
+    letter-spacing: var(--carousel-product-price-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--carousel-product-price-color, var(--primary));
+  }
+
+  /* Banner */
+  .banner {
+    background-color: var(--banner-background-color, var(--background));
+    border: var(--banner-border, none);
+    border-color: var(--banner-border-color, var(--border));
+    border-radius: var(--banner-border-radius, var(--radius-none));
+  }
+  
+  .banner__container {
+    align-items: var(--banner-container-align-items, center);
+    justify-content: var(--banner-container-justify-content, center);
+  }
+  
+  .banner__subline {
+    font-family: var(--banner-subline-family, var(--type-h5-family));
+    font-size: var(--banner-subline-size, var(--type-h5-size));
+    font-weight: var(--banner-subline-weight, var(--type-h5-weight));
+    line-height: var(--banner-subline-line-height, var(--type-h5-line-height));
+    letter-spacing: var(--banner-subline-letter-spacing, var(--type-h5-letter-spacing));
+    color: var(--banner-subline-color, #FFFFFF);
+  }
+  
+  .banner__button {
+    font-family: var(--banner-button-family, var(--type-body-sm-family));
+    font-size: var(--banner-button-size, var(--type-body-sm-size));
+    font-weight: var(--banner-button-weight, var(--type-body-sm-weight));
+    line-height: var(--banner-button-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--banner-button-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--banner-button-color, var(--highlight-foreground));
+    border-radius: var(--banner-button-border-radius, var(--radius-none));
+    background-color: var(--banner-button-background-color, var(--highlight));
+    border: var(--banner-button-border, none);
+    border-color: var(--banner-button-border-color, var(--primary));
+    min-width: var(--banner-button-min-width, 150px);
+  }
+
+}
+/* Utility Classes - Custom component utilities */
 @layer utilities {
-  /* Typescale System - Default Geist-based typography */
-  
-  /* Heading 1 */
-  .type-h1 {
-    font-size: var(--type-h1-size, 2rem);
-    font-weight: var(--type-h1-weight, 600);
-    font-family: var(--type-h1-family, var(--font-geist-sans, sans-serif));
-    line-height: var(--type-h1-line-height, 1.1);
-    letter-spacing: var(--type-h1-letter-spacing, -0.02em);
+  .text-highlight {
+    color: var(--highlight);
   }
-  
-  /* Heading 2 */
-  .type-h2 {
-    font-size: var(--type-h2-size, 1.8125rem);
-    font-weight: var(--type-h2-weight, 600);
-    font-family: var(--type-h2-family, var(--font-geist-sans, sans-serif));
-    line-height: var(--type-h2-line-height, 1.1);
-    letter-spacing: var(--type-h2-letter-spacing, -0.01em);
-  }
-  
-  /* Heading 3 */
-  .type-h3 {
-    font-size: var(--type-h3-size, 1.625rem);
-    font-weight: var(--type-h3-weight, 600);
-    font-family: var(--type-h3-family, var(--font-geist-sans, sans-serif));
-    line-height: var(--type-h3-line-height, 1.2);
-    letter-spacing: var(--type-h3-letter-spacing, -0.01em);
-  }
-  
-  /* Heading 4 */
-  .type-h4 {
-    font-size: var(--type-h4-size, 1.4375rem);
-    font-weight: var(--type-h4-weight, 600);
-    font-family: var(--type-h4-family, var(--font-geist-sans, sans-serif));
-    line-height: var(--type-h4-line-height, 1.25);
-    letter-spacing: var(--type-h4-letter-spacing, -0.01em);
-  }
-  
-  /* Heading 5 */
-  .type-h5 {
-    font-size: var(--type-h5-size, 1.25rem);
-    font-weight: var(--type-h5-weight, 600);
-    font-family: var(--type-h5-family, var(--font-geist-sans, sans-serif));
-    line-height: var(--type-h5-line-height, 1.3);
-    letter-spacing: var(--type-h5-letter-spacing, 0em);
-  }
-  
-  /* Heading 6 */
-  .type-h6 {
-    font-size: var(--type-h6-size, 1.125rem);
-    font-weight: var(--type-h6-weight, 600);
-    font-family: var(--type-h6-family, var(--font-geist-sans, sans-serif));
-    line-height: var(--type-h6-line-height, 1.3);
-    letter-spacing: var(--type-h6-letter-spacing, 0em);
-  }
-  
-  /* Body Text */
-  .type-body {
-    font-size: var(--type-body-size, 1rem);
-    font-weight: var(--type-body-weight, 400);
-    font-family: var(--type-body-family, var(--font-geist-sans, sans-serif));
-    line-height: var(--type-body-line-height, 1.5);
-    letter-spacing: var(--type-body-letter-spacing, 0em);
-  }
-  
-  /* Body Small */
-  .type-body-sm {
-    font-size: var(--type-body-sm-size, 0.875rem);
-    font-weight: var(--type-body-sm-weight, 400);
-    font-family: var(--type-body-sm-family, var(--font-geist-sans, sans-serif));
-    line-height: var(--type-body-sm-line-height, 1.5);
-    letter-spacing: var(--type-body-sm-letter-spacing, 0em);
-  }
-  
-  /* Body Extra Small */
-  .type-body-xs {
-    font-size: var(--type-body-xs-size, 0.75rem);
-    font-weight: var(--type-body-xs-weight, 400);
-    font-family: var(--type-body-xs-family, var(--font-geist-sans, sans-serif));
-    line-height: var(--type-body-xs-line-height, 1.4);
-    letter-spacing: var(--type-body-xs-letter-spacing, 0em);
-  }
-  
-  /* Colors */
-  .text-primary-text { color: var(--color-primary-text, #1E2040); }
-  .text-secondary-text { color: var(--color-secondary-text, #62637A); }
-  .text-highlight { color: var(--color-highlight, #0000FF); }
-  .bg-background { background-color: var(--color-background, #FFFFFF); }
-  .bg-primary-green { background-color: var(--color-primary-green, #03A458); }
-  .bg-secondary-green { background-color: var(--color-secondary-green, #CDEDDE); }
-  .border-border { border-color: var(--color-border, #E9E9EC); }
-  
-  /* Spacing */
-  .p-micro { padding: var(--spacing-micro, 0.25rem); }
-  .p-xs { padding: var(--spacing-xs, 0.5rem); }
-  .p-sm { padding: var(--spacing-sm, 0.75rem); }
-  .p-md { padding: var(--spacing-md, 1rem); }
-  .p-lg { padding: var(--spacing-lg, 1.5rem); }
-  .p-xl { padding: var(--spacing-xl, 2rem); }
-  .p-2x { padding: var(--spacing-2x, 3rem); }
-  .p-3x { padding: var(--spacing-3x, 4.5rem); }
-  
-  .px-micro { padding-left: var(--spacing-micro, 0.25rem); padding-right: var(--spacing-micro, 0.25rem); }
-  .px-xs { padding-left: var(--spacing-xs, 0.5rem); padding-right: var(--spacing-xs, 0.5rem); }
-  .px-sm { padding-left: var(--spacing-sm, 0.75rem); padding-right: var(--spacing-sm, 0.75rem); }
-  .px-md { padding-left: var(--spacing-md, 1rem); padding-right: var(--spacing-md, 1rem); }
-  .px-lg { padding-left: var(--spacing-lg, 1.5rem); padding-right: var(--spacing-lg, 1.5rem); }
-  .px-xl { padding-left: var(--spacing-xl, 2rem); padding-right: var(--spacing-xl, 2rem); }
-  
-  .py-micro { padding-top: var(--spacing-micro, 0.25rem); padding-bottom: var(--spacing-micro, 0.25rem); }
-  .py-xs { padding-top: var(--spacing-xs, 0.5rem); padding-bottom: var(--spacing-xs, 0.5rem); }
-  .py-sm { padding-top: var(--spacing-sm, 0.75rem); padding-bottom: var(--spacing-sm, 0.75rem); }
-  .py-md { padding-top: var(--spacing-md, 1rem); padding-bottom: var(--spacing-md, 1rem); }
-  .py-lg { padding-top: var(--spacing-lg, 1.5rem); padding-bottom: var(--spacing-lg, 1.5rem); }
-  .py-xl { padding-top: var(--spacing-xl, 2rem); padding-bottom: var(--spacing-xl, 2rem); }
-  .py-2x { padding-top: var(--spacing-2x, 3rem); padding-bottom: var(--spacing-2x, 3rem); }
-  .py-3x { padding-top: var(--spacing-3x, 4.5rem); padding-bottom: var(--spacing-3x, 4.5rem); }
-  
-  .pt-sm { padding-top: var(--spacing-sm, 0.75rem); }
-  .pt-md { padding-top: var(--spacing-md, 1rem); }
-  .pt-lg { padding-top: var(--spacing-lg, 1.5rem); }
-  .pt-xl { padding-top: var(--spacing-xl, 2rem); }
-  .pt-2x { padding-top: var(--spacing-2x, 3rem); }
-  
-  .pb-sm { padding-bottom: var(--spacing-sm, 0.75rem); }
-  .pb-md { padding-bottom: var(--spacing-md, 1rem); }
-  .pb-lg { padding-bottom: var(--spacing-lg, 1.5rem); }
-  .pb-xl { padding-bottom: var(--spacing-xl, 2rem); }
-  .pb-2x { padding-bottom: var(--spacing-2x, 3rem); }
-  .pb-3x { padding-bottom: var(--spacing-3x, 4.5rem); }
-  
-  .pl-sm { padding-left: var(--spacing-sm, 0.75rem); }
-  .pl-md { padding-left: var(--spacing-md, 1rem); }
-  .pl-lg { padding-left: var(--spacing-lg, 1.5rem); }
-  .pl-xl { padding-left: var(--spacing-xl, 2rem); }
-  
-  .pr-sm { padding-right: var(--spacing-sm, 0.75rem); }
-  .pr-md { padding-right: var(--spacing-md, 1rem); }
-  .pr-lg { padding-right: var(--spacing-lg, 1.5rem); }
-  .pr-xl { padding-right: var(--spacing-xl, 2rem); }
-  
-  .gap-micro { gap: var(--spacing-micro, 0.25rem); }
-  .gap-xs { gap: var(--spacing-xs, 0.5rem); }
-  .gap-sm { gap: var(--spacing-sm, 0.75rem); }
-  .gap-md { gap: var(--spacing-md, 1rem); }
-  .gap-lg { gap: var(--spacing-lg, 1.5rem); }
-  .gap-xl { gap: var(--spacing-xl, 2rem); }
-  
-  /* Border Radius */
-  .rounded-sm { border-radius: var(--radius-sm, 0.25rem); }
-  .rounded-md { border-radius: var(--radius-md, 0.5rem); }
-  .rounded-lg { border-radius: var(--radius-lg, 1rem); }
-  
-  /* Customizable Brand Rounding */
-  .rounded-rounding { border-radius: var(--rounding, 0rem); }
-  .rounded-t-rounding { 
-    border-top-left-radius: var(--rounding, 0rem); 
-    border-top-right-radius: var(--rounding, 0rem); 
-  }
-  .rounded-b-rounding { 
-    border-bottom-left-radius: var(--rounding, 0rem); 
-    border-bottom-right-radius: var(--rounding, 0rem); 
-  }
-  .rounded-l-rounding { 
-    border-top-left-radius: var(--rounding, 0rem); 
-    border-bottom-left-radius: var(--rounding, 0rem); 
-  }
-  .rounded-r-rounding { 
-    border-top-right-radius: var(--rounding, 0rem); 
-    border-bottom-right-radius: var(--rounding, 0rem); 
-  }
-  .rounded-tl-rounding { border-top-left-radius: var(--rounding, 0rem); }
-  .rounded-tr-rounding { border-top-right-radius: var(--rounding, 0rem); }
-  .rounded-bl-rounding { border-bottom-left-radius: var(--rounding, 0rem); }
-  .rounded-br-rounding { border-bottom-right-radius: var(--rounding, 0rem); }
   
   /* Container */
   .max-w-container {
-    max-width: var(--container-max-width, 1100px);
+    max-width: var(--container-max-width);
   }
   
   /* Product Carousel */
@@ -210,10 +515,34 @@
     flex: 0 0 auto;
     width: calc((100% - 24px) * 2/5); /* Mobile: show 2.5 cards (gap * 2 = 24px) */
   }
+
+  .carousel {
+    --carousel-side-padding: max(0px, calc((100% - min(100%, var(--container-max-width))) / 2 + var(--spacing-sm)));
+  }
+
+  .carousel__content {
+    padding-inline: var(--carousel-side-padding);
+  }
+
+  .carousel__end-spacer {
+    min-height: 200px;
+  }
+
+  .carousel__nav-button--prev {
+    left: var(--carousel-side-padding);
+  }
+
+  .carousel__nav-button--next {
+    right: var(--carousel-side-padding);
+  }
   
   @media (min-width: 768px) {
     .product-item {
       width: calc((100% - 24px) / 3); /* Desktop: show 3 cards (gap * 2 = 24px) */
+    }
+
+    .carousel {
+      --carousel-side-padding: max(0px, calc((100% - min(100%, var(--container-max-width))) / 2 + var(--spacing-lg)));
     }
   }
   
@@ -273,5 +602,3 @@
     }
   }
 }
-
-

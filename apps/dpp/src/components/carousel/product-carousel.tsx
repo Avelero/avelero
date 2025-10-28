@@ -8,7 +8,6 @@ import { Icons } from '@v1/ui/icons';
 
 interface Props {
   products: SimilarProduct[];
-  brandName: string;
   theme: ThemeConfig;
   imageZoom?: number;
   imagePosition?: 'top' | 'center' | 'bottom';
@@ -16,188 +15,102 @@ interface Props {
 
 export function ProductCarousel({
   products,
-  brandName,
   theme,
   imageZoom = 100,
   imagePosition = 'center',
 }: Props) {
-  const { colors } = theme;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const carouselContentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const endSpacerRef = useRef<HTMLDivElement>(null);
-  const prevButtonRef = useRef<HTMLButtonElement>(null);
-  const nextButtonRef = useRef<HTMLButtonElement>(null);
-  
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const [padding, setPadding] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<number | undefined>(undefined);
-  
-  // Get component padding based on screen size
-  const getComponentPadding = useCallback(() => {
-    return window.innerWidth < 768 ? 12 : 24; // 12px on mobile (--spacing-sm), 24px on desktop (--spacing-lg)
+
+  // Update end spacer width based on content padding
+  const updateEndSpacer = useCallback(() => {
+    if (!contentRef.current || !endSpacerRef.current) return;
+
+    // Get the computed padding-inline value from the content element
+    const computedStyle = window.getComputedStyle(contentRef.current);
+    const paddingInline = computedStyle.paddingInline || computedStyle.paddingLeft;
+    const paddingValue = Number.parseFloat(paddingInline);
+
+    // Set end spacer width to padding minus 12px (gap)
+    const spacerWidth = Math.max(paddingValue - 12, 1);
+    endSpacerRef.current.style.width = `${spacerWidth}px`;
   }, []);
-  
-  // Update carousel layout and padding
-  const updateCarouselLayout = useCallback(() => {
-    if (!headerRef.current || !carouselContentRef.current) return;
-    
-    // Get the actual left position of the header container
-    const containerRect = headerRef.current.getBoundingClientRect();
-    const containerLeftOffset = containerRect.left;
-    
-    // Get the responsive padding value based on screen size
-    const componentPadding = getComponentPadding();
-    
-    // Add the component padding to match other components' padding
-    const totalPadding = containerLeftOffset + componentPadding;
-    
-    // Apply the same padding to both left and right of the carousel content
-    carouselContentRef.current.style.paddingLeft = `${totalPadding}px`;
-    carouselContentRef.current.style.paddingRight = `${totalPadding}px`;
-    
-    // Set the end spacer width based on mobile/desktop
-    if (endSpacerRef.current) {
-      const isMobile = window.innerWidth < 768;
-      
-      if (isMobile) {
-        endSpacerRef.current.style.display = 'block';
-        endSpacerRef.current.style.width = '1px';
-        endSpacerRef.current.style.minHeight = '200px';
-      } else {
-        // Desktop: Use the totalPadding calculation but subtract the gap (12px)
-        endSpacerRef.current.style.display = 'block';
-        endSpacerRef.current.style.width = `${Math.max(totalPadding - 12, 0)}px`;
-        endSpacerRef.current.style.minHeight = '200px';
-      }
-    }
-    
-    // Update padding state for button positioning
-    setPadding(totalPadding);
-  }, [getComponentPadding]);
-  
+
   // Update button visibility based on scroll position
   const updateButtonVisibility = useCallback(() => {
-    if (!scrollRef.current || !prevButtonRef.current || !nextButtonRef.current) return;
-    
-    const scrollLeft = scrollRef.current.scrollLeft;
-    const visibleWidth = scrollRef.current.clientWidth;
-    const totalWidth = scrollRef.current.scrollWidth;
-    
-    // Show/hide prev button based on scroll position
-    const shouldShowPrev = scrollLeft > 1;
-    setCanScrollLeft(shouldShowPrev);
-    
-    // Show/hide next button based on whether we've reached the end
-    const shouldShowNext = scrollLeft + visibleWidth < totalWidth - 5;
-    setCanScrollRight(shouldShowNext);
+    if (!scrollRef.current) return;
+
+    const { scrollLeft, clientWidth, scrollWidth } = scrollRef.current;
+
+    setCanScrollLeft(scrollLeft > 1);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 5);
   }, []);
-  
-  // Hide buttons during scrolling with fade effect
-  const hideButtonsDuringScroll = useCallback(() => {
-    if (!prevButtonRef.current || !nextButtonRef.current) return;
-    
-    // Add fading class to buttons
-    prevButtonRef.current.classList.add('fading');
-    nextButtonRef.current.classList.add('fading');
-    
-    // Clear existing timeout
-    if (scrollTimeoutRef.current !== undefined) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    
-    // Set a new timeout to show buttons after scroll stops
-    scrollTimeoutRef.current = window.setTimeout(() => {
-      if (prevButtonRef.current && nextButtonRef.current) {
-        prevButtonRef.current.classList.remove('fading');
-        nextButtonRef.current.classList.remove('fading');
-      }
-    }, 200);
-  }, []);
-  
-  // Calculate scroll distance based on item width and gap
-  const calculateScrollDistance = useCallback(() => {
-    if (!scrollRef.current) return 0;
-    
-    const items = scrollRef.current.querySelectorAll('.product-item');
-    if (items.length === 0) return 0;
-    
-    // Get the exact width of the first item
-    const firstItem = items[0] as HTMLElement;
-    const itemWidth = firstItem.offsetWidth;
-    
-    // Use the standard spacing-sm value (12px)
-    const gap = 12;
-    
-    // Check if we're on mobile or desktop
-    const isMobile = window.innerWidth < 768;
-    
-    if (isMobile) {
-      // On mobile, scroll by exactly one card width + gap
-      return itemWidth + gap;
-    }
-    // On desktop, scroll by exactly TWO cards width + TWO gaps
-    return (itemWidth * 2) + (gap * 2);
-  }, []);
-  
-  // Scroll handler
+
+  // Scroll handler - travels 2 cards + 2 gaps
   const scroll = useCallback((direction: 'left' | 'right') => {
     if (!scrollRef.current) return;
-    
-    const scrollDistance = calculateScrollDistance();
-    const scrollAmount = direction === 'left' ? -scrollDistance : scrollDistance;
-    
-    scrollRef.current.scrollBy({
-      left: scrollAmount,
-      behavior: 'smooth'
-    });
-  }, [calculateScrollDistance]);
-  
-  // Handle scroll events
+
+    const card = scrollRef.current.querySelector('.product-item') as HTMLElement;
+    if (!card) return;
+
+    // Calculate distance: 2 cards + 2 gaps (12px each = 24px total)
+    const scrollDistance = (card.getBoundingClientRect().width + 12) * 2;
+    const current = scrollRef.current.scrollLeft;
+    const maxScroll = scrollRef.current.scrollWidth - scrollRef.current.clientWidth;
+
+    const target =
+      direction === 'left'
+        ? Math.max(current - scrollDistance, 0)
+        : Math.min(current + scrollDistance, maxScroll);
+
+    scrollRef.current.scrollTo({ left: target, behavior: 'smooth' });
+  }, []);
+
+  // Handle scroll events with debounced fade effect
   const handleScroll = useCallback(() => {
     updateButtonVisibility();
-    hideButtonsDuringScroll();
-  }, [updateButtonVisibility, hideButtonsDuringScroll]);
-  
-  // Setup effects
+    setIsScrolling(true);
+
+    if (scrollTimeoutRef.current) window.clearTimeout(scrollTimeoutRef.current);
+
+    scrollTimeoutRef.current = window.setTimeout(() => {
+      setIsScrolling(false);
+    }, 200);
+  }, [updateButtonVisibility]);
+
+  // Setup event listeners
   useEffect(() => {
-    // Initialize layout
-    updateCarouselLayout();
-    updateButtonVisibility();
-    
-    // Add event listeners
     const scrollContainer = scrollRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
-    }
-    
-    window.addEventListener('resize', updateCarouselLayout);
+    if (!scrollContainer) return;
+
+    updateEndSpacer();
+    updateButtonVisibility();
+    scrollContainer.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', updateEndSpacer);
     window.addEventListener('resize', updateButtonVisibility);
-    
-    // Cleanup
+
     return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      }
-      window.removeEventListener('resize', updateCarouselLayout);
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', updateEndSpacer);
       window.removeEventListener('resize', updateButtonVisibility);
-      
-      if (scrollTimeoutRef.current !== undefined) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
+      if (scrollTimeoutRef.current) window.clearTimeout(scrollTimeoutRef.current);
     };
-  }, [updateCarouselLayout, updateButtonVisibility, handleScroll]);
-  
+  }, [handleScroll, updateButtonVisibility, updateEndSpacer]);
+
   if (!products || products.length === 0) return null;
-  
+
   const showNavButtons = products.length > 3;
-  
+
   return (
-    <div className="py-lg md:pt-2x md:pb-lg w-full">
-      {/* Header container - used to measure padding alignment */}
-      <div ref={headerRef} className="max-w-container mx-auto px-sm md:px-lg">
-        <h6 className="type-h6" style={{ color: colors.primaryText }}>
+    <div className="carousel py-lg md:pt-2x md:pb-lg w-full">
+      {/* Header container - keeps the title aligned with the page content */}
+      <div className="max-w-container mx-auto px-sm md:px-lg">
+        <h6 className="carousel__title">
           SIMILAR ITEMS
         </h6>
       </div>
@@ -213,8 +126,8 @@ export function ProductCarousel({
             }}
           >
             <div
-              ref={carouselContentRef}
-              className="flex gap-sm"
+              ref={contentRef}
+              className="carousel__content flex gap-sm"
             >
               {products.map((product, index) => (
                 <div
@@ -232,41 +145,28 @@ export function ProductCarousel({
               {/* End spacer to ensure the last card can be fully scrolled */}
               <div
                 ref={endSpacerRef}
-                className="flex-shrink-0"
-                style={{ width: '1px', minHeight: '200px' }}
+                className="carousel__end-spacer flex-shrink-0"
               />
             </div>
           </div>
         </div>
-        
+
         {/* Navigation buttons */}
         {showNavButtons && (
           <>
             <button
-              ref={prevButtonRef}
               type="button"
               onClick={() => scroll('left')}
-              className={`nav-button-fade hidden md:flex absolute top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center cursor-pointer ${!canScrollLeft ? 'md:hidden' : ''}`}
-              style={{
-                left: `${padding}px`,
-                border: `1px solid ${colors.highlight}`,
-                color: colors.highlight,
-              }}
+              className={`nav-button-fade border carousel__nav-button carousel__nav-button--prev hidden md:flex absolute top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center cursor-pointer ${!canScrollLeft ? 'md:hidden' : ''} ${isScrolling ? 'fading' : ''}`}
               aria-label="Previous items"
             >
               <Icons.ChevronLeft className="w-4 h-4" />
             </button>
-            
+
             <button
-              ref={nextButtonRef}
               type="button"
               onClick={() => scroll('right')}
-              className={`nav-button-fade hidden md:flex absolute top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center cursor-pointer ${!canScrollRight ? 'md:hidden' : ''}`}
-              style={{
-                right: `${padding}px`,
-                border: `1px solid ${colors.highlight}`,
-                color: colors.highlight,
-              }}
+              className={`nav-button-fade border carousel__nav-button carousel__nav-button--next hidden md:flex absolute top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center cursor-pointer ${!canScrollRight ? 'md:hidden' : ''} ${isScrolling ? 'fading' : ''}`}
               aria-label="Next items"
             >
               <Icons.ChevronRight className="w-4 h-4" />

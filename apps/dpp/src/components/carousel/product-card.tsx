@@ -34,7 +34,7 @@ export function ProductCard({ product, theme, imageZoom = 100, imagePosition = '
       target="_blank"
       rel="noopener noreferrer"
     >
-      <div className="relative w-full overflow-hidden rounded-rounding" style={{ aspectRatio: '3/4' }}>
+      <div className="relative w-full overflow-hidden border carousel__product-image" style={{ aspectRatio: '3/4' }}>
         <img
           src={product.image}
           alt={product.name}
@@ -47,17 +47,11 @@ export function ProductCard({ product, theme, imageZoom = 100, imagePosition = '
           loading="lazy"
         />
       </div>
-      <div className="flex flex-col gap-micro">
-        <div
-          className="type-body truncate"
-          style={{ color: colors.highlight }}
-        >
+      <div className="flex carousel__product-details gap-micro">
+        <div className="carousel__product-name truncate w-full">
           {product.name}
         </div>
-        <div
-          className="type-body"
-          style={{ color: colors.primaryText }}
-        >
+        <div className="carousel__product-price w-full">
           {formatPrice(product.price, product.currency)}
         </div>
       </div>

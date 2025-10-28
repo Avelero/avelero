@@ -18,13 +18,10 @@ export function MenuButton({ label, url, theme }: Props) {
       href={url}
       target={isExternal ? '_blank' : undefined}
       rel={isExternal ? 'noopener noreferrer' : undefined}
-      className="px-sm py-md flex justify-between items-center border-b cursor-pointer"
-      style={{ borderColor: colors.border }}
+      className="px-sm py-md flex justify-between items-center border-b cursor-pointer menu-button"
     >
-      <div className="type-body" style={{ color: colors.primaryText }}>
-        {label}
-      </div>
-      <Icons.ChevronRight className="w-5 h-5" style={{ color: colors.primaryText }} />
+      {label}
+      <Icons.ChevronRight className="w-5 h-5" />
     </a>
   );
 }

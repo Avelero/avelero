@@ -14,11 +14,7 @@ export function Header({ theme, brandName }: Props) {
     <div className="fixed top-0 left-0 right-0 w-full z-50">
       {/* Brand section */}
       <div
-        className="flex items-center justify-center w-full py-sm border-b"
-        style={{
-          backgroundColor: colors.background,
-          borderColor: colors.border,
-        }}
+        className="header flex items-center justify-center w-full py-sm border-b"
       >
         {branding.headerLogoUrl ? (
           <img
@@ -29,8 +25,8 @@ export function Header({ theme, brandName }: Props) {
           />
         ) : (
           <span
-            className="type-body"
-            style={{ color: colors.primaryText, fontSize: logoHeight }}
+            className="header__text-logo leading-[100%]"
+            style={{ fontSize: logoHeight }}
           >
             {brandName}
           </span>
@@ -39,19 +35,14 @@ export function Header({ theme, brandName }: Props) {
       
       {/* Powered by Avelero section */}
       <div
-        className="flex items-center justify-center w-full gap-micro py-xs border-b"
-        style={{
-          backgroundColor: colors.background,
-          borderColor: colors.border,
-        }}
+        className="header flex items-center justify-center w-full gap-micro py-xs border-b"
       >
         <span
-          className="text-geist text-[12px] leading-[100%]"  
-          style={{ color: colors.primaryText }}
+          className="text-geist text-[12px] text-foreground leading-[100%]"
         >
           Powered by
         </span>
-        <AveleroLogoText height={12} color={colors.primaryText} />
+        <AveleroLogoText height={12} color="var(--foreground)" />
       </div>
     </div>
   );

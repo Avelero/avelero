@@ -88,7 +88,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="font-sans bg-background text-primary-text" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         {children}
       </body>
     </html>

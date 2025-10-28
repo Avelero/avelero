@@ -1,24 +1,5 @@
 import type { ThemeConfig } from '@/types/theme-config';
-
-/**
- * Determine the appropriate font fallback based on font name
- */
-function getFontFallback(fontFamily: string): string {
-  const lowerFont = fontFamily.toLowerCase();
-  
-  // Check if it's a serif font
-  if (lowerFont.includes('serif')) {
-    return 'serif';
-  }
-  
-  // Check if it's a monospace font
-  if (lowerFont.includes('mono') || lowerFont.includes('code') || lowerFont.includes('courier')) {
-    return 'monospace';
-  }
-  
-  // Default to sans-serif
-  return 'sans-serif';
-}
+import { getFontFallback } from '@/lib/theme/google-fonts';
 
 /**
  * Generate CSS custom properties from theme configuration
@@ -54,7 +35,7 @@ export function generateCSSVariables(theme: ThemeConfig): string {
         }
         if (scaleConfig.fontFamily) {
           // Override font family for this specific scale with appropriate fallback
-          const fallback = getFontFallback(scaleConfig.fontFamily);
+          const fallback = getFontFallback(null, scaleConfig.fontFamily);
           vars.push(`--type-${scaleKey}-family: "${scaleConfig.fontFamily}", ${fallback}`);
         }
         if (scaleConfig.lineHeight !== undefined) {

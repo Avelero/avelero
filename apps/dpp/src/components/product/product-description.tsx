@@ -38,11 +38,11 @@ export function ProductDescription({ brand, title, description, theme, isLast = 
     <div
       className={`pt-xl pb-md px-sm md:px-0 md:pt-0 flex flex-col gap-sm w-full${isLast ? ' pb-0' : ''}`}
     >
-      <div className="type-body-sm" style={{ color: colors.primaryText }}>
+      <div className="product__brand">
         {brand}
       </div>
       
-      <h1 className="type-h1" style={{ color: colors.primaryText }}>
+      <h1 className="product__title">
         {title}
       </h1>
       
@@ -50,8 +50,7 @@ export function ProductDescription({ brand, title, description, theme, isLast = 
       <div className={`relative overflow-hidden ${isExpanded ? 'max-h-[1000px]' : 'max-h-[3em]'}`}>
           <p
             ref={textRef}
-            className="type-body-sm"
-            style={{ color: colors.secondaryText }}
+            className="product__description"
           >
             {description}
           </p>
@@ -70,8 +69,7 @@ export function ProductDescription({ brand, title, description, theme, isLast = 
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="type-body-xs flex items-center gap-micro cursor-pointer pt-sm"
-            style={{ color: colors.highlight }}
+            className="product__show-more text-[12px] leading-[100%] flex items-center gap-micro cursor-pointer pt-sm"
           >
             <span>{isExpanded ? 'SHOW LESS' : 'SHOW MORE'}</span>
             <Icons.ChevronDown className={`w-[14px] h-[14px] ${isExpanded ? 'rotate-180' : ''}`} />

@@ -14,8 +14,8 @@ export function ImpactFrame({ metrics, claims, theme, isLast = false }: Props) {
   const { colors } = theme;
   
   return (
-    <div className={`px-sm md:px-0 py-lg flex flex-col gap-sm${isLast ? ' pb-0' : ''}`}>
-      <h6 className="type-h6" style={{ color: colors.primaryText }}>
+    <div className={`mx-sm md:mx-0 mt-lg mb-lg md:mb-0 flex flex-col gap-sm${isLast ? ' mb-0' : ''}`}>
+      <h6 className="impact-card__title">
         IMPACT
       </h6>
       

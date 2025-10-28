@@ -22,18 +22,17 @@ export function LargeImpactCard({ metric, theme }: Props) {
   
   return (
     <div
-      className="p-md flex justify-between rounded-rounding items-center"
-      style={{ border: `1px solid ${colors.border}` }}
+      className="p-md impact-card border flex justify-between items-center"
     >
       <div className="flex flex-col gap-xs">
-        <div className="type-body-xs" style={{ color: colors.secondaryText }}>
+        <div className="impact-card__type">
           {metric.type}
         </div>
         <div className="flex items-end gap-micro">
-          <div className="type-h2" style={{ color: colors.primaryText }}>
+          <div className="impact-card__value">
             {metric.value}
           </div>
-          <div className="type-body-xs" style={{ color: colors.secondaryText }}>
+          <div className="impact-card__unit">
             {metric.unit}
           </div>
         </div>

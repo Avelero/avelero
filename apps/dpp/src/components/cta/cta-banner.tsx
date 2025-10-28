@@ -8,16 +8,16 @@ export function CTABanner({ theme }: Props) {
   const { cta, branding } = theme;
   
   return (
-    <div className="pt-2x pb-3x">
+    <div className="mt-2x mb-3x">
       <div
-        className="relative w-full flex flex-col items-center justify-center py-3x px-lg rounded-rounding"
+        className="banner relative w-full flex flex-col items-center justify-center py-3x px-lg"
         style={{
           backgroundImage: `url(${cta.bannerBackgroundImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
-        <div className="relative z-10 flex flex-col items-center gap-xl">
+        <div className="banner__container relative z-10 flex flex-col gap-xl w-full">
           {branding.bannerLogoUrl && (
             <div className="logo-container">
               <img
@@ -30,10 +30,7 @@ export function CTABanner({ theme }: Props) {
           )}
           
           {cta.bannerShowSubline && cta.bannerSubline && (
-            <p 
-              className="type-h5 text-center max-w-[600px] px-md"
-              style={{ color: '#FFFFFF' }}
-            >
+            <p className="banner__subline text-center max-w-[600px] px-md">
               {cta.bannerSubline}
             </p>
           )}
@@ -42,13 +39,7 @@ export function CTABanner({ theme }: Props) {
             href={cta.bannerCTAUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="type-body-sm px-lg py-sm cursor-pointer text-center rounded-rounding"
-            style={{
-              backgroundColor: cta.bannerCTABackgroundColor,
-              color: cta.bannerCTATextColor,
-              minWidth: '150px',
-            }}
-          >
+            className="banner__button px-lg py-sm cursor-pointer text-center">
             {cta.bannerCTAText}
           </a>
         </div>

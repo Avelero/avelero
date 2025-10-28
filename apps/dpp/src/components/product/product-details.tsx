@@ -27,105 +27,97 @@ export function ProductDetails({
   
   return (
     <div className={`w-full px-sm md:px-0 pt-md pb-lg${isLast ? ' pb-0' : ''}`}>
-      {/* Article Number Row */}
-      <div
-        className="p-sm flex justify-between items-start border rounded-t-rounding"
-        style={{ borderColor: colors.border }}
-      >
-        <div className="type-body-sm" style={{ color: colors.primaryText }}>
-          ARTICLE NUMBER
-        </div>
-        <div className="type-body-sm text-right">
-          {articleNumberClickable ? (
-            <a href="#article-number" className="cursor-pointer" style={{ color: colors.highlight }}>
-              {articleNumber}
-            </a>
-          ) : (
-            <span style={{ color: colors.primaryText }}>{articleNumber}</span>
-          )}
-        </div>
-      </div>
-      
-      {/* Manufacturer Row */}
-      <div
-        className="p-sm flex justify-between items-start border-x border-b"
-        style={{ borderColor: colors.border }}
-      >
-        <div className="type-body-sm" style={{ color: colors.primaryText }}>
-          MANUFACTURER
-        </div>
-        <div className="type-body-sm text-right">
-          {manufacturerClickable ? (
-            <a href="#manufacturer" className="cursor-pointer" style={{ color: colors.highlight }}>
-              {manufacturer}
-            </a>
-          ) : (
-            <span style={{ color: colors.primaryText }}>{manufacturer}</span>
-          )}
-        </div>
-      </div>
-      
-      {/* Country of Origin Row */}
-      <div
-        className="p-sm flex justify-between items-start border-x border-b"
-        style={{ borderColor: colors.border }}
-      >
-        <div className="type-body-sm" style={{ color: colors.primaryText }}>
-          COUNTRY OF ORIGIN
-        </div>
+      <div className="product-details w-full border">
+        {/* Article Number Row */}
         <div
-          className="type-body-sm text-right"
-          style={{ color: colors.secondaryText }}
+          className="p-sm product-details__row flex justify-between items-start border-b"
         >
-          {countryOfOrigin}
+          <div className="product-details__row-label">
+            ARTICLE NUMBER
+          </div>
+          <div className="product-details__row-value text-right">
+            {articleNumberClickable ? (
+              <a href="#article-number" className="cursor-pointer text-highlight">
+                {articleNumber}
+              </a>
+            ) : (
+              <span>{articleNumber}</span>
+            )}
+          </div>
         </div>
-      </div>
-      
-      {/* Category Row */}
-      <div
-        className="p-sm flex justify-between items-start border-x border-b"
-        style={{ borderColor: colors.border }}
-      >
-        <div className="type-body-sm" style={{ color: colors.primaryText }}>
-          CATEGORY
-        </div>
+        
+        {/* Manufacturer Row */}
         <div
-          className="type-body-sm text-right"
-          style={{ color: colors.secondaryText }}
+          className="p-sm product-details__row flex justify-between items-start border-b"
         >
-          {category}
+          <div className="product-details__row-label">
+            MANUFACTURER
+          </div>
+          <div className="product-details__row-value text-right">
+            {manufacturerClickable ? (
+              <a href="#manufacturer" className="cursor-pointer text-highlight">
+                {manufacturer}
+              </a>
+            ) : (
+              <span>{manufacturer}</span>
+            )}
+          </div>
         </div>
-      </div>
-      
-      {/* Size Row */}
-      <div
-        className="p-sm flex justify-between items-start border-x border-b"
-        style={{ borderColor: colors.border }}
-      >
-        <div className="type-body-sm" style={{ color: colors.primaryText }}>
-          SIZE
-        </div>
+        
+        {/* Country of Origin Row */}
         <div
-          className="type-body-sm text-right"
-          style={{ color: colors.secondaryText }}
+          className="p-sm product-details__row flex justify-between items-start border-b"
         >
-          {size}
+          <div className="product-details__row-label">
+            COUNTRY OF ORIGIN
+          </div>
+          <div
+            className="product-details__row-value text-right"
+          >
+            {countryOfOrigin}
+          </div>
         </div>
-      </div>
-      
-      {/* Color Row */}
-      <div
-        className="p-sm flex justify-between rounded-b-rounding items-start border-x border-b"
-        style={{ borderColor: colors.border }}
-      >
-        <div className="type-body-sm" style={{ color: colors.primaryText }}>
-          COLOR
-        </div>
+        
+        {/* Category Row */}
         <div
-          className="type-body-sm text-right"
-          style={{ color: colors.secondaryText }}
+          className="p-sm product-details__row flex justify-between items-start border-b"
         >
-          {color}
+          <div className="product-details__row-label">
+            CATEGORY
+          </div>
+          <div
+            className="product-details__row-value text-right"
+          >
+            {category}
+          </div>
+        </div>
+        
+        {/* Size Row */}
+        <div
+          className="p-sm product-details__row flex justify-between items-start border-b"
+        >
+          <div className="product-details__row-label">
+            SIZE
+          </div>
+          <div
+            className="product-details__row-value text-right"
+          >
+            {size}
+          </div>
+        </div>
+        
+        {/* Color Row */}
+        <div
+          className="p-sm product-details__row flex justify-between items-start"
+        >
+          <div className="product-details__row-label">
+            COLOR
+          </div>
+          <div
+            className="product-details__row-value text-right"
+          >
+            {color}
+          </div>
         </div>
       </div>
     </div>

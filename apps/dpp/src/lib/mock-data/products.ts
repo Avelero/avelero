@@ -539,18 +539,18 @@ export const mockProducts: Record<string, DppData> = {
       },
     ],
   },
-  'LXR001': {
-    title: 'Vegan Leather Handbag',
-    brandName: 'Luxora Fashion',
-    productImage: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937033/AIModelSix_btqjzc.webp',
-    description: 'An exquisite handbag crafted from innovative plant-based vegan leather. Combining cutting-edge material science with timeless design, this bag represents the future of luxury fashion. The interior features recycled nylon lining and brass-free metal hardware, ensuring every component meets the highest ethical standards.',
-    brand: 'Luxora Fashion',
-    size: 'Medium',
-    color: 'Midnight Black',
-    category: 'Bags',
+  'FP001': {
+    title: 'Loafer Bonsai Black',
+    brandName: 'Filling Pieces',
+    productImage: 'https://www.fillingpieces.com/cdn/shop/files/8720133225652-2_96ce2c02-3aa5-44da-9eec-5ee8bc4fcff1.jpg',
+    description: 'Embrace nature with the Loafer Bonsai Black, a seasonal version of our iconic Patch-Loafer line. Adorned with a chenille and embroidery patch featuring the Bonsai graphic, it reflects love and care for this special tree. Crafted from luxury polido leather with a cow-leather lining, this loafer offers exceptional quality and comfort for every occasion.',
+    brand: 'Filling Pieces',
+    size: '43',
+    color: 'Black',
+    category: 'Loafers',
     articleNumber: 'LXR-HB-001',
-    manufacturer: 'Innovative Materials Lab',
-    countryOfOrigin: 'Netherlands',
+    manufacturer: 'Filling Pieces',
+    countryOfOrigin: 'Portugal',
     materials: [
       {
         percentage: 90,
@@ -645,9 +645,9 @@ export const mockProducts: Record<string, DppData> = {
       },
     ],
   },
-  'LXR002': {
+  'FP002': {
     title: 'Merino Wool Blazer',
-    brandName: 'Luxora Fashion',
+    brandName: 'Filling Pieces',
     productImage: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937619/ChatGPT_Image_29_apr_2025_16_40_03_trhpro.webp',
     description: 'A sophisticated blazer tailored from premium merino wool with sustainable practices throughout the entire production chain.',
     brand: 'Luxora Fashion',
@@ -708,9 +708,9 @@ export const mockProducts: Record<string, DppData> = {
       },
     ],
   },
-  'LXR003': {
+  'FP003': {
     title: 'Tencel Midi Skirt',
-    brandName: 'Luxora Fashion',
+    brandName: 'Filling Pieces',
     productImage: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937032/AIModelOne_rdcgve.webp',
     description: 'Elegant midi skirt made from sustainably sourced Tencel lyocell fibers.',
     brand: 'Luxora Fashion',

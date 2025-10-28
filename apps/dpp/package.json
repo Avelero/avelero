@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@v1/selections": "workspace:*",
     "@v1/ui": "workspace:*",
     "clsx": "^2.1.1",
     "geist": "^1.5.1",

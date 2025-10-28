@@ -2,9 +2,15 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { mockProducts } from '@/lib/mock-data/products';
 import { mockThemes } from '@/lib/mock-data/themes';
-import { generateCSSVariables } from '@/lib/theme/css-vars';
-import { extractGoogleFontsFromTypography, generateGoogleFontsUrl } from '@/lib/theme/google-fonts';
-import { ThemeInjector } from '@/components/theme/theme-injector';
+// Theme system temporarily disabled during component-classes refactor
+// import { generateCSSVariables } from '@/lib/theme/css-vars';
+// import {
+//   extractGoogleFontsFromTypography,
+//   generateGoogleFontsUrl,
+//   generateFallbackGoogleFontsUrl,
+//   fetchMultipleFontMetadata,
+// } from '@/lib/theme/google-fonts';
+// import { ThemeInjector } from '@/components/theme/theme-injector';
 import { Header } from '@/components/layout/header';
 import { ContentFrame } from '@/components/layout/content-frame';
 import { Footer } from '@/components/layout/footer';
@@ -49,17 +55,11 @@ export default async function DPPPage({ params }: PageProps) {
     notFound();
   }
   
-  // Generate CSS variables from theme
-  const cssVars = generateCSSVariables(themeData);
-  
-  // Generate Google Fonts URL if needed
-  const googleFonts = extractGoogleFontsFromTypography(themeData.typography);
-  const googleFontsUrl = googleFonts.length > 0 ? generateGoogleFontsUrl(googleFonts) : undefined;
+  // Theme injection disabled: do not generate CSS variables or load Google Fonts
   
   return (
     <>
-      <ThemeInjector cssVars={cssVars} googleFontsUrl={googleFontsUrl} />
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col">
         {/* Header with spacer for fixed positioning */}
         <div style={{ height: 'var(--header-height)' }} />
         <Header theme={themeData} brandName={productData.brandName} />
@@ -86,8 +86,8 @@ export function generateStaticParams() {
     { brand: 'mrmarvis', upid: 'MRM002' },
     { brand: 'mrmarvis', upid: 'MRM003' },
     // Luxora Fashion
-    { brand: 'luxora', upid: 'LXR001' },
-    { brand: 'luxora', upid: 'LXR002' },
-    { brand: 'luxora', upid: 'LXR003' },
+    { brand: 'fillingpieces', upid: 'FP001' },
+    { brand: 'fillingpieces', upid: 'FP002' },
+    { brand: 'fillingpieces', upid: 'FP003' },
   ];
 }

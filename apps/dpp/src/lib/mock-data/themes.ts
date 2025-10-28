@@ -99,7 +99,7 @@ export const mockThemes: Record<string, ThemeConfig> = {
       border: '#E5E8EB',
       primaryGreen: '#03A458',
       secondaryGreen: '#CDEDDE',
-      highlight: '#0000FF',
+      highlight: '#3371A5',
     },
     typography: {
       h1: {
@@ -170,7 +170,7 @@ export const mockThemes: Record<string, ThemeConfig> = {
     },
     rounding: '6px',
     container: {
-      maxWidth: '1200px',
+      maxWidth: '1100px',
     },
     sections: {
       showProductDetails: true,
@@ -229,25 +229,77 @@ export const mockThemes: Record<string, ThemeConfig> = {
       tiktokUrl: 'https://www.tiktok.com/@mrmarvis_',
     },
   },
-  'luxora': {
+  'fillingpieces': {
     colors: {
-      primaryText: '#1A1A1A',
-      secondaryText: '#6B6B6B',
+      primaryText: '#000000',
+      secondaryText: '#000000',
       background: '#FFFFFF',
-      border: '#E0E0E0',
+      border: '#000000',
       primaryGreen: '#B8860B',
       secondaryGreen: '#F5E6D3',
-      highlight: '#DAA520',
+      highlight: '#0000FF',
+    },
+    typography: {
+      h1: {
+        fontSize: '2rem',
+        fontFamily: 'Public Sans',
+        fontWeight: 500,
+        lineHeight: 0.9,
+        letterSpacing: '-0.04em',
+      },
+      h2: {
+        fontFamily: 'Public Sans',
+        fontWeight: 700,
+      },
+      h3: {
+        fontFamily: 'Public Sans',
+        fontWeight: 640,
+      },
+      h4: {
+        fontFamily: 'Public Sans',
+        fontWeight: 640,
+      },
+      h5: {
+        fontSize: '2rem',
+        fontFamily: 'Public Sans',
+        fontWeight: 400,
+      },
+      h6: {
+        fontSize: '1.25rem',
+        fontFamily: 'Public Sans',
+        fontWeight: 580,
+        lineHeight: 1.3,
+        letterSpacing: '0.0008rem',
+      },
+      body: {
+        fontSize: '0.875rem',
+        fontFamily: 'Public Sans',
+        fontWeight: 500,
+        lineHeight: 1.20,
+        letterSpacing: '-0.02rem',
+      },
+      'body-sm': {
+        fontSize: '0.875rem',
+        fontFamily: 'Public Sans',
+        fontWeight: 300,
+        lineHeight: 1.20,
+        letterSpacing: '-0.02rem',
+      },
+      'body-xs': {
+        fontSize: '0.75rem',
+        fontFamily: 'Public Sans',
+        fontWeight: 430,
+      },
     },
     spacing: {
-      micro: '0.1875rem',
-      xs: '0.375rem',
-      sm: '0.625rem',
-      md: '0.875rem',
-      lg: '1.25rem',
-      xl: '1.75rem',
-      '2x': '2.5rem',
-      '3x': '3.75rem',
+      micro: '0.25rem',
+      xs: '0.5rem',
+      sm: '0.75rem',
+      md: '1rem',
+      lg: '1.5rem',
+      xl: '2rem',
+      '2x': '3rem',
+      '3x': '4.5rem',
     },
     borders: {
       radius: {
@@ -257,7 +309,7 @@ export const mockThemes: Record<string, ThemeConfig> = {
       },
     },
     container: {
-      maxWidth: '1000px',
+      maxWidth: '1100px',
     },
     sections: {
       showProductDetails: true,
@@ -270,10 +322,10 @@ export const mockThemes: Record<string, ThemeConfig> = {
       showCTABanner: true,
     },
     images: {
-      productImageZoom: 95,
-      productImagePosition: 'center',
-      carouselImageZoom: 95,
-      carouselImagePosition: 'center',
+      productImageZoom: 100,
+      productImagePosition: 'top',
+      carouselImageZoom: 100,
+      carouselImagePosition: 'top',
     },
     branding: {
       headerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746526939/aveleroApparelLogoBlack_iuhow7.png',
@@ -282,20 +334,20 @@ export const mockThemes: Record<string, ThemeConfig> = {
     },
     menus: {
       primary: [
-        { label: 'Fit Guide', url: '#size-guide' },
-        { label: 'Styling Tips', url: '#styling' },
+        { label: 'FIT GUIDE', url: '#size-guide' },
+        { label: 'STYLING TIPS', url: '#styling' },
       ],
       secondary: [
-        { label: 'Craftsmanship', url: '#craftsmanship' },
-        { label: 'Sustainability', url: '#sustainability' },
-        { label: 'Returns', url: '#returns' },
+        { label: 'CRAFTMANSHIP', url: '#craftsmanship' },
+        { label: 'SUSTAINABILITY', url: '#sustainability' },
+        { label: 'RETURNS', url: '#returns' },
       ],
     },
     cta: {
       bannerBackgroundImage: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745934275/cta-banner-background_o3vjjw.jpg',
       bannerCTAText: 'VIEW MORE',
       bannerCTAUrl: 'https://example.com',
-      bannerCTABackgroundColor: '#1A1A1A',
+      bannerCTABackgroundColor: '#000000',
       bannerCTATextColor: '#FFFFFF',
       bannerShowSubline: false,
       bannerSubline: '',

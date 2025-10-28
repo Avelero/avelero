@@ -25,7 +25,6 @@ export function ContentFrame({ data, theme }: Props) {
           <div className="w-full relative overflow-visible">
             <ProductCarousel
               products={data.similarProducts}
-              brandName={data.brandName}
               theme={theme}
               imageZoom={images.carouselImageZoom}
               imagePosition={images.carouselImagePosition}

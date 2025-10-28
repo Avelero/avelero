@@ -20,14 +20,10 @@ export function Footer({ theme }: Props) {
   return (
     <div className="w-full">
       <div
-        className="flex justify-between items-center p-sm border-t"
-        style={{ borderColor: colors.border }}
+        className="footer flex justify-between items-center p-sm border-t"
       >
         {/* Brand name on the left */}
-        <div
-          className="type-body-sm"
-          style={{ color: colors.secondaryText }}
-        >
+        <div className="footer_legal-name">
           {social.legalName}
         </div>
         
@@ -37,7 +33,7 @@ export function Footer({ theme }: Props) {
             <a
               key={item.text}
               href={item.url}
-              className="type-body-sm cursor-pointer"
+              className="footer__social-icons cursor-pointer"
               style={{ color: colors.highlight }}
               target="_blank"
               rel="noopener noreferrer"

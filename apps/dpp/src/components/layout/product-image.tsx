@@ -26,10 +26,9 @@ export function ProductImage({ image, alt, theme }: Props) {
   
   return (
     <div
-      className="relative w-full border-y md:border rounded-rounding overflow-hidden"
+      className="product__image relative w-full border-b md:border overflow-hidden"
       style={{
         aspectRatio: '393 / 539',
-        borderColor: colors.border,
       }}
     >
       {image ? (
@@ -46,9 +45,9 @@ export function ProductImage({ image, alt, theme }: Props) {
         />
       ) : (
         <div
-          className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-100"
+          className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-accent"
         >
-          <span style={{ color: colors.secondaryText }}>
+          <span className="type-body-sm text-secondary">
             No product image available
           </span>
         </div>

@@ -9,20 +9,20 @@ import { JourneyFrame } from '../journey/journey-frame';
 
 interface Props {
   data: DppData;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
 }
 
-export function InformationFrame({ data, theme }: Props) {
-  const { sections } = theme;
+export function InformationFrame({ data, themeConfig }: Props) {
+  const { sections } = themeConfig;
   
   // Determine which sections are visible and which is last
   const visibleSections = [
     sections.showProductDetails && 'ProductDetails',
-    sections.showPrimaryMenu && theme.menus.primary.length > 0 && 'PrimaryMenu',
+    sections.showPrimaryMenu && themeConfig.menus.primary.length > 0 && 'PrimaryMenu',
     sections.showImpact && (data.impactMetrics.length > 0 || data.impactClaims.length > 0) && 'Impact',
     sections.showMaterials && data.materials.length > 0 && 'Materials',
     sections.showJourney && data.journey.length > 0 && 'Journey',
-    sections.showSecondaryMenu && theme.menus.secondary.length > 0 && 'SecondaryMenu',
+    sections.showSecondaryMenu && themeConfig.menus.secondary.length > 0 && 'SecondaryMenu',
   ].filter(Boolean);
   
   const lastSection = visibleSections[visibleSections.length - 1];
@@ -34,7 +34,7 @@ export function InformationFrame({ data, theme }: Props) {
         brand={data.brand}
         title={data.title}
         description={data.description}
-        theme={theme}
+        themeConfig={themeConfig}
         isLast={false}
       />
       
@@ -47,16 +47,16 @@ export function InformationFrame({ data, theme }: Props) {
           category={data.category}
           size={data.size}
           color={data.color}
-          theme={theme}
+          themeConfig={themeConfig}
           isLast={lastSection === 'ProductDetails'}
         />
       )}
       
       {/* Primary Menu Section */}
-      {sections.showPrimaryMenu && theme.menus.primary.length > 0 && (
+      {sections.showPrimaryMenu && themeConfig.menus.primary.length > 0 && (
         <MenuFrame
-          menuItems={theme.menus.primary}
-          theme={theme}
+          menuItems={themeConfig.menus.primary}
+          themeConfig={themeConfig}
           isLastMenu={lastSection === 'PrimaryMenu'}
         />
       )}
@@ -66,7 +66,7 @@ export function InformationFrame({ data, theme }: Props) {
         <ImpactFrame
           metrics={data.impactMetrics}
           claims={data.impactClaims}
-          theme={theme}
+          themeConfig={themeConfig}
           isLast={lastSection === 'Impact'}
         />
       )}
@@ -75,7 +75,7 @@ export function InformationFrame({ data, theme }: Props) {
       {sections.showMaterials && data.materials.length > 0 && (
         <MaterialsFrame
           materials={data.materials}
-          theme={theme}
+          themeConfig={themeConfig}
           isLast={lastSection === 'Materials'}
         />
       )}
@@ -84,16 +84,16 @@ export function InformationFrame({ data, theme }: Props) {
       {sections.showJourney && data.journey.length > 0 && (
         <JourneyFrame
           journey={data.journey}
-          theme={theme}
+          themeConfig={themeConfig}
           isLast={lastSection === 'Journey'}
         />
       )}
       
       {/* Secondary Menu Section */}
-      {sections.showSecondaryMenu && theme.menus.secondary.length > 0 && (
+      {sections.showSecondaryMenu && themeConfig.menus.secondary.length > 0 && (
         <MenuFrame
-          menuItems={theme.menus.secondary}
-          theme={theme}
+          menuItems={themeConfig.menus.secondary}
+          themeConfig={themeConfig}
           isLastMenu={lastSection === 'SecondaryMenu'}
         />
       )}

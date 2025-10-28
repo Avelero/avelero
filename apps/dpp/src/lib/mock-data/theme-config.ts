@@ -2,55 +2,10 @@ import type { ThemeConfig } from '@/types/theme-config';
 
 /**
  * Mock theme configurations for development
- * This will be replaced with real tRPC data in the future
+ * Contains only non-style configuration data (logos, menus, CTAs, social links, etc.)
  */
-export const mockThemes: Record<string, ThemeConfig> = {
+export const mockThemeConfigs: Record<string, ThemeConfig> = {
   'acme': {
-    colors: {
-      primaryText: '#1E2040',
-      secondaryText: '#62637A',
-      background: '#FFFFFF',
-      border: '#E9E9EC',
-      primaryGreen: '#03A458',
-      secondaryGreen: '#CDEDDE',
-      highlight: '#0000FF',
-    },
-    spacing: {
-      micro: '0.25rem',
-      xs: '0.5rem',
-      sm: '0.75rem',
-      md: '1rem',
-      lg: '1.5rem',
-      xl: '2rem',
-      '2x': '3rem',
-      '3x': '4.5rem',
-    },
-    borders: {
-      radius: {
-        sm: '0.25rem',
-        md: '0.5rem',
-        lg: '1rem',
-      },
-    },
-    container: {
-      maxWidth: '1100px',
-    },
-    sections: {
-      showProductDetails: true,
-      showPrimaryMenu: true,
-      showSecondaryMenu: true,
-      showImpact: true,
-      showMaterials: true,
-      showJourney: true,
-      showSimilarProducts: true,
-      showCTABanner: true,
-    },
-    images: {
-      productImageZoom: 100,
-      productImagePosition: 'top',
-      carouselImageZoom: 100,
-      carouselImagePosition: 'top',
-    },
     branding: {
       headerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746526939/aveleroApparelLogoBlack_iuhow7.png',
       bannerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746527118/aveleroApparelLogoWhite_b5drvc.png',
@@ -90,88 +45,6 @@ export const mockThemes: Record<string, ThemeConfig> = {
       pinterestUrl: '#',
       tiktokUrl: '#',
     },
-  },
-  'mrmarvis': {
-    colors: {
-      primaryText: '#071933',
-      secondaryText: 'rgba(7, 25, 51, 0.7)',
-      background: '#FFFFFF',
-      border: '#E5E8EB',
-      primaryGreen: '#03A458',
-      secondaryGreen: '#CDEDDE',
-      highlight: '#3371A5',
-    },
-    typography: {
-      h1: {
-        fontSize: '2rem',
-        fontFamily: 'Figtree',
-        fontWeight: 700,
-        lineHeight: 1.3,
-        letterSpacing: '0rem',
-      },
-      h2: {
-        fontFamily: 'Figtree',
-        fontWeight: 700,
-      },
-      h3: {
-        fontFamily: 'Figtree',
-        fontWeight: 640,
-      },
-      h4: {
-        fontFamily: 'Figtree',
-        fontWeight: 640,
-      },
-      h5: {
-        fontSize: '2rem',
-        fontFamily: 'Noto Serif Display',
-        fontWeight: 400,
-      },
-      h6: {
-        fontSize: '1.25rem',
-        fontFamily: 'Figtree',
-        fontWeight: 580,
-        lineHeight: 1.3,
-        letterSpacing: '0.0008rem',
-      },
-      body: {
-        fontSize: '1rem',
-        fontFamily: 'Figtree',
-        fontWeight: 430,
-      },
-      'body-sm': {
-        fontSize: '0.875rem',
-        fontFamily: 'Figtree',
-        fontWeight: 430,
-        lineHeight: 1.5,
-        letterSpacing: '0.002rem',
-      },
-      'body-xs': {
-        fontSize: '0.75rem',
-        fontFamily: 'Figtree',
-        fontWeight: 430,
-      },
-    },
-    spacing: {
-      micro: '0.25rem',
-      xs: '0.5rem',
-      sm: '0.75rem',
-      md: '1rem',
-      lg: '1.5rem',
-      xl: '2rem',
-      '2x': '3rem',
-      '3x': '4.5rem',
-    },
-    borders: {
-      radius: {
-        sm: '0.375rem',
-        md: '0.75rem',
-        lg: '1.25rem',
-      },
-    },
-    rounding: '6px',
-    container: {
-      maxWidth: '1100px',
-    },
     sections: {
       showProductDetails: true,
       showPrimaryMenu: true,
@@ -184,10 +57,12 @@ export const mockThemes: Record<string, ThemeConfig> = {
     },
     images: {
       productImageZoom: 100,
-      productImagePosition: 'center',
+      productImagePosition: 'top',
       carouselImageZoom: 100,
-      carouselImagePosition: 'center',
+      carouselImagePosition: 'top',
     },
+  },
+  'mrmarvis': {
     branding: {
       headerLogoUrl: 'https://i.imgur.com/5h0kn61.png',
       bannerLogoUrl: '',
@@ -228,89 +103,6 @@ export const mockThemes: Record<string, ThemeConfig> = {
       pinterestUrl: '',
       tiktokUrl: 'https://www.tiktok.com/@mrmarvis_',
     },
-  },
-  'fillingpieces': {
-    colors: {
-      primaryText: '#000000',
-      secondaryText: '#000000',
-      background: '#FFFFFF',
-      border: '#000000',
-      primaryGreen: '#B8860B',
-      secondaryGreen: '#F5E6D3',
-      highlight: '#0000FF',
-    },
-    typography: {
-      h1: {
-        fontSize: '2rem',
-        fontFamily: 'Public Sans',
-        fontWeight: 500,
-        lineHeight: 0.9,
-        letterSpacing: '-0.04em',
-      },
-      h2: {
-        fontFamily: 'Public Sans',
-        fontWeight: 700,
-      },
-      h3: {
-        fontFamily: 'Public Sans',
-        fontWeight: 640,
-      },
-      h4: {
-        fontFamily: 'Public Sans',
-        fontWeight: 640,
-      },
-      h5: {
-        fontSize: '2rem',
-        fontFamily: 'Public Sans',
-        fontWeight: 400,
-      },
-      h6: {
-        fontSize: '1.25rem',
-        fontFamily: 'Public Sans',
-        fontWeight: 580,
-        lineHeight: 1.3,
-        letterSpacing: '0.0008rem',
-      },
-      body: {
-        fontSize: '0.875rem',
-        fontFamily: 'Public Sans',
-        fontWeight: 500,
-        lineHeight: 1.20,
-        letterSpacing: '-0.02rem',
-      },
-      'body-sm': {
-        fontSize: '0.875rem',
-        fontFamily: 'Public Sans',
-        fontWeight: 300,
-        lineHeight: 1.20,
-        letterSpacing: '-0.02rem',
-      },
-      'body-xs': {
-        fontSize: '0.75rem',
-        fontFamily: 'Public Sans',
-        fontWeight: 430,
-      },
-    },
-    spacing: {
-      micro: '0.25rem',
-      xs: '0.5rem',
-      sm: '0.75rem',
-      md: '1rem',
-      lg: '1.5rem',
-      xl: '2rem',
-      '2x': '3rem',
-      '3x': '4.5rem',
-    },
-    borders: {
-      radius: {
-        sm: '0.125rem',
-        md: '0.25rem',
-        lg: '0.5rem',
-      },
-    },
-    container: {
-      maxWidth: '1100px',
-    },
     sections: {
       showProductDetails: true,
       showPrimaryMenu: true,
@@ -323,10 +115,12 @@ export const mockThemes: Record<string, ThemeConfig> = {
     },
     images: {
       productImageZoom: 100,
-      productImagePosition: 'top',
+      productImagePosition: 'center',
       carouselImageZoom: 100,
-      carouselImagePosition: 'top',
+      carouselImagePosition: 'center',
     },
+  },
+  'fillingpieces': {
     branding: {
       headerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746526939/aveleroApparelLogoBlack_iuhow7.png',
       bannerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746527118/aveleroApparelLogoWhite_b5drvc.png',
@@ -366,7 +160,21 @@ export const mockThemes: Record<string, ThemeConfig> = {
       pinterestUrl: 'https://pinterest.com/luxorafashion',
       tiktokUrl: 'https://tiktok.com/@luxorafashion',
     },
+    sections: {
+      showProductDetails: true,
+      showPrimaryMenu: true,
+      showSecondaryMenu: true,
+      showImpact: true,
+      showMaterials: true,
+      showJourney: true,
+      showSimilarProducts: true,
+      showCTABanner: true,
+    },
+    images: {
+      productImageZoom: 100,
+      productImagePosition: 'top',
+      carouselImageZoom: 100,
+      carouselImagePosition: 'top',
+    },
   },
 };
-
-

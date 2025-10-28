@@ -4,11 +4,10 @@ import { Icons } from '@v1/ui/icons';
 interface Props {
   label: string;
   url: string;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
 }
 
-export function MenuButton({ label, url, theme }: Props) {
-  const { colors } = theme;
+export function MenuButton({ label, url, themeConfig }: Props) {
   
   // Check if URL is external
   const isExternal = url.startsWith('http://') || url.startsWith('https://');

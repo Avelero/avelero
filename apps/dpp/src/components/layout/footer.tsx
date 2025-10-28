@@ -2,11 +2,11 @@ import type { ThemeConfig } from '@/types/theme-config';
 import { Icons } from "@v1/ui/icons";
 
 interface Props {
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
 }
 
-export function Footer({ theme }: Props) {
-  const { social, colors } = theme;
+export function Footer({ themeConfig }: Props) {
+  const { social } = themeConfig;
   
   // Build social media array
   const socialMedia = [
@@ -34,7 +34,6 @@ export function Footer({ theme }: Props) {
               key={item.text}
               href={item.url}
               className="footer__social-icons cursor-pointer"
-              style={{ color: colors.highlight }}
               target="_blank"
               rel="noopener noreferrer"
             >

@@ -4,13 +4,12 @@ import { formatPrice } from '@/lib/utils/formatting';
 
 interface Props {
   product: SimilarProduct;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
   imageZoom?: number;
   imagePosition?: 'top' | 'center' | 'bottom';
 }
 
-export function ProductCard({ product, theme, imageZoom = 100, imagePosition = 'center' }: Props) {
-  const { colors } = theme;
+export function ProductCard({ product, themeConfig, imageZoom = 100, imagePosition = 'center' }: Props) {
   
   // Convert zoom from percentage to scale value
   const zoomScale = Math.max(1, imageZoom / 100);

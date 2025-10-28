@@ -5,10 +5,10 @@ import { InformationFrame } from './information-frame';
 
 interface Props {
   data: DppData;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
 }
 
-export function ImageAndInfo({ data, theme }: Props) {
+export function ImageAndInfo({ data, themeConfig }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 md:gap-lg w-full">
       {/* Product Image Section */}
@@ -17,7 +17,7 @@ export function ImageAndInfo({ data, theme }: Props) {
           <ProductImage
             image={data.productImage}
             alt={`${data.brand} ${data.title}`}
-            theme={theme}
+            themeConfig={themeConfig}
           />
         </div>
       </div>
@@ -25,7 +25,7 @@ export function ImageAndInfo({ data, theme }: Props) {
       {/* Product Information Section */}
       <div className="md:flex md:justify-end md:w-full">
         <div className="md:w-5/6">
-          <InformationFrame data={data} theme={theme} />
+          <InformationFrame data={data} themeConfig={themeConfig} />
         </div>
       </div>
     </div>

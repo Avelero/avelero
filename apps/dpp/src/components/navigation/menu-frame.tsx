@@ -8,12 +8,11 @@ interface MenuItem {
 
 interface Props {
   menuItems: MenuItem[];
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
   isLastMenu?: boolean;
 }
 
-export function MenuFrame({ menuItems, theme, isLastMenu = false }: Props) {
-  const { colors } = theme;
+export function MenuFrame({ menuItems, themeConfig, isLastMenu = false }: Props) {
   const menuClasses = isLastMenu ? 'w-full mt-lg mb-lg md:mb-0 md:mx-0' : 'w-full mt-lg mb-lg md:mx-0';
   
   if (menuItems.length === 0) return null;
@@ -22,7 +21,7 @@ export function MenuFrame({ menuItems, theme, isLastMenu = false }: Props) {
     <div className={menuClasses}>
       <div className="menu-button border-t">
         {menuItems.map((item, index) => (
-          <MenuButton key={`${item.url}-${index}`} label={item.label} url={item.url} theme={theme} />
+          <MenuButton key={`${item.url}-${index}`} label={item.label} url={item.url} themeConfig={themeConfig} />
         ))}
       </div>
     </div>

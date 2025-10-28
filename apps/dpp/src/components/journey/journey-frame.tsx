@@ -3,12 +3,11 @@ import type { JourneyStage } from '@/types/dpp-data';
 
 interface Props {
   journey: JourneyStage[];
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
   isLast?: boolean;
 }
 
-export function JourneyFrame({ journey, theme, isLast = false }: Props) {
-  const { colors } = theme;
+export function JourneyFrame({ journey, themeConfig, isLast = false }: Props) {
   
   return (
     <div className={`mx-sm md:mx-0 mt-lg mb-lg flex flex-col gap-sm${isLast ? ' mb-0' : ''}`}>

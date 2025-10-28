@@ -8,14 +8,14 @@ import { Icons } from '@v1/ui/icons';
 
 interface Props {
   products: SimilarProduct[];
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
   imageZoom?: number;
   imagePosition?: 'top' | 'center' | 'bottom';
 }
 
 export function ProductCarousel({
   products,
-  theme,
+  themeConfig,
   imageZoom = 100,
   imagePosition = 'center',
 }: Props) {
@@ -136,7 +136,7 @@ export function ProductCarousel({
                 >
                   <ProductCard
                     product={product}
-                    theme={theme}
+                    themeConfig={themeConfig}
                     imageZoom={imageZoom}
                     imagePosition={imagePosition}
                   />

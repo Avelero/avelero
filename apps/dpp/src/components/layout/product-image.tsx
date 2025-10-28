@@ -3,11 +3,11 @@ import type { ThemeConfig } from '@/types/theme-config';
 interface Props {
   image: string;
   alt: string;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
 }
 
-export function ProductImage({ image, alt, theme }: Props) {
-  const { images, colors } = theme;
+export function ProductImage({ image, alt, themeConfig }: Props) {
+  const { images } = themeConfig;
   
   // Convert zoom from percentage to scale value
   const zoomScale = Math.max(1, images.productImageZoom / 100);

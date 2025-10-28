@@ -2,12 +2,12 @@ import type { ThemeConfig } from '@/types/theme-config';
 import { AveleroLogoText } from '../icons/avelero-logo-text';
 
 interface Props {
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
   brandName: string;
 }
 
-export function Header({ theme, brandName }: Props) {
-  const { branding, colors } = theme;
+export function Header({ themeConfig, brandName }: Props) {
+  const { branding } = themeConfig;
   const logoHeight = 18;
   
   return (

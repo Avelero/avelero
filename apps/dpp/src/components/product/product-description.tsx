@@ -8,15 +8,14 @@ interface Props {
   brand: string;
   title: string;
   description: string;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
   isLast?: boolean;
 }
 
-export function ProductDescription({ brand, title, description, theme, isLast = false }: Props) {
+export function ProductDescription({ brand, title, description, themeConfig, isLast = false }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showButton, setShowButton] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
-  const { colors } = theme;
   
   useEffect(() => {
     const checkHeight = () => {
@@ -59,7 +58,7 @@ export function ProductDescription({ brand, title, description, theme, isLast = 
             <div
               className="absolute bottom-0 left-0 right-0 h-[1.5em] pointer-events-none"
               style={{
-                background: `linear-gradient(to bottom, transparent, ${colors.background})`,
+                background: 'linear-gradient(to bottom, transparent, var(--background))',
               }}
             />
           )}

@@ -5,12 +5,11 @@ import { Icons } from '@v1/ui/icons';
 
 interface Props {
   materials: Material[];
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
   isLast?: boolean;
 }
 
-export function MaterialsFrame({ materials, theme, isLast = false }: Props) {
-  const { colors } = theme;
+export function MaterialsFrame({ materials, themeConfig, isLast = false }: Props) {
   
   return (
     <div className={`mx-sm md:mx-0 mt-lg mb-lg flex flex-col gap-sm${isLast ? ' mb-0' : ''}`}>

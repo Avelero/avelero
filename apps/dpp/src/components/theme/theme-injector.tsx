@@ -56,6 +56,11 @@ export function ThemeInjector({ cssVars, googleFontsUrl }: Props) {
     };
   }, [googleFontsUrl]);
 
+  // Only render style tag if there are CSS variables to inject
+  if (!cssVars) {
+    return null;
+  }
+
   return (
     <style jsx global>{`
       :root {
@@ -64,4 +69,3 @@ export function ThemeInjector({ cssVars, googleFontsUrl }: Props) {
     `}</style>
   );
 }
-

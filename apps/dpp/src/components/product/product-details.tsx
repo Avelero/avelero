@@ -7,7 +7,7 @@ interface Props {
   category: string;
   size: string;
   color: string;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
   isLast?: boolean;
 }
 
@@ -18,10 +18,9 @@ export function ProductDetails({
   category,
   size,
   color,
-  theme,
+  themeConfig,
   isLast = false,
 }: Props) {
-  const { colors } = theme;
   const articleNumberClickable = true;
   const manufacturerClickable = true;
   

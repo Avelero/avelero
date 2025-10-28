@@ -4,11 +4,10 @@ import { Icons } from '@v1/ui/icons';
 
 interface Props {
   metric: ImpactMetric;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
 }
 
-export function LargeImpactCard({ metric, theme }: Props) {
-  const { colors } = theme;
+export function LargeImpactCard({ metric, themeConfig }: Props) {
   
   const iconMap = {
     leaf: Icons.Leaf,
@@ -18,7 +17,7 @@ export function LargeImpactCard({ metric, theme }: Props) {
   };
   
   const IconComponent = iconMap[metric.icon];
-  const iconColor = metric.iconColor || colors.primaryGreen;
+  const iconColor = metric.iconColor || 'var(--primary-green)';
   
   return (
     <div

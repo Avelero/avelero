@@ -1,16 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { mockProducts } from '@/lib/mock-data/products';
-import { mockThemes } from '@/lib/mock-data/themes';
-// Theme system temporarily disabled during component-classes refactor
-// import { generateCSSVariables } from '@/lib/theme/css-vars';
-// import {
-//   extractGoogleFontsFromTypography,
-//   generateGoogleFontsUrl,
-//   generateFallbackGoogleFontsUrl,
-//   fetchMultipleFontMetadata,
-// } from '@/lib/theme/google-fonts';
-// import { ThemeInjector } from '@/components/theme/theme-injector';
+import { mockThemeConfigs } from '@/lib/mock-data/theme-config';
+import { mockThemeStyles } from '@/lib/mock-data/theme-styles';
+import { generateThemeCSS } from '@/lib/theme/css-generator';
+import { generateGoogleFontsUrlFromTypography } from '@/lib/theme/google-fonts';
+import { ThemeInjector } from '@/components/theme/theme-injector';
 import { Header } from '@/components/layout/header';
 import { ContentFrame } from '@/components/layout/content-frame';
 import { Footer } from '@/components/layout/footer';
@@ -27,10 +22,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   
   // Get mock data
   const productData = mockProducts[upid];
-  const themeData = mockThemes[brand];
+  const themeConfig = mockThemeConfigs[brand];
   
   // Return default metadata if data doesn't exist
-  if (!productData || !themeData) {
+  if (!productData || !themeConfig) {
     return {
       title: 'Digital Product Passport',
       description: 'View product sustainability information and supply chain data',
@@ -46,29 +41,39 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function DPPPage({ params }: PageProps) {
   const { brand, upid } = await params;
   
-  // Get mock data
+  // Get separated mock data
   const productData = mockProducts[upid];
-  const themeData = mockThemes[brand];
+  const themeConfig = mockThemeConfigs[brand];
+  const themeStyles = mockThemeStyles[brand]; // Optional - can be undefined
   
   // Return 404 if mock data doesn't exist
-  if (!productData || !themeData) {
+  if (!productData || !themeConfig) {
     notFound();
   }
   
-  // Theme injection disabled: do not generate CSS variables or load Google Fonts
+  // Generate CSS variables from theme styles
+  const cssVars = generateThemeCSS(themeStyles);
+  
+  // Generate Google Fonts URL from typography
+  const googleFontsUrl = themeStyles?.typography
+    ? generateGoogleFontsUrlFromTypography(themeStyles.typography)
+    : '';
   
   return (
     <>
+      {/* Theme injection - CSS variables and Google Fonts */}
+      <ThemeInjector cssVars={cssVars} googleFontsUrl={googleFontsUrl} />
+      
       <div className="min-h-screen flex flex-col">
         {/* Header with spacer for fixed positioning */}
         <div style={{ height: 'var(--header-height)' }} />
-        <Header theme={themeData} brandName={productData.brandName} />
+        <Header themeConfig={themeConfig} brandName={productData.brandName} />
         
         {/* Main content */}
-        <ContentFrame data={productData} theme={themeData} />
+        <ContentFrame data={productData} themeConfig={themeConfig} />
         
         {/* Footer */}
-        <Footer theme={themeData} />
+        <Footer themeConfig={themeConfig} />
       </div>
     </>
   );
@@ -81,11 +86,11 @@ export function generateStaticParams() {
     { brand: 'acme', upid: 'ABC123' },
     { brand: 'acme', upid: 'DEF456' },
     { brand: 'acme', upid: 'GHI789' },
-    // Verde Collective
+    // MR MARVIS
     { brand: 'mrmarvis', upid: 'MRM001' },
     { brand: 'mrmarvis', upid: 'MRM002' },
     { brand: 'mrmarvis', upid: 'MRM003' },
-    // Luxora Fashion
+    // Filling Pieces
     { brand: 'fillingpieces', upid: 'FP001' },
     { brand: 'fillingpieces', upid: 'FP002' },
     { brand: 'fillingpieces', upid: 'FP003' },

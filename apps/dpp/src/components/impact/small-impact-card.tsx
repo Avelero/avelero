@@ -4,11 +4,10 @@ import { truncateText } from '@/lib/utils/formatting';
 
 interface Props {
   claim: string;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
 }
 
-export function SmallImpactCard({ claim, theme }: Props) {
-  const { colors } = theme;
+export function SmallImpactCard({ claim, themeConfig }: Props) {
   const truncatedClaim = truncateText(claim, 40);
   
   return (

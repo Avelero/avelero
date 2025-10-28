@@ -6,18 +6,18 @@ import { CTABanner } from '../cta/cta-banner';
 
 interface Props {
   data: DppData;
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
 }
 
-export function ContentFrame({ data, theme }: Props) {
-  const { sections, images } = theme;
+export function ContentFrame({ data, themeConfig }: Props) {
+  const { sections, images } = themeConfig;
   
   return (
     <main className="flex-grow flex flex-col md:pt-lg w-full">
       <div className="flex flex-col">
         {/* Product image and information section */}
         <div className="max-w-container mx-auto w-full md:px-lg">
-          <ImageAndInfo data={data} theme={theme} />
+          <ImageAndInfo data={data} themeConfig={themeConfig} />
         </div>
         
         {/* Carousel wrapper */}
@@ -25,7 +25,7 @@ export function ContentFrame({ data, theme }: Props) {
           <div className="w-full relative overflow-visible">
             <ProductCarousel
               products={data.similarProducts}
-              theme={theme}
+              themeConfig={themeConfig}
               imageZoom={images.carouselImageZoom}
               imagePosition={images.carouselImagePosition}
             />
@@ -35,7 +35,7 @@ export function ContentFrame({ data, theme }: Props) {
         {/* Optional CTA Banner */}
         {sections.showCTABanner && (
           <div className="max-w-container mx-auto w-full md:px-lg">
-            <CTABanner theme={theme} />
+            <CTABanner themeConfig={themeConfig} />
           </div>
         )}
       </div>

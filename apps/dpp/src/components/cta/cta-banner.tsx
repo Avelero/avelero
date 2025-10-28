@@ -1,11 +1,11 @@
 import type { ThemeConfig } from '@/types/theme-config';
 
 interface Props {
-  theme: ThemeConfig;
+  themeConfig: ThemeConfig;
 }
 
-export function CTABanner({ theme }: Props) {
-  const { cta, branding } = theme;
+export function CTABanner({ themeConfig }: Props) {
+  const { cta, branding } = themeConfig;
   
   return (
     <div className="mt-2x mb-3x">

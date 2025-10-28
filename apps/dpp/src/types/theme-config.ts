@@ -23,8 +23,6 @@ export interface ThemeConfig {
     bannerBackgroundImage: string;
     bannerCTAText: string;
     bannerCTAUrl: string;
-    bannerCTABackgroundColor: string;
-    bannerCTATextColor: string;
     bannerShowSubline: boolean;
     bannerSubline: string;
   };

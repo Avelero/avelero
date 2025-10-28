@@ -6,16 +6,6 @@ import type { ThemeStyles } from '@/types/theme-styles';
  * Each brand demonstrates different levels of customization
  */
 export const mockThemeStyles: Record<string, ThemeStyles> = {
-  'acme': {
-    // Minimal overrides - mostly uses default styling
-    colors: {
-      primary: '#1E2040',
-      foreground: '#62637A',
-      background: '#FFFFFF',
-      border: '#E9E9EC',
-      highlight: '#0000FF',
-    },
-  },
   'mrmarvis': {
     // Typography-focused customization with Figtree and Noto Serif Display
     colors: {
@@ -78,6 +68,7 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
     // Component-specific overrides
     'product__title': {
       lineHeight: 1.3,
+      textTransform: 'none', // Override default uppercase
     },
     'impact-card': {
       borderRadius: '0.75rem',
@@ -87,6 +78,14 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
     },
     'journey-card': {
       borderRadius: '0.75rem',
+    },
+    // Banner CTA styling
+    'banner__button': {
+      backgroundColor: '#FFFFFF',
+      color: '#071933',
+    },
+    'banner__subline': {
+      color: '#071933',
     },
   },
   'fillingpieces': {
@@ -154,6 +153,7 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
     'product__title': {
       lineHeight: 0.9,
       letterSpacing: '-0.04em',
+      textTransform: 'lowercase', // Custom text transform
     },
     'product__description': {
       fontSize: '0.875rem',
@@ -180,6 +180,12 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
     'menu-button': {
       borderRadius: '0.125rem',
       borderColor: '#000000',
+    },
+    // Banner CTA styling
+    'banner__button': {
+      backgroundColor: '#000000',
+      color: '#FFFFFF',
+      textTransform: 'lowercase', // Override default uppercase
     },
   },
 };

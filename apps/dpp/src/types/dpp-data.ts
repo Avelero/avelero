@@ -30,7 +30,7 @@ export interface ImpactMetric {
 export interface SimilarProduct {
   image: string;
   name: string;
-  price: string | number;
+  price: number;
   currency?: string;
   url?: string;
 }
@@ -41,7 +41,6 @@ export interface DppData {
   brandName: string;
   productImage: string;
   description: string;
-  brand: string;
   size: string;
   color: string;
   category: string;

@@ -16,7 +16,9 @@ export function InformationFrame({ data, themeConfig }: Props) {
   const { sections } = themeConfig;
   
   // Determine which sections are visible and which is last
+  // ProductDescription is always rendered, so include it in the calculation
   const visibleSections = [
+    'ProductDescription', // Always rendered
     sections.showProductDetails && 'ProductDetails',
     sections.showPrimaryMenu && themeConfig.menus.primary.length > 0 && 'PrimaryMenu',
     sections.showImpact && (data.impactMetrics.length > 0 || data.impactClaims.length > 0) && 'Impact',
@@ -31,11 +33,11 @@ export function InformationFrame({ data, themeConfig }: Props) {
     <div className="flex flex-col overflow-x-hidden relative md:ml-auto md:w-full">
       {/* Product Description Section */}
       <ProductDescription
-        brand={data.brand}
+        brand={data.brandName}
         title={data.title}
         description={data.description}
         themeConfig={themeConfig}
-        isLast={false}
+        isLast={lastSection === 'ProductDescription'}
       />
       
       {/* Product Details Section */}
@@ -75,7 +77,6 @@ export function InformationFrame({ data, themeConfig }: Props) {
       {sections.showMaterials && data.materials.length > 0 && (
         <MaterialsFrame
           materials={data.materials}
-          themeConfig={themeConfig}
           isLast={lastSection === 'Materials'}
         />
       )}

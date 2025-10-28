@@ -56,6 +56,7 @@ export interface ComponentStyleOverride {
   fontFamily?: string;
   lineHeight?: number | string;
   letterSpacing?: string;
+  textTransform?: string;
   
   // Colors
   color?: string;
@@ -109,7 +110,7 @@ export interface ThemeStyles extends DesignTokens {
   'header'?: ComponentStyleOverride;
   'header__text-logo'?: ComponentStyleOverride;
   'footer'?: ComponentStyleOverride;
-  'footer_legal-name'?: ComponentStyleOverride;
+  'footer__legal-name'?: ComponentStyleOverride;
   'footer__social-icons'?: ComponentStyleOverride;
   'product__image'?: ComponentStyleOverride;
   'product__title'?: ComponentStyleOverride;

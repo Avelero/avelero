@@ -1,15 +1,13 @@
 import { Fragment } from 'react';
-import type { ThemeConfig } from '@/types/theme-config';
 import type { Material } from '@/types/dpp-data';
 import { Icons } from '@v1/ui/icons';
 
 interface Props {
   materials: Material[];
-  themeConfig: ThemeConfig;
   isLast?: boolean;
 }
 
-export function MaterialsFrame({ materials, themeConfig, isLast = false }: Props) {
+export function MaterialsFrame({ materials, isLast = false }: Props) {
   
   return (
     <div className={`mx-sm md:mx-0 mt-lg mb-lg flex flex-col gap-sm${isLast ? ' mb-0' : ''}`}>
@@ -19,7 +17,7 @@ export function MaterialsFrame({ materials, themeConfig, isLast = false }: Props
       
       <div className="materials-card border grid grid-cols-[max-content_1fr]">
         {materials.map((material, index) => (
-          <Fragment key={`${material.type}-${material.percentage}`}>
+          <Fragment key={`${material.type}-${material.percentage}-${index}`}>
             <div className="p-md materials-card__percentage">
               {material.percentage}%
             </div>
@@ -33,7 +31,7 @@ export function MaterialsFrame({ materials, themeConfig, isLast = false }: Props
                 </span>
                 
                 {material.certification && (
-                  <span className="inline-flex items-center gap-micro p-micro materials-card__certification">
+                  <span className="inline-flex items-center gap-micro py-micro px-xs materials-card__certification">
                     <Icons.Check className="w-3 h-3" />
                     <span className="!leading-[100%]">
                       Certified

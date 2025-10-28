@@ -55,9 +55,16 @@ export function isGoogleFont(fontFamily: string): boolean {
     'trebuchet ms',
     'impact',
   ];
-  return !localFonts.some((local) =>
-    fontFamily.toLowerCase().includes(local.toLowerCase())
-  );
+  
+  // Parse font-family string to get primary family name
+  const primaryFamily = fontFamily
+    .split(',')[0] // Take first font in stack
+    ?.replace(/['"]/g, '') // Remove quotes
+    ?.trim()
+    ?.toLowerCase() || '';
+  
+  // Check for exact match against local fonts
+  return !localFonts.includes(primaryFamily);
 }
 
 // ============================================================================
@@ -111,19 +118,24 @@ export function extractGoogleFontsFromTypography(
  * @returns Font metadata or null if not found
  */
 export function getFontMetadata(fontFamily: string): GoogleFontMetadata | null {
-  const font = findFont(fontFamily);
-  
-  if (!font) {
+  try {
+    const font = findFont(fontFamily);
+    
+    if (!font) {
+      return null;
+    }
+
+    return {
+      family: font.family,
+      category: font.category,
+      isVariable: font.isVariable,
+      axes: font.axes,
+      variants: font.variants,
+    };
+  } catch (error) {
+    console.warn(`[Google Fonts] Failed to get metadata for font "${fontFamily}":`, error);
     return null;
   }
-
-  return {
-    family: font.family,
-    category: font.category,
-    isVariable: font.isVariable,
-    axes: font.axes,
-    variants: font.variants,
-  };
 }
 
 /**

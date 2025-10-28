@@ -13087,14 +13087,25 @@ export interface FontMetadata {
   export function getFontFallback(familyName: string): string {
     const font = findFont(familyName);
     if (font) {
-      return font.category;
+      // Map non-CSS generic names to valid CSS generic-family names
+      switch (font.category) {
+        case 'display':
+          return 'sans-serif'; // or 'system-ui' for UI fonts
+        case 'handwriting':
+          return 'cursive';
+        case 'monospace':
+        case 'serif':
+          return font.category; // These are already valid CSS generic-family names
+        default:
+          return 'sans-serif';
+      }
     }
     // Heuristic fallback
     const lower = familyName.toLowerCase();
     if (lower.includes('serif') && !lower.includes('sans')) return 'serif';
     if (lower.includes('mono') || lower.includes('code')) return 'monospace';
-    if (lower.includes('display')) return 'display';
-    if (lower.includes('script') || lower.includes('cursive')) return 'handwriting';
+    if (lower.includes('display')) return 'sans-serif'; // Map display to sans-serif
+    if (lower.includes('script') || lower.includes('cursive')) return 'cursive'; // Map handwriting to cursive
     return 'sans-serif';
   }
   

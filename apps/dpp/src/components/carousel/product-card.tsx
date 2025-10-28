@@ -1,15 +1,13 @@
-import type { ThemeConfig } from '@/types/theme-config';
 import type { SimilarProduct } from '@/types/dpp-data';
 import { formatPrice } from '@/lib/utils/formatting';
 
 interface Props {
   product: SimilarProduct;
-  themeConfig: ThemeConfig;
   imageZoom?: number;
   imagePosition?: 'top' | 'center' | 'bottom';
 }
 
-export function ProductCard({ product, themeConfig, imageZoom = 100, imagePosition = 'center' }: Props) {
+export function ProductCard({ product, imageZoom = 100, imagePosition = 'center' }: Props) {
   
   // Convert zoom from percentage to scale value
   const zoomScale = Math.max(1, imageZoom / 100);

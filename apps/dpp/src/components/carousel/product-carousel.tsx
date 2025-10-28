@@ -33,7 +33,7 @@ export function ProductCarousel({
 
     // Get the computed padding-inline value from the content element
     const computedStyle = window.getComputedStyle(contentRef.current);
-    const paddingInline = computedStyle.paddingInline || computedStyle.paddingLeft;
+    const paddingInline = computedStyle.paddingInlineStart || computedStyle.paddingInline || computedStyle.paddingLeft;
     const paddingValue = Number.parseFloat(paddingInline);
 
     // Set end spacer width to padding minus 12px (gap)
@@ -136,7 +136,6 @@ export function ProductCarousel({
                 >
                   <ProductCard
                     product={product}
-                    themeConfig={themeConfig}
                     imageZoom={imageZoom}
                     imagePosition={imagePosition}
                   />

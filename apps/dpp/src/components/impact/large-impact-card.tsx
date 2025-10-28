@@ -11,13 +11,21 @@ export function LargeImpactCard({ metric, themeConfig }: Props) {
   
   const iconMap = {
     leaf: Icons.Leaf,
-    drop: Icons.Droplet,
+    drop: Icons.Droplets,
     recycle: Icons.Recycle,
     factory: Icons.Factory,
   };
   
-  const IconComponent = iconMap[metric.icon];
-  const iconColor = metric.iconColor || 'var(--primary-green)';
+  // Default colors per icon type
+  const iconColorMap = {
+    leaf: '#03A458',     // Green
+    drop: '#0000FF',     // Blue
+    recycle: '#0000FF',  // Blue
+    factory: '#6B7280',  // Grey-ish
+  };
+  
+  const IconComponent = iconMap[metric.icon] ?? Icons.Leaf; // Safe fallback
+  const iconColor = metric.iconColor || iconColorMap[metric.icon] || iconColorMap.leaf;
   
   return (
     <div

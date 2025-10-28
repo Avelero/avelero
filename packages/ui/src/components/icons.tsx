@@ -18,7 +18,7 @@ import {
   ChevronsRight,
   ChevronsUpDown,
   Copy,
-  Droplet,
+  Droplets,
   EllipsisVertical,
   Factory,
   Facebook,
@@ -284,7 +284,7 @@ export const Icons = {
   StatusArchived,
   // DPP Icons
   Leaf,
-  Droplet,
+  Droplets,
   Recycle,
   Factory,
   Instagram,

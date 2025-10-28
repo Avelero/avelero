@@ -16,7 +16,7 @@ export function ImageAndInfo({ data, themeConfig }: Props) {
         <div className="md:sticky md:top-[95.6px]">
           <ProductImage
             image={data.productImage}
-            alt={`${data.brand} ${data.title}`}
+            alt={`${data.brandName} ${data.title}`}
             themeConfig={themeConfig}
           />
         </div>

@@ -17,11 +17,26 @@ export function ProductDescription({ brand, title, description, themeConfig, isL
   const [showButton, setShowButton] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
   
+  // Generate stable ID for accessibility
+  const descriptionId = `product-description-${brand.replace(/\s+/g, '-').toLowerCase()}-${title.replace(/\s+/g, '-').toLowerCase()}`;
+  
   useEffect(() => {
     const checkHeight = () => {
       if (textRef.current) {
         const textHeight = textRef.current.scrollHeight;
-        const containerHeight = 48; // 3em (approximately 2 lines with 1.5 line-height)
+        
+        // Calculate container height from computed font size
+        let containerHeight = 48; // fallback
+        try {
+          const computedStyle = window.getComputedStyle(textRef.current);
+          const fontSize = Number.parseFloat(computedStyle.fontSize);
+          if (Number.isFinite(fontSize) && fontSize > 0) {
+            containerHeight = fontSize * 3; // 3em
+          }
+        } catch (error) {
+          console.warn('Failed to compute font size for overflow check:', error);
+        }
+        
         setShowButton(textHeight > containerHeight);
       }
     };
@@ -46,7 +61,10 @@ export function ProductDescription({ brand, title, description, themeConfig, isL
       </h1>
       
       <div className="description-wrapper">
-      <div className={`relative overflow-hidden ${isExpanded ? 'max-h-[1000px]' : 'max-h-[3em]'}`}>
+        <div 
+          id={descriptionId}
+          className={`relative overflow-hidden ${isExpanded ? 'max-h-[1000px]' : 'max-h-[3em]'}`}
+        >
           <p
             ref={textRef}
             className="product__description"
@@ -69,6 +87,8 @@ export function ProductDescription({ brand, title, description, themeConfig, isL
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
             className="product__show-more text-[12px] leading-[100%] flex items-center gap-micro cursor-pointer pt-sm"
+            aria-expanded={isExpanded}
+            aria-controls={descriptionId}
           >
             <span>{isExpanded ? 'SHOW LESS' : 'SHOW MORE'}</span>
             <Icons.ChevronDown className={`w-[14px] h-[14px] ${isExpanded ? 'rotate-180' : ''}`} />

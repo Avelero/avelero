@@ -1,13 +1,12 @@
-import type { ThemeConfig } from '@/types/theme-config';
 import { Icons } from '@v1/ui/icons';
 
 interface Props {
   label: string;
   url: string;
-  themeConfig: ThemeConfig;
+  // themeConfig: ThemeConfig; // Reserved for future theme customization
 }
 
-export function MenuButton({ label, url, themeConfig }: Props) {
+export function MenuButton({ label, url }: Props) {
   
   // Check if URL is external
   const isExternal = url.startsWith('http://') || url.startsWith('https://');

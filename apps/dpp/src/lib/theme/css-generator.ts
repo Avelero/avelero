@@ -7,6 +7,19 @@ import type { ThemeStyles, ComponentStyleOverride } from '@/types/theme-styles';
 import { getFontFallback } from '@v1/selections';
 
 /**
+ * Properties that should receive 'px' units when numeric
+ */
+const PX_UNIT_PROPERTIES = new Set([
+  'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
+  'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+  'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  'top', 'left', 'right', 'bottom',
+  'borderWidth', 'fontSize', 'gap',
+  'borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius', 
+  'borderBottomLeftRadius', 'borderBottomRightRadius'
+]);
+
+/**
  * Converts camelCase property names to kebab-case CSS property names
  */
 function camelToKebab(str: string): string {
@@ -45,14 +58,14 @@ function generateComponentCSS(
         cssValue = `"${value}", ${fallback}`;
       }
       
-      // Add units for numeric values (except lineHeight, opacity, etc.)
-      if (
-        typeof value === 'number' && 
-        !['lineHeight', 'opacity'].includes(key) &&
-        !key.includes('Weight') &&
-        !key.includes('Spacing')
-      ) {
-        cssValue = `${value}px`;
+      // Add units for numeric values based on property type
+      if (typeof value === 'number') {
+        if (key === 'letterSpacing') {
+          cssValue = `${value}px`;
+        } else if (PX_UNIT_PROPERTIES.has(key)) {
+          cssValue = `${value}px`;
+        }
+        // lineHeight, opacity, fontWeight remain unitless
       }
       
       vars.push(`${cssVarName}: ${cssValue}`);
@@ -98,7 +111,10 @@ function generateDesignTokenCSS(themeStyles: ThemeStyles): string[] {
           vars.push(`--type-${scaleKey}-line-height: ${config.lineHeight}`);
         }
         if (config.letterSpacing !== undefined) {
-          vars.push(`--type-${scaleKey}-letter-spacing: ${config.letterSpacing}`);
+          const letterSpacingValue = typeof config.letterSpacing === 'number' 
+            ? `${config.letterSpacing}px` 
+            : config.letterSpacing;
+          vars.push(`--type-${scaleKey}-letter-spacing: ${letterSpacingValue}`);
         }
       }
     }

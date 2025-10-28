@@ -2,6 +2,7 @@ import type { ThemeConfig } from '@/types/theme-config';
 import { MenuButton } from './menu-button';
 
 interface MenuItem {
+  id?: string; // Stable unique identifier
   label: string;
   url: string;
 }
@@ -21,7 +22,11 @@ export function MenuFrame({ menuItems, themeConfig, isLastMenu = false }: Props)
     <div className={menuClasses}>
       <div className="menu-button border-t">
         {menuItems.map((item, index) => (
-          <MenuButton key={`${item.url}-${index}`} label={item.label} url={item.url} themeConfig={themeConfig} />
+          <MenuButton 
+            key={item.id || item.url} 
+            label={item.label} 
+            url={item.url} 
+          />
         ))}
       </div>
     </div>

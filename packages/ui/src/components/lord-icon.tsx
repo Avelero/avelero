@@ -4,6 +4,9 @@ import Lottie from "lottie-react";
 import type { LottieRefCurrentProps } from "lottie-react";
 import type { CSSProperties } from "react";
 
+// Re-export the type for consumers
+export type { LottieRefCurrentProps } from "lottie-react";
+
 interface LordIconProps {
   animationData: object; // The imported JSON
   loop?: boolean;

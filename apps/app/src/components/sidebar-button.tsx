@@ -1,8 +1,7 @@
 "use client";
 
 import { cn } from "@v1/ui/cn";
-import { LordIcon } from "@v1/ui/lord-icon";
-import type { LottieRefCurrentProps } from "lottie-react";
+import { LordIcon, type LottieRefCurrentProps } from "@v1/ui/lord-icon";
 import Link from "next/link";
 import { useRef } from "react";
 

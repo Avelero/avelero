@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import Lottie from 'lottie-react';
-import type { LottieRefCurrentProps } from 'lottie-react';
-import type { CSSProperties } from 'react';
+import Lottie from "lottie-react";
+import type { LottieRefCurrentProps } from "lottie-react";
+import type { CSSProperties } from "react";
 
 interface LordIconProps {
   animationData: object; // The imported JSON
@@ -17,13 +17,13 @@ interface LordIconProps {
 
 /**
  * LordIcon - A wrapper component for Lottie animations from Lordicon
- * 
+ *
  * @example
  * ```tsx
  * import { LordIcon } from '@v1/ui/lord-icon';
  * import animationData from '@/public/animations/icon.json';
- * 
- * <LordIcon 
+ *
+ * <LordIcon
  *   animationData={animationData}
  *   style={{ width: 48, height: 48 }}
  * />
@@ -45,11 +45,10 @@ export function LordIcon({
       loop={loop}
       autoplay={autoplay}
       style={style}
-      className={`${className || ''} [&_path]:!fill-current [&_ellipse]:!stroke-current [&_path[stroke]]:!stroke-current`.trim()}
+      className={`${className || ""} [&_path]:!fill-current [&_ellipse]:!stroke-current [&_path[stroke]]:!stroke-current`.trim()}
       lottieRef={lottieRef}
       onComplete={onComplete}
       onLoopComplete={onLoopComplete}
     />
   );
 }
-

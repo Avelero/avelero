@@ -68,7 +68,6 @@ export function InformationFrame({ data, themeConfig }: Props) {
         <ImpactFrame
           metrics={data.impactMetrics}
           claims={data.impactClaims}
-          themeConfig={themeConfig}
           isLast={lastSection === 'Impact'}
         />
       )}

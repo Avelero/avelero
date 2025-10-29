@@ -9,7 +9,13 @@ import { IdentifiersSection } from "@/components/passports/form/sidebar/identifi
 
 export default function CreatePassportsPage() {
   return (
-    <form id="passport-form">
+    <form 
+      id="passport-form" 
+      onSubmit={(e) => {
+        e.preventDefault();
+        // TODO: Wire up submission logic
+      }}
+    >
       <PassportFormScaffold
         title="Create passport"
         left={

@@ -41,11 +41,32 @@ export function ProductDescription({ brand, title, description, themeConfig, isL
       }
     };
     
+    // Initial check
     checkHeight();
-    setTimeout(checkHeight, 100);
     
+    // Recheck when fonts finish loading (handles branded fonts that load after initial render)
+    const handleFontsLoaded = () => {
+      checkHeight();
+    };
+    
+    // Listen for font loading completion
+    if (document.fonts) {
+      document.fonts.addEventListener('loadingdone', handleFontsLoaded);
+    }
+    
+    // Fallback timeout for environments that don't support document.fonts
+    const timeoutId = setTimeout(checkHeight, 100);
+    
+    // Recheck on window resize
     window.addEventListener('resize', checkHeight);
-    return () => window.removeEventListener('resize', checkHeight);
+    
+    return () => {
+      if (document.fonts) {
+        document.fonts.removeEventListener('loadingdone', handleFontsLoaded);
+      }
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', checkHeight);
+    };
   }, [description]);
   
   return (

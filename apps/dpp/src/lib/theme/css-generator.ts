@@ -14,7 +14,7 @@ const PX_UNIT_PROPERTIES = new Set([
   'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
   'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
   'top', 'left', 'right', 'bottom',
-  'borderWidth', 'fontSize', 'gap',
+  'borderWidth', 'fontSize', 'gap', 'rowGap', 'columnGap',
   'borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius', 
   'borderBottomLeftRadius', 'borderBottomRightRadius'
 ]);

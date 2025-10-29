@@ -5,11 +5,11 @@
  */
 
 export interface TypographyScale {
-  fontSize?: string;
+  fontSize?: string | number;
   fontWeight?: number;
   fontFamily?: string;
   lineHeight?: number | string;
-  letterSpacing?: string;
+  letterSpacing?: string | number;
 }
 
 export interface DesignTokens {
@@ -51,43 +51,57 @@ export interface DesignTokens {
 
 export interface ComponentStyleOverride {
   // Typography
-  fontSize?: string;
+  fontSize?: string | number;
   fontWeight?: number;
   fontFamily?: string;
   lineHeight?: number | string;
-  letterSpacing?: string;
+  letterSpacing?: string | number;
   textTransform?: string;
+  textDecoration?: string;
+  whiteSpace?: string;
   
   // Colors
   color?: string;
   backgroundColor?: string;
+  backgroundImage?: string;
   
   // Borders
   border?: string;
   borderColor?: string;
-  borderWidth?: string;
+  borderWidth?: string | number;
   borderStyle?: string;
-  borderRadius?: string;
+  borderRadius?: string | number;
   
   // Layout
-  width?: string;
-  height?: string;
-  minWidth?: string;
-  minHeight?: string;
-  maxWidth?: string;
-  maxHeight?: string;
+  display?: string;
+  position?: string;
+  top?: string | number;
+  right?: string | number;
+  bottom?: string | number;
+  left?: string | number;
+  width?: string | number;
+  height?: string | number;
+  minWidth?: string | number;
+  minHeight?: string | number;
+  maxWidth?: string | number;
+  maxHeight?: string | number;
+  overflow?: string;
+  zIndex?: number;
   
   // Spacing
-  padding?: string;
-  paddingTop?: string;
-  paddingRight?: string;
-  paddingBottom?: string;
-  paddingLeft?: string;
-  margin?: string;
-  marginTop?: string;
-  marginRight?: string;
-  marginBottom?: string;
-  marginLeft?: string;
+  padding?: string | number;
+  paddingTop?: string | number;
+  paddingRight?: string | number;
+  paddingBottom?: string | number;
+  paddingLeft?: string | number;
+  margin?: string | number;
+  marginTop?: string | number;
+  marginRight?: string | number;
+  marginBottom?: string | number;
+  marginLeft?: string | number;
+  gap?: string | number;
+  rowGap?: string | number;
+  columnGap?: string | number;
   
   // Flexbox
   flexDirection?: string;
@@ -95,10 +109,12 @@ export interface ComponentStyleOverride {
   justifyContent?: string;
   flex?: string;
   
-  // Other
+  // Visual Effects
   opacity?: number;
   transform?: string;
   transition?: string;
+  boxShadow?: string;
+  outline?: string;
 }
 
 /**

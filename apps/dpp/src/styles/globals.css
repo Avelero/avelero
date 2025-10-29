@@ -327,7 +327,7 @@
     line-height: var(--impact-card-eco-claim-line-height, 1.25);
     letter-spacing: var(--impact-card-eco-claim-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--impact-card-eco-claim-color, var(--primary));
-    text-transform: var(--impact-card-eco-claim-text, none);
+    text-transform: var(--impact-card-eco-claim-text-transform, none);
   }
 
   /* Materials */

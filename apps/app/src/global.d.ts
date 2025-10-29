@@ -39,6 +39,11 @@ declare module "*.ico" {
   export default content;
 }
 
+declare module "*.json" {
+  const content: object;
+  export default content;
+}
+
 // For imports from public directory with public/ prefix
 declare module "public/*.svg" {
   const content: string;

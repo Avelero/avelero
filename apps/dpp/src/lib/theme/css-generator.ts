@@ -4,7 +4,7 @@
  */
 
 import type { ThemeStyles, ComponentStyleOverride } from '@/types/theme-styles';
-import { getFontFallback } from '@v1/selections';
+import { getFontFallback } from '@v1/selections/fonts';
 
 /**
  * Properties that should receive 'px' units when numeric

@@ -3,7 +3,7 @@
  * Consolidates all Google Fonts functionality in one place
  */
 
-import { fonts, findFont, getFontFallback, type FontMetadata } from '@v1/selections';
+import { fonts, findFont, getFontFallback, type FontMetadata } from '@v1/selections/fonts';
 
 // ============================================================================
 // TYPES
@@ -63,6 +63,11 @@ export function isGoogleFont(fontFamily: string): boolean {
     ?.trim()
     ?.toLowerCase() || '';
   
+  // Return false for empty or whitespace-only input
+  if (!primaryFamily) {
+    return false;
+  }
+  
   // Check for exact match against local fonts
   return !localFonts.includes(primaryFamily);
 }
@@ -100,8 +105,17 @@ export function extractGoogleFontsFromTypography(
 
   for (const scale of typescales) {
     const scaleConfig = typography[scale];
-    if (scaleConfig?.fontFamily && isGoogleFont(scaleConfig.fontFamily)) {
-      fontSet.add(scaleConfig.fontFamily);
+    if (scaleConfig?.fontFamily) {
+      // Extract primary font name from font stack
+      const primaryFont = scaleConfig.fontFamily
+        .split(',')[0] // Take first font in stack
+        ?.replace(/['"]/g, '') // Remove quotes
+        ?.trim() || '';
+      
+      // Only add if it's a valid Google Font (check the normalized primary font)
+      if (primaryFont && isGoogleFont(primaryFont)) {
+        fontSet.add(primaryFont);
+      }
     }
   }
 

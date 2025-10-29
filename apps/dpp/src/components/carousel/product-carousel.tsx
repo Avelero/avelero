@@ -31,13 +31,14 @@ export function ProductCarousel({
   const updateEndSpacer = useCallback(() => {
     if (!contentRef.current || !endSpacerRef.current) return;
 
-    // Get the computed padding-inline value from the content element
+    // Get the computed padding-inline and gap values from the content element
     const computedStyle = window.getComputedStyle(contentRef.current);
     const paddingInline = computedStyle.paddingInlineStart || computedStyle.paddingInline || computedStyle.paddingLeft;
     const paddingValue = Number.parseFloat(paddingInline);
+    const gapValue = Number.parseFloat(computedStyle.gap) || 0;
 
-    // Set end spacer width to padding minus 12px (gap)
-    const spacerWidth = Math.max(paddingValue - 12, 1);
+    // Set end spacer width to padding minus gap
+    const spacerWidth = Math.max(paddingValue - gapValue, 1);
     endSpacerRef.current.style.width = `${spacerWidth}px`;
   }, []);
 
@@ -53,13 +54,17 @@ export function ProductCarousel({
 
   // Scroll handler - travels 2 cards + 2 gaps
   const scroll = useCallback((direction: 'left' | 'right') => {
-    if (!scrollRef.current) return;
+    if (!scrollRef.current || !contentRef.current) return;
 
     const card = scrollRef.current.querySelector('.product-item') as HTMLElement;
     if (!card) return;
 
-    // Calculate distance: 2 cards + 2 gaps (12px each = 24px total)
-    const scrollDistance = (card.getBoundingClientRect().width + 12) * 2;
+    // Get the computed gap value from the content element
+    const computedStyle = window.getComputedStyle(contentRef.current);
+    const gapValue = Number.parseFloat(computedStyle.gap) || 0;
+
+    // Calculate distance: 2 cards + 2 gaps
+    const scrollDistance = (card.getBoundingClientRect().width + gapValue) * 2;
     const current = scrollRef.current.scrollLeft;
     const maxScroll = scrollRef.current.scrollWidth - scrollRef.current.clientWidth;
 

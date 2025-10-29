@@ -1,8 +1,9 @@
 "use client";
 
 import { cn } from "@v1/ui/cn";
+import { LordIcon, type LottieRefCurrentProps } from "@v1/ui/lord-icon";
 import Link from "next/link";
-import type { ComponentType } from "react";
+import { useRef } from "react";
 
 interface ItemData {
   path: string;
@@ -10,11 +11,9 @@ interface ItemData {
   children?: { path: string; name: string }[];
 }
 
-type IconType = ComponentType<{ size?: number; className?: string }>;
-
 interface SidebarButtonProps {
   item: ItemData;
-  icon: IconType;
+  animationData: object;
   isActive: boolean;
   isExpanded: boolean;
   isItemExpanded: boolean;
@@ -24,40 +23,74 @@ interface SidebarButtonProps {
 
 export function SidebarButton({
   item,
-  icon: Icon,
+  animationData,
   isActive,
   isExpanded,
   isItemExpanded, // reserved for nested items
   onToggle, // reserved for nested items
   onSelect,
 }: SidebarButtonProps) {
+  const lottieRef = useRef<LottieRefCurrentProps>(null);
+
+  const handleMouseEnter = () => {
+    // Stop and reset to beginning, then play once
+    lottieRef.current?.stop();
+    lottieRef.current?.play();
+  };
+
+  const handleMouseLeave = () => {
+    // Stop and reset to beginning so it's ready for next hover
+    lottieRef.current?.stop();
+  };
+
   return (
-    <div className="group relative h-10">
+    <div
+      className="group relative h-10"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <Link
         prefetch
         href={item.path}
         onClick={() => onSelect?.()}
         aria-current={isActive ? "page" : undefined}
-        className="relative block h-10 overflow-hidden"
+        className="relative block h-10"
       >
-        {/* Expanding rail: 40px when collapsed, full inner width when expanded */}
-        <div
-          className={cn(
-            "absolute top-0 h-10 border border-transparent",
-            "transition-all duration-150 ease-out",
-            isExpanded ? "left-0 right-0" : "left-0 w-10",
-            isActive ? "bg-accent-blue" : "group-hover:bg-accent",
-          )}
-        />
+        {/* Expanding rail with gradient border and background when active */}
+        {isActive ? (
+          <div
+            className="absolute top-0 left-0 right-0 h-10"
+            style={{
+              background: "linear-gradient(90deg, hsl(240, 32%, 89%) 0%, hsl(240, 11%, 89%) 100%)",
+            }}
+          >
+            <div
+              className="absolute inset-[1px]"
+              style={{
+                background: "linear-gradient(90deg, hsl(240, 29%, 97%) 0%, hsl(240, 8%, 97%) 100%)",
+              }}
+            />
+          </div>
+        ) : (
+          <div className="absolute top-0 left-0 right-0 h-10 border border-transparent" />
+        )}
 
         {/* Icon block: fixed 40×40, anchored to inner left edge */}
-        <div className="absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center text-primary pointer-events-none">
-          <Icon
-            size={20}
-            className={cn(
-              "transition-colors duration-150 ease-out",
-              isActive ? "text-brand" : "group-hover:text-primary",
-            )}
+        <div
+          className={cn(
+            "absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center pointer-events-none",
+            "transition-colors duration-200 ease-out",
+            isActive
+            ? "text-primary"
+            : "text-secondary group-hover:text-primary",
+          )}
+        >
+          <LordIcon
+            animationData={animationData}
+            style={{ width: 20, height: 20 }}
+            loop={false}
+            autoplay={false}
+            lottieRef={lottieRef}
           />
         </div>
 
@@ -72,10 +105,10 @@ export function SidebarButton({
           <span
             className={cn(
               "text-sm leading-[21px] font-medium truncate",
+              "transition-colors duration-200 ease-out",
               isActive
-                ? "text-brand font-medium"
+                ? "text-primary"
                 : "text-secondary group-hover:text-primary",
-              "transition-colors duration-150 ease-out",
             )}
           >
             {item.name}

@@ -6,11 +6,10 @@ import { SmallImpactFrame } from './small-impact-frame';
 interface Props {
   metrics: ImpactMetric[];
   claims: string[];
-  themeConfig: ThemeConfig;
   isLast?: boolean;
 }
 
-export function ImpactFrame({ metrics, claims, themeConfig, isLast = false }: Props) {
+export function ImpactFrame({ metrics, claims, isLast = false }: Props) {
   
   return (
     <div className={`px-sm md:px-0 pt-lg pb-lg flex flex-col gap-sm${isLast ? ' pb-0' : ''}`}>
@@ -21,13 +20,13 @@ export function ImpactFrame({ metrics, claims, themeConfig, isLast = false }: Pr
       <div className="flex flex-col gap-sm">
         <div className="flex flex-col gap-sm">
           {metrics.map((metric) => (
-            <LargeImpactCard key={metric.type} metric={metric} themeConfig={themeConfig} />
+            <LargeImpactCard key={metric.type} metric={metric} />
           ))}
         </div>
         
         {claims.length > 0 && (
           <div className="overflow-visible w-full">
-            <SmallImpactFrame claims={claims} themeConfig={themeConfig} />
+            <SmallImpactFrame claims={claims} />
           </div>
         )}
       </div>

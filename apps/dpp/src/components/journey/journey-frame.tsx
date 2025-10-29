@@ -41,7 +41,7 @@ export function JourneyFrame({ journey, themeConfig, isLast = false }: Props) {
                   </span>
                   
                   {stage.companies.map((company) => (
-                    <div key={`${company.name}-${company.location}`} className="flex items-center gap-xs journey-card__operator">
+                    <div key={`${stageIndex}-${company.name}-${company.location}`} className="flex items-center gap-xs journey-card__operator">
                       <span>
                         {company.name} • {company.location}
                       </span>

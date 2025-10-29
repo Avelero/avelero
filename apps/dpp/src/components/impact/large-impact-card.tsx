@@ -4,10 +4,9 @@ import { Icons } from '@v1/ui/icons';
 
 interface Props {
   metric: ImpactMetric;
-  themeConfig: ThemeConfig;
 }
 
-export function LargeImpactCard({ metric, themeConfig }: Props) {
+export function LargeImpactCard({ metric }: Props) {
   
   const iconMap = {
     leaf: Icons.Leaf,

@@ -56,7 +56,6 @@ export function ThemeInjector({ cssVars, googleFontsUrl }: Props) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = googleFontsUrl;
-    link.id = 'google-fonts-theme';
 
     // Increment preconnect reference counts
     preconnectReferenceCount.set('preconnect-google-fonts', (preconnectReferenceCount.get('preconnect-google-fonts') || 0) + 1);
@@ -77,7 +76,7 @@ export function ThemeInjector({ cssVars, googleFontsUrl }: Props) {
       const newFontCount = fontReferenceCount.get(googleFontsUrl) || 0;
       if (newFontCount <= 1) {
         fontReferenceCount.delete(googleFontsUrl);
-        document.getElementById('google-fonts-theme')?.remove();
+        document.querySelector(`link[href="${googleFontsUrl}"]`)?.remove();
       } else {
         fontReferenceCount.set(googleFontsUrl, newFontCount - 1);
       }

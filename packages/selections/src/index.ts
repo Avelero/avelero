@@ -9,6 +9,7 @@ export * from "./categories";
 export * from "./certifications";
 export * from "./colors";
 export * from "./countries";
+export * from "./fonts";
 export * from "./production-steps";
 export * from "./seasons";
 export * from "./sizes";

@@ -9,23 +9,25 @@ import { IdentifiersSection } from "@/components/passports/form/sidebar/identifi
 
 export default function CreatePassportsPage() {
   return (
-    <PassportFormScaffold
-      title="Create passport"
-      left={
-        <>
-          <BasicInfoSection />
-          <OrganizationSection />
-          <EnvironmentSection />
-          <MaterialsSection />
-          <JourneySection />
-        </>
-      }
-      right={
-        <>
-          <StatusSection />
-          <IdentifiersSection />
-        </>
-      }
-    />
+    <form id="passport-form">
+      <PassportFormScaffold
+        title="Create passport"
+        left={
+          <>
+            <BasicInfoSection />
+            <OrganizationSection />
+            <EnvironmentSection />
+            <MaterialsSection />
+            <JourneySection />
+          </>
+        }
+        right={
+          <>
+            <StatusSection />
+            <IdentifiersSection />
+          </>
+        }
+      />
+    </form>
   );
 }

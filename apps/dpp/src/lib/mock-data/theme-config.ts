@@ -1,0 +1,174 @@
+import type { ThemeConfig } from '@/types/theme-config';
+
+/**
+ * Mock theme configurations for development
+ * Contains only non-style configuration data (logos, menus, CTAs, social links, etc.)
+ */
+export const mockThemeConfigs: Record<string, ThemeConfig> = {
+  'acme': {
+    branding: {
+      headerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746526939/aveleroApparelLogoBlack_iuhow7.png',
+      bannerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746527118/aveleroApparelLogoWhite_b5drvc.png',
+      bannerLogoHeight: 40,
+    },
+    menus: {
+      primary: [
+        { label: 'Size Guide', url: '#size-guide' },
+        { label: 'Care Instructions', url: '#care-instructions' },
+      ],
+      secondary: [
+        { label: 'Sustainability Report', url: '#sustainability' },
+        { label: 'Certifications', url: '#certifications' },
+        { label: 'Returns & Warranty', url: '#returns' },
+      ],
+    },
+    cta: {
+      bannerBackgroundImage: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745934275/cta-banner-background_o3vjjw.jpg',
+      bannerCTAText: 'DISCOVER MORE',
+      bannerCTAUrl: 'https://example.com',
+      bannerShowSubline: false,
+      bannerSubline: '',
+    },
+    social: {
+      legalName: 'Acme Studios',
+      showInstagram: true,
+      showFacebook: true,
+      showTwitter: true,
+      showPinterest: false,
+      showTiktok: false,
+      useIcons: false,
+      instagramUrl: 'https://instagram.com/acmestudios',
+      facebookUrl: 'https://facebook.com/acmestudios',
+      twitterUrl: 'https://twitter.com/acmestudios',
+      pinterestUrl: '#',
+      tiktokUrl: '#',
+    },
+    sections: {
+      showProductDetails: true,
+      showPrimaryMenu: true,
+      showSecondaryMenu: true,
+      showImpact: true,
+      showMaterials: true,
+      showJourney: true,
+      showSimilarProducts: true,
+      showCTABanner: true,
+    },
+    images: {
+      productImageZoom: 100,
+      productImagePosition: 'top',
+      carouselImageZoom: 100,
+      carouselImagePosition: 'top',
+    },
+  },
+  'mrmarvis': {
+    branding: {
+      headerLogoUrl: 'https://i.imgur.com/5h0kn61.png',
+      bannerLogoUrl: '',
+      bannerLogoHeight: 42,
+    },
+    menus: {
+      primary: [
+        { label: 'Care', url: 'https://www.mrmarvis.com/nl/care-guide?collection=c9d41806-cfee-40dc-86f1-55e9fce859af' },
+        { label: 'Recycling', url: 'https://www.mrmarvis.com/nl/mr-marvis-x-sellpy' },
+        { label: 'Exchange & Returns', url: 'https://www.mrmarvis.com/nl/exchanges-returns' },
+      ],
+      secondary: [
+        { label: 'Our Purpose', url: 'https://www.mrmarvis.com/nl/our-purpose' },
+        { label: 'Action Reports', url: 'https://www.mrmarvis.com/nl/action-report' },
+        { label: 'Support', url: 'https://www.mrmarvis.com/nl/support' },
+      ],
+    },
+    cta: {
+      bannerBackgroundImage: 'https://cdn.mrmarvis.com/images/yb9xf4jc/production/0ea2184a9b494f8ab60d440f178de577589fa776-3900x1300.jpg',
+      bannerCTAText: 'Shop nu',
+      bannerCTAUrl: 'https://www.mrmarvis.com/nl/collections/easies',
+      bannerShowSubline: true,
+      bannerSubline: 'Ontdek The Easies: de ultieme sweatpants',
+    },
+    social: {
+      legalName: 'MR MARVIS Netherlands B.V.',
+      showInstagram: true,
+      showFacebook: true,
+      showTwitter: false,
+      showPinterest: false,
+      showTiktok: true,
+      useIcons: true,
+      instagramUrl: 'https://www.instagram.com/mrmarvis',
+      facebookUrl: 'https://www.facebook.com/MRMARVIS.official',
+      twitterUrl: '',
+      pinterestUrl: '',
+      tiktokUrl: 'https://www.tiktok.com/@mrmarvis_',
+    },
+    sections: {
+      showProductDetails: true,
+      showPrimaryMenu: true,
+      showSecondaryMenu: true,
+      showImpact: true,
+      showMaterials: true,
+      showJourney: true,
+      showSimilarProducts: true,
+      showCTABanner: true,
+    },
+    images: {
+      productImageZoom: 100,
+      productImagePosition: 'center',
+      carouselImageZoom: 100,
+      carouselImagePosition: 'center',
+    },
+  },
+  'fillingpieces': {
+    branding: {
+      headerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746526939/aveleroApparelLogoBlack_iuhow7.png',
+      bannerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746527118/aveleroApparelLogoWhite_b5drvc.png',
+      bannerLogoHeight: 38,
+    },
+    menus: {
+      primary: [
+        { label: 'FIT GUIDE', url: '#size-guide' },
+        { label: 'STYLING TIPS', url: '#styling' },
+      ],
+      secondary: [
+        { label: 'CRAFTMANSHIP', url: '#craftsmanship' },
+        { label: 'SUSTAINABILITY', url: '#sustainability' },
+        { label: 'RETURNS', url: '#returns' },
+      ],
+    },
+    cta: {
+      bannerBackgroundImage: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745934275/cta-banner-background_o3vjjw.jpg',
+      bannerCTAText: 'VIEW MORE',
+      bannerCTAUrl: 'https://example.com',
+      bannerShowSubline: false,
+      bannerSubline: '',
+    },
+    social: {
+      legalName: 'Luxora Fashion',
+      showInstagram: true,
+      showFacebook: false,
+      showTwitter: true,
+      showPinterest: true,
+      showTiktok: true,
+      useIcons: true,
+      instagramUrl: 'https://instagram.com/luxorafashion',
+      facebookUrl: '#',
+      twitterUrl: 'https://twitter.com/luxorafashion',
+      pinterestUrl: 'https://pinterest.com/luxorafashion',
+      tiktokUrl: 'https://tiktok.com/@luxorafashion',
+    },
+    sections: {
+      showProductDetails: true,
+      showPrimaryMenu: true,
+      showSecondaryMenu: true,
+      showImpact: true,
+      showMaterials: true,
+      showJourney: true,
+      showSimilarProducts: true,
+      showCTABanner: true,
+    },
+    images: {
+      productImageZoom: 100,
+      productImagePosition: 'top',
+      carouselImageZoom: 100,
+      carouselImagePosition: 'top',
+    },
+  },
+};

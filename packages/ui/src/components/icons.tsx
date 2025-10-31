@@ -1,8 +1,11 @@
+import { DropIcon } from "@phosphor-icons/react/dist/ssr/Drop";
+import { LeafIcon } from "@phosphor-icons/react/dist/ssr/Leaf";
 import {
   AlertCircle,
   ArrowDown10,
   ArrowDownUp,
   ArrowDownZA,
+  ArrowRight,
   ArrowUp10,
   ArrowUpZA,
   BarChart3,
@@ -27,6 +30,7 @@ import {
   GripVertical,
   Instagram,
   Leaf,
+  Linkedin,
   Loader2,
   Lock,
   LogOut,
@@ -39,6 +43,7 @@ import {
   SlidersHorizontal,
   Trash2,
   Twitter,
+  Upload,
   UserRound,
   X,
 } from "lucide-react";
@@ -259,6 +264,7 @@ export const Icons = {
   Overview: BarChart3,
   BarChart3,
   ArrowDownUp,
+  ArrowRight,
   Calendar,
   ChevronDown,
   ChevronRight,
@@ -284,6 +290,7 @@ export const Icons = {
   EllipsisVertical,
   Minus,
   X,
+  Upload,
   StatusPublished,
   StatusScheduled,
   StatusUnpublished,
@@ -298,4 +305,8 @@ export const Icons = {
   Twitter,
   Pinterest,
   TikTok,
+  Linkedin,
+  // Phosphor Icons
+  PhosphorDrop: DropIcon,
+  PhosphorLeaf: LeafIcon,
 };

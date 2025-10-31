@@ -29,10 +29,12 @@ const config: Config = {
       },
       colors: {
         primary: 'var(--color-primary-text)',
+        'primary-foreground': 'var(--primary-foreground)',
         'primary-green': 'var(--color-primary-green)',
         'secondary-green': 'var(--color-secondary-green)',
         background: 'var(--color-background)',
         border: 'var(--color-border)',
+        brand: 'var(--highlight)',
       },
     },
   },

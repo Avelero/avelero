@@ -26,6 +26,7 @@ export function Footer({ themeConfig }: Props) {
     { show: social?.showTwitter, text: 'X', Icon: Icons.Twitter, url: social?.twitterUrl },
     { show: social?.showPinterest, text: 'PT', Icon: Icons.Pinterest, url: social?.pinterestUrl },
     { show: social?.showTiktok, text: 'TK', Icon: Icons.TikTok, url: social?.tiktokUrl },
+    { show: social?.showLinkedin, text: 'LK', Icon: Icons.Linkedin, url: social?.linkedinUrl },
   ].filter(item => item.show && isValidUrl(item.url));
   
   return (

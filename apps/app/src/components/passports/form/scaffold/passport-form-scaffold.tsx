@@ -1,3 +1,5 @@
+"use client";
+
 import { cn } from "@v1/ui/cn";
 
 export function PassportFormScaffold({

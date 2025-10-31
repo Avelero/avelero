@@ -1,3 +1,5 @@
+"use client";
+
 import { PassportFormScaffold } from "@/components/passports/form/scaffold/passport-form-scaffold";
 import { BasicInfoSection } from "@/components/passports/form/blocks/basic-info-block";
 import { OrganizationSection } from "@/components/passports/form/blocks/organization-block";
@@ -10,7 +12,7 @@ import { IdentifiersSection } from "@/components/passports/form/sidebar/identifi
 export default function EditPassportPage({ params }: { params: { upid: string } }) {
   // TODO: fetch initial passport data using params.upid when implementing backend
   return (
-    <form id="passport-form">
+    <form id="passport-form" className="w-full">
       <PassportFormScaffold
         title="Edit passport"
         left={

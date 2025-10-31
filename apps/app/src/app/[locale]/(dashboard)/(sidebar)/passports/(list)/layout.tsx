@@ -7,6 +7,7 @@ import {
 import { Button } from "@v1/ui/button";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PassportsUploadSheet } from "@/components/passports/upload-sheet";
 
 export const metadata: Metadata = {
   title: "Passports | Avelero",
@@ -24,8 +25,16 @@ export default function PassportsListLayout({
           <ControlBarNavButton href="/passports">Passports</ControlBarNavButton>
         </ControlBarLeft>
         <ControlBarRight>
-          <Button variant="default" asChild>
-            <Link href="/passports/create"><span className="px-1">Create</span></Link>
+          <PassportsUploadSheet />
+          <Button
+            variant="default"
+            size="default"
+            asChild
+            className="min-w-[100px]"
+          >
+            <Link href="/passports/create">
+              <span className="px-1">Create</span>
+            </Link>
           </Button>
         </ControlBarRight>
       </ControlBar>

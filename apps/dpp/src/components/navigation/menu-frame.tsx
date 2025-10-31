@@ -23,7 +23,7 @@ export function MenuFrame({ menuItems, themeConfig, isLastMenu = false }: Props)
       <div className="menu-button border-t">
         {menuItems.map((item, index) => (
           <MenuButton 
-            key={item.id || item.url} 
+            key={item.id || `${item.label}-${index}`} 
             label={item.label} 
             url={item.url} 
           />

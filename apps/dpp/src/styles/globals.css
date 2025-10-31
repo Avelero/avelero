@@ -479,7 +479,7 @@
   }
 
   .carousel__product-price {
-    font-family: var(--carousel-product-price-family, Geist Mono);
+    font-family: var(--carousel-product-price-family, var(--font-mono));
     font-size: var(--carousel-product-price-size, var(--type-body-size));
     font-weight: var(--carousel-product-price-weight, var(--type-body-weight));
     line-height: var(--carousel-product-price-line-height, var(--type-body-line-height));
@@ -512,7 +512,7 @@
   }
   
   .banner__button {
-    font-family: var(--banner-button-family, Geist Mono);
+    font-family: var(--banner-button-family, var(--font-mono));
     font-size: var(--banner-button-size, var(--type-body-sm-size));
     font-weight: var(--banner-button-weight, var(--type-body-sm-weight));
     line-height: var(--banner-button-line-height, var(--type-body-sm-line-height));

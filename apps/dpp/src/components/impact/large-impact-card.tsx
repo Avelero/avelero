@@ -9,8 +9,8 @@ interface Props {
 export function LargeImpactCard({ metric }: Props) {
   
   const iconMap = {
-    leaf: Icons.Leaf,
-    drop: Icons.Droplets,
+    leaf: Icons.PhosphorLeaf,
+    drop: Icons.PhosphorDrop,
     recycle: Icons.Recycle,
     factory: Icons.Factory,
   };
@@ -23,7 +23,7 @@ export function LargeImpactCard({ metric }: Props) {
     factory: '#6B7280',  // Grey-ish
   };
   
-  const IconComponent = iconMap[metric.icon] ?? Icons.Leaf; // Safe fallback
+  const IconComponent = iconMap[metric.icon] ?? Icons.PhosphorLeaf; // Safe fallback
   const iconColor = metric.iconColor || iconColorMap[metric.icon] || iconColorMap.leaf;
   
   return (
@@ -43,7 +43,7 @@ export function LargeImpactCard({ metric }: Props) {
           </div>
         </div>
       </div>
-      <IconComponent className="w-7 h-7" style={{ color: iconColor }} />
+      <IconComponent className="w-7 h-7" weight="fill" style={{ color: iconColor }} />
     </div>
   );
 }

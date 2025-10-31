@@ -35,12 +35,14 @@ export interface ThemeConfig {
     showTwitter: boolean;
     showPinterest: boolean;
     showTiktok: boolean;
+    showLinkedin: boolean;
     useIcons: boolean;
     instagramUrl: string;
     facebookUrl: string;
     twitterUrl: string;
     pinterestUrl: string;
     tiktokUrl: string;
+    linkedinUrl: string;
   };
   
   // Section visibility toggles

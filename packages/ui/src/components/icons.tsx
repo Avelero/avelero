@@ -1,3 +1,5 @@
+import { DropIcon } from "@phosphor-icons/react/dist/ssr/Drop";
+import { LeafIcon } from "@phosphor-icons/react/dist/ssr/Leaf";
 import {
   AlertCircle,
   ArrowDown10,
@@ -45,8 +47,6 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { DropIcon } from "@phosphor-icons/react/dist/ssr/Drop";
-import { LeafIcon } from "@phosphor-icons/react/dist/ssr/Leaf";
 import type React from "react";
 
 function StatusPublished(props: React.SVGProps<SVGSVGElement>) {

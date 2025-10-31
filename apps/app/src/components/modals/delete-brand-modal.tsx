@@ -41,7 +41,7 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
         queryKey: trpc.brand.list.queryKey(),
       });
       await queryClient.invalidateQueries({
-        queryKey: trpc.user.me.queryKey(),
+        queryKey: trpc.v2.user.get.queryKey(),
       });
       // Invalidate members list and invites for safety
       await queryClient.invalidateQueries({

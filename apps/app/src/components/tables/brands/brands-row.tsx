@@ -29,12 +29,8 @@ interface BrandWithRole {
 interface InviteRow {
   id: string;
   role: "owner" | "member";
-  brand: {
-    id: string;
-    name: string;
-    logo_path?: string | null;
-    avatar_hue?: number | null;
-  };
+  brand_name: string;
+  brand_logo?: string | null;
 }
 
 type Props = { membership: BrandWithRole } | { invite: InviteRow };
@@ -125,13 +121,12 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
       <div className="flex items-center gap-3">
         <SignedAvatar
           bucket="brand-avatars"
-          path={invite.brand.logo_path ?? null}
-          hue={invite.brand.avatar_hue ?? undefined}
+          path={invite.brand_logo ?? null}
           size={32}
-          name={invite.brand.name}
+          name={invite.brand_name}
         />
         <div className="flex flex-col">
-          <span className="type-p !font-medium">{invite.brand.name}</span>
+          <span className="type-p !font-medium">{invite.brand_name}</span>
           <span className="type-p text-secondary">
             {invite.role === "owner" ? "Owner" : "Member"}
           </span>

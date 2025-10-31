@@ -17,9 +17,9 @@ type TabKey = "brands" | "invites";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 type BrandList = RouterOutputs["brand"]["list"];
-type MyInvites = RouterOutputs["brand"]["myInvites"];
+type MyInvites = RouterOutputs["v2"]["user"]["invites"]["list"];
 type Membership = BrandList["data"][number];
-type Invite = MyInvites["data"][number];
+type Invite = MyInvites[number];
 
 interface BrandWithRoleLocal {
   id: string;
@@ -62,31 +62,20 @@ export function BrandsTable() {
         })),
     [memberships],
   );
-  const invitesObj = invitesRes as MyInvites | undefined;
-  const invites = useMemo((): Invite[] => invitesObj?.data ?? [], [invitesObj]);
+  const invites = useMemo((): Invite[] => invitesRes ?? [], [invitesRes]);
   const displayInvites = useMemo(
     () =>
       invites
         .filter(
-          (
-            i,
-          ): i is Invite & {
-            role: "owner" | "member";
-            brand: { id: string; name: string };
-          } =>
+          (i): i is Invite & { role: "owner" | "member"; brand_name: string } =>
             (i.role === "owner" || i.role === "member") &&
-            Boolean(i.brand?.id) &&
-            Boolean(i.brand?.name),
+            Boolean(i.brand_name),
         )
         .map((i) => ({
           id: i.id,
           role: i.role as "owner" | "member",
-          brand: {
-            id: i.brand.id as string,
-            name: i.brand.name as string,
-            logo_path: i.brand.logo_path ?? null,
-            avatar_hue: i.brand.avatar_hue ?? null,
-          },
+          brand_name: i.brand_name as string,
+          brand_logo: i.brand_logo ?? null,
         })),
     [invites],
   );

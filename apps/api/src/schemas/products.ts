@@ -1,74 +1,145 @@
+/**
+ * Validation schemas for product and variant operations.
+ *
+ * These shapes mirror the API surface so both the server and client agree on
+ * the required fields when creating, updating, or filtering products.
+ */
 import { z } from "zod";
+import {
+  longStringSchema,
+  paginationLimitSchema,
+  shortStringSchema,
+  urlSchema,
+  uuidSchema,
+} from "./_shared/primitives.js";
+import {
+  byIdSchema,
+  byParentId,
+  createFieldSelection,
+  updateWithNullable,
+} from "./_shared/patterns.js";
 
 // Products core
+/**
+ * Available fields for product queries.
+ *
+ * Defines which product fields can be selectively queried by clients.
+ * Restricts selection to prevent accidental exposure of internal fields.
+ */
+export const PRODUCT_FIELDS = [
+  "id",
+  "name",
+  "description",
+  "category_id",
+  "season",
+  "brand_certification_id",
+  "showcase_brand_id",
+  "primary_image_url",
+  "created_at",
+  "updated_at",
+] as const;
+
+/**
+ * Type representing all available product field names.
+ */
+export type ProductField = (typeof PRODUCT_FIELDS)[number];
+
+/**
+ * Cursor-based listing parameters for product tables.
+ */
 export const listProductsSchema = z.object({
   cursor: z.string().optional(),
-  limit: z.number().int().min(1).max(100).optional(),
+  limit: paginationLimitSchema.optional(),
+  fields: createFieldSelection(PRODUCT_FIELDS),
   filters: z
     .object({
-      category_id: z.string().uuid().optional(),
-      season: z.string().optional(),
-      search: z.string().optional(),
+      category_id: uuidSchema.optional(),
+      season: shortStringSchema.optional(),
+      search: shortStringSchema.optional(),
     })
     .optional(),
 });
 
-export const getProductSchema = z.object({ id: z.string().uuid() });
+/**
+ * Identifies a specific product by UUID.
+ */
+export const getProductSchema = byIdSchema;
 
+/**
+ * Required fields when creating a product.
+ */
 export const createProductSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  category_id: z.string().uuid().optional(),
-  season: z.string().optional(),
-  brand_certification_id: z.string().uuid().optional(),
-  showcase_brand_id: z.string().uuid().optional(),
-  primary_image_url: z.string().url().optional(),
+  name: shortStringSchema,
+  description: longStringSchema.optional(),
+  category_id: uuidSchema.optional(),
+  season: shortStringSchema.optional(),
+  brand_certification_id: uuidSchema.optional(),
+  showcase_brand_id: uuidSchema.optional(),
+  primary_image_url: urlSchema.optional(),
 });
 
-export const updateProductSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1).optional(),
-  description: z.string().optional().nullable(),
-  category_id: z.string().uuid().optional().nullable(),
-  season: z.string().optional().nullable(),
-  brand_certification_id: z.string().uuid().optional().nullable(),
-  showcase_brand_id: z.string().uuid().optional().nullable(),
-  primary_image_url: z.string().url().optional().nullable(),
-});
+/**
+ * Permitted updates for an existing product.
+ */
+export const updateProductSchema = updateWithNullable(createProductSchema, [
+  "description",
+  "category_id",
+  "season",
+  "brand_certification_id",
+  "showcase_brand_id",
+  "primary_image_url",
+]);
 
-export const deleteProductSchema = z.object({ id: z.string().uuid() });
+/**
+ * Payload for deleting a product.
+ */
+export const deleteProductSchema = byIdSchema;
 
+/**
+ * Upsert payload used for product-level identifiers.
+ */
 export const upsertProductIdentifierSchema = z.object({
-  product_id: z.string().uuid(),
-  id_type: z.string().min(1),
-  value: z.string().min(1),
+  product_id: uuidSchema,
+  id_type: shortStringSchema,
+  value: shortStringSchema,
 });
 
 // Variants (consolidated under products)
-export const listVariantsSchema = z.object({ product_id: z.string().uuid() });
+/**
+ * Identifies the parent product whose variants should be listed.
+ */
+export const listVariantsSchema = byParentId("product_id");
 
+/**
+ * Required fields for creating a product variant.
+ */
 export const createVariantSchema = z.object({
-  product_id: z.string().uuid(),
-  color_id: z.string().uuid().optional(),
-  size_id: z.string().uuid().optional(),
-  sku: z.string().optional(),
-  upid: z.string().min(1),
-  product_image_url: z.string().url().optional(),
+  product_id: uuidSchema,
+  color_id: uuidSchema.optional(),
+  size_id: uuidSchema.optional(),
+  sku: shortStringSchema.optional(),
+  upid: shortStringSchema,
+  product_image_url: urlSchema.optional(),
 });
 
-export const updateVariantSchema = z.object({
-  id: z.string().uuid(),
-  color_id: z.string().uuid().optional().nullable(),
-  size_id: z.string().uuid().optional().nullable(),
-  sku: z.string().optional().nullable(),
-  upid: z.string().min(1).optional(),
-  product_image_url: z.string().url().optional().nullable(),
-});
+/**
+ * Permitted updates to a variant record.
+ */
+export const updateVariantSchema = updateWithNullable(
+  createVariantSchema.omit({ product_id: true }),
+  ["color_id", "size_id", "sku", "product_image_url"]
+);
 
-export const deleteVariantSchema = z.object({ id: z.string().uuid() });
+/**
+ * Payload for deleting a variant.
+ */
+export const deleteVariantSchema = byIdSchema;
 
+/**
+ * Upsert payload used for variant-level identifiers.
+ */
 export const upsertVariantIdentifierSchema = z.object({
-  variant_id: z.string().uuid(),
-  id_type: z.string().min(1),
-  value: z.string().min(1),
+  variant_id: uuidSchema,
+  id_type: shortStringSchema,
+  value: shortStringSchema,
 });

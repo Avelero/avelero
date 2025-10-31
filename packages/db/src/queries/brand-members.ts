@@ -1,8 +1,31 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client";
-import { brandMembers, users } from "../schema";
+import { brandMembers } from "../schema";
 
-export async function getMembersByBrandId(db: Database, brandId: string) {
+export class BrandMemberForbiddenError extends Error {
+  constructor() {
+    super("FORBIDDEN");
+    this.name = "BrandMemberForbiddenError";
+  }
+}
+
+export class BrandMemberSoleOwnerError extends Error {
+  constructor() {
+    super("SOLE_OWNER");
+    this.name = "BrandMemberSoleOwnerError";
+  }
+}
+
+export interface BrandMemberRecord {
+  readonly userId: string;
+  readonly role: "owner" | "member" | null;
+  readonly createdAt: string;
+}
+
+export async function getMembersByBrandId(
+  db: Database,
+  brandId: string,
+): Promise<BrandMemberRecord[]> {
   const rows = await db
     .select({
       userId: brandMembers.userId,
@@ -13,26 +36,10 @@ export async function getMembersByBrandId(db: Database, brandId: string) {
     .where(eq(brandMembers.brandId, brandId))
     .orderBy(asc(brandMembers.createdAt));
 
-  // Join users separately to keep it simple without relations()
-  const userIds = rows.map((r) => r.userId);
-  const usersRows = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      fullName: users.fullName,
-      avatarPath: users.avatarPath,
-      avatarHue: users.avatarHue,
-    })
-    .from(users)
-    .where(inArray(users.id, userIds));
-  const userById = new Map(usersRows.map((u) => [u.id, u]));
-
   return rows.map((row) => ({
-    id: row.userId,
-    role: row.role,
-    teamId: brandId,
-    created_at: row.createdAt,
-    user: userById.get(row.userId) ?? null,
+    userId: row.userId,
+    role: row.role === "owner" || row.role === "member" ? row.role : null,
+    createdAt: row.createdAt,
   }));
 }
 
@@ -69,7 +76,7 @@ export async function deleteMember(
         eq(brandMembers.role, "owner"),
       ),
     );
-  if (!actingOwner.length) throw new Error("FORBIDDEN");
+  if (!actingOwner.length) throw new BrandMemberForbiddenError();
 
   const target = await db
     .select({ role: brandMembers.role })
@@ -86,7 +93,7 @@ export async function deleteMember(
       .where(
         and(eq(brandMembers.brandId, brandId), eq(brandMembers.role, "owner")),
       );
-    if (owners.length <= 1) throw new Error("SOLE_OWNER");
+    if (owners.length <= 1) throw new BrandMemberSoleOwnerError();
   }
 
   await db

@@ -24,6 +24,7 @@
     "@v1/kv": "workspace:*",
     "@v1/supabase": "workspace:*",
     "@v1/utils": "workspace:*",
+    "dataloader": "^2.2.3",
     "hono": "^4.5.10",
     "supabase": "^2.34.3",
     "superjson": "^2.2.1",

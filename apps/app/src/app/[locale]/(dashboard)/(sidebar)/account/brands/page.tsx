@@ -6,7 +6,7 @@ import { Suspense } from "react";
 export default async function Page() {
   // Prefetch memberships and invites for better UX
   await batchPrefetch([trpc.brand.list.queryOptions()]);
-  await batchPrefetch([trpc.brand.myInvites.queryOptions()]);
+  await batchPrefetch([trpc.v2.user.invites.list.queryOptions()]);
 
   return (
     <HydrateClient>

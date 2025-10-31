@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
-type Me = RouterOutputs["user"]["me"];
+type Me = RouterOutputs["v2"]["user"]["get"];
 type LeaveBrandResult = RouterOutputs["brand"]["leave"];
 
 export function useUserBrandsQuery() {
@@ -43,17 +43,17 @@ export function useSetActiveBrandMutation() {
       onMutate: async (variables) => {
         // Cancel outgoing refetches
         await queryClient.cancelQueries({
-          queryKey: trpc.user.me.queryKey(),
+          queryKey: trpc.v2.user.get.queryKey(),
         });
 
         // Get current user data
         const previousUserData = queryClient.getQueryData<Me>(
-          trpc.user.me.queryKey(),
+          trpc.v2.user.get.queryKey(),
         );
 
         // Optimistically update user's active brand
         queryClient.setQueryData<Me | undefined>(
-          trpc.user.me.queryKey(),
+          trpc.v2.user.get.queryKey(),
           (old: Me | undefined) =>
             old ? { ...old, brand_id: variables.id } : old,
         );
@@ -63,7 +63,7 @@ export function useSetActiveBrandMutation() {
       onError: (_, __, context) => {
         // Rollback on error
         queryClient.setQueryData(
-          trpc.user.me.queryKey(),
+          trpc.v2.user.get.queryKey(),
           context?.previousUserData,
         );
       },
@@ -89,7 +89,7 @@ export function useCreateBrandMutation() {
           queryKey: trpc.brand.list.queryKey(),
         });
         await queryClient.invalidateQueries({
-          queryKey: trpc.user.me.queryKey(),
+          queryKey: trpc.v2.user.get.queryKey(),
         });
       },
     }),
@@ -104,13 +104,13 @@ export function useBrandUpdateMutation() {
     trpc.brand.update.mutationOptions({
       onMutate: async (variables) => {
         await queryClient.cancelQueries();
-        const prevUser = queryClient.getQueryData(trpc.user.me.queryKey());
+        const prevUser = queryClient.getQueryData(trpc.v2.user.get.queryKey());
         // best-effort optimistic touch: nothing heavy here
         return { prevUser };
       },
       onError: (_err, _vars, ctx) => {
         if (ctx?.prevUser) {
-          queryClient.setQueryData(trpc.user.me.queryKey(), ctx.prevUser);
+          queryClient.setQueryData(trpc.v2.user.get.queryKey(), ctx.prevUser);
         }
       },
       onSettled: async () => {

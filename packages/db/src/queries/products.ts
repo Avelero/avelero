@@ -20,12 +20,52 @@ type ListFilters = {
   search?: string;
 };
 
+/**
+ * Available product fields that can be selected in queries.
+ */
+const PRODUCT_FIELD_MAP = {
+  id: products.id,
+  name: products.name,
+  description: products.description,
+  category_id: products.categoryId,
+  season: products.season,
+  brand_certification_id: products.brandCertificationId,
+  showcase_brand_id: products.showcaseBrandId,
+  primary_image_url: products.primaryImageUrl,
+  created_at: products.createdAt,
+  updated_at: products.updatedAt,
+} as const;
+
+/**
+ * Type-safe product field names.
+ */
+export type ProductField = keyof typeof PRODUCT_FIELD_MAP;
+
+/**
+ * Lists products with optional field selection for performance optimization.
+ *
+ * Supports selective field querying to reduce data transfer and query overhead.
+ * When fields are specified, only those columns are queried from the database.
+ *
+ * @param db - Database instance.
+ * @param brandId - Brand identifier for scoping.
+ * @param filters - Optional filters for category, season, and search.
+ * @param opts - Pagination and field selection options.
+ * @returns Product list with metadata.
+ */
 export async function listProducts(
   db: Database,
   brandId: string,
   filters: ListFilters = {},
-  opts: { cursor?: string; limit?: number } = {},
-) {
+  opts: { cursor?: string; limit?: number; fields?: readonly ProductField[] } = {},
+): Promise<{
+  readonly data: ReadonlyArray<Record<string, unknown>>;
+  readonly meta: {
+    readonly total: number;
+    readonly cursor: string | null;
+    readonly hasMore: boolean;
+  };
+}> {
   const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
   const whereClauses = [eq(products.brandId, brandId)];
   if (filters.categoryId)
@@ -34,19 +74,16 @@ export async function listProducts(
   if (filters.search)
     whereClauses.push(ilike(products.name, `%${filters.search}%`));
 
+  // Build select object based on requested fields
+  const selectFields =
+    opts.fields && opts.fields.length > 0
+      ? Object.fromEntries(
+          opts.fields.map((field) => [field, PRODUCT_FIELD_MAP[field]]),
+        )
+      : PRODUCT_FIELD_MAP;
+
   const rows = await db
-    .select({
-      id: products.id,
-      name: products.name,
-      description: products.description,
-      category_id: products.categoryId,
-      season: products.season,
-      brand_certification_id: products.brandCertificationId,
-      showcase_brand_id: products.showcaseBrandId,
-      primary_image_url: products.primaryImageUrl,
-      created_at: products.createdAt,
-      updated_at: products.updatedAt,
-    })
+    .select(selectFields)
     .from(products)
     .where(and(...whereClauses))
     .orderBy(desc(products.createdAt))
@@ -58,7 +95,15 @@ export async function listProducts(
     .where(and(...whereClauses));
   const total = result[0]?.value ?? 0;
 
-  return { data: rows, meta: { total } } as const;
+  const hasMore = rows.length >= limit;
+  return {
+    data: rows,
+    meta: {
+      total,
+      cursor: null,
+      hasMore,
+    },
+  } as const;
 }
 
 export async function getProduct(db: Database, brandId: string, id: string) {

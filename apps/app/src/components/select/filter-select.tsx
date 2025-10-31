@@ -66,8 +66,8 @@ export function QuickFiltersPopover({
   // Prefetch dynamic quick-filter options on mount
   React.useEffect(() => {
     const prefetchEndpoints = [
-      trpc.catalog.categories.list.queryOptions({}),
-      trpc.brandCatalog.colors.list.queryOptions({}),
+      trpc.catalog.categories.list.queryOptions(),
+      trpc.brandCatalog.colors.list.queryOptions(),
       trpc.brandCatalog.sizes.list.queryOptions({}),
     ];
 

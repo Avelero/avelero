@@ -1,8 +1,27 @@
+/**
+ * tRPC router handling account management for the current user.
+ *
+ * These procedures let authenticated users fetch, update, and delete their own
+ * profile while keeping the response shape consistent with the app's needs.
+ */
 import { deleteUser, getUserById, updateUser } from "@v1/db/queries";
-import { updateUserSchema } from "../../schemas/user.js";
+import { updateUserSchema } from "../../schemas/index.js";
 import { createTRPCRouter, protectedProcedure } from "../init.js";
+import {
+  internalServerError,
+  unauthorized,
+  wrapError,
+} from "../../utils/errors.js";
 
+/**
+ * User-specific procedures scoped to the authenticated caller.
+ */
 export const userRouter = createTRPCRouter({
+  /**
+   * Returns the profile of the currently authenticated user.
+   *
+   * @returns The normalized profile or `null` when the caller is signed out.
+   */
   me: protectedProcedure.query(async ({ ctx }) => {
     const { db, user } = ctx;
     if (!user) return null;
@@ -19,35 +38,54 @@ export const userRouter = createTRPCRouter({
     };
   }),
 
+  /**
+   * Updates the caller's profile information based on the submitted payload.
+   *
+   * @param input - Partial profile changes matching `updateUserSchema`.
+   * @returns Updated profile snapshot or `null` when nothing changed.
+   */
   update: protectedProcedure
     .input(updateUserSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user } = ctx;
-      if (!user) throw new Error("Unauthorized");
-      // Map input keys to Drizzle schema field names
-      const payload = {
-        id: user.id,
-        email: input.email,
-        fullName: input.full_name,
-        avatarPath: input.avatar_path,
-        avatarHue: input.avatar_hue,
-      };
-      const updated = await updateUser(db, payload);
-      if (!updated) return null;
-      return {
-        id: updated.id,
-        email: updated.email,
-        full_name: updated.fullName ?? null,
-        avatar_url: updated.avatarPath ?? null,
-        avatar_path: updated.avatarPath ?? null,
-        avatar_hue: updated.avatarHue ?? null,
-        brand_id: updated.brandId ?? null,
-      };
+      if (!user) throw unauthorized();
+      try {
+        // Map input keys to Drizzle schema field names
+        const payload = {
+          id: user.id,
+          email: input.email,
+          fullName: input.full_name,
+          avatarPath: input.avatar_path,
+          avatarHue: input.avatar_hue,
+        };
+        const updated = await updateUser(db, payload);
+        if (!updated) return null;
+        return {
+          id: updated.id,
+          email: updated.email,
+          full_name: updated.fullName ?? null,
+          avatar_url: updated.avatarPath ?? null,
+          avatar_path: updated.avatarPath ?? null,
+          avatar_hue: updated.avatarHue ?? null,
+          brand_id: updated.brandId ?? null,
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to update user profile");
+      }
     }),
 
+  /**
+   * Deletes the caller's account and associated storage assets.
+   *
+   * This operation removes avatar files, deletes the application user record,
+   * and finally removes the Supabase auth user when the service key is
+   * configured.
+   *
+   * @returns The deleted user record or a shape containing the removed id.
+   */
   delete: protectedProcedure.mutation(async ({ ctx }) => {
     const { db, supabaseAdmin, user } = ctx;
-    if (!user) throw new Error("Unauthorized");
+    if (!user) throw unauthorized();
 
     try {
       // Delete all files in avatars/{userId}/ folder before deleting user
@@ -69,7 +107,10 @@ export const userRouter = createTRPCRouter({
       if (supabaseAdmin) {
         const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
         if (error)
-          throw new Error(`Failed to delete auth user: ${error.message}`);
+          throw internalServerError(
+            `Failed to delete auth user: ${error.message}`,
+            error,
+          );
       }
 
       return appDeleted ?? { id: user.id };
@@ -79,9 +120,12 @@ export const userRouter = createTRPCRouter({
         (error.message.includes("Service key not configured") ||
           error.message.includes("Supabase admin client not configured"))
       ) {
-        throw new Error("Database error deleting user");
+        throw internalServerError(
+          "Supabase admin client is not configured to delete users",
+          error,
+        );
       }
-      throw error;
+      throw wrapError(error, "Failed to delete user account");
     }
   }),
 });

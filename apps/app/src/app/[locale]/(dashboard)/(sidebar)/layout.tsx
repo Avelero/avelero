@@ -20,12 +20,12 @@ export default async function Layout({
 
   // Prefetch common data used across the dashboard
   await batchPrefetch([
-    trpc.user.me.queryOptions(),
+    trpc.v2.user.get.queryOptions(),
     trpc.brand.list.queryOptions(),
   ]);
 
   // Fetch the user to ensure authentication and redirect if needed
-  const user = await queryClient.fetchQuery(trpc.user.me.queryOptions());
+  const user = await queryClient.fetchQuery(trpc.v2.user.get.queryOptions());
 
   if (!user) {
     redirect("/login");

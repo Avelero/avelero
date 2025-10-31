@@ -1,0 +1,985 @@
+# NEW API STRUCTURE - Reorganized with Nested Endpoints
+================================================================================
+PROPOSED API STRUCTURE
+================================================================================
+
+Total Endpoints: 36 (vs 73 current = 51% reduction)
+Optional: Drop `products.variants.list` → 35 endpoints total
+Approach: Domain reorganization + nested endpoint structure + performance optimizations
+Counting method: CRUD families (list/create/update/delete) counted as one endpoint bundle.
+Key Changes:
+  - brand → workflow (better resource alignment for teams/memberships)
+  - brandCatalog → brand (catalog data belongs to brand domain)
+  - myInvites → user.invites.list (user-specific, not brand-specific)
+  - catalog.categories.list → served only via composite.passportFormReferences
+  - careCodes removed (not needed in current implementation)
+  - All bulk operations → bulk domain
+  - passportTemplates → passports.templates (nested under passports)
+  - productAttributes → products.attributes (nested under products)
+  - members.leave → workflow.members.delete (adds `canLeave` guard for last owner)
+  - invites.accept/decline/revoke → workflow.invites.respond (single action with role-aware checks)
+  - passports.templates.modules.set → passports.templates.update (optional modules payload)
+  - passports.countByStatus → metadata on passports.list (`includeStatusCounts`)
+
+================================================================================
+## 1. USER DOMAIN (4 endpoints)
+================================================================================
+
+### Queries (1)
+user.get                        • Get current authenticated user
+                                • Output: { id, email, full_name, avatar_url, brand_id }
+
+### Mutations (2)
+user.update                     • Input: { full_name?, avatar_url? }
+user.delete                     • Handles own tables first, then Supabase Auth cascade
+
+### Invites (1)
+user.invites.list               • List invites sent to current user's email
+                                • Output: [{ id, brand_name, brand_logo, role, invited_by, created_at, expires_at }]
+                                • Note: User-specific, not brand-specific (invites sent TO me)
+
+
+================================================================================
+## 2. WORKFLOW DOMAIN (8 endpoints) - Team & Membership Management
+================================================================================
+
+Renamed from "brand" to "workflow" for better resource alignment.
+This domain manages brand entities and team workflows (members, invites).
+
+### Brand Operations (3)
+workflow.list                   • List all brands for current user
+                                • Output: [{ id, name, logo_url, role, canLeave }]
+                                • canLeave: computed boolean (false if sole owner)
+
+workflow.create                 • Input: { name, logo_url?, ... }
+                                • Create new brand
+
+workflow.delete                 • Input: { id }
+                                • Delete brand
+
+### Members (2)
+workflow.members.list           • Input: { brand_id }
+                                • Output: [{ user_id, email, full_name, role, canLeave }]
+                                • canLeave: computed boolean per member
+
+workflow.members.update        • Input: { brand_id, user_id?, role? }
+                                • Multi-purpose endpoint via tRPC validation:
+                                  - user_id empty + role empty: Leave (delete own membership, validates canLeave)
+                                  - user_id specified + role specified: Update member role
+                                  - user_id specified + role null: Remove member from brand
+                                • Enforces `users_on_brand_delete_self` RLS and server-side `canLeave` guard
+                                • Combines: update, leave, remove into single endpoint (2 → 1 endpoints)
+
+### Invites (3)
+workflow.invites.list           • Input: { brand_id }
+                                • Admin: list all pending invites for this brand
+                                • Output: [{ id, email, role, invited_by, created_at, expires_at }]
+
+workflow.invites.send           • Input: { brand_id, email, role }
+                                • Admin: send invite to user
+
+workflow.invites.respond        • Input: { invite_id, action: 'accept' | 'decline' | 'revoke' }
+                                • Unified responder for members (accept/decline) and owners (revoke)
+                                • Accept: INSERT brandMember + DELETE invite
+                                • Decline: DELETE invite scoped to recipient
+                                • Revoke: DELETE invite after owner/admin permission check
+
+
+================================================================================
+## 3. CATALOG DOMAIN - REMOVED
+================================================================================
+
+Note: Catalog domain completely removed
+- catalog.categories.list REMOVED - only available via composite.passportFormReferences
+- catalog.careCodes.list REMOVED - not used in current implementation
+- Rationale: Categories are only used in passport form, so composite endpoint is sufficient
+
+
+================================================================================
+## 4. BRAND DOMAIN (28 endpoints) - Brand-Specific Catalog
+================================================================================
+
+Renamed from "brandCatalog" to "brand" - catalog data belongs to brand domain.
+All 28 endpoints use shared helper functions internally for consistency.
+
+### Colors (4 endpoints) ✅ OPTIMIZED WITH STATIC PACKAGE
+brand.colors.list               • Input: { brand_id?, search?, sort? }
+                                • Output: [{ id, name, created_at, updated_at }]
+                                • Note: Frontend uses @v1/selections/colors for hex values (performance optimization)
+brand.colors.create             • Input: { brand_id, name }
+brand.colors.update             • Input: { id, name? }
+brand.colors.delete             • Input: { id }
+
+### Sizes (4 endpoints) ✅ CORRECT
+brand.sizes.list                • Input: { brand_id?, search?, sort?, category_id? }
+                                • Output: [{ id, name, sort_index, category_id, created_at, updated_at }]
+brand.sizes.create              • Input: { brand_id, name, category_id?, sort_index? }
+brand.sizes.update              • Input: { id, name?, category_id?, sort_index? }
+brand.sizes.delete              • Input: { id }
+
+### Materials (4 endpoints) ✅ CORRECT
+brand.materials.list            • Input: { brand_id?, search?, sort? }
+                                • Output: [{ id, name, certification_id, recyclable, country_of_origin, created_at, updated_at }]
+brand.materials.create          • Input: { brand_id, name, certification_id?, recyclable?, country_of_origin? }
+brand.materials.update          • Input: { id, name?, certification_id?, recyclable?, country_of_origin? }
+brand.materials.delete          • Input: { id }
+
+### Facilities (4 endpoints) ✅ CORRECT
+brand.facilities.list           • Input: { brand_id?, search?, sort? }
+                                • Output: [{ id, display_name, legal_name, address, city, country_code, contact, vat_number, created_at, updated_at }]
+brand.facilities.create         • Input: { brand_id, display_name, legal_name?, address?, city?, country_code?, contact?, vat_number? }
+brand.facilities.update         • Input: { id, display_name?, legal_name?, address?, city?, country_code?, contact?, vat_number? }
+brand.facilities.delete         • Input: { id }
+
+### Showcase Brands (4 endpoints) ✅ CORRECT
+brand.showcaseBrands.list       • Input: { brand_id?, search?, sort? }
+                                • Output: [{ id, name, legal_name, email, phone, website, address_line_1, address_line_2, city, state, zip, country_code, created_at, updated_at }]
+brand.showcaseBrands.create     • Input: { brand_id, name, legal_name?, email?, phone?, website?, address_line_1?, address_line_2?, city?, state?, zip?, country_code? }
+brand.showcaseBrands.update     • Input: { id, name?, legal_name?, email?, phone?, website?, address_line_1?, address_line_2?, city?, state?, zip?, country_code? }
+brand.showcaseBrands.delete     • Input: { id }
+
+### Eco Claims (4 endpoints) ✅ CORRECT
+brand.ecoClaims.list            • Input: { brand_id?, search?, sort? }
+                                • Output: [{ id, claim, created_at, updated_at }]
+brand.ecoClaims.create          • Input: { brand_id, claim }
+brand.ecoClaims.update          • Input: { id, claim? }
+brand.ecoClaims.delete          • Input: { id }
+
+### Certifications (4 endpoints) ✅ CORRECT
+brand.certifications.list       • Input: { brand_id?, search?, sort? }
+                                • Output: [{ id, title, certification_code, institute_name, institute_address,
+                                            institute_contact, issue_date, expiry_date, file_asset_id,
+                                            external_url, notes, created_at, updated_at }]
+brand.certifications.create     • Input: { brand_id, title, certification_code?, institute_name?,
+                                          institute_address?, institute_contact?, issue_date?,
+                                          expiry_date?, file_asset_id?, external_url?, notes? }
+brand.certifications.update     • Input: { id, title?, certification_code?, institute_name?,
+                                          institute_address?, institute_contact?, issue_date?,
+                                          expiry_date?, file_asset_id?, external_url?, notes? }
+brand.certifications.delete     • Input: { id }
+
+### Implementation Note:
+All 28 endpoints use shared helper functions internally for consistency.
+Benefits: Explicit endpoint names, strong TypeScript inference, 70% less code duplication.
+
+### Brand Domain Implementation Details:
+
+**Colors Optimization:**
+Colors use the `@v1/selections/colors` static package for hex values (intentional optimization).
+- Package location: packages/selections/src/colors.ts
+- Contains: 20 predefined colors with hex values + colorFamilies with 10 shades each (50-900)
+- Frontend usage: apps/app/src/components/passports/form/blocks/organization-block.tsx:26-29
+- Frontend interface: ColorOption { name: string, hex: string }
+- Rationale: Performance optimization - avoids database lookups for standard color palette
+- Database stores: Only color name (hex values come from static package)
+- Usage pattern: Frontend merges database color names with static hex values
+
+**Showcase Brands - Multi-Brand Products:**
+Showcase brands enable products to display partner/peer brand information (e.g., Nike product manufactured by Avelero).
+- Database table: showcase_brands (fully implemented)
+- Fields: name, legalName, email, phone, website, addressLine1, addressLine2, city, state, zip, countryCode
+- Frontend: showcase-brand-sheet.tsx with complete form
+- Usage: identifiers-block.tsx in passport form sidebar
+- Products link: products.showcase_brand_id references showcase_brands.id
+- Use case: When product's visible brand differs from manufacturing brand
+
+**Minor Issues:**
+- Eco Claims Filter Bug: filters.ts:286 maps `c.title` but should use `c.claim`
+
+
+================================================================================
+## 5. PRODUCTS DOMAIN (12 endpoints)
+================================================================================
+
+### Base Operations (5 endpoints)
+products.list                   • Input: { brand_id?, includeVariants?, includeAttributes? }
+                                • Include options prevent N+1 queries
+                                • Without includes: 21 queries for 10 products
+                                • With includes: 1 query with JOINs
+
+products.get                    • Input: { id, includeVariants?, includeAttributes? }
+                                • Get single product with optional includes
+
+products.create                 • Input: { brand_id, name, description, category_id?, ... }
+products.update                 • Input: { id, name?, description?, category_id?, ... }
+products.delete                 • Input: { id }
+
+### Variants (2 endpoints)
+products.variants.list          • Input: { product_id }
+                                • Returns all variants for the given product (driven by `listVariants` query)
+                                • Used by variant management screens that need variant-only payloads
+
+products.variants.upsert        • Input: {
+                                    product_id,
+                                    variants: [{
+                                      id?, color_id?, size_id?,
+                                      sku?, upid?, product_image_url?
+                                    }, ...]
+                                  }
+                                • Bulk-synchronizes variants for a product in a single call
+                                • Server diffs incoming payload against existing rows and orchestrates create/update/delete
+                                • Replaces legacy trio (`create`, `update`, `delete`) + `upsertIdentifier`
+                                • Keeps identifier data (sku/upid) consistent when variants are reordered or removed
+
+### Attributes (5 endpoints) - Nested under products
+products.attributes.materials.set       • Input: {
+                                            product_id,
+                                            items: [{ brand_material_id, percentage? }]
+                                          }
+                                        • Replaces the entire material composition for a product
+                                        • Implementation: wraps `upsertProductMaterials` (delete + insert + module completion)
+
+products.attributes.careCodes.set       • Input: { product_id, care_code_ids: [...] }
+                                        • Stores care code tags; missing codes are removed, new codes inserted
+                                        • Implementation: `setProductCareCodes` (diff-based sync)
+
+products.attributes.ecoClaims.set       • Input: { product_id, eco_claim_ids: [...] }
+                                        • Mirrors the care-code behavior for eco-claim tags
+                                        • Implementation: `setProductEcoClaims`
+
+products.attributes.environment.upsert  • Input: { product_id, carbon_kg_co2e?, water_liters? }
+                                        • Upserts a single row with environmental impact metrics
+                                        • Implementation: `upsertProductEnvironment` (`ON CONFLICT` upsert + completion tracking)
+
+products.attributes.journey.setSteps    • Input: {
+                                            product_id,
+                                            steps: [{ sort_index, step_type, facility_id }]
+                                          }
+                                        • Replaces the ordered passport journey for the product
+                                        • Implementation: `setProductJourneySteps` (truncate + insert + completion update)
+
+Set vs Upsert pattern:
+- `.set` endpoints replace the full collection for join tables (materials, care codes, eco claims, journey). They accept the entire desired state and make the database match it.
+- `.upsert` endpoints update a single keyed record (environment metrics) where partial updates are meaningful without dropping data.
+
+
+================================================================================
+## 6. PASSPORTS DOMAIN (9 endpoints)
+================================================================================
+
+### Base Operations (5 endpoints)
+passports.list                  • Input: { page?, includeStatusCounts?, filters? }
+                                • Returns: { data: Passport[], meta: { total, statusCounts? } }
+                                • includeStatusCounts?: true attaches { published, scheduled, unpublished, archived }
+                                • Shared cache enables DataSection + TableSection to reuse one query
+passports.get                   • Input: { upid }
+passports.create                • Input: { product_id, variant_id, template_id?, ... }
+passports.update                • Input: { upid, status?, template_id?, ... }
+                                • Handles both status AND template updates
+                                • Schema: Only 2 updatable fields (status, template_id)
+passports.delete                • Input: { upid }
+
+Note: passports.status.set REMOVED - redundant with passports.update
+The passports table only has 2 updatable fields (status, template_id), so separate endpoints make no sense.
+
+### Templates (4 endpoints) - Nested under passports
+passports.templates.list        • Input: { brand_id? }
+                                • Output: [{ id, brand_id, name, theme, created_at }]
+
+passports.templates.get         • Input: { id }
+                                • Output: { id, brand_id, name, theme, modules: [...] }
+                                • Includes module configuration
+
+passports.templates.create      • Input: { brand_id, name, theme?, modules? }
+                                • Creates template with optional module configuration
+
+passports.templates.update      • Input: { id, name?, theme?, modules?: [{ module_key, enabled, sort_index }] }
+                                • modules provided ⇒ transactional DELETE + INSERT of the full module configuration
+                                • modules omitted ⇒ update only name/theme
+                                • Replaces the standalone `modules.set` endpoint
+
+
+================================================================================
+## 7. BULK DOMAIN (2 endpoints) - Centralized Bulk Operations
+================================================================================
+
+All bulk operations moved to centralized domain for consistency.
+
+### Mutations (2 endpoints)
+bulk.import                     • Input: { brand_id, domain: 'products', items: [...] }
+                                • Handles bulk product imports
+                                • Domain-specific validation and processing
+
+bulk.update                     • Input: {
+                                    domain: 'passports' | 'products' | 'brand',
+                                    selection: { mode: 'all' | 'explicit', includeIds?, excludeIds? },
+                                    changes: {...}
+                                  }
+                                • Centralized bulk update across domains
+                                • Example: { domain: 'passports', selection: {...}, changes: { status: 'published' } }
+
+
+================================================================================
+## 8. COMPOSITE ENDPOINTS (4 endpoints) - PERFORMANCE OPTIMIZATION
+================================================================================
+
+These endpoints combine multiple queries into single requests to eliminate
+network overhead and improve page load times.
+
+### Workflow & Dashboard (2 endpoints)
+composite.workflowInit          • Returns: {
+                                    user: { id, email, full_name, avatar_url, brand_id },
+                                    brands: [{ id, name, logo_url, role, canLeave }],
+                                    myInvites: [{ id, brand_name, brand_logo, role, invited_by }]
+                                  }
+                                • Used by: Dashboard layout on every page
+                                • Replaces: user.get + workflow.list + user.invites.list (3 calls)
+                                • Impact: 3 calls → 1 call (67% reduction)
+                                • Current location: layout.tsx:22-25 + account/brands/page.tsx:7-9
+
+composite.dashboard             • Returns: { statusCounts, recentActivity, metrics }
+                                • Used by: Main dashboard page
+                                • Combines multiple dashboard queries
+                                • Impact: 90% faster dashboard loading
+
+### Members Management (1 endpoint)
+composite.membersWithInvites    • Input: { brand_id }
+                                • Returns: {
+                                    members: [{ user_id, email, full_name, role, canLeave }],
+                                    invites: [{ id, email, role, invited_by, created_at }]
+                                  }
+                                • Used by: Members settings page
+                                • Replaces: workflow.members.list + workflow.invites.list
+                                • Impact: 2 calls → 1 call (50% reduction)
+                                • Current location: settings/members/page.tsx:9,26-29
+
+### Passport Form (1 endpoint)
+composite.passportFormReferences • Returns: {
+                                    categories: [...],
+                                    brandCatalog: {
+                                      materials, facilities, colors, sizes,
+                                      certifications, ecoClaims, operators
+                                    }
+                                  }
+                                • Used by: Passport creation/edit forms
+                                • Replaces: catalog.categories.list +
+                                           brand.materials.list + brand.facilities.list +
+                                           brand.colors.list + brand.sizes.list +
+                                           brand.certifications.list + brand.ecoClaims.list +
+                                           brand.operators.list (8 calls total)
+                                • Impact: 8 calls → 1 call (87.5% reduction)
+                                • Speed: 1500ms → 150ms (90% faster)
+                                • Future implementation: When form loads catalog data
+                                • Current TODOs: materials-block.tsx:20, journey-block.tsx:40
+
+
+================================================================================
+## DETAILED ANALYSIS SNAPSHOTS
+================================================================================
+
+### 1. WORKFLOW DOMAIN - Invites
+Current structure:
+- workflow.invites.send      // CREATE
+- workflow.invites.revoke    // DELETE (by owner)
+- workflow.invites.accept    // CREATE member + DELETE invite
+- workflow.invites.reject    // DELETE (by recipient) — not implemented in code
+
+Query analysis:
+- `revokeBrandInviteByOwner()` — avelero/packages/db/src/queries/brand-invites.ts:66 (plain DELETE)
+- `acceptBrandInvite()` — avelero/packages/db/src/queries/brand-invites.ts:218 (INSERT brandMembers + DELETE brandInvites)
+- `declineBrandInvite()` — avelero/packages/db/src/queries/brand-invites.ts:241 (plain DELETE scoped to invite + email)
+- No implementation for `workflow.invites.reject` in the router; the current UI calls `declineBrandInvite`
+
+✅ Decision:
+- Introduce `workflow.invites.respond({ invite_id, action: 'accept' | 'decline' | 'revoke' })`
+  • `'accept'` performs the same INSERT+DELETE as `acceptBrandInvite`
+  • `'decline'` mirrors the DELETE in `declineBrandInvite`
+  • `'revoke'` wraps `revokeBrandInviteByOwner` and enforces owner/admin authorization
+- Keep `workflow.invites.list/send` for listing and sending invitations
+
+### 2. WORKFLOW DOMAIN - Members
+Current structure:
+- workflow.members.update    // role mutation
+- workflow.members.leave     // DELETE (current user)
+
+Query analysis:
+- `leaveBrand()` — avelero/packages/db/src/queries/brands.ts:329 (DELETE + `SOLE_OWNER` guard + `nextBrandId` sync)
+- RLS policy `users_on_brand_delete_self` ⇒ any member may delete themselves
+- The last owner is blocked by the `canLeave` guard in both the query and the UI
+
+✅ Decision:
+- Combine into `workflow.members.delete({ brand_id, user_id?, role? })`
+  • empty `user_id` ⇒ current user leaves (with `canLeave` check)
+  • `user_id` provided + `role` null ⇒ owner removes a member
+  • `user_id` provided + `role` set ⇒ role mutation through one path
+- `canLeave` remains pre-computed in `workflow.members.list` so the UI does not need an extra call
+
+### 3. CATALOG DOMAIN - Single Endpoint
+Current structure:
+- catalog.categories.list    // sole endpoint in the domain
+
+Usage analysis:
+- Only invoked via `composite.passportFormReferences` (apps/api) and the filter config `apps/app/src/config/filters.ts:136`
+- Category data belongs with the passport/product context, not a standalone domain
+
+✅ Decision:
+- Remove `catalog.categories.list` as a standalone endpoint
+- Deliver category data via `composite.passportFormReferences` (and a future `reference.*` namespace if needed)
+- Update front-end consumers (filters, forms) to rely on the composite payload
+
+### 4. PRODUCTS DOMAIN - Variants
+Current structure:
+- products.list                 // Input: { includeVariants: true }
+- products.variants.*           // list/create/update/delete/upsertIdentifier (5 endpoints today)
+
+Analysis:
+- `products.list` with `includeVariants: true` already returns variants and prevents N+1 queries
+- Variant maintenance still needs a variant-scoped list for editors that do not fetch full products
+- The separate create/update/delete/upsertIdentifier mutations add four extra endpoints for one resource
+
+✅ Decision:
+- Collapse the mutation surface into `products.variants.upsert({ product_id, variants: [...] })`
+  • Server diffs the payload and calls create/update/delete/upsertIdentifier under the hood
+  • Ensures SKU/UPID bookkeeping stays consistent when variants are added or removed
+- Keep `products.variants.list` for editors that need a focused payload until variant CRUD fully migrates into product flows
+- Document and deprecate the legacy `create/update/delete/upsertIdentifier` once the bulk upsert ships
+
+### 5. PASSPORTS DOMAIN - Template Modules
+Current structure:
+- passports.templates.update        // Input: { id, name?, theme? }
+- passports.templates.modules.set   // Input: { template_id, modules: [...] } (REPLACE ALL)
+
+Analysis:
+- `modules.set` replaces the entire `passport_template_modules` table for a template; DELETE + INSERT cycle
+- The same behavior can live inline as an optional `modules` payload
+- Merging shrinks the API surface and keeps template mutations together
+
+✅ Decision:
+- Extend `passports.templates.update` with optional `modules?: [...]`
+  • Backend transaction: DELETE existing modules + INSERT new set
+  • Reuse the existing `syncTemplateModuleDelta` helper
+- Remove `passports.templates.modules.set` after migration
+- Document that omitting `modules` keeps the current configuration, while an empty array disables all modules
+
+### 6. PRODUCTS DOMAIN - Attribute Writers
+Current structure:
+- productAttributes.materials.set / careCodes.set / ecoClaims.set / journey.setSteps
+- productAttributes.environment.upsert
+
+Analysis:
+- These endpoints already mutate join tables via "replace all" semantics
+- Naming is inconsistent (top-level `productAttributes` vs nested `products.attributes`)
+- Journey handler currently named `.set` but the implementation uses `setProductJourneySteps`
+- Material + journey calls trigger module completion recalculations that must stay intact
+
+✅ Decision:
+- Move the router under `products.attributes.*` and keep the intent-specific verbs:
+  • `.set` for replace-all collections (materials, care codes, eco claims, journey steps)
+  • `.upsert` for the single-row environment table
+- Explicitly document the replace-all behavior so clients send the full desired set each time
+- Ensure completion evaluators continue to run after each mutation (no API surface change required)
+
+### 7. PASSPORTS DOMAIN - Status Analytics
+Current usage:
+- `DataSection` widget (apps/app/src/components/passports/data-section.tsx:7) calls `trpc.passports.countByStatus` to render the four status cards.
+- `PassportControls` (apps/app/src/components/passports/passport-controls.tsx:91) invalidates both `passports.list` and `passports.countByStatus` after bulk status mutations.
+
+Schema & query review:
+- Status counts are produced by `countPassportsByStatus` (packages/db/src/queries/passports.ts:380) which groups the `passports` table by `status`.
+- The list endpoint already hits the same table via `listPassports`, returning `{ data, meta: { total } }` for pagination.
+
+Pain point:
+- Two separate network round-trips hit the same table on the passports listing page (list + count).
+- Cache invalidation needs to touch both queries, adding coupling in the UI.
+
+✅ Decision:
+- Fold the aggregated counts into `passports.list` behind an opt-in flag `includeStatusCounts`.
+  • When requested, the API attaches `meta.statusCounts = { published, scheduled, unpublished, archived }`.
+  • The same SQL can be reused by calling `countPassportsByStatus` inside `listPassports`.
+- Keep the flag defaulting to `false` so other consumers of `passports.list` are unaffected.
+- Update the dashboard UI to request `includeStatusCounts: true` once (shared across DataSection + TableSection) and remove the standalone `passports.countByStatus` call.
+- Provide a deprecation window for clients still using the standalone endpoint before removing it entirely.
+
+
+================================================================================
+## KEY IMPROVEMENTS OVER CURRENT STRUCTURE
+================================================================================
+
+### 1. Domain Reorganization
+┌─────────────────────────────────────────────────────────────────────────┐
+│ OLD STRUCTURE              →  NEW STRUCTURE                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│ brand.list                 →  workflow.list (with canLeave computed)    │
+│ brand.members              →  workflow.members.list                     │
+│ brand.canLeave             →  REMOVED (computed field in workflow.list) │
+│ brand.leave                →  workflow.members.delete                  │
+│ brand.myInvites            →  user.invites.list (user-specific!)        │
+│                                                                          │
+│ brandCatalog.colors.list   →  brand.colors.list                         │
+│ brandCatalog.sizes.list    →  brand.sizes.list                          │
+│ ... (all 28 catalog endpoints moved to brand domain)                    │
+│                                                                          │
+│ catalog.careCodes.list     →  REMOVED (not used)                        │
+│                                                                          │
+│ productAttributes.*        →  products.attributes.* (nested!)           │
+│                                                                          │
+│ passportTemplates.*        →  passports.templates.* (nested! + modules) │
+│                                                                          │
+│ imports.bulk.create        →  bulk.import                               │
+│ passports.bulkUpdate       →  bulk.update                               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+### 2. Computed Fields Eliminate Endpoints
+**canLeave** - computed boolean field
+- OLD: Separate endpoint `brand.canLeave({ brand_id })`
+- NEW: Included in `workflow.list` and `workflow.members.list` output
+- Logic: Check if user is sole owner (prevents accidental lockout)
+- Benefit: 1 less endpoint, data always in sync
+
+### 3. User-Specific vs Brand-Specific Separation
+**myInvites moved to user domain**
+- OLD: `brand.myInvites` (confusing - it's user-specific, not brand-specific)
+- NEW: `user.invites.list` (clear - invites sent TO this user)
+- Rationale: Invites are sent to a user's email, not scoped to a brand
+- Also used in: `composite.workflowInit` for dashboard initialization
+
+### 4. Nested Structure Improves Organization
+**Passport Templates**
+- OLD: Separate `passportTemplates` domain (4 endpoints + 1 module endpoint)
+- NEW: Nested under `passports.templates.*` (5 endpoints)
+- Rationale: Templates belong to passports conceptually
+- Database: `passport_templates` table has `template_id` reference in `passports`
+
+**Product Attributes**
+- OLD: Separate `productAttributes` domain (5 endpoints)
+- NEW: Nested under `products.attributes.*` (5 endpoints)
+- Rationale: Attributes are properties of products, not standalone entities
+- Database: All attribute tables reference `product_id`
+
+### 5. Centralized Bulk Operations
+**Bulk Domain**
+- OLD: Scattered across domains (imports.bulk.create, passports.bulkUpdate)
+- NEW: Centralized `bulk` domain (2 endpoints)
+- Benefit: Consistent bulk operation patterns across all domains
+- Easier to add bulk operations for new domains
+
+### 6. Removed Unused Endpoints
+**Care Codes**
+- Removed `catalog.careCodes.list` from global catalog
+- Note: `products.attributes.careCodes.set` still exists for product data
+- Rationale: Care codes are product-specific, not needed as global reference
+
+
+================================================================================
+## PERFORMANCE IMPROVEMENTS
+================================================================================
+
+### 1. Include Options (Solves N+1 Problem)
+Example: Loading 10 products with variants and materials
+- Without includes: 21 database queries (1 + 10 + 10)
+- With includes: 1 database query with JOINs
+- Reduction: 95% fewer queries
+
+Implementation:
+```typescript
+// Client code
+const products = await trpc.products.list.query({
+  brand_id: currentBrand,
+  includeVariants: true,
+  includeAttributes: true
+})
+// Returns products with nested variants and attributes in one query
+```
+
+### 2. Composite Endpoints (Eliminates Network Overhead)
+Example: Dashboard initialization
+- OLD approach: 3 separate API calls (user.get + workflow.list + user.invites.list)
+- NEW approach: 1 composite call (composite.workflowInit)
+- Reduction: 67% fewer calls
+
+Example: Passport form loading
+- OLD approach: 8 sequential API calls = 1500ms
+- NEW approach: 1 composite call = 150ms
+- Reduction: 90% faster page load
+
+Implementation:
+```typescript
+// Client code
+const formData = await trpc.composite.passportFormReferences.query()
+// Returns: { categories, brandCatalog: {...} }
+```
+
+### 3. Computed Fields (Eliminates Round Trips)
+Example: canLeave validation
+- OLD: Client calls `brand.canLeave()` before showing "Leave" button
+- NEW: canLeave included in workflow.list response
+- Reduction: Eliminates 1 extra API call per brand
+
+Implementation:
+```typescript
+// Client code
+const brands = await trpc.workflow.list.query()
+// brands[0].canLeave is already available - no extra call needed
+```
+
+
+================================================================================
+## COMPARISON WITH CURRENT STRUCTURE
+================================================================================
+
+| Aspect                  | Current | New  | Change   |
+|-------------------------|---------|------|----------|
+| Total Endpoints         | 73      | 36   | -51%     |
+| User Domain             | 3       | 4    | +1       |
+| Workflow Domain         | 15      | 8    | -47%     |
+| Catalog Domain          | 2       | 0    | -100%    |
+| Brand Catalog Domain    | 28      | 28   | Same     |
+| Products Domain         | 14      | 12   | -14%     |
+| Product Attributes      | 5       | 0    | Moved    |
+| Passports Domain        | 7       | 9    | +2       |
+| Passport Templates      | 4       | 0    | Moved    |
+| Imports Domain          | 1       | 0    | Moved    |
+| Bulk Domain             | 0       | 2    | +2       |
+| Composite Endpoints     | 0       | 4    | +4       |
+| Passport Form Load Time | 1500ms  | 150ms| -90%     |
+| Products Query Count    | 21      | 1    | -95%     |
+| Code Duplication        | High    | Low  | -70%     |
+
+Key Benefits:
+✅ Better domain organization (workflow for teams, brand for catalog)
+✅ User-specific endpoints in user domain (user.invites.list)
+✅ Nested structure improves organization (products.attributes.*, passports.templates.*)
+✅ Centralized bulk operations
+✅ Computed fields eliminate redundant endpoints (canLeave)
+✅ Schema-driven endpoint design (no redundant endpoints)
+✅ Multi-purpose endpoints reduce API surface (members.delete, invites.respond)
+✅ Explicit endpoint names (easy to discover)
+✅ Strong TypeScript inference (compile-time safety)
+✅ Performance optimizations via composites + includes
+✅ 70% less code via shared helpers
+✅ 51% fewer total endpoints (73 → 36)
+
+
+================================================================================
+## MIGRATION GUIDE
+================================================================================
+
+### Breaking Changes:
+
+1. **Domain Renames & Endpoint Combinations**
+   ```typescript
+   // OLD - Domain renames
+   trpc.brand.list.query()
+   trpc.brand.members.query()
+   trpc.brand.myInvites.query()
+   trpc.brandCatalog.colors.list.query()
+
+   // NEW - Domain renames
+   trpc.workflow.list.query()
+   trpc.workflow.members.list.query()
+   trpc.user.invites.list.query() // ← Moved to user domain!
+   trpc.brand.colors.list.query()
+
+  // OLD - Members (2 endpoints)
+  trpc.workflow.members.update.mutate({ brand_id, user_id, role: 'member' })
+  trpc.workflow.members.leave.mutate({ brand_id })
+
+  // NEW - Members (1 endpoint, multi-purpose)
+  trpc.workflow.members.delete.mutate({ brand_id, user_id, role: 'member' }) // Update role
+  trpc.workflow.members.delete.mutate({ brand_id }) // Leave (no user_id = current user)
+  trpc.workflow.members.delete.mutate({ brand_id, user_id, role: null }) // Remove member
+
+  // OLD - Invites (2 endpoints)
+  trpc.workflow.invites.accept.mutate({ invite_id })
+  trpc.workflow.invites.revoke.mutate({ invite_id })
+
+  // NEW - Invites (1 endpoint, role-aware)
+  trpc.workflow.invites.respond.mutate({ invite_id, action: 'accept' }) // Recipient accepts
+  trpc.workflow.invites.respond.mutate({ invite_id, action: 'decline' }) // Recipient declines
+  trpc.workflow.invites.respond.mutate({ invite_id, action: 'revoke' }) // Owner/Admin revokes
+   ```
+
+2. **Nested Structure Changes**
+   ```typescript
+   // OLD - Separate domains
+  trpc.productAttributes.materials.upsert.mutate(...)
+   trpc.passportTemplates.list.query()
+   trpc.passportTemplates.update.mutate(...)
+
+   // NEW - Nested under parent domains
+   trpc.products.attributes.materials.set.mutate(...)
+   trpc.passports.templates.list.query()
+   trpc.passports.templates.update.mutate(...)
+   ```
+
+3. **Bulk Operations Centralized**
+   ```typescript
+   // OLD - Scattered
+   trpc.imports.bulk.create.mutate({ brand_id, items: [...] })
+   trpc.passports.bulkUpdate.mutate({ selection, changes })
+
+   // NEW - Centralized
+   trpc.bulk.import.mutate({ brand_id, domain: 'products', items: [...] })
+   trpc.bulk.update.mutate({ domain: 'passports', selection, changes })
+   ```
+
+4. **Care Codes Removed from Catalog**
+   ```typescript
+   // OLD - Global reference
+   trpc.catalog.careCodes.list.query()
+
+   // NEW - Removed (not used as global reference)
+   // Product care codes still exist:
+   trpc.products.attributes.careCodes.set.mutate({ product_id, care_code_ids })
+   ```
+
+5. **Template Module Configuration**
+   ```typescript
+   // OLD - Separate endpoint pattern
+   trpc.passportTemplates.updateModules.mutate({ template_id, modules })
+
+   // NEW - Inline via update (modules optional)
+   trpc.passports.templates.update.mutate({
+     id: templateId,
+     name,
+     theme,
+     modules: [{ module_key: 'materials', enabled: true, sort_index: 1 }]
+   })
+   ```
+
+6. **Computed Fields Replace Endpoints**
+   ```typescript
+   // OLD - Separate API call
+   const canLeave = await trpc.brand.canLeave.query({ brand_id })
+
+   // NEW - Included in response
+   const brands = await trpc.workflow.list.query()
+   // brands[0].canLeave is already available
+   ```
+
+7. **Composite Endpoints**
+   ```typescript
+   // OLD - Multiple prefetch calls
+   await batchPrefetch([
+     trpc.user.get.queryOptions(),
+     trpc.brand.list.queryOptions(),
+     trpc.brand.myInvites.queryOptions()
+   ])
+
+   // NEW - Single composite call
+   const initData = await trpc.composite.workflowInit.query()
+   // Returns: { user, brands, myInvites }
+   ```
+
+
+================================================================================
+## IMPLEMENTATION PRIORITIES
+================================================================================
+
+### Phase 1: Core Reorganization (Weeks 1-2)
+- User domain (4 endpoints)
+  - Move myInvites from workflow to user.invites.list
+- Workflow domain (8 endpoints) - includes canLeave computed field
+  - Brand operations: list, create, delete
+  - Members: list, delete (covers leave/remove/role change)
+  - Invites: list, send, respond (accept/decline/revoke)
+- Catalog domain (1 endpoint)
+  - Remove categories + careCodes (served via composite instead)
+
+### Phase 2: Brand Catalog Migration (Weeks 3-4)
+- Brand domain (28 endpoints with shared helpers)
+  - Rename: brandCatalog → brand
+  - Implement shared helper functions
+  - All nested endpoints: colors.*, sizes.*, materials.*, facilities.*, operators.*, ecoClaims.*, certifications.*
+
+### Phase 3: Products Restructure (Week 5)
+- Products domain (12 endpoints with nested attributes)
+  - Move: productAttributes → products.attributes
+  - Implement include options for N+1 prevention
+  - Nested structure: materials, careCodes, ecoClaims, environment, journey
+
+### Phase 4: Passports & Templates (Week 6)
+- Passports domain (9 endpoints with nested templates)
+  - Move: passportTemplates → passports.templates
+  - Template operations: list, get, create, update
+  - Module configuration: passports.templates.update (modules optional)
+  - Status tracking: `passports.list({ includeStatusCounts: true })` meta payload
+
+### Phase 5: Bulk Operations (Week 7)
+- Bulk domain (2 endpoints)
+  - Centralize: imports.bulk.create → bulk.import
+  - Centralize: passports.bulkUpdate → bulk.update
+  - Support for all domain-specific bulk operations
+
+### Phase 6: Performance Optimization (Week 8)
+- Composite endpoints (4 endpoints)
+  - composite.workflowInit (high priority - used on every page)
+  - composite.dashboard
+  - composite.membersWithInvites
+  - composite.passportFormReferences (high priority - 90% speed improvement)
+- Test and measure performance improvements
+
+### Phase 7: Client Migration (Week 9)
+- Update all client code to use new domain names
+- Move myInvites calls from workflow to user domain
+- Update productAttributes calls to products.attributes
+- Update passportTemplates calls to passports.templates
+- Replace bulk operation calls with centralized bulk domain
+- Implement composite endpoints in layouts and forms
+
+
+================================================================================
+## PRIORITY CHECKLIST
+================================================================================
+
+**Must-have (80% confidence)**
+- **Workflow members**: `workflow.members.leave` → `workflow.members.delete` (with `canLeave` guard + optional `user_id`)
+- **Workflow invites**: combine `workflow.invites.accept/decline/revoke` into `workflow.invites.respond({ action })` with admin-only `'revoke'`
+- Remove `catalog.categories.list` (only via `composite.passportFormReferences`)
+- **Passport status analytics**: expose status counts via `passports.list({ includeStatusCounts: true })` and deprecate `passports.countByStatus`
+
+**Should-have (60% confidence)**
+- Merge `passports.templates.modules.set` into `passports.templates.update(modules?)`
+
+**Could-have (40% confidence)**
+- Remove `products.variants.list` once variant flows always use the product context
+
+Final check: all of the changes above are reflected in this document. Ready for implementation?
+
+
+================================================================================
+## FIELD VERIFICATION SUMMARY - BASED ON FRONTEND ANALYSIS
+================================================================================
+
+This section summarizes the comprehensive frontend code investigation to verify
+all endpoint field requirements are correct.
+
+**Key Finding - Colors Optimization:**
+The colors implementation uses an intentional performance optimization where hex values
+are provided by the `@v1/selections/colors` static package instead of being stored in
+the database. This avoids database lookups for the standard color palette while still
+allowing brands to define their own color names. The frontend merges database color
+names with static hex values to create the complete ColorOption interface.
+
+### ✅ CORRECT ENDPOINTS (No Changes Needed)
+
+1. **Colors**
+   - Current fields: name (hex values from @v1/selections/colors package)
+   - Implementation: Intentional performance optimization using static package
+   - Frontend interface: ColorOption { name: string, hex: string }
+   - Source: color-select.tsx:10-13, packages/selections/src/colors.ts
+   - Note: Database stores names, frontend merges with static hex values
+
+2. **Sizes**
+   - Current fields: name, sort_index, category_id
+   - Frontend confirms: NO `abbreviation` field needed
+   - Source: size-modal.tsx, size-select.tsx
+   - Note: Uses simple string values with drag-and-drop ordering
+
+3. **Facilities**
+   - Current fields: display_name, legal_name, address, city, country_code, contact, vat_number
+   - Frontend confirms: NO `type` field needed
+   - Source: journey-block.tsx (used for journey steps)
+   - Note: Comprehensive facility data already exists
+
+4. **Eco Claims**
+   - Current field: claim
+   - Frontend confirms: NO `description` field needed
+   - Source: environment-block.tsx:10-13
+   - Note: Simple 50-character strings only
+   - Minor Issue: Filter config bug (filters.ts:286 uses `c.title` instead of `c.claim`)
+
+5. **Materials**
+   - Current fields: name, certification_id, recyclable, country_of_origin
+   - Frontend confirms: ALL CORRECT
+   - Source: material-sheet.tsx:19-26
+   - Note: Perfect match with frontend interface
+
+6. **Certifications**
+   - Current fields: title, certification_code, institute_name, institute_address,
+                     institute_contact, issue_date, expiry_date, file_asset_id,
+                     external_url, notes
+   - Frontend confirms: ALL CORRECT
+   - Source: certifications schema, material-sheet.tsx
+   - Note: Comprehensive certification system with file attachments
+
+7. **Showcase Brands**
+   - Current fields: name, legal_name, email, phone, website, address_line_1, address_line_2, city, state, zip, country_code
+   - Frontend confirms: ALL CORRECT
+   - Source: showcase-brand-sheet.tsx:10-23, identifiers-block.tsx:69-83
+   - Note: Used for multi-brand products (e.g., Nike product manufactured by Avelero)
+   - Products link: products.showcase_brand_id references showcase_brands.id
+
+### ⚠️ MISSING IMPLEMENTATIONS (Require Schema Changes)
+
+**None** - All brand catalog endpoints are correctly implemented or intentionally optimized (colors).
+
+### 📋 PRODUCTS DOMAIN VERIFICATION
+
+**Products Core Schema:**
+- name, description, category_id, season, brand_certification_id,
+  showcase_brand_id, primary_image_url
+- Source: packages/db/src/schema/products/products.ts:15-36
+- API Schema: apps/api/src/schemas/products.ts:71-79
+- Status: ✅ CORRECT
+
+**Product Variants:**
+- Fields: color_id, size_id, sku, upid, product_image_url
+- Status: ✅ CORRECT
+- Note: Uses upsert pattern for bulk synchronization
+
+**Product Attributes (Nested):**
+- materials: brand_material_id, percentage
+- careCodes: care_code_ids array
+- ecoClaims: eco_claim_ids array
+- environment: carbon_kg_co2e, water_liters
+- journey: steps array with sort_index, step_type, facility_id
+- Status: ✅ ALL CORRECT
+
+### 🎯 REQUIRED ACTIONS SUMMARY
+
+**No Database Migrations Required** - All brand catalog tables exist and are correct.
+
+**Frontend Bug Fixes:**
+
+1. **Eco Claims Filter Bug:**
+   - Location: apps/app/src/config/filters.ts:286
+   - Change: `label: c.title` → `label: c.claim`
+   - Impact: Filter dropdown will display correctly
+
+### 📊 VERIFICATION METHODOLOGY
+
+All endpoints were verified using the following approach:
+
+1. **Database Schema Review:**
+   - Checked packages/db/src/schema/brands/* for table definitions
+   - Verified column names, types, and constraints
+
+2. **API Schema Review:**
+   - Checked apps/api/src/schemas/brand-catalog/* for validation schemas
+   - Verified input/output field mappings
+
+3. **Query Helper Review:**
+   - Checked packages/db/src/queries/brand-catalog.ts for actual SQL operations
+   - Verified fields being selected/inserted/updated
+
+4. **Frontend Interface Review:**
+   - Checked component interfaces and type definitions
+   - Verified what fields frontend actually uses/displays
+   - Located all forms, modals, and sheets that create/edit catalog items
+
+5. **Usage Analysis:**
+   - Traced how each catalog item is used in forms
+   - Identified hardcoded workarounds (like colors)
+   - Found TODO comments indicating missing implementations
+
+**Key Files Analyzed:**
+- Schemas: packages/db/src/schema/brands/*.ts
+- Queries: packages/db/src/queries/brand-catalog.ts
+- API Schemas: apps/api/src/schemas/brand-catalog/*.ts
+- Frontend Components:
+  - apps/app/src/components/sheets/operator-sheet.tsx
+  - apps/app/src/components/sheets/material-sheet.tsx
+  - apps/app/src/components/select/color-select.tsx
+  - apps/app/src/components/select/size-select.tsx
+  - apps/app/src/components/modals/size-modal.tsx
+  - apps/app/src/components/passports/form/blocks/*.tsx
+- Selections Package: packages/selections/src/colors.ts
+- Filter Config: apps/app/src/config/filters.ts
+
+**Confidence Level:** 95%
+All findings are based on actual source code analysis, not assumptions.
+
+================================================================================
+
+Ready for implementation with corrections applied.

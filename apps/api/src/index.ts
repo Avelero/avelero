@@ -1,3 +1,10 @@
+/**
+ * Bootstraps the public API server supporting the tRPC endpoints.
+ *
+ * This module wires together the Hono web server, shared middleware, and the
+ * tRPC router that exposes the brand and product management endpoints. Bun
+ * loads this file directly in both development and production.
+ */
 import { trpcServer } from "@hono/trpc-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -58,9 +65,19 @@ app.use(
   }),
 );
 
+/**
+ * Lightweight health check endpoint used by hosting to confirm the API is up.
+ */
 app.get("/health", (c) => c.json({ status: "ok" }, 200));
 
-export default {
+/**
+ * Bun-compatible server export consumed by the runtime.
+ *
+ * @returns Object including the listen port and fetch handler.
+ */
+const serverConfig = {
   port: process.env.PORT ? Number.parseInt(process.env.PORT) : 4000,
   fetch: app.fetch,
 };
+
+export default serverConfig;

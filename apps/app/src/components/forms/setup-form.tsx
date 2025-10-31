@@ -4,7 +4,6 @@ import { AvatarUpload } from "@/components/avatar-upload";
 import { CountrySelect } from "@/components/select/country-select";
 import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { hueFromName } from "@/utils/avatar-hue";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
@@ -34,12 +33,12 @@ export function SetupForm() {
     const u = user as CurrentUser | null | undefined;
     if (!u) return;
     if (!fullName && u.full_name) setFullName(u.full_name);
-    if (!avatarUrl && u.avatar_path) setAvatarUrl(u.avatar_path);
+    if (!avatarUrl && u.avatar_url) setAvatarUrl(u.avatar_url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const updateUserMutation = useMutation(
-    trpc.user.update.mutationOptions({
+    trpc.v2.user.update.mutationOptions({
       onSuccess: async () => {
         await queryClient.invalidateQueries();
         const brands = await queryClient.fetchQuery(
@@ -65,12 +64,9 @@ export function SetupForm() {
     }
 
     try {
-      const rawHue = hueFromName(parsed.data.full_name);
-      const avatar_hue = Math.min(rawHue, 359);
       updateUserMutation.mutate({
         full_name: parsed.data.full_name,
-        avatar_hue,
-        ...(avatarUrl ? { avatar_path: avatarUrl } : {}),
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save profile";

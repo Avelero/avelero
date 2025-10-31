@@ -13,13 +13,13 @@ import { toast } from "@v1/ui/sonner";
 
 export function useMyInvitesQuery() {
   const trpc = useTRPC();
-  const opts = trpc.brand.myInvites.queryOptions();
+  const opts = trpc.v2.user.invites.list.queryOptions();
   return useQuery(opts);
 }
 
 export function useMyInvitesQuerySuspense() {
   const trpc = useTRPC();
-  const opts = trpc.brand.myInvites.queryOptions();
+  const opts = trpc.v2.user.invites.list.queryOptions();
   return useSuspenseQuery(opts);
 }
 
@@ -27,28 +27,26 @@ export function useAcceptInviteMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   type RouterOutputs = inferRouterOutputs<AppRouter>;
-  type MyInvites = RouterOutputs["brand"]["myInvites"];
+  type MyInvites = RouterOutputs["v2"]["user"]["invites"]["list"];
   return useMutation(
     trpc.brand.acceptInvite.mutationOptions({
       onMutate: async (variables) => {
         await queryClient.cancelQueries({
-          queryKey: trpc.brand.myInvites.queryKey(),
+          queryKey: trpc.v2.user.invites.list.queryKey(),
         });
         const previous = queryClient.getQueryData<MyInvites | undefined>(
-          trpc.brand.myInvites.queryKey(),
+          trpc.v2.user.invites.list.queryKey(),
         );
 
         // Find the invite to get brand name for toast
-        const invite = previous?.data.find((i) => i.id === variables.id);
-        const brandName = invite?.brand?.name || "brand";
+        const invite = previous?.find((i) => i.id === variables.id);
+        const brandName = invite?.brand_name || "brand";
 
         queryClient.setQueryData<MyInvites | undefined>(
-          trpc.brand.myInvites.queryKey(),
+          trpc.v2.user.invites.list.queryKey(),
           (old) =>
             old
-              ? {
-                  data: old.data.filter((i) => i.id !== variables.id),
-                }
+              ? old.filter((i) => i.id !== variables.id)
               : old,
         );
 
@@ -56,7 +54,7 @@ export function useAcceptInviteMutation() {
       },
       onError: (_err, _vars, ctx) => {
         queryClient.setQueryData(
-          trpc.brand.myInvites.queryKey(),
+          trpc.v2.user.invites.list.queryKey(),
           ctx?.previous,
         );
         toast.error("Action failed, please try again");
@@ -68,13 +66,13 @@ export function useAcceptInviteMutation() {
       onSettled: async () => {
         // refresh invite inbox and memberships
         await queryClient.invalidateQueries({
-          queryKey: trpc.brand.myInvites.queryKey(),
+          queryKey: trpc.v2.user.invites.list.queryKey(),
         });
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.list.queryKey(),
         });
         await queryClient.invalidateQueries({
-          queryKey: trpc.user.me.queryKey(),
+          queryKey: trpc.v2.user.get.queryKey(),
         });
         await queryClient.invalidateQueries({
           queryKey: trpc.brand.members.queryKey(),
@@ -88,36 +86,34 @@ export function useRejectInviteMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   type RouterOutputs = inferRouterOutputs<AppRouter>;
-  type MyInvites = RouterOutputs["brand"]["myInvites"];
+  type MyInvites = RouterOutputs["v2"]["user"]["invites"]["list"];
   return useMutation(
     trpc.brand.rejectInvite.mutationOptions({
       onMutate: async (variables) => {
         await queryClient.cancelQueries({
-          queryKey: trpc.brand.myInvites.queryKey(),
+          queryKey: trpc.v2.user.invites.list.queryKey(),
         });
         const previous = queryClient.getQueryData<MyInvites | undefined>(
-          trpc.brand.myInvites.queryKey(),
+          trpc.v2.user.invites.list.queryKey(),
         );
         queryClient.setQueryData<MyInvites | undefined>(
-          trpc.brand.myInvites.queryKey(),
+          trpc.v2.user.invites.list.queryKey(),
           (old) =>
             old
-              ? {
-                  data: old.data.filter((i) => i.id !== variables.id),
-                }
+              ? old.filter((i) => i.id !== variables.id)
               : old,
         );
         return { previous } as const;
       },
       onError: (_err, _vars, ctx) => {
         queryClient.setQueryData(
-          trpc.brand.myInvites.queryKey(),
+          trpc.v2.user.invites.list.queryKey(),
           ctx?.previous,
         );
       },
       onSettled: async () => {
         await queryClient.invalidateQueries({
-          queryKey: trpc.brand.myInvites.queryKey(),
+          queryKey: trpc.v2.user.invites.list.queryKey(),
         });
       },
     }),

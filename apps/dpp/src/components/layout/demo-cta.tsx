@@ -5,7 +5,7 @@ export function DemoCTA() {
         href="https://www.avelero.com"
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center justify-center transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 p-2 h-9 px-2 py-[10px] text-[14px] leading-[16px] text-[var(--primary-foreground)] bg-[var(--highlight)] hover:bg-[var(--highlight)]/90 pointer-events-auto shadow-sm box-border"
+        className="inline-flex items-center justify-center transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 p-2 h-9 px-2 py-[10px] text-[14px] leading-[16px] text-primary-foreground bg-brand hover:bg-brand/90 pointer-events-auto shadow-sm box-border"
       >
         <div className="inline-flex items-center px-1">Talk to founders</div>
         <span className="inline-flex items-center h-4 w-4">

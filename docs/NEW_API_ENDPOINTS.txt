@@ -3,7 +3,7 @@
 PROPOSED API STRUCTURE
 ================================================================================
 
-Total Endpoints: 36 (vs 73 current = 51% reduction)
+Total Endpoints: 32 (vs 73 current = 56% reduction)
 Optional: Drop `products.variants.list` → 35 endpoints total
 Approach: Domain reorganization + nested endpoint structure + performance optimizations
 Counting method: CRUD families (list/create/update/delete) counted as one endpoint bundle.
@@ -15,7 +15,7 @@ Key Changes:
   - careCodes removed (not needed in current implementation)
   - All bulk operations → bulk domain
   - passportTemplates → passports.templates (nested under passports)
-  - productAttributes → products.attributes (nested under products)
+  - productAttributes.* → merged into products.update (attributes are product properties)
   - members.leave → workflow.members.delete (adds `canLeave` guard for last owner)
   - invites.accept/decline/revoke → workflow.invites.respond (single action with role-aware checks)
   - passports.templates.modules.set → passports.templates.update (optional modules payload)
@@ -188,10 +188,10 @@ Showcase brands enable products to display partner/peer brand information (e.g.,
 
 
 ================================================================================
-## 5. PRODUCTS DOMAIN (12 endpoints)
+## 5. PRODUCTS DOMAIN (7 endpoints)
 ================================================================================
 
-### Base Operations (5 endpoints)
+### Base Operations (5 endpoints with attribute support in .update)
 products.list                   • Input: { brand_id?, includeVariants?, includeAttributes? }
                                 • Include options prevent N+1 queries
                                 • Without includes: 21 queries for 10 products
@@ -201,10 +201,11 @@ products.get                    • Input: { id, includeVariants?, includeAttrib
                                 • Get single product with optional includes
 
 products.create                 • Input: { brand_id, name, description, category_id?, ... }
-products.update                 • Input: { id, name?, description?, category_id?, ... }
+products.update                 • Input: { id, name?, description?, category_id?, materials?, careCodes?, ecoClaims?, environment?, journeySteps?, ... }
+                                • Supports updating product attributes (see details below)
 products.delete                 • Input: { id }
 
-### Variants (2 endpoints)
+### Variants (3 endpoints)
 products.variants.list          • Input: { product_id }
                                 • Returns all variants for the given product (driven by `listVariants` query)
                                 • Used by variant management screens that need variant-only payloads
@@ -216,45 +217,67 @@ products.variants.upsert        • Input: {
                                       sku?, upid?, product_image_url?
                                     }, ...]
                                   }
-                                • Bulk-synchronizes variants for a product in a single call
-                                • Server diffs incoming payload against existing rows and orchestrates create/update/delete
-                                • Replaces legacy trio (`create`, `update`, `delete`) + `upsertIdentifier`
-                                • Keeps identifier data (sku/upid) consistent when variants are reordered or removed
+                                • Inserts new variants and updates existing ones (create + update only). Does NOT delete missing rows.
+                                • Keeps payloads small: clients send only new/changed variants.
+                                • Returns per-item status (created/updated/error).
 
-### Attributes (5 endpoints) - Nested under products
-products.attributes.materials.set       • Input: {
-                                            product_id,
-                                            items: [{ brand_material_id, percentage? }]
-                                          }
-                                        • Replaces the entire material composition for a product
-                                        • Implementation: wraps `upsertProductMaterials` (delete + insert + module completion)
+products.variants.delete        • Input: { variant_ids: string[] } or { product_id, filter?: {...} }
+                                • Explicit delete endpoint for removing variants. Use for intentional removals or bulk deletes.
+                                • (Optional) `products.variants.bulkDelete` can be added for large-scale removals with job semantics.
 
-products.attributes.careCodes.set       • Input: { product_id, care_code_ids: [...] }
-                                        • Stores care code tags; missing codes are removed, new codes inserted
-                                        • Implementation: `setProductCareCodes` (diff-based sync)
+### Product Attributes - Updated via products.update
 
-products.attributes.ecoClaims.set       • Input: { product_id, eco_claim_ids: [...] }
-                                        • Mirrors the care-code behavior for eco-claim tags
-                                        • Implementation: `setProductEcoClaims`
+**Architecture Decision: Attributes are part of the product**
 
-products.attributes.environment.upsert  • Input: { product_id, carbon_kg_co2e?, water_liters? }
-                                        • Upserts a single row with environmental impact metrics
-                                        • Implementation: `upsertProductEnvironment` (`ON CONFLICT` upsert + completion tracking)
+Product attributes (materials, care codes, eco claims, environment, journey) are properties
+of the product and should be updated via `products.update`, not separate endpoints.
 
-products.attributes.journey.setSteps    • Input: {
-                                            product_id,
-                                            steps: [{ sort_index, step_type, facility_id }]
-                                          }
-                                        • Replaces the ordered passport journey for the product
-                                        • Implementation: `setProductJourneySteps` (truncate + insert + completion update)
+**products.update extended schema:**
+```typescript
+products.update({
+  id: "product-123",
 
-Set vs Upsert pattern:
-- `.set` endpoints replace the full collection for join tables (materials, care codes, eco claims, journey). They accept the entire desired state and make the database match it.
-- `.upsert` endpoints update a single keyed record (environment metrics) where partial updates are meaningful without dropping data.
+  // Basic product fields (optional)
+  name: "New Name",
+  description: "...",
+  category_id: "...",
+
+  // Attribute fields (all optional)
+  materials: [{ brand_material_id: "...", percentage: 50 }],
+  careCodes: ["code-id-1", "code-id-2"],
+  ecoClaims: ["claim-id-1", "claim-id-2"],
+  environment: { carbon_kg_co2e: "1.5", water_liters: "100" },
+  journeySteps: [
+    { sort_index: 0, step_type: "spinning", facility_id: "..." },
+    { sort_index: 1, step_type: "weaving", facility_id: "..." }
+  ]
+})
+```
+
+**Behavior:**
+- All attribute fields are optional
+- Omitting a field leaves it unchanged
+- Providing a field replaces the entire attribute (materials, careCodes, ecoClaims, journeySteps)
+- Environment uses upsert semantics (partial updates allowed)
+- All updates trigger module completion recalculation for affected modules
+
+**Implementation:**
+- materials: Calls `upsertProductMaterials` (DELETE + INSERT)
+- careCodes: Calls `setProductCareCodes` (diff-based sync)
+- ecoClaims: Calls `setProductEcoClaims` (diff-based sync)
+- environment: Calls `upsertProductEnvironment` (ON CONFLICT upsert)
+- journeySteps: Calls `setProductJourneySteps` (DELETE + INSERT)
+
+**Why no dedicated attribute endpoints?**
+- ❌ Dedicated endpoints (products.attributes.*) are removed
+- ✅ Attributes are product properties, not separate resources
+- ✅ Simpler API surface (fewer endpoints to learn)
+- ✅ Atomic updates (change multiple attributes in one call)
+- ✅ Cleaner architecture (no artificial separation)
 
 
 ================================================================================
-## 6. PASSPORTS DOMAIN (9 endpoints)
+## 6. PASSPORTS DOMAIN (10 endpoints)
 ================================================================================
 
 ### Base Operations (5 endpoints)
@@ -272,21 +295,44 @@ passports.delete                • Input: { upid }
 Note: passports.status.set REMOVED - redundant with passports.update
 The passports table only has 2 updatable fields (status, template_id), so separate endpoints make no sense.
 
-### Templates (4 endpoints) - Nested under passports
-passports.templates.list        • Input: { brand_id? }
+### Templates (5 endpoints) - Nested under passports
+
+Templates define which modules (sections) appear in a passport and how they are styled.
+Each brand can have multiple templates. A passport uses one template.
+
+passports.templates.list        • Purpose: Get all templates for a brand
+                                • Input: { brand_id? }
                                 • Output: [{ id, brand_id, name, theme, created_at }]
+                                • Returns: List of templates with basic info (no modules)
+                                • Use case: Template selection dropdown, settings page
 
-passports.templates.get         • Input: { id }
-                                • Output: { id, brand_id, name, theme, modules: [...] }
-                                • Includes module configuration
+passports.templates.get         • Purpose: Get full details of one template
+                                • Input: { id }
+                                • Output: { id, brand_id, name, theme, modules: [{ module_key, enabled, sort_index }] }
+                                • Returns: Complete template with all module configuration
+                                • Use case: Template editor, loading template to edit
 
-passports.templates.create      • Input: { brand_id, name, theme?, modules? }
-                                • Creates template with optional module configuration
+passports.templates.create      • Purpose: Create a new template
+                                • Input: { brand_id, name, theme?, modules? }
+                                • name: Template display name (e.g., "Premium", "Basic")
+                                • theme: JSON object with styling (colors, fonts, etc.)
+                                • modules: Optional array of enabled modules with sort order
+                                • Use case: "Create Template" button in settings
 
-passports.templates.update      • Input: { id, name?, theme?, modules?: [{ module_key, enabled, sort_index }] }
-                                • modules provided ⇒ transactional DELETE + INSERT of the full module configuration
-                                • modules omitted ⇒ update only name/theme
-                                • Replaces the standalone `modules.set` endpoint
+passports.templates.update      • Purpose: Modify an existing template
+                                • Input: { id, name?, theme?, modules?: [{ module_key, enabled, sort_index }] }
+                                • name: Change template display name
+                                • theme: Update styling configuration
+                                • modules: If provided → replaces ALL modules (DELETE + INSERT)
+                                • modules: If omitted → keeps current modules unchanged
+                                • Use case: Template editor, rename template, toggle modules
+
+passports.templates.delete      • Purpose: Delete a template permanently
+                                • Input: { id }
+                                • Warning: Deletes ALL passports using this template (CASCADE)
+                                • Database: passports.template_id has ON DELETE CASCADE
+                                • UI must: Show count of affected passports before deletion
+                                • Use case: Remove unused template (with confirmation dialog)
 
 
 ================================================================================
@@ -420,19 +466,30 @@ Usage analysis:
 ### 4. PRODUCTS DOMAIN - Variants
 Current structure:
 - products.list                 // Input: { includeVariants: true }
-- products.variants.*           // list/create/update/delete/upsertIdentifier (5 endpoints today)
+- products.variants.*           // list/create/update/delete/upsertIdentifier (multiple endpoints exist today)
 
 Analysis:
-- `products.list` with `includeVariants: true` already returns variants and prevents N+1 queries
-- Variant maintenance still needs a variant-scoped list for editors that do not fetch full products
-- The separate create/update/delete/upsertIdentifier mutations add four extra endpoints for one resource
+- `products.list` with `includeVariants: true` already returns variants and prevents N+1 queries.
+- Editors still need a variant-scoped list for focused editing workflows.
+- Large full-syncs (send-all-combinations) can be heavy; users more commonly perform small updates.
 
-✅ Decision:
-- Collapse the mutation surface into `products.variants.upsert({ product_id, variants: [...] })`
-  • Server diffs the payload and calls create/update/delete/upsertIdentifier under the hood
-  • Ensures SKU/UPID bookkeeping stays consistent when variants are added or removed
-- Keep `products.variants.list` for editors that need a focused payload until variant CRUD fully migrates into product flows
-- Document and deprecate the legacy `create/update/delete/upsertIdentifier` once the bulk upsert ships
+✅ Decision (safer, incremental):
+- Implement `products.variants.upsert({ product_id, variants: [...] })` that performs create + update only. It will:
+  • Insert variants that are new and update ones that match by key (id or unique key such as product+color_id+size_id or upid).
+  • Not delete variants that are missing from the payload (prevents accidental removals when UI omits items).
+  • Return per-item statuses (created | updated | error).
+- Provide `products.variants.delete` (and optional `products.variants.bulkDelete`) for explicit removals.
+- Keep `products.variants.list` for editors that need a focused payload.
+
+Additional considerations:
+- For convenience you may offer a separate `variants.set(product_id, variants[])` (explicit replace-all) but mark it as power-user only and require confirmation, because it performs destructive sync (delete missing).
+- For large imports (> configurable threshold, e.g. 20k items) process as a background job: persist payload, enqueue a job, process in chunks and run the evaluator once when finished.
+- To avoid many evaluator runs during frequent small edits, coalesce evaluator calls per product (server-side debounce or queue one evaluation per short window) so the evaluator runs at most once for a burst of changes.
+- Upsert payloads should be kept minimal: clients send only new/changed items (smaller payloads, faster responses).
+
+Migration:
+- Keep existing per-variant endpoints available during a deprecation window. Implement `variants.upsert` as the preferred path for single/bulk create+update flows, and use explicit delete endpoints for removals.
+- Add tests for small syncs, chunked processing and background job flows.
 
 ### 5. PASSPORTS DOMAIN - Template Modules
 Current structure:
@@ -619,14 +676,14 @@ const brands = await trpc.workflow.list.query()
 
 | Aspect                  | Current | New  | Change   |
 |-------------------------|---------|------|----------|
-| Total Endpoints         | 73      | 36   | -51%     |
+| Total Endpoints         | 73      | 32   | -56%     |
 | User Domain             | 3       | 4    | +1       |
 | Workflow Domain         | 15      | 8    | -47%     |
 | Catalog Domain          | 2       | 0    | -100%    |
 | Brand Catalog Domain    | 28      | 28   | Same     |
-| Products Domain         | 14      | 12   | -14%     |
-| Product Attributes      | 5       | 0    | Moved    |
-| Passports Domain        | 7       | 9    | +2       |
+| Products Domain         | 14      | 7    | -50%     |
+| Product Attributes      | 5       | 0    | Merged into products.update |
+| Passports Domain        | 7       | 10   | +3       |
 | Passport Templates      | 4       | 0    | Moved    |
 | Imports Domain          | 1       | 0    | Moved    |
 | Bulk Domain             | 0       | 2    | +2       |

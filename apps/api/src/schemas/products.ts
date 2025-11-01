@@ -7,9 +7,12 @@
 import { z } from "zod";
 import {
   longStringSchema,
+  nonNegativeIntSchema,
   paginationLimitSchema,
+  percentageSchema,
   shortStringSchema,
   urlSchema,
+  uuidArraySchema,
   uuidSchema,
 } from "./_shared/primitives.js";
 import {
@@ -143,3 +146,156 @@ export const upsertVariantIdentifierSchema = z.object({
   id_type: shortStringSchema,
   value: shortStringSchema,
 });
+
+/**
+ * Input payload for `products.list` in the reorganized API.
+ *
+ * Extends the legacy cursor schema with optional brand scoping and include
+ * flags that drive eager loading of related resources.
+ */
+export const productsDomainListSchema = listProductsSchema.extend({
+  brand_id: uuidSchema.optional(),
+  includeVariants: z.boolean().optional().default(false),
+  includeAttributes: z.boolean().optional().default(false),
+});
+
+export type ProductsDomainListInput = z.infer<typeof productsDomainListSchema>;
+
+/**
+ * Input payload for `products.get`.
+ *
+ * Supports optional include flags that match the corresponding list payload.
+ */
+export const productsDomainGetSchema = getProductSchema.extend({
+  includeVariants: z.boolean().optional().default(false),
+  includeAttributes: z.boolean().optional().default(false),
+});
+
+export type ProductsDomainGetInput = z.infer<typeof productsDomainGetSchema>;
+
+/**
+ * Input payload for `products.create` in the v2 API.
+ *
+ * Requires the caller to explicitly state the brand identifier to avoid
+ * accidental cross-tenant inserts.
+ */
+export const productsDomainCreateSchema = createProductSchema.extend({
+  brand_id: uuidSchema,
+});
+
+export type ProductsDomainCreateInput = z.infer<
+  typeof productsDomainCreateSchema
+>;
+
+/**
+ * Input payload for `products.update`.
+ *
+ * Allows optional brand scoping so the server can validate the caller is
+ * operating within the active tenant context.
+ *
+ * **Extended with product attributes** - all attribute fields are optional.
+ * Attributes are properties of the product and should be updated via this
+ * endpoint rather than separate attribute endpoints.
+ */
+export const productsDomainUpdateSchema = updateProductSchema.extend({
+  brand_id: uuidSchema.optional(),
+  // Product attribute fields (all optional)
+  materials: z
+    .array(
+      z.object({
+        brand_material_id: uuidSchema,
+        percentage: percentageSchema.optional(),
+      }),
+    )
+    .optional(),
+  careCodes: uuidArraySchema.optional(),
+  ecoClaims: uuidArraySchema.optional(),
+  environment: z
+    .object({
+      carbon_kg_co2e: z.string().optional(),
+      water_liters: z.string().optional(),
+    })
+    .optional(),
+  journeySteps: z
+    .array(
+      z.object({
+        sort_index: nonNegativeIntSchema,
+        step_type: shortStringSchema,
+        facility_id: uuidSchema,
+      }),
+    )
+    .optional(),
+});
+
+export type ProductsDomainUpdateInput = z.infer<
+  typeof productsDomainUpdateSchema
+>;
+
+/**
+ * Input payload for `products.delete`.
+ *
+ * Accepts an optional brand identifier for defensive verification.
+ */
+export const productsDomainDeleteSchema = deleteProductSchema.extend({
+  brand_id: uuidSchema.optional(),
+});
+
+export type ProductsDomainDeleteInput = z.infer<
+  typeof productsDomainDeleteSchema
+>;
+
+/**
+ * Input payload for `products.variants.upsert`.
+ *
+ * Accepts a batch of variants that should be created or updated in place.
+ * Omits destructive operations so clients must call the delete endpoint for
+ * intentional removals.
+ */
+export const productVariantsUpsertSchema = z.object({
+  product_id: uuidSchema,
+  variants: z
+    .array(
+      z
+        .object({
+          id: uuidSchema.optional(),
+          color_id: uuidSchema.optional().nullable(),
+          size_id: uuidSchema.optional().nullable(),
+          sku: shortStringSchema.optional().nullable(),
+          upid: shortStringSchema.optional(),
+          product_image_url: urlSchema.optional().nullable(),
+        })
+        .refine((value) => value.id || value.upid, {
+          message: "Each variant must include an id or upid to ensure stable updates.",
+        }),
+    )
+    .min(1),
+});
+
+export type ProductVariantsUpsertInput = z.infer<
+  typeof productVariantsUpsertSchema
+>;
+
+/**
+ * Input payload for `products.variants.delete`.
+ *
+ * Supports deleting by explicit variant identifiers or by product-level
+ * filters that can remove multiple rows at once.
+ */
+export const productVariantsDeleteSchema = z.union([
+  z.object({
+    variant_ids: uuidArraySchema.min(1),
+  }),
+  z.object({
+    product_id: uuidSchema,
+    filter: z
+      .object({
+        color_id: uuidSchema.optional(),
+        size_id: uuidSchema.optional(),
+      })
+      .optional(),
+  }),
+]);
+
+export type ProductVariantsDeleteInput = z.infer<
+  typeof productVariantsDeleteSchema
+>;

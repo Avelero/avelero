@@ -1,35 +1,156 @@
 /**
- * Passport templates router scaffold.
+ * Passport templates router implementation.
  *
  * Targets:
  * - passports.templates.list
  * - passports.templates.get
  * - passports.templates.create
- * - passports.templates.update (supports optional modules payload)
+ * - passports.templates.update
+ *
+ * Supports replace-all semantics for module configuration and leverages
+ * completion delta helpers to keep passport module completion in sync.
  */
+import {
+  createPassportTemplate,
+  deletePassportTemplate,
+  getPassportTemplateWithModules,
+  listPassportTemplatesForBrand,
+  updatePassportTemplate,
+} from "@v1/db/queries";
+import {
+  passportTemplatesCreateSchema,
+  passportTemplatesDeleteSchema,
+  passportTemplatesGetSchema,
+  passportTemplatesListSchema,
+  passportTemplatesUpdateSchema,
+} from "../../../../../schemas/passports.js";
+import {
+  badRequest,
+  notFound,
+  wrapError,
+} from "../../../../../utils/errors.js";
+import {
+  createEntityResponse,
+  createListResponse,
+  createSuccessResponse,
+} from "../../../../../utils/response.js";
+import type { AuthenticatedTRPCContext } from "../../../../init.js";
 import {
   brandRequiredProcedure,
   createTRPCRouter,
-  protectedProcedure,
 } from "../../../../init.js";
 
-const templateListProcedure = protectedProcedure.query(async () => {
-  throw new Error("passports.templates.list is not implemented yet");
-});
+type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
-const templateGetProcedure = protectedProcedure.query(async () => {
-  throw new Error("passports.templates.get is not implemented yet");
-});
-
-const templateMutationProcedure = brandRequiredProcedure.mutation(async () => {
-  throw new Error("passport template mutation is not implemented yet");
-});
+function ensureBrandScope(ctx: BrandContext, requested?: string | null): string {
+  const active = ctx.brandId;
+  if (!active) {
+    throw badRequest("Active brand context required");
+  }
+  if (requested && requested !== active) {
+    throw badRequest("Active brand does not match requested brand_id");
+  }
+  return active;
+}
 
 export const passportTemplatesRouter = createTRPCRouter({
-  list: templateListProcedure,
-  get: templateGetProcedure,
-  create: templateMutationProcedure,
-  update: templateMutationProcedure,
+  list: brandRequiredProcedure
+    .input(passportTemplatesListSchema.optional())
+    .query(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = ensureBrandScope(brandCtx, input?.brand_id ?? null);
+      try {
+        const templates = await listPassportTemplatesForBrand(
+          brandCtx.db,
+          brandId,
+        );
+        return createListResponse(templates);
+      } catch (error) {
+        throw wrapError(error, "Failed to list passport templates");
+      }
+    }),
+
+  get: brandRequiredProcedure
+    .input(passportTemplatesGetSchema)
+    .query(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      ensureBrandScope(brandCtx);
+      try {
+        return await getPassportTemplateWithModules(
+          brandCtx.db,
+          brandCtx.brandId,
+          input.id,
+        );
+      } catch (error) {
+        throw wrapError(error, "Failed to load passport template");
+      }
+    }),
+
+  create: brandRequiredProcedure
+    .input(passportTemplatesCreateSchema)
+    .mutation(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = ensureBrandScope(brandCtx, input.brand_id);
+      try {
+        const template = await createPassportTemplate(brandCtx.db, brandId, {
+          name: input.name,
+          theme: input.theme ?? {},
+          modules: input.modules?.map((module, index) => ({
+            module_key: module.module_key,
+            enabled: module.enabled ?? true,
+            sort_index: module.sort_index ?? index,
+          })),
+        });
+        return createEntityResponse(template);
+      } catch (error) {
+        throw wrapError(error, "Failed to create passport template");
+      }
+    }),
+
+  update: brandRequiredProcedure
+    .input(passportTemplatesUpdateSchema)
+    .mutation(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      ensureBrandScope(brandCtx);
+      try {
+        const updated = await updatePassportTemplate(brandCtx.db, brandCtx.brandId, {
+          id: input.id,
+          name: input.name,
+          theme: input.theme,
+          modules: input.modules?.map((module, index) => ({
+            module_key: module.module_key,
+            enabled: module.enabled ?? true,
+            sort_index: module.sort_index ?? index,
+          })),
+        });
+        if (!updated) {
+          throw notFound("Passport template", input.id);
+        }
+        return createEntityResponse(updated);
+      } catch (error) {
+        throw wrapError(error, "Failed to update passport template");
+      }
+    }),
+
+  delete: brandRequiredProcedure
+    .input(passportTemplatesDeleteSchema)
+    .mutation(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      ensureBrandScope(brandCtx);
+      try {
+        const deleted = await deletePassportTemplate(
+          brandCtx.db,
+          brandCtx.brandId,
+          input.id,
+        );
+        if (!deleted) {
+          throw notFound("Passport template", input.id);
+        }
+        return createSuccessResponse();
+      } catch (error) {
+        throw wrapError(error, "Failed to delete passport template");
+      }
+    }),
 });
 
 export type PassportTemplatesRouter = typeof passportTemplatesRouter;

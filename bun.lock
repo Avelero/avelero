@@ -27,7 +27,6 @@
         "@v1/supabase": "workspace:*",
         "@v1/utils": "workspace:*",
         "dataloader": "^2.2.3",
-        "drizzle-orm": "^0.44.5",
         "hono": "^4.5.10",
         "supabase": "^2.34.3",
         "superjson": "^2.2.1",

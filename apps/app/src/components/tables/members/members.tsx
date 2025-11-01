@@ -2,7 +2,9 @@
 
 import { useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { Skeleton } from "@v1/ui/skeleton";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -10,6 +12,8 @@ import { MembersHeader } from "./members-header";
 import { MembersRow } from "./members-row";
 
 type TabKey = "members" | "invites";
+
+type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 export function MembersTable() {
   const params = useParams<{ locale?: string }>();
@@ -22,51 +26,35 @@ export function MembersTable() {
   const meUser = (me as unknown as CurrentUserLike | null | undefined) ?? null;
   const brandId = meUser?.brand_id ?? null;
 
-  const { data: membersRes } = useSuspenseQuery(
-    trpc.brand.members.queryOptions(),
-  );
+  const compositeOptions = useMemo(() => {
+    if (!brandId) {
+      return {
+        queryKey: ["composite.membersWithInvites", "empty"],
+        queryFn: async () => ({
+          members: [] as MembersWithInvites["members"],
+          invites: [] as MembersWithInvites["invites"],
+        }),
+      };
+    }
+    return trpc.composite.membersWithInvites.queryOptions({ brand_id: brandId });
+  }, [trpc, brandId]);
 
-  const invitesOptions = useMemo(
-    () => ({
-      ...trpc.brand.listInvites.queryOptions({
-        brand_id: brandId ?? "00000000-0000-0000-0000-000000000000",
-      }),
-      enabled: typeof window !== "undefined" && !!brandId,
-    }),
-    [trpc, brandId],
-  );
-  const { data: invitesRes, isLoading: loadingInvites } =
-    useQuery(invitesOptions);
+  const { data: compositeRes } = useSuspenseQuery(compositeOptions);
 
-  interface MemberItem {
-    id: string;
-    role: "owner" | "member" | null;
-    user: {
-      id: string | null;
-      email: string | null;
-      fullName: string | null;
-      avatarPath: string | null;
-      avatarHue?: number | null;
-    } | null;
-    created_at?: string | null;
-  }
-  interface InviteItem {
-    id: string;
-    email: string;
-    role: "owner" | "member";
-    expires_at: string | null;
-    created_at: string | null;
-  }
+  type MembersWithInvites = RouterOutputs["composite"]["membersWithInvites"];
+  type MemberItem = MembersWithInvites["members"][number];
+  type InviteItem = MembersWithInvites["invites"][number];
+
   const members = useMemo<MemberItem[]>(
-    () => (Array.isArray(membersRes) ? (membersRes as MemberItem[]) : []),
-    [membersRes],
+    () => (Array.isArray(compositeRes?.members) ? (compositeRes?.members as MemberItem[]) : []),
+    [compositeRes],
   );
   const invites = useMemo<InviteItem[]>(() => {
-    const inv = (invitesRes as { data?: unknown } | undefined)?.data;
-    return Array.isArray(inv) ? (inv as InviteItem[]) : [];
-  }, [invitesRes]);
+    const list = compositeRes?.invites;
+    return Array.isArray(list) ? (list as InviteItem[]) : [];
+  }, [compositeRes]);
 
-  const isLoading = tab === "invites" ? loadingInvites : false;
+  const isLoading = false;
   const rows = tab === "members" ? members : invites;
 
   return (
@@ -102,15 +90,24 @@ export function MembersTable() {
         ) : rows.length ? (
           <div className="divide-y">
             {rows.map((row) => (
-              <div key={(row as { id: string }).id} className="p-3">
+              <div
+                key={
+                  tab === "members"
+                    ? ((row as MemberItem).user_id ?? (row as MemberItem).email ?? "")
+                    : (row as InviteItem).id
+                }
+                className="p-3"
+              >
                 {tab === "members" ? (
                   <MembersRow
+                    brandId={brandId ?? ""}
                     membership={row as MemberItem}
                     currentUserId={meUser?.id ?? null}
                     locale={String(locale)}
                   />
                 ) : (
                   <MembersRow
+                    brandId={brandId ?? ""}
                     invite={row as InviteItem}
                     locale={String(locale)}
                   />

@@ -11,17 +11,25 @@ import {
   createBrand as createBrandRecord,
   deleteBrand as deleteBrandRecord,
   getBrandsByUserId,
+  setActiveBrand,
+  updateBrand as updateBrandRecord,
 } from "@v1/db/queries";
 import { brandMembers } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
-import { ROLES } from "../../../../config/roles.js";
+import { ROLES } from "../../../config/roles.js";
 import {
   workflowBrandIdSchema,
   workflowCreateSchema,
-} from "../../../../schemas/workflow.js";
-import { badRequest, wrapError } from "../../../../utils/errors.js";
-import { createTRPCRouter, protectedProcedure } from "../../../init.js";
-import { hasRole } from "../../../middleware/auth/roles.js";
+  workflowUpdateSchema,
+} from "../../../schemas/workflow.js";
+import { badRequest, wrapError } from "../../../utils/errors.js";
+import {
+  createSuccessResponse,
+  createTRPCRouter,
+  protectedProcedure,
+  brandRequiredProcedure,
+} from "../../init.js";
+import { hasRole } from "../../middleware/auth/roles.js";
 
 type BrandRole = "owner" | "member";
 
@@ -93,6 +101,9 @@ export const workflowListProcedure = protectedProcedure.query(
       return {
         id: membership.id,
         name: membership.name,
+        email: membership.email ?? null,
+        country_code: membership.country_code ?? null,
+        avatar_hue: membership.avatar_hue ?? null,
         logo_url: buildBrandLogoUrl(membership.logo_path ?? null),
         role: membership.role,
         canLeave: canLeaveFromRole(membership.role, ownerCount),
@@ -117,6 +128,55 @@ export const workflowCreateProcedure = protectedProcedure
       return await createBrandRecord(db, user.id, payload);
     } catch (error) {
       throw wrapError(error, "Failed to create workflow");
+    }
+  });
+
+export const workflowUpdateProcedure = brandRequiredProcedure
+  .use(hasRole([ROLES.OWNER]))
+  .input(workflowUpdateSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { db, user, brandId } = ctx;
+    if (brandId && brandId !== input.id) {
+      throw badRequest("Active brand does not match the workflow being updated");
+    }
+
+    const updatePayload: Parameters<typeof updateBrandRecord>[2] = {
+      id: input.id,
+    };
+
+    if (input.name !== undefined) {
+      updatePayload.name = input.name;
+    }
+    if (input.email !== undefined) {
+      updatePayload.email = input.email;
+    }
+    if (input.country_code !== undefined) {
+      updatePayload.country_code = input.country_code;
+    }
+    if (input.logo_url !== undefined) {
+      updatePayload.logo_path = extractStoragePath(input.logo_url);
+    }
+    if (input.avatar_hue !== undefined) {
+      updatePayload.avatar_hue = input.avatar_hue;
+    }
+
+    try {
+      await updateBrandRecord(db, user.id, updatePayload);
+      return createSuccessResponse();
+    } catch (error) {
+      throw wrapError(error, "Failed to update workflow");
+    }
+  });
+
+export const workflowSetActiveProcedure = protectedProcedure
+  .input(workflowBrandIdSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { db, user } = ctx;
+    try {
+      await setActiveBrand(db, user.id, input.brand_id);
+      return createSuccessResponse();
+    } catch (error) {
+      throw wrapError(error, "Failed to set active workflow");
     }
   });
 
@@ -152,6 +212,8 @@ export const workflowDeleteProcedure = protectedProcedure
 export const workflowBaseRouter = createTRPCRouter({
   list: workflowListProcedure,
   create: workflowCreateProcedure,
+  update: workflowUpdateProcedure,
+  setActive: workflowSetActiveProcedure,
   delete: workflowDeleteProcedure,
 });
 

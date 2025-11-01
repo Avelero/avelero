@@ -64,7 +64,7 @@ export function PassportControls({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const bulkUpdateMutation = useMutation(
-    trpc.passports.bulkUpdate.mutationOptions(),
+    trpc.bulk.update.mutationOptions(),
   );
 
   async function handleBulkStatusChange(
@@ -73,6 +73,7 @@ export function PassportControls({
     if (!selection) return;
     try {
       const res = await bulkUpdateMutation.mutateAsync({
+        domain: "passports",
         selection:
           selection.mode === "all"
             ? { mode: "all", excludeIds: selection.excludeIds }
@@ -86,9 +87,6 @@ export function PassportControls({
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: trpc.passports.list.queryKey(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: trpc.passports.countByStatus.queryKey(),
         }),
       ]);
       // Clear selection and close popover after success

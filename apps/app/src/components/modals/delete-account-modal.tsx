@@ -27,7 +27,7 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
   const trpc = useTRPC();
   const supabase = createClient();
   const router = useRouter();
-  const deleteMutation = useMutation(trpc.v2.user.delete.mutationOptions());
+  const deleteMutation = useMutation(trpc.user.delete.mutationOptions());
 
   async function onConfirm() {
     if (confirmText !== "DELETE" || isSubmitting) return;

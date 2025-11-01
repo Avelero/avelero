@@ -101,7 +101,7 @@ export interface FilterFieldConfig {
   optionsSource?: {
     // Dynamic options from tRPC
     type: "trpc";
-    endpoint: string; // e.g., "brandCatalog.colors.list"
+    endpoint: string; // e.g., "brand.colors.list"
     transform?: (data: any) => SelectOption[];
   };
   unit?: string; // Display unit (kg, L, %)

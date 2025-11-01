@@ -10,15 +10,16 @@ import {
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useMemo } from "react";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
-type Me = RouterOutputs["v2"]["user"]["get"];
-type LeaveBrandResult = RouterOutputs["brand"]["leave"];
+type WorkflowMembership = RouterOutputs["workflow"]["list"][number];
+type UserProfile = RouterOutputs["user"]["get"];
+type LeaveBrandResult = RouterOutputs["workflow"]["members"]["update"];
 
 export function useUserBrandsQuery() {
   const trpc = useTRPC();
-  const opts = trpc.brand.list.queryOptions();
+  const opts = trpc.workflow.list.queryOptions();
   return useQuery({
     ...opts,
     enabled: typeof window !== "undefined",
@@ -27,7 +28,7 @@ export function useUserBrandsQuery() {
 
 export function useUserBrandsQuerySuspense() {
   const trpc = useTRPC();
-  const opts = trpc.brand.list.queryOptions();
+  const opts = trpc.workflow.list.queryOptions();
   return useSuspenseQuery({
     ...opts,
   });
@@ -39,23 +40,23 @@ export function useSetActiveBrandMutation() {
   const router = useRouter();
 
   return useMutation(
-    trpc.brand.setActive.mutationOptions({
+    trpc.workflow.setActive.mutationOptions({
       onMutate: async (variables) => {
         // Cancel outgoing refetches
         await queryClient.cancelQueries({
-          queryKey: trpc.v2.user.get.queryKey(),
+          queryKey: trpc.user.get.queryKey(),
         });
 
         // Get current user data
-        const previousUserData = queryClient.getQueryData<Me>(
-          trpc.v2.user.get.queryKey(),
+        const previousUserData = queryClient.getQueryData<UserProfile>(
+          trpc.user.get.queryKey(),
         );
 
         // Optimistically update user's active brand
-        queryClient.setQueryData<Me | undefined>(
-          trpc.v2.user.get.queryKey(),
-          (old: Me | undefined) =>
-            old ? { ...old, brand_id: variables.id } : old,
+        queryClient.setQueryData<UserProfile | undefined>(
+          trpc.user.get.queryKey(),
+          (old: UserProfile | undefined) =>
+            old ? { ...old, brand_id: variables.brand_id } : old,
         );
 
         return { previousUserData };
@@ -63,13 +64,23 @@ export function useSetActiveBrandMutation() {
       onError: (_, __, context) => {
         // Rollback on error
         queryClient.setQueryData(
-          trpc.v2.user.get.queryKey(),
+          trpc.user.get.queryKey(),
           context?.previousUserData,
         );
       },
       onSuccess: async () => {
         // Invalidate all queries to refresh with new brand context
-        await queryClient.invalidateQueries();
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.workflow.list.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.user.get.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.workflowInit.queryKey(),
+          }),
+        ]);
         // Refresh the page to update server-side brand context
         router.refresh();
       },
@@ -82,14 +93,17 @@ export function useCreateBrandMutation() {
   const queryClient = useQueryClient();
 
   return useMutation(
-    trpc.brand.create.mutationOptions({
+    trpc.workflow.create.mutationOptions({
       onSuccess: async () => {
         // Invalidate brands list and user data
         await queryClient.invalidateQueries({
-          queryKey: trpc.brand.list.queryKey(),
+          queryKey: trpc.workflow.list.queryKey(),
         });
         await queryClient.invalidateQueries({
-          queryKey: trpc.v2.user.get.queryKey(),
+          queryKey: trpc.user.get.queryKey(),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.composite.workflowInit.queryKey(),
         });
       },
     }),
@@ -101,34 +115,33 @@ export function useBrandUpdateMutation() {
   const queryClient = useQueryClient();
 
   return useMutation(
-    trpc.brand.update.mutationOptions({
+    trpc.workflow.update.mutationOptions({
       onMutate: async (variables) => {
         await queryClient.cancelQueries();
-        const prevUser = queryClient.getQueryData(trpc.v2.user.get.queryKey());
+        const prevUser = queryClient.getQueryData(trpc.user.get.queryKey());
         // best-effort optimistic touch: nothing heavy here
         return { prevUser };
       },
       onError: (_err, _vars, ctx) => {
         if (ctx?.prevUser) {
-          queryClient.setQueryData(trpc.v2.user.get.queryKey(), ctx.prevUser);
+          queryClient.setQueryData(trpc.user.get.queryKey(), ctx.prevUser);
         }
       },
       onSettled: async () => {
-        await queryClient.invalidateQueries(); // refresh brand and user reads
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.workflow.list.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.user.get.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.workflowInit.queryKey(),
+          }),
+        ]);
       },
     }),
   );
-}
-
-export function useCanLeaveBrandQuery(brandId: string | null | undefined) {
-  const trpc = useTRPC();
-  const opts = trpc.brand.canLeave.queryOptions({
-    id: brandId as string,
-  });
-  return useQuery({
-    ...opts,
-    enabled: Boolean(brandId) && typeof window !== "undefined",
-  });
 }
 
 export function useLeaveBrandMutation() {
@@ -137,26 +150,45 @@ export function useLeaveBrandMutation() {
   const router = useRouter();
 
   return useMutation(
-    trpc.brand.leave.mutationOptions({
-      onSuccess: async (res: LeaveBrandResult) => {
-        await queryClient.invalidateQueries();
+    trpc.workflow.members.update.mutationOptions({
+      onSuccess: async (
+        res: LeaveBrandResult,
+        variables: { brand_id: string },
+      ) => {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.workflow.list.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.user.get.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.workflowInit.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.membersWithInvites.queryKey({
+              brand_id: variables.brand_id,
+            }),
+          }),
+        ]);
+        const nextBrandId =
+          (res as { nextBrandId?: string | null } | undefined)?.nextBrandId ??
+          null;
         // Only redirect when user has no brands left
-        if (!res?.nextBrandId) router.push("/create-brand");
+        if (!nextBrandId) router.push("/create-brand");
         router.refresh();
       },
     }),
   );
 }
 
-export function usePrefetchCanLeaveForBrands(brandIds: string[]) {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    if (!brandIds?.length) return;
-    for (const id of brandIds) {
-      const opts = trpc.brand.canLeave.queryOptions({ id });
-      queryClient.prefetchQuery(opts);
-    }
-  }, [brandIds, trpc, queryClient]);
+export function useWorkflowBrandById(
+  brandId: string | null | undefined,
+) {
+  const { data } = useUserBrandsQuery();
+  return useMemo(() => {
+    if (!brandId) return null;
+    const memberships = (data ?? []) as WorkflowMembership[];
+    return memberships.find((brand) => brand.id === brandId) ?? null;
+  }, [data, brandId]);
 }

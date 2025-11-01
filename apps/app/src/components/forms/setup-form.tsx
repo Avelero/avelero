@@ -38,13 +38,21 @@ export function SetupForm() {
   }, [user]);
 
   const updateUserMutation = useMutation(
-    trpc.v2.user.update.mutationOptions({
+    trpc.user.update.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries();
+        await queryClient.invalidateQueries({
+          queryKey: trpc.user.get.queryKey(),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.workflow.list.queryKey(),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.composite.workflowInit.queryKey(),
+        });
         const brands = await queryClient.fetchQuery(
-          trpc.brand.list.queryOptions(),
+          trpc.workflow.list.queryOptions(),
         );
-        const hasBrands = Array.isArray(brands?.data) && brands.data.length > 0;
+        const hasBrands = Array.isArray(brands) && brands.length > 0;
         router.push(hasBrands ? `/${locale}` : `/${locale}/create-brand`);
       },
       onError: (err) => setError(err.message || "Failed to save profile"),

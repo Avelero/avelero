@@ -14,18 +14,18 @@ import {
   updateMemberRole,
 } from "@v1/db/queries";
 import { brandMembers, users } from "@v1/db/schema";
-import { ROLES } from "../../../../config/roles.js";
+import { ROLES } from "../../../config/roles.js";
 import {
   workflowBrandIdSchema,
   workflowMembersUpdateSchema,
-} from "../../../../schemas/workflow.js";
+} from "../../../schemas/workflow.js";
 import {
   badRequest,
   forbidden,
   soleOwnerError,
   wrapError,
-} from "../../../../utils/errors.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../../init.js";
+} from "../../../utils/errors.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
 function computeMemberCanLeave(role: "owner" | "member", ownerCount: number) {
   if (role !== "owner") return true;

@@ -6,15 +6,10 @@ import { DataCard } from "../data-card";
 
 export function DataSection() {
   const trpc = useTRPC();
-  const { data } = useQuery(trpc.passports.countByStatus.queryOptions());
-  const counts = (data as
-    | {
-        published: number;
-        scheduled: number;
-        unpublished: number;
-        archived: number;
-      }
-    | undefined) ?? {
+  const { data } = useQuery(
+    trpc.passports.list.queryOptions({ includeStatusCounts: true }),
+  );
+  const counts = data?.meta?.statusCounts ?? {
     published: 0,
     scheduled: 0,
     unpublished: 0,

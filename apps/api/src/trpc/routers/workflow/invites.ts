@@ -17,24 +17,24 @@ import { brandInvites, users } from "@v1/db/schema";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
 import { desc, eq } from "drizzle-orm";
-import { ROLES } from "../../../../config/roles.js";
+import { ROLES } from "../../../config/roles.js";
 import {
   workflowInvitesListSchema,
   workflowInvitesRespondSchema,
   workflowInvitesSendSchema,
-} from "../../../../schemas/workflow.js";
+} from "../../../schemas/workflow.js";
 import {
   badRequest,
   forbidden,
   internalServerError,
   wrapError,
-} from "../../../../utils/errors.js";
+} from "../../../utils/errors.js";
 import {
   brandRequiredProcedure,
   createTRPCRouter,
   protectedProcedure,
-} from "../../../init.js";
-import { hasRole } from "../../../middleware/auth/roles.js";
+} from "../../init.js";
+import { hasRole } from "../../middleware/auth/roles.js";
 
 type InviteEmailPayload = {
   recipientEmail: string;

@@ -97,7 +97,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           );
         } else {
           brandMutation.mutate(
-            { id: entityId, logo_path: objectPath },
+            { id: entityId, logo_url: objectPath },
             {
               onSuccess: () => {
                 toast.success("Logo changed successfully");

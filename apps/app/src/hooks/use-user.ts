@@ -9,7 +9,7 @@ import {
 
 export function useUserQuery() {
   const trpc = useTRPC();
-  return useSuspenseQuery(trpc.v2.user.get.queryOptions());
+  return useSuspenseQuery(trpc.user.get.queryOptions());
 }
 
 export interface CurrentUser {
@@ -22,7 +22,7 @@ export interface CurrentUser {
 
 export function useUserQuerySuspense() {
   const trpc = useTRPC();
-  const opts = trpc.v2.user.get.queryOptions();
+  const opts = trpc.user.get.queryOptions();
   // Suspense queries are always enabled; avoid passing `enabled`
   return useSuspenseQuery({
     ...opts,
@@ -34,20 +34,20 @@ export function useUserMutation() {
   const queryClient = useQueryClient();
 
   return useMutation(
-    trpc.v2.user.update.mutationOptions({
+    trpc.user.update.mutationOptions({
       onMutate: async (newData) => {
         // Cancel outgoing refetches
         await queryClient.cancelQueries({
-          queryKey: trpc.v2.user.get.queryKey(),
+          queryKey: trpc.user.get.queryKey(),
         });
 
         // Get current data
         const previousData = queryClient.getQueryData(
-          trpc.v2.user.get.queryKey(),
+          trpc.user.get.queryKey(),
         );
 
         // Optimistically update
-        queryClient.setQueryData(trpc.v2.user.get.queryKey(), (old) => {
+        queryClient.setQueryData(trpc.user.get.queryKey(), (old) => {
           const prev = old as CurrentUser | null | undefined;
           const patch = newData as Partial<CurrentUser>;
           return prev
@@ -62,12 +62,12 @@ export function useUserMutation() {
         const previous = (
           context as { previousData: CurrentUser | null } | undefined
         )?.previousData;
-        queryClient.setQueryData(trpc.v2.user.get.queryKey(), previous);
+        queryClient.setQueryData(trpc.user.get.queryKey(), previous);
       },
       onSettled: () => {
         // Refetch after error or success
         queryClient.invalidateQueries({
-          queryKey: trpc.v2.user.get.queryKey(),
+          queryKey: trpc.user.get.queryKey(),
         });
       },
     }),

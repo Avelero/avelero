@@ -1,11 +1,6 @@
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
-import {
-  HydrateClient,
-  batchPrefetch,
-  getQueryClient,
-  trpc,
-} from "@/trpc/server";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -18,14 +13,19 @@ export default async function Layout({
 }) {
   const queryClient = getQueryClient();
 
-  // Prefetch common data used across the dashboard
-  await batchPrefetch([
-    trpc.v2.user.get.queryOptions(),
-    trpc.brand.list.queryOptions(),
-  ]);
+  // Prefetch composite workflow data to hydrate user, brands, and invites in one request
+  const workflowInitOptions = trpc.composite.workflowInit.queryOptions();
+  const workflowInit = await queryClient.fetchQuery(workflowInitOptions);
 
-  // Fetch the user to ensure authentication and redirect if needed
-  const user = await queryClient.fetchQuery(trpc.v2.user.get.queryOptions());
+  queryClient.setQueryData(trpc.user.get.queryKey(), workflowInit.user);
+  queryClient.setQueryData(trpc.workflow.list.queryKey(), workflowInit.brands);
+  queryClient.setQueryData(
+    trpc.user.invites.list.queryKey(),
+    workflowInit.myInvites,
+  );
+
+  // Ensure user exists and has completed setup
+  const user = workflowInit.user;
 
   if (!user) {
     redirect("/login");

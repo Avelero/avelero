@@ -17,196 +17,145 @@ import {
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
-import { useMemo } from "react";
-
-interface MemberRow {
-  id: string;
-  role: "owner" | "member" | null;
-  user: {
-    id: string | null;
-    email: string | null;
-    fullName: string | null;
-    avatarPath: string | null;
-    avatarHue?: number | null;
-  } | null;
-  created_at?: string | null;
-}
-
-interface InviteRow {
-  id: string;
-  email: string;
-  role: "owner" | "member";
-  expires_at: string | null;
-  created_at: string | null;
-}
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
-type Members = RouterOutputs["brand"]["members"];
-type ListInvites = RouterOutputs["brand"]["listInvites"];
+type MembersWithInvites = RouterOutputs["composite"]["membersWithInvites"];
+type MemberRow = MembersWithInvites["members"][number];
+type InviteRow = MembersWithInvites["invites"][number];
 
 type Props =
-  | { membership: MemberRow; currentUserId: string | null; locale: string }
-  | { invite: InviteRow; locale: string };
+  | {
+      membership: MemberRow;
+      brandId: string;
+      currentUserId: string | null;
+      locale: string;
+    }
+  | { invite: InviteRow; brandId: string; locale: string };
 
 export function MembersRow(props: Props) {
-  if ("membership" in props)
+  if ("membership" in props) {
     return (
       <MembershipRow
+        brandId={props.brandId}
         membership={props.membership}
         currentUserId={props.currentUserId}
-        locale={props.locale}
       />
     );
-  return <InviteRowComp invite={props.invite} locale={props.locale} />;
+  }
+
+  return <InviteRowComp invite={props.invite} brandId={props.brandId} />;
 }
 
 function MembershipRow({
+  brandId,
   membership,
   currentUserId,
-  locale,
-}: { membership: MemberRow; currentUserId: string | null; locale: string }) {
+}: {
+  brandId: string;
+  membership: MemberRow;
+  currentUserId: string | null;
+}) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const email = membership.user?.email ?? "";
-  const role = membership.role === "owner" ? "Owner" : "Member";
-  const isSelf = currentUserId && membership.user?.id === currentUserId;
+  const queryKey = trpc.composite.membersWithInvites.queryKey({
+    brand_id: brandId,
+  });
+
+  const displayName = membership.full_name ?? membership.email ?? undefined;
+  const email = membership.email ?? "";
+  const roleLabel = membership.role === "owner" ? "Owner" : "Member";
+  const isSelf = currentUserId != null && membership.user_id === currentUserId;
+
   const updateMemberMutation = useMutation(
-    trpc.brand.updateMember.mutationOptions({
+    trpc.workflow.members.update.mutationOptions({
       onMutate: async (variables) => {
-        await queryClient.cancelQueries({
-          queryKey: trpc.brand.members.queryKey(),
-        });
-        const previous = queryClient.getQueryData(
-          trpc.brand.members.queryKey(),
-        ) as Members | undefined;
-        queryClient.setQueryData<Members | undefined>(
-          trpc.brand.members.queryKey(),
-          (old) => {
-            const current = (old ?? []) as Members;
-            return current.map((m) =>
-              m.user?.id === variables.user_id
-                ? { ...m, role: variables.role }
-                : m,
-            ) as Members;
-          },
-        );
+        await queryClient.cancelQueries({ queryKey });
+        const previous = queryClient.getQueryData(queryKey) as
+          | MembersWithInvites
+          | undefined;
+
+        if (previous && variables.user_id && variables.role) {
+          queryClient.setQueryData(queryKey, {
+            ...previous,
+            members: previous.members.map((member) =>
+              member.user_id === variables.user_id
+                ? { ...member, role: variables.role }
+                : member,
+            ),
+          });
+        }
+
         return { previous } as const;
       },
-      onError: (_e, _v, ctx) => {
+      onError: (_err, _vars, ctx) => {
         if (ctx?.previous) {
-          queryClient.setQueryData<Members | undefined>(
-            trpc.brand.members.queryKey(),
-            ctx.previous,
-          );
+          queryClient.setQueryData(queryKey, ctx.previous);
         }
         toast.error("Action failed, please try again");
       },
-      onSuccess: (_data, variables) => {
-        const roleText = variables.role === "owner" ? "Owner" : "Member";
-        toast.success(`Role changed to ${roleText}`);
-      },
       onSettled: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: trpc.brand.members.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: trpc.brand.list.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          predicate: (query) =>
-            query.queryKey[0] === "brand.canLeave" ||
-            (Array.isArray(query.queryKey[0]) &&
-              query.queryKey[0]?.[0] === "brand" &&
-              query.queryKey[0]?.[1] === "canLeave"),
-        });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.workflow.list.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.workflowInit.queryKey(),
+          }),
+        ]);
       },
     }),
   );
 
   const deleteMemberMutation = useMutation(
-    trpc.brand.deleteMember.mutationOptions({
+    trpc.workflow.members.update.mutationOptions({
       onMutate: async (variables) => {
-        await queryClient.cancelQueries({
-          queryKey: trpc.brand.members.queryKey(),
-        });
-        const previous = queryClient.getQueryData(
-          trpc.brand.members.queryKey(),
-        ) as Members | undefined;
+        await queryClient.cancelQueries({ queryKey });
+        const previous = queryClient.getQueryData(queryKey) as
+          | MembersWithInvites
+          | undefined;
 
-        // Find the member to get their email for the toast
-        const memberToDelete = previous?.find(
-          (m) => m.user?.id === variables.user_id,
-        );
-        const memberEmail = memberToDelete?.user?.email || "user";
+        if (previous && variables.user_id) {
+          queryClient.setQueryData(queryKey, {
+            ...previous,
+            members: previous.members.filter(
+              (member) => member.user_id !== variables.user_id,
+            ),
+          });
+        }
 
-        queryClient.setQueryData<Members | undefined>(
-          trpc.brand.members.queryKey(),
-          (old) => {
-            const current = (old ?? []) as Members;
-            return current.filter(
-              (m) => m.user?.id !== variables.user_id,
-            ) as Members;
-          },
-        );
-        return { previous, memberEmail } as const;
+        return { previous } as const;
       },
-      onError: (_e, _v, ctx) => {
+      onError: (_err, _vars, ctx) => {
         if (ctx?.previous) {
-          queryClient.setQueryData<Members | undefined>(
-            trpc.brand.members.queryKey(),
-            ctx.previous,
-          );
+          queryClient.setQueryData(queryKey, ctx.previous);
         }
         toast.error("Action failed, please try again");
       },
-      onSuccess: (_data, _vars, ctx) => {
-        const memberEmail = ctx?.memberEmail || "user";
-        toast.success(`Removed ${memberEmail}`);
-      },
       onSettled: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: trpc.brand.members.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          queryKey: trpc.brand.list.queryKey(),
-        });
-        await queryClient.invalidateQueries({
-          predicate: (query) =>
-            query.queryKey[0] === "brand.canLeave" ||
-            (Array.isArray(query.queryKey[0]) &&
-              query.queryKey[0]?.[0] === "brand" &&
-              query.queryKey[0]?.[1] === "canLeave"),
-        });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.workflow.list.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.workflowInit.queryKey(),
+          }),
+        ]);
       },
     }),
   );
 
-  const joinedDate = membership.created_at
-    ? new Date(membership.created_at)
-    : null;
-  const joinedText = joinedDate
-    ? `Joined ${joinedDate.toLocaleDateString(locale || "en", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })}`
-    : "Joined";
-
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <SignedAvatar
-          bucket="avatars"
-          path={membership.user?.avatarPath ?? null}
-          hue={membership.user?.avatarHue ?? undefined}
-          size={32}
-          name={
-            membership.user?.fullName ?? membership.user?.email ?? undefined
-          }
-        />
+        <SignedAvatar bucket="avatars" size={32} name={displayName} />
         <div className="flex flex-col">
           <span className="type-p !font-medium">{email}</span>
-          <span className="type-p text-secondary">{role}</span>
+          <span className="type-p text-secondary">{roleLabel}</span>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="type-p text-secondary">{joinedText}</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Member options">
@@ -221,7 +170,8 @@ function MembershipRow({
                   disabled={membership.role === "owner"}
                   onClick={() =>
                     updateMemberMutation.mutate({
-                      user_id: membership.user?.id as string,
+                      brand_id: brandId,
+                      user_id: membership.user_id ?? undefined,
                       role: "owner",
                     })
                   }
@@ -232,7 +182,8 @@ function MembershipRow({
                   disabled={membership.role === "member"}
                   onClick={() =>
                     updateMemberMutation.mutate({
-                      user_id: membership.user?.id as string,
+                      brand_id: brandId,
+                      user_id: membership.user_id ?? undefined,
                       role: "member",
                     })
                   }
@@ -242,11 +193,13 @@ function MembershipRow({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuItem
-              disabled={!!isSelf}
+              disabled={Boolean(isSelf)}
               className={isSelf ? undefined : "text-destructive"}
               onClick={() =>
                 deleteMemberMutation.mutate({
-                  user_id: membership.user?.id as string,
+                  brand_id: brandId,
+                  user_id: membership.user_id ?? undefined,
+                  role: null,
                 })
               }
             >
@@ -261,91 +214,90 @@ function MembershipRow({
 
 function InviteRowComp({
   invite,
-  locale,
-}: { invite: InviteRow; locale: string }) {
+  brandId,
+}: {
+  invite: InviteRow;
+  brandId: string;
+}) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const queryKey = trpc.composite.membersWithInvites.queryKey({
+    brand_id: brandId,
+  });
+
   const revokeInviteMutation = useMutation(
-    trpc.brand.revokeInvite.mutationOptions({
-      onMutate: async (variables) => {
-        await queryClient.cancelQueries({
-          queryKey: trpc.brand.listInvites.queryKey(),
-        });
+    trpc.workflow.invites.respond.mutationOptions({
+      onMutate: async () => {
+        await queryClient.cancelQueries({ queryKey });
+        const previous = queryClient.getQueryData(queryKey) as
+          | MembersWithInvites
+          | undefined;
 
-        const previous = queryClient.getQueryData(
-          trpc.brand.listInvites.queryKey(),
-        ) as ListInvites | undefined;
-
-        queryClient.setQueryData<ListInvites | undefined>(
-          trpc.brand.listInvites.queryKey(),
-          (old) =>
-            old
-              ? ({
-                  data: old.data.filter((i) => i.id !== variables.invite_id),
-                } as ListInvites)
-              : old,
-        );
+        if (previous) {
+          queryClient.setQueryData(queryKey, {
+            ...previous,
+            invites: previous.invites.filter((item) => item.id !== invite.id),
+          });
+        }
 
         return { previous } as const;
       },
       onError: (_err, _vars, ctx) => {
         if (ctx?.previous) {
-          queryClient.setQueryData(
-            trpc.brand.listInvites.queryKey(),
-            ctx.previous,
-          );
+          queryClient.setQueryData(queryKey, ctx.previous);
         }
+        toast.error("Action failed, please try again");
       },
       onSettled: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: trpc.brand.listInvites.queryKey(),
-        });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.workflow.invites.list.queryKey({
+              brand_id: brandId,
+            }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.membersWithInvites.queryKey({
+              brand_id: brandId,
+            }),
+          }),
+        ]);
       },
     }),
   );
 
-  const expiresInDays = useMemo(() => {
-    if (!invite.expires_at) return null;
-    const now = new Date();
-    const exp = new Date(invite.expires_at);
-    const diffMs = exp.getTime() - now.getTime();
-    const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    return days;
-  }, [invite.expires_at]);
-
   async function onWithdraw() {
-    await revokeInviteMutation.mutateAsync({ invite_id: invite.id });
+    await revokeInviteMutation.mutateAsync({
+      invite_id: invite.id,
+      action: "revoke",
+    });
   }
 
   return (
     <div className="flex items-center justify-between">
-      <div className="flex flex-col">
-        <span className="type-p !font-medium">{invite.email}</span>
-        <span className="type-p text-secondary">
-          {invite.role === "owner" ? "Owner" : "Member"}
-        </span>
+      <div className="flex items-center gap-3">
+        <SignedAvatar bucket="brand-avatars" size={32} name={invite.email} />
+        <div className="flex flex-col">
+          <span className="type-p !font-medium">{invite.email}</span>
+          <span className="type-p text-secondary">
+            Invited as {invite.role === "owner" ? "Owner" : "Member"}
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="type-p text-secondary">
-          {invite.created_at
-            ? `Sent on ${new Date(invite.created_at).toLocaleDateString(locale || "en", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })}`
-            : "Sent"}
-          {typeof expiresInDays === "number"
-            ? `, expires in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}`
-            : ""}
-        </span>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Invite options">
-              <Icons.EllipsisVertical className="w-4 h-4" strokeWidth={1} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onWithdraw} className="text-destructive">
-              Withdraw invite
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {invite.invited_by ? (
+          <span className="type-p text-tertiary">
+            Invited by {invite.invited_by}
+          </span>
+        ) : null}
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Withdraw invite"
+          onClick={onWithdraw}
+        >
+          <Icons.Trash className="w-4 h-4" strokeWidth={1} />
+        </Button>
       </div>
     </div>
   );

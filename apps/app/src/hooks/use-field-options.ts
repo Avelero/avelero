@@ -11,7 +11,7 @@ import * as React from "react";
  * Handles loading, caching, and transformation of options for filter fields
  * that fetch their data from the backend (colors, sizes, materials, etc.)
  *
- * @param endpoint - tRPC endpoint path (e.g., "brandCatalog.colors.list")
+ * @param endpoint - tRPC endpoint path (e.g., "brand.colors.list")
  * @param transform - Optional transform function to convert data to SelectOption[]
  * @returns { options, isLoading, error }
  */
@@ -27,7 +27,7 @@ export function useFieldOptions(
     queryFn: async () => {
       if (!endpoint) return null;
 
-      // Parse endpoint like "brandCatalog.colors.list"
+      // Parse endpoint like "brand.colors.list"
       const parts = endpoint.split(".");
 
       // Navigate to the correct tRPC procedure
@@ -39,9 +39,12 @@ export function useFieldOptions(
         }
       }
 
-      // Execute the query
-      const result = await procedure.query({});
-      return result;
+      // Execute the query, falling back between `{}` and `undefined` for optional inputs
+      try {
+        return await procedure.query({});
+      } catch (error) {
+        return await procedure.query(undefined);
+      }
     },
     enabled: !!endpoint,
     staleTime: 5 * 60 * 1000, // 5 minutes

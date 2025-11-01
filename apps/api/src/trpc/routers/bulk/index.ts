@@ -15,20 +15,20 @@ import {
   bulkImportSchema,
   bulkUpdateSchema,
   type BulkSelectionInput,
-} from "../../../../schemas/bulk.js";
+} from "../../../schemas/bulk.js";
 import {
   badRequest,
   wrapError,
-} from "../../../../utils/errors.js";
+} from "../../../utils/errors.js";
 import {
   createBatchResponse,
   createSuccessWithMeta,
-} from "../../../../utils/response.js";
-import type { AuthenticatedTRPCContext } from "../../../init.js";
+} from "../../../utils/response.js";
+import type { AuthenticatedTRPCContext } from "../../init.js";
 import {
   brandRequiredProcedure,
   createTRPCRouter,
-} from "../../../init.js";
+} from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -82,12 +82,12 @@ export const bulkRouter = createTRPCRouter({
         for (const item of input.items) {
           const product = await createProduct(brandCtx.db, brandId, {
             name: item.name,
-            description: item.description ?? null,
-            categoryId: item.category_id ?? null,
-            season: item.season ?? null,
-            brandCertificationId: item.brand_certification_id ?? null,
-            showcaseBrandId: item.showcase_brand_id ?? null,
-            primaryImageUrl: item.primary_image_url ?? null,
+            description: item.description ?? undefined,
+            categoryId: item.category_id ?? undefined,
+            season: item.season ?? undefined,
+            brandCertificationId: item.brand_certification_id ?? undefined,
+            showcaseBrandId: item.showcase_brand_id ?? undefined,
+            primaryImageUrl: item.primary_image_url ?? undefined,
           });
           if (product?.id) {
             created.push({ id: product.id });

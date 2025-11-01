@@ -23,22 +23,22 @@ import {
   passportTemplatesGetSchema,
   passportTemplatesListSchema,
   passportTemplatesUpdateSchema,
-} from "../../../../../schemas/passports.js";
+} from "../../../../schemas/passports.js";
 import {
   badRequest,
   notFound,
   wrapError,
-} from "../../../../../utils/errors.js";
+} from "../../../../utils/errors.js";
 import {
   createEntityResponse,
   createListResponse,
   createSuccessResponse,
-} from "../../../../../utils/response.js";
-import type { AuthenticatedTRPCContext } from "../../../../init.js";
+} from "../../../../utils/response.js";
+import type { AuthenticatedTRPCContext } from "../../../init.js";
 import {
   brandRequiredProcedure,
   createTRPCRouter,
-} from "../../../../init.js";
+} from "../../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 

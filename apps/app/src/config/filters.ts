@@ -133,9 +133,9 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     operators: [...OPERATORS.hierarchical] as FilterOperator[],
     optionsSource: {
       type: "trpc",
-      endpoint: "catalog.categories.list",
+      endpoint: "composite.passportFormReferences",
       transform: (data: any) => {
-        const categories = data?.data ?? [];
+        const categories = data?.categories ?? [];
         return categories.map((c: any) => ({
           value: c.id,
           label: c.name,
@@ -154,7 +154,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     operators: [...OPERATORS.multiSelect] as FilterOperator[],
     optionsSource: {
       type: "trpc",
-      endpoint: "brandCatalog.colors.list",
+      endpoint: "brand.colors.list",
       transform: (data: any) => {
         const colors = data?.data ?? [];
         return colors.map((c: any) => ({
@@ -175,7 +175,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     operators: [...OPERATORS.multiSelect] as FilterOperator[],
     optionsSource: {
       type: "trpc",
-      endpoint: "brandCatalog.sizes.list",
+      endpoint: "brand.sizes.list",
       transform: (data: any) => {
         const sizes = data?.data ?? [];
         return sizes.map((s: any) => ({
@@ -246,7 +246,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     operators: [...OPERATORS.relational] as FilterOperator[],
     optionsSource: {
       type: "trpc",
-      endpoint: "brandCatalog.materials.list",
+      endpoint: "brand.materials.list",
       transform: (data: any) => {
         const materials = data?.data ?? [];
         return materials.map((m: any) => ({
@@ -277,7 +277,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     operators: [...OPERATORS.relational] as FilterOperator[],
     optionsSource: {
       type: "trpc",
-      endpoint: "brandCatalog.ecoClaims.list",
+      endpoint: "brand.ecoClaims.list",
       transform: (data: any) => {
         const claims = data?.data ?? [];
         return claims.map((c: any) => ({
@@ -329,7 +329,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     operators: [...OPERATORS.multiSelect] as FilterOperator[],
     optionsSource: {
       type: "trpc",
-      endpoint: "brandCatalog.certifications.list",
+      endpoint: "brand.certifications.list",
       transform: (data: any) => {
         const certs = data?.data ?? [];
         return certs.map((c: any) => ({
@@ -396,7 +396,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     operators: [...OPERATORS.relational] as FilterOperator[],
     optionsSource: {
       type: "trpc",
-      endpoint: "brandCatalog.facilities.list",
+      endpoint: "brand.facilities.list",
       transform: (data: any) => {
         const facilities = data?.data ?? [];
         return facilities.map((f: any) => ({
@@ -427,27 +427,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
       { value: "packaging", label: "Packaging" },
     ],
     description: "Filter by journey step types",
-  },
-
-  careCodeId: {
-    id: "careCodeId",
-    label: "Care codes",
-    tier: 3,
-    category: "product",
-    inputType: "multi-select",
-    operators: [...OPERATORS.relational] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "catalog.careCodes.list",
-      transform: (data: any) => {
-        const codes = data?.data ?? [];
-        return codes.map((c: any) => ({
-          value: c.id,
-          label: c.name,
-        }));
-      },
-    },
-    description: "Filter by care instruction codes",
   },
 
   materialRecyclable: {
@@ -485,7 +464,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     ] as FilterOperator[],
     optionsSource: {
       type: "trpc",
-      endpoint: "brandCatalog.showcaseBrands.list",
+      endpoint: "brand.showcaseBrands.list",
       transform: (data: any) => {
         const brands = data?.data ?? [];
         return brands.map((b: any) => ({
@@ -546,7 +525,6 @@ export const FIELD_CATEGORIES = {
       "facilityId",
       "facilityCountryCode",
       "stepType",
-      "careCodeId",
     ],
   },
   metadata: {

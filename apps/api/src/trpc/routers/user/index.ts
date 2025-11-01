@@ -12,13 +12,13 @@ import {
   updateUser,
 } from "@v1/db/queries";
 import type { UserInviteSummaryRow } from "@v1/db/queries";
-import { userDomainUpdateSchema } from "../../../../schemas/user.js";
-import { createTRPCRouter, protectedProcedure } from "../../../init.js";
+import { userDomainUpdateSchema } from "../../../schemas/user.js";
+import { createTRPCRouter, protectedProcedure } from "../../init.js";
 import {
   internalServerError,
   unauthorized,
   wrapError,
-} from "../../../../utils/errors.js";
+} from "../../../utils/errors.js";
 
 interface MinimalUserRecord {
   id: string;

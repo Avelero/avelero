@@ -26,7 +26,7 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const deleteMutation = useMutation(trpc.brand.delete.mutationOptions());
+  const deleteMutation = useMutation(trpc.workflow.delete.mutationOptions());
 
   async function onConfirm() {
     if (confirmText !== "DELETE" || deleteMutation.isPending) return;
@@ -34,32 +34,39 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
 
     try {
       // Delete brand via API
-      const result = await deleteMutation.mutateAsync({ id: brandId });
+      const result = await deleteMutation.mutateAsync({ brand_id: brandId });
 
       // Invalidate specific brand-related queries to ensure UI updates
       await queryClient.invalidateQueries({
-        queryKey: trpc.brand.list.queryKey(),
+        queryKey: trpc.workflow.list.queryKey(),
       });
       await queryClient.invalidateQueries({
-        queryKey: trpc.v2.user.get.queryKey(),
+        queryKey: trpc.user.get.queryKey(),
       });
       // Invalidate members list and invites for safety
       await queryClient.invalidateQueries({
-        queryKey: trpc.brand.members.queryKey(),
+        queryKey: trpc.workflow.members.list.queryKey({
+          brand_id: brandId,
+        }),
       });
       await queryClient.invalidateQueries({
-        queryKey: trpc.brand.listInvites.queryKey({ brand_id: brandId }),
+        queryKey: trpc.workflow.invites.list.queryKey({ brand_id: brandId }),
       });
-      // Also invalidate any canLeave queries for the deleted brand
       await queryClient.invalidateQueries({
-        queryKey: trpc.brand.canLeave.queryKey({ id: brandId }),
+        queryKey: trpc.composite.workflowInit.queryKey(),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: trpc.composite.membersWithInvites.queryKey({
+          brand_id: brandId,
+        }),
       });
 
       // Close modal before redirect
       onOpenChange(false);
 
       // Smart redirection based on remaining brands
-      if (result.nextBrandId) {
+      const payload = result as { nextBrandId?: string | null };
+      if (payload.nextBrandId) {
         // User has other brands, redirect to dashboard
         router.push("/");
         router.refresh();

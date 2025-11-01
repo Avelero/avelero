@@ -9,15 +9,15 @@ import { AvatarUpload } from "../avatar-upload";
 interface Brand {
   id: string;
   name: string;
-  logo_path?: string | null;
-  avatar_hue?: number | null;
-  country_code?: string | null;
+  logo_url?: string | null;
+  role?: "owner" | "member" | null;
+  canLeave?: boolean;
 }
 
 function InnerLogoUpload() {
   const { data: brandsData } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
-  const brands = (brandsData as { data: Brand[] } | undefined)?.data ?? [];
+  const brands = (brandsData as Brand[] | undefined) ?? [];
   const activeBrand = brands.find(
     (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
   );
@@ -34,9 +34,9 @@ function InnerLogoUpload() {
     <AvatarUpload
       entity="brand"
       entityId={activeBrand.id}
-      avatarUrl={activeBrand.logo_path}
+      avatarUrl={activeBrand.logo_url}
       name={activeBrand.name}
-      hue={activeBrand.avatar_hue}
+      hue={null}
       size={52}
     />
   );

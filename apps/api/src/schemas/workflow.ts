@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { roleSchema } from "./_shared/domain.js";
+import { updateWithNullable } from "./_shared/patterns.js";
 import {
   avatarHueSchema,
   countryCodeSchema,
@@ -28,6 +29,15 @@ export const workflowCreateSchema = z.object({
   logo_url: shortStringSchema.optional().nullable(),
   avatar_hue: avatarHueSchema.optional(),
 });
+
+export const workflowUpdateSchema = updateWithNullable(workflowCreateSchema, [
+  "email",
+  "country_code",
+  "logo_url",
+  "avatar_hue",
+]).extend({ id: uuidSchema }).partial().required({ id: true });
+
+export type WorkflowUpdateInput = z.infer<typeof workflowUpdateSchema>;
 
 /**
  * Shared schema for endpoints that require a workflow/brand identifier.

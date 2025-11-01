@@ -1,118 +1,144 @@
 /**
  * Product attribute management router.
  *
- * Keeps product enrichments (materials, care, eco claims, etc.) in sync with
- * the database while hiding Drizzle-specific payload shapes.
+ * Provides replace-all semantics for join-table attributes (materials, care
+ * codes, eco claims, journey) and an environment metrics upsert endpoint.
  */
+import { and, eq } from "drizzle-orm";
+import type { Database } from "@v1/db/client";
 import {
+  upsertProductMaterials,
   setProductCareCodes,
   setProductEcoClaims,
-  setProductJourneySteps,
   upsertProductEnvironment,
-  upsertProductMaterials,
+  setProductJourneySteps,
 } from "@v1/db/queries";
+import { products } from "@v1/db/schema";
 import {
   setCareCodesSchema,
   setEcoClaimsSchema,
   setJourneyStepsSchema,
   upsertEnvironmentSchema,
   upsertMaterialsSchema,
-} from "@api/schemas/index.ts";
-import { createTRPCRouter, protectedProcedure } from "@api/trpc/init.ts";
+} from "../../../../schemas/product-attributes.js";
+import {
+  badRequest,
+  wrapError,
+} from "../../../../utils/errors.js";
+import {
+  brandRequiredProcedure,
+  createTRPCRouter,
+} from "../../../init.js";
 
-/**
- * Router exposing attribute upsert operations for products.
- */
+async function assertProductForBrand(
+  db: Database,
+  brandId: string,
+  productId: string,
+) {
+  const rows = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(eq(products.id, productId), eq(products.brandId, brandId)))
+    .limit(1);
+  if (!rows[0]) {
+    throw badRequest("Product not found for the active brand");
+  }
+}
+
 export const productAttributesRouter = createTRPCRouter({
-  /**
-   * Material composition helpers for products.
-   */
-  materials: {
-    /**
-     * Replaces the list of materials tied to a product.
-     *
-     * @param input - Product id and new material breakdown.
-     * @returns Updated material records.
-     */
-    set: protectedProcedure
+  materials: createTRPCRouter({
+    set: brandRequiredProcedure
       .input(upsertMaterialsSchema)
       .mutation(async ({ ctx, input }) => {
-        const { db } = ctx;
-        return upsertProductMaterials(
-          db,
-          input.product_id,
-          input.items.map((i) => ({
-            brandMaterialId: i.brand_material_id,
-            percentage: i.percentage,
-          })),
-        );
+        const { db, brandId } = ctx;
+        const activeBrandId = brandId as string;
+        await assertProductForBrand(db, activeBrandId, input.product_id);
+
+        try {
+          return upsertProductMaterials(
+            db,
+            input.product_id,
+            input.items.map((item) => ({
+              brandMaterialId: item.brand_material_id,
+              percentage: item.percentage,
+            })),
+          );
+        } catch (error) {
+          throw wrapError(error, "Failed to set product materials");
+        }
       }),
-  },
-  careCodes: {
-    /**
-     * Saves the set of care codes associated with a product.
-     *
-     * @param input - Product id plus the selected care code ids.
-     * @returns Result of the persistence operation.
-     */
-    set: protectedProcedure
+  }),
+  careCodes: createTRPCRouter({
+    set: brandRequiredProcedure
       .input(setCareCodesSchema)
       .mutation(async ({ ctx, input }) => {
-        const { db } = ctx;
-        return setProductCareCodes(db, input.product_id, input.care_code_ids);
+        const { db, brandId } = ctx;
+        const activeBrandId = brandId as string;
+        await assertProductForBrand(db, activeBrandId, input.product_id);
+
+        try {
+          return setProductCareCodes(db, input.product_id, input.care_code_ids);
+        } catch (error) {
+          throw wrapError(error, "Failed to set product care codes");
+        }
       }),
-  },
-  ecoClaims: {
-    /**
-     * Persists eco-claim tags for a product.
-     *
-     * @param input - Product id and eco claim ids to assign.
-     * @returns Result of the persistence operation.
-     */
-    set: protectedProcedure
+  }),
+  ecoClaims: createTRPCRouter({
+    set: brandRequiredProcedure
       .input(setEcoClaimsSchema)
       .mutation(async ({ ctx, input }) => {
-        const { db } = ctx;
-        return setProductEcoClaims(db, input.product_id, input.eco_claim_ids);
+        const { db, brandId } = ctx;
+        const activeBrandId = brandId as string;
+        await assertProductForBrand(db, activeBrandId, input.product_id);
+
+        try {
+          return setProductEcoClaims(db, input.product_id, input.eco_claim_ids);
+        } catch (error) {
+          throw wrapError(error, "Failed to set product eco claims");
+        }
       }),
-  },
-  environment: {
-    /**
-     * Upserts environment impact metrics for a product.
-     *
-     * @param input - Product id and impact measurements.
-     * @returns Result of the upsert operation.
-     */
-    upsert: protectedProcedure
+  }),
+  environment: createTRPCRouter({
+    upsert: brandRequiredProcedure
       .input(upsertEnvironmentSchema)
       .mutation(async ({ ctx, input }) => {
-        const { db } = ctx;
-        return upsertProductEnvironment(db, input.product_id, {
-          carbonKgCo2e: input.carbon_kg_co2e,
-          waterLiters: input.water_liters,
-        });
+        const { db, brandId } = ctx;
+        const activeBrandId = brandId as string;
+        await assertProductForBrand(db, activeBrandId, input.product_id);
+
+        try {
+          return upsertProductEnvironment(db, input.product_id, {
+            carbonKgCo2e: input.carbon_kg_co2e,
+            waterLiters: input.water_liters,
+          });
+        } catch (error) {
+          throw wrapError(error, "Failed to upsert product environment");
+        }
       }),
-  },
-  journey: {
-    /**
-     * Overrides the product journey steps used in passports.
-     *
-     * @param input - Product id and ordered journey steps.
-     * @returns Result of the persistence operation.
-     */
-    setSteps: protectedProcedure
+  }),
+  journey: createTRPCRouter({
+    setSteps: brandRequiredProcedure
       .input(setJourneyStepsSchema)
       .mutation(async ({ ctx, input }) => {
-        const { db } = ctx;
-        return setProductJourneySteps(
-          db,
-          input.product_id,
-          input.steps.map((s) => ({
-            sortIndex: s.sort_index,
-            stepType: s.step_type,
-            facilityId: s.facility_id,
-          })),
-        );
+        const { db, brandId } = ctx;
+        const activeBrandId = brandId as string;
+        await assertProductForBrand(db, activeBrandId, input.product_id);
+
+        try {
+          return setProductJourneySteps(
+            db,
+            input.product_id,
+            input.steps.map((step) => ({
+              sortIndex: step.sort_index,
+              stepType: step.step_type,
+              facilityId: step.facility_id,
+            })),
+          );
+        } catch (error) {
+          throw wrapError(error, "Failed to set product journey steps");
+        }
       }),
-  },
+  }),
 });
+
+export type ProductAttributesRouter = typeof productAttributesRouter;

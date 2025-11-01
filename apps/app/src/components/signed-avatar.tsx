@@ -5,6 +5,7 @@ import { SmartAvatar } from "@v1/ui/avatar";
 type Props = {
   bucket: "avatars" | "brand-avatars";
   path?: string | null;
+  url?: string | null;
   name?: string | null;
   hue?: number | null;
   size?: number;
@@ -14,18 +15,21 @@ type Props = {
 export function SignedAvatar({
   bucket,
   path,
+  url,
   name,
   hue,
   size = 40,
   loading,
 }: Props) {
-  const effectiveHue = path ? null : hue;
-  const src = path
-    ? `/api/storage/${bucket}/${path
-        .split("/")
-        .map(encodeURIComponent)
-        .join("/")}`
-    : undefined;
+  const effectiveHue = path || url ? null : hue;
+  const src = url
+    ? url
+    : path
+      ? `/api/storage/${bucket}/${path
+          .split("/")
+          .map(encodeURIComponent)
+          .join("/")}`
+      : undefined;
 
   return (
     <SmartAvatar

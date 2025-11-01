@@ -8,3 +8,6 @@ export * from "./products.js";
 export * from "./product-attributes.js";
 export * from "./passports.js";
 export * from "./passport-templates.js";
+
+// Re-export drizzle-orm utilities for consumers
+export { and, asc, desc, eq, inArray, sql, SQL, type SQLWrapper } from "drizzle-orm";

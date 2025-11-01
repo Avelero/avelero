@@ -1,5 +1,7 @@
 import type { Database } from "@v1/db/client";
 import {
+  and,
+  eq,
   setProductCareCodes,
   setProductEcoClaims,
   setProductJourneySteps,
@@ -13,7 +15,6 @@ import { products } from "@v1/db/schema";
  * Provides replace-all semantics for join-table attributes (materials, care
  * codes, eco claims, journey) and an environment metrics upsert endpoint.
  */
-import { and, eq } from "drizzle-orm";
 import {
   setCareCodesSchema,
   setEcoClaimsSchema,

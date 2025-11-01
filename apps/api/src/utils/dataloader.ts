@@ -10,9 +10,9 @@
  */
 
 import type { Database } from "@v1/db/client";
+import { eq, inArray } from "@v1/db/queries";
 import { brandMembers, brands, users } from "@v1/db/schema";
 import DataLoader from "dataloader";
-import { eq, inArray } from "drizzle-orm";
 
 /**
  * User record shape returned by dataloader queries.

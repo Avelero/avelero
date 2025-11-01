@@ -24,6 +24,7 @@ export * from "./catalog.js";
 export * from "./product-attributes.js";
 export * from "./products.js";
 export * from "./passports.js";
+export * from "./bulk.js";
 export * from "./user.js";
 export * from "./workflow.js";
 export * as brandCatalog from "./brand-catalog/index.js";

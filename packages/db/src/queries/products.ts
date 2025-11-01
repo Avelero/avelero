@@ -32,6 +32,7 @@ import {
   showcaseBrands,
 } from "../schema";
 
+/** Filter options for product list queries */
 type ListFilters = {
   categoryId?: string;
   season?: string;
@@ -39,7 +40,10 @@ type ListFilters = {
 };
 
 /**
- * Available product fields that can be selected in queries.
+ * Maps API field names to database column references.
+ *
+ * Used for selective field queries to only fetch requested columns,
+ * reducing payload size and improving query performance.
  */
 const PRODUCT_FIELD_MAP = {
   id: products.id,
@@ -172,6 +176,15 @@ export interface VariantUpsertResult {
   readonly error?: string;
 }
 
+/**
+ * Maps database row to ProductRecord, handling selective field queries.
+ *
+ * Only includes fields that were actually selected in the query, allowing
+ * for efficient partial queries when full product data isn't needed.
+ *
+ * @param row - Database row with varying fields
+ * @returns ProductRecord with only populated fields
+ */
 function mapProductRow(row: Record<string, unknown>): ProductRecord {
   const product: ProductRecord = {
     id: String(row.id),
@@ -200,6 +213,13 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
   return product;
 }
 
+/**
+ * Creates an empty product attributes bundle.
+ *
+ * Used as default when attributes are not requested or don't exist.
+ *
+ * @returns Empty attributes bundle with empty arrays and null environment
+ */
 function createEmptyAttributes(): ProductAttributesBundle {
   return {
     materials: [],
@@ -210,6 +230,18 @@ function createEmptyAttributes(): ProductAttributesBundle {
   };
 }
 
+/**
+ * Validates that a product belongs to a specific brand.
+ *
+ * Security check to prevent cross-brand product access. Throws an error
+ * if the product doesn't exist or belongs to a different brand.
+ *
+ * @param db - Database instance
+ * @param brandId - Brand identifier
+ * @param productId - Product identifier to validate
+ * @returns Product ID if validation passes
+ * @throws {Error} If product doesn't belong to brand
+ */
 async function ensureProductBelongsToBrand(
   db: Database,
   brandId: string,
@@ -227,6 +259,17 @@ async function ensureProductBelongsToBrand(
   return product;
 }
 
+/**
+ * Batch loads variants for multiple products.
+ *
+ * Performs a single database query to fetch all variants for the given
+ * product IDs, then groups them by product ID for efficient lookups.
+ * Optimizes N+1 query problems when loading product lists.
+ *
+ * @param db - Database instance
+ * @param productIds - Array of product IDs to load variants for
+ * @returns Map of product ID to array of variants
+ */
 async function loadVariantsForProducts(
   db: Database,
   productIds: readonly string[],

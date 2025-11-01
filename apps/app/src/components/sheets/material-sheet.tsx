@@ -22,34 +22,85 @@ import { Switch } from "@v1/ui/switch";
 import * as React from "react";
 import { CountrySelect } from "../select/country-select";
 
+/**
+ * Material data shape returned when a material is created.
+ */
 interface MaterialData {
+  /** Unique material identifier */
   id: string;
+  /** Material name (e.g., "Organic Cotton", "Recycled Polyester") */
   name: string;
+  /** ISO country code of origin */
   countryOfOrigin?: string;
+  /** Whether the material is recyclable */
   recyclable?: boolean;
+  /** Optional certification reference */
   certificationId?: string;
+  /** Full certification details if attached */
   certification?: CertificationData;
 }
 
+/**
+ * Certification data shape for materials.
+ */
 interface CertificationData {
+  /** Unique certification identifier */
   id: string;
+  /** Certification title */
   title: string;
+  /** Certification code (e.g., "GOTS", "OEKO-TEX") */
   code: string;
+  /** Certification number/ID from issuing body */
   certificationNumber: string;
+  /** Name of issuing institution */
   instituteName: string;
+  /** Optional expiration date */
   expiryDate?: Date;
+  /** Optional logo file path */
   logo?: string;
 }
 
+/**
+ * Props for the MaterialSheet component.
+ */
 interface MaterialSheetProps {
+  /** Controls sheet visibility */
   open: boolean;
+  /** Callback when sheet open state changes */
   onOpenChange: (open: boolean) => void;
+  /** Optional pre-filled material name */
   initialName?: string;
+  /** Callback invoked with the created material data */
   onMaterialCreated: (material: MaterialData) => void;
 }
 
+/** Internal page state for multi-page sheet flow */
 type Page = "material" | "certification";
 
+/**
+ * Multi-page sheet for creating materials with optional certifications.
+ *
+ * This component manages a two-page flow:
+ * 1. Material details page - Name, country, recyclability, certification selection
+ * 2. Certification creation page - Appears when user creates a new certification
+ *
+ * Supports file uploads for certification logos and maintains complex state
+ * across page transitions. All form data is reset when the sheet closes.
+ *
+ * @param props - Sheet configuration and callbacks
+ *
+ * @example
+ * ```tsx
+ * <MaterialSheet
+ *   open={isOpen}
+ *   onOpenChange={setIsOpen}
+ *   initialName="Organic Cotton"
+ *   onMaterialCreated={(material) => {
+ *     console.log('Created:', material);
+ *   }}
+ * />
+ * ```
+ */
 export function MaterialSheet({
   open,
   onOpenChange,
@@ -230,7 +281,9 @@ export function MaterialSheet({
       "image/png",
     ];
     if (!allowedTypes.includes(file.type)) {
-      toast.error("Invalid file type. Please upload a PDF, JPG, JPEG, or PNG file.");
+      toast.error(
+        "Invalid file type. Please upload a PDF, JPG, JPEG, or PNG file.",
+      );
       return;
     }
 

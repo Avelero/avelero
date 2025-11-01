@@ -39,8 +39,12 @@ import {
   protectedProcedure,
 } from "../../init.js";
 
+/** User's role within a brand */
 type BrandRole = "owner" | "member";
 
+/**
+ * Minimal user record shape for profile mapping.
+ */
 interface MinimalUserRecord {
   id: string;
   email: string | null;
@@ -49,6 +53,9 @@ interface MinimalUserRecord {
   brandId: string | null;
 }
 
+/**
+ * Recent passport activity item for dashboard display.
+ */
 interface DashboardRecentActivity {
   passport_id: string;
   upid: string;
@@ -58,6 +65,9 @@ interface DashboardRecentActivity {
   updated_at: string;
 }
 
+/**
+ * Module completion metrics for dashboard analytics.
+ */
 interface ModuleCompletionMetric {
   module_key: string;
   completed: number;
@@ -65,6 +75,15 @@ interface ModuleCompletionMetric {
   total: number;
 }
 
+/**
+ * Constructs a publicly accessible URL for a brand logo.
+ *
+ * Encodes each path segment to handle special characters and constructs
+ * a URL pointing to the brand avatars storage endpoint.
+ *
+ * @param path - Relative storage path (e.g., "brand-123/logo.png")
+ * @returns Full URL to logo, or null if no path provided
+ */
 function buildBrandLogoUrl(path: string | null): string | null {
   if (!path) return null;
   const encoded = path
@@ -74,11 +93,33 @@ function buildBrandLogoUrl(path: string | null): string | null {
   return `${getAppUrl()}/api/storage/brand-avatars/${encoded}`;
 }
 
+/**
+ * Determines if a user can leave a brand based on their role and owner count.
+ *
+ * Business rule: Sole owners cannot leave their brand. They must either
+ * promote another member to owner or delete the brand.
+ *
+ * @param role - User's role in the brand ("owner" | "member")
+ * @param ownerCount - Total number of owners in the brand
+ * @returns True if user is allowed to leave
+ */
 function canLeaveFromRole(role: BrandRole, ownerCount: number): boolean {
   if (role !== "owner") return true;
   return ownerCount > 1;
 }
 
+/**
+ * Maps database user record to API response format.
+ *
+ * Ensures email is present (required for user profile) by falling back to
+ * a provided email if the record's email is null. Throws unauthorized error
+ * if no email is available.
+ *
+ * @param record - User record from database
+ * @param fallbackEmail - Email to use if record.email is null
+ * @returns Formatted user profile object
+ * @throws {TRPCError} UNAUTHORIZED if no email available
+ */
 function mapUserProfile(
   record: MinimalUserRecord | null,
   fallbackEmail: string | null,
@@ -98,6 +139,12 @@ function mapUserProfile(
   };
 }
 
+/**
+ * Maps database invite record to API response format.
+ *
+ * @param invite - Invite record from database query
+ * @returns Formatted invite object for API response
+ */
 function mapInvite(invite: UserInviteSummaryRow) {
   return {
     id: invite.id,
@@ -110,16 +157,33 @@ function mapInvite(invite: UserInviteSummaryRow) {
   };
 }
 
+/**
+ * Maps brand memberships with ownership metadata.
+ *
+ * Enriches each membership with:
+ * - Owner count for the brand (to determine if user can leave)
+ * - Logo URL (constructed from storage path)
+ * - canLeave flag (based on role and owner count)
+ *
+ * Performs a single database query to fetch owner counts for all brands
+ * where the user is an owner, optimizing performance for bulk operations.
+ *
+ * @param db - Database instance
+ * @param memberships - User's brand memberships
+ * @returns Enriched brand memberships with metadata
+ */
 async function mapWorkflowBrands(
   db: Database,
   memberships: BrandMembershipListItem[],
 ) {
   if (memberships.length === 0) return [];
 
+  // Extract brands where user is owner (need owner counts for these)
   const ownerBrandIds = memberships
     .filter((brand) => brand.role === "owner")
     .map((brand) => brand.id);
 
+  // Batch fetch owner counts for all relevant brands
   const ownerCounts = new Map<string, number>();
   if (ownerBrandIds.length > 0) {
     const rows = await db
@@ -158,6 +222,12 @@ async function mapWorkflowBrands(
   });
 }
 
+/**
+ * Maps module completion data from database to API format.
+ *
+ * @param metric - Module completion counts from database
+ * @returns Formatted module completion metric
+ */
 function mapModuleCompletionMetric(
   metric: ModuleIncompleteCount,
 ): ModuleCompletionMetric {
@@ -169,6 +239,15 @@ function mapModuleCompletionMetric(
   };
 }
 
+/**
+ * Maps and sorts passport summaries for recent activity display.
+ *
+ * Transforms passport records into dashboard activity format and sorts
+ * by most recently updated first.
+ *
+ * @param summaries - Passport summary records
+ * @returns Sorted recent activity items (most recent first)
+ */
 function mapRecentActivity(
   summaries: readonly {
     id: string;
@@ -193,6 +272,17 @@ function mapRecentActivity(
     );
 }
 
+/**
+ * Fetches all members for a brand with canLeave permissions.
+ *
+ * Queries brand members with user details and calculates whether each
+ * member can leave based on the total owner count. Members are ordered
+ * by join date (oldest first).
+ *
+ * @param db - Database instance
+ * @param brandId - Brand identifier
+ * @returns Array of brand members with permissions
+ */
 async function fetchWorkflowMembers(db: Database, brandId: string) {
   const rows = await db
     .select({
@@ -206,6 +296,7 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
     .where(eq(brandMembers.brandId, brandId))
     .orderBy(asc(brandMembers.createdAt));
 
+  // Calculate total owner count to determine leave permissions
   const ownerCount = rows.reduce(
     (count, member) => (member.role === "owner" ? count + 1 : count),
     0,
@@ -224,6 +315,16 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
   });
 }
 
+/**
+ * Fetches all pending invitations for a brand.
+ *
+ * Queries brand invites with inviter details (name or email) and orders
+ * by most recent first. Invites are filtered to only show pending status.
+ *
+ * @param db - Database instance
+ * @param brandId - Brand identifier
+ * @returns Array of pending invites with inviter information
+ */
 async function fetchWorkflowInvites(db: Database, brandId: string) {
   const rows = await db
     .select({

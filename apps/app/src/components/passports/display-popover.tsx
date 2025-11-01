@@ -152,23 +152,20 @@ export function DisplayPopover({
     setActiveId(event.active.id as string);
   }, []);
 
-  const handleDragEnd = React.useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) {
-        setActiveId(null);
-        return;
-      }
-      setRows((prev) => {
-        const oldIndex = prev.findIndex((r) => r.id === active.id);
-        const newIndex = prev.findIndex((r) => r.id === over.id);
-        if (oldIndex === -1 || newIndex === -1) return prev;
-        return arrayMove(prev, oldIndex, newIndex);
-      });
+  const handleDragEnd = React.useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
       setActiveId(null);
-    },
-    [],
-  );
+      return;
+    }
+    setRows((prev) => {
+      const oldIndex = prev.findIndex((r) => r.id === active.id);
+      const newIndex = prev.findIndex((r) => r.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+    setActiveId(null);
+  }, []);
 
   const handleToggle = (id: string, next: boolean) => {
     setRows((prev) =>

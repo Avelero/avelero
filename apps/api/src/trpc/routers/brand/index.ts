@@ -77,10 +77,20 @@ import {
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
+/** tRPC context with guaranteed brand ID from middleware */
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
 /**
- * Shared helper: Wraps a list query for a brand catalog resource.
+ * Creates a standardized list procedure for brand catalog resources.
+ *
+ * Wraps query functions with consistent error handling and response formatting.
+ * All list procedures enforce brand context and return the same response shape.
+ *
+ * @template TInput - Input schema type
+ * @param schema - Zod validation schema for input
+ * @param queryFn - Database query function returning array of resources
+ * @param resourceName - Human-readable resource name for error messages (e.g., "color", "size")
+ * @returns tRPC query procedure with brand context
  */
 function createListProcedure<TInput>(
   schema: any,
@@ -99,7 +109,16 @@ function createListProcedure<TInput>(
 }
 
 /**
- * Shared helper: Wraps a create mutation for a brand catalog resource.
+ * Creates a standardized create procedure for brand catalog resources.
+ *
+ * Wraps create functions with consistent validation, error handling, and
+ * response formatting. All create procedures enforce brand context.
+ *
+ * @template TInput - Input schema type
+ * @param schema - Zod validation schema for input
+ * @param createFn - Database create function
+ * @param resourceName - Human-readable resource name for error messages
+ * @returns tRPC mutation procedure with brand context
  */
 function createCreateProcedure<TInput>(
   schema: any,
@@ -120,7 +139,17 @@ function createCreateProcedure<TInput>(
 }
 
 /**
- * Shared helper: Wraps an update mutation for a brand catalog resource.
+ * Creates a standardized update procedure for brand catalog resources.
+ *
+ * Wraps update functions with validation, error handling, and automatic 404
+ * handling when the resource doesn't exist. All update procedures enforce
+ * brand context and require an ID in the input.
+ *
+ * @template TInput - Input schema type (must include id field)
+ * @param schema - Zod validation schema for input
+ * @param updateFn - Database update function
+ * @param resourceName - Human-readable resource name for error messages
+ * @returns tRPC mutation procedure with brand context and not-found handling
  */
 function createUpdateProcedure<TInput extends { id: string }>(
   schema: any,
@@ -155,7 +184,17 @@ function createUpdateProcedure<TInput extends { id: string }>(
 }
 
 /**
- * Shared helper: Wraps a delete mutation for a brand catalog resource.
+ * Creates a standardized delete procedure for brand catalog resources.
+ *
+ * Wraps delete functions with validation, error handling, and automatic 404
+ * handling when the resource doesn't exist. All delete procedures enforce
+ * brand context.
+ *
+ * @template TInput - Input schema type (must include id field)
+ * @param schema - Zod validation schema for input
+ * @param deleteFn - Database delete function
+ * @param resourceName - Human-readable resource name for error messages
+ * @returns tRPC mutation procedure with brand context and not-found handling
  */
 function createDeleteProcedure<TInput extends { id: string }>(
   schema: any,
@@ -184,7 +223,30 @@ function createDeleteProcedure<TInput extends { id: string }>(
 }
 
 /**
- * Factory function: Creates a complete CRUD router for a catalog resource.
+ * Factory function creating a complete CRUD router for catalog resources.
+ *
+ * Eliminates boilerplate by generating four standard endpoints (list, create,
+ * update, delete) with consistent validation, error handling, and response
+ * formatting. All endpoints enforce brand-level permissions.
+ *
+ * This pattern is used for colors, sizes, materials, facilities, certifications,
+ * eco claims, and showcase brands - eliminating ~200 lines of duplication.
+ *
+ * @template T - Resource entity type
+ * @param resourceName - Human-readable name for error messages (e.g., "color", "size")
+ * @param schemas - Zod schemas for each operation
+ * @param operations - Database query functions for each operation
+ * @returns tRPC router with list/create/update/delete endpoints
+ *
+ * @example
+ * ```typescript
+ * const colorsRouter = createCatalogResourceRouter(
+ *   "color",
+ *   { list: listColorsSchema, create: createColorSchema, ... },
+ *   { list: listColors, create: createColor, ... }
+ * );
+ * // Exposes: colors.list, colors.create, colors.update, colors.delete
+ * ```
  */
 function createCatalogResourceRouter<T>(
   resourceName: string,

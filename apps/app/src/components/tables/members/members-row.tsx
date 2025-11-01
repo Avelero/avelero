@@ -18,19 +18,64 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
 
+/** tRPC router output types for type-safe components */
 type RouterOutputs = inferRouterOutputs<AppRouter>;
+
+/** Combined members and invites data shape */
 type MembersWithInvites = RouterOutputs["composite"]["membersWithInvites"];
+
+/** Active brand member data */
 type MemberRow = MembersWithInvites["members"][number];
+
+/** Pending invitation data */
 type InviteRow = MembersWithInvites["invites"][number];
 
+/**
+ * Props for MembersRow - discriminated union for member vs invite display.
+ *
+ * Supports two modes:
+ * - Existing membership: Shows member with role management actions
+ * - Pending invite: Shows invite with revoke action
+ */
 type Props =
   | {
+      /** Active brand membership to display */
       membership: MemberRow;
+      /** Brand ID for scoped operations */
       brandId: string;
+      /** Current user's ID to determine if viewing own membership */
       currentUserId: string | null;
     }
-  | { invite: InviteRow; brandId: string };
+  | {
+      /** Pending invitation to display */
+      invite: InviteRow;
+      /** Brand ID for scoped operations */
+      brandId: string;
+    };
 
+/**
+ * Displays a single row in the members table, supporting both active members
+ * and pending invites.
+ *
+ * Uses discriminated union to render different UI based on whether the row
+ * represents an existing member or a pending invitation. Members can have
+ * their roles changed or be removed, while invites can be revoked.
+ *
+ * @param props - Either a membership or invite record with brand context
+ *
+ * @example
+ * ```tsx
+ * // Render active member
+ * <MembersRow
+ *   membership={member}
+ *   brandId={brandId}
+ *   currentUserId={currentUser.id}
+ * />
+ *
+ * // Render pending invite
+ * <MembersRow invite={invite} brandId={brandId} />
+ * ```
+ */
 export function MembersRow(props: Props) {
   if ("membership" in props) {
     return (
@@ -45,6 +90,17 @@ export function MembersRow(props: Props) {
   return <InviteRowComp invite={props.invite} brandId={props.brandId} />;
 }
 
+/**
+ * Renders an active brand member row with role management controls.
+ *
+ * Displays member avatar, email, and current role. Owners can change member
+ * roles (promote to owner, demote to member) or remove members entirely.
+ * Users cannot remove themselves - they must use the "Leave Brand" function.
+ *
+ * Implements optimistic updates for both role changes and member removal.
+ *
+ * @param props - Member data and brand context
+ */
 function MembershipRow({
   brandId,
   membership,
@@ -214,6 +270,17 @@ function MembershipRow({
   );
 }
 
+/**
+ * Renders a pending invitation row with revoke action.
+ *
+ * Displays the invitee's email, invited role, and who sent the invitation.
+ * Provides a button to withdraw the invitation before it's accepted.
+ *
+ * Implements optimistic updates to immediately remove the invite from the UI
+ * when revoked, rolling back on error.
+ *
+ * @param props - Invitation data and brand context
+ */
 function InviteRowComp({
   invite,
   brandId,

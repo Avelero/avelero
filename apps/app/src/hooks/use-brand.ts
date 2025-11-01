@@ -12,11 +12,31 @@ import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 
+/** tRPC router output types for type-safe hooks */
 type RouterOutputs = inferRouterOutputs<AppRouter>;
+
+/** Brand membership data returned from workflow queries */
 type WorkflowMembership = RouterOutputs["workflow"]["list"][number];
+
+/** User profile data shape */
 type UserProfile = RouterOutputs["user"]["get"];
+
+/** Result from leaving a brand, includes next brand ID if available */
 type LeaveBrandResult = RouterOutputs["workflow"]["members"]["update"];
 
+/**
+ * Fetches all brands the current user belongs to.
+ *
+ * This query is client-side only and disabled during SSR to prevent hydration
+ * mismatches. The query enables users to switch between their brand memberships.
+ *
+ * @returns Query hook for user's brand memberships
+ *
+ * @example
+ * ```tsx
+ * const { data: brands, isLoading } = useUserBrandsQuery();
+ * ```
+ */
 export function useUserBrandsQuery() {
   const trpc = useTRPC();
   const opts = trpc.workflow.list.queryOptions();
@@ -26,6 +46,20 @@ export function useUserBrandsQuery() {
   });
 }
 
+/**
+ * Fetches all brands the current user belongs to using Suspense.
+ *
+ * Suspense-enabled version of useUserBrandsQuery. Use this in components
+ * wrapped with Suspense boundaries to enable streaming SSR and loading states.
+ *
+ * @returns Suspense query hook for user's brand memberships
+ *
+ * @example
+ * ```tsx
+ * // Inside a Suspense boundary
+ * const { data: brands } = useUserBrandsQuerySuspense();
+ * ```
+ */
 export function useUserBrandsQuerySuspense() {
   const trpc = useTRPC();
   const opts = trpc.workflow.list.queryOptions();
@@ -34,6 +68,25 @@ export function useUserBrandsQuerySuspense() {
   });
 }
 
+/**
+ * Switches the user's active brand context.
+ *
+ * Implements optimistic updates to immediately reflect the brand change in the UI
+ * before server confirmation. On error, rolls back the optimistic update. On success,
+ * invalidates all brand-scoped queries and triggers a router refresh to update
+ * server-side context.
+ *
+ * @returns Mutation hook with optimistic update handling
+ *
+ * @example
+ * ```tsx
+ * const setActiveBrand = useSetActiveBrandMutation();
+ *
+ * const handleBrandSwitch = async (brandId: string) => {
+ *   await setActiveBrand.mutateAsync({ brand_id: brandId });
+ * };
+ * ```
+ */
 export function useSetActiveBrandMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -42,12 +95,12 @@ export function useSetActiveBrandMutation() {
   return useMutation(
     trpc.workflow.setActive.mutationOptions({
       onMutate: async (variables) => {
-        // Cancel outgoing refetches
+        // Cancel outgoing refetches to prevent race conditions
         await queryClient.cancelQueries({
           queryKey: trpc.user.get.queryKey(),
         });
 
-        // Get current user data
+        // Snapshot current user data for rollback
         const previousUserData = queryClient.getQueryData<UserProfile>(
           trpc.user.get.queryKey(),
         );
@@ -62,7 +115,7 @@ export function useSetActiveBrandMutation() {
         return { previousUserData };
       },
       onError: (_, __, context) => {
-        // Rollback on error
+        // Rollback optimistic update on failure
         queryClient.setQueryData(
           trpc.user.get.queryKey(),
           context?.previousUserData,
@@ -88,6 +141,26 @@ export function useSetActiveBrandMutation() {
   );
 }
 
+/**
+ * Creates a new brand and assigns the current user as owner.
+ *
+ * On success, invalidates all brand-related queries to reflect the new brand
+ * in the UI. The newly created brand becomes the user's active brand automatically.
+ *
+ * @returns Mutation hook for brand creation
+ *
+ * @example
+ * ```tsx
+ * const createBrand = useCreateBrandMutation();
+ *
+ * const handleCreateBrand = async () => {
+ *   await createBrand.mutateAsync({
+ *     name: "Acme Corp",
+ *     email: "contact@acme.com"
+ *   });
+ * };
+ * ```
+ */
 export function useCreateBrandMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -95,7 +168,7 @@ export function useCreateBrandMutation() {
   return useMutation(
     trpc.workflow.create.mutationOptions({
       onSuccess: async () => {
-        // Invalidate brands list and user data
+        // Invalidate brands list and user data to show new brand
         await queryClient.invalidateQueries({
           queryKey: trpc.workflow.list.queryKey(),
         });
@@ -110,6 +183,27 @@ export function useCreateBrandMutation() {
   );
 }
 
+/**
+ * Updates brand profile information (name, logo, email, country).
+ *
+ * Implements lightweight optimistic updates by canceling in-flight queries
+ * and snapshotting user data for rollback. Invalidates all brand-related
+ * queries after the mutation settles (success or failure).
+ *
+ * @returns Mutation hook for updating brand profile
+ *
+ * @example
+ * ```tsx
+ * const updateBrand = useBrandUpdateMutation();
+ *
+ * const handleUpdateBrand = async () => {
+ *   await updateBrand.mutateAsync({
+ *     brand_id: brandId,
+ *     name: "New Brand Name"
+ *   });
+ * };
+ * ```
+ */
 export function useBrandUpdateMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -119,7 +213,6 @@ export function useBrandUpdateMutation() {
       onMutate: async (variables) => {
         await queryClient.cancelQueries();
         const prevUser = queryClient.getQueryData(trpc.user.get.queryKey());
-        // best-effort optimistic touch: nothing heavy here
         return { prevUser };
       },
       onError: (_err, _vars, ctx) => {
@@ -144,6 +237,27 @@ export function useBrandUpdateMutation() {
   );
 }
 
+/**
+ * Removes the current user from a brand membership.
+ *
+ * On success, invalidates all brand-related queries and redirects the user
+ * to brand creation if they have no remaining brands. Otherwise, switches
+ * to the next available brand (alphabetically).
+ *
+ * Note: Sole owners cannot leave their brand - they must promote another
+ * member to owner first or delete the brand.
+ *
+ * @returns Mutation hook for leaving a brand
+ *
+ * @example
+ * ```tsx
+ * const leaveBrand = useLeaveBrandMutation();
+ *
+ * const handleLeaveBrand = async () => {
+ *   await leaveBrand.mutateAsync({ brand_id: brandId });
+ * };
+ * ```
+ */
 export function useLeaveBrandMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -174,7 +288,7 @@ export function useLeaveBrandMutation() {
         const nextBrandId =
           (res as { nextBrandId?: string | null } | undefined)?.nextBrandId ??
           null;
-        // Only redirect when user has no brands left
+        // Redirect to brand creation when user has no brands left
         if (!nextBrandId) router.push("/create-brand");
         router.refresh();
       },
@@ -182,6 +296,24 @@ export function useLeaveBrandMutation() {
   );
 }
 
+/**
+ * Finds a specific brand from the user's memberships by ID.
+ *
+ * Efficiently looks up a brand membership from the cached workflow list.
+ * Returns null if the brand ID is not provided or the user is not a member.
+ *
+ * @param brandId - Brand ID to look up
+ * @returns Brand membership data or null if not found
+ *
+ * @example
+ * ```tsx
+ * const brand = useWorkflowBrandById(brandId);
+ *
+ * if (brand) {
+ *   console.log(brand.name, brand.role);
+ * }
+ * ```
+ */
 export function useWorkflowBrandById(brandId: string | null | undefined) {
   const { data } = useUserBrandsQuery();
   return useMemo(() => {

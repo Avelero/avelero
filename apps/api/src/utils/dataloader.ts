@@ -9,10 +9,10 @@
  * @module dataloader
  */
 
+import type { Database } from "@v1/db/client";
+import { brandMembers, brands, users } from "@v1/db/schema";
 import DataLoader from "dataloader";
 import { eq, inArray } from "drizzle-orm";
-import type { Database } from "@v1/db/client";
-import { users, brands, brandMembers } from "@v1/db/schema";
 
 /**
  * User record shape returned by dataloader queries.
@@ -73,7 +73,9 @@ export interface DataLoaders {
  * @param db - Drizzle database instance.
  * @returns DataLoader configured for user lookups.
  */
-function createUserByIdLoader(db: Database): DataLoader<string, UserRecord | null> {
+function createUserByIdLoader(
+  db: Database,
+): DataLoader<string, UserRecord | null> {
   return new DataLoader<string, UserRecord | null>(
     async (userIds: readonly string[]): Promise<Array<UserRecord | null>> => {
       const rows = await db
@@ -112,7 +114,9 @@ function createUserByIdLoader(db: Database): DataLoader<string, UserRecord | nul
  * @param db - Drizzle database instance.
  * @returns DataLoader configured for brand lookups.
  */
-function createBrandByIdLoader(db: Database): DataLoader<string, BrandRecord | null> {
+function createBrandByIdLoader(
+  db: Database,
+): DataLoader<string, BrandRecord | null> {
   return new DataLoader<string, BrandRecord | null>(
     async (brandIds: readonly string[]): Promise<Array<BrandRecord | null>> => {
       const rows = await db

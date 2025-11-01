@@ -1,3 +1,4 @@
+import type { Database } from "@v1/db/client";
 /**
  * Brand catalog router implementation.
  *
@@ -38,7 +39,6 @@ import {
   updateShowcaseBrand,
   updateSize,
 } from "@v1/db/queries";
-import type { Database } from "@v1/db/client";
 import {
   createCertificationSchema,
   createColorSchema,
@@ -69,16 +69,13 @@ import {
   updateShowcaseBrandSchema,
   updateSizeSchema,
 } from "../../../schemas/brand-catalog/index.js";
-import { wrapError, notFound } from "../../../utils/errors.js";
+import { notFound, wrapError } from "../../../utils/errors.js";
 import {
   createEntityResponse,
   createListResponse,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import {
-  brandRequiredProcedure,
-  createTRPCRouter,
-} from "../../init.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 

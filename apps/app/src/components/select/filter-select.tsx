@@ -2,6 +2,8 @@
 
 import { getQuickFilterFields } from "@/config/filters";
 import { useFieldOptions } from "@/hooks/use-field-options";
+import { useTRPC } from "@/trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import {
   Command,
@@ -25,9 +27,7 @@ import {
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
 import * as React from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useTRPC } from "@/trpc/client";
 import type { FilterActions, FilterState } from "../passports/filter-types";
 
 interface QuickFiltersPopoverProps {
@@ -59,7 +59,9 @@ export function QuickFiltersPopover({
 }: QuickFiltersPopoverProps) {
   const [open, setOpen] = React.useState(false);
   // Local quick-filter state (decoupled from Advanced filters)
-  const [quickFilters, setQuickFilters] = React.useState<Record<string, string[]>>({});
+  const [quickFilters, setQuickFilters] = React.useState<
+    Record<string, string[]>
+  >({});
   const queryClient = useQueryClient();
   const trpc = useTRPC();
 
@@ -67,7 +69,7 @@ export function QuickFiltersPopover({
   React.useEffect(() => {
     const prefetchEndpoints = [
       trpc.composite.passportFormReferences.queryOptions(),
-      trpc.brand.colors.list.queryOptions(),
+      trpc.brand.colors.list.queryOptions(undefined),
       trpc.brand.sizes.list.queryOptions({}),
     ];
 
@@ -89,7 +91,11 @@ export function QuickFiltersPopover({
     for (const field of QUICK_FIELDS) {
       const values = quickFilters[field.id] ?? [];
       if (values.length > 0) {
-        filters.push({ fieldId: field.id, fieldLabel: field.label, value: values });
+        filters.push({
+          fieldId: field.id,
+          fieldLabel: field.label,
+          value: values,
+        });
       }
     }
     return filters;
@@ -115,7 +121,7 @@ export function QuickFiltersPopover({
   }, [onOpenAdvanced]);
 
   // Keyboard shortcut: Shift + Cmd/Ctrl + F
-  useHotkeys('shift+mod+f', (event) => {
+  useHotkeys("shift+mod+f", (event) => {
     event.preventDefault();
     handleAdvancedClick();
   });
@@ -167,9 +173,7 @@ export function QuickFiltersPopover({
             </div>
           </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={handleAdvancedClick}
-          >
+          <DropdownMenuItem onClick={handleAdvancedClick}>
             Advanced filters
             <DropdownMenuShortcut>⇧⌘F</DropdownMenuShortcut>
           </DropdownMenuItem>
@@ -266,9 +270,7 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
                         {renderStatusIcon(field.id, option.value)}
                         <span>{option.label}</span>
                       </div>
-                      {isSelected && (
-                        <Icons.Check className="h-4 w-4" />
-                      )}
+                      {isSelected && <Icons.Check className="h-4 w-4" />}
                     </CommandItem>
                   );
                 })}

@@ -128,10 +128,7 @@ export const voidSchema = z.void();
 export function updateWithNullable<
   T extends z.ZodRawShape,
   NullableKey extends keyof T & string,
->(
-  createSchema: z.ZodObject<T>,
-  nullableFields: ReadonlyArray<NullableKey>,
-) {
+>(createSchema: z.ZodObject<T>, nullableFields: ReadonlyArray<NullableKey>) {
   const baseSchema = createSchema
     .extend({ id: uuidSchema })
     .partial()
@@ -183,9 +180,12 @@ export function updateWithNullable<
  * ```
  */
 export function updateFrom<T extends z.ZodRawShape>(
-  createSchema: z.ZodObject<T>
+  createSchema: z.ZodObject<T>,
 ): z.ZodObject<z.ZodRawShape> {
-  return createSchema.extend({ id: uuidSchema }).partial().required({ id: true });
+  return createSchema
+    .extend({ id: uuidSchema })
+    .partial()
+    .required({ id: true });
 }
 
 // ============================================================================
@@ -214,7 +214,7 @@ export function updateFrom<T extends z.ZodRawShape>(
  * ```
  */
 export function createFieldSelection<T extends readonly string[]>(
-  allowedFields: T
+  allowedFields: T,
 ): z.ZodOptional<z.ZodArray<z.ZodEnum<[T[number], ...T[number][]]>>> {
   if (allowedFields.length === 0) {
     throw new Error("Field selection requires at least one allowed field");

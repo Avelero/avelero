@@ -7,8 +7,8 @@
  */
 import { z } from "zod";
 import { uuidArraySchema, uuidSchema } from "./_shared/primitives.js";
-import { productsDomainCreateSchema } from "./products.js";
 import { passportStatusSchema } from "./passports.js";
+import { productsDomainCreateSchema } from "./products.js";
 
 /**
  * Common selection strategies supported by bulk mutations.

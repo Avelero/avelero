@@ -27,7 +27,15 @@ export const OPERATORS = {
     "is not empty",
   ] as const,
 
-  number: ["equals", "does not equal", "greater than", "greater than or equal to", "less than", "less than or equal to", "between"] as const,
+  number: [
+    "equals",
+    "does not equal",
+    "greater than",
+    "greater than or equal to",
+    "less than",
+    "less than or equal to",
+    "between",
+  ] as const,
 
   multiSelect: ["is any of", "is none of", "is empty", "is not empty"] as const,
 
@@ -47,11 +55,7 @@ export const OPERATORS = {
     "is ancestor of",
   ] as const,
 
-  date: [
-    "is before",
-    "is after",
-    "is between",
-  ] as const,
+  date: ["is before", "is after", "is between"] as const,
 
   boolean: ["is true", "is false"] as const,
 
@@ -520,12 +524,7 @@ export const FIELD_CATEGORIES = {
   },
   manufacturing: {
     label: "Manufacturing",
-    fields: [
-      "materials",
-      "facilityId",
-      "facilityCountryCode",
-      "stepType",
-    ],
+    fields: ["materials", "facilityId", "facilityCountryCode", "stepType"],
   },
   metadata: {
     label: "Metadata",

@@ -1,27 +1,37 @@
 "use client";
 
-import * as React from "react";
+import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
+import { DatePicker } from "@v1/ui/date-picker";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@v1/ui/dialog";
-import { Label } from "@v1/ui/label";
 import { Input } from "@v1/ui/input";
-import { Button } from "@v1/ui/button";
-import { DatePicker } from "@v1/ui/date-picker";
-import { cn } from "@v1/ui/cn";
+import { Label } from "@v1/ui/label";
+import * as React from "react";
 
 interface SeasonModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (season: { name: string; startDate: Date | null; endDate: Date | null; ongoing: boolean }) => void;
+  onSave: (season: {
+    name: string;
+    startDate: Date | null;
+    endDate: Date | null;
+    ongoing: boolean;
+  }) => void;
   initialName?: string;
 }
 
-export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonModalProps) {
+export function SeasonModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialName,
+}: SeasonModalProps) {
   const [name, setName] = React.useState("");
   const [startDate, setStartDate] = React.useState<Date | null>(null);
   const [endDate, setEndDate] = React.useState<Date | null>(null);
@@ -79,7 +89,7 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
         <DialogHeader className="px-6 pt-6 pb-3">
           <DialogTitle>Add season</DialogTitle>
         </DialogHeader>
-        
+
         <div className="px-6 flex flex-col gap-3">
           {/* Season Name */}
           <div className="space-y-1.5">
@@ -128,7 +138,9 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
                   </span>
                 )}
               </span>
-              <span className="type-p text-primary">This season is ongoing</span>
+              <span className="type-p text-primary">
+                This season is ongoing
+              </span>
             </label>
           </div>
         </div>
@@ -145,4 +157,3 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
     </Dialog>
   );
 }
-

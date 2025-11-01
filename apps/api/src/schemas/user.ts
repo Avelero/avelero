@@ -31,6 +31,7 @@ export const updateUserSchema = z.object({
  * callers to explicitly clear fields by passing `null`.
  */
 export const userDomainUpdateSchema = z.object({
+  email: emailSchema.optional(),
   full_name: z
     .string()
     .trim()

@@ -61,9 +61,11 @@ export function SortPopover({
 }: SortPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
-  
+
   // Optimistic local state for instant UI updates
-  const [optimisticSort, setOptimisticSort] = React.useState<SortState | null>(sortState);
+  const [optimisticSort, setOptimisticSort] = React.useState<SortState | null>(
+    sortState,
+  );
 
   // Sync with parent when it changes (but only if not in a pending transition)
   React.useEffect(() => {
@@ -117,61 +119,61 @@ export function SortPopover({
           >
             {optimisticSort && activeField ? (
               <>
-                Sorted by <span className="font-medium pl-2">{activeField.label}</span>
+                Sorted by{" "}
+                <span className="font-medium pl-2">{activeField.label}</span>
               </>
             ) : (
               "Sort"
             )}
           </Button>
         </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[220px]">
-        {SORT_FIELDS.map((field) => {
-          const AscIcon = getSortIcon(field.dataType, "asc");
-          const DescIcon = getSortIcon(field.dataType, "desc");
+        <DropdownMenuContent align="start" className="w-[220px]">
+          {SORT_FIELDS.map((field) => {
+            const AscIcon = getSortIcon(field.dataType, "asc");
+            const DescIcon = getSortIcon(field.dataType, "desc");
 
-          return (
-            <DropdownMenuSub key={field.id}>
-              <DropdownMenuSubTrigger className="h-9 py-3">
-                {field.label}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent className="w-[220px]">
-                  <DropdownMenuItem
-                    className="h-9 py-3"
-                    onSelect={() => handleSortSelect(field.id, "asc")}
-                  >
-                    <AscIcon className="h-[14px] w-[14px]" />
-                    <span>Ascending</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="h-9 py-3"
-                    onSelect={() => handleSortSelect(field.id, "desc")}
-                  >
-                    <DescIcon className="h-[14px] w-[14px]" />
-                    <span>Descending</span>
-                  </DropdownMenuItem>
-          </DropdownMenuSubContent>
-        </DropdownMenuPortal>
-      </DropdownMenuSub>
-    );
-  })}
-  </DropdownMenuContent>
-  </DropdownMenu>
-  {optimisticSort && !disabled && (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        handleClearSort();
-      }}
-      className="absolute right-0 top-1/2 -translate-y-1/2 h-[35px] w-[35px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-accent before:absolute before:right-full before:top-0 before:bottom-0 before:w-8 before:bg-gradient-to-r before:from-transparent before:to-accent before:pointer-events-none z-10"
-      aria-label="Clear sort"
-    >
-      <Icons.X className="h-3 w-3 text-secondary" />
-    </button>
-  )}
-</div>
-);
+            return (
+              <DropdownMenuSub key={field.id}>
+                <DropdownMenuSubTrigger className="h-9 py-3">
+                  {field.label}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="w-[220px]">
+                    <DropdownMenuItem
+                      className="h-9 py-3"
+                      onSelect={() => handleSortSelect(field.id, "asc")}
+                    >
+                      <AscIcon className="h-[14px] w-[14px]" />
+                      <span>Ascending</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="h-9 py-3"
+                      onSelect={() => handleSortSelect(field.id, "desc")}
+                    >
+                      <DescIcon className="h-[14px] w-[14px]" />
+                      <span>Descending</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {optimisticSort && !disabled && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleClearSort();
+          }}
+          className="absolute right-0 top-1/2 -translate-y-1/2 h-[35px] w-[35px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-accent before:absolute before:right-full before:top-0 before:bottom-0 before:w-8 before:bg-gradient-to-r before:from-transparent before:to-accent before:pointer-events-none z-10"
+          aria-label="Clear sort"
+        >
+          <Icons.X className="h-3 w-3 text-secondary" />
+        </button>
+      )}
+    </div>
+  );
 }
-

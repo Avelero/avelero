@@ -2,7 +2,11 @@
  * Validation schemas for brand material operations.
  */
 import { z } from "zod";
-import { byIdSchema, updateWithNullable, voidSchema } from "../_shared/patterns.js";
+import {
+  byIdSchema,
+  updateWithNullable,
+  voidSchema,
+} from "../_shared/patterns.js";
 import {
   countryCodeSchema,
   shortStringSchema,

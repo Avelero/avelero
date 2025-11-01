@@ -1,12 +1,18 @@
 "use client";
 
-import * as React from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
-import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
-import { cn } from "@v1/ui/cn";
 import { getSizesForCategory } from "@v1/selections/sizes";
+import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
+import { Icons } from "@v1/ui/icons";
+import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import * as React from "react";
 
 interface SizeSelectProps {
   value: string | null;
@@ -43,12 +49,13 @@ export function SizeSelect({
   const filteredSizes = React.useMemo(() => {
     if (!searchTerm) return sizesForCategory;
     return sizesForCategory.filter((s) =>
-      s.toLowerCase().includes(searchTerm.toLowerCase())
+      s.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [sizesForCategory, searchTerm]);
 
-  const showCreateOption = searchTerm && 
-    !sizesForCategory.some(s => s.toLowerCase() === searchTerm.toLowerCase());
+  const showCreateOption =
+    searchTerm &&
+    !sizesForCategory.some((s) => s.toLowerCase() === searchTerm.toLowerCase());
 
   const handleSelect = (size: string) => {
     onValueChange(size);
@@ -108,10 +115,7 @@ export function SizeSelect({
                   </CommandItem>
                 ))
               ) : searchTerm && showCreateOption && onCreateNew ? (
-                <CommandItem
-                  value={searchTerm}
-                  onSelect={handleCreateClick}
-                >
+                <CommandItem value={searchTerm} onSelect={handleCreateClick}>
                   <div className="flex items-center gap-2">
                     <Icons.Plus className="h-3.5 w-3.5" />
                     <span className="type-p text-primary">
@@ -139,4 +143,3 @@ export function SizeSelect({
     </Popover>
   );
 }
-

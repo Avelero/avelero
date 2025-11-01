@@ -26,17 +26,28 @@ export function MembersTable() {
   const meUser = (me as unknown as CurrentUserLike | null | undefined) ?? null;
   const brandId = meUser?.brand_id ?? null;
 
+  if (!brandId) {
+    return (
+      <div className="space-y-4">
+        <MembersHeader
+          activeTab="members"
+          onTabChange={() => undefined}
+          locale={String(locale)}
+          brandId={undefined}
+        />
+        <div className="border p-6">
+          <p className="type-p text-secondary">
+            Select or create a brand to manage members.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const compositeOptions = useMemo(() => {
-    if (!brandId) {
-      return {
-        queryKey: ["composite.membersWithInvites", "empty"],
-        queryFn: async () => ({
-          members: [] as MembersWithInvites["members"],
-          invites: [] as MembersWithInvites["invites"],
-        }),
-      };
-    }
-    return trpc.composite.membersWithInvites.queryOptions({ brand_id: brandId });
+    return trpc.composite.membersWithInvites.queryOptions({
+      brand_id: brandId,
+    });
   }, [trpc, brandId]);
 
   const { data: compositeRes } = useSuspenseQuery(compositeOptions);
@@ -46,7 +57,10 @@ export function MembersTable() {
   type InviteItem = MembersWithInvites["invites"][number];
 
   const members = useMemo<MemberItem[]>(
-    () => (Array.isArray(compositeRes?.members) ? (compositeRes?.members as MemberItem[]) : []),
+    () =>
+      Array.isArray(compositeRes?.members)
+        ? (compositeRes?.members as MemberItem[])
+        : [],
     [compositeRes],
   );
   const invites = useMemo<InviteItem[]>(() => {
@@ -89,28 +103,25 @@ export function MembersTable() {
           </div>
         ) : rows.length ? (
           <div className="divide-y">
-            {rows.map((row) => (
+            {rows.map((row, index) => (
               <div
                 key={
                   tab === "members"
-                    ? ((row as MemberItem).user_id ?? (row as MemberItem).email ?? "")
+                    ? (row as MemberItem).user_id ??
+                      (row as MemberItem).email ??
+                      `member-fallback-${index}`
                     : (row as InviteItem).id
                 }
                 className="p-3"
               >
                 {tab === "members" ? (
                   <MembersRow
-                    brandId={brandId ?? ""}
+                    brandId={brandId}
                     membership={row as MemberItem}
                     currentUserId={meUser?.id ?? null}
-                    locale={String(locale)}
                   />
                 ) : (
-                  <MembersRow
-                    brandId={brandId ?? ""}
-                    invite={row as InviteItem}
-                    locale={String(locale)}
-                  />
+                  <MembersRow brandId={brandId} invite={row as InviteItem} />
                 )}
               </div>
             ))}

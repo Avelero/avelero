@@ -24,25 +24,21 @@ import {
   passportTemplatesListSchema,
   passportTemplatesUpdateSchema,
 } from "../../../../schemas/passports.js";
-import {
-  badRequest,
-  notFound,
-  wrapError,
-} from "../../../../utils/errors.js";
+import { badRequest, notFound, wrapError } from "../../../../utils/errors.js";
 import {
   createEntityResponse,
   createListResponse,
   createSuccessResponse,
 } from "../../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../../init.js";
-import {
-  brandRequiredProcedure,
-  createTRPCRouter,
-} from "../../../init.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
-function ensureBrandScope(ctx: BrandContext, requested?: string | null): string {
+function ensureBrandScope(
+  ctx: BrandContext,
+  requested?: string | null,
+): string {
   const active = ctx.brandId;
   if (!active) {
     throw badRequest("Active brand context required");
@@ -113,16 +109,20 @@ export const passportTemplatesRouter = createTRPCRouter({
       const brandCtx = ctx as BrandContext;
       ensureBrandScope(brandCtx);
       try {
-        const updated = await updatePassportTemplate(brandCtx.db, brandCtx.brandId, {
-          id: input.id,
-          name: input.name,
-          theme: input.theme,
-          modules: input.modules?.map((module, index) => ({
-            module_key: module.module_key,
-            enabled: module.enabled ?? true,
-            sort_index: module.sort_index ?? index,
-          })),
-        });
+        const updated = await updatePassportTemplate(
+          brandCtx.db,
+          brandCtx.brandId,
+          {
+            id: input.id,
+            name: input.name,
+            theme: input.theme,
+            modules: input.modules?.map((module, index) => ({
+              module_key: module.module_key,
+              enabled: module.enabled ?? true,
+              sort_index: module.sort_index ?? index,
+            })),
+          },
+        );
         if (!updated) {
           throw notFound("Passport template", input.id);
         }

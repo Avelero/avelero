@@ -11,6 +11,8 @@ import {
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Database } from "../client";
+import { evaluateAndUpsertCompletion } from "../completion/evaluate";
+import { reassignPassportTemplate } from "../completion/template-sync";
 import {
   brandColors,
   brandSizes,
@@ -22,8 +24,6 @@ import {
   productVariants,
   products,
 } from "../schema";
-import { evaluateAndUpsertCompletion } from "../completion/evaluate";
-import { reassignPassportTemplate } from "../completion/template-sync";
 
 export type PassportStatus =
   | "published"
@@ -641,7 +641,10 @@ export async function updatePassport(
 
     if (input.templateId && input.templateId !== passportRow.templateId) {
       const [template] = await tx
-        .select({ id: passportTemplates.id, brandId: passportTemplates.brandId })
+        .select({
+          id: passportTemplates.id,
+          brandId: passportTemplates.brandId,
+        })
         .from(passportTemplates)
         .where(eq(passportTemplates.id, input.templateId))
         .limit(1);

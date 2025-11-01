@@ -1,6 +1,6 @@
-import { logger } from "@v1/logger";
-import { isRole, type Role } from "@api/config/roles.js";
+import { type Role, isRole } from "@api/config/roles.js";
 import type { TRPCContext } from "@api/trpc/init.ts";
+import { logger } from "@v1/logger";
 
 const BRAND_CONTEXT_CACHE = Symbol("brandContextCache");
 
@@ -96,4 +96,3 @@ export async function ensureBrandContext(
     return result;
   }
 }
-

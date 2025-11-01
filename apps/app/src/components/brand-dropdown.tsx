@@ -57,6 +57,7 @@ function BrandAvatar() {
       size={24}
       name={activeBrand?.name}
       url={activeBrand?.logo_url ?? undefined}
+      hue={activeBrand?.avatar_hue ?? undefined}
     />
   );
 }

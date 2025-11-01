@@ -24,19 +24,13 @@ import {
   productsDomainListSchema,
   productsDomainUpdateSchema,
 } from "../../../schemas/products.js";
-import {
-  badRequest,
-  wrapError,
-} from "../../../utils/errors.js";
+import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
   createEntityResponse,
   createPaginatedResponse,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import {
-  brandRequiredProcedure,
-  createTRPCRouter,
-} from "../../init.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 import { productVariantsRouter } from "./variants.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };

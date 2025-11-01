@@ -1,3 +1,12 @@
+import type { Database } from "@v1/db/client";
+import {
+  setProductCareCodes,
+  setProductEcoClaims,
+  setProductJourneySteps,
+  upsertProductEnvironment,
+  upsertProductMaterials,
+} from "@v1/db/queries";
+import { products } from "@v1/db/schema";
 /**
  * Product attribute management router.
  *
@@ -5,15 +14,6 @@
  * codes, eco claims, journey) and an environment metrics upsert endpoint.
  */
 import { and, eq } from "drizzle-orm";
-import type { Database } from "@v1/db/client";
-import {
-  upsertProductMaterials,
-  setProductCareCodes,
-  setProductEcoClaims,
-  upsertProductEnvironment,
-  setProductJourneySteps,
-} from "@v1/db/queries";
-import { products } from "@v1/db/schema";
 import {
   setCareCodesSchema,
   setEcoClaimsSchema,
@@ -21,14 +21,8 @@ import {
   upsertEnvironmentSchema,
   upsertMaterialsSchema,
 } from "../../../../schemas/product-attributes.js";
-import {
-  badRequest,
-  wrapError,
-} from "../../../../utils/errors.js";
-import {
-  brandRequiredProcedure,
-  createTRPCRouter,
-} from "../../../init.js";
+import { badRequest, wrapError } from "../../../../utils/errors.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../../init.js";
 
 async function assertProductForBrand(
   db: Database,

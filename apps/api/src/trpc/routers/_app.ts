@@ -8,13 +8,13 @@
  */
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { createTRPCRouter } from "../init.js";
-import { userRouter } from "./user/index.js";
-import { workflowRouter } from "./workflow/index.js";
 import { brandRouter } from "./brand/index.js";
-import { productsRouter } from "./products/index.js";
-import { passportsRouter } from "./passports/index.js";
 import { bulkRouter } from "./bulk/index.js";
 import { compositeRouter } from "./composite/index.js";
+import { passportsRouter } from "./passports/index.js";
+import { productsRouter } from "./products/index.js";
+import { userRouter } from "./user/index.js";
+import { workflowRouter } from "./workflow/index.js";
 
 /**
  * Main tRPC router containing every API module exposed to clients.

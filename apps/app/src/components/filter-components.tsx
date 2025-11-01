@@ -15,13 +15,13 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Select } from "@v1/ui/select";
 import * as React from "react";
+import { FilterFieldInput } from "./filter-fields";
 import type {
   FilterCondition,
   FilterFieldConfig,
   FilterGroup as FilterGroupType,
   FilterOperator,
 } from "./passports/filter-types";
-import { FilterFieldInput } from "./filter-fields";
 
 // ============================================================================
 // FilterRow Component
@@ -109,7 +109,7 @@ export function FilterRow({
       <div className={cn(isUnselected ? "flex-1 min-w-0" : "flex-none")}>
         <Select
           options={categorizedFields.flatMap(({ fields }) =>
-            fields.map((f) => ({ value: f.id, label: f.label }))
+            fields.map((f) => ({ value: f.id, label: f.label })),
           )}
           value={condition.fieldId ?? null}
           onValueChange={handleFieldSelect}
@@ -142,7 +142,7 @@ export function FilterRow({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[160px]" inline>
-        {!isInGroup && onConvertToGroup && (
+          {!isInGroup && onConvertToGroup && (
             <DropdownMenuItem onSelect={onConvertToGroup}>
               Convert to group
             </DropdownMenuItem>
@@ -217,4 +217,3 @@ export function FilterGroup({
     </div>
   );
 }
-

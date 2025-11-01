@@ -118,23 +118,15 @@ export async function updateSize(
       categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
-    .where(
-      and(eq(brandSizes.id, id), eq(brandSizes.brandId, brandId)),
-    )
+    .where(and(eq(brandSizes.id, id), eq(brandSizes.brandId, brandId)))
     .returning({ id: brandSizes.id });
   return row;
 }
 
-export async function deleteSize(
-  db: Database,
-  brandId: string,
-  id: string,
-) {
+export async function deleteSize(db: Database, brandId: string, id: string) {
   const [row] = await db
     .delete(brandSizes)
-    .where(
-      and(eq(brandSizes.id, id), eq(brandSizes.brandId, brandId)),
-    )
+    .where(and(eq(brandSizes.id, id), eq(brandSizes.brandId, brandId)))
     .returning({ id: brandSizes.id });
   return row;
 }
@@ -198,9 +190,7 @@ export async function updateMaterial(
       recyclable: input.recyclable ?? null,
       countryOfOrigin: input.countryOfOrigin ?? null,
     })
-    .where(
-      and(eq(brandMaterials.id, id), eq(brandMaterials.brandId, brandId)),
-    )
+    .where(and(eq(brandMaterials.id, id), eq(brandMaterials.brandId, brandId)))
     .returning({ id: brandMaterials.id });
   return row;
 }
@@ -212,9 +202,7 @@ export async function deleteMaterial(
 ) {
   const [row] = await db
     .delete(brandMaterials)
-    .where(
-      and(eq(brandMaterials.id, id), eq(brandMaterials.brandId, brandId)),
-    )
+    .where(and(eq(brandMaterials.id, id), eq(brandMaterials.brandId, brandId)))
     .returning({ id: brandMaterials.id });
   return row;
 }
@@ -370,9 +358,7 @@ export async function updateEcoClaim(
   const [row] = await db
     .update(brandEcoClaims)
     .set({ claim: input.claim })
-    .where(
-      and(eq(brandEcoClaims.id, id), eq(brandEcoClaims.brandId, brandId)),
-    )
+    .where(and(eq(brandEcoClaims.id, id), eq(brandEcoClaims.brandId, brandId)))
     .returning({ id: brandEcoClaims.id });
   return row;
 }
@@ -384,9 +370,7 @@ export async function deleteEcoClaim(
 ) {
   const [row] = await db
     .delete(brandEcoClaims)
-    .where(
-      and(eq(brandEcoClaims.id, id), eq(brandEcoClaims.brandId, brandId)),
-    )
+    .where(and(eq(brandEcoClaims.id, id), eq(brandEcoClaims.brandId, brandId)))
     .returning({ id: brandEcoClaims.id });
   return row;
 }
@@ -580,9 +564,7 @@ export async function updateShowcaseBrand(
       zip: input.zip ?? null,
       countryCode: input.countryCode ?? null,
     })
-    .where(
-      and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)),
-    )
+    .where(and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)))
     .returning({ id: showcaseBrands.id });
   return row;
 }
@@ -594,9 +576,7 @@ export async function deleteShowcaseBrand(
 ) {
   const [row] = await db
     .delete(showcaseBrands)
-    .where(
-      and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)),
-    )
+    .where(and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)))
     .returning({ id: showcaseBrands.id });
   return row;
 }

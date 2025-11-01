@@ -28,9 +28,8 @@ type Props =
       membership: MemberRow;
       brandId: string;
       currentUserId: string | null;
-      locale: string;
     }
-  | { invite: InviteRow; brandId: string; locale: string };
+  | { invite: InviteRow; brandId: string };
 
 export function MembersRow(props: Props) {
   if ("membership" in props) {
@@ -75,11 +74,12 @@ function MembershipRow({
           | undefined;
 
         if (previous && variables.user_id && variables.role) {
+          const nextRole = variables.role as "owner" | "member";
           queryClient.setQueryData(queryKey, {
             ...previous,
             members: previous.members.map((member) =>
               member.user_id === variables.user_id
-                ? { ...member, role: variables.role }
+                ? { ...member, role: nextRole }
                 : member,
             ),
           });
@@ -193,8 +193,10 @@ function MembershipRow({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuItem
-              disabled={Boolean(isSelf)}
-              className={isSelf ? undefined : "text-destructive"}
+              disabled={Boolean(isSelf) || !membership.user_id}
+              className={
+                isSelf || !membership.user_id ? undefined : "text-destructive"
+              }
               onClick={() =>
                 deleteMemberMutation.mutate({
                   brand_id: brandId,
@@ -296,7 +298,7 @@ function InviteRowComp({
           aria-label="Withdraw invite"
           onClick={onWithdraw}
         >
-          <Icons.Trash className="w-4 h-4" strokeWidth={1} />
+          <Icons.Trash2 className="w-4 h-4" strokeWidth={1} />
         </Button>
       </div>
     </div>

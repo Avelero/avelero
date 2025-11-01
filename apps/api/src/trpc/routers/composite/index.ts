@@ -1,3 +1,25 @@
+import type { Database } from "@v1/db/client";
+import {
+  type BrandMembershipListItem,
+  type ModuleIncompleteCount,
+  type UserInviteSummaryRow,
+  countPassportsByStatus,
+  getBrandsByUserId,
+  getIncompleteCountsByModuleForBrand,
+  getUserById,
+  listCategories,
+  listCertifications,
+  listColors,
+  listEcoClaims,
+  listFacilities,
+  listMaterials,
+  listPassportsForBrand,
+  listPendingInvitesForEmail,
+  listShowcaseBrands,
+  listSizes,
+} from "@v1/db/queries";
+import { brandInvites, brandMembers, users } from "@v1/db/schema";
+import { getAppUrl } from "@v1/utils/envs";
 /**
  * Composite endpoints router implementation.
  *
@@ -7,36 +29,10 @@
  * - composite.membersWithInvites
  * - composite.passportFormReferences
  */
-import { asc, desc, and, eq, inArray, sql } from "drizzle-orm";
-import type { Database } from "@v1/db/client";
-import {
-  countPassportsByStatus,
-  getBrandsByUserId,
-  getIncompleteCountsByModuleForBrand,
-  getUserById,
-  listCategories,
-  listColors,
-  listCertifications,
-  listEcoClaims,
-  listFacilities,
-  listMaterials,
-  listPendingInvitesForEmail,
-  listShowcaseBrands,
-  listSizes,
-  listPassportsForBrand,
-  type BrandMembershipListItem,
-  type ModuleIncompleteCount,
-  type UserInviteSummaryRow,
-} from "@v1/db/queries";
-import { brandInvites, brandMembers, users } from "@v1/db/schema";
-import { getAppUrl } from "@v1/utils/envs";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { ROLES } from "../../../config/roles.js";
 import { workflowBrandIdSchema } from "../../../schemas/workflow.js";
-import {
-  badRequest,
-  unauthorized,
-  wrapError,
-} from "../../../utils/errors.js";
+import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
 import {
   brandRequiredProcedure,
   createTRPCRouter,
@@ -147,10 +143,14 @@ async function mapWorkflowBrands(
 
   return memberships.map((membership) => {
     const ownerCount = ownerCounts.get(membership.id) ?? 1;
-    const role = membership.role === "owner" ? ("owner" as const) : ("member" as const);
+    const role =
+      membership.role === "owner" ? ("owner" as const) : ("member" as const);
     return {
       id: membership.id,
       name: membership.name,
+      email: membership.email ?? null,
+      country_code: membership.country_code ?? null,
+      avatar_hue: membership.avatar_hue ?? null,
       logo_url: buildBrandLogoUrl(membership.logo_path ?? null),
       role,
       canLeave: canLeaveFromRole(role, ownerCount),
@@ -188,13 +188,12 @@ function mapRecentActivity(
       created_at: passport.createdAt,
       updated_at: passport.updatedAt,
     }))
-    .sort((a, b) => (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0));
+    .sort((a, b) =>
+      a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
+    );
 }
 
-async function fetchWorkflowMembers(
-  db: Database,
-  brandId: string,
-) {
+async function fetchWorkflowMembers(db: Database, brandId: string) {
   const rows = await db
     .select({
       userId: brandMembers.userId,
@@ -213,7 +212,8 @@ async function fetchWorkflowMembers(
   );
 
   return rows.map((member) => {
-    const role = member.role === "owner" ? ("owner" as const) : ("member" as const);
+    const role =
+      member.role === "owner" ? ("owner" as const) : ("member" as const);
     return {
       user_id: member.userId,
       email: member.email ?? null,
@@ -224,10 +224,7 @@ async function fetchWorkflowMembers(
   });
 }
 
-async function fetchWorkflowInvites(
-  db: Database,
-  brandId: string,
-) {
+async function fetchWorkflowInvites(db: Database, brandId: string) {
   const rows = await db
     .select({
       id: brandInvites.id,
@@ -247,9 +244,7 @@ async function fetchWorkflowInvites(
     email: invite.email,
     role: invite.role,
     invited_by:
-      invite.invitedByFullName ??
-      invite.invitedByEmail ??
-      "Avelero Team",
+      invite.invitedByFullName ?? invite.invitedByEmail ?? "Avelero Team",
     created_at: invite.created_at,
   }));
 }

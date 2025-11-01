@@ -61,7 +61,8 @@ export function BrandsTable() {
           canLeave: m.canLeave ?? false,
           avatarHue: m.avatar_hue ?? null,
           email: (m as { email?: string | null })?.email ?? null,
-          countryCode: (m as { country_code?: string | null })?.country_code ?? null,
+          countryCode:
+            (m as { country_code?: string | null })?.country_code ?? null,
         })),
     [memberships],
   );

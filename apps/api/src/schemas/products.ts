@@ -6,6 +6,12 @@
  */
 import { z } from "zod";
 import {
+  byIdSchema,
+  byParentId,
+  createFieldSelection,
+  updateWithNullable,
+} from "./_shared/patterns.js";
+import {
   longStringSchema,
   nonNegativeIntSchema,
   paginationLimitSchema,
@@ -15,12 +21,6 @@ import {
   uuidArraySchema,
   uuidSchema,
 } from "./_shared/primitives.js";
-import {
-  byIdSchema,
-  byParentId,
-  createFieldSelection,
-  updateWithNullable,
-} from "./_shared/patterns.js";
 
 // Products core
 /**
@@ -130,7 +130,7 @@ export const createVariantSchema = z.object({
  */
 export const updateVariantSchema = updateWithNullable(
   createVariantSchema.omit({ product_id: true }),
-  ["color_id", "size_id", "sku", "product_image_url"]
+  ["color_id", "size_id", "sku", "product_image_url"],
 );
 
 /**
@@ -265,7 +265,8 @@ export const productVariantsUpsertSchema = z.object({
           product_image_url: urlSchema.optional().nullable(),
         })
         .refine((value) => value.id || value.upid, {
-          message: "Each variant must include an id or upid to ensure stable updates.",
+          message:
+            "Each variant must include an id or upid to ensure stable updates.",
         }),
     )
     .min(1),

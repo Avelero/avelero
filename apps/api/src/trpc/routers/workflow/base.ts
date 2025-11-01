@@ -1,12 +1,3 @@
-/**
- * Workflow brand operations implementation.
- *
- * Targets:
- * - workflow.list
- * - workflow.create
- * - workflow.delete
- */
-import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   createBrand as createBrandRecord,
   deleteBrand as deleteBrandRecord,
@@ -16,6 +7,15 @@ import {
 } from "@v1/db/queries";
 import { brandMembers } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
+/**
+ * Workflow brand operations implementation.
+ *
+ * Targets:
+ * - workflow.list
+ * - workflow.create
+ * - workflow.delete
+ */
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { ROLES } from "../../../config/roles.js";
 import {
   workflowBrandIdSchema,
@@ -23,11 +23,11 @@ import {
   workflowUpdateSchema,
 } from "../../../schemas/workflow.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
+import { createSuccessResponse } from "../../../utils/response.js";
 import {
-  createSuccessResponse,
+  brandRequiredProcedure,
   createTRPCRouter,
   protectedProcedure,
-  brandRequiredProcedure,
 } from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
@@ -137,7 +137,9 @@ export const workflowUpdateProcedure = brandRequiredProcedure
   .mutation(async ({ ctx, input }) => {
     const { db, user, brandId } = ctx;
     if (brandId && brandId !== input.id) {
-      throw badRequest("Active brand does not match the workflow being updated");
+      throw badRequest(
+        "Active brand does not match the workflow being updated",
+      );
     }
 
     const updatePayload: Parameters<typeof updateBrandRecord>[2] = {

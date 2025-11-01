@@ -9,14 +9,14 @@ import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
 import { TRPCError, initTRPC } from "@trpc/server";
 import { db as drizzleDb } from "@v1/db/client";
 import type { Database as DrizzleDatabase } from "@v1/db/client";
-import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import { users } from "@v1/db/schema";
+import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
 import type { Role } from "../config/roles";
-import { noBrandSelected, unauthorized } from "../utils/errors.js";
-import { ensureBrandContext } from "./middleware/auth/brand.js";
 import type { DataLoaders } from "../utils/dataloader.js";
 import { createDataLoaders } from "../utils/dataloader.js";
+import { noBrandSelected, unauthorized } from "../utils/errors.js";
+import { ensureBrandContext } from "./middleware/auth/brand.js";
 
 /**
  * Stores lightweight geographic hints sourced from request headers.

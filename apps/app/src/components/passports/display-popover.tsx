@@ -1,16 +1,14 @@
 "use client";
 
-import * as React from "react";
-import { createPortal } from "react-dom";
 import {
   DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
-  DragOverlay,
-  type DragEndEvent,
-  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -23,6 +21,8 @@ import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import * as React from "react";
+import { createPortal } from "react-dom";
 
 export interface DisplayColumnItem {
   id: string;
@@ -126,7 +126,7 @@ export function DisplayPopover({
 
   const activeRow = React.useMemo(
     () => rows.find((r) => r.id === activeId),
-    [activeId, rows]
+    [activeId, rows],
   );
 
   const buildInitialRows = React.useCallback(() => {
@@ -152,21 +152,23 @@ export function DisplayPopover({
     setActiveId(event.active.id as string);
   }, []);
 
-  const handleDragEnd = React.useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) {
+  const handleDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) {
+        setActiveId(null);
+        return;
+      }
+      setRows((prev) => {
+        const oldIndex = prev.findIndex((r) => r.id === active.id);
+        const newIndex = prev.findIndex((r) => r.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return prev;
+        return arrayMove(prev, oldIndex, newIndex);
+      });
       setActiveId(null);
-      return;
-    }
-    const oldIndex = rows.findIndex((r) => r.id === active.id);
-    const newIndex = rows.findIndex((r) => r.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) {
-      setActiveId(null);
-      return;
-    }
-    setRows((prev) => arrayMove(prev, oldIndex, newIndex));
-    setActiveId(null);
-  }, [rows]);
+    },
+    [],
+  );
 
   const handleToggle = (id: string, next: boolean) => {
     setRows((prev) =>
@@ -220,7 +222,9 @@ export function DisplayPopover({
                   {activeRow ? (
                     <div className="flex h-10 items-center gap-3 px-3 border border-border bg-background shadow-lg opacity-95">
                       <Icons.GripVertical className="h-4 w-4 text-tertiary" />
-                      <div className="flex-1 truncate type-p text-primary">{activeRow.label}</div>
+                      <div className="flex-1 truncate type-p text-primary">
+                        {activeRow.label}
+                      </div>
                       <CheckboxLike
                         checked={activeRow.checked}
                         onChange={() => {}}
@@ -229,7 +233,7 @@ export function DisplayPopover({
                     </div>
                   ) : null}
                 </DragOverlay>,
-                document.body
+                document.body,
               )}
           </DndContext>
         </div>

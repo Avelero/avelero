@@ -1,11 +1,3 @@
-/**
- * Workflow members router implementation.
- *
- * Targets:
- * - workflow.members.list
- * - workflow.members.update
- */
-import { asc, eq } from "drizzle-orm";
 import {
   BrandMemberForbiddenError,
   BrandMemberSoleOwnerError,
@@ -14,6 +6,14 @@ import {
   updateMemberRole,
 } from "@v1/db/queries";
 import { brandMembers, users } from "@v1/db/schema";
+/**
+ * Workflow members router implementation.
+ *
+ * Targets:
+ * - workflow.members.list
+ * - workflow.members.update
+ */
+import { asc, eq } from "drizzle-orm";
 import { ROLES } from "../../../config/roles.js";
 import {
   workflowBrandIdSchema,
@@ -98,7 +98,10 @@ export const workflowMembersRouter = createTRPCRouter({
         if (!result.ok) {
           throw badRequest("Unable to leave workflow");
         }
-        return { success: true as const, nextBrandId: result.nextBrandId ?? null };
+        return {
+          success: true as const,
+          nextBrandId: result.nextBrandId ?? null,
+        };
       }
 
       if (input.role === null) {
@@ -130,7 +133,13 @@ export const workflowMembersRouter = createTRPCRouter({
       }
 
       try {
-        await updateMemberRole(db, user.id, brandId, targetUserId, roleToAssign);
+        await updateMemberRole(
+          db,
+          user.id,
+          brandId,
+          targetUserId,
+          roleToAssign,
+        );
         return { success: true as const };
       } catch (error) {
         throw wrapError(error, "Failed to update member role");

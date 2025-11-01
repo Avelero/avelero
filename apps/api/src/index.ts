@@ -21,22 +21,24 @@ app.use(
   cors({
     origin: (origin, c) => {
       if (!origin) return origin; // Allow requests with no origin
-      
+
       const allowedOrigins = process.env.ALLOWED_API_ORIGINS?.split(",") ?? [];
-      
+
       // Check exact matches first (most secure and fastest)
       if (allowedOrigins.includes(origin)) return origin;
-      
+
       // Check wildcard patterns (only if explicitly configured)
-      const isAllowed = allowedOrigins.some(pattern => {
-        if (pattern.includes('*')) {
+      const isAllowed = allowedOrigins.some((pattern) => {
+        if (pattern.includes("*")) {
           // Escape dots and replace * with .*
-          const regex = new RegExp(`^${pattern.replace(/\./g, '\\.').replace(/\*/g, '.*')}$`);
+          const regex = new RegExp(
+            `^${pattern.replace(/\./g, "\\.").replace(/\*/g, ".*")}$`,
+          );
           return regex.test(origin);
         }
         return false;
       });
-      
+
       return isAllowed ? origin : undefined;
     },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],

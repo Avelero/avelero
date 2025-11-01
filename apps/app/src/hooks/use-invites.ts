@@ -45,9 +45,7 @@ export function useAcceptInviteMutation() {
         queryClient.setQueryData<MyInvites | undefined>(
           trpc.user.invites.list.queryKey(),
           (old) =>
-            old
-              ? old.filter((i) => i.id !== variables.invite_id)
-              : old,
+            old ? old.filter((i) => i.id !== variables.invite_id) : old,
         );
 
         return {
@@ -117,9 +115,7 @@ export function useRejectInviteMutation() {
         queryClient.setQueryData<MyInvites | undefined>(
           trpc.user.invites.list.queryKey(),
           (old) =>
-            old
-              ? old.filter((i) => i.id !== variables.invite_id)
-              : old,
+            old ? old.filter((i) => i.id !== variables.invite_id) : old,
         );
         return { previous } as const;
       },

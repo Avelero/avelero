@@ -19,20 +19,13 @@ import {
   passportsListSchema,
   passportsUpdateSchema,
 } from "../../../schemas/passports.js";
-import {
-  badRequest,
-  notFound,
-  wrapError,
-} from "../../../utils/errors.js";
+import { badRequest, notFound, wrapError } from "../../../utils/errors.js";
 import {
   createEntityResponse,
   createSuccessResponse,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import {
-  brandRequiredProcedure,
-  createTRPCRouter,
-} from "../../init.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 import { passportTemplatesRouter } from "./templates/index.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -51,11 +44,15 @@ export const passportsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       try {
-        const result = await listPassportsForBrand(brandCtx.db, brandCtx.brandId, {
-          page: input.page,
-          includeStatusCounts: input.includeStatusCounts,
-          filters: input.filters,
-        });
+        const result = await listPassportsForBrand(
+          brandCtx.db,
+          brandCtx.brandId,
+          {
+            page: input.page,
+            includeStatusCounts: input.includeStatusCounts,
+            filters: input.filters,
+          },
+        );
         return {
           data: result.data,
           meta: {

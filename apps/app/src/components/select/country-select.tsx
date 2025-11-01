@@ -24,7 +24,8 @@ export function CountrySelect({
   className,
 }: CountrySelectProps) {
   const options = useMemo(
-    () => Object.values(countries).map((c) => ({ value: c.code, label: c.name })),
+    () =>
+      Object.values(countries).map((c) => ({ value: c.code, label: c.name })),
     [],
   );
 

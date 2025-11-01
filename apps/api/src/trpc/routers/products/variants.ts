@@ -19,10 +19,7 @@ import {
   createBatchResponse,
   createListResponse,
 } from "../../../utils/response.js";
-import {
-  brandRequiredProcedure,
-  createTRPCRouter,
-} from "../../init.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
 const variantListProcedure = brandRequiredProcedure
   .input(listVariantsSchema)

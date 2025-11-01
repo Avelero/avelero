@@ -14,21 +14,21 @@ import type { ModuleKey } from "../completion/module-keys";
 import {
   brandCertifications,
   brandColors,
-  brandSizes,
-  categories,
-  careCodes,
   brandEcoClaims,
-  brandMaterials,
   brandFacilities,
-  productIdentifiers,
-  productVariantIdentifiers,
-  productVariants,
-  products,
+  brandMaterials,
+  brandSizes,
+  careCodes,
+  categories,
   productCareCodes,
   productEcoClaims,
   productEnvironment,
+  productIdentifiers,
   productJourneySteps,
   productMaterials,
+  productVariantIdentifiers,
+  productVariants,
+  products,
   showcaseBrands,
 } from "../schema";
 
@@ -182,8 +182,7 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
     product.description = (row.description as string | null) ?? null;
   if ("category_id" in row)
     product.category_id = (row.category_id as string | null) ?? null;
-  if ("season" in row)
-    product.season = (row.season as string | null) ?? null;
+  if ("season" in row) product.season = (row.season as string | null) ?? null;
   if ("brand_certification_id" in row)
     product.brand_certification_id =
       (row.brand_certification_id as string | null) ?? null;
@@ -370,9 +369,7 @@ async function loadAttributesForProducts(
     const bundle = ensureBundle(row.product_id);
     bundle.environment = {
       product_id: row.product_id,
-      carbon_kg_co2e: row.carbon_kg_co2e
-        ? String(row.carbon_kg_co2e)
-        : null,
+      carbon_kg_co2e: row.carbon_kg_co2e ? String(row.carbon_kg_co2e) : null,
       water_liters: row.water_liters ? String(row.water_liters) : null,
     };
   }
@@ -429,7 +426,11 @@ export async function listProducts(
   db: Database,
   brandId: string,
   filters: ListFilters = {},
-  opts: { cursor?: string; limit?: number; fields?: readonly ProductField[] } = {},
+  opts: {
+    cursor?: string;
+    limit?: number;
+    fields?: readonly ProductField[];
+  } = {},
 ): Promise<{
   readonly data: ReadonlyArray<Record<string, unknown>>;
   readonly meta: {
@@ -498,7 +499,9 @@ export async function listProductsWithIncludes(
   };
 }> {
   const requestedFields = opts.fields ?? PRODUCT_FIELDS;
-  const fieldsWithId = Array.from(new Set([...requestedFields, "id"])) as readonly ProductField[];
+  const fieldsWithId = Array.from(
+    new Set([...requestedFields, "id"]),
+  ) as readonly ProductField[];
 
   const base = await listProducts(db, brandId, filters, {
     cursor: opts.cursor,
@@ -1053,10 +1056,7 @@ export async function deleteProductVariantsForBrand(
           product_id: productVariants.productId,
         })
         .from(productVariants)
-        .innerJoin(
-          products,
-          eq(products.id, productVariants.productId),
-        )
+        .innerJoin(products, eq(products.id, productVariants.productId))
         .where(
           and(
             inArray(productVariants.id, [...input.variant_ids]),
@@ -1079,11 +1079,13 @@ export async function deleteProductVariantsForBrand(
         .returning({ id: productVariants.id });
       affected = deleted.length;
     } else {
-      await ensureProductBelongsToBrand(tx as unknown as Database, brandId, input.product_id);
+      await ensureProductBelongsToBrand(
+        tx as unknown as Database,
+        brandId,
+        input.product_id,
+      );
 
-      const conditions = [
-        eq(productVariants.productId, input.product_id),
-      ];
+      const conditions = [eq(productVariants.productId, input.product_id)];
 
       if (input.filter?.color_id) {
         conditions.push(eq(productVariants.colorId, input.filter.color_id));

@@ -1,16 +1,19 @@
 "use client";
 
-import { Label } from "@v1/ui/label";
 import { Input } from "@v1/ui/input";
+import { Label } from "@v1/ui/label";
 import { Select } from "@v1/ui/select";
 import { useState } from "react";
-import { ShowcaseBrandSheet, type ShowcaseBrandData } from "../../../sheets/showcase-brand-sheet";
+import {
+  type ShowcaseBrandData,
+  ShowcaseBrandSheet,
+} from "../../../sheets/showcase-brand-sheet";
 
 export function IdentifiersSection() {
   const [sku, setSku] = useState("");
   const [ean, setEan] = useState("");
   const [brand, setBrand] = useState<string>("");
-  
+
   // TODO: Load from API - for now using local state
   const [brandOptions, setBrandOptions] = useState([
     { value: "brand-1", label: "Avelero Apparel" },
@@ -33,7 +36,7 @@ export function IdentifiersSection() {
       label: brandData.name,
     };
     setBrandOptions((prev) => [...prev, newOption]);
-    
+
     // Auto-select the newly created brand
     setBrand(brandData.id);
   };
@@ -42,7 +45,7 @@ export function IdentifiersSection() {
     <>
       <div className="border border-border bg-background p-4 flex flex-col gap-3">
         <p className="type-p !font-medium text-primary">Identifiers</p>
-        
+
         {/* SKU Input */}
         <div className="space-y-1.5">
           <Label>SKU</Label>

@@ -182,9 +182,7 @@ export function useLeaveBrandMutation() {
   );
 }
 
-export function useWorkflowBrandById(
-  brandId: string | null | undefined,
-) {
+export function useWorkflowBrandById(brandId: string | null | undefined) {
   const { data } = useUserBrandsQuery();
   return useMemo(() => {
     if (!brandId) return null;

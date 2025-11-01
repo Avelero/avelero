@@ -35,7 +35,7 @@ export const workflowUpdateSchema = updateWithNullable(workflowCreateSchema, [
   "country_code",
   "logo_url",
   "avatar_hue",
-]).extend({ id: uuidSchema }).partial().required({ id: true });
+]);
 
 export type WorkflowUpdateInput = z.infer<typeof workflowUpdateSchema>;
 

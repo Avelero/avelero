@@ -1,6 +1,6 @@
-import { TRPCError } from "@trpc/server";
 import type { Role } from "@api/config/roles.js";
-import { t } from "@api/trpc/init.ts";
+import { t } from "@api/trpc/init.js";
+import { TRPCError } from "@trpc/server";
 
 /**
  * Middleware that ensures the caller possesses one of the required roles.

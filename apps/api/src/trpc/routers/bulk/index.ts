@@ -6,33 +6,29 @@
  * for future domain support.
  */
 import {
-  bulkUpdatePassports,
-  createProduct,
   type BulkChanges as PassportBulkChanges,
   type BulkSelection as PassportBulkSelection,
+  bulkUpdatePassports,
+  createProduct,
 } from "@v1/db/queries";
 import {
+  type BulkSelectionInput,
   bulkImportSchema,
   bulkUpdateSchema,
-  type BulkSelectionInput,
 } from "../../../schemas/bulk.js";
-import {
-  badRequest,
-  wrapError,
-} from "../../../utils/errors.js";
+import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
   createBatchResponse,
   createSuccessWithMeta,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
-import {
-  brandRequiredProcedure,
-  createTRPCRouter,
-} from "../../init.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
-function ensureBrand(ctx: AuthenticatedTRPCContext): asserts ctx is BrandContext {
+function ensureBrand(
+  ctx: AuthenticatedTRPCContext,
+): asserts ctx is BrandContext {
   if (!ctx.brandId) {
     throw badRequest("Active brand context required");
   }

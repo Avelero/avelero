@@ -85,9 +85,7 @@ export const workflowInvitesRouter = createTRPCRouter({
         email: invite.email,
         role: invite.role,
         invited_by:
-          invite.invitedByFullName ??
-          invite.invitedByEmail ??
-          "Avelero Team",
+          invite.invitedByFullName ?? invite.invitedByEmail ?? "Avelero Team",
         created_at: invite.created_at,
         expires_at: invite.expires_at,
       }));

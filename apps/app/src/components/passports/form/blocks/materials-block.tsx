@@ -1,13 +1,25 @@
 "use client";
 
-import * as React from "react";
+import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
-import { Button } from "@v1/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@v1/ui/dropdown-menu";
-import { cn } from "@v1/ui/cn";
+import * as React from "react";
 import { MaterialSheet } from "../../../sheets/material-sheet";
 
 interface Material {
@@ -58,7 +70,7 @@ const MaterialDropdown = ({
   };
 
   const filteredOptions = MATERIAL_OPTIONS.filter((option) =>
-    option.toLowerCase().includes(searchQuery.toLowerCase())
+    option.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -69,15 +81,15 @@ const MaterialDropdown = ({
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className={cn(
-              "group w-full h-full px-4 py-2 flex items-center cursor-pointer transition-all"
+              "group w-full h-full px-4 py-2 flex items-center cursor-pointer transition-all",
             )}
           >
             <div
               className={cn(
                 "border-b border-border type-p transition-colors",
-                material 
-                  ? "text-primary group-hover:text-secondary group-hover:border-secondary" 
-                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary"
+                material
+                  ? "text-primary group-hover:text-secondary group-hover:border-secondary"
+                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary",
               )}
             >
               {material || "Select material"}
@@ -104,7 +116,9 @@ const MaterialDropdown = ({
                         className="justify-between"
                       >
                         <span className="type-p">{option}</span>
-                        {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
+                        {isSelected && (
+                          <Icons.Check className="h-4 w-4 text-brand" />
+                        )}
                       </CommandItem>
                     );
                   })
@@ -192,13 +206,17 @@ const PercentageCell = ({
               type="button"
               className={cn(
                 "p-1 hover:bg-accent transition-colors",
-                isHovered ? "opacity-100" : "opacity-0"
+                isHovered ? "opacity-100" : "opacity-0",
               )}
             >
               <Icons.EllipsisVertical className="h-4 w-4 text-tertiary" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={4} className="min-w-[120px]">
+          <DropdownMenuContent
+            align="end"
+            sideOffset={4}
+            className="min-w-[120px]"
+          >
             <DropdownMenuItem
               onClick={() => {
                 onDelete();
@@ -219,8 +237,11 @@ const PercentageCell = ({
 export function MaterialsSection() {
   const [materials, setMaterials] = React.useState<Material[]>([]);
   const [materialSheetOpen, setMaterialSheetOpen] = React.useState(false);
-  const [materialSheetInitialName, setMaterialSheetInitialName] = React.useState("");
-  const [creatingForMaterialId, setCreatingForMaterialId] = React.useState<string | null>(null);
+  const [materialSheetInitialName, setMaterialSheetInitialName] =
+    React.useState("");
+  const [creatingForMaterialId, setCreatingForMaterialId] = React.useState<
+    string | null
+  >(null);
 
   const handleMaterialCreated = (material: any) => {
     if (creatingForMaterialId) {
@@ -231,10 +252,12 @@ export function MaterialsSection() {
             ? {
                 ...m,
                 name: material.name,
-                countries: material.countryOfOrigin ? [material.countryOfOrigin] : [],
+                countries: material.countryOfOrigin
+                  ? [material.countryOfOrigin]
+                  : [],
               }
-            : m
-        )
+            : m,
+        ),
       );
       setCreatingForMaterialId(null);
     } else {
@@ -257,7 +280,9 @@ export function MaterialsSection() {
 
   const updateMaterial = (id: string, field: keyof Material, value: any) => {
     setMaterials((prev) =>
-      prev.map((material) => (material.id === id ? { ...material, [field]: value } : material))
+      prev.map((material) =>
+        material.id === id ? { ...material, [field]: value } : material,
+      ),
     );
   };
 
@@ -339,7 +364,9 @@ export function MaterialsSection() {
                       updateMaterial(material.id, "countries", []);
                     }
                   }}
-                  onCreateMaterial={(searchTerm) => handleCreateMaterial(searchTerm, material.id)}
+                  onCreateMaterial={(searchTerm) =>
+                    handleCreateMaterial(searchTerm, material.id)
+                  }
                 />
               </div>
 
@@ -356,7 +383,9 @@ export function MaterialsSection() {
               <div className="border-b border-border">
                 <PercentageCell
                   percentage={material.percentage}
-                  onPercentageChange={(value) => updateMaterial(material.id, "percentage", value)}
+                  onPercentageChange={(value) =>
+                    updateMaterial(material.id, "percentage", value)
+                  }
                   onDelete={() => deleteMaterial(material.id)}
                 />
               </div>
@@ -371,7 +400,11 @@ export function MaterialsSection() {
           <div className="bg-background px-4 py-2 border-t border-b border-border" />
           <div className="bg-background px-4 py-2 border-t border-b border-border" />
           <div className="bg-background px-4 py-2 type-small font-medium flex justify-end items-center gap-[6px] border-t border-b border-border">
-            <span className={cn(totalPercentage > 100 ? "text-destructive" : "text-primary")}>
+            <span
+              className={cn(
+                totalPercentage > 100 ? "text-destructive" : "text-primary",
+              )}
+            >
               {totalPercentage}
             </span>
             <span className="text-tertiary font-normal">/</span>

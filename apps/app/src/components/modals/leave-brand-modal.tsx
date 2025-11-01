@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useLeaveBrandMutation,
-  useWorkflowBrandById,
-} from "@/hooks/use-brand";
+import { useLeaveBrandMutation, useWorkflowBrandById } from "@/hooks/use-brand";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { Button } from "@v1/ui/button";
@@ -52,8 +49,7 @@ export function LeaveBrandModal({
   type LeaveBrandResult = RouterOutputs["workflow"]["members"]["update"];
 
   const membershipRole = membership?.role ?? role;
-  const canLeave =
-    membership?.canLeave ?? (membershipRole === "owner" ? false : true);
+  const canLeave = membership?.canLeave ?? membershipRole !== "owner";
   const isSoleOwnerBlocked = useMemo(
     () => membershipRole === "owner" && canLeave === false,
     [membershipRole, canLeave],

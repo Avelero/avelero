@@ -3,7 +3,12 @@
 import { useFilterMetadata } from "@/hooks/use-filter-state";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
-import { Sheet, SheetContent, SheetBreadcrumbHeader, SheetFooter } from "@v1/ui/sheet";
+import {
+  Sheet,
+  SheetBreadcrumbHeader,
+  SheetContent,
+  SheetFooter,
+} from "@v1/ui/sheet";
 import * as React from "react";
 import { FilterGroup, FilterRow } from "../filter-components";
 import type {
@@ -53,16 +58,20 @@ export function AdvancedFilterPanel({
     if (open && localState.groups.length === 0) {
       setLocalState((prev) => ({
         ...prev,
-        groups: [{
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          conditions: [{
+        groups: [
+          {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            fieldId: "",
-            operator: "is" as any,
-            value: null,
-          }],
-          asGroup: false,
-        }],
+            conditions: [
+              {
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                fieldId: "",
+                operator: "is" as any,
+                value: null,
+              },
+            ],
+            asGroup: false,
+          },
+        ],
       }));
     }
   }, [open, localState.groups.length]);
@@ -70,88 +79,103 @@ export function AdvancedFilterPanel({
   const metadata = useFilterMetadata(localState);
 
   // Local actions that only update local state
-  const localActions = React.useMemo(() => ({
-    addGroup: () => {
-      setLocalState((prev) => ({
-        ...prev,
-        groups: [...prev.groups, {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          conditions: [{
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            fieldId: "",
-            operator: "is" as any,
-            value: null,
-          }],
-          asGroup: false,
-        }],
-      }));
-    },
-    removeGroup: (groupId: string) => {
-      setLocalState((prev) => ({
-        ...prev,
-        groups: prev.groups.filter((g) => g.id !== groupId),
-      }));
-    },
-    updateGroup: (groupId: string, updates: any) => {
-      setLocalState((prev) => ({
-        ...prev,
-        groups: prev.groups.map((g) => g.id === groupId ? { ...g, ...updates } : g),
-      }));
-    },
-    addCondition: (groupId: string, initial?: any) => {
-      setLocalState((prev) => ({
-        ...prev,
-        groups: prev.groups.map((g) => 
-          g.id === groupId 
-            ? {
-                ...g,
-                conditions: [...g.conditions, {
+  const localActions = React.useMemo(
+    () => ({
+      addGroup: () => {
+        setLocalState((prev) => ({
+          ...prev,
+          groups: [
+            ...prev.groups,
+            {
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              conditions: [
+                {
                   id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                   fieldId: "",
                   operator: "is" as any,
                   value: null,
-                  ...(initial ?? {}),
-                }],
-              }
-            : g
-        ),
-      }));
-    },
-    updateCondition: (groupId: string, conditionId: string, updates: any) => {
-      setLocalState((prev) => ({
-        ...prev,
-        groups: prev.groups.map((g) => 
-          g.id === groupId
-            ? {
-                ...g,
-                conditions: g.conditions.map((c) => 
-                  c.id === conditionId ? { ...c, ...updates } : c
-                ),
-              }
-            : g
-        ),
-      }));
-    },
-    removeCondition: (groupId: string, conditionId: string) => {
-      setLocalState((prev) => {
-        const updatedGroups = prev.groups
-          .map((g) => {
-            if (g.id !== groupId) return g;
-            const updatedConditions = g.conditions.filter((c) => c.id !== conditionId);
-            if (updatedConditions.length === 0) return null;
-            return { ...g, conditions: updatedConditions };
-          })
-          .filter((g): g is any => g !== null);
-        return { groups: updatedGroups };
-      });
-    },
-    clearAll: () => {
-      setLocalState({ groups: [] });
-    },
-    setGroups: (groups: any[]) => {
-      setLocalState({ groups });
-    },
-  }), []);
+                },
+              ],
+              asGroup: false,
+            },
+          ],
+        }));
+      },
+      removeGroup: (groupId: string) => {
+        setLocalState((prev) => ({
+          ...prev,
+          groups: prev.groups.filter((g) => g.id !== groupId),
+        }));
+      },
+      updateGroup: (groupId: string, updates: any) => {
+        setLocalState((prev) => ({
+          ...prev,
+          groups: prev.groups.map((g) =>
+            g.id === groupId ? { ...g, ...updates } : g,
+          ),
+        }));
+      },
+      addCondition: (groupId: string, initial?: any) => {
+        setLocalState((prev) => ({
+          ...prev,
+          groups: prev.groups.map((g) =>
+            g.id === groupId
+              ? {
+                  ...g,
+                  conditions: [
+                    ...g.conditions,
+                    {
+                      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                      fieldId: "",
+                      operator: "is" as any,
+                      value: null,
+                      ...(initial ?? {}),
+                    },
+                  ],
+                }
+              : g,
+          ),
+        }));
+      },
+      updateCondition: (groupId: string, conditionId: string, updates: any) => {
+        setLocalState((prev) => ({
+          ...prev,
+          groups: prev.groups.map((g) =>
+            g.id === groupId
+              ? {
+                  ...g,
+                  conditions: g.conditions.map((c) =>
+                    c.id === conditionId ? { ...c, ...updates } : c,
+                  ),
+                }
+              : g,
+          ),
+        }));
+      },
+      removeCondition: (groupId: string, conditionId: string) => {
+        setLocalState((prev) => {
+          const updatedGroups = prev.groups
+            .map((g) => {
+              if (g.id !== groupId) return g;
+              const updatedConditions = g.conditions.filter(
+                (c) => c.id !== conditionId,
+              );
+              if (updatedConditions.length === 0) return null;
+              return { ...g, conditions: updatedConditions };
+            })
+            .filter((g): g is any => g !== null);
+          return { ...prev, groups: updatedGroups };
+        });
+      },
+      clearAll: () => {
+        setLocalState((prev) => ({ ...prev, groups: [] }));
+      },
+      setGroups: (groups: any[]) => {
+        setLocalState((prev) => ({ ...prev, groups }));
+      },
+    }),
+    [],
+  );
 
   // Handle apply - sync to real state and close
   const handleApply = () => {
@@ -201,7 +225,8 @@ export function AdvancedFilterPanel({
             ) : (
               <>
                 {localState.groups.map((group, index) => {
-                  const isGroupUI = group.asGroup || group.conditions.length > 1;
+                  const isGroupUI =
+                    group.asGroup || group.conditions.length > 1;
                   const firstCondition = group.conditions[0]!; // groups always have at least 1 condition
                   return (
                     <React.Fragment key={group.id}>
@@ -254,7 +279,9 @@ export function AdvancedFilterPanel({
                             )
                           }
                           onConvertToGroup={() =>
-                            localActions.updateGroup(group.id, { asGroup: true })
+                            localActions.updateGroup(group.id, {
+                              asGroup: true,
+                            })
                           }
                           availableFields={availableFields}
                         />
@@ -262,7 +289,6 @@ export function AdvancedFilterPanel({
                     </React.Fragment>
                   );
                 })}
-
 
                 <Button
                   variant="ghost"
@@ -279,21 +305,21 @@ export function AdvancedFilterPanel({
         {/* Footer */}
         <SheetFooter>
           <Button
-              variant="outline"
-              size="default"
-              onClick={handleCancel}
-              className="w-[70px]"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="brand"
-              size="default"
-              onClick={handleApply}
-              className="w-[70px]"
-            >
-              Apply
-            </Button>
+            variant="outline"
+            size="default"
+            onClick={handleCancel}
+            className="w-[70px]"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="brand"
+            size="default"
+            onClick={handleApply}
+            className="w-[70px]"
+          >
+            Apply
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

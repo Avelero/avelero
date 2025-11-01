@@ -42,9 +42,7 @@ export function useUserMutation() {
         });
 
         // Get current data
-        const previousData = queryClient.getQueryData(
-          trpc.user.get.queryKey(),
-        );
+        const previousData = queryClient.getQueryData(trpc.user.get.queryKey());
 
         // Optimistically update
         queryClient.setQueryData(trpc.user.get.queryKey(), (old) => {

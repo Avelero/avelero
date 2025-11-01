@@ -2,7 +2,11 @@
  * Validation schemas for showcase brand operations.
  */
 import { z } from "zod";
-import { byIdSchema, updateWithNullable, voidSchema } from "../_shared/patterns.js";
+import {
+  byIdSchema,
+  updateWithNullable,
+  voidSchema,
+} from "../_shared/patterns.js";
 import {
   countryCodeSchema,
   emailSchema,
@@ -50,7 +54,7 @@ export const updateShowcaseBrandSchema = updateWithNullable(
     "state",
     "zip",
     "country_code",
-  ]
+  ],
 );
 
 /**

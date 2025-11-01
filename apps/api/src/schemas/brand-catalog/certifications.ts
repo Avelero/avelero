@@ -2,7 +2,11 @@
  * Validation schemas for brand certification operations.
  */
 import { z } from "zod";
-import { byIdSchema, updateWithNullable, voidSchema } from "../_shared/patterns.js";
+import {
+  byIdSchema,
+  updateWithNullable,
+  voidSchema,
+} from "../_shared/patterns.js";
 import {
   datetimeSchema,
   longStringSchema,
@@ -48,7 +52,7 @@ export const updateCertificationSchema = updateWithNullable(
     "file_asset_id",
     "external_url",
     "notes",
-  ]
+  ],
 );
 
 /**

@@ -1,10 +1,7 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 export default {
-  testEnvironment: 'node',
-  testMatch: [
-    "<rootDir>/apps/**/*.test.ts",
-    "<rootDir>/packages/**/*.test.ts"
-  ],
+  testEnvironment: "node",
+  testMatch: ["<rootDir>/apps/**/*.test.ts", "<rootDir>/packages/**/*.test.ts"],
   moduleNameMapper: {
     "@v1/db/(.*)": "<rootDir>/packages/db/src/$1",
     "@v1/supabase/(.*)": "<rootDir>/packages/supabase/src/$1",
@@ -18,15 +15,18 @@ export default {
     "@v1/jobs/(.*)": "<rootDir>/packages/jobs/src/$1",
   },
   globals: {
-    'ts-jest': {
-      tsconfig: '<rootDir>/tsconfig.jest.json',
+    "ts-jest": {
+      tsconfig: "<rootDir>/tsconfig.jest.json",
       useESM: true,
-    }
+    },
   },
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: '<rootDir>/tsconfig.jest.json',
-      useESM: true,
-    }],
+    "^.+\\.tsx?$": [
+      "ts-jest",
+      {
+        tsconfig: "<rootDir>/tsconfig.jest.json",
+        useESM: true,
+      },
+    ],
   },
 };

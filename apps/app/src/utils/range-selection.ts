@@ -2,14 +2,14 @@ import type { SelectionState } from "../components/tables/passports/types";
 
 /**
  * Range Selection Utility
- * 
+ *
  * Handles shift-click range selection for table rows.
  * Calculates which rows should be selected based on the range between
  * the last clicked row and the current row.
- * 
+ *
  * Range selection is just an efficient manual selection method - it stays
  * in "explicit" mode and populates includeIds (same as individual clicks).
- * 
+ *
  * Performance: Updates are INSTANT via optimistic local state, with parent
  * state synced in background using queueMicrotask + startTransition.
  */
@@ -81,7 +81,7 @@ export function calculateRangeSelection(
 
 /**
  * Applies range selection to the current selection state.
- * 
+ *
  * In "all" mode: removes IDs from excludeIds (re-selects them)
  * In "explicit" mode: adds IDs to includeIds
  */
@@ -112,14 +112,14 @@ export function applyRangeSelection(
 
 /**
  * Placeholder for fetching row IDs across pages.
- * 
+ *
  * TODO: Replace this with your actual backend query once the API is ready.
- * 
+ *
  * Expected behavior:
  * - Fetch all passport IDs in the range [startIndex, endIndex] (inclusive)
  * - Respect the same ordering as your main list query
  * - Return an array of ID strings
- * 
+ *
  * Example implementation:
  * ```typescript
  * const ids = await trpc.passports.getIdsByRange.query({
@@ -144,4 +144,3 @@ export async function fetchRowIdsByRange(
   // For now, return empty array (no cross-page selection)
   return [];
 }
-

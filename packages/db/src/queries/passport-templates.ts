@@ -2,10 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client";
 import type { ModuleKey } from "../completion/module-keys";
 import { syncTemplateModuleDelta } from "../completion/template-sync";
-import {
-  passportTemplateModules,
-  passportTemplates,
-} from "../schema";
+import { passportTemplateModules, passportTemplates } from "../schema";
 
 export interface PassportTemplateModuleRow {
   readonly module_key: string;

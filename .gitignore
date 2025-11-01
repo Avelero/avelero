@@ -98,6 +98,12 @@ node_modules/
 .cursorrules
 .taskmaster
 .gemini
+
+# Documentation and AI context files
+docs/
+.claude/
+claude.md
+AGENTS.md
 mcp.json
 
 #prompts

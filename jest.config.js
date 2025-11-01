@@ -1,5 +1,6 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 export default {
+  preset: "ts-jest/presets/default-esm",
   testEnvironment: "node",
   testMatch: ["<rootDir>/apps/**/*.test.ts", "<rootDir>/packages/**/*.test.ts"],
   moduleNameMapper: {
@@ -13,20 +14,5 @@ export default {
     "@v1/kv/(.*)": "<rootDir>/packages/kv/src/$1",
     "@v1/analytics/(.*)": "<rootDir>/packages/analytics/src/$1",
     "@v1/jobs/(.*)": "<rootDir>/packages/jobs/src/$1",
-  },
-  globals: {
-    "ts-jest": {
-      tsconfig: "<rootDir>/tsconfig.jest.json",
-      useESM: true,
-    },
-  },
-  transform: {
-    "^.+\\.tsx?$": [
-      "ts-jest",
-      {
-        tsconfig: "<rootDir>/tsconfig.jest.json",
-        useESM: true,
-      },
-    ],
   },
 };

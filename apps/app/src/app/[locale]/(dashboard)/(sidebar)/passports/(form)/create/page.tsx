@@ -1,3 +1,5 @@
+"use client";
+
 import { BasicInfoSection } from "@/components/passports/form/blocks/basic-info-block";
 import { EnvironmentSection } from "@/components/passports/form/blocks/environment-block";
 import { JourneySection } from "@/components/passports/form/blocks/journey-block";
@@ -9,23 +11,32 @@ import { StatusSection } from "@/components/passports/form/sidebar/status-block"
 
 export default function CreatePassportsPage() {
   return (
-    <PassportFormScaffold
-      title="Create passport"
-      left={
-        <>
-          <BasicInfoSection />
-          <OrganizationSection />
-          <EnvironmentSection />
-          <MaterialsSection />
-          <JourneySection />
-        </>
-      }
-      right={
-        <>
-          <StatusSection />
-          <IdentifiersSection />
-        </>
-      }
-    />
+    <form 
+      id="passport-form"
+      className="flex justify-center w-full"
+      onSubmit={(e) => {
+        e.preventDefault();
+        // TODO: Wire up submission logic
+      }}
+    >
+      <PassportFormScaffold
+        title="Create passport"
+        left={
+          <>
+            <BasicInfoSection />
+            <OrganizationSection />
+            <EnvironmentSection />
+            <MaterialsSection />
+            <JourneySection />
+          </>
+        }
+        right={
+          <>
+            <StatusSection />
+            <IdentifiersSection />
+          </>
+        }
+      />
+    </form>
   );
 }

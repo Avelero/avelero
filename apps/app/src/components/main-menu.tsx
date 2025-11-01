@@ -1,17 +1,22 @@
 "use client";
 
-import { Icons } from "@v1/ui/icons";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SidebarButton } from "./sidebar-button";
+import dashboardAnimation from "@/animations/avelero-icon-animation.json";
+import passportsAnimation from "@/animations/system-regular-727-spinner-dashes-hover-rotation.json";
+import analyticsAnimation from "@/animations/system-regular-10-analytics-hover-analytics.json";
+import settingsAnimation from "@/animations/system-regular-63-settings-cog-hover-cog-1.json";
 
-const icons = {
-  "/passports": Icons.QrCode,
-  "/analytics": Icons.ChartLine,
-  "/settings": Icons.Settings,
+const animations = {
+  "/": dashboardAnimation,
+  "/passports": passportsAnimation,
+  "/analytics": analyticsAnimation,
+  "/settings": settingsAnimation,
 } as const;
 
 const items = [
+  { path: "/", name: "Dashboard" },
   { path: "/passports", name: "Passports" },
   { path: "/analytics", name: "Analytics" },
   { path: "/settings", name: "Settings" },
@@ -34,14 +39,17 @@ export function MainMenu({ onSelectAction, isExpanded = false }: Props) {
     <nav>
       <div className="flex flex-col gap-2">
         {items.map((item) => {
-          const isActive = pathname?.startsWith(item.path) ?? false;
-          const Icon = icons[item.path as keyof typeof icons];
+          // Special handling for root path to avoid matching all paths
+          const isActive = item.path === "/" 
+            ? pathname === "/" 
+            : (pathname?.startsWith(item.path) ?? false);
+          const animationData = animations[item.path as keyof typeof animations];
 
           return (
             <SidebarButton
               key={item.path}
               item={item}
-              icon={Icon}
+              animationData={animationData}
               isActive={isActive}
               isExpanded={isExpanded}
               isItemExpanded={expandedItem === item.path}

@@ -104,7 +104,6 @@ export function BrandDropdown({
               "absolute top-0 h-10 border border-transparent",
               "transition-all duration-150 ease-out",
               isExpanded ? "left-0 right-0" : "left-0 w-10",
-              "group-hover:bg-accent",
             )}
           />
 

@@ -9,6 +9,7 @@
     "src/certifications.ts",
     "src/categories.ts",
     "src/colors.ts",
+    "src/fonts.ts",
     "src/production-steps.ts",
     "src/seasons.ts",
     "src/sizes.ts"
@@ -33,6 +34,10 @@
     "./colors": {
       "types": "./src/colors.ts",
       "default": "./src/colors.ts"
+    },
+    "./fonts": {
+      "types": "./src/fonts.ts",
+      "default": "./src/fonts.ts"
     },
     "./production-steps": {
       "types": "./src/production-steps.ts",

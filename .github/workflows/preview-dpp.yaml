@@ -1,0 +1,96 @@
+name: Preview DPP Deploy
+on:
+  # Run tests on every push to feature branches
+  push:
+    branches:
+      - 'feature/**'
+      - 'feat/**'
+    paths:
+      - apps/dpp/**
+      - packages/**
+  
+  # Deploy preview only on PR to main
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    branches:
+      - main
+    paths:
+      - apps/dpp/**
+      - packages/**
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DPP }}
+  TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+
+jobs:
+  # Always run tests (on push and PR)
+  test:
+    name: 🧪 Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./apps/dpp
+      - name: 🪐 Check TypeScript
+        run: bun run typecheck
+        working-directory: ./apps/dpp
+
+  # Only deploy on PR (not on push)
+  preview:
+    name: 🚀 Deploy Preview
+    needs: test
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.number }}-dpp
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      
+      - name: 📤 Pull Vercel Environment Information
+        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: 🏗 Build Project Artifacts
+        run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: 📤 Pull Environment Variables
+        run: bunx vercel env pull .env --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      
+      - name: 🚀 Deploy to Vercel
+        id: deploy
+        run: |
+          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+      
+      - name: Comment Preview URL
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 DPP Preview Deployment Ready!
+              
+              **Digital Product Passport:** ${{ steps.deploy.outputs.url }}
+              
+              Preview environment will auto-delete when PR closes.`
+            })
+

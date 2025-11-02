@@ -22,10 +22,6 @@ function DeleteBrand() {
 
   // During initial load, don't render anything
   if (isLoading || !brandsData) {
-    console.log("[DeleteBrand] Still loading or no data:", {
-      isLoading,
-      brandsData,
-    });
     return null;
   }
 
@@ -35,31 +31,12 @@ function DeleteBrand() {
     (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
   );
 
-  // Debug logging
-  console.log("[DeleteBrand] Debug Info:", {
-    brandsData,
-    brandsDataType: typeof brandsData,
-    isArray: Array.isArray(brandsData),
-    brands,
-    brandsCount: brands.length,
-    user,
-    userId: user?.id,
-    userBrandId: user?.brand_id,
-    activeBrand,
-    activeBrandRole: activeBrand?.role,
-  });
-
   // Only show delete button if user is an owner of the active brand
   if (!activeBrand) {
-    console.log("[DeleteBrand] Returning null: No active brand found");
     return null;
   }
 
   if (activeBrand.role !== "owner") {
-    console.log(
-      "[DeleteBrand] Returning null: User is not owner, role:",
-      activeBrand.role,
-    );
     return null;
   }
 

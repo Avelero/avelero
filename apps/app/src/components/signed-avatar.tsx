@@ -29,6 +29,9 @@ export function SignedAvatar({
     // If it's already a full URL (starts with http/https), use as-is
     if (url.startsWith("http://") || url.startsWith("https://")) {
       src = url;
+    } else if (url.startsWith("data:") || url.startsWith("blob:")) {
+      // Keep data: and blob: URIs intact
+      src = url;
     } else if (url.startsWith("/")) {
       // If it starts with /, it's already a path like /api/storage/...
       src = url;

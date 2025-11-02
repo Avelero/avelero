@@ -39,5 +39,16 @@ export const userDomainUpdateSchema = z.object({
     .nullable()
     .optional(),
   // Accept either full URLs or storage paths (e.g., "user-id/file.jpg")
-  avatar_url: z.string().nullable().optional(),
+  avatar_url: z
+    .union([
+      urlSchema, // Full http/https URL
+      z
+        .string()
+        .regex(
+          /^[^/\s]+\/[^/\s]+/,
+          "Must be a valid URL or storage path (e.g., user-id/file.jpg)",
+        ), // Storage path pattern: path/to/file
+    ])
+    .nullable()
+    .optional(),
 });

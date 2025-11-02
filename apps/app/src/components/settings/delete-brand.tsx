@@ -12,13 +12,22 @@ interface Brand {
   logo_url?: string | null;
   avatar_hue?: number | null;
   country_code?: string | null;
-  role?: "owner" | "member";
+  role: "owner" | "member"; // role is always returned by the API
 }
 
 function DeleteBrand() {
   const [open, setOpen] = useState(false);
-  const { data: brandsData } = useUserBrandsQuery();
+  const { data: brandsData, isLoading } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
+
+  // During initial load, don't render anything
+  if (isLoading || !brandsData) {
+    console.log("[DeleteBrand] Still loading or no data:", {
+      isLoading,
+      brandsData,
+    });
+    return null;
+  }
 
   // brandsData is an array directly, not wrapped in { data: [] }
   const brands = (Array.isArray(brandsData) ? brandsData : []) as Brand[];
@@ -26,8 +35,31 @@ function DeleteBrand() {
     (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
   );
 
+  // Debug logging
+  console.log("[DeleteBrand] Debug Info:", {
+    brandsData,
+    brandsDataType: typeof brandsData,
+    isArray: Array.isArray(brandsData),
+    brands,
+    brandsCount: brands.length,
+    user,
+    userId: user?.id,
+    userBrandId: user?.brand_id,
+    activeBrand,
+    activeBrandRole: activeBrand?.role,
+  });
+
   // Only show delete button if user is an owner of the active brand
-  if (!activeBrand || activeBrand.role !== "owner") {
+  if (!activeBrand) {
+    console.log("[DeleteBrand] Returning null: No active brand found");
+    return null;
+  }
+
+  if (activeBrand.role !== "owner") {
+    console.log(
+      "[DeleteBrand] Returning null: User is not owner, role:",
+      activeBrand.role,
+    );
     return null;
   }
 

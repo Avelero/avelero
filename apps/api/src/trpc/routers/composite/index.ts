@@ -154,7 +154,7 @@ function mapInvite(invite: UserInviteSummaryRow) {
   return {
     id: invite.id,
     brand_name: invite.brandName,
-    brand_logo: invite.brandLogoPath,
+    brand_logo: buildBrandLogoUrl(invite.brandLogoPath ?? null),
     role: invite.role,
     invited_by: invite.invitedByFullName ?? invite.invitedByEmail ?? null,
     created_at: invite.createdAt,

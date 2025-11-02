@@ -36,6 +36,13 @@ export function SeasonModal({
   const [startDate, setStartDate] = React.useState<Date | null>(null);
   const [endDate, setEndDate] = React.useState<Date | null>(null);
   const [ongoing, setOngoing] = React.useState(false);
+  // Preserve dates when toggling ongoing to allow restoration
+  const [preservedStartDate, setPreservedStartDate] = React.useState<
+    Date | null
+  >(null);
+  const [preservedEndDate, setPreservedEndDate] = React.useState<Date | null>(
+    null,
+  );
 
   // Prefill name when modal opens with provided initialName
   React.useEffect(() => {
@@ -44,19 +51,32 @@ export function SeasonModal({
     }
   }, [open, initialName]);
 
-  // If ongoing is enabled, clear any set dates to avoid submitting them
+  // Handle ongoing toggle with date preservation
   React.useEffect(() => {
     if (ongoing) {
+      // Preserve current dates before clearing
+      if (startDate) setPreservedStartDate(startDate);
+      if (endDate) setPreservedEndDate(endDate);
       setStartDate(null);
       setEndDate(null);
+    } else {
+      // Restore preserved dates when toggling back
+      if (preservedStartDate) setStartDate(preservedStartDate);
+      if (preservedEndDate) setEndDate(preservedEndDate);
     }
   }, [ongoing]);
 
   const handleSave = () => {
-    // Validate date range
-    if (!ongoing && startDate && endDate && startDate > endDate) {
-      toast.error("Start date must be before end date");
-      return;
+    // Validate dates for non-ongoing seasons
+    if (!ongoing) {
+      if (!startDate || !endDate) {
+        toast.error("Please provide both start and end dates");
+        return;
+      }
+      if (startDate > endDate) {
+        toast.error("Start date must be before end date");
+        return;
+      }
     }
 
     // TODO: Save to backend
@@ -66,6 +86,8 @@ export function SeasonModal({
     setStartDate(null);
     setEndDate(null);
     setOngoing(false);
+    setPreservedStartDate(null);
+    setPreservedEndDate(null);
     onOpenChange(false);
   };
 
@@ -75,6 +97,8 @@ export function SeasonModal({
     setStartDate(null);
     setEndDate(null);
     setOngoing(false);
+    setPreservedStartDate(null);
+    setPreservedEndDate(null);
     onOpenChange(false);
   };
 
@@ -85,6 +109,8 @@ export function SeasonModal({
       setStartDate(null);
       setEndDate(null);
       setOngoing(false);
+      setPreservedStartDate(null);
+      setPreservedEndDate(null);
     }
     onOpenChange(newOpen);
   };

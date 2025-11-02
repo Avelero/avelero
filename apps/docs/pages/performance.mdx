@@ -1,0 +1,417 @@
+import { Callout, Steps } from 'nextra/components'
+
+# Performance Architecture
+
+Understanding the performance optimizations built into the Avelero API.
+
+## Overview
+
+The Avelero API is designed with performance as a core principle. Key architectural decisions include composite endpoints for reducing network requests, include options for preventing N+1 query problems, and built-in support for efficient data fetching patterns.
+
+<Callout type="info">
+**Key Performance Features**
+- Composite endpoints that combine multiple queries into single requests
+- Include options that eliminate N+1 database query problems
+- Optimized queries with minimal database round-trips
+- Support for pagination, caching, and bulk operations
+</Callout>
+
+## Composite Endpoints
+
+### What Are Composite Endpoints?
+
+Composite endpoints combine multiple queries into a single request, eliminating network overhead and reducing latency. This is particularly valuable for page initialization where multiple data sources are required.
+
+### composite.workflowInit
+
+**Use Case**: Dashboard initialization requires user profile, brands list, and pending invites
+
+```typescript
+// Single composite call fetches all required data
+const { user, brands, myInvites } =
+  await trpc.composite.workflowInit.query()
+
+// Use the data immediately
+console.log(`Welcome ${user.full_name}`)
+console.log(`You have ${brands.length} brands`)
+console.log(`${myInvites.length} pending invites`)
+```
+
+**Performance Benefit**: Reduces 3 network requests down to 1, with parallel database queries internally.
+
+### composite.passportFormReferences
+
+**Use Case**: Passport form needs multiple reference datasets (categories, materials, facilities, etc.)
+
+```typescript
+// Single call fetches all form reference data
+const { categories, brandCatalog } =
+  await trpc.composite.passportFormReferences.query()
+
+// brandCatalog contains: materials, facilities, colors, sizes,
+// certifications, ecoClaims, and operators
+```
+
+**Performance Benefit**: Reduces 8 network requests down to 1, significantly faster form loading.
+
+### All Composite Endpoints
+
+| Endpoint | Combines | Benefit |
+|----------|----------|---------|
+| `composite.workflowInit` | User profile + brands + invites | Dashboard initialization |
+| `composite.dashboard` | Status counts + recent activity + metrics | Analytics page |
+| `composite.membersWithInvites` | Team members + pending invites | Team management |
+| `composite.passportFormReferences` | All catalog references | Form initialization |
+
+## Include Options
+
+### Preventing N+1 Query Problems
+
+Include options allow you to eagerly load related data in a single query, preventing the N+1 query anti-pattern where you fetch a list of items and then fetch related data for each item individually.
+
+### products.list with includeVariants
+
+**Problem**: Loading products and then fetching variants for each product creates N+1 database queries
+
+```typescript
+// Efficient approach: Use include options
+const products = await trpc.products.list.query({
+  brand_id: 'brand-123',
+  includeVariants: true,        // Eager load variants
+  includeAttributes: true       // Also load attributes
+})
+
+// Products now include all variants and attributes in a single query
+products.forEach(product => {
+  console.log(`${product.name} has ${product.variants.length} variants`)
+})
+```
+
+**Database Impact**: Single query with JOINs instead of 1 + N separate queries.
+
+### Available Include Options
+
+```typescript
+// products.list and products.get
+products.list.query({
+  includeVariants: true,      // Include product variants
+  includeAttributes: true     // Include materials, care codes, etc.
+})
+
+// passports.list
+passports.list.query({
+  includeStatusCounts: true   // Include status aggregation
+})
+```
+
+## Caching Strategies
+
+### Client-Side Caching
+
+React Query (TanStack Query) provides automatic caching for API responses:
+
+```typescript
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,        // 5 minutes
+      cacheTime: 10 * 60 * 1000,       // 10 minutes
+      refetchOnWindowFocus: false,      // Don't refetch on focus
+      refetchOnMount: false,            // Don't refetch on mount
+    },
+  },
+})
+```
+
+### Optimistic Updates
+
+Update UI immediately before server confirms:
+
+```typescript
+const utils = trpc.useContext()
+
+const updateMutation = trpc.products.update.useMutation({
+  onMutate: async (newProduct) => {
+    // Cancel ongoing queries
+    await utils.products.get.cancel()
+
+    // Snapshot current value
+    const previous = utils.products.get.getData()
+
+    // Optimistically update cache
+    utils.products.get.setData(newProduct)
+
+    return { previous }
+  },
+  onError: (err, newProduct, context) => {
+    // Rollback on error
+    if (context?.previous) {
+      utils.products.get.setData(context.previous)
+    }
+  },
+  onSettled: () => {
+    // Refetch after mutation
+    utils.products.get.invalidate()
+  },
+})
+```
+
+### Cache Invalidation
+
+```typescript
+// Invalidate specific query
+await utils.products.list.invalidate()
+
+// Invalidate all product queries
+await utils.products.invalidate()
+
+// Invalidate after mutation
+const mutation = trpc.products.create.useMutation({
+  onSuccess: () => {
+    // Refetch products list
+    utils.products.list.invalidate()
+  },
+})
+```
+
+## Pagination
+
+### Implement Pagination for Large Lists
+
+Always use pagination for endpoints that may return many items:
+
+```typescript
+// Paginated requests
+const products = await trpc.products.list.query({
+  page: 1,
+  limit: 20      // Only fetch 20 items
+})
+
+console.log(`Showing ${products.data.length} of ${products.meta.total} total products`)
+```
+
+### Infinite Scroll with React Query
+
+```typescript
+import { trpc } from '@/lib/trpc'
+
+function ProductList() {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = trpc.products.list.useInfiniteQuery(
+    { limit: 20 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    }
+  )
+
+  return (
+    <div>
+      {data?.pages.map((page) =>
+        page.items.map((product) => (
+          <ProductCard key={product.id} product={product} />
+        ))
+      )}
+      {hasNextPage && (
+        <button onClick={() => fetchNextPage()}>
+          {isFetchingNextPage ? 'Loading...' : 'Load More'}
+        </button>
+      )}
+    </div>
+  )
+}
+```
+
+## Batch Requests
+
+tRPC automatically batches requests made within 10ms:
+
+```typescript
+// These 3 calls are automatically batched into 1 HTTP request
+const [user, brands, invites] = await Promise.all([
+  trpc.user.get.query(),
+  trpc.workflow.list.query(),
+  trpc.user.invites.list.query(),
+])
+```
+
+## Request Optimization
+
+### Only Fetch What You Need
+
+```typescript
+// Specific filters reduce data transfer
+const products = await trpc.products.list.query({
+  brand_id: 'brand-123',
+  category_id: 'shirts',
+  limit: 20
+})
+```
+
+### Use Filters and Sorts
+
+```typescript
+// Server-side filtering and sorting
+const colors = await trpc.brand.colors.list.query({
+  brand_id: 'brand-123',
+  search: 'blue',              // Filter on server
+  sort: 'name'                 // Sort on server
+})
+```
+
+## Bulk Operations
+
+### Use Bulk Endpoints for Multiple Updates
+
+For operations affecting multiple items, use bulk endpoints instead of individual mutations:
+
+```typescript
+// Single bulk operation
+await trpc.bulk.update.mutate({
+  domain: 'products',
+  selection: { ids: productIds },
+  changes: { status: 'published' }
+})
+
+// Much faster than individual updates
+```
+
+## Performance Monitoring
+
+### Measure API Performance
+
+```typescript
+const start = performance.now()
+const result = await trpc.products.list.query()
+const duration = performance.now() - start
+
+console.log(`Query took ${duration}ms`)
+```
+
+### React Query Dev Tools
+
+```typescript
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+
+function App() {
+  return (
+    <>
+      <YourApp />
+      <ReactQueryDevtools initialIsOpen={false} />
+    </>
+  )
+}
+```
+
+### Lighthouse Auditing
+
+Run Lighthouse audits to measure performance:
+
+```bash
+# Install Lighthouse CLI
+npm install -g lighthouse
+
+# Run audit
+lighthouse https://app.avelero.com --view
+```
+
+## Best Practices Summary
+
+<Callout type="info">
+**Performance Checklist**
+- Use composite endpoints for multi-query pages
+- Enable include options to prevent N+1 queries
+- Implement pagination for large lists (limit 20-50 items)
+- Use React Query caching with appropriate staleTime
+- Implement optimistic updates for better UX
+- Use bulk operations for multiple updates
+- Filter and sort on the server, not client
+- Monitor performance with React Query DevTools
+- Batch requests with Promise.all when possible
+- Avoid fetching unused data
+</Callout>
+
+## Example: Dashboard Load Performance
+
+A typical dashboard requires user profile, brand list, and invite list. Using the composite endpoint:
+
+```typescript
+// Single request with parallel database queries
+const { user, brands, myInvites } = await trpc.composite.workflowInit.query()
+
+// Typical metrics:
+// - 1 HTTP request
+// - 4-5 database queries (batched)
+// - 100-200ms total response time
+// - ~2-10KB data transfer
+```
+
+## Example: Passport Form Load Performance
+
+A passport form requires 8 different reference datasets. Using the composite endpoint:
+
+```typescript
+// Single request for all form data
+const formData = await trpc.composite.passportFormReferences.query()
+
+// Typical metrics:
+// - 1 HTTP request
+// - 8 database queries (parallel)
+// - 150-250ms total response time
+// - ~5-20KB data transfer
+```
+
+## Common Performance Issues
+
+### Issue: Slow Product List
+
+**Symptom**: products.list takes over 1 second
+
+**Solutions**:
+1. Enable includes to prevent N+1:
+   ```typescript
+   products.list.query({ includeVariants: true })
+   ```
+2. Add pagination:
+   ```typescript
+   products.list.query({ limit: 20 })
+   ```
+3. Add filters:
+   ```typescript
+   products.list.query({ category_id: 'shirts' })
+   ```
+
+### Issue: Dashboard Loads Slowly
+
+**Symptom**: Multiple API calls on page load
+
+**Solution**: Use composite.workflowInit:
+```typescript
+// Instead of 3 separate calls
+const initData = await trpc.composite.workflowInit.query()
+```
+
+### Issue: Form Loads Slowly
+
+**Symptom**: Passport form takes over 1 second to load
+
+**Solution**: Use composite.passportFormReferences:
+```typescript
+// Instead of 8 separate calls
+const formData = await trpc.composite.passportFormReferences.query()
+```
+
+## Related Documentation
+
+- [Composite Endpoints](/composite) - Multi-query optimization
+- [Products API](/products) - Include options for products
+- [Bulk Operations](/bulk) - Batch updates
+
+## Further Reading
+
+- [React Query Performance](https://tanstack.com/query/latest/docs/react/guides/performance)
+- [tRPC Batching](https://trpc.io/docs/client/links/httpBatchLink)
+- [Web Vitals](https://web.dev/vitals/)

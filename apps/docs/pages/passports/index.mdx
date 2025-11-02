@@ -1,0 +1,75 @@
+# Passports API
+
+The Passports API manages Digital Product Passports (DPPs) - comprehensive digital records containing product information, sustainability data, and supply chain details.
+
+## What This Domain Handles
+
+The Passports API is responsible for:
+- **Passport Lifecycle**: Creating, reading, updating, and deleting digital product passports
+- **Template Management**: Reusable passport templates for consistent data collection
+- **Product Linking**: Connecting passports to products in the catalog
+- **Public Access**: Generating public URLs for consumer-facing passport views
+- **Compliance**: Supporting regulatory requirements (EU Digital Product Passport)
+
+## Architecture
+
+Passports extend product data with additional sustainability and compliance information:
+
+```
+Product (1) ──< (N) Passport
+                    │
+Template (1) ──< (N) Passport
+```
+
+### Key Concepts
+
+- **Passport**: Digital record containing product details, materials, care info, sustainability data
+- **Template**: Reusable structure defining which fields to include in passports
+- **Public URL**: Consumer-accessible view of passport data (QR code, NFC tag)
+- **Product Link**: Optional connection to a product in the catalog
+
+## Endpoints
+
+### Passport Operations
+
+- [**passports.list**](/passports/list) - List brand passports
+- [**passports.get**](/passports/get) - Get single passport
+- [**passports.create**](/passports/create) - Create new passport
+- [**passports.update**](/passports/update) - Update passport
+- [**passports.delete**](/passports/delete) - Delete passport
+
+### Template Operations
+
+- [**passports.templates.list**](/passports/templates/list) - List passport templates
+- [**passports.templates.get**](/passports/templates/get) - Get template
+- [**passports.templates.create**](/passports/templates/create) - Create template
+- [**passports.templates.update**](/passports/templates/update) - Update template
+- [**passports.templates.delete**](/passports/templates/delete) - Delete template
+
+## Common Patterns
+
+### Create Passport from Product
+
+```typescript
+const passport = await trpc.passports.create.mutate({
+  product_id: 'product-123',
+  name: 'Organic Cotton T-Shirt Passport',
+  materials: [{ material: 'Organic Cotton', percentage: 100 }],
+  sustainability: {
+    carbon_footprint: '5.2 kg CO2e',
+    certifications: ['GOTS', 'Fair Trade']
+  }
+})
+```
+
+### Generate Public URL
+
+```typescript
+const publicUrl = `https://app.avelero.com/passport/${passport.id}`
+```
+
+## Related Domains
+
+- [**Products API**](/products) - Passports link to products
+- [**Brand API**](/brand) - Passports reference brand materials
+- [**Workflow API**](/workflow) - Passports are scoped to brands

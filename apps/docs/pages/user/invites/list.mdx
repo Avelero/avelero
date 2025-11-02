@@ -1,0 +1,246 @@
+---
+title: user.invites.list
+description: List pending brand invitations sent to the authenticated user's email
+---
+
+import { Callout } from 'nextra/components'
+
+# user.invites.list
+
+Retrieves all pending (non-expired) brand invitations sent to the authenticated user's email address.
+
+## Endpoint
+
+`user.invites.list` (Query)
+
+## Why This Endpoint Exists
+
+Users can be invited to join brands by their email address. This endpoint shows all pending invitations so users can:
+- **See which brands have invited them** before they have an account or brand membership
+- **Accept or reject invitations** to join brands as owner or member
+- **View invitation details** including who invited them and when the invite expires
+- **Onboarding flow** - redirect new users to accept invites instead of creating a brand
+
+The endpoint only returns non-expired invitations, filtered by the user's email address from their session.
+
+## Input Parameters
+
+None. Uses the authenticated user's email address from the session context.
+
+## Return Value
+
+```typescript
+interface BrandInvite {
+  id: string                          // Invitation ID
+  brand_name: string                  // Name of the brand inviting the user
+  brand_logo: string | null           // Logo path (storage path, not full URL)
+  role: string                        // Role being offered: "owner" or "member"
+  invited_by: string | null           // Full name or email of who sent the invite
+  created_at: string                  // ISO timestamp when invite was created
+  expires_at: string                  // ISO timestamp when invite expires
+}
+
+type ReturnValue = BrandInvite[]
+```
+
+Returns an empty array `[]` if no pending invitations exist.
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const invites = await trpc.user.invites.list.query()
+
+console.log(`You have ${invites.length} pending invitations`)
+```
+
+### React Component
+
+```tsx
+function PendingInvitations() {
+  const { data: invites, isLoading } = trpc.user.invites.list.useQuery()
+
+  if (isLoading) return <Skeleton />
+  if (!invites?.length) return null
+
+  return (
+    <div className="invitations">
+      <h3>Brand Invitations ({invites.length})</h3>
+      {invites.map((invite) => (
+        <InviteCard key={invite.id} invite={invite} />
+      ))}
+    </div>
+  )
+}
+```
+
+### Invite Card Component
+
+```tsx
+function InviteCard({ invite }: { invite: BrandInvite }) {
+  const respondMutation = trpc.workflow.invites.respond.useMutation()
+
+  const handleAccept = () => {
+    respondMutation.mutate({
+      invite_id: invite.id,
+      accept: true
+    })
+  }
+
+  const handleReject = () => {
+    respondMutation.mutate({
+      invite_id: invite.id,
+      accept: false
+    })
+  }
+
+  return (
+    <div className="invite-card">
+      <div className="brand-info">
+        {invite.brand_logo && <img src={invite.brand_logo} alt={invite.brand_name} />}
+        <div>
+          <h4>{invite.brand_name}</h4>
+          <p>Role: {invite.role}</p>
+          <p>Invited by: {invite.invited_by || 'Unknown'}</p>
+          <p>Expires: {new Date(invite.expires_at).toLocaleDateString()}</p>
+        </div>
+      </div>
+      <div className="actions">
+        <button onClick={handleAccept}>Accept</button>
+        <button onClick={handleReject}>Decline</button>
+      </div>
+    </div>
+  )
+}
+```
+
+### Onboarding Detection
+
+```typescript
+async function detectOnboardingState() {
+  const [user, brands, invites] = await Promise.all([
+    trpc.user.get.query(),
+    trpc.workflow.list.query(),
+    trpc.user.invites.list.query()
+  ])
+
+  if (!brands.length && invites.length > 0) {
+    // User has no brands but has pending invites
+    return { state: 'accept-invite', invites }
+  }
+
+  if (!brands.length && !invites.length) {
+    // User has no brands and no invites
+    return { state: 'create-brand' }
+  }
+
+  return { state: 'complete' }
+}
+```
+
+### Filter by Role
+
+```typescript
+const invites = await trpc.user.invites.list.query()
+
+const ownerInvites = invites.filter(inv => inv.role === 'owner')
+const memberInvites = invites.filter(inv => inv.role === 'member')
+
+console.log(`${ownerInvites.length} owner invites, ${memberInvites.length} member invites`)
+```
+
+## Response Example
+
+```json
+[
+  {
+    "id": "invite-123",
+    "brand_name": "EcoWear Apparel",
+    "brand_logo": "brand-456/logo.png",
+    "role": "member",
+    "invited_by": "Jane Smith",
+    "created_at": "2025-01-15T10:30:00Z",
+    "expires_at": "2025-01-22T10:30:00Z"
+  },
+  {
+    "id": "invite-789",
+    "brand_name": "Sustainable Fashion Co",
+    "brand_logo": null,
+    "role": "owner",
+    "invited_by": "john@example.com",
+    "created_at": "2025-01-10T14:20:00Z",
+    "expires_at": "2025-01-17T14:20:00Z"
+  }
+]
+```
+
+## How It Works
+
+1. **Extract Email**: Gets the user's email from the authenticated session
+2. **Query Invitations**: Fetches all brand invitations sent to that email address
+3. **Filter Expired**: Only returns invitations that haven't expired (or have no expiration date)
+4. **Join Brand Data**: Includes brand name and logo information
+5. **Join Inviter Data**: Includes who sent the invitation (name or email)
+6. **Sort by Date**: Returns invitations ordered by creation date (newest first)
+
+### Expiration Logic
+
+Invitations are considered pending if:
+- `expires_at` is `null` (never expires), OR
+- `expires_at` is in the future
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+Session expired or user not authenticated.
+
+```typescript
+try {
+  const invites = await trpc.user.invites.list.query()
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+User email missing from session.
+
+```typescript
+try {
+  const invites = await trpc.user.invites.list.query()
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error(error.message)  // "Email address required to fetch invites"
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Email-Based Invitations**: Invitations are tied to email addresses, not user accounts. This allows users to be invited before they create an account. Once authenticated with that email, they can see and accept invitations.
+</Callout>
+
+<Callout type="warning">
+**Expired Invitations**: Expired invitations are automatically filtered out and will not appear in the list. Users cannot accept expired invitations.
+</Callout>
+
+<Callout type="info">
+**Brand-Independent**: This endpoint returns invitations regardless of the user's active brand context. It shows all pending invites across all brands.
+</Callout>
+
+<Callout type="info">
+**Logo Path vs URL**: The `brand_logo` field contains a storage path (e.g., `"brand-123/logo.png"`), not a full URL. Convert to a full URL using: `https://app.avelero.com/api/storage/brand-avatars/${brand_logo}`
+</Callout>
+
+## Related Endpoints
+
+- [workflow.invites.respond](/workflow/invites/respond) - Accept or reject an invitation
+- [workflow.invites.send](/workflow/invites/send) - Send invitation to another user (owner only)
+- [workflow.list](/workflow/list) - List brands where user is already a member
+- [composite.workflowInit](/composite/workflowInit) - Get user + brands + invites in one call

@@ -1,0 +1,514 @@
+---
+title: workflow.invites.send
+description: Send invitation to join brand (owner only)
+---
+
+import { Callout } from 'nextra/components'
+
+# workflow.invites.send
+
+Sends an email invitation to join a brand as an owner or member. Only brand owners can send invitations.
+
+## Endpoint
+
+`workflow.invites.send` (Mutation)
+
+## Why This Endpoint Exists
+
+Brand owners need to:
+- **Invite team members** to collaborate on products and passports
+- **Invite additional owners** to share brand management responsibilities
+- **Send email invitations** with accept links to new or existing users
+- **Track pending invitations** before users accept them
+
+This endpoint creates the invitation record, generates a secure acceptance token, and triggers an email workflow to notify the recipient.
+
+## Input Parameters
+
+```typescript
+interface WorkflowInvitesSendInput {
+  brand_id: string                    // UUID of the brand (required)
+  email: string                       // Email address to invite (required)
+  role?: 'owner' | 'member'           // Role to grant (optional, defaults to 'member')
+}
+```
+
+**Required Fields:**
+- `brand_id`: The brand's UUID (must match the user's active brand)
+- `email`: Email address of the person to invite
+
+**Optional Fields:**
+- `role`: Either "owner" or "member" (defaults to "member" if not specified)
+
+**Permissions Required:**
+- Must be authenticated
+- Must have **owner** role for the specified brand
+
+## Return Value
+
+```typescript
+interface InviteResult {
+  email: string
+  role: 'owner' | 'member'
+  brand: { id: string; name: string } | null
+  tokenHash: string | null
+  isExistingUser: boolean
+}
+
+interface SendInviteResponse {
+  results: InviteResult[]
+  skippedInvites: Array<{
+    email: string
+    reason: 'already_member' | 'already_invited'
+  }>
+}
+
+type ReturnValue = SendInviteResponse
+```
+
+The response includes:
+- `results`: Array of successfully created invitations
+- `skippedInvites`: Array of emails that were skipped (already members or already invited)
+
+## Examples
+
+### Send Member Invitation
+
+```typescript
+const result = await trpc.workflow.invites.send.mutate({
+  brand_id: 'brand-123',
+  email: 'designer@example.com',
+  role: 'member'
+})
+
+console.log(`Invitation sent to ${result.results[0]?.email}`)
+```
+
+### Send Owner Invitation
+
+```typescript
+const result = await trpc.workflow.invites.send.mutate({
+  brand_id: 'brand-123',
+  email: 'cto@example.com',
+  role: 'owner'
+})
+```
+
+### Send with Default Role (Member)
+
+```typescript
+const result = await trpc.workflow.invites.send.mutate({
+  brand_id: 'brand-123',
+  email: 'teammate@example.com'
+  // role defaults to 'member'
+})
+```
+
+### React Component - Invite Form
+
+```tsx
+function InviteTeamMemberForm({ brandId }: { brandId: string }) {
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<'owner' | 'member'>('member')
+  const utils = trpc.useContext()
+
+  const sendMutation = trpc.workflow.invites.send.useMutation({
+    onSuccess: (result) => {
+      if (result.results.length > 0) {
+        toast.success(`Invitation sent to ${email}`)
+        setEmail('')
+        utils.workflow.invites.list.invalidate()
+      } else if (result.skippedInvites.length > 0) {
+        const reason = result.skippedInvites[0].reason
+        if (reason === 'already_member') {
+          toast.error('This user is already a team member')
+        } else {
+          toast.error('This user already has a pending invitation')
+        }
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    }
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    sendMutation.mutate({
+      brand_id: brandId,
+      email,
+      role
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="invite-form">
+      <h3>Invite Team Member</h3>
+      <div>
+        <label htmlFor="email">Email Address</label>
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="teammate@example.com"
+          required
+        />
+      </div>
+      <div>
+        <label htmlFor="role">Role</label>
+        <select
+          id="role"
+          value={role}
+          onChange={(e) => setRole(e.target.value as 'owner' | 'member')}
+        >
+          <option value="member">Member</option>
+          <option value="owner">Owner</option>
+        </select>
+      </div>
+      <button
+        type="submit"
+        disabled={sendMutation.isLoading}
+        className="btn-primary"
+      >
+        {sendMutation.isLoading ? 'Sending...' : 'Send Invitation'}
+      </button>
+    </form>
+  )
+}
+```
+
+### Handle Already Invited
+
+```tsx
+function InviteWithDuplicateCheck({ brandId }: { brandId: string }) {
+  const sendMutation = trpc.workflow.invites.send.useMutation({
+    onSuccess: (result) => {
+      if (result.skippedInvites.length > 0) {
+        const skipped = result.skippedInvites[0]
+        if (skipped.reason === 'already_member') {
+          toast.info(`${skipped.email} is already a member`)
+        } else if (skipped.reason === 'already_invited') {
+          toast.info(`${skipped.email} already has a pending invitation`)
+        }
+      } else {
+        toast.success('Invitation sent!')
+      }
+    }
+  })
+
+  // ... form implementation
+}
+```
+
+### Bulk Invite Multiple Users
+
+```typescript
+async function inviteMultiple(brandId: string, emails: string[]) {
+  const results = []
+
+  for (const email of emails) {
+    try {
+      const result = await trpc.workflow.invites.send.mutate({
+        brand_id: brandId,
+        email,
+        role: 'member'
+      })
+      results.push({ email, success: true, result })
+    } catch (error) {
+      results.push({ email, success: false, error })
+    }
+  }
+
+  const successful = results.filter(r => r.success).length
+  const failed = results.filter(r => !r.success).length
+
+  console.log(`${successful} invitations sent, ${failed} failed`)
+  return results
+}
+
+// Usage
+await inviteMultiple('brand-123', [
+  'user1@example.com',
+  'user2@example.com',
+  'user3@example.com'
+])
+```
+
+### Invite with Role Selection Dialog
+
+```tsx
+function InviteDialog({ brandId }: { brandId: string }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<'owner' | 'member'>('member')
+
+  const sendMutation = trpc.workflow.invites.send.useMutation({
+    onSuccess: () => {
+      toast.success('Invitation sent!')
+      setIsOpen(false)
+      setEmail('')
+      setRole('member')
+    }
+  })
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button className="btn-primary">Invite Team Member</button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Invite to Brand</DialogTitle>
+          <DialogDescription>
+            Send an email invitation to join your brand.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <label>Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="teammate@example.com"
+            />
+          </div>
+          <div>
+            <label>Role</label>
+            <RadioGroup value={role} onValueChange={(v) => setRole(v as any)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="member" id="member" />
+                <Label htmlFor="member">
+                  <div>
+                    <strong>Member</strong>
+                    <p className="text-sm text-gray-500">
+                      Can create and manage products and passports
+                    </p>
+                  </div>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="owner" id="owner" />
+                <Label htmlFor="owner">
+                  <div>
+                    <strong>Owner</strong>
+                    <p className="text-sm text-gray-500">
+                      Full access including team management and brand settings
+                    </p>
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+        </div>
+        <DialogFooter>
+          <button onClick={() => setIsOpen(false)}>Cancel</button>
+          <button
+            onClick={() => sendMutation.mutate({ brand_id: brandId, email, role })}
+            disabled={sendMutation.isLoading || !email}
+            className="btn-primary"
+          >
+            {sendMutation.isLoading ? 'Sending...' : 'Send Invitation'}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+## Response Examples
+
+### Successful Invitation
+
+```json
+{
+  "results": [
+    {
+      "email": "designer@example.com",
+      "role": "member",
+      "brand": {
+        "id": "brand-123",
+        "name": "EcoWear Apparel"
+      },
+      "tokenHash": "abc123...",
+      "isExistingUser": false
+    }
+  ],
+  "skippedInvites": []
+}
+```
+
+### Already a Member
+
+```json
+{
+  "results": [],
+  "skippedInvites": [
+    {
+      "email": "existing@example.com",
+      "reason": "already_member"
+    }
+  ]
+}
+```
+
+### Already Invited
+
+```json
+{
+  "results": [],
+  "skippedInvites": [
+    {
+      "email": "pending@example.com",
+      "reason": "already_invited"
+    }
+  ]
+}
+```
+
+## How It Works
+
+1. **Verify Ownership**: Checks that the authenticated user is an owner of the brand
+2. **Validate Brand Match**: Ensures the requested brand ID matches the user's active brand
+3. **Check Existing Members**: Queries `brand_members` table for users already in the brand
+4. **Check Pending Invites**: Queries `brand_invites` table for pending invitations
+5. **Filter Duplicates**: Skips emails that are already members or have pending invites
+6. **Create Invitation**: Inserts record into `brand_invites` table
+7. **Generate Token**: Creates SHA-256 hash of a random 32-byte token for magic link
+8. **Set Expiration**: Sets expiration to 7 days from now
+9. **Trigger Email**: Sends invitation email via Trigger.dev workflow
+10. **Return Results**: Returns created invitations and skipped emails
+
+### Email Content
+
+The invitation email includes:
+- Brand name
+- Role being offered (owner or member)
+- Accept button with magic link (for new users) or login link (for existing users)
+- Invitation sender's name/email
+
+### Expiration
+
+All invitations expire **7 days** after creation. Expired invitations cannot be accepted.
+
+### Token Security
+
+- Token is a random 32-byte hex string (64 characters)
+- SHA-256 hash is stored in the database
+- Original token is included in the email link only
+- Tokens are single-use and deleted after acceptance
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+```typescript
+try {
+  await trpc.workflow.invites.send.mutate({
+    brand_id: 'brand-123',
+    email: 'user@example.com'
+  })
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### FORBIDDEN (403)
+
+User is not an owner of the brand. Only owners can send invitations.
+
+```typescript
+try {
+  await trpc.workflow.invites.send.mutate({
+    brand_id: 'brand-123',
+    email: 'user@example.com'
+  })
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    toast.error('Only brand owners can send invitations')
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Brand ID doesn't match active brand, invalid email format, or invalid role.
+
+```typescript
+try {
+  await trpc.workflow.invites.send.mutate({
+    brand_id: 'brand-456',
+    email: 'invalid-email'
+  })
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error or email delivery failure.
+
+```typescript
+try {
+  await trpc.workflow.invites.send.mutate({
+    brand_id: 'brand-123',
+    email: 'user@example.com'
+  })
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to send invitation:', error.message)
+    toast.error('An error occurred while sending the invitation')
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Owner Only**: Only users with the "owner" role can send invitations. Members cannot invite others to the brand.
+</Callout>
+
+<Callout type="info">
+**7-Day Expiration**: Invitations expire 7 days after creation. Recipients must accept within this timeframe.
+</Callout>
+
+<Callout type="info">
+**Duplicate Prevention**: The endpoint automatically skips emails that are already members or have pending invitations. Check the `skippedInvites` array in the response to handle these cases.
+</Callout>
+
+<Callout type="info">
+**Email Delivery**: Invitation emails are sent asynchronously via Trigger.dev. If email delivery fails, the invitation record still exists and users can accept it via the app UI.
+</Callout>
+
+<Callout type="warning">
+**Case-Insensitive Emails**: Email matching is case-insensitive. "User@Example.Com" and "user@example.com" are treated as the same email address.
+</Callout>
+
+<Callout type="info">
+**Existing vs New Users**: The system detects whether the email belongs to an existing user account. Existing users receive a "view invitations" link while new users receive a magic link to sign up and accept.
+</Callout>
+
+<Callout type="info">
+**Active Brand Match**: The `brand_id` parameter must match the user's currently active brand. Switch brands first using [`workflow.setActive`](/workflow/setActive) if needed.
+</Callout>
+
+<Callout type="warning">
+**Role Defaults to Member**: If you don't specify a role, it defaults to "member". Be explicit when inviting owners.
+</Callout>
+
+## Related Endpoints
+
+- [workflow.invites.list](/workflow/invites/list) - View pending invitations sent by the brand
+- [workflow.invites.respond](/workflow/invites/respond) - Accept, decline, or revoke invitations
+- [user.invites.list](/user/invites/list) - View invitations received by a user
+- [workflow.members.list](/workflow/members/list) - View current team members
+- [composite.membersWithInvites](/composite/membersWithInvites) - Get members + invites in one call

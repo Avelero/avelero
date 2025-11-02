@@ -1,0 +1,53 @@
+---
+title: passports.templates.create
+description: Create a new passport template
+---
+
+import { Callout } from 'nextra/components'
+
+# passports.templates.create
+
+Documentation for passports.templates.create endpoint.
+
+## Endpoint
+
+`passports.templates.create` (Mutation)
+
+## Purpose
+
+Create a new passport template
+
+## Input Parameters
+
+None. Uses authenticated user context from session.
+
+## Return Value
+
+```typescript
+// Return type definition
+{ success: boolean }
+```
+
+## Examples
+
+```typescript
+const result = await trpc.passports.templates.create.mutate({})
+    ```
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Handling
+
+- `UNAUTHORIZED`: User is not authenticated
+- `BAD_REQUEST`: Invalid parameters
+- `INTERNAL_SERVER_ERROR`: Server error
+
+
+
+

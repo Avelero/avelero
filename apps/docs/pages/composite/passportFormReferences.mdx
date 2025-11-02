@@ -1,0 +1,53 @@
+---
+title: composite.passportFormReferences
+description: All reference data needed for passport forms
+---
+
+import { Callout } from 'nextra/components'
+
+# composite.passportFormReferences
+
+Documentation for composite.passportFormReferences endpoint.
+
+## Endpoint
+
+`composite.passportFormReferences` (Query)
+
+## Purpose
+
+All reference data needed for passport forms
+
+## Input Parameters
+
+None. Uses authenticated user context from session.
+
+## Return Value
+
+```typescript
+// Return type definition
+{ success: boolean }
+```
+
+## Examples
+
+```typescript
+const result = await trpc.composite.passportFormReferences.query({})
+    ```
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Handling
+
+- `UNAUTHORIZED`: User is not authenticated
+- `BAD_REQUEST`: Invalid parameters
+- `INTERNAL_SERVER_ERROR`: Server error
+
+
+
+

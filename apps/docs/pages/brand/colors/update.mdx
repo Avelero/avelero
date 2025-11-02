@@ -1,0 +1,246 @@
+---
+title: brand.colors.update
+description: Update a color name in the brand catalog
+---
+
+import { Callout } from 'nextra/components'
+
+# brand.colors.update
+
+Updates an existing color's name in the brand's catalog.
+
+## Endpoint
+
+`brand.colors.update` (Mutation)
+
+## Why This Endpoint Exists
+
+Brands need to:
+- **Fix typos** in color names
+- **Standardize naming** across the catalog
+- **Rename colors** as branding evolves
+- **Update color names** without losing product references
+
+## Input Parameters
+
+```typescript
+interface BrandColorUpdateInput {
+  id: string                          // Color UUID (required)
+  name: string                        // New color name (required, min 2 chars)
+}
+```
+
+**Required Fields:**
+- `id`: The color's UUID
+- `name`: New color name
+
+## Return Value
+
+```typescript
+interface UpdateResponse {
+  data: {
+    id: string                        // The updated color's UUID
+  }
+}
+
+type ReturnValue = UpdateResponse
+```
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const { data } = await trpc.brand.colors.update.mutate({
+  id: 'color-123',
+  name: 'Midnight Blue'
+})
+
+console.log(`Updated color: ${data.id}`)
+```
+
+### React Component - Edit Color
+
+```tsx
+function EditColorDialog({ color }: { color: BrandColor }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [name, setName] = useState(color.name)
+  const utils = trpc.useContext()
+
+  const updateMutation = trpc.brand.colors.update.useMutation({
+    onSuccess: () => {
+      toast.success('Color updated')
+      setIsOpen(false)
+      utils.brand.colors.list.invalidate()
+    },
+    onError: (error) => {
+      if (error.data?.code === 'NOT_FOUND') {
+        toast.error('Color not found')
+      } else {
+        toast.error(error.message)
+      }
+    }
+  })
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button className="btn-sm">Edit</button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Color</DialogTitle>
+        </DialogHeader>
+        <div>
+          <label>Color Name</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="input"
+          />
+        </div>
+        <DialogFooter>
+          <button onClick={() => setIsOpen(false)}>Cancel</button>
+          <button
+            onClick={() => updateMutation.mutate({ id: color.id, name })}
+            disabled={updateMutation.isLoading || !name}
+            className="btn-primary"
+          >
+            {updateMutation.isLoading ? 'Saving...' : 'Save'}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+### Inline Edit
+
+```tsx
+function ColorRow({ color }: { color: BrandColor }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(color.name)
+  const utils = trpc.useContext()
+
+  const updateMutation = trpc.brand.colors.update.useMutation({
+    onSuccess: () => {
+      setEditing(false)
+      utils.brand.colors.list.invalidate()
+    }
+  })
+
+  if (editing) {
+    return (
+      <tr>
+        <td>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => {
+              if (name !== color.name) {
+                updateMutation.mutate({ id: color.id, name })
+              } else {
+                setEditing(false)
+              }
+            }}
+            autoFocus
+          />
+        </td>
+        <td>
+          <button onClick={() => setEditing(false)}>Cancel</button>
+        </td>
+      </tr>
+    )
+  }
+
+  return (
+    <tr>
+      <td>{color.name}</td>
+      <td>
+        <button onClick={() => setEditing(true)}>Edit</button>
+      </td>
+    </tr>
+  )
+}
+```
+
+## Response Example
+
+```json
+{
+  "data": {
+    "id": "color-550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+
+## How It Works
+
+1. **Validate Input**: Ensures ID and name are provided, name meets minimum length
+2. **Get Active Brand**: Uses authenticated user's active brand from session
+3. **Update Color**: Updates the color name in `brand_colors` table
+4. **Check Existence**: Throws 404 if color doesn't exist or doesn't belong to the brand
+5. **Return ID**: Returns the color's UUID
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+### FORBIDDEN (403)
+
+User is not a member of any brand.
+
+### BAD_REQUEST (400)
+
+Invalid input (name too short, missing fields).
+
+```typescript
+try {
+  await trpc.brand.colors.update.mutate({ id: 'color-123', name: 'N' })
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)
+  }
+}
+```
+
+### NOT_FOUND (404)
+
+Color doesn't exist or doesn't belong to the brand.
+
+```typescript
+try {
+  await trpc.brand.colors.update.mutate({ id: 'color-999', name: 'Navy' })
+} catch (error) {
+  if (error.data?.code === 'NOT_FOUND') {
+    toast.error('Color not found')
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during update.
+
+## Notes
+
+<Callout type="info">
+**Both Roles Can Update**: Both brand owners and members can update colors.
+</Callout>
+
+<Callout type="warning">
+**Product References Unaffected**: Updating a color name does not affect products that reference this color. They will automatically show the new name.
+</Callout>
+
+<Callout type="info">
+**404 for Non-Existent Colors**: If the color doesn't exist or belongs to another brand, a 404 error is returned.
+</Callout>
+
+## Related Endpoints
+
+- [brand.colors.list](/brand/colors/list) - View all colors
+- [brand.colors.create](/brand/colors/create) - Add a new color
+- [brand.colors.delete](/brand/colors/delete) - Remove a color

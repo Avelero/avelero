@@ -1,0 +1,53 @@
+---
+title: products.variants.list
+description: List variants for a product
+---
+
+import { Callout } from 'nextra/components'
+
+# products.variants.list
+
+Documentation for products.variants.list endpoint.
+
+## Endpoint
+
+`products.variants.list` (Query)
+
+## Purpose
+
+List variants for a product
+
+## Input Parameters
+
+None. Uses authenticated user context from session.
+
+## Return Value
+
+```typescript
+// Return type definition
+{ success: boolean }
+```
+
+## Examples
+
+```typescript
+const result = await trpc.products.variants.list.query({})
+    ```
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Handling
+
+- `UNAUTHORIZED`: User is not authenticated
+- `BAD_REQUEST`: Invalid parameters
+- `INTERNAL_SERVER_ERROR`: Server error
+
+
+
+

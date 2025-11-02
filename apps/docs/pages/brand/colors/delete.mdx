@@ -1,0 +1,227 @@
+---
+title: brand.colors.delete
+description: Remove a color from the brand catalog
+---
+
+import { Callout } from 'nextra/components'
+
+# brand.colors.delete
+
+Removes a color from the brand's catalog permanently.
+
+## Endpoint
+
+`brand.colors.delete` (Mutation)
+
+## Why This Endpoint Exists
+
+Brands need to:
+- **Remove unused colors** from the catalog
+- **Clean up duplicates** or incorrectly named colors
+- **Maintain a focused catalog** of actively used colors
+- **Delete test data** during setup
+
+## Input Parameters
+
+```typescript
+interface BrandColorDeleteInput {
+  id: string                          // Color UUID (required)
+}
+```
+
+**Required Fields:**
+- `id`: The color's UUID
+
+## Return Value
+
+```typescript
+interface DeleteResponse {
+  data: {
+    id: string                        // The deleted color's UUID
+  }
+}
+
+type ReturnValue = DeleteResponse
+```
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const { data } = await trpc.brand.colors.delete.mutate({
+  id: 'color-123'
+})
+
+console.log(`Deleted color: ${data.id}`)
+```
+
+### React Component - Delete Button
+
+```tsx
+function DeleteColorButton({ colorId, colorName }: {
+  colorId: string
+  colorName: string
+}) {
+  const utils = trpc.useContext()
+
+  const deleteMutation = trpc.brand.colors.delete.useMutation({
+    onSuccess: () => {
+      toast.success(`Color "${colorName}" deleted`)
+      utils.brand.colors.list.invalidate()
+    },
+    onError: (error) => {
+      if (error.data?.code === 'NOT_FOUND') {
+        toast.error('Color not found')
+      } else {
+        toast.error(error.message)
+      }
+    }
+  })
+
+  const handleDelete = () => {
+    if (window.confirm(`Delete color "${colorName}"?`)) {
+      deleteMutation.mutate({ id: colorId })
+    }
+  }
+
+  return (
+    <button
+      onClick={handleDelete}
+      disabled={deleteMutation.isLoading}
+      className="btn-danger btn-sm"
+    >
+      {deleteMutation.isLoading ? 'Deleting...' : 'Delete'}
+    </button>
+  )
+}
+```
+
+### Bulk Delete Colors
+
+```typescript
+const colorsToDelete = ['color-123', 'color-456', 'color-789']
+
+for (const id of colorsToDelete) {
+  await trpc.brand.colors.delete.mutate({ id })
+}
+
+console.log(`Deleted ${colorsToDelete.length} colors`)
+```
+
+### Delete with Confirmation Dialog
+
+```tsx
+function DeleteColorDialog({ color }: { color: BrandColor }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const utils = trpc.useContext()
+
+  const deleteMutation = trpc.brand.colors.delete.useMutation({
+    onSuccess: () => {
+      toast.success('Color deleted')
+      setIsOpen(false)
+      utils.brand.colors.list.invalidate()
+    }
+  })
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button className="btn-danger btn-sm">Delete</button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Color?</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete "{color.name}"? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <button onClick={() => setIsOpen(false)}>Cancel</button>
+          <button
+            onClick={() => deleteMutation.mutate({ id: color.id })}
+            disabled={deleteMutation.isLoading}
+            className="btn-danger"
+          >
+            {deleteMutation.isLoading ? 'Deleting...' : 'Delete'}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+## Response Example
+
+```json
+{
+  "data": {
+    "id": "color-550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+
+## How It Works
+
+1. **Validate Input**: Ensures ID is provided
+2. **Get Active Brand**: Uses authenticated user's active brand from session
+3. **Delete Color**: Removes the color from `brand_colors` table
+4. **Check Existence**: Throws 404 if color doesn't exist or doesn't belong to the brand
+5. **Return ID**: Returns the deleted color's UUID
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+### FORBIDDEN (403)
+
+User is not a member of any brand.
+
+### BAD_REQUEST (400)
+
+Invalid ID format.
+
+### NOT_FOUND (404)
+
+Color doesn't exist or doesn't belong to the brand.
+
+```typescript
+try {
+  await trpc.brand.colors.delete.mutate({ id: 'color-999' })
+} catch (error) {
+  if (error.data?.code === 'NOT_FOUND') {
+    toast.error('Color not found')
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during deletion.
+
+## Notes
+
+<Callout type="warning">
+**Permanent Deletion**: This operation is irreversible. Deleted colors cannot be recovered.
+</Callout>
+
+<Callout type="info">
+**Both Roles Can Delete**: Both brand owners and members can delete colors.
+</Callout>
+
+<Callout type="warning">
+**Product References**: If products reference this color, they may have broken references after deletion. Ensure the color is not in use before deleting.
+</Callout>
+
+<Callout type="info">
+**404 for Non-Existent Colors**: If the color doesn't exist or belongs to another brand, a 404 error is returned.
+</Callout>
+
+## Related Endpoints
+
+- [brand.colors.list](/brand/colors/list) - View all colors
+- [brand.colors.create](/brand/colors/create) - Add a new color
+- [brand.colors.update](/brand/colors/update) - Update a color name

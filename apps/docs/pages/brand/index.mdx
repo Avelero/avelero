@@ -1,0 +1,151 @@
+# Brand API
+
+The Brand API manages brand catalog resources including colors, sizes, materials, and categories. These are reusable catalog items that products reference.
+
+## What This Domain Handles
+
+The Brand API is responsible for:
+- **Color Management**: Brand-specific color palette for products
+- **Size Management**: Size charts and size definitions
+- **Material Management**: Available materials for product composition
+- **Category Management**: Product categorization taxonomy
+- **Catalog Reusability**: Shared references across all products in a brand
+
+## Architecture
+
+The Brand API provides catalog tables that products reference. This prevents duplication and ensures consistency:
+
+```
+Brand
+  ├── Colors (brand_colors)
+  ├── Sizes (brand_sizes)
+  ├── Materials (brand_materials)
+  └── Categories (brand_categories)
+
+Product references these catalog items:
+  - Variants reference colors and sizes
+  - Product materials reference brand_materials
+  - Products reference categories
+```
+
+### Why Separate from Products?
+
+Catalog items are:
+- **Reusable**: One color definition used by many products
+- **Consistent**: All products use the same "Navy Blue" definition
+- **Manageable**: Update color hex code once, affects all products
+- **Filterable**: Query all products with a specific color or material
+
+## Endpoints
+
+### Color Catalog
+
+- [**brand.colors.list**](/brand/colors/list) - List brand colors
+  - All colors defined for the brand
+  - Includes color name, hex code, pantone
+  - Used for variant color selection
+
+- [**brand.colors.create**](/brand/colors/create) - Create brand color
+  - Define new color in brand palette
+  - Requires name and hex code
+  - Optional pantone and description
+
+- [**brand.colors.update**](/brand/colors/update) - Update color definition
+  - Change color properties
+  - Updates affect all products using this color
+
+- [**brand.colors.delete**](/brand/colors/delete) - Delete color
+  - Remove color from catalog
+  - Fails if color is referenced by variants
+
+### Size Catalog
+
+(Similar CRUD operations for sizes)
+
+### Material Catalog
+
+(Similar CRUD operations for materials)
+
+### Category Catalog
+
+(Similar CRUD operations for categories)
+
+## Common Patterns
+
+### Initialize Brand Catalog
+
+```typescript
+// After creating a brand, populate catalog
+const brand = await trpc.workflow.create.mutate({ name: 'My Brand' })
+
+// Add colors
+await trpc.brand.colors.create.mutate({ name: 'Navy', hex: '#000080' })
+await trpc.brand.colors.create.mutate({ name: 'White', hex: '#FFFFFF' })
+
+// Add sizes
+await trpc.brand.sizes.create.mutate({ name: 'S', sort_order: 1 })
+await trpc.brand.sizes.create.mutate({ name: 'M', sort_order: 2 })
+await trpc.brand.sizes.create.mutate({ name: 'L', sort_order: 3 })
+
+// Add materials
+await trpc.brand.materials.create.mutate({ name: 'Organic Cotton' })
+await trpc.brand.materials.create.mutate({ name: 'Recycled Polyester' })
+```
+
+### Populate Dropdowns
+
+```typescript
+// Color selector
+const colors = await trpc.brand.colors.list.query()
+<select>
+  {colors.map(color => (
+    <option key={color.id} value={color.id}>
+      {color.name} ({color.hex})
+    </option>
+  ))}
+</select>
+```
+
+### Referential Integrity
+
+```typescript
+// Create product variant with catalog references
+await trpc.products.variants.upsert.mutate({
+  product_id: 'product-id',
+  variants: [{
+    color_id: 'color-navy',    // References brand_colors
+    size_id: 'size-m',          // References brand_sizes
+    upid: '12345678'
+  }]
+})
+```
+
+## Related Domains
+
+- [**Products API**](/products) - Products and variants reference brand catalog
+- [**Workflow API**](/workflow) - Catalog items are scoped to brands
+- [**Bulk API**](/bulk) - Bulk operations can update catalog items
+
+## Design Philosophy
+
+### Why Not Free-Form Text?
+
+Using catalog references instead of free-form text provides:
+- **Consistency**: "Navy Blue" vs "navy" vs "Navy blue" all become one catalog item
+- **Filterability**: Query all products with specific color/size/material
+- **Updatability**: Change color hex code once, updates everywhere
+- **Validation**: Can't reference a color that doesn't exist
+
+### Catalog-First Approach
+
+Always create catalog items before products:
+1. Define brand colors, sizes, materials
+2. Create products that reference these items
+3. Update catalog items to affect all referencing products
+
+## Security Notes
+
+- All endpoints require authentication
+- Catalog items are scoped to the user's active brand
+- Users can only manage catalog for brands they're members of
+- Deletion fails if catalog item is referenced by products (referential integrity)

@@ -1,0 +1,101 @@
+# User API
+
+The User API manages user profiles, account operations, and invitation inbox. This domain handles everything related to the authenticated user's personal data and account lifecycle.
+
+## What This Domain Handles
+
+The User API is responsible for:
+- **Profile Management**: Retrieving and updating user profile information (name, email, avatar)
+- **Account Deletion**: Complete account removal with GDPR compliance
+- **Invitation Inbox**: Viewing pending brand invitations sent to the user's email
+- **Auth Sync**: Synchronizing email changes with Supabase Auth
+
+## Architecture
+
+User data exists in two places:
+1. **Supabase Auth**: Primary source of truth for authentication credentials (email, password)
+2. **Application Database**: Extended profile data (full_name, avatar_url, brand_id)
+
+The User API maintains consistency between these systems, especially during email changes.
+
+## Endpoints
+
+### Profile Operations
+
+- [**user.get**](/user/get) - Retrieve authenticated user's profile
+  - Returns user profile or null if not created yet
+  - Used for profile display, brand context, and onboarding checks
+  - No parameters, uses session context
+
+- [**user.update**](/user/update) - Update user profile fields
+  - Update display name, avatar URL, or email address
+  - Email changes trigger verification flow and sync with Supabase Auth
+  - Supports nullable fields for explicit clearing
+
+- [**user.delete**](/user/delete) - Permanently delete user account
+  - Removes profile data, storage assets, and auth credentials
+  - Cascades to related records (brand memberships, etc.)
+  - Immediately revokes all sessions
+
+### Invitations
+
+- [**user.invites.list**](/user/invites/list) - List pending brand invitations
+  - Shows invites sent to the user's email address
+  - Independent of active brand context
+  - Only shows non-expired invitations
+
+## Common Patterns
+
+### Profile Completion Check
+
+Users may authenticate but not have completed their profile:
+
+```typescript
+const user = await trpc.user.get.query()
+
+if (!user) {
+  // User authenticated but hasn't created profile
+  router.push('/onboarding/create-profile')
+} else if (!user.full_name || !user.avatar_url) {
+  // Profile incomplete
+  router.push('/onboarding/complete-profile')
+}
+```
+
+### Email Changes Require Verification
+
+```typescript
+// Update email
+await trpc.user.update.mutate({ email: 'new@example.com' })
+
+// Supabase sends verification email to new address
+// User must click link to verify
+// Application DB is updated immediately
+// Auth system updates after verification
+```
+
+### Nullable vs Undefined
+
+The update endpoint distinguishes between clearing a field and leaving it unchanged:
+
+```typescript
+// Clear avatar (set to null)
+trpc.user.update.mutate({ avatar_url: null })
+
+// Leave avatar unchanged
+trpc.user.update.mutate({ full_name: 'New Name' })
+```
+
+## Related Domains
+
+- [**Workflow API**](/workflow) - Brand memberships (user.brand_id references workflow brands)
+- [**Composite API**](/composite) - `composite.workflowInit` combines user + brands + invites
+- **Authentication** - Supabase Auth manages sessions, User API manages profiles
+
+## Security Notes
+
+- All endpoints require authentication (protected procedures)
+- Users can only access their own profile data
+- Email changes validate uniqueness before updating
+- Account deletion requires Supabase admin client for complete removal
+- Session revocation is immediate on account deletion

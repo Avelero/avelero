@@ -1,0 +1,90 @@
+# Avelero API Documentation
+
+Internal documentation for the Avelero tRPC API. This documentation is designed to help team members understand the API architecture, endpoint purposes, and implementation details.
+
+## API Overview
+
+The Avelero API is built with tRPC and Hono, providing type-safe endpoints for the entire platform. The API was restructured to reduce complexity and improve performance.
+
+### Key Statistics
+
+- **Total Endpoints**: 32 endpoints
+- **API Domains**: 7 main domains
+- **Architecture**: tRPC with Hono server
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth (session-based)
+
+## API Domains
+
+### [User API](/user)
+User profile management and invitations. Handles user authentication context, profile updates, and account management.
+
+### [Workflow API](/workflow)
+Brand lifecycle and team management. Manages brand creation, membership, invitations, and permissions.
+
+### [Brand API](/brand)
+Brand catalog management. Handles colors, sizes, materials, facilities, certifications, and other brand-specific catalog items.
+
+### [Products API](/products)
+Product and variant management. Creates and manages products with their variants and attributes.
+
+### [Passports API](/passports)
+Digital product passports. Manages passport templates and instances with all required product information.
+
+### [Bulk Operations](/bulk)
+Batch operations for multiple items. Handles import and bulk updates across different domains.
+
+### [Composite Endpoints](/composite)
+Performance-optimized endpoints that combine multiple queries. Reduces network overhead for common multi-query scenarios.
+
+## Architecture Principles
+
+### Type Safety
+All endpoints use Zod schemas for input validation and TypeScript for type safety across client and server.
+
+### Protected Procedures
+Every endpoint requires authentication. All procedures use `protectedProcedure` which validates session tokens.
+
+### Performance
+- Composite endpoints combine multiple queries
+- Include options prevent N+1 query problems
+- Database queries are optimized with proper indexing
+
+### Security
+- Row-level security (RLS) on all database tables
+- Role-based access control (owner/admin/member)
+- Brand-scoped data access
+- Rate limiting per user and IP
+
+## Key Concepts
+
+### Sessions
+Authentication uses Supabase Auth sessions stored in httpOnly cookies. Sessions last 7 days and auto-refresh.
+
+### Brand Context
+Most endpoints require a brand context. Users can only access brands they're members of.
+
+### Roles
+- **Owner**: Full brand access, can delete brand (if not sole owner)
+- **Admin**: Manage team, products, and passports
+- **Member**: View and edit products
+
+### Error Handling
+All errors follow tRPC error format with standardized error codes (UNAUTHORIZED, FORBIDDEN, BAD_REQUEST, NOT_FOUND, etc.).
+
+## Documentation Structure
+
+- **Authentication**: How session-based auth works
+- **Error Handling**: Error codes and handling patterns
+- **Performance**: Optimization strategies and composite endpoints
+- **API Domains**: Detailed endpoint documentation per domain
+
+## For Interns
+
+This documentation explains:
+- What each endpoint does and why it exists
+- How data flows through the system
+- Common patterns and best practices
+- Error scenarios and handling
+
+Start with the [Authentication](/authentication) guide to understand how the API authenticates requests, then explore individual API domains based on what you're working on.

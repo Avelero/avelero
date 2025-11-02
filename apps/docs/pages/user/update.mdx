@@ -1,0 +1,264 @@
+---
+title: user.update
+description: Update authenticated user's profile information
+---
+
+import { Callout } from 'nextra/components'
+
+# user.update
+
+Updates the authenticated user's profile fields including display name, avatar URL, and email address.
+
+## Endpoint
+
+`user.update` (Mutation)
+
+## Why This Endpoint Exists
+
+Users need to update their profile information throughout the application lifecycle:
+- **Profile completion**: Set display name and avatar during onboarding
+- **Email changes**: Update email address with proper validation and verification
+- **Profile maintenance**: Update avatar or name as needed
+- **Data consistency**: Synchronize email changes between Supabase Auth and application database
+
+The endpoint handles email changes specially because they require:
+1. Format validation
+2. Uniqueness check against existing users
+3. Synchronization with Supabase Auth (primary source of truth)
+4. Email verification flow for the new address
+5. Rollback handling if sync fails
+
+## Input Parameters
+
+```typescript
+interface UserUpdateInput {
+  email?: string                 // New email address (triggers verification)
+  full_name?: string | null      // Display name (null to clear)
+  avatar_url?: string | null     // Avatar image URL (null to clear)
+}
+```
+
+All fields are optional. Pass `null` to explicitly clear a field.
+
+## Return Value
+
+```typescript
+interface UserProfile {
+  id: string
+  email: string
+  full_name: string | null
+  avatar_url: string | null
+  brand_id: string | null
+}
+
+type ReturnValue = UserProfile | null
+```
+
+Returns the updated user profile, or `null` if user not found.
+
+## Examples
+
+### Update Display Name
+
+```typescript
+const updated = await trpc.user.update.mutate({
+  full_name: 'Jane Smith'
+})
+
+console.log(updated.full_name)  // "Jane Smith"
+```
+
+### Update Avatar
+
+```typescript
+const updated = await trpc.user.update.mutate({
+  avatar_url: 'https://storage.example.com/avatars/user.jpg'
+})
+```
+
+### Change Email Address
+
+```typescript
+// Triggers verification email to new address
+const updated = await trpc.user.update.mutate({
+  email: 'newemail@example.com'
+})
+
+// User must verify new email before it's fully active
+```
+
+### Clear Avatar
+
+```typescript
+const updated = await trpc.user.update.mutate({
+  avatar_url: null  // Explicitly clear the avatar
+})
+
+console.log(updated.avatar_url)  // null
+```
+
+### Update Multiple Fields
+
+```typescript
+const updated = await trpc.user.update.mutate({
+  full_name: 'Jane Doe',
+  avatar_url: 'https://example.com/avatar.jpg'
+})
+```
+
+### React Form Component
+
+```tsx
+function ProfileSettingsForm() {
+  const { data: user } = trpc.user.get.useQuery()
+  const utils = trpc.useContext()
+
+  const updateMutation = trpc.user.update.useMutation({
+    onSuccess: () => {
+      utils.user.get.invalidate()  // Refresh user profile
+      toast.success('Profile updated')
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    }
+  })
+
+  const handleSubmit = (data: { full_name: string; avatar_url: string }) => {
+    updateMutation.mutate(data)
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        defaultValue={user?.full_name || ''}
+        placeholder="Full Name"
+      />
+      <input
+        defaultValue={user?.avatar_url || ''}
+        placeholder="Avatar URL"
+      />
+      <button type="submit">Save Changes</button>
+    </form>
+  )
+}
+```
+
+## Response Example
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "email": "jane@example.com",
+  "full_name": "Jane Smith",
+  "avatar_url": "https://storage.example.com/avatars/jane.jpg",
+  "brand_id": "brand-123"
+}
+```
+
+## How It Works
+
+### Email Update Flow
+
+1. **Validate Format**: Checks email format and trimming/lowercasing
+2. **Check Uniqueness**: Queries database to ensure email isn't already taken
+3. **Update Supabase Auth**: Updates email in authentication system (primary source of truth)
+4. **Send Verification Email**: Supabase automatically sends verification email to new address
+5. **Update App Database**: Updates application database after auth update succeeds
+6. **Error Handling**: If DB update fails after auth update, logs critical error
+
+### Other Fields
+
+1. **Direct Update**: Updates `full_name` and `avatar_url` directly in application database
+2. **Nullable Fields**: Pass `null` to explicitly clear a field
+3. **No-Op Check**: If no changes provided, returns current profile without database query
+
+## Performance Notes
+
+- Profile updates without email change: 50-100ms
+- Email changes: 200-400ms (includes Supabase Auth sync)
+- Email verification is asynchronous (user receives email after response)
+- No-op updates (no fields changed) return immediately
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+Session expired or user not authenticated.
+
+```typescript
+try {
+  await trpc.user.update.mutate({ full_name: 'Jane' })
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Invalid input or email already taken.
+
+```typescript
+try {
+  await trpc.user.update.mutate({ email: 'taken@example.com' })
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)
+    // Possible messages:
+    // - "Invalid email format"
+    // - "Email address is already in use by another account"
+    // - "Full name cannot be empty"
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Supabase Auth sync failure or database error.
+
+```typescript
+try {
+  await trpc.user.update.mutate({ email: 'new@example.com' })
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error(error.message)
+    // Possible messages:
+    // - "Failed to update email in authentication system: ..."
+    // - "Email was updated in authentication system but profile sync failed. Please contact support."
+    // - "Email changes require admin privileges. Please contact support."
+  }
+}
+```
+
+## Notes
+
+<Callout type="warning">
+**Email Verification Required**: When changing email, Supabase sends a verification email to the new address. The user must click the verification link before the new email is fully active in the authentication system. The application database is updated immediately, but the user's session may not reflect the new email until verification.
+</Callout>
+
+<Callout type="info">
+**Nullable Fields**: To clear a field, pass `null` explicitly. Omitting a field leaves it unchanged.
+
+```typescript
+// Clear avatar
+trpc.user.update.mutate({ avatar_url: null })
+
+// Leave avatar unchanged
+trpc.user.update.mutate({ full_name: 'New Name' })
+```
+</Callout>
+
+<Callout type="warning">
+**Critical Error Handling**: If email update succeeds in Supabase Auth but fails in the application database, this creates data inconsistency. The endpoint logs a CRITICAL error with details for manual intervention. If you encounter this error, contact support immediately.
+</Callout>
+
+<Callout type="info">
+**Admin Client Required**: Email changes require the Supabase admin client to be configured. If you encounter "Email changes require admin privileges" error, the server configuration is missing the admin client.
+</Callout>
+
+## Related Endpoints
+
+- [user.get](/user/get) - Get current user profile
+- [user.delete](/user/delete) - Delete user account
+- [composite.workflowInit](/composite/workflowInit) - Get user + brands together

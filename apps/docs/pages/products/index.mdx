@@ -1,0 +1,195 @@
+# Products API
+
+The Products API manages the product catalog including products, variants, and product attributes. It handles product lifecycle, variant management, and batch operations for efficiency.
+
+## What This Domain Handles
+
+The Products API is responsible for:
+- **Product Management**: Creating, reading, updating, and deleting products
+- **Variant Management**: Managing product variations (color, size, SKU combinations)
+- **Product Attributes**: Materials, care codes, eco claims, environmental data, journey steps
+- **Catalog Querying**: Filtering, searching, and paginating product catalogs
+- **Performance Optimization**: Eager loading to prevent N+1 query problems
+
+## Architecture
+
+Products are scoped to brands and support a flexible attribute system:
+
+- **Product**: Base product with core fields (name, description, category, season, images)
+- **Variant**: Specific SKU representing a color/size combination of a product
+- **Attributes**: Optional product properties stored in separate tables:
+  - **Materials**: Composition breakdown (e.g., 80% cotton, 20% polyester)
+  - **Care Codes**: Washing/care instructions
+  - **Eco Claims**: Environmental certifications and claims
+  - **Environment**: Carbon footprint and water usage metrics
+  - **Journey Steps**: Manufacturing journey from raw material to finished product
+
+### Data Model
+
+```
+Product (1) ──< (N) Variant
+   │
+   ├── Materials (product_materials)
+   ├── Care Codes (product_care_codes)
+   ├── Eco Claims (product_eco_claims)
+   ├── Environment (product_environment)
+   └── Journey Steps (product_journey_steps)
+```
+
+## Endpoints
+
+### Product CRUD
+
+- [**products.list**](/products/list) - List products with filtering and pagination
+  - Cursor-based pagination for large catalogs
+  - Filter by category, season, search term
+  - Field selection to reduce payload size
+  - Optional eager loading of variants and attributes
+
+- [**products.get**](/products/get) - Get single product by ID
+  - Optionally include variants and attributes
+  - Prevents N+1 queries with eager loading
+
+- [**products.create**](/products/create) - Create new product
+  - Requires brand_id and product name
+  - Optional fields for description, category, season, etc.
+  - Returns created product
+
+- [**products.update**](/products/update) - Update product and attributes
+  - Update core product fields
+  - Update materials, care codes, eco claims, environment, journey steps
+  - All attribute updates are optional
+  - Each attribute update triggers module completion evaluation
+
+- [**products.delete**](/products/delete) - Delete product
+  - Cascades to variants and attributes
+  - Requires brand ownership
+
+### Variant Operations
+
+- [**products.variants.list**](/products/variants/list) - List variants for a product
+  - Returns all color/size/SKU combinations
+  - Includes variant-specific images
+
+- [**products.variants.upsert**](/products/variants/upsert) - Batch create/update variants
+  - Accepts array of variants for a product
+  - Creates new variants or updates existing ones
+  - Uses `id` or `upid` (unique product identifier) for matching
+  - Efficient batch operation to reduce round trips
+
+## Common Patterns
+
+### Prevent N+1 Queries
+
+```typescript
+// Bad: N+1 queries
+const products = await trpc.products.list.query({})
+for (const product of products.data) {
+  const variants = await trpc.products.variants.list.query({ product_id: product.id })
+}
+
+// Good: Eager loading
+const { data: products } = await trpc.products.list.query({
+  includeVariants: true,
+  includeAttributes: true
+})
+```
+
+### Field Selection for Performance
+
+```typescript
+// Only fetch what you need
+const result = await trpc.products.list.query({
+  fields: ['id', 'name', 'primary_image_url'],
+  limit: 100
+})
+```
+
+### Filtering and Searching
+
+```typescript
+// Filter by category and season
+const summer = await trpc.products.list.query({
+  filters: {
+    category_id: 'category-uuid',
+    season: 'SS25'
+  }
+})
+
+// Search by name
+const tshirts = await trpc.products.list.query({
+  filters: {
+    search: 't-shirt'
+  }
+})
+```
+
+### Pagination
+
+```typescript
+// First page
+const page1 = await trpc.products.list.query({ limit: 50 })
+
+// Next page
+if (page1.meta.hasMore) {
+  const page2 = await trpc.products.list.query({
+    cursor: page1.meta.cursor,
+    limit: 50
+  })
+}
+```
+
+### Update Product with Attributes
+
+```typescript
+await trpc.products.update.mutate({
+  id: 'product-id',
+  name: 'Updated Name',
+  materials: [
+    { brand_material_id: 'cotton-id', percentage: 80 },
+    { brand_material_id: 'polyester-id', percentage: 20 }
+  ],
+  careCodes: ['wash-30', 'tumble-dry-low'],
+  environment: {
+    carbon_kg_co2e: '5.2',
+    water_liters: '2500'
+  }
+})
+```
+
+### Batch Variant Upsert
+
+```typescript
+// Create/update multiple variants at once
+await trpc.products.variants.upsert.mutate({
+  product_id: 'product-id',
+  variants: [
+    { upid: '12345678', color_id: 'white', size_id: 'M', sku: 'TS-WHT-M' },
+    { upid: '12345679', color_id: 'black', size_id: 'M', sku: 'TS-BLK-M' },
+    { upid: '12345680', color_id: 'white', size_id: 'L', sku: 'TS-WHT-L' }
+  ]
+})
+```
+
+## Related Domains
+
+- [**Brand API**](/brand) - Brand catalog (colors, sizes, materials, categories)
+- [**Workflow API**](/workflow) - Products are scoped to brands
+- [**Passports API**](/passports) - Digital product passports linked to products
+- [**Bulk API**](/bulk) - Bulk update operations for products
+
+## Performance Notes
+
+- Default page size: 50 products
+- Maximum page size: 100 products
+- `includeVariants: true` prevents N+1 queries
+- `includeAttributes: true` eagerly loads all attribute data
+- Field selection reduces payload size significantly
+- Cursor-based pagination is more efficient than offset for large datasets
+
+## Security Notes
+
+- All endpoints require authentication
+- Products are scoped to the user's active brand
+- Optional `brand_id` parameter validates brand context
+- Users can only manage products for brands they're members of

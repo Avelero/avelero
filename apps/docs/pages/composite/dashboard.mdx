@@ -1,0 +1,53 @@
+---
+title: composite.dashboard
+description: Dashboard data with metrics and activity
+---
+
+import { Callout } from 'nextra/components'
+
+# composite.dashboard
+
+Documentation for composite.dashboard endpoint.
+
+## Endpoint
+
+`composite.dashboard` (Query)
+
+## Purpose
+
+Dashboard data with metrics and activity
+
+## Input Parameters
+
+None. Uses authenticated user context from session.
+
+## Return Value
+
+```typescript
+// Return type definition
+{ success: boolean }
+```
+
+## Examples
+
+```typescript
+const result = await trpc.composite.dashboard.query({})
+    ```
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Handling
+
+- `UNAUTHORIZED`: User is not authenticated
+- `BAD_REQUEST`: Invalid parameters
+- `INTERNAL_SERVER_ERROR`: Server error
+
+
+
+

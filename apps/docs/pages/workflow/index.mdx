@@ -1,0 +1,157 @@
+# Workflow API
+
+The Workflow API manages brand lifecycle, team collaboration, and brand memberships. It handles brand creation, member management, invitations, and brand switching.
+
+## What This Domain Handles
+
+The Workflow API is responsible for:
+- **Brand Lifecycle**: Creating, updating, and deleting brands
+- **Membership Management**: Managing team members and their roles (owner/member)
+- **Invitations**: Sending and managing brand invitations
+- **Active Brand Context**: Setting which brand the user is currently working with
+- **Permission Checks**: Determining what users can do based on their role
+
+## Architecture
+
+Brands are multi-tenant containers that scope most data in the application. Key concepts:
+
+- **Brand**: Organization/company that owns products, passports, etc.
+- **Membership**: Join table linking users to brands with roles
+- **Roles**: `owner` (full permissions) or `member` (restricted permissions)
+- **Active Brand**: The brand currently selected by the user (stored in user.brand_id)
+
+### Role-Based Permissions
+
+- **Owners**: Can update brand settings, manage members, delete brand
+- **Members**: Can view and work with brand data, but cannot manage settings
+- **Sole Owner Protection**: The last owner of a brand cannot leave (prevents orphaned brands)
+
+## Endpoints
+
+### Brand Operations
+
+- [**workflow.list**](/workflow/list) - List all brands user has access to
+  - Returns brand memberships with role and permissions
+  - Calculates `canLeave` based on owner count
+  - Used for brand switcher UI
+
+- [**workflow.create**](/workflow/create) - Create new brand
+  - User becomes the owner automatically
+  - Optionally set brand name, email, logo, country, avatar hue
+  - Returns created brand
+
+- [**workflow.update**](/workflow/update) - Update brand settings (owner only)
+  - Update name, email, logo, country code, avatar hue
+  - Requires owner role
+  - Must match active brand context
+
+- [**workflow.setActive**](/workflow/setActive) - Switch active brand
+  - Sets user.brand_id to selected brand
+  - User must be a member of the brand
+  - Affects all brand-scoped endpoints
+
+- [**workflow.delete**](/workflow/delete) - Delete brand (owner only)
+  - Removes brand and all associated data
+  - Cascades to products, passports, members, etc.
+  - Deletes brand logo files from storage
+
+### Member Management
+
+- [**workflow.members.list**](/workflow/members/list) - List brand members
+  - Shows all users with access to the brand
+  - Includes role and join date
+  - Requires brand membership
+
+- [**workflow.members.update**](/workflow/members/update) - Update member role (owner only)
+  - Change member's role between owner/member
+  - Cannot demote last owner
+  - Requires owner permissions
+
+### Invitation System
+
+- [**workflow.invites.send**](/workflow/invites/send) - Send brand invitation (owner only)
+  - Invite user by email to join brand
+  - Specify role (owner/member)
+  - Creates pending invitation
+
+- [**workflow.invites.list**](/workflow/invites/list) - List outgoing invitations
+  - Shows invitations sent from this brand
+  - Includes pending and expired invites
+  - Owner only
+
+- [**workflow.invites.respond**](/workflow/invites/respond) - Accept or reject invitation
+  - User accepts/rejects invitation to join brand
+  - Creates membership on accept
+  - Removes invitation record
+
+## Common Patterns
+
+### Brand Switcher Implementation
+
+```typescript
+const { data: brands } = trpc.workflow.list.useQuery()
+const setActiveMutation = trpc.workflow.setActive.useMutation()
+
+function switchBrand(brandId: string) {
+  setActiveMutation.mutate({ brand_id: brandId })
+  // Invalidate all queries to refetch with new brand context
+  utils.invalidate()
+}
+```
+
+### Permission-Based UI
+
+```typescript
+const { data: brands } = trpc.workflow.list.useQuery()
+const currentBrand = brands?.find(b => b.id === user.brand_id)
+
+const canManageTeam = currentBrand?.role === 'owner'
+const canDeleteBrand = currentBrand?.role === 'owner' && currentBrand.canLeave
+```
+
+### Sole Owner Protection
+
+The `canLeave` field prevents the last owner from leaving:
+
+```typescript
+interface BrandMembership {
+  id: string
+  role: 'owner' | 'member'
+  canLeave: boolean  // false if sole owner
+}
+
+// Logic:
+// - Members: always true
+// - Owners: true if other owners exist, false if sole owner
+```
+
+### Onboarding Flow
+
+```typescript
+const { brands, myInvites } = await trpc.composite.workflowInit.query()
+
+if (!brands.length && !myInvites.length) {
+  // No brands, no invites → create new brand
+  router.push('/onboarding/create-brand')
+} else if (!brands.length && myInvites.length) {
+  // No brands, has invites → accept invitation
+  router.push('/onboarding/accept-invite')
+}
+```
+
+## Related Domains
+
+- [**User API**](/user) - User profiles reference active brand (user.brand_id)
+- [**Products API**](/products) - Products are scoped to brands
+- [**Passports API**](/passports) - Passports are scoped to brands
+- [**Brand API**](/brand) - Brand catalog (colors, materials, sizes)
+- [**Composite API**](/composite) - `composite.workflowInit` combines brands + user + invites
+
+## Security Notes
+
+- All endpoints require authentication
+- Brand-scoped operations verify user membership
+- Owner-only operations check role permissions
+- Deleting a brand requires owner role
+- Last owner cannot leave brand (prevents orphaned brands)
+- Invitations validate email format and uniqueness

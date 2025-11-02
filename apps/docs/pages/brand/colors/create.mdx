@@ -1,0 +1,303 @@
+---
+title: brand.colors.create
+description: Add a new color to the brand catalog
+---
+
+import { Callout } from 'nextra/components'
+
+# brand.colors.create
+
+Adds a new color to the brand's catalog. Colors can then be referenced across products and passports.
+
+## Endpoint
+
+`brand.colors.create` (Mutation)
+
+## Why This Endpoint Exists
+
+Brands need to:
+- **Build a color catalog** for their product line
+- **Add new colors** as they expand their offerings
+- **Standardize color names** across products
+- **Reference colors** consistently in products and passports
+
+Colors are created once and reused across many products.
+
+## Input Parameters
+
+```typescript
+interface BrandColorCreateInput {
+  name: string                        // Color name (required, min 2 chars)
+}
+```
+
+**Required Fields:**
+- `name`: Color name (e.g., "Navy Blue", "Forest Green")
+
+## Return Value
+
+```typescript
+interface CreateResponse {
+  data: {
+    id: string                        // The created color's UUID
+  }
+}
+
+type ReturnValue = CreateResponse
+```
+
+Returns the ID of the newly created color.
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const { data } = await trpc.brand.colors.create.mutate({
+  name: 'Navy Blue'
+})
+
+console.log(`Created color: ${data.id}`)
+```
+
+### React Component - Add Color Form
+
+```tsx
+function AddColorForm({ onSuccess }: { onSuccess?: () => void }) {
+  const [name, setName] = useState('')
+  const utils = trpc.useContext()
+
+  const createMutation = trpc.brand.colors.create.useMutation({
+    onSuccess: () => {
+      toast.success(`Color "${name}" created`)
+      setName('')
+      utils.brand.colors.list.invalidate()
+      onSuccess?.()
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    }
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    createMutation.mutate({ name })
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label htmlFor="color-name">Color Name</label>
+      <input
+        id="color-name"
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="e.g., Navy Blue"
+        minLength={2}
+        required
+      />
+      <button
+        type="submit"
+        disabled={createMutation.isLoading}
+        className="btn-primary"
+      >
+        {createMutation.isLoading ? 'Creating...' : 'Add Color'}
+      </button>
+    </form>
+  )
+}
+```
+
+### Dialog Component
+
+```tsx
+function AddColorDialog() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [name, setName] = useState('')
+  const utils = trpc.useContext()
+
+  const createMutation = trpc.brand.colors.create.useMutation({
+    onSuccess: () => {
+      toast.success('Color added to catalog')
+      setIsOpen(false)
+      setName('')
+      utils.brand.colors.list.invalidate()
+    }
+  })
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button className="btn-primary">Add Color</button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add New Color</DialogTitle>
+          <DialogDescription>
+            Add a color to your brand catalog
+          </DialogDescription>
+        </DialogHeader>
+        <div>
+          <label>Color Name</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Navy Blue"
+            className="input"
+          />
+        </div>
+        <DialogFooter>
+          <button onClick={() => setIsOpen(false)}>Cancel</button>
+          <button
+            onClick={() => createMutation.mutate({ name })}
+            disabled={createMutation.isLoading || !name}
+            className="btn-primary"
+          >
+            {createMutation.isLoading ? 'Adding...' : 'Add Color'}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+### Bulk Create Colors
+
+```typescript
+const colorNames = ['Black', 'White', 'Navy Blue', 'Forest Green', 'Burgundy']
+
+for (const name of colorNames) {
+  await trpc.brand.colors.create.mutate({ name })
+}
+
+console.log(`Created ${colorNames.length} colors`)
+```
+
+### Check for Duplicates
+
+```typescript
+const { data: response } = await trpc.brand.colors.list.query()
+const existingColors = response?.data ?? []
+
+const colorName = 'Navy Blue'
+const exists = existingColors.some(
+  color => color.name.toLowerCase() === colorName.toLowerCase()
+)
+
+if (exists) {
+  toast.error('This color already exists')
+} else {
+  await trpc.brand.colors.create.mutate({ name: colorName })
+}
+```
+
+## Response Example
+
+```json
+{
+  "data": {
+    "id": "color-550e8400-e29b-41d4-a716-446655440000"
+  }
+}
+```
+
+## How It Works
+
+1. **Validate Input**: Ensures color name meets minimum length requirement (2 characters)
+2. **Get Active Brand**: Uses the authenticated user's active brand from session
+3. **Insert Color**: Creates a new record in `brand_colors` table
+4. **Return ID**: Returns the UUID of the newly created color
+
+### Name Constraints
+
+- Minimum 2 characters
+- No maximum length enforced at the API level (database column limit applies)
+- Case-sensitive storage (stores exactly as provided)
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+```typescript
+try {
+  await trpc.brand.colors.create.mutate({ name: 'Navy' })
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### FORBIDDEN (403)
+
+User is not a member of any brand.
+
+```typescript
+try {
+  await trpc.brand.colors.create.mutate({ name: 'Navy' })
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    router.push('/onboarding/create-brand')
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Invalid input (name too short, missing name, etc.).
+
+```typescript
+try {
+  await trpc.brand.colors.create.mutate({ name: 'N' })  // Too short
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)  // "String must contain at least 2 character(s)"
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during creation.
+
+```typescript
+try {
+  await trpc.brand.colors.create.mutate({ name: 'Navy' })
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to create color:', error.message)
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Both Roles Can Create**: Both brand owners and members can create colors. This allows all team members to add colors to the catalog as needed.
+</Callout>
+
+<Callout type="warning">
+**No Duplicate Prevention**: The API does not prevent duplicate color names. You can create multiple colors with the same name. Check for duplicates in your UI if needed.
+</Callout>
+
+<Callout type="info">
+**Case-Sensitive Storage**: Color names are stored exactly as provided. "Navy Blue" and "navy blue" are stored as different strings.
+</Callout>
+
+<Callout type="info">
+**Immediate Availability**: The created color is immediately available for use in products and passports.
+</Callout>
+
+<Callout type="info">
+**Brand-Scoped**: Colors are scoped to the brand. Other brands cannot see or use your brand's colors.
+</Callout>
+
+## Related Endpoints
+
+- [brand.colors.list](/brand/colors/list) - View all colors in the catalog
+- [brand.colors.update](/brand/colors/update) - Update an existing color name
+- [brand.colors.delete](/brand/colors/delete) - Remove a color from the catalog
+- [products.create](/products/create) - Create products that reference colors

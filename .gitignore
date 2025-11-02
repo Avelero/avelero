@@ -101,6 +101,7 @@ node_modules/
 
 # Documentation and AI context files
 docs/
+!apps/docs/
 .claude/
 claude.md
 AGENTS.md
@@ -129,3 +130,5 @@ GEMINI.md
 .cursor
 .cursorrules
 GEMINI.md
+
+

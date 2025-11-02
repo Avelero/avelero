@@ -193,6 +193,8 @@ export function CategorySelect({
             initializeCategoryNavigation();
           } else {
             resetCategoryNavigation();
+            setHoveredRow(null);
+            setHoveredArea(null);
           }
         }}
       >

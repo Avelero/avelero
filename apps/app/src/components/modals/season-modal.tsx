@@ -11,6 +11,7 @@ import {
 } from "@v1/ui/dialog";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
+import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
 interface SeasonModalProps {
@@ -52,6 +53,12 @@ export function SeasonModal({
   }, [ongoing]);
 
   const handleSave = () => {
+    // Validate date range
+    if (!ongoing && startDate && endDate && startDate > endDate) {
+      toast.error("Start date must be before end date");
+      return;
+    }
+
     // TODO: Save to backend
     onSave({ name, startDate, endDate, ongoing });
     // Reset form

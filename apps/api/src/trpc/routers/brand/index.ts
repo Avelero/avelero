@@ -74,6 +74,13 @@ import {
   createEntityResponse,
   createListResponse,
 } from "../../../utils/response.js";
+import {
+  transformCertificationInput,
+  transformFacilityInput,
+  transformMaterialInput,
+  transformShowcaseBrandInput,
+  transformSizeInput,
+} from "../../../utils/catalog-transform.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
@@ -90,17 +97,24 @@ type BrandContext = AuthenticatedTRPCContext & { brandId: string };
  * @param schema - Zod validation schema for input
  * @param queryFn - Database query function returning array of resources
  * @param resourceName - Human-readable resource name for error messages (e.g., "color", "size")
+ * @param transformInput - Optional function to transform snake_case schema to camelCase DB input
  * @returns tRPC query procedure with brand context
  */
 function createListProcedure<TInput>(
   schema: any,
   queryFn: (db: Database, brandId: string, opts?: any) => Promise<any[]>,
   resourceName: string,
+  transformInput?: (input: any) => any,
 ) {
   return brandRequiredProcedure.input(schema).query(async ({ ctx, input }) => {
     const brandCtx = ctx as BrandContext;
     try {
-      const results = await queryFn(brandCtx.db, brandCtx.brandId, input);
+      const transformedInput = transformInput ? transformInput(input) : input;
+      const results = await queryFn(
+        brandCtx.db,
+        brandCtx.brandId,
+        transformedInput,
+      );
       return createListResponse(results);
     } catch (error) {
       throw wrapError(error, `Failed to list ${resourceName}`);
@@ -118,19 +132,26 @@ function createListProcedure<TInput>(
  * @param schema - Zod validation schema for input
  * @param createFn - Database create function
  * @param resourceName - Human-readable resource name for error messages
+ * @param transformInput - Optional function to transform snake_case schema to camelCase DB input
  * @returns tRPC mutation procedure with brand context
  */
 function createCreateProcedure<TInput>(
   schema: any,
   createFn: (db: Database, brandId: string, input: any) => Promise<any>,
   resourceName: string,
+  transformInput?: (input: any) => any,
 ) {
   return brandRequiredProcedure
     .input(schema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       try {
-        const result = await createFn(brandCtx.db, brandCtx.brandId, input);
+        const transformedInput = transformInput ? transformInput(input) : input;
+        const result = await createFn(
+          brandCtx.db,
+          brandCtx.brandId,
+          transformedInput,
+        );
         return createEntityResponse(result);
       } catch (error) {
         throw wrapError(error, `Failed to create ${resourceName}`);
@@ -149,6 +170,7 @@ function createCreateProcedure<TInput>(
  * @param schema - Zod validation schema for input
  * @param updateFn - Database update function
  * @param resourceName - Human-readable resource name for error messages
+ * @param transformInput - Optional function to transform snake_case schema to camelCase DB input
  * @returns tRPC mutation procedure with brand context and not-found handling
  */
 function createUpdateProcedure<TInput extends { id: string }>(
@@ -160,6 +182,7 @@ function createUpdateProcedure<TInput extends { id: string }>(
     input: any,
   ) => Promise<any>,
   resourceName: string,
+  transformInput?: (input: any) => any,
 ) {
   return brandRequiredProcedure
     .input(schema)
@@ -167,11 +190,14 @@ function createUpdateProcedure<TInput extends { id: string }>(
       const brandCtx = ctx as BrandContext;
       const typedInput = input as TInput;
       try {
+        const transformedInput = transformInput
+          ? transformInput(typedInput)
+          : typedInput;
         const result = await updateFn(
           brandCtx.db,
           brandCtx.brandId,
           typedInput.id,
-          typedInput,
+          transformedInput,
         );
         if (!result) {
           throw notFound(resourceName, typedInput.id);
@@ -236,6 +262,7 @@ function createDeleteProcedure<TInput extends { id: string }>(
  * @param resourceName - Human-readable name for error messages (e.g., "color", "size")
  * @param schemas - Zod schemas for each operation
  * @param operations - Database query functions for each operation
+ * @param transformInput - Optional function to transform snake_case schema to camelCase DB input
  * @returns tRPC router with list/create/update/delete endpoints
  *
  * @example
@@ -243,7 +270,8 @@ function createDeleteProcedure<TInput extends { id: string }>(
  * const colorsRouter = createCatalogResourceRouter(
  *   "color",
  *   { list: listColorsSchema, create: createColorSchema, ... },
- *   { list: listColors, create: createColor, ... }
+ *   { list: listColors, create: createColor, ... },
+ *   transformColorInput // optional
  * );
  * // Exposes: colors.list, colors.create, colors.update, colors.delete
  * ```
@@ -267,18 +295,26 @@ function createCatalogResourceRouter<T>(
     ) => Promise<T>;
     delete: (db: Database, brandId: string, id: string) => Promise<T>;
   },
+  transformInput?: (input: any) => any,
 ) {
   return createTRPCRouter({
-    list: createListProcedure(schemas.list, operations.list, resourceName),
+    list: createListProcedure(
+      schemas.list,
+      operations.list,
+      resourceName,
+      transformInput,
+    ),
     create: createCreateProcedure(
       schemas.create,
       operations.create,
       resourceName,
+      transformInput,
     ),
     update: createUpdateProcedure(
       schemas.update,
       operations.update,
       resourceName,
+      transformInput,
     ),
     delete: createDeleteProcedure(
       schemas.delete,
@@ -344,6 +380,7 @@ export const brandRouter = createTRPCRouter({
       update: updateSize,
       delete: deleteSize,
     },
+    transformSizeInput,
   ),
 
   /**
@@ -365,6 +402,7 @@ export const brandRouter = createTRPCRouter({
       update: updateMaterial,
       delete: deleteMaterial,
     },
+    transformMaterialInput,
   ),
 
   /**
@@ -386,6 +424,7 @@ export const brandRouter = createTRPCRouter({
       update: updateFacility,
       delete: deleteFacility,
     },
+    transformFacilityInput,
   ),
 
   /**
@@ -408,6 +447,7 @@ export const brandRouter = createTRPCRouter({
       update: updateShowcaseBrand,
       delete: deleteShowcaseBrand,
     },
+    transformShowcaseBrandInput,
   ),
 
   /**
@@ -450,6 +490,7 @@ export const brandRouter = createTRPCRouter({
       update: updateCertification,
       delete: deleteCertification,
     },
+    transformCertificationInput,
   ),
 });
 

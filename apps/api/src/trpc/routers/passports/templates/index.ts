@@ -72,11 +72,15 @@ export const passportTemplatesRouter = createTRPCRouter({
       const brandCtx = ctx as BrandContext;
       ensureBrandScope(brandCtx);
       try {
-        return await getPassportTemplateWithModules(
+        const template = await getPassportTemplateWithModules(
           brandCtx.db,
           brandCtx.brandId,
           input.id,
         );
+        if (!template) {
+          throw notFound("Passport template", input.id);
+        }
+        return createEntityResponse(template);
       } catch (error) {
         throw wrapError(error, "Failed to load passport template");
       }

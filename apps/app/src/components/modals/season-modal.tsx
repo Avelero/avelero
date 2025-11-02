@@ -37,9 +37,8 @@ export function SeasonModal({
   const [endDate, setEndDate] = React.useState<Date | null>(null);
   const [ongoing, setOngoing] = React.useState(false);
   // Preserve dates when toggling ongoing to allow restoration
-  const [preservedStartDate, setPreservedStartDate] = React.useState<
-    Date | null
-  >(null);
+  const [preservedStartDate, setPreservedStartDate] =
+    React.useState<Date | null>(null);
   const [preservedEndDate, setPreservedEndDate] = React.useState<Date | null>(
     null,
   );
@@ -54,15 +53,15 @@ export function SeasonModal({
   // Handle ongoing toggle with date preservation
   React.useEffect(() => {
     if (ongoing) {
-      // Preserve current dates before clearing
-      if (startDate) setPreservedStartDate(startDate);
-      if (endDate) setPreservedEndDate(endDate);
+      // Preserve current dates (including null) before clearing
+      setPreservedStartDate(startDate);
+      setPreservedEndDate(endDate);
       setStartDate(null);
       setEndDate(null);
     } else {
       // Restore preserved dates when toggling back
-      if (preservedStartDate) setStartDate(preservedStartDate);
-      if (preservedEndDate) setEndDate(preservedEndDate);
+      setStartDate(preservedStartDate);
+      setEndDate(preservedEndDate);
     }
   }, [ongoing]);
 

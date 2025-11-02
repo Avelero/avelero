@@ -257,7 +257,10 @@ export const userRouter = createTRPCRouter({
             },
             "User update returned null",
           );
-          return null;
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to update user profile",
+          });
         }
 
         logger.info(

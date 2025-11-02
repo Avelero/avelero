@@ -53,6 +53,11 @@ export function SeasonModal({
   }, [ongoing]);
 
   const handleSave = () => {
+    // Validate date range
+    if (!ongoing && startDate && endDate && startDate > endDate) {
+      // Date range is invalid - could show error toast here
+      return;
+    }
     // TODO: Save to backend
     onSave({ name, startDate, endDate, ongoing });
     // Reset form

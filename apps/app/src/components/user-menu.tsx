@@ -28,10 +28,14 @@ type Props = {
 function UserAvatar() {
   const { data } = useUserQuerySuspense();
   const user = data as CurrentUser | null;
+  const avatarUrl = user?.avatar_url;
+  const isAbsoluteUrl =
+    avatarUrl && (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://"));
   return (
     <SignedAvatar
       bucket="avatars"
-      path={user?.avatar_url ?? null}
+      path={!isAbsoluteUrl ? (avatarUrl ?? null) : null}
+      url={isAbsoluteUrl ? (avatarUrl ?? null) : null}
       name={user?.full_name ?? undefined}
       size={32}
     />

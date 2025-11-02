@@ -79,7 +79,7 @@ export function PassportControls({
             ? { mode: "all", excludeIds: selection.excludeIds }
             : { mode: "explicit", includeIds: selection.includeIds },
         changes: { status },
-      } as any);
+      });
       const affected =
         (res as { affectedCount?: number } | undefined)?.affectedCount ??
         selectedCount;

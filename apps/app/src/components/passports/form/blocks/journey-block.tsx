@@ -9,6 +9,7 @@ import {
   closestCenter,
   useSensor,
   useSensors,
+  type SyntheticListenerMap,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -74,8 +75,8 @@ const StepDropdown = ({
   step: string;
   onStepChange: (step: string) => void;
   isDragging: boolean;
-  dragAttributes: any;
-  dragListeners: any;
+  dragAttributes: React.HTMLAttributes<HTMLElement>;
+  dragListeners: SyntheticListenerMap | undefined;
 }) => {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");

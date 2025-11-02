@@ -2,7 +2,7 @@
  * Validation schemas for brand eco claim operations.
  */
 import { z } from "zod";
-import { byIdSchema, voidSchema } from "../_shared/patterns.js";
+import { byIdSchema, updateFrom, voidSchema } from "../_shared/patterns.js";
 import { mediumStringSchema, uuidSchema } from "../_shared/primitives.js";
 
 /**
@@ -18,9 +18,7 @@ export const createEcoClaimSchema = z.object({ claim: mediumStringSchema });
 /**
  * Payload for updating an eco claim.
  */
-export const updateEcoClaimSchema = createEcoClaimSchema.extend({
-  id: uuidSchema,
-});
+export const updateEcoClaimSchema = updateFrom(createEcoClaimSchema);
 
 /**
  * Payload for deleting an eco claim.

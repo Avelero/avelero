@@ -40,6 +40,7 @@ export function SetupForm() {
   const updateUserMutation = useMutation(
     trpc.user.update.mutationOptions({
       onSuccess: async () => {
+        setIsSubmitting(false);
         await queryClient.invalidateQueries({
           queryKey: trpc.user.get.queryKey(),
         });
@@ -55,7 +56,10 @@ export function SetupForm() {
         const hasBrands = Array.isArray(brands) && brands.length > 0;
         router.push(hasBrands ? `/${locale}` : `/${locale}/create-brand`);
       },
-      onError: (err) => setError(err.message || "Failed to save profile"),
+      onError: (err) => {
+        setError(err.message || "Failed to save profile");
+        setIsSubmitting(false);
+      },
     }),
   );
 

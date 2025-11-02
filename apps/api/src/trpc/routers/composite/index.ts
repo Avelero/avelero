@@ -4,7 +4,10 @@ import {
   asc,
   desc,
   eq,
+  gt,
   inArray,
+  isNull,
+  or,
   sql,
   type BrandMembershipListItem,
   type ModuleIncompleteCount,
@@ -331,6 +334,7 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
  * @returns Array of pending invites with inviter information
  */
 async function fetchWorkflowInvites(db: Database, brandId: string) {
+  const nowIso = new Date().toISOString();
   const rows = await db
     .select({
       id: brandInvites.id,
@@ -342,7 +346,12 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
     })
     .from(brandInvites)
     .leftJoin(users, eq(users.id, brandInvites.createdBy))
-    .where(eq(brandInvites.brandId, brandId))
+    .where(
+      and(
+        eq(brandInvites.brandId, brandId),
+        or(isNull(brandInvites.expiresAt), gt(brandInvites.expiresAt, nowIso)),
+      ),
+    )
     .orderBy(desc(brandInvites.createdAt));
 
   return rows.map((invite) => ({

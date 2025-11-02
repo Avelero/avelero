@@ -16,6 +16,11 @@ import {
  *
  * @returns Suspense query hook for current user profile
  *
+ * @note API Breaking Change: This uses the `user.get` endpoint (formerly `user.me`).
+ * The endpoint was renamed from `user.me` to `user.get` to follow REST-like conventions.
+ * While `me` is a common pattern for 'current user' endpoints, `get` provides better
+ * consistency with other entity endpoints in the API.
+ *
  * @example
  * ```tsx
  * const { data: user } = useUserQuery();
@@ -104,7 +109,7 @@ export function useUserMutation() {
           const patch = newData as Partial<CurrentUser>;
           return prev
             ? { ...prev, ...patch }
-            : (patch as unknown as CurrentUser) ?? null;
+            : ((patch as unknown as CurrentUser) ?? null);
         });
 
         return { previousData } as const;

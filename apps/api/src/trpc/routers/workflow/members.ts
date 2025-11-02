@@ -108,7 +108,7 @@ export const workflowMembersRouter = createTRPCRouter({
       if (input.role === null) {
         try {
           await deleteMember(db, user.id, brandId, targetUserId);
-          return { success: true as const };
+          return { success: true as const, nextBrandId: null };
         } catch (error) {
           if (error instanceof BrandMemberSoleOwnerError) {
             throw soleOwnerError();
@@ -141,7 +141,7 @@ export const workflowMembersRouter = createTRPCRouter({
           targetUserId,
           roleToAssign,
         );
-        return { success: true as const };
+        return { success: true as const, nextBrandId: null };
       } catch (error) {
         throw wrapError(error, "Failed to update member role");
       }

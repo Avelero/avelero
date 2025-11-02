@@ -40,15 +40,22 @@ export const userDomainUpdateSchema = z.object({
     .optional(),
   // Accept either full URLs or storage paths (e.g., "user-id/file.jpg")
   avatar_url: z
-    .union([
-      urlSchema, // Full http/https URL
-      z
-        .string()
-        .regex(
-          /^[^/\s]+\/[^/\s]+/,
+    .string()
+    .refine(
+      (val) => {
+        // Allow full URLs (http/https)
+        if (/^https?:\/\//i.test(val)) return true;
+        // Allow relative paths starting with /
+        if (val.startsWith("/")) return true;
+        // Allow storage paths (e.g., "user-id/file.jpg")
+        if (/^[^/\s]+\/[^/\s]+/.test(val)) return true;
+        return false;
+      },
+      {
+        message:
           "Must be a valid URL or storage path (e.g., user-id/file.jpg)",
-        ), // Storage path pattern: path/to/file
-    ])
+      },
+    )
     .nullable()
     .optional(),
 });

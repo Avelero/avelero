@@ -99,6 +99,24 @@ function buildBrandLogoUrl(path: string | null): string | null {
 }
 
 /**
+ * Constructs a publicly accessible URL for a user avatar.
+ *
+ * Encodes each path segment to handle special characters and constructs
+ * a URL pointing to the user avatars storage endpoint.
+ *
+ * @param path - Relative storage path (e.g., "user-123/avatar.png")
+ * @returns Full URL to avatar, or null if no path provided
+ */
+function buildUserAvatarUrl(path: string | null): string | null {
+  if (!path) return null;
+  const encoded = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `${getAppUrl()}/api/storage/avatars/${encoded}`;
+}
+
+/**
  * Determines if a user can leave a brand based on their role and owner count.
  *
  * Business rule: Sole owners cannot leave their brand. They must either
@@ -139,7 +157,7 @@ function mapUserProfile(
     id: record.id,
     email,
     full_name: record.fullName ?? null,
-    avatar_url: record.avatarPath ?? null,
+    avatar_url: buildUserAvatarUrl(record.avatarPath),
     brand_id: record.brandId ?? null,
   };
 }
@@ -157,6 +175,8 @@ function mapInvite(invite: UserInviteSummaryRow) {
     brand_logo: buildBrandLogoUrl(invite.brandLogoPath ?? null),
     role: invite.role,
     invited_by: invite.invitedByFullName ?? invite.invitedByEmail ?? null,
+    invited_by_avatar_url: buildUserAvatarUrl(invite.invitedByAvatarPath),
+    invited_by_avatar_hue: invite.invitedByAvatarHue ?? null,
     created_at: invite.createdAt,
     expires_at: invite.expiresAt,
   };
@@ -294,6 +314,8 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
       userId: brandMembers.userId,
       email: users.email,
       fullName: users.fullName,
+      avatarPath: users.avatarPath,
+      avatarHue: users.avatarHue,
       role: brandMembers.role,
     })
     .from(brandMembers)
@@ -314,6 +336,8 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
       user_id: member.userId,
       email: member.email ?? null,
       full_name: member.fullName ?? null,
+      avatar_url: buildUserAvatarUrl(member.avatarPath),
+      avatar_hue: member.avatarHue ?? null,
       role,
       canLeave: canLeaveFromRole(role, ownerCount),
     };
@@ -339,6 +363,8 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
       created_at: brandInvites.createdAt,
       invitedByEmail: users.email,
       invitedByFullName: users.fullName,
+      invitedByAvatarPath: users.avatarPath,
+      invitedByAvatarHue: users.avatarHue,
     })
     .from(brandInvites)
     .leftJoin(users, eq(users.id, brandInvites.createdBy))
@@ -351,6 +377,8 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
     role: invite.role,
     invited_by:
       invite.invitedByFullName ?? invite.invitedByEmail ?? "Avelero Team",
+    invited_by_avatar_url: buildUserAvatarUrl(invite.invitedByAvatarPath),
+    invited_by_avatar_hue: invite.invitedByAvatarHue ?? null,
     created_at: invite.created_at,
   }));
 }

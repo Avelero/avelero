@@ -18,6 +18,8 @@ export interface UserInviteSummaryRow {
   invitedById: string | null;
   invitedByEmail: string | null;
   invitedByFullName: string | null;
+  invitedByAvatarPath: string | null;
+  invitedByAvatarHue: number | null;
 }
 
 export async function listBrandInvites(
@@ -89,6 +91,8 @@ export async function listPendingInvitesForEmail(
       invitedById: brandInvites.createdBy,
       invitedByEmail: users.email,
       invitedByFullName: users.fullName,
+      invitedByAvatarPath: users.avatarPath,
+      invitedByAvatarHue: users.avatarHue,
     })
     .from(brandInvites)
     .leftJoin(brands, eq(brandInvites.brandId, brands.id))
@@ -113,6 +117,8 @@ export async function listPendingInvitesForEmail(
     invitedById: row.invitedById ?? null,
     invitedByEmail: row.invitedByEmail ?? null,
     invitedByFullName: row.invitedByFullName ?? null,
+    invitedByAvatarPath: row.invitedByAvatarPath ?? null,
+    invitedByAvatarHue: row.invitedByAvatarHue ?? null,
   }));
 }
 

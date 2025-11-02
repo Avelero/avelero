@@ -205,7 +205,13 @@ function MembershipRow({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <SignedAvatar bucket="avatars" size={32} name={displayName} />
+        <SignedAvatar
+          bucket="avatars"
+          size={32}
+          name={displayName}
+          url={membership.avatar_url}
+          hue={membership.avatar_hue}
+        />
         <div className="flex flex-col">
           <span className="type-p !font-medium">{email}</span>
           <span className="type-p text-secondary">{roleLabel}</span>
@@ -345,7 +351,13 @@ function InviteRowComp({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <SignedAvatar bucket="brand-avatars" size={32} name={invite.email} />
+        <SignedAvatar
+          bucket="avatars"
+          size={32}
+          name={invite.invited_by}
+          url={invite.invited_by_avatar_url}
+          hue={invite.invited_by_avatar_hue}
+        />
         <div className="flex flex-col">
           <span className="type-p !font-medium">{invite.email}</span>
           <span className="type-p text-secondary">

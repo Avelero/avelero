@@ -11,7 +11,6 @@ import {
   countryCodeSchema,
   mediumStringSchema,
   shortStringSchema,
-  uuidSchema,
 } from "../_shared/primitives.js";
 
 /**

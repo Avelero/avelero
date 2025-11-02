@@ -13,7 +13,6 @@ import {
   mediumStringSchema,
   shortStringSchema,
   urlSchema,
-  uuidSchema,
 } from "../_shared/primitives.js";
 
 /**

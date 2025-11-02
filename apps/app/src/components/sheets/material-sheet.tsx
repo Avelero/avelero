@@ -341,7 +341,7 @@ export function MaterialSheet({
 
   const isNameValid = name.trim().length > 0;
   const isMaterialValid =
-    isNameValid && (!certified || (certified && certificationData));
+    isNameValid && (!certified || certificationData);
 
   // Get certification options for the select on certification page
   const certificationOptions = allCertifications.map((cert: Certification) => ({

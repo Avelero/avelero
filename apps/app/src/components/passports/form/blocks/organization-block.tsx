@@ -44,8 +44,7 @@ export function OrganizationSection() {
   const [season, setSeason] = React.useState<Season | null>(null);
   const [seasons, setSeasons] = React.useState<Season[]>(SEASON_OPTIONS);
   const [colors, setColors] = React.useState<ColorOption[]>([]);
-  const [availableColors, setAvailableColors] =
-    React.useState<ColorOption[]>(COLOR_OPTIONS);
+  const availableColors = COLOR_OPTIONS;
   const [size, setSize] = React.useState<string | null>(null);
   const [tags, setTags] = React.useState<TagOption[]>([]);
   // If category is not selected, hide and reset Size

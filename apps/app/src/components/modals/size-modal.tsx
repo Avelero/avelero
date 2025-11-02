@@ -22,7 +22,6 @@ import {
   getSizesForCategory,
 } from "@v1/selections/sizes";
 import { Button } from "@v1/ui/button";
-import { cn } from "@v1/ui/cn";
 import {
   Dialog,
   DialogContent,
@@ -32,8 +31,6 @@ import {
 } from "@v1/ui/dialog";
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
-import { Label } from "@v1/ui/label";
-import { Select } from "@v1/ui/select";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { CategorySelect } from "../select/category-select";

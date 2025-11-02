@@ -30,14 +30,6 @@ import { passportTemplatesRouter } from "./templates/index.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
-function ensureBrand(ctx: AuthenticatedTRPCContext): string {
-  const brandId = ctx.brandId;
-  if (!brandId) {
-    throw badRequest("Active brand context required");
-  }
-  return brandId;
-}
-
 export const passportsRouter = createTRPCRouter({
   list: brandRequiredProcedure
     .input(passportsListSchema)

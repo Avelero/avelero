@@ -4,7 +4,6 @@ import { SHADE_LABELS, colorFamilies } from "@v1/selections";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,

@@ -38,5 +38,6 @@ export const userDomainUpdateSchema = z.object({
     .min(1, "Full name cannot be empty")
     .nullable()
     .optional(),
-  avatar_url: urlSchema.nullable().optional(),
+  // Accept either full URLs or storage paths (e.g., "user-id/file.jpg")
+  avatar_url: z.string().nullable().optional(),
 });

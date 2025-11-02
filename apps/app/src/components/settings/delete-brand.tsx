@@ -9,9 +9,10 @@ import { DeleteBrandModal } from "../modals/delete-brand-modal";
 interface Brand {
   id: string;
   name: string;
-  logo_path?: string | null;
+  logo_url?: string | null;
   avatar_hue?: number | null;
   country_code?: string | null;
+  role?: "owner" | "member";
 }
 
 function DeleteBrand() {
@@ -19,12 +20,14 @@ function DeleteBrand() {
   const { data: brandsData } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
 
-  const brands = (brandsData as { data: Brand[] } | undefined)?.data ?? [];
+  // brandsData is an array directly, not wrapped in { data: [] }
+  const brands = (Array.isArray(brandsData) ? brandsData : []) as Brand[];
   const activeBrand = brands.find(
     (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
   );
 
-  if (!activeBrand) {
+  // Only show delete button if user is an owner of the active brand
+  if (!activeBrand || activeBrand.role !== "owner") {
     return null;
   }
 

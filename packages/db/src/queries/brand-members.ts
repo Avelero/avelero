@@ -50,6 +50,31 @@ export async function updateMemberRole(
   userId: string,
   role: "owner" | "member",
 ) {
+  // If demoting an owner to member, ensure they're not the last owner
+  if (role === "member") {
+    const target = await db
+      .select({ role: brandMembers.role })
+      .from(brandMembers)
+      .where(
+        and(eq(brandMembers.brandId, brandId), eq(brandMembers.userId, userId)),
+      )
+      .limit(1);
+
+    const currentRole = target[0]?.role;
+    if (currentRole === "owner") {
+      // Check if this is the last owner
+      const owners = await db
+        .select({ id: brandMembers.id })
+        .from(brandMembers)
+        .where(
+          and(eq(brandMembers.brandId, brandId), eq(brandMembers.role, "owner")),
+        );
+      if (owners.length <= 1) {
+        throw new BrandMemberSoleOwnerError();
+      }
+    }
+  }
+
   await db
     .update(brandMembers)
     .set({ role })

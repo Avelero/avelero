@@ -347,27 +347,44 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
 /**
  * Fetches all pending invitations for a brand.
  *
- * Queries brand invites with inviter details (name or email) and orders
- * by most recent first. Invites are filtered to only show pending status.
+ * Queries brand invites with inviter details and invitee user data (if exists).
+ * Shows invitee's avatar if they're an existing user, otherwise default avatar.
  *
  * @param db - Database instance
  * @param brandId - Brand identifier
- * @returns Array of pending invites with inviter information
+ * @returns Array of pending invites with invitee and inviter information
  */
 async function fetchWorkflowInvites(db: Database, brandId: string) {
+  // Create aliases for the two user joins
+  const inviterUser = users;
+  const inviteeUser = {
+    id: sql<string>`invitee.id`.as("invitee_id"),
+    email: sql<string>`invitee.email`.as("invitee_email"),
+    fullName: sql<string>`invitee.full_name`.as("invitee_full_name"),
+    avatarPath: sql<string>`invitee.avatar_path`.as("invitee_avatar_path"),
+    avatarHue: sql<number>`invitee.avatar_hue`.as("invitee_avatar_hue"),
+  };
+
   const rows = await db
     .select({
       id: brandInvites.id,
       email: brandInvites.email,
       role: brandInvites.role,
       created_at: brandInvites.createdAt,
-      invitedByEmail: users.email,
-      invitedByFullName: users.fullName,
-      invitedByAvatarPath: users.avatarPath,
-      invitedByAvatarHue: users.avatarHue,
+      // Inviter data (who sent the invite)
+      invitedByEmail: inviterUser.email,
+      invitedByFullName: inviterUser.fullName,
+      // Invitee data (person being invited, if they exist as a user)
+      inviteeFullName: inviteeUser.fullName,
+      inviteeAvatarPath: inviteeUser.avatarPath,
+      inviteeAvatarHue: inviteeUser.avatarHue,
     })
     .from(brandInvites)
-    .leftJoin(users, eq(users.id, brandInvites.createdBy))
+    .leftJoin(inviterUser, eq(inviterUser.id, brandInvites.createdBy))
+    .leftJoin(
+      sql`users AS invitee`,
+      sql`LOWER(invitee.email) = LOWER(${brandInvites.email})`,
+    )
     .where(eq(brandInvites.brandId, brandId))
     .orderBy(desc(brandInvites.createdAt));
 
@@ -377,8 +394,10 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
     role: invite.role,
     invited_by:
       invite.invitedByFullName ?? invite.invitedByEmail ?? "Avelero Team",
-    invited_by_avatar_url: buildUserAvatarUrl(invite.invitedByAvatarPath),
-    invited_by_avatar_hue: invite.invitedByAvatarHue ?? null,
+    // Use invitee's avatar if they exist as a user
+    invitee_full_name: invite.inviteeFullName ?? null,
+    invitee_avatar_url: buildUserAvatarUrl(invite.inviteeAvatarPath),
+    invitee_avatar_hue: invite.inviteeAvatarHue ?? null,
     created_at: invite.created_at,
   }));
 }

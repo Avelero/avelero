@@ -354,9 +354,9 @@ function InviteRowComp({
         <SignedAvatar
           bucket="avatars"
           size={32}
-          name={invite.invited_by}
-          url={invite.invited_by_avatar_url}
-          hue={invite.invited_by_avatar_hue}
+          name={invite.invitee_full_name ?? invite.email}
+          url={invite.invitee_avatar_url}
+          hue={invite.invitee_avatar_hue}
         />
         <div className="flex flex-col">
           <span className="type-p !font-medium">{invite.email}</span>

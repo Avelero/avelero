@@ -49,7 +49,9 @@ export function LeaveBrandModal({
   type LeaveBrandResult = RouterOutputs["workflow"]["members"]["update"];
 
   const membershipRole = membership?.role ?? role;
-  const canLeave = membership?.canLeave ?? membershipRole !== "owner";
+  const canLeave =
+    membership?.canLeave ??
+    (membershipRole !== null && membershipRole !== "owner");
   const isSoleOwnerBlocked = useMemo(
     () => membershipRole === "owner" && canLeave === false,
     [membershipRole, canLeave],
@@ -88,8 +90,7 @@ export function LeaveBrandModal({
         onSuccess: (res: LeaveBrandResult) => {
           setIsSubmitting(false);
           toast.success(`Left ${brandName}`);
-          const payload = res as { nextBrandId?: string | null };
-          onLeft?.(payload.nextBrandId ?? null);
+          onLeft?.(res.nextBrandId ?? null);
           onOpenChange(false);
         },
       },

@@ -511,7 +511,7 @@ export async function listProducts(
     .where(and(...whereClauses));
   const total = result[0]?.value ?? 0;
 
-  const hasMore = total > rows.length;
+  const hasMore = rows.length >= limit;
   return {
     data: rows,
     meta: {

@@ -78,11 +78,7 @@ export function QuickFiltersPopover({
         .prefetchQuery(
           queryOptions as Parameters<typeof queryClient.prefetchQuery>[0],
         )
-        .catch((error) => {
-          if (process.env.NODE_ENV === "development") {
-            console.warn("Failed to prefetch filter options:", error);
-          }
-        });
+        .catch(() => undefined);
     }
   }, [queryClient, trpc]);
 

@@ -39,9 +39,12 @@ export function useFieldOptions(
         }
       }
 
-      // Execute the query with undefined for void/optional inputs
-      // Most list endpoints use z.void() so undefined is the correct input shape
-      return await procedure.query(undefined);
+      // Execute the query, falling back between `{}` and `undefined` for optional inputs
+      try {
+        return await procedure.query({});
+      } catch (error) {
+        return await procedure.query(undefined);
+      }
     },
     enabled: !!endpoint,
     staleTime: 5 * 60 * 1000, // 5 minutes

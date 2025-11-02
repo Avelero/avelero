@@ -119,3 +119,13 @@ GEMINI.md
 #mcp_files
 .env.example
 .taskmaster
+=======
+# Task files
+# tasks.json
+# tasks/ 
+.gemini
+.taskmaster
+.vscode
+.cursor
+.cursorrules
+GEMINI.md

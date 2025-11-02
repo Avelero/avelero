@@ -50,7 +50,7 @@ export const productAttributesRouter = createTRPCRouter({
         await assertProductForBrand(db, activeBrandId, input.product_id);
 
         try {
-          return await upsertProductMaterials(
+          return upsertProductMaterials(
             db,
             input.product_id,
             input.items.map((item) => ({
@@ -72,7 +72,7 @@ export const productAttributesRouter = createTRPCRouter({
         await assertProductForBrand(db, activeBrandId, input.product_id);
 
         try {
-          return await setProductCareCodes(db, input.product_id, input.care_code_ids);
+          return setProductCareCodes(db, input.product_id, input.care_code_ids);
         } catch (error) {
           throw wrapError(error, "Failed to set product care codes");
         }
@@ -87,7 +87,7 @@ export const productAttributesRouter = createTRPCRouter({
         await assertProductForBrand(db, activeBrandId, input.product_id);
 
         try {
-          return await setProductEcoClaims(db, input.product_id, input.eco_claim_ids);
+          return setProductEcoClaims(db, input.product_id, input.eco_claim_ids);
         } catch (error) {
           throw wrapError(error, "Failed to set product eco claims");
         }
@@ -102,7 +102,7 @@ export const productAttributesRouter = createTRPCRouter({
         await assertProductForBrand(db, activeBrandId, input.product_id);
 
         try {
-          return await upsertProductEnvironment(db, input.product_id, {
+          return upsertProductEnvironment(db, input.product_id, {
             carbonKgCo2e: input.carbon_kg_co2e,
             waterLiters: input.water_liters,
           });
@@ -120,7 +120,7 @@ export const productAttributesRouter = createTRPCRouter({
         await assertProductForBrand(db, activeBrandId, input.product_id);
 
         try {
-          return await setProductJourneySteps(
+          return setProductJourneySteps(
             db,
             input.product_id,
             input.steps.map((step) => ({

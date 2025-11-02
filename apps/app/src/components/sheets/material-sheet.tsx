@@ -197,8 +197,6 @@ export function MaterialSheet({
     setCertNumber("");
     setCertInstitute("");
     setCertExpiry(undefined);
-    setCertLogo(undefined);
-    setUploadedFileName(undefined);
     setCurrentPage("material");
   };
 

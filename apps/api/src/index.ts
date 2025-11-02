@@ -22,7 +22,10 @@ app.use(
     origin: (origin, c) => {
       if (!origin) return origin; // Allow requests with no origin
 
-      const allowedOrigins = process.env.ALLOWED_API_ORIGINS?.split(",") ?? [];
+      const allowedOrigins =
+        process.env.ALLOWED_API_ORIGINS?.split(",")
+          .map((o) => o.trim())
+          .filter((o) => o.length > 0) ?? [];
 
       // Check exact matches first (most secure and fastest)
       if (allowedOrigins.includes(origin)) return origin;

@@ -35,12 +35,21 @@ export function useFieldOptions(
       for (const part of parts) {
         procedure = procedure[part];
         if (!procedure) {
+          console.error(`[useFieldOptions] Invalid tRPC endpoint: ${endpoint}`);
           throw new Error(`Invalid tRPC endpoint: ${endpoint}`);
         }
       }
 
       // Execute the query with undefined for optional/void inputs
-      return await procedure.query(undefined);
+      try {
+        return await procedure.query(undefined);
+      } catch (error) {
+        console.error(
+          `[useFieldOptions] Query failed for endpoint ${endpoint}:`,
+          error,
+        );
+        throw error;
+      }
     },
     enabled: !!endpoint,
     staleTime: 5 * 60 * 1000, // 5 minutes

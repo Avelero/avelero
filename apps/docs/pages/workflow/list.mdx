@@ -1,0 +1,187 @@
+---
+title: workflow.list
+description: List all brand memberships for the authenticated user
+---
+
+import { Callout } from 'nextra/components'
+
+# workflow.list
+
+Retrieves all brand memberships for the authenticated user, including their role and permissions for each brand.
+
+## Endpoint
+
+`workflow.list` (Query)
+
+## Why This Endpoint Exists
+
+Users can be members of multiple brands with different roles (owner or member). This endpoint provides the complete list of brands the user has access to, enabling:
+- Brand switcher UI components
+- Permission checks based on user's role in each brand
+- Preventing sole owners from leaving their brand
+- Displaying brand selection during onboarding
+
+The endpoint intelligently calculates whether a user can leave each brand - sole owners cannot leave (prevents orphaned brands), but members and non-sole owners can.
+
+## Input Parameters
+
+None. Uses authenticated session context.
+
+## Return Value
+
+```typescript
+interface BrandMembership {
+  id: string
+  name: string
+  email: string | null
+  country_code: string | null
+  avatar_hue: number | null          // 0-360 hue for avatar background
+  logo_url: string | null             // Full URL to brand logo
+  role: "owner" | "member"
+  canLeave: boolean                   // false if user is sole owner
+}
+
+type ReturnValue = BrandMembership[]
+```
+
+Returns empty array `[]` if user has no brand memberships.
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const brands = await trpc.workflow.list.query()
+
+console.log(`You have access to ${brands.length} brands`)
+```
+
+### React Brand Switcher
+
+```tsx
+function BrandSwitcher() {
+  const { data: brands, isLoading } = trpc.workflow.list.useQuery()
+
+  if (isLoading) return <Skeleton />
+  if (!brands?.length) return <NoBrandsPrompt />
+
+  return (
+    <select>
+      {brands.map((brand) => (
+        <option key={brand.id} value={brand.id}>
+          {brand.name} ({brand.role})
+        </option>
+      ))}
+    </select>
+  )
+}
+```
+
+### Filter Owned Brands
+
+```typescript
+const brands = await trpc.workflow.list.query()
+const ownedBrands = brands.filter(b => b.role === 'owner')
+
+console.log(`You own ${ownedBrands.length} brands`)
+```
+
+### Check Leave Permission
+
+```typescript
+function canUserLeaveBrand(brandId: string, brands: BrandMembership[]): boolean {
+  const brand = brands.find(b => b.id === brandId)
+  return brand?.canLeave ?? false
+}
+```
+
+## Response Example
+
+```json
+[
+  {
+    "id": "brand-123",
+    "name": "Acme Fashion",
+    "email": "contact@acme.com",
+    "country_code": "US",
+    "avatar_hue": 200,
+    "logo_url": "https://app.avelero.com/api/storage/brand-avatars/brand-123/logo.png",
+    "role": "owner",
+    "canLeave": false
+  },
+  {
+    "id": "brand-456",
+    "name": "EcoWear",
+    "email": "info@ecowear.com",
+    "country_code": "CA",
+    "avatar_hue": 120,
+    "logo_url": "https://app.avelero.com/api/storage/brand-avatars/brand-456/logo.png",
+    "role": "member",
+    "canLeave": true
+  }
+]
+```
+
+## How It Works
+
+1. **Fetch Memberships**: Queries database for all brands where user is a member or owner
+2. **Calculate Owner Counts**: For each brand where user is owner, counts total number of owners
+3. **Determine canLeave**:
+   - Members can always leave
+   - Owners can leave only if there's at least one other owner
+   - Sole owners cannot leave (prevents orphaned brands)
+4. **Format Response**: Converts internal storage paths to full logo URLs
+
+## Performance Notes
+
+- Single database query to fetch memberships
+- Additional batched query for owner counts (only if user owns any brands)
+- Logo URLs are pre-constructed to avoid storage API calls
+- Typical response time: 50-100ms
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+Session expired or user not authenticated.
+
+```typescript
+try {
+  const brands = await trpc.workflow.list.query()
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error or missing user ID.
+
+```typescript
+try {
+  const brands = await trpc.workflow.list.query()
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to load brands:', error.message)
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**canLeave Logic**: Prevents the last owner from leaving a brand, which would orphan it. Members can always leave. If a brand has multiple owners, all owners can leave as long as at least one remains.
+</Callout>
+
+<Callout type="warning">
+**Empty Logo URLs**: If `logo_url` is null, use `avatar_hue` to generate a colored avatar background (HSL hue value 0-360).
+</Callout>
+
+## Related Endpoints
+
+- [workflow.create](/workflow/create) - Create new brand
+- [workflow.delete](/workflow/delete) - Delete brand (owner only)
+- [composite.workflowInit](/composite/workflowInit) - Get brands + user + invites in one call
+- [workflow.members.list](/workflow/members/list) - List all members of a brand

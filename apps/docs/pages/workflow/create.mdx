@@ -1,0 +1,257 @@
+---
+title: workflow.create
+description: Create a new brand and become its owner
+---
+
+import { Callout } from 'nextra/components'
+
+# workflow.create
+
+Creates a new brand and automatically makes the authenticated user the owner of that brand.
+
+## Endpoint
+
+`workflow.create` (Mutation)
+
+## Why This Endpoint Exists
+
+Every user needs at least one brand to work with products and passports. This endpoint:
+- **Creates the brand** with the specified name and optional settings
+- **Makes the user an owner** automatically (added to brand_members table with "owner" role)
+- **Sets as active brand** makes this the user's currently selected brand
+- **Enables onboarding** used when new users create their first brand
+
+The endpoint performs three database operations atomically:
+1. Creates brand record
+2. Creates membership record (user as owner)
+3. Updates user's active brand ID
+
+## Input Parameters
+
+```typescript
+interface WorkflowCreateInput {
+  name: string                      // Brand name (required, min 2 chars)
+  email?: string | null             // Brand contact email (optional)
+  country_code?: string | null      // Country code (e.g., "US", "GB")
+  logo_url?: string | null          // Logo storage path or URL
+  avatar_hue?: number | null        // HSL hue value (0-360) for avatar background
+}
+```
+
+**Required Fields:**
+- `name`: Brand name (min 2 characters)
+
+**Optional Fields:**
+- `email`: Brand contact email (defaults to user's email if not provided)
+- `country_code`: ISO country code
+- `logo_url`: Either a storage path or full URL (will be converted to storage path)
+- `avatar_hue`: Hue value for generating a colored avatar background (0-360)
+
+## Return Value
+
+```typescript
+interface CreatedBrand {
+  id: string                        // The created brand's UUID
+}
+
+type ReturnValue = CreatedBrand
+```
+
+Returns only the brand ID. Use `workflow.list` to get full brand details.
+
+## Examples
+
+### Create Basic Brand
+
+```typescript
+const brand = await trpc.workflow.create.mutate({
+  name: 'EcoWear Apparel'
+})
+
+console.log(`Created brand: ${brand.id}`)
+```
+
+### Create Brand with All Options
+
+```typescript
+const brand = await trpc.workflow.create.mutate({
+  name: 'Sustainable Fashion Co',
+  email: 'contact@sustainable-fashion.com',
+  country_code: 'US',
+  logo_url: 'brand-logos/logo.png',
+  avatar_hue: 200  // Blue hue for avatar background
+})
+```
+
+### Create Brand with User's Email
+
+```typescript
+// Email will default to authenticated user's email
+const brand = await trpc.workflow.create.mutate({
+  name: 'My Brand'
+  // email is omitted, will use user.email
+})
+```
+
+### React Onboarding Component
+
+```tsx
+function CreateBrandForm() {
+  const [name, setName] = useState('')
+  const utils = trpc.useContext()
+
+  const createMutation = trpc.workflow.create.useMutation({
+    onSuccess: (brand) => {
+      // Invalidate to refetch user with new active brand
+      utils.user.get.invalidate()
+      utils.workflow.list.invalidate()
+
+      // Navigate to dashboard
+      router.push('/dashboard')
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    }
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    createMutation.mutate({ name })
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h2>Create Your Brand</h2>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Brand Name"
+        minLength={2}
+        required
+      />
+      <button
+        type="submit"
+        disabled={createMutation.isLoading}
+      >
+        {createMutation.isLoading ? 'Creating...' : 'Create Brand'}
+      </button>
+    </form>
+  )
+}
+```
+
+### Create with Random Avatar Color
+
+```typescript
+// Generate random hue for brand avatar
+const randomHue = Math.floor(Math.random() * 360)
+
+const brand = await trpc.workflow.create.mutate({
+  name: 'New Brand',
+  avatar_hue: randomHue
+})
+```
+
+## Response Example
+
+```json
+{
+  "id": "brand-550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+## How It Works
+
+1. **Validate Input**: Checks that name meets minimum length requirement
+2. **Extract Logo Path**: Converts logo_url to storage path if it's a full URL
+3. **Create Brand Record**: Inserts brand into database with provided details
+4. **Create Membership**: Adds user to brand_members table with "owner" role
+5. **Set Active Brand**: Updates user.brand_id to make this the active brand
+6. **Return ID**: Returns the created brand's ID
+
+### Default Values
+
+- **email**: If not provided, uses authenticated user's email
+- **country_code**: Defaults to null
+- **logo_path**: Defaults to null
+- **avatar_hue**: Defaults to null
+
+### Automatic Relationships
+
+When a brand is created:
+- User is added to `brand_members` table with `role: "owner"`
+- User's `brand_id` field is updated to point to this brand (makes it active)
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+```typescript
+try {
+  const brand = await trpc.workflow.create.mutate({ name: 'My Brand' })
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Invalid input (name too short, invalid email format, etc.).
+
+```typescript
+try {
+  const brand = await trpc.workflow.create.mutate({ name: 'A' })  // Too short
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)  // "String must contain at least 2 character(s)"
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during brand creation.
+
+```typescript
+try {
+  const brand = await trpc.workflow.create.mutate({ name: 'My Brand' })
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to create brand:', error.message)
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Automatic Owner Role**: The authenticated user is automatically made an owner of the brand. There's no way to create a brand without being an owner.
+</Callout>
+
+<Callout type="info">
+**Active Brand**: The newly created brand automatically becomes the user's active brand. All subsequent brand-scoped API calls will use this brand unless you switch brands with `workflow.setActive`.
+</Callout>
+
+<Callout type="warning">
+**Email Fallback**: If you don't provide an email, the system uses the authenticated user's email. If the user has no email in their session, the brand email will be null.
+</Callout>
+
+<Callout type="info">
+**Logo URL Conversion**: If you provide a full URL as `logo_url`, the system extracts just the storage path. For example, `https://app.avelero.com/api/storage/brand-avatars/brand-123/logo.png` becomes `brand-123/logo.png`.
+</Callout>
+
+<Callout type="info">
+**Avatar Hue**: The `avatar_hue` field is used to generate a colored background for the brand's avatar when no logo is set. Valid values are 0-360 (HSL hue).
+</Callout>
+
+## Related Endpoints
+
+- [workflow.list](/workflow/list) - List all brands the user has access to
+- [workflow.update](/workflow/update) - Update brand settings (owner only)
+- [workflow.delete](/workflow/delete) - Delete brand (owner only)
+- [workflow.setActive](/workflow/setActive) - Switch to a different active brand
+- [composite.workflowInit](/composite/workflowInit) - Get user + brands after creation

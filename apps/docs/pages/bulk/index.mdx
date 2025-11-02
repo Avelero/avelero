@@ -1,0 +1,82 @@
+# Bulk Operations API
+
+The Bulk Operations API provides efficient batch update and import capabilities for large-scale data operations.
+
+## What This Domain Handles
+
+The Bulk Operations API is responsible for:
+- **Batch Updates**: Updating multiple records at once
+- **CSV Import**: Importing data from CSV files
+- **Selection Criteria**: Specifying which records to update using filters
+- **Performance**: Optimized database queries for large batches
+
+## Why Bulk Operations Exist
+
+Without bulk operations:
+```typescript
+// Bad: 100 separate API calls
+for (const product of products) {
+  await trpc.products.update.mutate({ id: product.id, season: 'FW24' })
+}
+// Time: 15 seconds
+```
+
+With bulk operations:
+```typescript
+// Good: Single API call
+await trpc.bulk.update.mutate({
+  domain: 'products',
+  selection: { filters: { category_id: 'apparel' } },
+  changes: { season: 'FW24' }
+})
+// Time: ~500ms
+```
+
+**Performance benefit**: 30x faster for large batches.
+
+## Endpoints
+
+- [**bulk.update**](/bulk/update) - Batch update records
+- [**bulk.import**](/bulk/import) - Import from CSV
+
+## Common Patterns
+
+### Update by Filter
+
+```typescript
+await trpc.bulk.update.mutate({
+  domain: 'products',
+  selection: { filters: { category_id: 'tshirts' } },
+  changes: { season: 'SS25' }
+})
+```
+
+### Preview Before Applying
+
+```typescript
+const preview = await trpc.bulk.update.mutate({
+  domain: 'products',
+  selection: { filters: { season: 'FW23' } },
+  changes: { season: 'FW24' },
+  preview: true
+})
+
+console.log(`Would update ${preview.count} products`)
+```
+
+## Supported Domains
+
+- products
+- variants
+- passports
+- colors, sizes, materials
+
+## Safety Limits
+
+- Maximum records per operation: 10,000
+- Preview recommended for operations affecting >100 records
+
+## Related Domains
+
+- [**Products API**](/products) - Individual product operations
+- [**Brand API**](/brand) - Catalog items can be bulk updated

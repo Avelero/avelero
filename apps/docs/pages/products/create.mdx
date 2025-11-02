@@ -1,0 +1,53 @@
+---
+title: products.create
+description: Create a new product
+---
+
+import { Callout } from 'nextra/components'
+
+# products.create
+
+Documentation for products.create endpoint.
+
+## Endpoint
+
+`products.create` (Mutation)
+
+## Purpose
+
+Create a new product
+
+## Input Parameters
+
+None. Uses authenticated user context from session.
+
+## Return Value
+
+```typescript
+// Return type definition
+{ success: boolean }
+```
+
+## Examples
+
+```typescript
+const result = await trpc.products.create.mutate({})
+    ```
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Handling
+
+- `UNAUTHORIZED`: User is not authenticated
+- `BAD_REQUEST`: Invalid parameters
+- `INTERNAL_SERVER_ERROR`: Server error
+
+
+
+

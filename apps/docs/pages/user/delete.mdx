@@ -1,0 +1,267 @@
+---
+title: user.delete
+description: Permanently delete user account and all associated data
+---
+
+import { Callout } from 'nextra/components'
+
+# user.delete
+
+Permanently deletes the authenticated user's account, including their profile data, storage assets, and authentication credentials.
+
+## Endpoint
+
+`user.delete` (Mutation)
+
+## Why This Endpoint Exists
+
+Users have the right to delete their accounts and all associated data (GDPR compliance). This endpoint provides a complete account deletion flow that:
+- **Removes Storage Assets**: Deletes all user avatar files from Supabase storage
+- **Removes Application Data**: Deletes user profile from application database
+- **Removes Auth Credentials**: Deletes user from Supabase Auth (revokes all sessions)
+- **Prevents Orphaned Data**: Deletion happens in the correct order to avoid orphaned records
+
+The deletion flow is carefully ordered:
+1. Delete storage assets first (can retry if fails)
+2. Delete application database record (triggers cascading deletes via foreign keys)
+3. Delete Supabase Auth user last (ensures user can't login if earlier steps failed)
+
+## Input Parameters
+
+None. Uses authenticated session context. The endpoint deletes the currently authenticated user.
+
+## Return Value
+
+```typescript
+interface DeletedUser {
+  id: string
+}
+
+type ReturnValue = DeletedUser
+```
+
+Returns the ID of the deleted user.
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const deleted = await trpc.user.delete.mutate()
+
+console.log(`Deleted user: ${deleted.id}`)
+// User is now logged out and all data removed
+```
+
+### React Component with Confirmation
+
+```tsx
+function DeleteAccountButton() {
+  const utils = trpc.useContext()
+  const router = useRouter()
+
+  const deleteMutation = trpc.user.delete.useMutation({
+    onSuccess: () => {
+      utils.invalidate()
+      router.push('/account-deleted')
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete account: ${error.message}`)
+    }
+  })
+
+  const handleDelete = () => {
+    if (window.confirm('Are you sure? This action cannot be undone.')) {
+      if (window.confirm('Really delete? All your data will be permanently removed.')) {
+        deleteMutation.mutate()
+      }
+    }
+  }
+
+  return (
+    <button
+      onClick={handleDelete}
+      disabled={deleteMutation.isLoading}
+      className="danger-button"
+    >
+      {deleteMutation.isLoading ? 'Deleting...' : 'Delete Account'}
+    </button>
+  )
+}
+```
+
+### With Loading State
+
+```tsx
+function DeleteAccountModal({ isOpen, onClose }: Props) {
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleConfirm = async () => {
+    setIsDeleting(true)
+    try {
+      await trpc.user.delete.mutate()
+      window.location.href = '/goodbye'
+    } catch (error) {
+      console.error('Failed to delete account:', error)
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <h2>Delete Account?</h2>
+      <p>This will permanently delete:</p>
+      <ul>
+        <li>Your profile information</li>
+        <li>All uploaded avatars</li>
+        <li>Your account credentials</li>
+      </ul>
+      <p>This action cannot be undone.</p>
+      <button onClick={handleConfirm} disabled={isDeleting}>
+        {isDeleting ? 'Deleting...' : 'Yes, delete my account'}
+      </button>
+      <button onClick={onClose}>Cancel</button>
+    </Modal>
+  )
+}
+```
+
+## Response Example
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+## How It Works
+
+1. **Delete Storage Assets**: Removes all avatar files from Supabase storage bucket `avatars/<user_id>/`
+2. **Delete Application Record**: Deletes user from application database (cascades to related records via foreign keys)
+3. **Delete Auth User**: Deletes user from Supabase Auth (immediately revokes all sessions)
+4. **Return Confirmation**: Returns the deleted user's ID
+
+### What Gets Deleted
+
+- User profile record
+- All uploaded avatar images
+- Supabase Auth user (revokes all sessions across all devices)
+- Related records with cascading foreign keys (brand memberships, etc.)
+
+### What Happens After Deletion
+
+- User is immediately logged out
+- All active sessions are revoked
+- User cannot log back in (credentials removed)
+- Email address becomes available for new registrations
+
+## Performance Notes
+
+- Typical deletion time: 500ms - 2s (depends on storage file count)
+- Storage deletion happens asynchronously
+- Database deletion triggers cascading deletes
+- Auth deletion is synchronous and immediate
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+Session expired or user not authenticated.
+
+```typescript
+try {
+  await trpc.user.delete.mutate()
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Supabase admin client not configured or deletion failed.
+
+```typescript
+try {
+  await trpc.user.delete.mutate()
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error(error.message)
+    // Possible messages:
+    // - "Supabase admin client is not configured to delete users"
+    // - "Failed to delete auth user: ..."
+    // - "Failed to delete user account"
+  }
+}
+```
+
+## Notes
+
+<Callout type="warning">
+**Permanent Action**: Account deletion is permanent and cannot be undone. All user data, including profile information, uploaded files, and authentication credentials, will be permanently removed.
+</Callout>
+
+<Callout type="info">
+**Cascading Deletes**: The database is configured with foreign key constraints that cascade deletes. When a user is deleted, all related records (brand memberships, invites sent, etc.) are automatically removed.
+</Callout>
+
+<Callout type="warning">
+**Session Revocation**: Deleting a user immediately revokes all active sessions across all devices. The user will be logged out everywhere and cannot log back in.
+</Callout>
+
+<Callout type="info">
+**Admin Client Required**: This endpoint requires the Supabase admin client to be configured on the server. Without it, the endpoint will fail to delete the authentication user, though it may successfully delete the application data.
+</Callout>
+
+<Callout type="warning">
+**Partial Failure Handling**: If storage deletion fails but database deletion succeeds, the endpoint will still complete successfully. Storage files are considered non-critical. However, if auth deletion fails after database deletion, an error will be thrown.
+</Callout>
+
+## Best Practices
+
+### Always Confirm Before Deletion
+
+```typescript
+// Bad: No confirmation
+<button onClick={() => deleteMutation.mutate()}>Delete</button>
+
+// Good: Double confirmation
+<button onClick={() => {
+  if (confirm('Delete account? This cannot be undone.')) {
+    if (confirm('Are you absolutely sure?')) {
+      deleteMutation.mutate()
+    }
+  }
+}}>Delete Account</button>
+```
+
+### Handle Post-Deletion Redirect
+
+```typescript
+const deleteMutation = trpc.user.delete.useMutation({
+  onSuccess: () => {
+    // Don't just invalidate - redirect to goodbye page
+    window.location.href = '/account-deleted'
+  }
+})
+```
+
+### Show What Will Be Deleted
+
+```tsx
+<div>
+  <h3>This will delete:</h3>
+  <ul>
+    <li>Profile: {user.full_name} ({user.email})</li>
+    <li>Brand memberships: {brands.length}</li>
+    <li>Uploaded files</li>
+  </ul>
+</div>
+```
+
+## Related Endpoints
+
+- [user.get](/user/get) - Get current user profile
+- [user.update](/user/update) - Update user profile
+- [workflow.delete](/workflow/delete) - Delete a brand (different from account deletion)

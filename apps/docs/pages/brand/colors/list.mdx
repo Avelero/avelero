@@ -1,0 +1,271 @@
+---
+title: brand.colors.list
+description: List all colors in the brand catalog
+---
+
+import { Callout } from 'nextra/components'
+
+# brand.colors.list
+
+Lists all colors in the brand's catalog, sorted alphabetically by name.
+
+## Endpoint
+
+`brand.colors.list` (Query)
+
+## Why This Endpoint Exists
+
+Brands need to:
+- **Maintain a color catalog** for use across products and passports
+- **View available colors** when creating or editing products
+- **Browse colors alphabetically** for easy selection in forms
+- **Track color usage** across the brand's product line
+
+Colors are a reusable catalog resource. Create them once, reference them many times across products.
+
+## Input Parameters
+
+None. Uses the authenticated user's active brand from session context.
+
+## Return Value
+
+```typescript
+interface BrandColor {
+  id: string                          // Color UUID
+  name: string                        // Color name (e.g., "Navy Blue")
+  created_at: string                  // ISO timestamp when created
+  updated_at: string                  // ISO timestamp when last updated
+}
+
+interface ListResponse {
+  data: BrandColor[]
+}
+
+type ReturnValue = ListResponse
+```
+
+Returns an empty array `{ data: [] }` if the brand has no colors.
+
+##Examples
+
+### Basic Usage
+
+```typescript
+const { data: colors } = await trpc.brand.colors.list.query()
+
+console.log(`Brand has ${colors.length} colors`)
+```
+
+### React Component - Color Picker
+
+```tsx
+function ColorPicker({ value, onChange }: {
+  value?: string
+  onChange: (colorId: string) => void
+}) {
+  const { data: response } = trpc.brand.colors.list.useQuery()
+  const colors = response?.data ?? []
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">Select a color</option>
+      {colors.map((color) => (
+        <option key={color.id} value={color.id}>
+          {color.name}
+        </option>
+      ))}
+    </select>
+  )
+}
+```
+
+### React Component - Color List with Actions
+
+```tsx
+function ColorCatalog() {
+  const { data: response, isLoading } = trpc.brand.colors.list.useQuery()
+  const colors = response?.data ?? []
+
+  if (isLoading) return <Skeleton />
+
+  return (
+    <div className="color-catalog">
+      <div className="header">
+        <h2>Colors ({colors.length})</h2>
+        <button className="btn-primary">Add Color</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {colors.map((color) => (
+            <tr key={color.id}>
+              <td>{color.name}</td>
+              <td>{new Date(color.created_at).toLocaleDateString()}</td>
+              <td>
+                <button className="btn-sm">Edit</button>
+                <button className="btn-sm btn-danger">Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+```
+
+### Filter Colors
+
+```typescript
+const { data: response } = await trpc.brand.colors.list.query()
+const colors = response?.data ?? []
+
+// Filter by search term
+const searchTerm = 'blue'
+const blueColors = colors.filter(color =>
+  color.name.toLowerCase().includes(searchTerm.toLowerCase())
+)
+
+console.log(`Found ${blueColors.length} blue colors`)
+```
+
+### Check if Color Exists
+
+```typescript
+const { data: response } = await trpc.brand.colors.list.query()
+const colors = response?.data ?? []
+
+const hasNavy = colors.some(color => color.name === 'Navy')
+
+if (!hasNavy) {
+  console.log('Navy color not found in catalog')
+}
+```
+
+## Response Example
+
+```json
+{
+  "data": [
+    {
+      "id": "color-550e8400-e29b-41d4-a716-446655440000",
+      "name": "Black",
+      "created_at": "2025-01-10T14:20:00Z",
+      "updated_at": "2025-01-10T14:20:00Z"
+    },
+    {
+      "id": "color-550e8400-e29b-41d4-a716-446655440001",
+      "name": "Navy Blue",
+      "created_at": "2025-01-15T10:30:00Z",
+      "updated_at": "2025-01-15T10:30:00Z"
+    },
+    {
+      "id": "color-550e8400-e29b-41d4-a716-446655440002",
+      "name": "White",
+      "created_at": "2025-01-12T09:15:00Z",
+      "updated_at": "2025-01-12T09:15:00Z"
+    }
+  ]
+}
+```
+
+Empty catalog:
+
+```json
+{
+  "data": []
+}
+```
+
+## How It Works
+
+1. **Get Active Brand**: Uses the authenticated user's active brand from session
+2. **Query Colors**: Fetches all colors for the brand from `brand_colors` table
+3. **Sort Alphabetically**: Orders colors by name (A-Z)
+4. **Return List**: Returns colors wrapped in standard `{ data: [] }` response format
+
+### Sorting
+
+Colors are always returned sorted alphabetically by name (case-insensitive), making it easy to find colors in dropdown lists.
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+```typescript
+try {
+  const { data } = await trpc.brand.colors.list.query()
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### FORBIDDEN (403)
+
+User is not a member of any brand (no active brand).
+
+```typescript
+try {
+  const { data } = await trpc.brand.colors.list.query()
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    router.push('/onboarding/create-brand')
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during query.
+
+```typescript
+try {
+  const { data } = await trpc.brand.colors.list.query()
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to fetch colors:', error.message)
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Alphabetical Sorting**: Colors are always returned sorted by name (A-Z). This ensures consistent ordering in dropdowns and selection lists.
+</Callout>
+
+<Callout type="info">
+**Both Roles Can Access**: Both brand owners and members can list colors. This allows all team members to use the color catalog when creating products.
+</Callout>
+
+<Callout type="info">
+**Name Only**: The database stores only color names, not hex values. Hex values are provided by a static package (`@v1/selections/colors`) for performance optimization.
+</Callout>
+
+<Callout type="info">
+**Brand-Scoped**: Colors are scoped to the brand. Each brand has its own independent color catalog.
+</Callout>
+
+<Callout type="info">
+**Timestamps**: The `created_at` and `updated_at` fields track when colors were added and last modified.
+</Callout>
+
+## Related Endpoints
+
+- [brand.colors.create](/brand/colors/create) - Add a new color to the catalog
+- [brand.colors.update](/brand/colors/update) - Update an existing color name
+- [brand.colors.delete](/brand/colors/delete) - Remove a color from the catalog
+- [composite.passportFormReferences](/composite/passportFormReferences) - Get colors + other catalog items

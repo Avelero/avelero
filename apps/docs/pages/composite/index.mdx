@@ -1,0 +1,212 @@
+# Composite API
+
+The Composite API provides performance-optimized endpoints that combine multiple queries into single requests. These endpoints reduce network overhead and prevent N+1 query problems.
+
+## What This Domain Handles
+
+The Composite API is responsible for:
+- **Performance Optimization**: Combining multiple related queries into one request
+- **Dashboard Initialization**: Loading all required data for page initialization
+- **Reduced Latency**: Fewer network round trips means faster page loads
+- **Parallel Execution**: Running multiple queries in parallel on the server
+
+## Why Composite Endpoints Exist
+
+Without composite endpoints, initializing a dashboard requires multiple sequential API calls:
+
+```typescript
+// Bad: 3 sequential network requests (300-600ms total)
+const user = await trpc.user.get.query()           // 100-200ms
+const brands = await trpc.workflow.list.query()    // 100-200ms
+const invites = await trpc.user.invites.list.query() // 100-200ms
+```
+
+With composite endpoints:
+
+```typescript
+// Good: 1 network request with parallel queries (100-200ms total)
+const { user, brands, myInvites } = await trpc.composite.workflowInit.query()
+```
+
+**Performance benefit**: Reduces 3 round trips to 1, saving 200-400ms on page load.
+
+## Architecture
+
+Composite endpoints:
+1. Accept a single request from the client
+2. Execute multiple queries in parallel on the server using `Promise.all`
+3. Return combined results in a single response
+
+This pattern is especially useful for:
+- **Page initialization**: Load all required data at once
+- **Dashboard views**: Combine user, stats, and lists
+- **Related data**: Fetch entity and its relationships together
+
+## Endpoints
+
+- [**composite.workflowInit**](/composite/workflowInit) - Dashboard initialization
+  - Combines: user profile, brand memberships, pending invites
+  - Used for: Dashboard page load, brand switcher, onboarding detection
+  - Returns: `{ user, brands, myInvites }`
+
+- [**composite.dashboard**](/composite/dashboard) - Dashboard metrics
+  - Combines: Product counts, passport counts, recent activity
+  - Used for: Dashboard overview page
+  - Returns: Aggregated statistics
+
+- [**composite.membersWithInvites**](/composite/membersWithInvites) - Team management view
+  - Combines: Current members, pending invitations
+  - Used for: Team management page
+  - Returns: `{ members, invites }`
+
+- [**composite.passportFormReferences**](/composite/passportFormReferences) - Passport form data
+  - Combines: All reference data needed for passport form
+  - Used for: Passport creation/edit forms
+  - Returns: Categories, materials, colors, sizes, etc.
+
+## Common Patterns
+
+### Dashboard Initialization
+
+```typescript
+function Dashboard() {
+  const { data, isLoading } = trpc.composite.workflowInit.useQuery()
+
+  if (isLoading) return <DashboardSkeleton />
+
+  const { user, brands, myInvites } = data
+
+  return (
+    <div>
+      <UserHeader user={user} />
+      <BrandSwitcher brands={brands} />
+      {myInvites.length > 0 && <InviteNotifications invites={myInvites} />}
+      <MainContent />
+    </div>
+  )
+}
+```
+
+### Onboarding Detection
+
+```typescript
+const { user, brands, myInvites } = await trpc.composite.workflowInit.query()
+
+// Determine onboarding state from combined data
+if (!brands.length && !myInvites.length) {
+  return 'create-brand'
+} else if (!brands.length && myInvites.length) {
+  return 'accept-invite'
+} else if (!user?.full_name) {
+  return 'complete-profile'
+}
+
+return 'completed'
+```
+
+### Cache Invalidation
+
+```typescript
+// After creating a brand, invalidate composite endpoint
+const createMutation = trpc.workflow.create.useMutation({
+  onSuccess: () => {
+    utils.composite.workflowInit.invalidate()  // Refresh all data
+  }
+})
+```
+
+## When to Use Composite Endpoints
+
+### Use Composite When:
+- Loading a page that needs 3+ separate queries
+- Queries are always used together
+- Reducing latency is critical
+- Data is related and loaded at the same time
+
+### Don't Use Composite When:
+- Only need one piece of data
+- Queries are conditionally executed
+- Individual queries are already cached
+- Data updates independently
+
+## Performance Impact
+
+### Latency Reduction
+
+```
+Sequential Requests (without composite):
+  Request 1: 100ms + 50ms network = 150ms
+  Request 2: 100ms + 50ms network = 150ms
+  Request 3: 100ms + 50ms network = 150ms
+  Total: 450ms
+
+Composite Request (with composite):
+  Parallel queries: max(100ms, 100ms, 100ms) = 100ms
+  Network: 50ms
+  Total: 150ms
+
+Improvement: 3x faster (450ms → 150ms)
+```
+
+### Server-Side Parallelization
+
+Composite endpoints use `Promise.all` to run queries in parallel:
+
+```typescript
+// Inside composite.workflowInit
+const [user, brands, invites] = await Promise.all([
+  getUserById(db, userId),
+  getBrandsByUserId(db, userId),
+  listPendingInvitesForEmail(db, email)
+])
+```
+
+## Related Domains
+
+- [**User API**](/user) - Composite endpoints combine user data
+- [**Workflow API**](/workflow) - Composite endpoints combine brand data
+- [**Products API**](/products) - Use `includeVariants` instead of composite for products
+- [**Passports API**](/passports) - Use `includeProduct` instead of composite for passports
+
+## Best Practices
+
+### Cache Composite Endpoints
+
+```typescript
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,  // 5 minutes for composite endpoints
+    },
+  },
+})
+```
+
+### Invalidate After Mutations
+
+```typescript
+// After any mutation that affects composite data
+utils.composite.workflowInit.invalidate()
+```
+
+### Use for Initialization Only
+
+Composite endpoints are best for page initialization. For individual updates, use specific endpoints:
+
+```typescript
+// Good: Load with composite
+const data = await trpc.composite.workflowInit.query()
+
+// Good: Update with specific endpoint
+await trpc.user.update.mutate({ full_name: 'New Name' })
+
+// Bad: Refresh composite after every update
+await trpc.composite.workflowInit.invalidate()
+```
+
+## Security Notes
+
+- All composite endpoints require authentication
+- Access control is enforced at the individual query level
+- Users only see data they have permission to access
+- Composite endpoints don't bypass security checks

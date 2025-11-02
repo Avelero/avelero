@@ -1,0 +1,489 @@
+---
+title: workflow.invites.respond
+description: Accept, decline, or revoke brand invitation
+---
+
+import { Callout } from 'nextra/components'
+
+# workflow.invites.respond
+
+Unified endpoint for responding to brand invitations. Supports three actions: accept, decline, or revoke.
+
+## Endpoint
+
+`workflow.invites.respond` (Mutation)
+
+## Why This Endpoint Exists
+
+This endpoint handles all invitation response workflows:
+- **Accept invitation** - Users accept an invite and join the brand as a member/owner
+- **Decline invitation** - Users decline an invite they've received
+- **Revoke invitation** - Brand owners revoke a pending invite they've sent
+
+Using a single unified endpoint simplifies the API surface and provides consistent error handling across all invitation actions.
+
+## Input Parameters
+
+```typescript
+interface WorkflowInvitesRespondInput {
+  invite_id: string                   // UUID of the invitation (required)
+  action: 'accept' | 'decline' | 'revoke'  // Action to perform (required)
+}
+```
+
+**Required Fields:**
+- `invite_id`: The invitation's UUID
+- `action`: One of three actions:
+  - `"accept"` - Accept the invitation and join the brand
+  - `"decline"` - Decline the invitation
+  - `"revoke"` - Revoke the invitation (owner only)
+
+**Permissions Required:**
+- **accept/decline**: Must be authenticated, invitation must match user's email
+- **revoke**: Must be authenticated AND have **owner** role for the brand
+
+## Return Value
+
+```typescript
+// For accept action
+interface AcceptResult {
+  success: true
+  brandId: string                     // The brand ID the user joined
+}
+
+// For decline/revoke actions
+interface DeclineRevokeResult {
+  success: true
+}
+
+type ReturnValue = AcceptResult | DeclineRevokeResult
+```
+
+## Examples
+
+### Accept Invitation
+
+```typescript
+const result = await trpc.workflow.invites.respond.mutate({
+  invite_id: 'invite-123',
+  action: 'accept'
+})
+
+console.log(`Joined brand: ${result.brandId}`)
+```
+
+### Decline Invitation
+
+```typescript
+await trpc.workflow.invites.respond.mutate({
+  invite_id: 'invite-456',
+  action: 'decline'
+})
+
+console.log('Invitation declined')
+```
+
+### Revoke Invitation (Owner Only)
+
+```typescript
+await trpc.workflow.invites.respond.mutate({
+  invite_id: 'invite-789',
+  action: 'revoke'
+})
+
+console.log('Invitation revoked')
+```
+
+### React Component - Accept Invitation
+
+```tsx
+function AcceptInviteButton({ invite }: { invite: BrandInvite }) {
+  const router = useRouter()
+  const utils = trpc.useContext()
+
+  const respondMutation = trpc.workflow.invites.respond.useMutation({
+    onSuccess: (result) => {
+      if ('brandId' in result) {
+        // Accepted - switch to the new brand
+        toast.success(`Joined ${invite.brand_name}!`)
+        utils.workflow.list.invalidate()
+        utils.user.invites.list.invalidate()
+        router.push(`/dashboard?brand=${result.brandId}`)
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    }
+  })
+
+  const handleAccept = () => {
+    respondMutation.mutate({
+      invite_id: invite.id,
+      action: 'accept'
+    })
+  }
+
+  return (
+    <button
+      onClick={handleAccept}
+      disabled={respondMutation.isLoading}
+      className="btn-primary"
+    >
+      {respondMutation.isLoading ? 'Joining...' : 'Accept Invitation'}
+    </button>
+  )
+}
+```
+
+### React Component - Accept or Decline
+
+```tsx
+function InviteActions({ invite }: { invite: BrandInvite }) {
+  const utils = trpc.useContext()
+
+  const respondMutation = trpc.workflow.invites.respond.useMutation({
+    onSuccess: (result, variables) => {
+      if (variables.action === 'accept' && 'brandId' in result) {
+        toast.success('Invitation accepted!')
+        router.push(`/dashboard?brand=${result.brandId}`)
+      } else {
+        toast.success('Invitation declined')
+      }
+      utils.user.invites.list.invalidate()
+    }
+  })
+
+  const handleAccept = () => {
+    respondMutation.mutate({
+      invite_id: invite.id,
+      action: 'accept'
+    })
+  }
+
+  const handleDecline = () => {
+    if (window.confirm('Are you sure you want to decline this invitation?')) {
+      respondMutation.mutate({
+        invite_id: invite.id,
+        action: 'decline'
+      })
+    }
+  }
+
+  return (
+    <div className="invite-actions">
+      <button
+        onClick={handleAccept}
+        disabled={respondMutation.isLoading}
+        className="btn-primary"
+      >
+        Accept
+      </button>
+      <button
+        onClick={handleDecline}
+        disabled={respondMutation.isLoading}
+        className="btn-secondary"
+      >
+        Decline
+      </button>
+    </div>
+  )
+}
+```
+
+### React Component - Revoke Invitation (Owner)
+
+```tsx
+function RevokeButton({ inviteId }: { inviteId: string }) {
+  const utils = trpc.useContext()
+
+  const revokeMutation = trpc.workflow.invites.respond.useMutation({
+    onSuccess: () => {
+      toast.success('Invitation revoked')
+      utils.workflow.invites.list.invalidate()
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    }
+  })
+
+  const handleRevoke = () => {
+    if (window.confirm('Revoke this invitation?')) {
+      revokeMutation.mutate({
+        invite_id: inviteId,
+        action: 'revoke'
+      })
+    }
+  }
+
+  return (
+    <button
+      onClick={handleRevoke}
+      disabled={revokeMutation.isLoading}
+      className="btn-danger"
+    >
+      {revokeMutation.isLoading ? 'Revoking...' : 'Revoke'}
+    </button>
+  )
+}
+```
+
+### Batch Accept All Invitations
+
+```typescript
+const invites = await trpc.user.invites.list.query()
+
+// Accept all invitations sequentially
+for (const invite of invites) {
+  try {
+    const result = await trpc.workflow.invites.respond.mutate({
+      invite_id: invite.id,
+      action: 'accept'
+    })
+    console.log(`Accepted invitation to ${invite.brand_name}`)
+  } catch (error) {
+    console.error(`Failed to accept ${invite.brand_name}:`, error)
+  }
+}
+```
+
+### Onboarding Flow - Accept First Invite
+
+```tsx
+function OnboardingAcceptInvite() {
+  const router = useRouter()
+  const { data: invites, isLoading } = trpc.user.invites.list.useQuery()
+
+  const acceptMutation = trpc.workflow.invites.respond.useMutation({
+    onSuccess: (result) => {
+      if ('brandId' in result) {
+        router.push('/dashboard')
+      }
+    }
+  })
+
+  if (isLoading) return <Skeleton />
+  if (!invites?.length) {
+    router.push('/onboarding/create-brand')
+    return null
+  }
+
+  const firstInvite = invites[0]
+
+  return (
+    <div className="onboarding">
+      <h2>You've been invited!</h2>
+      <p>{firstInvite.brand_name} has invited you to join as {firstInvite.role}</p>
+      <button
+        onClick={() => acceptMutation.mutate({
+          invite_id: firstInvite.id,
+          action: 'accept'
+        })}
+        disabled={acceptMutation.isLoading}
+        className="btn-primary"
+      >
+        Accept & Continue
+      </button>
+      <button onClick={() => router.push('/onboarding/create-brand')}>
+        Create My Own Brand Instead
+      </button>
+    </div>
+  )
+}
+```
+
+## Response Examples
+
+### Accept Response
+
+```json
+{
+  "success": true,
+  "brandId": "brand-550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### Decline/Revoke Response
+
+```json
+{
+  "success": true
+}
+```
+
+## How It Works
+
+### Accept Action
+
+1. **Validate Invitation**: Ensures invitation exists
+2. **Create Membership**: Adds user to `brand_members` table with the role from the invitation
+3. **Delete Invitation**: Removes the invitation record
+4. **Return Brand ID**: Returns the brand ID so the UI can navigate to it
+
+### Decline Action
+
+1. **Validate Ownership**: Ensures the invitation email matches the user's email
+2. **Delete Invitation**: Removes the invitation record
+3. **Return Success**: Confirms the invitation was declined
+
+### Revoke Action
+
+1. **Check Ownership**: Ensures the user is an owner of the brand
+2. **Delete Invitation**: Removes the invitation record
+3. **Return Success**: Confirms the invitation was revoked
+
+### Action Flow Diagram
+
+```
+┌──────────────┐
+│ User calls   │
+│ respond()    │
+└──────┬───────┘
+       │
+       ├─── action = "accept" ──► Add to brand_members ──► Return { success, brandId }
+       │
+       ├─── action = "decline" ─► Delete invite ──────────► Return { success }
+       │                           (if email matches)
+       │
+       └─── action = "revoke" ──► Check owner role ──────► Return { success }
+                                   Delete invite
+```
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+```typescript
+try {
+  await trpc.workflow.invites.respond.mutate({
+    invite_id: 'invite-123',
+    action: 'accept'
+  })
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### FORBIDDEN (403)
+
+For **revoke** action: user is not an owner of the brand.
+
+```typescript
+try {
+  await trpc.workflow.invites.respond.mutate({
+    invite_id: 'invite-123',
+    action: 'revoke'
+  })
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    toast.error('Only brand owners can revoke invitations')
+  }
+}
+```
+
+For **decline** action: invitation email doesn't match user's email.
+
+```typescript
+try {
+  await trpc.workflow.invites.respond.mutate({
+    invite_id: 'invite-123',
+    action: 'decline'
+  })
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    toast.error('This invitation was not sent to your email address')
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Invalid invitation ID or action type.
+
+```typescript
+try {
+  await trpc.workflow.invites.respond.mutate({
+    invite_id: 'invalid-id',
+    action: 'accept'
+  })
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)
+  }
+}
+```
+
+### NOT_FOUND (404)
+
+Invitation not found (may have been already accepted, declined, or revoked).
+
+```typescript
+try {
+  await trpc.workflow.invites.respond.mutate({
+    invite_id: 'invite-123',
+    action: 'accept'
+  })
+} catch (error) {
+  if (error.message === 'Invite not found') {
+    toast.error('This invitation is no longer valid')
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during operation.
+
+```typescript
+try {
+  await trpc.workflow.invites.respond.mutate({
+    invite_id: 'invite-123',
+    action: 'accept'
+  })
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to process invitation:', error.message)
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Unified Endpoint**: This single endpoint handles three different actions (accept, decline, revoke) instead of having three separate endpoints. This simplifies the API surface.
+</Callout>
+
+<Callout type="info">
+**Accept Returns Brand ID**: When accepting an invitation, the response includes the `brandId` field so your application can immediately navigate to the new brand.
+</Callout>
+
+<Callout type="warning">
+**Revoke Requires Owner Role**: Only brand owners can revoke invitations. The `revoke` action will fail with FORBIDDEN if the user is not an owner of the brand.
+</Callout>
+
+<Callout type="info">
+**Email Validation**: For the `decline` action, the system verifies that the invitation was sent to the authenticated user's email address. You cannot decline invitations sent to other email addresses.
+</Callout>
+
+<Callout type="warning">
+**Single Use**: Once an invitation is accepted, declined, or revoked, it is permanently deleted. The same invitation cannot be used again.
+</Callout>
+
+<Callout type="info">
+**Automatic Membership**: When accepting an invitation, the user is automatically added to the brand with the role specified in the invitation (owner or member). No additional steps are required.
+</Callout>
+
+<Callout type="info">
+**Invalidate Queries**: After accepting, declining, or revoking an invitation, remember to invalidate relevant queries (`workflow.list`, `user.invites.list`, `workflow.invites.list`) to update the UI.
+</Callout>
+
+## Related Endpoints
+
+- [workflow.invites.list](/workflow/invites/list) - List invitations sent by the brand (owner only)
+- [workflow.invites.send](/workflow/invites/send) - Send a new invitation (owner only)
+- [user.invites.list](/user/invites/list) - View invitations received by the user
+- [workflow.list](/workflow/list) - List brands after accepting invitation
+- [composite.membersWithInvites](/composite/membersWithInvites) - Get members + invites together

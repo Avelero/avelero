@@ -1,0 +1,53 @@
+---
+title: passports.templates.delete
+description: Delete a passport template
+---
+
+import { Callout } from 'nextra/components'
+
+# passports.templates.delete
+
+Documentation for passports.templates.delete endpoint.
+
+## Endpoint
+
+`passports.templates.delete` (Mutation)
+
+## Purpose
+
+Delete a passport template
+
+## Input Parameters
+
+None. Uses authenticated user context from session.
+
+## Return Value
+
+```typescript
+// Return type definition
+{ success: boolean }
+```
+
+## Examples
+
+```typescript
+const result = await trpc.passports.templates.delete.mutate({})
+    ```
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Handling
+
+- `UNAUTHORIZED`: User is not authenticated
+- `BAD_REQUEST`: Invalid parameters
+- `INTERNAL_SERVER_ERROR`: Server error
+
+
+
+

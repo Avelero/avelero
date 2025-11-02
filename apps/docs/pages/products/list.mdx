@@ -1,0 +1,338 @@
+---
+title: products.list
+description: List all products for the active brand with filtering and pagination
+---
+
+import { Callout } from 'nextra/components'
+
+# products.list
+
+Retrieves a paginated list of products for the authenticated user's active brand, with optional filtering, field selection, and eager loading.
+
+## Endpoint
+
+`products.list` (Query)
+
+## Why This Endpoint Exists
+
+Product catalogs can contain hundreds or thousands of products. This endpoint provides efficient access to the product catalog with:
+- **Pagination**: Cursor-based pagination to handle large catalogs
+- **Filtering**: Filter by category, season, or search term
+- **Field Selection**: Request only the fields you need to reduce payload size
+- **Eager Loading**: Include variants and attributes to prevent N+1 query problems
+- **Brand Scoping**: Automatically scoped to the user's active brand
+
+The `includeVariants` and `includeAttributes` flags are performance optimizations that fetch related data in a single query instead of requiring separate API calls.
+
+## Input Parameters
+
+```typescript
+interface ProductsListInput {
+  // Pagination
+  cursor?: string                   // Cursor for next page
+  limit?: number                    // Results per page (default: 50, max: 100)
+
+  // Field Selection
+  fields?: Array<                   // Specific fields to return
+    'id' | 'name' | 'description' | 'category_id' | 'season' |
+    'brand_certification_id' | 'showcase_brand_id' | 'primary_image_url' |
+    'created_at' | 'updated_at'
+  >
+
+  // Filters
+  filters?: {
+    category_id?: string            // Filter by product category
+    season?: string                 // Filter by season (e.g., "SS24", "FW24")
+    search?: string                 // Search in product name
+  }
+
+  // Eager Loading
+  includeVariants?: boolean         // Include product variants (default: false)
+  includeAttributes?: boolean       // Include attributes (materials, care codes, etc.) (default: false)
+
+  // Brand Scoping (optional - auto-scoped to active brand)
+  brand_id?: string                 // Must match active brand if provided
+}
+```
+
+## Return Value
+
+```typescript
+interface ProductsListResponse {
+  data: Product[]
+  meta: {
+    total: number                   // Total count of products
+    cursor: string | null           // Cursor for next page
+    hasMore: boolean                // Whether more results exist
+  }
+}
+
+interface Product {
+  id: string
+  name: string
+  description: string | null
+  category_id: string | null
+  season: string | null
+  brand_certification_id: string | null
+  showcase_brand_id: string | null
+  primary_image_url: string | null
+  created_at: string
+  updated_at: string
+
+  // Only included if includeVariants: true
+  variants?: ProductVariant[]
+
+  // Only included if includeAttributes: true
+  attributes?: {
+    materials?: Array<{ brand_material_id: string; percentage: number }>
+    careCodes?: string[]
+    ecoClaims?: string[]
+    environment?: {
+      carbon_kg_co2e: string
+      water_liters: string
+    }
+    journeySteps?: Array<{
+      sort_index: number
+      step_type: string
+      facility_id: string
+    }>
+  }
+}
+
+interface ProductVariant {
+  id: string
+  product_id: string
+  color_id: string | null
+  size_id: string | null
+  sku: string | null
+  upid: string
+  product_image_url: string | null
+}
+```
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const { data, meta } = await trpc.products.list.query({})
+
+console.log(`Showing ${data.length} of ${meta.total} products`)
+console.log(`Has more: ${meta.hasMore}`)
+```
+
+### Filtered by Category and Season
+
+```typescript
+const result = await trpc.products.list.query({
+  filters: {
+    category_id: 'category-uuid',
+    season: 'SS25'
+  },
+  limit: 20
+})
+```
+
+### Search Products
+
+```typescript
+const result = await trpc.products.list.query({
+  filters: {
+    search: 't-shirt'
+  }
+})
+```
+
+### With Pagination
+
+```typescript
+// First page
+const page1 = await trpc.products.list.query({ limit: 50 })
+
+// Next page
+if (page1.meta.hasMore) {
+  const page2 = await trpc.products.list.query({
+    cursor: page1.meta.cursor,
+    limit: 50
+  })
+}
+```
+
+### Include Variants (Prevent N+1)
+
+```typescript
+// Bad: Causes N+1 queries
+const products = await trpc.products.list.query({})
+for (const product of products.data) {
+  const variants = await trpc.products.variants.list.query({ product_id: product.id })
+}
+
+// Good: Single query with eager loading
+const { data: products } = await trpc.products.list.query({
+  includeVariants: true
+})
+
+for (const product of products) {
+  console.log(`${product.name} has ${product.variants?.length} variants`)
+}
+```
+
+### Field Selection
+
+```typescript
+// Only fetch id and name to reduce payload size
+const result = await trpc.products.list.query({
+  fields: ['id', 'name']
+})
+```
+
+### React Component with Infinite Scroll
+
+```tsx
+function ProductCatalog() {
+  const { data, fetchNextPage, hasNextPage } = trpc.products.list.useInfiniteQuery(
+    { limit: 20, includeVariants: true },
+    {
+      getNextPageParam: (lastPage) => lastPage.meta.cursor,
+    }
+  )
+
+  const products = data?.pages.flatMap(page => page.data) ?? []
+
+  return (
+    <div>
+      {products.map((product) => (
+        <ProductCard key={product.id} product={product} />
+      ))}
+      {hasNextPage && (
+        <button onClick={() => fetchNextPage()}>Load More</button>
+      )}
+    </div>
+  )
+}
+```
+
+## Response Example
+
+```json
+{
+  "data": [
+    {
+      "id": "product-123",
+      "name": "Organic Cotton T-Shirt",
+      "description": "Comfortable everyday tee made from 100% organic cotton",
+      "category_id": "category-456",
+      "season": "SS25",
+      "brand_certification_id": "cert-789",
+      "showcase_brand_id": null,
+      "primary_image_url": "https://example.com/images/tshirt.jpg",
+      "created_at": "2025-01-15T10:30:00Z",
+      "updated_at": "2025-01-20T14:45:00Z",
+      "variants": [
+        {
+          "id": "variant-001",
+          "product_id": "product-123",
+          "color_id": "color-white",
+          "size_id": "size-m",
+          "sku": "TS-WHT-M",
+          "upid": "12345678",
+          "product_image_url": "https://example.com/images/tshirt-white-m.jpg"
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total": 156,
+    "cursor": "eyJpZCI6InByb2R1Y3QtMTI0IiwiY3JlYXRlZF9hdCI6IjIwMjUtMDEtMTVUMTA6MzA6MDBaIn0",
+    "hasMore": true
+  }
+}
+```
+
+## How It Works
+
+1. **Brand Scoping**: Validates that `brand_id` (if provided) matches the user's active brand
+2. **Apply Filters**: Filters by category, season, and/or search term
+3. **Field Selection**: Returns only requested fields (or all fields if not specified)
+4. **Eager Loading**: If `includeVariants` or `includeAttributes` is true, fetches related data in optimized queries
+5. **Pagination**: Returns cursor-based page of results with metadata
+6. **Total Count**: Calculates total matching products for UI display
+
+## Performance Notes
+
+- Default page size: 50 products
+- Maximum page size: 100 products
+- Cursor-based pagination is more efficient than offset pagination for large datasets
+- `includeVariants: true` prevents N+1 query problems by fetching all variants in a single batched query
+- `includeAttributes: true` eagerly loads materials, care codes, eco claims, environment data, and journey steps
+- Search is case-insensitive and matches against product name
+- Typical response time: 100-200ms without includes, 200-400ms with includes
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+Session expired or user not authenticated.
+
+```typescript
+try {
+  const products = await trpc.products.list.query({})
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### FORBIDDEN (403)
+
+User doesn't have access to the requested brand.
+
+```typescript
+try {
+  const products = await trpc.products.list.query({ brand_id: 'other-brand' })
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    console.error('You do not have access to this brand')
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Invalid brand_id or parameters.
+
+```typescript
+try {
+  const products = await trpc.products.list.query({
+    brand_id: 'wrong-brand',  // Doesn't match active brand
+  })
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)  // "Active brand does not match the requested brand_id"
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Brand Scoping**: The endpoint automatically uses the user's active brand. You only need to provide `brand_id` if you want defensive validation that you're operating on the correct brand.
+</Callout>
+
+<Callout type="warning">
+**N+1 Prevention**: Always use `includeVariants: true` if you plan to display variant information for each product. Otherwise, you'll need to make a separate API call for each product's variants, causing N+1 query problems.
+</Callout>
+
+<Callout type="info">
+**Field Selection**: Use the `fields` parameter when you only need specific fields (e.g., just id and name for a dropdown). This reduces payload size and improves performance.
+</Callout>
+
+## Related Endpoints
+
+- [products.get](/products/get) - Get single product with full details
+- [products.create](/products/create) - Create new product
+- [products.update](/products/update) - Update product and attributes
+- [products.delete](/products/delete) - Delete product
+- [products.variants.list](/products/variants/list) - List variants for a product
+- [products.variants.upsert](/products/variants/upsert) - Batch create/update variants

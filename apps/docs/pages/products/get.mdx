@@ -1,0 +1,53 @@
+---
+title: products.get
+description: Get a single product by ID
+---
+
+import { Callout } from 'nextra/components'
+
+# products.get
+
+Documentation for products.get endpoint.
+
+## Endpoint
+
+`products.get` (Query)
+
+## Purpose
+
+Get a single product by ID
+
+## Input Parameters
+
+None. Uses authenticated user context from session.
+
+## Return Value
+
+```typescript
+// Return type definition
+{ success: boolean }
+```
+
+## Examples
+
+```typescript
+const result = await trpc.products.get.query({})
+    ```
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Handling
+
+- `UNAUTHORIZED`: User is not authenticated
+- `BAD_REQUEST`: Invalid parameters
+- `INTERNAL_SERVER_ERROR`: Server error
+
+
+
+

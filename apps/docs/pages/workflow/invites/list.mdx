@@ -1,0 +1,387 @@
+---
+title: workflow.invites.list
+description: List pending invitations sent by the brand (owner only)
+---
+
+import { Callout } from 'nextra/components'
+
+# workflow.invites.list
+
+Lists all pending brand invitations that brand owners have sent. Only brand owners can view the invitations list.
+
+## Endpoint
+
+`workflow.invites.list` (Query)
+
+## Why This Endpoint Exists
+
+Brand owners need to:
+- **View pending invitations** they have sent to prospective team members
+- **Track who has been invited** but hasn't accepted yet
+- **Manage invitation status** before deciding to resend or revoke invitations
+- **See who sent each invite** for team coordination
+
+This endpoint shows the **brand's perspective** of invitations (outgoing invites sent by the brand), as opposed to `user.invites.list` which shows the **user's perspective** (incoming invites received by a user).
+
+## Input Parameters
+
+```typescript
+interface WorkflowInvitesListInput {
+  brand_id: string                    // UUID of the brand (required)
+}
+```
+
+**Required Fields:**
+- `brand_id`: The brand's UUID (must match the user's active brand)
+
+**Permissions Required:**
+- Must be authenticated
+- Must have **owner** role for the specified brand
+
+## Return Value
+
+```typescript
+interface BrandInvitation {
+  id: string                          // Invitation ID
+  email: string                       // Email address of invited person
+  role: string                        // Role being offered: "owner" or "member"
+  invited_by: string                  // Name or email of who sent the invite
+  created_at: string                  // ISO timestamp when invite was created
+  expires_at: string | null           // ISO timestamp when invite expires
+}
+
+type ReturnValue = BrandInvitation[]
+```
+
+Returns an empty array `[]` if no pending invitations exist for the brand.
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const invites = await trpc.workflow.invites.list.query({
+  brand_id: 'brand-123'
+})
+
+console.log(`${invites.length} pending invitations`)
+```
+
+### React Component - Team Management
+
+```tsx
+function PendingInvitationsPanel({ brandId }: { brandId: string }) {
+  const { data: invites, isLoading } = trpc.workflow.invites.list.useQuery({
+    brand_id: brandId
+  })
+
+  if (isLoading) return <Skeleton />
+  if (!invites?.length) {
+    return (
+      <div className="empty-state">
+        <p>No pending invitations</p>
+        <button>Invite Team Member</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="invitations-panel">
+      <h3>Pending Invitations ({invites.length})</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Invited By</th>
+            <th>Sent</th>
+            <th>Expires</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invites.map((invite) => (
+            <InvitationRow key={invite.id} invite={invite} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+```
+
+### Invitation Row Component
+
+```tsx
+function InvitationRow({ invite }: { invite: BrandInvitation }) {
+  const revokeMutation = trpc.workflow.invites.respond.useMutation({
+    onSuccess: () => {
+      toast.success('Invitation revoked')
+      utils.workflow.invites.list.invalidate()
+    }
+  })
+
+  const handleRevoke = () => {
+    if (window.confirm(`Revoke invitation to ${invite.email}?`)) {
+      revokeMutation.mutate({
+        invite_id: invite.id,
+        action: 'revoke'
+      })
+    }
+  }
+
+  const isExpired = invite.expires_at && new Date(invite.expires_at) < new Date()
+
+  return (
+    <tr className={isExpired ? 'expired' : ''}>
+      <td>{invite.email}</td>
+      <td>
+        <Badge variant={invite.role === 'owner' ? 'primary' : 'secondary'}>
+          {invite.role}
+        </Badge>
+      </td>
+      <td>{invite.invited_by}</td>
+      <td>{new Date(invite.created_at).toLocaleDateString()}</td>
+      <td>
+        {invite.expires_at
+          ? new Date(invite.expires_at).toLocaleDateString()
+          : 'Never'}
+      </td>
+      <td>
+        <button
+          onClick={handleRevoke}
+          disabled={revokeMutation.isLoading}
+          className="btn-sm"
+        >
+          Revoke
+        </button>
+      </td>
+    </tr>
+  )
+}
+```
+
+### Filter by Role
+
+```typescript
+const invites = await trpc.workflow.invites.list.query({
+  brand_id: 'brand-123'
+})
+
+const ownerInvites = invites.filter(inv => inv.role === 'owner')
+const memberInvites = invites.filter(inv => inv.role === 'member')
+
+console.log(`${ownerInvites.length} owner invites, ${memberInvites.length} member invites`)
+```
+
+### Check for Duplicate Before Sending
+
+```typescript
+function InviteForm({ brandId }: { brandId: string }) {
+  const [email, setEmail] = useState('')
+  const { data: pendingInvites } = trpc.workflow.invites.list.useQuery({
+    brand_id: brandId
+  })
+
+  const sendMutation = trpc.workflow.invites.send.useMutation()
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Check if already invited
+    const alreadyInvited = pendingInvites?.some(
+      inv => inv.email.toLowerCase() === email.toLowerCase()
+    )
+
+    if (alreadyInvited) {
+      toast.error('This email already has a pending invitation')
+      return
+    }
+
+    sendMutation.mutate({
+      brand_id: brandId,
+      email,
+      role: 'member'
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="email@example.com"
+        required
+      />
+      <button type="submit">Send Invitation</button>
+    </form>
+  )
+}
+```
+
+### Show Expiring Soon
+
+```typescript
+const invites = await trpc.workflow.invites.list.query({
+  brand_id: 'brand-123'
+})
+
+const now = new Date()
+const twoDaysFromNow = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000)
+
+const expiringSoon = invites.filter(invite => {
+  if (!invite.expires_at) return false
+  const expiresAt = new Date(invite.expires_at)
+  return expiresAt > now && expiresAt < twoDaysFromNow
+})
+
+if (expiringSoon.length > 0) {
+  console.log(`${expiringSoon.length} invitations expiring in the next 2 days`)
+}
+```
+
+## Response Example
+
+```json
+[
+  {
+    "id": "invite-550e8400-e29b-41d4-a716-446655440000",
+    "email": "designer@example.com",
+    "role": "member",
+    "invited_by": "Jane Smith",
+    "created_at": "2025-01-15T10:30:00Z",
+    "expires_at": "2025-01-22T10:30:00Z"
+  },
+  {
+    "id": "invite-550e8400-e29b-41d4-a716-446655440001",
+    "email": "cto@example.com",
+    "role": "owner",
+    "invited_by": "john@example.com",
+    "created_at": "2025-01-10T14:20:00Z",
+    "expires_at": "2025-01-17T14:20:00Z"
+  }
+]
+```
+
+Empty brand (no pending invitations):
+
+```json
+[]
+```
+
+## How It Works
+
+1. **Verify Ownership**: Checks that the authenticated user is an owner of the specified brand
+2. **Validate Brand Match**: Ensures the requested brand ID matches the user's active brand
+3. **Query Invitations**: Fetches all pending invitations for the brand from `brand_invites` table
+4. **Join Inviter Data**: Left joins with `users` table to get who sent each invitation
+5. **Map Results**: Formats invitation data with inviter name/email or fallback to "Avelero Team"
+6. **Sort by Date**: Returns invitations ordered by creation date (newest first)
+
+### Invited By Logic
+
+The `invited_by` field shows:
+1. **Full name** if the inviter has a full name in their profile
+2. **Email address** if no full name is set
+3. **"Avelero Team"** if the inviter record is not found (deleted user, system invite, etc.)
+
+### Expiration
+
+Invitations include both pending and expired invitations. The endpoint returns ALL invitations, including:
+- Active invitations (expires_at in the future or null)
+- Expired invitations (expires_at in the past)
+
+Your UI should check `expires_at` to determine if an invitation has expired.
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+```typescript
+try {
+  const invites = await trpc.workflow.invites.list.query({ brand_id: 'brand-123' })
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### FORBIDDEN (403)
+
+User is not an owner of the brand. Only owners can view the invitations list.
+
+```typescript
+try {
+  const invites = await trpc.workflow.invites.list.query({ brand_id: 'brand-123' })
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    toast.error('Only brand owners can view pending invitations')
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Brand ID doesn't match the user's active brand or invalid format.
+
+```typescript
+try {
+  const invites = await trpc.workflow.invites.list.query({ brand_id: 'brand-456' })
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)  // "Active brand does not match the requested workflow"
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during query.
+
+```typescript
+try {
+  const invites = await trpc.workflow.invites.list.query({ brand_id: 'brand-123' })
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to fetch invitations:', error.message)
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Owner Only**: Only users with the "owner" role can view pending invitations. Members cannot see who has been invited.
+</Callout>
+
+<Callout type="info">
+**Brand Perspective**: This endpoint shows invitations sent BY the brand (outgoing invites). To see invitations received by a user, use [`user.invites.list`](/user/invites/list).
+</Callout>
+
+<Callout type="info">
+**Active Brand Match**: The `brand_id` parameter must match the user's currently active brand. If you need to view invitations for a different brand, switch to that brand first using [`workflow.setActive`](/workflow/setActive).
+</Callout>
+
+<Callout type="warning">
+**Includes Expired**: This endpoint returns ALL invitations, including expired ones. Filter by `expires_at` in your UI to show only active invitations.
+</Callout>
+
+<Callout type="info">
+**Inviter Information**: The `invited_by` field shows the full name, email, or "Avelero Team" depending on what information is available for the user who sent the invitation.
+</Callout>
+
+<Callout type="info">
+**Sorted by Date**: Invitations are returned sorted by creation date with the newest invitations first.
+</Callout>
+
+## Related Endpoints
+
+- [workflow.invites.send](/workflow/invites/send) - Send a new invitation (owner only)
+- [workflow.invites.respond](/workflow/invites/respond) - Revoke an invitation (owner only)
+- [user.invites.list](/user/invites/list) - View invitations received by the user
+- [workflow.members.list](/workflow/members/list) - View current team members
+- [composite.membersWithInvites](/composite/membersWithInvites) - Get members + invites in one call

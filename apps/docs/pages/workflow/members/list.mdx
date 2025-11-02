@@ -1,0 +1,428 @@
+---
+title: workflow.members.list
+description: List all team members for a brand
+---
+
+import { Callout } from 'nextra/components'
+
+# workflow.members.list
+
+Lists all team members (owners and members) for a brand with their roles and permissions.
+
+## Endpoint
+
+`workflow.members.list` (Query)
+
+## Why This Endpoint Exists
+
+Brand members need to:
+- **View the team** to see who has access to the brand
+- **Understand member roles** to know who can manage settings
+- **Check if they can leave** the brand (sole owners cannot leave)
+- **Manage team composition** by viewing current members before making changes
+
+This endpoint provides the current team roster with computed metadata that helps the UI determine what actions are available.
+
+## Input Parameters
+
+```typescript
+interface WorkflowMembersListInput {
+  brand_id: string                    // UUID of the brand (required)
+}
+```
+
+**Required Fields:**
+- `brand_id`: The brand's UUID (must match the user's active brand)
+
+**Permissions Required:**
+- Must be authenticated
+- Must be a member (owner or member role) of the specified brand
+
+## Return Value
+
+```typescript
+interface TeamMember {
+  user_id: string                     // User's UUID
+  email: string | null                // User's email address
+  full_name: string | null            // User's full name
+  role: 'owner' | 'member'            // User's role in the brand
+  canLeave: boolean                   // Whether this member can leave the brand
+}
+
+type ReturnValue = TeamMember[]
+```
+
+Returns an empty array `[]` if the brand has no members (should never happen in practice).
+
+### canLeave Logic
+
+The `canLeave` field indicates whether a member can leave the brand:
+- **Members**: Always `true` (members can always leave)
+- **Owners**: `true` only if there are multiple owners, `false` if they are the sole owner
+
+Sole owners cannot leave because the brand would have no owner.
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const members = await trpc.workflow.members.list.query({
+  brand_id: 'brand-123'
+})
+
+console.log(`Team has ${members.length} members`)
+```
+
+### React Component - Team List
+
+```tsx
+function TeamMembersList({ brandId }: { brandId: string }) {
+  const { data: members, isLoading } = trpc.workflow.members.list.useQuery({
+    brand_id: brandId
+  })
+
+  if (isLoading) return <Skeleton />
+
+  const owners = members?.filter(m => m.role === 'owner') ?? []
+  const regularMembers = members?.filter(m => m.role === 'member') ?? []
+
+  return (
+    <div className="team-list">
+      <h3>Team Members ({members?.length})</h3>
+
+      <div className="owners-section">
+        <h4>Owners ({owners.length})</h4>
+        {owners.map((member) => (
+          <MemberCard key={member.user_id} member={member} />
+        ))}
+      </div>
+
+      <div className="members-section">
+        <h4>Members ({regularMembers.length})</h4>
+        {regularMembers.map((member) => (
+          <MemberCard key={member.user_id} member={member} />
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+### Member Card Component
+
+```tsx
+function MemberCard({ member }: { member: TeamMember }) {
+  const { data: currentUser } = trpc.user.get.useQuery()
+  const isCurrentUser = member.user_id === currentUser?.id
+
+  return (
+    <div className="member-card">
+      <div className="member-info">
+        <div className="avatar">
+          {member.full_name?.[0] ?? member.email?.[0] ?? '?'}
+        </div>
+        <div>
+          <div className="name">
+            {member.full_name || member.email || 'Unknown User'}
+            {isCurrentUser && <span className="badge">You</span>}
+          </div>
+          {member.full_name && (
+            <div className="email">{member.email}</div>
+          )}
+        </div>
+      </div>
+      <div className="member-role">
+        <Badge variant={member.role === 'owner' ? 'primary' : 'secondary'}>
+          {member.role}
+        </Badge>
+      </div>
+      {isCurrentUser && !member.canLeave && (
+        <div className="warning">
+          <Tooltip content="You are the sole owner and cannot leave">
+            <InfoIcon />
+          </Tooltip>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+### Check Sole Owner Status
+
+```typescript
+const members = await trpc.workflow.members.list.query({
+  brand_id: 'brand-123'
+})
+
+const currentUser = await trpc.user.get.query()
+const currentMember = members.find(m => m.user_id === currentUser.id)
+
+if (currentMember && !currentMember.canLeave) {
+  console.log('You are the sole owner and cannot leave this brand')
+  console.log('Promote another member to owner first')
+}
+```
+
+### Filter by Role
+
+```typescript
+const members = await trpc.workflow.members.list.query({
+  brand_id: 'brand-123'
+})
+
+const owners = members.filter(m => m.role === 'owner')
+const regularMembers = members.filter(m => m.role === 'member')
+
+console.log(`${owners.length} owners, ${regularMembers.length} members`)
+```
+
+### Team Management Dashboard
+
+```tsx
+function TeamManagement({ brandId }: { brandId: string }) {
+  const { data: members } = trpc.workflow.members.list.useQuery({
+    brand_id: brandId
+  })
+  const { data: invites } = trpc.workflow.invites.list.useQuery({
+    brand_id: brandId
+  })
+  const { data: user } = trpc.user.get.useQuery()
+
+  const isOwner = members?.some(
+    m => m.user_id === user?.id && m.role === 'owner'
+  )
+
+  return (
+    <div className="team-management">
+      <div className="header">
+        <h2>Team Management</h2>
+        {isOwner && (
+          <button className="btn-primary">Invite Member</button>
+        )}
+      </div>
+
+      <div className="sections">
+        <section>
+          <h3>Active Members ({members?.length ?? 0})</h3>
+          {members?.map(member => (
+            <MemberRow
+              key={member.user_id}
+              member={member}
+              canManage={isOwner}
+            />
+          ))}
+        </section>
+
+        {isOwner && invites && invites.length > 0 && (
+          <section>
+            <h3>Pending Invitations ({invites.length})</h3>
+            {invites.map(invite => (
+              <InviteRow key={invite.id} invite={invite} />
+            ))}
+          </section>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+### Show Ownership Warning
+
+```tsx
+function LeaveButton({ brandId, member }: {
+  brandId: string
+  member: TeamMember
+}) {
+  const leaveMutation = trpc.workflow.members.update.useMutation()
+
+  if (!member.canLeave) {
+    return (
+      <Tooltip content="You cannot leave because you are the sole owner. Promote another member to owner first, or delete the brand.">
+        <button disabled className="btn-danger">
+          Cannot Leave
+        </button>
+      </Tooltip>
+    )
+  }
+
+  const handleLeave = () => {
+    if (window.confirm('Are you sure you want to leave this brand?')) {
+      leaveMutation.mutate({
+        brand_id: brandId
+        // No user_id means "leave"
+      })
+    }
+  }
+
+  return (
+    <button onClick={handleLeave} className="btn-danger">
+      Leave Brand
+    </button>
+  )
+}
+```
+
+## Response Example
+
+```json
+[
+  {
+    "user_id": "user-550e8400-e29b-41d4-a716-446655440000",
+    "email": "jane@example.com",
+    "full_name": "Jane Smith",
+    "role": "owner",
+    "canLeave": true
+  },
+  {
+    "user_id": "user-550e8400-e29b-41d4-a716-446655440001",
+    "email": "john@example.com",
+    "full_name": "John Doe",
+    "role": "owner",
+    "canLeave": true
+  },
+  {
+    "user_id": "user-550e8400-e29b-41d4-a716-446655440002",
+    "email": "designer@example.com",
+    "full_name": null,
+    "role": "member",
+    "canLeave": true
+  }
+]
+```
+
+Sole owner scenario:
+
+```json
+[
+  {
+    "user_id": "user-550e8400-e29b-41d4-a716-446655440000",
+    "email": "owner@example.com",
+    "full_name": "Brand Owner",
+    "role": "owner",
+    "canLeave": false
+  },
+  {
+    "user_id": "user-550e8400-e29b-41d4-a716-446655440001",
+    "email": "member@example.com",
+    "full_name": "Team Member",
+    "role": "member",
+    "canLeave": true
+  }
+]
+```
+
+## How It Works
+
+1. **Verify Membership**: Checks that the authenticated user is a member of the brand
+2. **Validate Brand Match**: Ensures the requested brand ID matches the user's active brand
+3. **Query Members**: Fetches all members for the brand from `brand_members` table
+4. **Join User Data**: Left joins with `users` table to get email and full name
+5. **Count Owners**: Computes the total number of owners
+6. **Compute canLeave**: For each member, determines if they can leave based on:
+   - Members: always true
+   - Owners: true if there are multiple owners, false if sole owner
+7. **Sort by Date**: Returns members ordered by when they joined (oldest first)
+
+### canLeave Computation
+
+```typescript
+function computeMemberCanLeave(role: "owner" | "member", ownerCount: number) {
+  if (role !== "owner") return true;  // Members can always leave
+  return ownerCount > 1;              // Owners can leave only if there are others
+}
+```
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+```typescript
+try {
+  const members = await trpc.workflow.members.list.query({ brand_id: 'brand-123' })
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### FORBIDDEN (403)
+
+User is not a member of the brand.
+
+```typescript
+try {
+  const members = await trpc.workflow.members.list.query({ brand_id: 'brand-123' })
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    toast.error('You do not have access to this brand')
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Brand ID doesn't match the user's active brand.
+
+```typescript
+try {
+  const members = await trpc.workflow.members.list.query({ brand_id: 'brand-456' })
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)  // "Active brand does not match the requested workflow"
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during query.
+
+```typescript
+try {
+  const members = await trpc.workflow.members.list.query({ brand_id: 'brand-123' })
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to fetch team members:', error.message)
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Both Roles Can Access**: Unlike invite endpoints (owner-only), both owners and members can list team members. This allows all team members to see who they're working with.
+</Callout>
+
+<Callout type="info">
+**canLeave Metadata**: The `canLeave` field is computed on the server and tells you whether a member can leave the brand. Use this to disable "Leave" buttons for sole owners.
+</Callout>
+
+<Callout type="warning">
+**Sole Owner Protection**: Sole owners have `canLeave: false`. They must either promote another member to owner or delete the brand entirely. They cannot leave the brand.
+</Callout>
+
+<Callout type="info">
+**Ordered by Join Date**: Members are returned in the order they joined (oldest first). This can help identify founding members vs recent additions.
+</Callout>
+
+<Callout type="info">
+**Null User Data**: The `email` and `full_name` fields can be null if the user hasn't set these values in their profile. Handle these cases in your UI.
+</Callout>
+
+<Callout type="info">
+**Active Brand Match**: The `brand_id` parameter must match the user's currently active brand. Switch brands first using [`workflow.setActive`](/workflow/setActive) if needed.
+</Callout>
+
+## Related Endpoints
+
+- [workflow.members.update](/workflow/members/update) - Update member role, remove member, or leave brand
+- [workflow.invites.list](/workflow/invites/list) - View pending invitations (owner only)
+- [workflow.invites.send](/workflow/invites/send) - Invite new members (owner only)
+- [composite.membersWithInvites](/composite/membersWithInvites) - Get members + invites in one call
+- [user.get](/user/get) - Get current user to compare with member list

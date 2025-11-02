@@ -1,0 +1,254 @@
+---
+title: composite.workflowInit
+description: Dashboard initialization combining user, brands, and invites
+---
+
+import { Callout } from 'nextra/components'
+
+# composite.workflowInit
+
+Performance-optimized endpoint designed for dashboard initialization. Combines user profile, brand memberships, and pending invites into a single request to reduce network overhead.
+
+## Endpoint
+
+`composite.workflowInit` (Query)
+
+## Why This Endpoint Exists
+
+The dashboard needs three pieces of data on initialization: user profile, brand memberships, and pending invites. Instead of making three separate network requests (which creates network overhead and slower page loads), this composite endpoint executes all three queries in parallel on the server and returns the combined result.
+
+**What it combines:**
+- User profile (`user.get`)
+- Brand memberships (`workflow.list`)
+- Pending invites (`user.invites.list`)
+
+**Performance benefit:** Reduces 3 network round-trips to 1, with database queries executed in parallel using `Promise.all`.
+
+## Input Parameters
+
+None. Uses authenticated session context.
+
+## Return Value
+
+```typescript
+interface WorkflowInitResponse {
+  user: UserProfile | null
+  brands: BrandMembership[]
+  myInvites: BrandInvite[]
+}
+
+interface UserProfile {
+  id: string
+  email: string
+  full_name: string | null
+  avatar_url: string | null
+  brand_id: string | null
+}
+
+interface BrandMembership {
+  id: string
+  name: string
+  email: string | null
+  country_code: string | null
+  avatar_hue: number | null
+  logo_url: string | null
+  role: "owner" | "member"
+  canLeave: boolean  // false if sole owner
+}
+
+interface BrandInvite {
+  id: string
+  brand_name: string
+  brand_logo: string | null
+  role: string
+  invited_by: string | null
+  created_at: string
+  expires_at: string
+}
+```
+
+## Examples
+
+### Dashboard Initialization
+
+```typescript
+const { user, brands, myInvites } = await trpc.composite.workflowInit.query()
+
+console.log(`User: ${user?.full_name}`)
+console.log(`Brands: ${brands.length}`)
+console.log(`Pending invites: ${myInvites.length}`)
+```
+
+### React Component
+
+```tsx
+function DashboardLayout() {
+  const { data, isLoading, error } = trpc.composite.workflowInit.useQuery()
+
+  if (isLoading) return <DashboardSkeleton />
+  if (error) return <ErrorDisplay error={error} />
+
+  const { user, brands, myInvites } = data
+
+  return (
+    <div className="dashboard">
+      <UserHeader user={user} />
+      <BrandSwitcher brands={brands} activeBrandId={user?.brand_id} />
+      {myInvites.length > 0 && <InviteNotifications invites={myInvites} />}
+      <MainContent />
+    </div>
+  )
+}
+```
+
+### Brand Switcher
+
+```tsx
+function BrandSwitcher() {
+  const { data } = trpc.composite.workflowInit.useQuery()
+  const [activeBrand, setActiveBrand] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (data?.user?.brand_id) {
+      setActiveBrand(data.user.brand_id)
+    } else if (data?.brands.length > 0) {
+      setActiveBrand(data.brands[0].id)
+    }
+  }, [data])
+
+  if (!data?.brands.length) return <NoBrandsPrompt />
+
+  return (
+    <select value={activeBrand || ''} onChange={(e) => setActiveBrand(e.target.value)}>
+      {data.brands.map((brand) => (
+        <option key={brand.id} value={brand.id}>
+          {brand.name} ({brand.role})
+        </option>
+      ))}
+    </select>
+  )
+}
+```
+
+### Permission Checks
+
+```typescript
+function getUserPermissions(user: UserProfile | null, brands: BrandMembership[]) {
+  const currentBrand = brands.find(b => b.id === user?.brand_id)
+
+  return {
+    canManageTeam: currentBrand?.role === 'owner',
+    canDeleteBrand: currentBrand?.role === 'owner' && currentBrand.canLeave,
+    canLeaveBrand: currentBrand?.canLeave ?? false,
+  }
+}
+```
+
+### Onboarding Detection
+
+```typescript
+function detectOnboardingState(data: WorkflowInitResponse) {
+  const { user, brands, myInvites } = data
+
+  if (!brands.length && !myInvites.length) return 'create-brand'
+  if (!brands.length && myInvites.length) return 'accept-invite'
+  if (!user?.full_name || !user?.avatar_url) return 'complete-profile'
+
+  return 'completed'
+}
+```
+
+## Response Example
+
+```json
+{
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "jane@example.com",
+    "full_name": "Jane Smith",
+    "avatar_url": "https://storage.example.com/avatars/jane.jpg",
+    "brand_id": "brand-123"
+  },
+  "brands": [
+    {
+      "id": "brand-123",
+      "name": "Acme Fashion",
+      "email": "contact@acme.com",
+      "country_code": "US",
+      "avatar_hue": 200,
+      "logo_url": "https://app.avelero.com/api/storage/brand-avatars/brand-123/logo.png",
+      "role": "owner",
+      "canLeave": false
+    }
+  ],
+  "myInvites": [
+    {
+      "id": "invite-789",
+      "brand_name": "EcoWear",
+      "brand_logo": "https://app.avelero.com/api/storage/brand-avatars/brand-789/logo.png",
+      "role": "member",
+      "invited_by": "John Doe",
+      "created_at": "2025-01-15T10:30:00Z",
+      "expires_at": "2025-01-22T10:30:00Z"
+    }
+  ]
+}
+```
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+Session expired or user not authenticated.
+
+```typescript
+try {
+  const data = await trpc.composite.workflowInit.query()
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login?redirect=/dashboard'
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error or missing email.
+
+```typescript
+try {
+  const data = await trpc.composite.workflowInit.query()
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Server error:', error.message)
+  }
+}
+```
+
+## Implementation Notes
+
+- Uses `Promise.all` internally for parallel database queries
+- Fetches owner counts in a single batched query
+- `canLeave` is false for sole owners (prevents orphaned brands)
+- Logo URLs are fully qualified and URL-encoded
+- Typical response time: 100-200ms
+
+## Caching Recommendation
+
+```typescript
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,  // 5 minutes
+      refetchOnWindowFocus: true,
+    },
+  },
+})
+```
+
+## Related Endpoints
+
+- [user.get](/user/get) - User profile only
+- [workflow.list](/workflow/list) - Brand memberships only
+- [user.invites.list](/user/invites/list) - Invites only
+- [composite.dashboard](/composite/dashboard) - Dashboard metrics

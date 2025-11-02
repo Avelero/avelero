@@ -1,0 +1,53 @@
+---
+title: passports.templates.get
+description: Get template details including modules
+---
+
+import { Callout } from 'nextra/components'
+
+# passports.templates.get
+
+Documentation for passports.templates.get endpoint.
+
+## Endpoint
+
+`passports.templates.get` (Query)
+
+## Purpose
+
+Get template details including modules
+
+## Input Parameters
+
+None. Uses authenticated user context from session.
+
+## Return Value
+
+```typescript
+// Return type definition
+{ success: boolean }
+```
+
+## Examples
+
+```typescript
+const result = await trpc.passports.templates.get.query({})
+    ```
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Handling
+
+- `UNAUTHORIZED`: User is not authenticated
+- `BAD_REQUEST`: Invalid parameters
+- `INTERNAL_SERVER_ERROR`: Server error
+
+
+
+

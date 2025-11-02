@@ -1,0 +1,322 @@
+import { Callout } from 'nextra/components'
+
+# Error Handling
+
+Understanding how errors are handled in the Avelero API and common error scenarios.
+
+## Error Response Format
+
+All API errors follow the tRPC error format:
+
+```typescript
+interface TRPCError {
+  message: string
+  code: string
+  data?: {
+    code: string
+    httpStatus: number
+    path: string
+    stack?: string
+  }
+}
+```
+
+## Common Error Codes
+
+### UNAUTHORIZED (401)
+
+User not authenticated or session expired.
+
+```typescript
+if (error.data?.code === 'UNAUTHORIZED') {
+  router.push('/login')
+}
+```
+
+**Solutions**:
+- Check if user is logged in
+- Verify session is valid
+- Re-authenticate if needed
+
+### FORBIDDEN (403)
+
+User lacks permission for this operation.
+
+```typescript
+if (error.data?.code === 'FORBIDDEN') {
+  showToast('You do not have permission for this action')
+}
+```
+
+**Solutions**:
+- Check user's role (owner/admin/member)
+- Verify user has access to this brand
+- Request permission from brand owner
+
+### BAD_REQUEST (400)
+
+Invalid input parameters or validation failure.
+
+```typescript
+if (error.data?.code === 'BAD_REQUEST') {
+  console.error('Validation failed:', error.message)
+}
+```
+
+**Solutions**:
+- Check input validation requirements
+- Verify all required fields are provided
+- Ensure data types are correct
+
+### NOT_FOUND (404)
+
+Requested resource doesn't exist.
+
+```typescript
+if (error.data?.code === 'NOT_FOUND') {
+  router.push('/404')
+}
+```
+
+**Solutions**:
+- Verify resource ID is correct
+- Check if resource was deleted
+- Ensure user has access to resource
+
+### CONFLICT (409)
+
+Operation conflicts with current state.
+
+```typescript
+if (error.data?.code === 'CONFLICT') {
+  showToast('Resource already exists')
+}
+```
+
+**Solutions**:
+- Check for duplicate records
+- Verify unique constraints
+- Update existing record instead
+
+### INTERNAL_SERVER_ERROR (500)
+
+Unexpected server error.
+
+```typescript
+if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+  showToast('An unexpected error occurred. Please try again.')
+}
+```
+
+**Solutions**:
+- Retry the request
+- Check API status
+- Contact support if error persists
+
+### TIMEOUT (408)
+
+Request took too long to complete.
+
+```typescript
+if (error.data?.code === 'TIMEOUT') {
+  showToast('Request timed out. Try reducing batch size.')
+}
+```
+
+**Solutions**:
+- Reduce batch size
+- Use pagination
+- Optimize query parameters
+
+## Error Handling Patterns
+
+### Basic Try-Catch
+
+```typescript
+async function updateUser(data: UpdateUserInput) {
+  try {
+    const user = await trpc.user.update.mutate(data)
+    return { success: true, data: user }
+  } catch (error) {
+    console.error('Failed to update user:', error)
+    return { success: false, error: error.message }
+  }
+}
+```
+
+### Error Code Handling
+
+```typescript
+import { TRPCClientError } from '@trpc/client'
+
+async function deleteProduct(id: string) {
+  try {
+    await trpc.products.delete.mutate({ id })
+    showToast('Product deleted')
+  } catch (error) {
+    if (error instanceof TRPCClientError) {
+      switch (error.data?.code) {
+        case 'UNAUTHORIZED':
+          router.push('/login')
+          break
+        case 'FORBIDDEN':
+          showToast('Permission denied')
+          break
+        case 'NOT_FOUND':
+          showToast('Product not found')
+          break
+        default:
+          showToast('Failed to delete product')
+      }
+    }
+  }
+}
+```
+
+### React Query Error Handling
+
+```typescript
+function UserProfile() {
+  const { data, error, isError } = trpc.user.get.useQuery()
+
+  if (isError) {
+    if (error.data?.code === 'UNAUTHORIZED') {
+      return <LoginPrompt />
+    }
+    return <ErrorDisplay message={error.message} />
+  }
+
+  return <ProfileView user={data} />
+}
+```
+
+### Global Error Handler
+
+```typescript
+import { QueryCache } from '@tanstack/react-query'
+import { TRPCClientError } from '@trpc/client'
+
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) => {
+      if (error instanceof TRPCClientError) {
+        if (error.data?.code === 'UNAUTHORIZED') {
+          window.location.href = '/login'
+        } else {
+          toast.error(error.message)
+        }
+      }
+    },
+  }),
+})
+```
+
+### Retry Logic
+
+```typescript
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Don't retry on client errors (4xx)
+        if (error.data?.httpStatus && error.data.httpStatus < 500) {
+          return false
+        }
+        // Retry server errors up to 3 times
+        return failureCount < 3
+      },
+      retryDelay: (attemptIndex) => {
+        // Exponential backoff: 1s, 2s, 4s
+        return Math.min(1000 * 2 ** attemptIndex, 30000)
+      },
+    },
+  },
+})
+```
+
+## Validation Errors
+
+Validation errors provide detailed field-level information:
+
+```typescript
+try {
+  await trpc.products.create.mutate({
+    brand_id: '',    // Invalid: required
+    name: 'A',       // Invalid: too short
+  })
+} catch (error) {
+  console.log(error.message)
+  // "brand_id: Required; name: String must contain at least 2 character(s)"
+}
+```
+
+### Parsing Validation Errors
+
+```typescript
+async function createProduct(data: ProductInput) {
+  try {
+    return await trpc.products.create.mutate(data)
+  } catch (error) {
+    if (error.data?.code === 'BAD_REQUEST') {
+      const errors = error.message.split('; ').map(err => {
+        const [field, message] = err.split(': ')
+        return { field, message }
+      })
+
+      errors.forEach(({ field, message }) => {
+        setFieldError(field, message)
+      })
+    }
+  }
+}
+```
+
+## Rate Limiting
+
+When rate limit is exceeded (HTTP 429):
+
+```typescript
+try {
+  await trpc.products.list.query()
+} catch (error) {
+  if (error.data?.httpStatus === 429) {
+    const retryAfter = error.data.retryAfter  // seconds
+    showToast(`Rate limit exceeded. Try again in ${retryAfter}s`)
+  }
+}
+```
+
+## User-Friendly Messages
+
+```typescript
+const ERROR_MESSAGES: Record<string, string> = {
+  UNAUTHORIZED: 'Please log in to continue',
+  FORBIDDEN: 'You do not have permission for this action',
+  NOT_FOUND: 'The requested item could not be found',
+  BAD_REQUEST: 'Please check your input and try again',
+  INTERNAL_SERVER_ERROR: 'Something went wrong. Please try again later',
+  TIMEOUT: 'Request timed out. Please try again',
+}
+
+function getErrorMessage(code: string): string {
+  return ERROR_MESSAGES[code] || 'An unexpected error occurred'
+}
+```
+
+## Best Practices
+
+<Callout type="info">
+**Error Handling Checklist**
+- Always handle UNAUTHORIZED errors (redirect to login)
+- Show user-friendly error messages
+- Log errors for debugging
+- Implement retry logic for transient errors
+- Validate inputs client-side before API calls
+- Handle rate limiting gracefully
+- Provide fallback UI for error states
+</Callout>
+
+## Related Documentation
+
+- [Authentication](/authentication) - Authentication errors
+- [Performance](/performance) - Avoiding timeouts

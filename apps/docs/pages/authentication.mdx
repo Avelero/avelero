@@ -1,0 +1,246 @@
+import { Callout, Steps } from 'nextra/components'
+
+# Authentication
+
+Understanding how the Avelero API handles authentication using Supabase Auth sessions.
+
+## How It Works
+
+<Steps>
+
+### User Login
+
+Users authenticate via email/password or OAuth providers (Google). Supabase Auth creates a secure session.
+
+```typescript
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'secure-password'
+})
+```
+
+### Session Storage
+
+Session token is stored securely (httpOnly cookie) and automatically included in all API requests.
+
+### API Request Authentication
+
+The tRPC client automatically includes the session token:
+
+```typescript
+const user = await trpc.user.get.query()
+// Session token automatically included
+```
+
+### Protected Procedures
+
+All API procedures are protected and require a valid session:
+
+```typescript
+export const protectedProcedure = procedure.use(async ({ ctx, next }) => {
+  if (!ctx.user) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' })
+  }
+  return next({ ctx: { ...ctx, user: ctx.user } })
+})
+```
+
+</Steps>
+
+## Session Management
+
+- **Duration**: 7 days
+- **Refresh**: Automatically refreshes before expiry
+- **Expiry Handling**: Client redirects to login on session expiry
+
+### Session Context
+
+```typescript
+interface SessionContext {
+  user: {
+    id: string
+    email: string
+    role: string
+  }
+  supabase: SupabaseClient
+  db: Database
+}
+```
+
+## Client Configuration
+
+### Setting Up Authentication
+
+```typescript
+import { createTRPCClient, httpBatchLink } from '@trpc/client'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+export const trpc = createTRPCClient({
+  links: [
+    httpBatchLink({
+      url: '/api/trpc',
+      async headers() {
+        const { data: { session } } = await supabase.auth.getSession()
+
+        return {
+          authorization: session?.access_token
+            ? `Bearer ${session.access_token}`
+            : '',
+        }
+      },
+    }),
+  ],
+})
+```
+
+### React Query Integration
+
+```typescript
+import { createTRPCReact } from '@trpc/tanstack-react-query'
+import { QueryClient } from '@tanstack/react-query'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        if (error.data?.code === 'UNAUTHORIZED') return false
+        return failureCount < 3
+      },
+    },
+  },
+})
+```
+
+## Error Handling
+
+### UNAUTHORIZED Errors
+
+```typescript
+try {
+  const user = await trpc.user.get.query()
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### Automatic Redirect
+
+```typescript
+import { TRPCClientError } from '@trpc/client'
+
+trpc.user.get.query().catch((error: TRPCClientError) => {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    localStorage.clear()
+    window.location.href = '/login?redirect=' + window.location.pathname
+  }
+})
+```
+
+## Security Best Practices
+
+<Callout type="warning">
+**Security Considerations**
+- Never store session tokens in localStorage (XSS vulnerability)
+- Always use httpOnly cookies for session storage
+- Implement CSRF protection for state-changing operations
+- Use HTTPS in production
+- Rotate session tokens regularly
+</Callout>
+
+### Row Level Security (RLS)
+
+All database queries are protected by Supabase RLS policies:
+
+```sql
+CREATE POLICY "Users can only read their own data"
+ON users FOR SELECT
+USING (auth.uid() = id);
+```
+
+### API Rate Limiting
+
+- **Per User**: 100 requests per minute
+- **Per IP**: 300 requests per minute
+- **Burst Allowance**: 20 requests
+
+Rate limit headers:
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1641234567
+```
+
+## Permissions & Roles
+
+### User Roles
+
+| Role | Permissions | Use Case |
+|------|-------------|----------|
+| `owner` | Full access to brand | Brand creator |
+| `admin` | Manage team, products, passports | Team administrator |
+| `member` | View and edit products | Team member |
+
+### Role Checks
+
+```typescript
+workflow.delete: protectedProcedure
+  .input(z.object({ id: z.string() }))
+  .mutation(async ({ ctx, input }) => {
+    const brand = await getBrand(ctx.db, input.id)
+    if (brand.owner_id !== ctx.user.id) {
+      throw new TRPCError({ code: 'FORBIDDEN' })
+    }
+    return deleteBrand(ctx.db, input.id)
+  })
+```
+
+### Brand-Scoped Access
+
+```typescript
+// Users can only access brands they're members of
+const brands = await trpc.workflow.list.query()
+// Returns only brands where user is owner/admin/member
+```
+
+## Troubleshooting
+
+### Session Not Found
+
+If you receive UNAUTHORIZED errors despite being logged in:
+
+1. Check cookie settings (must allow httpOnly cookies)
+2. Verify Supabase configuration
+3. Check for CORS issues
+4. Ensure session hasn't expired
+
+### CORS Issues
+
+```typescript
+// next.config.js
+module.exports = {
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: process.env.ALLOWED_ORIGIN },
+        ],
+      },
+    ]
+  },
+}
+```
+
+## Related Documentation
+
+- [User API](/user) - User profile endpoints
+- [Workflow API](/workflow) - Brand and team management
+- [Error Handling](/error-handling) - Common errors and solutions

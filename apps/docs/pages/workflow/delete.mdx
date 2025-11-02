@@ -1,0 +1,371 @@
+---
+title: workflow.delete
+description: Delete a brand and all associated data (owner only)
+---
+
+import { Callout } from 'nextra/components'
+
+# workflow.delete
+
+Permanently deletes a brand and all associated data. Only brand owners can delete brands.
+
+## Endpoint
+
+`workflow.delete` (Mutation)
+
+## Why This Endpoint Exists
+
+Brands need to be deleted when:
+- **Business closure** - Company is shutting down or discontinuing the brand
+- **Test data cleanup** - Removing test/demo brands from production
+- **Consolidation** - Merging multiple brands and removing duplicates
+- **Account cleanup** - Users want to remove brands they no longer need
+
+This endpoint handles the complex deletion process:
+1. **Removes storage files** (brand logos from Supabase storage)
+2. **Computes next active brand** for all affected users
+3. **Updates user associations** to point to their next available brand
+4. **Cascades deletions** to brand members and invitations
+5. **Returns next brand** so the UI can redirect appropriately
+
+The operation runs in a database transaction to ensure data consistency.
+
+## Input Parameters
+
+```typescript
+interface WorkflowDeleteInput {
+  brand_id: string                    // UUID of brand to delete (required)
+}
+```
+
+**Required Fields:**
+- `brand_id`: The brand's UUID
+
+**Permissions Required:**
+- Must be authenticated
+- Must have **owner** role for the specified brand
+
+## Return Value
+
+```typescript
+interface DeleteBrandResult {
+  success: true                       // Always true on success
+  nextBrandId: string | null          // Next active brand for the user, or null
+}
+
+type ReturnValue = DeleteBrandResult
+```
+
+The `nextBrandId` indicates which brand the acting user should switch to:
+- If user has other brands: UUID of their next available brand
+- If this was user's only brand: `null`
+
+## Examples
+
+### Basic Brand Deletion
+
+```typescript
+const result = await trpc.workflow.delete.mutate({
+  brand_id: 'brand-123'
+})
+
+if (result.nextBrandId) {
+  console.log(`Switched to next brand: ${result.nextBrandId}`)
+} else {
+  console.log('No brands remaining, redirect to onboarding')
+}
+```
+
+### React Component with Confirmation
+
+```tsx
+function DeleteBrandButton({ brandId }: { brandId: string }) {
+  const router = useRouter()
+  const utils = trpc.useContext()
+
+  const deleteMutation = trpc.workflow.delete.useMutation({
+    onSuccess: (result) => {
+      // Invalidate queries
+      utils.workflow.list.invalidate()
+      utils.user.get.invalidate()
+
+      // Redirect based on result
+      if (result.nextBrandId) {
+        router.push(`/dashboard?brand=${result.nextBrandId}`)
+      } else {
+        router.push('/onboarding/create-brand')
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    }
+  })
+
+  const handleDelete = () => {
+    if (window.confirm('Are you sure? This will permanently delete the brand and all associated data.')) {
+      deleteMutation.mutate({ brand_id: brandId })
+    }
+  }
+
+  return (
+    <button
+      onClick={handleDelete}
+      disabled={deleteMutation.isLoading}
+      className="btn-danger"
+    >
+      {deleteMutation.isLoading ? 'Deleting...' : 'Delete Brand'}
+    </button>
+  )
+}
+```
+
+### Delete with Advanced Confirmation
+
+```tsx
+function DeleteBrandDialog({ brand }: { brand: Brand }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const router = useRouter()
+
+  const deleteMutation = trpc.workflow.delete.useMutation({
+    onSuccess: (result) => {
+      setIsOpen(false)
+      toast.success('Brand deleted successfully')
+
+      if (result.nextBrandId) {
+        router.push(`/dashboard`)
+      } else {
+        router.push('/onboarding/create-brand')
+      }
+    }
+  })
+
+  const handleDelete = () => {
+    deleteMutation.mutate({ brand_id: brand.id })
+  }
+
+  const isConfirmed = confirmText === brand.name
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button className="btn-danger">Delete Brand</button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete {brand.name}?</DialogTitle>
+          <DialogDescription>
+            This will permanently delete:
+            • Brand profile and settings
+            • All products and variants
+            • All digital product passports
+            • All team member associations
+            • Brand logo and files
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <label>Type the brand name to confirm:</label>
+            <input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={brand.name}
+              className="input"
+            />
+          </div>
+          <DialogFooter>
+            <button onClick={() => setIsOpen(false)}>Cancel</button>
+            <button
+              onClick={handleDelete}
+              disabled={!isConfirmed || deleteMutation.isLoading}
+              className="btn-danger"
+            >
+              {deleteMutation.isLoading ? 'Deleting...' : 'Delete Permanently'}
+            </button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+```
+
+### Handle Last Brand Deletion
+
+```typescript
+const { data: brands } = trpc.workflow.list.useQuery()
+
+const deleteMutation = trpc.workflow.delete.useMutation({
+  onSuccess: (result) => {
+    if (!result.nextBrandId) {
+      // User deleted their last brand
+      toast.info('Create a new brand to continue using Avelero')
+      router.push('/onboarding/create-brand')
+    } else {
+      toast.success('Brand deleted')
+    }
+  }
+})
+
+const handleDelete = (brandId: string) => {
+  const isLastBrand = brands?.length === 1
+
+  const message = isLastBrand
+    ? 'This is your last brand. You will need to create a new one after deletion.'
+    : 'Are you sure you want to delete this brand?'
+
+  if (window.confirm(message)) {
+    deleteMutation.mutate({ brand_id: brandId })
+  }
+}
+```
+
+## Response Example
+
+```json
+{
+  "success": true,
+  "nextBrandId": "brand-550e8400-e29b-41d4-a716-446655440001"
+}
+```
+
+When deleting the user's last brand:
+
+```json
+{
+  "success": true,
+  "nextBrandId": null
+}
+```
+
+## How It Works
+
+1. **Verify Ownership**: Checks that the authenticated user is an owner of the brand
+2. **Delete Storage Files**: Removes brand logo from Supabase storage (brand-avatars bucket)
+3. **Start Transaction**: Begins database transaction for atomic operations
+4. **Compute Next Brand**: Determines next active brand for the acting user
+5. **Update Acting User**: Sets user's active brand to their next available brand (or null)
+6. **Update Other Members**: Batches and updates active brands for all other brand members
+7. **Delete Brand Record**: Removes brand from database (cascades to related tables)
+8. **Return Result**: Returns success with next brand ID
+
+### Transaction Details
+
+The deletion runs in a database transaction to ensure:
+- All changes complete successfully or none do (atomicity)
+- No partial deletions leave orphaned data
+- User's active brand is always valid after deletion
+
+### Cascade Behavior
+
+When a brand is deleted, the following are automatically deleted via foreign key constraints:
+- All brand member records (`brand_members` table)
+- All pending brand invitations (`brand_invites` table)
+- All products associated with the brand
+- All product variants
+- All digital product passports
+- All brand catalog items (colors, sizes, materials, etc.)
+
+### Next Brand Computation
+
+For each user who was a member of the deleted brand:
+1. Query all other brands where user is a member (ordered by creation date)
+2. Select the first available brand as their next active brand
+3. If no other brands exist, set `nextBrandId` to null
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+```typescript
+try {
+  await trpc.workflow.delete.mutate({ brand_id: 'brand-123' })
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### FORBIDDEN (403)
+
+User is not an owner of the brand. Only owners can delete brands.
+
+```typescript
+try {
+  await trpc.workflow.delete.mutate({ brand_id: 'brand-123' })
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    toast.error('Only brand owners can delete brands')
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Invalid brand ID format.
+
+```typescript
+try {
+  await trpc.workflow.delete.mutate({ brand_id: 'invalid-id' })
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during deletion or storage cleanup failure.
+
+```typescript
+try {
+  await trpc.workflow.delete.mutate({ brand_id: 'brand-123' })
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to delete brand:', error.message)
+    toast.error('An error occurred while deleting the brand. Please try again.')
+  }
+}
+```
+
+## Notes
+
+<Callout type="warning">
+**Permanent Deletion**: This operation is irreversible. All brand data, products, passports, and team associations are permanently deleted. Consider implementing a soft delete or backup mechanism for production use.
+</Callout>
+
+<Callout type="info">
+**Owner Only**: Only users with the "owner" role can delete brands. Members cannot delete brands even if they are the only member.
+</Callout>
+
+<Callout type="info">
+**Active Brand Switch**: If you delete your currently active brand, you will be automatically switched to your next available brand. The UI should handle the redirect based on the `nextBrandId` in the response.
+</Callout>
+
+<Callout type="warning">
+**Last Brand Protection**: Users CAN delete their last brand, but they will have no active brand afterward. Your application should redirect them to the brand creation flow when `nextBrandId` is null.
+</Callout>
+
+<Callout type="info">
+**Storage Cleanup**: Brand logo files are automatically deleted from Supabase storage (brand-avatars bucket) during the deletion process.
+</Callout>
+
+<Callout type="info">
+**Cascade Deletions**: The deletion automatically cascades to all related records including products, passports, team members, and invitations. This is handled by database foreign key constraints.
+</Callout>
+
+<Callout type="info">
+**Transaction Safety**: The deletion runs in a database transaction. If any step fails (storage cleanup, database operations), all changes are rolled back.
+</Callout>
+
+## Related Endpoints
+
+- [workflow.create](/workflow/create) - Create a new brand
+- [workflow.list](/workflow/list) - List all brands the user has access to
+- [workflow.update](/workflow/update) - Update brand settings (owner only)
+- [workflow.members.list](/workflow/members/list) - View team members before deletion
+- [composite.workflowInit](/composite/workflowInit) - Get updated brand list after deletion

@@ -1,0 +1,53 @@
+---
+title: passports.list
+description: List passports with pagination and filters
+---
+
+import { Callout } from 'nextra/components'
+
+# passports.list
+
+Documentation for passports.list endpoint.
+
+## Endpoint
+
+`passports.list` (Query)
+
+## Purpose
+
+List passports with pagination and filters
+
+## Input Parameters
+
+None. Uses authenticated user context from session.
+
+## Return Value
+
+```typescript
+// Return type definition
+{ success: boolean }
+```
+
+## Examples
+
+```typescript
+const result = await trpc.passports.list.query({})
+    ```
+
+### Response
+
+```json
+{
+  "success": true
+}
+```
+
+## Error Handling
+
+- `UNAUTHORIZED`: User is not authenticated
+- `BAD_REQUEST`: Invalid parameters
+- `INTERNAL_SERVER_ERROR`: Server error
+
+
+
+

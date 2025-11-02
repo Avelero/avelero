@@ -1,0 +1,539 @@
+---
+title: workflow.members.update
+description: Update member role, remove member, or leave brand
+---
+
+import { Callout } from 'nextra/components'
+
+# workflow.members.update
+
+Multi-purpose endpoint for managing team membership. Supports three operations: leave brand, update member role, or remove member.
+
+## Endpoint
+
+`workflow.members.update` (Mutation)
+
+## Why This Endpoint Exists
+
+Brand members and owners need to:
+- **Leave a brand** when they no longer want to participate
+- **Promote members to owners** to share management responsibilities
+- **Demote owners to members** to reduce their permissions
+- **Remove team members** who should no longer have access
+
+Using a single unified endpoint simplifies the API surface and provides consistent behavior across all member management operations.
+
+## Input Parameters
+
+```typescript
+interface WorkflowMembersUpdateInput {
+  brand_id: string                    // UUID of the brand (required)
+  user_id?: string                    // UUID of the user to update (optional)
+  role?: 'owner' | 'member' | null    // New role or null to remove (optional)
+}
+```
+
+**Required Fields:**
+- `brand_id`: The brand's UUID (must match the user's active brand)
+
+**Optional Fields (determine the operation):**
+- **Leave brand**: Omit both `user_id` and `role`
+- **Update role**: Provide `user_id` + `role` ("owner" or "member")
+- **Remove member**: Provide `user_id` + `role: null`
+
+**Permissions Required:**
+- **Leave**: Any member can leave (unless sole owner)
+- **Update role**: Only owners can change roles
+- **Remove**: Only owners can remove members
+
+## Return Value
+
+```typescript
+// For leave operation
+interface LeaveResult {
+  success: true
+  nextBrandId: string | null          // Next brand to switch to, or null
+}
+
+// For update/remove operations
+interface UpdateResult {
+  success: true
+}
+
+type ReturnValue = LeaveResult | UpdateResult
+```
+
+## Examples
+
+### Leave Brand
+
+```typescript
+const result = await trpc.workflow.members.update.mutate({
+  brand_id: 'brand-123'
+  // No user_id, no role = leave
+})
+
+if (result.nextBrandId) {
+  console.log(`Switched to next brand: ${result.nextBrandId}`)
+} else {
+  console.log('No brands remaining, redirect to onboarding')
+}
+```
+
+### Promote Member to Owner
+
+```typescript
+await trpc.workflow.members.update.mutate({
+  brand_id: 'brand-123',
+  user_id: 'user-456',
+  role: 'owner'
+})
+
+console.log('Member promoted to owner')
+```
+
+### Demote Owner to Member
+
+```typescript
+await trpc.workflow.members.update.mutate({
+  brand_id: 'brand-123',
+  user_id: 'user-789',
+  role: 'member'
+})
+
+console.log('Owner demoted to member')
+```
+
+### Remove Member
+
+```typescript
+await trpc.workflow.members.update.mutate({
+  brand_id: 'brand-123',
+  user_id: 'user-456',
+  role: null
+})
+
+console.log('Member removed from brand')
+```
+
+### React Component - Leave Brand
+
+```tsx
+function LeaveBrandButton({ brandId, member }: {
+  brandId: string
+  member: TeamMember
+}) {
+  const router = useRouter()
+  const utils = trpc.useContext()
+
+  const leaveMutation = trpc.workflow.members.update.useMutation({
+    onSuccess: (result) => {
+      utils.workflow.list.invalidate()
+
+      if ('nextBrandId' in result && result.nextBrandId) {
+        toast.success('Left brand successfully')
+        router.push(`/dashboard?brand=${result.nextBrandId}`)
+      } else {
+        toast.info('Create a new brand to continue')
+        router.push('/onboarding/create-brand')
+      }
+    },
+    onError: (error) => {
+      if (error.message.includes('sole owner')) {
+        toast.error('You cannot leave because you are the sole owner. Promote another member to owner first.')
+      } else {
+        toast.error(error.message)
+      }
+    }
+  })
+
+  const handleLeave = () => {
+    if (window.confirm('Are you sure you want to leave this brand?')) {
+      leaveMutation.mutate({ brand_id: brandId })
+    }
+  }
+
+  return (
+    <button
+      onClick={handleLeave}
+      disabled={!member.canLeave || leaveMutation.isLoading}
+      className="btn-danger"
+    >
+      {leaveMutation.isLoading ? 'Leaving...' : 'Leave Brand'}
+    </button>
+  )
+}
+```
+
+### React Component - Change Member Role
+
+```tsx
+function RoleSelector({ brandId, member }: {
+  brandId: string
+  member: TeamMember
+}) {
+  const utils = trpc.useContext()
+  const { data: user } = trpc.user.get.useQuery()
+
+  const updateMutation = trpc.workflow.members.update.useMutation({
+    onSuccess: () => {
+      toast.success('Role updated successfully')
+      utils.workflow.members.list.invalidate()
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    }
+  })
+
+  const handleRoleChange = (newRole: 'owner' | 'member') => {
+    if (newRole === member.role) return
+
+    const action = newRole === 'owner' ? 'promote' : 'demote'
+    const message = `${action} ${member.full_name || member.email} to ${newRole}?`
+
+    if (window.confirm(message)) {
+      updateMutation.mutate({
+        brand_id: brandId,
+        user_id: member.user_id,
+        role: newRole
+      })
+    }
+  }
+
+  const isCurrentUser = member.user_id === user?.id
+  const isOnlyOwner = member.role === 'owner' && !member.canLeave
+
+  return (
+    <select
+      value={member.role}
+      onChange={(e) => handleRoleChange(e.target.value as 'owner' | 'member')}
+      disabled={isCurrentUser || isOnlyOwner || updateMutation.isLoading}
+      className="role-select"
+    >
+      <option value="member">Member</option>
+      <option value="owner">Owner</option>
+    </select>
+  )
+}
+```
+
+### React Component - Remove Member
+
+```tsx
+function RemoveMemberButton({ brandId, memberId }: {
+  brandId: string
+  memberId: string
+}) {
+  const utils = trpc.useContext()
+
+  const removeMutation = trpc.workflow.members.update.useMutation({
+    onSuccess: () => {
+      toast.success('Member removed')
+      utils.workflow.members.list.invalidate()
+    },
+    onError: (error) => {
+      if (error.message.includes('sole owner')) {
+        toast.error('Cannot remove the sole owner')
+      } else {
+        toast.error(error.message)
+      }
+    }
+  })
+
+  const handleRemove = () => {
+    if (window.confirm('Remove this member from the brand?')) {
+      removeMutation.mutate({
+        brand_id: brandId,
+        user_id: memberId,
+        role: null
+      })
+    }
+  }
+
+  return (
+    <button
+      onClick={handleRemove}
+      disabled={removeMutation.isLoading}
+      className="btn-danger btn-sm"
+    >
+      {removeMutation.isLoading ? 'Removing...' : 'Remove'}
+    </button>
+  )
+}
+```
+
+### Batch Update - Promote All Members
+
+```typescript
+async function promoteAllMembers(brandId: string, memberIds: string[]) {
+  for (const userId of memberIds) {
+    await trpc.workflow.members.update.mutate({
+      brand_id: brandId,
+      user_id: userId,
+      role: 'owner'
+    })
+  }
+  console.log(`Promoted ${memberIds.length} members to owner`)
+}
+```
+
+### Team Settings Page
+
+```tsx
+function TeamSettings({ brandId }: { brandId: string }) {
+  const { data: members } = trpc.workflow.members.list.useQuery({
+    brand_id: brandId
+  })
+  const { data: user } = trpc.user.get.useQuery()
+
+  const isOwner = members?.some(
+    m => m.user_id === user?.id && m.role === 'owner'
+  )
+
+  return (
+    <div className="team-settings">
+      <h2>Team Management</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Role</th>
+            {isOwner && <th>Actions</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {members?.map(member => {
+            const isCurrentUser = member.user_id === user?.id
+
+            return (
+              <tr key={member.user_id}>
+                <td>
+                  {member.full_name || member.email}
+                  {isCurrentUser && <span className="badge">You</span>}
+                </td>
+                <td>
+                  {isOwner && !isCurrentUser ? (
+                    <RoleSelector brandId={brandId} member={member} />
+                  ) : (
+                    <Badge>{member.role}</Badge>
+                  )}
+                </td>
+                {isOwner && (
+                  <td>
+                    {!isCurrentUser && (
+                      <RemoveMemberButton
+                        brandId={brandId}
+                        memberId={member.user_id}
+                      />
+                    )}
+                    {isCurrentUser && member.canLeave && (
+                      <LeaveBrandButton brandId={brandId} member={member} />
+                    )}
+                  </td>
+                )}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+```
+
+## Response Examples
+
+### Leave Response
+
+```json
+{
+  "success": true,
+  "nextBrandId": "brand-550e8400-e29b-41d4-a716-446655440001"
+}
+```
+
+When leaving your last brand:
+
+```json
+{
+  "success": true,
+  "nextBrandId": null
+}
+```
+
+### Update/Remove Response
+
+```json
+{
+  "success": true
+}
+```
+
+## How It Works
+
+### Leave Brand Operation
+
+1. **Check Sole Owner**: Ensures the user is not the sole owner
+2. **Compute Next Brand**: Finds the user's next available brand
+3. **Update User**: Sets user's active brand to next brand (or null)
+4. **Remove Membership**: Deletes the user's membership record
+5. **Return Next Brand**: Returns the brand ID to switch to
+
+### Update Role Operation
+
+1. **Check Permissions**: Ensures the acting user is an owner
+2. **Update Role**: Changes the target user's role in `brand_members` table
+3. **Return Success**: Confirms the update
+
+### Remove Member Operation
+
+1. **Check Permissions**: Ensures the acting user is an owner
+2. **Check Sole Owner**: Prevents removing the sole owner
+3. **Delete Membership**: Removes the user from `brand_members` table
+4. **Return Success**: Confirms the removal
+
+### Operation Decision Flow
+
+```
+Input: { brand_id, user_id?, role? }
+│
+├─ No user_id, no role ───► LEAVE BRAND
+│
+├─ user_id + role = null ─► REMOVE MEMBER (owner only)
+│
+└─ user_id + role value ──► UPDATE ROLE (owner only)
+```
+
+## Error Handling
+
+### UNAUTHORIZED (401)
+
+User not authenticated.
+
+```typescript
+try {
+  await trpc.workflow.members.update.mutate({
+    brand_id: 'brand-123',
+    user_id: 'user-456',
+    role: 'owner'
+  })
+} catch (error) {
+  if (error.data?.code === 'UNAUTHORIZED') {
+    window.location.href = '/login'
+  }
+}
+```
+
+### FORBIDDEN (403)
+
+For **update role** or **remove**: user is not an owner.
+
+```typescript
+try {
+  await trpc.workflow.members.update.mutate({
+    brand_id: 'brand-123',
+    user_id: 'user-456',
+    role: 'owner'
+  })
+} catch (error) {
+  if (error.data?.code === 'FORBIDDEN') {
+    toast.error('Only owners can change member roles')
+  }
+}
+```
+
+### SOLE_OWNER Error
+
+For **leave** or **remove**: cannot leave/remove the sole owner.
+
+```typescript
+try {
+  await trpc.workflow.members.update.mutate({
+    brand_id: 'brand-123'
+    // Leave operation
+  })
+} catch (error) {
+  if (error.message.includes('sole owner')) {
+    toast.error('You are the sole owner. Promote another member to owner before leaving.')
+  }
+}
+```
+
+### BAD_REQUEST (400)
+
+Brand ID doesn't match active brand or invalid parameters.
+
+```typescript
+try {
+  await trpc.workflow.members.update.mutate({
+    brand_id: 'brand-456',
+    user_id: 'user-123',
+    role: 'owner'
+  })
+} catch (error) {
+  if (error.data?.code === 'BAD_REQUEST') {
+    console.error(error.message)
+  }
+}
+```
+
+### INTERNAL_SERVER_ERROR (500)
+
+Database error during operation.
+
+```typescript
+try {
+  await trpc.workflow.members.update.mutate({
+    brand_id: 'brand-123',
+    user_id: 'user-456',
+    role: 'member'
+  })
+} catch (error) {
+  if (error.data?.code === 'INTERNAL_SERVER_ERROR') {
+    console.error('Failed to update member:', error.message)
+  }
+}
+```
+
+## Notes
+
+<Callout type="info">
+**Multi-Purpose Endpoint**: This single endpoint handles three different operations (leave, update role, remove) based on the parameters provided. This simplifies the API surface.
+</Callout>
+
+<Callout type="warning">
+**Sole Owner Protection**: The sole owner cannot leave the brand and cannot be removed. They must first promote another member to owner, or delete the brand entirely.
+</Callout>
+
+<Callout type="info">
+**Leave Returns Next Brand**: When leaving a brand, the response includes the `nextBrandId` field so your application can automatically switch to the user's next brand.
+</Callout>
+
+<Callout type="warning">
+**Owner-Only Operations**: Updating roles and removing members requires the "owner" role. Regular members cannot perform these operations.
+</Callout>
+
+<Callout type="info">
+**Self-Management**: Users can leave brands themselves, but owners can also remove them. The leave operation is user-initiated while remove is owner-initiated.
+</Callout>
+
+<Callout type="info">
+**Role Changes**: You can promote members to owners or demote owners to members. There are no restrictions as long as you're not creating a brand with no owners.
+</Callout>
+
+<Callout type="warning">
+**Parameter Validation**: The input schema enforces that you either provide both `user_id` and `role`, or neither. Providing only one will result in a validation error.
+</Callout>
+
+<Callout type="info">
+**Active Brand Match**: The `brand_id` parameter must match the user's currently active brand. Switch brands first using [`workflow.setActive`](/workflow/setActive) if needed.
+</Callout>
+
+## Related Endpoints
+
+- [workflow.members.list](/workflow/members/list) - View team members and check if you can leave
+- [workflow.delete](/workflow/delete) - Delete the entire brand (owner only)
+- [workflow.invites.send](/workflow/invites/send) - Invite new members before promoting them
+- [user.get](/user/get) - Get current user to compare with members
+- [composite.membersWithInvites](/composite/membersWithInvites) - Get members + invites together

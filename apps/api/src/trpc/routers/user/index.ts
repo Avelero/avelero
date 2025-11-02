@@ -317,7 +317,15 @@ export const userRouter = createTRPCRouter({
           .list(user.id);
         if (files && files.length > 0) {
           const filePaths = files.map((file) => `${user.id}/${file.name}`);
-          await supabaseAdmin.storage.from("avatars").remove(filePaths);
+          const { error: removeError } = await supabaseAdmin.storage
+            .from("avatars")
+            .remove(filePaths);
+          if (removeError) {
+            throw internalServerError(
+              `Failed to delete avatar files: ${removeError.message}`,
+              removeError,
+            );
+          }
         }
       }
 

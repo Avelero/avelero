@@ -233,7 +233,7 @@ export async function deleteBrand(
           brandName: brands.name,
         })
         .from(brandMembers)
-        .leftJoin(brands, eq(brandMembers.brandId, brands.id))
+        .innerJoin(brands, eq(brandMembers.brandId, brands.id))
         .where(inArray(brandMembers.userId, affectedUserIds))
         .orderBy(asc(brands.name));
 

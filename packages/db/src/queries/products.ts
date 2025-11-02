@@ -6,7 +6,6 @@ import {
   eq,
   ilike,
   inArray,
-  isNotNull,
 } from "drizzle-orm";
 import type { Database } from "../client";
 import { evaluateAndUpsertCompletion } from "../completion/evaluate";
@@ -206,9 +205,9 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
     product.primary_image_url =
       (row.primary_image_url as string | null) ?? null;
   if ("created_at" in row)
-    product.created_at = (row.created_at as string | null) ?? undefined;
+    product.created_at = (row.created_at as string | null) ?? null;
   if ("updated_at" in row)
-    product.updated_at = (row.updated_at as string | null) ?? undefined;
+    product.updated_at = (row.updated_at as string | null) ?? null;
 
   return product;
 }

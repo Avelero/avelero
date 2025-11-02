@@ -1,6 +1,32 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { brandMembers, brands, users } from "../schema";
+
+/**
+ * Check if an email is already in use by another user.
+ *
+ * @param db - Database instance
+ * @param email - Email to check
+ * @param excludeUserId - Optional user ID to exclude from the check (for updates)
+ * @returns true if email is already taken, false otherwise
+ */
+export async function isEmailTaken(
+  db: Database,
+  email: string,
+  excludeUserId?: string,
+): Promise<boolean> {
+  const conditions = excludeUserId
+    ? and(eq(users.email, email), ne(users.id, excludeUserId))
+    : eq(users.email, email);
+
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(conditions)
+    .limit(1);
+
+  return !!existing;
+}
 
 export async function getUserById(db: Database, id: string) {
   const rows = await db

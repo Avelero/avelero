@@ -1,31 +1,46 @@
 "use client";
 
-import * as React from "react";
-import { createPortal } from "react-dom";
-import { Icons } from "@v1/ui/icons";
-import { Button } from "@v1/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@v1/ui/dropdown-menu";
-import { cn } from "@v1/ui/cn";
 import {
   DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
   PointerSensor,
+  closestCenter,
   useSensor,
   useSensors,
-  closestCenter,
-  DragOverlay,
-  type DragEndEvent,
-  type DragStartEvent,
+  type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  verticalListSortingStrategy,
   useSortable,
+  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { OperatorSheet, type OperatorData } from "../../../sheets/operator-sheet";
 import { productionStepNames } from "@v1/selections/production-steps";
+import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@v1/ui/dropdown-menu";
+import { Icons } from "@v1/ui/icons";
+import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import * as React from "react";
+import { createPortal } from "react-dom";
+import {
+  type OperatorData,
+  OperatorSheet,
+} from "../../../sheets/operator-sheet";
 
 interface JourneyStep {
   id: string;
@@ -59,8 +74,8 @@ const StepDropdown = ({
   step: string;
   onStepChange: (step: string) => void;
   isDragging: boolean;
-  dragAttributes: any;
-  dragListeners: any;
+  dragAttributes: React.HTMLAttributes<HTMLElement>;
+  dragListeners: DraggableSyntheticListeners | undefined;
 }) => {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -80,10 +95,8 @@ const StepDropdown = ({
     }
   };
 
-  
-
   const filteredOptions = STEP_OPTIONS.filter((option) =>
-    option.toLowerCase().includes(searchQuery.toLowerCase())
+    option.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -100,7 +113,10 @@ const StepDropdown = ({
           <Icons.GripVertical className="h-4 w-4" />
         </div>
       </div>
-      <Popover open={dropdownOpen && !isDragging} onOpenChange={setDropdownOpen}>
+      <Popover
+        open={dropdownOpen && !isDragging}
+        onOpenChange={setDropdownOpen}
+      >
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -108,7 +124,7 @@ const StepDropdown = ({
               if (!isDragging) setDropdownOpen(true);
             }}
             className={cn(
-              "group w-full h-full flex-1 pr-2 py-[9.5px] flex items-start cursor-pointer transition-all text-left"
+              "group w-full h-full flex-1 pr-2 py-[9.5px] flex items-start cursor-pointer transition-all text-left",
             )}
           >
             <div
@@ -116,14 +132,19 @@ const StepDropdown = ({
                 "border-b border-border type-p transition-colors",
                 step
                   ? "text-primary group-hover:text-secondary group-hover:border-secondary"
-                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary"
+                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary",
               )}
             >
               {step || "Select step"}
             </div>
           </button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-64" align="start" alignOffset={-40} sideOffset={4}>
+        <PopoverContent
+          className="p-0 w-64"
+          align="start"
+          alignOffset={-40}
+          sideOffset={4}
+        >
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search steps..."
@@ -143,7 +164,9 @@ const StepDropdown = ({
                         className="justify-between"
                       >
                         <span className="type-p">{option}</span>
-                        {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
+                        {isSelected && (
+                          <Icons.Check className="h-4 w-4 text-brand" />
+                        )}
                       </CommandItem>
                     );
                   })
@@ -176,7 +199,9 @@ const OperatorTags = ({
   operators: string[];
   onRemoveOperator: (operator: string) => void;
 }) => {
-  const [hoveredOperator, setHoveredOperator] = React.useState<string | null>(null);
+  const [hoveredOperator, setHoveredOperator] = React.useState<string | null>(
+    null,
+  );
 
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -228,7 +253,7 @@ const OperatorCell = ({
   const handleSelect = (selectedOperator: string) => {
     if (operators.includes(selectedOperator)) {
       // Deselect if already selected
-      onOperatorsChange(operators.filter(op => op !== selectedOperator));
+      onOperatorsChange(operators.filter((op) => op !== selectedOperator));
     } else {
       // Add if not selected
       onOperatorsChange([...operators, selectedOperator]);
@@ -238,7 +263,11 @@ const OperatorCell = ({
 
   const handleCreate = () => {
     const trimmedQuery = searchQuery.trim();
-    if (trimmedQuery && !OPERATOR_OPTIONS.includes(trimmedQuery) && !operators.includes(trimmedQuery)) {
+    if (
+      trimmedQuery &&
+      !OPERATOR_OPTIONS.includes(trimmedQuery) &&
+      !operators.includes(trimmedQuery)
+    ) {
       // Open operator sheet with the searched name
       setNewOperatorName(trimmedQuery);
       setOperatorSheetOpen(true);
@@ -275,27 +304,37 @@ const OperatorCell = ({
           >
             <div className="flex flex-1 flex-wrap items-center gap-1.5">
               {operators.length > 0 && (
-                <OperatorTags operators={operators} onRemoveOperator={handleRemoveOperator} />
+                <OperatorTags
+                  operators={operators}
+                  onRemoveOperator={handleRemoveOperator}
+                />
               )}
               <span className="border-b border-border type-p ml-2 text-tertiary group-hover:text-secondary group-hover:border-secondary transition-colors">
                 Add operator
               </span>
             </div>
 
-            <div className="w-6 flex justify-center ml-2" onClick={handleMenuClick}>
+            <div
+              className="w-6 flex justify-center ml-2"
+              onClick={handleMenuClick}
+            >
               <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
                     className={cn(
                       "p-1 hover:bg-accent transition-colors",
-                      isHovered ? "opacity-100" : "opacity-0"
+                      isHovered ? "opacity-100" : "opacity-0",
                     )}
                   >
                     <Icons.EllipsisVertical className="h-4 w-4 text-tertiary" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={4} className="min-w-[120px]">
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={4}
+                  className="min-w-[120px]"
+                >
                   <DropdownMenuItem
                     onClick={() => {
                       onDelete();
@@ -321,13 +360,11 @@ const OperatorCell = ({
             />
             <CommandList>
               <CommandGroup>
-                {OPERATOR_OPTIONS.filter(
-                  (option) =>
-                    option.toLowerCase().includes(searchQuery.toLowerCase())
+                {OPERATOR_OPTIONS.filter((option) =>
+                  option.toLowerCase().includes(searchQuery.toLowerCase()),
                 ).length > 0 ? (
-                  OPERATOR_OPTIONS.filter(
-                    (option) =>
-                      option.toLowerCase().includes(searchQuery.toLowerCase())
+                  OPERATOR_OPTIONS.filter((option) =>
+                    option.toLowerCase().includes(searchQuery.toLowerCase()),
                   ).map((option) => {
                     const isSelected = operators.includes(option);
                     return (
@@ -338,11 +375,15 @@ const OperatorCell = ({
                         className="justify-between"
                       >
                         <span className="type-p">{option}</span>
-                        {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
+                        {isSelected && (
+                          <Icons.Check className="h-4 w-4 text-brand" />
+                        )}
                       </CommandItem>
                     );
                   })
-                ) : searchQuery.trim() && !OPERATOR_OPTIONS.includes(searchQuery.trim()) && !operators.includes(searchQuery.trim()) ? (
+                ) : searchQuery.trim() &&
+                  !OPERATOR_OPTIONS.includes(searchQuery.trim()) &&
+                  !operators.includes(searchQuery.trim()) ? (
                   <CommandItem
                     value={searchQuery.trim()}
                     onSelect={handleCreate}
@@ -382,7 +423,14 @@ function DraggableJourneyRow({
   onOperatorsChange: (operators: string[]) => void;
   onDelete: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: journeyStep.id,
   });
 
@@ -393,7 +441,11 @@ function DraggableJourneyRow({
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="grid grid-cols-[180px_1fr] bg-background">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="grid grid-cols-[180px_1fr] bg-background"
+    >
       {/* Step Column */}
       <div className="border-r border-b border-border">
         <StepDropdown
@@ -426,17 +478,21 @@ export function JourneySection() {
       activationConstraint: {
         distance: 8,
       },
-    })
+    }),
   );
 
   const activeStep = React.useMemo(
     () => journeySteps.find((step) => step.id === activeId),
-    [activeId, journeySteps]
+    [activeId, journeySteps],
   );
 
-  const updateJourneyStep = (id: string, field: keyof Omit<JourneyStep, "position">, value: any) => {
+  const updateJourneyStep = (
+    id: string,
+    field: keyof Omit<JourneyStep, "position">,
+    value: any,
+  ) => {
     setJourneySteps((prev) =>
-      prev.map((step) => (step.id === id ? { ...step, [field]: value } : step))
+      prev.map((step) => (step.id === id ? { ...step, [field]: value } : step)),
     );
   };
 
@@ -531,19 +587,26 @@ export function JourneySection() {
           </div>
         ) : (
           <>
-            <DndContext 
-              sensors={sensors} 
+            <DndContext
+              sensors={sensors}
               collisionDetection={closestCenter}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
-              <SortableContext items={journeySteps.map((step) => step.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext
+                items={journeySteps.map((step) => step.id)}
+                strategy={verticalListSortingStrategy}
+              >
                 {journeySteps.map((step) => (
                   <DraggableJourneyRow
                     key={step.id}
                     journeyStep={step}
-                    onStepChange={(value) => updateJourneyStep(step.id, "step", value)}
-                    onOperatorsChange={(value) => updateJourneyStep(step.id, "operators", value)}
+                    onStepChange={(value) =>
+                      updateJourneyStep(step.id, "step", value)
+                    }
+                    onOperatorsChange={(value) =>
+                      updateJourneyStep(step.id, "operators", value)
+                    }
                     onDelete={() => deleteJourneyStep(step.id)}
                   />
                 ))}
@@ -556,7 +619,14 @@ export function JourneySection() {
                         <div className="border-r border-border px-2 py-[9.5px] flex items-start">
                           <div className="flex items-center gap-2 flex-1">
                             <Icons.GripVertical className="h-4 w-4 text-tertiary flex-shrink-0" />
-                            <span className={cn("type-p", activeStep.step ? "text-primary" : "text-tertiary")}>
+                            <span
+                              className={cn(
+                                "type-p",
+                                activeStep.step
+                                  ? "text-primary"
+                                  : "text-tertiary",
+                              )}
+                            >
                               {activeStep.step || "Select step"}
                             </span>
                           </div>
@@ -575,13 +645,15 @@ export function JourneySection() {
                                 ))}
                               </div>
                             )}
-                            <span className="type-p text-tertiary ml-2">Add operator</span>
+                            <span className="type-p text-tertiary ml-2">
+                              Add operator
+                            </span>
                           </div>
                         </div>
                       </div>
                     ) : null}
                   </DragOverlay>,
-                  document.body
+                  document.body,
                 )}
             </DndContext>
           </>

@@ -1,3 +1,10 @@
+/**
+ * Bootstraps the public API server supporting the tRPC endpoints.
+ *
+ * This module wires together the Hono web server, shared middleware, and the
+ * tRPC router that exposes the brand and product management endpoints. Bun
+ * loads this file directly in both development and production.
+ */
 import { trpcServer } from "@hono/trpc-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -14,22 +21,27 @@ app.use(
   cors({
     origin: (origin, c) => {
       if (!origin) return origin; // Allow requests with no origin
-      
-      const allowedOrigins = process.env.ALLOWED_API_ORIGINS?.split(",") ?? [];
-      
+
+      const allowedOrigins =
+        process.env.ALLOWED_API_ORIGINS?.split(",")
+          .map((o) => o.trim())
+          .filter((o) => o.length > 0) ?? [];
+
       // Check exact matches first (most secure and fastest)
       if (allowedOrigins.includes(origin)) return origin;
-      
+
       // Check wildcard patterns (only if explicitly configured)
-      const isAllowed = allowedOrigins.some(pattern => {
-        if (pattern.includes('*')) {
+      const isAllowed = allowedOrigins.some((pattern) => {
+        if (pattern.includes("*")) {
           // Escape dots and replace * with .*
-          const regex = new RegExp(`^${pattern.replace(/\./g, '\\.').replace(/\*/g, '.*')}$`);
+          const regex = new RegExp(
+            `^${pattern.replace(/\./g, "\\.").replace(/\*/g, ".*")}$`,
+          );
           return regex.test(origin);
         }
         return false;
       });
-      
+
       return isAllowed ? origin : undefined;
     },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -58,9 +70,19 @@ app.use(
   }),
 );
 
+/**
+ * Lightweight health check endpoint used by hosting to confirm the API is up.
+ */
 app.get("/health", (c) => c.json({ status: "ok" }, 200));
 
-export default {
+/**
+ * Bun-compatible server export consumed by the runtime.
+ *
+ * @returns Object including the listen port and fetch handler.
+ */
+const serverConfig = {
   port: process.env.PORT ? Number.parseInt(process.env.PORT) : 4000,
   fetch: app.fetch,
 };
+
+export default serverConfig;

@@ -68,7 +68,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
       setAvatar(`/api/storage/${bucket}/${encoded}`);
     }, [initialUrl, entity]);
 
-    const userMutation = useUserMutation(); // updates users.avatar_path
+    const userMutation = useUserMutation(); // updates users.avatar_url
     const brandMutation = useBrandUpdateMutation(); // updates brands.logo_path
 
     const clickPicker = useCallback(() => {
@@ -85,7 +85,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
         }
         if (entity === "user") {
           userMutation.mutate(
-            { avatar_path: objectPath },
+            { avatar_url: objectPath },
             {
               onSuccess: () => {
                 toast.success("Avatar changed successfully");
@@ -97,7 +97,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           );
         } else {
           brandMutation.mutate(
-            { id: entityId, logo_path: objectPath },
+            { id: entityId, logo_url: objectPath },
             {
               onSuccess: () => {
                 toast.success("Logo changed successfully");

@@ -1,10 +1,15 @@
 "use client";
 
-import * as React from "react";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
-import { Sheet, SheetContent, SheetBreadcrumbHeader, SheetFooter } from "@v1/ui/sheet";
+import {
+  Sheet,
+  SheetBreadcrumbHeader,
+  SheetContent,
+  SheetFooter,
+} from "@v1/ui/sheet";
+import * as React from "react";
 import { CountrySelect } from "../select/country-select";
 
 export interface OperatorData {
@@ -244,25 +249,24 @@ export function OperatorSheet({
         {/* Footer */}
         <SheetFooter>
           <Button
-              variant="outline"
-              size="default"
-              onClick={handleCancel}
-              className="w-[70px]"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="brand"
-              size="default"
-              onClick={handleCreate}
-              disabled={!isNameValid}
-              className="w-[70px]"
-            >
-              Create
-            </Button>
+            variant="outline"
+            size="default"
+            onClick={handleCancel}
+            className="w-[70px]"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="brand"
+            size="default"
+            onClick={handleCreate}
+            disabled={!isNameValid}
+            className="w-[70px]"
+          >
+            Create
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
   );
 }
-

@@ -87,11 +87,20 @@ export function InviteModal({ brandId }: { brandId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const sendInvite = useMutation(
-    trpc.brand.sendInvite.mutationOptions({
+    trpc.workflow.invites.send.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: trpc.brand.listInvites.queryKey(),
-        });
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.workflow.invites.list.queryKey({
+              brand_id: brandId,
+            }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.membersWithInvites.queryKey({
+              brand_id: brandId,
+            }),
+          }),
+        ]);
       },
     }),
   );

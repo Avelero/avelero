@@ -1,5 +1,4 @@
-import { DropIcon } from "@phosphor-icons/react/dist/ssr/Drop";
-import { LeafIcon } from "@phosphor-icons/react/dist/ssr/Leaf";
+import { Drop as DropIcon, Leaf as LeafIcon } from "@phosphor-icons/react/dist/ssr";
 import {
   AlertCircle,
   ArrowDown10,

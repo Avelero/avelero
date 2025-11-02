@@ -21,20 +21,19 @@ import { useState } from "react";
 interface BrandWithRole {
   id: string;
   name: string;
-  logo_path?: string | null;
-  avatar_hue?: number | null;
+  logoUrl?: string | null;
   role: "owner" | "member" | null;
+  canLeave: boolean;
+  avatarHue?: number | null;
+  email?: string | null;
+  countryCode?: string | null;
 }
 
 interface InviteRow {
   id: string;
   role: "owner" | "member";
-  brand: {
-    id: string;
-    name: string;
-    logo_path?: string | null;
-    avatar_hue?: number | null;
-  };
+  brand_name: string;
+  brand_logo?: string | null;
 }
 
 type Props = { membership: BrandWithRole } | { invite: InviteRow };
@@ -56,8 +55,8 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
       <div className="flex items-center gap-3">
         <SignedAvatar
           bucket="brand-avatars"
-          path={membership.logo_path ?? null}
-          hue={membership.avatar_hue ?? undefined}
+          url={membership.logoUrl ?? undefined}
+          hue={membership.avatarHue ?? undefined}
           size={32}
           name={membership.name}
         />
@@ -73,7 +72,7 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
           variant="outline"
           onClick={() =>
             setActive.mutate(
-              { id: membership.id },
+              { brand_id: membership.id },
               {
                 onSuccess: () => {
                   router.push(`/${locale}`);
@@ -125,13 +124,12 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
       <div className="flex items-center gap-3">
         <SignedAvatar
           bucket="brand-avatars"
-          path={invite.brand.logo_path ?? null}
-          hue={invite.brand.avatar_hue ?? undefined}
+          path={invite.brand_logo ?? null}
           size={32}
-          name={invite.brand.name}
+          name={invite.brand_name}
         />
         <div className="flex flex-col">
-          <span className="type-p !font-medium">{invite.brand.name}</span>
+          <span className="type-p !font-medium">{invite.brand_name}</span>
           <span className="type-p text-secondary">
             {invite.role === "owner" ? "Owner" : "Member"}
           </span>
@@ -141,7 +139,9 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => reject.mutate({ id: invite.id })}
+          onClick={() =>
+            reject.mutate({ invite_id: invite.id, action: "decline" })
+          }
           aria-label="Reject"
         >
           <Icons.X className="w-4 h-4" strokeWidth={1} />
@@ -151,7 +151,7 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
           size="icon"
           onClick={() =>
             accept.mutate(
-              { id: invite.id },
+              { invite_id: invite.id, action: "accept" },
               {
                 onSuccess: () => {
                   router.push(`/${locale}`);

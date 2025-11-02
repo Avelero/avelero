@@ -98,6 +98,12 @@ node_modules/
 .cursorrules
 .taskmaster
 .gemini
+
+# Documentation and AI context files
+docs/
+.claude/
+claude.md
+AGENTS.md
 mcp.json
 
 #prompts
@@ -113,13 +119,3 @@ GEMINI.md
 #mcp_files
 .env.example
 .taskmaster
-=======
-# Task files
-# tasks.json
-# tasks/ 
-.gemini
-.taskmaster
-.vscode
-.cursor
-.cursorrules
-GEMINI.md

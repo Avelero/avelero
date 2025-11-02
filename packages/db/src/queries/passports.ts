@@ -11,6 +11,8 @@ import {
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { Database } from "../client";
+import { evaluateAndUpsertCompletion } from "../completion/evaluate";
+import { reassignPassportTemplate } from "../completion/template-sync";
 import {
   brandColors,
   brandSizes,
@@ -22,6 +24,70 @@ import {
   productVariants,
   products,
 } from "../schema";
+
+export type PassportStatus =
+  | "published"
+  | "scheduled"
+  | "unpublished"
+  | "archived";
+
+export type PassportStatusCounts = {
+  published: number;
+  scheduled: number;
+  unpublished: number;
+  archived: number;
+};
+
+export interface PassportSummary {
+  readonly id: string;
+  readonly upid: string;
+  readonly title: string;
+  readonly sku?: string;
+  readonly color?: string;
+  readonly size?: string;
+  readonly status: PassportStatus;
+  readonly completedSections: number;
+  readonly totalSections: number;
+  readonly modules: { key: string; completed: boolean }[];
+  readonly category: string;
+  readonly categoryPath: string[];
+  readonly season?: string;
+  readonly template: {
+    id: string;
+    name: string;
+    color: string;
+  } | null;
+  readonly passportUrl?: string;
+  readonly primaryImageUrl?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+const EMPTY_STATUS_COUNTS: PassportStatusCounts = {
+  published: 0,
+  scheduled: 0,
+  unpublished: 0,
+  archived: 0,
+};
+
+interface PassportSelectRow {
+  id: string;
+  slug: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  product_id: string;
+  title: string | null;
+  season: string | null;
+  primary_image_url: string | null;
+  category_id: string | null;
+  variant_sku: string | null;
+  variant_upid: string | null;
+  color_name: string | null;
+  size_name: string | null;
+  template_id: string;
+  template_name: string | null;
+}
 
 export type CompletionXofN = {
   passportId: string;
@@ -159,7 +225,6 @@ export async function setPassportStatusByProduct(
   return row ?? null;
 }
 
-// Completion for specific passports (X of N per passport)
 export type CompletionForPassport = {
   passportId: string;
   completed: number;
@@ -208,85 +273,55 @@ export async function getCompletionForPassports(
   }));
 }
 
-// List passports for a brand (page-only pagination, size=50, newest first)
-export async function listPassports(
-  db: Database,
+function buildPassportWhereClause(
   brandId: string,
-  page: number,
+  filters?: { status?: readonly string[] },
 ) {
-  const pageSize = 50;
-  const offset = Math.max(0, page) * pageSize;
+  const clauses = [eq(passports.brandId, brandId)];
+  if (filters?.status && filters.status.length > 0) {
+    clauses.push(inArray(passports.status, filters.status as string[]));
+  }
+  return and(...clauses);
+}
 
-  const rows = await db
-    .select({
-      id: passports.id,
-      status: passports.status,
-      created_at: passports.createdAt,
-      updated_at: passports.updatedAt,
-      // product
-      product_id: products.id,
-      title: products.name,
-      season: products.season,
-      primary_image_url: products.primaryImageUrl,
-      category_id: products.categoryId,
-      // variant
-      variant_sku: productVariants.sku,
-      variant_upid: productVariants.upid,
-      color_name: brandColors.name,
-      size_name: brandSizes.name,
-      // template
-      template_id: passportTemplates.id,
-      template_name: passportTemplates.name,
-    })
-    .from(passports)
-    .innerJoin(products, eq(products.id, passports.productId))
-    .innerJoin(productVariants, eq(productVariants.id, passports.variantId))
-    .leftJoin(brandColors, eq(brandColors.id, productVariants.colorId))
-    .leftJoin(brandSizes, eq(brandSizes.id, productVariants.sizeId))
-    .innerJoin(
-      passportTemplates,
-      eq(passportTemplates.id, passports.templateId),
-    )
-    .where(eq(passports.brandId, brandId))
-    .orderBy(desc(passports.createdAt))
-    .limit(pageSize)
-    .offset(offset);
-
-  const totalRes = await db
-    .select({ value: count(passports.id) })
-    .from(passports)
-    .where(eq(passports.brandId, brandId));
-  const total = Number(totalRes[0]?.value ?? 0);
+async function hydratePassportRows(
+  db: Database,
+  rows: PassportSelectRow[],
+): Promise<PassportSummary[]> {
+  if (!rows.length) return [];
 
   const passportIds = rows.map((r) => r.id);
+  const templateIds = Array.from(
+    new Set(rows.map((r) => r.template_id).filter(Boolean)),
+  );
 
-  // Fetch enabled template modules for all templates present
-  const templateIds = Array.from(new Set(rows.map((r) => r.template_id)));
   const templateModules = templateIds.length
     ? await db
         .select({
           template_id: passportTemplates.id,
           module_key: passportTemplateModules.moduleKey,
           sort_index: passportTemplateModules.sortIndex,
+          enabled: passportTemplateModules.enabled,
         })
         .from(passportTemplates)
         .innerJoin(
           passportTemplateModules,
           eq(passportTemplateModules.templateId, passportTemplates.id),
         )
-        .where(eq(passportTemplateModules.enabled, true))
         .orderBy(asc(passportTemplateModules.sortIndex))
     : [];
-  const templateIdToModules = new Map<string, { key: string }[]>(
+  const templateIdToModules = new Map<
+    string,
+    { key: string; enabled: boolean }[]
+  >(
     templateModules.reduce((acc, m) => {
       const list = acc.get(m.template_id) ?? [];
-      list.push({ key: m.module_key });
+      list.push({ key: m.module_key, enabled: !!m.enabled });
       acc.set(m.template_id, list);
       return acc;
-    }, new Map<string, { key: string }[]>()),
+    }, new Map<string, { key: string; enabled: boolean }[]>()),
   );
 
-  // Fetch completion rows for these passports
   const completionRows = passportIds.length
     ? await db
         .select({
@@ -302,7 +337,6 @@ export async function listPassports(
     completionKey.set(`${r.passport_id}:${r.module_key}`, !!r.is_completed);
   }
 
-  // Fetch categories (id, name, parentId) to compute breadcrumb path
   const allCategories = await db
     .select({
       id: categories.id,
@@ -320,7 +354,7 @@ export async function listPassports(
     ]),
   );
 
-  function buildCategoryPath(categoryId?: string | null): string[] {
+  const buildCategoryPath = (categoryId?: string | null): string[] => {
     if (!categoryId) return [];
     const path: string[] = [];
     let current: string | null = categoryId;
@@ -329,15 +363,15 @@ export async function listPassports(
       guard.add(current);
       const node = catById.get(current);
       if (!node) break;
-      // unshift to have root → leaf order
       path.unshift(node.name);
       current = node.parent_id ?? null;
     }
     return path;
-  }
+  };
 
-  const data = rows.map((r) => {
-    const modDefs = templateIdToModules.get(r.template_id) ?? [];
+  return rows.map((r) => {
+    const modDefs =
+      templateIdToModules.get(r.template_id)?.filter((m) => m.enabled) ?? [];
     const modules = modDefs.map((m) => ({
       key: m.key,
       completed: completionKey.get(`${r.id}:${m.key}`) ?? false,
@@ -346,57 +380,336 @@ export async function listPassports(
     const totalCount = modules.length;
     const sku = r.variant_sku ?? r.variant_upid ?? undefined;
     const categoryPath = buildCategoryPath(r.category_id);
-    const category = categoryPath.length
-      ? categoryPath[categoryPath.length - 1]
-      : "-";
+    const category = categoryPath.at(-1) ?? "-";
+
     return {
       id: r.id,
-      title: r.title,
+      upid: r.slug,
+      title: r.title ?? "-",
       sku,
       color: r.color_name ?? undefined,
       size: r.size_name ?? undefined,
-      status: r.status as string,
+      status: r.status as PassportStatus,
       completedSections: completedCount,
       totalSections: totalCount,
       modules,
       category,
       categoryPath,
       season: r.season ?? undefined,
-      template: {
-        id: r.template_id,
-        name: r.template_name,
-        color: "#3B82F6", // static for now
-      },
+      template: r.template_id
+        ? {
+            id: r.template_id,
+            name: r.template_name ?? "Untitled",
+            color: "#3B82F6",
+          }
+        : null,
       passportUrl: undefined,
       primaryImageUrl: r.primary_image_url ?? undefined,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
-    } as const;
+    };
   });
-
-  return { data, meta: { total } } as const;
 }
 
-export async function countPassportsByStatus(db: Database, brandId: string) {
+export async function listPassportsForBrand(
+  db: Database,
+  brandId: string,
+  opts: {
+    page?: number;
+    includeStatusCounts?: boolean;
+    filters?: { status?: readonly string[] };
+  } = {},
+): Promise<{
+  readonly data: PassportSummary[];
+  readonly meta: { total: number; statusCounts?: PassportStatusCounts };
+}> {
+  const pageSize = 50;
+  const page = Math.max(0, opts.page ?? 0);
+  const offset = page * pageSize;
+  const whereExpr = buildPassportWhereClause(brandId, opts.filters);
+
+  const rows = await db
+    .select({
+      id: passports.id,
+      slug: passports.slug,
+      status: passports.status,
+      created_at: passports.createdAt,
+      updated_at: passports.updatedAt,
+      product_id: products.id,
+      title: products.name,
+      season: products.season,
+      primary_image_url: products.primaryImageUrl,
+      category_id: products.categoryId,
+      variant_sku: productVariants.sku,
+      variant_upid: productVariants.upid,
+      color_name: brandColors.name,
+      size_name: brandSizes.name,
+      template_id: passportTemplates.id,
+      template_name: passportTemplates.name,
+    })
+    .from(passports)
+    .innerJoin(products, eq(products.id, passports.productId))
+    .innerJoin(productVariants, eq(productVariants.id, passports.variantId))
+    .leftJoin(brandColors, eq(brandColors.id, productVariants.colorId))
+    .leftJoin(brandSizes, eq(brandSizes.id, productVariants.sizeId))
+    .innerJoin(
+      passportTemplates,
+      eq(passportTemplates.id, passports.templateId),
+    )
+    .where(whereExpr)
+    .orderBy(desc(passports.createdAt))
+    .limit(pageSize)
+    .offset(offset);
+
+  const totalRes = await db
+    .select({ value: count(passports.id) })
+    .from(passports)
+    .where(whereExpr);
+  const total = Number(totalRes[0]?.value ?? 0);
+
+  const data = await hydratePassportRows(db, rows);
+  const meta: { total: number; statusCounts?: PassportStatusCounts } = {
+    total,
+  };
+  if (opts.includeStatusCounts) {
+    meta.statusCounts = await countPassportsByStatus(db, brandId);
+  }
+  return { data, meta };
+}
+
+export async function listPassports(
+  db: Database,
+  brandId: string,
+  page: number,
+) {
+  return listPassportsForBrand(db, brandId, { page });
+}
+
+export async function getPassportByUpid(
+  db: Database,
+  brandId: string,
+  upid: string,
+): Promise<PassportSummary | null> {
+  const rows = await db
+    .select({
+      id: passports.id,
+      slug: passports.slug,
+      status: passports.status,
+      created_at: passports.createdAt,
+      updated_at: passports.updatedAt,
+      product_id: products.id,
+      title: products.name,
+      season: products.season,
+      primary_image_url: products.primaryImageUrl,
+      category_id: products.categoryId,
+      variant_sku: productVariants.sku,
+      variant_upid: productVariants.upid,
+      color_name: brandColors.name,
+      size_name: brandSizes.name,
+      template_id: passportTemplates.id,
+      template_name: passportTemplates.name,
+    })
+    .from(passports)
+    .innerJoin(products, eq(products.id, passports.productId))
+    .innerJoin(productVariants, eq(productVariants.id, passports.variantId))
+    .leftJoin(brandColors, eq(brandColors.id, productVariants.colorId))
+    .leftJoin(brandSizes, eq(brandSizes.id, productVariants.sizeId))
+    .innerJoin(
+      passportTemplates,
+      eq(passportTemplates.id, passports.templateId),
+    )
+    .where(and(eq(passports.brandId, brandId), eq(passports.slug, upid)))
+    .limit(1);
+
+  const summaries = await hydratePassportRows(db, rows);
+  return summaries[0] ?? null;
+}
+
+export async function createPassport(
+  db: Database,
+  brandId: string,
+  input: {
+    productId: string;
+    variantId: string;
+    templateId?: string | null;
+    status?: PassportStatus;
+  },
+): Promise<PassportSummary> {
+  const [variant] = await db
+    .select({
+      id: productVariants.id,
+      productId: productVariants.productId,
+      upid: productVariants.upid,
+      brandId: products.brandId,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(eq(productVariants.id, input.variantId))
+    .limit(1);
+  if (!variant) {
+    throw new Error("Variant not found");
+  }
+  if (variant.brandId !== brandId) {
+    throw new Error("Variant does not belong to the active brand");
+  }
+  if (variant.productId !== input.productId) {
+    throw new Error("Variant does not belong to the provided product");
+  }
+
+  let templateId = input.templateId ?? null;
+  if (templateId) {
+    const [template] = await db
+      .select({ id: passportTemplates.id, brandId: passportTemplates.brandId })
+      .from(passportTemplates)
+      .where(eq(passportTemplates.id, templateId))
+      .limit(1);
+    if (!template || template.brandId !== brandId) {
+      throw new Error("Template not found for active brand");
+    }
+  } else {
+    const [defaultTemplate] = await db
+      .select({ id: passportTemplates.id })
+      .from(passportTemplates)
+      .where(eq(passportTemplates.brandId, brandId))
+      .orderBy(asc(passportTemplates.createdAt))
+      .limit(1);
+    if (!defaultTemplate) {
+      throw new Error("No passport templates configured for this brand");
+    }
+    templateId = defaultTemplate.id;
+  }
+
+  const slug = variant.upid;
+  await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ id: passports.id })
+      .from(passports)
+      .where(and(eq(passports.brandId, brandId), eq(passports.slug, slug)))
+      .limit(1);
+    if (existing) {
+      throw new Error("Passport already exists for this UPID");
+    }
+
+    const [inserted] = await tx
+      .insert(passports)
+      .values({
+        brandId,
+        productId: input.productId,
+        variantId: input.variantId,
+        templateId,
+        status: input.status ?? "unpublished",
+        slug,
+      })
+      .returning({ id: passports.id });
+    if (!inserted) {
+      throw new Error("Failed to create passport");
+    }
+
+    await evaluateAndUpsertCompletion(
+      tx as unknown as Database,
+      brandId,
+      input.productId,
+    );
+  });
+
+  const created = await getPassportByUpid(db, brandId, slug);
+  if (!created) {
+    throw new Error("Failed to load created passport");
+  }
+  return created;
+}
+
+export async function updatePassport(
+  db: Database,
+  brandId: string,
+  upid: string,
+  input: { status?: PassportStatus; templateId?: string },
+): Promise<PassportSummary> {
+  await db.transaction(async (tx) => {
+    const [passportRow] = await tx
+      .select({
+        id: passports.id,
+        productId: passports.productId,
+        templateId: passports.templateId,
+      })
+      .from(passports)
+      .where(and(eq(passports.brandId, brandId), eq(passports.slug, upid)))
+      .limit(1);
+    if (!passportRow) {
+      throw new Error("Passport not found");
+    }
+
+    if (input.templateId && input.templateId !== passportRow.templateId) {
+      const [template] = await tx
+        .select({
+          id: passportTemplates.id,
+          brandId: passportTemplates.brandId,
+        })
+        .from(passportTemplates)
+        .where(eq(passportTemplates.id, input.templateId))
+        .limit(1);
+      if (!template || template.brandId !== brandId) {
+        throw new Error("Template not found for active brand");
+      }
+
+      await reassignPassportTemplate(
+        tx as unknown as Database,
+        passportRow.id,
+        input.templateId,
+      );
+    }
+
+    const updatePayload: Partial<typeof passports.$inferInsert> = {};
+    if (input.status) {
+      updatePayload.status = input.status;
+    }
+
+    if (Object.keys(updatePayload).length > 0) {
+      await tx
+        .update(passports)
+        .set(updatePayload)
+        .where(eq(passports.id, passportRow.id));
+    }
+  });
+
+  const updated = await getPassportByUpid(db, brandId, upid);
+  if (!updated) {
+    throw new Error("Passport not found after update");
+  }
+  return updated;
+}
+
+export async function deletePassport(
+  db: Database,
+  brandId: string,
+  upid: string,
+): Promise<{ upid: string } | null> {
+  const [row] = await db
+    .delete(passports)
+    .where(and(eq(passports.brandId, brandId), eq(passports.slug, upid)))
+    .returning({ slug: passports.slug });
+  if (!row) return null;
+  return { upid: row.slug };
+}
+
+export async function countPassportsByStatus(
+  db: Database,
+  brandId: string,
+): Promise<PassportStatusCounts> {
   const rows = await db
     .select({ status: passports.status, value: count(passports.id) })
     .from(passports)
     .where(eq(passports.brandId, brandId))
     .groupBy(passports.status);
 
-  const base = {
-    published: 0,
-    scheduled: 0,
-    unpublished: 0,
-    archived: 0,
-  } as Record<string, number>;
-  for (const r of rows) base[String(r.status)] = Number(r.value ?? 0);
-  return base as {
-    published: number;
-    scheduled: number;
-    unpublished: number;
-    archived: number;
-  };
+  const base = { ...EMPTY_STATUS_COUNTS };
+  for (const r of rows) {
+    const key = String(r.status) as PassportStatus;
+    if (key in base) {
+      base[key] = Number(r.value ?? 0);
+    }
+  }
+  return base;
 }
 
 // Generic bulk update helper (extendable beyond status later)

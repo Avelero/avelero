@@ -1,11 +1,42 @@
+/**
+ * User profile validation schemas.
+ *
+ * These Zod definitions are shared between the API and front end to ensure
+ * consistent validation for account management flows.
+ */
 import { z } from "zod";
+import {
+  avatarHueSchema,
+  emailSchema,
+  urlSchema,
+} from "./_shared/primitives.js";
 
+/**
+ * Validates payloads for updating the authenticated user's profile.
+ */
 export const updateUserSchema = z.object({
-  email: z.string().email().optional(),
+  email: emailSchema.optional(),
   full_name: z.string().optional(),
   // legacy (ignored if column dropped)
-  avatar_url: z.string().url().optional(),
+  avatar_url: urlSchema.optional(),
   // new storage path: "<uid>/<file>"
   avatar_path: z.string().optional(),
-  avatar_hue: z.number().int().min(1).max(359).optional(),
+  avatar_hue: avatarHueSchema.optional(),
+});
+
+/**
+ * Validates payloads for the v2 `user.update` procedure.
+ *
+ * Only permits updating the display name and avatar URL/path while allowing
+ * callers to explicitly clear fields by passing `null`.
+ */
+export const userDomainUpdateSchema = z.object({
+  email: emailSchema.optional(),
+  full_name: z
+    .string()
+    .trim()
+    .min(1, "Full name cannot be empty")
+    .nullable()
+    .optional(),
+  avatar_url: urlSchema.nullable().optional(),
 });

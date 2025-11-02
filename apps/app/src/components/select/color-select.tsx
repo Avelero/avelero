@@ -1,11 +1,17 @@
 "use client";
 
-import * as React from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
-import { Icons } from "@v1/ui/icons";
+import { SHADE_LABELS, colorFamilies } from "@v1/selections";
 import { cn } from "@v1/ui/cn";
-import { colorFamilies, SHADE_LABELS } from "@v1/selections";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
+import { Icons } from "@v1/ui/icons";
+import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import * as React from "react";
 
 export interface ColorOption {
   name: string;
@@ -21,12 +27,12 @@ interface ColorSelectProps {
   className?: string;
 }
 
-const ColorLabel = ({ 
-  color, 
+const ColorLabel = ({
+  color,
   onRemove,
   disabled = false,
-}: { 
-  color: ColorOption; 
+}: {
+  color: ColorOption;
   onRemove: () => void;
   disabled?: boolean;
 }) => {
@@ -40,11 +46,13 @@ const ColorLabel = ({
     >
       <div className="flex items-center justify-center h-[12px] w-[12px]">
         <div
-            className="h-2.5     w-2.5 rounded-full border-[0.5px] border-border "
-            style={{ backgroundColor: `#${color.hex}` }}
+          className="h-2.5     w-2.5 rounded-full border-[0.5px] border-border "
+          style={{ backgroundColor: `#${color.hex}` }}
         />
       </div>
-      <p className="type-small leading-none text-primary ml-1.5">{color.name}</p>
+      <p className="type-small leading-none text-primary ml-1.5">
+        {color.name}
+      </p>
       {isHovered && !disabled && (
         <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center">
           <div className="w-3 h-3 bg-gradient-to-r from-transparent to-background" />
@@ -78,16 +86,16 @@ export function ColorSelect({
   const [pendingColorName, setPendingColorName] = React.useState("");
 
   const handleToggleColor = (color: ColorOption) => {
-    const isSelected = value.some(c => c.name === color.name);
+    const isSelected = value.some((c) => c.name === color.name);
     if (isSelected) {
-      onValueChange(value.filter(c => c.name !== color.name));
+      onValueChange(value.filter((c) => c.name !== color.name));
     } else {
       onValueChange([...value, color]);
     }
   };
 
   const handleRemoveColor = (colorName: string) => {
-    onValueChange(value.filter(c => c.name !== colorName));
+    onValueChange(value.filter((c) => c.name !== colorName));
   };
 
   const handleCreateClick = () => {
@@ -112,20 +120,23 @@ export function ColorSelect({
   const filteredColors = React.useMemo(() => {
     if (!searchTerm) return defaultColors;
     return defaultColors.filter((c) =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase())
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [defaultColors, searchTerm]);
 
   const filteredColorFamilies = React.useMemo(() => {
     if (!searchTerm) return colorFamilies;
     return colorFamilies.filter((c) =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase())
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [searchTerm]);
 
-  const showCreateOption = searchTerm && 
-    !defaultColors.some(c => c.name.toLowerCase() === searchTerm.toLowerCase()) &&
-    !value.some(c => c.name.toLowerCase() === searchTerm.toLowerCase());
+  const showCreateOption =
+    searchTerm &&
+    !defaultColors.some(
+      (c) => c.name.toLowerCase() === searchTerm.toLowerCase(),
+    ) &&
+    !value.some((c) => c.name.toLowerCase() === searchTerm.toLowerCase());
 
   // Reset view when popover closes
   React.useEffect(() => {
@@ -148,7 +159,7 @@ export function ColorSelect({
           className={cn(
             "flex flex-wrap items-center py-[5px] px-2 w-full min-h-9 border border-border bg-background gap-1.5",
             disabled && "opacity-50 cursor-not-allowed",
-            className
+            className,
           )}
           onClick={(e) => {
             if (disabled) e.preventDefault();
@@ -176,10 +187,7 @@ export function ColorSelect({
           )}
         </div>
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-60 p-0" 
-        align="start"
-      >
+      <PopoverContent className="w-60 p-0" align="start">
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput
@@ -191,7 +199,7 @@ export function ColorSelect({
               <CommandGroup>
                 {filteredColors.length > 0 ? (
                   filteredColors.map((color) => {
-                    const isSelected = value.some(c => c.name === color.name);
+                    const isSelected = value.some((c) => c.name === color.name);
                     return (
                       <CommandItem
                         key={color.name}
@@ -204,19 +212,16 @@ export function ColorSelect({
                             className="h-3.5 w-3.5 rounded-full border border-border"
                             style={{ backgroundColor: `#${color.hex}` }}
                           />
-                          <span className="type-p text-primary">{color.name}</span>
+                          <span className="type-p text-primary">
+                            {color.name}
+                          </span>
                         </div>
-                        {isSelected && (
-                          <Icons.Check className="h-4 w-4" />
-                        )}
+                        {isSelected && <Icons.Check className="h-4 w-4" />}
                       </CommandItem>
                     );
                   })
                 ) : searchTerm && showCreateOption ? (
-                  <CommandItem
-                    value={searchTerm}
-                    onSelect={handleCreateClick}
-                  >
+                  <CommandItem value={searchTerm} onSelect={handleCreateClick}>
                     <div className="flex items-center gap-2">
                       <Icons.Plus className="h-3.5 w-3.5" />
                       <span className="type-p text-primary">
@@ -248,7 +253,12 @@ export function ColorSelect({
                     <CommandItem
                       key={`${colorFamily.name}-${SHADE_LABELS[index]}`}
                       value={`${colorFamily.name} ${SHADE_LABELS[index]}`}
-                      onSelect={() => handleColorPick(hex, `${colorFamily.name} ${SHADE_LABELS[index]}`)}
+                      onSelect={() =>
+                        handleColorPick(
+                          hex,
+                          `${colorFamily.name} ${SHADE_LABELS[index]}`,
+                        )
+                      }
                     >
                       <div className="flex items-center gap-2">
                         <div
@@ -260,7 +270,7 @@ export function ColorSelect({
                         </span>
                       </div>
                     </CommandItem>
-                  ))
+                  )),
                 )}
               </CommandGroup>
             </CommandList>
@@ -270,4 +280,3 @@ export function ColorSelect({
     </Popover>
   );
 }
-

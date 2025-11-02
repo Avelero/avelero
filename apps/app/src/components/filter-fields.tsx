@@ -2,6 +2,8 @@
 
 import { RELATIVE_DATE_OPTIONS } from "@/config/filters";
 import { useFieldOptions } from "@/hooks/use-field-options";
+import { BooleanToggle } from "@v1/ui/boolean";
+import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { DatePicker } from "@v1/ui/date-picker";
 import {
@@ -10,12 +12,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
-import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { MinMaxInput } from "@v1/ui/min-max";
 import { Select } from "@v1/ui/select";
-import { BooleanToggle } from "@v1/ui/boolean";
 import * as React from "react";
 import type {
   FilterFieldConfig,
@@ -71,15 +71,16 @@ export function FilterFieldInput({
 
   // Build operator selector only when meaningful
   // Exclude number/percentage/date fields as they now have integrated controls
-  const showOperator = 
-    fieldConfig.operators && 
-    fieldConfig.operators.length > 0 && 
-    fieldConfig.inputType !== "number" && 
+  const showOperator =
+    fieldConfig.operators &&
+    fieldConfig.operators.length > 0 &&
+    fieldConfig.inputType !== "number" &&
     fieldConfig.inputType !== "percentage" &&
     fieldConfig.inputType !== "date";
 
   // Helper: some operators do not require a value
-  const operatorNeedsNoValue = operator === "is empty" || operator === "is not empty";
+  const operatorNeedsNoValue =
+    operator === "is empty" || operator === "is not empty";
 
   // Route rendering by input type
   const renderValueControl = () => {
@@ -139,8 +140,10 @@ export function FilterFieldInput({
       case "date": {
         const rangeValue = value as any;
         const afterDate = rangeValue?.after ? new Date(rangeValue.after) : null;
-        const beforeDate = rangeValue?.before ? new Date(rangeValue.before) : null;
-        
+        const beforeDate = rangeValue?.before
+          ? new Date(rangeValue.before)
+          : null;
+
         // Validation: check if after > before
         const afterInvalid = afterDate && beforeDate && afterDate > beforeDate;
         const beforeInvalid = afterDate && beforeDate && beforeDate < afterDate;
@@ -148,7 +151,7 @@ export function FilterFieldInput({
         const handleAfterChange = (date: Date | null) => {
           const newAfter = date;
           const newBefore = beforeDate;
-          
+
           // Automatically determine the operator based on which fields are filled
           let newOperator: FilterOperator;
           if (newAfter && newBefore) {
@@ -160,7 +163,7 @@ export function FilterFieldInput({
           } else {
             newOperator = "is between" as FilterOperator;
           }
-          
+
           onOperatorChange(newOperator);
           onValueChange({
             after: newAfter?.toISOString() ?? "",
@@ -171,7 +174,7 @@ export function FilterFieldInput({
         const handleBeforeChange = (date: Date | null) => {
           const newAfter = afterDate;
           const newBefore = date;
-          
+
           // Automatically determine the operator based on which fields are filled
           let newOperator: FilterOperator;
           if (newAfter && newBefore) {
@@ -183,7 +186,7 @@ export function FilterFieldInput({
           } else {
             newOperator = "is between" as FilterOperator;
           }
-          
+
           onOperatorChange(newOperator);
           onValueChange({
             after: newAfter?.toISOString() ?? "",
@@ -258,10 +261,15 @@ export function FilterFieldInput({
             <Button
               variant="outline"
               size="default"
-              className={cn("justify-between", operatorNeedsNoValue ? "w-full" : "w-fit")}
+              className={cn(
+                "justify-between",
+                operatorNeedsNoValue ? "w-full" : "w-fit",
+              )}
               icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
             >
-              <span className="truncate">{operator || "Select operator..."}</span>
+              <span className="truncate">
+                {operator || "Select operator..."}
+              </span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[220px]" inline>
@@ -269,16 +277,19 @@ export function FilterFieldInput({
               <DropdownMenuItem key={op} onSelect={() => onOperatorChange(op)}>
                 <span>{op}</span>
                 <Icons.Check
-                  className={cn("h-4 w-4 ml-auto", operator === op ? "opacity-100" : "opacity-0")}
+                  className={cn(
+                    "h-4 w-4 ml-auto",
+                    operator === op ? "opacity-100" : "opacity-0",
+                  )}
                 />
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      {!operatorNeedsNoValue && <div className="flex-1 min-w-0">{renderValueControl()}</div>}
+      {!operatorNeedsNoValue && (
+        <div className="flex-1 min-w-0">{renderValueControl()}</div>
+      )}
     </div>
   );
 }
-
-

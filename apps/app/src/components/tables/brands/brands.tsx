@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  usePrefetchCanLeaveForBrands,
-  useUserBrandsQuerySuspense,
-} from "@/hooks/use-brand";
+import { useUserBrandsQuerySuspense } from "@/hooks/use-brand";
 import { useMyInvitesQuerySuspense } from "@/hooks/use-invites";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
@@ -16,17 +13,20 @@ import { BrandsRow } from "./brands-row";
 type TabKey = "brands" | "invites";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
-type BrandList = RouterOutputs["brand"]["list"];
-type MyInvites = RouterOutputs["brand"]["myInvites"];
-type Membership = BrandList["data"][number];
-type Invite = MyInvites["data"][number];
+type BrandList = RouterOutputs["workflow"]["list"];
+type MyInvites = RouterOutputs["user"]["invites"]["list"];
+type Membership = BrandList[number];
+type Invite = MyInvites[number];
 
 interface BrandWithRoleLocal {
   id: string;
   name: string;
-  logo_path?: string | null;
-  avatar_hue?: number | null;
+  logoUrl?: string | null;
   role: "owner" | "member" | null;
+  canLeave: boolean;
+  avatarHue?: number | null;
+  email?: string | null;
+  countryCode?: string | null;
 }
 
 export function BrandsTable() {
@@ -38,7 +38,7 @@ export function BrandsTable() {
   const { data: invitesRes } = useMyInvitesQuerySuspense();
 
   const memberships = useMemo(
-    (): Membership[] => brandsRes?.data ?? [],
+    (): Membership[] => (Array.isArray(brandsRes) ? brandsRes : []),
     [brandsRes],
   );
   const displayMemberships = useMemo(
@@ -49,53 +49,39 @@ export function BrandsTable() {
             Boolean(m.id) && Boolean(m.name),
         )
         .map<BrandWithRoleLocal>((m) => ({
-          id: m.id as string,
-          name: m.name as string,
-          logo_path: m.logo_path ?? null,
-          avatar_hue: m.avatar_hue ?? null,
+          id: m.id,
+          name: m.name,
+          logoUrl: m.logo_url ?? null,
           role:
             m.role === "owner"
               ? "owner"
               : m.role === "member"
                 ? "member"
                 : null,
+          canLeave: m.canLeave ?? false,
+          avatarHue: m.avatar_hue ?? null,
+          email: (m as { email?: string | null })?.email ?? null,
+          countryCode:
+            (m as { country_code?: string | null })?.country_code ?? null,
         })),
     [memberships],
   );
-  const invitesObj = invitesRes as MyInvites | undefined;
-  const invites = useMemo((): Invite[] => invitesObj?.data ?? [], [invitesObj]);
+  const invites = useMemo((): Invite[] => invitesRes ?? [], [invitesRes]);
   const displayInvites = useMemo(
     () =>
       invites
         .filter(
-          (
-            i,
-          ): i is Invite & {
-            role: "owner" | "member";
-            brand: { id: string; name: string };
-          } =>
+          (i): i is Invite & { role: "owner" | "member"; brand_name: string } =>
             (i.role === "owner" || i.role === "member") &&
-            Boolean(i.brand?.id) &&
-            Boolean(i.brand?.name),
+            Boolean(i.brand_name),
         )
         .map((i) => ({
           id: i.id,
           role: i.role as "owner" | "member",
-          brand: {
-            id: i.brand.id as string,
-            name: i.brand.name as string,
-            logo_path: i.brand.logo_path ?? null,
-            avatar_hue: i.brand.avatar_hue ?? null,
-          },
+          brand_name: i.brand_name as string,
+          brand_logo: i.brand_logo ?? null,
         })),
     [invites],
-  );
-
-  // Prefetch canLeave for better UX when opening leave modal
-  usePrefetchCanLeaveForBrands(
-    displayMemberships
-      .map((m) => m.id)
-      .filter((id): id is string => Boolean(id)),
   );
 
   // Local-only tab state: no URL or router coupling

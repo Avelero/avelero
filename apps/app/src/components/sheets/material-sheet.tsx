@@ -1,49 +1,106 @@
 "use client";
 
-import * as React from "react";
-import { Button } from "@v1/ui/button";
-import { Input } from "@v1/ui/input";
-import { Label } from "@v1/ui/label";
-import { Sheet, SheetContent, SheetBreadcrumbHeader, SheetFooter } from "@v1/ui/sheet";
-import { Switch } from "@v1/ui/switch";
-import { Icons } from "@v1/ui/icons";
-import { DatePicker } from "@v1/ui/date-picker";
-import { Select } from "@v1/ui/select";
-import { cn } from "@v1/ui/cn";
-import { BooleanToggle } from "@v1/ui/boolean";
-import { toast } from "@v1/ui/sonner";
-import { CountrySelect } from "../select/country-select";
+import { useUpload } from "@/hooks/use-upload";
 import type { Certification } from "@v1/selections/certifications";
 import { allCertifications } from "@v1/selections/certifications";
+import { BooleanToggle } from "@v1/ui/boolean";
+import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
+import { DatePicker } from "@v1/ui/date-picker";
+import { Icons } from "@v1/ui/icons";
+import { Input } from "@v1/ui/input";
+import { Label } from "@v1/ui/label";
+import { Select } from "@v1/ui/select";
+import {
+  Sheet,
+  SheetBreadcrumbHeader,
+  SheetContent,
+  SheetFooter,
+} from "@v1/ui/sheet";
+import { toast } from "@v1/ui/sonner";
+import { Switch } from "@v1/ui/switch";
+import * as React from "react";
+import { CountrySelect } from "../select/country-select";
 
+/**
+ * Material data shape returned when a material is created.
+ */
 interface MaterialData {
+  /** Unique material identifier */
   id: string;
+  /** Material name (e.g., "Organic Cotton", "Recycled Polyester") */
   name: string;
+  /** ISO country code of origin */
   countryOfOrigin?: string;
+  /** Whether the material is recyclable */
   recyclable?: boolean;
+  /** Optional certification reference */
   certificationId?: string;
+  /** Full certification details if attached */
   certification?: CertificationData;
 }
 
+/**
+ * Certification data shape for materials.
+ */
 interface CertificationData {
+  /** Unique certification identifier */
   id: string;
+  /** Certification title */
   title: string;
+  /** Certification code (e.g., "GOTS", "OEKO-TEX") */
   code: string;
+  /** Certification number/ID from issuing body */
   certificationNumber: string;
+  /** Name of issuing institution */
   instituteName: string;
+  /** Optional expiration date */
   expiryDate?: Date;
+  /** Optional logo file path */
   logo?: string;
 }
 
+/**
+ * Props for the MaterialSheet component.
+ */
 interface MaterialSheetProps {
+  /** Controls sheet visibility */
   open: boolean;
+  /** Callback when sheet open state changes */
   onOpenChange: (open: boolean) => void;
+  /** Optional pre-filled material name */
   initialName?: string;
+  /** Callback invoked with the created material data */
   onMaterialCreated: (material: MaterialData) => void;
 }
 
+/** Internal page state for multi-page sheet flow */
 type Page = "material" | "certification";
 
+/**
+ * Multi-page sheet for creating materials with optional certifications.
+ *
+ * This component manages a two-page flow:
+ * 1. Material details page - Name, country, recyclability, certification selection
+ * 2. Certification creation page - Appears when user creates a new certification
+ *
+ * Supports file uploads for certification logos and maintains complex state
+ * across page transitions. All form data is reset when the sheet closes.
+ *
+ * @param props - Sheet configuration and callbacks
+ *
+ * @example
+ * ```tsx
+ * <MaterialSheet
+ *   open={isOpen}
+ *   onOpenChange={setIsOpen}
+ *   initialName="Organic Cotton"
+ *   onMaterialCreated={(material) => {
+ *     console.log('Created:', material);
+ *   }}
+ * />
+ * ```
+ */
 export function MaterialSheet({
   open,
   onOpenChange,
@@ -51,26 +108,38 @@ export function MaterialSheet({
   onMaterialCreated,
 }: MaterialSheetProps) {
   const [currentPage, setCurrentPage] = React.useState<Page>("material");
-  
+
   // Material form state
   const [name, setName] = React.useState(initialName);
   const [countryOfOrigin, setCountryOfOrigin] = React.useState("");
-  const [recyclable, setRecyclable] = React.useState<boolean | undefined>(undefined);
+  const [recyclable, setRecyclable] = React.useState<boolean | undefined>(
+    undefined,
+  );
   const [certified, setCertified] = React.useState(false);
-  const [selectedCertificationId, setSelectedCertificationId] = React.useState<string | null>(null);
-  const [certificationData, setCertificationData] = React.useState<CertificationData | null>(null);
+  const [selectedCertificationId, setSelectedCertificationId] = React.useState<
+    string | null
+  >(null);
+  const [certificationData, setCertificationData] =
+    React.useState<CertificationData | null>(null);
   const [certSearchTerm, setCertSearchTerm] = React.useState("");
-  
+
   // Certification form state
   const [certTitle, setCertTitle] = React.useState("");
   const [certCode, setCertCode] = React.useState("");
   const [certNumber, setCertNumber] = React.useState("");
   const [certInstitute, setCertInstitute] = React.useState("");
-  const [certExpiry, setCertExpiry] = React.useState<Date | undefined>(undefined);
-  
+  const [certExpiry, setCertExpiry] = React.useState<Date | undefined>(
+    undefined,
+  );
+  const [certLogo, setCertLogo] = React.useState<string | undefined>(undefined);
+  const [uploadedFileName, setUploadedFileName] = React.useState<
+    string | undefined
+  >(undefined);
+
   // File upload state
   const [isDragging, setIsDragging] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { uploadFile, isLoading: isUploading } = useUpload();
 
   // Update name when initialName changes (when sheet opens with pre-filled name)
   React.useEffect(() => {
@@ -95,6 +164,8 @@ export function MaterialSheet({
       setCertNumber("");
       setCertInstitute("");
       setCertExpiry(undefined);
+      setCertLogo(undefined);
+      setUploadedFileName(undefined);
     }
   }, [open]);
 
@@ -103,7 +174,7 @@ export function MaterialSheet({
     if (prefillName) {
       // Check if it matches a predefined certification
       const matchedCert = allCertifications.find(
-        c => c.title.toLowerCase() === prefillName.toLowerCase()
+        (c) => c.title.toLowerCase() === prefillName.toLowerCase(),
       );
       if (matchedCert) {
         setCertTitle(matchedCert.title);
@@ -142,6 +213,7 @@ export function MaterialSheet({
       certificationNumber: certNumber.trim(),
       instituteName: certInstitute.trim(),
       expiryDate: certExpiry,
+      logo: certLogo,
     };
 
     // Set as selected certification
@@ -200,27 +272,76 @@ export function MaterialSheet({
     setIsDragging(false);
   };
 
+  const validateAndUploadFile = async (file: File) => {
+    // Validate file type
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error(
+        "Invalid file type. Please upload a PDF, JPG, JPEG, or PNG file.",
+      );
+      return;
+    }
+
+    // Validate file size (4MB limit)
+    const maxSize = 4 * 1024 * 1024; // 4MB in bytes
+    if (file.size > maxSize) {
+      toast.error("File too large. Please upload a file smaller than 4MB.");
+      return;
+    }
+
+    try {
+      // Upload file to certifications bucket
+      const timestamp = Date.now();
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const result = await uploadFile({
+        file,
+        path: ["certifications", `${timestamp}-${sanitizedFileName}`],
+        bucket: "certifications",
+      });
+
+      setCertLogo(result.url);
+      setUploadedFileName(file.name);
+      toast.success("Certificate uploaded successfully");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to upload certificate. Please try again.";
+      toast.error(errorMessage);
+    }
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      // Handle file upload here
-      console.log('File dropped:', files[0]);
+      const file = files[0];
+      if (file) {
+        validateAndUploadFile(file);
+      }
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      // Handle file upload here
-      console.log('File selected:', files[0]);
+      const file = files[0];
+      if (file) {
+        validateAndUploadFile(file);
+      }
     }
   };
 
   const isNameValid = name.trim().length > 0;
-  const isMaterialValid = isNameValid && (!certified || (certified && certificationData));
+  const isMaterialValid =
+    isNameValid && (!certified || certificationData);
 
   // Get certification options for the select on certification page
   const certificationOptions = allCertifications.map((cert: Certification) => ({
@@ -282,7 +403,7 @@ export function MaterialSheet({
                   value={countryOfOrigin}
                   onChange={(code) => setCountryOfOrigin(code)}
                 />
-                
+
                 <div className="space-y-1.5">
                   <Label>Recyclable</Label>
                   <BooleanToggle
@@ -301,10 +422,13 @@ export function MaterialSheet({
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-4">
                   <div className="space-y-2">
-                    <p className="type-p !font-medium text-primary">Certified</p>
+                    <p className="type-p !font-medium text-primary">
+                      Certified
+                    </p>
                     <p className="type-small text-tertiary">
-                      Add a certification to this material, a copy of the certificate is
-                      required. You'll receive an email 30 days before the expiry date.
+                      Add a certification to this material, a copy of the
+                      certificate is required. You'll receive an email 30 days
+                      before the expiry date.
                     </p>
                   </div>
                   <Switch
@@ -333,19 +457,27 @@ export function MaterialSheet({
                         {/* Certification List */}
                         <div className="border border-border bg-background overflow-hidden max-h-[280px] overflow-y-auto">
                           {/* Show existing certification if it matches search */}
-                          {(!certSearchTerm || 
-                            certificationData.title.toLowerCase().includes(certSearchTerm.toLowerCase()) ||
-                            certificationData.certificationNumber.toLowerCase().includes(certSearchTerm.toLowerCase())) ? (
+                          {!certSearchTerm ||
+                          certificationData.title
+                            .toLowerCase()
+                            .includes(certSearchTerm.toLowerCase()) ||
+                          certificationData.certificationNumber
+                            .toLowerCase()
+                            .includes(certSearchTerm.toLowerCase()) ? (
                             <button
                               type="button"
-                              onClick={() => setSelectedCertificationId(certificationData.id)}
+                              onClick={() =>
+                                setSelectedCertificationId(certificationData.id)
+                              }
                               className={cn(
                                 "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border last:border-b-0",
-                                selectedCertificationId === certificationData.id && "bg-accent-blue"
+                                selectedCertificationId ===
+                                  certificationData.id && "bg-accent-blue",
                               )}
                             >
                               <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                                {selectedCertificationId === certificationData.id ? (
+                                {selectedCertificationId ===
+                                certificationData.id ? (
                                   <Icons.Check className="h-5 w-5 text-brand" />
                                 ) : (
                                   <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-medium text-secondary">
@@ -364,7 +496,15 @@ export function MaterialSheet({
                               {certificationData.expiryDate && (
                                 <div className="text-right">
                                   <p className="type-small !leading-[14px] text-tertiary">
-                                    Expires on {certificationData.expiryDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                    Expires on{" "}
+                                    {certificationData.expiryDate.toLocaleDateString(
+                                      "en-US",
+                                      {
+                                        month: "long",
+                                        day: "numeric",
+                                        year: "numeric",
+                                      },
+                                    )}
                                   </p>
                                 </div>
                               )}
@@ -372,20 +512,26 @@ export function MaterialSheet({
                           ) : null}
 
                           {/* Show "Create" option when search doesn't match */}
-                          {certSearchTerm && 
-                            !certificationData.title.toLowerCase().includes(certSearchTerm.toLowerCase()) &&
-                            !certificationData.certificationNumber.toLowerCase().includes(certSearchTerm.toLowerCase()) && (
-                            <button
-                              type="button"
-                              onClick={() => handleCreateCertification(certSearchTerm)}
-                              className="w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors"
-                            >
-                              <Icons.Plus className="h-4 w-4 text-tertiary" />
-                              <span className="type-p text-primary">
-                                Create &quot;{certSearchTerm}&quot;
-                              </span>
-                            </button>
-                          )}
+                          {certSearchTerm &&
+                            !certificationData.title
+                              .toLowerCase()
+                              .includes(certSearchTerm.toLowerCase()) &&
+                            !certificationData.certificationNumber
+                              .toLowerCase()
+                              .includes(certSearchTerm.toLowerCase()) && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCreateCertification(certSearchTerm)
+                                }
+                                className="w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors"
+                              >
+                                <Icons.Plus className="h-4 w-4 text-tertiary" />
+                                <span className="type-p text-primary">
+                                  Create &quot;{certSearchTerm}&quot;
+                                </span>
+                              </button>
+                            )}
                         </div>
                       </>
                     ) : (
@@ -422,7 +568,12 @@ export function MaterialSheet({
                 </Label>
                 <Select
                   options={certificationOptions}
-                  value={certTitle ? allCertifications.find(c => c.title === certTitle)?.id || "" : ""}
+                  value={
+                    certTitle
+                      ? allCertifications.find((c) => c.title === certTitle)
+                          ?.id || ""
+                      : ""
+                  }
                   onValueChange={handleCertificationSelectChange}
                   placeholder="Select certification"
                   searchable
@@ -434,7 +585,8 @@ export function MaterialSheet({
               {/* Certification Number */}
               <div className="space-y-1.5">
                 <Label htmlFor="cert-number">
-                  Certification number <span className="text-destructive">*</span>
+                  Certification number{" "}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="cert-number"
@@ -470,35 +622,68 @@ export function MaterialSheet({
                 </div>
               </div>
 
-            {/* Separator */}
-            <div className="border-t border-border my-1" />
+              {/* Separator */}
+              <div className="border-t border-border my-1" />
 
               {/* Certificate Upload */}
               <div className="space-y-1.5">
                 <Label>Certificate</Label>
-                <div
-                  onClick={handleClick}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={cn(
-                    "border border-dashed p-8 text-center transition-colors duration-200 cursor-pointer",
-                    isDragging
-                      ? "border-brand bg-accent"
-                      : "border-border hover:border-tertiary hover:bg-accent",
-                  )}
-                >
-                  <p className="type-small text-tertiary mb-1">
-                    Drop your certificate here, or click to browse.
-                  </p>
-                  <p className="type-small text-tertiary">4MB file limit.</p>
-                </div>
+                {uploadedFileName ? (
+                  <div className="flex items-center gap-2 p-3 border border-border bg-background">
+                    <Icons.Check className="h-4 w-4 text-brand shrink-0" />
+                    <span className="flex-1 type-small text-primary truncate">
+                      {uploadedFileName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCertLogo(undefined);
+                        setUploadedFileName(undefined);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = "";
+                        }
+                      }}
+                      className="text-tertiary hover:text-destructive transition-colors"
+                      aria-label="Remove certificate"
+                    >
+                      <Icons.X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={handleClick}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={cn(
+                      "border border-dashed p-8 text-center transition-colors duration-200 cursor-pointer",
+                      isDragging
+                        ? "border-brand bg-accent"
+                        : "border-border hover:border-tertiary hover:bg-accent",
+                      isUploading && "opacity-50 cursor-not-allowed",
+                    )}
+                  >
+                    {isUploading ? (
+                      <p className="type-small text-tertiary">Uploading...</p>
+                    ) : (
+                      <>
+                        <p className="type-small text-tertiary mb-1">
+                          Drop your certificate here, or click to browse.
+                        </p>
+                        <p className="type-small text-tertiary">
+                          4MB file limit.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={handleFileChange}
                   className="hidden"
+                  disabled={isUploading}
                 />
               </div>
             </div>
@@ -507,50 +692,51 @@ export function MaterialSheet({
 
         {/* Footer */}
         <SheetFooter>
-        {currentPage === "material" ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => onOpenChange(false)}
-                  className="w-[70px]"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="brand"
-                  size="default"
-                  onClick={handleMaterialCreate}
-                  disabled={!isMaterialValid}
-                  className="w-[70px]"
-                >
-                  Create
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="default"
-                  onClick={handleBackToMaterial}
-                  className="w-[70px]"
-                >
-                  Back
-                </Button>
-                <Button
-                  variant="brand"
-                  size="default"
-                  onClick={handleCertificationCreate}
-                  disabled={!certTitle.trim() || !certNumber.trim() || !certExpiry}
-                  className="w-[70px]"
-                >
-                  Create
-                </Button>
-              </>
-            )}
+          {currentPage === "material" ? (
+            <>
+              <Button
+                variant="outline"
+                size="default"
+                onClick={() => onOpenChange(false)}
+                className="w-[70px]"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="brand"
+                size="default"
+                onClick={handleMaterialCreate}
+                disabled={!isMaterialValid}
+                className="w-[70px]"
+              >
+                Create
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="default"
+                onClick={handleBackToMaterial}
+                className="w-[70px]"
+              >
+                Back
+              </Button>
+              <Button
+                variant="brand"
+                size="default"
+                onClick={handleCertificationCreate}
+                disabled={
+                  !certTitle.trim() || !certNumber.trim() || !certExpiry
+                }
+                className="w-[70px]"
+              >
+                Create
+              </Button>
+            </>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>
   );
 }
-

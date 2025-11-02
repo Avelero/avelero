@@ -17,16 +17,16 @@ import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
+import { QuickFiltersPopover } from "../select/filter-select";
+import { SortPopover } from "../select/sort-select";
+import { AdvancedFilterPanel } from "../sheets/filter-sheet";
 import type {
   BulkChanges,
   FilterActions,
   FilterState,
   SelectionState,
 } from "../tables/passports/types";
-import { AdvancedFilterPanel } from "../sheets/filter-sheet";
 import { DisplayPopover } from "./display-popover";
-import { QuickFiltersPopover } from "../select/filter-select";
-import { SortPopover } from "../select/sort-select";
 
 interface PassportControlsProps {
   selectedCount?: number;
@@ -43,7 +43,9 @@ interface PassportControlsProps {
   filterState?: FilterState;
   filterActions?: FilterActions;
   sortState?: { field: string; direction: "asc" | "desc" } | null;
-  onSortChange?: (sort: { field: string; direction: "asc" | "desc" } | null) => void;
+  onSortChange?: (
+    sort: { field: string; direction: "asc" | "desc" } | null,
+  ) => void;
 }
 
 export function PassportControls({
@@ -63,9 +65,7 @@ export function PassportControls({
   const hasSelection = selectedCount > 0;
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const bulkUpdateMutation = useMutation(
-    trpc.passports.bulkUpdate.mutationOptions(),
-  );
+  const bulkUpdateMutation = useMutation(trpc.bulk.update.mutationOptions());
 
   async function handleBulkStatusChange(
     status: "published" | "scheduled" | "unpublished" | "archived",
@@ -73,6 +73,7 @@ export function PassportControls({
     if (!selection) return;
     try {
       const res = await bulkUpdateMutation.mutateAsync({
+        domain: "passports",
         selection:
           selection.mode === "all"
             ? { mode: "all", excludeIds: selection.excludeIds }
@@ -88,7 +89,9 @@ export function PassportControls({
           queryKey: trpc.passports.list.queryKey(),
         }),
         queryClient.invalidateQueries({
-          queryKey: trpc.passports.countByStatus.queryKey(),
+          queryKey: trpc.passports.list.queryKey({
+            includeStatusCounts: true,
+          }),
         }),
       ]);
       // Clear selection and close popover after success

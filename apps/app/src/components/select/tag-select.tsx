@@ -1,11 +1,17 @@
 "use client";
 
-import * as React from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
-import { Icons } from "@v1/ui/icons";
-import { cn } from "@v1/ui/cn";
 import { allColors } from "@v1/selections";
+import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
+import { Icons } from "@v1/ui/icons";
+import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import * as React from "react";
 
 export interface TagOption {
   name: string;
@@ -20,12 +26,12 @@ interface TagSelectProps {
   className?: string;
 }
 
-const TagLabel = ({ 
-  tag, 
+const TagLabel = ({
+  tag,
   onRemove,
   disabled = false,
-}: { 
-  tag: TagOption; 
+}: {
+  tag: TagOption;
   onRemove: () => void;
   disabled?: boolean;
 }) => {
@@ -39,8 +45,8 @@ const TagLabel = ({
     >
       <div className="flex items-center justify-center h-[12px] w-[12px]">
         <div
-            className="h-2.5 w-2.5 rounded-full border-[0.5px] border-border"
-            style={{ backgroundColor: `#${tag.hex}` }}
+          className="h-2.5 w-2.5 rounded-full border-[0.5px] border-border"
+          style={{ backgroundColor: `#${tag.hex}` }}
         />
       </div>
       <p className="type-small leading-none text-primary ml-1.5">{tag.name}</p>
@@ -76,7 +82,7 @@ export function TagSelect({
   const [pendingTagName, setPendingTagName] = React.useState("");
 
   const handleRemoveTag = (tagName: string) => {
-    onValueChange(value.filter(t => t.name !== tagName));
+    onValueChange(value.filter((t) => t.name !== tagName));
   };
 
   const handleCreateClick = () => {
@@ -101,19 +107,20 @@ export function TagSelect({
   const filteredTags = React.useMemo(() => {
     if (!searchTerm) return value;
     return value.filter((t) =>
-      t.name.toLowerCase().includes(searchTerm.toLowerCase())
+      t.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [value, searchTerm]);
 
   const filteredColors = React.useMemo(() => {
     if (!searchTerm) return allColors;
     return allColors.filter((c) =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase())
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [searchTerm]);
 
-  const showCreateOption = searchTerm && 
-    !value.some(t => t.name.toLowerCase() === searchTerm.toLowerCase());
+  const showCreateOption =
+    searchTerm &&
+    !value.some((t) => t.name.toLowerCase() === searchTerm.toLowerCase());
 
   // Reset view when popover closes
   React.useEffect(() => {
@@ -136,7 +143,7 @@ export function TagSelect({
           className={cn(
             "flex flex-wrap items-center py-[5px] px-2 w-full min-h-9 border border-border bg-background gap-1.5",
             disabled && "opacity-50 cursor-not-allowed",
-            className
+            className,
           )}
           onClick={(e) => {
             if (disabled) e.preventDefault();
@@ -164,10 +171,7 @@ export function TagSelect({
           )}
         </div>
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-60 p-0" 
-        align="start"
-      >
+      <PopoverContent className="w-60 p-0" align="start">
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput
@@ -196,10 +200,7 @@ export function TagSelect({
                     </CommandItem>
                   ))
                 ) : searchTerm && showCreateOption ? (
-                  <CommandItem
-                    value={searchTerm}
-                    onSelect={handleCreateClick}
-                  >
+                  <CommandItem value={searchTerm} onSelect={handleCreateClick}>
                     <div className="flex items-center gap-2">
                       <Icons.Plus className="h-3.5 w-3.5" />
                       <span className="type-p text-primary">
@@ -237,9 +238,7 @@ export function TagSelect({
                         className="h-3.5 w-3.5 rounded-full border border-border"
                         style={{ backgroundColor: `#${color.hex}` }}
                       />
-                      <span className="type-p text-primary">
-                        {color.name}
-                      </span>
+                      <span className="type-p text-primary">{color.name}</span>
                     </div>
                   </CommandItem>
                 ))}
@@ -251,4 +250,3 @@ export function TagSelect({
     </Popover>
   );
 }
-

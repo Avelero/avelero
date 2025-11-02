@@ -31,9 +31,8 @@ function UserAvatar() {
   return (
     <SignedAvatar
       bucket="avatars"
-      path={user?.avatar_path ?? null}
+      path={user?.avatar_url ?? null}
       name={user?.full_name ?? undefined}
-      hue={user?.avatar_hue ?? undefined}
       size={32}
     />
   );

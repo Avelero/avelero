@@ -16,9 +16,8 @@ function InnerAvatarUpload() {
     <AvatarUpload
       entity="user"
       entityId={u.id}
-      avatarUrl={u.avatar_path}
+      avatarUrl={u.avatar_url}
       name={u.full_name}
-      hue={u.avatar_hue}
       size={52}
     />
   );

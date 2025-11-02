@@ -38,21 +38,22 @@ export async function createColor(
 
 export async function updateColor(
   db: Database,
+  brandId: string,
   id: string,
   input: { name: string },
 ) {
   const [row] = await db
     .update(brandColors)
     .set({ name: input.name })
-    .where(eq(brandColors.id, id))
+    .where(and(eq(brandColors.id, id), eq(brandColors.brandId, brandId)))
     .returning({ id: brandColors.id });
   return row;
 }
 
-export async function deleteColor(db: Database, id: string) {
+export async function deleteColor(db: Database, brandId: string, id: string) {
   const [row] = await db
     .delete(brandColors)
-    .where(eq(brandColors.id, id))
+    .where(and(eq(brandColors.id, id), eq(brandColors.brandId, brandId)))
     .returning({ id: brandColors.id });
   return row;
 }
@@ -102,6 +103,7 @@ export async function createSize(
 
 export async function updateSize(
   db: Database,
+  brandId: string,
   id: string,
   input: {
     name?: string;
@@ -116,15 +118,15 @@ export async function updateSize(
       categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
-    .where(eq(brandSizes.id, id))
+    .where(and(eq(brandSizes.id, id), eq(brandSizes.brandId, brandId)))
     .returning({ id: brandSizes.id });
   return row;
 }
 
-export async function deleteSize(db: Database, id: string) {
+export async function deleteSize(db: Database, brandId: string, id: string) {
   const [row] = await db
     .delete(brandSizes)
-    .where(eq(brandSizes.id, id))
+    .where(and(eq(brandSizes.id, id), eq(brandSizes.brandId, brandId)))
     .returning({ id: brandSizes.id });
   return row;
 }
@@ -171,6 +173,7 @@ export async function createMaterial(
 
 export async function updateMaterial(
   db: Database,
+  brandId: string,
   id: string,
   input: {
     name?: string;
@@ -187,15 +190,19 @@ export async function updateMaterial(
       recyclable: input.recyclable ?? null,
       countryOfOrigin: input.countryOfOrigin ?? null,
     })
-    .where(eq(brandMaterials.id, id))
+    .where(and(eq(brandMaterials.id, id), eq(brandMaterials.brandId, brandId)))
     .returning({ id: brandMaterials.id });
   return row;
 }
 
-export async function deleteMaterial(db: Database, id: string) {
+export async function deleteMaterial(
+  db: Database,
+  brandId: string,
+  id: string,
+) {
   const [row] = await db
     .delete(brandMaterials)
-    .where(eq(brandMaterials.id, id))
+    .where(and(eq(brandMaterials.id, id), eq(brandMaterials.brandId, brandId)))
     .returning({ id: brandMaterials.id });
   return row;
 }
@@ -260,6 +267,7 @@ export async function createCertification(
 
 export async function updateCertification(
   db: Database,
+  brandId: string,
   id: string,
   input: Partial<{
     title: string;
@@ -288,15 +296,29 @@ export async function updateCertification(
       externalUrl: input.externalUrl ?? null,
       notes: input.notes ?? null,
     })
-    .where(eq(brandCertifications.id, id))
+    .where(
+      and(
+        eq(brandCertifications.id, id),
+        eq(brandCertifications.brandId, brandId),
+      ),
+    )
     .returning({ id: brandCertifications.id });
   return row;
 }
 
-export async function deleteCertification(db: Database, id: string) {
+export async function deleteCertification(
+  db: Database,
+  brandId: string,
+  id: string,
+) {
   const [row] = await db
     .delete(brandCertifications)
-    .where(eq(brandCertifications.id, id))
+    .where(
+      and(
+        eq(brandCertifications.id, id),
+        eq(brandCertifications.brandId, brandId),
+      ),
+    )
     .returning({ id: brandCertifications.id });
   return row;
 }
@@ -329,21 +351,26 @@ export async function createEcoClaim(
 
 export async function updateEcoClaim(
   db: Database,
+  brandId: string,
   id: string,
   input: { claim?: string },
 ) {
   const [row] = await db
     .update(brandEcoClaims)
     .set({ claim: input.claim })
-    .where(eq(brandEcoClaims.id, id))
+    .where(and(eq(brandEcoClaims.id, id), eq(brandEcoClaims.brandId, brandId)))
     .returning({ id: brandEcoClaims.id });
   return row;
 }
 
-export async function deleteEcoClaim(db: Database, id: string) {
+export async function deleteEcoClaim(
+  db: Database,
+  brandId: string,
+  id: string,
+) {
   const [row] = await db
     .delete(brandEcoClaims)
-    .where(eq(brandEcoClaims.id, id))
+    .where(and(eq(brandEcoClaims.id, id), eq(brandEcoClaims.brandId, brandId)))
     .returning({ id: brandEcoClaims.id });
   return row;
 }
@@ -399,6 +426,7 @@ export async function createFacility(
 
 export async function updateFacility(
   db: Database,
+  brandId: string,
   id: string,
   input: Partial<{
     displayName: string;
@@ -421,15 +449,23 @@ export async function updateFacility(
       contact: input.contact ?? null,
       vatNumber: input.vatNumber ?? null,
     })
-    .where(eq(brandFacilities.id, id))
+    .where(
+      and(eq(brandFacilities.id, id), eq(brandFacilities.brandId, brandId)),
+    )
     .returning({ id: brandFacilities.id });
   return row;
 }
 
-export async function deleteFacility(db: Database, id: string) {
+export async function deleteFacility(
+  db: Database,
+  brandId: string,
+  id: string,
+) {
   const [row] = await db
     .delete(brandFacilities)
-    .where(eq(brandFacilities.id, id))
+    .where(
+      and(eq(brandFacilities.id, id), eq(brandFacilities.brandId, brandId)),
+    )
     .returning({ id: brandFacilities.id });
   return row;
 }
@@ -497,6 +533,7 @@ export async function createShowcaseBrand(
 
 export async function updateShowcaseBrand(
   db: Database,
+  brandId: string,
   id: string,
   input: Partial<{
     name: string;
@@ -527,15 +564,19 @@ export async function updateShowcaseBrand(
       zip: input.zip ?? null,
       countryCode: input.countryCode ?? null,
     })
-    .where(eq(showcaseBrands.id, id))
+    .where(and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)))
     .returning({ id: showcaseBrands.id });
   return row;
 }
 
-export async function deleteShowcaseBrand(db: Database, id: string) {
+export async function deleteShowcaseBrand(
+  db: Database,
+  brandId: string,
+  id: string,
+) {
   const [row] = await db
     .delete(showcaseBrands)
-    .where(eq(showcaseBrands.id, id))
+    .where(and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)))
     .returning({ id: showcaseBrands.id });
   return row;
 }

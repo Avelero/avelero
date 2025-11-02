@@ -4,7 +4,6 @@ import { AvatarUpload } from "@/components/avatar-upload";
 import { CountrySelect } from "@/components/select/country-select";
 import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { hueFromName } from "@/utils/avatar-hue";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
@@ -34,21 +33,33 @@ export function SetupForm() {
     const u = user as CurrentUser | null | undefined;
     if (!u) return;
     if (!fullName && u.full_name) setFullName(u.full_name);
-    if (!avatarUrl && u.avatar_path) setAvatarUrl(u.avatar_path);
+    if (!avatarUrl && u.avatar_url) setAvatarUrl(u.avatar_url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const updateUserMutation = useMutation(
     trpc.user.update.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries();
+        setIsSubmitting(false);
+        await queryClient.invalidateQueries({
+          queryKey: trpc.user.get.queryKey(),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.workflow.list.queryKey(),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.composite.workflowInit.queryKey(),
+        });
         const brands = await queryClient.fetchQuery(
-          trpc.brand.list.queryOptions(),
+          trpc.workflow.list.queryOptions(),
         );
-        const hasBrands = Array.isArray(brands?.data) && brands.data.length > 0;
+        const hasBrands = Array.isArray(brands) && brands.length > 0;
         router.push(hasBrands ? `/${locale}` : `/${locale}/create-brand`);
       },
-      onError: (err) => setError(err.message || "Failed to save profile"),
+      onError: (err) => {
+        setError(err.message || "Failed to save profile");
+        setIsSubmitting(false);
+      },
     }),
   );
 
@@ -65,12 +76,9 @@ export function SetupForm() {
     }
 
     try {
-      const rawHue = hueFromName(parsed.data.full_name);
-      const avatar_hue = Math.min(rawHue, 359);
       updateUserMutation.mutate({
         full_name: parsed.data.full_name,
-        avatar_hue,
-        ...(avatarUrl ? { avatar_path: avatarUrl } : {}),
+        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save profile";

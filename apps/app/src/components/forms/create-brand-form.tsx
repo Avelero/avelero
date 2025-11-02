@@ -26,9 +26,19 @@ export function CreateBrandForm() {
   const router = useRouter();
 
   const createBrandMutation = useMutation(
-    trpc.brand.create.mutationOptions({
+    trpc.workflow.create.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries();
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.workflow.list.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.user.get.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.workflowInit.queryKey(),
+          }),
+        ]);
         router.push("/");
       },
       onError: (err) => {

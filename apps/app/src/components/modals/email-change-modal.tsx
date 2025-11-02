@@ -163,7 +163,7 @@ export function EmailChangeModal({
     try {
       await updateUserMutation.mutateAsync({ email: newEmail });
       await queryClient.invalidateQueries({
-        queryKey: trpc.user.me.queryKey(),
+        queryKey: trpc.user.get.queryKey(),
       });
     } catch {
       // ignore errors to avoid blocking success UX

@@ -99,6 +99,24 @@ function buildBrandLogoUrl(path: string | null): string | null {
 }
 
 /**
+ * Constructs a publicly accessible URL for a user avatar.
+ *
+ * Encodes each path segment to handle special characters and constructs
+ * a URL pointing to the user avatars storage endpoint.
+ *
+ * @param path - Relative storage path (e.g., "user-123/avatar.png")
+ * @returns Full URL to avatar, or null if no path provided
+ */
+function buildUserAvatarUrl(path: string | null): string | null {
+  if (!path) return null;
+  const encoded = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `${getAppUrl()}/api/storage/avatars/${encoded}`;
+}
+
+/**
  * Determines if a user can leave a brand based on their role and owner count.
  *
  * Business rule: Sole owners cannot leave their brand. They must either
@@ -139,7 +157,7 @@ function mapUserProfile(
     id: record.id,
     email,
     full_name: record.fullName ?? null,
-    avatar_url: record.avatarPath ?? null,
+    avatar_url: buildUserAvatarUrl(record.avatarPath),
     brand_id: record.brandId ?? null,
   };
 }
@@ -157,6 +175,8 @@ function mapInvite(invite: UserInviteSummaryRow) {
     brand_logo: buildBrandLogoUrl(invite.brandLogoPath ?? null),
     role: invite.role,
     invited_by: invite.invitedByFullName ?? invite.invitedByEmail ?? null,
+    invited_by_avatar_url: buildUserAvatarUrl(invite.invitedByAvatarPath),
+    invited_by_avatar_hue: invite.invitedByAvatarHue ?? null,
     created_at: invite.createdAt,
     expires_at: invite.expiresAt,
   };
@@ -294,6 +314,8 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
       userId: brandMembers.userId,
       email: users.email,
       fullName: users.fullName,
+      avatarPath: users.avatarPath,
+      avatarHue: users.avatarHue,
       role: brandMembers.role,
     })
     .from(brandMembers)
@@ -314,6 +336,8 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
       user_id: member.userId,
       email: member.email ?? null,
       full_name: member.fullName ?? null,
+      avatar_url: buildUserAvatarUrl(member.avatarPath),
+      avatar_hue: member.avatarHue ?? null,
       role,
       canLeave: canLeaveFromRole(role, ownerCount),
     };
@@ -323,25 +347,44 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
 /**
  * Fetches all pending invitations for a brand.
  *
- * Queries brand invites with inviter details (name or email) and orders
- * by most recent first. Invites are filtered to only show pending status.
+ * Queries brand invites with inviter details and invitee user data (if exists).
+ * Shows invitee's avatar if they're an existing user, otherwise default avatar.
  *
  * @param db - Database instance
  * @param brandId - Brand identifier
- * @returns Array of pending invites with inviter information
+ * @returns Array of pending invites with invitee and inviter information
  */
 async function fetchWorkflowInvites(db: Database, brandId: string) {
+  // Create aliases for the two user joins
+  const inviterUser = users;
+  const inviteeUser = {
+    id: sql<string>`invitee.id`.as("invitee_id"),
+    email: sql<string>`invitee.email`.as("invitee_email"),
+    fullName: sql<string>`invitee.full_name`.as("invitee_full_name"),
+    avatarPath: sql<string>`invitee.avatar_path`.as("invitee_avatar_path"),
+    avatarHue: sql<number>`invitee.avatar_hue`.as("invitee_avatar_hue"),
+  };
+
   const rows = await db
     .select({
       id: brandInvites.id,
       email: brandInvites.email,
       role: brandInvites.role,
       created_at: brandInvites.createdAt,
-      invitedByEmail: users.email,
-      invitedByFullName: users.fullName,
+      // Inviter data (who sent the invite)
+      invitedByEmail: inviterUser.email,
+      invitedByFullName: inviterUser.fullName,
+      // Invitee data (person being invited, if they exist as a user)
+      inviteeFullName: inviteeUser.fullName,
+      inviteeAvatarPath: inviteeUser.avatarPath,
+      inviteeAvatarHue: inviteeUser.avatarHue,
     })
     .from(brandInvites)
-    .leftJoin(users, eq(users.id, brandInvites.createdBy))
+    .leftJoin(inviterUser, eq(inviterUser.id, brandInvites.createdBy))
+    .leftJoin(
+      sql`users AS invitee`,
+      sql`LOWER(invitee.email) = LOWER(${brandInvites.email})`,
+    )
     .where(eq(brandInvites.brandId, brandId))
     .orderBy(desc(brandInvites.createdAt));
 
@@ -351,6 +394,10 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
     role: invite.role,
     invited_by:
       invite.invitedByFullName ?? invite.invitedByEmail ?? "Avelero Team",
+    // Use invitee's avatar if they exist as a user
+    invitee_full_name: invite.inviteeFullName ?? null,
+    invitee_avatar_url: buildUserAvatarUrl(invite.inviteeAvatarPath),
+    invitee_avatar_hue: invite.inviteeAvatarHue ?? null,
     created_at: invite.created_at,
   }));
 }

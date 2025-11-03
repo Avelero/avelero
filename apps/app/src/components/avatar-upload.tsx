@@ -47,25 +47,57 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
     // Always store a displayable absolute URL here, or null
     const [avatar, setAvatar] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const prevUrlRef = useRef<string | null | undefined>(undefined);
     const { isLoading, uploadFile } = useUpload();
+
     // If parent provided a storage path, use proxy URL for optimized delivery. If absolute URL, use as-is.
     useEffect(() => {
+      // Prevent unnecessary re-processing if URL hasn't changed
+      if (prevUrlRef.current === initialUrl) {
+        console.log("[AvatarUpload] URL unchanged, skipping processing");
+        return;
+      }
+      prevUrlRef.current = initialUrl;
+
       const val = initialUrl?.trim();
+      console.log("[AvatarUpload] Processing avatar URL:", {
+        entity,
+        initialUrl,
+        val,
+      });
+
       if (!val) {
+        console.log("[AvatarUpload] No URL provided, setting avatar to null");
         setAvatar(null);
         return;
       }
+
       const isAbsolute = /^https?:\/\//i.test(val) || val.startsWith("/");
+      console.log("[AvatarUpload] URL analysis:", {
+        isAbsolute,
+        startsWithHttp: /^https?:\/\//i.test(val),
+        startsWithSlash: val.startsWith("/"),
+      });
+
       if (isAbsolute) {
+        console.log("[AvatarUpload] Using absolute URL:", val);
         setAvatar(val);
         return;
       }
+
       const bucket = entity === "user" ? "avatars" : "brand-avatars";
       const encoded = val
         .split("/")
         .map((s) => encodeURIComponent(s))
         .join("/");
-      setAvatar(`/api/storage/${bucket}/${encoded}`);
+      const proxyUrl = `/api/storage/${bucket}/${encoded}`;
+      console.log("[AvatarUpload] Converted to proxy URL:", {
+        bucket,
+        originalPath: val,
+        encoded,
+        proxyUrl,
+      });
+      setAvatar(proxyUrl);
     }, [initialUrl, entity]);
 
     const userMutation = useUserMutation(); // updates users.avatar_url

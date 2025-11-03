@@ -22,6 +22,7 @@ import {
   unauthorized,
   wrapError,
 } from "../../../utils/errors.js";
+import { getAppUrl } from "@v1/utils/envs";
 import { createTRPCRouter, protectedProcedure } from "../../init.js";
 
 interface MinimalUserRecord {
@@ -30,6 +31,64 @@ interface MinimalUserRecord {
   fullName: string | null;
   avatarPath: string | null;
   brandId: string | null;
+}
+
+/**
+ * Constructs a publicly accessible URL for a user avatar.
+ *
+ * @param path - Relative storage path (e.g., "user-123/avatar.png")
+ * @returns Full URL to avatar, or null if no path provided
+ */
+function buildUserAvatarUrl(path: string | null): string | null {
+  if (!path) return null;
+  const encoded = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `${getAppUrl()}/api/storage/avatars/${encoded}`;
+}
+
+/**
+ * Extracts storage path from a URL or returns the input if already a path.
+ *
+ * @param urlOrPath - Full URL or storage path
+ * @returns Storage path (e.g., "user-123/avatar.png")
+ */
+function extractAvatarPath(urlOrPath: string | null | undefined): string | null {
+  if (!urlOrPath) return null;
+
+  // If it's already a storage path (no protocol, doesn't start with /), return as-is
+  if (!/^https?:\/\//i.test(urlOrPath) && !urlOrPath.startsWith("/")) {
+    return urlOrPath;
+  }
+
+  // Extract from full URL or path: /api/storage/avatars/user-id/file.jpg -> user-id/file.jpg
+  const match = urlOrPath.match(/\/api\/storage\/avatars\/(.+)$/);
+  if (match?.[1]) {
+    // Decode each segment to handle URL encoding
+    return match[1]
+      .split("/")
+      .map((segment) => decodeURIComponent(segment))
+      .join("/");
+  }
+
+  // Fallback: return as-is
+  return urlOrPath;
+}
+
+/**
+ * Constructs a publicly accessible URL for a brand logo.
+ *
+ * @param path - Relative storage path (e.g., "brand-123/logo.png")
+ * @returns Full URL to logo, or null if no path provided
+ */
+function buildBrandLogoUrl(path: string | null): string | null {
+  if (!path) return null;
+  const encoded = path
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `${getAppUrl()}/api/storage/brand-avatars/${encoded}`;
 }
 
 function mapUserProfile(
@@ -47,7 +106,7 @@ function mapUserProfile(
     id: record.id,
     email,
     full_name: record.fullName ?? null,
-    avatar_url: record.avatarPath ?? null,
+    avatar_url: buildUserAvatarUrl(record.avatarPath),
     brand_id: record.brandId ?? null,
   };
 }
@@ -56,9 +115,11 @@ function mapInvite(invite: UserInviteSummaryRow) {
   return {
     id: invite.id,
     brand_name: invite.brandName,
-    brand_logo: invite.brandLogoPath,
+    brand_logo: buildBrandLogoUrl(invite.brandLogoPath),
     role: invite.role,
     invited_by: invite.invitedByFullName ?? invite.invitedByEmail ?? null,
+    invited_by_avatar_url: buildUserAvatarUrl(invite.invitedByAvatarPath),
+    invited_by_avatar_hue: invite.invitedByAvatarHue ?? null,
     created_at: invite.createdAt,
     expires_at: invite.expiresAt,
   };
@@ -232,7 +293,8 @@ export const userRouter = createTRPCRouter({
         payload.fullName = input.full_name;
       }
       if (input.avatar_url !== undefined) {
-        payload.avatarPath = input.avatar_url;
+        // Extract storage path from URL if needed, otherwise use as-is
+        payload.avatarPath = extractAvatarPath(input.avatar_url);
       }
 
       // If no changes, return current profile

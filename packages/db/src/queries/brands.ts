@@ -160,15 +160,25 @@ export async function updateBrand(
   if (!membership.length) throw new Error("FORBIDDEN");
 
   const { id, ...payload } = input;
+
+  // Build update object with only defined fields to avoid clearing unmodified data
+  const updateData: Partial<{
+    name: string;
+    email: string | null;
+    countryCode: string | null;
+    logoPath: string | null;
+    avatarHue: number | null;
+  }> = {};
+
+  if (payload.name !== undefined) updateData.name = payload.name;
+  if (payload.email !== undefined) updateData.email = payload.email;
+  if (payload.country_code !== undefined) updateData.countryCode = payload.country_code;
+  if (payload.logo_path !== undefined) updateData.logoPath = payload.logo_path;
+  if (payload.avatar_hue !== undefined) updateData.avatarHue = payload.avatar_hue;
+
   const [row] = await db
     .update(brands)
-    .set({
-      name: payload.name,
-      email: payload.email,
-      countryCode: payload.country_code,
-      logoPath: payload.logo_path,
-      avatarHue: payload.avatar_hue,
-    })
+    .set(updateData)
     .where(eq(brands.id, id))
     .returning({ id: brands.id });
   return row ? { success: true as const } : { success: true as const };

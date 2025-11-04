@@ -64,5 +64,9 @@ export const demoThemeConfig: ThemeConfig = {
     carouselImageZoom: 100,
     carouselImagePosition: 'top',
   },
+  
+  materials: {
+    showCertificationCheckIcon: true,
+  },
 };
 

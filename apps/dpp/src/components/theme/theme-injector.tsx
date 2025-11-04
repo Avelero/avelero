@@ -106,7 +106,7 @@ export function ThemeInjector({ cssVars, googleFontsUrl, fontFaceCSS }: Props) {
     <>
       {/* Inject @font-face rules for custom CDN fonts */}
       {fontFaceCSS && (
-        <style jsx global>{fontFaceCSS}</style>
+        <style jsx global>{`${fontFaceCSS}`}</style>
       )}
       
       {/* Inject CSS variables */}

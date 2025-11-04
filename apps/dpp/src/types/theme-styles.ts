@@ -69,6 +69,7 @@ export interface ComponentStyleOverride {
   textTransform?: string;
   textDecoration?: string;
   whiteSpace?: string;
+  textAlign?: string;
   
   // Colors
   color?: string;

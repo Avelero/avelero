@@ -45,7 +45,7 @@ export function ProductCard({ product, imageZoom = 100, imagePosition = 'center'
         />
       </div>
       <div className="flex carousel__product-details gap-micro">
-        <div className="carousel__product-name truncate">
+        <div className="carousel__product-name truncate w-full">
           {product.name}
         </div>
         <div className="carousel__product-price">

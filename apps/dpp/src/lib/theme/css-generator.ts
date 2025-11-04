@@ -170,20 +170,28 @@ export function generateFontFaceCSS(customFonts?: CustomFont[]): string {
 
   return customFonts
     .map((font) => {
-      const format = font.format || 'woff2';
-      const fontDisplay = font.fontDisplay || 'swap';
+      // Sanitize values to prevent CSS injection
+      const sanitize = (value: string): string => {
+        // Use JSON.stringify to escape quotes and special characters, then remove outer quotes
+        return JSON.stringify(value).slice(1, -1);
+      };
+
+      const format = sanitize(font.format || 'woff2');
+      const fontDisplay = sanitize(font.fontDisplay || 'swap');
       const fontWeight = font.fontWeight ?? 400;
-      const fontStyle = font.fontStyle || 'normal';
+      const fontStyle = sanitize(font.fontStyle || 'normal');
+      const fontFamily = sanitize(font.fontFamily);
+      const src = sanitize(font.src);
       
       let css = `@font-face {
-  font-family: "${font.fontFamily}";
-  src: url('${font.src}') format('${format}');
+  font-family: "${fontFamily}";
+  src: url('${src}') format('${format}');
   font-weight: ${fontWeight};
   font-style: ${fontStyle};
   font-display: ${fontDisplay};`;
 
       if (font.unicodeRange) {
-        css += `\n  unicode-range: ${font.unicodeRange};`;
+        css += `\n  unicode-range: ${sanitize(font.unicodeRange)};`;
       }
 
       css += '\n}';

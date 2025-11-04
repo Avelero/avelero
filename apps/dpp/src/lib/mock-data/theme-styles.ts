@@ -68,7 +68,7 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
     // Component-specific overrides
     'product__title': {
       lineHeight: 1.3,
-      textTransform: 'capitalizeds', // Override default uppercase
+      textTransform: 'capitalize',
     },
     'impact-card': {
       borderRadius: '0.75rem',
@@ -248,9 +248,6 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
     'carousel__product-image': {
       borderColor: '#FFFFFF',
     },
-    'carousel__product-details': {
-      alignItems: 'center',
-    },
     'carousel__product-name': {
       color: '#000000',
       fontSize: '0.75rem',
@@ -258,6 +255,7 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
       fontWeight: 400,
       lineHeight: 1,
       letterSpacing: '0rem',
+      textAlign: 'center',
     },
     'carousel__product-price': {
       color: '#000000',
@@ -266,6 +264,7 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
       fontWeight: 400,
       lineHeight: 1,
       letterSpacing: '0rem',
+      textAlign: 'center',
     },
     'carousel__title': {
       fontSize: '3.125rem',

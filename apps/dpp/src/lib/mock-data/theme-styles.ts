@@ -68,7 +68,7 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
     // Component-specific overrides
     'product__title': {
       lineHeight: 1.3,
-      textTransform: 'none', // Override default uppercase
+      textTransform: 'capitalizeds', // Override default uppercase
     },
     'impact-card': {
       borderRadius: '0.75rem',
@@ -89,7 +89,18 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
     },
   },
   'fillingpieces': {
-    // Heavy customization with Public Sans and custom styling
+    // Custom CDN fonts configuration
+    customFonts: [
+      {
+        fontFamily: 'ABC Favorit',
+        src: 'https://www.fillingpieces.com/cdn/shop/t/199/assets/ABCFavorit-Regular.woff2',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        fontDisplay: 'swap',
+        format: 'woff2',
+      },
+    ],
+    // Heavy customization with ABC Favorit and custom styling
     colors: {
       primary: '#000000',
       foreground: '#000000',
@@ -99,93 +110,206 @@ export const mockThemeStyles: Record<string, ThemeStyles> = {
     },
     typography: {
       h1: {
-        fontSize: '2rem',
-        fontFamily: 'Public Sans',
+        fontSize: '2.1875rem',
+        fontFamily: 'ABC Favorit',
         fontWeight: 500,
         lineHeight: 0.9,
-        letterSpacing: '-0.04em',
+        letterSpacing: '-0.0875rem',
       },
       h2: {
-        fontFamily: 'Public Sans',
+        fontFamily: 'ABC Favorit',
         fontWeight: 700,
       },
       h3: {
-        fontFamily: 'Public Sans',
+        fontFamily: 'ABC Favorit',
         fontWeight: 640,
       },
       h4: {
-        fontFamily: 'Public Sans',
+        fontFamily: 'ABC Favorit',
         fontWeight: 640,
       },
       h5: {
         fontSize: '2rem',
-        fontFamily: 'Public Sans',
+        fontFamily: 'ABC Favorit',
         fontWeight: 400,
       },
       h6: {
         fontSize: '1.25rem',
-        fontFamily: 'Public Sans',
+        fontFamily: 'ABC Favorit',
         fontWeight: 580,
         lineHeight: 1.3,
         letterSpacing: '0.0008rem',
       },
       body: {
         fontSize: '0.875rem',
-        fontFamily: 'Public Sans',
+        fontFamily: 'ABC Favorit',
         fontWeight: 500,
         lineHeight: 1.20,
         letterSpacing: '-0.02rem',
       },
       'body-sm': {
         fontSize: '0.875rem',
-        fontFamily: 'Public Sans',
-        fontWeight: 300,
+        fontFamily: 'ABC Favorit',
+        fontWeight: 400,
         lineHeight: 1.20,
-        letterSpacing: '-0.02rem',
+        letterSpacing: '-0.04rem',
       },
       'body-xs': {
         fontSize: '0.75rem',
-        fontFamily: 'Public Sans',
+        fontFamily: 'ABC Favorit',
         fontWeight: 430,
       },
     },
     // Component-specific overrides with minimal border radius
+    'product__image': {
+      borderColor: '#FFFFFF',
+    },
     'product__title': {
       lineHeight: 0.9,
       letterSpacing: '-0.04em',
-      textTransform: 'lowercase', // Custom text transform
+      textTransform: 'capitalize', // Custom text transform
     },
     'product__description': {
-      fontSize: '0.875rem',
-      fontWeight: 500,
-      lineHeight: 1.20,
-      letterSpacing: '-0.02rem',
+      color: '#000000',
+      fontFamily: 'Arial',
+    },
+    'product-details__row-value': {
+      color: '#000000',
+      textTransform: 'uppercase',
+    },
+    'product-details__row-link': {
+      color: '#000000',
+      textDecoration: 'underline',
     },
     'impact-card': {
-      borderRadius: '0.125rem',
       borderColor: '#000000',
+    },
+    'impact-card__type': {
+      color: '#000000',
+    },
+    'impact-card__value': {
+      color: '#000000',
+    },
+    'impact-card__unit': {
+      color: '#000000',
+    },
+    'impact-card__eco-claim': {
+      color: '#000000',
+    },
+    'impact-card__icon-leaf': {
+      color: '#000000',
+    },
+    'impact-card__icon-drop': {
+      color: '#000000',
     },
     'materials-card': {
-      borderRadius: '0.125rem',
       borderColor: '#000000',
+    },
+    'materials-card__percentage': {
+      lineHeight: 1.43,
+    },
+    'materials-card__type': {
+      lineHeight: 1.43,
+    },
+    'materials-card__origin': {
+      color: '#000000',
+    },
+    'materials-card__certification-text': {
+      color: '#000000',
+      textTransform: 'uppercase',
+      textDecoration: 'underline',
+    },
+    'materials-card__certification': {
+      border: '1px solid',
+      borderColor: '#000000',
+      borderRadius: '0.5rem',
+      backgroundColor: '#FFFFFF',
+      color: '#000000',
+      fontSize: '0.625rem',
     },
     'journey-card': {
-      borderRadius: '0.125rem',
       borderColor: '#000000',
     },
+    'journey-card__type': {
+      lineHeight: 1.43,
+    },
+    'journey-card__line': {
+      color: '#000000',
+    },
+    'journey-card__operator': {
+      color: '#000000',
+    },
     'product-details': {
-      borderRadius: '0.125rem',
       borderColor: '#000000',
     },
     'menu-button': {
-      borderRadius: '0.125rem',
       borderColor: '#000000',
+    },
+    'carousel__product-image': {
+      borderColor: '#FFFFFF',
+    },
+    'carousel__product-details': {
+      alignItems: 'center',
+    },
+    'carousel__product-name': {
+      color: '#000000',
+      fontSize: '0.75rem',
+      fontFamily: 'ABC Favorit',
+      fontWeight: 400,
+      lineHeight: 1,
+      letterSpacing: '0rem',
+    },
+    'carousel__product-price': {
+      color: '#000000',
+      fontSize: '0.75rem',
+      fontFamily: 'ABC Favorit',
+      fontWeight: 400,
+      lineHeight: 1,
+      letterSpacing: '0rem',
+    },
+    'carousel__title': {
+      fontSize: '3.125rem',
+      lineHeight: 0.9,
+      letterSpacing: '0rem',
+      textTransform: 'capitalize',
+    },
+    'carousel__nav-button': {
+      borderColor: '#FFFFFF',
+      backgroundColor: '#FFFFFF',
+      color: '#000000',
+      borderRadius: '0.5rem',
     },
     // Banner CTA styling
     'banner__button': {
-      backgroundColor: '#000000',
-      color: '#FFFFFF',
-      textTransform: 'lowercase', // Override default uppercase
+      fontFamily: 'ABC Favorit',
+      fontSize: '0.75rem',
+      fontWeight: 400,
+      lineHeight: 1.20,
+      letterSpacing: '-0.04rem',
+      backgroundColor: '#FFFFFF',
+      color: '#000000',
+      borderRadius: '0.5rem',
+      minWidth: '130px',
+    },
+    'banner__subline': {
+      fontFamily: 'ABC Favorit',
+      fontSize: '0.75rem',
+      fontWeight: 400,
+      lineHeight: 1.20,
+      letterSpacing: '0rem',
+      textTransform: 'uppercase',
+    },
+    'footer__legal-name': {
+      color: '#000000',
+      fontFamily: 'ABC Favorit',
+      fontSize: '0.75rem',
+      fontWeight: 400,
+      lineHeight: 1.20,
+      letterSpacing: '0rem',
+      textTransform: 'uppercase',
+    },
+    'footer__social-icons': {
+      color: '#000000',
     },
   },
 };

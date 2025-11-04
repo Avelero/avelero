@@ -152,10 +152,11 @@
 
   .header__text-logo {
     color: var(--header-text-logo-color, var(--foreground));
-    font-weight: var(--header-text-logo-weight, 400);
-    font-family: var(--header-text-logo-family, var(--font-primary));
+    font-weight: var(--header-text-logo-font-weight, 400);
+    font-family: var(--header-text-logo-font-family, var(--font-primary));
     letter-spacing: var(--header-text-logo-letter-spacing, 0em);
     text-transform: var(--header-text-logo-text-transform, none);
+    text-decoration: var(--header-text-logo-text-decoration, none);
   }
   
   /* Footer */
@@ -165,22 +166,24 @@
   }
 
   .footer__legal-name {
-    font-family: var(--footer-legal-name-family, var(--type-body-sm-family));
-    font-size: var(--footer-legal-name-size, var(--type-body-sm-size));
-    font-weight: var(--footer-legal-name-weight, var(--type-body-sm-weight));
+    font-family: var(--footer-legal-name-font-family, var(--type-body-sm-family));
+    font-size: var(--footer-legal-name-font-size, var(--type-body-sm-size));
+    font-weight: var(--footer-legal-name-font-weight, var(--type-body-sm-weight));
     line-height: var(--footer-legal-name-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--footer-legal-name-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--footer-legal-name-color, var(--secondary));
     text-transform: var(--footer-legal-name-text-transform, none);
+    text-decoration: var(--footer-legal-name-text-decoration, none);
   }
 
   .footer__social-icons {
-    font-family: var(--footer-social-icons-family, var(--type-body-sm-family));
-    font-size: var(--footer-social-icons-size, var(--type-body-sm-size));
-    font-weight: var(--footer-social-icons-weight, var(--type-body-sm-weight));
+    font-family: var(--footer-social-icons-font-family, var(--type-body-sm-family));
+    font-size: var(--footer-social-icons-font-size, var(--type-body-sm-size));
+    font-weight: var(--footer-social-icons-font-weight, var(--type-body-sm-weight));
     line-height: var(--footer-social-icons-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--footer-social-icons-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--footer-social-icons-color, var(--highlight));
+    text-decoration: var(--footer-social-icons-text-decoration, none);
   }
 
   /* Product */
@@ -190,41 +193,45 @@
   }
   
   .product__title {
-    font-family: var(--product-title-family, var(--type-h5-family));
-    font-size: var(--product-title-size, var(--type-h5-size));
-    font-weight: var(--product-title-weight, var(--type-h5-weight));
+    font-family: var(--product-title-font-family, var(--type-h5-family));
+    font-size: var(--product-title-font-size, var(--type-h5-size));
+    font-weight: var(--product-title-font-weight, var(--type-h5-weight));
     line-height: var(--product-title-line-height, 1);
     letter-spacing: var(--product-title-letter-spacing, var(--type-h5-letter-spacing));
     color: var(--product-title-color, var(--primary));
     text-transform: var(--product-title-text-transform, uppercase);
+    text-decoration: var(--product-title-text-decoration, none);
   }
 
   .product__description {
-    font-family: var(--product-description-family, var(--type-body-sm-family));
-    font-size: var(--product-description-size, var(--type-body-sm-size));
-    font-weight: var(--product-description-weight, var(--type-body-sm-weight));
+    font-family: var(--product-description-font-family, var(--type-body-sm-family));
+    font-size: var(--product-description-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-description-font-weight, var(--type-body-sm-weight));
     line-height: var(--product-description-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--product-description-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--product-description-color, var(--secondary));
     text-transform: var(--product-description-text-transform, none);
+    text-decoration: var(--product-description-text-decoration, none);
   }
 
   .product__brand {
-    font-family: var(--product-brand-family, var(--type-body-sm-family));
-    font-size: var(--product-brand-size, var(--type-body-sm-size));
-    font-weight: var(--product-brand-weight, var(--type-body-sm-weight));
+    font-family: var(--product-brand-font-family, var(--type-body-sm-family));
+    font-size: var(--product-brand-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-brand-font-weight, var(--type-body-sm-weight));
     line-height: var(--product-brand-line-height, 1);
     letter-spacing: var(--product-brand-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--product-brand-color, var(--primary));
     text-transform: var(--product-brand-text-transform, uppercase);
+    text-decoration: var(--product-brand-text-decoration, none);
   }
 
   .product__show-more {
-    font-family: var(--product-show-more-family, var(--type-body-xs-family));
-    font-weight: var(--product-show-more-weight, var(--type-body-xs-weight));
+    font-family: var(--product-show-more-font-family, var(--type-body-xs-family));
+    font-weight: var(--product-show-more-font-weight, var(--type-body-xs-weight));
     letter-spacing: var(--product-show-more-letter-spacing, var(--type-body-xs-letter-spacing));
     color: var(--product-show-more-color, var(--highlight));
     text-transform: var(--product-show-more-text-transform, uppercase);
+    text-decoration: var(--product-show-more-text-decoration, none);
   }
 
   /* Product Details */
@@ -238,35 +245,43 @@
   }
 
   .product-details__row-label {
-    font-family: var(--product-details-row-label-family, var(--type-body-sm-family));
-    font-size: var(--product-details-row-label-size, var(--type-body-sm-size));
-    font-weight: var(--product-details-row-label-weight, 500);
+    font-family: var(--product-details-row-label-font-family, var(--type-body-sm-family));
+    font-size: var(--product-details-row-label-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-details-row-label-font-weight, 500);
     line-height: var(--product-details-row-label-line-height, 1.25);
     letter-spacing: var(--product-details-row-label-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--product-details-row-label-color, var(--primary));
     text-transform: var(--product-details-row-label-text-transform, uppercase);
+    text-decoration: var(--product-details-row-label-text-decoration, none);
   }
 
   .product-details__row-value {
-    font-family: var(--product-details-row-value-family, var(--type-body-sm-family));
-    font-size: var(--product-details-row-value-size, var(--type-body-sm-size));
-    font-weight: var(--product-details-row-value-weight, var(--type-body-sm-weight));
+    font-family: var(--product-details-row-value-font-family, var(--type-body-sm-family));
+    font-size: var(--product-details-row-value-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-details-row-value-font-weight, var(--type-body-sm-weight));
     line-height: var(--product-details-row-value-line-height, 1.25);
     letter-spacing: var(--product-details-row-value-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--product-details-row-value-color, var(--secondary));
     text-transform: var(--product-details-row-value-text-transform, none);
+    text-decoration: var(--product-details-row-value-text-decoration, none);
+  }
+
+  .product-details__row-link {
+    color: var(--product-details-row-link-color, var(--highlight));
+    text-decoration: var(--product-details-row-link-text-decoration, none);
   }
 
   /* Menu Button */
   .menu-button {
     border-color: var(--menu-button-border-color, var(--border));
-    font-family: var(--menu-button-family, var(--type-body-family));
-    font-size: var(--menu-button-size, var(--type-body-size));
-    font-weight: var(--menu-button-weight, 500);
+    font-family: var(--menu-button-font-family, var(--type-body-family));
+    font-size: var(--menu-button-font-size, var(--type-body-size));
+    font-weight: var(--menu-button-font-weight, 500);
     line-height: var(--menu-button-line-height, 1);
     letter-spacing: var(--menu-button-letter-spacing, var(--type-body-letter-spacing));
     color: var(--menu-button-color, var(--primary));
     text-transform: var(--menu-button-text-transform, uppercase);
+    text-decoration: var(--menu-button-text-decoration, none);
   }
 
   /* Impact */
@@ -277,13 +292,14 @@
   }
 
   .impact-card__title {
-    font-family: var(--impact-card-title-family, var(--type-h6-family));
-    font-size: var(--impact-card-title-size, var(--type-h6-size));
-    font-weight: var(--impact-card-title-weight, var(--type-h6-weight));
+    font-family: var(--impact-card-title-font-family, var(--type-h6-family));
+    font-size: var(--impact-card-title-font-size, var(--type-h6-size));
+    font-weight: var(--impact-card-title-font-weight, var(--type-h6-weight));
     line-height: var(--impact-card-title-line-height, 1);
     letter-spacing: var(--impact-card-title-letter-spacing, var(--type-h6-letter-spacing));
     color: var(--impact-card-title-color, var(--primary));
     text-transform: var(--impact-card-title-text-transform, uppercase);
+    text-decoration: var(--impact-card-title-text-decoration, none);
   }
 
   .impact-card__type {
@@ -294,40 +310,60 @@
     letter-spacing: var(--impact-card-type-letter-spacing, var(--type-body-xs-letter-spacing));
     color: var(--impact-card-type-color, var(--secondary));
     text-transform: var(--impact-card-type-text-transform, uppercase);
+    text-decoration: var(--impact-card-type-text-decoration, none);
   }
 
   .impact-card__value {
-    font-family: var(--impact-card-value-family, var(--type-h1-family));
-    font-size: var(--impact-card-value-size, var(--type-h1-size));
-    font-weight: var(--impact-card-value-weight, var(--type-h1-weight));
+    font-family: var(--impact-card-value-font-family, var(--type-h1-family));
+    font-size: var(--impact-card-value-font-size, var(--type-h1-size));
+    font-weight: var(--impact-card-value-font-weight, var(--type-h1-weight));
     line-height: var(--impact-card-value-line-height, var(--type-h1-line-height));
     letter-spacing: var(--impact-card-value-letter-spacing, var(--type-h1-letter-spacing));
   }
 
   .impact-card__unit {
-    font-family: var(--impact-card-unit-family, var(--type-body-xs-family));
-    font-size: var(--impact-card-unit-size, var(--type-body-xs-size));
-    font-weight: var(--impact-card-unit-weight, var(--type-body-xs-weight));
+    font-family: var(--impact-card-unit-font-family, var(--type-body-xs-family));
+    font-size: var(--impact-card-unit-font-size, var(--type-body-xs-size));
+    font-weight: var(--impact-card-unit-font-weight, var(--type-body-xs-weight));
     line-height: var(--impact-card-unit-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--impact-card-unit-letter-spacing, var(--type-body-xs-letter-spacing));
     color: var(--impact-card-unit-color, var(--secondary));
     text-transform: var(--impact-card-unit-text-transform, none);
+    text-decoration: var(--impact-card-unit-text-decoration, none);
   }
 
   .impact-card__eco-claim {
     border-color: var(--impact-card-eco-claim-border-color, var(--border));
     border-radius: var(--impact-card-eco-claim-border-radius, var(--radius-none));
     background-color: var(--impact-card-eco-claim-background-color, var(--background));
+    color: var(--impact-card-eco-claim-color, var(--highlight));
   }
 
   .impact-card__eco-claim-text {
-    font-family: var(--impact-card-eco-claim-family, var(--type-body-sm-family));
-    font-size: var(--impact-card-eco-claim-size, var(--type-body-sm-size));
-    font-weight: var(--impact-card-eco-claim-weight, 500);
+    font-family: var(--impact-card-eco-claim-font-family, var(--type-body-sm-family));
+    font-size: var(--impact-card-eco-claim-font-size, var(--type-body-sm-size));
+    font-weight: var(--impact-card-eco-claim-font-weight, 500); 
     line-height: var(--impact-card-eco-claim-line-height, 1.25);
     letter-spacing: var(--impact-card-eco-claim-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--impact-card-eco-claim-color, var(--primary));
     text-transform: var(--impact-card-eco-claim-text-transform, none);
+    text-decoration: var(--impact-card-eco-claim-text-decoration, none);
+  }
+
+  .impact-card__icon-leaf {
+    color: var(--impact-card-icon-leaf-color, #03A458);
+  }
+
+  .impact-card__icon-drop {
+    color: var(--impact-card-icon-drop-color, #0000FF);
+  }
+
+  .impact-card__icon-recycle {
+    color: var(--impact-card-icon-recycle-color, #0000FF);
+  }
+
+  .impact-card__icon-factory {
+    color: var(--impact-card-icon-factory-color, #6B7280);
   }
 
   /* Materials */
@@ -338,45 +374,50 @@
   }
 
   .materials-card__title {
-    font-family: var(--materials-card-title-family, var(--type-h6-family));
-    font-size: var(--materials-card-title-size, var(--type-h6-size));
-    font-weight: var(--materials-card-title-weight, 500);
+    font-family: var(--materials-card-title-font-family, var(--type-h6-family));
+    font-size: var(--materials-card-title-font-size, var(--type-h6-size));
+    font-weight: var(--materials-card-title-font-weight, 500);
     line-height: var(--materials-card-title-line-height, 1);
     letter-spacing: var(--materials-card-title-letter-spacing, var(--type-h6-letter-spacing));
     color: var(--materials-card-title-color, var(--primary));
     text-transform: var(--materials-card-title-text-transform, uppercase);
+    text-decoration: var(--materials-card-title-text-decoration, none);
   }
 
   .materials-card__percentage {
-    font-family: var(--materials-card-percentage-family, var(--type-body-family));
-    font-size: var(--materials-card-percentage-size, var(--type-body-size));
-    font-weight: var(--materials-card-percentage-weight, 500);
+    font-family: var(--materials-card-percentage-font-family, var(--type-body-family));
+    font-size: var(--materials-card-percentage-font-size, var(--type-body-size));
+    font-weight: var(--materials-card-percentage-font-weight, 500);
     line-height: var(--materials-card-percentage-line-height, var(--type-body-line-height));
     letter-spacing: var(--materials-card-percentage-letter-spacing, var(--type-body-letter-spacing));
     color: var(--materials-card-percentage-color, var(--primary));
     text-transform: var(--materials-card-percentage-text-transform, none);
+    text-decoration: var(--materials-card-percentage-text-decoration, none);
   }
 
   .materials-card__type {
-    font-family: var(--materials-card-type-family, var(--type-body-family));
-    font-size: var(--materials-card-type-size, var(--type-body-size));
-    font-weight: var(--materials-card-type-weight, 500);
+    font-family: var(--materials-card-type-font-family, var(--type-body-family));
+    font-size: var(--materials-card-type-font-size, var(--type-body-size));
+    font-weight: var(--materials-card-type-font-weight, 500);
     line-height: var(--materials-card-type-line-height, var(--type-body-line-height));
     letter-spacing: var(--materials-card-type-letter-spacing, var(--type-body-letter-spacing));
     color: var(--materials-card-type-color, var(--primary));
     text-transform: var(--materials-card-type-text-transform, uppercase);
+    text-decoration: var(--materials-card-type-text-decoration, none);
   }
 
   .materials-card__certification {
-    font-family: var(--materials-card-certification-family, var(--type-body-xs-family));
-    font-size: var(--materials-card-certification-size, var(--type-body-xs-size));
-    font-weight: var(--materials-card-certification-weight, var(--type-body-xs-weight));
+    font-family: var(--materials-card-certification-font-family, var(--type-body-xs-family));
+    font-size: var(--materials-card-certification-font-size, var(--type-body-xs-size));
+    font-weight: var(--materials-card-certification-font-weight, var(--type-body-xs-weight));
     line-height: var(--materials-card-certification-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--materials-card-certification-letter-spacing, var(--type-body-xs-letter-spacing));
     color: var(--materials-card-certification-color, var(--success-foreground));
     background-color: var(--materials-card-certification-background-color, var(--success));
     border-radius: var(--materials-card-certification-border-radius, var(--radius-sm));
+    border: var(--materials-card-certification-border, none);
     text-transform: var(--materials-card-certification-text-transform, none);
+    text-decoration: var(--materials-card-certification-text-decoration, none);
   }
 
   .materials-card__origin {
@@ -387,15 +428,18 @@
     letter-spacing: var(--materials-card-origin-letter-spacing, var(--type-body-xs-letter-spacing));
     color: var(--materials-card-origin-color, var(--secondary));
     text-transform: var(--materials-card-origin-text-transform, none);
+    text-decoration: var(--materials-card-origin-text-decoration, none);
   }
 
   .materials-card__certification-text {
-    font-family: var(--materials-card-certification-text-family, var(--type-body-xs-family));
-    font-size: var(--materials-card-certification-text-size, var(--type-body-xs-size));
-    font-weight: var(--materials-card-certification-text-weight, 500);
+    color: var(--materials-card-certification-text-color, var(--highlight));
+    font-family: var(--materials-card-certification-text-font-family, var(--type-body-xs-family));
+    font-size: var(--materials-card-certification-text-font-size, var(--type-body-xs-size));
+    font-weight: var(--materials-card-certification-text-font-weight, 500);
     line-height: var(--materials-card-certification-text-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--materials-card-certification-text-letter-spacing, var(--type-body-xs-letter-spacing));
     text-transform: var(--materials-card-certification-text-text-transform, uppercase);
+    text-decoration: var(--materials-card-certification-text-text-decoration, none);
   }
 
   /* Journey */
@@ -406,13 +450,14 @@
   }
 
   .journey-card__title {
-    font-family: var(--journey-card-title-family, var(--type-h6-family));
-    font-size: var(--journey-card-title-size, var(--type-h6-size));
-    font-weight: var(--journey-card-title-weight, 500);
+    font-family: var(--journey-card-title-font-family, var(--type-h6-family));
+    font-size: var(--journey-card-title-font-size, var(--type-h6-size));
+    font-weight: var(--journey-card-title-font-weight, 500);
     line-height: var(--journey-card-title-line-height, 1);
     letter-spacing: var(--journey-card-title-letter-spacing, var(--type-h6-letter-spacing));
     color: var(--journey-card-title-color, var(--primary));
     text-transform: var(--journey-card-title-text-transform, uppercase);
+    text-decoration: var(--journey-card-title-text-decoration, none);
   }
 
   .journey-card__line {
@@ -420,33 +465,36 @@
   }
 
   .journey-card__type {
-    font-family: var(--journey-card-type-family, var(--type-body-family));
-    font-size: var(--journey-card-type-size, var(--type-body-size));
-    font-weight: var(--journey-card-type-weight, 500);
+    font-family: var(--journey-card-type-font-family, var(--type-body-family));
+    font-size: var(--journey-card-type-font-size, var(--type-body-size));
+    font-weight: var(--journey-card-type-font-weight, 500);
     line-height: var(--journey-card-type-line-height, var(--type-body-line-height));
     letter-spacing: var(--journey-card-type-letter-spacing, var(--type-body-letter-spacing));
     color: var(--journey-card-type-color, var(--primary));
     text-transform: var(--journey-card-type-text-transform, uppercase);
+    text-decoration: var(--journey-card-type-text-decoration, none);
   }
 
   .journey-card__operator {
-    font-family: var(--journey-card-operator-family, var(--type-body-xs-family));
-    font-size: var(--journey-card-operator-size, var(--type-body-xs-size));
-    font-weight: var(--journey-card-operator-weight, var(--type-body-xs-weight));
+    font-family: var(--journey-card-operator-font-family, var(--type-body-xs-family));
+    font-size: var(--journey-card-operator-font-size, var(--type-body-xs-size));
+    font-weight: var(--journey-card-operator-font-weight, var(--type-body-xs-weight));
     line-height: var(--journey-card-operator-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--journey-card-operator-letter-spacing, var(--type-body-xs-letter-spacing));
     color: var(--journey-card-operator-color, var(--secondary));
     text-transform: var(--journey-card-operator-text-transform, none);
+    text-decoration: var(--journey-card-operator-text-decoration, none);
   }
 
   .carousel__title {
-    font-family: var(--carousel-title-family, var(--type-h6-family));
-    font-size: var(--carousel-title-size, var(--type-h6-size));
-    font-weight: var(--carousel-title-weight, 500);
+    font-family: var(--carousel-title-font-family, var(--type-h6-family));
+    font-size: var(--carousel-title-font-size, var(--type-h6-size));
+    font-weight: var(--carousel-title-font-weight, 500);
     line-height: var(--carousel-title-line-height, 1);
     letter-spacing: var(--carousel-title-letter-spacing, var(--type-h6-letter-spacing));
     color: var(--carousel-title-color, var(--primary));
     text-transform: var(--carousel-title-text-transform, uppercase);
+    text-decoration: var(--carousel-title-text-decoration, none);
   }
 
   .carousel__nav-button {
@@ -469,23 +517,25 @@
   }
 
   .carousel__product-name {
-    font-family: var(--carousel-product-name-family, var(--type-body-family));
-    font-size: var(--carousel-product-name-size, var(--type-body-size));
-    font-weight: var(--carousel-product-name-weight, 500);
+    font-family: var(--carousel-product-name-font-family, var(--type-body-family));
+    font-size: var(--carousel-product-name-font-size, var(--type-body-size));
+    font-weight: var(--carousel-product-name-font-weight, 500);
     line-height: var(--carousel-product-name-line-height, var(--type-body-line-height));
     letter-spacing: var(--carousel-product-name-letter-spacing, var(--type-body-letter-spacing));
     color: var(--carousel-product-name-color, var(--highlight));
     text-transform: var(--carousel-product-name-text-transform, uppercase);
+    text-decoration: var(--carousel-product-name-text-decoration, none);
   }
 
   .carousel__product-price {
-    font-family: var(--carousel-product-price-family, var(--font-mono));
-    font-size: var(--carousel-product-price-size, var(--type-body-size));
-    font-weight: var(--carousel-product-price-weight, var(--type-body-weight));
+    font-family: var(--carousel-product-price-font-family, var(--font-mono));
+    font-size: var(--carousel-product-price-font-size, var(--type-body-size));
+    font-weight: var(--carousel-product-price-font-weight, var(--type-body-weight));
     line-height: var(--carousel-product-price-line-height, var(--type-body-line-height));
     letter-spacing: var(--carousel-product-price-letter-spacing, var(--type-body-letter-spacing));
     color: var(--carousel-product-price-color, var(--primary));
     text-transform: var(--carousel-product-price-text-transform, none);
+    text-decoration: var(--carousel-product-price-text-decoration, none);
   }
 
   /* Banner */
@@ -502,19 +552,20 @@
   }
   
   .banner__subline {
-    font-family: var(--banner-subline-family, var(--type-h5-family));
-    font-size: var(--banner-subline-size, var(--type-h5-size));
-    font-weight: var(--banner-subline-weight, var(--type-h5-weight));
+    font-family: var(--banner-subline-font-family, var(--type-h5-family));
+    font-size: var(--banner-subline-font-size, var(--type-h5-size));
+    font-weight: var(--banner-subline-font-weight, var(--type-h5-weight));
     line-height: var(--banner-subline-line-height, var(--type-h5-line-height));
     letter-spacing: var(--banner-subline-letter-spacing, var(--type-h5-letter-spacing));
     color: var(--banner-subline-color, #FFFFFF);
     text-transform: var(--banner-subline-text-transform, none);
+    text-decoration: var(--banner-subline-text-decoration, none);
   }
   
   .banner__button {
-    font-family: var(--banner-button-family, var(--font-mono));
-    font-size: var(--banner-button-size, var(--type-body-sm-size));
-    font-weight: var(--banner-button-weight, var(--type-body-sm-weight));
+    font-family: var(--banner-button-font-family, var(--font-mono));
+    font-size: var(--banner-button-font-size, var(--type-body-sm-size));
+    font-weight: var(--banner-button-font-weight, var(--type-body-sm-weight));
     line-height: var(--banner-button-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--banner-button-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--banner-button-color, var(--highlight-foreground));
@@ -524,6 +575,7 @@
     border-color: var(--banner-button-border-color, var(--primary));
     min-width: var(--banner-button-min-width, 150px);
     text-transform: var(--banner-button-text-transform, uppercase);
+    text-decoration: var(--banner-button-text-decoration, none);
   }
 
 }

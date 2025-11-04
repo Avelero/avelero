@@ -45,10 +45,10 @@ export function ProductCard({ product, imageZoom = 100, imagePosition = 'center'
         />
       </div>
       <div className="flex carousel__product-details gap-micro">
-        <div className="carousel__product-name truncate w-full">
+        <div className="carousel__product-name truncate">
           {product.name}
         </div>
-        <div className="carousel__product-price w-full">
+        <div className="carousel__product-price">
           {formatPrice(product.price, product.currency)}
         </div>
       </div>

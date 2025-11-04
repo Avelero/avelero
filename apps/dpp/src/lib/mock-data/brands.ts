@@ -11,8 +11,8 @@ export const mockBrands: Record<string, { name: string; vanityUrl: string }> = {
     name: 'Verde Collective',
     vanityUrl: 'verde',
   },
-  'luxora': {
-    name: 'Luxora Fashion',
-    vanityUrl: 'luxora',
+  'fillingpieces': {
+    name: 'Filling Pieces',
+    vanityUrl: 'fillingpieces',
   },
 };

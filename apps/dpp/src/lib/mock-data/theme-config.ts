@@ -61,6 +61,9 @@ export const mockThemeConfigs: Record<string, ThemeConfig> = {
       carouselImageZoom: 100,
       carouselImagePosition: 'top',
     },
+    materials: {
+      showCertificationCheckIcon: true,
+    },
   },
   'mrmarvis': {
     branding: {
@@ -119,33 +122,36 @@ export const mockThemeConfigs: Record<string, ThemeConfig> = {
       carouselImageZoom: 100,
       carouselImagePosition: 'center',
     },
+    materials: {
+      showCertificationCheckIcon: true,
+    },
   },
   'fillingpieces': {
     branding: {
-      headerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746526939/aveleroApparelLogoBlack_iuhow7.png',
-      bannerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746527118/aveleroApparelLogoWhite_b5drvc.png',
+      headerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/fillingpieces-logo_cf9k3h.svg',
+      bannerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/fillingpieces-logo-white_gysdgk.svg',
       bannerLogoHeight: 38,
     },
     menus: {
       primary: [
-        { label: 'FIT GUIDE', url: '#size-guide' },
-        { label: 'STYLING TIPS', url: '#styling' },
+        { label: 'Care & Materials', url: 'https://www.fillingpieces.com/pages/materials-care' },
+        { label: 'Support', url: 'https://www.fillingpieces.com/pages/faq-top-5-questions' },
+        { label: 'Quality & Craftsmanship', url: 'https://www.fillingpieces.com/pages/quality-craft' },
       ],
       secondary: [
-        { label: 'CRAFTMANSHIP', url: '#craftsmanship' },
-        { label: 'SUSTAINABILITY', url: '#sustainability' },
-        { label: 'RETURNS', url: '#returns' },
+        { label: 'Responsibility', url: 'https://www.fillingpieces.com/pages/responsibility-1' },
+        { label: 'Loyalty', url: 'https://www.fillingpieces.com/pages/loyalty' },
       ],
     },
     cta: {
-      bannerBackgroundImage: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745934275/cta-banner-background_o3vjjw.jpg',
-      bannerCTAText: 'VIEW MORE',
-      bannerCTAUrl: 'https://example.com',
-      bannerShowSubline: false,
-      bannerSubline: '',
+      bannerBackgroundImage: 'https://www.fillingpieces.com/cdn/shop/files/Homepage_Banner_-_Desktop_-_V6_2.jpg?v=1758107353&width=1640',
+      bannerCTAText: 'Shop Now',
+      bannerCTAUrl: 'https://www.fillingpieces.com/nl/collections/men-apparel',
+      bannerShowSubline: true,
+      bannerSubline: 'Master unpredictable weather with versatile layers designed for both comfort and a refined silhouette.',
     },
     social: {
-      legalName: 'Luxora Fashion',
+      legalName: 'Filling Pieces',
       showInstagram: true,
       showFacebook: false,
       showTwitter: true,
@@ -153,11 +159,11 @@ export const mockThemeConfigs: Record<string, ThemeConfig> = {
       showTiktok: true,
       showLinkedin: false,
       useIcons: true,
-      instagramUrl: 'https://instagram.com/luxorafashion',
-      facebookUrl: '#',
-      twitterUrl: 'https://twitter.com/luxorafashion',
-      pinterestUrl: 'https://pinterest.com/luxorafashion',
-      tiktokUrl: 'https://tiktok.com/@luxorafashion',
+      instagramUrl: 'https://www.instagram.com/fillingpieces/',
+      facebookUrl: 'https://www.facebook.com/fillingpieces/',
+      twitterUrl: 'https://x.com/FillingPieces',
+      pinterestUrl: 'https://nl.pinterest.com/fillingpieces/',
+      tiktokUrl: 'https://www.tiktok.com/@fillingpieces',
       linkedinUrl: '',
     },
     sections: {
@@ -175,6 +181,9 @@ export const mockThemeConfigs: Record<string, ThemeConfig> = {
       productImagePosition: 'top',
       carouselImageZoom: 100,
       carouselImagePosition: 'top',
+    },
+    materials: {
+      showCertificationCheckIcon: false,
     },
   },
 };

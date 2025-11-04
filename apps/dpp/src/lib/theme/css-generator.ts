@@ -3,7 +3,7 @@
  * Converts theme style objects into CSS custom properties
  */
 
-import type { ThemeStyles, ComponentStyleOverride } from '@/types/theme-styles';
+import type { ThemeStyles, ComponentStyleOverride, CustomFont } from '@/types/theme-styles';
 import { getFontFallback } from '@v1/selections/fonts';
 
 /**
@@ -156,4 +156,38 @@ export function generateThemeCSS(themeStyles?: ThemeStyles): string {
   }
 
   return vars.join(';\n    ');
+}
+
+/**
+ * Generates @font-face CSS rules from custom fonts
+ * @param customFonts - Array of custom font definitions
+ * @returns CSS string with @font-face declarations
+ */
+export function generateFontFaceCSS(customFonts?: CustomFont[]): string {
+  if (!customFonts || customFonts.length === 0) {
+    return '';
+  }
+
+  return customFonts
+    .map((font) => {
+      const format = font.format || 'woff2';
+      const fontDisplay = font.fontDisplay || 'swap';
+      const fontWeight = font.fontWeight ?? 400;
+      const fontStyle = font.fontStyle || 'normal';
+      
+      let css = `@font-face {
+  font-family: "${font.fontFamily}";
+  src: url('${font.src}') format('${format}');
+  font-weight: ${fontWeight};
+  font-style: ${fontStyle};
+  font-display: ${fontDisplay};`;
+
+      if (font.unicodeRange) {
+        css += `\n  unicode-range: ${font.unicodeRange};`;
+      }
+
+      css += '\n}';
+      return css;
+    })
+    .join('\n\n');
 }

@@ -1,18 +1,21 @@
 import { Fragment } from 'react';
 import type { Material } from '@/types/dpp-data';
+import type { ThemeConfig } from '@/types/theme-config';
 import { Icons } from '@v1/ui/icons';
 
 interface Props {
   materials: Material[];
+  themeConfig: ThemeConfig;
   isLast?: boolean;
 }
 
-export function MaterialsFrame({ materials, isLast = false }: Props) {
+export function MaterialsFrame({ materials, themeConfig, isLast = false }: Props) {
+  const showCheckIcon = themeConfig.materials.showCertificationCheckIcon;
   
   return (
     <div className={`mx-sm md:mx-0 mt-lg mb-lg flex flex-col gap-sm${isLast ? ' mb-0' : ''}`}>
       <h6 className="materials-card__title">
-        MATERIALS
+        Materials
       </h6>
       
       <div className="materials-card border grid grid-cols-[max-content_1fr]">
@@ -32,7 +35,7 @@ export function MaterialsFrame({ materials, isLast = false }: Props) {
                 
                 {material.certification && (
                   <span className="inline-flex items-center gap-micro py-micro px-xs materials-card__certification">
-                    <Icons.Check className="w-3 h-3" />
+                    {showCheckIcon && <Icons.Check className="w-3 h-3" />}
                     <span className="!leading-[100%]">
                       Certified
                     </span>
@@ -47,7 +50,7 @@ export function MaterialsFrame({ materials, isLast = false }: Props) {
               {material.certification && (
                 <a
                   href={material.certificationUrl}
-                  className="materials-card__certification-text text-highlight cursor-pointer"
+                  className="materials-card__certification-text cursor-pointer"
                 >
                   {material.certification}
                 </a>

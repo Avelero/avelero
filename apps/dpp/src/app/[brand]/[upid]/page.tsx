@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { mockProducts } from '@/lib/mock-data/products';
 import { mockThemeConfigs } from '@/lib/mock-data/theme-config';
 import { mockThemeStyles } from '@/lib/mock-data/theme-styles';
-import { generateThemeCSS } from '@/lib/theme/css-generator';
+import { generateThemeCSS, generateFontFaceCSS } from '@/lib/theme/css-generator';
 import { generateGoogleFontsUrlFromTypography } from '@/lib/theme/google-fonts';
 import { ThemeInjector } from '@/components/theme/theme-injector';
 import { Header } from '@/components/layout/header';
@@ -59,10 +59,17 @@ export default async function DPPPage({ params }: PageProps) {
     ? generateGoogleFontsUrlFromTypography(themeStyles.typography)
     : '';
   
+  // Generate @font-face CSS from custom fonts
+  const fontFaceCSS = generateFontFaceCSS(themeStyles?.customFonts);
+  
   return (
     <>
-      {/* Theme injection - CSS variables and Google Fonts */}
-      <ThemeInjector cssVars={cssVars} googleFontsUrl={googleFontsUrl} />
+      {/* Theme injection - CSS variables, Google Fonts, and custom fonts */}
+      <ThemeInjector 
+        cssVars={cssVars} 
+        googleFontsUrl={googleFontsUrl}
+        fontFaceCSS={fontFaceCSS}
+      />
       
       <div className="min-h-screen flex flex-col">
         {/* Header with spacer for fixed positioning */}

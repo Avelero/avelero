@@ -116,7 +116,7 @@ export function ProductCarousel({
       {/* Header container - keeps the title aligned with the page content */}
       <div className="max-w-container mx-auto px-sm md:px-lg">
         <h6 className="carousel__title">
-          SIMILAR ITEMS
+          Similar Items
         </h6>
       </div>
       
@@ -161,7 +161,7 @@ export function ProductCarousel({
             <button
               type="button"
               onClick={() => scroll('left')}
-              className={`nav-button-fade border carousel__nav-button carousel__nav-button--prev hidden md:flex absolute top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center cursor-pointer ${!canScrollLeft ? 'md:hidden' : ''} ${isScrolling ? 'fading' : ''}`}
+              className={`nav-button-fade border carousel__nav-button carousel__nav-button--prev hidden md:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollLeft ? 'md:hidden' : ''} ${isScrolling ? 'fading' : ''}`}
               aria-label="Previous items"
             >
               <Icons.ChevronLeft className="w-4 h-4" />
@@ -170,7 +170,7 @@ export function ProductCarousel({
             <button
               type="button"
               onClick={() => scroll('right')}
-              className={`nav-button-fade border carousel__nav-button carousel__nav-button--next hidden md:flex absolute top-1/2 -translate-y-1/2 w-9 h-9 items-center justify-center cursor-pointer ${!canScrollRight ? 'md:hidden' : ''} ${isScrolling ? 'fading' : ''}`}
+              className={`nav-button-fade border carousel__nav-button carousel__nav-button--next hidden md:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollRight ? 'md:hidden' : ''} ${isScrolling ? 'fading' : ''}`}
               aria-label="Next items"
             >
               <Icons.ChevronRight className="w-4 h-4" />

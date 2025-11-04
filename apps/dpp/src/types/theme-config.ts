@@ -64,4 +64,9 @@ export interface ThemeConfig {
     carouselImageZoom: number;
     carouselImagePosition: 'top' | 'center' | 'bottom';
   };
+  
+  // Materials section configuration
+  materials: {
+    showCertificationCheckIcon: boolean;
+  };
 }

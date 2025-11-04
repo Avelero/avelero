@@ -15,16 +15,15 @@ export function LargeImpactCard({ metric }: Props) {
     factory: Icons.Factory,
   };
   
-  // Default colors per icon type
-  const iconColorMap = {
-    leaf: '#03A458',     // Green
-    drop: '#0000FF',     // Blue
-    recycle: '#0000FF',  // Blue
-    factory: '#6B7280',  // Grey-ish
+  const iconClassMap = {
+    leaf: 'impact-card__icon-leaf',
+    drop: 'impact-card__icon-drop',
+    recycle: 'impact-card__icon-recycle',
+    factory: 'impact-card__icon-factory',
   };
   
   const IconComponent = iconMap[metric.icon] ?? Icons.PhosphorLeaf; // Safe fallback
-  const iconColor = metric.iconColor || iconColorMap[metric.icon] || iconColorMap.leaf;
+  const iconClass = iconClassMap[metric.icon] ?? iconClassMap.leaf;
   
   return (
     <div
@@ -43,7 +42,7 @@ export function LargeImpactCard({ metric }: Props) {
           </div>
         </div>
       </div>
-      <IconComponent className="w-7 h-7" weight="fill" style={{ color: iconColor }} />
+      <IconComponent className={`w-7 h-7 ${iconClass}`} weight="fill" style={metric.iconColor ? { color: metric.iconColor } : undefined} />
     </div>
   );
 }

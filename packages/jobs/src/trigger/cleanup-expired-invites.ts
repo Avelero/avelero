@@ -2,8 +2,8 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { logger, schedules } from "@trigger.dev/sdk/v3";
 import type { Database } from "@v1/supabase/types";
 
-export const deleteExpiredInvites = schedules.task({
-  id: "delete-expired-invites",
+export const cleanupExpiredInvites = schedules.task({
+  id: "cleanup-expired-invites",
   // Nightly at 02:00 UTC
   cron: "0 2 * * *",
   run: async () => {

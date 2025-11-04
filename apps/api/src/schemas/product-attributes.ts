@@ -1,41 +1,69 @@
+/**
+ * Validation schemas for product enrichment attributes.
+ *
+ * These definitions ensure product-related mutations receive correctly shaped
+ * payloads when managing materials, care codes, eco claims, and journey steps.
+ */
 import { z } from "zod";
+import {
+  nonNegativeIntSchema,
+  percentageSchema,
+  shortStringSchema,
+  uuidArraySchema,
+  uuidSchema,
+} from "./_shared/primitives.js";
 
+/**
+ * Payload for replacing a product's material composition.
+ */
 export const upsertMaterialsSchema = z.object({
-  product_id: z.string().uuid(),
+  product_id: uuidSchema,
   items: z
     .array(
       z.object({
-        brand_material_id: z.string().uuid(),
-        percentage: z.number().min(0).max(100).optional(),
+        brand_material_id: uuidSchema,
+        percentage: percentageSchema.optional(),
       }),
     )
     .min(1),
 });
 
+/**
+ * Payload for saving the set of care codes on a product.
+ */
 export const setCareCodesSchema = z.object({
-  product_id: z.string().uuid(),
-  care_code_ids: z.array(z.string().uuid()).default([]),
+  product_id: uuidSchema,
+  care_code_ids: uuidArraySchema.default([]),
 });
 
+/**
+ * Payload for saving eco claim associations.
+ */
 export const setEcoClaimsSchema = z.object({
-  product_id: z.string().uuid(),
-  eco_claim_ids: z.array(z.string().uuid()).default([]),
+  product_id: uuidSchema,
+  eco_claim_ids: uuidArraySchema.default([]),
 });
 
+/**
+ * Payload for recording environmental impact metrics.
+ */
 export const upsertEnvironmentSchema = z.object({
-  product_id: z.string().uuid(),
+  product_id: uuidSchema,
   carbon_kg_co2e: z.string().optional(),
   water_liters: z.string().optional(),
 });
 
+/**
+ * Payload for defining the ordered production journey steps.
+ */
 export const setJourneyStepsSchema = z.object({
-  product_id: z.string().uuid(),
+  product_id: uuidSchema,
   steps: z
     .array(
       z.object({
-        sort_index: z.number().int().min(0),
-        step_type: z.string().min(1),
-        facility_id: z.string().uuid(),
+        sort_index: nonNegativeIntSchema,
+        step_type: shortStringSchema,
+        facility_id: uuidSchema,
       }),
     )
     .default([]),

@@ -31,6 +31,11 @@ export function TRPCReactProvider(props: { children: React.ReactNode }) {
         httpBatchLink({
           url: `${apiUrl}/trpc`,
           transformer: superjson,
+          /**
+           * Configure batching to deduplicate requests during React's multiple renders.
+           * maxURLLength prevents GET requests from exceeding server limits.
+           */
+          maxURLLength: 2083,
           async headers() {
             const supabase = createSupabaseClient();
             const {

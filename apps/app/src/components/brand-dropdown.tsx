@@ -30,10 +30,12 @@ import { SignedAvatar } from "./signed-avatar";
 interface Brand {
   id: string;
   name: string;
-  logo_url?: string | null; // legacy
-  logo_path?: string | null;
-  avatar_hue?: number | null;
+  logo_url?: string | null;
+  role: "owner" | "member" | null;
+  canLeave?: boolean;
+  email?: string | null;
   country_code?: string | null;
+  avatar_hue?: number | null;
 }
 
 interface BrandDropdownProps {
@@ -44,9 +46,9 @@ interface BrandDropdownProps {
 function BrandAvatar() {
   const { data: brandsData } = useUserBrandsQuerySuspense();
   const { data: user } = useUserQuerySuspense();
-  const brands = (brandsData as { data: Brand[] } | undefined)?.data ?? [];
+  const brands = (brandsData as Brand[] | undefined) ?? [];
   const activeBrand = brands.find(
-    (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
+    (b) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
   );
 
   return (
@@ -54,7 +56,7 @@ function BrandAvatar() {
       bucket="brand-avatars"
       size={24}
       name={activeBrand?.name}
-      path={activeBrand?.logo_path ?? null}
+      url={activeBrand?.logo_url ?? undefined}
       hue={activeBrand?.avatar_hue ?? undefined}
     />
   );
@@ -71,14 +73,13 @@ export function BrandDropdown({
   const { data: user } = useUserQuery();
   const setActiveBrandMutation = useSetActiveBrandMutation();
 
-  const brands: Brand[] =
-    (brandsData as { data: Brand[] } | undefined)?.data ?? [];
+  const brands: Brand[] = (brandsData as Brand[] | undefined) ?? [];
   const currentUser = user as CurrentUser | null | undefined;
   const activeBrand = brands.find((b: Brand) => b.id === currentUser?.brand_id);
 
   const handleBrandSelect = (brandId: string) => {
     if (brandId !== currentUser?.brand_id) {
-      setActiveBrandMutation.mutate({ id: brandId });
+      setActiveBrandMutation.mutate({ brand_id: brandId });
     }
   };
 

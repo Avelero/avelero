@@ -1,9 +1,9 @@
 "use client";
 
-import { Label } from "@v1/ui/label";
-import { Input } from "@v1/ui/input";
-import { Textarea } from "@v1/ui/textarea";
 import { cn } from "@v1/ui/cn";
+import { Input } from "@v1/ui/input";
+import { Label } from "@v1/ui/label";
+import { Textarea } from "@v1/ui/textarea";
 import { useCallback, useRef, useState } from "react";
 
 export function BasicInfoSection() {
@@ -26,7 +26,7 @@ export function BasicInfoSection() {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const file = e.dataTransfer.files[0];
     if (file?.type.startsWith("image/")) {
       // TODO: Upload to Supabase bucket and optimize image
@@ -39,20 +39,23 @@ export function BasicInfoSection() {
     }
   }, []);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file?.type.startsWith("image/")) {
-      // TODO: Upload to Supabase bucket and optimize image
-      // For now, just create a preview URL
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setImage(evt.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-    // Clear input value so same file can be selected again
-    e.target.value = "";
-  }, []);
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file?.type.startsWith("image/")) {
+        // TODO: Upload to Supabase bucket and optimize image
+        // For now, just create a preview URL
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          setImage(evt.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+      // Clear input value so same file can be selected again
+      e.target.value = "";
+    },
+    [],
+  );
 
   const handleClick = useCallback(() => {
     inputRef.current?.click();

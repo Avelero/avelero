@@ -1,12 +1,11 @@
 import { BrandsTable } from "@/components/tables/brands/brands";
 import { BrandsSkeleton } from "@/components/tables/brands/skeleton";
-import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import { Suspense } from "react";
 
 export default async function Page() {
-  // Prefetch memberships and invites for better UX
-  await batchPrefetch([trpc.brand.list.queryOptions()]);
-  await batchPrefetch([trpc.brand.myInvites.queryOptions()]);
+  const queryClient = getQueryClient();
+  await queryClient.prefetchQuery(trpc.composite.workflowInit.queryOptions());
 
   return (
     <HydrateClient>

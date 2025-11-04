@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useCanLeaveBrandQuery,
-  useLeaveBrandMutation,
-} from "@/hooks/use-brand";
+import { useLeaveBrandMutation, useWorkflowBrandById } from "@/hooks/use-brand";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { Button } from "@v1/ui/button";
@@ -45,17 +42,20 @@ export function LeaveBrandModal({
   }, [open]);
 
   // Always read cached canLeave data so closing animation doesn't flip state
-  const { data: canLeaveData } = useCanLeaveBrandQuery(brandId);
+  const membership = useWorkflowBrandById(brandId);
   const leaveMutation = useLeaveBrandMutation();
 
   type RouterOutputs = inferRouterOutputs<AppRouter>;
-  type CanLeave = RouterOutputs["brand"]["canLeave"];
-  type LeaveBrandResult = RouterOutputs["brand"]["leave"];
+  type LeaveBrandResult = RouterOutputs["workflow"]["members"]["update"];
 
-  const isSoleOwnerBlocked = useMemo(() => {
-    const res = canLeaveData as CanLeave | undefined;
-    return res?.canLeave === false && res?.reason === "SOLE_OWNER";
-  }, [canLeaveData]);
+  const membershipRole = membership?.role ?? role;
+  const canLeave =
+    membership?.canLeave ??
+    (membershipRole !== null && membershipRole !== "owner");
+  const isSoleOwnerBlocked = useMemo(
+    () => membershipRole === "owner" && canLeave === false,
+    [membershipRole, canLeave],
+  );
 
   const title = isSoleOwnerBlocked ? "Cannot leave brand" : "Leave brand";
 
@@ -78,7 +78,7 @@ export function LeaveBrandModal({
     setIsSubmitting(true);
     setError(null);
     leaveMutation.mutate(
-      { id: brandId },
+      { brand_id: brandId },
       {
         onError: (e) => {
           const message =
@@ -90,7 +90,7 @@ export function LeaveBrandModal({
         onSuccess: (res: LeaveBrandResult) => {
           setIsSubmitting(false);
           toast.success(`Left ${brandName}`);
-          onLeft?.(res?.nextBrandId ?? null);
+          onLeft?.(res.nextBrandId ?? null);
           onOpenChange(false);
         },
       },

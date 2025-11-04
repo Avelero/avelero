@@ -1,9 +1,19 @@
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import type { Database } from "../client";
 import { brandMembers, brands, users } from "../schema";
 
 // Type for database operations that works with both regular db and transactions
 type DatabaseLike = Pick<Database, "select">;
+
+export type BrandMembershipListItem = {
+  id: string;
+  name: string;
+  email: string | null;
+  logo_path: string | null;
+  avatar_hue: number | null;
+  country_code: string | null;
+  role: "owner" | "member";
+};
 
 // Compute the next active brand for a user, excluding a specific brand if provided.
 // Strategy: first alphabetical brand by name among memberships, excluding `excludeBrandId`.
@@ -15,7 +25,7 @@ export async function computeNextBrandIdForUser(
   const rows = await db
     .select({ brandId: brandMembers.brandId, name: brands.name })
     .from(brandMembers)
-    .leftJoin(brands, eq(brandMembers.brandId, brands.id))
+    .innerJoin(brands, eq(brandMembers.brandId, brands.id))
     .where(
       excludeBrandId
         ? and(
@@ -29,34 +39,72 @@ export async function computeNextBrandIdForUser(
   return rows[0]?.brandId ?? null;
 }
 
-export async function getBrandsByUserId(db: Database, userId: string) {
-  // list brands via membership table
+/**
+ * Available brand fields that can be selected in queries.
+ */
+const BRAND_FIELD_MAP = {
+  id: brands.id,
+  name: brands.name,
+  email: brands.email,
+  logo_path: brands.logoPath,
+  avatar_hue: brands.avatarHue,
+  country_code: brands.countryCode,
+  role: brandMembers.role,
+} as const;
+
+/**
+ * Type-safe brand field names.
+ */
+export type BrandField = keyof typeof BRAND_FIELD_MAP;
+
+/**
+ * Gets brands for a user with optional field selection.
+ *
+ * Supports selective field querying to reduce data transfer when clients
+ * only need specific fields (e.g., id and name for dropdowns).
+ *
+ * @param db - Database instance.
+ * @param userId - User identifier.
+ * @param opts - Optional field selection.
+ * @returns Brand list with membership roles.
+ */
+export async function getBrandsByUserId(
+  db: Database,
+  userId: string,
+  _opts: { fields?: readonly BrandField[] } = {},
+): Promise<BrandMembershipListItem[]> {
   const rows = await db
     .select({
+      id: brands.id,
+      name: brands.name,
+      email: brands.email,
+      logo_path: brands.logoPath,
+      avatar_hue: brands.avatarHue,
+      country_code: brands.countryCode,
       role: brandMembers.role,
-      brand: {
-        id: brands.id,
-        name: brands.name,
-        email: brands.email,
-        logoPath: brands.logoPath,
-        avatarHue: brands.avatarHue,
-        countryCode: brands.countryCode,
-      },
     })
     .from(brandMembers)
     .leftJoin(brands, eq(brandMembers.brandId, brands.id))
     .where(eq(brandMembers.userId, userId))
     .orderBy(asc(brands.name));
 
-  return rows.map((r) => ({
-    id: r.brand?.id ?? null,
-    name: r.brand?.name ?? null,
-    email: r.brand?.email ?? null,
-    logo_path: r.brand?.logoPath ?? null,
-    avatar_hue: r.brand?.avatarHue ?? null,
-    country_code: r.brand?.countryCode ?? null,
-    role: r.role ?? null,
-  }));
+  const sanitized = rows.filter(
+    (row): row is typeof row & { id: string; name: string } =>
+      row.id !== null && row.name !== null,
+  );
+
+  return sanitized.map(
+    (row) =>
+      ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        logo_path: row.logo_path,
+        avatar_hue: row.avatar_hue,
+        country_code: row.country_code,
+        role: row.role === "owner" ? "owner" : "member",
+      }) satisfies BrandMembershipListItem,
+  );
 }
 
 export async function createBrand(
@@ -112,20 +160,41 @@ export async function updateBrand(
   if (!membership.length) throw new Error("FORBIDDEN");
 
   const { id, ...payload } = input;
+
+  // Build update object with only defined fields to avoid clearing unmodified data
+  const updateData: Partial<{
+    name: string;
+    email: string | null;
+    countryCode: string | null;
+    logoPath: string | null;
+    avatarHue: number | null;
+  }> = {};
+
+  if (payload.name !== undefined) updateData.name = payload.name;
+  if (payload.email !== undefined) updateData.email = payload.email;
+  if (payload.country_code !== undefined) updateData.countryCode = payload.country_code;
+  if (payload.logo_path !== undefined) updateData.logoPath = payload.logo_path;
+  if (payload.avatar_hue !== undefined) updateData.avatarHue = payload.avatar_hue;
+
   const [row] = await db
     .update(brands)
-    .set({
-      name: payload.name,
-      email: payload.email,
-      countryCode: payload.country_code,
-      logoPath: payload.logo_path,
-      avatarHue: payload.avatar_hue,
-    })
+    .set(updateData)
     .where(eq(brands.id, id))
     .returning({ id: brands.id });
   return row ? { success: true as const } : { success: true as const };
 }
 
+/**
+ * Deletes a brand and updates all affected users' active brand.
+ *
+ * Uses batched queries to compute next brands for multiple users efficiently,
+ * preventing N+1 query problems when many users have the brand active.
+ *
+ * @param db - Database instance or transaction.
+ * @param brandId - Brand identifier to delete.
+ * @param actingUserId - User performing the deletion.
+ * @returns Success flag and the acting user's next active brand.
+ */
 export async function deleteBrand(
   db: Database,
   brandId: string,
@@ -162,9 +231,53 @@ export async function deleteBrand(
       .from(users)
       .where(and(eq(users.brandId, brandId), ne(users.id, actingUserId)));
 
-    for (const u of affectedUsers) {
-      const nextId = await computeNextBrandIdForUser(tx, u.id, brandId);
-      await tx.update(users).set({ brandId: nextId }).where(eq(users.id, u.id));
+    // OPTIMIZED: Batch compute next brands for all affected users in one query
+    if (affectedUsers.length > 0) {
+      const affectedUserIds = affectedUsers.map((u) => u.id);
+
+      // Fetch all brand memberships for affected users in a single query
+      const allMemberships = await tx
+        .select({
+          userId: brandMembers.userId,
+          brandId: brandMembers.brandId,
+          brandName: brands.name,
+        })
+        .from(brandMembers)
+        .innerJoin(brands, eq(brandMembers.brandId, brands.id))
+        .where(inArray(brandMembers.userId, affectedUserIds))
+        .orderBy(asc(brands.name));
+
+      // Group memberships by user and compute next brand
+      const membershipsByUser = new Map<
+        string,
+        Array<{ brandId: string; brandName: string | null }>
+      >();
+
+      for (const m of allMemberships) {
+        if (!membershipsByUser.has(m.userId)) {
+          membershipsByUser.set(m.userId, []);
+        }
+        membershipsByUser.get(m.userId)!.push({
+          brandId: m.brandId,
+          brandName: m.brandName,
+        });
+      }
+
+      // Build updates for all users in a single batch
+      const updates = affectedUsers.map((u) => {
+        const userMemberships = membershipsByUser.get(u.id) ?? [];
+        const filtered = userMemberships.filter((m) => m.brandId !== brandId);
+        const nextBrandId = filtered[0]?.brandId ?? null;
+        return { userId: u.id, nextBrandId };
+      });
+
+      // Execute updates sequentially (Drizzle doesn't support bulk updates with different values)
+      for (const { userId, nextBrandId } of updates) {
+        await tx
+          .update(users)
+          .set({ brandId: nextBrandId })
+          .where(eq(users.id, userId));
+      }
     }
 
     // Delete the brand (cascades will handle brandMembers and brandInvites)

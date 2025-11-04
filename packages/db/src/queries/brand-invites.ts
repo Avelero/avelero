@@ -3,6 +3,25 @@ import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { brandInvites, brandMembers, brands, users } from "../schema";
 
+export type BrandInviteRole = "owner" | "member";
+
+export interface UserInviteSummaryRow {
+  id: string;
+  email: string;
+  role: BrandInviteRole;
+  createdAt: string;
+  expiresAt: string | null;
+  brandId: string | null;
+  brandName: string | null;
+  brandLogoPath: string | null;
+  brandAvatarHue: number | null;
+  invitedById: string | null;
+  invitedByEmail: string | null;
+  invitedByFullName: string | null;
+  invitedByAvatarPath: string | null;
+  invitedByAvatarHue: number | null;
+}
+
 export async function listBrandInvites(
   db: Database,
   userId: string,
@@ -13,7 +32,11 @@ export async function listBrandInvites(
     .select({ id: brandMembers.id })
     .from(brandMembers)
     .where(
-      and(eq(brandMembers.brandId, brandId), eq(brandMembers.userId, userId)),
+      and(
+        eq(brandMembers.brandId, brandId),
+        eq(brandMembers.userId, userId),
+        eq(brandMembers.role, "owner"),
+      ),
     )
     .limit(1);
   if (!mem.length) throw new Error("FORBIDDEN");
@@ -33,22 +56,47 @@ export async function listBrandInvites(
 }
 
 export async function listInvitesByEmail(db: Database, email: string) {
+  const rows = await listPendingInvitesForEmail(db, email);
+  const data = rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    expires_at: row.expiresAt,
+    brand: {
+      id: row.brandId,
+      name: row.brandName,
+      logo_path: row.brandLogoPath,
+      avatar_hue: row.brandAvatarHue,
+    },
+  }));
+  return { data } as const;
+}
+
+export async function listPendingInvitesForEmail(
+  db: Database,
+  email: string,
+): Promise<UserInviteSummaryRow[]> {
   const nowIso = new Date().toISOString();
   const rows = await db
     .select({
       id: brandInvites.id,
       email: brandInvites.email,
       role: brandInvites.role,
+      createdAt: brandInvites.createdAt,
       expires_at: brandInvites.expiresAt,
-      brand: {
-        id: brands.id,
-        name: brands.name,
-        logo_path: brands.logoPath,
-        avatar_hue: brands.avatarHue,
-      },
+      brandId: brands.id,
+      brandName: brands.name,
+      brandLogoPath: brands.logoPath,
+      brandAvatarHue: brands.avatarHue,
+      invitedById: brandInvites.createdBy,
+      invitedByEmail: users.email,
+      invitedByFullName: users.fullName,
+      invitedByAvatarPath: users.avatarPath,
+      invitedByAvatarHue: users.avatarHue,
     })
     .from(brandInvites)
     .leftJoin(brands, eq(brandInvites.brandId, brands.id))
+    .leftJoin(users, eq(brandInvites.createdBy, users.id))
     .where(
       and(
         eq(brandInvites.email, email),
@@ -56,7 +104,22 @@ export async function listInvitesByEmail(db: Database, email: string) {
       ),
     )
     .orderBy(desc(brandInvites.createdAt));
-  return { data: rows } as const;
+  return rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    role: row.role as BrandInviteRole,
+    createdAt: row.createdAt,
+    expiresAt: row.expires_at,
+    brandId: row.brandId ?? null,
+    brandName: row.brandName ?? null,
+    brandLogoPath: row.brandLogoPath ?? null,
+    brandAvatarHue: row.brandAvatarHue ?? null,
+    invitedById: row.invitedById ?? null,
+    invitedByEmail: row.invitedByEmail ?? null,
+    invitedByFullName: row.invitedByFullName ?? null,
+    invitedByAvatarPath: row.invitedByAvatarPath ?? null,
+    invitedByAvatarHue: row.invitedByAvatarHue ?? null,
+  }));
 }
 
 export async function revokeBrandInviteByOwner(
@@ -79,6 +142,7 @@ export async function revokeBrandInviteByOwner(
       and(
         eq(brandMembers.userId, userId),
         eq(brandMembers.brandId, row.brandId),
+        eq(brandMembers.role, "owner"),
       ),
     )
     .limit(1);

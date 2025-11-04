@@ -50,7 +50,7 @@ function IndeterminateCheckbox({
   }, [indeterminate, checked]);
 
   return (
-    <label 
+    <label
       className="relative inline-flex h-4 w-4 items-center justify-center cursor-pointer before:absolute before:right-[-12px] before:left-[-16px] before:top-[-20px] before:bottom-[-19px] before:content-['']"
       onClick={(event) => event.stopPropagation()}
     >
@@ -99,7 +99,7 @@ export function PassportTableHeader({
   // In "explicit" mode, check if all/some visible rows are selected
   const isAllPageSelected = table.getIsAllPageRowsSelected();
   const isSomePageSelected = table.getIsSomePageRowsSelected();
-  
+
   const checked = isAllMode || isAllPageSelected;
   const indeterminate = !isAllMode && isSomePageSelected && !isAllPageSelected;
 

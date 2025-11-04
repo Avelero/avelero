@@ -14,13 +14,13 @@ import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { Table, TableBody, TableCell, TableRow } from "@v1/ui/table";
 import * as React from "react";
-import { columns } from "./columns";
-import { EmptyState } from "./empty-state";
 import {
   applyRangeSelection,
   calculateRangeSelection,
   fetchRowIdsByRange,
 } from "../../../utils/range-selection";
+import { columns } from "./columns";
+import { EmptyState } from "./empty-state";
 import { PassportTableHeader } from "./table-header";
 import { PassportTableSkeleton } from "./table-skeleton";
 import type { Passport, SelectionState } from "./types";
@@ -64,7 +64,7 @@ export function PassportDataTable({
   React.useEffect(() => {
     onTotalCountChangeAction?.(total > 0);
   }, [total, onTotalCountChangeAction]);
-  
+
   // Optimistic local state for instant UI updates
   const [optimisticRowSelection, setOptimisticRowSelection] = React.useState<
     Record<string, boolean>
@@ -77,7 +77,7 @@ export function PassportDataTable({
   const handleRangeSelection = React.useCallback(
     (rowIndex: number, shiftKey: boolean, rowId: string) => {
       const globalIndex = page * pageSize + rowIndex;
-      
+
       if (!shiftKey) {
         setLastClickedIndex(globalIndex);
         return;
@@ -104,14 +104,14 @@ export function PassportDataTable({
 
       if (result.type === "same-page" && result.rowIdsToSelect) {
         const idsToSelect = result.rowIdsToSelect;
-        
+
         // INSTANT UPDATE - synchronous, no delays
         const next: Record<string, boolean> = { ...optimisticRowSelection };
         for (const id of idsToSelect) {
           next[id] = true;
         }
         setOptimisticRowSelection(next);
-        
+
         // Defer parent update (non-blocking)
         startTransition(() => {
           const newSelection = applyRangeSelection(selection, idsToSelect);
@@ -125,7 +125,15 @@ export function PassportDataTable({
         );
       }
     },
-    [page, pageSize, lastClickedIndex, data, selection, onSelectionStateChangeAction, optimisticRowSelection],
+    [
+      page,
+      pageSize,
+      lastClickedIndex,
+      data,
+      selection,
+      onSelectionStateChangeAction,
+      optimisticRowSelection,
+    ],
   );
 
   const table = useReactTable({
@@ -138,7 +146,7 @@ export function PassportDataTable({
       const prev = optimisticRowSelection;
       const next = typeof updater === "function" ? updater(prev) : updater;
       setOptimisticRowSelection(next);
-      
+
       // Defer parent sync (non-blocking)
       startTransition(() => {
         if (selection.mode === "all") {
@@ -154,8 +162,10 @@ export function PassportDataTable({
           }
           const nextExcludeIds = Array.from(exclude);
           // Only update if changed (avoid unnecessary re-renders)
-          if (nextExcludeIds.length !== selection.excludeIds.length ||
-              !nextExcludeIds.every(id => selection.excludeIds.includes(id))) {
+          if (
+            nextExcludeIds.length !== selection.excludeIds.length ||
+            !nextExcludeIds.every((id) => selection.excludeIds.includes(id))
+          ) {
             onSelectionStateChangeAction({
               mode: "all",
               includeIds: [],
@@ -175,8 +185,10 @@ export function PassportDataTable({
           }
           const nextIncludeIds = Array.from(include);
           // Only update if changed (avoid unnecessary re-renders)
-          if (nextIncludeIds.length !== selection.includeIds.length ||
-              !nextIncludeIds.every(id => selection.includeIds.includes(id))) {
+          if (
+            nextIncludeIds.length !== selection.includeIds.length ||
+            !nextIncludeIds.every((id) => selection.includeIds.includes(id))
+          ) {
             onSelectionStateChangeAction({
               mode: "explicit",
               includeIds: nextIncludeIds,
@@ -186,7 +198,11 @@ export function PassportDataTable({
         }
       });
     },
-    state: { rowSelection: optimisticRowSelection, columnOrder, columnVisibility },
+    state: {
+      rowSelection: optimisticRowSelection,
+      columnOrder,
+      columnVisibility,
+    },
     meta: {
       handleRangeSelection,
     },
@@ -219,14 +235,14 @@ export function PassportDataTable({
   React.useEffect(() => {
     // Don't overwrite optimistic updates during transitions
     if (isPending) return;
-    
+
     if (!data.length) {
       setOptimisticRowSelection({});
       return;
     }
-    
+
     const nextMap: Record<string, boolean> = {};
-    
+
     if (selection.mode === "all") {
       const excludeSet = new Set(selection.excludeIds);
       for (const row of data) {
@@ -238,7 +254,7 @@ export function PassportDataTable({
         nextMap[row.id] = includeSet.has(row.id);
       }
     }
-    
+
     setOptimisticRowSelection(nextMap);
   }, [data, selection, isPending]);
 
@@ -269,7 +285,7 @@ export function PassportDataTable({
                 const next: Record<string, boolean> = {};
                 for (const row of data) next[row.id] = true;
                 setOptimisticRowSelection(next);
-                
+
                 // Defer parent update (non-blocking)
                 startTransition(() => {
                   onSelectionStateChangeAction({
@@ -283,7 +299,7 @@ export function PassportDataTable({
                 // Clear selection completely
                 // INSTANT UPDATE - synchronous, no delays
                 setOptimisticRowSelection({});
-                
+
                 // Defer parent update (non-blocking)
                 startTransition(() => {
                   onSelectionStateChangeAction({

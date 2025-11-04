@@ -1,12 +1,18 @@
 "use client";
 
-import * as React from "react";
-import { cn } from "@v1/ui/cn";
 import { Button } from "@v1/ui/button";
-import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@v1/ui/command";
+import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { format } from "date-fns";
+import * as React from "react";
 
 export interface Season {
   name: string;
@@ -69,11 +75,13 @@ export function SeasonSelect({
   const filteredSeasons = React.useMemo(() => {
     if (!searchTerm) return seasons;
     return seasons.filter((s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase())
+      s.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [seasons, searchTerm]);
 
-  const showCreateOption = searchTerm && !seasons.some(s => s.name.toLowerCase() === searchTerm.toLowerCase());
+  const showCreateOption =
+    searchTerm &&
+    !seasons.some((s) => s.name.toLowerCase() === searchTerm.toLowerCase());
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -136,10 +144,7 @@ export function SeasonSelect({
                   </CommandItem>
                 ))
               ) : searchTerm && showCreateOption && onCreateNew ? (
-                <CommandItem
-                  value={searchTerm}
-                  onSelect={handleCreate}
-                >
+                <CommandItem value={searchTerm} onSelect={handleCreate}>
                   <div className="flex items-center gap-2">
                     <Icons.Plus className="h-3.5 w-3.5" />
                     <span className="type-p text-primary">
@@ -161,6 +166,3 @@ export function SeasonSelect({
     </Popover>
   );
 }
-
-
-

@@ -1,12 +1,12 @@
 "use client";
 
-import * as React from "react";
-import { Icons } from "@v1/ui/icons";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { Button } from "@v1/ui/button";
-import { Label } from "@v1/ui/label";
-import { cn } from "@v1/ui/cn";
 import { categoryHierarchy } from "@v1/selections/categories";
+import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
+import { Label } from "@v1/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import * as React from "react";
 
 interface CategorySelectProps {
   value: string;
@@ -15,63 +15,81 @@ interface CategorySelectProps {
   className?: string;
 }
 
-export function CategorySelect({ value, onChange, label = "Category", className }: CategorySelectProps) {
+export function CategorySelect({
+  value,
+  onChange,
+  label = "Category",
+  className,
+}: CategorySelectProps) {
   const [open, setOpen] = React.useState(false);
   const [categoryPath, setCategoryPath] = React.useState<string[]>([]);
-  const [selectedCategoryPath, setSelectedCategoryPath] = React.useState<string[]>([]);
+  const [selectedCategoryPath, setSelectedCategoryPath] = React.useState<
+    string[]
+  >([]);
   const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
-  const [hoveredArea, setHoveredArea] = React.useState<"selection" | "navigation" | null>(null);
+  const [hoveredArea, setHoveredArea] = React.useState<
+    "selection" | "navigation" | null
+  >(null);
 
   // Helper function to find path from display string
-  const findPathFromDisplayString = React.useCallback((displayString: string): string[] => {
-    if (displayString === "Select category" || !displayString) {
-      return [];
-    }
+  const findPathFromDisplayString = React.useCallback(
+    (displayString: string): string[] => {
+      if (displayString === "Select category" || !displayString) {
+        return [];
+      }
 
-    const findPathRecursive = (current: any, currentPath: string[]): string[] | null => {
-      for (const [key, val] of Object.entries(current)) {
-        const newPath = [...currentPath, key];
-        const labels: string[] = [];
-        let temp: any = categoryHierarchy;
+      const findPathRecursive = (
+        current: any,
+        currentPath: string[],
+      ): string[] | null => {
+        for (const [key, val] of Object.entries(current)) {
+          const newPath = [...currentPath, key];
+          const labels: string[] = [];
+          let temp: any = categoryHierarchy;
 
-        for (const pathKey of newPath) {
-          if (temp[pathKey]) {
-            labels.push(temp[pathKey].label);
-            temp = temp[pathKey].children || {};
+          for (const pathKey of newPath) {
+            if (temp[pathKey]) {
+              labels.push(temp[pathKey].label);
+              temp = temp[pathKey].children || {};
+            }
+          }
+
+          const fullString = labels.join(" / ");
+          const truncatedString =
+            labels.length <= 3
+              ? fullString
+              : `${labels[0]} / ... / ${labels[labels.length - 1]}`;
+
+          if (
+            fullString === displayString ||
+            truncatedString === displayString
+          ) {
+            return newPath;
+          }
+
+          if ((val as any).children) {
+            const foundPath = findPathRecursive((val as any).children, newPath);
+            if (foundPath) return foundPath;
           }
         }
+        return null;
+      };
 
-        const fullString = labels.join(" / ");
-        const truncatedString = 
-          labels.length <= 3
-            ? fullString
-            : `${labels[0]} / ... / ${labels[labels.length - 1]}`;
-
-        if (fullString === displayString || truncatedString === displayString) {
-          return newPath;
-        }
-
-        if ((val as any).children) {
-          const foundPath = findPathRecursive((val as any).children, newPath);
-          if (foundPath) return foundPath;
-        }
-      }
-      return null;
-    };
-
-    return findPathRecursive(categoryHierarchy, []) || [];
-  }, []);
+      return findPathRecursive(categoryHierarchy, []) || [];
+    },
+    [],
+  );
 
   // Sync selectedCategoryPath when value changes from outside
   React.useEffect(() => {
     const pathFromValue = findPathFromDisplayString(value);
-    
+
     // Only update if the path is different from current selectedCategoryPath
     setSelectedCategoryPath((currentPath) => {
       const pathsMatch =
         pathFromValue.length === currentPath.length &&
         pathFromValue.every((segment, index) => segment === currentPath[index]);
-      
+
       return pathsMatch ? currentPath : pathFromValue;
     });
   }, [value, findPathFromDisplayString]);
@@ -108,7 +126,9 @@ export function CategorySelect({ value, onChange, label = "Category", className 
     // Check if this category is already selected
     const isCurrentlySelected =
       selectedCategoryPath.length === newPath.length &&
-      selectedCategoryPath.every((segment, index) => segment === newPath[index]);
+      selectedCategoryPath.every(
+        (segment, index) => segment === newPath[index],
+      );
 
     if (isCurrentlySelected) {
       // Deselect
@@ -173,6 +193,8 @@ export function CategorySelect({ value, onChange, label = "Category", className 
             initializeCategoryNavigation();
           } else {
             resetCategoryNavigation();
+            setHoveredRow(null);
+            setHoveredArea(null);
           }
         }}
       >
@@ -182,12 +204,20 @@ export function CategorySelect({ value, onChange, label = "Category", className 
             className="w-full justify-between h-9"
             icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
           >
-            <span className={cn("truncate", value === "Select category" ? "text-tertiary" : "text-primary")}>
+            <span
+              className={cn(
+                "truncate",
+                value === "Select category" ? "text-tertiary" : "text-primary",
+              )}
+            >
               {value}
             </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+        <PopoverContent
+          className="p-0 w-[--radix-popover-trigger-width]"
+          align="start"
+        >
           <div className="flex flex-col">
             {/* Navigation Bar */}
             {categoryPath.length > 0 && (
@@ -205,78 +235,90 @@ export function CategorySelect({ value, onChange, label = "Category", className 
 
             {/* Options */}
             <div className="max-h-48 overflow-y-auto">
-              {Object.entries(getCurrentLevelOptions()).map(([key, value]: [string, any]) => {
-                const hasChildren = value.children && Object.keys(value.children).length > 0;
-                const currentPath = [...categoryPath, key];
-                const isSelected =
-                  selectedCategoryPath.length === currentPath.length &&
-                  selectedCategoryPath.every((segment, index) => segment === currentPath[index]);
+              {Object.entries(getCurrentLevelOptions()).map(
+                ([key, value]: [string, any]) => {
+                  const hasChildren =
+                    value.children && Object.keys(value.children).length > 0;
+                  const currentPath = [...categoryPath, key];
+                  const isSelected =
+                    selectedCategoryPath.length === currentPath.length &&
+                    selectedCategoryPath.every(
+                      (segment, index) => segment === currentPath[index],
+                    );
 
-                return (
-                  <div key={key} className="relative">
-                    {hasChildren ? (
-                      // Button-in-button layout for items with children
-                      <div
-                        className={cn(
-                          "flex transition-colors",
-                          hoveredRow === key ? "bg-accent" : "",
-                        )}
-                        onMouseLeave={() => {
-                          setHoveredRow(null);
-                          setHoveredArea(null);
-                        }}
-                      >
-                        {/* Selection area */}
+                  return (
+                    <div key={key} className="relative">
+                      {hasChildren ? (
+                        // Button-in-button layout for items with children
+                        <div
+                          className={cn(
+                            "flex transition-colors",
+                            hoveredRow === key ? "bg-accent" : "",
+                          )}
+                          onMouseLeave={() => {
+                            setHoveredRow(null);
+                            setHoveredArea(null);
+                          }}
+                        >
+                          {/* Selection area */}
+                          <button
+                            type="button"
+                            onClick={() => handleCategorySelect(key)}
+                            onMouseEnter={() => {
+                              setHoveredRow(key);
+                              setHoveredArea("selection");
+                            }}
+                            className={cn(
+                              "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                              isSelected
+                                ? "bg-accent-blue text-brand"
+                                : hoveredRow === key &&
+                                    hoveredArea === "selection"
+                                  ? "bg-border text-primary"
+                                  : "text-primary",
+                            )}
+                          >
+                            <span>{value.label}</span>
+                            {isSelected && (
+                              <Icons.Check className="h-4 w-4 text-brand" />
+                            )}
+                          </button>
+
+                          {/* Navigation area */}
+                          <button
+                            type="button"
+                            onClick={() => handleCategoryNavigate(key)}
+                            onMouseEnter={() => {
+                              setHoveredRow(key);
+                              setHoveredArea("navigation");
+                            }}
+                            className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
+                          >
+                            <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
+                          </button>
+                        </div>
+                      ) : (
+                        // Full-width button for leaf items
                         <button
                           type="button"
                           onClick={() => handleCategorySelect(key)}
-                          onMouseEnter={() => {
-                            setHoveredRow(key);
-                            setHoveredArea("selection");
-                          }}
                           className={cn(
-                            "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                            "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
                             isSelected
                               ? "bg-accent-blue text-brand"
-                              : hoveredRow === key && hoveredArea === "selection"
-                                ? "bg-border text-primary"
-                                : "text-primary",
+                              : "hover:bg-accent text-primary",
                           )}
                         >
                           <span>{value.label}</span>
-                          {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
+                          {isSelected && (
+                            <Icons.Check className="h-4 w-4 text-brand" />
+                          )}
                         </button>
-
-                        {/* Navigation area */}
-                        <button
-                          type="button"
-                          onClick={() => handleCategoryNavigate(key)}
-                          onMouseEnter={() => {
-                            setHoveredRow(key);
-                            setHoveredArea("navigation");
-                          }}
-                          className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
-                        >
-                          <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
-                        </button>
-                      </div>
-                    ) : (
-                      // Full-width button for leaf items
-                      <button
-                        type="button"
-                        onClick={() => handleCategorySelect(key)}
-                        className={cn(
-                          "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
-                          isSelected ? "bg-accent-blue text-brand" : "hover:bg-accent text-primary",
-                        )}
-                      >
-                        <span>{value.label}</span>
-                        {isSelected && <Icons.Check className="h-4 w-4 text-brand" />}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+                      )}
+                    </div>
+                  );
+                },
+              )}
             </div>
           </div>
         </PopoverContent>
@@ -284,4 +326,3 @@ export function CategorySelect({ value, onChange, label = "Category", className 
     </div>
   );
 }
-

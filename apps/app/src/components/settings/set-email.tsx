@@ -11,8 +11,6 @@ interface Brand {
   id: string;
   name: string;
   email?: string | null;
-  logo_path?: string | null;
-  avatar_hue?: number | null;
   country_code?: string | null;
 }
 
@@ -21,7 +19,7 @@ function SetEmail() {
   const { data: user } = useUserQuery();
   const updateBrand = useBrandUpdateMutation();
 
-  const brands = (brandsData as { data: Brand[] } | undefined)?.data ?? [];
+  const brands = (brandsData as Brand[] | undefined) ?? [];
   const activeBrand = brands.find(
     (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
   );

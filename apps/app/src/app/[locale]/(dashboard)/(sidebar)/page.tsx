@@ -10,7 +10,7 @@ export default async function DashboardPage() {
   const queryClient = getQueryClient();
 
   // Get current user for basic info (already prefetched in layout)
-  const user = await queryClient.fetchQuery(trpc.user.me.queryOptions());
+  const user = await queryClient.fetchQuery(trpc.user.get.queryOptions());
 
   return (
     <HydrateClient>

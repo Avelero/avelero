@@ -1,14 +1,13 @@
 import { MembersTable } from "@/components/tables/members/members";
 import { MembersSkeleton } from "@/components/tables/members/skeleton";
-import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import { createClient as createSupabaseServerClient } from "@v1/supabase/server";
 import { Suspense } from "react";
 
 export default async function Page() {
-  // Prefetch members and invites for better UX using server-side brand context
-  await batchPrefetch([trpc.brand.members.queryOptions()]);
+  const queryClient = getQueryClient();
 
-  // Also prefetch invites if we can resolve the active brand_id server-side
+  // Prefetch composite members + invites when active brand is available
   try {
     const supabase = await createSupabaseServerClient();
     const {
@@ -23,10 +22,11 @@ export default async function Page() {
       const brandId =
         (data as { brand_id: string | null } | null)?.brand_id ?? null;
       if (brandId) {
-        const invitesOpts = trpc.brand.listInvites.queryOptions({
-          brand_id: brandId,
-        });
-        await batchPrefetch([invitesOpts]);
+        await queryClient.prefetchQuery(
+          trpc.composite.membersWithInvites.queryOptions({
+            brand_id: brandId,
+          }),
+        );
       }
     }
   } catch {}

@@ -57,12 +57,18 @@ export const columns: ColumnDef<Passport>[] = [
       const router = useRouter();
       const product = row.original;
       const meta = table.options.meta as
-        | { handleRangeSelection?: (index: number, shift: boolean, id: string) => void }
+        | {
+            handleRangeSelection?: (
+              index: number,
+              shift: boolean,
+              id: string,
+            ) => void;
+          }
         | undefined;
 
       return (
         <div className="flex h-full items-center gap-4">
-          <label 
+          <label
             className="relative inline-flex h-4 w-4 items-center justify-center cursor-pointer before:absolute before:right-[-12px] before:left-[-16px] before:top-[-21px] before:bottom-[-21px] before:content-['']"
             onClick={(event) => event.stopPropagation()}
             onMouseDown={(event) => {
@@ -80,16 +86,16 @@ export const columns: ColumnDef<Passport>[] = [
               onChange={(event) => {
                 const checked = event.target.checked;
                 const shiftKey = (event.nativeEvent as MouseEvent).shiftKey;
-                
+
                 // Prevent focus ring on checkbox
                 (event.target as HTMLInputElement).blur();
-                
+
                 // For range selection (shift-click), let handleRangeSelection handle everything
                 // For regular clicks, toggle immediately for instant feedback
                 if (!shiftKey) {
                   row.toggleSelected(checked);
                 }
-                
+
                 // Handle range selection or update last clicked index
                 meta?.handleRangeSelection?.(row.index, shiftKey, product.id);
               }}

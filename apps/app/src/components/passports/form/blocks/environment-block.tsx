@@ -1,11 +1,11 @@
 "use client";
 
-import * as React from "react";
-import { Label } from "@v1/ui/label";
-import { Input } from "@v1/ui/input";
 import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
 import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
+import { Input } from "@v1/ui/input";
+import { Label } from "@v1/ui/label";
+import * as React from "react";
 
 interface EcoClaim {
   id: string;
@@ -20,47 +20,55 @@ export function EnvironmentSection() {
   // Normalize numeric input: handle commas, spaces, multiple decimals, and precision
   const normalizeNumericInput = (value: string): string => {
     if (!value || value.trim() === "") return "";
-    
+
     // Remove spaces
     let normalized = value.replace(/\s+/g, "");
-    
+
     // Find the first decimal separator (. or ,)
     const firstDecimalIndex = normalized.search(/[.,]/);
-    
+
     if (firstDecimalIndex !== -1) {
       // Split by the first decimal separator
       const integerPart = normalized.substring(0, firstDecimalIndex);
       const decimalPart = normalized.substring(firstDecimalIndex + 1);
-      
+
       // Remove all non-digits from decimal part and limit to 4 digits
       const cleanDecimal = decimalPart.replace(/[^\d]/g, "").substring(0, 4);
-      
+
       // Remove non-digits from integer part
       const cleanInteger = integerPart.replace(/[^\d]/g, "");
-      
+
       // Remove leading zeros but keep "0" if that's the only digit
       const trimmedInteger = cleanInteger.replace(/^0+/, "") || "0";
-      
+
       // Combine, only add decimal if there's a decimal part
-      normalized = cleanDecimal ? `${trimmedInteger}.${cleanDecimal}` : trimmedInteger;
+      normalized = cleanDecimal
+        ? `${trimmedInteger}.${cleanDecimal}`
+        : trimmedInteger;
     } else {
       // No decimal separator, just clean digits and remove leading zeros
       normalized = normalized.replace(/[^\d]/g, "");
       normalized = normalized.replace(/^0+/, "") || "0";
     }
-    
+
     return normalized;
   };
 
   // Handle input change - allow any numeric characters while typing
-  const handleNumericChange = (value: string, setter: (value: string) => void) => {
+  const handleNumericChange = (
+    value: string,
+    setter: (value: string) => void,
+  ) => {
     // Allow only digits, spaces, commas, and periods while typing
     const filtered = value.replace(/[^\d\s.,]/g, "");
     setter(filtered);
   };
 
   // Handle blur - normalize the value
-  const handleNumericBlur = (value: string, setter: (value: string) => void) => {
+  const handleNumericBlur = (
+    value: string,
+    setter: (value: string) => void,
+  ) => {
     const normalized = normalizeNumericInput(value);
     setter(normalized);
   };
@@ -79,7 +87,7 @@ export function EnvironmentSection() {
     // Limit to 50 characters
     if (value.length <= 50) {
       setEcoClaims((prev) =>
-        prev.map((claim) => (claim.id === id ? { ...claim, value } : claim))
+        prev.map((claim) => (claim.id === id ? { ...claim, value } : claim)),
       );
     }
   };

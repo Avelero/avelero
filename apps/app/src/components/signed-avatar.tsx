@@ -5,6 +5,7 @@ import { SmartAvatar } from "@v1/ui/avatar";
 type Props = {
   bucket: "avatars" | "brand-avatars";
   path?: string | null;
+  url?: string | null;
   name?: string | null;
   hue?: number | null;
   size?: number;
@@ -14,18 +15,43 @@ type Props = {
 export function SignedAvatar({
   bucket,
   path,
+  url,
   name,
   hue,
   size = 40,
   loading,
 }: Props) {
-  const effectiveHue = path ? null : hue;
-  const src = path
-    ? `/api/storage/${bucket}/${path
+  // Determine the source URL for the avatar
+  let src: string | undefined;
+  
+  if (url) {
+    // If url is provided, use it directly (could be full URL or path)
+    // If it's already a full URL (starts with http/https), use as-is
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      src = url;
+    } else if (url.startsWith("data:") || url.startsWith("blob:")) {
+      // Keep data: and blob: URIs intact
+      src = url;
+    } else if (url.startsWith("/")) {
+      // If it starts with /, it's already a path like /api/storage/...
+      src = url;
+    } else {
+      // Otherwise, treat it as a storage path and construct the proxy URL
+      src = `/api/storage/${bucket}/${url
         .split("/")
         .map(encodeURIComponent)
-        .join("/")}`
-    : undefined;
+        .join("/")}`;
+    }
+  } else if (path) {
+    // If path is provided, construct the storage proxy URL
+    src = `/api/storage/${bucket}/${path
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")}`;
+  }
+
+  // Only show hue color if there's no image source
+  const effectiveHue = src ? null : hue;
 
   return (
     <SmartAvatar

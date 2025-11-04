@@ -1,31 +1,47 @@
 "use client";
 
-import * as React from "react";
+import { Button } from "@v1/ui/button";
+import { DatePicker } from "@v1/ui/date-picker";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@v1/ui/dialog";
-import { Label } from "@v1/ui/label";
 import { Input } from "@v1/ui/input";
-import { Button } from "@v1/ui/button";
-import { DatePicker } from "@v1/ui/date-picker";
-import { cn } from "@v1/ui/cn";
+import { Label } from "@v1/ui/label";
+import { toast } from "@v1/ui/sonner";
+import * as React from "react";
 
 interface SeasonModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (season: { name: string; startDate: Date | null; endDate: Date | null; ongoing: boolean }) => void;
+  onSave: (season: {
+    name: string;
+    startDate: Date | null;
+    endDate: Date | null;
+    ongoing: boolean;
+  }) => void;
   initialName?: string;
 }
 
-export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonModalProps) {
+export function SeasonModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialName,
+}: SeasonModalProps) {
   const [name, setName] = React.useState("");
   const [startDate, setStartDate] = React.useState<Date | null>(null);
   const [endDate, setEndDate] = React.useState<Date | null>(null);
   const [ongoing, setOngoing] = React.useState(false);
+  // Preserve dates when toggling ongoing to allow restoration
+  const [preservedStartDate, setPreservedStartDate] =
+    React.useState<Date | null>(null);
+  const [preservedEndDate, setPreservedEndDate] = React.useState<Date | null>(
+    null,
+  );
 
   // Prefill name when modal opens with provided initialName
   React.useEffect(() => {
@@ -34,15 +50,34 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
     }
   }, [open, initialName]);
 
-  // If ongoing is enabled, clear any set dates to avoid submitting them
+  // Handle ongoing toggle with date preservation
   React.useEffect(() => {
     if (ongoing) {
+      // Preserve current dates (including null) before clearing
+      setPreservedStartDate(startDate);
+      setPreservedEndDate(endDate);
       setStartDate(null);
       setEndDate(null);
+    } else {
+      // Restore preserved dates when toggling back
+      setStartDate(preservedStartDate);
+      setEndDate(preservedEndDate);
     }
   }, [ongoing]);
 
   const handleSave = () => {
+    // Validate dates for non-ongoing seasons
+    if (!ongoing) {
+      if (!startDate || !endDate) {
+        toast.error("Please provide both start and end dates");
+        return;
+      }
+      if (startDate > endDate) {
+        toast.error("Start date must be before end date");
+        return;
+      }
+    }
+
     // TODO: Save to backend
     onSave({ name, startDate, endDate, ongoing });
     // Reset form
@@ -50,6 +85,8 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
     setStartDate(null);
     setEndDate(null);
     setOngoing(false);
+    setPreservedStartDate(null);
+    setPreservedEndDate(null);
     onOpenChange(false);
   };
 
@@ -59,6 +96,8 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
     setStartDate(null);
     setEndDate(null);
     setOngoing(false);
+    setPreservedStartDate(null);
+    setPreservedEndDate(null);
     onOpenChange(false);
   };
 
@@ -69,6 +108,8 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
       setStartDate(null);
       setEndDate(null);
       setOngoing(false);
+      setPreservedStartDate(null);
+      setPreservedEndDate(null);
     }
     onOpenChange(newOpen);
   };
@@ -79,7 +120,7 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
         <DialogHeader className="px-6 pt-6 pb-3">
           <DialogTitle>Add season</DialogTitle>
         </DialogHeader>
-        
+
         <div className="px-6 flex flex-col gap-3">
           {/* Season Name */}
           <div className="space-y-1.5">
@@ -128,7 +169,9 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
                   </span>
                 )}
               </span>
-              <span className="type-p text-primary">This season is ongoing</span>
+              <span className="type-p text-primary">
+                This season is ongoing
+              </span>
             </label>
           </div>
         </div>
@@ -145,4 +188,3 @@ export function SeasonModal({ open, onOpenChange, onSave, initialName }: SeasonM
     </Dialog>
   );
 }
-

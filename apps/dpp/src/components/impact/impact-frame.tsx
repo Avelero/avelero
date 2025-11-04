@@ -14,7 +14,7 @@ export function ImpactFrame({ metrics, claims, isLast = false }: Props) {
   return (
     <div className={`px-sm md:px-0 pt-lg pb-lg flex flex-col gap-sm${isLast ? ' pb-0' : ''}`}>
       <h6 className="impact-card__title">
-        IMPACT
+        Impact
       </h6>
       
       <div className="flex flex-col gap-sm">

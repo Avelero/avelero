@@ -4,6 +4,16 @@
  * and root-level design tokens (colors, typography)
  */
 
+export interface CustomFont {
+  fontFamily: string;           // e.g., 'ABC Favorit', 'Brand Font'
+  src: string;                  // CDN URL: 'https://cdn.example.com/font.woff2'
+  fontWeight?: number | string; // 400, 700, or '100 900' for variable fonts
+  fontStyle?: string;           // 'normal', 'italic'
+  fontDisplay?: string;         // 'swap' (default), 'block', 'fallback', 'optional'
+  format?: string;              // 'woff2' (default), 'woff', 'truetype', 'opentype'
+  unicodeRange?: string;        // Optional: 'U+0000-00FF' for subsetting
+}
+
 export interface TypographyScale {
   fontSize?: string | number;
   fontWeight?: number;
@@ -59,6 +69,7 @@ export interface ComponentStyleOverride {
   textTransform?: string;
   textDecoration?: string;
   whiteSpace?: string;
+  textAlign?: string;
   
   // Colors
   color?: string;
@@ -122,6 +133,7 @@ export interface ComponentStyleOverride {
  * Contains style overrides for component classes and design system tokens
  */
 export interface ThemeStyles extends DesignTokens {
+  customFonts?: CustomFont[];  // Array of custom CDN fonts to load via @font-face
   // Component class overrides - key matches the component class name in globals.css
   'header'?: ComponentStyleOverride;
   'header__text-logo'?: ComponentStyleOverride;
@@ -137,6 +149,7 @@ export interface ThemeStyles extends DesignTokens {
   'product-details__row'?: ComponentStyleOverride;
   'product-details__row-label'?: ComponentStyleOverride;
   'product-details__row-value'?: ComponentStyleOverride;
+  'product-details__row-link'?: ComponentStyleOverride;
   'menu-button'?: ComponentStyleOverride;
   'impact-card'?: ComponentStyleOverride;
   'impact-card__title'?: ComponentStyleOverride;
@@ -145,6 +158,10 @@ export interface ThemeStyles extends DesignTokens {
   'impact-card__unit'?: ComponentStyleOverride;
   'impact-card__eco-claim'?: ComponentStyleOverride;
   'impact-card__eco-claim-text'?: ComponentStyleOverride;
+  'impact-card__icon-leaf'?: ComponentStyleOverride;
+  'impact-card__icon-drop'?: ComponentStyleOverride;
+  'impact-card__icon-recycle'?: ComponentStyleOverride;
+  'impact-card__icon-factory'?: ComponentStyleOverride;
   'materials-card'?: ComponentStyleOverride;
   'materials-card__title'?: ComponentStyleOverride;
   'materials-card__percentage'?: ComponentStyleOverride;

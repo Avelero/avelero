@@ -1,4 +1,3 @@
-import { Drop as DropIcon, Leaf as LeafIcon } from "@phosphor-icons/react/dist/ssr";
 import {
   AlertCircle,
   ArrowDown10,
@@ -305,7 +304,4 @@ export const Icons = {
   Pinterest,
   TikTok,
   Linkedin,
-  // Phosphor Icons
-  PhosphorDrop: DropIcon,
-  PhosphorLeaf: LeafIcon,
 };

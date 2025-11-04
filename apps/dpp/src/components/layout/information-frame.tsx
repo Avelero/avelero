@@ -76,6 +76,7 @@ export function InformationFrame({ data, themeConfig }: Props) {
       {sections.showMaterials && data.materials.length > 0 && (
         <MaterialsFrame
           materials={data.materials}
+          themeConfig={themeConfig}
           isLast={lastSection === 'Materials'}
         />
       )}

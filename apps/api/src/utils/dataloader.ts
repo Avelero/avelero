@@ -100,7 +100,7 @@ function createUserByIdLoader(
       // Cache for request duration to prevent redundant queries
       cache: true,
       // Batch window: collect requests for 10ms before executing
-      batchScheduleFn: (callback) => setTimeout(callback, 10),
+      batchScheduleFn: (callback: () => void) => setTimeout(callback, 10),
     },
   );
 }
@@ -139,7 +139,7 @@ function createBrandByIdLoader(
     },
     {
       cache: true,
-      batchScheduleFn: (callback) => setTimeout(callback, 10),
+      batchScheduleFn: (callback: () => void) => setTimeout(callback, 10),
     },
   );
 }
@@ -212,9 +212,9 @@ function createNextBrandForUserLoader(
     },
     {
       cache: true,
-      batchScheduleFn: (callback) => setTimeout(callback, 10),
+      batchScheduleFn: (callback: () => void) => setTimeout(callback, 10),
       // Custom cache key function since we're using objects
-      cacheKeyFn: (key) => `${key.userId}:${key.excludeBrandId ?? "null"}`,
+      cacheKeyFn: (key: { userId: string; excludeBrandId: string | null }) => `${key.userId}:${key.excludeBrandId ?? "null"}`,
     },
   );
 }

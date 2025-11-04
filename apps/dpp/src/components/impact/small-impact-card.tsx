@@ -14,7 +14,7 @@ export function SmallImpactCard({ claim }: Props) {
       className="px-md py-sm impact-card__eco-claim border flex items-center whitespace-nowrap flex-shrink-0"
     >
       <div className="flex items-center gap-xs">
-        <Icons.Check className="w-[17.5px] h-[17.5px] text-highlight" />
+        <Icons.Check className="w-[17.5px] h-[17.5px]" />
         <div className="impact-card__eco-claim-text">
           {truncatedClaim}
         </div>

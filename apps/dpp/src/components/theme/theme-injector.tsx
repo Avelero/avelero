@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 interface Props {
   cssVars: string;
   googleFontsUrl?: string;
+  fontFaceCSS?: string;
 }
 
 // Global reference counters for font management
@@ -15,7 +16,7 @@ const preconnectReferenceCount = new Map<string, number>();
  * Client component that injects theme CSS variables and Google Fonts into the document
  * This allows the parent page to remain a Server Component for SSR
  */
-export function ThemeInjector({ cssVars, googleFontsUrl }: Props) {
+export function ThemeInjector({ cssVars, googleFontsUrl, fontFaceCSS }: Props) {
   // Dynamically inject Google Fonts link tags with preconnect for performance
   useEffect(() => {
     if (!googleFontsUrl) return;
@@ -101,16 +102,21 @@ export function ThemeInjector({ cssVars, googleFontsUrl }: Props) {
     };
   }, [googleFontsUrl]);
 
-  // Only render style tag if there are CSS variables to inject
-  if (!cssVars) {
-    return null;
-  }
-
   return (
-    <style jsx global>{`
-      :root {
-        ${cssVars}
-      }
-    `}</style>
+    <>
+      {/* Inject @font-face rules for custom CDN fonts */}
+      {fontFaceCSS && (
+        <style jsx global>{`${fontFaceCSS}`}</style>
+      )}
+      
+      {/* Inject CSS variables */}
+      {cssVars && (
+        <style jsx global>{`
+          :root {
+            ${cssVars}
+          }
+        `}</style>
+      )}
+    </>
   );
 }

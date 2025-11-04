@@ -12,7 +12,7 @@ export function JourneyFrame({ journey, themeConfig, isLast = false }: Props) {
   return (
     <div className={`mx-sm md:mx-0 mt-lg mb-lg flex flex-col gap-sm${isLast ? ' mb-0' : ''}`}>
       <h6 className="journey-card__title">
-        JOURNEY
+        Journey
       </h6>
       
       <div className="flex flex-col py-md pl-md journey-card border">

@@ -36,7 +36,7 @@ export function ProductDetails({
           </div>
           <div className="product-details__row-value text-right">
             {articleNumberClickable ? (
-              <a href="#article-number" className="cursor-pointer text-highlight">
+              <a href="#article-number" className="product-details__row-link cursor-pointer">
                 {articleNumber}
               </a>
             ) : (
@@ -54,7 +54,7 @@ export function ProductDetails({
           </div>
           <div className="product-details__row-value text-right">
             {manufacturerClickable ? (
-              <a href="#manufacturer" className="cursor-pointer text-highlight">
+              <a href="#manufacturer" className="cursor-pointer product-details__row-link">
                 {manufacturer}
               </a>
             ) : (

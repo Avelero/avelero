@@ -1,23 +1,21 @@
-import "@v1/ui/globals.css";
+import "@/styles/globals.css";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
-import { Provider as AnalyticsProvider } from "@v1/analytics/client";
 import { cn } from "@v1/ui/cn";
-import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 
-const DepartureMono = localFont({
-  src: "../fonts/DepartureMono-Regular.woff2",
-  variable: "--font-departure-mono",
+const Switzer = localFont({
+  src: "../fonts/Switzer-Regular.woff2",
+  variable: "--font-switzer",
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://v1.run"),
-  title: "Create v1",
+  metadataBase: new URL("https://avelero.app"),
+  title: "Avelero",
   description:
-    "A free, open-source starter kit for your next project, built with insights from Midday.",
+    "Avelero is built for fashion brands that want to launch compliant product passports in days, not months. Integrate your systems, estimate product footprints, and design on-brand experiences that customers want to explore.",
 };
 
 export default function RootLayout({
@@ -28,16 +26,24 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={cn(
-          `${DepartureMono.variable} ${GeistSans.variable} ${GeistMono.variable}`,
-          "antialiased dark",
+          `${Switzer.variable} ${GeistSans.variable}`,
+          "font-sans antialiased",
+          "bg-background text-foreground",
+          "h-screen w-screen",
+          "overflow-y-auto overflow-x-hidden",
         )}
       >
-        <Header />
-        {children}
-        <Footer />
-
-        {/* <AnalyticsProvider /> */}
+        <div className="max-w-[1280px] min-h-full xl:mx-auto xl:border-x xl:border-border">
+          <div className="h-full flex flex-col">
+            <div className="px-16 flex-1">
+              <Header />
+              {children}
+            </div>
+            <Footer />
+          </div>
+        </div>
       </body>
     </html>
   );

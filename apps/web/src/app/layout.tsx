@@ -5,6 +5,7 @@ import { cn } from "@v1/ui/cn";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { CTABlock } from "@/components/cta-block";
 
 const Switzer = localFont({
   src: "../fonts/Switzer-Regular.woff2",
@@ -37,9 +38,10 @@ export default function RootLayout({
       >
         <div className="max-w-[1280px] min-h-full xl:mx-auto xl:border-x xl:border-border">
           <div className="h-full flex flex-col">
-            <div className="px-16 flex-1">
-              <Header />
+            <Header />
+            <div className="px-4 sm:px-16 flex-1">
               {children}
+              <CTABlock />
             </div>
             <Footer />
           </div>

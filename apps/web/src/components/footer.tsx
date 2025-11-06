@@ -3,7 +3,7 @@ import { AveleroText } from "@v1/ui/avelero-text";
 
 export function Footer() {
   return (
-    <footer className="px-16 bg-card border-t border-border overflow-hidden">
+    <footer className="px-4 sm:px-16 bg-card border-t border-border overflow-hidden">
       <div className="mb-8">
         <nav>
           <div className="flex justify-between gap-4 py-8">
@@ -13,17 +13,17 @@ export function Footer() {
                 <h6 className="text-small text-foreground/50 pb-1">Product</h6>
                 <ul>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="/customization">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/customization">
                       Customization
                     </a>
                   </li>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="/calculations">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/calculations">
                       Calculations
                     </a>
                   </li>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="/pricing">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/pricing">
                       Pricing
                     </a>
                   </li>
@@ -33,17 +33,17 @@ export function Footer() {
                 <h6 className="text-small text-foreground/50 pb-1">Resources</h6>
                 <ul>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="/compliance">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/compliance">
                       Compliance
                     </a>
                   </li>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="/about">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/about">
                       About
                     </a>
                   </li>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="/blog">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/blog">
                       Blog
                     </a>
                   </li>
@@ -53,12 +53,12 @@ export function Footer() {
                 <h6 className="text-small text-foreground/50 pb-1">Legal</h6>
                 <ul>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="/terms-and-conditions">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/terms-and-conditions">
                       Terms & conditions
                     </a>
                   </li>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="/privacy-policy">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/privacy-policy">
                       Privacy policy
                     </a>
                   </li>
@@ -68,17 +68,17 @@ export function Footer() {
                 <h6 className="text-small text-foreground/50 pb-1">Connect</h6>
                 <ul>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="mailto:raf@avelero.com">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="mailto:raf@avelero.com">
                       raf@avelero.com
                     </a>
                   </li>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="https://www.linkedin.com/company/avelero">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="https://www.linkedin.com/company/avelero">
                       LinkedIn
                     </a>
                   </li>
                   <li>
-                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-150 py-1" href="https://x.com/avelerodpp">
+                    <a className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="https://x.com/avelerodpp">
                       X
                     </a>
                   </li>

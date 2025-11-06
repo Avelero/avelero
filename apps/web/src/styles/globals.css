@@ -46,10 +46,11 @@
                   inset 0 0 0 1px hsl(240 80% 4% / 10%),
                   inset -0.8px 0.8px 0 1.5px hsl(240 100% 99% / 50%);
       background: linear-gradient(45deg, hsl(240 23% 95%) 64%, hsl(240 23% 97%) 100%);
+      transition: filter 0.1s ease-in-out;
     }
     
     .button-3d-default:hover {
-      background: linear-gradient(45deg, hsl(240 23% 92%) 64%, hsl(240 23% 94%) 100%);
+      filter: brightness(0.97);
     }
     
     .button-3d-brand {
@@ -57,9 +58,10 @@
                     inset 0 0 0 1px hsl(240 80% 4% / 15%),
                     inset -0.8px 0.8px 0 1.5px hsl(240 100% 99% / 25%);
       background: linear-gradient(45deg, hsl(240 100% 50%) 64%, hsl(240 100% 60%) 100%);
+      transition: filter 0.1s ease-in-out;
     }
     
     .button-3d-brand:hover {
-      background: linear-gradient(45deg, hsl(240 100% 45%) 64%, hsl(240 100% 55%) 100%);
+      filter: brightness(0.9);
     }
   }

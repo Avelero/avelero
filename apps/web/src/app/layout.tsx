@@ -3,6 +3,7 @@ import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { cn } from "@v1/ui/cn";
 import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { CTABlock } from "@/components/cta-block";
@@ -29,7 +30,7 @@ export default function RootLayout({
       <body
         suppressHydrationWarning
         className={cn(
-          `${Switzer.variable} ${GeistSans.variable}`,
+          `${Switzer.variable} ${GeistSans.variable} ${GeistMono.variable}`,
           "font-sans antialiased",
           "bg-background text-foreground",
           "h-screen w-screen",
@@ -39,7 +40,7 @@ export default function RootLayout({
         <div className="max-w-[1280px] min-h-full xl:mx-auto xl:border-x xl:border-border">
           <div className="h-full flex flex-col">
             <Header />
-            <div className="px-4 sm:px-16 flex-1">
+            <div className="px-6 sm:px-16 flex-1">
               {children}
               <CTABlock />
             </div>

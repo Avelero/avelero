@@ -18,6 +18,10 @@ export default {
   				'var(--font-geist-sans)',
   				'system-ui',
   				'sans-serif'
+  			],
+  			'geist-mono': [
+  				'var(--font-geist-mono)',
+  				'monospace'
   			]
   		},
   		fontSize: {

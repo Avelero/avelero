@@ -3,11 +3,11 @@ import { AveleroText } from "@v1/ui/avelero-text";
 
 export function Footer() {
   return (
-    <footer className="px-4 sm:px-16 bg-card border-t border-border overflow-hidden">
+    <footer className="px-6 sm:px-16 bg-card border-t border-border overflow-hidden">
       <div className="mb-8">
         <nav>
-          <div className="flex justify-between gap-4 py-8">
-            <AveleroLogo height={24} color="var(--foreground)" />
+          <div className="flex flex-col md:flex-row justify-between gap-6 md:gap-4 py-6 md:py-8">
+            <AveleroLogo height={24} color="var(--foreground)" className="hidden md:block" />
             <div className="gap-x-3 gap-y-2 grid grid-cols-2 md:grid-cols-4">
               <div>
                 <h6 className="text-small text-foreground/50 pb-1">Product</h6>

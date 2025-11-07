@@ -1,12 +1,13 @@
 import { Icons } from "@v1/ui/icons";
 import { Button } from "./button";
+import Image from "next/image";
 
 export function BentoBlock() {
     return (
-        <div className="flex flex-col w-full py-[62px] gap-4 lg:gap-6">
-            <div className="flex flex-row items-center justify-between">
-                <h4 className="text-h5 text-foreground">Get compliant in days, not months</h4>
-                <Button variant="brand">Talk to founders</Button>
+        <div className="flex flex-col w-full py-[45px] sm:py-[62px] gap-4 lg:gap-6">
+            <div className="flex md:flex-row flex-col justify-between md:items-center">
+                <h4 className="text-h6 md:text-h5 text-foreground">Get compliant in days, <br className="md:hidden" /><span className="text-foreground/50 md:text-foreground">not months</span></h4>
+                <Button className="hidden md:inline-flex" variant="brand">Talk to founders</Button>
             </div>
             
             <div className="grid grid-cols-1 gap-4 lg:gap-6 w-full lg:grid-rows-2 lg:auto-rows-fr">
@@ -18,10 +19,26 @@ export function BentoBlock() {
                                 Drag & drop Excel files, PDFs, or other article data — Avelero understands, transforms, and stores it so your DPPs are ready in days, not months.
                             </p>
                         </div>
-                        <div className="flex-1 flex items-center justify-center p-6">
-                            <div className="flex w-full h-40 border-2 border-dashed border-border items-center justify-center text-center text-body text-foreground/50">
-                                <Icons.Upload className="w-6 h-6" />
-                            </div>
+                        <div className="relative lg:flex-1 flex items-center justify-center p-6 h-[220px] lg:h-auto">
+                            {/* Top image: 56px right of center, clamped to padding boundaries */}
+                            <Image 
+                                src="/document-upload-image-1.webp" 
+                                alt="Raw data uploads" 
+                                className="absolute top-6 left-[clamp(24px,calc(50%-46px),calc(100%-228px))] object-contain z-10" 
+                                quality={100} 
+                                width={204} 
+                                height={134} 
+                            />
+                            
+                            {/* Bottom image: 56px left of center, clamped to padding boundaries */}
+                            <Image 
+                                src="/document-upload-image-2.webp" 
+                                alt="Raw data uploads" 
+                                className="absolute bottom-6 left-[clamp(24px,calc(50%-158px),calc(100%-228px))] object-contain z-9" 
+                                quality={100} 
+                                width={204} 
+                                height={134} 
+                            />
                         </div>
                     </div>
 
@@ -33,9 +50,7 @@ export function BentoBlock() {
                             </p>
                         </div>
                         <div className="flex-1 flex items-center justify-center p-6">
-                            <div className="flex w-full h-40 border-2 border-dashed border-border items-center justify-center text-center text-body text-foreground/50">
-                                <Icons.Upload className="w-6 h-6" />
-                            </div>
+                            <Image src="/connector-image.webp" alt="System integrations" className="object-contain" quality={90} width={341} height={152} />
                         </div>
                     </div>
                 </div>
@@ -48,10 +63,8 @@ export function BentoBlock() {
                         </p>
                     </div>
 
-                    <div className="flex items-center justify-center p-6 lg:w-1/2">
-                        <div className="flex w-full h-40 border-2 border-dashed border-border items-center justify-center text-center text-body text-foreground/50">
-                            <Icons.Upload className="w-6 h-6" />
-                        </div>
+                    <div className="relative overflow-hidden pt-6 pl-6 lg:pr-0 lg:pb-0 lg:w-1/2 flex items-end lg:items-stretch">
+                        <Image src="/data-enrichment-image.webp" alt="Data enrichment" className="ml-auto lg:ml-0 lg:absolute lg:bottom-0 lg:left-6 lg:top-6 w-auto max-w-none max-h-[180px] sm:max-h-[200px] lg:max-h-none object-cover object-left-bottom" quality={90} width={553} height={277} />
                     </div>
                 </div>
             </div>

@@ -3,9 +3,9 @@ import { Icons } from "@v1/ui/icons";
 
 export function Hero() {
   return (
-    <div className="w-full pt-[92px] pb-[124px] flex flex-col gap-8 md:gap-16">
+    <div className="w-full pt-[58px] pb-[90px] sm:pt-[92px] sm:pb-[124px] flex flex-col gap-8 md:gap-16">
         <h1 className="text-[10vw] sm:text-[clamp(3.8rem,9.5vw,4.8rem)] md:text-[clamp(4.8rem,10vw,6.7rem)] lg:text-[clamp(6.7rem,10.5vw,8.625rem)] xl:text-[8.625rem] leading-none text-foreground">Product passpo<span className="tracking-wide">rt</span>s that <span className="text-primary">engage</span></h1>
-         <div className="flex flex-col md:flex-row justify-start gap-4 md:gap-0 md:justify-between items-start md:items-end">
+         <div className="flex flex-col md:flex-row justify-start gap-8 md:gap-0 md:justify-between items-start md:items-end">
              <div className="flex flex-row gap-4 order-last md:order-first">
                  <Button variant="brand">Talk to founders</Button>
                 <Button asChild>

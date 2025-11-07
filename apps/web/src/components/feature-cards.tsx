@@ -12,10 +12,9 @@ export function FeatureCard({
   title,
   description,
   backgroundImage,
-  children,
 }: FeatureCardProps) {
   return (
-    <div className="flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-6 w-[282.66px] flex-shrink-0 lg:w-full justify-between">
         <div className="flex flex-col w-full">
           <h5 className="text-h6 text-foreground mb-2">{title}</h5>
           <p className="text-small text-foreground/50">{description}</p>
@@ -29,9 +28,6 @@ export function FeatureCard({
                 className="object-cover"
                 quality={90}
             />
-            <div className="relative w-full h-full @container">
-                {children}
-            </div>
         </div>
     </div>
   );
@@ -43,8 +39,10 @@ interface FeatureCardsProps {
 
 export function FeatureCards({ children }: FeatureCardsProps) {
   return (
-    <div className="py-[62px] grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {children}
+    <div className="w-screen -mx-6 sm:-mx-16 lg:mx-0 lg:w-full self-start py-[45px] sm:py-[62px] ">
+      <div className="flex flex-row overflow-x-auto overflow-y-hidden lg:overflow-x-visible [&::-webkit-scrollbar]:hidden gap-6 px-6 sm:px-16 lg:grid lg:grid-cols-3 lg:px-0">
+        {children}
+      </div>
     </div>
   );
 }

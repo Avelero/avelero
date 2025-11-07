@@ -38,7 +38,7 @@ export function Header() {
     <>
       <div className="h-4" />
       <header
-        className={`sticky top-0 w-full flex items-center justify-between z-50 py-4 px-4 sm:px-16 backdrop-blur-md bg-background/80 transition-none ${
+        className={`sticky top-0 w-full flex items-center justify-between z-50 py-4 px-6 sm:px-16 backdrop-blur-md bg-background/80 transition-none ${
           isMobileMenuOpen ? 'border-b-0 md:border-b' : 'border-b'
         }`}
         style={{
@@ -46,7 +46,8 @@ export function Header() {
         }}
       >
         <div className={isMobileMenuOpen ? 'invisible md:visible' : ''}>
-          <AveleroLogo height={32} color="var(--foreground)" />
+          <AveleroLogo className="hidden md:block" height={32} color="var(--foreground)" />
+          <AveleroLogo className="block md:hidden" height={24} color="var(--foreground)" />
         </div>
         
         {/* Desktop Navigation */}
@@ -71,17 +72,17 @@ export function Header() {
         {/* Mobile Navigation */}
         <div className="flex md:hidden items-center gap-3">
           <div className={isMobileMenuOpen ? 'invisible' : ''}>
-            <Button>Login</Button>
+            <Button size="sm">Login</Button>
           </div>
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="flex flex-col justify-center items-center w-10 h-10 gap-1.5 text-foreground hover:text-foreground/70 transition-colors duration-150"
+            className="flex flex-col justify-center items-center w-[30px] h-[30px] gap-1.5 text-foreground"
             aria-label="Toggle menu"
           >
-            <span className={`w-6 h-0.5 bg-current ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`} />
-            <span className={`w-6 h-0.5 bg-current ${isMobileMenuOpen ? 'opacity-0' : ''}`} />
-            <span className={`w-6 h-0.5 bg-current ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+            <span className={`w-6 h-[1.5px] bg-current ${isMobileMenuOpen ? 'rotate-45 translate-y-[7.5px]' : ''}`} />
+            <span className={`w-6 h-[1.5px] bg-current ${isMobileMenuOpen ? 'opacity-0' : ''}`} />
+            <span className={`w-6 h-[1.5px] bg-current ${isMobileMenuOpen ? '-rotate-45 -translate-y-[7.5px]' : ''}`} />
           </button>
         </div>
       </header>

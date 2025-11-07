@@ -3,8 +3,6 @@ import { HeroImage } from "@/components/hero-image";
 import { Brands, BrandCard } from "@/components/brand-cards";
 import { PlytixLogo, ShopifyLogo, ItsPerfectLogo, ApparelMagicLogo, AkeneoLogo, DelogueLogo } from "@/components/logos";
 import { FeatureCards, FeatureCard } from "@/components/feature-cards";
-import { PassportMenu } from "@/components/showcase/passport-menu";
-import { PassportBanner } from "@/components/showcase/passport-banner";
 import { TextBlock } from "@/components/text-block";
 import { FeatureBlock, FeatureBlockContent, FeatureBlockImage } from "@/components/feature-block";
 import { ComplianceBlock } from "@/components/compliance-block";
@@ -27,36 +25,42 @@ export default function Page() {
         <FeatureCard
           title="A reason to visit your DPP"
           description="Add care guides, repair services, and resell opportunities. Give customers a reason to return long after the purchase."
-          backgroundImage="/feature-card-1.webp"
+          backgroundImage="/passport-menu-image.webp"
         >
-          <PassportMenu />
         </FeatureCard>
         <FeatureCard
           title="Re-engage with your brand"
           description="Tell your story, share your impact, and build loyalty. Product passports are an extension of your brand."
-          backgroundImage="/feature-card-2.webp"
+          backgroundImage="/passport-banner-image.webp"
         >
-          <PassportBanner />
         </FeatureCard>
         <FeatureCard
           title="An opportunity to convert "
           description="Drive traffic back to your store with links to related products, newsletter signups, or campaign banners."
-          backgroundImage="/feature-card-3.webp"
+          backgroundImage="/passport-carousel-image.webp"
         >
-          <PassportMenu />
         </FeatureCard>
       </FeatureCards>
       <TextBlock spanText="Avelero is built for fashion brands" text="that want to get compliant fast. Extensive integrations, AI-powered carbon estimates, and custom themes get your passports published in days." />
       <FeatureBlock>
+        <FeatureBlockImage
+          image="/lca-engine-image.webp"
+          topTitle="Estimate your product footprint"
+          bottomTitle="with our LCA engine"
+        />
         <FeatureBlockContent
+          className="order-last md:order-first"
           topTitle="Estimate your product footprint"
           bottomTitle="with our LCA engine"
           description="Our LCA engine calculates carbon and water impact from your material and production data. Using validated open data sources and cradle-to-gate methodology, it gives you estimates ready to include in your digital product passports."
         />
-        <FeatureBlockImage image="/feature-section-1.webp" />
       </FeatureBlock>
       <FeatureBlock>
-        <FeatureBlockImage image="/feature-section-2.webp" />
+        <FeatureBlockImage
+          image="/customize-template-image.webp"
+          topTitle="Designed to engage,"
+          bottomTitle="modular & customizable"
+        />
         <FeatureBlockContent
           topTitle="Designed to engage,"
           bottomTitle="modular & customizable"

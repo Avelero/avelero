@@ -142,7 +142,10 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
   );
 
   const data = React.useMemo<StagingDataRow[]>(
-    () => response?.stagingData ?? [],
+    () => (response?.stagingData ?? []).map(row => ({
+      ...row,
+      action: row.action as "CREATE" | "UPDATE"
+    })),
     [response]
   );
 

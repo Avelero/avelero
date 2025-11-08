@@ -55,7 +55,7 @@ function formatColumnName(rawData: Record<string, unknown>, field: string | null
 
   // Try to extract column from error context
   const keys = Object.keys(rawData);
-  if (keys.length > 0) {
+  if (keys.length > 0 && keys[0]) {
     return keys[0]; // Fallback to first column
   }
 
@@ -163,7 +163,15 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
     try {
       toast.loading("Exporting failed rows...");
 
-      const result = await trpc.bulk.exportFailedRows.query({ jobId });
+      // Type-safe check for exportFailedRows availability
+      if (!trpc.bulk || !("exportFailedRows" in trpc.bulk)) {
+        toast.dismiss();
+        toast.error("Export functionality is not available");
+        return;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- trpc type issue
+      const result = await (trpc.bulk as any).exportFailedRows.query({ jobId });
 
       if (result.totalRows === 0) {
         toast.dismiss();

@@ -361,28 +361,37 @@ export function UnmappedValuesSection({
         open={materialSheetOpen}
         onOpenChange={setMaterialSheetOpen}
         initialName={selectedValue?.rawValue ?? ""}
-        onMaterialCreated={handleEntityCreated}
+        onMaterialCreated={(material) => handleEntityCreated(material as typeof material & { [key: string]: unknown })}
       />
 
       <ShowcaseBrandSheet
         open={showcaseBrandSheetOpen}
         onOpenChange={setShowcaseBrandSheetOpen}
         initialName={selectedValue?.rawValue ?? ""}
-        onBrandCreated={handleEntityCreated}
+        onBrandCreated={(brand) => handleEntityCreated(brand as typeof brand & { [key: string]: unknown })}
       />
 
       <OperatorSheet
         open={operatorSheetOpen}
         onOpenChange={setOperatorSheetOpen}
         initialName={selectedValue?.rawValue ?? ""}
-        onOperatorCreated={handleEntityCreated}
+        onOperatorCreated={(operator) => handleEntityCreated(operator as typeof operator & { [key: string]: unknown })}
       />
 
       <SizeModal
         open={sizeModalOpen}
         onOpenChange={setSizeModalOpen}
-        initialName={selectedValue?.rawValue ?? ""}
-        onSizeCreated={handleEntityCreated}
+        selectedCategory={selectedValue?.rawValue}
+        onSave={(sizes, categoryKey) => {
+          // SizeModal has different signature - handle accordingly
+          if (sizes.length > 0 && sizes[0] && selectedValue) {
+            handleEntityCreated({
+              id: categoryKey,
+              name: sizes[0],
+            });
+          }
+        }}
+        prefillSize={selectedValue?.rawValue}
       />
     </div>
   );

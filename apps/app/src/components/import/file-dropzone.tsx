@@ -109,7 +109,7 @@ export function FileDropzone({
       if (disabled || isUploading) return;
 
       const files = e.dataTransfer.files;
-      if (files && files.length > 0) {
+      if (files && files.length > 0 && files[0]) {
         validateAndSelectFile(files[0]);
       }
     },
@@ -119,7 +119,7 @@ export function FileDropzone({
   const handleFileInput = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
-      if (files && files.length > 0) {
+      if (files && files.length > 0 && files[0]) {
         validateAndSelectFile(files[0]);
       }
       // Reset input value so user can select the same file again if needed

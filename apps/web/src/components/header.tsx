@@ -46,39 +46,47 @@ export function Header() {
         }}
       >
         <div className={isMobileMenuOpen ? 'invisible md:visible' : ''}>
-          <AveleroLogo className="hidden md:block" height={32} color="var(--foreground)" />
-          <AveleroLogo className="block md:hidden" height={24} color="var(--foreground)" />
+          <a href="/" aria-label="Go to home page">
+            <AveleroLogo className="hidden md:block" height={32} color="var(--foreground)" />
+          </a>
+          <a href="/" aria-label="Go to home page">
+            <AveleroLogo className="block md:hidden" height={24} color="var(--foreground)" />
+          </a>
         </div>
         
         {/* Desktop Navigation */}
         <nav className="hidden md:block">
           <div className="flex items-center gap-4">
-            <a href="/product" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <a href="/product" aria-label="Go to product page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Product
             </a>
-            <a href="/compliance" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <a href="/compliance" aria-label="Go to compliance page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Compliance
             </a>
-            <a href="/pricing" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <a href="/pricing" aria-label="Go to pricing page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Pricing
             </a>
-            <a href="/resources" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <a href="/resources" aria-label="Open resources popover" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Resources
             </a>
-            <Button>Login</Button>
+            <Button asChild aria-label="Go to login page">
+              <a href="https://app.avelero.com/login" rel="noopener noreferrer">
+                <span>Login</span>
+              </a>
+            </Button>
           </div>
         </nav>
 
         {/* Mobile Navigation */}
         <div className="flex md:hidden items-center gap-3">
           <div className={isMobileMenuOpen ? 'invisible' : ''}>
-            <Button size="sm">Login</Button>
+            <Button aria-label="Go to login page" size="sm">Login</Button>
           </div>
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="flex flex-col justify-center items-center w-[30px] h-[30px] gap-1.5 text-foreground"
-            aria-label="Toggle menu"
+            aria-label="Open navbar mobile menu"
           >
             <span className={`w-6 h-[1.5px] bg-current ${isMobileMenuOpen ? 'rotate-45 translate-y-[7.5px]' : ''}`} />
             <span className={`w-6 h-[1.5px] bg-current ${isMobileMenuOpen ? 'opacity-0' : ''}`} />
@@ -89,7 +97,7 @@ export function Header() {
       
       {/* Mobile Menu Overlay */}
       <div
-        className={`fixed inset-0 top-0 z-40 bg-background md:hidden pt-[calc(64px+1rem)] ${
+        className={`fixed inset-0 top-0 z-20 bg-background md:hidden pt-[calc(64px+1rem)] ${
           isMobileMenuOpen ? 'block' : 'hidden'
         }`}
       >
@@ -97,6 +105,7 @@ export function Header() {
           <div className="flex flex-col items-start gap-6">
             <a 
               href="/product" 
+              aria-label="Go to product page"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
@@ -104,6 +113,7 @@ export function Header() {
             </a>
             <a 
               href="/compliance" 
+              aria-label="Go to compliance page"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
@@ -111,6 +121,7 @@ export function Header() {
             </a>
             <a 
               href="/pricing" 
+              aria-label="Go to pricing page"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
@@ -118,6 +129,7 @@ export function Header() {
             </a>
             <a 
               href="/resources" 
+              aria-label="Open resources popover"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >

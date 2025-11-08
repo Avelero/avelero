@@ -23,8 +23,10 @@ export function FeatureCard({
         <div className="relative aspect-square w-full overflow-hidden">
             <Image
                 src={backgroundImage}
-                alt=""
+                alt="Blue canvas background image"
                 fill
+                loading="lazy"
+                sizes="(max-width: 1024px) 70vw,(max-width: 1280px) 30vw, 370px"
                 className="object-cover"
                 quality={90}
             />

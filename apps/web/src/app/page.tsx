@@ -45,6 +45,7 @@ export default function Page() {
       <FeatureBlock>
         <FeatureBlockImage
           image="/lca-engine-image.webp"
+          imageAlt="LCA engine illustration"
           topTitle="Estimate your product footprint"
           bottomTitle="with our LCA engine"
         />
@@ -58,6 +59,7 @@ export default function Page() {
       <FeatureBlock>
         <FeatureBlockImage
           image="/customize-template-image.webp"
+          imageAlt="Customize template illustration"
           topTitle="Designed to engage,"
           bottomTitle="modular & customizable"
         />

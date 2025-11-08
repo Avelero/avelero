@@ -8,15 +8,15 @@ export function ComplianceBlock() {
                 <div className="md:flex flex-col justify-start gap-2 hidden">
                     <div className="flex flex-row items-center gap-[18px]">
                         <div className="h-1.5 w-1.5 bg-foreground"/>
-                        <p className="text-small text-foreground/50">AWL Compliant</p>
+                        <p className="text-small text-foreground/50">Up-to-date on regulatory requirements</p>
                     </div>
                     <div className="flex flex-row items-center gap-[18px]">
                         <div className="h-1.5 w-1.5 bg-foreground"/>
-                        <p className="text-small text-foreground/50">AWL Compliant</p>
+                        <p className="text-small text-foreground/50">AWL and ESPR aligned</p>
                     </div>
                     <div className="flex flex-row items-center gap-[18px]">
                         <div className="h-1.5 w-1.5 bg-foreground"/>
-                        <p className="text-small text-foreground/50">AWL Compliant</p>
+                        <p className="text-small text-foreground/50">You own your data</p>
                     </div>
                 </div>
             </div>
@@ -39,15 +39,15 @@ export function ComplianceBlock() {
             <div className="flex flex-col justify-start gap-2 md:hidden">
                 <div className="flex flex-row items-center gap-[10px]">
                     <div className="h-1.5 w-1.5 bg-foreground"/>
-                    <p className="text-small text-foreground/50">AWL Compliant</p>
+                    <p className="text-small text-foreground/50">Up-to-date on regulatory requirements</p>
                 </div>
                 <div className="flex flex-row items-center gap-[10px]">
                     <div className="h-1.5 w-1.5 bg-foreground"/>
-                    <p className="text-small text-foreground/50">AWL Compliant</p>
+                    <p className="text-small text-foreground/50">AWL and ESPR aligned</p>
                 </div>
                 <div className="flex flex-row items-center gap-[10px]">
                     <div className="h-1.5 w-1.5 bg-foreground"/>
-                    <p className="text-small text-foreground/50">AWL Compliant</p>
+                    <p className="text-small text-foreground/50">You own your data</p>
                 </div>
             </div>
         </div>

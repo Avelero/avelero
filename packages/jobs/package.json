@@ -17,7 +17,7 @@
     "@v1/email": "workspace:*",
     "@v1/supabase": "workspace:*",
     "react": "19.1.1",
-    "resend": "^4.0.0"
+    "resend": "^6.4.2"
   },
   "devDependencies": {
     "trigger.dev": "^4.0.4",

@@ -17,7 +17,10 @@ interface LogoProps {
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         style={{ color }}
+        role="img"
+        aria-label="Its Perfect logo"
       >
+        <title>Its Perfect logo</title>
         <g clipPath="url(#clip0_itsperfect)">
           <mask id="mask0_itsperfect" style={{ maskType: 'luminance' }} maskUnits="userSpaceOnUse" x="0" y="0" width="111" height="28">
             <path d="M110.067 0H0V27.9508H110.067V0Z" fill="white"/>

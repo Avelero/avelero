@@ -162,24 +162,24 @@ export function ContactDrawer() {
     };
 
     return (
-        <Drawer.Root repositionInputs={false} modal={false} open={isOpen} onOpenChange={setIsOpen}>
+        <Drawer.Root modal={false} open={isOpen} onOpenChange={setIsOpen}>
             <Drawer.Trigger asChild>
                 <Button variant="brand" aria-label="Open talk to founders drawer">Talk to founders</Button>
             </Drawer.Trigger>
             <Drawer.Portal>
                 <div 
                     data-state={isOpen ? "open" : "closed"}
-                    className="fixed inset-0 z-50 bg-black/20 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-150"
+                    className="fixed inset-0 z-40 bg-black/20 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-150"
                     onClick={() => setIsOpen(false)}
                     aria-hidden="true"
                 />
                 <Drawer.Content 
-                    className="fixed inset-x-3 bottom-0 mx-auto max-w-[369px] outline-none md:mx-auto md:w-full z-50"
+                    className="fixed inset-x-3 bottom-6 mx-auto max-w-[369px] outline-none md:mx-auto md:w-full z-50"
                     onCloseAutoFocus={(e) => e.preventDefault()}
                 >
                     <div
                         className={cn(
-                            "flex flex-col bg-background border border-border p-3 rounded-md overflow-hidden relative shadow-lg mb-6 transition-all duration-150 ease-in-out",
+                            "flex flex-col bg-background border border-border p-3 rounded-md overflow-hidden relative shadow-lg transition-all duration-150 ease-in-out",
                             // Form states
                             drawerState === 'collapsed' && !emailError && 'h-[62px]',
                             drawerState === 'collapsed' && emailError && 'h-[84px]',

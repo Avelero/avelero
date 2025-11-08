@@ -39,7 +39,7 @@ export function Header() {
     <>
       <div className="h-4" />
       <header
-        className={`sticky top-0 w-full flex items-center justify-between z-50 py-4 px-6 sm:px-16 backdrop-blur-md bg-background/80 transition-none ${
+        className={`sticky top-0 w-full flex items-center justify-between z-30 py-4 px-6 sm:px-16 backdrop-blur-md bg-background/80 transition-none ${
           isMobileMenuOpen ? 'border-b-0 md:border-b' : 'border-b'
         }`}
         style={{

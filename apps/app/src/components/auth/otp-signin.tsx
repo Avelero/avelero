@@ -42,7 +42,15 @@ export function OTPSignIn({ className }: Props) {
 
     setEmail(email);
 
-    await supabase.auth.signInWithOtp({ email });
+    // Use current deployment URL for email redirect (supports Vercel preview deployments)
+    const redirectUrl = `${window.location.origin}/api/auth/callback`;
+
+    await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: redirectUrl,
+      }
+    });
 
     setSent(true);
     setLoading(false);

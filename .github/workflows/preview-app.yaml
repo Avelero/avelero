@@ -84,6 +84,7 @@ jobs:
         run: bunx vercel env pull .env --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       
       - name: 🔄 Deploy Background Jobs
+        continue-on-error: true
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
         run: |

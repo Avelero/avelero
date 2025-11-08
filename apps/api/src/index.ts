@@ -86,16 +86,31 @@ const port = process.env.PORT ? Number.parseInt(process.env.PORT) : 4000;
 const httpServer = createServer((req, res) => {
   // Handle requests using Hono's fetch handler
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
-  const request = new Request(url, {
+
+  // Convert Node.js headers to Headers object
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value) {
+      if (Array.isArray(value)) {
+        for (const v of value) {
+          headers.append(key, v);
+        }
+      } else {
+        headers.set(key, value);
+      }
+    }
+  }
+
+  const request = new Request(url.toString(), {
     method: req.method,
-    headers: req.headers as HeadersInit,
+    headers,
     body:
       req.method !== "GET" && req.method !== "HEAD"
         ? (req as unknown as ReadableStream)
         : undefined,
   });
 
-  app.fetch(request).then((response) => {
+  void Promise.resolve(app.fetch(request)).then((response) => {
     res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
     if (response.body) {
       response.body.pipeTo(

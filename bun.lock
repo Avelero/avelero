@@ -23,6 +23,7 @@
         "@trigger.dev/sdk": "4.0.4",
         "@trpc/server": "^11.4.3",
         "@v1/db": "workspace:*",
+        "@v1/jobs": "workspace:*",
         "@v1/kv": "workspace:*",
         "@v1/logger": "workspace:*",
         "@v1/supabase": "workspace:*",
@@ -196,7 +197,7 @@
         "resend": "^4.0.0",
       },
       "devDependencies": {
-        "trigger.dev": "4.0.6",
+        "trigger.dev": "^4.0.6",
         "typescript": "^5.9.2",
       },
     },

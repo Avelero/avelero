@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AveleroLogo } from "@v1/ui/avelero-logo";
 import { AveleroText } from "@v1/ui/avelero-text";
 
@@ -13,19 +14,19 @@ export function Footer() {
                 <h6 className="text-small text-foreground/50 pb-1">Product</h6>
                 <ul>
                   <li>
-                    <a aria-label="Go to customization section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/customization">
+                    <Link aria-label="Go to customization section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/customization">
                       Customization
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a aria-label="Go to calculations section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/calculations">
+                    <Link aria-label="Go to calculations section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/calculations">
                       Calculations
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a aria-label="Go to pricing page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/pricing">
+                    <Link aria-label="Go to pricing page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/pricing">
                       Pricing
-                    </a>
+                    </Link>
                   </li>
                 </ul>
               </div>
@@ -33,19 +34,19 @@ export function Footer() {
                 <h6 className="text-small text-foreground/50 pb-1">Resources</h6>
                 <ul>
                   <li>
-                    <a aria-label="Go to compliance page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/compliance">
+                    <Link aria-label="Go to compliance page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/compliance">
                       Compliance
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a aria-label="Go to about page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/about">
+                    <Link aria-label="Go to about page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/about">
                       About
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a aria-label="Go to blog page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/blog">
+                    <Link aria-label="Go to blog page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/blog">
                       Blog
-                    </a>
+                    </Link>
                   </li>
                 </ul>
               </div>
@@ -53,14 +54,14 @@ export function Footer() {
                 <h6 className="text-small text-foreground/50 pb-1">Legal</h6>
                 <ul>
                   <li>
-                    <a aria-label="Go to terms and conditions page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/terms-and-conditions">
+                    <Link aria-label="Go to terms and conditions page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/terms-and-conditions">
                       Terms & conditions
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a aria-label="Go to privacy policy page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/privacy-policy">
+                    <Link aria-label="Go to privacy policy page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/privacy-policy">
                       Privacy policy
-                    </a>
+                    </Link>
                   </li>
                 </ul>
               </div>

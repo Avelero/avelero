@@ -21,7 +21,8 @@ export async function submitContactForm(data: ContactFormData) {
   try {
     // 1. Rate limiting (3 submissions per IP per hour)
     const headersList = await headers();
-    const ip = headersList.get("x-forwarded-for") || "unknown";
+    const forwarded = headersList.get("x-forwarded-for");
+    const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
     
     const { success, remaining } = await contactFormRateLimit.limit(`contact-form:${ip}`);
     

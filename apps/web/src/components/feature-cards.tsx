@@ -5,7 +5,6 @@ interface FeatureCardProps {
   title: string;
   description: string;
   backgroundImage: string;
-  children?: ReactNode;
 }
 
 export function FeatureCard({

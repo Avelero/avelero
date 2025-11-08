@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AveleroLogo } from "@v1/ui/avelero-logo";
 import { Button } from "./button";
 import { useEffect, useState } from "react";
@@ -46,29 +47,29 @@ export function Header() {
         }}
       >
         <div className={isMobileMenuOpen ? 'invisible md:visible' : ''}>
-          <a href="/" aria-label="Go to home page">
+          <Link href="/" aria-label="Go to home page">
             <AveleroLogo className="hidden md:block" height={32} color="var(--foreground)" />
-          </a>
-          <a href="/" aria-label="Go to home page">
+          </Link>
+          <Link href="/" aria-label="Go to home page">
             <AveleroLogo className="block md:hidden" height={24} color="var(--foreground)" />
-          </a>
+          </Link>
         </div>
         
         {/* Desktop Navigation */}
         <nav className="hidden md:block">
           <div className="flex items-center gap-4">
-            <a href="/product" aria-label="Go to product page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <Link href="/product" aria-label="Go to product page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Product
-            </a>
-            <a href="/compliance" aria-label="Go to compliance page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            </Link>
+            <Link href="/compliance" aria-label="Go to compliance page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Compliance
-            </a>
-            <a href="/pricing" aria-label="Go to pricing page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            </Link>
+            <Link href="/pricing" aria-label="Go to pricing page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Pricing
-            </a>
-            <a href="/resources" aria-label="Open resources popover" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            </Link>
+            <Link href="/resources" aria-label="Open resources popover" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Resources
-            </a>
+            </Link>
             <Button asChild aria-label="Go to login page">
               <a href="https://app.avelero.com/login" rel="noopener noreferrer">
                 <span>Login</span>
@@ -80,7 +81,11 @@ export function Header() {
         {/* Mobile Navigation */}
         <div className="flex md:hidden items-center gap-3">
           <div className={isMobileMenuOpen ? 'invisible' : ''}>
-            <Button aria-label="Go to login page" size="sm">Login</Button>
+            <Button asChild aria-label="Go to login page" size="sm">
+              <a href="https://app.avelero.com/login" rel="noopener noreferrer">
+                <span>Login</span>
+              </a>
+            </Button>
           </div>
           <button
             type="button"
@@ -103,38 +108,38 @@ export function Header() {
       >
         <nav className="h-full px-4 sm:px-16 py-8">
           <div className="flex flex-col items-start gap-6">
-            <a 
+            <Link 
               href="/product" 
               aria-label="Go to product page"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Product
-            </a>
-            <a 
+            </Link>
+            <Link 
               href="/compliance" 
               aria-label="Go to compliance page"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Compliance
-            </a>
-            <a 
+            </Link>
+            <Link 
               href="/pricing" 
               aria-label="Go to pricing page"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Pricing
-            </a>
-            <a 
+            </Link>
+            <Link 
               href="/resources" 
               aria-label="Open resources popover"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Resources
-            </a>
+            </Link>
           </div>
         </nav>
       </div>

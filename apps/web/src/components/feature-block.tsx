@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import Image from "next/image";
 
-export function FeatureBlock({ children }: { children: React.ReactNode }) {
+export function FeatureBlock({ children }: { children: ReactNode }) {
     return (
         <div className="flex md:flex-row flex-col w-full py-[45px] sm:py-[62px] gap-4 md:gap-8">
             {children}

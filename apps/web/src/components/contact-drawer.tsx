@@ -34,6 +34,8 @@ export function ContactDrawer() {
         company: ''
     });
     const [emailError, setEmailError] = useState<string | null>(null);
+    const [nameError, setNameError] = useState<string | null>(null);
+    const [companyError, setCompanyError] = useState<string | null>(null);
     
     const emailInputRef = useRef<HTMLInputElement>(null);
     const nameInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +49,8 @@ export function ContactDrawer() {
                 setHasEverExpanded(false);
                 setFormData({ email: '', name: '', company: '' });
                 setEmailError(null);
+                setNameError(null);
+                setCompanyError(null);
             }, 300); // Vaul's default animation duration
         }
     }, [isOpen]);
@@ -85,20 +89,39 @@ export function ContactDrawer() {
 
     // Handle form submission
     const handleSubmit = async () => {
+        // Clear previous errors
+        setEmailError(null);
+        setNameError(null);
+        setCompanyError(null);
+        
+        let hasError = false;
+        
         // Check 1: Valid email format
         if (!validator.isEmail(formData.email)) {
             setEmailError('Please enter a valid email');
-            return;
+            hasError = true;
         }
         
         // Check 2: Work email
         if (!CompanyEmailValidator.isCompanyEmail(formData.email)) {
             setEmailError('Please enter a work email');
-            return;
+            hasError = true;
         }
 
-        // Basic validation for name and company
-        if (!formData.name.trim() || !formData.company.trim()) {
+        // Check 3: Name is required
+        if (!formData.name.trim()) {
+            setNameError('Please enter your name');
+            hasError = true;
+        }
+
+        // Check 4: Company is required
+        if (!formData.company.trim()) {
+            setCompanyError('Please enter your company name');
+            hasError = true;
+        }
+
+        // Stop if there are any errors
+        if (hasError) {
             return;
         }
 
@@ -150,8 +173,8 @@ export function ContactDrawer() {
                             // Form states
                             drawerState === 'collapsed' && !emailError && 'h-[62px]',
                             drawerState === 'collapsed' && emailError && 'h-[84px]',
-                            (drawerState === 'expanded' || drawerState === 'submitting') && !emailError && 'h-[254px]',
-                            (drawerState === 'expanded' || drawerState === 'submitting') && emailError && 'h-[276px]',
+                            (drawerState === 'expanded' || drawerState === 'submitting') && !emailError && !nameError && !companyError && 'h-[254px]',
+                            (drawerState === 'expanded' || drawerState === 'submitting') && (emailError || nameError || companyError) && 'h-auto',
                             // Success/Error states
                             (drawerState === 'success' || drawerState === 'error') && 'h-[140px]'
                         )}
@@ -206,7 +229,7 @@ export function ContactDrawer() {
                                     setFormData(prev => ({ ...prev, email: e.target.value }));
                                     setEmailError(null);
                                 }}
-                                onKeyPress={(e) => handleKeyPress(e, handleExpand)}
+                                onKeyDown={(e) => handleKeyPress(e, handleExpand)}
                                 autoFocus
                                 disabled={drawerState === 'submitting'}
                                 className={cn(
@@ -252,10 +275,22 @@ export function ContactDrawer() {
                                     id="name" 
                                     placeholder="Name" 
                                     value={formData.name}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                    onKeyPress={(e) => handleKeyPress(e, handleSubmit)}
+                                    onChange={(e) => {
+                                        setFormData(prev => ({ ...prev, name: e.target.value }));
+                                        setNameError(null);
+                                    }}
+                                    onKeyDown={(e) => handleKeyPress(e, handleSubmit)}
                                     disabled={drawerState === 'submitting'}
+                                    className={cn(
+                                        nameError && "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none"
+                                    )}
+                                    aria-invalid={!!nameError}
                                 />
+                                {nameError && (
+                                    <p className="text-micro text-destructive px-0.5">
+                                        {nameError}
+                                    </p>
+                                )}
                             </div>
                             <div className="space-y-1">
                                 <label htmlFor="company" className="text-small text-foreground/50">Company</label>
@@ -264,10 +299,22 @@ export function ContactDrawer() {
                                     id="company" 
                                     placeholder="Company name" 
                                     value={formData.company}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                                    onKeyPress={(e) => handleKeyPress(e, handleSubmit)}
+                                    onChange={(e) => {
+                                        setFormData(prev => ({ ...prev, company: e.target.value }));
+                                        setCompanyError(null);
+                                    }}
+                                    onKeyDown={(e) => handleKeyPress(e, handleSubmit)}
                                     disabled={drawerState === 'submitting'}
+                                    className={cn(
+                                        companyError && "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none"
+                                    )}
+                                    aria-invalid={!!companyError}
                                 />
+                                {companyError && (
+                                    <p className="text-micro text-destructive px-0.5">
+                                        {companyError}
+                                    </p>
+                                )}
                             </div>
                             <button
                                 type="button"

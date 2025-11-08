@@ -1,5 +1,3 @@
-import { Icons } from "@v1/ui/icons";
-import { Button } from "./button";
 import Image from "next/image";
 import { ContactDrawer } from "./contact-drawer";
 
@@ -8,7 +6,9 @@ export function BentoBlock() {
         <div className="flex flex-col w-full py-[45px] sm:py-[62px] gap-4 lg:gap-6">
             <div className="flex md:flex-row flex-col justify-between md:items-center">
                 <h4 className="text-h6 md:text-h5 text-foreground">Get compliant in days, <br className="md:hidden" /><span className="text-foreground/50 md:text-foreground">not months</span></h4>
-                <ContactDrawer />
+                <div className="hidden sm:block">
+                    <ContactDrawer />
+                </div>
             </div>
             
             <div className="grid grid-cols-1 gap-4 lg:gap-6 w-full lg:grid-rows-2 lg:auto-rows-fr">

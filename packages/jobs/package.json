@@ -13,14 +13,14 @@
   "dependencies": {
     "@react-email/render": "^1.2.0",
     "@supabase/supabase-js": "^2.57.2",
-    "@trigger.dev/sdk": "4.0.4",
+    "@trigger.dev/sdk": "4.0.6",
     "@v1/email": "workspace:*",
     "@v1/supabase": "workspace:*",
     "react": "19.1.1",
     "resend": "^6.4.2"
   },
   "devDependencies": {
-    "trigger.dev": "^4.0.4",
+    "trigger.dev": "4.0.6",
     "typescript": "^5.9.2"
   }
 }

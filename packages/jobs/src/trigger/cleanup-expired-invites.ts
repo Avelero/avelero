@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import "./configure-trigger";
 import { logger, schedules } from "@trigger.dev/sdk/v3";
 import type { Database } from "@v1/supabase/types";
 

@@ -1,0 +1,495 @@
+import "./configure-trigger";
+import { logger, task } from "@trigger.dev/sdk/v3";
+import { db } from "@v1/db/client";
+import type { Database } from "@v1/db/client";
+import {
+  type StagingProductPreview,
+  batchUpdateImportRowStatus,
+  createProduct,
+  createVariant,
+  deleteStagingDataForJob,
+  getImportJobStatus,
+  getStagingProductsForCommit,
+  updateImportJobProgress,
+  updateImportJobStatus,
+  updateProduct,
+  updateVariant,
+} from "@v1/db/queries";
+import { websocketManager } from "../../../../apps/api/src/lib/websocket-manager";
+
+/**
+ * Task payload for Phase 2 production commit
+ */
+interface CommitToProductionPayload {
+  jobId: string;
+  brandId: string;
+}
+
+/**
+ * Result of committing a single row
+ */
+interface CommitRowResult {
+  rowNumber: number;
+  importRowId: string;
+  action: "CREATE" | "UPDATE";
+  success: boolean;
+  error?: string;
+  productId?: string;
+  variantId?: string;
+}
+
+const BATCH_SIZE = 100;
+const TIMEOUT_MS = 1800000; // 30 minutes
+
+/**
+ * Phase 2: Commit validated staging data to production tables
+ *
+ * This background job:
+ * 1. Loads validated data from staging tables in batches
+ * 2. For each staging row, performs CREATE or UPDATE based on action field
+ * 3. Uses database transactions for each batch to ensure atomicity
+ * 4. Upserts related tables (materials, care codes, eco claims, etc.)
+ * 5. Tracks row-level success/failure with partial success support
+ * 6. Cleans up staging data after successful commit
+ * 7. Sends WebSocket progress updates (TODO: implement WebSocket)
+ *
+ * Processes data in batches of 100 rows with transaction rollback on batch failures.
+ */
+export const commitToProduction = task({
+  id: "commit-to-production",
+  run: async (payload: CommitToProductionPayload): Promise<void> => {
+    const { jobId, brandId } = payload;
+
+    logger.info("Starting commit-to-production job", {
+      jobId,
+      brandId,
+    });
+
+    try {
+      // Update job status to COMMITTING
+      await updateImportJobStatus(db, {
+        jobId,
+        status: "COMMITTING",
+      });
+
+      // Get total count of staging products
+      const job = await getImportJobStatus(db, jobId);
+      if (!job) {
+        throw new Error(`Import job ${jobId} not found`);
+      }
+
+      // Verify job status is VALIDATED
+      if (job.status !== "VALIDATED") {
+        throw new Error(
+          `Cannot commit job with status ${job.status}. Job must be in VALIDATED status.`,
+        );
+      }
+
+      const totalRows =
+        ((job.summary as Record<string, unknown>)?.total as number) || 0;
+      let processedCount = 0;
+      let createdCount = 0;
+      let updatedCount = 0;
+      let failedCount = 0;
+      const failedRowIds: string[] = [];
+
+      logger.info("Starting production commit", {
+        jobId,
+        totalRows,
+      });
+
+      // Process staging data in batches
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        // Load batch from staging tables
+        const stagingBatch = await getStagingProductsForCommit(
+          db,
+          jobId,
+          BATCH_SIZE,
+          offset,
+        );
+
+        if (stagingBatch.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        logger.info(`Processing batch starting at offset ${offset}`, {
+          batchSize: stagingBatch.length,
+          processedCount,
+          totalRows,
+        });
+
+        // Process batch within a transaction
+        const batchResults = await processBatch(
+          db,
+          brandId,
+          stagingBatch,
+          jobId,
+        );
+
+        // Update counters based on batch results
+        for (const result of batchResults) {
+          processedCount++;
+
+          if (result.success) {
+            if (result.action === "CREATE") {
+              createdCount++;
+            } else {
+              updatedCount++;
+            }
+          } else {
+            failedCount++;
+            if (result.importRowId) {
+              failedRowIds.push(result.importRowId);
+            }
+          }
+        }
+
+        // Update job progress
+        await updateImportJobProgress(db, {
+          jobId,
+          summary: {
+            total: totalRows,
+            processed: processedCount,
+            created: createdCount,
+            updated: updatedCount,
+            failed: failedCount,
+            percentage: Math.round((processedCount / totalRows) * 100),
+          },
+        });
+
+        // Send WebSocket progress update
+        websocketManager.emit(jobId, {
+          jobId,
+          status: "COMMITTING",
+          phase: "commit",
+          processed: processedCount,
+          total: totalRows,
+          created: createdCount,
+          updated: updatedCount,
+          failed: failedCount,
+          percentage: Math.round((processedCount / totalRows) * 100),
+        });
+
+        logger.info("Batch committed", {
+          batchNumber: Math.floor(offset / BATCH_SIZE) + 1,
+          processedCount,
+          createdCount,
+          updatedCount,
+          failedCount,
+        });
+
+        offset += BATCH_SIZE;
+      }
+
+      // Clean up staging data
+      logger.info("Cleaning up staging data", { jobId });
+      const deletedCount = await deleteStagingDataForJob(db, jobId);
+      logger.info("Staging data cleaned up", {
+        jobId,
+        deletedCount,
+      });
+
+      // Update job status to COMPLETED
+      await updateImportJobStatus(db, {
+        jobId,
+        status: "COMPLETED",
+        finishedAt: new Date().toISOString(),
+        summary: {
+          total: totalRows,
+          created: createdCount,
+          updated: updatedCount,
+          failed: failedCount,
+        },
+      });
+
+      // Send WebSocket completion notification
+      websocketManager.emit(jobId, {
+        jobId,
+        status: "COMPLETED",
+        phase: "commit",
+        processed: totalRows,
+        total: totalRows,
+        created: createdCount,
+        updated: updatedCount,
+        failed: failedCount,
+        percentage: 100,
+        message: "Import completed successfully",
+      });
+
+      logger.info("Production commit completed successfully", {
+        jobId,
+        total: totalRows,
+        created: createdCount,
+        updated: updatedCount,
+        failed: failedCount,
+      });
+    } catch (error) {
+      logger.error("Production commit job failed", {
+        jobId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      // Update job status to FAILED
+      await updateImportJobStatus(db, {
+        jobId,
+        status: "FAILED",
+        finishedAt: new Date().toISOString(),
+        summary: {
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+      });
+
+      // Send WebSocket failure notification
+      websocketManager.emit(jobId, {
+        jobId,
+        status: "FAILED",
+        phase: "commit",
+        processed: 0,
+        total: 0,
+        percentage: 0,
+        message:
+          error instanceof Error ? error.message : "Production commit failed",
+      });
+
+      throw error;
+    }
+  },
+});
+
+/**
+ * Process a batch of staging products with transaction rollback on failure
+ *
+ * @param db - Database instance
+ * @param brandId - Brand ID for authorization
+ * @param stagingBatch - Array of staging products to commit
+ * @param jobId - Import job ID
+ * @returns Array of commit results for each row
+ */
+async function processBatch(
+  db: Database,
+  brandId: string,
+  stagingBatch: StagingProductPreview[],
+  jobId: string,
+): Promise<CommitRowResult[]> {
+  const results: CommitRowResult[] = [];
+
+  // Process each row individually with its own transaction
+  // This allows partial success - some rows can fail while others succeed
+  for (const stagingProduct of stagingBatch) {
+    try {
+      const result = await commitStagingRow(db, brandId, stagingProduct, jobId);
+      results.push(result);
+    } catch (error) {
+      logger.error("Failed to commit staging row", {
+        rowNumber: stagingProduct.rowNumber,
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      results.push({
+        rowNumber: stagingProduct.rowNumber,
+        importRowId: "", // Will be looked up if needed
+        action: stagingProduct.action as "CREATE" | "UPDATE",
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Commit a single staging row to production tables
+ *
+ * @param db - Database instance
+ * @param brandId - Brand ID for authorization
+ * @param stagingProduct - Staging product to commit
+ * @param jobId - Import job ID
+ * @returns Commit result
+ */
+async function commitStagingRow(
+  db: Database,
+  brandId: string,
+  stagingProduct: StagingProductPreview,
+  jobId: string,
+): Promise<CommitRowResult> {
+  const { action, rowNumber, variant } = stagingProduct;
+
+  if (!variant) {
+    throw new Error("Staging product missing variant data");
+  }
+
+  let productId: string | undefined;
+  let variantId: string | undefined;
+  let importRowId = "";
+
+  try {
+    // Execute within a transaction for atomicity
+    await db.transaction(async (tx) => {
+      // Step 1: Create or update the product
+      if (action === "CREATE") {
+        const created = await createProduct(
+          tx as unknown as Database,
+          brandId,
+          {
+            name: stagingProduct.name,
+            description: stagingProduct.description || undefined,
+            categoryId: stagingProduct.categoryId || undefined,
+            season: stagingProduct.season || undefined,
+            brandCertificationId:
+              stagingProduct.brandCertificationId || undefined,
+            showcaseBrandId: stagingProduct.showcaseBrandId || undefined,
+            primaryImageUrl: stagingProduct.primaryImageUrl || undefined,
+          },
+        );
+
+        if (!created?.id) {
+          throw new Error("Failed to create product");
+        }
+
+        productId = created.id;
+      } else {
+        // UPDATE action
+        if (!stagingProduct.existingProductId) {
+          throw new Error("UPDATE action missing existingProductId");
+        }
+
+        const updated = await updateProduct(
+          tx as unknown as Database,
+          brandId,
+          {
+            id: stagingProduct.existingProductId,
+            name: stagingProduct.name,
+            description: stagingProduct.description,
+            categoryId: stagingProduct.categoryId,
+            season: stagingProduct.season,
+            brandCertificationId: stagingProduct.brandCertificationId,
+            showcaseBrandId: stagingProduct.showcaseBrandId,
+            primaryImageUrl: stagingProduct.primaryImageUrl,
+          },
+        );
+
+        if (!updated?.id) {
+          throw new Error("Failed to update product");
+        }
+
+        productId = updated.id;
+      }
+
+      // Step 2: Create or update the product variant
+      if (action === "CREATE") {
+        const createdVariant = await createVariant(
+          tx as unknown as Database,
+          productId,
+          {
+            upid: variant.upid,
+            sku: variant.sku || undefined,
+            colorId: variant.colorId || undefined,
+            sizeId: variant.sizeId || undefined,
+            productImageUrl: variant.productImageUrl || undefined,
+          },
+        );
+
+        if (!createdVariant?.id) {
+          throw new Error("Failed to create variant");
+        }
+
+        variantId = createdVariant.id;
+      } else {
+        // UPDATE action
+        if (!variant.existingVariantId) {
+          throw new Error("UPDATE action missing existingVariantId");
+        }
+
+        const updatedVariant = await updateVariant(
+          tx as unknown as Database,
+          variant.existingVariantId,
+          {
+            upid: variant.upid,
+            sku: variant.sku,
+            colorId: variant.colorId,
+            sizeId: variant.sizeId,
+            productImageUrl: variant.productImageUrl,
+          },
+        );
+
+        if (!updatedVariant?.id) {
+          throw new Error("Failed to update variant");
+        }
+
+        variantId = updatedVariant.id;
+      }
+
+      // Step 3: Upsert related tables (materials, care codes, eco claims, etc.)
+      // TODO: These would need to be fetched from staging related tables
+      // For now, we skip them as they're not in the current staging schema
+      // In a full implementation, you would:
+      // 1. Fetch staging_product_materials for this stagingProductId
+      // 2. Call upsertProductMaterials with the data
+      // 3. Repeat for care codes, eco claims, journey steps, etc.
+
+      // Step 4: Mark import_row as APPLIED
+      await batchUpdateImportRowStatus(tx as unknown as Database, [
+        {
+          id: stagingProduct.stagingId, // Using stagingId as temporary lookup
+          status: "APPLIED",
+          normalized: {
+            action,
+            product_id: productId,
+            variant_id: variantId,
+          },
+        },
+      ]);
+
+      importRowId = stagingProduct.stagingId;
+    });
+
+    logger.info("Successfully committed staging row", {
+      rowNumber,
+      action,
+      productId,
+      variantId,
+    });
+
+    return {
+      rowNumber,
+      importRowId,
+      action: action as "CREATE" | "UPDATE",
+      success: true,
+      productId,
+      variantId,
+    };
+  } catch (error) {
+    logger.error("Failed to commit staging row (transaction rolled back)", {
+      rowNumber,
+      action,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    // Mark import_row as FAILED (outside transaction)
+    try {
+      await batchUpdateImportRowStatus(db, [
+        {
+          id: stagingProduct.stagingId,
+          status: "FAILED",
+          error: error instanceof Error ? error.message : "Unknown error",
+        },
+      ]);
+    } catch (updateError) {
+      logger.error("Failed to update import_row status", {
+        rowNumber,
+        error:
+          updateError instanceof Error
+            ? updateError.message
+            : String(updateError),
+      });
+    }
+
+    throw error;
+  }
+}

@@ -33,6 +33,7 @@ export * from "./data/file-assets";
 export * from "./data/import-jobs";
 export * from "./data/import-rows";
 export * from "./data/value-mappings";
+export * from "./data/staging-tables";
 
 // Passport schemas
 export * from "./passports/passports";

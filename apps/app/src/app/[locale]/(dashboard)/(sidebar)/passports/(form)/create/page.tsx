@@ -11,7 +11,7 @@ import { StatusSection } from "@/components/passports/form/sidebar/status-block"
 
 export default function CreatePassportsPage() {
   return (
-    <form 
+    <form
       id="passport-form"
       className="flex justify-center w-full"
       onSubmit={(e) => {

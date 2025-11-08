@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "clean": "rm -rf .turbo node_modules",
+    "dev": "bun run jobs",
     "lint": "biome check .",
     "jobs": "trigger dev",
     "deploy": "trigger deploy",
@@ -13,14 +14,19 @@
   "dependencies": {
     "@react-email/render": "^1.2.0",
     "@supabase/supabase-js": "^2.57.2",
-    "@trigger.dev/sdk": "4.0.4",
+    "@trigger.dev/sdk": "4.0.6",
     "@v1/email": "workspace:*",
     "@v1/supabase": "workspace:*",
     "react": "19.1.1",
     "resend": "^4.0.0"
   },
   "devDependencies": {
-    "trigger.dev": "^4.0.4",
+    "trigger.dev": "^4.0.6",
     "typescript": "^5.9.2"
+  },
+  "exports": {
+    "./trigger": "./src/trigger/index.ts",
+    "./trigger/validate-and-stage": "./src/trigger/validate-and-stage.ts",
+    "./trigger/commit-to-production": "./src/trigger/commit-to-production.ts"
   }
 }

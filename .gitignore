@@ -84,9 +84,6 @@ node_modules/
 # OS specific
 
 
-# Task files
-# tasks.json
-# tasks/ 
 .taskmaster/
 .gemini/
 .cursor/
@@ -119,3 +116,7 @@ GEMINI.md
 #mcp_files
 .env.example
 .taskmaster
+
+# Task files
+# tasks.json
+# tasks/ 

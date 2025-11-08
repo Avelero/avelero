@@ -1,5 +1,8 @@
+import { FloatingProgressWidget } from "@/components/import/floating-progress-widget";
+import { ImportReviewDialog } from "@/components/import/import-review-dialog";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
+import { ImportProgressProvider } from "@/contexts/import-progress-context";
 import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -44,15 +47,19 @@ export default async function Layout({
 
   return (
     <HydrateClient>
-      <div className="relative h-full">
-        <Header locale={locale} />
-        <div className="flex flex-row justify-start h-[calc(100%-56px)]">
-          <Sidebar />
-          <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
-            {children}
+      <ImportProgressProvider>
+        <div className="relative h-full">
+          <Header locale={locale} />
+          <div className="flex flex-row justify-start h-[calc(100%-56px)]">
+            <Sidebar />
+            <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
+              {children}
+            </div>
           </div>
         </div>
-      </div>
+        <FloatingProgressWidget />
+        <ImportReviewDialog />
+      </ImportProgressProvider>
     </HydrateClient>
   );
 }

@@ -1,12 +1,4 @@
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  ilike,
-  inArray,
-} from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray } from "drizzle-orm";
 import type { Database } from "../client";
 import { evaluateAndUpsertCompletion } from "../completion/evaluate";
 import type { ModuleKey } from "../completion/module-keys";

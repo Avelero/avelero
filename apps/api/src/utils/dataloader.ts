@@ -214,7 +214,8 @@ function createNextBrandForUserLoader(
       cache: true,
       batchScheduleFn: (callback: () => void) => setTimeout(callback, 10),
       // Custom cache key function since we're using objects
-      cacheKeyFn: (key: { userId: string; excludeBrandId: string | null }) => `${key.userId}:${key.excludeBrandId ?? "null"}`,
+      cacheKeyFn: (key: { userId: string; excludeBrandId: string | null }) =>
+        `${key.userId}:${key.excludeBrandId ?? "null"}`,
     },
   );
 }

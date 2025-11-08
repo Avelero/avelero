@@ -40,6 +40,16 @@ export function ContactDrawer() {
     const emailInputRef = useRef<HTMLInputElement>(null);
     const nameInputRef = useRef<HTMLInputElement>(null);
 
+    // Autofocus only on viewports >= sm breakpoint (640px)
+    useEffect(() => {
+        if (isOpen && window.innerWidth >= 640) {
+            // Small delay to ensure drawer is rendered
+            setTimeout(() => {
+                emailInputRef.current?.focus();
+            }, 50);
+        }
+    }, [isOpen]);
+
     // Reset state when drawer closes
     useEffect(() => {
         if (!isOpen) {
@@ -159,7 +169,7 @@ export function ContactDrawer() {
             <Drawer.Portal>
                 <div 
                     data-state={isOpen ? "open" : "closed"}
-                    className="fixed inset-0 z-50 bg-black/10 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-150"
+                    className="fixed inset-0 z-50 bg-black/20 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-150"
                     onClick={() => setIsOpen(false)}
                     aria-hidden="true"
                 />
@@ -230,7 +240,6 @@ export function ContactDrawer() {
                                     setEmailError(null);
                                 }}
                                 onKeyDown={(e) => handleKeyPress(e, handleExpand)}
-                                autoFocus
                                 disabled={drawerState === 'submitting'}
                                 className={cn(
                                     "transition-transform duration-150",

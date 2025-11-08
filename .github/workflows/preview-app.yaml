@@ -70,18 +70,37 @@ jobs:
         run: |
           API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
-      
+
+      - name: ⏳ Wait for API to be ready
+        run: |
+          API_URL="${{ steps.api-url.outputs.url }}"
+          echo "Waiting for API at ${API_URL}/health to be ready..."
+
+          MAX_RETRIES=30
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -f -s "${API_URL}/health" > /dev/null 2>&1; then
+              echo "✅ API is ready!"
+              exit 0
+            fi
+
+            echo "API not ready yet (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES}), waiting 10 seconds..."
+            sleep 10
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+
+          echo "❌ API did not become ready after ${MAX_RETRIES} attempts"
+          exit 1
+
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-      
+
       - name: 🏗 Build Project Artifacts
         run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
         env:
           # Use PR-specific API
           NEXT_PUBLIC_API_URL: ${{ steps.api-url.outputs.url }}
-      
-      - name: 📤 Pull Environment Variables
-        run: bunx vercel env pull .env --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       
       - name: 🔄 Deploy Background Jobs
         env:

@@ -383,19 +383,19 @@ export function normalizeHeaders(headers: string[]): {
   const normalized: string[] = [];
   const mapping: Record<string, string> = {};
 
-  headers.forEach((header) => {
+  for (const header of headers) {
     const safeHeader = header ?? "";
     if (!safeHeader) {
       normalized.push("");
       mapping[safeHeader] = "";
-      return;
+      continue;
     }
 
     const norm = normalizeHeader(safeHeader);
     const mapped = mapHeaderAlias(norm);
     normalized.push(mapped);
     mapping[safeHeader] = mapped;
-  });
+  }
 
   return { normalized, mapping };
 }
@@ -471,7 +471,7 @@ export async function parseCSV(
         complete: (results: Papa.ParseResult<Record<string, string>>) => {
           // Collect parsing errors
           if (results.errors && results.errors.length > 0) {
-            results.errors.forEach((err) => {
+            for (const err of results.errors) {
               if (err.type === "Quotes") {
                 errors.push({
                   row: err.row || 0,
@@ -491,7 +491,7 @@ export async function parseCSV(
                   type: "PARSE_ERROR",
                 });
               }
-            });
+            }
           }
 
           resolve({
@@ -850,9 +850,8 @@ export async function parseFile(
 
   if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
     return parseXLSX(file);
-  } else {
-    return parseCSV(file, options);
   }
+  return parseCSV(file, options);
 }
 
 // ============================================================================
@@ -909,12 +908,12 @@ export function extractUniqueValues<T extends Record<string, unknown>>(
 ): string[] {
   const values = new Set<string>();
 
-  data.forEach((row) => {
+  for (const row of data) {
     const value = String(row[column] || "").trim();
     if (value) {
       values.add(value);
     }
-  });
+  }
 
   return Array.from(values);
 }

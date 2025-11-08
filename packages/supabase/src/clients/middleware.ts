@@ -14,12 +14,23 @@ export async function updateSession(
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response.cookies.set({ name, value, ...options });
+          // Ensure proper cookie options for Vercel preview deployments
+          const cookieOptions = {
+            ...options,
+            sameSite: 'lax' as const,
+            secure: process.env.NODE_ENV === 'production',
+          };
+          request.cookies.set({ name, value, ...cookieOptions });
+          response.cookies.set({ name, value, ...cookieOptions });
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: "", ...options });
-          response.cookies.set({ name, value: "", ...options });
+          const cookieOptions = {
+            ...options,
+            sameSite: 'lax' as const,
+            secure: process.env.NODE_ENV === 'production',
+          };
+          request.cookies.set({ name, value: "", ...cookieOptions });
+          response.cookies.set({ name, value: "", ...cookieOptions });
         },
       },
     },

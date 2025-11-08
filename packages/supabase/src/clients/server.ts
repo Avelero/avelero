@@ -68,7 +68,12 @@ export async function createClient(
         setAll(cookiesToSet) {
           try {
             for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
+              // Ensure proper cookie options for Vercel preview deployments
+              cookieStore.set(name, value, {
+                ...options,
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+              });
             }
           } catch {
             // The `setAll` method was called from a Server Component.

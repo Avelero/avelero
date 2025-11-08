@@ -26,7 +26,8 @@ export function BentoBlock() {
                                 src="/document-upload-image-1.webp" 
                                 alt="Document upload illustration" 
                                 className="absolute top-6 left-[clamp(24px,calc(50%-46px),calc(100%-228px))] object-contain z-10" 
-                                quality={100} 
+                                loading="lazy"
+                                quality={90} 
                                 width={204} 
                                 height={134} 
                             />
@@ -36,7 +37,8 @@ export function BentoBlock() {
                                 src="/document-upload-image-2.webp" 
                                 alt="File overview illustration" 
                                 className="absolute bottom-6 left-[clamp(24px,calc(50%-158px),calc(100%-228px))] object-contain z-9" 
-                                quality={100} 
+                                loading="lazy"
+                                quality={90} 
                                 width={204} 
                                 height={134} 
                             />
@@ -51,7 +53,15 @@ export function BentoBlock() {
                             </p>
                         </div>
                         <div className="flex-1 flex items-center justify-center p-6">
-                            <Image src="/connector-image.webp" alt="System integration illustration" className="object-contain" quality={90} width={341} height={152} />
+                            <Image 
+                                src="/connector-image.webp" 
+                                alt="API integration diagram showing Avelero connecting with PIM and e-commerce systems" 
+                                className="object-contain" 
+                                loading="lazy"
+                                quality={85} 
+                                width={341} 
+                                height={152} 
+                            />
                         </div>
                     </div>
                 </div>
@@ -65,7 +75,15 @@ export function BentoBlock() {
                     </div>
 
                     <div className="relative overflow-hidden pt-6 pl-6 lg:pr-0 lg:pb-0 lg:w-1/2 flex items-end lg:items-stretch">
-                        <Image src="/data-enrichment-image.webp" alt="Data enrichment table illustration" className="ml-auto lg:ml-0 lg:absolute lg:bottom-0 lg:left-6 lg:top-6 w-auto max-w-none max-h-[180px] sm:max-h-[200px] lg:max-h-none object-cover object-left-bottom" quality={90} width={553} height={277} />
+                        <Image 
+                            src="/data-enrichment-image.webp" 
+                            alt="AI-powered data enrichment table showing automatic completion of missing product information" 
+                            className="ml-auto lg:ml-0 lg:absolute lg:bottom-0 lg:left-6 lg:top-6 w-auto max-w-none max-h-[180px] sm:max-h-[200px] lg:max-h-none object-cover object-left-bottom" 
+                            loading="lazy"
+                            quality={85} 
+                            width={553} 
+                            height={277} 
+                        />
                     </div>
                 </div>
             </div>

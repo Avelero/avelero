@@ -27,7 +27,7 @@ export function FeatureCard({
                 loading="lazy"
                 sizes="(max-width: 1024px) 70vw,(max-width: 1280px) 30vw, 370px"
                 className="object-cover"
-                quality={90}
+                quality={85}
             />
         </div>
     </div>

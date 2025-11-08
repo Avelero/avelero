@@ -9,15 +9,54 @@ import localFont from "next/font/local";
 import { CTABlock } from "@/components/cta-block";
 
 const Switzer = localFont({
-  src: "../fonts/Switzer-Regular.woff2",
+  src: "../../public/fonts/Switzer-Regular.woff2",
   variable: "--font-switzer",
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://avelero.app"),
-  title: "Avelero",
+  metadataBase: new URL("https://avelero.com"),
+  title: {
+    default: "Avelero | Product Passports That Engage",
+    template: "%s | Avelero",
+  },
   description:
     "Avelero is built for fashion brands that want to launch compliant product passports in days, not months. Integrate your systems, estimate product footprints, and design on-brand experiences that customers want to explore.",
+  openGraph: {
+    title: "Avelero | Product Passports That Engage",
+    description:
+      "Avelero is built for fashion brands that want to launch compliant product passports in days, not months. Integrate your systems, estimate product footprints, and design on-brand experiences that customers want to explore.",
+    url: "https://avelero.com",
+    siteName: "Avelero",
+    locale: "en_US",
+    type: "website",
+    images: [
+      {
+        url: "https://avelero.com/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Avelero - Product passports that engage",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Avelero | Product Passports That Engage",
+    description:
+      "Launch compliant product passports in days, not months. Built for fashion brands.",
+    images: ["https://avelero.com/og-image.jpg"],
+    creator: "@avelerodpp",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   icons: {
     // Root fallback so legacy agents and default requests succeed
     icon: [
@@ -98,18 +137,50 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Avelero",
+    url: "https://avelero.com",
+    description:
+      "Avelero helps fashion brands launch compliant digital product passports with extensive integrations, AI-powered carbon estimates, and custom themes.",
+    contactPoint: {
+      "@type": "ContactPoint",
+      email: "raf@avelero.com",
+      contactType: "Customer Service",
+    },
+    sameAs: [
+      "https://www.linkedin.com/company/avelero",
+      "https://x.com/avelerodpp",
+    ],
+  };
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link
+          rel="preload"
+          href="/fonts/Switzer-Regular.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body
         suppressHydrationWarning
         className={cn(
           `${Switzer.variable} ${GeistSans.variable} ${GeistMono.variable}`,
           "font-sans antialiased",
           "bg-background text-foreground",
-          "h-screen w-full",
+          "h-[100dvh] w-full",
           "overflow-y-auto overflow-x-hidden",
         )}
       >
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Required for JSON-LD structured data
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <div className="max-w-[1280px] min-h-full xl:mx-auto xl:border-x xl:border-border">
           <div className="h-full flex flex-col">
             <Header />

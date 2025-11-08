@@ -9,9 +9,10 @@ export function CTABlock() {
                     src="/cta-image.webp"
                     alt="Digital product passport background image"
                     fill
+                    loading="lazy"
                     sizes="(max-width: 1280px) 90vw, 1135px"
                     className="object-cover -z-10"
-                    quality={90}
+                    quality={85}
                 />
                 <h4 className="text-h5 md:text-h4 text-background text-center z-10">A digital product experience</h4>
                 <ContactDrawer />

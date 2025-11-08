@@ -9,8 +9,30 @@ import { ComplianceBlock } from "@/components/compliance-block";
 import { BentoBlock } from "@/components/bento-block";
 
 export default function Page() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Avelero | Product Passports That Engage",
+    description:
+      "Launch compliant digital product passports in days, not months. Built for fashion brands with extensive integrations, AI-powered carbon estimates, and custom themes.",
+    url: "https://avelero.com",
+    mainEntity: {
+      "@type": "SoftwareApplication",
+      name: "Avelero",
+      applicationCategory: "BusinessApplication",
+      description:
+        "Digital product passport platform for fashion brands with LCA engine, system integrations, and customizable templates.",
+    },
+  };
+
   return (
-    <div className="h-[calc(100%-102px)] w-full flex flex-col items-center justify-center">
+    <>
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: Required for JSON-LD structured data
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <main className="h-[calc(100%-102px)] w-full flex flex-col items-center justify-center">
       <Hero />
       <HeroImage />
       <Brands>
@@ -71,6 +93,7 @@ export default function Page() {
       </FeatureBlock>
       <BentoBlock />
       <ComplianceBlock />
-    </div>
+    </main>
+    </>
   );
 }

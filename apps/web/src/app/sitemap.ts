@@ -1,0 +1,18 @@
+import type { MetadataRoute } from "next";
+
+export const baseUrl = "https://avelero.com";
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const routes = [
+    "",
+    "/product",
+    "/compliance",
+    "/pricing",
+    "/resources",
+  ].map((route) => ({
+    url: `${baseUrl}${route}`,
+    lastModified: new Date().toISOString().split("T")[0],
+  }));
+
+  return [...routes];
+}

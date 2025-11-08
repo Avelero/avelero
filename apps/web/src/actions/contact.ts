@@ -69,7 +69,7 @@ export async function submitContactForm(data: ContactFormData) {
     );
 
     await resend.emails.send({
-      from: "Avelero <hello@welcome.avelero.com>",
+      from: "Raf <raf@welcome.avelero.com>",
       to: [data.email],
       subject: `${data.name}, thanks for reaching out!`,
       html: confirmationHtml,

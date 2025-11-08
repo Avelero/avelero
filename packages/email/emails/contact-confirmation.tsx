@@ -1,12 +1,10 @@
 import {
   Body,
-  Container,
   Head,
-  Heading,
+  Hr,
   Html,
-  Preview,
-  Section,
-  Tailwind,
+  Img,
+  Link,
   Text,
 } from "@react-email/components";
 import React from "react";
@@ -23,41 +21,62 @@ export default function ContactConfirmation({
   return (
     <Html>
       <Head />
-      <Preview>Thanks for reaching out to Avelero!</Preview>
-      <Tailwind>
-        <Body className="bg-white my-auto mx-auto font-sans">
-          <Container className="my-[40px] mx-auto max-w-[600px]">
-            <Heading className="font-semibold text-center p-0 my-[24px] mx-0">
-              Thanks for reaching out!
-            </Heading>
+      <Body style={{ fontFamily: 'Arial, sans-serif', fontSize: '14px', lineHeight: '1.5', color: '#000000' }}>
+        <div style={{ maxWidth: '600px' }}>
+          <p>hey {name}, just wanted to say thanks for reaching out!</p>
+          
+          <p>i received your message and will get back to you shortly.</p>
+          <br />
+          <br />
+          <br />
+          <br />
+          {/* Signature */}
+          <table cellPadding="0" cellSpacing="0" border={0}>
+            <tr>
+              <td style={{ paddingRight: '20px', verticalAlign: 'top' }}>
+                <Img
+                  src="https://res.cloudinary.com/dcdam15xy/image/upload/rafmevis_x0lltj.webp"
+                  alt="Profile"
+                  width="80"
+                  height="80"
+                />
 
-            <Section className="mb-4">
-              <Text className="text-neutral-600">Hi {name},</Text>
-              <Text className="text-neutral-600">
-                We received your message and one of our founders will reach out
-                to you shortly.
-              </Text>
-              <Text className="text-neutral-600">
-                In the meantime, feel free to explore our{" "}
-                <a
-                  href="https://avelero.com"
-                  className="text-blue-600 underline"
-                >
-                  website
-                </a>{" "}
-                to learn more about how we're making product passports simple
-                for fashion brands.
-              </Text>
-            </Section>
+                <Hr style={{ borderTop: '1px solid #e0e0e0', margin: '15px 0 20px 0' }} />
 
-            <Section className="mt-8">
-              <Text className="text-neutral-500 text-sm">
-                This email was sent to {email}
-              </Text>
-            </Section>
-          </Container>
-        </Body>
-      </Tailwind>
+                <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
+                  <Link href="https://www.linkedin.com/in/rafaelmevis/" style={{ color: '#000000', textDecoration: 'underline' }}>LinkedIn</Link>
+                </p>
+                <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
+                  <Link href="https://x.com/rafmevis/" style={{ color: '#000000', textDecoration: 'underline' }}>X (twitter)</Link>
+                </p>
+              </td>
+              <td style={{ verticalAlign: 'top' }}>
+                <p style={{ margin: '4px 0 4px 0', fontSize: '14px' }}>
+                  Raf Mevis
+                </p>
+                <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
+                  Co-Founder
+                </p>
+                <p style={{ margin: '0 0 12px 0', fontSize: '14px' }}>
+                  Avelero
+                </p>
+
+                <Hr style={{ borderTop: '1px solid #e0e0e0', margin: '20px 0' }} />
+                
+                <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
+                  <Link href="tel:+31615297990" style={{ color: '#000000', textDecoration: 'underline' }}>+31615297990</Link>
+                </p>
+                <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
+                  <Link href="mailto:raf@avelero.com" style={{ color: '#000000', textDecoration: 'underline' }}>raf@avelero.com</Link>
+                </p>
+                <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
+                  <Link href="https://avelero.com" style={{ color: '#000000', textDecoration: 'underline' }}>https://avelero.com</Link>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </Body>
     </Html>
   );
 }

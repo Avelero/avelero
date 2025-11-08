@@ -32,7 +32,7 @@ export function ComplianceBlock() {
                     <EsprLogo height={48} color="hsl(var(--foreground) / 70%)" />
                     <div className="flex flex-col items-center justify-center gap-1">
                         <h6 className="text-body text-center text-foreground">ESPR Compliant</h6>
-                        <p className="text-micro text-center text-foreground/50">Eco-Design for Sustainable Products Regulations</p>
+                        <p className="text-micro text-center text-foreground/50">Eco-Design for Sustainable Products Regulation</p>
                     </div>
                 </div>
             </div>

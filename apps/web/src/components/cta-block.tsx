@@ -12,7 +12,6 @@ export function CTABlock() {
                     sizes="(max-width: 1280px) 90vw, 1135px"
                     className="object-cover -z-10"
                     quality={90}
-                    priority
                 />
                 <h4 className="text-h5 md:text-h4 text-background text-center z-10">A digital product experience</h4>
                 <ContactDrawer />

@@ -152,7 +152,7 @@ export function ContactDrawer() {
     };
 
     return (
-        <Drawer.Root repositionInputs={false} modal={false} open={isOpen} onOpenChange={setIsOpen}>
+        <Drawer.Root modal={false} open={isOpen} onOpenChange={setIsOpen}>
             <Drawer.Trigger asChild>
                 <Button variant="brand" aria-label="Open talk to founders drawer">Talk to founders</Button>
             </Drawer.Trigger>

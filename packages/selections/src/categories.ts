@@ -143,3 +143,53 @@ export const categoryHierarchy: CategoryHierarchy = {
 } as const;
 
 export type CategoryKey = keyof typeof categoryHierarchy;
+
+/**
+ * Helper function to flatten the entire category hierarchy into a list
+ * with keys and display labels for all levels (tier 1, 2, and 3).
+ */
+export function getAllCategories(): Array<{
+  key: string;
+  displayName: string;
+  level: number;
+}> {
+  const categories: Array<{ key: string; displayName: string; level: number }> =
+    [];
+
+  // Iterate through tier 1 (mens, womens)
+  for (const [tier1Key, tier1Value] of Object.entries(categoryHierarchy)) {
+    categories.push({
+      key: tier1Key,
+      displayName: tier1Value.label,
+      level: 1,
+    });
+
+    // Iterate through tier 2 (bottoms, tops, etc.)
+    if (tier1Value.children) {
+      for (const [tier2Key, tier2Value] of Object.entries(
+        tier1Value.children,
+      )) {
+        categories.push({
+          key: `${tier1Key}-${tier2Key}`,
+          displayName: `${tier1Value.label} / ${tier2Value.label}`,
+          level: 2,
+        });
+
+        // Iterate through tier 3 (denim, jeans, etc.)
+        if (tier2Value.children) {
+          for (const [tier3Key, tier3Value] of Object.entries(
+            tier2Value.children,
+          )) {
+            categories.push({
+              key: `${tier1Key}-${tier2Key}-${tier3Key}`,
+              displayName: `${tier1Value.label} / ${tier2Value.label} / ${tier3Value.label}`,
+              level: 3,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return categories;
+}

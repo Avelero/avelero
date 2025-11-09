@@ -1,28 +1,46 @@
 "use client";
 
+import { usePassportFormContext } from "@/components/passports/form/context/passport-form-context";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { Select } from "@v1/ui/select";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type ShowcaseBrandData,
   ShowcaseBrandSheet,
 } from "../../../sheets/showcase-brand-sheet";
 
 export function IdentifiersSection() {
-  const [sku, setSku] = useState("");
-  const [ean, setEan] = useState("");
-  const [brand, setBrand] = useState<string>("");
-
-  // TODO: Load from API - for now using local state
-  const [brandOptions, setBrandOptions] = useState([
-    { value: "brand-1", label: "Avelero Apparel" },
-    { value: "brand-2", label: "Example Brand Co." },
-  ]);
+  const { formState, referenceData, updateField } = usePassportFormContext();
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pendingBrandName, setPendingBrandName] = useState("");
+  
+  // Local state for debounced SKU input
+  const [localSku, setLocalSku] = useState(formState.sku);
+  const skuTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  // Sync local state when form state changes externally
+  useEffect(() => {
+    setLocalSku(formState.sku);
+  }, [formState.sku]);
+
+  // Debounced update handler
+  const handleSkuChange = useCallback((value: string) => {
+    setLocalSku(value);
+    if (skuTimerRef.current) clearTimeout(skuTimerRef.current);
+    skuTimerRef.current = setTimeout(() => {
+      updateField("sku", value);
+    }, 200);
+  }, [updateField]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (skuTimerRef.current) clearTimeout(skuTimerRef.current);
+    };
+  }, []);
 
   const handleCreateNewBrand = (searchTerm: string) => {
     setPendingBrandName(searchTerm);
@@ -30,15 +48,9 @@ export function IdentifiersSection() {
   };
 
   const handleBrandCreated = (brandData: ShowcaseBrandData) => {
-    // Add the new brand to options
-    const newOption = {
-      value: brandData.id,
-      label: brandData.name,
-    };
-    setBrandOptions((prev) => [...prev, newOption]);
-
     // Auto-select the newly created brand
-    setBrand(brandData.id);
+    // Note: The brand will be available in referenceData after the mutation refetches
+    updateField("showcaseBrandId", brandData.id);
   };
 
   return (
@@ -48,36 +60,30 @@ export function IdentifiersSection() {
 
         {/* SKU Input */}
         <div className="space-y-1.5">
-          <Label>SKU</Label>
+          <Label>
+            SKU <span className="text-destructive">*</span>
+          </Label>
           <Input
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
+            value={localSku}
+            onChange={(e) => handleSkuChange(e.target.value)}
             placeholder="Enter SKU"
             className="h-9"
           />
-        </div>
-
-        {/* EAN Input */}
-        <div className="space-y-1.5">
-          <Label>EAN</Label>
-          <Input
-            value={ean}
-            onChange={(e) => setEan(e.target.value)}
-            placeholder="Enter EAN"
-            className="h-9"
-          />
+          {formState.errors.sku && (
+            <p className="type-small text-destructive">{formState.errors.sku}</p>
+          )}
         </div>
 
         {/* Brand Select */}
         <div className="space-y-1.5">
-          <Label>Brand</Label>
+          <Label>Manufacturer</Label>
           <Select
-            options={brandOptions}
-            value={brand}
-            onValueChange={setBrand}
-            placeholder="Select brand"
+            options={referenceData.showcaseBrands}
+            value={formState.showcaseBrandId || ""}
+            onValueChange={(value) => updateField("showcaseBrandId", value)}
+            placeholder="Select manufacturer"
             searchable
-            searchPlaceholder="Search brand"
+            searchPlaceholder="Search manufacturer"
             hasCreateOption
             onCreateNew={handleCreateNewBrand}
             createLabel="Create"

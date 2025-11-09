@@ -1,5 +1,6 @@
 "use client";
 
+import { usePassportFormContext } from "@/components/passports/form/context/passport-form-context";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
@@ -13,8 +14,7 @@ interface EcoClaim {
 }
 
 export function EnvironmentSection() {
-  const [carbon, setCarbon] = React.useState("");
-  const [water, setWater] = React.useState("");
+  const { formState, updateField } = usePassportFormContext();
   const [ecoClaims, setEcoClaims] = React.useState<EcoClaim[]>([]);
 
   // Normalize numeric input: handle commas, spaces, multiple decimals, and precision
@@ -57,20 +57,20 @@ export function EnvironmentSection() {
   // Handle input change - allow any numeric characters while typing
   const handleNumericChange = (
     value: string,
-    setter: (value: string) => void,
+    field: "carbonKgCo2e" | "waterLiters",
   ) => {
     // Allow only digits, spaces, commas, and periods while typing
     const filtered = value.replace(/[^\d\s.,]/g, "");
-    setter(filtered);
+    updateField(field, filtered);
   };
 
   // Handle blur - normalize the value
   const handleNumericBlur = (
     value: string,
-    setter: (value: string) => void,
+    field: "carbonKgCo2e" | "waterLiters",
   ) => {
     const normalized = normalizeNumericInput(value);
-    setter(normalized);
+    updateField(field, normalized);
   };
 
   const addEcoClaim = () => {
@@ -112,9 +112,9 @@ export function EnvironmentSection() {
             </div>
             <Input
               type="text"
-              value={carbon}
-              onChange={(e) => handleNumericChange(e.target.value, setCarbon)}
-              onBlur={(e) => handleNumericBlur(e.target.value, setCarbon)}
+              value={formState.carbonKgCo2e}
+              onChange={(e) => handleNumericChange(e.target.value, "carbonKgCo2e")}
+              onBlur={(e) => handleNumericBlur(e.target.value, "carbonKgCo2e")}
               placeholder="Enter carbon value"
               className="h-9 flex-1"
             />
@@ -130,9 +130,9 @@ export function EnvironmentSection() {
             </div>
             <Input
               type="text"
-              value={water}
-              onChange={(e) => handleNumericChange(e.target.value, setWater)}
-              onBlur={(e) => handleNumericBlur(e.target.value, setWater)}
+              value={formState.waterLiters}
+              onChange={(e) => handleNumericChange(e.target.value, "waterLiters")}
+              onBlur={(e) => handleNumericBlur(e.target.value, "waterLiters")}
               placeholder="Enter water value"
               className="h-9 flex-1"
             />

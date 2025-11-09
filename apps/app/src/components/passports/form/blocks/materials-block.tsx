@@ -1,5 +1,6 @@
 "use client";
 
+import { usePassportFormContext } from "@/components/passports/form/context/passport-form-context";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -21,46 +22,31 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import * as React from "react";
 import { MaterialSheet } from "../../../sheets/material-sheet";
 
-interface Material {
-  id: string;
-  name: string;
-  countries: string[];
-  percentage: string;
-}
-
-// TODO: Load from API
-const MATERIAL_OPTIONS = [
-  "Recycled Polyester",
-  "Organic Cotton",
-  "Wool",
-  "Linen",
-  "Silk",
-  "Bamboo",
-  "Hemp",
-  "Tencel",
-];
-
 const MaterialDropdown = ({
-  material,
+  materialId,
+  materialName,
+  availableMaterials,
   onMaterialChange,
   onCreateMaterial,
 }: {
-  material: string;
-  onMaterialChange: (material: string) => void;
+  materialId: string | null;
+  materialName: string;
+  availableMaterials: Array<{ value: string; label: string; countryOfOrigin?: string }>;
+  onMaterialChange: (materialId: string, materialName: string, countryCode?: string) => void;
   onCreateMaterial: (searchTerm: string) => void;
 }) => {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
 
-  const handleSelect = (selectedMaterial: string) => {
-    onMaterialChange(selectedMaterial);
+  const handleSelect = (selectedMaterial: { value: string; label: string; countryOfOrigin?: string }) => {
+    onMaterialChange(selectedMaterial.value, selectedMaterial.label, selectedMaterial.countryOfOrigin);
     setDropdownOpen(false);
     setSearchQuery("");
   };
 
   const handleCreate = () => {
     const trimmedQuery = searchQuery.trim();
-    if (trimmedQuery && !MATERIAL_OPTIONS.includes(trimmedQuery)) {
+    if (trimmedQuery && !availableMaterials.some(m => m.label.toLowerCase() === trimmedQuery.toLowerCase())) {
       // Open material sheet for creation
       onCreateMaterial(trimmedQuery);
       setSearchQuery("");
@@ -68,8 +54,8 @@ const MaterialDropdown = ({
     }
   };
 
-  const filteredOptions = MATERIAL_OPTIONS.filter((option) =>
-    option.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredOptions = availableMaterials.filter((option) =>
+    option.label.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -86,12 +72,12 @@ const MaterialDropdown = ({
             <div
               className={cn(
                 "border-b border-border type-p transition-colors",
-                material
+                materialName
                   ? "text-primary group-hover:text-secondary group-hover:border-secondary"
                   : "text-tertiary group-hover:text-secondary group-hover:border-secondary",
               )}
             >
-              {material || "Select material"}
+              {materialName || "Select material"}
             </div>
           </button>
         </PopoverTrigger>
@@ -106,15 +92,15 @@ const MaterialDropdown = ({
               <CommandGroup>
                 {filteredOptions.length > 0 ? (
                   filteredOptions.map((option) => {
-                    const isSelected = material === option;
+                    const isSelected = materialId === option.value;
                     return (
                       <CommandItem
-                        key={option}
-                        value={option}
+                        key={option.value}
+                        value={option.label}
                         onSelect={() => handleSelect(option)}
                         className="justify-between"
                       >
-                        <span className="type-p">{option}</span>
+                        <span className="type-p">{option.label}</span>
                         {isSelected && (
                           <Icons.Check className="h-4 w-4 text-brand" />
                         )}
@@ -133,7 +119,11 @@ const MaterialDropdown = ({
                       </span>
                     </div>
                   </CommandItem>
-                ) : null}
+                ) : (
+                  <div className="px-3 py-9 text-center">
+                    <p className="type-p text-tertiary">Start typing to create</p>
+                  </div>
+                )}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -234,7 +224,7 @@ const PercentageCell = ({
 };
 
 export function MaterialsSection() {
-  const [materials, setMaterials] = React.useState<Material[]>([]);
+  const { formState, referenceData, addMaterial, updateMaterial, removeMaterial } = usePassportFormContext();
   const [materialSheetOpen, setMaterialSheetOpen] = React.useState(false);
   const [materialSheetInitialName, setMaterialSheetInitialName] =
     React.useState("");
@@ -245,29 +235,12 @@ export function MaterialsSection() {
   const handleMaterialCreated = (material: any) => {
     if (creatingForMaterialId) {
       // Update the existing material row that initiated the creation
-      setMaterials((prev) =>
-        prev.map((m) =>
-          m.id === creatingForMaterialId
-            ? {
-                ...m,
-                name: material.name,
-                countries: material.countryOfOrigin
-                  ? [material.countryOfOrigin]
-                  : [],
-              }
-            : m,
-        ),
-      );
+      updateMaterial(creatingForMaterialId, {
+        materialId: material.id,
+        materialName: material.name,
+        countryOfOrigin: material.countryOfOrigin,
+      });
       setCreatingForMaterialId(null);
-    } else {
-      // Add a new material to the list (shouldn't happen in normal flow)
-      const newMaterial: Material = {
-        id: material.id,
-        name: material.name,
-        countries: material.countryOfOrigin ? [material.countryOfOrigin] : [],
-        percentage: "",
-      };
-      setMaterials((prev) => [...prev, newMaterial]);
     }
   };
 
@@ -277,31 +250,25 @@ export function MaterialsSection() {
     setMaterialSheetOpen(true);
   };
 
-  const updateMaterial = (id: string, field: keyof Material, value: any) => {
-    setMaterials((prev) =>
-      prev.map((material) =>
-        material.id === id ? { ...material, [field]: value } : material,
-      ),
-    );
-  };
-
-  const deleteMaterial = (id: string) => {
-    setMaterials((prev) => prev.filter((material) => material.id !== id));
-  };
-
-  const addMaterial = () => {
-    const newMaterial: Material = {
-      id: Date.now().toString(),
-      name: "",
-      countries: [],
-      percentage: "",
-    };
-    setMaterials((prev) => [...prev, newMaterial]);
+  const handleMaterialChange = (
+    tempId: string,
+    materialId: string,
+    materialName: string,
+    countryCode?: string,
+  ) => {
+    updateMaterial(tempId, {
+      materialId,
+      materialName,
+      countryOfOrigin: countryCode,
+    });
   };
 
   // Calculate totals
+  const materials = formState.materials;
   const materialCount = materials.length;
-  const countryCount = new Set(materials.flatMap((m) => m.countries)).size;
+  const countryCount = new Set(
+    materials.map((m) => m.countryOfOrigin).filter(Boolean),
+  ).size;
   const totalPercentage = materials.reduce((sum, material) => {
     const percentage = Number.parseFloat(material.percentage) || 0;
     return sum + percentage;
@@ -349,20 +316,12 @@ export function MaterialsSection() {
               {/* Material Column */}
               <div className="border-r border-b border-border">
                 <MaterialDropdown
-                  material={material.name}
-                  onMaterialChange={(value) => {
-                    updateMaterial(material.id, "name", value);
-                    // Mock: Set countries based on material selection
-                    if (value === "Recycled Polyester") {
-                      updateMaterial(material.id, "countries", ["China"]);
-                    } else if (value === "Organic Cotton") {
-                      updateMaterial(material.id, "countries", ["Portugal"]);
-                    } else if (value === "Wool") {
-                      updateMaterial(material.id, "countries", ["India"]);
-                    } else {
-                      updateMaterial(material.id, "countries", []);
-                    }
-                  }}
+                  materialId={material.materialId}
+                  materialName={material.materialName}
+                  availableMaterials={referenceData.materials}
+                  onMaterialChange={(materialId, materialName, countryCode) =>
+                    handleMaterialChange(material.id, materialId, materialName, countryCode)
+                  }
                   onCreateMaterial={(searchTerm) =>
                     handleCreateMaterial(searchTerm, material.id)
                   }
@@ -371,8 +330,8 @@ export function MaterialsSection() {
 
               {/* Country Column */}
               <div className="px-2 py-2 border-r border-b border-border flex items-center">
-                {material.countries.length > 0 ? (
-                  <CountryTags countries={material.countries} />
+                {material.countryOfOrigin ? (
+                  <CountryTags countries={[material.countryOfOrigin]} />
                 ) : (
                   <span className="type-p text-tertiary pl-2">No country</span>
                 )}
@@ -383,9 +342,9 @@ export function MaterialsSection() {
                 <PercentageCell
                   percentage={material.percentage}
                   onPercentageChange={(value) =>
-                    updateMaterial(material.id, "percentage", value)
+                    updateMaterial(material.id, { percentage: value })
                   }
-                  onDelete={() => deleteMaterial(material.id)}
+                  onDelete={() => removeMaterial(material.id)}
                 />
               </div>
             </div>

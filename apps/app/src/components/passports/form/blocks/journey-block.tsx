@@ -17,7 +17,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { productionStepNames } from "@v1/selections/production-steps";
+import {
+  type JourneyStep,
+  usePassportFormContext,
+} from "@/components/passports/form/context/passport-form-context";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -42,36 +45,16 @@ import {
   OperatorSheet,
 } from "../../../sheets/operator-sheet";
 
-interface JourneyStep {
-  id: string;
-  step: string;
-  operators: string[];
-  position: number;
-}
-
-// Use production steps from selections package
-const STEP_OPTIONS = productionStepNames;
-
-// TODO: Load operators from API
-const OPERATOR_OPTIONS = [
-  "Sinopec Group",
-  "Indorama Ventures",
-  "Hengli Group",
-  "Hebei Loto Garment Co., Ltd",
-  "Nike Manufacturing",
-  "Adidas Production",
-  "H&M Supply Chain",
-  "Zara Manufacturing",
-];
-
 const StepDropdown = ({
   step,
+  availableSteps,
   onStepChange,
   isDragging,
   dragAttributes,
   dragListeners,
 }: {
   step: string;
+  availableSteps: Array<{ value: string; label: string }>;
   onStepChange: (step: string) => void;
   isDragging: boolean;
   dragAttributes: React.HTMLAttributes<HTMLElement>;
@@ -86,17 +69,8 @@ const StepDropdown = ({
     setSearchQuery("");
   };
 
-  const handleCreate = () => {
-    const trimmedQuery = searchQuery.trim();
-    if (trimmedQuery && !STEP_OPTIONS.includes(trimmedQuery)) {
-      onStepChange(trimmedQuery);
-      setSearchQuery("");
-      setDropdownOpen(false);
-    }
-  };
-
-  const filteredOptions = STEP_OPTIONS.filter((option) =>
-    option.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredOptions = availableSteps.filter((option) =>
+    option.label.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -155,33 +129,21 @@ const StepDropdown = ({
               <CommandGroup>
                 {filteredOptions.length > 0 ? (
                   filteredOptions.map((option) => {
-                    const isSelected = step === option;
+                    const isSelected = step === option.value;
                     return (
                       <CommandItem
-                        key={option}
-                        value={option}
-                        onSelect={() => handleSelect(option)}
+                        key={option.value}
+                        value={option.label}
+                        onSelect={() => handleSelect(option.value)}
                         className="justify-between"
                       >
-                        <span className="type-p">{option}</span>
+                        <span className="type-p">{option.label}</span>
                         {isSelected && (
                           <Icons.Check className="h-4 w-4 text-brand" />
                         )}
                       </CommandItem>
                     );
                   })
-                ) : searchQuery.trim() ? (
-                  <CommandItem
-                    value={searchQuery.trim()}
-                    onSelect={handleCreate}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icons.Plus className="h-3.5 w-3.5" />
-                      <span className="type-p text-primary">
-                        Create &quot;{searchQuery.trim()}&quot;
-                      </span>
-                    </div>
-                  </CommandItem>
                 ) : null}
               </CommandGroup>
             </CommandList>
@@ -192,55 +154,17 @@ const StepDropdown = ({
   );
 };
 
-const OperatorTags = ({
-  operators,
-  onRemoveOperator,
-}: {
-  operators: string[];
-  onRemoveOperator: (operator: string) => void;
-}) => {
-  const [hoveredOperator, setHoveredOperator] = React.useState<string | null>(
-    null,
-  );
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {operators.map((operator) => (
-        <div
-          key={operator}
-          className="relative px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[132px]"
-          onMouseEnter={() => setHoveredOperator(operator)}
-          onMouseLeave={() => setHoveredOperator(null)}
-        >
-          <span className="truncate">{operator}</span>
-          {hoveredOperator === operator && (
-            <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center">
-              <div className="w-3 h-3 bg-gradient-to-r from-transparent to-background" />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemoveOperator(operator);
-                }}
-                className="w-4 h-4 flex rounded-r-full rounded-l-md items-center justify-center bg-background text-tertiary hover:text-destructive transition-colors"
-              >
-                <Icons.X className="h-3 w-3" />
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const OperatorCell = ({
-  operators,
-  onOperatorsChange,
+  facilityId,
+  facilityName,
+  availableFacilities,
+  onFacilityChange,
   onDelete,
 }: {
-  operators: string[];
-  onOperatorsChange: (operators: string[]) => void;
+  facilityId: string | null;
+  facilityName: string;
+  availableFacilities: Array<{ value: string; label: string }>;
+  onFacilityChange: (facilityId: string, facilityName: string) => void;
   onDelete: () => void;
 }) => {
   const [isHovered, setIsHovered] = React.useState(false);
@@ -250,24 +174,15 @@ const OperatorCell = ({
   const [operatorSheetOpen, setOperatorSheetOpen] = React.useState(false);
   const [newOperatorName, setNewOperatorName] = React.useState("");
 
-  const handleSelect = (selectedOperator: string) => {
-    if (operators.includes(selectedOperator)) {
-      // Deselect if already selected
-      onOperatorsChange(operators.filter((op) => op !== selectedOperator));
-    } else {
-      // Add if not selected
-      onOperatorsChange([...operators, selectedOperator]);
-    }
+  const handleSelect = (selectedFacilityId: string, selectedFacilityName: string) => {
+    onFacilityChange(selectedFacilityId, selectedFacilityName);
     setSearchQuery("");
+    setDropdownOpen(false);
   };
 
   const handleCreate = () => {
     const trimmedQuery = searchQuery.trim();
-    if (
-      trimmedQuery &&
-      !OPERATOR_OPTIONS.includes(trimmedQuery) &&
-      !operators.includes(trimmedQuery)
-    ) {
+    if (trimmedQuery) {
       // Open operator sheet with the searched name
       setNewOperatorName(trimmedQuery);
       setOperatorSheetOpen(true);
@@ -277,18 +192,18 @@ const OperatorCell = ({
   };
 
   const handleOperatorCreated = (operator: OperatorData) => {
-    // Add the newly created operator to the list
-    onOperatorsChange([...operators, operator.name]);
+    // Add the newly created operator/facility
+    onFacilityChange(operator.id, operator.name);
     setNewOperatorName("");
-  };
-
-  const handleRemoveOperator = (operatorToRemove: string) => {
-    onOperatorsChange(operators.filter((op) => op !== operatorToRemove));
   };
 
   const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
+
+  const filteredFacilities = availableFacilities.filter((facility) =>
+    facility.label.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   return (
     <>
@@ -303,14 +218,13 @@ const OperatorCell = ({
             onClick={() => setDropdownOpen(!dropdownOpen)}
           >
             <div className="flex flex-1 flex-wrap items-center gap-1.5">
-              {operators.length > 0 && (
-                <OperatorTags
-                  operators={operators}
-                  onRemoveOperator={handleRemoveOperator}
-                />
+              {facilityName && (
+                <div className="px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[132px]">
+                  <span className="truncate">{facilityName}</span>
+                </div>
               )}
               <span className="border-b border-border type-p ml-2 text-tertiary group-hover:text-secondary group-hover:border-secondary transition-colors">
-                Add operator
+                {facilityName ? "Change operator" : "Add operator"}
               </span>
             </div>
 
@@ -360,30 +274,24 @@ const OperatorCell = ({
             />
             <CommandList>
               <CommandGroup>
-                {OPERATOR_OPTIONS.filter((option) =>
-                  option.toLowerCase().includes(searchQuery.toLowerCase()),
-                ).length > 0 ? (
-                  OPERATOR_OPTIONS.filter((option) =>
-                    option.toLowerCase().includes(searchQuery.toLowerCase()),
-                  ).map((option) => {
-                    const isSelected = operators.includes(option);
+                {filteredFacilities.length > 0 ? (
+                  filteredFacilities.map((facility) => {
+                    const isSelected = facilityId === facility.value;
                     return (
                       <CommandItem
-                        key={option}
-                        value={option}
-                        onSelect={() => handleSelect(option)}
+                        key={facility.value}
+                        value={facility.label}
+                        onSelect={() => handleSelect(facility.value, facility.label)}
                         className="justify-between"
                       >
-                        <span className="type-p">{option}</span>
+                        <span className="type-p">{facility.label}</span>
                         {isSelected && (
                           <Icons.Check className="h-4 w-4 text-brand" />
                         )}
                       </CommandItem>
                     );
                   })
-                ) : searchQuery.trim() &&
-                  !OPERATOR_OPTIONS.includes(searchQuery.trim()) &&
-                  !operators.includes(searchQuery.trim()) ? (
+                ) : searchQuery.trim() ? (
                   <CommandItem
                     value={searchQuery.trim()}
                     onSelect={handleCreate}
@@ -395,7 +303,11 @@ const OperatorCell = ({
                       </span>
                     </div>
                   </CommandItem>
-                ) : null}
+                ) : (
+                  <div className="px-3 py-9 text-center">
+                    <p className="type-p text-tertiary">Start typing to create</p>
+                  </div>
+                )}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -414,13 +326,17 @@ const OperatorCell = ({
 
 function DraggableJourneyRow({
   journeyStep,
+  availableSteps,
+  availableFacilities,
   onStepChange,
-  onOperatorsChange,
+  onFacilityChange,
   onDelete,
 }: {
   journeyStep: JourneyStep;
+  availableSteps: Array<{ value: string; label: string }>;
+  availableFacilities: Array<{ value: string; label: string }>;
   onStepChange: (step: string) => void;
-  onOperatorsChange: (operators: string[]) => void;
+  onFacilityChange: (facilityId: string, facilityName: string) => void;
   onDelete: () => void;
 }) {
   const {
@@ -449,7 +365,8 @@ function DraggableJourneyRow({
       {/* Step Column */}
       <div className="border-r border-b border-border">
         <StepDropdown
-          step={journeyStep.step}
+          step={journeyStep.stepType}
+          availableSteps={availableSteps}
           onStepChange={onStepChange}
           isDragging={isDragging}
           dragAttributes={attributes}
@@ -460,8 +377,10 @@ function DraggableJourneyRow({
       {/* Operator Column */}
       <div className="border-b border-border">
         <OperatorCell
-          operators={journeyStep.operators}
-          onOperatorsChange={onOperatorsChange}
+          facilityId={journeyStep.facilityId}
+          facilityName={journeyStep.facilityName}
+          availableFacilities={availableFacilities}
+          onFacilityChange={onFacilityChange}
           onDelete={onDelete}
         />
       </div>
@@ -470,7 +389,15 @@ function DraggableJourneyRow({
 }
 
 export function JourneySection() {
-  const [journeySteps, setJourneySteps] = React.useState<JourneyStep[]>([]);
+  const {
+    formState,
+    referenceData,
+    addJourneyStep,
+    updateJourneyStep,
+    removeJourneyStep,
+    reorderJourneySteps,
+  } = usePassportFormContext();
+
   const [activeId, setActiveId] = React.useState<string | null>(null);
 
   const sensors = useSensors(
@@ -482,75 +409,38 @@ export function JourneySection() {
   );
 
   const activeStep = React.useMemo(
-    () => journeySteps.find((step) => step.id === activeId),
-    [activeId, journeySteps],
+    () => formState.journeySteps.find((step) => step.id === activeId),
+    [activeId, formState.journeySteps],
   );
-
-  const updateJourneyStep = (
-    id: string,
-    field: keyof Omit<JourneyStep, "position">,
-    value: any,
-  ) => {
-    setJourneySteps((prev) =>
-      prev.map((step) => (step.id === id ? { ...step, [field]: value } : step)),
-    );
-  };
-
-  const deleteJourneyStep = (id: string) => {
-    setJourneySteps((prev) => {
-      const filteredSteps = prev.filter((step) => step.id !== id);
-      return filteredSteps.map((step, index) => ({
-        ...step,
-        position: index + 1,
-      }));
-    });
-  };
-
-  const addJourneyStep = () => {
-    const newStep: JourneyStep = {
-      id: Date.now().toString(),
-      step: "",
-      operators: [],
-      position: journeySteps.length + 1,
-    };
-    setJourneySteps((prev) => [...prev, newStep]);
-  };
 
   const handleDragStart = React.useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   }, []);
 
-  const handleDragEnd = React.useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
+  const handleDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
 
-    // Guard against dropping outside droppable area
-    if (!over || active.id === over.id) {
-      setActiveId(null);
-      return;
-    }
+      // Guard against dropping outside droppable area
+      if (!over || active.id === over.id) {
+        setActiveId(null);
+        return;
+      }
 
-    setJourneySteps((items) => {
-      const oldIndex = items.findIndex((i) => i.id === active.id);
-      const newIndex = items.findIndex((i) => i.id === over.id);
+      const oldIndex = formState.journeySteps.findIndex((i) => i.id === active.id);
+      const newIndex = formState.journeySteps.findIndex((i) => i.id === over.id);
 
       // If we can't find the indices, don't reorder
       if (oldIndex === -1 || newIndex === -1) {
-        return items;
+        setActiveId(null);
+        return;
       }
 
-      const next = [...items];
-      const [removed] = next.splice(oldIndex, 1);
-      if (removed) {
-        next.splice(newIndex, 0, removed);
-      }
-
-      return next.map((step, index) => ({
-        ...step,
-        position: index + 1,
-      }));
-    });
-    setActiveId(null);
-  }, []);
+      reorderJourneySteps(oldIndex, newIndex);
+      setActiveId(null);
+    },
+    [formState.journeySteps, reorderJourneySteps],
+  );
 
   return (
     <div className="relative flex flex-col border border-border bg-background">
@@ -571,7 +461,7 @@ export function JourneySection() {
 
       {/* Empty State or Journey Rows - with fixed height and scroll */}
       <div className="h-[200px] overflow-y-auto scrollbar-hide">
-        {journeySteps.length === 0 ? (
+        {formState.journeySteps.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 h-full">
             <p className="type-p text-tertiary">No journey steps added</p>
             <Button
@@ -594,20 +484,22 @@ export function JourneySection() {
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={journeySteps.map((step) => step.id)}
+                items={formState.journeySteps.map((step) => step.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {journeySteps.map((step) => (
+                {formState.journeySteps.map((step) => (
                   <DraggableJourneyRow
                     key={step.id}
                     journeyStep={step}
+                    availableSteps={referenceData.productionSteps}
+                    availableFacilities={referenceData.facilities}
                     onStepChange={(value) =>
-                      updateJourneyStep(step.id, "step", value)
+                      updateJourneyStep(step.id, { stepType: value })
                     }
-                    onOperatorsChange={(value) =>
-                      updateJourneyStep(step.id, "operators", value)
+                    onFacilityChange={(facilityId, facilityName) =>
+                      updateJourneyStep(step.id, { facilityId, facilityName })
                     }
-                    onDelete={() => deleteJourneyStep(step.id)}
+                    onDelete={() => removeJourneyStep(step.id)}
                   />
                 ))}
               </SortableContext>
@@ -622,31 +514,30 @@ export function JourneySection() {
                             <span
                               className={cn(
                                 "type-p",
-                                activeStep.step
+                                activeStep.stepType
                                   ? "text-primary"
                                   : "text-tertiary",
                               )}
                             >
-                              {activeStep.step || "Select step"}
+                              {activeStep.stepType || "Select step"}
                             </span>
                           </div>
                         </div>
                         <div className="px-2 py-2 flex items-start justify-between">
                           <div className="flex flex-wrap items-center flex-1 gap-1.5">
-                            {activeStep.operators.length > 0 && (
+                            {activeStep.facilityName && (
                               <div className="flex flex-wrap gap-1.5">
-                                {activeStep.operators.map((operator) => (
-                                  <div
-                                    key={operator}
-                                    className="px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[140px]"
-                                  >
-                                    <span className="truncate">{operator}</span>
-                                  </div>
-                                ))}
+                                <div className="px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[140px]">
+                                  <span className="truncate">
+                                    {activeStep.facilityName}
+                                  </span>
+                                </div>
                               </div>
                             )}
                             <span className="type-p text-tertiary ml-2">
-                              Add operator
+                              {activeStep.facilityName
+                                ? "Change operator"
+                                : "Add operator"}
                             </span>
                           </div>
                         </div>
@@ -661,7 +552,7 @@ export function JourneySection() {
       </div>
 
       {/* Add Journey Step Button - Only show if steps exist */}
-      {journeySteps.length > 0 && (
+      {formState.journeySteps.length > 0 && (
         <div className="bg-accent-light border-t border-border px-4 py-3 -mt-px">
           <Button
             type="button"

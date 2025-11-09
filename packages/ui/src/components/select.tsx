@@ -152,7 +152,14 @@ export function Select(props: SelectProps) {
                 {selectedOption.icon}
               </div>
             )}
-            <span className="truncate">{displayText}</span>
+            <span
+              className={cn(
+                "truncate",
+                selectedValues.length === 0 ? "text-tertiary" : "text-primary",
+              )}
+            >
+              {displayText}
+            </span>
           </div>
         </Button>
       </PopoverTrigger>
@@ -176,7 +183,9 @@ export function Select(props: SelectProps) {
             {hasCreateOption &&
               filteredOptions.length === 0 &&
               !searchTerm.trim() && (
-                <CommandEmpty>Start typing to create...</CommandEmpty>
+                <div className="px-3 py-9 text-center">
+                  <p className="type-p text-tertiary">Start typing to create</p>
+                </div>
               )}
             <CommandGroup>
               {filteredOptions.length > 0 ? (

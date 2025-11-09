@@ -130,10 +130,8 @@ export function SizeSelect({
                   </p>
                 </div>
               ) : !searchTerm ? (
-                <div className="px-3 py-8 text-center">
-                  <p className="type-p text-tertiary">
-                    Begin typing to create a custom size
-                  </p>
+                <div className="px-3 py-9 text-center">
+                  <p className="type-p text-tertiary">Start typing to create</p>
                 </div>
               ) : null}
             </CommandGroup>

@@ -1,5 +1,7 @@
 "use client";
 
+import { usePassportFormContext } from "@/components/passports/form/context/passport-form-context";
+import type { SeasonOption } from "@/hooks/use-passport-form-data";
 import { SeasonModal } from "@/components/modals/season-modal";
 import { SizeModal } from "@/components/modals/size-modal";
 import { CategorySelect } from "@/components/select/category-select";
@@ -10,29 +12,13 @@ import {
 import { type Season, SeasonSelect } from "@/components/select/season-select";
 import { SizeSelect } from "@/components/select/size-select";
 import { type TagOption, TagSelect } from "@/components/select/tag-select";
-import { allColors } from "@v1/selections/colors";
-import { generateSeasonOptions } from "@v1/selections/seasons";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
 import * as React from "react";
 
-// Generate season options for the next 3 years
-const SEASON_OPTIONS: Season[] = generateSeasonOptions(2024, 3).map((opt) => ({
-  name: opt.displayName,
-  startDate: new Date(opt.year, (opt.season.startMonth || 1) - 1, 1),
-  endDate: new Date(opt.year, (opt.season.endMonth || 12) - 1, 28),
-  isOngoing: opt.season.isOngoing,
-}));
-
-// Use colors from selections package
-const COLOR_OPTIONS: ColorOption[] = allColors.map((color) => ({
-  name: color.name,
-  hex: color.hex,
-}));
-
 export function OrganizationSection() {
-  const [category, setCategory] = React.useState("Select category");
+  const { formState, referenceData, updateField } = usePassportFormContext();
 
   // Track which optional fields are visible
   const [showSeason, setShowSeason] = React.useState(false);
@@ -40,20 +26,9 @@ export function OrganizationSection() {
   const [showSize, setShowSize] = React.useState(false);
   const [showTags, setShowTags] = React.useState(false);
 
-  // Field values
-  const [season, setSeason] = React.useState<Season | null>(null);
-  const [seasons, setSeasons] = React.useState<Season[]>(SEASON_OPTIONS);
-  const [colors, setColors] = React.useState<ColorOption[]>([]);
-  const availableColors = COLOR_OPTIONS;
-  const [size, setSize] = React.useState<string | null>(null);
-  const [tags, setTags] = React.useState<TagOption[]>([]);
-  // If category is not selected, hide and reset Size
-  React.useEffect(() => {
-    if (category === "Select category") {
-      setShowSize(false);
-      setSize(null);
-    }
-  }, [category]);
+  // Track category display value separately for CategorySelect
+  const [categoryDisplayValue, setCategoryDisplayValue] =
+    React.useState<string>("Select category");
 
   // Modal states
   const [seasonModalOpen, setSeasonModalOpen] = React.useState(false);
@@ -66,7 +41,34 @@ export function OrganizationSection() {
     setMounted(true);
   }, []);
 
-  const hasFooterButtons = !showSeason || !showColor || !showSize || !showTags;
+  // Sync display value when categoryId changes from context
+  React.useEffect(() => {
+    if (formState.categoryId) {
+      const selectedCat = referenceData.categories.find(
+        (cat) => cat.value === formState.categoryId,
+      );
+      if (selectedCat) {
+        setCategoryDisplayValue(selectedCat.label);
+      }
+    } else {
+      setCategoryDisplayValue("Select category");
+    }
+  }, [formState.categoryId, referenceData.categories]);
+
+  // If category is not selected, hide and reset Size
+  React.useEffect(() => {
+    if (!formState.categoryId) {
+      setShowSize(false);
+      updateField("sizeId", null);
+    }
+  }, [formState.categoryId, updateField]);
+
+  // Check if any footer buttons should be visible
+  const hasFooterButtons =
+    !showSeason ||
+    !showColor ||
+    (!showSize && formState.categoryId) ||
+    !showTags;
 
   return (
     <>
@@ -76,8 +78,19 @@ export function OrganizationSection() {
 
           {/* Category */}
           <CategorySelect
-            value={category}
-            onChange={setCategory}
+            value={categoryDisplayValue}
+            onChange={(displayValue) => {
+              setCategoryDisplayValue(displayValue);
+              // Find the matching category by display value (works for all tiers)
+              const selectedCat = referenceData.categories.find(
+                (cat) => cat.label === displayValue,
+              );
+              if (selectedCat) {
+                updateField("categoryId", selectedCat.value);
+              } else if (displayValue === "Select category") {
+                updateField("categoryId", null);
+              }
+            }}
             className="w-full"
           />
 
@@ -88,9 +101,9 @@ export function OrganizationSection() {
               <div className="relative">
                 <div className="transition-[margin-right] duration-200 ease-in-out group-hover/field:mr-11">
                   <SeasonSelect
-                    value={season}
-                    onValueChange={setSeason}
-                    seasons={seasons}
+                    value={formState.season}
+                    onValueChange={(season) => updateField("season", season)}
+                    seasons={referenceData.seasons}
                     onCreateNew={(term) => {
                       // Open modal with the typed term prefilled
                       setSeasonModalOpen(true);
@@ -106,7 +119,7 @@ export function OrganizationSection() {
                     variant="outline"
                     onClick={() => {
                       setShowSeason(false);
-                      setSeason(null);
+                      updateField("season", null);
                     }}
                     className="h-9 w-9 text-tertiary hover:text-destructive flex-shrink-0"
                   >
@@ -124,9 +137,9 @@ export function OrganizationSection() {
               <div className="relative">
                 <div className="transition-[margin-right] duration-200 ease-in-out group-hover/field:mr-11">
                   <ColorSelect
-                    value={colors}
-                    onValueChange={setColors}
-                    defaultColors={availableColors}
+                    value={formState.colors}
+                    onValueChange={(colors) => updateField("colors", colors)}
+                    defaultColors={referenceData.allColors}
                     placeholder="Add color"
                   />
                 </div>
@@ -136,7 +149,7 @@ export function OrganizationSection() {
                     variant="outline"
                     onClick={() => {
                       setShowColor(false);
-                      setColors([]);
+                      updateField("colors", []);
                     }}
                     className="h-9 w-9 text-tertiary hover:text-destructive flex-shrink-0"
                   >
@@ -148,15 +161,15 @@ export function OrganizationSection() {
           )}
 
           {/* Size Field */}
-          {showSize && category !== "Select category" && (
+          {showSize && formState.categoryId && (
             <div className="space-y-1.5 group/field">
               <Label>Size</Label>
               <div className="relative">
                 <div className="transition-[margin-right] duration-200 ease-in-out group-hover/field:mr-11">
                   <SizeSelect
-                    value={size}
-                    onValueChange={setSize}
-                    selectedCategory={category}
+                    value={formState.sizeId}
+                    onValueChange={(sizeId) => updateField("sizeId", sizeId)}
+                    selectedCategory={categoryDisplayValue}
                     onCreateNew={(initial) => {
                       // Open modal and request a new row prefilled with the created term
                       setPrefillSize(initial);
@@ -171,7 +184,7 @@ export function OrganizationSection() {
                     variant="outline"
                     onClick={() => {
                       setShowSize(false);
-                      setSize(null);
+                      updateField("sizeId", null);
                     }}
                     className="h-9 w-9 text-tertiary hover:text-destructive flex-shrink-0"
                   >
@@ -189,8 +202,8 @@ export function OrganizationSection() {
               <div className="relative">
                 <div className="transition-[margin-right] duration-200 ease-in-out group-hover/field:mr-11">
                   <TagSelect
-                    value={tags}
-                    onValueChange={setTags}
+                    value={formState.tags}
+                    onValueChange={(tags) => updateField("tags", tags)}
                     placeholder="Add tags"
                   />
                 </div>
@@ -200,7 +213,7 @@ export function OrganizationSection() {
                     variant="outline"
                     onClick={() => {
                       setShowTags(false);
-                      setTags([]);
+                      updateField("tags", []);
                     }}
                     className="h-9 w-9 text-tertiary hover:text-destructive flex-shrink-0"
                   >
@@ -214,7 +227,7 @@ export function OrganizationSection() {
 
         {/* Footer with Add Buttons (render after mount to avoid SSR/client mismatches) */}
         {mounted && hasFooterButtons && (
-          <div className="border-t border-border px-4 py-3 bg-accent-light flex flex-wrap gap-2">
+          <div className="border-t border-border bg-accent-light flex flex-wrap gap-2 px-4 py-3">
             {!showSeason && (
               <Button
                 type="button"
@@ -239,7 +252,7 @@ export function OrganizationSection() {
                 Color
               </Button>
             )}
-            {!showSize && category !== "Select category" && (
+            {!showSize && formState.categoryId && (
               <Button
                 type="button"
                 variant="outline"
@@ -273,25 +286,25 @@ export function OrganizationSection() {
         onOpenChange={setSeasonModalOpen}
         initialName={pendingSeasonName}
         onSave={(newSeason) => {
-          const season: Season = {
+          const season: SeasonOption = {
             name: newSeason.name,
             startDate: newSeason.startDate || undefined,
             endDate: newSeason.endDate || undefined,
             isOngoing: newSeason.ongoing,
           };
-          setSeasons((prev) => [...prev, season]);
-          setSeason(season);
+          updateField("season", season);
           setPendingSeasonName("");
         }}
       />
       <SizeModal
         open={sizeModalOpen}
         onOpenChange={setSizeModalOpen}
-        selectedCategory={category}
+        selectedCategory={categoryDisplayValue}
         prefillSize={prefillSize}
         onSave={(sizes) => {
           if (sizes.length > 0) {
-            setSize(sizes[0] || null);
+            // The size modal should return the size ID, we'll use the first one
+            updateField("sizeId", sizes[0] || null);
           }
           setPrefillSize(null);
         }}

@@ -1,17 +1,56 @@
 "use client";
 
+import { usePassportFormContext } from "@/components/passports/form/context/passport-form-context";
 import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { Textarea } from "@v1/ui/textarea";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function BasicInfoSection() {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [image, setImage] = useState<string | null>(null);
+  const { formState, updateField, setImage } = usePassportFormContext();
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Local state for debounced inputs
+  const [localTitle, setLocalTitle] = useState(formState.title);
+  const [localDescription, setLocalDescription] = useState(formState.description);
+  const titleTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const descriptionTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  // Sync local state when form state changes externally
+  useEffect(() => {
+    setLocalTitle(formState.title);
+  }, [formState.title]);
+
+  useEffect(() => {
+    setLocalDescription(formState.description);
+  }, [formState.description]);
+
+  // Debounced update handlers
+  const handleTitleChange = useCallback((value: string) => {
+    setLocalTitle(value);
+    if (titleTimerRef.current) clearTimeout(titleTimerRef.current);
+    titleTimerRef.current = setTimeout(() => {
+      updateField("title", value);
+    }, 200);
+  }, [updateField]);
+
+  const handleDescriptionChange = useCallback((value: string) => {
+    setLocalDescription(value);
+    if (descriptionTimerRef.current) clearTimeout(descriptionTimerRef.current);
+    descriptionTimerRef.current = setTimeout(() => {
+      updateField("description", value);
+    }, 200);
+  }, [updateField]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (titleTimerRef.current) clearTimeout(titleTimerRef.current);
+      if (descriptionTimerRef.current) clearTimeout(descriptionTimerRef.current);
+    };
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -23,38 +62,29 @@ export function BasicInfoSection() {
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
 
-    const file = e.dataTransfer.files[0];
-    if (file?.type.startsWith("image/")) {
-      // TODO: Upload to Supabase bucket and optimize image
-      // For now, just create a preview URL
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setImage(evt.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  }, []);
+      const file = e.dataTransfer.files[0];
+      if (file?.type.startsWith("image/")) {
+        setImage(file);
+      }
+    },
+    [setImage],
+  );
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file?.type.startsWith("image/")) {
-        // TODO: Upload to Supabase bucket and optimize image
-        // For now, just create a preview URL
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          setImage(evt.target?.result as string);
-        };
-        reader.readAsDataURL(file);
+        setImage(file);
       }
       // Clear input value so same file can be selected again
       e.target.value = "";
     },
-    [],
+    [setImage],
   );
 
   const handleClick = useCallback(() => {
@@ -65,24 +95,29 @@ export function BasicInfoSection() {
     <div className="border border-border bg-background p-4 flex flex-col gap-3">
       {/* Title Input */}
       <div className="space-y-1.5">
-        <Label>Title</Label>
+        <Label>
+          Title <span className="text-destructive">*</span>
+        </Label>
         <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          value={localTitle}
+          onChange={(e) => handleTitleChange(e.target.value)}
           placeholder="Enter product title"
           className="h-9"
         />
+        {formState.errors.title && (
+          <p className="type-small text-destructive">{formState.errors.title}</p>
+        )}
       </div>
 
       {/* Description Input */}
       <div className="space-y-1.5">
-        <Label>Description</Label>
-        <Textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Enter product description"
-          className="h-24"
-        />
+              <Label>Description</Label>
+              <Textarea
+                value={localDescription}
+                onChange={(e) => handleDescriptionChange(e.target.value)}
+                placeholder="Enter product description"
+                className="h-24"
+              />
       </div>
 
       {/* Image Upload */}
@@ -109,9 +144,9 @@ export function BasicInfoSection() {
             }
           }}
         >
-          {image ? (
+          {formState.imagePreviewUrl ? (
             <img
-              src={image}
+              src={formState.imagePreviewUrl}
               alt="Product preview"
               className="w-full h-full object-contain"
             />

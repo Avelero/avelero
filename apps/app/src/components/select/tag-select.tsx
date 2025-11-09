@@ -209,10 +209,8 @@ export function TagSelect({
                     </div>
                   </CommandItem>
                 ) : !searchTerm ? (
-                  <div className="px-3 py-8 text-center">
-                    <p className="type-p text-tertiary">
-                      Begin typing to create your first tag
-                    </p>
+                  <div className="px-3 py-9 text-center">
+                    <p className="type-p text-tertiary">Start typing to create</p>
                   </div>
                 ) : null}
               </CommandGroup>

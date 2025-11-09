@@ -1,78 +1,89 @@
-import { AnimatedText } from "@/components/animated-text";
-import { CopyText } from "@/components/copy-text";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@v1/ui/tooltip";
+import { Hero } from "@/components/hero";
+import { HeroImage } from "@/components/hero-image";
+import { FeatureCards, FeatureCard } from "@/components/feature-cards";
+import { TextBlock } from "@/components/text-block";
+import { FeatureBlock, FeatureBlockContent, FeatureBlockImage } from "@/components/feature-block";
+import { ComplianceBlock } from "@/components/compliance-block";
+import { BentoBlock } from "@/components/bento-block";
 
 export default function Page() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Avelero | Product passports that engage",
+    description:
+      "Avelero is built for fashion brands that want to launch EU-compliant product passports in days, not months.",
+    url: "https://avelero.com",
+    mainEntity: {
+      "@type": "SoftwareApplication",
+      name: "Avelero",
+      applicationCategory: "BusinessApplication",
+      description:
+        "Digital product passport platform for fashion brands with product footprint LCA engine, API-integrations, and customizable templates.",
+    },
+  };
+
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden">
-      <div className="absolute -top-[118px] inset-0 bg-[linear-gradient(to_right,#222_1px,transparent_1px),linear-gradient(to_bottom,#222_1px,transparent_1px)] bg-[size:4.5rem_2rem] -z-10 [transform:perspective(1000px)_rotateX(-63deg)] h-[80%] pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent pointer-events-none -z-10" />
-
-      <h1 className="font-departure text-[40px] md:text-[84px] relative z-10 text-center h-[120px] md:h-auto leading-tight">
-        <AnimatedText text="Production ready code" />
-      </h1>
-
-      <p className="relative z-10 text-center max-w-[80%] mt-0 md:mt-4">
-        An open-source starter kit based on{" "}
-        <a href="https://midday.ai?utm_source=v1" className="underline">
-          Midday
-        </a>
-        .
-      </p>
-
-      {/* In process */}
-      {/* <span className="relative z-10 text-center text-[#878787] text-xs mt-2">
-        Security verified by Kenshū.
-      </span> */}
-
-      <div className="mt-10 mb-8">
-        <CopyText value="bunx degit midday-ai/v1 v1" />
-      </div>
-
-      <TooltipProvider delayDuration={0}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <a
-              href="https://news.ycombinator.com/item?id=41408929"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <div className="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width={16}
-                  height={16}
-                  fill="none"
-                >
-                  <g clipPath="url(#a)">
-                    <path
-                      fill="#F60"
-                      d="M0 0v16h16V0H0Zm8.7 9.225v3.925H7.275V9.225L3.775 2.3h1.65L8 7.525 10.65 2.3h1.55L8.7 9.225Z"
-                    />
-                  </g>
-                  <defs>
-                    <clipPath id="a">
-                      <path fill="#fff" d="M0 0h16v16H0z" />
-                    </clipPath>
-                  </defs>
-                </svg>
-                <span className="text-sm">Live on Hacker News</span>
-              </div>
-            </a>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={15} className="text-xs">
-            Show HN: V1 – An open-source starter kit for your next project
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-
-      <div className="absolute -bottom-[280px] inset-0 bg-[linear-gradient(to_right,#222_1px,transparent_1px),linear-gradient(to_bottom,#222_1px,transparent_1px)] bg-[size:4.5rem_2rem] -z-10 [transform:perspective(560px)_rotateX(63deg)] pointer-events-none" />
-      <div className="absolute w-full bottom-[100px] h-1/2  bg-gradient-to-b from-background to-transparent pointer-events-none -z-10" />
-    </div>
+    <>
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: Required for JSON-LD structured data
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <main className="h-[calc(100%-102px)] w-full flex flex-col items-center justify-center">
+      <Hero />
+      <HeroImage />
+      <TextBlock spanText="Avelero is purpose-built for brands that are customer obsessed." text="Product passports are the last step in your customer journey — we believe this is an opportunity to delight." />
+      <FeatureCards>
+        <FeatureCard
+          title="Extend the product lifecycle"
+          description="Embed care guides, repair services, and resale options directly in the passport. Keep products in use and customers returning long after purchase."
+          backgroundImage="/passport-menu-image.webp"
+        >
+        </FeatureCard>
+        <FeatureCard
+          title="Re-engage your customers"
+          description="Tell your story, share your impact, and build loyalty. Product passports become part of the brand experience."
+          backgroundImage="/passport-banner-image.webp"
+        >
+        </FeatureCard>
+        <FeatureCard
+          title="Drive traffic back to your store"
+          description="Link to related products, promote campaigns, or capture newsletter signups directly from your product passport."
+          backgroundImage="/passport-carousel-image.webp"
+        >
+        </FeatureCard>
+      </FeatureCards>
+      <FeatureBlock id="footprint">
+        <FeatureBlockImage
+          image="/lca-engine-image.webp"
+          imageAlt="LCA engine illustration"
+          topTitle="Estimate your product footprint"
+          bottomTitle="with our LCA engine"
+        />
+        <FeatureBlockContent
+          className="order-last md:order-first"
+          topTitle="Estimate your product footprint"
+          bottomTitle="with our LCA engine"
+          description="Our LCA engine calculates carbon and water impact from your material and production data. Using validated open data sources and cradle-to-gate methodology, it gives you estimates ready to include in your digital product passports."
+        />
+      </FeatureBlock>
+      <FeatureBlock id="designer">
+        <FeatureBlockImage
+          image="/customize-template-image.webp"
+          imageAlt="Customize template illustration"
+          topTitle="Design passports"
+          bottomTitle="that feel like your brand"
+        />
+        <FeatureBlockContent
+          topTitle="Design passports"
+          bottomTitle="that feel like your brand"
+          description="Build passports from modular sections that you can rearrange, style, and brand. Set your own typography, colors, and layout rules, then reuse them across your entire catalog. Every passport reflects your identity, not ours."
+        />
+      </FeatureBlock>
+      <BentoBlock />
+      <ComplianceBlock />
+    </main>
+    </>
   );
 }

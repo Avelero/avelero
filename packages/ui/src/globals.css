@@ -47,7 +47,6 @@
     @apply border-border;
   }
   body {
-    font-family: var(--font-geist-sans), system-ui, monospace;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     position: fixed;

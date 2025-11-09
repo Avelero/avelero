@@ -58,16 +58,16 @@ export function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden md:block">
           <div className="flex items-center gap-4">
-            <Link href="#footprint" aria-label="Go to footprint section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <Link href="/#footprint" aria-label="Go to footprint section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Footprint
             </Link>
-            <Link href="#designer" aria-label="Go to designer section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <Link href="/#designer" aria-label="Go to designer section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Designer
             </Link>
-            <Link href="#automation" aria-label="Go to automation section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <Link href="/#automation" aria-label="Go to automation section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Automation
             </Link>
-            <Link href="#compliance" aria-label="Go to compliance section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <Link href="/#compliance" aria-label="Go to compliance section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Compliance
             </Link>
             <Button asChild aria-label="Go to login page">
@@ -109,7 +109,7 @@ export function Header() {
         <nav className="h-full px-4 sm:px-16 py-8">
           <div className="flex flex-col items-start gap-6">
             <Link 
-              href="#footprint" 
+              href="/#footprint" 
               aria-label="Go to footprint section"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -117,7 +117,7 @@ export function Header() {
               Footprint
             </Link>
             <Link 
-              href="#designer" 
+              href="/#designer" 
               aria-label="Go to designer section"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -125,7 +125,7 @@ export function Header() {
               Designer
             </Link>
             <Link 
-              href="#automation" 
+              href="/#automation" 
               aria-label="Go to automation section"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -133,7 +133,7 @@ export function Header() {
               Automation
             </Link>
             <Link 
-              href="#compliance" 
+              href="/#compliance" 
               aria-label="Go to compliance section"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}

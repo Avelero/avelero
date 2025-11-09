@@ -172,7 +172,7 @@ export default function RootLayout({
           `${Switzer.variable} ${GeistSans.variable} ${GeistMono.variable}`,
           "font-sans antialiased",
           "bg-background text-foreground",
-          "h-[100dvh] w-full",
+          "h-screen w-full",
           "overflow-y-auto overflow-x-hidden",
         )}
       >

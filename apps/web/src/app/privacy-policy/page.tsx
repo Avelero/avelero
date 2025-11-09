@@ -16,8 +16,8 @@ export default async function PrivacyPolicyPage() {
   const { content, data } = matter(fileContent);
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="container mx-auto px-6 sm:px-16 py-12 max-w-4xl">
+    <main className="h-[calc(100%-102px)] w-full flex flex-col items-center justify-center">
+      <div className="max-w-[768px] pt-[58px] pb-[45px] sm:pt-[92px] sm:pb-[62px]">
         <MDXRenderer source={content} />
       </div>
     </main>

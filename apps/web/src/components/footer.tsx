@@ -14,22 +14,22 @@ export function Footer() {
                 <h6 className="text-small text-foreground/50 pb-1">Product</h6>
                 <ul>
                   <li>
-                    <Link aria-label="Go to footprint section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="#footprint">
+                    <Link aria-label="Go to footprint section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/#footprint">
                       Footprint
                     </Link>
                   </li>
                   <li>
-                    <Link aria-label="Go to designer section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="#designer">
+                    <Link aria-label="Go to designer section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/#designer">
                       Designer
                     </Link>
                   </li>
                   <li>
-                    <Link aria-label="Go to automation section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="#automation">
+                    <Link aria-label="Go to automation section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/#automation">
                       Automation
                     </Link>
                   </li>
                   <li>
-                    <Link aria-label="Go to compliance section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="#compliance">
+                    <Link aria-label="Go to compliance section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/#compliance">
                       Compliance
                     </Link>
                   </li>

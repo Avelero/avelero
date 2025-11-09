@@ -1,5 +1,5 @@
 import "./configure-trigger";
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, task } from "@trigger.dev/sdk";
 import { db } from "@v1/db/client";
 import type { Database } from "@v1/db/client";
 import {
@@ -15,7 +15,7 @@ import {
   updateProduct,
   updateVariant,
 } from "@v1/db/queries";
-import { websocketManager } from "../../../../apps/api/src/lib/websocket-manager";
+// import { websocketManager } from "@v1/api/lib/websocket-manager";
 
 /**
  * Task payload for Phase 2 production commit
@@ -161,18 +161,18 @@ export const commitToProduction = task({
           },
         });
 
-        // Send WebSocket progress update
-        websocketManager.emit(jobId, {
-          jobId,
-          status: "COMMITTING",
-          phase: "commit",
-          processed: processedCount,
-          total: totalRows,
-          created: createdCount,
-          updated: updatedCount,
-          failed: failedCount,
-          percentage: Math.round((processedCount / totalRows) * 100),
-        });
+        // Send WebSocket progress update (temporarily disabled)
+        // websocketManager.emit(jobId, {
+        //   jobId,
+        //   status: "COMMITTING",
+        //   phase: "commit",
+        //   processed: processedCount,
+        //   total: totalRows,
+        //   created: createdCount,
+        //   updated: updatedCount,
+        //   failed: failedCount,
+        //   percentage: Math.round((processedCount / totalRows) * 100),
+        // });
 
         logger.info("Batch committed", {
           batchNumber: Math.floor(offset / BATCH_SIZE) + 1,
@@ -206,19 +206,19 @@ export const commitToProduction = task({
         },
       });
 
-      // Send WebSocket completion notification
-      websocketManager.emit(jobId, {
-        jobId,
-        status: "COMPLETED",
-        phase: "commit",
-        processed: totalRows,
-        total: totalRows,
-        created: createdCount,
-        updated: updatedCount,
-        failed: failedCount,
-        percentage: 100,
-        message: "Import completed successfully",
-      });
+      // Send WebSocket completion notification (temporarily disabled)
+      // websocketManager.emit(jobId, {
+      //   jobId,
+      //   status: "COMPLETED",
+      //   phase: "commit",
+      //   processed: totalRows,
+      //   total: totalRows,
+      //   created: createdCount,
+      //   updated: updatedCount,
+      //   failed: failedCount,
+      //   percentage: 100,
+      //   message: "Import completed successfully",
+      // });
 
       logger.info("Production commit completed successfully", {
         jobId,
@@ -244,17 +244,17 @@ export const commitToProduction = task({
         },
       });
 
-      // Send WebSocket failure notification
-      websocketManager.emit(jobId, {
-        jobId,
-        status: "FAILED",
-        phase: "commit",
-        processed: 0,
-        total: 0,
-        percentage: 0,
-        message:
-          error instanceof Error ? error.message : "Production commit failed",
-      });
+      // Send WebSocket failure notification (temporarily disabled)
+      // websocketManager.emit(jobId, {
+      //   jobId,
+      //   status: "FAILED",
+      //   phase: "commit",
+      //   processed: 0,
+      //   total: 0,
+      //   percentage: 0,
+      //   message:
+      //     error instanceof Error ? error.message : "Production commit failed",
+      // });
 
       throw error;
     }

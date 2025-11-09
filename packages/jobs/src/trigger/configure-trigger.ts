@@ -1,39 +1,23 @@
-import { configure } from "@trigger.dev/sdk/v3";
-
-let isConfigured = false;
-
 /**
- * Ensures the Trigger.dev SDK always points at the expected cloud API and
- * credentials before any task definitions are registered.
+ * Configuration for Trigger.dev v4.
+ *
+ * In v4, configuration is handled via trigger.config.ts and environment variables.
+ * The SDK automatically reads TRIGGER_SECRET_KEY from the environment.
+ *
+ * This file is kept for compatibility but no longer performs manual configuration.
  */
-export function ensureTriggerSdkConfigured(): void {
-  if (isConfigured) {
-    return;
-  }
 
-  const accessToken = process.env.TRIGGER_SECRET_KEY?.trim();
+// Validate that TRIGGER_SECRET_KEY is set
+const accessToken = process.env.TRIGGER_SECRET_KEY?.trim();
 
-  if (!accessToken) {
-    throw new Error(
-      "TRIGGER_SECRET_KEY is not set. Provide a Trigger.dev secret key in apps/api/.env and packages/jobs/.env.",
-    );
-  }
-
-  const apiUrl = process.env.TRIGGER_API_URL?.trim();
-  const baseURL = apiUrl && apiUrl.length > 0 ? apiUrl : "https://api.trigger.dev";
-
-  configure({
-    accessToken,
-    baseURL,
+if (!accessToken) {
+  console.warn(
+    "[trigger-config] Warning: TRIGGER_SECRET_KEY is not set. " +
+    "Tasks may fail to trigger. Set TRIGGER_SECRET_KEY in your .env file."
+  );
+} else {
+  console.log("[trigger-config] Trigger.dev SDK environment validated", {
+    hasTriggerSecret: true,
+    apiUrl: process.env.TRIGGER_API_URL || "https://api.trigger.dev",
   });
-
-  console.log("[trigger-config] Trigger.dev SDK configured", {
-    baseURL,
-    hasCustomApiUrl: Boolean(apiUrl),
-    hasTriggerSecret: Boolean(accessToken),
-  });
-
-  isConfigured = true;
 }
-
-ensureTriggerSdkConfigured();

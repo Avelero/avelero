@@ -6,22 +6,28 @@
     "clean": "rm -rf .turbo node_modules",
     "dev": "bun run jobs",
     "lint": "biome check .",
-    "jobs": "trigger dev",
-    "deploy": "trigger deploy",
+    "jobs": "export $(cat .env | xargs) && npx --yes trigger.dev@4.0.1 dev",
+    "deploy": "npx --yes trigger.dev@4.0.1 deploy",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@react-email/render": "^1.2.0",
     "@supabase/supabase-js": "^2.57.2",
-    "@trigger.dev/sdk": "4.0.6",
+    "@trigger.dev/sdk": "4.0.1",
+    "@v1/db": "workspace:*",
     "@v1/email": "workspace:*",
     "@v1/supabase": "workspace:*",
+    "@v1/utils": "workspace:*",
+    "jschardet": "^3.1.4",
+    "papaparse": "^5.5.3",
     "react": "19.1.1",
-    "resend": "^4.0.0"
+    "resend": "^4.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "trigger.dev": "^4.0.6",
+    "@types/papaparse": "^5.5.0",
+    "trigger.dev": "4.0.1",
     "typescript": "^5.9.2"
   },
   "exports": {

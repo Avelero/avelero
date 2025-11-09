@@ -10,12 +10,21 @@
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@v1/db": "workspace:*",
+    "jschardet": "^3.1.4",
+    "papaparse": "^5.5.3",
+    "xlsx": "^0.18.5"
+  },
   "devDependencies": {
     "@types/node": "^24.0.1",
+    "@types/papaparse": "^5.5.0",
     "typescript": "^5.9.2"
   },
   "exports": {
     ".": "./src/index.ts",
-    "./envs": "./src/envs.ts"
+    "./envs": "./src/envs.ts",
+    "./csv-parser": "./src/csv-parser.ts",
+    "./value-mapper": "./src/value-mapper.ts"
   }
 }

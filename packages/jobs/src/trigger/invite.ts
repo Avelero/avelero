@@ -1,6 +1,6 @@
 import { render } from "@react-email/render";
 import "./configure-trigger";
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, task } from "@trigger.dev/sdk";
 import InviteEmail from "@v1/email/emails/invite";
 import { getResend } from "../utils/resend";
 

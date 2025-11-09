@@ -49,7 +49,7 @@ import {
   generateCSV,
 } from "../../../lib/csv-parser.js";
 import { downloadImportFile } from "@v1/supabase/storage/product-imports";
-import { validateAndStage } from "@v1/jobs/trigger/validate-and-stage";
+import { tasks } from "@trigger.dev/sdk";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
   createBatchResponse,
@@ -473,15 +473,26 @@ export const bulkRouter = createTRPCRouter({
         });
 
         try {
-          const runHandle = await validateAndStage.trigger({
+          console.log("[startImport] About to trigger background job with payload:", {
             jobId: job.id,
             brandId,
             filePath: resolvedFile.path,
           });
+
+          const runHandle = await tasks.trigger("validate-and-stage", {
+            jobId: job.id,
+            brandId,
+            filePath: resolvedFile.path,
+          });
+
           console.log("[startImport] Background job triggered successfully", {
             triggerRunId: runHandle.id,
             triggerTaskId: "validate-and-stage",
+            publicAccessToken: runHandle.publicAccessToken || "N/A",
           });
+
+          // Log the run handle for debugging
+          console.log("[startImport] Full run handle:", JSON.stringify(runHandle, null, 2));
         } catch (triggerError) {
           console.error("[startImport] Failed to trigger background job:", {
             error: triggerError,
@@ -489,9 +500,18 @@ export const bulkRouter = createTRPCRouter({
             errorStack: triggerError instanceof Error ? triggerError.stack : undefined,
           });
 
+          // Update job status to FAILED immediately
+          await updateImportJobStatus(brandCtx.db, {
+            jobId: job.id,
+            status: "FAILED",
+            summary: {
+              error: `Failed to start background job: ${triggerError instanceof Error ? triggerError.message : String(triggerError)}`,
+            },
+          });
+
           // If Trigger.dev is not available, throw a more specific error
           throw new Error(
-            `Failed to start background import job. Please ensure Trigger.dev is running. Error: ${
+            `Failed to start background import job. Please ensure Trigger.dev dev server is running. Error: ${
               triggerError instanceof Error ? triggerError.message : String(triggerError)
             }`
           );
@@ -1039,12 +1059,35 @@ export const bulkRouter = createTRPCRouter({
           status: "COMMITTING",
         });
 
-        // TODO: Trigger Phase 2 background job (commit-to-production)
-        // This will be implemented when Trigger.dev integration is complete
-        // await commitToProduction.trigger({
-        //   jobId: input.jobId,
-        //   brandId,
-        // });
+        // Trigger Phase 2 background job (commit-to-production)
+        console.log("[approveImport] Triggering commit-to-production job", {
+          jobId: input.jobId,
+          brandId,
+        });
+
+        try {
+          const runHandle = await tasks.trigger("commit-to-production", {
+            jobId: input.jobId,
+            brandId,
+          });
+
+          console.log("[approveImport] Commit job triggered successfully", {
+            triggerRunId: runHandle.id,
+          });
+        } catch (triggerError) {
+          console.error("[approveImport] Failed to trigger commit job:", {
+            error: triggerError,
+            errorMessage: triggerError instanceof Error ? triggerError.message : String(triggerError),
+          });
+          
+          // Rollback status if trigger fails
+          await updateImportJobStatus(brandCtx.db, {
+            jobId: input.jobId,
+            status: "VALIDATED",
+          });
+          
+          throw wrapError(triggerError, "Failed to start commit process");
+        }
 
         return {
           jobId: input.jobId,

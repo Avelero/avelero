@@ -1,6 +1,6 @@
 import "./configure-trigger";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, task } from "@trigger.dev/sdk";
 import { db } from "@v1/db/client";
 import {
   type CreateImportRowParams,
@@ -15,6 +15,7 @@ import {
   type InsertStagingProductParams,
   type InsertStagingVariantParams,
   countStagingProductsByAction,
+  deleteStagingDataForJob,
   insertStagingProduct,
   insertStagingVariant,
 } from "@v1/db/queries";
@@ -25,12 +26,12 @@ import {
   findDuplicates,
   normalizeHeaders,
   parseFile,
-} from "../../../../apps/api/src/lib/csv-parser";
+} from "../lib/csv-parser";
 import {
   EntityType,
   ValueMapper,
-} from "../../../../apps/api/src/lib/value-mapper";
-import { websocketManager } from "../../../../apps/api/src/lib/websocket-manager";
+} from "../lib/value-mapper";
+// import { websocketManager } from "@v1/api/lib/websocket-manager";
 
 /**
  * Task payload for Phase 1 validation and staging
@@ -116,23 +117,56 @@ export const validateAndStage = task({
     const jobStartTime = Date.now();
 
     console.log("=".repeat(80));
-    console.log("[validate-and-stage] TASK TRIGGERED");
+    console.log("[validate-and-stage] TASK EXECUTION STARTED");
+    console.log("[validate-and-stage] Timestamp:", new Date().toISOString());
+    console.log("[validate-and-stage] Payload:", JSON.stringify(payload, null, 2));
     console.log("=".repeat(80));
     logger.info("Starting validate-and-stage job", {
       jobId,
       brandId,
       filePath,
+      timestamp: new Date().toISOString(),
     });
 
     try {
+      // Validate environment variables first
+      console.log("[validate-and-stage] Checking environment variables...");
+      const requiredEnvVars = {
+        DATABASE_URL: process.env.DATABASE_URL,
+        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
+      };
+
+      const missingVars = Object.entries(requiredEnvVars)
+        .filter(([_, value]) => !value)
+        .map(([key]) => key);
+
+      if (missingVars.length > 0) {
+        throw new Error(`Missing required environment variables: ${missingVars.join(", ")}`);
+      }
+
+      console.log("[validate-and-stage] Environment variables validated:", {
+        hasDatabaseUrl: !!requiredEnvVars.DATABASE_URL,
+        hasSupabaseUrl: !!requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL,
+        hasServiceKey: !!requiredEnvVars.SUPABASE_SERVICE_KEY,
+      });
+
       // Update job status to VALIDATING
       console.log("[validate-and-stage] Updating job status to VALIDATING...");
-      await updateImportJobStatus(db, {
-        jobId,
-        status: "VALIDATING",
-      });
-      console.log("[validate-and-stage] Job status updated to VALIDATING");
-      logger.info("Import job status set to VALIDATING", { jobId });
+      try {
+        await updateImportJobStatus(db, {
+          jobId,
+          status: "VALIDATING",
+        });
+        console.log("[validate-and-stage] Job status updated to VALIDATING");
+        logger.info("Import job status set to VALIDATING", { jobId });
+      } catch (statusError) {
+        console.error("[validate-and-stage] Failed to update job status:", {
+          error: statusError instanceof Error ? statusError.message : String(statusError),
+          stack: statusError instanceof Error ? statusError.stack : undefined,
+        });
+        throw statusError;
+      }
 
       // Initialize Supabase client for file download
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -239,6 +273,19 @@ export const validateAndStage = task({
         });
       } else {
         console.log("[validate-and-stage] No duplicates found");
+      }
+
+      // Clean up any existing staging data for this job (handles retry scenarios)
+      console.log("[validate-and-stage] Cleaning up any existing staging data for retry...");
+      try {
+        const deletedCount = await deleteStagingDataForJob(db, jobId);
+        if (deletedCount > 0) {
+          console.log(`[validate-and-stage] Cleaned up ${deletedCount} existing staging records from previous attempt`);
+          logger.info("Cleaned up existing staging data", { jobId, deletedCount });
+        }
+      } catch (cleanupError) {
+        // Non-fatal - log and continue
+        console.warn("[validate-and-stage] Failed to cleanup existing staging data:", cleanupError);
       }
 
       // Create import_rows records for tracking
@@ -385,9 +432,23 @@ export const validateAndStage = task({
                 },
               ]);
             } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              const errorStack = error instanceof Error ? error.stack : undefined;
+              const errorDetails = error instanceof Error && 'code' in error ? (error as any).code : undefined;
+
               logger.error("Failed to insert into staging", {
                 rowNumber: item.rowNumber,
-                error: error instanceof Error ? error.message : String(error),
+                error: errorMessage,
+                errorCode: errorDetails,
+                stack: errorStack,
+              });
+
+              console.error("[validate-and-stage] Staging insert failed:", {
+                rowNumber: item.rowNumber,
+                jobId,
+                errorMessage,
+                errorCode: errorDetails,
+                fullError: error,
               });
 
               // Mark row as FAILED
@@ -440,16 +501,16 @@ export const validateAndStage = task({
           invalid: invalidCount,
         });
 
-        // Send WebSocket progress update
-        websocketManager.emit(jobId, {
-          jobId,
-          status: "VALIDATING",
-          phase: "validation",
-          processed: processedCount,
-          total: totalRows,
-          failed: invalidCount,
-          percentage: Math.round((processedCount / totalRows) * 100),
-        });
+        // Send WebSocket progress update (temporarily disabled)
+        // websocketManager.emit(jobId, {
+        //   jobId,
+        //   status: "VALIDATING",
+        //   phase: "validation",
+        //   processed: processedCount,
+        //   total: totalRows,
+        //   failed: invalidCount,
+        //   percentage: Math.round((processedCount / totalRows) * 100),
+        // });
 
         logger.info("Batch processed", {
           batchNumber: Math.floor(i / BATCH_SIZE) + 1,
@@ -494,17 +555,17 @@ export const validateAndStage = task({
         willUpdate: stagingCounts.update,
       });
 
-      // Send WebSocket completion notification
-      websocketManager.emit(jobId, {
-        jobId,
-        status: "VALIDATED",
-        phase: "validation",
-        processed: totalRows,
-        total: totalRows,
-        failed: invalidCount,
-        percentage: 100,
-        message: "Validation complete - ready for review",
-      });
+      // Send WebSocket completion notification (temporarily disabled)
+      // websocketManager.emit(jobId, {
+      //   jobId,
+      //   status: "VALIDATED",
+      //   phase: "validation",
+      //   processed: totalRows,
+      //   total: totalRows,
+      //   failed: invalidCount,
+      //   percentage: 100,
+      //   message: "Validation complete - ready for review",
+      // });
 
       logger.info("Validation and staging completed successfully", {
         jobId,
@@ -536,16 +597,16 @@ export const validateAndStage = task({
         error: error instanceof Error ? error.message : "Unknown error",
       });
 
-      // Send WebSocket failure notification
-      websocketManager.emit(jobId, {
-        jobId,
-        status: "FAILED",
-        phase: "validation",
-        processed: 0,
-        total: 0,
-        percentage: 0,
-        message: error instanceof Error ? error.message : "Validation failed",
-      });
+      // Send WebSocket failure notification (temporarily disabled)
+      // websocketManager.emit(jobId, {
+      //   jobId,
+      //   status: "FAILED",
+      //   phase: "validation",
+      //   processed: 0,
+      //   total: 0,
+      //   percentage: 0,
+      //   message: error instanceof Error ? error.message : "Validation failed",
+      // });
 
       throw error;
     }

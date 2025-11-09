@@ -6,7 +6,7 @@
  * - workflow.invites.send
  * - workflow.invites.respond
  */
-import { tasks } from "@trigger.dev/sdk/v3";
+import { tasks } from "@trigger.dev/sdk";
 import {
   desc,
   eq,

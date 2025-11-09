@@ -2,6 +2,13 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "../types";
 
 export const createClient = () => {
+  // Guard against SSR - only create browser client in browser environment
+  if (typeof window === 'undefined') {
+    throw new Error(
+      'createClient() is a browser-only function. Use createServerClient() for server-side code.'
+    );
+  }
+
   return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

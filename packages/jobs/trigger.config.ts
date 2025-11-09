@@ -1,9 +1,11 @@
-import type { TriggerConfig } from "@trigger.dev/sdk/v3";
+import { defineConfig } from "@trigger.dev/sdk";
 
-export const config: TriggerConfig = {
+export default defineConfig({
   project: "proj_mqxiyipljbptdmfeivig",
-  logLevel: "log",
-  maxDuration: 60,
+  runtime: "node",
+  logLevel: "debug",
+  maxDuration: 1800, // 30 minutes for bulk import validation
+  dirs: ["./src/trigger"], // Explicitly tell Trigger.dev where to find tasks
   retries: {
     enabledInDev: true,
     default: {
@@ -14,4 +16,4 @@ export const config: TriggerConfig = {
       randomize: true,
     },
   },
-};
+});

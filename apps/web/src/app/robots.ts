@@ -10,6 +10,6 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: "https://avelero.com/sitemap.xml",
+    host: "https://avelero.com",
   };
 }
-

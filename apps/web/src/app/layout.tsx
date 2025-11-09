@@ -16,15 +16,15 @@ const Switzer = localFont({
 export const metadata: Metadata = {
   metadataBase: new URL("https://avelero.com"),
   title: {
-    default: "Avelero | Product Passports That Engage",
-    template: "%s | Avelero",
+    default: "Avelero | Product passports that engage",
+    template: "Avelero | %s",
   },
   description:
-    "Avelero is built for fashion brands that want to launch compliant product passports in days, not months. Integrate your systems, estimate product footprints, and design on-brand experiences that customers want to explore.",
+    "Avelero is built for fashion brands that want to launch EU-compliant product passports in days, not months.",
   openGraph: {
-    title: "Avelero | Product Passports That Engage",
+    title: "Avelero | Product passports that engage",
     description:
-      "Avelero is built for fashion brands that want to launch compliant product passports in days, not months. Integrate your systems, estimate product footprints, and design on-brand experiences that customers want to explore.",
+      "Avelero is built for fashion brands that want to launch EU-compliant product passports in days, not months.",
     url: "https://avelero.com",
     siteName: "Avelero",
     locale: "en_US",
@@ -40,9 +40,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Avelero | Product Passports That Engage",
+    title: "Avelero | Product passports that engage",
     description:
-      "Launch compliant product passports in days, not months. Built for fashion brands.",
+      "Avelero is built for fashion brands that want to launch EU-compliant product passports in days, not months.",
     images: ["https://avelero.com/og-image.jpg"],
     creator: "@avelerodpp",
   },
@@ -143,7 +143,7 @@ export default function RootLayout({
     name: "Avelero",
     url: "https://avelero.com",
     description:
-      "Avelero helps fashion brands launch compliant digital product passports with extensive integrations, AI-powered carbon estimates, and custom themes.",
+      "Avelero helps fashion brands launch EU-compliant digital product passports with our product footprint LCA engine, API-integrations, and customizable templates.",
     contactPoint: {
       "@type": "ContactPoint",
       email: "raf@avelero.com",

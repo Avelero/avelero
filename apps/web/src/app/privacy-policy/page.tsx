@@ -4,7 +4,7 @@ import { MDXRenderer } from "@/components/mdx-renderer";
 import matter from "gray-matter";
 
 export const metadata = {
-  title: "Privacy Policy | Avelero",
+  title: "Privacy policy",
   description: "Privacy policy for Avelero's digital product passport platform",
 };
 

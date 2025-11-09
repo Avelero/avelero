@@ -4,7 +4,7 @@ import { MDXRenderer } from "@/components/mdx-renderer";
 import matter from "gray-matter";
 
 export const metadata = {
-  title: "Terms and Conditions | Avelero",
+  title: "Terms and conditions",
   description: "Terms and conditions for using Avelero's digital product passport platform",
 };
 

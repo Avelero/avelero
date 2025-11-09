@@ -12,16 +12,16 @@ export default function Page() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: "Avelero | Product Passports That Engage",
+    name: "Avelero | Product passports that engage",
     description:
-      "Launch compliant digital product passports in days, not months. Built for fashion brands with extensive integrations, AI-powered carbon estimates, and custom themes.",
+      "Avelero is built for fashion brands that want to launch EU-compliant product passports in days, not months.",
     url: "https://avelero.com",
     mainEntity: {
       "@type": "SoftwareApplication",
       name: "Avelero",
       applicationCategory: "BusinessApplication",
       description:
-        "Digital product passport platform for fashion brands with LCA engine, system integrations, and customizable templates.",
+        "Digital product passport platform for fashion brands with product footprint LCA engine, API-integrations, and customizable templates.",
     },
   };
 
@@ -35,35 +35,27 @@ export default function Page() {
       <main className="h-[calc(100%-102px)] w-full flex flex-col items-center justify-center">
       <Hero />
       <HeroImage />
-      <Brands>
-        <BrandCard logo={<PlytixLogo height={24} color="hsl(var(--foreground))" />} />
-        <BrandCard logo={<ShopifyLogo height={28} color="hsl(var(--foreground))" />} />
-        <BrandCard logo={<ItsPerfectLogo height={28} color="hsl(var(--foreground))" />} />
-        <BrandCard logo={<ApparelMagicLogo height={22} color="hsl(var(--foreground))" />} />
-        <BrandCard logo={<AkeneoLogo height={20} color="hsl(var(--foreground))" />} />
-        <BrandCard logo={<DelogueLogo height={24} color="hsl(var(--foreground))" />} />
-      </Brands>
+      <TextBlock spanText="Avelero is purpose-built for brands that are customer obsessed." text="Product passports are the last step in your customer journey — we believe this is an opportunity to delight." />
       <FeatureCards>
         <FeatureCard
-          title="A reason to visit your DPP"
-          description="Add care guides, repair services, and resell opportunities. Give customers a reason to return long after the purchase."
+          title="Extend the product lifecycle"
+          description="Embed care guides, repair services, and resale options directly in the passport. Keep products in use and customers returning long after purchase."
           backgroundImage="/passport-menu-image.webp"
         >
         </FeatureCard>
         <FeatureCard
-          title="Re-engage with your brand"
-          description="Tell your story, share your impact, and build loyalty. Product passports are an extension of your brand."
+          title="Re-engage your customers"
+          description="Tell your story, share your impact, and build loyalty. Product passports become part of the brand experience."
           backgroundImage="/passport-banner-image.webp"
         >
         </FeatureCard>
         <FeatureCard
-          title="An opportunity to convert "
-          description="Drive traffic back to your store with links to related products, newsletter signups, or campaign banners."
+          title="Drive traffic back to your store"
+          description="Link to related products, promote campaigns, or capture newsletter signups directly from your product passport."
           backgroundImage="/passport-carousel-image.webp"
         >
         </FeatureCard>
       </FeatureCards>
-      <TextBlock spanText="Avelero is built for fashion brands" text="that want to get compliant fast. Extensive integrations, AI-powered carbon estimates, and custom themes get your passports published in days." />
       <FeatureBlock id="footprint">
         <FeatureBlockImage
           image="/lca-engine-image.webp"
@@ -86,8 +78,8 @@ export default function Page() {
           bottomTitle="modular & customizable"
         />
         <FeatureBlockContent
-          topTitle="Designed to engage,"
-          bottomTitle="modular & customizable"
+          topTitle="Design passports"
+          bottomTitle="that feel like your brand"
           description="Build passports from modular sections that you can rearrange, style, and brand. Set your own typography, colors, and layout rules, then reuse them across your entire catalog. Every passport reflects your identity, not ours."
         />
       </FeatureBlock>

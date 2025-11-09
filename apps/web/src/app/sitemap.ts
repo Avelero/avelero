@@ -4,14 +4,26 @@ export const baseUrl = "https://avelero.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const routes = [
-    "",
-    "/product",
-    "/compliance",
-    "/pricing",
-    "/resources",
-  ].map((route) => ({
-    url: `${baseUrl}${route}`,
+    {
+      route: "",
+      priority: 1.0,
+      changeFrequency: "monthly" as const,
+    },
+    {
+      route: "/terms-and-conditions/",
+      priority: 0.3,
+      changeFrequency: "monthly" as const,
+    },
+    {
+      route: "/privacy-policy/",
+      priority: 0.3,
+      changeFrequency: "monthly" as const,
+    },
+  ].map((item) => ({
+    url: `${baseUrl}${item.route}`,
     lastModified: new Date().toISOString().split("T")[0],
+    changeFrequency: item.changeFrequency,
+    priority: item.priority,
   }));
 
   return [...routes];

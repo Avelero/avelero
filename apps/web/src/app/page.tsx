@@ -1,7 +1,5 @@
 import { Hero } from "@/components/hero";
 import { HeroImage } from "@/components/hero-image";
-import { Brands, BrandCard } from "@/components/brand-cards";
-import { PlytixLogo, ShopifyLogo, ItsPerfectLogo, ApparelMagicLogo, AkeneoLogo, DelogueLogo } from "@/components/logos";
 import { FeatureCards, FeatureCard } from "@/components/feature-cards";
 import { TextBlock } from "@/components/text-block";
 import { FeatureBlock, FeatureBlockContent, FeatureBlockImage } from "@/components/feature-block";
@@ -74,8 +72,8 @@ export default function Page() {
         <FeatureBlockImage
           image="/customize-template-image.webp"
           imageAlt="Customize template illustration"
-          topTitle="Designed to engage,"
-          bottomTitle="modular & customizable"
+          topTitle="Design passports"
+          bottomTitle="that feel like your brand"
         />
         <FeatureBlockContent
           topTitle="Design passports"

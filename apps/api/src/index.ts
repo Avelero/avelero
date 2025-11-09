@@ -83,6 +83,9 @@ app.get("/health", (c) => c.json({ status: "ok" }, 200));
 const serverConfig = {
   port: process.env.PORT ? Number.parseInt(process.env.PORT) : 4000,
   fetch: app.fetch,
+  // Increase idle timeout for long-running operations
+  // Default 10s is too short for complex queries in development
+  idleTimeout: process.env.NODE_ENV === "production" ? 30 : 60,
 };
 
 export default serverConfig;

@@ -9,9 +9,12 @@ import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
 import { TRPCError, initTRPC } from "@trpc/server";
 import { db as drizzleDb } from "@v1/db/client";
 import type { Database as DrizzleDatabase } from "@v1/db/client";
+import { and, eq } from "@v1/db/queries";
+import { brandMembers, users } from "@v1/db/schema";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
 import type { Role } from "../config/roles";
+import { isRole } from "../config/roles";
 import type { DataLoaders } from "../utils/dataloader.js";
 import { createDataLoaders } from "../utils/dataloader.js";
 import { noBrandSelected, unauthorized } from "../utils/errors.js";
@@ -47,6 +50,8 @@ export interface TRPCContext {
   brandId?: string | null;
   /** Brand-specific role resolved via membership lookup. */
   role?: Role | null;
+  /** Flag indicating if role was already resolved in context creation. */
+  roleResolved?: boolean;
   /** Shared Drizzle database connection used for transactional work. */
   db: DrizzleDatabase;
   /** Request-scoped dataloaders for efficient batch loading and caching. */
@@ -132,13 +137,38 @@ export async function createTRPCContextFromHeaders(
     user = userRes?.user ?? null;
   }
 
+  // Optimization: Fetch both brand_id and role in a single query with JOIN
+  // This reduces context creation from 2 queries to 1 query
   let brandId: string | null | undefined = undefined;
+  let role: Role | null | undefined = undefined;
+  let roleResolved = false;
+
   if (user) {
-    const userRow = await db.query.users.findFirst({
-      columns: { brandId: true },
-      where: (tbl, { eq }) => eq(tbl.id, user.id),
-    });
-    brandId = userRow?.brandId ?? null;
+    const result = await db
+      .select({
+        brandId: users.brandId,
+        role: brandMembers.role,
+      })
+      .from(users)
+      .leftJoin(
+        brandMembers,
+        and(
+          eq(brandMembers.userId, users.id),
+          eq(brandMembers.brandId, users.brandId),
+        ),
+      )
+      .where(eq(users.id, user.id))
+      .limit(1)
+      .then((rows) => rows[0] ?? null);
+
+    brandId = result?.brandId ?? null;
+    
+    // Only set role if we have a brand and membership
+    if (result?.role && brandId) {
+      const parsedRole = isRole(result.role) ? result.role : null;
+      role = parsedRole;
+      roleResolved = true; // Mark that role was already resolved
+    }
   }
 
   return {
@@ -146,6 +176,8 @@ export async function createTRPCContextFromHeaders(
     supabaseAdmin,
     user,
     brandId,
+    role,
+    roleResolved,
     geo: { ip: ip ?? null },
     db,
     loaders: createDataLoaders(db),

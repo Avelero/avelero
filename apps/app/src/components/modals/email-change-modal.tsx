@@ -34,7 +34,7 @@ export function EmailChangeModal({
   newEmail,
   onSuccess,
 }: Props) {
-  const supabase = useMemo(() => createSupabaseClient(), []);
+  const supabase = createSupabaseClient();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const updateUserMutation = useMutation(trpc.user.update.mutationOptions());
@@ -169,7 +169,7 @@ export function EmailChangeModal({
       // ignore errors to avoid blocking success UX
     }
     setBusy(false);
-    toast.success("Email changed successfully");
+    toast.success("Email updated successfully");
     onSuccess?.();
     onOpenChange(false);
   }

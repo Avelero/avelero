@@ -283,6 +283,7 @@ export const Icons = {
   ChevronsUpDown,
   UserRound,
   ArrowUpZA,
+  Loader2,
   ArrowDownZA,
   ArrowUp10,
   ArrowDown10,

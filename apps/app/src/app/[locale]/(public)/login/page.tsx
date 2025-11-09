@@ -2,7 +2,7 @@ import { GoogleSignin } from "@/components/auth/google-signin";
 import { OTPSignIn } from "@/components/auth/otp-signin";
 import type { Metadata } from "next";
 import Image from "next/image";
-import LoginPageImage from "public/marketing/LoginPageImage.webp";
+import loginPageImage from "public/marketing/login-page-image.webp";
 
 export const metadata: Metadata = {
   title: "Login | Avelero",
@@ -48,8 +48,8 @@ export default function Page() {
       {/* Background Image Section - Hidden on mobile, visible on desktop */}
       <div className="hidden lg:flex lg:w-1/2 relative">
         <Image
-          src={LoginPageImage}
-          alt="Background"
+          src={loginPageImage}
+          alt="Background image"
           className="object-cover object-left"
           priority
           fill

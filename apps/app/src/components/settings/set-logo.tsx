@@ -1,26 +1,15 @@
 "use client";
 
 import { useUserBrandsQuery } from "@/hooks/use-brand";
-import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
+import { useUserQuery } from "@/hooks/use-user";
 import { Icons } from "@v1/ui/icons";
 import { Suspense } from "react";
 import { AvatarUpload } from "../avatar-upload";
 
-interface Brand {
-  id: string;
-  name: string;
-  logo_url?: string | null;
-  role?: "owner" | "member" | null;
-  canLeave?: boolean;
-}
-
 function InnerLogoUpload() {
-  const { data: brandsData } = useUserBrandsQuery();
+  const { data: brands } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
-  const brands = (brandsData as Brand[] | undefined) ?? [];
-  const activeBrand = brands.find(
-    (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
-  );
+  const activeBrand = brands?.find((b) => b.id === user?.brand_id);
 
   if (!activeBrand) {
     return (

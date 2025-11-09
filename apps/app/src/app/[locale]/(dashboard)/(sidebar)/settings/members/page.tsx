@@ -1,43 +1,30 @@
 import { MembersTable } from "@/components/tables/members/members";
 import { MembersSkeleton } from "@/components/tables/members/skeleton";
-import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
-import { createClient as createSupabaseServerClient } from "@v1/supabase/server";
+import { getQueryClient, trpc } from "@/trpc/server";
 import { Suspense } from "react";
 
 export default async function Page() {
   const queryClient = getQueryClient();
 
-  // Prefetch composite members + invites when active brand is available
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user?.id) {
-      const { data } = await supabase
-        .from("users")
-        .select("brand_id")
-        .eq("id", user.id)
-        .single();
-      const brandId =
-        (data as { brand_id: string | null } | null)?.brand_id ?? null;
-      if (brandId) {
-        await queryClient.prefetchQuery(
-          trpc.composite.membersWithInvites.queryOptions({
-            brand_id: brandId,
-          }),
-        );
-      }
-    }
-  } catch {}
+  // Get brand_id from cached user data (already prefetched in sidebar layout)
+  const user = queryClient.getQueryData(trpc.user.get.queryKey());
+  const brandId = user?.brand_id ?? null;
 
+  if (brandId) {
+    // Prefetch members and invites for the active brand
+    await queryClient.prefetchQuery(
+      trpc.composite.membersWithInvites.queryOptions({
+        brand_id: brandId,
+      }),
+    );
+  }
+
+  // No HydrateClient needed - parent layout already provides it
   return (
-    <HydrateClient>
-      <div className="w-full max-w-[700px]">
-        <Suspense fallback={<MembersSkeleton />}>
-          <MembersTable />
-        </Suspense>
-      </div>
-    </HydrateClient>
+    <div className="w-full max-w-[700px]">
+      <Suspense fallback={<MembersSkeleton />}>
+        <MembersTable />
+      </Suspense>
+    </div>
   );
 }

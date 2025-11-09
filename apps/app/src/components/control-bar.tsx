@@ -80,7 +80,6 @@ function ControlBarNavButton({
   return (
     <Link
       href={href}
-      prefetch
       className={cn(
         "h-full px-1 flex items-center",
         isActive

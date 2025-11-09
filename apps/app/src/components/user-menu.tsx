@@ -72,7 +72,7 @@ export function UserMenu({ onlySignOut }: Props) {
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <Link prefetch href="/account">
+              <Link href="/account">
                 <DropdownMenuItem>Settings</DropdownMenuItem>
               </Link>
             </DropdownMenuGroup>

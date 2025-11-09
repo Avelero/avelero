@@ -51,19 +51,19 @@ export const verifyOtpAction = actionClient
       throw new Error(error.message || "Invalid verification code");
     }
 
-    if (!data.session) {
+    if (!data.session || !data.user) {
       throw new Error("Authentication failed. Please try again.");
     }
 
     // Successful verification: redeem invite cookie if present, then compute final destination
-    const { data: userRes } = await supabase.auth.getUser();
-    const user = userRes?.user ?? null;
+    // Use data.user from verifyOtp response - no need for extra getUser() call
+    const user = data.user;
     const cookieStore = await cookies();
     const cookieHash =
       cookieStore.get("brand_invite_token_hash")?.value ?? null;
     let acceptedBrand = false;
 
-    if (user && cookieHash) {
+    if (cookieHash) {
       try {
         const { error: rpcError } = await supabase.rpc(
           "accept_invite_from_cookie",

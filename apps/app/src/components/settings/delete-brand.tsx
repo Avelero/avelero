@@ -1,42 +1,25 @@
 "use client";
 
 import { useUserBrandsQuery } from "@/hooks/use-brand";
-import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
+import { useUserQuery } from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
 import { useState } from "react";
 import { DeleteBrandModal } from "../modals/delete-brand-modal";
 
-interface Brand {
-  id: string;
-  name: string;
-  logo_url?: string | null;
-  avatar_hue?: number | null;
-  country_code?: string | null;
-  role: "owner" | "member"; // role is always returned by the API
-}
-
 function DeleteBrand() {
   const [open, setOpen] = useState(false);
-  const { data: brandsData, isLoading } = useUserBrandsQuery();
+  const { data: brands, isLoading } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
 
   // During initial load, don't render anything
-  if (isLoading || !brandsData) {
+  if (isLoading || !brands) {
     return null;
   }
 
-  // brandsData is an array directly, not wrapped in { data: [] }
-  const brands = (Array.isArray(brandsData) ? brandsData : []) as Brand[];
-  const activeBrand = brands.find(
-    (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
-  );
+  const activeBrand = brands.find((b) => b.id === user?.brand_id);
 
   // Only show delete button if user is an owner of the active brand
-  if (!activeBrand) {
-    return null;
-  }
-
-  if (activeBrand.role !== "owner") {
+  if (!activeBrand || activeBrand.role !== "owner") {
     return null;
   }
 

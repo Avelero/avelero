@@ -2,6 +2,7 @@
 
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
+import { toast } from "@v1/ui/sonner";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
@@ -22,14 +23,27 @@ export function GoogleSignin() {
         redirectTo.searchParams.append("return_to", returnTo);
       }
 
-      await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: redirectTo.toString(),
           queryParams: { prompt: "select_account" },
         },
       });
+
+      if (error) {
+        toast.error(
+          error.message || "Failed to connect with Google. Please try again.",
+        );
+        setIsLoading(false);
+      }
+      // Note: If successful, user will be redirected to Google, so no need to reset loading state
     } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Unable to connect with Google. Please check your connection and try again.";
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };

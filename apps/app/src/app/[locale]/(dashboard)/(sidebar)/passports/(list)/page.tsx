@@ -1,7 +1,16 @@
 import { DataSection } from "@/components/passports/data-section";
 import { TableSection } from "@/components/passports/table-section";
+import { getQueryClient, trpc } from "@/trpc/server";
 
-export default function PassportsPage() {
+export default async function PassportsPage() {
+  const queryClient = getQueryClient();
+
+  // Prefetch passports list with status counts for instant rendering
+  await queryClient.prefetchQuery(
+    trpc.passports.list.queryOptions({ includeStatusCounts: true }),
+  );
+
+  // No HydrateClient needed - parent layout already provides it
   return (
     <div className="w-full">
       <div className="flex flex-col gap-12">

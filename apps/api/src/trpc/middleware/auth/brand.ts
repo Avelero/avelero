@@ -19,6 +19,9 @@ type ContextWithBrandCache = TRPCContext & {
  * The result is cached on the tRPC context so downstream middleware can reuse
  * it without issuing duplicate database lookups.
  *
+ * OPTIMIZATION: If the role was already resolved during context creation (via JOIN),
+ * we skip the database query entirely.
+ *
  * @param ctx - Request-scoped tRPC context.
  * @returns Brand identifier and role when membership exists, otherwise nulls.
  */
@@ -43,6 +46,19 @@ export async function ensureBrandContext(
     return missingBrand;
   }
 
+  // OPTIMIZATION: If role was already resolved in context creation, use it
+  // This eliminates a duplicate database query (50% reduction in context queries)
+  if (ctx.roleResolved && ctx.role !== undefined) {
+    const result: BrandContextCache = {
+      brandId,
+      role: ctx.role,
+    };
+    contextWithCache[BRAND_CONTEXT_CACHE] = result;
+    return result;
+  }
+
+  // Fallback: Query database if role wasn't resolved in context
+  // This path is only hit if context creation couldn't resolve the role
   try {
     const membership = await ctx.db.query.brandMembers.findFirst({
       columns: {

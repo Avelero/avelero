@@ -1,87 +1,61 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { getQueryClient, trpc } from "@/trpc/server";
 import { createClient } from "@v1/supabase/server";
-import type { Tables, TablesUpdate } from "@v1/supabase/types";
-import type { Database } from "@v1/supabase/types";
 
 interface ResolveAuthRedirectOptions {
   next?: string | null;
   returnTo?: string | null;
 }
 
+/**
+ * Resolves the appropriate redirect path after authentication based on user state.
+ *
+ * Uses tRPC for queries (cached and reused by layout) following Midday's server-side pattern.
+ * Uses Supabase directly for the active brand mutation since app layer doesn't have DB access.
+ *
+ * @param options - Optional next/returnTo paths for post-auth navigation
+ * @returns Redirect path based on user's profile and brand membership state
+ */
 export async function resolveAuthRedirectPath({
   next,
   returnTo,
 }: ResolveAuthRedirectOptions = {}): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const queryClient = getQueryClient();
+
+  // Fetch user profile and brand memberships via tRPC (single optimized query)
+  // This data gets cached and reused by the dashboard layout, eliminating duplicate fetches
+  const { user, brands } = await queryClient.fetchQuery(
+    trpc.composite.workflowInit.queryOptions(),
+  );
 
   if (!user) return "/login?error=auth-session-missing";
 
-  const userId = user.id;
-
-  // Profile completeness check
-  const { data: profile, error } = await supabase
-    .from("users")
-    .select("full_name, brand_id")
-    .eq("id", userId)
-    .single();
-
-  if (error) {
-    // Handle error appropriately
-    return "/login?error=profile-fetch-failed";
-  }
-
-  // Type assertion to match working pattern in getUserProfile
-  const typedProfile = profile as Pick<
-    Tables<"users">,
-    "full_name" | "brand_id"
-  > | null;
+  // Check if user has completed profile setup
   const isProfileIncomplete =
-    !typedProfile?.full_name || typedProfile.full_name.trim().length < 2;
+    !user.full_name || user.full_name.trim().length < 2;
   if (isProfileIncomplete) return "/setup";
-
-  const { count } = await supabase
-    .from("users_on_brand")
-    .select("*", { count: "exact" })
-    .eq("user_id", userId);
 
   const target = returnTo || next || "/";
 
-  // No brand memberships and not an invite link -> create brand
-  const membershipCount = typeof count === "number" ? count : 0;
-  if (membershipCount === 0 && !returnTo?.startsWith("brands/invite/")) {
+  // No brand memberships -> redirect to create brand flow
+  if (brands.length === 0) {
     return "/create-brand";
   }
 
-  // If user has memberships but no active brand selected, pick the most recent membership
-  if (membershipCount > 0 && !typedProfile?.brand_id) {
-    const { data: recentMembership } = await supabase
-      .from("users_on_brand")
-      .select("brand_id, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // Type assertion for recentMembership
-    const typedMembership = recentMembership as Pick<
-      Tables<"users_on_brand">,
-      "brand_id"
-    > | null;
-    const selectedBrandId = typedMembership?.brand_id ?? null;
-    if (selectedBrandId) {
-      // Best-effort: set active brand to most recent using working mutation pattern
-      try {
-        // Type cast through unknown to bypass TypeScript inference issues
-        await (supabase as unknown as SupabaseClient<Database>)
+  // If user has brands but no active brand selected, set the first one as active
+  // This happens when user accepts an invite or joins their first brand
+  if (brands.length > 0 && !user.brand_id && brands[0]) {
+    const selectedBrandId = brands[0].id;
+    try {
+      // Update active brand via Supabase (app doesn't have direct DB access)
+      // Security: User can only set brands they're a member of (verified by brands array from tRPC)
+      const supabase = await createClient();
+      await supabase
           .from("users")
           .update({ brand_id: selectedBrandId })
-          .eq("id", userId);
+        .eq("id", user.id);
       } catch {
-        // Ignore update errors in this best-effort operation
-      }
+      // Best-effort operation - continue even if it fails
+      // User can manually select brand from account settings
     }
   }
 

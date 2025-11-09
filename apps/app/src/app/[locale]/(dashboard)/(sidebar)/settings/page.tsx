@@ -5,6 +5,7 @@ import { SetLogo } from "@/components/settings/set-logo";
 import { SetName } from "@/components/settings/set-name";
 
 export default function SettingsPage() {
+  // No prefetching or HydrateClient needed - parent layout already provides both
   return (
     <div className="w-[700px]">
       <div className="flex flex-col gap-12">

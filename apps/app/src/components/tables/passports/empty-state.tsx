@@ -28,21 +28,23 @@ function EmptyPanel({ title, description, action }: BaseProps) {
   );
 }
 
-export function NoPassports({
-  onCreateAction,
-}: { onCreateAction?: () => void }) {
+import { useRouter } from "next/navigation";
+
+export function NoPassports() {
+  const router = useRouter();
+
   return (
     <EmptyPanel
       title="No passports yet"
       description="Create your first Digital Product Passport to get started."
-      action={
-        onCreateAction
-          ? { label: "Create passport", onClick: onCreateAction }
-          : undefined
-      }
+      action={{
+        label: "Create passport",
+        onClick: () => router.push("/passports/create"),
+      }}
     />
   );
 }
+
 
 export function NoResults({ onClearAction }: { onClearAction?: () => void }) {
   return (

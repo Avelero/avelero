@@ -1,28 +1,18 @@
 "use client";
 
 import { useBrandUpdateMutation, useUserBrandsQuery } from "@/hooks/use-brand";
-import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
+import { useUserQuery } from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { toast } from "@v1/ui/sonner";
 import { useEffect, useRef, useState } from "react";
 
-interface Brand {
-  id: string;
-  name: string;
-  email?: string | null;
-  country_code?: string | null;
-}
-
 function SetEmail() {
-  const { data: brandsData } = useUserBrandsQuery();
+  const { data: brands } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
   const updateBrand = useBrandUpdateMutation();
 
-  const brands = (brandsData as Brand[] | undefined) ?? [];
-  const activeBrand = brands.find(
-    (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
-  );
+  const activeBrand = brands?.find((b) => b.id === user?.brand_id);
 
   const initialEmailRef = useRef<string>("");
   const [email, setEmail] = useState<string>("");

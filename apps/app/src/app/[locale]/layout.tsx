@@ -94,7 +94,7 @@ export default function RootLayout({
       <body
         className={cn(
           `${GeistSans.variable} ${GeistMono.variable}`,
-          "antialiased",
+          "font-sans antialiased",
         )}
         suppressHydrationWarning
       >

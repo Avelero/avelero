@@ -50,7 +50,6 @@ export function SidebarButton({
       onMouseLeave={handleMouseLeave}
     >
       <Link
-        prefetch
         href={item.path}
         onClick={() => onSelect?.()}
         aria-current={isActive ? "page" : undefined}

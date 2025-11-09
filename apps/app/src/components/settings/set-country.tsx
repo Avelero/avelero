@@ -1,27 +1,18 @@
 "use client";
 
 import { useBrandUpdateMutation, useUserBrandsQuery } from "@/hooks/use-brand";
-import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
+import { useUserQuery } from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
 import { toast } from "@v1/ui/sonner";
 import { useEffect, useRef, useState } from "react";
 import { CountrySelect } from "../select/country-select";
 
-interface Brand {
-  id: string;
-  name: string;
-  country_code?: string | null;
-}
-
 function SetCountry() {
-  const { data: brandsData } = useUserBrandsQuery();
+  const { data: brands } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
   const updateBrand = useBrandUpdateMutation();
 
-  const brands = (brandsData as Brand[] | undefined) ?? [];
-  const activeBrand = brands.find(
-    (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
-  );
+  const activeBrand = brands?.find((b) => b.id === user?.brand_id);
 
   const initialCountryRef = useRef<string>("");
   const [country, setCountry] = useState<string>("");

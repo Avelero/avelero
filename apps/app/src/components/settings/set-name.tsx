@@ -1,27 +1,18 @@
 "use client";
 
 import { useBrandUpdateMutation, useUserBrandsQuery } from "@/hooks/use-brand";
-import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
+import { useUserQuery } from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { toast } from "@v1/ui/sonner";
 import { useEffect, useRef, useState } from "react";
 
-interface Brand {
-  id: string;
-  name: string;
-  country_code?: string | null;
-}
-
 function SetName() {
-  const { data: brandsData } = useUserBrandsQuery();
+  const { data: brands } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
   const updateBrand = useBrandUpdateMutation();
 
-  const brands = (brandsData as Brand[] | undefined) ?? [];
-  const activeBrand = brands.find(
-    (b: Brand) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
-  );
+  const activeBrand = brands?.find((b) => b.id === user?.brand_id);
 
   const initialNameRef = useRef<string>("");
   const [name, setName] = useState<string>("");
@@ -45,10 +36,10 @@ function SetName() {
         onSuccess: () => {
           initialNameRef.current = trimmed;
           setName(trimmed);
-          toast.success("Brand name changed successfully");
+          toast.success("Brand name updated successfully");
         },
         onError: () => {
-          toast.error("Action failed, please try again");
+          toast.error("Failed to update brand name. Please try again.");
         },
       },
     );
@@ -65,7 +56,8 @@ function SetName() {
           placeholder="Brand name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="max-w-[250px]"
+          disabled={isSaving}
+          className="max-w-[250px] disabled:opacity-100 disabled:cursor-text"
         />
       </div>
       <div className="flex flex-row justify-end border-x border-b p-6">

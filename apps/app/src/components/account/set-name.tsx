@@ -37,10 +37,10 @@ function SetName() {
         onSuccess: () => {
           initialFullNameRef.current = trimmed;
           setFullName(trimmed);
-          toast.success("Name changed successfully");
+          toast.success("Name updated successfully");
         },
         onError: () => {
-          toast.error("Action failed, please try again");
+          toast.error("Failed to update name. Please try again.");
         },
       },
     );
@@ -57,7 +57,8 @@ function SetName() {
           placeholder="Name"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          className="max-w-[250px]"
+          disabled={isSaving}
+          className="max-w-[250px] disabled:opacity-100 disabled:cursor-text"
         />
       </div>
       <div className="flex flex-row justify-end border-x border-b p-6">

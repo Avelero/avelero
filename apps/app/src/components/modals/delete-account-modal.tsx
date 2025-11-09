@@ -41,7 +41,8 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
       // Step 2: Sign out locally
       await supabase.auth.signOut({ scope: "local" });
 
-      // Step 3: Redirect to login
+      // Step 3: Refresh router to clear server-side cache, then redirect
+      router.refresh();
       router.push("/login");
     } catch (e: unknown) {
       const error =

@@ -8,6 +8,7 @@ import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@v1/ui/input-otp";
 import { Label } from "@v1/ui/label";
+import { toast } from "@v1/ui/sonner";
 import { useAction } from "next-safe-action/hooks";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -15,7 +16,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 const formSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email("Please enter a valid email address"),
 });
 
 type Props = {
@@ -27,6 +28,7 @@ export function OTPSignIn({ className }: Props) {
   const [isLoading, setLoading] = useState(false);
   const [isSent, setSent] = useState(false);
   const [email, setEmail] = useState<string>();
+  const [emailError, setEmailError] = useState(false);
   const supabase = createClient();
   const searchParams = useSearchParams();
 
@@ -39,13 +41,27 @@ export function OTPSignIn({ className }: Props) {
 
   async function onSubmit({ email }: z.infer<typeof formSchema>) {
     setLoading(true);
-
     setEmail(email);
 
-    await supabase.auth.signInWithOtp({ email });
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ email });
 
-    setSent(true);
-    setLoading(false);
+      if (error) {
+        toast.error(
+          error.message || "Failed to send verification code. Please try again.",
+        );
+        setLoading(false);
+        return;
+      }
+
+      setSent(true);
+    } catch (error) {
+      toast.error(
+        "Unable to send verification code. Please check your connection and try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function onComplete(token: string) {
@@ -91,17 +107,9 @@ export function OTPSignIn({ className }: Props) {
             variant="outline"
             onClick={handleCancel}
             disabled={verifyOtp.status === "executing"}
-            className="flex-1"
+            className="w-full"
           >
             Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={() => onComplete("")}
-            disabled={verifyOtp.status === "executing"}
-            className="flex-1"
-          >
-            {verifyOtp.status === "executing" ? "Verifying..." : "Send"}
           </Button>
         </div>
 
@@ -119,8 +127,19 @@ export function OTPSignIn({ className }: Props) {
     );
   }
 
+  const handleFormSubmit = form.handleSubmit(
+    onSubmit,
+    (errors) => {
+      // Show toast immediately when validation fails
+      if (errors.email) {
+        setEmailError(true);
+        toast.error(errors.email.message || "Please enter a valid email address");
+      }
+    }
+  );
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)}>
+    <form onSubmit={handleFormSubmit} noValidate>
       <div className={cn("flex flex-col space-y-4", className)}>
         <div className="space-y-2">
           <Input
@@ -130,7 +149,16 @@ export function OTPSignIn({ className }: Props) {
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            {...form.register("email")}
+            {...form.register("email", {
+              onChange: () => {
+                // Clear error state when user starts typing
+                setEmailError(false);
+              },
+            })}
+            className={cn(
+              emailError && "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none"
+            )}
+            aria-invalid={emailError}
           />
         </div>
 

@@ -111,7 +111,7 @@ export function useAcceptInviteMutation() {
           trpc.user.invites.list.queryKey(),
           ctx?.previous,
         );
-        toast.error("Action failed, please try again");
+        toast.error("Failed to accept invite. Please try again.");
       },
       onSuccess: (data, _vars, ctx) => {
         const brandName = ctx?.brandName || "brand";

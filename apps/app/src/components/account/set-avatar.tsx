@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  type CurrentUser,
-  useUserQuery,
-  useUserQuerySuspense,
-} from "@/hooks/use-user";
+import { type CurrentUser, useUserQuerySuspense } from "@/hooks/use-user";
 import { Icons } from "@v1/ui/icons";
 import { Suspense } from "react";
 import { AvatarUpload } from "../avatar-upload";
@@ -12,12 +8,6 @@ import { AvatarUpload } from "../avatar-upload";
 function InnerAvatarUpload() {
   const { data: user } = useUserQuerySuspense();
   const u = user as CurrentUser;
-
-  console.log("[SetAvatar] User data:", {
-    userId: u.id,
-    avatarUrl: u.avatar_url,
-    fullName: u.full_name,
-  });
 
   return (
     <AvatarUpload
@@ -31,7 +21,6 @@ function InnerAvatarUpload() {
 }
 
 function SetAvatar() {
-  const { data: user } = useUserQuery();
   return (
     <div className="relative">
       <div className="flex flex-row p-6 border justify-between items-center">

@@ -17,6 +17,8 @@ export function SignOut() {
       scope: "local",
     });
 
+    // Refresh router to clear server-side cache before redirecting
+    router.refresh();
     router.push("/login");
   };
 

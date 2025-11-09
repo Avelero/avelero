@@ -5,6 +5,9 @@ import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { useEffect, useState } from "react";
+import { z } from "zod";
+
+const emailSchema = z.string().email();
 
 function SetEmail() {
   const { data } = useUserQuery();
@@ -17,7 +20,7 @@ function SetEmail() {
     setEmail(currentEmail);
   }, [currentEmail]);
 
-  const isValidEmail = /\S+@\S+\.\S+/.test(email);
+  const isValidEmail = emailSchema.safeParse(email).success;
   const canSave = isValidEmail && email !== currentEmail;
 
   return (
@@ -34,7 +37,8 @@ function SetEmail() {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="max-w-[250px]"
+          disabled={open}
+          className="max-w-[250px] disabled:opacity-100 disabled:cursor-text"
         />
       </div>
       <div className="flex flex-row justify-end border-x border-b p-6">

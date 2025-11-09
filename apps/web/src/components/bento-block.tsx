@@ -3,7 +3,7 @@ import { ContactDrawer } from "./contact-drawer";
 
 export function BentoBlock() {
     return (
-        <div className="flex flex-col w-full py-[45px] sm:py-[62px] gap-4 lg:gap-6">
+        <div id="automation" className="flex flex-col w-full py-[45px] sm:py-[62px] gap-4 lg:gap-6 scroll-mt-20">
             <div className="flex md:flex-row flex-col justify-between md:items-center">
                 <h4 className="text-h6 md:text-h5 text-foreground">Get compliant in days, <br className="md:hidden" /><span className="text-foreground/50 md:text-foreground">not months</span></h4>
                 <div className="hidden sm:block">

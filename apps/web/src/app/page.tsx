@@ -64,7 +64,7 @@ export default function Page() {
         </FeatureCard>
       </FeatureCards>
       <TextBlock spanText="Avelero is built for fashion brands" text="that want to get compliant fast. Extensive integrations, AI-powered carbon estimates, and custom themes get your passports published in days." />
-      <FeatureBlock>
+      <FeatureBlock id="footprint">
         <FeatureBlockImage
           image="/lca-engine-image.webp"
           imageAlt="LCA engine illustration"
@@ -78,7 +78,7 @@ export default function Page() {
           description="Our LCA engine calculates carbon and water impact from your material and production data. Using validated open data sources and cradle-to-gate methodology, it gives you estimates ready to include in your digital product passports."
         />
       </FeatureBlock>
-      <FeatureBlock>
+      <FeatureBlock id="designer">
         <FeatureBlockImage
           image="/customize-template-image.webp"
           imageAlt="Customize template illustration"

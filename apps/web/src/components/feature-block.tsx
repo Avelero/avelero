@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 
-export function FeatureBlock({ children }: { children: ReactNode }) {
+export function FeatureBlock({ children, id }: { children: ReactNode, id?: string }) {
     return (
-        <div className="flex md:flex-row flex-col w-full py-[45px] sm:py-[62px] gap-4 md:gap-8">
+        <div id={id} className="flex md:flex-row flex-col w-full py-[45px] sm:py-[62px] gap-4 md:gap-8 scroll-mt-20">
             {children}
         </div>
     );

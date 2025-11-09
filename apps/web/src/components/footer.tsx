@@ -9,43 +9,28 @@ export function Footer() {
         <nav>
           <div className="flex flex-col md:flex-row justify-between gap-6 md:gap-4 py-6 md:py-8">
             <AveleroLogo height={24} color="var(--foreground)" className="hidden md:block" />
-            <div className="gap-x-3 gap-y-2 grid grid-cols-2 md:grid-cols-4">
+            <div className="gap-x-3 gap-y-2 grid grid-cols-2 md:grid-cols-3">
               <div>
                 <h6 className="text-small text-foreground/50 pb-1">Product</h6>
                 <ul>
                   <li>
-                    <Link aria-label="Go to customization section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/customization">
-                      Customization
+                    <Link aria-label="Go to footprint section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="#footprint">
+                      Footprint
                     </Link>
                   </li>
                   <li>
-                    <Link aria-label="Go to calculations section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/calculations">
-                      Calculations
+                    <Link aria-label="Go to designer section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="#designer">
+                      Designer
                     </Link>
                   </li>
                   <li>
-                    <Link aria-label="Go to pricing page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/pricing">
-                      Pricing
+                    <Link aria-label="Go to automation section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="#automation">
+                      Automation
                     </Link>
                   </li>
-                </ul>
-              </div>
-              <div>
-                <h6 className="text-small text-foreground/50 pb-1">Resources</h6>
-                <ul>
                   <li>
-                    <Link aria-label="Go to compliance page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/compliance">
+                    <Link aria-label="Go to compliance section" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="#compliance">
                       Compliance
-                    </Link>
-                  </li>
-                  <li>
-                    <Link aria-label="Go to about page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/about">
-                      About
-                    </Link>
-                  </li>
-                  <li>
-                    <Link aria-label="Go to blog page" className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1" href="/blog">
-                      Blog
                     </Link>
                   </li>
                 </ul>

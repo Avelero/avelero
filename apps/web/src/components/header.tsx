@@ -58,17 +58,17 @@ export function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden md:block">
           <div className="flex items-center gap-4">
-            <Link href="/product" aria-label="Go to product page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
-              Product
+            <Link href="#footprint" aria-label="Go to footprint section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+              Footprint
             </Link>
-            <Link href="/compliance" aria-label="Go to compliance page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+            <Link href="#designer" aria-label="Go to designer section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+              Designer
+            </Link>
+            <Link href="#automation" aria-label="Go to automation section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
+              Automation
+            </Link>
+            <Link href="#compliance" aria-label="Go to compliance section" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
               Compliance
-            </Link>
-            <Link href="/pricing" aria-label="Go to pricing page" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
-              Pricing
-            </Link>
-            <Link href="/resources" aria-label="Open resources popover" className="text-button px-2 py-3 text-foreground hover:text-foreground/70 transition-colors duration-150">
-              Resources
             </Link>
             <Button asChild aria-label="Go to login page">
               <a href="https://app.avelero.com/login" rel="noopener noreferrer">
@@ -109,36 +109,36 @@ export function Header() {
         <nav className="h-full px-4 sm:px-16 py-8">
           <div className="flex flex-col items-start gap-6">
             <Link 
-              href="/product" 
-              aria-label="Go to product page"
+              href="#footprint" 
+              aria-label="Go to footprint section"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Product
+              Footprint
             </Link>
             <Link 
-              href="/compliance" 
-              aria-label="Go to compliance page"
+              href="#designer" 
+              aria-label="Go to designer section"
+              className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Designer
+            </Link>
+            <Link 
+              href="#automation" 
+              aria-label="Go to automation section"
+              className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Automation
+            </Link>
+            <Link 
+              href="#compliance" 
+              aria-label="Go to compliance section"
               className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               Compliance
-            </Link>
-            <Link 
-              href="/pricing" 
-              aria-label="Go to pricing page"
-              className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Pricing
-            </Link>
-            <Link 
-              href="/resources" 
-              aria-label="Open resources popover"
-              className="text-2xl font-medium text-foreground hover:text-foreground/70 transition-colors duration-150"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Resources
             </Link>
           </div>
         </nav>

@@ -2,7 +2,7 @@ import { EsprLogo, AwlLogo } from "./logos";
 
 export function ComplianceBlock() {
     return (
-        <div className="flex md:flex-row flex-col w-full py-[45px] sm:py-[62px] gap-4 md:gap-0">
+        <div id="compliance" className="flex md:flex-row flex-col w-full py-[45px] sm:py-[62px] gap-4 md:gap-0 scroll-mt-20">
             <div className="w-full md:w-1/2 flex flex-col items-start justify-between flex-1">
                 <h4 className="text-h6 md:text-h5 text-foreground">EU- and US-Compliant</h4>
                 <div className="md:flex flex-col justify-start gap-2 hidden">

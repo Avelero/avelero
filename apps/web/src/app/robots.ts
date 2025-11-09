@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { baseUrl } from "./sitemap";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -9,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/api/", "/private/"],
       },
     ],
-    sitemap: "https://avelero.com/sitemap.xml",
-    host: "https://avelero.com",
+    sitemap: `${baseUrl}/sitemap.xml`,
+    host: baseUrl,
   };
 }

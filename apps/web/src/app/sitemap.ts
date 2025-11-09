@@ -21,7 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ].map((item) => ({
     url: `${baseUrl}${item.route}`,
-    lastModified: new Date().toISOString().split("T")[0],
+    lastModified: "2025-11-09",
     changeFrequency: item.changeFrequency,
     priority: item.priority,
   }));

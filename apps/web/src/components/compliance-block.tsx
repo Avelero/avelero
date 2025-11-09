@@ -43,11 +43,11 @@ export function ComplianceBlock() {
                 </div>
                 <div className="flex flex-row items-center gap-[10px]">
                     <div className="h-1.5 w-1.5 bg-foreground"/>
-                    <p className="text-small text-foreground/50">AWL and ESPR aligned</p>
+                    <p className="text-small text-foreground/50">Aligned with ESPR and AWL requirements</p>
                 </div>
                 <div className="flex flex-row items-center gap-[10px]">
                     <div className="h-1.5 w-1.5 bg-foreground"/>
-                    <p className="text-small text-foreground/50">You own your data</p>
+                    <p className="text-small text-foreground/50">We make sure you stay compliant</p>
                 </div>
             </div>
         </div>

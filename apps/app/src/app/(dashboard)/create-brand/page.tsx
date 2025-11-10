@@ -6,10 +6,9 @@ export const metadata: Metadata = {
   title: "Create a brand | Avelero",
 };
 
-// This page requires authentication and cannot be prerendered at build time
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic"; // To-do: Remove this once we have a proper solution for data hydration.
 
-export default async function Page() {
+export default function Page() {
   return (
     <div className="h-full w-full">
       <Header hideUserMenu disableLogoLink />

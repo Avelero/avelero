@@ -1,14 +1,23 @@
 import type { Metadata } from "next";
+import { HydrateClient } from "@/trpc/server";
+import { cookies } from "next/headers";
 
 export const metadata: Metadata = {
   title: "Dashboard | Avelero",
 };
 
-export default function DashboardPage() {
-  // No additional prefetching needed - user data is primed in the layout.
+export default async function DashboardPage() {
+  // Mark this route as dynamic by accessing cookies (mirrors Midday's overview page).
+  const cookieStore = await cookies();
+  const hideConnectFlow = cookieStore.get("hide-connect-flow")?.value === "true";
+
   return (
-    <div className="flex justify-center items-center relative">
-      <div className="text-2xl font-bold">Dashboard</div>
-    </div>
+    <HydrateClient>
+      <div className="flex justify-center items-center relative">
+        <div className="text-2xl font-bold">
+          Dashboard {hideConnectFlow ? "" : ""}
+        </div>
+      </div>
+    </HydrateClient>
   );
 }

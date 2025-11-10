@@ -3,10 +3,12 @@ import { SetCountry } from "@/components/settings/set-country";
 import { SetEmail } from "@/components/settings/set-email";
 import { SetLogo } from "@/components/settings/set-logo";
 import { SetName } from "@/components/settings/set-name";
+import { prefetch, trpc } from "@/trpc/server";
 
 export default function SettingsPage() {
-  // No prefetching needed - user and brand data already prefetched in layout
-  // Following Midday's simple page pattern
+  prefetch(trpc.user.get.queryOptions());
+  prefetch(trpc.workflow.list.queryOptions());
+
   return (
     <div className="w-[700px]">
       <div className="flex flex-col gap-12">

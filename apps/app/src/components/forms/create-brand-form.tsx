@@ -8,8 +8,9 @@ import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
+import { useUserQuery } from "@/hooks/use-user";
 
 const schema = z.object({
   name: z.string().min(2, "Please enter a brand name"),
@@ -24,6 +25,13 @@ export function CreateBrandForm() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { data: user } = useUserQuery();
+
+  useEffect(() => {
+    if (user?.brand_id) {
+      router.replace("/");
+    }
+  }, [user?.brand_id, router]);
 
   const createBrandMutation = useMutation(
     trpc.workflow.create.mutationOptions({

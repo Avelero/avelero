@@ -1,7 +1,14 @@
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
-import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import {
+  HydrateClient,
+  batchPrefetch,
+  getQueryClient,
+  trpc,
+} from "@/trpc/server";
 import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic"; // To-do: Remove this once we have a proper solution for data hydration.
 
 export default async function Layout({
   children,
@@ -10,17 +17,12 @@ export default async function Layout({
 }) {
   const queryClient = getQueryClient();
 
-  // Fetch composite workflow data (user + brand memberships) similar to Midday's layout bootstrap.
-  const workflowData = await queryClient.fetchQuery(
-    trpc.composite.workflowInit.queryOptions(),
-  );
+  batchPrefetch([
+    trpc.workflow.list.queryOptions(),
+    trpc.user.invites.list.queryOptions(),
+  ]);
 
-  const user = workflowData?.user ?? null;
-  const brands = workflowData?.brands ?? [];
-
-  // Prime individual caches so client-side hooks reuse hydrated data instead of refetching.
-  queryClient.setQueryData(trpc.user.get.queryKey(), user);
-  queryClient.setQueryData(trpc.workflow.list.queryKey(), brands);
+  const user = await queryClient.fetchQuery(trpc.user.get.queryOptions());
 
   if (!user) {
     redirect("/login");
@@ -34,8 +36,6 @@ export default async function Layout({
     redirect("/create-brand");
   }
 
-  // Wrap in HydrateClient to dehydrate prefetched data
-  // Following Midday's pattern: layout provides shared data hydration
   return (
     <HydrateClient>
       <div className="relative h-full">

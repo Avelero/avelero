@@ -28,18 +28,7 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
           const {
             data: { session },
           } = await supabase.auth.getSession();
-          // Attempt refresh if session missing or expired/near expiry
-          let token = session?.access_token ?? null;
-          const expiresAtSec = session?.expires_at ?? 0;
-          const nowSec = Math.floor(Date.now() / 1000);
-          if (!token || expiresAtSec - nowSec < 60) {
-            try {
-              const { data: refreshed } = await supabase.auth.refreshSession();
-              token = refreshed.session?.access_token ?? token;
-            } catch {
-              // ignore; we'll send without Authorization if still missing
-            }
-          }
+          const token = session?.access_token;
           return token
             ? ({ Authorization: `Bearer ${token}` } as Record<string, string>)
             : ({} as Record<string, string>);

@@ -13,11 +13,21 @@ import { makeQueryClient } from "./query-client";
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
 
-let browserQueryClient: QueryClient;
+let browserQueryClient: QueryClient | undefined = undefined;
 
 function getQueryClient(): QueryClient {
-  if (isServer) return makeQueryClient();
-  if (!browserQueryClient) browserQueryClient = makeQueryClient();
+  // Since this is a client component ("use client"), we always create a singleton
+  // The isServer check from @tanstack/react-query is for SSR of client components,
+  // but we want a stable singleton even during SSR to ensure consistent hydration
+  if (typeof window === "undefined") {
+    // During SSR, always create a new instance
+    return makeQueryClient();
+  }
+  
+  // On the client, use a singleton
+  if (!browserQueryClient) {
+    browserQueryClient = makeQueryClient();
+  }
   return browserQueryClient;
 }
 

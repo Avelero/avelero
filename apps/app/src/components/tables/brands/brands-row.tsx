@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 interface BrandWithRole {
@@ -47,8 +47,6 @@ export function BrandsRow(props: Props) {
 function MembershipRow({ membership }: { membership: BrandWithRole }) {
   const setActive = useSetActiveBrandMutation();
   const router = useRouter();
-  const params = useParams<{ locale?: string }>();
-  const locale = params?.locale ?? "en";
   const [leaveOpen, setLeaveOpen] = useState(false);
   return (
     <div className="flex items-center justify-between">
@@ -75,7 +73,7 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
               { brand_id: membership.id },
               {
                 onSuccess: () => {
-                  router.push(`/${locale}`);
+                  router.push("/");
                 },
               },
             )
@@ -117,8 +115,6 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
   const accept = useAcceptInviteMutation();
   const reject = useRejectInviteMutation();
   const router = useRouter();
-  const params = useParams<{ locale?: string }>();
-  const locale = params?.locale ?? "en";
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -154,7 +150,7 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
               { invite_id: invite.id, action: "accept" },
               {
                 onSuccess: () => {
-                  router.push(`/${locale}`);
+                  router.push("/");
                 },
               },
             )

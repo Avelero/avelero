@@ -27,8 +27,8 @@ type LeaveBrandResult = RouterOutputs["workflow"]["members"]["update"];
 /**
  * Fetches all brands the current user belongs to.
  *
- * This query is client-side only and disabled during SSR to prevent hydration
- * mismatches. The query enables users to switch between their brand memberships.
+ * The dashboard layout primes this query via `workflowInit`, so hydrated data
+ * is available immediately on navigation without triggering duplicate fetches.
  *
  * @returns Query hook for user's brand memberships
  *
@@ -42,7 +42,6 @@ export function useUserBrandsQuery() {
   const opts = trpc.workflow.list.queryOptions();
   return useQuery({
     ...opts,
-    enabled: typeof window !== "undefined",
   });
 }
 

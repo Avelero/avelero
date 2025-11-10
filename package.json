@@ -27,6 +27,7 @@
     "start:web": "turbo start --filter=@v1/web",
     "start:app": "turbo start --filter=@v1/app",
     "start:dpp": "turbo start --filter=@v1/dpp",
+    "start:api": "turbo start --filter=@v1/api",
     "test": "turbo test --parallel",
     "format": "biome format --write .",
     "lint": "turbo lint && bun lint:repo",

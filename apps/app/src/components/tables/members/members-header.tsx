@@ -3,23 +3,18 @@
 import { InviteModal } from "@/components/modals/invite-modal";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import { useRouter } from "next/navigation";
 
 interface Props {
   activeTab: "members" | "invites";
   onTabChange: (tab: "members" | "invites") => void;
-  locale: string;
   brandId?: string;
 }
 
 export function MembersHeader({
   activeTab,
   onTabChange,
-  locale,
   brandId,
 }: Props) {
-  const router = useRouter();
-
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">

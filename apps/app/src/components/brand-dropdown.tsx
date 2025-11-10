@@ -67,8 +67,6 @@ export function BrandDropdown({
   isExpanded,
   onPopupChange,
 }: BrandDropdownProps) {
-  const params = useParams<{ locale?: string }>();
-  const locale = params?.locale ?? "en";
   const { data: brandsData } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
   const setActiveBrandMutation = useSetActiveBrandMutation();
@@ -168,7 +166,7 @@ export function BrandDropdown({
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <Link href={`/${locale}/create-brand`}>
+          <Link href="/create-brand">
             <DropdownMenuItem className="cursor-pointer">
               <div className="flex items-center gap-2">
                 <span className="type-p">Create Brand</span>

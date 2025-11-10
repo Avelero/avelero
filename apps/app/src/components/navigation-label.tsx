@@ -4,10 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 
-interface NavigationLabelProps {
-  locale?: string;
-}
-
 function formatSegment(segment: string): string {
   const words = segment.split("-").filter(Boolean);
   const firstWord = words.at(0);
@@ -22,10 +18,9 @@ function formatSegment(segment: string): string {
 function buildBreadcrumbItems(
   segments: string[],
   formattedSegments: string[],
-  locale: string,
 ): Array<{ label: string; href: string; show: boolean }> {
   if (segments.length === 0) {
-    return [{ label: "Dashboard", href: `/${locale}`, show: true }];
+    return [{ label: "Dashboard", href: "/", show: true }];
   }
 
   if (segments.length <= 3) {
@@ -36,7 +31,7 @@ function buildBreadcrumbItems(
         if (!label) return null;
         return {
           label,
-          href: `/${locale}/${segments.slice(0, index + 1).join("/")}`,
+          href: `/${segments.slice(0, index + 1).join("/")}`,
           show: true,
         };
       })
@@ -50,7 +45,7 @@ function buildBreadcrumbItems(
   if (firstLabel) {
     items.push({
       label: firstLabel,
-      href: `/${locale}/${segments[0]}`,
+      href: `/${segments[0]}`,
       show: true,
     });
   }
@@ -63,7 +58,7 @@ function buildBreadcrumbItems(
     if (label) {
       items.push({
         label,
-        href: `/${locale}/${segments.slice(0, i + 1).join("/")}`,
+        href: `/${segments.slice(0, i + 1).join("/")}`,
         show: true,
       });
     }
@@ -72,19 +67,16 @@ function buildBreadcrumbItems(
   return items;
 }
 
-export function NavigationLabel({ locale = "en" }: NavigationLabelProps) {
+export function NavigationLabel() {
   const pathname = usePathname();
 
   const items = useMemo(() => {
-    // Remove locale from pathname
-    const path = pathname.replace(`/${locale}`, "") || "/";
-
     // Split path into segments and format them
-    const segments = path.split("/").filter(Boolean);
+    const segments = pathname.split("/").filter(Boolean);
     const formattedSegments = segments.map(formatSegment);
 
-    return buildBreadcrumbItems(segments, formattedSegments, locale);
-  }, [pathname, locale]);
+    return buildBreadcrumbItems(segments, formattedSegments);
+  }, [pathname]);
 
   return (
     <nav className="flex items-center type-h6">

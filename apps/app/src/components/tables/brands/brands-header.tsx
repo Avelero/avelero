@@ -7,10 +7,9 @@ import Link from "next/link";
 interface Props {
   activeTab: "brands" | "invites";
   onTabChange: (tab: "brands" | "invites") => void;
-  locale: string;
 }
 
-export function BrandsHeader({ activeTab, onTabChange, locale }: Props) {
+export function BrandsHeader({ activeTab, onTabChange }: Props) {
 
   return (
     <div className="flex items-center justify-between">
@@ -40,7 +39,7 @@ export function BrandsHeader({ activeTab, onTabChange, locale }: Props) {
       </div>
 
       <Button asChild>
-        <Link href={`/${locale}/create-brand`}>
+        <Link href="/create-brand">
           Create brand
         </Link>
       </Button>

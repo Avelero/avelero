@@ -1,13 +1,13 @@
 import "server-only";
+
+import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
+import { createClient as createSupabaseServerClient } from "@v1/supabase/server";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink, loggerLink } from "@trpc/client";
 import {
   type TRPCQueryOptions,
   createTRPCOptionsProxy,
 } from "@trpc/tanstack-react-query";
-import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
-import { createClient as createSupabaseServerClient } from "@v1/supabase/server";
-// API base URL is configured via NEXT_PUBLIC_API_URL per environment
 import { cache } from "react";
 import superjson from "superjson";
 import { makeQueryClient } from "./query-client";
@@ -62,6 +62,7 @@ export const trpc = createTRPCOptionsProxy<AppRouter>({
 
 export function HydrateClient(props: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
+
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       {props.children}
@@ -69,44 +70,28 @@ export function HydrateClient(props: { children: React.ReactNode }) {
   );
 }
 
-export async function prefetch<T>(queryOptions: T) {
+export function prefetch<T extends ReturnType<TRPCQueryOptions<any>>>(
+  queryOptions: T,
+) {
   const queryClient = getQueryClient();
-  const qo = queryOptions as { queryKey?: unknown[] };
-  const second =
-    (qo.queryKey?.[1] as { type?: string } | undefined) ?? undefined;
-  const isInfinite = second?.type === "infinite";
-  if (isInfinite) {
-    await queryClient.prefetchInfiniteQuery(
-      queryOptions as Parameters<
-        (typeof queryClient)["prefetchInfiniteQuery"]
-      >[0],
-    );
+
+  if (queryOptions.queryKey[1]?.type === "infinite") {
+    void queryClient.prefetchInfiniteQuery(queryOptions as any);
   } else {
-    await queryClient.prefetchQuery(
-      queryOptions as Parameters<(typeof queryClient)["prefetchQuery"]>[0],
-    );
+    void queryClient.prefetchQuery(queryOptions);
   }
 }
 
-export async function batchPrefetch<T>(queryOptionsArray: T[]) {
+export function batchPrefetch<
+  T extends ReturnType<TRPCQueryOptions<any>>,
+>(queryOptionsArray: T[]) {
   const queryClient = getQueryClient();
-  await Promise.all(
-    queryOptionsArray.map(async (queryOptions) => {
-      const qo = queryOptions as { queryKey?: unknown[] };
-      const second =
-        (qo.queryKey?.[1] as { type?: string } | undefined) ?? undefined;
-      const isInfinite = second?.type === "infinite";
-      if (isInfinite) {
-        await queryClient.prefetchInfiniteQuery(
-          queryOptions as Parameters<
-            (typeof queryClient)["prefetchInfiniteQuery"]
-          >[0],
-        );
-      } else {
-        await queryClient.prefetchQuery(
-          queryOptions as Parameters<(typeof queryClient)["prefetchQuery"]>[0],
-        );
-      }
-    }),
-  );
+
+  for (const queryOptions of queryOptionsArray) {
+    if (queryOptions.queryKey[1]?.type === "infinite") {
+      void queryClient.prefetchInfiniteQuery(queryOptions as any);
+    } else {
+      void queryClient.prefetchQuery(queryOptions);
+    }
+  }
 }

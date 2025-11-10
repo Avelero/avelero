@@ -23,15 +23,8 @@ import {
 import { and, eq } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
-import {
-  findDuplicates,
-  normalizeHeaders,
-  parseFile,
-} from "../lib/csv-parser";
-import {
-  EntityType,
-  ValueMapper,
-} from "../lib/value-mapper";
+import { findDuplicates, normalizeHeaders, parseFile } from "../lib/csv-parser";
+import { EntityType, ValueMapper } from "../lib/value-mapper";
 
 /**
  * Task payload for Phase 1 validation and staging
@@ -71,12 +64,32 @@ interface CSVRow {
 }
 
 /**
- * Validation error type
+ * Validation error type (blocks import)
  */
 interface ValidationError {
-  type: string;
+  type: "HARD_ERROR";
+  subtype: string;
   field?: string;
   message: string;
+  severity: "error";
+}
+
+/**
+ * Validation warning type (needs user definition)
+ */
+interface ValidationWarning {
+  type: "NEEDS_DEFINITION";
+  subtype: string;
+  field?: string;
+  message: string;
+  severity: "warning";
+  entityType?:
+    | "SIZE"
+    | "MATERIAL"
+    | "CATEGORY"
+    | "FACILITY"
+    | "SHOWCASE_BRAND"
+    | "CERTIFICATION";
 }
 
 /**
@@ -90,7 +103,8 @@ interface ValidatedRowData {
   existingVariantId?: string;
   product: InsertStagingProductParams;
   variant: InsertStagingVariantParams;
-  errors: ValidationError[];
+  errors: ValidationError[]; // Hard errors that block import
+  warnings: ValidationWarning[]; // Missing catalog values that need user definition
 }
 
 const BATCH_SIZE = 100;
@@ -101,7 +115,14 @@ const TIMEOUT_MS = 1800000; // 30 minutes
  */
 async function emitProgress(params: {
   jobId: string;
-  status: "PENDING" | "VALIDATING" | "VALIDATED" | "COMMITTING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  status:
+    | "PENDING"
+    | "VALIDATING"
+    | "VALIDATED"
+    | "COMMITTING"
+    | "COMPLETED"
+    | "FAILED"
+    | "CANCELLED";
   phase: "validation" | "commit";
   processed: number;
   total: number;
@@ -112,7 +133,10 @@ async function emitProgress(params: {
   message?: string;
 }): Promise<void> {
   try {
-    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const apiUrl =
+      process.env.API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:4000";
     const apiKey = process.env.INTERNAL_API_KEY || "dev-internal-key";
 
     // Prepare input data with apiKey
@@ -185,13 +209,18 @@ export const validateAndStage = task({
     console.log("=".repeat(80));
     console.log("[validate-and-stage] TASK EXECUTION STARTED");
     console.log("[validate-and-stage] Timestamp:", new Date().toISOString());
-    console.log("[validate-and-stage] Payload:", JSON.stringify(payload, null, 2));
+    console.log(
+      "[validate-and-stage] Payload:",
+      JSON.stringify(payload, null, 2),
+    );
     console.log("[validate-and-stage] Environment Check:", {
       hasDatabaseUrl: !!process.env.DATABASE_URL,
       databaseUrlPrefix: process.env.DATABASE_URL?.substring(0, 30),
       hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       hasSupabaseKey: !!process.env.SUPABASE_SERVICE_KEY,
-      allEnvKeys: Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('SUPABASE')),
+      allEnvKeys: Object.keys(process.env).filter(
+        (k) => k.includes("DATABASE") || k.includes("SUPABASE"),
+      ),
     });
     console.log("=".repeat(80));
     logger.info("Starting validate-and-stage job", {
@@ -215,7 +244,9 @@ export const validateAndStage = task({
         .map(([key]) => key);
 
       if (missingVars.length > 0) {
-        throw new Error(`Missing required environment variables: ${missingVars.join(", ")}`);
+        throw new Error(
+          `Missing required environment variables: ${missingVars.join(", ")}`,
+        );
       }
 
       console.log("[validate-and-stage] Environment variables validated:", {
@@ -235,7 +266,10 @@ export const validateAndStage = task({
         logger.info("Import job status set to VALIDATING", { jobId });
       } catch (statusError) {
         console.error("[validate-and-stage] Failed to update job status:", {
-          error: statusError instanceof Error ? statusError.message : String(statusError),
+          error:
+            statusError instanceof Error
+              ? statusError.message
+              : String(statusError),
           stack: statusError instanceof Error ? statusError.stack : undefined,
         });
         throw statusError;
@@ -349,16 +383,26 @@ export const validateAndStage = task({
       }
 
       // Clean up any existing staging data for this job (handles retry scenarios)
-      console.log("[validate-and-stage] Cleaning up any existing staging data for retry...");
+      console.log(
+        "[validate-and-stage] Cleaning up any existing staging data for retry...",
+      );
       try {
         const deletedCount = await deleteStagingDataForJob(db, jobId);
         if (deletedCount > 0) {
-          console.log(`[validate-and-stage] Cleaned up ${deletedCount} existing staging records from previous attempt`);
-          logger.info("Cleaned up existing staging data", { jobId, deletedCount });
+          console.log(
+            `[validate-and-stage] Cleaned up ${deletedCount} existing staging records from previous attempt`,
+          );
+          logger.info("Cleaned up existing staging data", {
+            jobId,
+            deletedCount,
+          });
         }
       } catch (cleanupError) {
         // Non-fatal - log and continue
-        console.warn("[validate-and-stage] Failed to cleanup existing staging data:", cleanupError);
+        console.warn(
+          "[validate-and-stage] Failed to cleanup existing staging data:",
+          cleanupError,
+        );
       }
 
       // Create import_rows records for tracking
@@ -437,17 +481,21 @@ export const validateAndStage = task({
               duplicateCheckColumn,
             );
 
+            // Only hard errors block validation (warnings are OK)
+            const hasHardErrors = validated.errors.length > 0;
+            const hasWarnings = validated.warnings.length > 0;
+
             validatedBatch.push({
               importRowId: importRow.id,
               rowNumber,
               validated,
-              error:
-                validated.errors.length > 0
-                  ? validated.errors.map((e) => e.message).join("; ")
-                  : null,
+              error: hasHardErrors
+                ? validated.errors.map((e) => e.message).join("; ")
+                : null,
             });
 
-            if (validated.errors.length === 0) {
+            // Row is valid if it has no hard errors (warnings are acceptable)
+            if (!hasHardErrors) {
               validCount++;
               if (validated.action === "CREATE") willCreateCount++;
               else willUpdateCount++;
@@ -474,9 +522,13 @@ export const validateAndStage = task({
           }
         }
 
-        // Insert valid rows into staging tables
+        // Insert valid rows into staging tables (only hard errors block)
         for (const item of validatedBatch) {
-          if (item.validated && item.error === null) {
+          // Check only for hard errors, warnings are OK
+          const hasHardErrors =
+            item.validated && item.validated.errors.length > 0;
+
+          if (item.validated && !hasHardErrors) {
             try {
               // Insert staging product
               const stagingProductId = await insertStagingProduct(
@@ -493,6 +545,7 @@ export const validateAndStage = task({
               await insertStagingVariant(db, variantParams);
 
               // Update import_row status to VALIDATED
+              // Store warnings separately for later display
               await batchUpdateImportRowStatus(db, [
                 {
                   id: item.importRowId,
@@ -501,14 +554,31 @@ export const validateAndStage = task({
                     action: item.validated.action,
                     product_id: item.validated.productId,
                     variant_id: item.validated.variantId,
+                    warnings:
+                      item.validated.warnings.length > 0
+                        ? item.validated.warnings.map((w) => ({
+                            type: w.subtype,
+                            field: w.field,
+                            message: w.message,
+                            entity_type: w.entityType,
+                          }))
+                        : undefined,
                   },
                 },
               ]);
             } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              const errorStack = error instanceof Error ? error.stack : undefined;
-              const errorDetails = error instanceof Error && 'code' in error ? (error as any).code : undefined;
-              const errorConstraint = error instanceof Error && 'constraint' in error ? (error as any).constraint : undefined;
+              const errorMessage =
+                error instanceof Error ? error.message : String(error);
+              const errorStack =
+                error instanceof Error ? error.stack : undefined;
+              const errorDetails =
+                error instanceof Error && "code" in error
+                  ? (error as any).code
+                  : undefined;
+              const errorConstraint =
+                error instanceof Error && "constraint" in error
+                  ? (error as any).constraint
+                  : undefined;
 
               // Log detailed error information for debugging
               logger.error("Failed to insert into staging", {
@@ -553,8 +623,8 @@ export const validateAndStage = task({
               invalidCount++;
               validCount--;
             }
-          } else if (item.error) {
-            // Update import_row status to FAILED
+          } else if (hasHardErrors) {
+            // Hard errors only - mark as FAILED
             await batchUpdateImportRowStatus(db, [
               {
                 id: item.importRowId,
@@ -703,6 +773,10 @@ export const validateAndStage = task({
 /**
  * Validate a single CSV row and prepare staging data
  *
+ * Performs two-tier validation:
+ * - Hard errors (block import): missing required fields, duplicates, invalid formats
+ * - Warnings (need user definition): missing catalog entities that can be created
+ *
  * @param row - CSV row data
  * @param brandId - Brand ID for scoping
  * @param rowNumber - Row number in CSV (1-indexed)
@@ -711,7 +785,7 @@ export const validateAndStage = task({
  * @param unmappedValues - Map to track unmapped values
  * @param duplicateRowNumbers - Set of row numbers that have duplicate UPID/SKU
  * @param duplicateCheckColumn - Column name being checked for duplicates (upid or sku)
- * @returns Validated row data or null if invalid
+ * @returns Validated row data with errors and warnings
  */
 async function validateRow(
   row: CSVRow,
@@ -724,52 +798,63 @@ async function validateRow(
   duplicateCheckColumn: string,
 ): Promise<ValidatedRowData> {
   const errors: ValidationError[] = [];
+  const warnings: ValidationWarning[] = [];
 
-  // Check for duplicate UPID/SKU
+  // HARD ERROR: Duplicate UPID/SKU
   if (duplicateRowNumbers.has(rowNumber)) {
     const duplicateValue = String(row[duplicateCheckColumn] || "").trim();
     errors.push({
-      type: "DUPLICATE_VALUE",
+      type: "HARD_ERROR",
+      subtype: "DUPLICATE_VALUE",
       field: duplicateCheckColumn,
       message: `Duplicate ${duplicateCheckColumn.toUpperCase()}: "${duplicateValue}" appears multiple times in the file`,
+      severity: "error",
     });
   }
 
-  // Required field validation
+  // HARD ERROR: Required field validation
   if (!row.product_name || row.product_name.trim() === "") {
     errors.push({
-      type: "REQUIRED_FIELD_EMPTY",
+      type: "HARD_ERROR",
+      subtype: "REQUIRED_FIELD_EMPTY",
       field: "product_name",
       message: "Product name is required",
+      severity: "error",
     });
   }
 
-  // UPID or SKU required
+  // HARD ERROR: UPID or SKU required
   const upid = row.upid?.trim() || "";
   const sku = row.sku?.trim() || "";
 
   if (!upid && !sku) {
     errors.push({
-      type: "REQUIRED_FIELD_EMPTY",
+      type: "HARD_ERROR",
+      subtype: "REQUIRED_FIELD_EMPTY",
       field: "upid/sku",
       message: "Either UPID or SKU must be provided",
+      severity: "error",
     });
   }
 
-  // Check string length limits
+  // HARD ERROR: Check string length limits
   if (row.product_name && row.product_name.length > 100) {
     errors.push({
-      type: "FIELD_TOO_LONG",
+      type: "HARD_ERROR",
+      subtype: "FIELD_TOO_LONG",
       field: "product_name",
       message: "Product name cannot exceed 100 characters",
+      severity: "error",
     });
   }
 
   if (row.description && row.description.length > 2000) {
     errors.push({
-      type: "FIELD_TOO_LONG",
+      type: "HARD_ERROR",
+      subtype: "FIELD_TOO_LONG",
       field: "description",
       message: "Description cannot exceed 2000 characters",
+      severity: "error",
     });
   }
 
@@ -803,6 +888,7 @@ async function validateRow(
     }
   }
 
+  // WARNING: Missing size (needs user definition)
   let sizeId: string | null = null;
   if (row.size_name) {
     const sizeResult = await valueMapper.mapSizeName(
@@ -812,18 +898,24 @@ async function validateRow(
     );
 
     if (!sizeResult.found) {
-      // Sizes require additional fields - track as unmapped
+      // Track as unmapped for user definition
       trackUnmappedValue(unmappedValues, "SIZE", row.size_name);
-      errors.push({
-        type: "UNMAPPED_VALUE",
+      warnings.push({
+        type: "NEEDS_DEFINITION",
+        subtype: "MISSING_SIZE",
         field: "size_name",
-        message: `Size "${row.size_name}" not found in brand catalog`,
+        message: `Size "${row.size_name}" needs to be created`,
+        severity: "warning",
+        entityType: "SIZE",
       });
+      // Leave sizeId as null - will be populated after user creates size
+      sizeId = null;
     } else {
       sizeId = sizeResult.targetId;
     }
   }
 
+  // WARNING: Missing category (needs user definition)
   let categoryId: string | null = null;
   if (row.category_name) {
     const categoryResult = await valueMapper.mapCategoryName(
@@ -832,11 +924,18 @@ async function validateRow(
     );
 
     if (!categoryResult.found) {
-      errors.push({
-        type: "FOREIGN_KEY_NOT_FOUND",
+      // Track as unmapped for user definition
+      trackUnmappedValue(unmappedValues, "CATEGORY", row.category_name);
+      warnings.push({
+        type: "NEEDS_DEFINITION",
+        subtype: "MISSING_CATEGORY",
         field: "category_name",
-        message: `Category "${row.category_name}" not found`,
+        message: `Category "${row.category_name}" needs to be created`,
+        severity: "warning",
+        entityType: "CATEGORY",
       });
+      // Leave categoryId as null - will be populated after user creates category
+      categoryId = null;
     } else {
       categoryId = categoryResult.targetId;
     }
@@ -930,7 +1029,8 @@ async function validateRow(
     existingVariantId: existingProduct?.variant_id,
     product,
     variant,
-    errors,
+    errors, // Hard errors that block import
+    warnings, // Missing catalog values that need user definition
   };
 }
 

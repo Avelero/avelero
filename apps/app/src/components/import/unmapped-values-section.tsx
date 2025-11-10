@@ -117,9 +117,11 @@ export function UnmappedValuesSection({
   } | null>(null);
 
   // Fetch unmapped values
-  const { data: response, isLoading, error } = useQuery(
-    trpc.bulk.values.unmapped.queryOptions({ jobId })
-  );
+  const {
+    data: response,
+    isLoading,
+    error,
+  } = useQuery(trpc.bulk.values.unmapped.queryOptions({ jobId }));
 
   const unmappedData = response as UnmappedValuesResponse | undefined;
   const unmappedGroups = unmappedData?.unmappedValues ?? [];
@@ -127,7 +129,7 @@ export function UnmappedValuesSection({
 
   // Define value mutation
   const defineValueMutation = useMutation(
-    trpc.bulk.values.define.mutationOptions()
+    trpc.bulk.values.define.mutationOptions(),
   );
 
   // Notify parent when all values are defined
@@ -143,7 +145,7 @@ export function UnmappedValuesSection({
   const handleDefineValue = (
     entityType: EntityType,
     rawValue: string,
-    sourceColumn: string
+    sourceColumn: string,
   ) => {
     setSelectedValue({ entityType, rawValue, sourceColumn });
 
@@ -223,136 +225,126 @@ export function UnmappedValuesSection({
     );
   }
 
-  // All values defined - success state
+  // All values defined - success state (matching platform style)
   if (totalUnmapped === 0) {
     return (
-      <div className="rounded-lg border border-border bg-background p-6 text-center">
-        <Icons.CheckCircle2 className="mx-auto h-10 w-10 text-green-600" />
-        <h3 className="mt-3 text-base font-medium">All values defined</h3>
-        <p className="mt-1 text-sm text-secondary">
-          All catalog values have been defined. You can now approve the import.
-        </p>
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+        <div className="rounded-md bg-green-100 p-2">
+          <Icons.CheckCircle2 className="h-5 w-5 text-green-700" />
+        </div>
+        <div>
+          <div className="text-sm font-medium">All values defined</div>
+          <div className="text-xs text-secondary">
+            All catalog values have been created. You can now approve the
+            import.
+          </div>
+        </div>
       </div>
     );
   }
 
   // Separate auto-created entities from those needing user input
   const autoCreatedGroups = unmappedGroups.filter((g) =>
-    isAutoCreatedEntity(g.entityType)
+    isAutoCreatedEntity(g.entityType),
   );
   const userDefinedGroups = unmappedGroups.filter(
-    (g) => !isAutoCreatedEntity(g.entityType)
+    (g) => !isAutoCreatedEntity(g.entityType),
   );
 
   const autoCreatedCount = autoCreatedGroups.reduce(
     (sum, group) => sum + group.values.length,
-    0
+    0,
   );
 
   return (
-    <div className="space-y-6">
-      {/* Auto-created entities info (if any) */}
+    <div className="space-y-4">
+      {/* Auto-created entities info (matching platform style) */}
       {autoCreatedCount > 0 && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-          <div className="flex items-start gap-3">
-            <div className="rounded-md bg-green-100 p-2">
-              <Icons.CheckCircle2 className="h-5 w-5 text-green-700" />
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+          <div className="rounded-md bg-green-100 p-2">
+            <Icons.CheckCircle2 className="h-5 w-5 text-green-700" />
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-medium">
+              {autoCreatedCount} {autoCreatedCount === 1 ? "value" : "values"}{" "}
+              auto-created
             </div>
-            <div className="flex-1">
-              <div className="text-sm font-medium text-green-900">
-                {autoCreatedCount} simple {autoCreatedCount === 1 ? "value" : "values"} auto-created
-              </div>
-              <div className="mt-1 text-xs text-green-700">
-                {autoCreatedGroups.map((group) => (
-                  <div key={group.entityType}>
-                    {getEntityTypeName(group.entityType)}:{" "}
-                    {group.values.map((v) => v.rawValue).join(", ")}
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-green-600">
-                These were automatically added to your brand catalog.
-              </p>
+            <div className="text-xs text-secondary">
+              {autoCreatedGroups.map((group) => (
+                <span key={group.entityType}>
+                  {getEntityTypeName(group.entityType)}:{" "}
+                  {group.values.map((v) => v.rawValue).join(", ")}
+                  {autoCreatedGroups.indexOf(group) <
+                    autoCreatedGroups.length - 1 && " • "}
+                </span>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* User-defined entities (need approval) */}
+      {/* User-defined entities (need definition) - matching platform style */}
       {userDefinedGroups.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-medium">
-                Values needing definition
-              </h3>
-              <p className="text-sm text-secondary">
-                Define these catalog entries before importing
-              </p>
-            </div>
-            <div className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-900">
-              {totalUnmapped} remaining
-            </div>
-          </div>
-
-          {/* Groups */}
-          <div className="space-y-3">
-            {userDefinedGroups.map((group) => (
-              <div
-                key={group.entityType}
-                className="rounded-lg border border-border bg-background"
-              >
-                {/* Group header */}
-                <div className="flex items-center gap-3 border-b border-border bg-accent/50 p-4">
-                  <div className="rounded-md bg-background p-2">
-                    {getEntityIcon(group.entityType)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">
-                      {getEntityTypeName(group.entityType)} ({group.values.length})
-                    </div>
-                    <div className="text-xs text-secondary">
-                      {group.values.reduce((sum, v) => sum + v.affectedRows, 0)} rows affected
-                    </div>
-                  </div>
+        <div className="space-y-3">
+          {userDefinedGroups.map((group) => (
+            <div
+              key={group.entityType}
+              className="rounded-lg border border-border bg-background overflow-hidden"
+            >
+              {/* Group header */}
+              <div className="flex items-center gap-3 border-b border-border bg-accent/30 px-4 py-3">
+                <div className="rounded-md bg-background p-2">
+                  {getEntityIcon(group.entityType)}
                 </div>
-
-                {/* Values list */}
-                <div className="divide-y divide-border">
-                  {group.values.map((value, idx) => (
-                    <div
-                      key={`${value.rawValue}-${idx}`}
-                      className="flex items-center justify-between p-4 hover:bg-accent/30"
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">
-                          {value.rawValue}
-                        </div>
-                        <div className="text-xs text-secondary">
-                          {value.affectedRows} {value.affectedRows === 1 ? "row" : "rows"}
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          handleDefineValue(
-                            group.entityType,
-                            value.rawValue,
-                            value.sourceColumn
-                          )
-                        }
-                        icon={<Icons.Plus className="h-4 w-4" />}
-                        disabled={defineValueMutation.isPending}
-                      >
-                        Define
-                      </Button>
-                    </div>
-                  ))}
+                <div className="flex-1">
+                  <div className="text-sm font-medium">
+                    {getEntityTypeName(group.entityType)}
+                  </div>
+                  <div className="text-xs text-secondary">
+                    {group.values.length}{" "}
+                    {group.values.length === 1 ? "value" : "values"} •{" "}
+                    {group.values.reduce((sum, v) => sum + v.affectedRows, 0)}{" "}
+                    rows affected
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Values list */}
+              <div className="divide-y divide-border">
+                {group.values.map((value, idx) => (
+                  <div
+                    key={`${value.rawValue}-${idx}`}
+                    className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-accent/20 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">
+                        {value.rawValue}
+                      </div>
+                      <div className="text-xs text-secondary">
+                        Used in {value.affectedRows}{" "}
+                        {value.affectedRows === 1 ? "row" : "rows"}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        handleDefineValue(
+                          group.entityType,
+                          value.rawValue,
+                          value.sourceColumn,
+                        )
+                      }
+                      icon={<Icons.Plus className="h-4 w-4" />}
+                      disabled={defineValueMutation.isPending}
+                    >
+                      Create
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -361,21 +353,33 @@ export function UnmappedValuesSection({
         open={materialSheetOpen}
         onOpenChange={setMaterialSheetOpen}
         initialName={selectedValue?.rawValue ?? ""}
-        onMaterialCreated={(material) => handleEntityCreated(material as typeof material & { [key: string]: unknown })}
+        onMaterialCreated={(material) =>
+          handleEntityCreated(
+            material as typeof material & { [key: string]: unknown },
+          )
+        }
       />
 
       <ShowcaseBrandSheet
         open={showcaseBrandSheetOpen}
         onOpenChange={setShowcaseBrandSheetOpen}
         initialName={selectedValue?.rawValue ?? ""}
-        onBrandCreated={(brand) => handleEntityCreated(brand as typeof brand & { [key: string]: unknown })}
+        onBrandCreated={(brand) =>
+          handleEntityCreated(
+            brand as typeof brand & { [key: string]: unknown },
+          )
+        }
       />
 
       <OperatorSheet
         open={operatorSheetOpen}
         onOpenChange={setOperatorSheetOpen}
         initialName={selectedValue?.rawValue ?? ""}
-        onOperatorCreated={(operator) => handleEntityCreated(operator as typeof operator & { [key: string]: unknown })}
+        onOperatorCreated={(operator) =>
+          handleEntityCreated(
+            operator as typeof operator & { [key: string]: unknown },
+          )
+        }
       />
 
       <SizeModal

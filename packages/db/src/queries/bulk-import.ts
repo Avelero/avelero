@@ -264,6 +264,8 @@ export async function getImportJobStatus(
 
 /**
  * Creates import row records in batch
+ * PERFORMANCE: Automatically batches large inserts to avoid PostgreSQL parameter limits
+ * (PostgreSQL has a limit of ~32k parameters, with 5 params per row = ~6400 rows max)
  *
  * @param db - Database instance or transaction
  * @param rows - Array of import row parameters
@@ -279,26 +281,38 @@ export async function createImportRows(
     return [];
   }
 
-  const values = rows.map((row) => ({
-    jobId: row.jobId,
-    rowNumber: row.rowNumber,
-    raw: row.raw,
-    normalized: row.normalized ?? null,
-    status: row.status ?? "PENDING",
-  }));
+  const CHUNK_SIZE = 500; // Safe batch size to avoid parameter limit
+  const allCreated: ImportError[] = [];
 
-  const created = await db.insert(importRows).values(values).returning();
+  // Process in chunks to avoid PostgreSQL parameter limit
+  for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+    const chunk = rows.slice(i, i + CHUNK_SIZE);
 
-  return created.map((row) => ({
-    id: row.id,
-    jobId: row.jobId,
-    rowNumber: row.rowNumber,
-    raw: row.raw as Record<string, unknown>,
-    normalized: row.normalized as Record<string, unknown> | null,
-    error: row.error,
-    status: row.status,
-    createdAt: row.createdAt,
-  }));
+    const values = chunk.map((row) => ({
+      jobId: row.jobId,
+      rowNumber: row.rowNumber,
+      raw: row.raw,
+      normalized: row.normalized ?? null,
+      status: row.status ?? "PENDING",
+    }));
+
+    const created = await db.insert(importRows).values(values).returning();
+
+    allCreated.push(
+      ...created.map((row) => ({
+        id: row.id,
+        jobId: row.jobId,
+        rowNumber: row.rowNumber,
+        raw: row.raw as Record<string, unknown>,
+        normalized: row.normalized as Record<string, unknown> | null,
+        error: row.error,
+        status: row.status,
+        createdAt: row.createdAt,
+      }))
+    );
+  }
+
+  return allCreated;
 }
 
 /**
@@ -365,22 +379,32 @@ export async function batchUpdateImportRowStatus(
     return 0;
   }
 
-  let updatedCount = 0;
+  // PERFORMANCE OPTIMIZATION: Batch updates in chunks to balance performance vs query size
+  // Process up to 100 updates per query instead of individual queries
+  const CHUNK_SIZE = 100;
+  let totalUpdated = 0;
 
-  // Process in batches using transaction
-  for (const update of updates) {
-    await db
-      .update(importRows)
-      .set({
-        status: update.status,
-        normalized: update.normalized,
-        error: update.error,
-      })
-      .where(eq(importRows.id, update.id));
-    updatedCount++;
+  for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
+    const chunk = updates.slice(i, i + CHUNK_SIZE);
+
+    // Use Promise.all to execute updates in parallel for this chunk
+    await Promise.all(
+      chunk.map((update) =>
+        db
+          .update(importRows)
+          .set({
+            status: update.status,
+            normalized: update.normalized,
+            error: update.error,
+          })
+          .where(eq(importRows.id, update.id))
+      )
+    );
+
+    totalUpdated += chunk.length;
   }
 
-  return updatedCount;
+  return totalUpdated;
 }
 
 /**

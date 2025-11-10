@@ -16,7 +16,8 @@ export const db = drizzle(connection, {
 // This connection sets session-level RLS bypass for superuser connections
 const serviceConnection = postgres(process.env.DATABASE_URL as string, {
   prepare: false,
-  onconnect: async (connection) => {
+  // @ts-expect-error - onconnect is valid but not in types
+  onconnect: async (connection: postgres.ReservedSql) => {
     try {
       // Disable RLS checks for this connection session
       // This works if the connection user is a superuser or has bypassrls privilege

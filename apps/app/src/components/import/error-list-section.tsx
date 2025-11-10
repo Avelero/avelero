@@ -11,7 +11,14 @@ import {
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@v1/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@v1/ui/table";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -32,8 +39,12 @@ interface ErrorListSectionProps {
 /**
  * Truncate long text with ellipsis
  */
-function TruncatedText({ text, maxLength = 50 }: { text: string; maxLength?: number }) {
-  const truncated = text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+function TruncatedText({
+  text,
+  maxLength = 50,
+}: { text: string; maxLength?: number }) {
+  const truncated =
+    text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 
   return (
     <div className="group relative">
@@ -50,7 +61,10 @@ function TruncatedText({ text, maxLength = 50 }: { text: string; maxLength?: num
 /**
  * Extract meaningful column name from raw data keys
  */
-function formatColumnName(rawData: Record<string, unknown>, field: string | null): string {
+function formatColumnName(
+  rawData: Record<string, unknown>,
+  field: string | null,
+): string {
   if (field) return field;
 
   // Try to extract column from error context
@@ -135,17 +149,21 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
   const trpc = useTRPC();
 
   // Fetch import errors
-  const { data: response, isLoading, error } = useQuery(
+  const {
+    data: response,
+    isLoading,
+    error,
+  } = useQuery(
     trpc.bulk.staging.errors.queryOptions({
       jobId,
       limit: pageSize,
       offset: page * pageSize,
-    })
+    }),
   );
 
   const data = React.useMemo<ImportError[]>(
     () => response?.errors ?? [],
-    [response]
+    [response],
   );
 
   const totalErrors = response?.totalErrors ?? 0;
@@ -202,9 +220,12 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Icons.Spinner className="h-6 w-6 animate-spin text-brand" />
-        <span className="ml-2 text-secondary">Loading errors...</span>
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+        <Icons.Spinner className="h-5 w-5 animate-spin text-brand" />
+        <div>
+          <div className="text-sm font-medium">Loading errors...</div>
+          <div className="text-xs text-secondary">Please wait</div>
+        </div>
       </div>
     );
   }
@@ -212,12 +233,17 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
   // Error state
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+        <div className="rounded-md bg-destructive/20 p-2">
           <Icons.AlertCircle className="h-5 w-5 text-destructive" />
-          <p className="text-sm text-destructive">
-            Failed to load import errors. Please try again.
-          </p>
+        </div>
+        <div>
+          <div className="text-sm font-medium text-destructive">
+            Failed to load errors
+          </div>
+          <div className="text-xs text-secondary">
+            Please try again or contact support
+          </div>
         </div>
       </div>
     );
@@ -226,12 +252,16 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
   // Empty state - no errors (success case)
   if (totalErrors === 0 && !isLoading) {
     return (
-      <div className="rounded-lg border border-border bg-background p-12 text-center">
-        <Icons.CheckCircle2 className="mx-auto h-12 w-12 text-green-600" />
-        <h3 className="mt-4 text-lg font-medium">No errors found</h3>
-        <p className="mt-2 text-sm text-secondary">
-          All rows passed validation successfully.
-        </p>
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+        <div className="rounded-md bg-green-100 p-2">
+          <Icons.CheckCircle2 className="h-5 w-5 text-green-700" />
+        </div>
+        <div>
+          <div className="text-sm font-medium">No errors found</div>
+          <div className="text-xs text-secondary">
+            All rows passed validation successfully
+          </div>
+        </div>
       </div>
     );
   }
@@ -246,7 +276,7 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
   return (
     <div className="space-y-4">
       {/* Header with error count and export button */}
-      <div className="flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+      <div className="flex items-center justify-between rounded-lg border border-border bg-background p-4">
         <div className="flex items-center gap-3">
           <div className="rounded-md bg-destructive/20 p-2">
             <Icons.AlertTriangle className="h-5 w-5 text-destructive" />
@@ -271,26 +301,26 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
       </div>
 
       {/* Table */}
-      <div className="relative w-full overflow-hidden rounded-lg border border-border">
+      <div className="relative w-full overflow-hidden rounded-lg border border-border bg-background">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-accent/30">
                 {table.getHeaderGroups().map((headerGroup) =>
                   headerGroup.headers.map((header) => (
                     <TableHead
                       key={header.id}
                       style={{ width: header.column.getSize() }}
-                      className="h-12 border-r px-4"
+                      className="h-12 border-r px-4 last:border-r-0"
                     >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
-                  ))
+                  )),
                 )}
               </TableRow>
             </TableHeader>
@@ -298,16 +328,16 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="h-14 border-b border-border hover:bg-accent-light"
+                  className="h-14 border-b border-border hover:bg-accent/20 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="border-r px-4 align-middle"
+                      className="border-r px-4 align-middle last:border-r-0"
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}

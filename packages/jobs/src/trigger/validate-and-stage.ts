@@ -1,8 +1,8 @@
 import "./configure-trigger";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { logger, task } from "@trigger.dev/sdk";
-import { serviceDb as db } from "@v1/db/client";
+import { type Database, serviceDb as db } from "@v1/db/client";
 import {
   type CreateImportRowParams,
   type UpdateImportRowStatusParams,
@@ -15,14 +15,27 @@ import {
 import {
   type InsertStagingProductParams,
   type InsertStagingVariantParams,
+  batchInsertStagingProducts,
+  batchInsertStagingVariants,
   countStagingProductsByAction,
   deleteStagingDataForJob,
   insertStagingProduct,
   insertStagingVariant,
 } from "@v1/db/queries";
-import { and, eq } from "@v1/db/queries";
+import { and, eq, inArray } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
+import * as schema from "@v1/db/schema";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
+import { or } from "drizzle-orm";
+import type { BrandCatalog } from "../lib/catalog-loader";
+import {
+  addColorToCatalog,
+  loadBrandCatalog,
+  lookupCategoryId,
+  lookupColorId,
+  lookupMaterialId,
+  lookupSizeId,
+} from "../lib/catalog-loader";
 import { findDuplicates, normalizeHeaders, parseFile } from "../lib/csv-parser";
 import { EntityType, ValueMapper } from "../lib/value-mapper";
 
@@ -84,6 +97,7 @@ interface ValidationWarning {
   message: string;
   severity: "warning";
   entityType?:
+    | "COLOR"
     | "SIZE"
     | "MATERIAL"
     | "CATEGORY"
@@ -425,8 +439,29 @@ export const validateAndStage = task({
         count: createdRows.length,
       });
 
-      // Initialize value mapper for catalog lookups
-      const valueMapper = new ValueMapper(db);
+      // Load brand catalog into memory (PERFORMANCE OPTIMIZATION)
+      // This eliminates the N+1 query problem by loading all catalog data once
+      console.log("[validate-and-stage] Loading brand catalog into memory...");
+      const catalogLoadStart = Date.now();
+      const catalog = await loadBrandCatalog(db, brandId);
+      const catalogLoadDuration = Date.now() - catalogLoadStart;
+      console.log(
+        `[validate-and-stage] Catalog loaded in ${catalogLoadDuration}ms`,
+        {
+          colors: catalog.colors.size,
+          sizes: catalog.sizes.size,
+          materials: catalog.materials.size,
+          categories: catalog.categories.size,
+          valueMappings: catalog.valueMappings.size,
+        },
+      );
+      logger.info("Catalog loaded into memory", {
+        duration: catalogLoadDuration,
+        colorCount: catalog.colors.size,
+        sizeCount: catalog.sizes.size,
+        materialCount: catalog.materials.size,
+        categoryCount: catalog.categories.size,
+      });
 
       // Process data in batches
       const totalRows = parseResult.data.length;
@@ -436,6 +471,10 @@ export const validateAndStage = task({
       let willCreateCount = 0;
       let willUpdateCount = 0;
       const unmappedValues = new Map<string, Set<string>>();
+
+      // PHASE 2 OPTIMIZATION: Throttle progress updates
+      const PROGRESS_UPDATE_INTERVAL = 5; // Update every 5 batches
+      let batchesSinceLastUpdate = 0;
 
       console.log("[validate-and-stage] Starting batch processing...");
       for (let i = 0; i < totalRows; i += BATCH_SIZE) {
@@ -453,110 +492,236 @@ export const validateAndStage = task({
           total: totalRows,
         });
 
-        // Validate and process each row in the batch
-        const validatedBatch: Array<{
-          importRowId: string;
-          rowNumber: number;
-          validated: ValidatedRowData | null;
-          error: string | null;
-        }> = [];
+        // Batch load existing variants for this batch (PERFORMANCE OPTIMIZATION)
+        // Single query instead of one per row
+        const batchUpids = batch
+          .map((r) => (r as CSVRow).upid)
+          .filter((v): v is string => !!v && v.trim() !== "");
+        const batchSkus = batch
+          .map((r) => (r as CSVRow).sku)
+          .filter((v): v is string => !!v && v.trim() !== "");
 
-        for (let j = 0; j < batch.length; j++) {
-          const row = batch[j] as CSVRow;
-          const importRow = batchRows[j];
-          if (!importRow) continue;
+        let existingVariantsMap = new Map<
+          string,
+          { id: string; variant_id: string }
+        >();
 
-          const rowNumber = i + j + 1;
-
-          try {
-            // Validate and transform row
-            const validated = await validateRow(
-              row,
-              brandId,
-              rowNumber,
-              jobId,
-              valueMapper,
-              unmappedValues,
-              duplicateRowNumbers,
-              duplicateCheckColumn,
+        if (batchUpids.length > 0 || batchSkus.length > 0) {
+          const batchVariantLoadStart = Date.now();
+          const existingVariants = await db
+            .select({
+              variantId: productVariants.id,
+              productId: productVariants.productId,
+              brandId: products.brandId,
+              upid: productVariants.upid,
+              sku: productVariants.sku,
+            })
+            .from(productVariants)
+            .innerJoin(products, eq(productVariants.productId, products.id))
+            .where(
+              and(
+                eq(products.brandId, brandId),
+                or(
+                  batchUpids.length > 0
+                    ? inArray(productVariants.upid, batchUpids)
+                    : undefined,
+                  batchSkus.length > 0
+                    ? inArray(productVariants.sku, batchSkus)
+                    : undefined,
+                ),
+              ),
             );
 
-            // Only hard errors block validation (warnings are OK)
-            const hasHardErrors = validated.errors.length > 0;
-            const hasWarnings = validated.warnings.length > 0;
+          // Build lookup map
+          existingVariantsMap = new Map(
+            existingVariants.map((v) => [
+              (v.upid || v.sku || "") as string,
+              { id: v.productId, variant_id: v.variantId },
+            ]),
+          );
 
-            validatedBatch.push({
-              importRowId: importRow.id,
-              rowNumber,
-              validated,
-              error: hasHardErrors
-                ? validated.errors.map((e) => e.message).join("; ")
-                : null,
-            });
-
-            // Row is valid if it has no hard errors (warnings are acceptable)
-            if (!hasHardErrors) {
-              validCount++;
-              if (validated.action === "CREATE") willCreateCount++;
-              else willUpdateCount++;
-            } else {
-              invalidCount++;
-            }
-          } catch (error) {
-            logger.error("Row validation error", {
-              rowNumber,
-              error: error instanceof Error ? error.message : String(error),
-            });
-
-            validatedBatch.push({
-              importRowId: importRow.id,
-              rowNumber,
-              validated: null,
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Unknown validation error",
-            });
-
-            invalidCount++;
-          }
+          const batchVariantLoadDuration = Date.now() - batchVariantLoadStart;
+          console.log(
+            `[validate-and-stage] Loaded ${existingVariants.length} existing variants in ${batchVariantLoadDuration}ms`,
+          );
         }
 
-        // Insert valid rows into staging tables (only hard errors block)
-        for (const item of validatedBatch) {
-          // Check only for hard errors, warnings are OK
-          const hasHardErrors =
-            item.validated && item.validated.errors.length > 0;
+        // PHASE 2 OPTIMIZATION: Parallel validation using Promise.all()
+        // Validates all rows in batch simultaneously, utilizing multiple CPU cores
+        const validationStart = Date.now();
+        const validatedBatch = await Promise.all(
+          batch.map(async (row, j) => {
+            const importRow = batchRows[j];
+            if (!importRow) return null;
 
-          if (item.validated && !hasHardErrors) {
+            const rowNumber = i + j + 1;
+
             try {
-              // Insert staging product
-              const stagingProductId = await insertStagingProduct(
+              // Validate and transform row with in-memory catalog
+              const validated = await validateRow(
+                row as CSVRow,
+                brandId,
+                rowNumber,
+                jobId,
+                catalog,
+                unmappedValues,
+                duplicateRowNumbers,
+                duplicateCheckColumn,
+                existingVariantsMap,
                 db,
-                item.validated.product,
               );
 
-              // Insert staging variant with product reference
+              // Only hard errors block validation (warnings are OK)
+              const hasHardErrors = validated.errors.length > 0;
+
+              // Row is valid if it has no hard errors (warnings are acceptable)
+              if (!hasHardErrors) {
+                validCount++;
+                if (validated.action === "CREATE") willCreateCount++;
+                else willUpdateCount++;
+              } else {
+                invalidCount++;
+              }
+
+              return {
+                importRowId: importRow.id,
+                rowNumber,
+                validated,
+                error: hasHardErrors
+                  ? validated.errors.map((e) => e.message).join("; ")
+                  : null,
+                hasHardErrors,
+              };
+            } catch (error) {
+              logger.error("Row validation error", {
+                rowNumber,
+                error: error instanceof Error ? error.message : String(error),
+              });
+
+              invalidCount++;
+
+              return {
+                importRowId: importRow.id,
+                rowNumber,
+                validated: null,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Unknown validation error",
+                hasHardErrors: true,
+              };
+            }
+          }),
+        ).then((results) =>
+          results.filter((r): r is NonNullable<typeof r> => r !== null),
+        );
+
+        const validationDuration = Date.now() - validationStart;
+        console.log(
+          `[validate-and-stage] Batch ${batchNumber} validated in ${validationDuration}ms (parallel)`,
+        );
+
+        // PHASE 2 OPTIMIZATION: Batch staging inserts
+        // Single batch insert instead of individual inserts per row
+        const stagingInsertStart = Date.now();
+
+        // Separate valid and invalid rows
+        const validRows = validatedBatch.filter(
+          (item) => item.validated && !item.hasHardErrors,
+        );
+        const invalidRows = validatedBatch.filter(
+          (item) => !item.validated || item.hasHardErrors,
+        );
+
+        try {
+          if (validRows.length > 0) {
+            // Batch insert all products
+            const products = validRows.map((item) => item.validated!.product);
+            const stagingProductIds = await batchInsertStagingProducts(
+              db,
+              products,
+            );
+
+            // Batch insert all variants with staging product references
+            const variants = validRows.map((item, idx) => ({
+              ...item.validated!.variant,
+              stagingProductId: stagingProductIds[idx] as string,
+            }));
+            await batchInsertStagingVariants(db, variants);
+
+            // PHASE 2 OPTIMIZATION: Single batch status update for all valid rows
+            const validStatusUpdates = validRows.map((item) => ({
+              id: item.importRowId,
+              status: "VALIDATED" as const,
+              normalized: {
+                action: item.validated!.action,
+                product_id: item.validated!.productId,
+                variant_id: item.validated!.variantId,
+                warnings:
+                  item.validated!.warnings.length > 0
+                    ? item.validated!.warnings.map((w) => ({
+                        type: w.subtype,
+                        field: w.field,
+                        message: w.message,
+                        entity_type: w.entityType,
+                      }))
+                    : undefined,
+              },
+            }));
+            await batchUpdateImportRowStatus(db, validStatusUpdates);
+
+            const stagingInsertDuration = Date.now() - stagingInsertStart;
+            console.log(
+              `[validate-and-stage] Batch ${batchNumber} staged ${validRows.length} rows in ${stagingInsertDuration}ms (batch insert)`,
+            );
+          }
+
+          // PHASE 2 OPTIMIZATION: Single batch status update for all invalid rows
+          if (invalidRows.length > 0) {
+            const invalidStatusUpdates = invalidRows.map((item) => ({
+              id: item.importRowId,
+              status: "FAILED" as const,
+              error: item.error || "Validation failed",
+            }));
+            await batchUpdateImportRowStatus(db, invalidStatusUpdates);
+          }
+        } catch (error) {
+          // Batch insert failed - fall back to individual inserts with error handling
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          logger.error(
+            "Batch staging insert failed, falling back to individual inserts",
+            {
+              batchNumber,
+              validRowCount: validRows.length,
+              error: errorMessage,
+            },
+          );
+
+          // Fall back to individual inserts for this batch
+          for (const item of validRows) {
+            try {
+              const stagingProductId = await insertStagingProduct(
+                db,
+                item.validated!.product,
+              );
               const variantParams: InsertStagingVariantParams = {
-                ...item.validated.variant,
+                ...item.validated!.variant,
                 stagingProductId,
               };
-
               await insertStagingVariant(db, variantParams);
 
-              // Update import_row status to VALIDATED
-              // Store warnings separately for later display
               await batchUpdateImportRowStatus(db, [
                 {
                   id: item.importRowId,
                   status: "VALIDATED",
                   normalized: {
-                    action: item.validated.action,
-                    product_id: item.validated.productId,
-                    variant_id: item.validated.variantId,
+                    action: item.validated!.action,
+                    product_id: item.validated!.productId,
+                    variant_id: item.validated!.variantId,
                     warnings:
-                      item.validated.warnings.length > 0
-                        ? item.validated.warnings.map((w) => ({
+                      item.validated!.warnings.length > 0
+                        ? item.validated!.warnings.map((w) => ({
                             type: w.subtype,
                             field: w.field,
                             message: w.message,
@@ -566,56 +731,22 @@ export const validateAndStage = task({
                   },
                 },
               ]);
-            } catch (error) {
-              const errorMessage =
-                error instanceof Error ? error.message : String(error);
-              const errorStack =
-                error instanceof Error ? error.stack : undefined;
-              const errorDetails =
-                error instanceof Error && "code" in error
-                  ? (error as any).code
-                  : undefined;
-              const errorConstraint =
-                error instanceof Error && "constraint" in error
-                  ? (error as any).constraint
-                  : undefined;
-
-              // Log detailed error information for debugging
-              logger.error("Failed to insert into staging", {
+            } catch (individualError) {
+              logger.error("Individual staging insert failed", {
                 rowNumber: item.rowNumber,
-                error: errorMessage,
-                errorCode: errorDetails,
-                errorConstraint,
-                stack: errorStack,
-                productData: {
-                  productId: item.validated?.productId,
-                  variantId: item.validated?.variantId,
-                  upid: item.validated?.variant.upid,
-                  sku: item.validated?.variant.sku,
-                  action: item.validated?.action,
-                },
+                error:
+                  individualError instanceof Error
+                    ? individualError.message
+                    : String(individualError),
               });
 
-              console.error("[validate-and-stage] Staging insert failed:", {
-                rowNumber: item.rowNumber,
-                jobId,
-                errorMessage,
-                errorCode: errorDetails,
-                errorConstraint,
-                productId: item.validated?.productId,
-                variantId: item.validated?.variantId,
-                action: item.validated?.action,
-                fullError: error,
-              });
-
-              // Mark row as FAILED
               await batchUpdateImportRowStatus(db, [
                 {
                   id: item.importRowId,
                   status: "FAILED",
                   error:
-                    error instanceof Error
-                      ? error.message
+                    individualError instanceof Error
+                      ? individualError.message
                       : "Failed to insert into staging",
                 },
               ]);
@@ -623,51 +754,53 @@ export const validateAndStage = task({
               invalidCount++;
               validCount--;
             }
-          } else if (hasHardErrors) {
-            // Hard errors only - mark as FAILED
-            await batchUpdateImportRowStatus(db, [
-              {
-                id: item.importRowId,
-                status: "FAILED",
-                error: item.error,
-              },
-            ]);
           }
         }
 
         processedCount += batch.length;
+        batchesSinceLastUpdate++;
 
-        // Update job progress
-        await updateImportJobProgress(db, {
-          jobId,
-          summary: {
-            total: totalRows,
+        // PHASE 2 OPTIMIZATION: Throttled progress updates
+        // Update every N batches or on final batch to reduce DB load
+        const isLastBatch = i + BATCH_SIZE >= totalRows;
+        const shouldUpdateProgress =
+          batchesSinceLastUpdate >= PROGRESS_UPDATE_INTERVAL || isLastBatch;
+
+        if (shouldUpdateProgress) {
+          await updateImportJobProgress(db, {
+            jobId,
+            summary: {
+              total: totalRows,
+              processed: processedCount,
+              valid: validCount,
+              invalid: invalidCount,
+              will_create: willCreateCount,
+              will_update: willUpdateCount,
+              percentage: Math.round((processedCount / totalRows) * 100),
+            },
+          });
+          console.log("[validate-and-stage] Job progress updated", {
+            jobId,
             processed: processedCount,
+            total: totalRows,
             valid: validCount,
             invalid: invalidCount,
-            will_create: willCreateCount,
-            will_update: willUpdateCount,
-            percentage: Math.round((processedCount / totalRows) * 100),
-          },
-        });
-        console.log("[validate-and-stage] Job progress updated", {
-          jobId,
-          processed: processedCount,
-          total: totalRows,
-          valid: validCount,
-          invalid: invalidCount,
-        });
+            batchesSinceLastUpdate,
+          });
 
-        // Send WebSocket progress update
-        await emitProgress({
-          jobId,
-          status: "VALIDATING",
-          phase: "validation",
-          processed: processedCount,
-          total: totalRows,
-          failed: invalidCount,
-          percentage: Math.round((processedCount / totalRows) * 100),
-        });
+          // Send WebSocket progress update
+          await emitProgress({
+            jobId,
+            status: "VALIDATING",
+            phase: "validation",
+            processed: processedCount,
+            total: totalRows,
+            failed: invalidCount,
+            percentage: Math.round((processedCount / totalRows) * 100),
+          });
+
+          batchesSinceLastUpdate = 0; // Reset counter
+        }
 
         logger.info("Batch processed", {
           batchNumber: Math.floor(i / BATCH_SIZE) + 1,
@@ -781,10 +914,12 @@ export const validateAndStage = task({
  * @param brandId - Brand ID for scoping
  * @param rowNumber - Row number in CSV (1-indexed)
  * @param jobId - Import job ID
- * @param valueMapper - Value mapper instance
+ * @param catalog - In-memory brand catalog for fast lookups
  * @param unmappedValues - Map to track unmapped values
  * @param duplicateRowNumbers - Set of row numbers that have duplicate UPID/SKU
  * @param duplicateCheckColumn - Column name being checked for duplicates (upid or sku)
+ * @param existingVariantsMap - Pre-loaded map of existing variants (UPID/SKU -> product/variant IDs)
+ * @param db - Database instance for auto-creating entities
  * @returns Validated row data with errors and warnings
  */
 async function validateRow(
@@ -792,10 +927,12 @@ async function validateRow(
   brandId: string,
   rowNumber: number,
   jobId: string,
-  valueMapper: ValueMapper,
+  catalog: BrandCatalog,
   unmappedValues: Map<string, Set<string>>,
   duplicateRowNumbers: Set<number>,
   duplicateCheckColumn: string,
+  existingVariantsMap: Map<string, { id: string; variant_id: string }>,
+  db: Database,
 ): Promise<ValidatedRowData> {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
@@ -858,46 +995,36 @@ async function validateRow(
     });
   }
 
-  // Map values to IDs
+  // PHASE 2 OPTIMIZATION: Removed auto-create to eliminate race conditions
+  // All catalog entities (colors, sizes, categories) now require user definition
+  // This enables safe parallel validation and provides consistent UX
   let colorId: string | null = null;
   if (row.color_name) {
-    const colorResult = await valueMapper.mapColorName(
-      brandId,
-      row.color_name,
-      "color_name",
-    );
+    // In-memory lookup from catalog (0 database queries)
+    colorId = lookupColorId(catalog, row.color_name, "color_name");
 
-    if (!colorResult.found) {
-      // Auto-create color (simple entity)
-      const createdColorId = await valueMapper.autoCreateColor(
-        brandId,
-        row.color_name,
-      );
-
-      if (createdColorId) {
-        colorId = createdColorId;
-        logger.info("Auto-created color", {
-          colorName: row.color_name,
-          colorId: createdColorId,
-        });
-      } else {
-        trackUnmappedValue(unmappedValues, "COLOR", row.color_name);
-      }
-    } else {
-      colorId = colorResult.targetId;
+    if (!colorId) {
+      // Track as unmapped for user definition (same as sizes/categories)
+      trackUnmappedValue(unmappedValues, "COLOR", row.color_name);
+      warnings.push({
+        type: "NEEDS_DEFINITION",
+        subtype: "MISSING_COLOR",
+        field: "color_name",
+        message: `Color "${row.color_name}" needs to be created`,
+        severity: "warning",
+        entityType: "COLOR",
+      });
+      // Leave colorId as null - will be populated after user creates color
     }
   }
 
   // WARNING: Missing size (needs user definition)
   let sizeId: string | null = null;
   if (row.size_name) {
-    const sizeResult = await valueMapper.mapSizeName(
-      brandId,
-      row.size_name,
-      "size_name",
-    );
+    // In-memory lookup from catalog (0 database queries)
+    sizeId = lookupSizeId(catalog, row.size_name, "size_name");
 
-    if (!sizeResult.found) {
+    if (!sizeId) {
       // Track as unmapped for user definition
       trackUnmappedValue(unmappedValues, "SIZE", row.size_name);
       warnings.push({
@@ -909,21 +1036,16 @@ async function validateRow(
         entityType: "SIZE",
       });
       // Leave sizeId as null - will be populated after user creates size
-      sizeId = null;
-    } else {
-      sizeId = sizeResult.targetId;
     }
   }
 
   // WARNING: Missing category (needs user definition)
   let categoryId: string | null = null;
   if (row.category_name) {
-    const categoryResult = await valueMapper.mapCategoryName(
-      row.category_name,
-      "category_name",
-    );
+    // In-memory lookup from catalog (0 database queries)
+    categoryId = lookupCategoryId(catalog, row.category_name, "category_name");
 
-    if (!categoryResult.found) {
+    if (!categoryId) {
       // Track as unmapped for user definition
       trackUnmappedValue(unmappedValues, "CATEGORY", row.category_name);
       warnings.push({
@@ -935,53 +1057,15 @@ async function validateRow(
         entityType: "CATEGORY",
       });
       // Leave categoryId as null - will be populated after user creates category
-      categoryId = null;
-    } else {
-      categoryId = categoryResult.targetId;
     }
   } else if (row.category_id) {
     categoryId = row.category_id;
   }
 
   // Check if product variant exists (CREATE vs UPDATE detection)
-  let existingProduct: { id: string; variant_id: string } | null = null;
-
-  try {
-    // Query variant with join to products to check brand ownership
-    const variantQuery = await db
-      .select({
-        variantId: productVariants.id,
-        productId: productVariants.productId,
-        brandId: products.brandId,
-      })
-      .from(productVariants)
-      .innerJoin(products, eq(productVariants.productId, products.id))
-      .where(
-        and(
-          eq(products.brandId, brandId),
-          upid
-            ? eq(productVariants.upid, upid)
-            : sku
-              ? eq(productVariants.sku, sku)
-              : undefined,
-        ),
-      )
-      .limit(1);
-
-    const result = variantQuery[0];
-    if (result) {
-      existingProduct = {
-        id: result.productId,
-        variant_id: result.variantId,
-      };
-    }
-  } catch (error) {
-    logger.warn("Failed to check for existing variant", {
-      upid,
-      sku,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  // Use pre-loaded variants map (0 database queries per row)
+  const lookupKey = upid || sku || "";
+  const existingProduct = existingVariantsMap.get(lookupKey) || null;
 
   const action: "CREATE" | "UPDATE" = existingProduct ? "UPDATE" : "CREATE";
 

@@ -11,7 +11,14 @@ import {
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@v1/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@v1/ui/table";
 import * as React from "react";
 
 /**
@@ -51,7 +58,7 @@ function ActionBadge({ action }: { action: "CREATE" | "UPDATE" }) {
         "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset",
         action === "CREATE"
           ? "bg-green-50 text-green-700 ring-green-600/20"
-          : "bg-blue-50 text-blue-700 ring-blue-600/20"
+          : "bg-blue-50 text-blue-700 ring-blue-600/20",
       )}
     >
       {action}
@@ -133,20 +140,25 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
   const trpc = useTRPC();
 
   // Fetch staging preview data
-  const { data: response, isLoading, error } = useQuery(
+  const {
+    data: response,
+    isLoading,
+    error,
+  } = useQuery(
     trpc.bulk.staging.preview.queryOptions({
       jobId,
       limit: pageSize,
       offset: page * pageSize,
-    })
+    }),
   );
 
   const data = React.useMemo<StagingDataRow[]>(
-    () => (response?.stagingData ?? []).map(row => ({
-      ...row,
-      action: row.action as "CREATE" | "UPDATE"
-    })),
-    [response]
+    () =>
+      (response?.stagingData ?? []).map((row) => ({
+        ...row,
+        action: row.action as "CREATE" | "UPDATE",
+      })),
+    [response],
   );
 
   const totalValid = response?.totalValid ?? 0;
@@ -164,9 +176,12 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Icons.Spinner className="h-6 w-6 animate-spin text-brand" />
-        <span className="ml-2 text-secondary">Loading preview...</span>
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+        <Icons.Spinner className="h-5 w-5 animate-spin text-brand" />
+        <div>
+          <div className="text-sm font-medium">Loading preview...</div>
+          <div className="text-xs text-secondary">Please wait</div>
+        </div>
       </div>
     );
   }
@@ -174,12 +189,17 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
   // Error state
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+        <div className="rounded-md bg-destructive/20 p-2">
           <Icons.AlertCircle className="h-5 w-5 text-destructive" />
-          <p className="text-sm text-destructive">
-            Failed to load staging preview. Please try again.
-          </p>
+        </div>
+        <div>
+          <div className="text-sm font-medium text-destructive">
+            Failed to load preview
+          </div>
+          <div className="text-xs text-secondary">
+            Please try again or contact support
+          </div>
         </div>
       </div>
     );
@@ -188,12 +208,16 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
   // Empty state
   if (!data.length && !isLoading) {
     return (
-      <div className="rounded-lg border border-border bg-background p-12 text-center">
-        <Icons.Package className="mx-auto h-12 w-12 text-secondary opacity-50" />
-        <h3 className="mt-4 text-lg font-medium">No staging data found</h3>
-        <p className="mt-2 text-sm text-secondary">
-          There are no products to preview for this import job.
-        </p>
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
+        <div className="rounded-md bg-accent p-2">
+          <Icons.Package className="h-5 w-5 text-secondary" />
+        </div>
+        <div>
+          <div className="text-sm font-medium">No staging data found</div>
+          <div className="text-xs text-secondary">
+            There are no products to preview for this import job
+          </div>
+        </div>
       </div>
     );
   }
@@ -208,7 +232,7 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
   return (
     <div className="space-y-4">
       {/* Summary stats */}
-      <div className="flex items-center gap-4 rounded-lg border border-border bg-accent/50 p-4">
+      <div className="flex items-center gap-4 rounded-lg border border-border bg-background p-4">
         <div className="flex items-center gap-2">
           <div className="rounded-md bg-green-100 p-2">
             <Icons.Plus className="h-4 w-4 text-green-700" />
@@ -241,26 +265,26 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
       </div>
 
       {/* Table */}
-      <div className="relative w-full overflow-hidden rounded-lg border border-border">
+      <div className="relative w-full overflow-hidden rounded-lg border border-border bg-background">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="bg-accent/30">
                 {table.getHeaderGroups().map((headerGroup) =>
                   headerGroup.headers.map((header) => (
                     <TableHead
                       key={header.id}
                       style={{ width: header.column.getSize() }}
-                      className="h-12 border-r px-4"
+                      className="h-12 border-r px-4 last:border-r-0"
                     >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
-                  ))
+                  )),
                 )}
               </TableRow>
             </TableHeader>
@@ -268,16 +292,16 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="h-14 border-b border-border hover:bg-accent-light"
+                  className="h-14 border-b border-border hover:bg-accent/20 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="border-r px-4 align-middle"
+                      className="border-r px-4 align-middle last:border-r-0"
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}

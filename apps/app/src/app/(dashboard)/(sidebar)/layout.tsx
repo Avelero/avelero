@@ -1,9 +1,8 @@
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-
-export const dynamic = "force-dynamic";
 
 export default async function Layout({
   children,
@@ -11,6 +10,11 @@ export default async function Layout({
   children: React.ReactNode;
 }) {
   const queryClient = getQueryClient();
+
+  // Access request headers to mark this segment as dynamic without disabling cache reuse.
+  const requestHeaders = await headers();
+  const isInternalClientRequest =
+    requestHeaders.get("user-agent")?.includes("AveleroInternal") ?? false;
 
   // Fetch composite workflow data (user + brand memberships) similar to Midday's layout bootstrap.
   const workflowData = await queryClient.fetchQuery(
@@ -40,7 +44,10 @@ export default async function Layout({
   // Following Midday's pattern: layout provides shared data hydration
   return (
     <HydrateClient>
-      <div className="relative h-full">
+      <div
+        className="relative h-full"
+        data-internal-client={isInternalClientRequest ? "true" : "false"}
+      >
         <Header />
         <div className="flex flex-row justify-start h-[calc(100%-56px)]">
           <Sidebar />

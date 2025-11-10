@@ -22,10 +22,7 @@ import {
   approveImportSchema,
   cancelImportSchema,
 } from "../../../schemas/bulk.js";
-import {
-  parseFile,
-  normalizeHeaders,
-} from "../../../lib/csv-parser.js";
+import { parseFile, normalizeHeaders } from "../../../lib/csv-parser.js";
 import { downloadImportFile } from "@v1/supabase/storage/product-imports";
 import { tasks } from "@trigger.dev/sdk";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -79,7 +76,9 @@ function resolveImportFilePath(params: {
 
   if (segments.length < 3) {
     console.error("[resolveImportFilePath] Error: segments.length < 3");
-    throw badRequest(`Invalid file reference provided. Expected format: brandId/jobId/filename, got: ${sanitizedPath}`);
+    throw badRequest(
+      `Invalid file reference provided. Expected format: brandId/jobId/filename, got: ${sanitizedPath}`,
+    );
   }
 
   const [pathBrandId, jobId, ...fileSegments] = segments;
@@ -95,7 +94,9 @@ function resolveImportFilePath(params: {
       pathBrandId,
       expectedBrandId: params.brandId,
     });
-    throw badRequest(`File does not belong to the active brand context. Expected: ${params.brandId}, got: ${pathBrandId}`);
+    throw badRequest(
+      `File does not belong to the active brand context. Expected: ${params.brandId}, got: ${pathBrandId}`,
+    );
   }
 
   if (!jobId || fileSegments.length === 0) {
@@ -113,7 +114,9 @@ function resolveImportFilePath(params: {
 
   if (resolvedFilename !== params.filename) {
     console.error("[resolveImportFilePath] Error: filename mismatch");
-    throw badRequest(`Filename does not match the provided file reference. Expected: ${params.filename}, got: ${resolvedFilename}`);
+    throw badRequest(
+      `Filename does not match the provided file reference. Expected: ${params.filename}, got: ${resolvedFilename}`,
+    );
   }
 
   return {
@@ -164,7 +167,9 @@ export const importRouter = createTRPCRouter({
       // Always use admin client for storage operations to bypass RLS
       const supabaseClient = brandCtx.supabaseAdmin;
       if (!supabaseClient) {
-        throw badRequest("Supabase admin client is not configured. Check SUPABASE_SERVICE_ROLE_KEY environment variable.");
+        throw badRequest(
+          "Supabase admin client is not configured. Check SUPABASE_SERVICE_ROLE_KEY environment variable.",
+        );
       }
 
       try {
@@ -179,7 +184,7 @@ export const importRouter = createTRPCRouter({
 
         console.log("[import.validate] Download result:", {
           hasData: !!downloadResult.data,
-          dataType: downloadResult.data ? typeof downloadResult.data : 'null',
+          dataType: downloadResult.data ? typeof downloadResult.data : "null",
         });
 
         if (!downloadResult.data) {
@@ -208,7 +213,10 @@ export const importRouter = createTRPCRouter({
         });
 
         if (parseResult.errors.length > 0) {
-          console.log("[import.validate] Parse errors found:", parseResult.errors);
+          console.log(
+            "[import.validate] Parse errors found:",
+            parseResult.errors,
+          );
           return {
             valid: false,
             fileId: input.fileId,
@@ -356,7 +364,8 @@ export const importRouter = createTRPCRouter({
         });
 
         // Trigger validate-and-stage background job via Trigger.dev using the uploaded file path
-        const triggerApiUrl = process.env.TRIGGER_API_URL ?? "https://api.trigger.dev";
+        const triggerApiUrl =
+          process.env.TRIGGER_API_URL ?? "https://api.trigger.dev";
         console.log("[import.start] Triggering background job...", {
           triggerApiUrl,
           hasCustomTriggerUrl: Boolean(process.env.TRIGGER_API_URL),
@@ -364,11 +373,14 @@ export const importRouter = createTRPCRouter({
         });
 
         try {
-          console.log("[import.start] About to trigger background job with payload:", {
-            jobId: job.id,
-            brandId,
-            filePath: resolvedFile.path,
-          });
+          console.log(
+            "[import.start] About to trigger background job with payload:",
+            {
+              jobId: job.id,
+              brandId,
+              filePath: resolvedFile.path,
+            },
+          );
 
           const runHandle = await tasks.trigger("validate-and-stage", {
             jobId: job.id,
@@ -383,12 +395,19 @@ export const importRouter = createTRPCRouter({
           });
 
           // Log the run handle for debugging
-          console.log("[import.start] Full run handle:", JSON.stringify(runHandle, null, 2));
+          console.log(
+            "[import.start] Full run handle:",
+            JSON.stringify(runHandle, null, 2),
+          );
         } catch (triggerError) {
           console.error("[import.start] Failed to trigger background job:", {
             error: triggerError,
-            errorMessage: triggerError instanceof Error ? triggerError.message : String(triggerError),
-            errorStack: triggerError instanceof Error ? triggerError.stack : undefined,
+            errorMessage:
+              triggerError instanceof Error
+                ? triggerError.message
+                : String(triggerError),
+            errorStack:
+              triggerError instanceof Error ? triggerError.stack : undefined,
           });
 
           // Update job status to FAILED immediately
@@ -403,8 +422,10 @@ export const importRouter = createTRPCRouter({
           // If Trigger.dev is not available, throw a more specific error
           throw new Error(
             `Failed to start background import job. Please ensure Trigger.dev dev server is running. Error: ${
-              triggerError instanceof Error ? triggerError.message : String(triggerError)
-            }`
+              triggerError instanceof Error
+                ? triggerError.message
+                : String(triggerError)
+            }`,
           );
         }
 
@@ -561,7 +582,10 @@ export const importRouter = createTRPCRouter({
         } catch (triggerError) {
           console.error("[import.approve] Failed to trigger commit job:", {
             error: triggerError,
-            errorMessage: triggerError instanceof Error ? triggerError.message : String(triggerError),
+            errorMessage:
+              triggerError instanceof Error
+                ? triggerError.message
+                : String(triggerError),
           });
 
           // Rollback status if trigger fails

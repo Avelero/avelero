@@ -217,7 +217,10 @@ const defineMaterialDataSchema = z.object({
   name: z.string().min(1).max(100),
   certificationId: uuidSchema.optional(),
   recyclable: z.boolean().optional(),
-  countryOfOrigin: z.string().regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code").optional(),
+  countryOfOrigin: z
+    .string()
+    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
+    .optional(),
 });
 
 const defineEcoClaimDataSchema = z.object({
@@ -229,7 +232,10 @@ const defineFacilityDataSchema = z.object({
   legalName: z.string().max(200).optional(),
   address: z.string().optional(),
   city: z.string().optional(),
-  countryCode: z.string().regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code").optional(),
+  countryCode: z
+    .string()
+    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
+    .optional(),
   contact: z.string().optional(),
   vatNumber: z.string().optional(),
 });
@@ -245,7 +251,10 @@ const defineShowcaseBrandDataSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   zip: z.string().optional(),
-  countryCode: z.string().regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code").optional(),
+  countryCode: z
+    .string()
+    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
+    .optional(),
 });
 
 const defineCertificationDataSchema = z.object({
@@ -303,22 +312,24 @@ export const defineValueSchema = z.object({
  */
 export const batchDefineValuesSchema = z.object({
   jobId: uuidSchema,
-  values: z.array(
-    z.object({
-      entityType: entityTypeSchema,
-      rawValue: z.string().min(1),
-      sourceColumn: z.string().min(1),
-      entityData: z.union([
-        defineColorDataSchema,
-        defineSizeDataSchema,
-        defineMaterialDataSchema,
-        defineEcoClaimDataSchema,
-        defineFacilityDataSchema,
-        defineShowcaseBrandDataSchema,
-        defineCertificationDataSchema,
-      ]),
-    })
-  ).min(1),
+  values: z
+    .array(
+      z.object({
+        entityType: entityTypeSchema,
+        rawValue: z.string().min(1),
+        sourceColumn: z.string().min(1),
+        entityData: z.union([
+          defineColorDataSchema,
+          defineSizeDataSchema,
+          defineMaterialDataSchema,
+          defineEcoClaimDataSchema,
+          defineFacilityDataSchema,
+          defineShowcaseBrandDataSchema,
+          defineCertificationDataSchema,
+        ]),
+      }),
+    )
+    .min(1),
 });
 
 /**

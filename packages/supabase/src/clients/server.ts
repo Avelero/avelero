@@ -71,8 +71,8 @@ export async function createClient(
               // Ensure proper cookie options for Vercel preview deployments
               cookieStore.set(name, value, {
                 ...options,
-                sameSite: 'lax',
-                secure: process.env.NODE_ENV === 'production',
+                sameSite: "lax",
+                secure: process.env.NODE_ENV === "production",
               });
             }
           } catch {

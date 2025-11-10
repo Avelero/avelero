@@ -93,7 +93,14 @@ export const valuesRouter = createTRPCRouter({
         const entity = await validateAndCreateEntity(
           brandCtx.db,
           brandId,
-          input.entityType as "COLOR" | "SIZE" | "MATERIAL" | "ECO_CLAIM" | "FACILITY" | "SHOWCASE_BRAND" | "CERTIFICATION",
+          input.entityType as
+            | "COLOR"
+            | "SIZE"
+            | "MATERIAL"
+            | "ECO_CLAIM"
+            | "FACILITY"
+            | "SHOWCASE_BRAND"
+            | "CERTIFICATION",
           input.entityData,
         );
 
@@ -102,7 +109,14 @@ export const valuesRouter = createTRPCRouter({
           brandId,
           sourceColumn: input.sourceColumn,
           rawValue: input.rawValue,
-          target: input.entityType as "COLOR" | "SIZE" | "MATERIAL" | "ECO_CLAIM" | "FACILITY" | "SHOWCASE_BRAND" | "CERTIFICATION",
+          target: input.entityType as
+            | "COLOR"
+            | "SIZE"
+            | "MATERIAL"
+            | "ECO_CLAIM"
+            | "FACILITY"
+            | "SHOWCASE_BRAND"
+            | "CERTIFICATION",
           targetId: entity.id,
         });
 
@@ -195,7 +209,14 @@ export const valuesRouter = createTRPCRouter({
             const entity = await validateAndCreateEntity(
               brandCtx.db,
               brandId,
-              value.entityType as "COLOR" | "SIZE" | "MATERIAL" | "ECO_CLAIM" | "FACILITY" | "SHOWCASE_BRAND" | "CERTIFICATION",
+              value.entityType as
+                | "COLOR"
+                | "SIZE"
+                | "MATERIAL"
+                | "ECO_CLAIM"
+                | "FACILITY"
+                | "SHOWCASE_BRAND"
+                | "CERTIFICATION",
               value.entityData,
             );
 
@@ -204,7 +225,14 @@ export const valuesRouter = createTRPCRouter({
               brandId,
               sourceColumn: value.sourceColumn,
               rawValue: value.rawValue,
-              target: value.entityType as "COLOR" | "SIZE" | "MATERIAL" | "ECO_CLAIM" | "FACILITY" | "SHOWCASE_BRAND" | "CERTIFICATION",
+              target: value.entityType as
+                | "COLOR"
+                | "SIZE"
+                | "MATERIAL"
+                | "ECO_CLAIM"
+                | "FACILITY"
+                | "SHOWCASE_BRAND"
+                | "CERTIFICATION",
               targetId: entity.id,
             });
 

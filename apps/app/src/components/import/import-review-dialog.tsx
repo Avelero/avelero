@@ -67,15 +67,16 @@ export function ImportReviewDialog() {
 
   // Approve import mutation
   const approveImportMutation = useMutation(
-    trpc.bulk.import.approve.mutationOptions()
+    trpc.bulk.import.approve.mutationOptions(),
   );
 
   // Cancel import mutation
   const cancelImportMutation = useMutation(
-    trpc.bulk.import.cancel.mutationOptions()
+    trpc.bulk.import.cancel.mutationOptions(),
   );
 
-  const totalUnmapped = (unmappedData?.totalUnmapped as number | undefined) ?? 0;
+  const totalUnmapped =
+    (unmappedData?.totalUnmapped as number | undefined) ?? 0;
   const summary = statusData?.summary as
     | {
         total?: number;
@@ -99,7 +100,7 @@ export function ImportReviewDialog() {
 
     if (!allValuesDefined && totalUnmapped > 0) {
       toast.error(
-        `Please define all ${totalUnmapped} unmapped values before approving`
+        `Please define all ${totalUnmapped} unmapped values before approving`,
       );
       return;
     }
@@ -119,7 +120,9 @@ export function ImportReviewDialog() {
       });
     } catch (err) {
       const error = err as Error;
-      toast.error(error.message || "Failed to approve import. Please try again.");
+      toast.error(
+        error.message || "Failed to approve import. Please try again.",
+      );
       console.error("Approve error:", err);
     } finally {
       setIsApproving(false);
@@ -148,7 +151,9 @@ export function ImportReviewDialog() {
       });
     } catch (err) {
       const error = err as Error;
-      toast.error(error.message || "Failed to cancel import. Please try again.");
+      toast.error(
+        error.message || "Failed to cancel import. Please try again.",
+      );
       console.error("Cancel error:", err);
     } finally {
       setIsCancelling(false);
@@ -210,13 +215,13 @@ export function ImportReviewDialog() {
               <div
                 className={cn(
                   "rounded-md p-2",
-                  totalErrors > 0 ? "bg-destructive/20" : "bg-accent"
+                  totalErrors > 0 ? "bg-destructive/20" : "bg-accent",
                 )}
               >
                 <Icons.AlertCircle
                   className={cn(
                     "h-5 w-5",
-                    totalErrors > 0 ? "text-destructive" : "text-secondary"
+                    totalErrors > 0 ? "text-destructive" : "text-secondary",
                   )}
                 />
               </div>
@@ -234,7 +239,8 @@ export function ImportReviewDialog() {
                 <Icons.AlertTriangle className="h-5 w-5 text-amber-700" />
                 <div>
                   <div className="text-sm font-medium text-amber-900">
-                    {totalUnmapped} unmapped {totalUnmapped === 1 ? "value" : "values"} need definition
+                    {totalUnmapped} unmapped{" "}
+                    {totalUnmapped === 1 ? "value" : "values"} need definition
                   </div>
                   <div className="text-xs text-amber-700">
                     Define all values before approving the import
@@ -253,9 +259,7 @@ export function ImportReviewDialog() {
                 <TabsTrigger value="preview">
                   Preview ({totalValid})
                 </TabsTrigger>
-                <TabsTrigger value="errors">
-                  Errors ({totalErrors})
-                </TabsTrigger>
+                <TabsTrigger value="errors">Errors ({totalErrors})</TabsTrigger>
                 <TabsTrigger value="unmapped">
                   Unmapped ({totalUnmapped})
                 </TabsTrigger>

@@ -85,7 +85,10 @@ const port = process.env.PORT ? Number.parseInt(process.env.PORT) : 4000;
 // Create HTTP server using Node.js http module for WebSocket support
 const httpServer = createServer((req, res) => {
   // Handle requests using Hono's fetch handler
-  const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  const url = new URL(
+    req.url || "/",
+    `http://${req.headers.host || "localhost"}`,
+  );
 
   // Convert Node.js headers to Headers object
   const headers = new Headers();
@@ -111,7 +114,10 @@ const httpServer = createServer((req, res) => {
   });
 
   void Promise.resolve(app.fetch(request)).then((response) => {
-    res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+    res.writeHead(
+      response.status,
+      Object.fromEntries(response.headers.entries()),
+    );
     if (response.body) {
       response.body.pipeTo(
         new WritableStream({

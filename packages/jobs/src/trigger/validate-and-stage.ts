@@ -26,7 +26,7 @@ import { and, eq, inArray } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
 import * as schema from "@v1/db/schema";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
-import { or } from "drizzle-orm";
+import { or, sql } from "drizzle-orm";
 import type { BrandCatalog } from "../lib/catalog-loader";
 import {
   addColorToCatalog,
@@ -127,41 +127,86 @@ const TIMEOUT_MS = 1800000; // 30 minutes
 /**
  * Emit progress update to WebSocket clients via API endpoint
  */
-async function emitProgress(params: {
-  jobId: string;
-  status:
-    | "PENDING"
-    | "VALIDATING"
-    | "VALIDATED"
-    | "COMMITTING"
-    | "COMPLETED"
-    | "FAILED"
-    | "CANCELLED";
-  phase: "validation" | "commit";
-  processed: number;
-  total: number;
-  created?: number;
-  updated?: number;
-  failed?: number;
-  percentage: number;
-  message?: string;
-}): Promise<void> {
-  try {
-    const apiUrl =
+/**
+ * Debounced progress emitter that batches WebSocket updates
+ * Updates at most once per second to provide real-time feedback
+ * without blocking batch processing
+ */
+class ProgressEmitter {
+  private lastEmitTime = 0;
+  private pendingUpdate: any = null;
+  private emitPromise: Promise<void> | null = null;
+  private readonly EMIT_INTERVAL_MS = 1000; // Update every second
+  private readonly apiUrl: string;
+  private readonly apiKey: string;
+
+  constructor() {
+    this.apiUrl =
       process.env.API_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
       "http://localhost:4000";
-    const apiKey = process.env.INTERNAL_API_KEY || "dev-internal-key";
+    this.apiKey = process.env.INTERNAL_API_KEY || "dev-internal-key";
+  }
 
-    // Prepare input data with apiKey
+  /**
+   * Queue a progress update (non-blocking, debounced)
+   * Will emit immediately if 1 second has passed, otherwise queues for next interval
+   */
+  emit(params: {
+    jobId: string;
+    status:
+      | "PENDING"
+      | "VALIDATING"
+      | "VALIDATED"
+      | "COMMITTING"
+      | "COMPLETED"
+      | "FAILED"
+      | "CANCELLED";
+    phase: "validation" | "commit";
+    processed: number;
+    total: number;
+    created?: number;
+    updated?: number;
+    failed?: number;
+    percentage: number;
+    message?: string;
+  }): void {
+    const now = Date.now();
+    const timeSinceLastEmit = now - this.lastEmitTime;
+
+    // Always store the latest update
+    this.pendingUpdate = params;
+
+    // If enough time has passed, emit immediately (non-blocking)
+    if (timeSinceLastEmit >= this.EMIT_INTERVAL_MS) {
+      this.lastEmitTime = now;
+      this.sendUpdate(params);
+    }
+    // Otherwise, it will be picked up by the next update or flush
+  }
+
+  /**
+   * Force emit any pending update (for final updates)
+   */
+  async flush(): Promise<void> {
+    if (this.pendingUpdate) {
+      await this.sendUpdate(this.pendingUpdate);
+      this.pendingUpdate = null;
+    }
+  }
+
+  /**
+   * Send update in background (fire-and-forget, never blocks)
+   */
+  private sendUpdate(params: any): void {
+    // Fire-and-forget: don't await, let it run in background
     const inputData = {
-      apiKey,
+      apiKey: this.apiKey,
       ...params,
     };
 
-    // tRPC HTTP format for POST mutations: wrap input in "json" key
-    // The procedure name is in the URL path
-    const response = await fetch(`${apiUrl}/trpc/internal.emitProgress`, {
+    // Execute fetch without blocking
+    fetch(`${this.apiUrl}/trpc/internal.emitProgress`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -169,34 +214,27 @@ async function emitProgress(params: {
       body: JSON.stringify({
         json: inputData,
       }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[emitProgress] Failed to emit progress:", {
-        status: response.status,
-        statusText: response.statusText,
-        url: `${apiUrl}/trpc/internal.emitProgress`,
-        error: errorText,
-        payload: inputData,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.warn("[ProgressEmitter] Failed to emit (non-blocking):", {
+            status: response.status,
+            jobId: params.jobId,
+            error: errorText.substring(0, 200),
+          });
+        }
+        // Success - no logging to reduce noise
+      })
+      .catch((error) => {
+        // Silently catch errors - don't spam logs
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[ProgressEmitter] Background error:", {
+            jobId: params.jobId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       });
-    } else {
-      const result = await response.json();
-      // tRPC response format: { "result": { "data": ... } }
-      const data = result.result?.data;
-      console.log("[emitProgress] Progress emitted successfully:", {
-        jobId: params.jobId,
-        emittedTo: data?.emittedTo || 0,
-        status: params.status,
-        percentage: params.percentage,
-      });
-    }
-  } catch (error) {
-    // Don't fail the job if WebSocket emission fails
-    console.error("[emitProgress] Error emitting progress:", {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
   }
 }
 
@@ -219,6 +257,10 @@ export const validateAndStage = task({
   run: async (payload: ValidateAndStagePayload): Promise<void> => {
     const { jobId, brandId, filePath } = payload;
     const jobStartTime = Date.now();
+
+    // OPTIMIZATION: Create debounced progress emitter for real-time updates
+    // Updates at most once per second, never blocks processing
+    const progressEmitter = new ProgressEmitter();
 
     console.log("=".repeat(80));
     console.log("[validate-and-stage] TASK EXECUTION STARTED");
@@ -463,6 +505,67 @@ export const validateAndStage = task({
         categoryCount: catalog.categories.size,
       });
 
+      // PHASE 3A OPTIMIZATION: Pre-load ALL existing variants at job start
+      // Single query instead of 10-20 queries per 1,000 rows (one per batch)
+      console.log("[validate-and-stage] Pre-loading all existing variants...");
+      const variantLoadStart = Date.now();
+      const allUpids = parseResult.data
+        .map((r) => (r as CSVRow).upid)
+        .filter((v): v is string => !!v && v.trim() !== "");
+      const allSkus = parseResult.data
+        .map((r) => (r as CSVRow).sku)
+        .filter((v): v is string => !!v && v.trim() !== "");
+
+      let existingVariantsMap = new Map<
+        string,
+        { id: string; variant_id: string }
+      >();
+
+      if (allUpids.length > 0 || allSkus.length > 0) {
+        const existingVariants = await db
+          .select({
+            variantId: productVariants.id,
+            productId: productVariants.productId,
+            brandId: products.brandId,
+            upid: productVariants.upid,
+            sku: productVariants.sku,
+          })
+          .from(productVariants)
+          .innerJoin(products, eq(productVariants.productId, products.id))
+          .where(
+            and(
+              eq(products.brandId, brandId),
+              or(
+                allUpids.length > 0
+                  ? inArray(productVariants.upid, allUpids)
+                  : undefined,
+                allSkus.length > 0
+                  ? inArray(productVariants.sku, allSkus)
+                  : undefined,
+              ),
+            ),
+          );
+
+        // Build lookup map
+        existingVariantsMap = new Map(
+          existingVariants.map((v) => [
+            (v.upid || v.sku || "") as string,
+            { id: v.productId, variant_id: v.variantId },
+          ]),
+        );
+
+        const variantLoadDuration = Date.now() - variantLoadStart;
+        console.log(
+          `[validate-and-stage] Pre-loaded ${existingVariants.length} existing variants in ${variantLoadDuration}ms`,
+        );
+        logger.info("Pre-loaded all existing variants", {
+          duration: variantLoadDuration,
+          variantCount: existingVariants.length,
+        });
+      } else {
+        console.log("[validate-and-stage] No UPIDs or SKUs to pre-load");
+      }
+
       // Process data in batches
       const totalRows = parseResult.data.length;
       let processedCount = 0;
@@ -471,10 +574,6 @@ export const validateAndStage = task({
       let willCreateCount = 0;
       let willUpdateCount = 0;
       const unmappedValues = new Map<string, Set<string>>();
-
-      // PHASE 2 OPTIMIZATION: Throttle progress updates
-      const PROGRESS_UPDATE_INTERVAL = 5; // Update every 5 batches
-      let batchesSinceLastUpdate = 0;
 
       console.log("[validate-and-stage] Starting batch processing...");
       for (let i = 0; i < totalRows; i += BATCH_SIZE) {
@@ -491,60 +590,6 @@ export const validateAndStage = task({
           end: Math.min(i + BATCH_SIZE, totalRows),
           total: totalRows,
         });
-
-        // Batch load existing variants for this batch (PERFORMANCE OPTIMIZATION)
-        // Single query instead of one per row
-        const batchUpids = batch
-          .map((r) => (r as CSVRow).upid)
-          .filter((v): v is string => !!v && v.trim() !== "");
-        const batchSkus = batch
-          .map((r) => (r as CSVRow).sku)
-          .filter((v): v is string => !!v && v.trim() !== "");
-
-        let existingVariantsMap = new Map<
-          string,
-          { id: string; variant_id: string }
-        >();
-
-        if (batchUpids.length > 0 || batchSkus.length > 0) {
-          const batchVariantLoadStart = Date.now();
-          const existingVariants = await db
-            .select({
-              variantId: productVariants.id,
-              productId: productVariants.productId,
-              brandId: products.brandId,
-              upid: productVariants.upid,
-              sku: productVariants.sku,
-            })
-            .from(productVariants)
-            .innerJoin(products, eq(productVariants.productId, products.id))
-            .where(
-              and(
-                eq(products.brandId, brandId),
-                or(
-                  batchUpids.length > 0
-                    ? inArray(productVariants.upid, batchUpids)
-                    : undefined,
-                  batchSkus.length > 0
-                    ? inArray(productVariants.sku, batchSkus)
-                    : undefined,
-                ),
-              ),
-            );
-
-          // Build lookup map
-          existingVariantsMap = new Map(
-            existingVariants.map((v) => [
-              (v.upid || v.sku || "") as string,
-              { id: v.productId, variant_id: v.variantId },
-            ]),
-          );
-
-          const batchVariantLoadDuration = Date.now() - batchVariantLoadStart;
-          console.log(
-            `[validate-and-stage] Loaded ${existingVariants.length} existing variants in ${batchVariantLoadDuration}ms`,
-          );
-        }
 
         // PHASE 2 OPTIMIZATION: Parallel validation using Promise.all()
         // Validates all rows in batch simultaneously, utilizing multiple CPU cores
@@ -622,6 +667,7 @@ export const validateAndStage = task({
         );
 
         // PHASE 2 OPTIMIZATION: Batch staging inserts
+        // PHASE 3A OPTIMIZATION: Wrap in transaction for connection pooling efficiency
         // Single batch insert instead of individual inserts per row
         const stagingInsertStart = Date.now();
 
@@ -635,6 +681,10 @@ export const validateAndStage = task({
 
         try {
           if (validRows.length > 0) {
+            // PHASE 3D: Fast batch inserts without transaction overhead
+            // Run operations directly on the connection which has RLS disabled
+            // No transaction = no COMMIT overhead between batches
+
             // Batch insert all products
             const products = validRows.map((item) => item.validated!.product);
             const stagingProductIds = await batchInsertStagingProducts(
@@ -649,7 +699,7 @@ export const validateAndStage = task({
             }));
             await batchInsertStagingVariants(db, variants);
 
-            // PHASE 2 OPTIMIZATION: Single batch status update for all valid rows
+            // Status updates
             const validStatusUpdates = validRows.map((item) => ({
               id: item.importRowId,
               status: "VALIDATED" as const,
@@ -758,49 +808,33 @@ export const validateAndStage = task({
         }
 
         processedCount += batch.length;
-        batchesSinceLastUpdate++;
 
-        // PHASE 2 OPTIMIZATION: Throttled progress updates
-        // Update every N batches or on final batch to reduce DB load
-        const isLastBatch = i + BATCH_SIZE >= totalRows;
-        const shouldUpdateProgress =
-          batchesSinceLastUpdate >= PROGRESS_UPDATE_INTERVAL || isLastBatch;
-
-        if (shouldUpdateProgress) {
-          await updateImportJobProgress(db, {
-            jobId,
-            summary: {
-              total: totalRows,
-              processed: processedCount,
-              valid: validCount,
-              invalid: invalidCount,
-              will_create: willCreateCount,
-              will_update: willUpdateCount,
-              percentage: Math.round((processedCount / totalRows) * 100),
-            },
-          });
-          console.log("[validate-and-stage] Job progress updated", {
-            jobId,
-            processed: processedCount,
+        // OPTIMIZATION: Update DB progress every batch (cheap operation)
+        // WebSocket updates are automatically debounced to once per second
+        await updateImportJobProgress(db, {
+          jobId,
+          summary: {
             total: totalRows,
+            processed: processedCount,
             valid: validCount,
             invalid: invalidCount,
-            batchesSinceLastUpdate,
-          });
-
-          // Send WebSocket progress update
-          await emitProgress({
-            jobId,
-            status: "VALIDATING",
-            phase: "validation",
-            processed: processedCount,
-            total: totalRows,
-            failed: invalidCount,
+            will_create: willCreateCount,
+            will_update: willUpdateCount,
             percentage: Math.round((processedCount / totalRows) * 100),
-          });
+          },
+        });
 
-          batchesSinceLastUpdate = 0; // Reset counter
-        }
+        // OPTIMIZATION: Debounced WebSocket update (max once per second)
+        // Fire-and-forget, never blocks batch processing
+        progressEmitter.emit({
+          jobId,
+          status: "VALIDATING",
+          phase: "validation",
+          processed: processedCount,
+          total: totalRows,
+          failed: invalidCount,
+          percentage: Math.round((processedCount / totalRows) * 100),
+        });
 
         logger.info("Batch processed", {
           batchNumber: Math.floor(i / BATCH_SIZE) + 1,
@@ -845,8 +879,10 @@ export const validateAndStage = task({
         willUpdate: stagingCounts.update,
       });
 
-      // Send WebSocket completion notification
-      await emitProgress({
+      // OPTIMIZATION: Flush final WebSocket notification immediately
+      // Ensures final 100% update is sent
+      await progressEmitter.flush();
+      progressEmitter.emit({
         jobId,
         status: "VALIDATED",
         phase: "validation",

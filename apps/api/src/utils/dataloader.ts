@@ -78,23 +78,30 @@ function createUserByIdLoader(
 ): DataLoader<string, UserRecord | null> {
   return new DataLoader<string, UserRecord | null>(
     async (userIds: readonly string[]): Promise<Array<UserRecord | null>> => {
-      const rows = await db
-        .select({
-          id: users.id,
-          email: users.email,
-          fullName: users.fullName,
-          avatarPath: users.avatarPath,
-          avatarHue: users.avatarHue,
-          brandId: users.brandId,
-        })
-        .from(users)
-        .where(inArray(users.id, [...userIds]));
+      try {
+        const rows = await db
+          .select({
+            id: users.id,
+            email: users.email,
+            fullName: users.fullName,
+            avatarPath: users.avatarPath,
+            avatarHue: users.avatarHue,
+            brandId: users.brandId,
+          })
+          .from(users)
+          .where(inArray(users.id, [...userIds]));
 
-      const userMap = new Map<string, UserRecord>(
-        rows.map((row) => [row.id, row]),
-      );
+        const userMap = new Map<string, UserRecord>(
+          rows.map((row) => [row.id, row]),
+        );
 
-      return userIds.map((id) => userMap.get(id) ?? null);
+        return userIds.map((id) => userMap.get(id) ?? null);
+      } catch (error) {
+        // Handle RLS policy errors gracefully
+        console.warn("[userById dataloader] Query failed:", error);
+        // Return null for all requested IDs
+        return userIds.map(() => null);
+      }
     },
     {
       // Cache for request duration to prevent redundant queries

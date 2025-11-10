@@ -29,28 +29,35 @@ export async function isEmailTaken(
 }
 
 export async function getUserById(db: Database, id: string) {
-  const rows = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      fullName: users.fullName,
-      avatarPath: users.avatarPath,
-      avatarHue: users.avatarHue,
-      brandId: users.brandId,
-      brand: {
-        id: brands.id,
-        name: brands.name,
-        email: brands.email,
-        logoPath: brands.logoPath,
-        avatarHue: brands.avatarHue,
-        countryCode: brands.countryCode,
-      },
-    })
-    .from(users)
-    .leftJoin(brands, eq(users.brandId, brands.id))
-    .where(eq(users.id, id));
+  try {
+    const rows = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        fullName: users.fullName,
+        avatarPath: users.avatarPath,
+        avatarHue: users.avatarHue,
+        brandId: users.brandId,
+        brand: {
+          id: brands.id,
+          name: brands.name,
+          email: brands.email,
+          logoPath: brands.logoPath,
+          avatarHue: brands.avatarHue,
+          countryCode: brands.countryCode,
+        },
+      })
+      .from(users)
+      .leftJoin(brands, eq(users.brandId, brands.id))
+      .where(eq(users.id, id));
 
-  return rows[0] ?? null;
+    return rows[0] ?? null;
+  } catch (error) {
+    // Handle RLS policy errors gracefully
+    // This can occur when using regular Drizzle connection without proper auth context
+    console.warn(`[getUserById] Query failed for user ${id}:`, error);
+    return null;
+  }
 }
 
 export interface UpdateUserParams {

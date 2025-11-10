@@ -17,8 +17,8 @@ export async function updateSession(
           // Ensure proper cookie options for Vercel preview deployments
           const cookieOptions = {
             ...options,
-            sameSite: 'lax' as const,
-            secure: process.env.NODE_ENV === 'production',
+            sameSite: "lax" as const,
+            secure: process.env.NODE_ENV === "production",
           };
           request.cookies.set({ name, value, ...cookieOptions });
           response.cookies.set({ name, value, ...cookieOptions });
@@ -26,8 +26,8 @@ export async function updateSession(
         remove(name: string, options: CookieOptions) {
           const cookieOptions = {
             ...options,
-            sameSite: 'lax' as const,
-            secure: process.env.NODE_ENV === 'production',
+            sameSite: "lax" as const,
+            secure: process.env.NODE_ENV === "production",
           };
           request.cookies.set({ name, value: "", ...cookieOptions });
           response.cookies.set({ name, value: "", ...cookieOptions });

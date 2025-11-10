@@ -82,12 +82,14 @@ export function useImportWebSocket({
       }
 
       // Construct WebSocket URL from API URL
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       const wsUrl = apiUrl.replace(/^http/, "ws");
       const wsEndpoint = `${wsUrl}/ws/import-progress?token=${session.access_token}`;
 
-      console.log("[WS] Connecting to:", wsEndpoint.replace(session.access_token, "***"));
+      console.log(
+        "[WS] Connecting to:",
+        wsEndpoint.replace(session.access_token, "***"),
+      );
 
       const ws = new WebSocket(wsEndpoint);
 
@@ -157,7 +159,10 @@ export function useImportWebSocket({
         // Attempt to reconnect if still enabled and not at max attempts
         if (enabled && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
-          const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000); // Exponential backoff, max 30s
+          const delay = Math.min(
+            1000 * 2 ** reconnectAttemptsRef.current,
+            30000,
+          ); // Exponential backoff, max 30s
 
           console.log(
             `[WS] Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`,
@@ -167,9 +172,7 @@ export function useImportWebSocket({
             connect();
           }, delay);
         } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-          console.error(
-            "[WS] Max reconnection attempts reached. Giving up.",
-          );
+          console.error("[WS] Max reconnection attempts reached. Giving up.");
         }
       };
 
@@ -202,10 +205,7 @@ export function useImportWebSocket({
     // Close WebSocket connection
     if (wsRef.current) {
       // Unsubscribe before closing
-      if (
-        wsRef.current.readyState === WebSocket.OPEN &&
-        jobId
-      ) {
+      if (wsRef.current.readyState === WebSocket.OPEN && jobId) {
         wsRef.current.send(
           JSON.stringify({
             action: "unsubscribe",

@@ -98,7 +98,9 @@ export function FloatingProgressWidget() {
       // If status is VALIDATED, open review dialog instead of expanding
       openReviewDialog();
     } else {
-      setWidgetState((prev) => (prev === "collapsed" ? "expanded" : "collapsed"));
+      setWidgetState((prev) =>
+        prev === "collapsed" ? "expanded" : "collapsed",
+      );
     }
   };
 

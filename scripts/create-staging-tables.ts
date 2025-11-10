@@ -2,14 +2,20 @@ import postgres from "postgres";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
-const sql = postgres("postgresql://postgres.ebshgnuavsacpplatsqt:NWofA6vgeVsTfTS9@aws-1-eu-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true", {
-  prepare: false,
-});
+const sql = postgres(
+  "postgresql://postgres.ebshgnuavsacpplatsqt:NWofA6vgeVsTfTS9@aws-1-eu-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true",
+  {
+    prepare: false,
+  },
+);
 
 async function createStagingTables() {
   try {
     console.log("Reading SQL file...");
-    const sqlFile = readFileSync(resolve(__dirname, "create-staging-tables.sql"), "utf-8");
+    const sqlFile = readFileSync(
+      resolve(__dirname, "create-staging-tables.sql"),
+      "utf-8",
+    );
 
     console.log("Executing SQL to create staging tables...");
     await sql.unsafe(sqlFile);

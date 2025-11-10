@@ -57,11 +57,14 @@ export const internalRouter = createTRPCRouter({
       // Emit to WebSocket clients
       websocketManager.emit(input.jobId, progressData);
 
-      console.log("[internal.emitProgress] Progress emitted to WebSocket clients", {
-        jobId: input.jobId,
-        status: input.status,
-        connectionCount: websocketManager.getConnectionCount(input.jobId),
-      });
+      console.log(
+        "[internal.emitProgress] Progress emitted to WebSocket clients",
+        {
+          jobId: input.jobId,
+          status: input.status,
+          connectionCount: websocketManager.getConnectionCount(input.jobId),
+        },
+      );
 
       return {
         success: true,

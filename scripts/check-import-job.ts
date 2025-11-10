@@ -1,13 +1,18 @@
-import { serviceDb as db } from '@v1/db/client';
-import { importJobs, importRows, stagingProducts, stagingProductVariants } from '@v1/db/schema';
-import { eq, desc, and } from '@v1/db/queries';
+import { serviceDb as db } from "@v1/db/client";
+import {
+  importJobs,
+  importRows,
+  stagingProducts,
+  stagingProductVariants,
+} from "@v1/db/schema";
+import { eq, desc, and } from "@v1/db/queries";
 
 async function checkImportJob() {
   try {
-    console.log('Connected to database');
+    console.log("Connected to database");
 
     // Get recent import jobs
-    console.log('\n=== Recent Import Jobs ===');
+    console.log("\n=== Recent Import Jobs ===");
     const jobs = await db
       .select()
       .from(importJobs)
@@ -23,10 +28,12 @@ async function checkImportJob() {
       const failedRows = await db
         .select()
         .from(importRows)
-        .where(and(
-          eq(importRows.jobId, latestJob.id),
-          eq(importRows.status, 'FAILED')
-        ))
+        .where(
+          and(
+            eq(importRows.jobId, latestJob.id),
+            eq(importRows.status, "FAILED"),
+          ),
+        )
         .orderBy(importRows.rowNumber)
         .limit(20);
 
@@ -47,9 +54,8 @@ async function checkImportJob() {
         .where(eq(stagingProductVariants.jobId, latestJob.id));
       console.log(`Staging Product Variants: ${stagingVars.length}`);
     }
-
   } catch (error) {
-    console.error('Error:', error);
+    console.error("Error:", error);
   }
 }
 

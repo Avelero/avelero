@@ -104,7 +104,7 @@ export async function uploadImportFile(
   // Always return the path we constructed, not what Supabase returns
   // to ensure consistency across the application
   return {
-    path: path,  // Use our constructed path, not result.data.path
+    path: path, // Use our constructed path, not result.data.path
     fullPath: result.data.fullPath,
     bucket: PRODUCT_IMPORTS_BUCKET,
   };

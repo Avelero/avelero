@@ -82,22 +82,24 @@ export function ValidationErrorList({
                   <span className="font-medium text-destructive">
                     {index + 1}.
                   </span>
-                <div className="flex-1">
-                  {error.row !== undefined && (
-                    <span className="font-medium text-destructive">
-                      Row {error.row}
-                      {error.column ? `, Column "${error.column}"` : ""}:
-                    </span>
-                  )}
-                  <p className="text-destructive/90 mt-0.5">{error.message}</p>
-                  {error.type && (
-                    <p className="text-destructive/60 text-[10px] mt-1 font-mono">
-                      Error type: {error.type}
+                  <div className="flex-1">
+                    {error.row !== undefined && (
+                      <span className="font-medium text-destructive">
+                        Row {error.row}
+                        {error.column ? `, Column "${error.column}"` : ""}:
+                      </span>
+                    )}
+                    <p className="text-destructive/90 mt-0.5">
+                      {error.message}
                     </p>
-                  )}
+                    {error.type && (
+                      <p className="text-destructive/60 text-[10px] mt-1 font-mono">
+                        Error type: {error.type}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
             );
           })}
 

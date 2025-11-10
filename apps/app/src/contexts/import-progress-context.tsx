@@ -92,9 +92,7 @@ const ImportProgressContext = createContext<
  */
 function isActiveStatus(status: ImportStatus | null): boolean {
   return (
-    status === "PENDING" ||
-    status === "VALIDATING" ||
-    status === "COMMITTING"
+    status === "PENDING" || status === "VALIDATING" || status === "COMMITTING"
   );
 }
 

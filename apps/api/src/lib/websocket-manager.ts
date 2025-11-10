@@ -351,7 +351,10 @@ export class WebSocketManager {
           failureCount++;
         }
       } catch (error) {
-        console.error(`Failed to send to connection ${metadata.subscriptionId}:`, error);
+        console.error(
+          `Failed to send to connection ${metadata.subscriptionId}:`,
+          error,
+        );
         failureCount++;
       }
     }
@@ -403,7 +406,9 @@ export class WebSocketManager {
       return;
     }
 
-    console.log(`Cleaning up ${jobConnections.size} connections for job ${jobId}`);
+    console.log(
+      `Cleaning up ${jobConnections.size} connections for job ${jobId}`,
+    );
 
     for (const metadata of jobConnections) {
       try {

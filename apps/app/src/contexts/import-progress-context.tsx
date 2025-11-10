@@ -10,6 +10,10 @@ import React, {
   useCallback,
   type ReactNode,
 } from "react";
+import {
+  useImportWebSocket,
+  type ProgressUpdate,
+} from "@/hooks/use-import-websocket";
 
 //===================================================================================
 // TYPES & INTERFACES
@@ -174,38 +178,85 @@ export function ImportProgressProvider({
     }
   }, []);
 
-  // Log when polling is enabled/disabled
+  // Handle WebSocket progress updates
+  const handleWebSocketProgress = useCallback(
+    (update: ProgressUpdate) => {
+      console.log("[ImportProgress] WebSocket update received:", update);
+
+      const newState: ImportState = {
+        jobId: update.jobId,
+        status: update.status as ImportStatus,
+        progress: {
+          current: update.processed,
+          total: update.total,
+          created: update.created || 0,
+          updated: update.updated || 0,
+          failed: update.failed || 0,
+          percentage: update.percentage,
+        },
+        filename: state.filename, // Preserve filename from initial state
+      };
+
+      setState(newState);
+      saveStateToStorage(newState);
+
+      // Auto-open review dialog when validation complete
+      if (update.status === "VALIDATED") {
+        console.log(
+          "[ImportProgress] Validation complete - opening review dialog",
+        );
+        setReviewDialogOpen(true);
+      }
+
+      // Auto-dismiss widget after completion (5 seconds)
+      if (update.status === "COMPLETED") {
+        console.log("[ImportProgress] Import complete - auto-dismissing in 5s");
+        setTimeout(() => {
+          dismissWidget();
+        }, 5000);
+      }
+    },
+    [state.filename],
+  );
+
+  // Connect to WebSocket for real-time updates
+  const { connected: wsConnected } = useImportWebSocket({
+    jobId: state.jobId,
+    onProgress: handleWebSocketProgress,
+    enabled: !!state.jobId && isActiveStatus(state.status),
+  });
+
+  // Log WebSocket connection status
   useEffect(() => {
-    const pollingEnabled = !!state.jobId && isActiveStatus(state.status);
-    console.log("[ImportProgress] Polling status:", {
-      enabled: pollingEnabled,
+    console.log("[ImportProgress] WebSocket connection status:", {
+      connected: wsConnected,
       jobId: state.jobId,
       status: state.status,
-      interval: `${POLL_INTERVAL}ms`,
     });
-  }, [state.jobId, state.status]);
+  }, [wsConnected, state.jobId, state.status]);
 
-  // Poll for import status when job is active
+  // Fallback to polling if WebSocket is not connected
   const { data: statusData } = useQuery({
-    ...trpc.bulk.getImportStatus.queryOptions({ jobId: state.jobId as string }),
-    enabled: !!state.jobId && isActiveStatus(state.status),
-    refetchInterval: POLL_INTERVAL,
+    ...trpc.bulk.import.status.queryOptions({
+      jobId: state.jobId as string,
+    }),
+    enabled: !!state.jobId && isActiveStatus(state.status) && !wsConnected,
+    refetchInterval: 5000, // Slower polling as fallback (5 seconds instead of 2)
     retry: true,
     retryDelay: 2000,
   });
 
-  // Update state when status data changes
+  // Update state when polling data changes (fallback only)
   useEffect(() => {
-    if (!statusData) {
-      console.log("[ImportProgress] No status data received");
+    if (!statusData || wsConnected) {
+      // Skip if WebSocket is connected
       return;
     }
 
-    console.log("[ImportProgress] Status update received:", {
-      jobId: statusData.jobId,
-      status: statusData.status,
-      progress: statusData.progress,
-    });
+    console.log(
+      "[ImportProgress] Polling update received (fallback):",
+      statusData,
+    );
 
     const newState: ImportState = {
       jobId: statusData.jobId,
@@ -226,7 +277,9 @@ export function ImportProgressProvider({
 
     // Auto-open review dialog when validation complete
     if (statusData.status === "VALIDATED") {
-      console.log("[ImportProgress] Validation complete - opening review dialog");
+      console.log(
+        "[ImportProgress] Validation complete - opening review dialog",
+      );
       setReviewDialogOpen(true);
     }
 
@@ -237,7 +290,7 @@ export function ImportProgressProvider({
         dismissWidget();
       }, 5000);
     }
-  }, [statusData]);
+  }, [statusData, wsConnected]);
 
   // Timeout detection for stuck jobs
   useEffect(() => {

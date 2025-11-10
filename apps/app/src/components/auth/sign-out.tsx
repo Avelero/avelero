@@ -7,12 +7,12 @@ import { useState } from "react";
 
 export function SignOut() {
   const [isLoading, setLoading] = useState(false);
-  const supabase = createClient();
   const router = useRouter();
 
   const handleSignOut = async () => {
     setLoading(true);
 
+    const supabase = createClient();
     await supabase.auth.signOut({
       scope: "local",
     });

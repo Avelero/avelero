@@ -21,7 +21,7 @@ import {
 } from "@v1/ui/sheet";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import { nanoid } from "nanoid";
 
 export function PassportsUploadSheet() {
@@ -37,7 +37,15 @@ export function PassportsUploadSheet() {
   const { data: user } = useUserQuery();
   const brandId = user?.brand_id;
   const { startImport } = useImportProgress();
-  const supabase = createClient();
+
+  // Lazy-initialize supabase client only when needed (client-side only)
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  const getSupabase = () => {
+    if (!supabaseRef.current) {
+      supabaseRef.current = createClient();
+    }
+    return supabaseRef.current;
+  };
 
   // Reset state when sheet closes
   const handleOpenChange = useCallback((newOpen: boolean) => {
@@ -52,12 +60,12 @@ export function PassportsUploadSheet() {
 
   // Validate import mutation
   const validateImportMutation = useMutation(
-    trpc.bulk.validateImport.mutationOptions(),
+    trpc.bulk.import.validate.mutationOptions(),
   );
 
   // Start import mutation
   const startImportMutation = useMutation(
-    trpc.bulk.startImport.mutationOptions(),
+    trpc.bulk.import.start.mutationOptions(),
   );
 
   // Handle file selection
@@ -90,7 +98,7 @@ export function PassportsUploadSheet() {
       // Step 1: Upload file to Supabase storage
       const uploadToastId = toast.loading("Uploading file...");
 
-      const uploadResult = await uploadImportFile(supabase, {
+      const uploadResult = await uploadImportFile(getSupabase(), {
         file: selectedFile,
         brandId,
         jobId: tempJobId,
@@ -162,7 +170,6 @@ export function PassportsUploadSheet() {
   }, [
     selectedFile,
     brandId,
-    supabase,
     validateImportMutation,
     startImportMutation,
     startImport,

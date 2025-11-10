@@ -7,7 +7,6 @@ import { useState } from "react";
 
 export function GoogleSignin() {
   const [isLoading, setIsLoading] = useState(false);
-  const supabase = createClient();
   const searchParams = useSearchParams();
 
   // Preserve intended post-auth destination (e.g. ?return_to=/dashboard)
@@ -16,6 +15,7 @@ export function GoogleSignin() {
   const handleSignin = async () => {
     setIsLoading(true);
     try {
+      const supabase = createClient();
       const redirectTo = new URL("/api/auth/callback", window.location.origin);
       redirectTo.searchParams.append("provider", "google");
       if (returnTo) {

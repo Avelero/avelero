@@ -1,7 +1,7 @@
 import { createClient } from "@v1/supabase/client";
 import { upload } from "@v1/supabase/storage";
 import type { Client } from "@v1/supabase/types";
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 interface UploadParams {
   file: File;
@@ -15,7 +15,15 @@ interface UploadResult {
 }
 
 export function useUpload() {
-  const supabase = createClient();
+  // Lazy-initialize supabase client only when needed (client-side only)
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  const getSupabase = () => {
+    if (!supabaseRef.current) {
+      supabaseRef.current = createClient();
+    }
+    return supabaseRef.current;
+  };
+
   const [isLoading, setLoading] = useState<boolean>(false);
 
   const uploadFile = async ({
@@ -26,7 +34,7 @@ export function useUpload() {
     setLoading(true);
 
     try {
-      const result = await upload(supabase, { path, file, bucket });
+      const result = await upload(getSupabase(), { path, file, bucket });
       const servedPath = result.path.join("/");
       const url = `/api/images/${result.bucket}/${servedPath}`;
       return { url, path: result.path };

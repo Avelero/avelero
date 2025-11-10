@@ -25,7 +25,6 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const trpc = useTRPC();
-  const supabase = createClient();
   const router = useRouter();
   const deleteMutation = useMutation(trpc.user.delete.mutationOptions());
 
@@ -39,6 +38,7 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
       await deleteMutation.mutateAsync();
 
       // Step 2: Sign out locally
+      const supabase = createClient();
       await supabase.auth.signOut({ scope: "local" });
 
       // Step 3: Redirect to login

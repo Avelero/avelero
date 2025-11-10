@@ -7,6 +7,22 @@
  * This file is kept for compatibility but no longer performs manual configuration.
  */
 
+// Load environment variables from .env file
+import { config } from "dotenv";
+import { resolve } from "path";
+
+// Load .env from the jobs package directory
+const envPath = resolve(__dirname, "../../.env");
+config({ path: envPath });
+
+console.log("[trigger-config] Loading environment from:", envPath);
+console.log("[trigger-config] Environment variables loaded:", {
+  hasDatabaseUrl: !!process.env.DATABASE_URL,
+  hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+  hasSupabaseKey: !!process.env.SUPABASE_SERVICE_KEY,
+  hasTriggerSecret: !!process.env.TRIGGER_SECRET_KEY,
+});
+
 // Validate that TRIGGER_SECRET_KEY is set
 const accessToken = process.env.TRIGGER_SECRET_KEY?.trim();
 

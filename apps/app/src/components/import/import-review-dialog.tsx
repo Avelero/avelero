@@ -51,7 +51,7 @@ export function ImportReviewDialog() {
 
   // Fetch import status for summary stats
   const { data: statusData } = useQuery({
-    ...trpc.bulk.getImportStatus.queryOptions({
+    ...trpc.bulk.import.status.queryOptions({
       jobId: jobId as string,
     }),
     enabled: !!jobId && reviewDialogOpen,
@@ -59,7 +59,7 @@ export function ImportReviewDialog() {
 
   // Fetch unmapped values to determine if "Define Values" should be shown
   const { data: unmappedData } = useQuery({
-    ...trpc.bulk.getUnmappedValues.queryOptions({
+    ...trpc.bulk.values.unmapped.queryOptions({
       jobId: jobId as string,
     }),
     enabled: !!jobId && reviewDialogOpen,
@@ -67,12 +67,12 @@ export function ImportReviewDialog() {
 
   // Approve import mutation
   const approveImportMutation = useMutation(
-    trpc.bulk.approveImport.mutationOptions()
+    trpc.bulk.import.approve.mutationOptions()
   );
 
   // Cancel import mutation
   const cancelImportMutation = useMutation(
-    trpc.bulk.cancelImport.mutationOptions()
+    trpc.bulk.import.cancel.mutationOptions()
   );
 
   const totalUnmapped = (unmappedData?.totalUnmapped as number | undefined) ?? 0;
@@ -115,7 +115,7 @@ export function ImportReviewDialog() {
 
       // Invalidate queries to refresh status
       await queryClient.invalidateQueries({
-        queryKey: trpc.bulk.getImportStatus.queryKey({ jobId }),
+        queryKey: trpc.bulk.import.status.queryKey({ jobId }),
       });
     } catch (err) {
       const error = err as Error;
@@ -144,7 +144,7 @@ export function ImportReviewDialog() {
 
       // Invalidate queries
       await queryClient.invalidateQueries({
-        queryKey: trpc.bulk.getImportStatus.queryKey({ jobId }),
+        queryKey: trpc.bulk.import.status.queryKey({ jobId }),
       });
     } catch (err) {
       const error = err as Error;

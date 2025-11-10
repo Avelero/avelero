@@ -118,7 +118,7 @@ export function UnmappedValuesSection({
 
   // Fetch unmapped values
   const { data: response, isLoading, error } = useQuery(
-    trpc.bulk.getUnmappedValues.queryOptions({ jobId })
+    trpc.bulk.values.unmapped.queryOptions({ jobId })
   );
 
   const unmappedData = response as UnmappedValuesResponse | undefined;
@@ -127,7 +127,7 @@ export function UnmappedValuesSection({
 
   // Define value mutation
   const defineValueMutation = useMutation(
-    trpc.bulk.defineValue.mutationOptions()
+    trpc.bulk.values.define.mutationOptions()
   );
 
   // Notify parent when all values are defined
@@ -186,7 +186,7 @@ export function UnmappedValuesSection({
 
       // Refetch unmapped values
       await queryClient.invalidateQueries({
-        queryKey: trpc.bulk.getUnmappedValues.queryKey({ jobId }),
+        queryKey: trpc.bulk.values.unmapped.queryKey({ jobId }),
       });
 
       toast.success(`Defined: ${selectedValue.rawValue}`);

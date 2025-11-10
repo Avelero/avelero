@@ -1,7 +1,8 @@
 import "./configure-trigger";
+import { randomUUID } from "crypto";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { logger, task } from "@trigger.dev/sdk";
-import { db } from "@v1/db/client";
+import { serviceDb as db } from "@v1/db/client";
 import {
   type CreateImportRowParams,
   type UpdateImportRowStatusParams,
@@ -31,7 +32,6 @@ import {
   EntityType,
   ValueMapper,
 } from "../lib/value-mapper";
-// import { websocketManager } from "@v1/api/lib/websocket-manager";
 
 /**
  * Task payload for Phase 1 validation and staging
@@ -97,6 +97,72 @@ const BATCH_SIZE = 100;
 const TIMEOUT_MS = 1800000; // 30 minutes
 
 /**
+ * Emit progress update to WebSocket clients via API endpoint
+ */
+async function emitProgress(params: {
+  jobId: string;
+  status: "PENDING" | "VALIDATING" | "VALIDATED" | "COMMITTING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  phase: "validation" | "commit";
+  processed: number;
+  total: number;
+  created?: number;
+  updated?: number;
+  failed?: number;
+  percentage: number;
+  message?: string;
+}): Promise<void> {
+  try {
+    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const apiKey = process.env.INTERNAL_API_KEY || "dev-internal-key";
+
+    // Prepare input data with apiKey
+    const inputData = {
+      apiKey,
+      ...params,
+    };
+
+    // tRPC HTTP format for POST mutations: wrap input in "json" key
+    // The procedure name is in the URL path
+    const response = await fetch(`${apiUrl}/trpc/internal.emitProgress`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        json: inputData,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[emitProgress] Failed to emit progress:", {
+        status: response.status,
+        statusText: response.statusText,
+        url: `${apiUrl}/trpc/internal.emitProgress`,
+        error: errorText,
+        payload: inputData,
+      });
+    } else {
+      const result = await response.json();
+      // tRPC response format: { "result": { "data": ... } }
+      const data = result.result?.data;
+      console.log("[emitProgress] Progress emitted successfully:", {
+        jobId: params.jobId,
+        emittedTo: data?.emittedTo || 0,
+        status: params.status,
+        percentage: params.percentage,
+      });
+    }
+  } catch (error) {
+    // Don't fail the job if WebSocket emission fails
+    console.error("[emitProgress] Error emitting progress:", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+  }
+}
+
+/**
  * Phase 1: Validate CSV data and populate staging tables
  *
  * This background job:
@@ -120,6 +186,13 @@ export const validateAndStage = task({
     console.log("[validate-and-stage] TASK EXECUTION STARTED");
     console.log("[validate-and-stage] Timestamp:", new Date().toISOString());
     console.log("[validate-and-stage] Payload:", JSON.stringify(payload, null, 2));
+    console.log("[validate-and-stage] Environment Check:", {
+      hasDatabaseUrl: !!process.env.DATABASE_URL,
+      databaseUrlPrefix: process.env.DATABASE_URL?.substring(0, 30),
+      hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasSupabaseKey: !!process.env.SUPABASE_SERVICE_KEY,
+      allEnvKeys: Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('SUPABASE')),
+    });
     console.log("=".repeat(80));
     logger.info("Starting validate-and-stage job", {
       jobId,
@@ -435,12 +508,22 @@ export const validateAndStage = task({
               const errorMessage = error instanceof Error ? error.message : String(error);
               const errorStack = error instanceof Error ? error.stack : undefined;
               const errorDetails = error instanceof Error && 'code' in error ? (error as any).code : undefined;
+              const errorConstraint = error instanceof Error && 'constraint' in error ? (error as any).constraint : undefined;
 
+              // Log detailed error information for debugging
               logger.error("Failed to insert into staging", {
                 rowNumber: item.rowNumber,
                 error: errorMessage,
                 errorCode: errorDetails,
+                errorConstraint,
                 stack: errorStack,
+                productData: {
+                  productId: item.validated?.productId,
+                  variantId: item.validated?.variantId,
+                  upid: item.validated?.variant.upid,
+                  sku: item.validated?.variant.sku,
+                  action: item.validated?.action,
+                },
               });
 
               console.error("[validate-and-stage] Staging insert failed:", {
@@ -448,6 +531,10 @@ export const validateAndStage = task({
                 jobId,
                 errorMessage,
                 errorCode: errorDetails,
+                errorConstraint,
+                productId: item.validated?.productId,
+                variantId: item.validated?.variantId,
+                action: item.validated?.action,
                 fullError: error,
               });
 
@@ -501,16 +588,16 @@ export const validateAndStage = task({
           invalid: invalidCount,
         });
 
-        // Send WebSocket progress update (temporarily disabled)
-        // websocketManager.emit(jobId, {
-        //   jobId,
-        //   status: "VALIDATING",
-        //   phase: "validation",
-        //   processed: processedCount,
-        //   total: totalRows,
-        //   failed: invalidCount,
-        //   percentage: Math.round((processedCount / totalRows) * 100),
-        // });
+        // Send WebSocket progress update
+        await emitProgress({
+          jobId,
+          status: "VALIDATING",
+          phase: "validation",
+          processed: processedCount,
+          total: totalRows,
+          failed: invalidCount,
+          percentage: Math.round((processedCount / totalRows) * 100),
+        });
 
         logger.info("Batch processed", {
           batchNumber: Math.floor(i / BATCH_SIZE) + 1,
@@ -555,17 +642,17 @@ export const validateAndStage = task({
         willUpdate: stagingCounts.update,
       });
 
-      // Send WebSocket completion notification (temporarily disabled)
-      // websocketManager.emit(jobId, {
-      //   jobId,
-      //   status: "VALIDATED",
-      //   phase: "validation",
-      //   processed: totalRows,
-      //   total: totalRows,
-      //   failed: invalidCount,
-      //   percentage: 100,
-      //   message: "Validation complete - ready for review",
-      // });
+      // Send WebSocket completion notification
+      await emitProgress({
+        jobId,
+        status: "VALIDATED",
+        phase: "validation",
+        processed: totalRows,
+        total: totalRows,
+        failed: invalidCount,
+        percentage: 100,
+        message: "Validation complete - ready for review",
+      });
 
       logger.info("Validation and staging completed successfully", {
         jobId,
@@ -799,13 +886,9 @@ async function validateRow(
 
   const action: "CREATE" | "UPDATE" = existingProduct ? "UPDATE" : "CREATE";
 
-  // Generate IDs for new records
-  const productId =
-    existingProduct?.id ||
-    `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  const variantId =
-    existingProduct?.variant_id ||
-    `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  // Generate UUIDs for new records
+  const productId = existingProduct?.id || randomUUID();
+  const variantId = existingProduct?.variant_id || randomUUID();
 
   // Prepare staging data
   const product: InsertStagingProductParams = {

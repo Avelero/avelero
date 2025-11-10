@@ -125,7 +125,7 @@ const columns: ColumnDef<ImportError>[] = [
  * ErrorListSection Component
  *
  * Displays validation errors in tabular format with export functionality.
- * Integrates with bulk.getImportErrors and bulk.exportFailedRows tRPC endpoints.
+ * Integrates with bulk.staging.errors and bulk.staging.export tRPC endpoints.
  *
  * @param jobId - Import job ID to fetch errors for
  */
@@ -136,7 +136,7 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
 
   // Fetch import errors
   const { data: response, isLoading, error } = useQuery(
-    trpc.bulk.getImportErrors.queryOptions({
+    trpc.bulk.staging.errors.queryOptions({
       jobId,
       limit: pageSize,
       offset: page * pageSize,

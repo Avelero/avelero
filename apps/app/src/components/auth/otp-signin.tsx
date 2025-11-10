@@ -27,7 +27,6 @@ export function OTPSignIn({ className }: Props) {
   const [isLoading, setLoading] = useState(false);
   const [isSent, setSent] = useState(false);
   const [email, setEmail] = useState<string>();
-  const supabase = createClient();
   const searchParams = useSearchParams();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -42,6 +41,7 @@ export function OTPSignIn({ className }: Props) {
 
     setEmail(email);
 
+    const supabase = createClient();
     await supabase.auth.signInWithOtp({ email });
 
     setSent(true);

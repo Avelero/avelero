@@ -123,7 +123,7 @@ const columns: ColumnDef<StagingDataRow>[] = [
  * StagingPreviewTable Component
  *
  * Displays paginated preview of staging data with CREATE/UPDATE badges.
- * Integrates with bulk.getStagingPreview tRPC endpoint.
+ * Integrates with bulk.staging.preview tRPC endpoint.
  *
  * @param jobId - Import job ID to fetch staging data for
  */
@@ -134,7 +134,7 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
 
   // Fetch staging preview data
   const { data: response, isLoading, error } = useQuery(
-    trpc.bulk.getStagingPreview.queryOptions({
+    trpc.bulk.staging.preview.queryOptions({
       jobId,
       limit: pageSize,
       offset: page * pageSize,

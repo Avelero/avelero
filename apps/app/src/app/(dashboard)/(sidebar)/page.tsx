@@ -5,8 +5,7 @@ export const metadata: Metadata = {
 };
 
 export default function DashboardPage() {
-  // No prefetching needed - user data already prefetched in layout
-  // Following Midday's simple page pattern
+  // No additional prefetching needed - user data is primed in the layout.
   return (
     <div className="flex justify-center items-center relative">
       <div className="text-2xl font-bold">Dashboard</div>

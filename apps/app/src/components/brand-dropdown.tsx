@@ -73,22 +73,25 @@ export function BrandDropdown({
   const brands: Brand[] = (brandsData as Brand[] | undefined) ?? [];
   const currentUser = user as CurrentUser | null | undefined;
   const activeBrand = brands.find((b: Brand) => b.id === currentUser?.brand_id);
+  const isSwitching = setActiveBrandMutation.isPending;
 
   const handleBrandSelect = (brandId: string) => {
-    if (brandId !== currentUser?.brand_id) {
+    if (brandId !== currentUser?.brand_id && !isSwitching) {
       setActiveBrandMutation.mutate({ brand_id: brandId });
     }
   };
 
   return (
     <DropdownMenu onOpenChange={onPopupChange}>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger asChild disabled={isSwitching}>
         {/* Button is the sole interactive host. All visuals are inside. */}
         <Button
           variant="ghost"
+          disabled={isSwitching}
           className={cn(
             "relative group h-10 w-full p-0 bg-transparent hover:bg-transparent",
             "justify-start overflow-hidden",
+            isSwitching && "opacity-50",
           )}
         >
           {/* Expanding rail: 40px when collapsed, full inner width when expanded */}
@@ -148,9 +151,11 @@ export function BrandDropdown({
           {brands.map((brand: Brand) => (
             <DropdownMenuItem
               key={brand.id}
+              disabled={isSwitching}
               className={cn(
                 "cursor-pointer",
                 currentUser?.brand_id === brand.id && "bg-accent",
+                isSwitching && "opacity-50",
               )}
               onClick={() => handleBrandSelect(brand.id)}
             >

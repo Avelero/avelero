@@ -1,22 +1,14 @@
 "use client";
 
 import { verifyOtpAction } from "@/actions/auth/verify-otp-action";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@v1/ui/input-otp";
-import { Label } from "@v1/ui/label";
 import { useAction } from "next-safe-action/hooks";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-
-const formSchema = z.object({
-  email: z.string().email(),
-});
 
 type Props = {
   className?: string;
@@ -26,24 +18,48 @@ export function OTPSignIn({ className }: Props) {
   const verifyOtp = useAction(verifyOtpAction);
   const [isLoading, setLoading] = useState(false);
   const [isSent, setSent] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
   const [email, setEmail] = useState<string>();
   const [otpValue, setOtpValue] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
   const supabase = createClient();
   const searchParams = useSearchParams();
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-    },
-  });
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    
+    // Clear previous errors
+    setSendError(null);
 
-  async function onSubmit({ email }: z.infer<typeof formSchema>) {
+    // Validate email format
+    const emailValue = emailInput.trim();
+    if (!emailValue) {
+      setSendError("Please enter your email");
+      return;
+    }
+
+    // Check if it's a valid email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailValue)) {
+      setSendError("Please enter a valid email");
+      return;
+    }
+
     setLoading(true);
+    setEmail(emailValue);
 
-    setEmail(email);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: emailValue,
+      options: {
+        shouldCreateUser: true,
+      },
+    });
 
-    await supabase.auth.signInWithOtp({ email });
+    if (error) {
+      setSendError(error.message || "Failed to send verification code");
+      setLoading(false);
+      return;
+    }
 
     setSent(true);
     setLoading(false);
@@ -52,42 +68,64 @@ export function OTPSignIn({ className }: Props) {
   async function onComplete(token: string) {
     if (!email) return;
 
-    verifyOtp.execute({
+    const returnTo = searchParams.get("return_to");
+    const redirectPath = returnTo ? `/${returnTo}` : "/";
+
+    const result = await verifyOtp.executeAsync({
       token,
       email,
-      redirectTo: `${window.location.origin}/${searchParams.get("return_to") || ""}`,
+      redirectTo: redirectPath,
     });
+
+    // If there's an error, clear the OTP so user can try again
+    if (result?.serverError) {
+      setOtpValue("");
+    }
   }
 
   const handleCancel = () => {
     setSent(false);
     setOtpValue("");
-    form.reset();
+    setSendError(null);
+    verifyOtp.reset();
   };
 
   if (isSent) {
     return (
       <div className={cn("flex flex-col space-y-4", className)}>
-        <InputOTP
-          maxLength={6}
-          autoFocus
-          value={otpValue}
-          onChange={setOtpValue}
-          onComplete={onComplete}
-          disabled={verifyOtp.status === "executing"}
-          className="!mt-0 !mb-0 !m-0"
-          render={({ slots }) => (
-            <InputOTPGroup className="w-full gap-2 justify-start">
-              {slots.map((slot, index) => (
-                <InputOTPSlot
-                  key={index.toString()}
-                  {...slot}
-                  className="flex-1 aspect-square"
-                />
-              ))}
-            </InputOTPGroup>
+        <div className="space-y-1">
+          <InputOTP
+            maxLength={6}
+            autoFocus
+            value={otpValue}
+            onChange={(value) => {
+              setOtpValue(value);
+              // Clear error when user starts typing
+              if (verifyOtp.result.serverError) {
+                verifyOtp.reset();
+              }
+            }}
+            onComplete={onComplete}
+            disabled={verifyOtp.status === "executing"}
+            className="!mt-0 !mb-0 !m-0"
+            render={({ slots }) => (
+              <InputOTPGroup className="w-full gap-2 justify-start">
+                {slots.map((slot, index) => (
+                  <InputOTPSlot
+                    key={index.toString()}
+                    {...slot}
+                    className="flex-1 aspect-square"
+                  />
+                ))}
+              </InputOTPGroup>
+            )}
+          />
+          {verifyOtp.result.serverError && (
+            <p className="text-[12px] leading-[16px] text-destructive px-0.5">
+              {verifyOtp.result.serverError}
+            </p>
           )}
-        />
+        </div>
 
         <div className="flex gap-2">
           <Button
@@ -112,7 +150,12 @@ export function OTPSignIn({ className }: Props) {
         <div className="flex items-center justify-center gap-1 type-small text-secondary">
           <span>Didn't receive an email?</span>
           <button
-            onClick={() => setSent(false)}
+            onClick={() => {
+              setSent(false);
+              setOtpValue("");
+              setSendError(null);
+              verifyOtp.reset();
+            }}
             type="button"
             className="text-primary underline font-medium hover:no-underline"
           >
@@ -124,18 +167,31 @@ export function OTPSignIn({ className }: Props) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)}>
+    <form onSubmit={handleSubmit} noValidate>
       <div className={cn("flex flex-col space-y-4", className)}>
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Input
             id="email"
-            type="email"
+            type="text"
             placeholder="Enter email address"
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
-            {...form.register("email")}
+            value={emailInput}
+            onChange={(e) => {
+              setEmailInput(e.target.value);
+              setSendError(null);
+            }}
+            className={cn(
+              sendError && "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none"
+            )}
+            aria-invalid={!!sendError}
           />
+          {sendError && (
+            <p className="text-[12px] leading-[16px] text-destructive px-0.5">
+              {sendError}
+            </p>
+          )}
         </div>
 
         <Button type="submit" className="w-full h-10" disabled={isLoading}>

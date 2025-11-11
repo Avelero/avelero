@@ -71,12 +71,20 @@ export function useUserBrandsQuerySuspense() {
 /**
  * Switches the user's active brand context.
  *
- * Implements optimistic updates to immediately reflect the brand change in the UI
- * before server confirmation. On error, rolls back the optimistic update. On success,
- * invalidates all brand-scoped queries and triggers a router refresh to update
- * server-side context.
+ * On success, immediately performs a hard refresh to the home page. This ensures
+ * all server-side context (tRPC context, RSC data) is regenerated with the new
+ * brand without any premature data refetching.
  *
- * @returns Mutation hook with optimistic update handling
+ * Flow:
+ * 1. Mutation executes and updates database
+ * 2. Hard refresh to home page (`window.location.href = "/"`)
+ * 3. Fresh server-side context created with new brandId
+ * 4. All data refetched with new brand context
+ *
+ * Note: Does NOT use optimistic updates to avoid triggering premature data
+ * refetching before the redirect.
+ *
+ * @returns Mutation hook for brand switching
  *
  * @example
  * ```tsx
@@ -89,53 +97,18 @@ export function useUserBrandsQuerySuspense() {
  */
 export function useSetActiveBrandMutation() {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const router = useRouter();
 
   return useMutation(
     trpc.workflow.setActive.mutationOptions({
-      onMutate: async (variables) => {
-        // Cancel outgoing refetches to prevent race conditions
-        await queryClient.cancelQueries({
-          queryKey: trpc.user.get.queryKey(),
-        });
-
-        // Snapshot current user data for rollback
-        const previousUserData = queryClient.getQueryData<UserProfile>(
-          trpc.user.get.queryKey(),
-        );
-
-        // Optimistically update user's active brand
-        queryClient.setQueryData<UserProfile | undefined>(
-          trpc.user.get.queryKey(),
-          (old: UserProfile | undefined) =>
-            old ? { ...old, brand_id: variables.brand_id } : old,
-        );
-
-        return { previousUserData };
-      },
-      onError: (_, __, context) => {
-        // Rollback optimistic update on failure
-        queryClient.setQueryData(
-          trpc.user.get.queryKey(),
-          context?.previousUserData,
-        );
-      },
       onSuccess: async () => {
-        // Invalidate all queries to refresh with new brand context
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: trpc.workflow.list.queryKey(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: trpc.user.get.queryKey(),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: trpc.composite.workflowInit.queryKey(),
-          }),
-        ]);
-        // Refresh the page to update server-side brand context
-        router.refresh();
+        // Force a hard refresh to ensure all server-side context is regenerated
+        // This guarantees:
+        // 1. New tRPC context is created with updated brandId from database
+        // 2. All Server Components are re-rendered with fresh data
+        // 3. Client-side cache is completely cleared
+        // 4. No premature data refetching before redirect
+        // Using window.location.href ensures a full page reload
+        window.location.href = "/";
       },
     }),
   );

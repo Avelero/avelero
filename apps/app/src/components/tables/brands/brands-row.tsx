@@ -48,6 +48,7 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
   const setActive = useSetActiveBrandMutation();
   const router = useRouter();
   const [leaveOpen, setLeaveOpen] = useState(false);
+  const isSwitching = setActive.isPending;
 
   // Prefetch dashboard route for post-activation navigation
   useEffect(() => {
@@ -73,22 +74,19 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
-          onClick={() =>
-            setActive.mutate(
-              { brand_id: membership.id },
-              {
-                onSuccess: () => {
-                  router.push("/");
-                },
-              },
-            )
-          }
+          disabled={isSwitching}
+          onClick={() => setActive.mutate({ brand_id: membership.id })}
         >
-          Open
+          {isSwitching ? "Switching..." : "Open"}
         </Button>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Brand options">
+          <DropdownMenuTrigger asChild disabled={isSwitching}>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={isSwitching}
+              aria-label="Brand options"
+            >
               <Icons.EllipsisVertical className="w-4 h-4" strokeWidth={1} />
             </Button>
           </DropdownMenuTrigger>

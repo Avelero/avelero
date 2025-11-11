@@ -16,7 +16,11 @@ const schema = z.object({
 function sanitizeRedirectPath(path: string | undefined): string {
   if (!path) return "/";
   try {
-    // Only allow relative paths
+    // Only allow relative paths - if it's already a relative path, return it
+    if (path.startsWith("/")) {
+      return path;
+    }
+    // Try parsing as URL and extract pathname
     const url = new URL(path, "http://localhost");
     return url.pathname || "/";
   } catch {

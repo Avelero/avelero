@@ -12,6 +12,14 @@ import { headers } from "next/headers";
 import { z } from "zod";
 
 const handleServerError = (e: Error) => {
+  // Don't catch Next.js redirect errors - let them bubble up
+  if (
+    e.message === "NEXT_REDIRECT" ||
+    (e as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")
+  ) {
+    throw e;
+  }
+
   // Also log with our logger for development
   logger.error(`Action error: ${e.message}`);
 

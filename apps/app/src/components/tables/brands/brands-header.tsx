@@ -19,7 +19,7 @@ export function BrandsHeader({ activeTab, onTabChange }: Props) {
           className={cn(
             activeTab === "brands"
               ? "!font-medium hover:bg-background hover:cursor-default w-[84px]"
-              : "text-secondary hover:text-foreground hover:bg-transparent w-[84px]",
+              : "!font-medium text-secondary hover:text-primary hover:bg-transparent w-[84px]",
           )}
         >
           Brands
@@ -30,7 +30,7 @@ export function BrandsHeader({ activeTab, onTabChange }: Props) {
           className={cn(
             activeTab === "invites"
               ? "!font-medium hover:bg-background hover:cursor-default w-[81px]"
-              : "text-secondary hover:text-foreground hover:bg-transparent w-[81px]",
+              : "!font-medium text-secondary hover:text-primary hover:bg-transparent w-[81px]",
           )}
         >
           Invites

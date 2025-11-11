@@ -110,6 +110,7 @@ export function ImportReviewDialog() {
 
   const totalUnmapped =
     (unmappedData?.totalUnmapped as number | undefined) ?? 0;
+  
   const summary = statusData?.summary as
     | {
         total?: number;
@@ -363,13 +364,6 @@ export function ImportReviewDialog() {
             {isApproving ? "Approving..." : "Approve & Import"}
           </Button>
         </SheetFooter>
-
-        {/* Approval hint */}
-        {!canApprove && totalUnmapped > 0 && (
-          <div className="px-6 pb-4 text-xs text-secondary text-center">
-            Define all unmapped values to enable approval
-          </div>
-        )}
       </SheetContent>
     </Sheet>
   );

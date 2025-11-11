@@ -145,6 +145,7 @@ const columns: ColumnDef<ImportError>[] = [
  */
 export function ErrorListSection({ jobId }: ErrorListSectionProps) {
   const [page, setPage] = React.useState(0);
+  const [isExporting, setIsExporting] = React.useState(false);
   const pageSize = 50; // Display 50 errors per page
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -210,22 +211,19 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
 
   // Handle CSV export
   const handleExport = async () => {
+    if (isExporting) return;
+    
     try {
-      toast.loading("Exporting failed rows...");
+      setIsExporting(true);
+      const toastId = toast.loading("Exporting failed rows...");
 
-      // Type-safe check for exportFailedRows availability
-      if (!trpc.bulk || !("exportFailedRows" in trpc.bulk)) {
-        toast.dismiss();
-        toast.error("Export functionality is not available");
-        return;
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- trpc type issue
-      const result = await (trpc.bulk as any).exportFailedRows.query({ jobId });
+      // Use queryClient to fetch data directly
+      const result = await queryClient.fetchQuery(
+        trpc.bulk.staging.export.queryOptions({ jobId })
+      );
 
       if (result.totalRows === 0) {
-        toast.dismiss();
-        toast.info("No failed rows to export");
+        toast.info("No failed rows to export", { id: toastId });
         return;
       }
 
@@ -240,12 +238,12 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.dismiss();
-      toast.success(`Exported ${result.totalRows} failed rows`);
+      toast.success(`Exported ${result.totalRows} failed rows`, { id: toastId });
     } catch (err) {
-      toast.dismiss();
       toast.error("Failed to export failed rows. Please try again.");
       console.error("Export error:", err);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -326,9 +324,16 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
           variant="outline"
           size="sm"
           onClick={handleExport}
-          icon={<Icons.Download className="h-4 w-4" />}
+          disabled={isExporting}
+          icon={
+            isExporting ? (
+              <Icons.Spinner className="h-4 w-4 animate-spin" />
+            ) : (
+              <Icons.Download className="h-4 w-4" />
+            )
+          }
         >
-          Export Failed Rows
+          {isExporting ? "Exporting..." : "Export Failed Rows"}
         </Button>
       </div>
 

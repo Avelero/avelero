@@ -4,8 +4,6 @@ import { useUserBrandsQuerySuspense } from "@/hooks/use-brand";
 import { useMyInvitesQuerySuspense } from "@/hooks/use-invites";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
-import { Skeleton } from "@v1/ui/skeleton";
-import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { BrandsHeader } from "./brands-header";
 import { BrandsRow } from "./brands-row";
@@ -30,8 +28,6 @@ interface BrandWithRoleLocal {
 }
 
 export function BrandsTable() {
-  const params = useParams<{ locale?: string }>();
-  const locale = params?.locale ?? "en";
   const [tab, setTab] = useState<TabKey>("brands");
 
   const { data: brandsRes } = useUserBrandsQuerySuspense();
@@ -93,7 +89,6 @@ export function BrandsTable() {
         onTabChange={(t) => {
           setTab(t);
         }}
-        locale={String(locale)}
       />
 
       <div className="border">

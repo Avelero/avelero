@@ -29,7 +29,7 @@ export function MembersHeader({
           className={cn(
             activeTab === "members"
               ? "!font-medium hover:bg-background hover:cursor-default w-[96px]"
-              : "text-secondary hover:text-foreground hover:bg-transparent w-[96px]",
+              : "!font-medium text-secondary hover:text-primary hover:bg-transparent w-[96px]",
           )}
         >
           Members
@@ -40,7 +40,7 @@ export function MembersHeader({
           className={cn(
             activeTab === "invites"
               ? "!font-medium hover:bg-background hover:cursor-default w-[81px]"
-              : "text-secondary hover:text-foreground hover:bg-transparent w-[81px]",
+              : "!font-medium text-secondary hover:text-primary hover:bg-transparent w-[81px]",
           )}
         >
           Invites

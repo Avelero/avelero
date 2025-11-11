@@ -135,17 +135,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "product",
     inputType: "hierarchical",
     operators: [...OPERATORS.hierarchical] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "composite.passportFormReferences",
-      transform: (data: any) => {
-        const categories = data?.categories ?? [];
-        return categories.map((c: any) => ({
-          value: c.id,
-          label: c.name,
-        }));
-      },
-    },
     description: "Filter by product category with hierarchy support",
   },
 
@@ -156,17 +145,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "variants",
     inputType: "multi-select",
     operators: [...OPERATORS.multiSelect] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "brand.colors.list",
-      transform: (data: any) => {
-        const colors = data?.data ?? [];
-        return colors.map((c: any) => ({
-          value: c.id,
-          label: c.name,
-        }));
-      },
-    },
     description: "Filter by variant colors",
   },
 
@@ -177,17 +155,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "variants",
     inputType: "multi-select",
     operators: [...OPERATORS.multiSelect] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "brand.sizes.list",
-      transform: (data: any) => {
-        const sizes = data?.data ?? [];
-        return sizes.map((s: any) => ({
-          value: s.id,
-          label: s.name,
-        }));
-      },
-    },
     description: "Filter by variant sizes",
   },
 
@@ -248,17 +215,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "manufacturing",
     inputType: "nested",
     operators: [...OPERATORS.relational] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "brand.materials.list",
-      transform: (data: any) => {
-        const materials = data?.data ?? [];
-        return materials.map((m: any) => ({
-          value: m.id,
-          label: m.name,
-        }));
-      },
-    },
     nested: {
       type: "materials",
       primaryField: "brandMaterialId",
@@ -279,17 +235,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "sustainability",
     inputType: "multi-select",
     operators: [...OPERATORS.relational] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "brand.ecoClaims.list",
-      transform: (data: any) => {
-        const claims = data?.data ?? [];
-        return claims.map((c: any) => ({
-          value: c.id,
-          label: c.title,
-        }));
-      },
-    },
     description: "Filter by eco claims",
   },
 
@@ -300,17 +245,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "metadata",
     inputType: "select",
     operators: ["is", "is not", "is any of"] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "passportTemplates.list",
-      transform: (data: any) => {
-        const templates = data?.data ?? [];
-        return templates.map((t: any) => ({
-          value: t.id,
-          label: t.name,
-        }));
-      },
-    },
     description: "Filter by passport template",
   },
 
@@ -398,17 +332,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "manufacturing",
     inputType: "nested",
     operators: [...OPERATORS.relational] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "brand.facilities.list",
-      transform: (data: any) => {
-        const facilities = data?.data ?? [];
-        return facilities.map((f: any) => ({
-          value: f.id,
-          label: f.name,
-        }));
-      },
-    },
     nested: {
       type: "facilities",
       primaryField: "facilityId",
@@ -466,17 +389,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
       "is empty",
       "is not empty",
     ] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "brand.showcaseBrands.list",
-      transform: (data: any) => {
-        const brands = data?.data ?? [];
-        return brands.map((b: any) => ({
-          value: b.id,
-          label: b.name,
-        }));
-      },
-    },
     description: "Filter by showcase brand (for multi-brand products)",
   },
 

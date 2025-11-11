@@ -8,7 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
@@ -25,8 +25,6 @@ export function SetupForm() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
-  const params = useParams<{ locale: string }>();
-  const locale = params?.locale ?? "en";
 
   // Prefill if anything exists, but initial setup usually has nothing.
   useEffect(() => {
@@ -36,6 +34,12 @@ export function SetupForm() {
     if (!avatarUrl && u.avatar_url) setAvatarUrl(u.avatar_url);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Prefetch possible navigation routes
+  useEffect(() => {
+    router.prefetch("/");
+    router.prefetch("/create-brand");
+  }, [router]);
 
   const updateUserMutation = useMutation(
     trpc.user.update.mutationOptions({
@@ -54,7 +58,7 @@ export function SetupForm() {
           trpc.workflow.list.queryOptions(),
         );
         const hasBrands = Array.isArray(brands) && brands.length > 0;
-        router.push(hasBrands ? `/${locale}` : `/${locale}/create-brand`);
+        router.push(hasBrands ? "/" : "/create-brand");
       },
       onError: (err) => {
         setError(err.message || "Failed to save profile");

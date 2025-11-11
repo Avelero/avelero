@@ -6,26 +6,59 @@ import { CheckCircle, Info, FileDown } from "lucide-react";
 import { toast } from "sonner";
 
 // CSV template columns matching the backend expectations
+// 35 columns total - rich material details (country, recyclable) are entered via UI
 const TEMPLATE_COLUMNS = [
+  // Product Basic Info
   "product_name",
+  "description",
+  "primary_image_url",
+  "additional_image_urls",
+
+  // Variant Identifiers
   "upid",
   "sku",
-  "description",
+  "ean",
+
+  // Organization
   "category_name",
   "season",
-  "primary_image_url",
-  "color_name",
+  "colors",
   "size_name",
+  "tags",
+  "status",
+
+  // Variant Images
   "product_image_url",
+
+  // Environment
+  "carbon_footprint",
+  "water_usage",
+  "eco_claims",
+
+  // Materials (up to 3) - name and percentage only
+  // Rich details entered via MaterialSheet UI for unmapped materials
   "material_1_name",
   "material_1_percentage",
   "material_2_name",
   "material_2_percentage",
   "material_3_name",
   "material_3_percentage",
+
+  // Care & Certifications
   "care_codes",
-  "eco_claims",
-  "environment_score",
+  "certifications",
+
+  // Journey Steps (up to 5)
+  "journey_step_1",
+  "journey_operator_1",
+  "journey_step_2",
+  "journey_operator_2",
+  "journey_step_3",
+  "journey_operator_3",
+  "journey_step_4",
+  "journey_operator_4",
+  "journey_step_5",
+  "journey_operator_5",
 ];
 
 export function CSVRequirementsSection() {
@@ -129,22 +162,40 @@ export function CSVRequirementsSection() {
                 season
               </code>
               <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
-                primary_image_url
-              </code>
-              <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
-                color_name
+                colors
               </code>
               <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
                 size_name
               </code>
               <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
+                ean
+              </code>
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
+                status
+              </code>
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
+                carbon_footprint
+              </code>
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
+                water_usage
+              </code>
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
+                eco_claims
+              </code>
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
                 material_1_name
               </code>
               <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
-                material_1_percentage
+                tags
+              </code>
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
+                certifications
+              </code>
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono">
+                journey_step_1
               </code>
               <span className="text-xs text-gray-500 self-center">
-                and more...
+                and 21 more...
               </span>
             </div>
           </div>

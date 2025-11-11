@@ -92,7 +92,10 @@ const ImportProgressContext = createContext<
  */
 function isActiveStatus(status: ImportStatus | null): boolean {
   return (
-    status === "PENDING" || status === "VALIDATING" || status === "COMMITTING"
+    status === "PENDING" ||
+    status === "VALIDATING" ||
+    status === "VALIDATED" || // Keep polling after validation to trigger review dialog
+    status === "COMMITTING"
   );
 }
 
@@ -218,10 +221,14 @@ export function ImportProgressProvider({
   );
 
   // Connect to WebSocket for real-time updates
+  // Disable after review dialog opens if status is VALIDATED (no longer needs updates)
   const { connected: wsConnected } = useImportWebSocket({
     jobId: state.jobId,
     onProgress: handleWebSocketProgress,
-    enabled: !!state.jobId && isActiveStatus(state.status),
+    enabled:
+      !!state.jobId &&
+      isActiveStatus(state.status) &&
+      !(state.status === "VALIDATED" && reviewDialogOpen), // Stop after dialog opens
   });
 
   // Log WebSocket connection status
@@ -234,11 +241,16 @@ export function ImportProgressProvider({
   }, [wsConnected, state.jobId, state.status]);
 
   // Fallback to polling if WebSocket is not connected
+  // Disable after review dialog opens if status is VALIDATED (no longer needs updates)
   const { data: statusData } = useQuery({
     ...trpc.bulk.import.status.queryOptions({
       jobId: state.jobId as string,
     }),
-    enabled: !!state.jobId && isActiveStatus(state.status) && !wsConnected,
+    enabled:
+      !!state.jobId &&
+      isActiveStatus(state.status) &&
+      !wsConnected &&
+      !(state.status === "VALIDATED" && reviewDialogOpen), // Stop after dialog opens
     refetchInterval: 5000, // Slower polling as fallback (5 seconds instead of 2)
     retry: true,
     retryDelay: 2000,

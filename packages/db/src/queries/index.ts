@@ -11,6 +11,7 @@ export * from "./passport-templates.js";
 export * from "./bulk-import.js";
 export * from "./staging.js";
 export * from "./value-mappings.js";
+export * from "./seasons.js";
 
 // Re-export drizzle-orm utilities for consumers
 export {

@@ -54,8 +54,11 @@ export const stagingProducts = pgTable(
     description: text("description"),
     showcaseBrandId: uuid("showcase_brand_id"),
     primaryImageUrl: text("primary_image_url"),
+    additionalImageUrls: text("additional_image_urls"), // Pipe-separated URLs
     categoryId: uuid("category_id"),
-    season: text("season"),
+    season: text("season"), // TODO: Migrate to seasonId FK
+    seasonId: uuid("season_id"),
+    tags: text("tags"), // Pipe-separated tags
     brandCertificationId: uuid("brand_certification_id"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
@@ -155,8 +158,10 @@ export const stagingProductVariants = pgTable(
     colorId: uuid("color_id"),
     sizeId: uuid("size_id"),
     sku: text("sku"),
+    ean: text("ean"), // EAN barcode
     upid: text("upid").notNull(),
     productImageUrl: text("product_image_url"),
+    status: text("status"), // draft|published|archived
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

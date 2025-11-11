@@ -67,6 +67,37 @@ export function ImportReviewDialog() {
     enabled: !!jobId && reviewDialogOpen,
   });
 
+  /**
+   * Prefetch all tab data when dialog opens
+   * This ensures smooth transitions between tabs without loading delays
+   */
+  React.useEffect(() => {
+    if (!jobId || !reviewDialogOpen) return;
+
+    // Prefetch preview data (first page)
+    void queryClient.prefetchQuery(
+      trpc.bulk.staging.preview.queryOptions({
+        jobId,
+        limit: 100,
+        offset: 0,
+      }),
+    );
+
+    // Prefetch errors (first page)
+    void queryClient.prefetchQuery(
+      trpc.bulk.staging.errors.queryOptions({
+        jobId,
+        limit: 50,
+        offset: 0,
+      }),
+    );
+
+    // Prefetch catalog data for unmapped section
+    void queryClient.prefetchQuery(
+      trpc.bulk.values.catalogData.queryOptions({ jobId }),
+    );
+  }, [jobId, reviewDialogOpen, queryClient, trpc]);
+
   // Approve import mutation
   const approveImportMutation = useMutation(
     trpc.bulk.import.approve.mutationOptions(),
@@ -193,8 +224,8 @@ export function ImportReviewDialog() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {/* Total Valid */}
             <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
-              <div className="rounded-md bg-green-100 p-2">
-                <Icons.CheckCircle2 className="h-4 w-4 text-green-700" />
+              <div className="rounded-md bg-accent p-2">
+                <Icons.CheckCircle2 className="h-4 w-4 text-secondary" />
               </div>
               <div>
                 <div className="text-xl font-semibold">{totalValid}</div>
@@ -204,8 +235,8 @@ export function ImportReviewDialog() {
 
             {/* Will Create */}
             <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
-              <div className="rounded-md bg-blue-100 p-2">
-                <Icons.Plus className="h-4 w-4 text-blue-700" />
+              <div className="rounded-md bg-accent p-2">
+                <Icons.Plus className="h-4 w-4 text-secondary" />
               </div>
               <div>
                 <div className="text-xl font-semibold">{willCreate}</div>
@@ -215,8 +246,8 @@ export function ImportReviewDialog() {
 
             {/* Will Update */}
             <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
-              <div className="rounded-md bg-purple-100 p-2">
-                <Icons.RefreshCw className="h-4 w-4 text-purple-700" />
+              <div className="rounded-md bg-accent p-2">
+                <Icons.RefreshCw className="h-4 w-4 text-secondary" />
               </div>
               <div>
                 <div className="text-xl font-semibold">{willUpdate}</div>
@@ -226,18 +257,8 @@ export function ImportReviewDialog() {
 
             {/* Errors */}
             <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
-              <div
-                className={cn(
-                  "rounded-md p-2",
-                  totalErrors > 0 ? "bg-destructive/20" : "bg-accent",
-                )}
-              >
-                <Icons.AlertCircle
-                  className={cn(
-                    "h-4 w-4",
-                    totalErrors > 0 ? "text-destructive" : "text-secondary",
-                  )}
-                />
+              <div className="rounded-md bg-accent p-2">
+                <Icons.AlertCircle className="h-4 w-4 text-secondary" />
               </div>
               <div>
                 <div className="text-xl font-semibold">{totalErrors}</div>
@@ -269,13 +290,22 @@ export function ImportReviewDialog() {
         <div className="flex-1 overflow-hidden px-6 py-4">
           <Tabs defaultValue="preview" className="h-full flex flex-col">
             <TabsList className="grid grid-cols-3 w-full max-w-md mb-4">
-              <TabsTrigger value="preview" className="text-xs">
+              <TabsTrigger
+                value="preview"
+                className="text-xs text-foreground data-[state=inactive]:text-foreground"
+              >
                 Preview ({totalValid})
               </TabsTrigger>
-              <TabsTrigger value="errors" className="text-xs">
+              <TabsTrigger
+                value="errors"
+                className="text-xs text-foreground data-[state=inactive]:text-foreground"
+              >
                 Errors ({totalErrors})
               </TabsTrigger>
-              <TabsTrigger value="unmapped" className="text-xs">
+              <TabsTrigger
+                value="unmapped"
+                className="text-xs text-foreground data-[state=inactive]:text-foreground"
+              >
                 Unmapped ({totalUnmapped})
               </TabsTrigger>
             </TabsList>

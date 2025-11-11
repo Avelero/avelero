@@ -43,12 +43,30 @@ export const stagingRouter = createTRPCRouter({
         const job = await getImportJobStatus(brandCtx.db, input.jobId);
 
         if (!job) {
+          console.error("[Staging Preview API] Job not found:", {
+            jobId: input.jobId,
+            brandId,
+          });
           throw badRequest("Import job not found");
         }
 
         if (job.brandId !== brandId) {
+          console.error("[Staging Preview API] Access denied:", {
+            jobId: input.jobId,
+            jobBrandId: job.brandId,
+            requestBrandId: brandId,
+          });
           throw badRequest("Access denied: job belongs to different brand");
         }
+
+        // Debug logging - Request details
+        console.log("[Staging Preview API] Request:", {
+          jobId: input.jobId,
+          brandId,
+          jobStatus: job.status,
+          limit: input.limit,
+          offset: input.offset,
+        });
 
         // Get staging preview
         const preview = await getStagingPreview(
@@ -64,7 +82,16 @@ export const stagingRouter = createTRPCRouter({
           input.jobId,
         );
 
-        return {
+        // Debug logging - Response details
+        console.log("[Staging Preview API] Response:", {
+          jobId: input.jobId,
+          rowCount: preview.products.length,
+          totalValid: preview.total,
+          willCreate: counts.create,
+          willUpdate: counts.update,
+        });
+
+        const result = {
           stagingData: preview.products.map((p) => ({
             rowNumber: p.rowNumber,
             action: p.action,
@@ -92,7 +119,19 @@ export const stagingRouter = createTRPCRouter({
           limit: input.limit,
           offset: input.offset,
         };
+
+        console.log(
+          "[Staging Preview API] Returning result with",
+          result.stagingData.length,
+          "rows",
+        );
+        return result;
       } catch (error) {
+        console.error("[Staging Preview API] Error occurred:", {
+          error,
+          message: (error as Error).message,
+          stack: (error as Error).stack,
+        });
         throw wrapError(error, "Failed to get staging preview");
       }
     }),

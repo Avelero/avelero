@@ -1,5 +1,7 @@
 "use client";
 
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { DatePicker } from "@v1/ui/date-picker";
 import {
@@ -18,6 +20,7 @@ interface SeasonModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (season: {
+    id: string;
     name: string;
     startDate: Date | null;
     endDate: Date | null;
@@ -32,10 +35,17 @@ export function SeasonModal({
   onSave,
   initialName,
 }: SeasonModalProps) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [name, setName] = React.useState("");
   const [startDate, setStartDate] = React.useState<Date | null>(null);
   const [endDate, setEndDate] = React.useState<Date | null>(null);
   const [ongoing, setOngoing] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  
+  const createSeasonMutation = useMutation(
+    trpc.brand.seasons.create.mutationOptions(),
+  );
   // Preserve dates when toggling ongoing to allow restoration
   const [preservedStartDate, setPreservedStartDate] =
     React.useState<Date | null>(null);
@@ -65,7 +75,9 @@ export function SeasonModal({
     }
   }, [ongoing]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isSubmitting) return;
+
     // Validate dates for non-ongoing seasons
     if (!ongoing) {
       if (!startDate || !endDate) {
@@ -78,16 +90,54 @@ export function SeasonModal({
       }
     }
 
-    // TODO: Save to backend
-    onSave({ name, startDate, endDate, ongoing });
-    // Reset form
-    setName("");
-    setStartDate(null);
-    setEndDate(null);
-    setOngoing(false);
-    setPreservedStartDate(null);
-    setPreservedEndDate(null);
-    onOpenChange(false);
+    setIsSubmitting(true);
+
+    try {
+      // Format dates to YYYY-MM-DD
+      const formatDate = (date: Date | null) => {
+        if (!date) return undefined;
+        return date.toISOString().split("T")[0];
+      };
+
+      const result = await createSeasonMutation.mutateAsync({
+        name,
+        start_date: formatDate(startDate),
+        end_date: formatDate(endDate),
+        ongoing,
+      });
+
+      // Invalidate seasons list query to refetch
+      await queryClient.invalidateQueries({
+        queryKey: [["brand", "seasons", "list"]],
+      });
+
+      toast.success(`Season "${name}" created successfully`);
+
+      // Call onSave with the created season data
+      onSave({
+        id: result.data.id,
+        name,
+        startDate,
+        endDate,
+        ongoing,
+      });
+
+      // Reset form
+      setName("");
+      setStartDate(null);
+      setEndDate(null);
+      setOngoing(false);
+      setPreservedStartDate(null);
+      setPreservedEndDate(null);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Failed to create season:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create season",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -177,11 +227,15 @@ export function SeasonModal({
         </div>
 
         <DialogFooter className="px-6 pb-6 pt-3">
-          <Button variant="outline" onClick={handleCancel}>
+          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button variant="brand" onClick={handleSave} disabled={!name.trim()}>
-            Create
+          <Button
+            variant="brand"
+            onClick={handleSave}
+            disabled={!name.trim() || isSubmitting}
+          >
+            {isSubmitting ? "Creating..." : "Create"}
           </Button>
         </DialogFooter>
       </DialogContent>

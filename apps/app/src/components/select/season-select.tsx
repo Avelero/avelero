@@ -1,5 +1,7 @@
 "use client";
 
+import { useTRPC } from "@/trpc/client";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -15,16 +17,16 @@ import { format } from "date-fns";
 import * as React from "react";
 
 export interface Season {
+  id: string;
   name: string;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: Date | null;
+  endDate?: Date | null;
   isOngoing?: boolean;
 }
 
 interface SeasonSelectProps {
   value: Season | null;
   onValueChange: (value: Season) => void;
-  seasons: Season[];
   onCreateNew?: (searchTerm: string) => void;
   placeholder?: string;
   disabled?: boolean;
@@ -49,14 +51,31 @@ function formatSeasonDateRange(season: Season): string {
 export function SeasonSelect({
   value,
   onValueChange,
-  seasons,
   onCreateNew,
   placeholder = "Select season",
   disabled = false,
   className,
 }: SeasonSelectProps) {
+  const trpc = useTRPC();
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
+
+  // Fetch seasons from API
+  const { data: seasonsData, isLoading } = useQuery(
+    trpc.brand.seasons.list.queryOptions({}),
+  );
+
+  // Transform API response to Season interface
+  const seasons = React.useMemo(() => {
+    if (!seasonsData?.data) return [];
+    return seasonsData.data.map((s) => ({
+      id: s.id,
+      name: s.name,
+      startDate: s.start_date ? new Date(s.start_date) : null,
+      endDate: s.end_date ? new Date(s.end_date) : null,
+      isOngoing: s.ongoing,
+    }));
+  }, [seasonsData]);
 
   const handleSelect = (season: Season) => {
     onValueChange(season);
@@ -74,14 +93,14 @@ export function SeasonSelect({
 
   const filteredSeasons = React.useMemo(() => {
     if (!searchTerm) return seasons;
-    return seasons.filter((s) =>
+    return seasons.filter((s: Season) =>
       s.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [seasons, searchTerm]);
 
   const showCreateOption =
     searchTerm &&
-    !seasons.some((s) => s.name.toLowerCase() === searchTerm.toLowerCase());
+    !seasons.some((s: Season) => s.name.toLowerCase() === searchTerm.toLowerCase());
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -119,10 +138,14 @@ export function SeasonSelect({
           />
           <CommandList>
             <CommandGroup>
-              {filteredSeasons.length > 0 ? (
-                filteredSeasons.map((season) => (
+              {isLoading ? (
+                <div className="px-3 py-8 text-center">
+                  <p className="type-p text-tertiary">Loading seasons...</p>
+                </div>
+              ) : filteredSeasons.length > 0 ? (
+                filteredSeasons.map((season: Season) => (
                   <CommandItem
-                    key={season.name}
+                    key={season.id}
                     value={season.name}
                     onSelect={() => handleSelect(season)}
                     className="justify-between"
@@ -138,7 +161,7 @@ export function SeasonSelect({
                         <span className="type-p text-tertiary">Ongoing</span>
                       )}
                     </div>
-                    {value?.name === season.name && (
+                    {value?.id === season.id && (
                       <Icons.Check className="h-4 w-4" />
                     )}
                   </CommandItem>
@@ -155,7 +178,9 @@ export function SeasonSelect({
               ) : !searchTerm ? (
                 <div className="px-3 py-8 text-center">
                   <p className="type-p text-tertiary">
-                    Begin typing to create your first season
+                    {seasons.length === 0
+                      ? "Begin typing to create your first season"
+                      : "No seasons found"}
                   </p>
                 </div>
               ) : null}

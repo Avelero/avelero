@@ -2,7 +2,7 @@ import type { Database } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 
-const { brandColors, brandSizes, brandMaterials, categories, valueMappings } =
+const { brandColors, brandSizes, brandMaterials, brandSeasons, categories, brandFacilities, valueMappings } =
   schema;
 
 /**
@@ -16,8 +16,12 @@ export interface BrandCatalog {
   sizes: Map<string, string>;
   /** Map of normalized material name -> material ID */
   materials: Map<string, string>;
+  /** Map of normalized season name -> season ID */
+  seasons: Map<string, string>;
   /** Map of normalized category name -> category ID (global, not brand-specific) */
   categories: Map<string, string>;
+  /** Map of normalized operator/facility name -> facility ID */
+  operators: Map<string, string>;
   /** Map of composite key (entityType:sourceColumn:rawValue) -> target ID */
   valueMappings: Map<string, string>;
 }
@@ -64,7 +68,7 @@ export async function loadBrandCatalog(
   const loadStartTime = Date.now();
 
   // Load all catalog tables in parallel for maximum performance
-  const [colors, sizes, materials, allCategories, mappings] = await Promise.all(
+  const [colors, sizes, materials, seasons, allCategories, facilities, mappings] = await Promise.all(
     [
       db.query.brandColors.findMany({
         where: eq(brandColors.brandId, brandId),
@@ -78,8 +82,16 @@ export async function loadBrandCatalog(
         where: eq(brandMaterials.brandId, brandId),
         columns: { id: true, name: true },
       }),
+      db.query.brandSeasons.findMany({
+        where: eq(brandSeasons.brandId, brandId),
+        columns: { id: true, name: true },
+      }),
       db.query.categories.findMany({
         columns: { id: true, name: true },
+      }),
+      db.query.brandFacilities.findMany({
+        where: eq(brandFacilities.brandId, brandId),
+        columns: { id: true, displayName: true },
       }),
       db.query.valueMappings.findMany({
         where: eq(valueMappings.brandId, brandId),
@@ -100,8 +112,12 @@ export async function loadBrandCatalog(
     materials: new Map(
       materials.map((m) => [normalizeValue(m.name), m.id] as const),
     ),
+    seasons: new Map(seasons.map((s) => [normalizeValue(s.name), s.id] as const)),
     categories: new Map(
       allCategories.map((c) => [normalizeValue(c.name), c.id] as const),
+    ),
+    operators: new Map(
+      facilities.map((f) => [normalizeValue(f.displayName), f.id] as const),
     ),
     valueMappings: new Map(),
   };
@@ -125,7 +141,9 @@ export async function loadBrandCatalog(
       colors: catalog.colors.size,
       sizes: catalog.sizes.size,
       materials: catalog.materials.size,
+      seasons: catalog.seasons.size,
       categories: catalog.categories.size,
+      operators: catalog.operators.size,
       valueMappings: catalog.valueMappings.size,
     },
   });
@@ -224,6 +242,36 @@ export function lookupMaterialId(
 }
 
 /**
+ * Lookup season ID from catalog
+ *
+ * @param catalog - Brand catalog
+ * @param seasonName - Season name to lookup
+ * @param sourceColumn - Source column name for value mappings
+ * @returns Season ID or null if not found
+ */
+export function lookupSeasonId(
+  catalog: BrandCatalog,
+  seasonName: string,
+  sourceColumn = "season",
+): string | null {
+  if (!seasonName || seasonName.trim() === "") {
+    return null;
+  }
+
+  const normalized = normalizeValue(seasonName);
+
+  // Check value mappings first
+  const mappingKey = createMappingKey("SEASON", sourceColumn, seasonName);
+  const mappedId = catalog.valueMappings.get(mappingKey);
+  if (mappedId) {
+    return mappedId;
+  }
+
+  // Check direct season catalog
+  return catalog.seasons.get(normalized) || null;
+}
+
+/**
  * Lookup category ID from catalog
  *
  * @param catalog - Brand catalog
@@ -244,6 +292,36 @@ export function lookupCategoryId(
 
   // Categories are global, check direct catalog only
   return catalog.categories.get(normalized) || null;
+}
+
+/**
+ * Lookup operator/facility ID from catalog
+ *
+ * @param catalog - Brand catalog
+ * @param operatorName - Operator/facility name to lookup
+ * @param sourceColumn - Source column name for value mappings
+ * @returns Operator ID or null if not found
+ */
+export function lookupOperatorId(
+  catalog: BrandCatalog,
+  operatorName: string,
+  sourceColumn = "journey_steps",
+): string | null {
+  if (!operatorName || operatorName.trim() === "") {
+    return null;
+  }
+
+  const normalized = normalizeValue(operatorName);
+
+  // Check value mappings first
+  const mappingKey = createMappingKey("OPERATOR", sourceColumn, operatorName);
+  const mappedId = catalog.valueMappings.get(mappingKey);
+  if (mappedId) {
+    return mappedId;
+  }
+
+  // Check direct operator catalog
+  return catalog.operators.get(normalized) || null;
 }
 
 /**
@@ -274,6 +352,7 @@ export function getCatalogStats(catalog: BrandCatalog): {
   sizes: number;
   materials: number;
   categories: number;
+  operators: number;
   valueMappings: number;
   total: number;
 } {
@@ -282,12 +361,14 @@ export function getCatalogStats(catalog: BrandCatalog): {
     sizes: catalog.sizes.size,
     materials: catalog.materials.size,
     categories: catalog.categories.size,
+    operators: catalog.operators.size,
     valueMappings: catalog.valueMappings.size,
     total:
       catalog.colors.size +
       catalog.sizes.size +
       catalog.materials.size +
       catalog.categories.size +
+      catalog.operators.size +
       catalog.valueMappings.size,
   };
 }

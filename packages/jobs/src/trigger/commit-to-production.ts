@@ -10,10 +10,18 @@ import {
   deleteStagingDataForJob,
   getImportJobStatus,
   getStagingProductsForCommit,
+  getStagingMaterialsForProduct,
+  getStagingEcoClaimsForProduct,
+  getStagingJourneyStepsForProduct,
+  getStagingEnvironmentForProduct,
   updateImportJobProgress,
   updateImportJobStatus,
   updateProduct,
   updateVariant,
+  upsertProductMaterials,
+  setProductEcoClaims,
+  setProductJourneySteps,
+  upsertProductEnvironment,
 } from "@v1/db/queries";
 // import { websocketManager } from "@v1/api/lib/websocket-manager";
 
@@ -234,6 +242,25 @@ export const commitToProduction = task({
         stack: error instanceof Error ? error.stack : undefined,
       });
 
+      // Clean up staging data even on failure to prevent orphaned records
+      try {
+        logger.info("Cleaning up staging data after failure", { jobId });
+        const deletedCount = await deleteStagingDataForJob(db, jobId);
+        logger.info("Staging data cleaned up after failure", {
+          jobId,
+          deletedCount,
+        });
+      } catch (cleanupError) {
+        logger.error("Failed to clean up staging data after commit failure", {
+          jobId,
+          cleanupError:
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : String(cleanupError),
+        });
+        // Continue to update job status even if cleanup fails
+      }
+
       // Update job status to FAILED
       await updateImportJobStatus(db, {
         jobId,
@@ -340,11 +367,14 @@ async function commitStagingRow(
             name: stagingProduct.name,
             description: stagingProduct.description || undefined,
             categoryId: stagingProduct.categoryId || undefined,
-            season: stagingProduct.season || undefined,
+            season: stagingProduct.season || undefined, // Legacy: kept for backward compatibility
+            seasonId: stagingProduct.seasonId || undefined,
             brandCertificationId:
               stagingProduct.brandCertificationId || undefined,
             showcaseBrandId: stagingProduct.showcaseBrandId || undefined,
             primaryImageUrl: stagingProduct.primaryImageUrl || undefined,
+            additionalImageUrls: stagingProduct.additionalImageUrls || undefined,
+            tags: stagingProduct.tags || undefined,
           },
         );
 
@@ -367,10 +397,13 @@ async function commitStagingRow(
             name: stagingProduct.name,
             description: stagingProduct.description,
             categoryId: stagingProduct.categoryId,
-            season: stagingProduct.season,
+            season: stagingProduct.season, // Legacy: kept for backward compatibility
+            seasonId: stagingProduct.seasonId,
             brandCertificationId: stagingProduct.brandCertificationId,
             showcaseBrandId: stagingProduct.showcaseBrandId,
             primaryImageUrl: stagingProduct.primaryImageUrl,
+            additionalImageUrls: stagingProduct.additionalImageUrls,
+            tags: stagingProduct.tags,
           },
         );
 
@@ -387,8 +420,10 @@ async function commitStagingRow(
           tx as unknown as Database,
           productId,
           {
-            upid: variant.upid,
-            sku: variant.sku || undefined,
+            sku: variant.sku || "",
+            ean: variant.ean || undefined,
+            upid: variant.upid || undefined,
+            status: variant.status || undefined,
             colorId: variant.colorId || undefined,
             sizeId: variant.sizeId || undefined,
             productImageUrl: variant.productImageUrl || undefined,
@@ -410,11 +445,13 @@ async function commitStagingRow(
           tx as unknown as Database,
           variant.existingVariantId,
           {
-            upid: variant.upid,
-            sku: variant.sku,
-            colorId: variant.colorId,
-            sizeId: variant.sizeId,
-            productImageUrl: variant.productImageUrl,
+            sku: variant.sku ?? undefined,
+            ean: variant.ean ?? undefined,
+            upid: variant.upid ?? undefined,
+            status: variant.status ?? undefined,
+            colorId: variant.colorId ?? undefined,
+            sizeId: variant.sizeId ?? undefined,
+            productImageUrl: variant.productImageUrl ?? undefined,
           },
         );
 
@@ -425,13 +462,68 @@ async function commitStagingRow(
         variantId = updatedVariant.id;
       }
 
-      // Step 3: Upsert related tables (materials, care codes, eco claims, etc.)
-      // TODO: These would need to be fetched from staging related tables
-      // For now, we skip them as they're not in the current staging schema
-      // In a full implementation, you would:
-      // 1. Fetch staging_product_materials for this stagingProductId
-      // 2. Call upsertProductMaterials with the data
-      // 3. Repeat for care codes, eco claims, journey steps, etc.
+      // Step 3: Upsert related tables (materials, eco claims, journey steps, environment)
+      // Fetch and insert materials
+      const stagingMaterials = await getStagingMaterialsForProduct(
+        tx as unknown as Database,
+        stagingProduct.stagingId,
+      );
+      if (stagingMaterials.length > 0) {
+        await upsertProductMaterials(
+          tx as unknown as Database,
+          productId,
+          stagingMaterials.map((m) => ({
+            brandMaterialId: m.brandMaterialId,
+            percentage: m.percentage || undefined,
+          })),
+        );
+      }
+
+      // Fetch and insert eco-claims
+      const stagingEcoClaims = await getStagingEcoClaimsForProduct(
+        tx as unknown as Database,
+        stagingProduct.stagingId,
+      );
+      if (stagingEcoClaims.length > 0) {
+        await setProductEcoClaims(
+          tx as unknown as Database,
+          productId,
+          stagingEcoClaims.map((e) => e.ecoClaimId),
+        );
+      }
+
+      // Fetch and insert journey steps
+      const stagingJourneySteps = await getStagingJourneyStepsForProduct(
+        tx as unknown as Database,
+        stagingProduct.stagingId,
+      );
+      if (stagingJourneySteps.length > 0) {
+        await setProductJourneySteps(
+          tx as unknown as Database,
+          productId,
+          stagingJourneySteps.map((s) => ({
+            sortIndex: s.sortIndex,
+            stepType: s.stepType,
+            facilityId: s.facilityId,
+          })),
+        );
+      }
+
+      // Fetch and insert environment data
+      const stagingEnvironment = await getStagingEnvironmentForProduct(
+        tx as unknown as Database,
+        stagingProduct.stagingId,
+      );
+      if (stagingEnvironment) {
+        await upsertProductEnvironment(
+          tx as unknown as Database,
+          productId,
+          {
+            carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
+            waterLiters: stagingEnvironment.waterLiters || undefined,
+          },
+        );
+      }
 
       // Step 4: Mark import_row as APPLIED
       await batchUpdateImportRowStatus(tx as unknown as Database, [

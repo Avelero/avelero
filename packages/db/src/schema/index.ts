@@ -12,6 +12,7 @@ export * from "./brands/brand-colors";
 export * from "./brands/brand-eco-claims";
 export * from "./brands/brand-facilities";
 export * from "./brands/brand-materials";
+export * from "./brands/brand-seasons";
 export * from "./brands/brand-services";
 export * from "./brands/brand-sizes";
 export * from "./brands/care-codes";

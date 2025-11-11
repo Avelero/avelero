@@ -308,7 +308,7 @@ export async function createImportRows(
         error: row.error,
         status: row.status,
         createdAt: row.createdAt,
-      }))
+      })),
     );
   }
 
@@ -397,8 +397,8 @@ export async function batchUpdateImportRowStatus(
             normalized: update.normalized,
             error: update.error,
           })
-          .where(eq(importRows.id, update.id))
-      )
+          .where(eq(importRows.id, update.id)),
+      ),
     );
 
     totalUpdated += chunk.length;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   flexRender,
@@ -138,12 +138,15 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
   const [page, setPage] = React.useState(0);
   const pageSize = 100; // As per requirements: 100 rows per page
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
   // Fetch staging preview data
   const {
     data: response,
     isLoading,
     error,
+    isError,
+    failureReason,
   } = useQuery(
     trpc.bulk.staging.preview.queryOptions({
       jobId,
@@ -151,6 +154,73 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
       offset: page * pageSize,
     }),
   );
+
+  /**
+   * Prefetch adjacent pages for smooth pagination
+   */
+  React.useEffect(() => {
+    if (!response?.totalValid) return;
+
+    const totalPages = Math.ceil(response.totalValid / pageSize);
+
+    // Prefetch next page
+    if (page < totalPages - 1) {
+      void queryClient.prefetchQuery(
+        trpc.bulk.staging.preview.queryOptions({
+          jobId,
+          limit: pageSize,
+          offset: (page + 1) * pageSize,
+        }),
+      );
+    }
+
+    // Prefetch previous page
+    if (page > 0) {
+      void queryClient.prefetchQuery(
+        trpc.bulk.staging.preview.queryOptions({
+          jobId,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+        }),
+      );
+    }
+  }, [page, response?.totalValid, jobId, pageSize, queryClient, trpc]);
+
+  // Debug logging for preview loading
+  React.useEffect(() => {
+    console.log("[StagingPreview] Query state:", {
+      jobId,
+      page,
+      offset: page * pageSize,
+      limit: pageSize,
+      isLoading,
+      isError,
+      hasError: !!error,
+      errorMessage: error?.message,
+      errorData: error,
+      failureReason,
+      hasData: !!response,
+      dataRowCount: response?.stagingData?.length,
+      totalValid: response?.totalValid,
+    });
+
+    if (isError && error) {
+      console.error("[StagingPreview] Query error details:", {
+        error,
+        message: error.message,
+        data: error.data,
+      });
+    }
+  }, [
+    jobId,
+    page,
+    pageSize,
+    isLoading,
+    isError,
+    error,
+    response,
+    failureReason,
+  ]);
 
   const data = React.useMemo<StagingDataRow[]>(
     () =>
@@ -162,8 +232,6 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
   );
 
   const totalValid = response?.totalValid ?? 0;
-  const willCreate = response?.willCreate ?? 0;
-  const willUpdate = response?.willUpdate ?? 0;
 
   const table = useReactTable({
     data,
@@ -189,17 +257,25 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
   // Error state
   if (error) {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
-        <div className="rounded-md bg-destructive/20 p-2">
-          <Icons.AlertCircle className="h-5 w-5 text-destructive" />
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+          <div className="rounded-md bg-destructive/20 p-2">
+            <Icons.AlertCircle className="h-5 w-5 text-destructive" />
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-medium text-destructive">
+              Failed to load preview
+            </div>
+            <div className="text-xs text-destructive/80 mt-1">
+              {error.message || "Unknown error occurred"}
+            </div>
+          </div>
         </div>
-        <div>
-          <div className="text-sm font-medium text-destructive">
-            Failed to load preview
-          </div>
-          <div className="text-xs text-secondary">
-            Please try again or contact support
-          </div>
+        <div className="text-xs text-secondary bg-accent/50 p-3 rounded-lg font-mono">
+          <div className="font-semibold mb-1">Debug Info:</div>
+          <div>Job ID: {jobId}</div>
+          <div>Page: {page}</div>
+          <div>Offset: {page * pageSize}</div>
         </div>
       </div>
     );
@@ -231,39 +307,6 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
 
   return (
     <div className="space-y-4">
-      {/* Summary stats */}
-      <div className="flex items-center gap-4 rounded-lg border border-border bg-background p-4">
-        <div className="flex items-center gap-2">
-          <div className="rounded-md bg-green-100 p-2">
-            <Icons.Plus className="h-4 w-4 text-green-700" />
-          </div>
-          <div>
-            <div className="text-sm font-medium">{willCreate} to create</div>
-            <div className="text-xs text-secondary">New products</div>
-          </div>
-        </div>
-        <div className="h-8 w-px bg-border" />
-        <div className="flex items-center gap-2">
-          <div className="rounded-md bg-blue-100 p-2">
-            <Icons.RefreshCw className="h-4 w-4 text-blue-700" />
-          </div>
-          <div>
-            <div className="text-sm font-medium">{willUpdate} to update</div>
-            <div className="text-xs text-secondary">Existing products</div>
-          </div>
-        </div>
-        <div className="h-8 w-px bg-border" />
-        <div className="flex items-center gap-2">
-          <div className="rounded-md bg-accent p-2">
-            <Icons.CheckCircle2 className="h-4 w-4 text-brand" />
-          </div>
-          <div>
-            <div className="text-sm font-medium">{totalValid} total</div>
-            <div className="text-xs text-secondary">Valid products</div>
-          </div>
-        </div>
-      </div>
-
       {/* Table */}
       <div className="relative w-full overflow-hidden rounded-lg border border-border bg-background">
         <div className="overflow-x-auto">

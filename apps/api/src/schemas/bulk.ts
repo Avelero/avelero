@@ -205,6 +205,7 @@ export const getUnmappedValuesSchema = z.object({
  */
 const defineColorDataSchema = z.object({
   name: z.string().min(1).max(100),
+  hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be valid hex color").optional(),
 });
 
 const defineSizeDataSchema = z.object({
@@ -215,12 +216,17 @@ const defineSizeDataSchema = z.object({
 
 const defineMaterialDataSchema = z.object({
   name: z.string().min(1).max(100),
-  certificationId: uuidSchema.optional(),
-  recyclable: z.boolean().optional(),
   countryOfOrigin: z
     .string()
     .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
     .optional(),
+  recyclable: z.boolean().optional(),
+  certificationId: uuidSchema.optional(),
+  // Inline certification details (when creating material with certification)
+  certificationTitle: z.string().max(200).optional(),
+  certificationCode: z.string().optional(),
+  certificationNumber: z.string().optional(),
+  certificationExpiryDate: z.string().datetime().optional(),
 });
 
 const defineEcoClaimDataSchema = z.object({
@@ -269,6 +275,40 @@ const defineCertificationDataSchema = z.object({
   notes: z.string().optional(),
 });
 
+const defineSeasonDataSchema = z.object({
+  name: z.string().min(1).max(100),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+  isOngoing: z.boolean().optional(),
+});
+
+const defineCategoryDataSchema = z.object({
+  // Categories are read-only hardcoded, no creation schema needed
+  // This exists for type completeness
+  id: uuidSchema,
+});
+
+const defineTagDataSchema = z.object({
+  name: z.string().min(1).max(100),
+  hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be valid hex color").optional(),
+});
+
+const defineOperatorDataSchema = z.object({
+  name: z.string().min(1).max(200),
+  legalName: z.string().max(200).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  addressLine1: z.string().optional(),
+  addressLine2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zip: z.string().optional(),
+  countryCode: z
+    .string()
+    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
+    .optional(),
+});
+
 /**
  * Entity type enum for value definition
  */
@@ -278,8 +318,12 @@ export const entityTypeSchema = z.enum([
   "SIZE",
   "ECO_CLAIM",
   "FACILITY",
+  "OPERATOR",
   "SHOWCASE_BRAND",
   "CERTIFICATION",
+  "SEASON",
+  "CATEGORY",
+  "TAG",
 ]);
 
 /**
@@ -299,8 +343,12 @@ export const defineValueSchema = z.object({
     defineMaterialDataSchema,
     defineEcoClaimDataSchema,
     defineFacilityDataSchema,
+    defineOperatorDataSchema,
     defineShowcaseBrandDataSchema,
     defineCertificationDataSchema,
+    defineSeasonDataSchema,
+    defineCategoryDataSchema,
+    defineTagDataSchema,
   ]),
 });
 
@@ -324,12 +372,30 @@ export const batchDefineValuesSchema = z.object({
           defineMaterialDataSchema,
           defineEcoClaimDataSchema,
           defineFacilityDataSchema,
+          defineOperatorDataSchema,
           defineShowcaseBrandDataSchema,
           defineCertificationDataSchema,
+          defineSeasonDataSchema,
+          defineCategoryDataSchema,
+          defineTagDataSchema,
         ]),
       }),
     )
     .min(1),
+});
+
+/**
+ * Schema for mapping CSV value to existing entity
+ *
+ * Used in bulk.values.mapToExisting mutation to map unmapped CSV values
+ * to existing catalog entities instead of creating new ones.
+ */
+export const mapToExistingEntitySchema = z.object({
+  jobId: uuidSchema,
+  entityType: entityTypeSchema,
+  rawValue: z.string().min(1),
+  sourceColumn: z.string().min(1),
+  entityId: uuidSchema,
 });
 
 /**

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import {
   stagingProducts,
@@ -28,8 +28,11 @@ export interface InsertStagingProductParams {
   description?: string | null;
   showcaseBrandId?: string | null;
   primaryImageUrl?: string | null;
+  additionalImageUrls?: string | null;
   categoryId?: string | null;
-  season?: string | null;
+  season?: string | null; // Legacy: will be deprecated after migration
+  seasonId?: string | null; // FK to brand_seasons.id
+  tags?: string | null;
   brandCertificationId?: string | null;
 }
 
@@ -47,8 +50,10 @@ export interface InsertStagingVariantParams {
   colorId?: string | null;
   sizeId?: string | null;
   sku?: string | null;
+  ean?: string | null;
   upid: string;
   productImageUrl?: string | null;
+  status?: string | null;
 }
 
 /**
@@ -135,8 +140,11 @@ export interface StagingProductPreview {
   description: string | null;
   showcaseBrandId: string | null;
   primaryImageUrl: string | null;
+  additionalImageUrls: string | null;
+  tags: string | null;
   categoryId: string | null;
-  season: string | null;
+  season: string | null; // Legacy: will be deprecated after migration
+  seasonId: string | null; // FK to brand_seasons.id
   brandCertificationId: string | null;
   createdAt: string;
   variant?: StagingVariantPreview | null;
@@ -157,7 +165,9 @@ export interface StagingVariantPreview {
   colorId: string | null;
   sizeId: string | null;
   sku: string | null;
+  ean: string | null;
   upid: string;
+  status: string | null;
   productImageUrl: string | null;
   createdAt: string;
 }
@@ -197,8 +207,11 @@ export async function insertStagingProduct(
       description: params.description ?? null,
       showcaseBrandId: params.showcaseBrandId ?? null,
       primaryImageUrl: params.primaryImageUrl ?? null,
+      additionalImageUrls: params.additionalImageUrls ?? null,
       categoryId: params.categoryId ?? null,
-      season: params.season ?? null,
+      season: params.season ?? null, // Legacy: kept for backward compatibility
+      seasonId: params.seasonId ?? null,
+      tags: params.tags ?? null,
       brandCertificationId: params.brandCertificationId ?? null,
     })
     .returning({ stagingId: stagingProducts.stagingId });
@@ -240,8 +253,11 @@ export async function batchInsertStagingProducts(
     description: p.description ?? null,
     showcaseBrandId: p.showcaseBrandId ?? null,
     primaryImageUrl: p.primaryImageUrl ?? null,
+    additionalImageUrls: p.additionalImageUrls ?? null,
     categoryId: p.categoryId ?? null,
-    season: p.season ?? null,
+    season: p.season ?? null, // Legacy: kept for backward compatibility
+    seasonId: p.seasonId ?? null,
+    tags: p.tags ?? null,
     brandCertificationId: p.brandCertificationId ?? null,
   }));
 
@@ -279,8 +295,10 @@ export async function insertStagingVariant(
       colorId: params.colorId ?? null,
       sizeId: params.sizeId ?? null,
       sku: params.sku ?? null,
+      ean: params.ean ?? null,
       upid: params.upid,
       productImageUrl: params.productImageUrl ?? null,
+      status: params.status ?? null,
     })
     .returning({ stagingId: stagingProductVariants.stagingId });
 
@@ -321,8 +339,10 @@ export async function batchInsertStagingVariants(
     colorId: v.colorId ?? null,
     sizeId: v.sizeId ?? null,
     sku: v.sku ?? null,
+    ean: v.ean ?? null,
     upid: v.upid,
     productImageUrl: v.productImageUrl ?? null,
+    status: v.status ?? null,
   }));
 
   const results = await db
@@ -594,7 +614,7 @@ export async function getStagingPreview(
           .where(
             and(
               eq(stagingProductVariants.jobId, jobId),
-              sql`${stagingProductVariants.stagingProductId} = ANY(${stagingIds})`,
+              inArray(stagingProductVariants.stagingProductId, stagingIds),
             ),
           )
       : [];
@@ -614,7 +634,9 @@ export async function getStagingPreview(
       colorId: v.colorId,
       sizeId: v.sizeId,
       sku: v.sku,
+      ean: v.ean,
       upid: v.upid,
+      status: v.status,
       productImageUrl: v.productImageUrl,
       createdAt: v.createdAt,
     });
@@ -632,9 +654,12 @@ export async function getStagingPreview(
       name: p.name,
       description: p.description,
       showcaseBrandId: p.showcaseBrandId,
+      additionalImageUrls: p.additionalImageUrls,
+      tags: p.tags,
       primaryImageUrl: p.primaryImageUrl,
       categoryId: p.categoryId,
-      season: p.season,
+      season: p.season, // Legacy: kept for backward compatibility
+      seasonId: p.seasonId,
       brandCertificationId: p.brandCertificationId,
       createdAt: p.createdAt,
       variant: variantMap.get(p.stagingId) ?? null,
@@ -742,7 +767,7 @@ export async function getStagingProductsForCommit(
           .where(
             and(
               eq(stagingProductVariants.jobId, jobId),
-              sql`${stagingProductVariants.stagingProductId} = ANY(${stagingIds})`,
+              inArray(stagingProductVariants.stagingProductId, stagingIds),
             ),
           )
       : [];
@@ -762,7 +787,9 @@ export async function getStagingProductsForCommit(
       colorId: v.colorId,
       sizeId: v.sizeId,
       sku: v.sku,
+      ean: v.ean,
       upid: v.upid,
+      status: v.status,
       productImageUrl: v.productImageUrl,
       createdAt: v.createdAt,
     });
@@ -780,10 +807,93 @@ export async function getStagingProductsForCommit(
     description: p.description,
     showcaseBrandId: p.showcaseBrandId,
     primaryImageUrl: p.primaryImageUrl,
+    additionalImageUrls: p.additionalImageUrls,
+    tags: p.tags,
     categoryId: p.categoryId,
-    season: p.season,
+    season: p.season, // Legacy: kept for backward compatibility
+    seasonId: p.seasonId,
     brandCertificationId: p.brandCertificationId,
     createdAt: p.createdAt,
     variant: variantMap.get(p.stagingId) ?? null,
   }));
+}
+
+/**
+ * Get staging materials for a specific staging product
+ *
+ * @param db - Database instance or transaction
+ * @param stagingProductId - Staging product ID
+ * @returns Array of staging materials
+ */
+export async function getStagingMaterialsForProduct(
+  db:
+    | Database
+    | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
+  stagingProductId: string,
+) {
+  return db
+    .select()
+    .from(stagingProductMaterials)
+    .where(eq(stagingProductMaterials.stagingProductId, stagingProductId));
+}
+
+/**
+ * Get staging eco-claims for a specific staging product
+ *
+ * @param db - Database instance or transaction
+ * @param stagingProductId - Staging product ID
+ * @returns Array of staging eco-claims
+ */
+export async function getStagingEcoClaimsForProduct(
+  db:
+    | Database
+    | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
+  stagingProductId: string,
+) {
+  return db
+    .select()
+    .from(stagingProductEcoClaims)
+    .where(eq(stagingProductEcoClaims.stagingProductId, stagingProductId));
+}
+
+/**
+ * Get staging journey steps for a specific staging product
+ *
+ * @param db - Database instance or transaction
+ * @param stagingProductId - Staging product ID
+ * @returns Array of staging journey steps ordered by sortIndex
+ */
+export async function getStagingJourneyStepsForProduct(
+  db:
+    | Database
+    | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
+  stagingProductId: string,
+) {
+  return db
+    .select()
+    .from(stagingProductJourneySteps)
+    .where(eq(stagingProductJourneySteps.stagingProductId, stagingProductId))
+    .orderBy(asc(stagingProductJourneySteps.sortIndex));
+}
+
+/**
+ * Get staging environment data for a specific staging product
+ *
+ * @param db - Database instance or transaction
+ * @param stagingProductId - Staging product ID
+ * @returns Staging environment data or null
+ */
+export async function getStagingEnvironmentForProduct(
+  db:
+    | Database
+    | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
+  stagingProductId: string,
+) {
+  const results = await db
+    .select()
+    .from(stagingProductEnvironment)
+    .where(eq(stagingProductEnvironment.stagingProductId, stagingProductId))
+    .limit(1);
+
+  return results[0] || null;
 }

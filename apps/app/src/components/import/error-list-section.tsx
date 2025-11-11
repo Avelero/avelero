@@ -1,7 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   flexRender,
@@ -147,6 +147,7 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
   const [page, setPage] = React.useState(0);
   const pageSize = 50; // Display 50 errors per page
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
   // Fetch import errors
   const {
@@ -160,6 +161,37 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
       offset: page * pageSize,
     }),
   );
+
+  /**
+   * Prefetch adjacent pages for smooth pagination
+   */
+  React.useEffect(() => {
+    if (!response?.totalErrors) return;
+
+    const totalPages = Math.ceil(response.totalErrors / pageSize);
+
+    // Prefetch next page
+    if (page < totalPages - 1) {
+      void queryClient.prefetchQuery(
+        trpc.bulk.staging.errors.queryOptions({
+          jobId,
+          limit: pageSize,
+          offset: (page + 1) * pageSize,
+        }),
+      );
+    }
+
+    // Prefetch previous page
+    if (page > 0) {
+      void queryClient.prefetchQuery(
+        trpc.bulk.staging.errors.queryOptions({
+          jobId,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+        }),
+      );
+    }
+  }, [page, response?.totalErrors, jobId, pageSize, queryClient, trpc]);
 
   const data = React.useMemo<ImportError[]>(
     () => response?.errors ?? [],

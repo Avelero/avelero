@@ -17,7 +17,8 @@ function sanitizeRedirectPath(path: string | undefined): string {
   if (!path) return "/";
   try {
     // Reject protocol-relative URLs (//evil.com) and absolute URLs
-    if (path.startsWith("//") || path.includes("://")) {
+    // Only check at the start to allow absolute URLs in query parameters
+    if (path.startsWith("//") || /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(path)) {
       return "/";
     }
     // Normalize path: collapse any leading slashes to a single "/"

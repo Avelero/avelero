@@ -1,5 +1,4 @@
-import { HydrateClient, trpc } from "@/trpc/server";
-import { getQueryClient } from "@/trpc/server";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

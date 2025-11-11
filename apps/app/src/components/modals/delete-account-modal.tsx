@@ -44,13 +44,10 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
       // Step 1: Delete account via API
       await deleteMutation.mutateAsync();
 
-      // Step 2: Clear all cached queries to ensure fresh slate
-      queryClient.clear();
-
-      // Step 3: Sign out locally
+      // Step 2: Sign out locally (this will clear session)
       await supabase.auth.signOut({ scope: "local" });
 
-      // Step 4: Redirect to login
+      // Step 3: Redirect to login (query cache will be invalidated on navigation)
       router.push("/login");
     } catch (e: unknown) {
       const error =

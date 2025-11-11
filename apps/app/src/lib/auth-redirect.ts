@@ -93,7 +93,8 @@ export async function resolveAuthRedirectPath({
   }
 
   // Validate redirect target: reject protocol-relative URLs and absolute URLs
-  if (target.startsWith("//") || target.includes("://")) {
+  // Only check at the start to allow absolute URLs in query parameters
+  if (target.startsWith("//") || /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(target)) {
     return "/";
   }
   

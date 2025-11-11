@@ -96,7 +96,7 @@ function getEntityIcon(entityType: EntityType) {
     COLOR: <Icons.Palette className="h-4 w-4" />,
     SIZE: <Icons.Ruler className="h-4 w-4" />,
     SEASON: <Icons.Calendar className="h-4 w-4" />,
-    TAG: <Icons.Tag className="h-4 w-4" />,
+    TAG: <Icons.Plus className="h-4 w-4" />,
     ECO_CLAIM: <Icons.Leaf className="h-4 w-4" />,
     FACILITY: <Icons.Building className="h-4 w-4" />,
     SHOWCASE_BRAND: <Icons.Store className="h-4 w-4" />,
@@ -136,6 +136,17 @@ export function UnmappedValuesSection({
   const [selectedValues, setSelectedValues] = React.useState<
     Map<EntityType, Set<string>>
   >(new Map());
+
+  // Mutations for batch create
+  const createColorMutation = useMutation(
+    trpc.brand.colors.create.mutationOptions(),
+  );
+  const createMaterialMutation = useMutation(
+    trpc.brand.materials.create.mutationOptions(),
+  );
+  const defineValueMutation = useMutation(
+    trpc.bulk.values.define.mutationOptions(),
+  );
 
   // Batch progress state
   const [batchProcessing, setBatchProcessing] = React.useState(false);
@@ -333,21 +344,21 @@ export function UnmappedValuesSection({
         switch (group.entityType) {
           case "COLOR": {
             // Create color with a default gray hex (#808080)
-            const colorResult = await trpc.brand.colors.create.mutate({
+            const colorResult = await createColorMutation.mutateAsync({
               name: value.rawValue,
               hex: "808080", // Default gray
             });
-            entityId = colorResult.id;
+            entityId = colorResult?.data?.id;
             break;
           }
           case "MATERIAL": {
             // Create material with basic data
-            const materialResult = await trpc.brand.materials.create.mutate({
+            const materialResult = await createMaterialMutation.mutateAsync({
               name: value.rawValue,
               countryOfOrigin: null,
               recyclability: false,
             });
-            entityId = materialResult.id;
+            entityId = materialResult?.data?.id;
             break;
           }
           default:
@@ -358,7 +369,7 @@ export function UnmappedValuesSection({
 
         // Map the created entity to the CSV value
         if (entityId) {
-          await trpc.bulk.values.define.mutate({
+          await defineValueMutation.mutateAsync({
             jobId,
             entityType: group.entityType,
             rawValue: value.rawValue,

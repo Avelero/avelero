@@ -27,6 +27,92 @@ type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
 export const stagingRouter = createTRPCRouter({
   /**
+   * Get comprehensive review data in a single request
+   * 
+   * Optimized endpoint that fetches all necessary data for the review dialog:
+   * - Job status and summary
+   * - First page of staging preview
+   * - First page of errors
+   * - Summary statistics
+   * 
+   * This reduces multiple round-trips to a single efficient query.
+   */
+  reviewSummary: brandRequiredProcedure
+    .input(exportFailedRowsSchema) // Reuse schema (just needs jobId)
+    .query(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = brandCtx.brandId;
+
+      try {
+        // Verify job ownership
+        const job = await getImportJobStatus(brandCtx.db, input.jobId);
+
+        if (!job) {
+          throw badRequest("Import job not found");
+        }
+
+        if (job.brandId !== brandId) {
+          throw badRequest("Access denied: job belongs to different brand");
+        }
+
+        // Fetch all data in parallel for maximum efficiency
+        const [preview, errors, counts] = await Promise.all([
+          getStagingPreview(brandCtx.db, input.jobId, 100, 0),
+          getImportErrors(brandCtx.db, input.jobId, 50, 0),
+          countStagingProductsByAction(brandCtx.db, input.jobId),
+        ]);
+
+        return {
+          jobId: input.jobId,
+          status: job.status,
+          summary: {
+            total: (job.summary as any)?.total ?? 0,
+            valid: counts.create + counts.update,
+            invalid: errors.total,
+            will_create: counts.create,
+            will_update: counts.update,
+            pending_approval: (job.summary as any)?.pending_approval ?? [],
+          },
+          previewData: {
+            rows: preview.products.map((p) => ({
+              rowNumber: p.rowNumber,
+              action: p.action,
+              existingProductId: p.existingProductId,
+              product: {
+                name: p.name,
+                description: p.description,
+                categoryId: p.categoryId,
+                season: p.season,
+                primaryImageUrl: p.primaryImageUrl,
+              },
+              variant: p.variant
+                ? {
+                    upid: p.variant.upid,
+                    sku: p.variant.sku,
+                    colorId: p.variant.colorId,
+                    sizeId: p.variant.sizeId,
+                    productImageUrl: p.variant.productImageUrl,
+                  }
+                : null,
+            })),
+            total: preview.total,
+          },
+          errorsData: {
+            errors: errors.errors.map((err) => ({
+              rowNumber: err.rowNumber,
+              rawData: err.raw,
+              error: err.error ?? "Unknown error",
+              field: null,
+            })),
+            total: errors.total,
+          },
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to get review summary");
+      }
+    }),
+
+  /**
    * Get staging preview with pagination
    *
    * Retrieves validated staging data for user review before approval.

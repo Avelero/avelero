@@ -68,13 +68,25 @@ export function ImportReviewDialog() {
   });
 
   /**
-   * Prefetch all tab data when dialog opens
-   * This ensures smooth transitions between tabs without loading delays
+   * Optimized prefetching: Fetch only what's needed for initial display
+   * catalogData already contains all entity lists, so we don't need individual queries
    */
   React.useEffect(() => {
     if (!jobId || !reviewDialogOpen) return;
 
-    // Prefetch preview data (first page)
+    // Single comprehensive prefetch for catalog data
+    // This populates the cache for all entity lists at once
+    void queryClient.prefetchQuery(
+      trpc.bulk.values.catalogData.queryOptions({ jobId }),
+    );
+
+    // Prefetch unmapped values (lightweight query)
+    void queryClient.prefetchQuery(
+      trpc.bulk.values.unmapped.queryOptions({ jobId }),
+    );
+
+    // Prefetch first pages of preview and errors
+    // Only the active tab data - other tabs load on demand
     void queryClient.prefetchQuery(
       trpc.bulk.staging.preview.queryOptions({
         jobId,
@@ -83,18 +95,12 @@ export function ImportReviewDialog() {
       }),
     );
 
-    // Prefetch errors (first page)
     void queryClient.prefetchQuery(
       trpc.bulk.staging.errors.queryOptions({
         jobId,
         limit: 50,
         offset: 0,
       }),
-    );
-
-    // Prefetch catalog data for unmapped section
-    void queryClient.prefetchQuery(
-      trpc.bulk.values.catalogData.queryOptions({ jobId }),
     );
   }, [jobId, reviewDialogOpen, queryClient, trpc]);
 

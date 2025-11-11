@@ -7,19 +7,14 @@ import {
   inArray,
   sql,
   type BrandMembershipListItem,
-  type ModuleIncompleteCount,
   type UserInviteSummaryRow,
-  countPassportsByStatus,
   getBrandsByUserId,
-  getIncompleteCountsByModuleForBrand,
   getUserById,
   listCategories,
   listCertifications,
   listColors,
-  listEcoClaims,
   listFacilities,
   listMaterials,
-  listPassportsForBrand,
   listPendingInvitesForEmail,
   listShowcaseBrands,
   listSizes,
@@ -31,7 +26,6 @@ import { getAppUrl } from "@v1/utils/envs";
  *
  * Targets:
  * - composite.workflowInit
- * - composite.dashboard
  * - composite.membersWithInvites
  * - composite.passportFormReferences
  */
@@ -56,28 +50,6 @@ interface MinimalUserRecord {
   fullName: string | null;
   avatarPath: string | null;
   brandId: string | null;
-}
-
-/**
- * Recent passport activity item for dashboard display.
- */
-interface DashboardRecentActivity {
-  passport_id: string;
-  upid: string;
-  title: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * Module completion metrics for dashboard analytics.
- */
-interface ModuleCompletionMetric {
-  module_key: string;
-  completed: number;
-  incomplete: number;
-  total: number;
 }
 
 /**
@@ -248,56 +220,6 @@ async function mapWorkflowBrands(
 }
 
 /**
- * Maps module completion data from database to API format.
- *
- * @param metric - Module completion counts from database
- * @returns Formatted module completion metric
- */
-function mapModuleCompletionMetric(
-  metric: ModuleIncompleteCount,
-): ModuleCompletionMetric {
-  return {
-    module_key: metric.moduleKey,
-    completed: metric.completed,
-    incomplete: metric.incomplete,
-    total: metric.total,
-  };
-}
-
-/**
- * Maps and sorts passport summaries for recent activity display.
- *
- * Transforms passport records into dashboard activity format and sorts
- * by most recently updated first.
- *
- * @param summaries - Passport summary records
- * @returns Sorted recent activity items (most recent first)
- */
-function mapRecentActivity(
-  summaries: readonly {
-    id: string;
-    upid: string;
-    title: string;
-    status: string;
-    createdAt: string;
-    updatedAt: string;
-  }[],
-): DashboardRecentActivity[] {
-  return summaries
-    .map((passport) => ({
-      passport_id: passport.id,
-      upid: passport.upid,
-      title: passport.title,
-      status: passport.status,
-      created_at: passport.createdAt,
-      updated_at: passport.updatedAt,
-    }))
-    .sort((a, b) =>
-      a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
-    );
-}
-
-/**
  * Fetches all members for a brand with canLeave permissions.
  *
  * Queries brand members with user details and calculates whether each
@@ -424,47 +346,6 @@ export const compositeRouter = createTRPCRouter({
   }),
 
   /**
-   * Aggregates dashboard data (status counts, recent passport activity, and module metrics).
-   */
-  dashboard: brandRequiredProcedure.query(async ({ ctx }) => {
-    const { db, brandId } = ctx;
-
-    try {
-      const [statusCounts, passportListing, moduleMetrics] = await Promise.all([
-        countPassportsByStatus(db, brandId),
-        listPassportsForBrand(db, brandId, { page: 0 }),
-        getIncompleteCountsByModuleForBrand(db, brandId),
-      ]);
-
-      const recentActivity = mapRecentActivity(
-        passportListing.data.slice(0, 10).map((passport) => ({
-          id: passport.id,
-          upid: passport.upid,
-          title: passport.title,
-          status: passport.status,
-          createdAt: passport.createdAt,
-          updatedAt: passport.updatedAt,
-        })),
-      );
-
-      const metrics = {
-        totals: {
-          passports: passportListing.meta.total,
-        },
-        module_completion: moduleMetrics.map(mapModuleCompletionMetric),
-      };
-
-      return {
-        statusCounts,
-        recentActivity,
-        metrics,
-      };
-    } catch (error) {
-      throw wrapError(error, "Failed to load dashboard composite data");
-    }
-  }),
-
-  /**
    * Combines workflow members and pending invites for the selected brand.
    */
   membersWithInvites: brandRequiredProcedure
@@ -502,7 +383,6 @@ export const compositeRouter = createTRPCRouter({
         colors,
         sizes,
         certifications,
-        ecoClaims,
         operators,
       ] = await Promise.all([
         listCategories(db),
@@ -511,7 +391,6 @@ export const compositeRouter = createTRPCRouter({
         listColors(db, brandId),
         listSizes(db, brandId),
         listCertifications(db, brandId),
-        listEcoClaims(db, brandId),
         listShowcaseBrands(db, brandId),
       ]);
 
@@ -523,7 +402,6 @@ export const compositeRouter = createTRPCRouter({
           colors,
           sizes,
           certifications,
-          ecoClaims,
           operators,
         },
       };

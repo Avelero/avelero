@@ -2,12 +2,14 @@
 
 import { createClient } from "@v1/supabase/client";
 import { DropdownMenuItem } from "@v1/ui/dropdown-menu";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export function SignOut() {
   const [isLoading, setLoading] = useState(false);
   const supabase = createClient();
+  const queryClient = useQueryClient();
   const router = useRouter();
 
   // Prefetch login route for post-signout navigation
@@ -17,6 +19,9 @@ export function SignOut() {
 
   const handleSignOut = async () => {
     setLoading(true);
+
+    // Clear all cached queries to ensure fresh slate
+    queryClient.clear();
 
     await supabase.auth.signOut({
       scope: "local",

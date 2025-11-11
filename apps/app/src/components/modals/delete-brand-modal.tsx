@@ -42,30 +42,8 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
       // Delete brand via API
       const result = await deleteMutation.mutateAsync({ brand_id: brandId });
 
-      // Invalidate specific brand-related queries to ensure UI updates
-      await queryClient.invalidateQueries({
-        queryKey: trpc.workflow.list.queryKey(),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: trpc.user.get.queryKey(),
-      });
-      // Invalidate members list and invites for safety
-      await queryClient.invalidateQueries({
-        queryKey: trpc.workflow.members.list.queryKey({
-          brand_id: brandId,
-        }),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: trpc.workflow.invites.list.queryKey({ brand_id: brandId }),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: trpc.composite.workflowInit.queryKey(),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: trpc.composite.membersWithInvites.queryKey({
-          brand_id: brandId,
-        }),
-      });
+      // Clear all cached queries to ensure fresh slate
+      queryClient.clear();
 
       // Close modal before redirect
       onOpenChange(false);

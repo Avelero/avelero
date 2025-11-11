@@ -1,7 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import {
@@ -26,6 +26,7 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const trpc = useTRPC();
   const supabase = createClient();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const deleteMutation = useMutation(trpc.user.delete.mutationOptions());
 
@@ -43,10 +44,13 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
       // Step 1: Delete account via API
       await deleteMutation.mutateAsync();
 
-      // Step 2: Sign out locally
+      // Step 2: Clear all cached queries to ensure fresh slate
+      queryClient.clear();
+
+      // Step 3: Sign out locally
       await supabase.auth.signOut({ scope: "local" });
 
-      // Step 3: Redirect to login
+      // Step 4: Redirect to login
       router.push("/login");
     } catch (e: unknown) {
       const error =

@@ -62,29 +62,6 @@ export function QuickFiltersPopover({
   const [quickFilters, setQuickFilters] = React.useState<
     Record<string, string[]>
   >({});
-  const queryClient = useQueryClient();
-  const trpc = useTRPC();
-
-  // Prefetch dynamic quick-filter options on mount
-  React.useEffect(() => {
-    const prefetchEndpoints = [
-      trpc.composite.passportFormReferences.queryOptions(),
-      trpc.brand.colors.list.queryOptions(undefined),
-      trpc.brand.sizes.list.queryOptions({}),
-    ];
-
-    for (const queryOptions of prefetchEndpoints) {
-      queryClient
-        .prefetchQuery(
-          queryOptions as Parameters<typeof queryClient.prefetchQuery>[0],
-        )
-        .catch((error) => {
-          if (process.env.NODE_ENV === "development") {
-            console.warn("Failed to prefetch filter options:", error);
-          }
-        });
-    }
-  }, [queryClient, trpc]);
 
   const activeFilters = React.useMemo(() => {
     const filters: Array<{

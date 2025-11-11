@@ -45,21 +45,26 @@ export function PassportDataTable({
   const [page, setPage] = React.useState(0);
   const pageSize = 50;
   const trpc = useTRPC();
-  const { data: listRes, isLoading } = useQuery(
-    React.useMemo(
-      () => trpc.passports.list.queryOptions({ page }),
-      [trpc, page],
-    ),
+  const isPageZero = page === 0;
+  const listQueryOptions = React.useMemo(
+    () =>
+      trpc.passports.list.queryOptions({
+        page,
+        includeStatusCounts: isPageZero ? true : undefined,
+      }),
+    [trpc, page, isPageZero],
   );
+
+  const { data: listResponse, isLoading } = useQuery(listQueryOptions);
   const data = React.useMemo<Passport[]>(() => {
-    const d = (listRes as { data?: unknown } | undefined)?.data;
+    const d = (listResponse as { data?: unknown } | undefined)?.data;
     return Array.isArray(d) ? (d as Passport[]) : [];
-  }, [listRes]);
+  }, [listResponse]);
   const total = React.useMemo<number>(() => {
-    const m = (listRes as { meta?: { total?: unknown } } | undefined)?.meta;
+    const m = (listResponse as { meta?: { total?: unknown } } | undefined)?.meta;
     const t = (m?.total as number | undefined) ?? 0;
     return typeof t === "number" ? t : 0;
-  }, [listRes]);
+  }, [listResponse]);
 
   React.useEffect(() => {
     onTotalCountChangeAction?.(total > 0);

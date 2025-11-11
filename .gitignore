@@ -121,3 +121,8 @@ GEMINI.md
 # Task files
 # tasks.json
 # tasks/ 
+
+# Migration scripts (environment-specific, not for version control)
+scripts/migrate-seasons-data.ts
+scripts/apply-seasons-migration.ts
+scripts/README-SEASONS-MIGRATION.md

@@ -1,4 +1,5 @@
 import { EditPassportForm } from "@/components/forms/create-passport-form";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -11,5 +12,16 @@ export default async function EditPassportPage({
   params: Promise<{ upid: string }>;
 }) {
   const { upid } = await params;
-  return <EditPassportForm upid={upid} />;
+  const queryClient = getQueryClient();
+
+  // Prefetch form reference data (categories, materials, facilities, colors, sizes, certifications, operators)
+  await queryClient.prefetchQuery(
+    trpc.composite.passportFormReferences.queryOptions()
+  );
+
+  return (
+    <HydrateClient>
+      <EditPassportForm upid={upid} />
+    </HydrateClient>
+  );
 }

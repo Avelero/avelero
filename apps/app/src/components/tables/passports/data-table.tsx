@@ -266,7 +266,7 @@ export function PassportDataTable({
   if (isLoading) return <PassportTableSkeleton />;
   if (!data.length)
     return total === 0 ? (
-      <EmptyState.NoPassports onCreateAction={() => {}} />
+      <EmptyState.NoPassports />
     ) : (
       <EmptyState.NoResults />
     );

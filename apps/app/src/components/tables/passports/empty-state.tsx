@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@v1/ui/button";
 
 interface BaseProps {
   title: string;
   description?: string;
-  action?: { label: string; onClick: () => void };
+  action?:
+    | { label: string; onClick: () => void }
+    | { label: string; href: string };
 }
 
 function EmptyPanel({ title, description, action }: BaseProps) {
@@ -18,9 +21,15 @@ function EmptyPanel({ title, description, action }: BaseProps) {
         ) : null}
         {action ? (
           <div className="pt-2">
-            <Button onClick={action.onClick} variant="default" size="default">
-              {action.label}
-            </Button>
+            {"href" in action ? (
+              <Button asChild variant="default" size="default">
+                <Link href={action.href}>{action.label}</Link>
+              </Button>
+            ) : (
+              <Button onClick={action.onClick} variant="default" size="default">
+                {action.label}
+              </Button>
+            )}
           </div>
         ) : null}
       </div>
@@ -28,18 +37,12 @@ function EmptyPanel({ title, description, action }: BaseProps) {
   );
 }
 
-export function NoPassports({
-  onCreateAction,
-}: { onCreateAction?: () => void }) {
+export function NoPassports() {
   return (
     <EmptyPanel
       title="No passports yet"
       description="Create your first Digital Product Passport to get started."
-      action={
-        onCreateAction
-          ? { label: "Create passport", onClick: onCreateAction }
-          : undefined
-      }
+      action={{ label: "Create passport", href: "/passports/create" }}
     />
   );
 }

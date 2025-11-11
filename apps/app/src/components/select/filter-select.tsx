@@ -1,7 +1,7 @@
 "use client";
 
 import { getQuickFilterFields } from "@/config/filters";
-import { useFieldOptions } from "@/hooks/use-field-options";
+import { useFieldOptions } from "@/hooks/use-filter-options";
 import { useTRPC } from "@/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -203,8 +203,7 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
   onToggleValue: (optionValue: string) => void;
 }) {
   const { options: dynamicOptions, isLoading } = useFieldOptions(
-    field.optionsSource?.endpoint,
-    field.optionsSource?.transform,
+    field.id
   );
 
   const options = React.useMemo(

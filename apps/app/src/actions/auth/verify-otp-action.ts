@@ -56,8 +56,7 @@ export const verifyOtpAction = actionClient
     }
 
     // Successful verification: redeem invite cookie if present, then compute final destination
-    const { data: userRes } = await supabase.auth.getUser();
-    const user = userRes?.user ?? null;
+    const user = data.user ?? data.session.user ?? null;
     const cookieStore = await cookies();
     const cookieHash =
       cookieStore.get("brand_invite_token_hash")?.value ?? null;
@@ -81,6 +80,8 @@ export const verifyOtpAction = actionClient
       ? "/"
       : await resolveAuthRedirectPath({
           next: sanitizeRedirectPath(redirectTo),
+          client: supabase,
+          user,
         });
 
     redirect(destination);

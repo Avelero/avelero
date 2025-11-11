@@ -2,17 +2,14 @@
 
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Props {
   activeTab: "brands" | "invites";
   onTabChange: (tab: "brands" | "invites") => void;
-  locale: string;
 }
 
-export function BrandsHeader({ activeTab, onTabChange, locale }: Props) {
-  const router = useRouter();
-
+export function BrandsHeader({ activeTab, onTabChange }: Props) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
@@ -40,8 +37,10 @@ export function BrandsHeader({ activeTab, onTabChange, locale }: Props) {
         </Button>
       </div>
 
-      <Button onClick={() => router.push(`/${locale}/create-brand`)}>
-        Create brand
+      <Button asChild>
+        <Link href="/create-brand">
+          Create brand
+        </Link>
       </Button>
     </div>
   );

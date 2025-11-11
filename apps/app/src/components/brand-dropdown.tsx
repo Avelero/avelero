@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Suspense } from "react";
 import { SignedAvatar } from "./signed-avatar";
 
@@ -66,9 +66,6 @@ export function BrandDropdown({
   isExpanded,
   onPopupChange,
 }: BrandDropdownProps) {
-  const router = useRouter();
-  const params = useParams<{ locale?: string }>();
-  const locale = params?.locale ?? "en";
   const { data: brandsData } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
   const setActiveBrandMutation = useSetActiveBrandMutation();
@@ -81,10 +78,6 @@ export function BrandDropdown({
     if (brandId !== currentUser?.brand_id) {
       setActiveBrandMutation.mutate({ brand_id: brandId });
     }
-  };
-
-  const handleCreateBrand = () => {
-    router.push(`/${locale}/create-brand`);
   };
 
   return (
@@ -172,14 +165,13 @@ export function BrandDropdown({
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onClick={handleCreateBrand}
-          >
-            <div className="flex items-center gap-2">
-              <span className="type-p">Create Brand</span>
-            </div>
-          </DropdownMenuItem>
+          <Link href="/create-brand">
+            <DropdownMenuItem className="cursor-pointer">
+              <div className="flex items-center gap-2">
+                <span className="type-p">Create Brand</span>
+              </div>
+            </DropdownMenuItem>
+          </Link>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -13,7 +13,7 @@ import {
 } from "@v1/ui/dialog";
 import { Input } from "@v1/ui/input";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Props {
   open: boolean;
@@ -28,6 +28,11 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
   const supabase = createClient();
   const router = useRouter();
   const deleteMutation = useMutation(trpc.user.delete.mutationOptions());
+
+  // Prefetch login route for post-deletion navigation
+  useEffect(() => {
+    router.prefetch("/login");
+  }, [router]);
 
   async function onConfirm() {
     if (confirmText !== "DELETE" || isSubmitting) return;

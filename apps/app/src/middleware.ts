@@ -1,38 +1,36 @@
 import { updateSession } from "@v1/supabase/middleware";
 import { createClient } from "@v1/supabase/server";
-import { createI18nMiddleware } from "next-international/middleware";
 import { type NextRequest, NextResponse } from "next/server";
 
-const LOCALES = ["en", "fr"]; // used to validate the first path segment
-
-const I18nMiddleware = createI18nMiddleware({
-  locales: LOCALES,
-  defaultLocale: "en",
-  urlMappingStrategy: "rewrite",
-});
+const DEFAULT_LOCALE = "en";
 
 export async function middleware(request: NextRequest) {
-  const i18nResponse = I18nMiddleware(request);
-  const response = await updateSession(request, i18nResponse);
-  const supabase = await createClient();
-  const url = new URL("/", request.url);
   const nextUrl = request.nextUrl;
-
+  const pathname = nextUrl.pathname;
+  
+  // If pathname doesn't start with a locale, rewrite it to include default locale
+  // This allows URLs like /settings to work with [locale] folder structure
+  const pathnameHasLocale = pathname.startsWith(`/${DEFAULT_LOCALE}/`);
+  
+  let response: NextResponse;
+  
+  if (!pathnameHasLocale && !pathname.includes("/api/")) {
+    // Rewrite to include default locale in the path
+    const url = new URL(`/${DEFAULT_LOCALE}${pathname}`, request.url);
+    url.search = nextUrl.search;
+    response = NextResponse.rewrite(url);
+  } else {
+    response = NextResponse.next();
+  }
+  
+  // Update Supabase session
+  response = await updateSession(request, response);
+  
   // Set pathname in headers for server components
-  response.headers.set("x-pathname", nextUrl.pathname);
+  response.headers.set("x-pathname", pathname);
 
-  const seg1 = nextUrl.pathname.split("/", 2)?.[1] ?? "";
-  const isLocale = LOCALES.includes(seg1);
-
-  // Remove the locale only if it is a real locale
-  const pathnameWithoutLocale = isLocale
-    ? nextUrl.pathname.slice(seg1.length + 1)
-    : nextUrl.pathname;
-
-  // Create a new URL without the locale in the pathname
-  const newUrl = new URL(pathnameWithoutLocale || "/", request.url);
-
-  const encodedSearchParams = `${newUrl.pathname.substring(1)}${newUrl.search}`;
+  const supabase = await createClient();
+  const encodedSearchParams = `${pathname.substring(1)}${nextUrl.search}`;
 
   const {
     data: { session },
@@ -41,8 +39,8 @@ export async function middleware(request: NextRequest) {
   // Not authenticated - redirect to login
   if (
     !session &&
-    newUrl.pathname !== "/login" &&
-    !newUrl.pathname.includes("/api/")
+    !pathname.includes("/login") &&
+    !pathname.includes("/api/")
   ) {
     const url = new URL("/login", request.url);
     if (encodedSearchParams) {
@@ -51,7 +49,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If all checks pass, return the original or updated response
+  // If all checks pass, return the response
   return response;
 }
 

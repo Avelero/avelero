@@ -15,8 +15,8 @@ import {
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface BrandWithRole {
   id: string;
@@ -47,9 +47,12 @@ export function BrandsRow(props: Props) {
 function MembershipRow({ membership }: { membership: BrandWithRole }) {
   const setActive = useSetActiveBrandMutation();
   const router = useRouter();
-  const params = useParams<{ locale?: string }>();
-  const locale = params?.locale ?? "en";
   const [leaveOpen, setLeaveOpen] = useState(false);
+
+  // Prefetch dashboard route for post-activation navigation
+  useEffect(() => {
+    router.prefetch("/");
+  }, [router]);
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -75,7 +78,7 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
               { brand_id: membership.id },
               {
                 onSuccess: () => {
-                  router.push(`/${locale}`);
+                  router.push("/");
                 },
               },
             )
@@ -117,8 +120,11 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
   const accept = useAcceptInviteMutation();
   const reject = useRejectInviteMutation();
   const router = useRouter();
-  const params = useParams<{ locale?: string }>();
-  const locale = params?.locale ?? "en";
+
+  // Prefetch dashboard route for post-acceptance navigation
+  useEffect(() => {
+    router.prefetch("/");
+  }, [router]);
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -154,7 +160,7 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
               { invite_id: invite.id, action: "accept" },
               {
                 onSuccess: () => {
-                  router.push(`/${locale}`);
+                  router.push("/");
                 },
               },
             )

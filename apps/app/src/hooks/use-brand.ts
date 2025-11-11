@@ -10,7 +10,7 @@ import {
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 /** tRPC router output types for type-safe hooks */
 type RouterOutputs = inferRouterOutputs<AppRouter>;
@@ -262,6 +262,11 @@ export function useLeaveBrandMutation() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
+
+  // Prefetch create-brand route for post-leave navigation
+  useEffect(() => {
+    router.prefetch("/create-brand");
+  }, [router]);
 
   return useMutation(
     trpc.workflow.members.update.mutationOptions({

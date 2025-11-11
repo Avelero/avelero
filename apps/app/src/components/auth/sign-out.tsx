@@ -3,12 +3,17 @@
 import { createClient } from "@v1/supabase/client";
 import { DropdownMenuItem } from "@v1/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function SignOut() {
   const [isLoading, setLoading] = useState(false);
   const supabase = createClient();
   const router = useRouter();
+
+  // Prefetch login route for post-signout navigation
+  useEffect(() => {
+    router.prefetch("/login");
+  }, [router]);
 
   const handleSignOut = async () => {
     setLoading(true);

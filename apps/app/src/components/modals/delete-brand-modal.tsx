@@ -12,7 +12,7 @@ import {
 } from "@v1/ui/dialog";
 import { Input } from "@v1/ui/input";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Props {
   open: boolean;
@@ -27,6 +27,12 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const deleteMutation = useMutation(trpc.workflow.delete.mutationOptions());
+
+  // Prefetch possible navigation routes for post-deletion
+  useEffect(() => {
+    router.prefetch("/");
+    router.prefetch("/create-brand");
+  }, [router]);
 
   async function onConfirm() {
     if (confirmText !== "DELETE" || deleteMutation.isPending) return;

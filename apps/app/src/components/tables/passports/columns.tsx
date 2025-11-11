@@ -21,7 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@v1/ui/tooltip";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Passport } from "./types";
 
 const MAX_COLUMN_WIDTH = 320;
@@ -54,7 +54,6 @@ export const columns: ColumnDef<Passport>[] = [
       ),
     },
     cell: ({ row, table }) => {
-      const router = useRouter();
       const product = row.original;
       const meta = table.options.meta as
         | {
@@ -107,16 +106,13 @@ export const columns: ColumnDef<Passport>[] = [
             )}
           </label>
           <div className="min-w-0 max-w-[680px] space-y-1">
-            <button
-              type="button"
+            <Link
+              href={`/passports/${product.id}`}
               className="block max-w-full truncate type-p text-primary hover:text-brand cursor-pointer"
-              onClick={(event) => {
-                event.stopPropagation();
-                router.push(`/passports/${product.id}`);
-              }}
+              onClick={(event) => event.stopPropagation()}
             >
               {product.title}
-            </button>
+            </Link>
             {product.sku ? (
               <span className="block max-w-full truncate type-small text-secondary">
                 {product.sku}

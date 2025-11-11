@@ -8,7 +8,7 @@ import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 
 const schema = z.object({
@@ -24,6 +24,11 @@ export function CreateBrandForm() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
+
+  // Prefetch home route for post-creation navigation
+  useEffect(() => {
+    router.prefetch("/");
+  }, [router]);
 
   const createBrandMutation = useMutation(
     trpc.workflow.create.mutationOptions({

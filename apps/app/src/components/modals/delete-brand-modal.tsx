@@ -42,9 +42,6 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
       // Delete brand via API
       const result = await deleteMutation.mutateAsync({ brand_id: brandId });
 
-      // Clear all cached queries to ensure fresh slate
-      queryClient.clear();
-
       // Close modal before redirect
       onOpenChange(false);
 
@@ -59,6 +56,9 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
         router.push("/create-brand");
         router.refresh();
       }
+
+      // Clear cache after navigation starts to avoid Suspense query refetch errors
+      setTimeout(() => queryClient.clear(), 0);
     } catch (e: unknown) {
       const error =
         e instanceof Error ? e : new Error("Failed to delete brand");

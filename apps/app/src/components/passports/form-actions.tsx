@@ -13,7 +13,7 @@ export function PassportFormActions() {
 
   return (
     <>
-      <Button variant="outline" onClick={handleCancel}>
+      <Button variant="outline" type="button" onClick={handleCancel}>
         Cancel
       </Button>
       <Button 

@@ -164,15 +164,19 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
   );
 
   /**
-   * Prefetch adjacent pages for smooth pagination
+   * Smart prefetching for smooth pagination
+   * - Always prefetch adjacent pages (prev/next)
+   * - Prefetch last page when user is near the beginning
+   * - Prefetch first page when user is near the end
    */
   React.useEffect(() => {
     if (!response?.totalErrors) return;
 
     const totalPages = Math.ceil(response.totalErrors / pageSize);
+    const lastPage = totalPages - 1;
 
     // Prefetch next page
-    if (page < totalPages - 1) {
+    if (page < lastPage) {
       void queryClient.prefetchQuery(
         trpc.bulk.staging.errors.queryOptions({
           jobId,
@@ -189,6 +193,28 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
           jobId,
           limit: pageSize,
           offset: (page - 1) * pageSize,
+        }),
+      );
+    }
+
+    // Prefetch last page when near the beginning (within first 3 pages)
+    if (page <= 2 && lastPage > page + 1) {
+      void queryClient.prefetchQuery(
+        trpc.bulk.staging.errors.queryOptions({
+          jobId,
+          limit: pageSize,
+          offset: lastPage * pageSize,
+        }),
+      );
+    }
+
+    // Prefetch first page when near the end (within last 3 pages)
+    if (page >= lastPage - 2 && page > 2) {
+      void queryClient.prefetchQuery(
+        trpc.bulk.staging.errors.queryOptions({
+          jobId,
+          limit: pageSize,
+          offset: 0,
         }),
       );
     }

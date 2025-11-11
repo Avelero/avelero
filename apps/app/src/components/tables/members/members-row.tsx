@@ -295,6 +295,7 @@ function formatExpiresIn(expiresAt: string | null): string {
     return "Expired";
   }
 
+  const diffSeconds = Math.floor(diffMs / 1000);
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -305,6 +306,10 @@ function formatExpiresIn(expiresAt: string | null): string {
 
   if (diffHours > 0) {
     return `Invite expires in ${diffHours} ${diffHours === 1 ? "hour" : "hours"}`;
+  }
+
+  if (diffSeconds < 60) {
+    return "Invite expires in less than a minute";
   }
 
   return `Invite expires in ${diffMinutes} ${diffMinutes === 1 ? "minute" : "minutes"}`;

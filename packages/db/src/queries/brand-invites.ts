@@ -41,6 +41,8 @@ export async function listBrandInvites(
     .limit(1);
   if (!mem.length) throw new Error("FORBIDDEN");
 
+  // Only return pending invites that haven't expired
+  const nowIso = new Date().toISOString();
   const rows = await db
     .select({
       id: brandInvites.id,
@@ -50,7 +52,13 @@ export async function listBrandInvites(
       created_at: brandInvites.createdAt,
     })
     .from(brandInvites)
-    .where(eq(brandInvites.brandId, brandId))
+    .where(
+      and(
+        eq(brandInvites.brandId, brandId),
+        // Only include invites that haven't expired (null expiry = never expires)
+        or(isNull(brandInvites.expiresAt), gt(brandInvites.expiresAt, nowIso)),
+      ),
+    )
     .orderBy(desc(brandInvites.createdAt));
   return { data: rows } as const;
 }

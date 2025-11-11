@@ -14,7 +14,10 @@ export async function middleware(request: NextRequest) {
   
   let response: NextResponse;
   
-  if (!pathnameHasLocale && !pathname.includes("/api/")) {
+  // Check if pathname is an API route: /api or /api/...
+  const isApiRoute = pathname === "/api" || pathname.startsWith("/api/");
+  
+  if (!pathnameHasLocale && !isApiRoute) {
     // Rewrite to include default locale in the path
     const url = new URL(`/${DEFAULT_LOCALE}${pathname}`, request.url);
     url.search = nextUrl.search;
@@ -36,12 +39,11 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
+  // Check if pathname is login route: /login or /login/...
+  const isLoginRoute = pathname === "/login" || pathname.startsWith("/login/");
+  
   // Not authenticated - redirect to login
-  if (
-    !session &&
-    !pathname.includes("/login") &&
-    !pathname.includes("/api/")
-  ) {
+  if (!session && !isLoginRoute && !isApiRoute) {
     const url = new URL("/login", request.url);
     if (encodedSearchParams) {
       url.searchParams.append("return_to", encodedSearchParams);

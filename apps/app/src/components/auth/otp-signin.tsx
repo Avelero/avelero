@@ -68,8 +68,14 @@ export function OTPSignIn({ className }: Props) {
   async function onComplete(token: string) {
     if (!email) return;
 
+    // Normalize return_to: trim whitespace, remove leading slashes, then add single "/"
     const returnTo = searchParams.get("return_to");
-    const redirectPath = returnTo ? `/${returnTo}` : "/";
+    let redirectPath = "/";
+    if (returnTo) {
+      const normalized = returnTo.trim().replace(/^\/+/, "");
+      // Only use it if it's non-empty after normalization
+      redirectPath = normalized ? `/${normalized}` : "/";
+    }
 
     const result = await verifyOtp.executeAsync({
       token,

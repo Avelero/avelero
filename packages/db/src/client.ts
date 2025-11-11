@@ -66,7 +66,9 @@ const connection = postgres(connectionString, {
   fetch_types: false,
   max: 10,
   connect_timeout: 10,
-  ...(enableTls ? { ssl: 'prefer' } : {}),
+  ...(enableTls 
+    ? { ssl: strictTls ? { rejectUnauthorized: true } : 'prefer' } 
+    : {}),
 });
 
 export const db = drizzle(connection, {

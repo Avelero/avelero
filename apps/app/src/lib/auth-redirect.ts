@@ -92,5 +92,15 @@ export async function resolveAuthRedirectPath({
     }
   }
 
-  return target.startsWith("/") ? target : `/${target}`;
+  // Validate redirect target: reject protocol-relative URLs and absolute URLs
+  if (target.startsWith("//") || target.includes("://")) {
+    return "/";
+  }
+  
+  // Normalize path: collapse any leading slashes to a single "/"
+  if (target.startsWith("/")) {
+    return `/${target.replace(/^\/+/, "")}`;
+  }
+  
+  return `/${target}`;
 }

@@ -20,7 +20,7 @@ import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 export interface InsertStagingProductParams {
   jobId: string;
   rowNumber: number;
-  action: "CREATE" | "UPDATE";
+  action: "CREATE" | "UPDATE" | "SKIP";
   existingProductId?: string | null;
   id: string;
   brandId: string;
@@ -43,7 +43,7 @@ export interface InsertStagingVariantParams {
   stagingProductId: string;
   jobId: string;
   rowNumber: number;
-  action: "CREATE" | "UPDATE";
+  action: "CREATE" | "UPDATE" | "SKIP";
   existingVariantId?: string | null;
   id: string;
   productId: string;

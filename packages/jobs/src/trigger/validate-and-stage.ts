@@ -178,7 +178,7 @@ interface ValidationError {
  * Validation warning type (needs user definition)
  */
 interface ValidationWarning {
-  type: "NEEDS_DEFINITION";
+  type: "NEEDS_DEFINITION" | "WARNING";
   subtype: string;
   field?: string;
   message: string;
@@ -194,7 +194,33 @@ interface ValidationWarning {
     | "FACILITY"
     | "OPERATOR" // Journey operators
     | "SHOWCASE_BRAND"
-    | "CERTIFICATION";
+    | "CERTIFICATION"
+    | "PRODUCT_VARIANT"; // For ambiguous match warnings
+}
+
+/**
+ * Existing variant data from database (used for change detection)
+ */
+interface ExistingVariant {
+  // Product fields
+  id: string;
+  name: string;
+  description: string | null;
+  categoryId: string | null;
+  seasonId: string | null;
+  primaryImageUrl: string | null;
+  additionalImageUrls: string | null;
+  tags: string | null;
+  showcaseBrandId: string | null;
+  // Variant fields
+  variant_id: string;
+  upid: string | null;
+  sku: string;
+  ean: string | null;
+  colorId: string | null;
+  sizeId: string | null;
+  status: string | null;
+  productImageUrl: string | null;
 }
 
 /**
@@ -203,13 +229,14 @@ interface ValidationWarning {
 interface ValidatedRowData {
   productId: string; // Generated UUID for new product or existing product ID
   variantId: string; // Generated UUID for new variant or existing variant ID
-  action: "CREATE" | "UPDATE";
+  action: "CREATE" | "UPDATE" | "SKIP";
   existingProductId?: string;
   existingVariantId?: string;
   product: InsertStagingProductParams;
   variant: InsertStagingVariantParams;
   errors: ValidationError[]; // Hard errors that block import
   warnings: ValidationWarning[]; // Missing catalog values that need user definition
+  changedFields?: string[]; // Fields that changed (for UPDATE action only)
 }
 
 const BATCH_SIZE = 100;
@@ -610,19 +637,33 @@ export const validateAndStage = task({
         .map((r) => (r as CSVRow).sku)
         .filter((v): v is string => !!v && v.trim() !== "");
 
-      let existingVariantsMap = new Map<
-        string,
-        { id: string; variant_id: string }
-      >();
+      // Use global ExistingVariant type for type-safe change detection
+      let existingVariantsByUpid = new Map<string, ExistingVariant>();
+      let existingVariantsBySku = new Map<string, ExistingVariant>();
 
       if (allUpids.length > 0 || allSkus.length > 0) {
         const existingVariants = await db
           .select({
+            // Product fields
             variantId: productVariants.id,
             productId: productVariants.productId,
             brandId: products.brandId,
+            name: products.name,
+            description: products.description,
+            categoryId: products.categoryId,
+            seasonId: products.seasonId,
+            primaryImageUrl: products.primaryImageUrl,
+            additionalImageUrls: products.additionalImageUrls,
+            tags: products.tags,
+            showcaseBrandId: products.showcaseBrandId,
+            // Variant fields
             upid: productVariants.upid,
             sku: productVariants.sku,
+            ean: productVariants.ean,
+            colorId: productVariants.colorId,
+            sizeId: productVariants.sizeId,
+            status: productVariants.status,
+            productImageUrl: productVariants.productImageUrl,
           })
           .from(productVariants)
           .innerJoin(products, eq(productVariants.productId, products.id))
@@ -640,13 +681,37 @@ export const validateAndStage = task({
             ),
           );
 
-        // Build lookup map
-        existingVariantsMap = new Map(
-          existingVariants.map((v) => [
-            (v.upid || v.sku || "") as string,
-            { id: v.productId, variant_id: v.variantId },
-          ]),
-        );
+        // Build separate lookup maps for UPID and SKU to detect conflicts
+        for (const v of existingVariants) {
+          const variant: ExistingVariant = {
+            // Product fields
+            id: v.productId,
+            name: v.name,
+            description: v.description,
+            categoryId: v.categoryId,
+            seasonId: v.seasonId,
+            primaryImageUrl: v.primaryImageUrl,
+            additionalImageUrls: v.additionalImageUrls,
+            tags: v.tags,
+            showcaseBrandId: v.showcaseBrandId,
+            // Variant fields
+            variant_id: v.variantId,
+            upid: v.upid,
+            sku: v.sku,
+            ean: v.ean,
+            colorId: v.colorId,
+            sizeId: v.sizeId,
+            status: v.status,
+            productImageUrl: v.productImageUrl,
+          };
+
+          if (v.upid && v.upid.trim() !== "") {
+            existingVariantsByUpid.set(v.upid, variant);
+          }
+          if (v.sku && v.sku.trim() !== "") {
+            existingVariantsBySku.set(v.sku, variant);
+          }
+        }
 
         const variantLoadDuration = Date.now() - variantLoadStart;
         console.log(
@@ -655,6 +720,8 @@ export const validateAndStage = task({
         logger.info("Pre-loaded all existing variants", {
           duration: variantLoadDuration,
           variantCount: existingVariants.length,
+          upidCount: existingVariantsByUpid.size,
+          skuCount: existingVariantsBySku.size,
         });
       } else {
         console.log("[validate-and-stage] No UPIDs or SKUs to pre-load");
@@ -667,6 +734,7 @@ export const validateAndStage = task({
       let invalidCount = 0;
       let willCreateCount = 0;
       let willUpdateCount = 0;
+      let willSkipCount = 0; // Track rows that will be skipped (no changes)
       const unmappedValues = new Map<string, Set<string>>();
       // Track unmapped values with full details for pending_approval
       const unmappedValueDetails = new Map<
@@ -717,7 +785,8 @@ export const validateAndStage = task({
                 unmappedValueDetails,
                 duplicateRowNumbers,
                 duplicateCheckColumn,
-                existingVariantsMap,
+                existingVariantsByUpid,
+                existingVariantsBySku,
                 db,
               );
 
@@ -728,7 +797,8 @@ export const validateAndStage = task({
               if (!hasHardErrors) {
                 validCount++;
                 if (validated.action === "CREATE") willCreateCount++;
-                else willUpdateCount++;
+                else if (validated.action === "UPDATE") willUpdateCount++;
+                else if (validated.action === "SKIP") willSkipCount++;
               } else {
                 invalidCount++;
               }
@@ -925,6 +995,7 @@ export const validateAndStage = task({
             invalid: invalidCount,
             will_create: willCreateCount,
             will_update: willUpdateCount,
+            will_skip: willSkipCount,
             percentage: Math.round((processedCount / totalRows) * 100),
           },
         });
@@ -1316,6 +1387,81 @@ function validateBoolean(value: string | undefined): boolean | null {
 }
 
 /**
+ * Detect changes between new staging data and existing product/variant
+ * @param newProduct - New product data from CSV
+ * @param newVariant - New variant data from CSV
+ * @param existing - Existing product/variant data from database
+ * @returns Object with hasChanges flag and array of changed field names
+ */
+function detectChanges(
+  newProduct: InsertStagingProductParams,
+  newVariant: InsertStagingVariantParams,
+  existing: {
+    // Product fields
+    name: string;
+    description: string | null;
+    categoryId: string | null;
+    seasonId: string | null;
+    primaryImageUrl: string | null;
+    additionalImageUrls: string | null;
+    tags: string | null;
+    showcaseBrandId: string | null;
+    // Variant fields
+    sku: string;
+    upid: string | null;
+    ean: string | null;
+    colorId: string | null;
+    sizeId: string | null;
+    status: string | null;
+    productImageUrl: string | null;
+  },
+): { hasChanges: boolean; changedFields: string[] } {
+  const changedFields: string[] = [];
+
+  // Helper function to compare values (handles null/undefined/empty string equivalence)
+  const isDifferent = (newVal: unknown, oldVal: unknown): boolean => {
+    // Normalize null, undefined, and empty string to null
+    const normalizeEmpty = (val: unknown): unknown => {
+      if (val === "" || val === undefined) return null;
+      return val;
+    };
+
+    const normalizedNew = normalizeEmpty(newVal);
+    const normalizedOld = normalizeEmpty(oldVal);
+
+    return normalizedNew !== normalizedOld;
+  };
+
+  // Compare product fields
+  if (isDifferent(newProduct.name, existing.name)) changedFields.push("name");
+  if (isDifferent(newProduct.description, existing.description)) changedFields.push("description");
+  if (isDifferent(newProduct.categoryId, existing.categoryId)) changedFields.push("categoryId");
+  if (isDifferent(newProduct.seasonId, existing.seasonId)) changedFields.push("seasonId");
+  if (isDifferent(newProduct.primaryImageUrl, existing.primaryImageUrl)) changedFields.push("primaryImageUrl");
+  if (isDifferent(newProduct.additionalImageUrls, existing.additionalImageUrls)) changedFields.push("additionalImageUrls");
+  if (isDifferent(newProduct.tags, existing.tags)) changedFields.push("tags");
+  if (isDifferent(newProduct.showcaseBrandId, existing.showcaseBrandId)) changedFields.push("showcaseBrandId");
+
+  // Compare variant fields
+  if (isDifferent(newVariant.sku, existing.sku)) changedFields.push("sku");
+  if (isDifferent(newVariant.upid, existing.upid)) changedFields.push("upid");
+  if (isDifferent(newVariant.ean, existing.ean)) changedFields.push("ean");
+  if (isDifferent(newVariant.colorId, existing.colorId)) changedFields.push("colorId");
+  if (isDifferent(newVariant.sizeId, existing.sizeId)) changedFields.push("sizeId");
+  if (isDifferent(newVariant.productImageUrl, existing.productImageUrl)) changedFields.push("productImageUrl");
+  
+  // Status: normalize to uppercase for comparison
+  const newStatus = (newVariant.status || "DRAFT").toUpperCase();
+  const oldStatus = (existing.status || "DRAFT").toUpperCase();
+  if (newStatus !== oldStatus) changedFields.push("status");
+
+  return {
+    hasChanges: changedFields.length > 0,
+    changedFields,
+  };
+}
+
+/**
  * Validate URL format
  * @param url - URL string from CSV
  * @returns true if valid URL format
@@ -1367,7 +1513,24 @@ async function validateRow(
   >,
   duplicateRowNumbers: Set<number>,
   duplicateCheckColumn: string,
-  existingVariantsMap: Map<string, { id: string; variant_id: string }>,
+  existingVariantsByUpid: Map<
+    string,
+    {
+      id: string;
+      variant_id: string;
+      upid: string | null;
+      sku: string | null;
+    }
+  >,
+  existingVariantsBySku: Map<
+    string,
+    {
+      id: string;
+      variant_id: string;
+      upid: string | null;
+      sku: string | null;
+    }
+  >,
   db: Database,
 ): Promise<ValidatedRowData> {
   const errors: ValidationError[] = [];
@@ -1866,25 +2029,48 @@ async function validateRow(
     categoryId = row.category_id;
   }
 
-  // Check if product variant exists (CREATE vs UPDATE detection)
-  // Use pre-loaded variants map (0 database queries per row)
-  const lookupKey = upid || sku || "";
-  const existingProduct = existingVariantsMap.get(lookupKey) || null;
-
-  const action: "CREATE" | "UPDATE" = existingProduct ? "UPDATE" : "CREATE";
-
-  // Generate UUIDs for new records
-  const productId = existingProduct?.id || randomUUID();
-  const variantId = existingProduct?.variant_id || randomUUID();
+  // ========================================================================
+  // IMPROVED CREATE vs UPDATE DETECTION with Ambiguity Checking
+  // ========================================================================
+  
+  // Look up by UPID and SKU separately to detect ambiguous matches
+  const matchedByUpid = (upid ? existingVariantsByUpid.get(upid) : null) as ExistingVariant | null | undefined;
+  const matchedBySku = (sku ? existingVariantsBySku.get(sku) : null) as ExistingVariant | null | undefined;
+  
+  let existingVariant: ExistingVariant | null = null;
+  
+  // Priority: UPID takes precedence over SKU for matching
+  if (matchedByUpid) {
+    existingVariant = matchedByUpid;
+    
+    // AMBIGUITY WARNING: Both UPID and SKU provided but point to different products
+    if (matchedBySku && matchedBySku.variant_id !== matchedByUpid.variant_id) {
+      warnings.push({
+        type: "WARNING",
+        subtype: "AMBIGUOUS_MATCH",
+        field: "upid/sku",
+        message: `Ambiguous match: UPID "${upid}" and SKU "${sku}" reference different products. Using UPID match (Variant ID: ${matchedByUpid.variant_id})`,
+        severity: "warning",
+        entityType: "PRODUCT_VARIANT",
+      });
+    }
+  } else if (matchedBySku) {
+    existingVariant = matchedBySku;
+  }
+  
+  // Generate UUIDs for new records or use existing
+  const productId = existingVariant?.id || randomUUID();
+  const variantId = existingVariant?.variant_id || randomUUID();
 
   // Prepare staging data
   const additionalImagesString = row.additional_image_urls?.trim() || null;
   
-  const product: InsertStagingProductParams = {
+  // Build temporary product and variant objects for change detection
+  const tempProduct: InsertStagingProductParams = {
     jobId,
     rowNumber,
-    action,
-    existingProductId: existingProduct?.id || null,
+    action: "UPDATE", // Temporary, will be overwritten
+    existingProductId: existingVariant?.id || null,
     id: productId,
     brandId,
     name: row.product_name?.trim() || "",
@@ -1899,12 +2085,12 @@ async function validateRow(
     brandCertificationId: row.brand_certification_id?.trim() || null,
   };
 
-  const variant: InsertStagingVariantParams = {
+  const tempVariant: InsertStagingVariantParams = {
     stagingProductId: "", // Will be set after product insertion
     jobId,
     rowNumber,
-    action,
-    existingVariantId: existingProduct?.variant_id || null,
+    action: "UPDATE", // Temporary, will be overwritten
+    existingVariantId: existingVariant?.variant_id || null,
     id: variantId,
     productId,
     upid: upid || "",
@@ -1916,16 +2102,51 @@ async function validateRow(
     status: productStatus,
   };
 
+  // ========================================================================
+  // PHASE 2: CHANGE DETECTION - Skip UPDATE if no changes detected
+  // ========================================================================
+  
+  let action: "CREATE" | "UPDATE" | "SKIP" = "CREATE";
+  let changedFields: string[] | undefined;
+
+  if (existingVariant) {
+    // Product exists - check if any fields have changed
+    const changeDetection = detectChanges(tempProduct, tempVariant, existingVariant);
+    
+    if (changeDetection.hasChanges) {
+      action = "UPDATE";
+      changedFields = changeDetection.changedFields;
+    } else {
+      action = "SKIP";
+      changedFields = []; // No changes
+    }
+  } else {
+    // New product
+    action = "CREATE";
+  }
+
+  // Update action in product and variant objects
+  const product: InsertStagingProductParams = {
+    ...tempProduct,
+    action,
+  };
+
+  const variant: InsertStagingVariantParams = {
+    ...tempVariant,
+    action,
+  };
+
   return {
     productId,
     variantId,
     action,
-    existingProductId: existingProduct?.id,
-    existingVariantId: existingProduct?.variant_id,
+    existingProductId: existingVariant?.id,
+    existingVariantId: existingVariant?.variant_id,
     product,
     variant,
     errors, // Hard errors that block import
     warnings, // Missing catalog values that need user definition
+    changedFields, // Fields that changed (for UPDATE action only)
   };
 }
 

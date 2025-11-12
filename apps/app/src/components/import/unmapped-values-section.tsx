@@ -121,7 +121,6 @@ export function UnmappedValuesSection({
     data: response,
     isLoading,
     error,
-    refetch,
   } = useQuery(trpc.bulk.values.unmapped.queryOptions({ jobId }));
 
   const unmappedData = response as UnmappedValuesResponse | undefined;
@@ -131,10 +130,15 @@ export function UnmappedValuesSection({
   // Prefetch all catalog data in a SINGLE optimized query
   // This replaces 5-6 individual queries with one efficient call
   // Load in parallel with unmapped values for maximum speed
-  const { data: catalogData, isLoading: catalogLoading } = useQuery({
+  const {
+    data: catalogData,
+    isLoading: catalogLoading,
+    error: catalogError,
+  } = useQuery({
     ...trpc.bulk.values.catalogData.queryOptions({ jobId }),
-    enabled: !!jobId, // Load immediately when jobId is available
+    enabled: !!jobId && !isLoading, // Only load after unmapped values load
     staleTime: 60000, // Cache for 60 seconds
+    retry: 3, // Retry failed requests
   });
 
   // Pre-populate React Query cache with the catalog data
@@ -237,19 +241,7 @@ export function UnmappedValuesSection({
     );
   }
 
-  // If catalog is still loading but unmapped is ready, show the structure with loading state
-  if (catalogLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Icons.Spinner className="h-6 w-6 animate-spin text-brand" />
-        <span className="ml-3 text-sm text-secondary">
-          Loading catalog data...
-        </span>
-      </div>
-    );
-  }
-
-  // Error state
+  // Error state for unmapped values
   if (error) {
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -260,13 +252,31 @@ export function UnmappedValuesSection({
               Failed to load unmapped values
             </p>
             <p className="text-xs text-destructive/80">
-              Please try again or contact support if the issue persists.
+              {error instanceof Error ? error.message : "Please try again or contact support if the issue persists."}
             </p>
           </div>
         </div>
       </div>
     );
   }
+
+  // Show catalog error as a banner but continue rendering
+  // This allows users to see unmapped values even if catalog fails
+  const catalogErrorBanner = catalogError ? (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-4">
+      <div className="flex items-center gap-2">
+        <Icons.AlertTriangle className="h-4 w-4 text-amber-700" />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-amber-900">
+            Catalog data unavailable
+          </p>
+          <p className="text-xs text-amber-700">
+            {catalogError instanceof Error ? catalogError.message : "Unable to load existing colors, sizes, etc. You can still define new values."}
+          </p>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   // All values defined - success state
   if (totalUnmapped === 0) {
@@ -303,6 +313,9 @@ export function UnmappedValuesSection({
 
   return (
     <div className="space-y-4">
+      {/* Catalog error banner */}
+      {catalogErrorBanner}
+
       {/* Auto-created notice */}
       {autoCreatedCount > 0 && (
         <div className="border border-border bg-background p-3 rounded">
@@ -426,13 +439,15 @@ export function UnmappedValuesSection({
                           </div>
 
                           {/* Mapping control */}
-                          <div className="w-full max-w-[280px]">
+                          <div
+                            className="w-full max-w-[280px]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <EntityValueCombobox
                               entityType={group.entityType}
                               rawValue={value.rawValue}
                               sourceColumn={value.sourceColumn}
                               jobId={jobId}
-                              onMapped={() => refetch()}
                             />
                           </div>
                         </div>

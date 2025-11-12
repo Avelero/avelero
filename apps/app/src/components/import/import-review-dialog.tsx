@@ -183,14 +183,17 @@ function ImportReviewDialogContent({
         SHOWCASE_BRAND: pending.filter((p) => p.entityType === "SHOWCASE_BRAND"),
       };
 
-      const created: Array<{ entity: any; pending: any }> = [];
+  const created: Array<{ entity: any; pending: any }> = [];
       const failed: Array<{ pending: any; error: string }> = [];
 
       // Create all entities in parallel by type
       const createMaterial = async (p: any) => {
         try {
           const result = await createMaterialMutation.mutateAsync(p.entityData);
-          created.push({ entity: result.data, pending: p });
+          if (!result?.id) {
+            throw new Error("Material created without identifier");
+          }
+          created.push({ entity: result, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -202,7 +205,10 @@ function ImportReviewDialogContent({
       const createSize = async (p: any) => {
         try {
           const result = await createSizeMutation.mutateAsync(p.entityData);
-          created.push({ entity: result.data, pending: p });
+          if (!result?.id) {
+            throw new Error("Size created without identifier");
+          }
+          created.push({ entity: result, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -214,7 +220,10 @@ function ImportReviewDialogContent({
       const createSeason = async (p: any) => {
         try {
           const result = await createSeasonMutation.mutateAsync(p.entityData);
-          created.push({ entity: result.data, pending: p });
+          if (!result?.id) {
+            throw new Error("Season created without identifier");
+          }
+          created.push({ entity: result, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -226,7 +235,10 @@ function ImportReviewDialogContent({
       const createFacility = async (p: any) => {
         try {
           const result = await createFacilityMutation.mutateAsync(p.entityData);
-          created.push({ entity: result.data, pending: p });
+          if (!result?.id) {
+            throw new Error("Facility created without identifier");
+          }
+          created.push({ entity: result, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -238,7 +250,10 @@ function ImportReviewDialogContent({
       const createShowcaseBrand = async (p: any) => {
         try {
           const result = await createShowcaseBrandMutation.mutateAsync(p.entityData);
-          created.push({ entity: result.data, pending: p });
+          if (!result?.id) {
+            throw new Error("Showcase brand created without identifier");
+          }
+          created.push({ entity: result, pending: p });
         } catch (err) {
           failed.push({
             pending: p,

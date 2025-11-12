@@ -186,6 +186,7 @@ export function CategorySelect({
     <div className={cn("space-y-1.5", className)}>
       {label && <Label>{label}</Label>}
       <Popover
+        modal
         open={open}
         onOpenChange={(isOpen) => {
           setOpen(isOpen);
@@ -217,6 +218,7 @@ export function CategorySelect({
         <PopoverContent
           className="p-0 w-[--radix-popover-trigger-width]"
           align="start"
+          inline
         >
           <div className="flex flex-col">
             {/* Navigation Bar */}
@@ -234,7 +236,10 @@ export function CategorySelect({
             )}
 
             {/* Options */}
-            <div className="max-h-48 overflow-y-auto">
+            <div
+              className="max-h-48 overflow-y-auto"
+              onWheel={(event) => event.stopPropagation()}
+            >
               {Object.entries(getCurrentLevelOptions()).map(
                 ([key, value]: [string, any]) => {
                   const hasChildren =

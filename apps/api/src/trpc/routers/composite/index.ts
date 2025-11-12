@@ -7,19 +7,14 @@ import {
   inArray,
   sql,
   type BrandMembershipListItem,
-  type ModuleIncompleteCount,
   type UserInviteSummaryRow,
-  countPassportsByStatus,
   getBrandsByUserId,
-  getIncompleteCountsByModuleForBrand,
   getUserById,
   listCategories,
   listCertifications,
   listColors,
-  listEcoClaims,
   listFacilities,
   listMaterials,
-  listPassportsForBrand,
   listPendingInvitesForEmail,
   listShowcaseBrands,
   listSizes,
@@ -31,7 +26,6 @@ import { getAppUrl } from "@v1/utils/envs";
  *
  * Targets:
  * - composite.workflowInit
- * - composite.dashboard
  * - composite.membersWithInvites
  * - composite.passportFormReferences
  */
@@ -56,28 +50,6 @@ interface MinimalUserRecord {
   fullName: string | null;
   avatarPath: string | null;
   brandId: string | null;
-}
-
-/**
- * Recent passport activity item for dashboard display.
- */
-interface DashboardRecentActivity {
-  passport_id: string;
-  upid: string;
-  title: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * Module completion metrics for dashboard analytics.
- */
-interface ModuleCompletionMetric {
-  module_key: string;
-  completed: number;
-  incomplete: number;
-  total: number;
 }
 
 /**
@@ -248,56 +220,6 @@ async function mapWorkflowBrands(
 }
 
 /**
- * Maps module completion data from database to API format.
- *
- * @param metric - Module completion counts from database
- * @returns Formatted module completion metric
- */
-function mapModuleCompletionMetric(
-  metric: ModuleIncompleteCount,
-): ModuleCompletionMetric {
-  return {
-    module_key: metric.moduleKey,
-    completed: metric.completed,
-    incomplete: metric.incomplete,
-    total: metric.total,
-  };
-}
-
-/**
- * Maps and sorts passport summaries for recent activity display.
- *
- * Transforms passport records into dashboard activity format and sorts
- * by most recently updated first.
- *
- * @param summaries - Passport summary records
- * @returns Sorted recent activity items (most recent first)
- */
-function mapRecentActivity(
-  summaries: readonly {
-    id: string;
-    upid: string;
-    title: string;
-    status: string;
-    createdAt: string;
-    updatedAt: string;
-  }[],
-): DashboardRecentActivity[] {
-  return summaries
-    .map((passport) => ({
-      passport_id: passport.id,
-      upid: passport.upid,
-      title: passport.title,
-      status: passport.status,
-      created_at: passport.createdAt,
-      updated_at: passport.updatedAt,
-    }))
-    .sort((a, b) =>
-      a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0,
-    );
-}
-
-/**
  * Fetches all members for a brand with canLeave permissions.
  *
  * Queries brand members with user details and calculates whether each
@@ -347,44 +269,28 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
 /**
  * Fetches all pending invitations for a brand.
  *
- * Queries brand invites with inviter details and invitee user data (if exists).
- * Shows invitee's avatar if they're an existing user, otherwise default avatar.
+ * Queries brand invites with inviter details (who sent the invite) and
+ * the invitee email address. Does not include invitee account information
+ * as we assume the invitee may not yet have an account.
  *
  * @param db - Database instance
  * @param brandId - Brand identifier
- * @returns Array of pending invites with invitee and inviter information
+ * @returns Array of pending invites with email, role, inviter, and expiration
  */
 async function fetchWorkflowInvites(db: Database, brandId: string) {
-  // Create aliases for the two user joins
-  const inviterUser = users;
-  const inviteeUser = {
-    id: sql<string>`invitee.id`.as("invitee_id"),
-    email: sql<string>`invitee.email`.as("invitee_email"),
-    fullName: sql<string>`invitee.full_name`.as("invitee_full_name"),
-    avatarPath: sql<string>`invitee.avatar_path`.as("invitee_avatar_path"),
-    avatarHue: sql<number>`invitee.avatar_hue`.as("invitee_avatar_hue"),
-  };
-
   const rows = await db
     .select({
       id: brandInvites.id,
       email: brandInvites.email,
       role: brandInvites.role,
       created_at: brandInvites.createdAt,
+      expires_at: brandInvites.expiresAt,
       // Inviter data (who sent the invite)
-      invitedByEmail: inviterUser.email,
-      invitedByFullName: inviterUser.fullName,
-      // Invitee data (person being invited, if they exist as a user)
-      inviteeFullName: inviteeUser.fullName,
-      inviteeAvatarPath: inviteeUser.avatarPath,
-      inviteeAvatarHue: inviteeUser.avatarHue,
+      invitedByEmail: users.email,
+      invitedByFullName: users.fullName,
     })
     .from(brandInvites)
-    .leftJoin(inviterUser, eq(inviterUser.id, brandInvites.createdBy))
-    .leftJoin(
-      sql`users AS invitee`,
-      sql`LOWER(invitee.email) = LOWER(${brandInvites.email})`,
-    )
+    .leftJoin(users, eq(users.id, brandInvites.createdBy))
     .where(eq(brandInvites.brandId, brandId))
     .orderBy(desc(brandInvites.createdAt));
 
@@ -394,11 +300,8 @@ async function fetchWorkflowInvites(db: Database, brandId: string) {
     role: invite.role,
     invited_by:
       invite.invitedByFullName ?? invite.invitedByEmail ?? "Avelero Team",
-    // Use invitee's avatar if they exist as a user
-    invitee_full_name: invite.inviteeFullName ?? null,
-    invitee_avatar_url: buildUserAvatarUrl(invite.inviteeAvatarPath),
-    invitee_avatar_hue: invite.inviteeAvatarHue ?? null,
     created_at: invite.created_at,
+    expires_at: invite.expires_at,
   }));
 }
 
@@ -443,47 +346,6 @@ export const compositeRouter = createTRPCRouter({
   }),
 
   /**
-   * Aggregates dashboard data (status counts, recent passport activity, and module metrics).
-   */
-  dashboard: brandRequiredProcedure.query(async ({ ctx }) => {
-    const { db, brandId } = ctx;
-
-    try {
-      const [statusCounts, passportListing, moduleMetrics] = await Promise.all([
-        countPassportsByStatus(db, brandId),
-        listPassportsForBrand(db, brandId, { page: 0 }),
-        getIncompleteCountsByModuleForBrand(db, brandId),
-      ]);
-
-      const recentActivity = mapRecentActivity(
-        passportListing.data.slice(0, 10).map((passport) => ({
-          id: passport.id,
-          upid: passport.upid,
-          title: passport.title,
-          status: passport.status,
-          createdAt: passport.createdAt,
-          updatedAt: passport.updatedAt,
-        })),
-      );
-
-      const metrics = {
-        totals: {
-          passports: passportListing.meta.total,
-        },
-        module_completion: moduleMetrics.map(mapModuleCompletionMetric),
-      };
-
-      return {
-        statusCounts,
-        recentActivity,
-        metrics,
-      };
-    } catch (error) {
-      throw wrapError(error, "Failed to load dashboard composite data");
-    }
-  }),
-
-  /**
    * Combines workflow members and pending invites for the selected brand.
    */
   membersWithInvites: brandRequiredProcedure
@@ -521,7 +383,6 @@ export const compositeRouter = createTRPCRouter({
         colors,
         sizes,
         certifications,
-        ecoClaims,
         operators,
       ] = await Promise.all([
         listCategories(db),
@@ -530,7 +391,6 @@ export const compositeRouter = createTRPCRouter({
         listColors(db, brandId),
         listSizes(db, brandId),
         listCertifications(db, brandId),
-        listEcoClaims(db, brandId),
         listShowcaseBrands(db, brandId),
       ]);
 
@@ -542,7 +402,6 @@ export const compositeRouter = createTRPCRouter({
           colors,
           sizes,
           certifications,
-          ecoClaims,
           operators,
         },
       };

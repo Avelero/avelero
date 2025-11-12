@@ -47,7 +47,6 @@
     @apply border-border;
   }
   body {
-    font-family: var(--font-geist-sans), system-ui, monospace;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     position: fixed;
@@ -103,76 +102,21 @@
   appearance: none;
 }
 
-/* Override browser autofill styles */
+/* Autofill styles */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 30px hsl(var(--accent-blue)) inset !important;
-  -webkit-text-fill-color:   hsl(var(--foreground)) !important;
-  box-shadow: 0 0 0 30px hsl(var(--accent-blue)) inset !important;
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  -webkit-box-shadow: 0 0 0 1000px hsl(var(--accent-blue)) inset !important;
+  caret-color: hsl(var(--foreground)) !important;
+  transition: none !important;
 }
 
-@keyframes dialog-overlay-show {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes dialog-overlay-hide {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes dialog-content-show {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-@keyframes dialog-content-hide {
-  from {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.97);
-  }
-}
-
-.loading-ellipsis:after {
-  overflow: hidden;
-  display: inline-block;
-  vertical-align: bottom;
-  -webkit-animation: ellipsis steps(4, end) 900ms infinite;
-  animation: ellipsis steps(4, end) 900ms infinite;
-  content: "\2026"; /* ascii code for the ellipsis character */
-  width: 0px;
-}
-
-@keyframes ellipsis {
-  to {
-    width: 1.25em;
-  }
-}
-
-@-webkit-keyframes ellipsis {
-  to {
-    width: 1.25em;
-  }
+input:-webkit-autofill:focus-visible {
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  -webkit-box-shadow: 0 0 0 1000px hsl(var(--accent-blue)) inset, 0 0 0 1px hsl(var(--ring)) !important;
+  caret-color: hsl(var(--foreground)) !important;
+  transition: none !important;
 }
 
 /* Date picker */

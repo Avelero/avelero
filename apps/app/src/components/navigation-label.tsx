@@ -4,99 +4,139 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 
-interface NavigationLabelProps {
-  locale?: string;
+/**
+ * Route definitions for breadcrumbs.
+ * Top-level routes (Dashboard, Passports, Settings, Analytics, Account) have no parent.
+ * Special routes (Setup, Create Brand) also have no parent.
+ * Child routes inherit their parent from the path hierarchy.
+ */
+const ROUTE_LABELS: Record<string, string> = {
+  // Main navigation (top-level, no parents)
+  "/": "Dashboard",
+  "/passports": "Passports",
+  "/settings": "Settings",
+  "/analytics": "Analytics",
+  "/account": "Account",
+  
+  // Special pages (no parents)
+  "/setup": "Setup",
+  "/create-brand": "Create Brand",
+  
+  // Passports children
+  "/passports/create": "Create",
+  "/passports/edit": "Edit",
+  
+  // Account children
+  "/account/brands": "Brands",
+  
+  // Settings children
+  "/settings/members": "Members",
+};
+
+/**
+ * Routes that should NOT show a parent breadcrumb.
+ * These are top-level navigation items or special standalone pages.
+ */
+const TOP_LEVEL_ROUTES = new Set([
+  "/",
+  "/passports",
+  "/settings",
+  "/analytics",
+  "/account",
+  "/setup",
+  "/create-brand",
+]);
+
+interface BreadcrumbItem {
+  label: string;
+  href: string;
 }
 
-function formatSegment(segment: string): string {
-  const words = segment.split("-").filter(Boolean);
-  const firstWord = words.at(0);
-  if (!firstWord) return "";
-
-  const firstFormatted =
-    firstWord.charAt(0).toUpperCase() + firstWord.slice(1).toLowerCase();
-  const restFormatted = words.slice(1).map((w) => w.toLowerCase());
-  return [firstFormatted, ...restFormatted].join(" ");
-}
-
-function buildBreadcrumbItems(
-  segments: string[],
-  formattedSegments: string[],
-  locale: string,
-): Array<{ label: string; href: string; show: boolean }> {
-  if (segments.length === 0) {
-    return [{ label: "Dashboard", href: `/${locale}`, show: true }];
-  }
-
-  if (segments.length <= 3) {
-    // Show all segments
-    return segments
-      .map((_, index) => {
-        const label = formattedSegments[index];
-        if (!label) return null;
-        return {
-          label,
-          href: `/${locale}/${segments.slice(0, index + 1).join("/")}`,
-          show: true,
-        };
-      })
-      .filter(Boolean) as Array<{ label: string; href: string; show: boolean }>;
-  }
-
-  // Show first + ellipsis + last two
-  const items: Array<{ label: string; href: string; show: boolean }> = [];
-
-  const firstLabel = formattedSegments[0];
-  if (firstLabel) {
-    items.push({
-      label: firstLabel,
-      href: `/${locale}/${segments[0]}`,
-      show: true,
-    });
-  }
-
-  items.push({ label: "...", href: "", show: false });
-
-  // Add last two segments
-  for (let i = segments.length - 2; i < segments.length; i++) {
-    const label = formattedSegments[i];
+function getBreadcrumbsForPath(pathname: string): BreadcrumbItem[] {
+  // Normalize pathname - remove locale segment and trailing slash
+  const normalized = pathname.replace(/\/[a-z]{2}(\/|$)/, "/").replace(/\/$/, "") || "/";
+  
+  // If this is a top-level route, return just itself
+  if (TOP_LEVEL_ROUTES.has(normalized)) {
+    const label = ROUTE_LABELS[normalized];
     if (label) {
-      items.push({
-        label,
-        href: `/${locale}/${segments.slice(0, i + 1).join("/")}`,
-        show: true,
-      });
+      return [{ label, href: normalized }];
     }
   }
-
-  return items;
+  
+  // For nested routes, build the trail
+  const breadcrumbs: BreadcrumbItem[] = [];
+  const segments = normalized.split("/").filter(Boolean);
+  
+  // Build path progressively and look for matches
+  for (let i = 0; i < segments.length; i++) {
+    const path = `/${segments.slice(0, i + 1).join("/")}`;
+    const label = ROUTE_LABELS[path];
+    
+    if (label) {
+      breadcrumbs.push({ label, href: path });
+    }
+  }
+  
+  // If no exact match found but we have segments, try to match parent
+  if (breadcrumbs.length === 0 && segments.length > 0) {
+    // Check parent paths (useful for dynamic routes like /passports/edit/[id])
+    for (let i = segments.length - 1; i > 0; i--) {
+      const path = `/${segments.slice(0, i).join("/")}`;
+      const label = ROUTE_LABELS[path];
+      
+      if (label) {
+        breadcrumbs.push({ label, href: path });
+        break;
+      }
+    }
+  }
+  
+  return breadcrumbs;
 }
 
-export function NavigationLabel({ locale = "en" }: NavigationLabelProps) {
+export function NavigationLabel() {
   const pathname = usePathname();
 
   const items = useMemo(() => {
-    // Remove locale from pathname
-    const path = pathname.replace(`/${locale}`, "") || "/";
+    const breadcrumbs = getBreadcrumbsForPath(pathname);
+    
+    // Handle ellipsis if we have too many breadcrumbs (> 4)
+    if (breadcrumbs.length > 4) {
+      const first = breadcrumbs[0];
+      const lastTwo = breadcrumbs.slice(-2);
+      
+      if (first) {
+        return [
+          first,
+          { label: "...", href: "" },
+          ...lastTwo,
+        ];
+      }
+    }
+    
+    return breadcrumbs;
+  }, [pathname]);
 
-    // Split path into segments and format them
-    const segments = path.split("/").filter(Boolean);
-    const formattedSegments = segments.map(formatSegment);
-
-    return buildBreadcrumbItems(segments, formattedSegments, locale);
-  }, [pathname, locale]);
+  if (items.length === 0) return null;
 
   return (
-    <nav className="flex items-center type-h6">
+    <nav className="flex items-center type-h6" aria-label="Breadcrumb">
       {items.map((item, index) => (
-        <div key={`${item.href}-${item.label}`} className="flex items-center">
-          {index > 0 && <span className="mx-1.5 text-tertiary">/</span>}
-          {!item.show ? (
-            <span className="text-tertiary">{item.label}</span>
+        <div key={`${item.href}-${item.label}-${index}`} className="flex items-center">
+          {index > 0 && <span className="mx-1.5 text-secondary !font-medium" aria-hidden="true">/</span>}
+          
+          {!item.href ? (
+            // Ellipsis
+            <span className="text-secondary !font-medium">{item.label}</span>
           ) : index === items.length - 1 ? (
-            <span className="text-primary !font-medium">{item.label}</span>
+            // Current page (last item) - not clickable
+            <span className="text-primary !font-medium" aria-current="page">
+              {item.label}
+            </span>
           ) : (
-            <Link href={item.href} className="text-tertiary">
+            // Clickable parent breadcrumb
+            <Link href={item.href} prefetch className="text-secondary !font-medium hover:text-primary transition-colors duration-150">
               {item.label}
             </Link>
           )}

@@ -5,14 +5,11 @@ import Link from "next/link";
 import LogoIcon from "public/LogoIcon256.svg";
 
 interface HeaderProps {
-  locale: string;
   hideUserMenu?: boolean;
   disableLogoLink?: boolean;
 }
 
-export function Header({ locale, hideUserMenu, disableLogoLink }: HeaderProps) {
-  // Since NavigationLabel is now a client component that auto-detects pathname,
-  // we can simplify the Header component and remove pathname dependency
+export function Header({ hideUserMenu, disableLogoLink }: HeaderProps) {
   const logoIsLink = !disableLogoLink;
 
   return (
@@ -53,7 +50,7 @@ export function Header({ locale, hideUserMenu, disableLogoLink }: HeaderProps) {
 
         {/* Navigation Section */}
         <div className="flex min-w-0 flex-1 items-center justify-between px-6">
-          <NavigationLabel locale={locale} />
+          <NavigationLabel />
           <div className="flex items-center gap-2">
             {!hideUserMenu && <UserMenu />}
           </div>

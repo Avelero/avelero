@@ -9,10 +9,8 @@ import { Suspense } from "react";
 
 export default async function Layout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
 }) {
   const queryClient = getQueryClient();
 
@@ -42,23 +40,20 @@ export default async function Layout({
     redirect("/create-brand");
   }
 
-  // Await params to access locale
-  const { locale } = await params;
-
   return (
     <HydrateClient>
       <ImportProgressProvider>
         <div className="relative h-full">
-          <Header locale={locale} />
+          <Header />
           <div className="flex flex-row justify-start h-[calc(100%-56px)]">
             <Sidebar />
             <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
               {children}
             </div>
           </div>
+          <FloatingProgressWidget />
+          <ImportReviewDialog />
         </div>
-        <FloatingProgressWidget />
-        <ImportReviewDialog />
       </ImportProgressProvider>
     </HydrateClient>
   );

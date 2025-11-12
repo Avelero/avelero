@@ -46,6 +46,8 @@
     "./avatar": "./src/components/avatar.tsx",
     "./form": "./src/components/form.tsx",
     "./table": "./src/components/table.tsx",
+    "./avelero-logo": "./src/components/avelero-logo.tsx",
+    "./avelero-text": "./src/components/avelero-text.tsx",
     "./skeleton": "./src/components/skeleton.tsx",
     "./input-otp": "./src/components/input-otp.tsx",
     "./sheet": "./src/components/sheet.tsx",

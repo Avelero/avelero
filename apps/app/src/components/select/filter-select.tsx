@@ -1,7 +1,7 @@
 "use client";
 
 import { getQuickFilterFields } from "@/config/filters";
-import { useFieldOptions } from "@/hooks/use-field-options";
+import { useFieldOptions } from "@/hooks/use-filter-options";
 import { useTRPC } from "@/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -62,29 +62,6 @@ export function QuickFiltersPopover({
   const [quickFilters, setQuickFilters] = React.useState<
     Record<string, string[]>
   >({});
-  const queryClient = useQueryClient();
-  const trpc = useTRPC();
-
-  // Prefetch dynamic quick-filter options on mount
-  React.useEffect(() => {
-    const prefetchEndpoints = [
-      trpc.composite.passportFormReferences.queryOptions(),
-      trpc.brand.colors.list.queryOptions(undefined),
-      trpc.brand.sizes.list.queryOptions({}),
-    ];
-
-    for (const queryOptions of prefetchEndpoints) {
-      queryClient
-        .prefetchQuery(
-          queryOptions as Parameters<typeof queryClient.prefetchQuery>[0],
-        )
-        .catch((error) => {
-          if (process.env.NODE_ENV === "development") {
-            console.warn("Failed to prefetch filter options:", error);
-          }
-        });
-    }
-  }, [queryClient, trpc]);
 
   const activeFilters = React.useMemo(() => {
     const filters: Array<{
@@ -226,8 +203,7 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
   onToggleValue: (optionValue: string) => void;
 }) {
   const { options: dynamicOptions, isLoading } = useFieldOptions(
-    field.optionsSource?.endpoint,
-    field.optionsSource?.transform,
+    field.id
   );
 
   const options = React.useMemo(

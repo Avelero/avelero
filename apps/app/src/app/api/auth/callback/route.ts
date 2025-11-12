@@ -56,6 +56,8 @@ export async function GET(request: Request) {
     : await resolveAuthRedirectPath({
         next,
         returnTo,
+        client: supabase,
+        user,
       });
 
   // Build response and clear the invite cookie if present

@@ -16,7 +16,7 @@
     "@trigger.dev/sdk": "4.0.6",
     "@v1/email": "workspace:*",
     "@v1/supabase": "workspace:*",
-    "react": "19.1.1",
+    "react": "19.2.0",
     "resend": "^6.4.2"
   },
   "devDependencies": {

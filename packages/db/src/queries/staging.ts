@@ -1,5 +1,7 @@
-import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client";
+import { evaluateAndUpsertCompletion } from "../completion/evaluate";
+import type { ModuleKey } from "../completion/module-keys";
 import {
   stagingProducts,
   stagingProductVariants,
@@ -10,6 +12,7 @@ import {
   stagingProductEnvironment,
   stagingProductIdentifiers,
   stagingProductVariantIdentifiers,
+  products,
 } from "../schema";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
@@ -147,7 +150,11 @@ export interface StagingProductPreview {
   seasonId: string | null; // FK to brand_seasons.id
   brandCertificationId: string | null;
   createdAt: string;
-  variant?: StagingVariantPreview | null;
+  variant: StagingVariantPreview | null;
+  materials: StagingMaterialPreview[];
+  ecoClaims: StagingEcoClaimPreview[];
+  journeySteps: StagingJourneyStepPreview[];
+  environment: StagingEnvironmentPreview | null;
 }
 
 /**
@@ -171,6 +178,44 @@ export interface StagingVariantPreview {
   productImageUrl: string | null;
   createdAt: string;
 }
+
+export interface StagingMaterialPreview {
+  stagingId: string;
+  stagingProductId: string;
+  jobId: string;
+  brandMaterialId: string;
+  percentage: string | null;
+  createdAt: string;
+}
+
+export interface StagingEcoClaimPreview {
+  stagingId: string;
+  stagingProductId: string;
+  jobId: string;
+  ecoClaimId: string;
+  createdAt: string;
+}
+
+export interface StagingJourneyStepPreview {
+  stagingId: string;
+  stagingProductId: string;
+  jobId: string;
+  sortIndex: number;
+  stepType: string;
+  facilityId: string;
+  createdAt: string;
+}
+
+export interface StagingEnvironmentPreview {
+  stagingId: string;
+  stagingProductId: string;
+  jobId: string;
+  carbonKgCo2e: string | null;
+  waterLiters: string | null;
+  createdAt: string;
+}
+
+type StagingProductRow = typeof stagingProducts.$inferSelect;
 
 /**
  * Action count summary
@@ -604,66 +649,8 @@ export async function getStagingPreview(
     .limit(limit)
     .offset(offset);
 
-  // Get variants for these products
-  const stagingIds = products.map((p) => p.stagingId);
-  const variants =
-    stagingIds.length > 0
-      ? await db
-          .select()
-          .from(stagingProductVariants)
-          .where(
-            and(
-              eq(stagingProductVariants.jobId, jobId),
-              inArray(stagingProductVariants.stagingProductId, stagingIds),
-            ),
-          )
-      : [];
-
-  // Map variants to products
-  const variantMap = new Map<string, StagingVariantPreview>();
-  for (const v of variants) {
-    variantMap.set(v.stagingProductId, {
-      stagingId: v.stagingId,
-      stagingProductId: v.stagingProductId,
-      jobId: v.jobId,
-      rowNumber: v.rowNumber,
-      action: v.action,
-      existingVariantId: v.existingVariantId,
-      id: v.id,
-      productId: v.productId,
-      colorId: v.colorId,
-      sizeId: v.sizeId,
-      sku: v.sku,
-      ean: v.ean,
-      upid: v.upid,
-      status: v.status,
-      productImageUrl: v.productImageUrl,
-      createdAt: v.createdAt,
-    });
-  }
-
   return {
-    products: products.map((p) => ({
-      stagingId: p.stagingId,
-      jobId: p.jobId,
-      rowNumber: p.rowNumber,
-      action: p.action,
-      existingProductId: p.existingProductId,
-      id: p.id,
-      brandId: p.brandId,
-      name: p.name,
-      description: p.description,
-      showcaseBrandId: p.showcaseBrandId,
-      additionalImageUrls: p.additionalImageUrls,
-      tags: p.tags,
-      primaryImageUrl: p.primaryImageUrl,
-      categoryId: p.categoryId,
-      season: p.season, // Legacy: kept for backward compatibility
-      seasonId: p.seasonId,
-      brandCertificationId: p.brandCertificationId,
-      createdAt: p.createdAt,
-      variant: variantMap.get(p.stagingId) ?? null,
-    })),
+    products: await hydrateStagingProductPreviews(db, jobId, products),
     total,
   };
 }
@@ -680,15 +667,97 @@ export async function deleteStagingDataForJob(
     | Database
     | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
   jobId: string,
+  chunkSize = 500,
 ): Promise<number> {
-  // Delete from all staging tables
-  // Due to CASCADE constraints, deleting staging_products will cascade to all related tables
-  const deleted = await db
-    .delete(stagingProducts)
-    .where(eq(stagingProducts.jobId, jobId))
-    .returning({ stagingId: stagingProducts.stagingId });
+  const safeChunkSize = Math.max(chunkSize, 100);
+  let totalDeleted = 0;
 
-  return deleted.length;
+  while (true) {
+    const chunkIds = await db
+      .select({ stagingId: stagingProducts.stagingId })
+      .from(stagingProducts)
+      .where(eq(stagingProducts.jobId, jobId))
+      .limit(safeChunkSize);
+
+    if (chunkIds.length === 0) {
+      break;
+    }
+
+    const deleted = await db
+      .delete(stagingProducts)
+      .where(
+        inArray(
+          stagingProducts.stagingId,
+          chunkIds.map((row) => row.stagingId),
+        ),
+      )
+      .returning({ stagingId: stagingProducts.stagingId });
+
+    totalDeleted += deleted.length;
+
+    if (deleted.length < safeChunkSize) {
+      // Final chunk removed fewer rows than requested; exit early
+      break;
+    }
+  }
+
+  return totalDeleted;
+}
+
+/**
+ * Bulk creates products for CREATE staging rows using planned IDs.
+ *
+ * Inserts rows directly into products table and re-evaluates completion state
+ * for the core module to mimic createProduct side effects.
+ */
+export async function bulkCreateProductsFromStaging(
+  db: Database,
+  brandId: string,
+  rows: StagingProductPreview[],
+): Promise<Map<string, string>> {
+  if (rows.length === 0) {
+    return new Map();
+  }
+
+  const insertValues = rows.map((row) => ({
+    id: row.id,
+    brandId: row.brandId ?? brandId,
+    name: row.name,
+    description: row.description ?? null,
+    categoryId: row.categoryId ?? null,
+    season: row.season ?? null,
+    seasonId: row.seasonId ?? null,
+    brandCertificationId: row.brandCertificationId ?? null,
+    showcaseBrandId: row.showcaseBrandId ?? null,
+    primaryImageUrl: row.primaryImageUrl ?? null,
+    additionalImageUrls: row.additionalImageUrls ?? null,
+    tags: row.tags ?? null,
+  }));
+
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(products)
+      .values(insertValues)
+      .onConflictDoNothing();
+
+    for (const row of rows) {
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        row.id,
+        {
+          onlyModules: ["core"] as ModuleKey[],
+        },
+      );
+    }
+  });
+
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    map.set(row.stagingId, row.id);
+  }
+
+  return map;
 }
 
 /**
@@ -738,7 +807,7 @@ export async function countStagingProductsByAction(
  * @param db - Database instance or transaction
  * @param jobId - Import job ID
  * @param limit - Batch size
- * @param offset - Batch offset
+ * @param cursorRowNumber - Last processed row number for keyset pagination
  * @returns Array of staging products
  */
 export async function getStagingProductsForCommit(
@@ -747,32 +816,90 @@ export async function getStagingProductsForCommit(
     | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
   jobId: string,
   limit = 100,
-  offset = 0,
+  cursorRowNumber?: number,
 ): Promise<StagingProductPreview[]> {
+  const whereClause =
+    typeof cursorRowNumber === "number"
+      ? and(
+          eq(stagingProducts.jobId, jobId),
+          gt(stagingProducts.rowNumber, cursorRowNumber),
+        )
+      : eq(stagingProducts.jobId, jobId);
+
   const products = await db
     .select()
     .from(stagingProducts)
-    .where(eq(stagingProducts.jobId, jobId))
+    .where(whereClause)
     .orderBy(asc(stagingProducts.rowNumber))
-    .limit(limit)
-    .offset(offset);
+    .limit(limit);
+  return hydrateStagingProductPreviews(db, jobId, products);
+}
 
-  // Get variants for these products
+async function hydrateStagingProductPreviews(
+  db:
+    | Database
+    | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
+  jobId: string,
+  products: StagingProductRow[],
+): Promise<StagingProductPreview[]> {
+  if (products.length === 0) {
+    return [];
+  }
+
   const stagingIds = products.map((p) => p.stagingId);
-  const variants =
-    stagingIds.length > 0
-      ? await db
-          .select()
-          .from(stagingProductVariants)
-          .where(
-            and(
-              eq(stagingProductVariants.jobId, jobId),
-              inArray(stagingProductVariants.stagingProductId, stagingIds),
-            ),
-          )
-      : [];
 
-  // Map variants to products
+  const [variants, materials, ecoClaims, journeySteps, environments] =
+    await Promise.all([
+      db
+        .select()
+        .from(stagingProductVariants)
+        .where(
+          and(
+            eq(stagingProductVariants.jobId, jobId),
+            inArray(stagingProductVariants.stagingProductId, stagingIds),
+          ),
+        ),
+      db
+        .select()
+        .from(stagingProductMaterials)
+        .where(
+          and(
+            eq(stagingProductMaterials.jobId, jobId),
+            inArray(stagingProductMaterials.stagingProductId, stagingIds),
+          ),
+        )
+        .orderBy(asc(stagingProductMaterials.createdAt)),
+      db
+        .select()
+        .from(stagingProductEcoClaims)
+        .where(
+          and(
+            eq(stagingProductEcoClaims.jobId, jobId),
+            inArray(stagingProductEcoClaims.stagingProductId, stagingIds),
+          ),
+        )
+        .orderBy(asc(stagingProductEcoClaims.createdAt)),
+      db
+        .select()
+        .from(stagingProductJourneySteps)
+        .where(
+          and(
+            eq(stagingProductJourneySteps.jobId, jobId),
+            inArray(stagingProductJourneySteps.stagingProductId, stagingIds),
+          ),
+        )
+        .orderBy(asc(stagingProductJourneySteps.sortIndex)),
+      db
+        .select()
+        .from(stagingProductEnvironment)
+        .where(
+          and(
+            eq(stagingProductEnvironment.jobId, jobId),
+            inArray(stagingProductEnvironment.stagingProductId, stagingIds),
+          ),
+        ),
+    ]);
+
   const variantMap = new Map<string, StagingVariantPreview>();
   for (const v of variants) {
     variantMap.set(v.stagingProductId, {
@@ -795,6 +922,60 @@ export async function getStagingProductsForCommit(
     });
   }
 
+  const materialMap = new Map<string, StagingMaterialPreview[]>();
+  for (const material of materials) {
+    const list = materialMap.get(material.stagingProductId) ?? [];
+    list.push({
+      stagingId: material.stagingId,
+      stagingProductId: material.stagingProductId,
+      jobId: material.jobId,
+      brandMaterialId: material.brandMaterialId,
+      percentage: material.percentage ?? null,
+      createdAt: material.createdAt,
+    });
+    materialMap.set(material.stagingProductId, list);
+  }
+
+  const ecoClaimMap = new Map<string, StagingEcoClaimPreview[]>();
+  for (const ecoClaim of ecoClaims) {
+    const list = ecoClaimMap.get(ecoClaim.stagingProductId) ?? [];
+    list.push({
+      stagingId: ecoClaim.stagingId,
+      stagingProductId: ecoClaim.stagingProductId,
+      jobId: ecoClaim.jobId,
+      ecoClaimId: ecoClaim.ecoClaimId,
+      createdAt: ecoClaim.createdAt,
+    });
+    ecoClaimMap.set(ecoClaim.stagingProductId, list);
+  }
+
+  const journeyStepMap = new Map<string, StagingJourneyStepPreview[]>();
+  for (const step of journeySteps) {
+    const list = journeyStepMap.get(step.stagingProductId) ?? [];
+    list.push({
+      stagingId: step.stagingId,
+      stagingProductId: step.stagingProductId,
+      jobId: step.jobId,
+      sortIndex: step.sortIndex,
+      stepType: step.stepType,
+      facilityId: step.facilityId,
+      createdAt: step.createdAt,
+    });
+    journeyStepMap.set(step.stagingProductId, list);
+  }
+
+  const environmentMap = new Map<string, StagingEnvironmentPreview>();
+  for (const environment of environments) {
+    environmentMap.set(environment.stagingProductId, {
+      stagingId: environment.stagingId,
+      stagingProductId: environment.stagingProductId,
+      jobId: environment.jobId,
+      carbonKgCo2e: environment.carbonKgCo2e ?? null,
+      waterLiters: environment.waterLiters ?? null,
+      createdAt: environment.createdAt,
+    });
+  }
+
   return products.map((p) => ({
     stagingId: p.stagingId,
     jobId: p.jobId,
@@ -810,11 +991,15 @@ export async function getStagingProductsForCommit(
     additionalImageUrls: p.additionalImageUrls,
     tags: p.tags,
     categoryId: p.categoryId,
-    season: p.season, // Legacy: kept for backward compatibility
+    season: p.season,
     seasonId: p.seasonId,
     brandCertificationId: p.brandCertificationId,
     createdAt: p.createdAt,
     variant: variantMap.get(p.stagingId) ?? null,
+    materials: materialMap.get(p.stagingId) ?? [],
+    ecoClaims: ecoClaimMap.get(p.stagingId) ?? [],
+    journeySteps: journeyStepMap.get(p.stagingId) ?? [],
+    environment: environmentMap.get(p.stagingId) ?? null,
   }));
 }
 

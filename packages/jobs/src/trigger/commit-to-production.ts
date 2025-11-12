@@ -10,10 +10,7 @@ import {
   deleteStagingDataForJob,
   getImportJobStatus,
   getStagingProductsForCommit,
-  getStagingMaterialsForProduct,
-  getStagingEcoClaimsForProduct,
-  getStagingJourneyStepsForProduct,
-  getStagingEnvironmentForProduct,
+  bulkCreateProductsFromStaging,
   updateImportJobProgress,
   updateImportJobStatus,
   updateProduct,
@@ -46,7 +43,20 @@ interface CommitRowResult {
   variantId?: string;
 }
 
+interface BatchTimingSnapshot {
+  batchNumber: number;
+  startRowNumber: number;
+  endRowNumber: number;
+  rowCount: number;
+  fetchMs: number;
+  processMs: number;
+  progressMs: number;
+  totalMs: number;
+}
+
 const BATCH_SIZE = 100;
+const ROW_CONCURRENCY = resolveRowConcurrency();
+const STAGING_DELETE_CHUNK_SIZE = resolveDeleteChunkSize();
 const TIMEOUT_MS = 1800000; // 30 minutes
 
 /**
@@ -67,6 +77,9 @@ export const commitToProduction = task({
   id: "commit-to-production",
   run: async (payload: CommitToProductionPayload): Promise<void> => {
     const { jobId, brandId } = payload;
+    const jobStartTime = Date.now();
+    const batchTimings: BatchTimingSnapshot[] = [];
+    const failedRowIds: string[] = [];
 
     logger.info("Starting commit-to-production job", {
       jobId,
@@ -74,23 +87,34 @@ export const commitToProduction = task({
     });
 
     try {
-      // Update job status to COMMITTING
-      await updateImportJobStatus(db, {
-        jobId,
-        status: "COMMITTING",
-      });
-
-      // Get total count of staging products
       const job = await getImportJobStatus(db, jobId);
       if (!job) {
         throw new Error(`Import job ${jobId} not found`);
       }
 
-      // Verify job status is VALIDATED
-      if (job.status !== "VALIDATED") {
+      if (job.brandId !== brandId) {
+        throw new Error(
+          `Cannot commit job ${jobId}: payload brand ${brandId} does not match job brand ${job.brandId}.`,
+        );
+      }
+
+      if (job.status === "COMMITTING") {
+        logger.warn("Commit job already in progress; continuing", {
+          jobId,
+          brandId,
+        });
+      } else if (job.status !== "VALIDATED") {
         throw new Error(
           `Cannot commit job with status ${job.status}. Job must be in VALIDATED status.`,
         );
+      }
+
+      if (job.status !== "COMMITTING") {
+        await updateImportJobStatus(db, {
+          jobId,
+          status: "COMMITTING",
+          commitStartedAt: new Date().toISOString(),
+        });
       }
 
       const totalRows =
@@ -99,44 +123,58 @@ export const commitToProduction = task({
       let createdCount = 0;
       let updatedCount = 0;
       let failedCount = 0;
-      const failedRowIds: string[] = [];
 
       logger.info("Starting production commit", {
         jobId,
         totalRows,
+        rowConcurrency: ROW_CONCURRENCY,
+        deleteChunkSize: STAGING_DELETE_CHUNK_SIZE,
       });
 
       // Process staging data in batches
-      let offset = 0;
+      let cursorRowNumber: number | null = null;
       let hasMore = true;
+      let batchNumber = 1;
 
       while (hasMore) {
         // Load batch from staging tables
+        const batchStartMs = Date.now();
+        const fetchStart = Date.now();
         const stagingBatch = await getStagingProductsForCommit(
           db,
           jobId,
           BATCH_SIZE,
-          offset,
+          cursorRowNumber ?? undefined,
         );
+        const fetchDurationMs = Date.now() - fetchStart;
 
         if (stagingBatch.length === 0) {
           hasMore = false;
           break;
         }
 
-        logger.info(`Processing batch starting at offset ${offset}`, {
-          batchSize: stagingBatch.length,
-          processedCount,
-          totalRows,
-        });
+        const startRowNumber = stagingBatch[0]?.rowNumber ?? 0;
+        const endRowNumber =
+          stagingBatch[stagingBatch.length - 1]?.rowNumber ?? startRowNumber;
+
+        logger.info(
+          `Processing batch ${batchNumber} (rows ${startRowNumber}-${endRowNumber})`,
+          {
+            batchSize: stagingBatch.length,
+            processedCount,
+            totalRows,
+          },
+        );
 
         // Process batch within a transaction
+        const processStart = Date.now();
         const batchResults = await processBatch(
           db,
           brandId,
           stagingBatch,
           jobId,
         );
+        const processDurationMs = Date.now() - processStart;
 
         // Update counters based on batch results
         for (const result of batchResults) {
@@ -157,6 +195,9 @@ export const commitToProduction = task({
         }
 
         // Update job progress
+        const progressStart = Date.now();
+        const percentage =
+          totalRows > 0 ? Math.round((processedCount / totalRows) * 100) : 100;
         await updateImportJobProgress(db, {
           jobId,
           summary: {
@@ -165,8 +206,20 @@ export const commitToProduction = task({
             created: createdCount,
             updated: updatedCount,
             failed: failedCount,
-            percentage: Math.round((processedCount / totalRows) * 100),
+            percentage,
           },
+        });
+        const progressDurationMs = Date.now() - progressStart;
+        const totalBatchDurationMs = Date.now() - batchStartMs;
+        batchTimings.push({
+          batchNumber,
+          startRowNumber,
+          endRowNumber,
+          rowCount: stagingBatch.length,
+          fetchMs: fetchDurationMs,
+          processMs: processDurationMs,
+          progressMs: progressDurationMs,
+          totalMs: totalBatchDurationMs,
         });
 
         // Send WebSocket progress update (temporarily disabled)
@@ -183,25 +236,45 @@ export const commitToProduction = task({
         // });
 
         logger.info("Batch committed", {
-          batchNumber: Math.floor(offset / BATCH_SIZE) + 1,
+          batchNumber,
           processedCount,
           createdCount,
           updatedCount,
           failedCount,
+          fetchDurationMs,
+          processDurationMs,
+          progressDurationMs,
+          totalBatchDurationMs,
+          rowConcurrency: ROW_CONCURRENCY,
         });
 
-        offset += BATCH_SIZE;
+        cursorRowNumber = endRowNumber;
+        batchNumber += 1;
       }
 
       // Clean up staging data
       logger.info("Cleaning up staging data", { jobId });
-      const deletedCount = await deleteStagingDataForJob(db, jobId);
+      const cleanupStart = Date.now();
+      const deletedCount = await deleteStagingDataForJob(
+        db,
+        jobId,
+        STAGING_DELETE_CHUNK_SIZE,
+      );
+      const cleanupDurationMs = Date.now() - cleanupStart;
       logger.info("Staging data cleaned up", {
         jobId,
         deletedCount,
+        cleanupDurationMs,
+        deleteChunkSize: STAGING_DELETE_CHUNK_SIZE,
       });
 
       // Update job status to COMPLETED
+      const totalDurationMs = Date.now() - jobStartTime;
+      const timingSummary = summarizeTimings(
+        totalDurationMs,
+        batchTimings,
+        cleanupDurationMs,
+      );
       await updateImportJobStatus(db, {
         jobId,
         status: "COMPLETED",
@@ -211,6 +284,8 @@ export const commitToProduction = task({
           created: createdCount,
           updated: updatedCount,
           failed: failedCount,
+          failedRowIds: failedRowIds.length > 0 ? failedRowIds : undefined,
+          timings: timingSummary,
         },
       });
 
@@ -234,6 +309,7 @@ export const commitToProduction = task({
         created: createdCount,
         updated: updatedCount,
         failed: failedCount,
+        totalDurationMs,
       });
     } catch (error) {
       logger.error("Production commit job failed", {
@@ -241,14 +317,21 @@ export const commitToProduction = task({
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
+      const totalDurationMs = Date.now() - jobStartTime;
+      const timingSummary = summarizeTimings(totalDurationMs, batchTimings);
 
       // Clean up staging data even on failure to prevent orphaned records
       try {
         logger.info("Cleaning up staging data after failure", { jobId });
-        const deletedCount = await deleteStagingDataForJob(db, jobId);
+        const deletedCount = await deleteStagingDataForJob(
+          db,
+          jobId,
+          STAGING_DELETE_CHUNK_SIZE,
+        );
         logger.info("Staging data cleaned up after failure", {
           jobId,
           deletedCount,
+          deleteChunkSize: STAGING_DELETE_CHUNK_SIZE,
         });
       } catch (cleanupError) {
         logger.error("Failed to clean up staging data after commit failure", {
@@ -268,6 +351,8 @@ export const commitToProduction = task({
         finishedAt: new Date().toISOString(),
         summary: {
           error: error instanceof Error ? error.message : "Unknown error",
+          failedRowIds: failedRowIds.length > 0 ? failedRowIds : undefined,
+          timings: timingSummary,
         },
       });
 
@@ -304,28 +389,61 @@ async function processBatch(
   jobId: string,
 ): Promise<CommitRowResult[]> {
   const results: CommitRowResult[] = [];
+  const queue = [...stagingBatch];
+  const workerCount = Math.min(ROW_CONCURRENCY, queue.length || 1);
+  const createRows = stagingBatch.filter(
+    (row) => row.action === "CREATE" && !row.existingProductId,
+  );
+  const precreatedProducts =
+    createRows.length > 0
+      ? await bulkCreateProductsFromStaging(db, brandId, createRows)
+      : new Map<string, string>();
 
-  // Process each row individually with its own transaction
-  // This allows partial success - some rows can fail while others succeed
-  for (const stagingProduct of stagingBatch) {
-    try {
-      const result = await commitStagingRow(db, brandId, stagingProduct, jobId);
-      results.push(result);
-    } catch (error) {
-      logger.error("Failed to commit staging row", {
-        rowNumber: stagingProduct.rowNumber,
-        error: error instanceof Error ? error.message : String(error),
-      });
-
-      results.push({
-        rowNumber: stagingProduct.rowNumber,
-        importRowId: "", // Will be looked up if needed
-        action: stagingProduct.action as "CREATE" | "UPDATE",
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
+  if (precreatedProducts.size > 0) {
+    logger.info("Pre-created products for batch", {
+      count: precreatedProducts.size,
+      batchSize: stagingBatch.length,
+    });
   }
+
+  const worker = async () => {
+    while (true) {
+      const stagingProduct = queue.shift();
+      if (!stagingProduct) {
+        break;
+      }
+
+      try {
+        const precreatedProductId =
+          stagingProduct.action === "CREATE"
+            ? precreatedProducts.get(stagingProduct.stagingId)
+            : undefined;
+        const result = await commitStagingRow(
+          db,
+          brandId,
+          stagingProduct,
+          jobId,
+          precreatedProductId,
+        );
+        results.push(result);
+      } catch (error) {
+        logger.error("Failed to commit staging row", {
+          rowNumber: stagingProduct.rowNumber,
+          error: error instanceof Error ? error.message : String(error),
+        });
+
+        results.push({
+          rowNumber: stagingProduct.rowNumber,
+          importRowId: "", // Will be looked up if needed
+          action: stagingProduct.action as "CREATE" | "UPDATE",
+          success: false,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   return results;
 }
@@ -337,6 +455,7 @@ async function processBatch(
  * @param brandId - Brand ID for authorization
  * @param stagingProduct - Staging product to commit
  * @param jobId - Import job ID
+ * @param precreatedProductId - Optional pre-created product ID for CREATE rows
  * @returns Commit result
  */
 async function commitStagingRow(
@@ -344,8 +463,12 @@ async function commitStagingRow(
   brandId: string,
   stagingProduct: StagingProductPreview,
   jobId: string,
+  precreatedProductId?: string,
 ): Promise<CommitRowResult> {
   const { action, rowNumber, variant } = stagingProduct;
+  const rowStart = Date.now();
+  let relationDurationMs = 0;
+  let coreDurationMs = 0;
 
   if (!variant) {
     throw new Error("Staging product missing variant data");
@@ -359,30 +482,36 @@ async function commitStagingRow(
     // Execute within a transaction for atomicity
     await db.transaction(async (tx) => {
       // Step 1: Create or update the product
+      const coreStart = Date.now();
       if (action === "CREATE") {
-        const created = await createProduct(
-          tx as unknown as Database,
-          brandId,
-          {
-            name: stagingProduct.name,
-            description: stagingProduct.description || undefined,
-            categoryId: stagingProduct.categoryId || undefined,
-            season: stagingProduct.season || undefined, // Legacy: kept for backward compatibility
-            seasonId: stagingProduct.seasonId || undefined,
-            brandCertificationId:
-              stagingProduct.brandCertificationId || undefined,
-            showcaseBrandId: stagingProduct.showcaseBrandId || undefined,
-            primaryImageUrl: stagingProduct.primaryImageUrl || undefined,
-            additionalImageUrls: stagingProduct.additionalImageUrls || undefined,
-            tags: stagingProduct.tags || undefined,
-          },
-        );
+        if (precreatedProductId) {
+          productId = precreatedProductId;
+        } else {
+          const created = await createProduct(
+            tx as unknown as Database,
+            brandId,
+            {
+              name: stagingProduct.name,
+              description: stagingProduct.description || undefined,
+              categoryId: stagingProduct.categoryId || undefined,
+              season: stagingProduct.season || undefined, // Legacy: kept for backward compatibility
+              seasonId: stagingProduct.seasonId || undefined,
+              brandCertificationId:
+                stagingProduct.brandCertificationId || undefined,
+              showcaseBrandId: stagingProduct.showcaseBrandId || undefined,
+              primaryImageUrl: stagingProduct.primaryImageUrl || undefined,
+              additionalImageUrls:
+                stagingProduct.additionalImageUrls || undefined,
+              tags: stagingProduct.tags || undefined,
+            },
+          );
 
-        if (!created?.id) {
-          throw new Error("Failed to create product");
+          if (!created?.id) {
+            throw new Error("Failed to create product");
+          }
+
+          productId = created.id;
         }
-
-        productId = created.id;
       } else {
         // UPDATE action
         if (!stagingProduct.existingProductId) {
@@ -461,13 +590,12 @@ async function commitStagingRow(
 
         variantId = updatedVariant.id;
       }
+      coreDurationMs = Date.now() - coreStart;
 
       // Step 3: Upsert related tables (materials, eco claims, journey steps, environment)
       // Fetch and insert materials
-      const stagingMaterials = await getStagingMaterialsForProduct(
-        tx as unknown as Database,
-        stagingProduct.stagingId,
-      );
+      const relationsStart = Date.now();
+      const stagingMaterials = stagingProduct.materials;
       if (stagingMaterials.length > 0) {
         await upsertProductMaterials(
           tx as unknown as Database,
@@ -480,10 +608,7 @@ async function commitStagingRow(
       }
 
       // Fetch and insert eco-claims
-      const stagingEcoClaims = await getStagingEcoClaimsForProduct(
-        tx as unknown as Database,
-        stagingProduct.stagingId,
-      );
+      const stagingEcoClaims = stagingProduct.ecoClaims;
       if (stagingEcoClaims.length > 0) {
         await setProductEcoClaims(
           tx as unknown as Database,
@@ -493,10 +618,7 @@ async function commitStagingRow(
       }
 
       // Fetch and insert journey steps
-      const stagingJourneySteps = await getStagingJourneyStepsForProduct(
-        tx as unknown as Database,
-        stagingProduct.stagingId,
-      );
+      const stagingJourneySteps = stagingProduct.journeySteps;
       if (stagingJourneySteps.length > 0) {
         await setProductJourneySteps(
           tx as unknown as Database,
@@ -510,10 +632,7 @@ async function commitStagingRow(
       }
 
       // Fetch and insert environment data
-      const stagingEnvironment = await getStagingEnvironmentForProduct(
-        tx as unknown as Database,
-        stagingProduct.stagingId,
-      );
+      const stagingEnvironment = stagingProduct.environment;
       if (stagingEnvironment) {
         await upsertProductEnvironment(
           tx as unknown as Database,
@@ -539,13 +658,18 @@ async function commitStagingRow(
       ]);
 
       importRowId = stagingProduct.stagingId;
+      relationDurationMs = Date.now() - relationsStart;
     });
 
+    const rowDurationMs = Date.now() - rowStart;
     logger.info("Successfully committed staging row", {
       rowNumber,
       action,
       productId,
       variantId,
+      rowDurationMs,
+      coreDurationMs,
+      relationDurationMs,
     });
 
     return {
@@ -557,9 +681,13 @@ async function commitStagingRow(
       variantId,
     };
   } catch (error) {
+    const rowDurationMs = Date.now() - rowStart;
     logger.error("Failed to commit staging row (transaction rolled back)", {
       rowNumber,
       action,
+      rowDurationMs,
+      coreDurationMs,
+      relationDurationMs,
       error: error instanceof Error ? error.message : String(error),
     });
 
@@ -584,4 +712,57 @@ async function commitStagingRow(
 
     throw error;
   }
+}
+
+function summarizeTimings(
+  totalDurationMs: number,
+  batches: BatchTimingSnapshot[],
+  cleanupMs?: number,
+) {
+  const batchCount = batches.length;
+  const totalRows = batches.reduce((sum, batch) => sum + batch.rowCount, 0);
+  const totalBatchMs = batches.reduce((sum, batch) => sum + batch.totalMs, 0);
+  const totalProcessMs = batches.reduce(
+    (sum, batch) => sum + batch.processMs,
+    0,
+  );
+  const slowestBatch = batches.reduce<BatchTimingSnapshot | null>(
+    (slowest, batch) => {
+      if (!slowest || batch.totalMs > slowest.totalMs) {
+        return batch;
+      }
+      return slowest;
+    },
+    null,
+  );
+
+  return {
+    totalMs: totalDurationMs,
+    batchCount,
+    totalRows,
+    averageBatchMs:
+      batchCount > 0 ? Math.round(totalBatchMs / batchCount) : undefined,
+    averageRowProcessMs:
+      totalRows > 0 ? Math.round(totalProcessMs / totalRows) : undefined,
+    slowestBatchMs: slowestBatch?.totalMs,
+    slowestBatchNumber: slowestBatch?.batchNumber,
+    cleanupMs,
+    batches,
+    rowConcurrency: ROW_CONCURRENCY,
+    deleteChunkSize: STAGING_DELETE_CHUNK_SIZE,
+  };
+}
+
+function resolveRowConcurrency(): number {
+  const envValue = process.env.COMMIT_ROW_CONCURRENCY;
+  const parsed = envValue ? Number.parseInt(envValue, 10) : Number.NaN;
+  const base = Number.isNaN(parsed) ? 5 : parsed;
+  return Math.min(Math.max(base, 1), 20);
+}
+
+function resolveDeleteChunkSize(): number {
+  const envValue = process.env.COMMIT_DELETE_CHUNK_SIZE;
+  const parsed = envValue ? Number.parseInt(envValue, 10) : Number.NaN;
+  const base = Number.isNaN(parsed) ? 500 : parsed;
+  return Math.min(Math.max(base, 100), 5000);
 }

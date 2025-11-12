@@ -27,7 +27,7 @@ import {
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -203,23 +203,23 @@ export const valuesRouter = createTRPCRouter({
         let lastCategoryId: string | null = null;
 
         for (const label of labels) {
-          const parentCondition = parentId
+          const parentCondition: SQL<unknown> = parentId
             ? eq(categories.parentId, parentId)
             : isNull(categories.parentId);
 
           // Check if category exists using regular db connection (with RLS)
-          const existing = await brandCtx.db
+          const existing: Array<{ id: string }> = await brandCtx.db
             .select({ id: categories.id })
             .from(categories)
             .where(and(parentCondition, eq(categories.name, label)))
             .limit(1);
 
-          let currentId = existing[0]?.id ?? null;
+          let currentId: string | null = existing[0]?.id ?? null;
 
           if (!currentId) {
             // Use serviceDb to bypass RLS for category insertion
             // Categories are system-managed and have restrictive RLS policies
-            const inserted = await serviceDb
+            const inserted: Array<{ id: string }> = await serviceDb
               .insert(categories)
               .values({
                 name: label,

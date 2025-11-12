@@ -936,7 +936,7 @@ export async function upsertProductVariantsForBrand(
     id?: string;
     color_id?: string | null;
     size_id?: string | null;
-    sku: string;
+    sku?: string | null;
     ean?: string | null;
     upid?: string | null;
     status?: string | null;
@@ -994,13 +994,17 @@ export async function upsertProductVariantsForBrand(
         }
 
         if (!target) {
+          const insertSku = input.sku ?? input.upid ?? reference;
+          if (!insertSku) {
+            throw new Error("SKU is required when creating a variant.");
+          }
           const [created] = await tx
             .insert(productVariants)
             .values({
               productId,
               colorId: input.color_id ?? null,
               sizeId: input.size_id ?? null,
-              sku: input.sku,
+              sku: insertSku,
               ean: input.ean ?? null,
               upid: input.upid ?? null,
               status: input.status ?? null,
@@ -1041,6 +1045,9 @@ export async function upsertProductVariantsForBrand(
           updateValues.sizeId = input.size_id ?? null;
         }
         if (hasOwn.call(input, "sku")) {
+          if (input.sku == null) {
+            throw new Error("SKU cannot be null when explicitly provided.");
+          }
           updateValues.sku = input.sku;
         }
         if (hasOwn.call(input, "ean")) {

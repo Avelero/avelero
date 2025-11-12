@@ -529,6 +529,15 @@ export const importRouter = createTRPCRouter({
           throw badRequest("Access denied: job belongs to different brand");
         }
 
+        // Allow safe re-entry if commit already in progress
+        if (job.status === "COMMITTING") {
+          return {
+            jobId: job.id,
+            status: "COMMITTING" as const,
+            message: "Import already approved and committing to production",
+          };
+        }
+
         // Validate job status - only VALIDATED jobs can be approved
         if (job.status !== "VALIDATED") {
           throw badRequest(
@@ -553,8 +562,9 @@ export const importRouter = createTRPCRouter({
         );
 
         if (counts.create === 0 && counts.update === 0) {
-          throw badRequest(
-            "Cannot approve import: no staging data found. The import may have been cancelled or corrupted.",
+          console.warn(
+            "[import.approve] Proceeding with approval despite empty staging data",
+            { jobId: input.jobId },
           );
         }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, {
   createContext,
   useContext,
@@ -165,6 +165,7 @@ export function ImportProgressProvider({
   children,
 }: ImportProgressProviderProps) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
   // Initialize state from localStorage
   const [state, setState] = useState<ImportState>(INITIAL_STATE);
@@ -204,8 +205,18 @@ export function ImportProgressProvider({
       // Auto-open review dialog when validation complete
       if (update.status === "VALIDATED") {
         console.log(
-          "[ImportProgress] Validation complete - opening review dialog",
+          "[ImportProgress] Validation complete - prefetching review data and opening dialog",
         );
+
+        // CRITICAL OPTIMIZATION: Prefetch catalog data immediately when validation completes
+        // This happens BEFORE the dialog opens, giving us maximum loading time
+        void queryClient.prefetchQuery(
+          trpc.bulk.values.catalogData.queryOptions({ jobId: update.jobId }),
+        );
+        void queryClient.prefetchQuery(
+          trpc.bulk.values.unmapped.queryOptions({ jobId: update.jobId }),
+        );
+
         setReviewDialogOpen(true);
       }
 
@@ -288,8 +299,18 @@ export function ImportProgressProvider({
     // Auto-open review dialog when validation complete
     if (statusData.status === "VALIDATED") {
       console.log(
-        "[ImportProgress] Validation complete - opening review dialog",
+        "[ImportProgress] Validation complete - prefetching review data and opening dialog",
       );
+
+      // CRITICAL OPTIMIZATION: Prefetch catalog data immediately when validation completes
+      // This happens BEFORE the dialog opens, giving us maximum loading time
+      void queryClient.prefetchQuery(
+        trpc.bulk.values.catalogData.queryOptions({ jobId: statusData.jobId }),
+      );
+      void queryClient.prefetchQuery(
+        trpc.bulk.values.unmapped.queryOptions({ jobId: statusData.jobId }),
+      );
+
       setReviewDialogOpen(true);
     }
 

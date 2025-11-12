@@ -65,7 +65,9 @@ export const valuesRouter = createTRPCRouter({
    * Single optimized endpoint that returns all entity types needed
    * for the unmapped values section. Reduces N queries to 1.
    *
-   * Only fetches entity types that are present in unmapped values.
+   * Fetches all entity types in parallel for maximum speed.
+   * The cost of fetching unused entity types is negligible compared to
+   * the overhead of checking which types are needed first.
    */
   catalogData: brandRequiredProcedure
     .input(getUnmappedValuesSchema)
@@ -74,7 +76,7 @@ export const valuesRouter = createTRPCRouter({
       const brandId = brandCtx.brandId;
 
       try {
-        // First verify job ownership and get unmapped values
+        // Verify job ownership
         const job = await getImportJobStatus(brandCtx.db, input.jobId);
 
         if (!job) {
@@ -85,19 +87,8 @@ export const valuesRouter = createTRPCRouter({
           throw badRequest("Access denied: job belongs to different brand");
         }
 
-        // Get unmapped values to determine which entity types to fetch
-        const unmappedResult = await getUnmappedValuesForJob(
-          brandCtx.db,
-          input.jobId,
-        );
-
-        // Determine which entity types are needed
-        const entityTypes = new Set(
-          unmappedResult.unmappedValues.map((group) => group.entityType),
-        );
-
-        // Fetch only the entity types that are actually needed
-        // This is done in parallel for maximum efficiency
+        // Fetch ALL entity types in parallel for maximum speed
+        // This is faster than querying unmapped values first to determine which types are needed
         const [
           colors,
           materials,
@@ -107,57 +98,40 @@ export const valuesRouter = createTRPCRouter({
           categories,
           certifications,
         ] = await Promise.all([
-          entityTypes.has("COLOR")
-            ? brandCtx.db.query.brandColors.findMany({
-                where: (colors, { eq }) => eq(colors.brandId, brandId),
-                columns: { id: true, name: true },
-                orderBy: (colors, { asc }) => [asc(colors.name)],
-              })
-            : Promise.resolve([]),
-          entityTypes.has("MATERIAL")
-            ? brandCtx.db.query.brandMaterials.findMany({
-                where: (materials, { eq }) => eq(materials.brandId, brandId),
-                columns: { id: true, name: true },
-                orderBy: (materials, { asc }) => [asc(materials.name)],
-              })
-            : Promise.resolve([]),
-          entityTypes.has("SIZE")
-            ? brandCtx.db.query.brandSizes.findMany({
-                where: (sizes, { eq }) => eq(sizes.brandId, brandId),
-                columns: { id: true, name: true },
-                orderBy: (sizes, { asc }) => [asc(sizes.name)],
-              })
-            : Promise.resolve([]),
-          entityTypes.has("FACILITY")
-            ? brandCtx.db.query.brandFacilities.findMany({
-                where: (facilities, { eq }) =>
-                  eq(facilities.brandId, brandId),
-                columns: { id: true, displayName: true },
-                orderBy: (facilities, { asc }) => [
-                  asc(facilities.displayName),
-                ],
-              })
-            : Promise.resolve([]),
-          entityTypes.has("SHOWCASE_BRAND")
-            ? brandCtx.db.query.showcaseBrands.findMany({
-                where: (brands, { eq }) => eq(brands.brandId, brandId),
-                columns: { id: true, name: true },
-                orderBy: (brands, { asc }) => [asc(brands.name)],
-              })
-            : Promise.resolve([]),
-          entityTypes.has("CATEGORY")
-            ? brandCtx.db.query.categories.findMany({
-                columns: { id: true, name: true },
-                orderBy: (categories, { asc }) => [asc(categories.name)],
-              })
-            : Promise.resolve([]),
-          entityTypes.has("CERTIFICATION")
-            ? brandCtx.db.query.brandCertifications.findMany({
-                where: (certs, { eq }) => eq(certs.brandId, brandId),
-                columns: { id: true, title: true },
-                orderBy: (certs, { asc }) => [asc(certs.title)],
-              })
-            : Promise.resolve([]),
+          brandCtx.db.query.brandColors.findMany({
+            where: (colors, { eq }) => eq(colors.brandId, brandId),
+            columns: { id: true, name: true },
+            orderBy: (colors, { asc }) => [asc(colors.name)],
+          }),
+          brandCtx.db.query.brandMaterials.findMany({
+            where: (materials, { eq }) => eq(materials.brandId, brandId),
+            columns: { id: true, name: true },
+            orderBy: (materials, { asc }) => [asc(materials.name)],
+          }),
+          brandCtx.db.query.brandSizes.findMany({
+            where: (sizes, { eq }) => eq(sizes.brandId, brandId),
+            columns: { id: true, name: true },
+            orderBy: (sizes, { asc }) => [asc(sizes.name)],
+          }),
+          brandCtx.db.query.brandFacilities.findMany({
+            where: (facilities, { eq }) => eq(facilities.brandId, brandId),
+            columns: { id: true, displayName: true },
+            orderBy: (facilities, { asc }) => [asc(facilities.displayName)],
+          }),
+          brandCtx.db.query.showcaseBrands.findMany({
+            where: (brands, { eq }) => eq(brands.brandId, brandId),
+            columns: { id: true, name: true },
+            orderBy: (brands, { asc }) => [asc(brands.name)],
+          }),
+          brandCtx.db.query.categories.findMany({
+            columns: { id: true, name: true },
+            orderBy: (categories, { asc }) => [asc(categories.name)],
+          }),
+          brandCtx.db.query.brandCertifications.findMany({
+            where: (certs, { eq }) => eq(certs.brandId, brandId),
+            columns: { id: true, title: true },
+            orderBy: (certs, { asc }) => [asc(certs.title)],
+          }),
         ]);
 
         return {

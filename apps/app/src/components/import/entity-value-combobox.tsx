@@ -1,17 +1,13 @@
 "use client";
 
-import { ColorSelect } from "@/components/select/color-select";
-import { SizeSelect } from "@/components/select/size-select";
-import { SeasonSelect } from "@/components/select/season-select";
-import { TagSelect } from "@/components/select/tag-select";
 import { CategorySelect } from "@/components/select/category-select";
 import { SeasonModal } from "@/components/modals/season-modal";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -21,11 +17,11 @@ import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
-import { ColorSheet } from "../sheets/color-sheet";
 import { MaterialSheet } from "../sheets/material-sheet";
 import { ShowcaseBrandSheet } from "../sheets/showcase-brand-sheet";
 import { OperatorSheet } from "../sheets/operator-sheet";
-import { SizeModal } from "../modals/size-modal";
+import { colors as colorSelections } from "@v1/selections/colors";
+import { usePendingEntities, generatePendingEntityKey } from "@/contexts/pending-entities-context";
 
 /**
  * Entity types supported by the combobox
@@ -106,20 +102,14 @@ export function EntityValueCombobox({
 }: EntityValueComboboxProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { setPendingEntity, hasPendingEntity, getPendingEntity } = usePendingEntities();
 
-  const [open, setOpen] = React.useState(false);
-  const [searchTerm, setSearchTerm] = React.useState("");
+  const key = generatePendingEntityKey(entityType, rawValue);
+  const isDefined = hasPendingEntity(key);
+
   const [sheetOpen, setSheetOpen] = React.useState(false);
-  const [sizeModalOpen, setSizeModalOpen] = React.useState(false);
   const [seasonModalOpen, setSeasonModalOpen] = React.useState(false);
   const [isMappingValue, setIsMappingValue] = React.useState(false);
-
-  // Reset search term when dropdown closes
-  React.useEffect(() => {
-    if (!open) {
-      setSearchTerm("");
-    }
-  }, [open]);
 
   // Fetch entity data (cached by parent component)
   const { data: colorsData } = useQuery({
@@ -127,38 +117,7 @@ export function EntityValueCombobox({
     enabled: entityType === "COLOR",
   });
 
-  const { data: materialsData } = useQuery({
-    ...trpc.brand.materials.list.queryOptions({}),
-    enabled: entityType === "MATERIAL",
-  });
-
-  const { data: sizesData } = useQuery({
-    ...trpc.brand.sizes.list.queryOptions({}),
-    enabled: entityType === "SIZE",
-  });
-
-  const { data: facilitiesData } = useQuery({
-    ...trpc.brand.facilities.list.queryOptions({}),
-    enabled: entityType === "FACILITY",
-  });
-
-  const { data: showcaseBrandsData, isLoading: isLoadingShowcaseBrands } =
-    useQuery({
-      ...trpc.brand.showcaseBrands.list.queryOptions({}),
-      enabled: entityType === "SHOWCASE_BRAND",
-    });
-
-  const { data: seasonsData, isLoading: isLoadingSeasons } = useQuery({
-    ...trpc.brand.seasons.list.queryOptions({}),
-    enabled: entityType === "SEASON",
-  });
-
-  // Determine if any data is loading
-  const isLoadingData =
-    (entityType === "MATERIAL" && !materialsData) ||
-    (entityType === "FACILITY" && !facilitiesData) ||
-    (entityType === "SHOWCASE_BRAND" && isLoadingShowcaseBrands) ||
-    (entityType === "SEASON" && isLoadingSeasons);
+  // No longer need to fetch material/facility/showcase/season data since we're using direct creation
 
   // Map to existing entity mutation
   const mapToExistingMutation = useMutation(
@@ -172,17 +131,25 @@ export function EntityValueCombobox({
     try {
       setIsMappingValue(true);
 
-      // Type guard: CATEGORY should never reach this point since it's read-only
-      if (entityType === "CATEGORY") {
-        throw new Error("Categories cannot be mapped");
-      }
-
       await mapToExistingMutation.mutateAsync({
         jobId,
-        entityType: entityType as Exclude<EntityType, "CATEGORY">,
+        entityType: entityType,
         rawValue,
         sourceColumn,
         entityId,
+      });
+
+      // Mark as defined in pending entities context for UI state
+      setPendingEntity({
+        key,
+        entityType,
+        rawValue,
+        sourceColumn,
+        jobId,
+        entityData: {
+          id: entityId,
+          name: entityName,
+        },
       });
 
       toast.success(`Mapped "${rawValue}" to ${entityName}`);
@@ -212,341 +179,429 @@ export function EntityValueCombobox({
     await handleMapEntity(entityData.id, entityData.name);
   };
 
-  // Render COLOR using ColorSelect component
+  // Render COLOR using a simple combobox (READ-ONLY - no creation)
   if (entityType === "COLOR") {
-    const colorOptions = (colorsData?.data || []).map((c: any) => ({
-      name: c.name,
-      hex: "808080", // Default gray - actual hex not stored in DB
-    }));
+    // Match database color names to static color selections for hex values
+    const colorOptions = (colorsData?.data || []).map((c: any) => {
+      // Try to find matching color in selections by name (case-insensitive)
+      const colorKey = c.name.toUpperCase().replace(/\s+/g, "_");
+      const selectionColor = colorSelections[colorKey as keyof typeof colorSelections];
+
+      return {
+        id: c.id,
+        name: c.name,
+        hex: selectionColor?.hex || "808080", // Use static hex or fallback to gray
+      };
+    });
+
+    const [colorOpen, setColorOpen] = React.useState(false);
+    const [colorSearch, setColorSearch] = React.useState("");
+
+    const filteredColors = React.useMemo(() => {
+      if (!colorSearch) return colorOptions;
+      return colorOptions.filter((c) =>
+        c.name.toLowerCase().includes(colorSearch.toLowerCase())
+      );
+    }, [colorOptions, colorSearch]);
+
+    const buttonLabel = isDefined
+      ? `Mapped: "${getPendingEntity(key)?.entityData?.name || rawValue}"`
+      : isMappingValue
+        ? "Mapping..."
+        : "Select color";
+
+    const buttonIcon = isDefined ? (
+      <Icons.CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+    ) : (
+      <Icons.ChevronDown className="h-3.5 w-3.5 text-tertiary flex-shrink-0" />
+    );
 
     return (
-      <>
-        <div className={cn("w-full", className)}>
-          <ColorSelect
-            value={[]} // Single-select for mapping
-            onValueChange={async (colors) => {
-              if (colors.length > 0 && colors[0]) {
-                const selectedColor = colorsData?.data.find(
-                  (c: any) => c.name === colors[0]?.name,
-                );
-                if (selectedColor) {
-                  await handleMapEntity(selectedColor.id, selectedColor.name);
-                }
-              }
-            }}
-            defaultColors={colorOptions}
-            placeholder={isMappingValue ? "Mapping..." : rawValue}
-            disabled={disabled || isMappingValue}
-            className="h-9"
-          />
-        </div>
-        <ColorSheet
-          open={sheetOpen}
-          onOpenChange={setSheetOpen}
-          initialName={rawValue}
-          onColorCreated={handleEntityCreated}
-        />
-      </>
+      <div className={cn("w-full", className)}>
+        {isDefined ? (
+          // Show mapped state as a disabled button
+          <button
+            type="button"
+            disabled={true}
+            className={cn(
+              "w-full h-9 px-3 flex items-center justify-between gap-2",
+              "border border-green-600 bg-green-50 rounded cursor-default",
+              className,
+            )}
+          >
+            <span className="type-p truncate text-green-700">
+              {buttonLabel}
+            </span>
+            {buttonIcon}
+          </button>
+        ) : (
+          <Popover open={colorOpen && !disabled} onOpenChange={setColorOpen} modal={true}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="default"
+                disabled={disabled || isMappingValue}
+                className="w-full justify-between h-9"
+                icon={buttonIcon}
+              >
+                <span className="type-p truncate text-secondary">
+                  {buttonLabel}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-60 p-0" align="start" sideOffset={4}>
+              <Command shouldFilter={false}>
+                <CommandInput
+                  placeholder="Search colors..."
+                  value={colorSearch}
+                  onValueChange={setColorSearch}
+                />
+                <CommandList>
+                  <CommandGroup>
+                    {filteredColors.length > 0 ? (
+                      filteredColors.map((color) => (
+                        <CommandItem
+                          key={color.id}
+                          value={color.name}
+                          onSelect={async () => {
+                            await handleMapEntity(color.id, color.name);
+                            setColorOpen(false);
+                            setColorSearch("");
+                          }}
+                          className="justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-3.5 w-3.5 rounded-full border border-border"
+                              style={{ backgroundColor: `#${color.hex}` }}
+                            />
+                            <span className="type-p text-primary">
+                              {color.name}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))
+                    ) : (
+                      <div className="px-3 py-8 text-center">
+                        <p className="type-p text-tertiary">
+                          No colors found
+                        </p>
+                      </div>
+                    )}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
     );
   }
 
-  // Render SIZE using SizeSelect component
+  // Render SIZE - Click to define (stores data for batch creation)
+  // For bulk import, we just create a simple size with the CSV value as the name
   if (entityType === "SIZE") {
-    const sizeOptions = (sizesData?.data || []).map((s: any) => s.name);
+    const buttonLabel = isDefined
+      ? `Defined: "${rawValue}"`
+      : `Define "${rawValue}"`;
+
+    const buttonIcon = isDefined ? (
+      <Icons.CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+    ) : (
+      <Icons.Plus className="h-3.5 w-3.5 text-secondary flex-shrink-0" />
+    );
 
     return (
-      <>
-        <SizeSelect
-          value={null}
-          onValueChange={async (sizeName) => {
-            const selectedSize = sizesData?.data.find(
-              (s: any) => s.name === sizeName,
-            );
-            if (selectedSize) {
-              await handleMapEntity(selectedSize.id, selectedSize.name);
-            }
-          }}
-          availableSizes={sizeOptions}
-          onCreateNew={() => setSizeModalOpen(true)}
-          placeholder={isMappingValue ? "Mapping..." : "Select or create"}
-          disabled={disabled || isMappingValue}
-          className={className}
-        />
-        <SizeModal
-          open={sizeModalOpen}
-          onOpenChange={setSizeModalOpen}
-          prefillSize={rawValue}
-          onSave={async () => {
-            setSizeModalOpen(false);
-            // Refetch and find the created size
-            await queryClient.invalidateQueries({
-              queryKey: trpc.brand.sizes.list.queryKey({}),
+      <button
+        type="button"
+        onClick={() => {
+          if (!disabled && !isDefined) {
+            // For bulk import, simply store the size name directly
+            // No complex modal needed - just create a size with this name
+            setPendingEntity({
+              key,
+              entityType: "SIZE",
+              rawValue,
+              sourceColumn,
+              jobId,
+              entityData: {
+                name: rawValue, // Simple size name
+              },
             });
-            await new Promise((resolve) => setTimeout(resolve, 300));
-            const freshSizesData = queryClient.getQueryData(
-              trpc.brand.sizes.list.queryKey({}),
-            ) as { data: { id: string; name: string }[] } | undefined;
-            const createdSize = freshSizesData?.data.find(
-              (s) => s.name.toLowerCase() === rawValue.toLowerCase(),
-            );
-            if (createdSize) {
-              await handleEntityCreated(createdSize);
-            } else {
-              toast.success(`Size "${rawValue}" created`);
-              onMapped?.();
-            }
-          }}
-        />
-      </>
+            toast.success(`Size "${rawValue}" defined`);
+            onMapped?.();
+          }
+        }}
+        disabled={disabled}
+        className={cn(
+          "w-full h-9 px-3 flex items-center justify-between gap-2",
+          "border border-border rounded bg-background hover:bg-accent transition-colors",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          isDefined && "border-green-600 bg-green-50 cursor-default",
+          className,
+        )}
+      >
+        <span className={cn("type-p truncate", isDefined ? "text-green-700" : "text-secondary")}>
+          {buttonLabel}
+        </span>
+        {buttonIcon}
+      </button>
     );
   }
 
   // Render CATEGORY using CategorySelect component (read-only mapping)
   if (entityType === "CATEGORY") {
+    // Fetch categories from catalog
+    const { data: categoriesData } = useQuery({
+      ...trpc.bulk.values.catalogData.queryOptions({ jobId }),
+      select: (data) => data.categories,
+    });
+
+    // Find matching category ID from the selected path
+    // CategorySelect returns a path like "Men's / Tops / T-Shirts"
+    // We need to extract the leaf category name and find its ID
+    const findCategoryId = (categoryPath: string): { id: string; name: string } | null => {
+      if (!categoriesData || !categoryPath || categoryPath === "Select category") {
+        return null;
+      }
+
+      // Extract leaf category from path (e.g., "Men's / Tops / T-Shirts" -> "T-Shirts")
+      const parts = categoryPath.split("/").map((p) => p.trim());
+      const leafName = parts[parts.length - 1];
+
+      if (!leafName) return null;
+
+      // Find matching category in database by name (case-insensitive)
+      const category = categoriesData.find(
+        (c: any) => c.name.toLowerCase() === leafName.toLowerCase()
+      );
+
+      return category ? { id: category.id, name: category.name } : null;
+    };
+
+    const buttonLabel = isDefined
+      ? `Mapped: "${getPendingEntity(key)?.entityData?.name || rawValue}"`
+      : isMappingValue
+        ? "Mapping..."
+        : "Select category";
+
+    const buttonIcon = isDefined ? (
+      <Icons.CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+    ) : (
+      <Icons.ChevronDown className="h-3.5 w-3.5 text-tertiary flex-shrink-0" />
+    );
+
     return (
       <div className={cn("w-full", className)}>
-        <CategorySelect
-          value=""
-          onChange={async (categoryPath) => {
-            if (categoryPath && categoryPath !== "Select category") {
-              // For categories, we use the full path as both ID and name
-              await handleMapEntity(categoryPath, categoryPath);
-            }
-          }}
-          label=""
-          className="h-9"
-        />
+        {isDefined ? (
+          // Show mapped state as a disabled button
+          <button
+            type="button"
+            disabled={true}
+            className={cn(
+              "w-full h-9 px-3 flex items-center justify-between gap-2",
+              "border border-green-600 bg-green-50 rounded cursor-default",
+              className,
+            )}
+          >
+            <span className="type-p truncate text-green-700">
+              {buttonLabel}
+            </span>
+            {buttonIcon}
+          </button>
+        ) : (
+          // Show CategorySelect for unmapped values
+          <CategorySelect
+            value=""
+            onChange={async (categoryPath) => {
+              if (categoryPath && categoryPath !== "Select category" && !isMappingValue && !disabled) {
+                const match = findCategoryId(categoryPath);
+                if (match) {
+                  await handleMapEntity(match.id, match.name);
+                } else {
+                  toast.error(`Category "${categoryPath}" not found in database`);
+                }
+              }
+            }}
+            label=""
+            className={cn("h-9", (disabled || isMappingValue) && "opacity-50 pointer-events-none")}
+          />
+        )}
       </div>
     );
   }
 
-  // For other entity types, use generic dropdown
-  const entities = React.useMemo(() => {
-    switch (entityType) {
-      case "MATERIAL":
-        return (materialsData?.data || []).map((m: any) => ({
-          id: m.id,
-          name: m.name,
-        }));
-      case "FACILITY":
-        return (facilitiesData?.data || []).map((f: any) => ({
-          id: f.id,
-          name: f.name,
-        }));
-      case "SHOWCASE_BRAND":
-        return (showcaseBrandsData?.data || []).map((b: any) => ({
-          id: b.id,
-          name: b.name,
-        }));
-      case "SEASON":
-        return (seasonsData?.data || []).map((s: any) => ({
-          id: s.id,
-          name: s.name,
-        }));
-      case "TAG":
-        // Tags don't have a list endpoint yet, they're created on-the-fly
-        return [];
-      default:
-        return [];
-    }
-  }, [entityType, materialsData, facilitiesData, showcaseBrandsData]);
+  // For MATERIAL, SEASON, FACILITY, SHOWCASE_BRAND - define button (stores data for batch creation)
+  if (
+    entityType === "MATERIAL" ||
+    entityType === "SEASON" ||
+    entityType === "FACILITY" ||
+    entityType === "SHOWCASE_BRAND"
+  ) {
+    const handleDefineClick = () => {
+      if (entityType === "SEASON") {
+        setSeasonModalOpen(true);
+      } else {
+        setSheetOpen(true);
+      }
+    };
 
-  // Filter entities for generic dropdown
-  const filteredEntities = React.useMemo(() => {
-    if (!searchTerm) return entities;
-    return entities.filter((e: EntityOption) =>
-      e.name.toLowerCase().includes(searchTerm.toLowerCase()),
+    const buttonLabel = isDefined
+      ? `Edit "${rawValue}"`
+      : `Define "${rawValue}"`;
+
+    const buttonIcon = isDefined ? (
+      <Icons.CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+    ) : (
+      <Icons.Plus className="h-3.5 w-3.5 text-secondary flex-shrink-0" />
     );
-  }, [entities, searchTerm]);
 
-  // Generic dropdown (for materials, facilities, showcase brands, seasons, tags)
-  // CATEGORY is handled via early return, so it won't reach this point
-  const canCreate =
-    entityType !== "ECO_CLAIM" && entityType !== "CERTIFICATION";
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => !disabled && handleDefineClick()}
+          disabled={disabled}
+          className={cn(
+            "w-full h-9 px-3 flex items-center justify-between gap-2",
+            "border border-border rounded bg-background hover:bg-accent transition-colors",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+            isDefined && "border-green-600 bg-green-50",
+            className,
+          )}
+        >
+          <span className={cn("type-p truncate", isDefined ? "text-green-700" : "text-secondary")}>
+            {buttonLabel}
+          </span>
+          {buttonIcon}
+        </button>
 
-  const handleSelectExisting = async (entity: EntityOption) => {
-    await handleMapEntity(entity.id, entity.name);
-    setOpen(false);
-  };
-
-  const handleCreateNew = () => {
-    setOpen(false);
-    setSheetOpen(true);
-  };
-
-  /**
-   * Render entity-specific sheet/modal for generic dropdown
-   * (COLOR, SIZE, CATEGORY are handled by early returns above)
-   */
-  const renderEntitySheet = () => {
-    switch (entityType) {
-      case "MATERIAL":
-        return (
+        {/* Entity-specific sheet/modal */}
+        {entityType === "MATERIAL" && (
           <MaterialSheet
             open={sheetOpen}
             onOpenChange={setSheetOpen}
             initialName={rawValue}
-            onMaterialCreated={handleEntityCreated}
+            onMaterialCreated={(materialData) => {
+              // Store material data for batch creation
+              setPendingEntity({
+                key,
+                entityType: "MATERIAL",
+                rawValue,
+                sourceColumn,
+                jobId,
+                entityData: {
+                  name: materialData.name || rawValue,
+                  country_of_origin: materialData.countryOfOrigin,
+                  recyclable: materialData.recyclable,
+                  certification_id: materialData.certificationId,
+                },
+              });
+
+              setSheetOpen(false);
+              toast.success(`Material "${rawValue}" defined`);
+              onMapped?.();
+            }}
           />
-        );
-      case "FACILITY":
-        return (
+        )}
+        {entityType === "FACILITY" && (
           <OperatorSheet
             open={sheetOpen}
             onOpenChange={setSheetOpen}
             initialName={rawValue}
-            onOperatorCreated={handleEntityCreated}
+            onOperatorCreated={(facilityData) => {
+              // Store facility data for batch creation
+              setPendingEntity({
+                key,
+                entityType: "FACILITY",
+                rawValue,
+                sourceColumn,
+                jobId,
+                entityData: {
+                  display_name: facilityData.name || rawValue,
+                  // Add other facility fields
+                },
+              });
+
+              setSheetOpen(false);
+              toast.success(`Facility "${rawValue}" defined`);
+              onMapped?.();
+            }}
           />
-        );
-      case "SHOWCASE_BRAND":
-        return (
+        )}
+        {entityType === "SHOWCASE_BRAND" && (
           <ShowcaseBrandSheet
             open={sheetOpen}
             onOpenChange={setSheetOpen}
             initialName={rawValue}
-            onBrandCreated={handleEntityCreated}
+            onBrandCreated={(brandData) => {
+              // Store showcase brand data for batch creation
+              setPendingEntity({
+                key,
+                entityType: "SHOWCASE_BRAND",
+                rawValue,
+                sourceColumn,
+                jobId,
+                entityData: {
+                  name: brandData.name || rawValue,
+                  // Add other brand fields
+                },
+              });
+
+              setSheetOpen(false);
+              toast.success(`Showcase brand "${rawValue}" defined`);
+              onMapped?.();
+            }}
           />
-        );
-      case "SEASON":
-        return (
+        )}
+        {entityType === "SEASON" && (
           <SeasonModal
             open={seasonModalOpen}
             onOpenChange={setSeasonModalOpen}
             initialName={rawValue}
-            onSave={async (season) => {
-              setSeasonModalOpen(false);
-              // Map the created season using its UUID from the tRPC mutation
-              await handleEntityCreated({
-                id: season.id,
-                name: season.name,
+            onSave={(seasonData) => {
+              // Store season data for batch creation
+              setPendingEntity({
+                key,
+                entityType: "SEASON",
+                rawValue,
+                sourceColumn,
+                jobId,
+                entityData: {
+                  name: seasonData.name || rawValue,
+                  start_date: seasonData.startDate,
+                  end_date: seasonData.endDate,
+                  is_ongoing: seasonData.ongoing,
+                },
               });
+
+              setSeasonModalOpen(false);
+              toast.success(`Season "${rawValue}" defined`);
+              onMapped?.();
             }}
           />
-        );
-      case "TAG":
-        // Tags are auto-created with rawValue as both ID and name
-        // No modal needed, handled via generic dropdown
-        return null;
-      case "ECO_CLAIM":
-      case "CERTIFICATION":
-        return null;
-      default:
-        return null;
-    }
-  };
+        )}
+      </>
+    );
+  }
 
+  // For other unsupported entity types (TAG, ECO_CLAIM, CERTIFICATION)
+  // Show a disabled placeholder
   return (
-    <>
-      <Popover open={open && !disabled} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            disabled={disabled || isMappingValue}
-            className={cn(
-              "w-full h-9 px-3 flex items-center justify-between gap-2",
-              "border border-border rounded bg-background hover:bg-accent transition-colors",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-              (disabled || isMappingValue) && "cursor-wait",
-              className,
-            )}
-          >
-            <span className="type-p text-secondary truncate">
-              {isMappingValue ? "Mapping..." : "Select or create"}
-            </span>
-            {isMappingValue ? (
-              <Icons.Spinner className="h-3.5 w-3.5 animate-spin text-secondary flex-shrink-0" />
-            ) : (
-              <Icons.ChevronDown className="h-3.5 w-3.5 text-secondary flex-shrink-0" />
-            )}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[360px] p-0" align="start">
-          <Command shouldFilter={false}>
-            <CommandInput
-              placeholder={`Search ${entityType.toLowerCase()}s...`}
-              value={searchTerm}
-              onValueChange={setSearchTerm}
-            />
-            <CommandList>
-              {isLoadingData ? (
-                <div className="flex items-center justify-center py-6">
-                  <Icons.Spinner className="h-5 w-5 animate-spin text-brand" />
-                  <span className="ml-2 text-sm text-secondary">
-                    Loading {entityType.toLowerCase()}s...
-                  </span>
-                </div>
-              ) : (
-                <>
-                  {canCreate && (
-                    <CommandGroup>
-                      <CommandItem
-                        value={`__create__${rawValue}`}
-                        onSelect={handleCreateNew}
-                        disabled={isMappingValue}
-                        className="text-brand hover:text-brand"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icons.Plus className="h-3.5 w-3.5" />
-                          <span className="type-p">
-                            Create &quot;{rawValue}&quot;
-                          </span>
-                        </div>
-                      </CommandItem>
-                    </CommandGroup>
-                  )}
-
-                  {filteredEntities.length > 0 && (
-                    <CommandGroup heading="Existing">
-                      {filteredEntities.map((entity: EntityOption) => (
-                        <CommandItem
-                          key={entity.id}
-                          value={entity.id}
-                          onSelect={() => handleSelectExisting(entity)}
-                          disabled={isMappingValue}
-                        >
-                          <span className="type-p truncate">{entity.name}</span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  )}
-
-                  {!canCreate && filteredEntities.length === 0 && (
-                    <CommandEmpty>
-                      <p className="type-small text-tertiary">
-                        No matches found
-                      </p>
-                    </CommandEmpty>
-                  )}
-
-                  {canCreate &&
-                    filteredEntities.length === 0 &&
-                    !searchTerm && (
-                      <div className="px-3 py-6 text-center">
-                        <p className="type-small text-tertiary">
-                          No existing {entityType.toLowerCase()}s
-                        </p>
-                        <p className="type-small text-tertiary mt-1">
-                          Create "{rawValue}" above
-                        </p>
-                      </div>
-                    )}
-
-                  {canCreate && filteredEntities.length === 0 && searchTerm && (
-                    <CommandEmpty>
-                      <p className="type-small text-tertiary">
-                        No matches found
-                      </p>
-                    </CommandEmpty>
-                  )}
-                </>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-
-      {/* Entity-specific sheet/modal */}
-      {renderEntitySheet()}
-    </>
+    <button
+      type="button"
+      disabled={true}
+      className={cn(
+        "w-full h-9 px-3 flex items-center justify-between gap-2",
+        "border border-border rounded bg-background",
+        "opacity-50 cursor-not-allowed",
+        className,
+      )}
+    >
+      <span className="type-p text-tertiary truncate">
+        {entityType} not supported
+      </span>
+      <Icons.AlertCircle className="h-3.5 w-3.5 text-tertiary flex-shrink-0" />
+    </button>
   );
 }

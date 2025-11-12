@@ -1,6 +1,7 @@
 "use client";
 
 import { useImportProgress } from "@/contexts/import-progress-context";
+import { PendingEntitiesProvider, usePendingEntities } from "@/contexts/pending-entities-context";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -41,8 +42,38 @@ import { UnmappedValuesSection } from "./unmapped-values-section";
 export function ImportReviewDialog() {
   const { state, reviewDialogOpen, closeReviewDialog, dismissWidget } =
     useImportProgress();
+
+  return (
+    <Sheet open={reviewDialogOpen} onOpenChange={closeReviewDialog}>
+      <PendingEntitiesProvider>
+        <ImportReviewDialogContent
+          state={state}
+          reviewDialogOpen={reviewDialogOpen}
+          closeReviewDialog={closeReviewDialog}
+          dismissWidget={dismissWidget}
+        />
+      </PendingEntitiesProvider>
+    </Sheet>
+  );
+}
+
+/**
+ * Inner component that has access to PendingEntitiesProvider
+ */
+function ImportReviewDialogContent({
+  state,
+  reviewDialogOpen,
+  closeReviewDialog,
+  dismissWidget,
+}: {
+  state: any;
+  reviewDialogOpen: boolean;
+  closeReviewDialog: () => void;
+  dismissWidget: () => void;
+}) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { getAllPendingEntities, clearPendingEntities, getPendingCount } = usePendingEntities();
 
   const [allValuesDefined, setAllValuesDefined] = React.useState(false);
   const [isApproving, setIsApproving] = React.useState(false);
@@ -68,25 +99,25 @@ export function ImportReviewDialog() {
   });
 
   /**
-   * Optimized prefetching: Fetch only what's needed for initial display
-   * catalogData already contains all entity lists, so we don't need individual queries
+   * Optimized prefetching: Fetch critical data as soon as dialog opens
+   * All queries run in parallel for maximum speed
+   *
+   * NOTE: catalogData and unmapped are already prefetched in ImportProgressContext
+   * when validation completes, but we call them again here for redundancy
    */
   React.useEffect(() => {
     if (!jobId || !reviewDialogOpen) return;
 
-    // Single comprehensive prefetch for catalog data
-    // This populates the cache for all entity lists at once
+    // These are likely already cached from the context prefetch, but ensuring they're ready
     void queryClient.prefetchQuery(
       trpc.bulk.values.catalogData.queryOptions({ jobId }),
     );
 
-    // Prefetch unmapped values (lightweight query)
     void queryClient.prefetchQuery(
       trpc.bulk.values.unmapped.queryOptions({ jobId }),
     );
 
-    // Prefetch first pages of preview and errors
-    // Only the active tab data - other tabs load on demand
+    // Prefetch first pages of preview and errors for active tab
     void queryClient.prefetchQuery(
       trpc.bulk.staging.preview.queryOptions({
         jobId,
@@ -113,6 +144,134 @@ export function ImportReviewDialog() {
   const cancelImportMutation = useMutation(
     trpc.bulk.import.cancel.mutationOptions(),
   );
+
+  // Individual entity creation mutations
+  const createMaterialMutation = useMutation(
+    trpc.brand.materials.create.mutationOptions(),
+  );
+  const createSizeMutation = useMutation(
+    trpc.brand.sizes.create.mutationOptions(),
+  );
+  const createSeasonMutation = useMutation(
+    trpc.brand.seasons.create.mutationOptions(),
+  );
+  const createFacilityMutation = useMutation(
+    trpc.brand.facilities.create.mutationOptions(),
+  );
+  const createShowcaseBrandMutation = useMutation(
+    trpc.brand.showcaseBrands.create.mutationOptions(),
+  );
+  const mapToExistingMutation = useMutation(
+    trpc.bulk.values.mapToExisting.mutationOptions(),
+  );
+
+  // Batch create all pending entities mutation
+  const batchCreateEntitiesMutation = useMutation({
+    mutationFn: async () => {
+      const pending = getAllPendingEntities();
+
+      if (pending.length === 0) {
+        return { created: [], failed: [] };
+      }
+
+      // Group by entity type
+      const grouped = {
+        MATERIAL: pending.filter((p) => p.entityType === "MATERIAL"),
+        SIZE: pending.filter((p) => p.entityType === "SIZE"),
+        SEASON: pending.filter((p) => p.entityType === "SEASON"),
+        FACILITY: pending.filter((p) => p.entityType === "FACILITY"),
+        SHOWCASE_BRAND: pending.filter((p) => p.entityType === "SHOWCASE_BRAND"),
+      };
+
+      const created: Array<{ entity: any; pending: any }> = [];
+      const failed: Array<{ pending: any; error: string }> = [];
+
+      // Create all entities in parallel by type
+      const createMaterial = async (p: any) => {
+        try {
+          const result = await createMaterialMutation.mutateAsync(p.entityData);
+          created.push({ entity: result.data, pending: p });
+        } catch (err) {
+          failed.push({
+            pending: p,
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      };
+
+      const createSize = async (p: any) => {
+        try {
+          const result = await createSizeMutation.mutateAsync(p.entityData);
+          created.push({ entity: result.data, pending: p });
+        } catch (err) {
+          failed.push({
+            pending: p,
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      };
+
+      const createSeason = async (p: any) => {
+        try {
+          const result = await createSeasonMutation.mutateAsync(p.entityData);
+          created.push({ entity: result.data, pending: p });
+        } catch (err) {
+          failed.push({
+            pending: p,
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      };
+
+      const createFacility = async (p: any) => {
+        try {
+          const result = await createFacilityMutation.mutateAsync(p.entityData);
+          created.push({ entity: result.data, pending: p });
+        } catch (err) {
+          failed.push({
+            pending: p,
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      };
+
+      const createShowcaseBrand = async (p: any) => {
+        try {
+          const result = await createShowcaseBrandMutation.mutateAsync(p.entityData);
+          created.push({ entity: result.data, pending: p });
+        } catch (err) {
+          failed.push({
+            pending: p,
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      };
+
+      // Execute all creations in parallel
+      await Promise.all([
+        ...grouped.MATERIAL.map(createMaterial),
+        ...grouped.SIZE.map(createSize),
+        ...grouped.SEASON.map(createSeason),
+        ...grouped.FACILITY.map(createFacility),
+        ...grouped.SHOWCASE_BRAND.map(createShowcaseBrand),
+      ]);
+
+      // Now map all created entities to CSV values
+      const mappingPromises = created.map(({ entity, pending }) =>
+        mapToExistingMutation.mutateAsync({
+          jobId,
+          entityType: pending.entityType,
+          entityId: entity.id,
+          rawValue: pending.rawValue,
+          sourceColumn: pending.sourceColumn,
+        })
+      );
+
+      await Promise.all(mappingPromises);
+
+      return { created, failed };
+    },
+  });
 
   const totalUnmapped =
     (unmappedData?.totalUnmapped as number | undefined) ?? 0;
@@ -147,6 +306,29 @@ export function ImportReviewDialog() {
 
     try {
       setIsApproving(true);
+
+      // STEP 1: Batch create all pending entities and map them
+      const pendingCount = getPendingCount();
+      if (pendingCount > 0) {
+        toast.info(`Creating ${pendingCount} entities...`);
+
+        const result = await batchCreateEntitiesMutation.mutateAsync();
+
+        if (result.failed.length > 0) {
+          toast.error(
+            `Failed to create ${result.failed.length} entities. Please review and try again.`,
+          );
+          console.error("Failed entities:", result.failed);
+          return;
+        }
+
+        toast.success(`Created ${result.created.length} entities successfully`);
+
+        // Clear pending entities after successful creation
+        clearPendingEntities();
+      }
+
+      // STEP 2: Approve the import
       await approveImportMutation.mutateAsync({ jobId });
 
       toast.success("Import approved! Committing to production...");
@@ -180,6 +362,9 @@ export function ImportReviewDialog() {
       await cancelImportMutation.mutateAsync({ jobId });
 
       toast.success("Import cancelled. Staging data discarded.");
+
+      // Clear pending entities
+      clearPendingEntities();
 
       // Close sheet and dismiss widget
       closeReviewDialog();
@@ -215,12 +400,11 @@ export function ImportReviewDialog() {
   const breadcrumbPages = ["Review Import"];
 
   return (
-    <Sheet open={reviewDialogOpen} onOpenChange={closeReviewDialog}>
-      <SheetContent
-        side="right"
-        className="flex flex-col p-0 gap-0 w-full sm:w-[680px] lg:w-[800px] xl:w-[920px] m-6 h-[calc(100vh-48px)]"
-        hideDefaultClose
-      >
+    <SheetContent
+      side="right"
+      className="flex flex-col p-0 gap-0 w-full sm:w-[680px] lg:w-[800px] xl:w-[920px] m-6 h-[calc(100vh-48px)]"
+      hideDefaultClose
+    >
         <SheetBreadcrumbHeader
           pages={breadcrumbPages}
           currentPageIndex={currentStep}
@@ -370,7 +554,6 @@ export function ImportReviewDialog() {
             {isApproving ? "Approving..." : "Approve & Import"}
           </Button>
         </SheetFooter>
-      </SheetContent>
-    </Sheet>
+    </SheetContent>
   );
 }

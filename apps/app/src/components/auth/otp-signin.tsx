@@ -22,12 +22,11 @@ export function OTPSignIn({ className }: Props) {
   const [email, setEmail] = useState<string>();
   const [otpValue, setOtpValue] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
-  const supabase = createClient();
   const searchParams = useSearchParams();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
+
     // Clear previous errors
     setSendError(null);
 
@@ -48,6 +47,8 @@ export function OTPSignIn({ className }: Props) {
     setLoading(true);
     setEmail(emailValue);
 
+    // Create Supabase client only when needed (client-side only)
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: emailValue,
       options: {

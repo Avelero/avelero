@@ -28,6 +28,13 @@ export interface CreateValueMappingInput {
   targetId: string;
 }
 
+export interface UpdateValueMappingInput {
+  id: string;
+  brandId: string;
+  target: ValueMappingTarget;
+  targetId: string;
+}
+
 /**
  * Creates a new value mapping to associate a CSV raw value with a database entity
  *
@@ -65,6 +72,40 @@ export async function createValueMapping(
 
   if (!row) {
     throw new Error("Failed to create value mapping");
+  }
+
+  return row;
+}
+
+/**
+ * Updates the target of an existing value mapping.
+ *
+ * @param db - Database connection
+ * @param input - Value mapping update data
+ * @returns Updated value mapping identifier
+ *
+ * @throws Error when the mapping cannot be found for the provided brand
+ */
+export async function updateValueMapping(
+  db: Database,
+  input: UpdateValueMappingInput,
+): Promise<{ id: string }> {
+  const [row] = await db
+    .update(valueMappings)
+    .set({
+      target: input.target,
+      targetId: input.targetId,
+    })
+    .where(
+      and(
+        eq(valueMappings.id, input.id),
+        eq(valueMappings.brandId, input.brandId),
+      ),
+    )
+    .returning({ id: valueMappings.id });
+
+  if (!row) {
+    throw new Error("Value mapping not found for update");
   }
 
   return row;

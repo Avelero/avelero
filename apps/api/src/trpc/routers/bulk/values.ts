@@ -11,8 +11,13 @@ import {
   getUnmappedValuesForJob,
   validateAndCreateEntity,
   createValueMapping,
+  getValueMapping,
+  updateValueMapping,
   updateImportJobProgress,
+  type ValueMappingTarget,
 } from "@v1/db/queries";
+import { categories } from "@v1/db/schema";
+import { serviceDb } from "@v1/db/client";
 import {
   getUnmappedValuesSchema,
   defineValueSchema,
@@ -22,6 +27,8 @@ import {
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import { and, eq, isNull } from "drizzle-orm";
+import { z } from "zod";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -157,6 +164,106 @@ export const valuesRouter = createTRPCRouter({
         };
       } catch (error) {
         throw wrapError(error, "Failed to get catalog data");
+      }
+    }),
+
+  /**
+   * Ensure category path exists in database
+   */
+  ensureCategory: brandRequiredProcedure
+    .input(
+      z.object({
+        jobId: z.string().uuid(),
+        path: z.array(z.string().min(1).max(200)).min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = brandCtx.brandId;
+
+      try {
+        const job = await getImportJobStatus(brandCtx.db, input.jobId);
+
+        if (!job) {
+          throw badRequest("Import job not found");
+        }
+
+        if (job.brandId !== brandId) {
+          throw badRequest("Access denied: job belongs to different brand");
+        }
+
+        const labels = input.path.map((label) => label.trim()).filter(Boolean);
+
+        if (labels.length === 0) {
+          throw badRequest("Invalid category path provided");
+        }
+
+        let parentId: string | null = null;
+        let created = false;
+        let lastCategoryId: string | null = null;
+
+        for (const label of labels) {
+          const parentCondition = parentId
+            ? eq(categories.parentId, parentId)
+            : isNull(categories.parentId);
+
+          // Check if category exists using regular db connection (with RLS)
+          const existing = await brandCtx.db
+            .select({ id: categories.id })
+            .from(categories)
+            .where(and(parentCondition, eq(categories.name, label)))
+            .limit(1);
+
+          let currentId = existing[0]?.id ?? null;
+
+          if (!currentId) {
+            // Use serviceDb to bypass RLS for category insertion
+            // Categories are system-managed and have restrictive RLS policies
+            const inserted = await serviceDb
+              .insert(categories)
+              .values({
+                name: label,
+                parentId,
+              })
+              .onConflictDoNothing({
+                target: [categories.parentId, categories.name],
+              })
+              .returning({ id: categories.id });
+
+            currentId = inserted[0]?.id ?? null;
+
+            if (!currentId) {
+              // Fallback: check again in case of race condition
+              const fallback = await brandCtx.db
+                .select({ id: categories.id })
+                .from(categories)
+                .where(and(parentCondition, eq(categories.name, label)))
+                .limit(1);
+
+              currentId = fallback[0]?.id ?? null;
+            } else {
+              created = true;
+            }
+          }
+
+          if (!currentId) {
+            throw new Error(`Unable to persist category segment "${label}"`);
+          }
+
+          parentId = currentId;
+          lastCategoryId = currentId;
+        }
+
+        if (!lastCategoryId) {
+          throw new Error("Failed to resolve category path");
+        }
+
+        return {
+          id: lastCategoryId,
+          created,
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to ensure category exists");
       }
     }),
 
@@ -417,21 +524,37 @@ export const valuesRouter = createTRPCRouter({
           );
         }
 
-        // Create value mapping to existing entity
-        await createValueMapping(brandCtx.db, {
+        const existingMapping = await getValueMapping(
+          brandCtx.db,
           brandId,
-          sourceColumn: input.sourceColumn,
-          rawValue: input.rawValue,
-          target: input.entityType as
-            | "COLOR"
-            | "SIZE"
-            | "MATERIAL"
-            | "ECO_CLAIM"
-            | "FACILITY"
-            | "SHOWCASE_BRAND"
-            | "CERTIFICATION",
-          targetId: input.entityId,
-        });
+          input.sourceColumn,
+          input.rawValue,
+        );
+
+        const target = input.entityType as ValueMappingTarget;
+
+        if (existingMapping) {
+          const needsUpdate =
+            existingMapping.target_id !== input.entityId ||
+            existingMapping.target !== input.entityType;
+
+          if (needsUpdate) {
+            await updateValueMapping(brandCtx.db, {
+              id: existingMapping.id,
+              brandId,
+              target,
+              targetId: input.entityId,
+            });
+          }
+        } else {
+          await createValueMapping(brandCtx.db, {
+            brandId,
+            sourceColumn: input.sourceColumn,
+            rawValue: input.rawValue,
+            target,
+            targetId: input.entityId,
+          });
+        }
 
         // Update job summary
         const summary = (job.summary as Record<string, unknown>) ?? {};

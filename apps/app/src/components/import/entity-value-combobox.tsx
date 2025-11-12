@@ -162,6 +162,9 @@ export function EntityValueCombobox({
 
   const key = generatePendingEntityKey(entityType, rawValue);
   const isDefined = hasPendingEntity(key);
+  const ensureCategoryMutation = useMutation(
+    trpc.bulk.values.ensureCategory.mutationOptions(),
+  );
 
   const markValueAsDefined = React.useCallback(() => {
     queryClient.setQueryData(
@@ -737,15 +740,51 @@ export function EntityValueCombobox({
           </button>
         ) : (
           // Show CategorySelect for unmapped values
-          <div className={cn((disabled || isMappingValue) && "opacity-50 pointer-events-none")}>
+          <div
+            className={cn((disabled || isMappingValue) && "opacity-50 pointer-events-none")}
+          >
             <CategorySelect
               value={categoryValue}
               onChange={async (categoryPath) => {
                 setCategoryValue(categoryPath);
                 if (categoryPath && categoryPath !== "Select category" && !isMappingValue && !disabled) {
-                  const match = findCategoryId(categoryPath);
-                  if (match) {
-                    await handleMapEntity(match.id, match.name);
+                  let resolvedCategory = findCategoryId(categoryPath);
+
+                  if (!resolvedCategory) {
+                    const pathSegments = categoryPath
+                      .split("/")
+                      .map((segment) => segment.trim())
+                      .filter(Boolean);
+
+                    if (pathSegments.length > 0) {
+                      try {
+                        const result = await ensureCategoryMutation.mutateAsync({
+                          jobId,
+                          path: pathSegments,
+                        });
+
+                        if (result?.id) {
+                          resolvedCategory = {
+                            id: result.id,
+                            name: pathSegments[pathSegments.length - 1],
+                          };
+
+                          await queryClient.invalidateQueries({
+                            queryKey: trpc.bulk.values.catalogData.queryKey({ jobId }),
+                          });
+                        }
+                      } catch (ensureError) {
+                        const message =
+                          ensureError instanceof Error
+                            ? ensureError.message
+                            : "Failed to sync category";
+                        toast.error(message);
+                      }
+                    }
+                  }
+
+                  if (resolvedCategory) {
+                    await handleMapEntity(resolvedCategory.id, resolvedCategory.name);
                     setCategoryValue("Select category"); // Reset after mapping
                   } else {
                     toast.error(`Category "${categoryPath}" not found in database`);

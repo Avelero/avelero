@@ -1,5 +1,6 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { logger, schedules } from "@trigger.dev/sdk/v3";
+import "./configure-trigger";
+import { logger, schedules } from "@trigger.dev/sdk";
 import type { Database } from "@v1/supabase/types";
 
 export const cleanupExpiredInvites = schedules.task({

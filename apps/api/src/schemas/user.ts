@@ -52,8 +52,7 @@ export const userDomainUpdateSchema = z.object({
         return false;
       },
       {
-        message:
-          "Must be a valid URL or storage path (e.g., user-id/file.jpg)",
+        message: "Must be a valid URL or storage path (e.g., user-id/file.jpg)",
       },
     )
     .nullable()

@@ -61,13 +61,15 @@ export function SidebarButton({
           <div
             className="absolute top-0 left-0 right-0 h-10"
             style={{
-              background: "linear-gradient(90deg, hsl(240, 32%, 89%) 0%, hsl(240, 11%, 89%) 100%)",
+              background:
+                "linear-gradient(90deg, hsl(240, 32%, 89%) 0%, hsl(240, 11%, 89%) 100%)",
             }}
           >
             <div
               className="absolute inset-[1px]"
               style={{
-                background: "linear-gradient(90deg, hsl(240, 29%, 97%) 0%, hsl(240, 8%, 97%) 100%)",
+                background:
+                  "linear-gradient(90deg, hsl(240, 29%, 97%) 0%, hsl(240, 8%, 97%) 100%)",
               }}
             />
           </div>
@@ -81,8 +83,8 @@ export function SidebarButton({
             "absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center pointer-events-none",
             "transition-colors duration-200 ease-out",
             isActive
-            ? "text-primary"
-            : "text-secondary group-hover:text-primary",
+              ? "text-primary"
+              : "text-secondary group-hover:text-primary",
           )}
         >
           <LordIcon

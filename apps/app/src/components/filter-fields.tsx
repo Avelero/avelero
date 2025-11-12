@@ -45,7 +45,7 @@ export function FilterFieldInput({
 }: FilterFieldInputProps) {
   // Hoist dynamic options loading to satisfy Rules of Hooks
   const { options: dynamicOptions, isLoading } = useFieldOptions(
-    fieldConfig.id
+    fieldConfig.id,
   );
 
   // Boolean fields: show True/False only (no operator)

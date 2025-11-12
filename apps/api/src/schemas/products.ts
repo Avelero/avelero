@@ -75,7 +75,8 @@ export const createProductSchema = z.object({
   name: shortStringSchema,
   description: longStringSchema.optional(),
   category_id: uuidSchema.optional(),
-  season: shortStringSchema.optional(),
+  season: shortStringSchema.optional(), // Legacy: deprecated, use season_id
+  season_id: uuidSchema.optional(), // FK to brand_seasons.id
   brand_certification_id: uuidSchema.optional(),
   showcase_brand_id: uuidSchema.optional(),
   primary_image_url: urlSchema.optional(),
@@ -88,6 +89,7 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
   "description",
   "category_id",
   "season",
+  "season_id",
   "brand_certification_id",
   "showcase_brand_id",
   "primary_image_url",

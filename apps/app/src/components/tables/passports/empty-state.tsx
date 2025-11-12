@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { Button } from "@v1/ui/button";
+import Link from "next/link";
 
 interface BaseProps {
   title: string;

@@ -37,11 +37,26 @@
       "cache": false
     },
     "dev": {
+      "env": [
+        "TRIGGER_SECRET_KEY",
+        "TRIGGER_API_URL",
+        "DATABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "SUPABASE_SERVICE_KEY"
+      ],
       "inputs": ["$TURBO_DEFAULT$", ".env"],
       "persistent": true,
       "cache": false
     },
     "jobs": {
+      "env": [
+        "TRIGGER_SECRET_KEY",
+        "TRIGGER_API_URL",
+        "DATABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "SUPABASE_SERVICE_KEY",
+        "RESEND_API_KEY"
+      ],
       "persistent": true,
       "cache": false
     },

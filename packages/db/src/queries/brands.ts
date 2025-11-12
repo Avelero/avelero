@@ -172,9 +172,11 @@ export async function updateBrand(
 
   if (payload.name !== undefined) updateData.name = payload.name;
   if (payload.email !== undefined) updateData.email = payload.email;
-  if (payload.country_code !== undefined) updateData.countryCode = payload.country_code;
+  if (payload.country_code !== undefined)
+    updateData.countryCode = payload.country_code;
   if (payload.logo_path !== undefined) updateData.logoPath = payload.logo_path;
-  if (payload.avatar_hue !== undefined) updateData.avatarHue = payload.avatar_hue;
+  if (payload.avatar_hue !== undefined)
+    updateData.avatarHue = payload.avatar_hue;
 
   const [row] = await db
     .update(brands)

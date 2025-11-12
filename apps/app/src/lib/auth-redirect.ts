@@ -97,11 +97,11 @@ export async function resolveAuthRedirectPath({
   if (target.startsWith("//") || /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(target)) {
     return "/";
   }
-  
+
   // Normalize path: collapse any leading slashes to a single "/"
   if (target.startsWith("/")) {
     return `/${target.replace(/^\/+/, "")}`;
   }
-  
+
   return `/${target}`;
 }

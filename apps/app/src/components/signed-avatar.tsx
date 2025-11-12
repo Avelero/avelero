@@ -23,7 +23,7 @@ export function SignedAvatar({
 }: Props) {
   // Determine the source URL for the avatar
   let src: string | undefined;
-  
+
   if (url) {
     // If url is provided, use it directly (could be full URL or path)
     // If it's already a full URL (starts with http/https), use as-is

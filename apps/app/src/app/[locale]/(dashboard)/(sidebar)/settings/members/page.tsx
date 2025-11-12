@@ -11,7 +11,7 @@ export default async function Page() {
   try {
     const user = await queryClient.fetchQuery(trpc.user.get.queryOptions());
     const brandId = user?.brand_id ?? null;
-    
+
     if (brandId) {
       await queryClient.prefetchQuery(
         trpc.composite.membersWithInvites.queryOptions({

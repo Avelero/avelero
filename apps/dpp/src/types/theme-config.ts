@@ -11,13 +11,13 @@ export interface ThemeConfig {
     bannerLogoUrl: string;
     bannerLogoHeight: number;
   };
-  
+
   // Navigation menus
   menus: {
     primary: Array<{ label: string; url: string }>;
     secondary: Array<{ label: string; url: string }>;
   };
-  
+
   // CTA Banner configuration
   cta: {
     bannerBackgroundImage: string;
@@ -26,7 +26,7 @@ export interface ThemeConfig {
     bannerShowSubline: boolean;
     bannerSubline: string;
   };
-  
+
   // Social footer configuration
   social: {
     legalName: string;
@@ -44,7 +44,7 @@ export interface ThemeConfig {
     tiktokUrl: string;
     linkedinUrl: string;
   };
-  
+
   // Section visibility toggles
   sections: {
     showProductDetails: boolean;
@@ -56,15 +56,15 @@ export interface ThemeConfig {
     showSimilarProducts: boolean;
     showCTABanner: boolean;
   };
-  
+
   // Image controls
   images: {
     productImageZoom: number;
-    productImagePosition: 'top' | 'center' | 'bottom';
+    productImagePosition: "top" | "center" | "bottom";
     carouselImageZoom: number;
-    carouselImagePosition: 'top' | 'center' | 'bottom';
+    carouselImagePosition: "top" | "center" | "bottom";
   };
-  
+
   // Materials section configuration
   materials: {
     showCertificationCheckIcon: boolean;

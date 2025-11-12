@@ -135,3 +135,105 @@ Vercel deployment will guide you through creating a Supabase account and project
     src="https://hackernews-badge.vercel.app/api?id=41408929"
   />
 </a>
+<!-- TASKMASTER_EXPORT_START -->
+> 🎯 **Taskmaster Export** - 2025-11-07 13:19:42 UTC
+> 📋 Export: with subtasks • Status filter: none
+> 🔗 Powered by [Task Master](https://task-master.dev?utm_source=github-readme&utm_medium=readme-export&utm_campaign=avelero&utm_content=task-export-link)
+
+| Project Dashboard |  |
+| :-                |:-|
+| Task Progress     | ░░░░░░░░░░░░░░░░░░░░ 0% |
+| Done | 0 |
+| In Progress | 0 |
+| Pending | 15 |
+| Deferred | 0 |
+| Cancelled | 0 |
+|-|-|
+| Subtask Progress | ░░░░░░░░░░░░░░░░░░░░ 0% |
+| Completed | 0 |
+| In Progress | 0 |
+| Pending | 62 |
+
+
+| ID | Title | Status | Priority | Dependencies | Complexity |
+| :- | :-    | :-     | :-       | :-           | :-         |
+| 1 | Create staging table schemas and database migrations | ○&nbsp;pending | high | None | ● 7 |
+| 1.1 | Define Drizzle schemas for staging tables | ○&nbsp;pending | -            | None | N/A |
+| 1.2 | Create Supabase migration files for staging tables | ○&nbsp;pending | -            | 1 | N/A |
+| 1.3 | Implement RLS policies for staging tables | ○&nbsp;pending | -            | 2 | N/A |
+| 1.4 | Add proper indexes for staging table performance | ○&nbsp;pending | -            | 2 | N/A |
+| 1.5 | Create junction tables for materials, care codes, and eco claims | ○&nbsp;pending | -            | 1 | N/A |
+| 2 | Update import_jobs status enum and enhance schema | ○&nbsp;pending | high | 1 | ● 4 |
+| 3 | Create Supabase storage bucket for product imports | ○&nbsp;pending | medium | None | ● 5 |
+| 3.1 | Create storage bucket migration | ○&nbsp;pending | -            | None | N/A |
+| 3.2 | Implement RLS policies for brand isolation | ○&nbsp;pending | -            | 1 | N/A |
+| 3.3 | Create helper functions for file operations | ○&nbsp;pending | -            | 2 | N/A |
+| 3.4 | Add file size and cleanup configurations | ○&nbsp;pending | -            | 3 | N/A |
+| 4 | Implement CSV/XLSX parser library | ○&nbsp;pending | high | None | ● 8 |
+| 4.1 | Implement CSV parsing with RFC 4180 compliance | ○&nbsp;pending | -            | None | N/A |
+| 4.2 | Add XLSX parsing functionality | ○&nbsp;pending | -            | None | N/A |
+| 4.3 | Create encoding detection functionality | ○&nbsp;pending | -            | None | N/A |
+| 4.4 | Build header validation and normalization | ○&nbsp;pending | -            | None | N/A |
+| 4.5 | Add comprehensive error handling for edge cases | ○&nbsp;pending | -            | 1, 2, 3, 4 | N/A |
+| 4.6 | Implement CSV generation for exports | ○&nbsp;pending | -            | 1, 4 | N/A |
+| 5 | Implement value mapping system for catalog lookups | ○&nbsp;pending | medium | 1 | ● 7 |
+| 5.1 | Create mapping functions for each entity type | ○&nbsp;pending | -            | None | N/A |
+| 5.2 | Implement fuzzy matching logic | ○&nbsp;pending | -            | 1 | N/A |
+| 5.3 | Add caching layer for performance | ○&nbsp;pending | -            | 1 | N/A |
+| 5.4 | Build auto-creation logic for simple entities | ○&nbsp;pending | -            | 1, 2 | N/A |
+| 5.5 | Create unmapped value detection system | ○&nbsp;pending | -            | 1, 2, 4 | N/A |
+| 6 | Create database query functions for bulk import operations | ○&nbsp;pending | high | 1, 2 | ● 8 |
+| 6.1 | Implement import job management queries | ○&nbsp;pending | -            | None | N/A |
+| 6.2 | Create staging data insertion functions | ○&nbsp;pending | -            | 1 | N/A |
+| 6.3 | Add staging preview and deletion queries | ○&nbsp;pending | -            | 2 | N/A |
+| 6.4 | Implement error tracking functions | ○&nbsp;pending | -            | 1 | N/A |
+| 6.5 | Add progress tracking queries | ○&nbsp;pending | -            | 4 | N/A |
+| 6.6 | Create failed rows export functionality | ○&nbsp;pending | -            | 4 | N/A |
+| 6.7 | Ensure proper transaction handling and brand scoping | ○&nbsp;pending | -            | 1, 2, 3, 4, 5, 6 | N/A |
+| 7 | Create value mapping and brand catalog query functions | ○&nbsp;pending | medium | 1 | ● 6 |
+| 7.1 | Implement value mapping CRUD operations | ○&nbsp;pending | -            | None | N/A |
+| 7.2 | Create brand catalog entity creation functions | ○&nbsp;pending | -            | 1 | N/A |
+| 7.3 | Add duplicate detection logic | ○&nbsp;pending | -            | 2 | N/A |
+| 7.4 | Implement validation for required fields | ○&nbsp;pending | -            | 3 | N/A |
+| 8 | Implement Phase 1 background job (validate-and-stage) | ○&nbsp;pending | high | 4, 5, 6, 7 | ● 9 |
+| 8.1 | Set up Trigger.dev job structure | ○&nbsp;pending | -            | None | N/A |
+| 8.2 | Implement row-by-row validation logic | ○&nbsp;pending | -            | 1 | N/A |
+| 8.3 | Add UPID/SKU matching for CREATE/UPDATE detection | ○&nbsp;pending | -            | 2 | N/A |
+| 8.4 | Implement batch processing | ○&nbsp;pending | -            | 3 | N/A |
+| 8.5 | Add auto-creation for simple entities | ○&nbsp;pending | -            | 4 | N/A |
+| 8.6 | Create detailed error logging | ○&nbsp;pending | -            | 5 | N/A |
+| 8.7 | Implement WebSocket progress updates | ○&nbsp;pending | -            | 6 | N/A |
+| 8.8 | Add comprehensive error handling and timeouts | ○&nbsp;pending | -            | 7 | N/A |
+| 9 | Implement Phase 2 background job (commit-to-production) | ○&nbsp;pending | high | 6, 8 | ● 8 |
+| 9.1 | Set up Trigger.dev job structure and configuration | ○&nbsp;pending | -            | None | N/A |
+| 9.2 | Implement staging to production data migration logic | ○&nbsp;pending | -            | 1 | N/A |
+| 9.3 | Add transaction handling and batch processing | ○&nbsp;pending | -            | 2 | N/A |
+| 9.4 | Create staging data cleanup logic | ○&nbsp;pending | -            | 3 | N/A |
+| 9.5 | Implement comprehensive error handling with partial success support | ○&nbsp;pending | -            | 4 | N/A |
+| 9.6 | Add WebSocket progress updates and completion notifications | ○&nbsp;pending | -            | 5 | N/A |
+| 10 | Implement WebSocket infrastructure for real-time progress updates | ○&nbsp;pending | medium | 8, 9 | ● 7 |
+| 10.1 | Create WebSocket connection manager | ○&nbsp;pending | -            | None | N/A |
+| 10.2 | Implement JWT authentication for WebSocket | ○&nbsp;pending | -            | 1 | N/A |
+| 10.3 | Add progress event handling | ○&nbsp;pending | -            | 2 | N/A |
+| 10.4 | Create fallback polling mechanism | ○&nbsp;pending | -            | 3 | N/A |
+| 10.5 | Implement connection cleanup and multi-tab support | ○&nbsp;pending | -            | 4 | N/A |
+| 11 | Create new bulk import API endpoints (Phase 1) | ○&nbsp;pending | high | 3, 4, 6 | ● 6 |
+| 11.1 | Implement validateImport and startImport mutations | ○&nbsp;pending | -            | None | N/A |
+| 11.2 | Add getImportStatus and getImportErrors queries | ○&nbsp;pending | -            | 1 | N/A |
+| 11.3 | Create Zod schema validation | ○&nbsp;pending | -            | None | N/A |
+| 11.4 | Integrate file upload with Supabase Storage | ○&nbsp;pending | -            | 1, 3 | N/A |
+| 12 | Create staging preview and value definition API endpoints | ○&nbsp;pending | medium | 6, 7, 8 | ● 7 |
+| 12.1 | Implement staging preview with pagination | ○&nbsp;pending | -            | 6, 7 | N/A |
+| 12.2 | Create unmapped values detection endpoint | ○&nbsp;pending | -            | 6, 7 | N/A |
+| 12.3 | Add single and batch value definition mutations | ○&nbsp;pending | -            | 2, 7 | N/A |
+| 12.4 | Implement failed rows export functionality | ○&nbsp;pending | -            | 6 | N/A |
+| 12.5 | Support complex entity creation with validation | ○&nbsp;pending | -            | 3 | N/A |
+| 13 | Create import approval and cancellation API endpoints | ○&nbsp;pending | medium | 9, 12 | ● 5 |
+| 13.1 | Implement approveImport mutation with validation | ○&nbsp;pending | -            | None | N/A |
+| 13.2 | Create cancelImport mutation with cleanup | ○&nbsp;pending | -            | None | N/A |
+| 13.3 | Add status transition validation and unmapped value checking | ○&nbsp;pending | -            | 1, 2 | N/A |
+| 14 | Update bulk import schema definitions | ○&nbsp;pending | medium | 11, 12, 13 | ● 4 |
+| 15 | Create product import template and test data generator | ○&nbsp;pending | low | None | ● 3 |
+
+> 📋 **End of Taskmaster Export** - Tasks are synced from your project using the `sync-readme` command.
+<!-- TASKMASTER_EXPORT_END -->

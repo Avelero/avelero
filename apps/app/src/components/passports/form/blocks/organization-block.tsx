@@ -11,19 +11,10 @@ import { type Season, SeasonSelect } from "@/components/select/season-select";
 import { SizeSelect } from "@/components/select/size-select";
 import { type TagOption, TagSelect } from "@/components/select/tag-select";
 import { allColors } from "@v1/selections/colors";
-import { generateSeasonOptions } from "@v1/selections/seasons";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
 import * as React from "react";
-
-// Generate season options for the next 3 years
-const SEASON_OPTIONS: Season[] = generateSeasonOptions(2024, 3).map((opt) => ({
-  name: opt.displayName,
-  startDate: new Date(opt.year, (opt.season.startMonth || 1) - 1, 1),
-  endDate: new Date(opt.year, (opt.season.endMonth || 12) - 1, 28),
-  isOngoing: opt.season.isOngoing,
-}));
 
 // Use colors from selections package
 const COLOR_OPTIONS: ColorOption[] = allColors.map((color) => ({
@@ -42,7 +33,6 @@ export function OrganizationSection() {
 
   // Field values
   const [season, setSeason] = React.useState<Season | null>(null);
-  const [seasons, setSeasons] = React.useState<Season[]>(SEASON_OPTIONS);
   const [colors, setColors] = React.useState<ColorOption[]>([]);
   const availableColors = COLOR_OPTIONS;
   const [size, setSize] = React.useState<string | null>(null);
@@ -90,7 +80,6 @@ export function OrganizationSection() {
                   <SeasonSelect
                     value={season}
                     onValueChange={setSeason}
-                    seasons={seasons}
                     onCreateNew={(term) => {
                       // Open modal with the typed term prefilled
                       setSeasonModalOpen(true);
@@ -273,13 +262,16 @@ export function OrganizationSection() {
         onOpenChange={setSeasonModalOpen}
         initialName={pendingSeasonName}
         onSave={(newSeason) => {
+          // Map from SeasonModal output to Season interface
           const season: Season = {
+            id: newSeason.id,
             name: newSeason.name,
             startDate: newSeason.startDate || undefined,
             endDate: newSeason.endDate || undefined,
             isOngoing: newSeason.ongoing,
           };
-          setSeasons((prev) => [...prev, season]);
+          // Set the newly created season as selected
+          // SeasonSelect will refetch and include it in the list automatically
           setSeason(season);
           setPendingSeasonName("");
         }}

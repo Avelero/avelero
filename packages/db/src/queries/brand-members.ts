@@ -67,7 +67,10 @@ export async function updateMemberRole(
         .select({ id: brandMembers.id })
         .from(brandMembers)
         .where(
-          and(eq(brandMembers.brandId, brandId), eq(brandMembers.role, "owner")),
+          and(
+            eq(brandMembers.brandId, brandId),
+            eq(brandMembers.role, "owner"),
+          ),
         );
       if (owners.length <= 1) {
         throw new BrandMemberSoleOwnerError();

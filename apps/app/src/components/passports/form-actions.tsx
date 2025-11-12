@@ -16,14 +16,9 @@ export function PassportFormActions() {
       <Button variant="outline" type="button" onClick={handleCancel}>
         Cancel
       </Button>
-      <Button 
-        variant="brand" 
-        type="submit" 
-        form="passport-form"
-      >
+      <Button variant="brand" type="submit" form="passport-form">
         Save
       </Button>
     </>
   );
 }
-

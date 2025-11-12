@@ -54,7 +54,9 @@ function buildUserAvatarUrl(path: string | null): string | null {
  * @param urlOrPath - Full URL or storage path
  * @returns Storage path (e.g., "user-123/avatar.png")
  */
-function extractAvatarPath(urlOrPath: string | null | undefined): string | null {
+function extractAvatarPath(
+  urlOrPath: string | null | undefined,
+): string | null {
   if (!urlOrPath) return null;
 
   // If it's already a storage path (no protocol, doesn't start with /), return as-is

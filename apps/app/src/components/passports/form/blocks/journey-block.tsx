@@ -5,11 +5,11 @@ import {
   type DragEndEvent,
   DragOverlay,
   type DragStartEvent,
+  type DraggableSyntheticListeners,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
-  type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
 import {
   SortableContext,

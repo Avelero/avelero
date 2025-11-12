@@ -100,7 +100,9 @@ export function SeasonSelect({
 
   const showCreateOption =
     searchTerm &&
-    !seasons.some((s: Season) => s.name.toLowerCase() === searchTerm.toLowerCase());
+    !seasons.some(
+      (s: Season) => s.name.toLowerCase() === searchTerm.toLowerCase(),
+    );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

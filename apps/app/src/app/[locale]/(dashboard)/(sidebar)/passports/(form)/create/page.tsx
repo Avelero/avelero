@@ -1,5 +1,5 @@
 import { CreatePassportForm } from "@/components/forms/create-passport-form";
-import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export default async function CreatePassportsPage() {
 
   // Prefetch form reference data (categories, materials, facilities, colors, sizes, certifications, operators)
   await queryClient.prefetchQuery(
-    trpc.composite.passportFormReferences.queryOptions()
+    trpc.composite.passportFormReferences.queryOptions(),
   );
 
   return (

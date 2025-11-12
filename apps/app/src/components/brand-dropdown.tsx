@@ -170,7 +170,11 @@ export function BrandDropdown({
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild className="cursor-pointer" disabled={isSwitching}>
+          <DropdownMenuItem
+            asChild
+            className="cursor-pointer"
+            disabled={isSwitching}
+          >
             <Link href="/create-brand">
               <div className="flex items-center gap-2">
                 <span className="type-p">Create Brand</span>

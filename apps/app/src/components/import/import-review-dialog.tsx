@@ -1,7 +1,10 @@
 "use client";
 
 import { useImportProgress } from "@/contexts/import-progress-context";
-import { PendingEntitiesProvider, usePendingEntities } from "@/contexts/pending-entities-context";
+import {
+  PendingEntitiesProvider,
+  usePendingEntities,
+} from "@/contexts/pending-entities-context";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -9,10 +12,10 @@ import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import {
   Sheet,
-  SheetContent,
   SheetBreadcrumbHeader,
-  SheetFooter,
   SheetClose,
+  SheetContent,
+  SheetFooter,
 } from "@v1/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@v1/ui/tabs";
 import * as React from "react";
@@ -73,7 +76,8 @@ function ImportReviewDialogContent({
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { getAllPendingEntities, clearPendingEntities, getPendingCount } = usePendingEntities();
+  const { getAllPendingEntities, clearPendingEntities, getPendingCount } =
+    usePendingEntities();
 
   const [allValuesDefined, setAllValuesDefined] = React.useState(false);
   const [isApproving, setIsApproving] = React.useState(false);
@@ -180,10 +184,15 @@ function ImportReviewDialogContent({
         SIZE: pending.filter((p) => p.entityType === "SIZE"),
         SEASON: pending.filter((p) => p.entityType === "SEASON"),
         FACILITY: pending.filter((p) => p.entityType === "FACILITY"),
-        SHOWCASE_BRAND: pending.filter((p) => p.entityType === "SHOWCASE_BRAND"),
+        SHOWCASE_BRAND: pending.filter(
+          (p) => p.entityType === "SHOWCASE_BRAND",
+        ),
       };
 
-      const created: Array<{ entity: { id: string; name?: string }; pending: any }> = [];
+      const created: Array<{
+        entity: { id: string; name?: string };
+        pending: any;
+      }> = [];
       const failed: Array<{ pending: any; error: string }> = [];
 
       // Create all entities in parallel by type
@@ -253,7 +262,9 @@ function ImportReviewDialogContent({
 
       const createShowcaseBrand = async (p: any) => {
         try {
-          const result = await createShowcaseBrandMutation.mutateAsync(p.entityData);
+          const result = await createShowcaseBrandMutation.mutateAsync(
+            p.entityData,
+          );
           const brand = result?.data;
           if (!brand?.id) {
             throw new Error("Showcase brand created without identifier");
@@ -284,7 +295,7 @@ function ImportReviewDialogContent({
           entityId: entity.id,
           rawValue: pending.rawValue,
           sourceColumn: pending.sourceColumn,
-        })
+        }),
       );
 
       await Promise.all(mappingPromises);
@@ -295,7 +306,7 @@ function ImportReviewDialogContent({
 
   const totalUnmapped =
     (unmappedData?.totalUnmapped as number | undefined) ?? 0;
-  
+
   const summary = statusData?.summary as
     | {
         total?: number;
@@ -431,155 +442,155 @@ function ImportReviewDialogContent({
       className="flex flex-col p-0 gap-0 w-full sm:w-[680px] lg:w-[800px] xl:w-[920px] m-6 h-[calc(100vh-48px)]"
       hideDefaultClose
     >
-        <SheetBreadcrumbHeader
-          pages={breadcrumbPages}
-          currentPageIndex={currentStep}
-        />
+      <SheetBreadcrumbHeader
+        pages={breadcrumbPages}
+        currentPageIndex={currentStep}
+      />
 
-        {/* Summary Stats */}
-        <div className="px-6 py-4 border-b border-border bg-accent/30">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {/* Total Valid */}
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
-              <div className="rounded-md bg-accent p-2">
-                <Icons.CheckCircle2 className="h-4 w-4 text-secondary" />
-              </div>
-              <div>
-                <div className="text-xl font-semibold">{totalValid}</div>
-                <div className="text-xs text-secondary">Valid</div>
-              </div>
+      {/* Summary Stats */}
+      <div className="px-6 py-4 border-b border-border bg-accent/30">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Total Valid */}
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+            <div className="rounded-md bg-accent p-2">
+              <Icons.CheckCircle2 className="h-4 w-4 text-secondary" />
             </div>
-
-            {/* Will Create */}
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
-              <div className="rounded-md bg-accent p-2">
-                <Icons.Plus className="h-4 w-4 text-secondary" />
-              </div>
-              <div>
-                <div className="text-xl font-semibold">{willCreate}</div>
-                <div className="text-xs text-secondary">Create</div>
-              </div>
-            </div>
-
-            {/* Will Update */}
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
-              <div className="rounded-md bg-accent p-2">
-                <Icons.RefreshCw className="h-4 w-4 text-secondary" />
-              </div>
-              <div>
-                <div className="text-xl font-semibold">{willUpdate}</div>
-                <div className="text-xs text-secondary">Update</div>
-              </div>
-            </div>
-
-            {/* Errors */}
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
-              <div className="rounded-md bg-accent p-2">
-                <Icons.AlertCircle className="h-4 w-4 text-secondary" />
-              </div>
-              <div>
-                <div className="text-xl font-semibold">{totalErrors}</div>
-                <div className="text-xs text-secondary">Errors</div>
-              </div>
+            <div>
+              <div className="text-xl font-semibold">{totalValid}</div>
+              <div className="text-xs text-secondary">Valid</div>
             </div>
           </div>
 
-          {/* Unmapped values warning */}
-          {totalUnmapped > 0 && (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <div className="flex items-center gap-2">
-                <Icons.AlertTriangle className="h-4 w-4 text-amber-700" />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-amber-900">
-                    {totalUnmapped} unmapped{" "}
-                    {totalUnmapped === 1 ? "value" : "values"} need definition
-                  </div>
-                  <div className="text-xs text-amber-700">
-                    Define all values before approving the import
-                  </div>
+          {/* Will Create */}
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+            <div className="rounded-md bg-accent p-2">
+              <Icons.Plus className="h-4 w-4 text-secondary" />
+            </div>
+            <div>
+              <div className="text-xl font-semibold">{willCreate}</div>
+              <div className="text-xs text-secondary">Create</div>
+            </div>
+          </div>
+
+          {/* Will Update */}
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+            <div className="rounded-md bg-accent p-2">
+              <Icons.RefreshCw className="h-4 w-4 text-secondary" />
+            </div>
+            <div>
+              <div className="text-xl font-semibold">{willUpdate}</div>
+              <div className="text-xs text-secondary">Update</div>
+            </div>
+          </div>
+
+          {/* Errors */}
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+            <div className="rounded-md bg-accent p-2">
+              <Icons.AlertCircle className="h-4 w-4 text-secondary" />
+            </div>
+            <div>
+              <div className="text-xl font-semibold">{totalErrors}</div>
+              <div className="text-xs text-secondary">Errors</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Unmapped values warning */}
+        {totalUnmapped > 0 && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="flex items-center gap-2">
+              <Icons.AlertTriangle className="h-4 w-4 text-amber-700" />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-amber-900">
+                  {totalUnmapped} unmapped{" "}
+                  {totalUnmapped === 1 ? "value" : "values"} need definition
+                </div>
+                <div className="text-xs text-amber-700">
+                  Define all values before approving the import
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {/* Content area with tabs */}
-        <div className="flex-1 overflow-hidden px-6 py-4">
-          <Tabs defaultValue="preview" className="h-full flex flex-col">
-            <TabsList className="grid grid-cols-3 w-full max-w-md mb-4">
-              <TabsTrigger
-                value="preview"
-                className="text-xs text-foreground data-[state=inactive]:text-foreground"
-              >
-                Preview ({totalValid})
-              </TabsTrigger>
-              <TabsTrigger
-                value="errors"
-                className="text-xs text-foreground data-[state=inactive]:text-foreground"
-              >
-                Errors ({totalErrors})
-              </TabsTrigger>
-              <TabsTrigger
-                value="unmapped"
-                className="text-xs text-foreground data-[state=inactive]:text-foreground"
-              >
-                Unmapped ({totalUnmapped})
-              </TabsTrigger>
-            </TabsList>
+      {/* Content area with tabs */}
+      <div className="flex-1 overflow-hidden px-6 py-4">
+        <Tabs defaultValue="preview" className="h-full flex flex-col">
+          <TabsList className="grid grid-cols-3 w-full max-w-md mb-4">
+            <TabsTrigger
+              value="preview"
+              className="text-xs text-foreground data-[state=inactive]:text-foreground"
+            >
+              Preview ({totalValid})
+            </TabsTrigger>
+            <TabsTrigger
+              value="errors"
+              className="text-xs text-foreground data-[state=inactive]:text-foreground"
+            >
+              Errors ({totalErrors})
+            </TabsTrigger>
+            <TabsTrigger
+              value="unmapped"
+              className="text-xs text-foreground data-[state=inactive]:text-foreground"
+            >
+              Unmapped ({totalUnmapped})
+            </TabsTrigger>
+          </TabsList>
 
-            <div className="flex-1 overflow-auto -mx-6 px-6">
-              <TabsContent value="preview" className="mt-0 h-full">
-                <StagingPreviewTable jobId={jobId} />
-              </TabsContent>
+          <div className="flex-1 overflow-auto -mx-6 px-6">
+            <TabsContent value="preview" className="mt-0 h-full">
+              <StagingPreviewTable jobId={jobId} />
+            </TabsContent>
 
-              <TabsContent value="errors" className="mt-0 h-full">
-                <ErrorListSection jobId={jobId} />
-              </TabsContent>
+            <TabsContent value="errors" className="mt-0 h-full">
+              <ErrorListSection jobId={jobId} />
+            </TabsContent>
 
-              <TabsContent value="unmapped" className="mt-0 h-full">
-                <UnmappedValuesSection
-                  jobId={jobId}
-                  onAllValuesDefined={setAllValuesDefined}
-                />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </div>
+            <TabsContent value="unmapped" className="mt-0 h-full">
+              <UnmappedValuesSection
+                jobId={jobId}
+                onAllValuesDefined={setAllValuesDefined}
+              />
+            </TabsContent>
+          </div>
+        </Tabs>
+      </div>
 
-        {/* Footer with action buttons */}
-        <SheetFooter className="border-t border-border">
-          <Button
-            variant="outline"
-            size="default"
-            onClick={handleCancel}
-            disabled={isCancelling || isApproving}
-            icon={
-              isCancelling ? (
-                <Icons.Spinner className="h-4 w-4 animate-spin" />
-              ) : (
-                <Icons.X className="h-4 w-4" />
-              )
-            }
-          >
-            Cancel Import
-          </Button>
+      {/* Footer with action buttons */}
+      <SheetFooter className="border-t border-border">
+        <Button
+          variant="outline"
+          size="default"
+          onClick={handleCancel}
+          disabled={isCancelling || isApproving}
+          icon={
+            isCancelling ? (
+              <Icons.Spinner className="h-4 w-4 animate-spin" />
+            ) : (
+              <Icons.X className="h-4 w-4" />
+            )
+          }
+        >
+          Cancel Import
+        </Button>
 
-          <Button
-            variant="brand"
-            size="default"
-            onClick={handleApprove}
-            disabled={!canApprove || isApproving || isCancelling}
-            icon={
-              isApproving ? (
-                <Icons.Spinner className="h-4 w-4 animate-spin" />
-              ) : (
-                <Icons.CheckCircle2 className="h-4 w-4" />
-              )
-            }
-          >
-            {isApproving ? "Approving..." : "Approve & Import"}
-          </Button>
-        </SheetFooter>
+        <Button
+          variant="brand"
+          size="default"
+          onClick={handleApprove}
+          disabled={!canApprove || isApproving || isCancelling}
+          icon={
+            isApproving ? (
+              <Icons.Spinner className="h-4 w-4 animate-spin" />
+            ) : (
+              <Icons.CheckCircle2 className="h-4 w-4" />
+            )
+          }
+        >
+          {isApproving ? "Approving..." : "Approve & Import"}
+        </Button>
+      </SheetFooter>
     </SheetContent>
   );
 }

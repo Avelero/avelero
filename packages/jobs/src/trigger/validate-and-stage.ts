@@ -522,8 +522,8 @@ export const validateAndStage = task({
         .filter((v): v is string => !!v && v.trim() !== "");
 
       // Use global ExistingVariant type for type-safe change detection
-      let existingVariantsByUpid = new Map<string, ExistingVariant>();
-      let existingVariantsBySku = new Map<string, ExistingVariant>();
+      const existingVariantsByUpid = new Map<string, ExistingVariant>();
+      const existingVariantsBySku = new Map<string, ExistingVariant>();
 
       if (allUpids.length > 0 || allSkus.length > 0) {
         const existingVariants = await db
@@ -1072,7 +1072,10 @@ function parseJourneySteps(value: string | undefined): ParsedJourneyStep[] {
     if (!step) continue;
 
     const operators = operatorsStr
-      ? operatorsStr.split(",").map((o) => o.trim()).filter((o) => o.length > 0)
+      ? operatorsStr
+          .split(",")
+          .map((o) => o.trim())
+          .filter((o) => o.length > 0)
       : [];
 
     parsed.push({ step, operators });
@@ -1214,9 +1217,11 @@ function validateDecimal(value: string | undefined): number | null {
  * @param materials - Array of material percentage values
  * @returns object with isValid flag and total sum
  */
-function validateMaterialPercentages(
-  materials: Array<string | undefined>,
-): { isValid: boolean; total: number; error?: string } {
+function validateMaterialPercentages(materials: Array<string | undefined>): {
+  isValid: boolean;
+  total: number;
+  error?: string;
+} {
   const percentages: number[] = [];
 
   for (const mat of materials) {
@@ -1318,22 +1323,31 @@ function detectChanges(
 
   // Compare product fields
   if (isDifferent(newProduct.name, existing.name)) changedFields.push("name");
-  if (isDifferent(newProduct.description, existing.description)) changedFields.push("description");
-  if (isDifferent(newProduct.categoryId, existing.categoryId)) changedFields.push("categoryId");
-  if (isDifferent(newProduct.seasonId, existing.seasonId)) changedFields.push("seasonId");
-  if (isDifferent(newProduct.primaryImageUrl, existing.primaryImageUrl)) changedFields.push("primaryImageUrl");
-  if (isDifferent(newProduct.additionalImageUrls, existing.additionalImageUrls)) changedFields.push("additionalImageUrls");
+  if (isDifferent(newProduct.description, existing.description))
+    changedFields.push("description");
+  if (isDifferent(newProduct.categoryId, existing.categoryId))
+    changedFields.push("categoryId");
+  if (isDifferent(newProduct.seasonId, existing.seasonId))
+    changedFields.push("seasonId");
+  if (isDifferent(newProduct.primaryImageUrl, existing.primaryImageUrl))
+    changedFields.push("primaryImageUrl");
+  if (isDifferent(newProduct.additionalImageUrls, existing.additionalImageUrls))
+    changedFields.push("additionalImageUrls");
   if (isDifferent(newProduct.tags, existing.tags)) changedFields.push("tags");
-  if (isDifferent(newProduct.showcaseBrandId, existing.showcaseBrandId)) changedFields.push("showcaseBrandId");
+  if (isDifferent(newProduct.showcaseBrandId, existing.showcaseBrandId))
+    changedFields.push("showcaseBrandId");
 
   // Compare variant fields
   if (isDifferent(newVariant.sku, existing.sku)) changedFields.push("sku");
   if (isDifferent(newVariant.upid, existing.upid)) changedFields.push("upid");
   if (isDifferent(newVariant.ean, existing.ean)) changedFields.push("ean");
-  if (isDifferent(newVariant.colorId, existing.colorId)) changedFields.push("colorId");
-  if (isDifferent(newVariant.sizeId, existing.sizeId)) changedFields.push("sizeId");
-  if (isDifferent(newVariant.productImageUrl, existing.productImageUrl)) changedFields.push("productImageUrl");
-  
+  if (isDifferent(newVariant.colorId, existing.colorId))
+    changedFields.push("colorId");
+  if (isDifferent(newVariant.sizeId, existing.sizeId))
+    changedFields.push("sizeId");
+  if (isDifferent(newVariant.productImageUrl, existing.productImageUrl))
+    changedFields.push("productImageUrl");
+
   // Status: normalize to uppercase for comparison
   const newStatus = (newVariant.status || "DRAFT").toUpperCase();
   const oldStatus = (existing.status || "DRAFT").toUpperCase();
@@ -1483,7 +1497,7 @@ async function validateRow(
   // ========================================================================
 
   // HARD ERROR: EAN validation
-  if (row.ean && row.ean.trim()) {
+  if (row.ean?.trim()) {
     if (!validateEAN(row.ean)) {
       errors.push({
         type: "HARD_ERROR",
@@ -1500,7 +1514,7 @@ async function validateRow(
   const productStatus = validatedStatus || "DRAFT"; // Default to DRAFT
 
   // HARD ERROR: Carbon footprint validation
-  if (row.carbon_footprint && row.carbon_footprint.trim()) {
+  if (row.carbon_footprint?.trim()) {
     const carbonValue = validateDecimal(row.carbon_footprint);
     if (carbonValue === null) {
       errors.push({
@@ -1514,7 +1528,7 @@ async function validateRow(
   }
 
   // HARD ERROR: Water usage validation
-  if (row.water_usage && row.water_usage.trim()) {
+  if (row.water_usage?.trim()) {
     const waterValue = validateDecimal(row.water_usage);
     if (waterValue === null) {
       errors.push({
@@ -1536,7 +1550,7 @@ async function validateRow(
   let materialsToValidate: ParsedMaterial[] = [];
 
   // Try NEW format first
-  if (row.materials && row.materials.trim()) {
+  if (row.materials?.trim()) {
     materialsToValidate = parseMaterials(row.materials);
   }
   // Fall back to LEGACY format
@@ -1549,8 +1563,10 @@ async function validateRow(
     ];
 
     for (const mat of legacyMaterials) {
-      if (mat.name && mat.name.trim()) {
-        const percentage = mat.percentageStr ? Number.parseFloat(mat.percentageStr) : 0;
+      if (mat.name?.trim()) {
+        const percentage = mat.percentageStr
+          ? Number.parseFloat(mat.percentageStr)
+          : 0;
         if (!Number.isNaN(percentage)) {
           materialsToValidate.push({
             name: mat.name.trim(),
@@ -1655,7 +1671,11 @@ async function validateRow(
 
     // Validate each operator
     for (const operatorName of step.operators) {
-      const operatorId = lookupOperatorId(catalog, operatorName, "journey_steps");
+      const operatorId = lookupOperatorId(
+        catalog,
+        operatorName,
+        "journey_steps",
+      );
 
       if (!operatorId) {
         // Track as unmapped for user definition
@@ -1679,7 +1699,7 @@ async function validateRow(
   }
 
   // Validate image URLs
-  if (row.primary_image_url && row.primary_image_url.trim()) {
+  if (row.primary_image_url?.trim()) {
     if (!validateURL(row.primary_image_url)) {
       errors.push({
         type: "HARD_ERROR",
@@ -1691,7 +1711,7 @@ async function validateRow(
     }
   }
 
-  if (row.additional_image_urls && row.additional_image_urls.trim()) {
+  if (row.additional_image_urls?.trim()) {
     const additionalUrls = parsePipeSeparated(row.additional_image_urls);
     for (const url of additionalUrls) {
       if (!validateURL(url)) {
@@ -1706,7 +1726,7 @@ async function validateRow(
     }
   }
 
-  if (row.product_image_url && row.product_image_url.trim()) {
+  if (row.product_image_url?.trim()) {
     if (!validateURL(row.product_image_url)) {
       errors.push({
         type: "HARD_ERROR",
@@ -1739,8 +1759,8 @@ async function validateRow(
   // ========================================================================
   // BRAND VALIDATION (showcase_brand)
   // ========================================================================
-  let showcaseBrandId: string | null = null;
-  if (row.brand && row.brand.trim()) {
+  const showcaseBrandId: string | null = null;
+  if (row.brand?.trim()) {
     // Check if brand exists in catalog - brands are global, not brand-specific
     // TODO: Implement lookupShowcaseBrandId function
     // For now, track as unmapped if provided
@@ -1766,7 +1786,7 @@ async function validateRow(
   // ========================================================================
   let colorId: string | null = null;
   const colorIds: string[] = [];
-  
+
   // Process multiple colors if provided
   if (colors.length > 0) {
     for (const colorName of colors) {
@@ -1792,7 +1812,7 @@ async function validateRow(
       }
     }
     // For variant, use first color as primary
-    colorId = colorIds.length > 0 ? (colorIds[0] ?? null) : null;
+    colorId = colorIds.length > 0 ? colorIds[0] ?? null : null;
   } else if (row.color_name) {
     // Legacy single color support
     colorId = lookupColorId(catalog, row.color_name, "color_name");
@@ -1820,8 +1840,8 @@ async function validateRow(
   // ========================================================================
   let sizeId: string | null = null;
   const sizeName = row.size || row.size_name;
-  
-  if (sizeName && sizeName.trim()) {
+
+  if (sizeName?.trim()) {
     sizeId = lookupSizeId(catalog, sizeName, "size");
     if (!sizeId) {
       trackUnmappedValue(
@@ -1853,7 +1873,7 @@ async function validateRow(
   // SEASON VALIDATION - Lookup from brand_seasons table
   // ========================================================================
   let seasonId: string | null = null;
-  if (row.season && row.season.trim()) {
+  if (row.season?.trim()) {
     seasonId = lookupSeasonId(catalog, row.season, "season");
     if (!seasonId) {
       trackUnmappedValue(
@@ -1879,7 +1899,7 @@ async function validateRow(
   let categoryId: string | null = null;
   const categoryValue = row.category || row.category_name;
 
-  if (categoryValue && categoryValue.trim()) {
+  if (categoryValue?.trim()) {
     // NEW format: hierarchical path like "Men's > Tops > T-Shirts"
     // The path will be normalized to just the leaf category name for lookup
     // Example: "Men's > Tops > T-Shirts" becomes "t-shirts" for lookup
@@ -1916,17 +1936,23 @@ async function validateRow(
   // ========================================================================
   // IMPROVED CREATE vs UPDATE DETECTION with Ambiguity Checking
   // ========================================================================
-  
+
   // Look up by UPID and SKU separately to detect ambiguous matches
-  const matchedByUpid = (upid ? existingVariantsByUpid.get(upid) : null) as ExistingVariant | null | undefined;
-  const matchedBySku = (sku ? existingVariantsBySku.get(sku) : null) as ExistingVariant | null | undefined;
-  
+  const matchedByUpid = (upid ? existingVariantsByUpid.get(upid) : null) as
+    | ExistingVariant
+    | null
+    | undefined;
+  const matchedBySku = (sku ? existingVariantsBySku.get(sku) : null) as
+    | ExistingVariant
+    | null
+    | undefined;
+
   let existingVariant: ExistingVariant | null = null;
-  
+
   // Priority: UPID takes precedence over SKU for matching
   if (matchedByUpid) {
     existingVariant = matchedByUpid;
-    
+
     // AMBIGUITY WARNING: Both UPID and SKU provided but point to different products
     if (matchedBySku && matchedBySku.variant_id !== matchedByUpid.variant_id) {
       warnings.push({
@@ -1941,14 +1967,14 @@ async function validateRow(
   } else if (matchedBySku) {
     existingVariant = matchedBySku;
   }
-  
+
   // Generate UUIDs for new records or use existing
   const productId = existingVariant?.id || randomUUID();
   const variantId = existingVariant?.variant_id || randomUUID();
 
   // Prepare staging data
   const additionalImagesString = row.additional_image_urls?.trim() || null;
-  
+
   // Build temporary product and variant objects for change detection
   const tempProduct: InsertStagingProductParams = {
     jobId,
@@ -1989,14 +2015,18 @@ async function validateRow(
   // ========================================================================
   // PHASE 2: CHANGE DETECTION - Skip UPDATE if no changes detected
   // ========================================================================
-  
+
   let action: "CREATE" | "UPDATE" | "SKIP" = "CREATE";
   let changedFields: string[] | undefined;
 
   if (existingVariant) {
     // Product exists - check if any fields have changed
-    const changeDetection = detectChanges(tempProduct, tempVariant, existingVariant);
-    
+    const changeDetection = detectChanges(
+      tempProduct,
+      tempVariant,
+      existingVariant,
+    );
+
     if (changeDetection.hasChanges) {
       action = "UPDATE";
       changedFields = changeDetection.changedFields;

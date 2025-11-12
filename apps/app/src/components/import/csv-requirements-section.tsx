@@ -2,7 +2,7 @@
 
 import { Button } from "@v1/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@v1/ui/tabs";
-import { CheckCircle, Info, FileDown } from "lucide-react";
+import { CheckCircle, FileDown, Info } from "lucide-react";
 import { toast } from "sonner";
 
 // CSV template columns matching the backend expectations

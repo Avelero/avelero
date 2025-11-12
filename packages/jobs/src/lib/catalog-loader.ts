@@ -2,8 +2,15 @@ import type { Database } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 
-const { brandColors, brandSizes, brandMaterials, brandSeasons, categories, brandFacilities, valueMappings } =
-  schema;
+const {
+  brandColors,
+  brandSizes,
+  brandMaterials,
+  brandSeasons,
+  categories,
+  brandFacilities,
+  valueMappings,
+} = schema;
 
 /**
  * Brand catalog data structure for in-memory lookups
@@ -68,42 +75,48 @@ export async function loadBrandCatalog(
   const loadStartTime = Date.now();
 
   // Load all catalog tables in parallel for maximum performance
-  const [colors, sizes, materials, seasons, allCategories, facilities, mappings] = await Promise.all(
-    [
-      db.query.brandColors.findMany({
-        where: eq(brandColors.brandId, brandId),
-        columns: { id: true, name: true },
-      }),
-      db.query.brandSizes.findMany({
-        where: eq(brandSizes.brandId, brandId),
-        columns: { id: true, name: true },
-      }),
-      db.query.brandMaterials.findMany({
-        where: eq(brandMaterials.brandId, brandId),
-        columns: { id: true, name: true },
-      }),
-      db.query.brandSeasons.findMany({
-        where: eq(brandSeasons.brandId, brandId),
-        columns: { id: true, name: true },
-      }),
-      db.query.categories.findMany({
-        columns: { id: true, name: true },
-      }),
-      db.query.brandFacilities.findMany({
-        where: eq(brandFacilities.brandId, brandId),
-        columns: { id: true, displayName: true },
-      }),
-      db.query.valueMappings.findMany({
-        where: eq(valueMappings.brandId, brandId),
-        columns: {
-          target: true,
-          sourceColumn: true,
-          rawValue: true,
-          targetId: true,
-        },
-      }),
-    ],
-  );
+  const [
+    colors,
+    sizes,
+    materials,
+    seasons,
+    allCategories,
+    facilities,
+    mappings,
+  ] = await Promise.all([
+    db.query.brandColors.findMany({
+      where: eq(brandColors.brandId, brandId),
+      columns: { id: true, name: true },
+    }),
+    db.query.brandSizes.findMany({
+      where: eq(brandSizes.brandId, brandId),
+      columns: { id: true, name: true },
+    }),
+    db.query.brandMaterials.findMany({
+      where: eq(brandMaterials.brandId, brandId),
+      columns: { id: true, name: true },
+    }),
+    db.query.brandSeasons.findMany({
+      where: eq(brandSeasons.brandId, brandId),
+      columns: { id: true, name: true },
+    }),
+    db.query.categories.findMany({
+      columns: { id: true, name: true },
+    }),
+    db.query.brandFacilities.findMany({
+      where: eq(brandFacilities.brandId, brandId),
+      columns: { id: true, displayName: true },
+    }),
+    db.query.valueMappings.findMany({
+      where: eq(valueMappings.brandId, brandId),
+      columns: {
+        target: true,
+        sourceColumn: true,
+        rawValue: true,
+        targetId: true,
+      },
+    }),
+  ]);
 
   // Build case-insensitive lookup maps
   const catalog: BrandCatalog = {
@@ -112,7 +125,9 @@ export async function loadBrandCatalog(
     materials: new Map(
       materials.map((m) => [normalizeValue(m.name), m.id] as const),
     ),
-    seasons: new Map(seasons.map((s) => [normalizeValue(s.name), s.id] as const)),
+    seasons: new Map(
+      seasons.map((s) => [normalizeValue(s.name), s.id] as const),
+    ),
     categories: new Map(
       allCategories.map((c) => [normalizeValue(c.name), c.id] as const),
     ),

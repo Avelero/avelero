@@ -238,14 +238,14 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
   // Handle CSV export
   const handleExport = async () => {
     if (isExporting) return;
-    
+
     try {
       setIsExporting(true);
       const toastId = toast.loading("Exporting failed rows...");
 
       // Use queryClient to fetch data directly
       const result = await queryClient.fetchQuery(
-        trpc.bulk.staging.export.queryOptions({ jobId })
+        trpc.bulk.staging.export.queryOptions({ jobId }),
       );
 
       if (result.totalRows === 0) {
@@ -264,7 +264,9 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success(`Exported ${result.totalRows} failed rows`, { id: toastId });
+      toast.success(`Exported ${result.totalRows} failed rows`, {
+        id: toastId,
+      });
     } catch (err) {
       toast.error("Failed to export failed rows. Please try again.");
       console.error("Export error:", err);

@@ -13,7 +13,9 @@
       ".next",
       ".next/**",
       ".react-email",
-      ".react-email/**"
+      ".react-email/**",
+      ".trigger",
+      ".trigger/**"
     ]
   },
   "linter": {
@@ -22,7 +24,8 @@
       "node_modules",
       ".next",
       "packages/tsconfig",
-      ".react-email"
+      ".react-email",
+      ".trigger"
     ],
     "enabled": true,
     "rules": {

@@ -1,15 +1,15 @@
 "use client";
 
+import {
+  generatePendingEntityKey,
+  usePendingEntities,
+} from "@/contexts/pending-entities-context";
 import { useTRPC } from "@/trpc/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import * as React from "react";
 import { EntityValueCombobox } from "./entity-value-combobox";
-import {
-  usePendingEntities,
-  generatePendingEntityKey,
-} from "@/contexts/pending-entities-context";
 
 //===================================================================================
 // TYPES
@@ -252,7 +252,9 @@ export function UnmappedValuesSection({
               Failed to load unmapped values
             </p>
             <p className="text-xs text-destructive/80">
-              {error instanceof Error ? error.message : "Please try again or contact support if the issue persists."}
+              {error instanceof Error
+                ? error.message
+                : "Please try again or contact support if the issue persists."}
             </p>
           </div>
         </div>
@@ -271,7 +273,9 @@ export function UnmappedValuesSection({
             Catalog data unavailable
           </p>
           <p className="text-xs text-amber-700">
-            {catalogError instanceof Error ? catalogError.message : "Unable to load existing colors, sizes, etc. You can still define new values."}
+            {catalogError instanceof Error
+              ? catalogError.message
+              : "Unable to load existing colors, sizes, etc. You can still define new values."}
           </p>
         </div>
       </div>
@@ -323,8 +327,8 @@ export function UnmappedValuesSection({
             <Icons.CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
             <div>
               <p className="type-small text-primary">
-                {autoCreatedCount}{" "}
-                {autoCreatedCount === 1 ? "value" : "values"} auto-created
+                {autoCreatedCount} {autoCreatedCount === 1 ? "value" : "values"}{" "}
+                auto-created
               </p>
               <p className="type-small text-secondary mt-0.5">
                 {autoCreatedGroups.map((group, idx) => (

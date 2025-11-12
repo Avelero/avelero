@@ -1,6 +1,6 @@
+import { Header } from "@/components/header";
 import { FloatingProgressWidget } from "@/components/import/floating-progress-widget";
 import { ImportReviewDialog } from "@/components/import/import-review-dialog";
-import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { ImportProgressProvider } from "@/contexts/import-progress-context";
 import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";

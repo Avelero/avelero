@@ -1,9 +1,16 @@
 "use client";
 
-import { CategorySelect } from "@/components/select/category-select";
 import { SeasonModal } from "@/components/modals/season-modal";
+import { CategorySelect } from "@/components/select/category-select";
+import {
+  generatePendingEntityKey,
+  usePendingEntities,
+} from "@/contexts/pending-entities-context";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
+import { colors as colorSelections } from "@v1/selections/colors";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -18,12 +25,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { MaterialSheet } from "../sheets/material-sheet";
-import { ShowcaseBrandSheet } from "../sheets/showcase-brand-sheet";
 import { OperatorSheet } from "../sheets/operator-sheet";
-import { colors as colorSelections } from "@v1/selections/colors";
-import { usePendingEntities, generatePendingEntityKey } from "@/contexts/pending-entities-context";
-import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
+import { ShowcaseBrandSheet } from "../sheets/showcase-brand-sheet";
 
 type BulkValuesRouter = inferRouterOutputs<AppRouter>["bulk"]["values"];
 type UnmappedValuesQueryData = BulkValuesRouter["unmapped"];
@@ -177,7 +180,8 @@ export function EntityValueCombobox({
 }: EntityValueComboboxProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { setPendingEntity, hasPendingEntity, getPendingEntity } = usePendingEntities();
+  const { setPendingEntity, hasPendingEntity, getPendingEntity } =
+    usePendingEntities();
 
   const key = generatePendingEntityKey(entityType, rawValue);
   const isDefined = hasPendingEntity(key);
@@ -322,7 +326,8 @@ export function EntityValueCombobox({
     const colorOptions = (colorsData?.data || []).map((c: any) => {
       // Try to find matching color in selections by name (case-insensitive)
       const colorKey = c.name.toUpperCase().replace(/\s+/g, "_");
-      const selectionColor = colorSelections[colorKey as keyof typeof colorSelections];
+      const selectionColor =
+        colorSelections[colorKey as keyof typeof colorSelections];
 
       return {
         id: c.id,
@@ -343,7 +348,7 @@ export function EntityValueCombobox({
     const filteredColors = React.useMemo(() => {
       if (!colorSearch) return colorOptions;
       return colorOptions.filter((c) =>
-        c.name.toLowerCase().includes(colorSearch.toLowerCase())
+        c.name.toLowerCase().includes(colorSearch.toLowerCase()),
       );
     }, [colorOptions, colorSearch]);
 
@@ -446,9 +451,7 @@ export function EntityValueCombobox({
                       ))
                     ) : (
                       <div className="px-3 py-8 text-center">
-                        <p className="type-p text-tertiary">
-                          No colors found
-                        </p>
+                        <p className="type-p text-tertiary">No colors found</p>
                       </div>
                     )}
                   </CommandGroup>
@@ -501,7 +504,16 @@ export function EntityValueCombobox({
         toast.success(`Size "${proposedName}" defined`);
         onMapped?.();
       },
-      [jobId, key, markValueAsDefined, onMapped, rawValue, setPendingEntity, sizeSearch, sourceColumn],
+      [
+        jobId,
+        key,
+        markValueAsDefined,
+        onMapped,
+        rawValue,
+        setPendingEntity,
+        sizeSearch,
+        sourceColumn,
+      ],
     );
 
     React.useEffect(() => {
@@ -516,14 +528,14 @@ export function EntityValueCombobox({
       if (!normalizedSizeSearch) return availableSizes;
       const searchLower = normalizedSizeSearch.toLowerCase();
       return availableSizes.filter((s: string) =>
-        s.toLowerCase().includes(searchLower)
+        s.toLowerCase().includes(searchLower),
       );
     }, [availableSizes, normalizedSizeSearch]);
 
     const showCreateOption =
       normalizedSizeSearch.length > 0 &&
       !availableSizes.some(
-        (s: string) => s.toLowerCase() === normalizedSizeSearch.toLowerCase()
+        (s: string) => s.toLowerCase() === normalizedSizeSearch.toLowerCase(),
       );
 
     const buttonLabel = isDefined
@@ -607,10 +619,13 @@ export function EntityValueCombobox({
                             onSelect={async () => {
                               // Find the size ID from sizesData
                               const sizeData = sizesData?.find(
-                                (s) => s.name === size
+                                (s) => s.name === size,
                               );
                               if (sizeData) {
-                                await handleMapEntity(sizeData.id, sizeData.name);
+                                await handleMapEntity(
+                                  sizeData.id,
+                                  sizeData.name,
+                                );
                               }
                               setSizeOpen(false);
                               setSizeSearch("");
@@ -637,7 +652,8 @@ export function EntityValueCombobox({
                       ) : !normalizedSizeSearch ? (
                         <div className="px-3 py-8 text-center">
                           <p className="type-p text-tertiary">
-                            Type &quot;{rawValue}&quot; to create or select existing
+                            Type &quot;{rawValue}&quot; to create or select
+                            existing
                           </p>
                         </div>
                       ) : null}
@@ -661,7 +677,8 @@ export function EntityValueCombobox({
     });
 
     // State for the selected category path
-    const [categoryValue, setCategoryValue] = React.useState<string>("Select category");
+    const [categoryValue, setCategoryValue] =
+      React.useState<string>("Select category");
 
     const categoryIndex = React.useMemo<CategoryIndexEntry[]>(() => {
       if (!categoriesData) return [];
@@ -677,7 +694,11 @@ export function EntityValueCombobox({
     // We need to extract the leaf category name and find its ID
     const findCategoryId = React.useCallback(
       (categoryPath: string): { id: string; name: string } | null => {
-        if (!categoryIndex.length || !categoryPath || categoryPath === "Select category") {
+        if (
+          !categoryIndex.length ||
+          !categoryPath ||
+          categoryPath === "Select category"
+        ) {
           return null;
         }
 
@@ -700,10 +721,14 @@ export function EntityValueCombobox({
           return { id: directMatch.id, name: directMatch.name };
         }
 
-        let bestMatch: { id: string; name: string; distance: number } | null = null;
+        let bestMatch: { id: string; name: string; distance: number } | null =
+          null;
 
         for (const candidate of categoryIndex) {
-          const distance = levenshteinDistance(canonicalLeaf, candidate.canonical);
+          const distance = levenshteinDistance(
+            canonicalLeaf,
+            candidate.canonical,
+          );
           if (
             distance <= MAX_CATEGORY_FUZZY_DISTANCE &&
             (bestMatch === null || distance < bestMatch.distance)
@@ -759,13 +784,20 @@ export function EntityValueCombobox({
         ) : (
           // Show CategorySelect for unmapped values
           <div
-            className={cn((disabled || isMappingValue) && "opacity-50 pointer-events-none")}
+            className={cn(
+              (disabled || isMappingValue) && "opacity-50 pointer-events-none",
+            )}
           >
             <CategorySelect
               value={categoryValue}
               onChange={async (categoryPath) => {
                 setCategoryValue(categoryPath);
-                if (categoryPath && categoryPath !== "Select category" && !isMappingValue && !disabled) {
+                if (
+                  categoryPath &&
+                  categoryPath !== "Select category" &&
+                  !isMappingValue &&
+                  !disabled
+                ) {
                   let resolvedCategory = findCategoryId(categoryPath);
 
                   if (!resolvedCategory) {
@@ -776,10 +808,12 @@ export function EntityValueCombobox({
 
                     if (pathSegments.length > 0) {
                       try {
-                        const result = await ensureCategoryMutation.mutateAsync({
-                          jobId,
-                          path: pathSegments,
-                        });
+                        const result = await ensureCategoryMutation.mutateAsync(
+                          {
+                            jobId,
+                            path: pathSegments,
+                          },
+                        );
 
                         if (result?.id) {
                           const latestSegment =
@@ -790,7 +824,9 @@ export function EntityValueCombobox({
                           };
 
                           await queryClient.invalidateQueries({
-                            queryKey: trpc.bulk.values.catalogData.queryKey({ jobId }),
+                            queryKey: trpc.bulk.values.catalogData.queryKey({
+                              jobId,
+                            }),
                           });
                         }
                       } catch (ensureError) {
@@ -804,10 +840,15 @@ export function EntityValueCombobox({
                   }
 
                   if (resolvedCategory) {
-                    await handleMapEntity(resolvedCategory.id, resolvedCategory.name);
+                    await handleMapEntity(
+                      resolvedCategory.id,
+                      resolvedCategory.name,
+                    );
                     setCategoryValue("Select category"); // Reset after mapping
                   } else {
-                    toast.error(`Category "${categoryPath}" not found in database`);
+                    toast.error(
+                      `Category "${categoryPath}" not found in database`,
+                    );
                     setCategoryValue("Select category"); // Reset on error
                   }
                 }
@@ -858,7 +899,12 @@ export function EntityValueCombobox({
             className,
           )}
         >
-          <span className={cn("type-p truncate", isDefined ? "text-green-700" : "text-secondary")}>
+          <span
+            className={cn(
+              "type-p truncate",
+              isDefined ? "text-green-700" : "text-secondary",
+            )}
+          >
             {buttonLabel}
           </span>
           {buttonIcon}

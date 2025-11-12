@@ -36,9 +36,7 @@ export class ProgressEmitter {
 
   constructor() {
     this.apiUrl =
-      process.env.API_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      DEFAULT_API_URL;
+      process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
     this.apiKey = process.env.INTERNAL_API_KEY || DEFAULT_INTERNAL_API_KEY;
   }
 

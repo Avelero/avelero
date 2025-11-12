@@ -4,7 +4,7 @@ import { useImportProgress } from "@/contexts/import-progress-context";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CircularProgress } from "./circular-progress";
 
@@ -25,7 +25,7 @@ function formatProcessedRange(
   current: number,
   total: number,
   failed: number,
-  subtractFailed: boolean = false,
+  subtractFailed = false,
 ): string {
   const denominator = subtractFailed ? Math.max(total - failed, 0) : total;
   return `${current.toLocaleString()} / ${denominator.toLocaleString()}`;
@@ -40,16 +40,23 @@ function getStatusText(
   switch (status) {
     case "PENDING":
       return "Processing products...";
-    case "VALIDATING":
+    case "VALIDATING": {
       // During processing, show full total (not adjusted for errors)
-      const processingText = formatProcessedRange(current, total, failed, false);
+      const processingText = formatProcessedRange(
+        current,
+        total,
+        failed,
+        false,
+      );
       return `Processing products... ${processingText}`;
+    }
     case "VALIDATED":
       return "Ready for review";
-    case "COMMITTING":
+    case "COMMITTING": {
       // During import after approval, show total minus errors
       const importingText = formatProcessedRange(current, total, failed, true);
       return `Importing - ${importingText} products`;
+    }
     case "COMPLETED":
       return "Import complete";
     case "FAILED":

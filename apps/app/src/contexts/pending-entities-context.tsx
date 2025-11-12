@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import type React from "react";
+import { createContext, useCallback, useContext, useState } from "react";
 
 /**
  * Pending entity creation data

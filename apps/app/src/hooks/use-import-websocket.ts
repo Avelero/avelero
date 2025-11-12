@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
 import { createClient } from "@v1/supabase/client";
+import { useCallback, useEffect, useRef } from "react";
 
 /**
  * Progress update event from WebSocket server

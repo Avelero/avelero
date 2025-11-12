@@ -5,20 +5,20 @@ import type { Database } from "@v1/db/client";
 import {
   type StagingProductPreview,
   batchUpdateImportRowStatus,
+  bulkCreateProductsFromStaging,
   createProduct,
   createVariant,
   deleteStagingDataForJob,
   getImportJobStatus,
   getStagingProductsForCommit,
-  bulkCreateProductsFromStaging,
+  setProductEcoClaims,
+  setProductJourneySteps,
   updateImportJobProgress,
   updateImportJobStatus,
   updateProduct,
   updateVariant,
-  upsertProductMaterials,
-  setProductEcoClaims,
-  setProductJourneySteps,
   upsertProductEnvironment,
+  upsertProductMaterials,
 } from "@v1/db/queries";
 import { ProgressEmitter } from "./progress-emitter";
 
@@ -676,14 +676,10 @@ async function commitStagingRow(
       // Fetch and insert environment data
       const stagingEnvironment = stagingProduct.environment;
       if (stagingEnvironment) {
-        await upsertProductEnvironment(
-          tx as unknown as Database,
-          productId,
-          {
-            carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
-            waterLiters: stagingEnvironment.waterLiters || undefined,
-          },
-        );
+        await upsertProductEnvironment(tx as unknown as Database, productId, {
+          carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
+          waterLiters: stagingEnvironment.waterLiters || undefined,
+        });
       }
 
       // Step 4: Mark import_row as APPLIED

@@ -42,7 +42,7 @@ export function SeasonModal({
   const [endDate, setEndDate] = React.useState<Date | null>(null);
   const [ongoing, setOngoing] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  
+
   const createSeasonMutation = useMutation(
     trpc.brand.seasons.create.mutationOptions(),
   );
@@ -227,7 +227,11 @@ export function SeasonModal({
         </div>
 
         <DialogFooter className="px-6 pb-6 pt-3">
-          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
           <Button

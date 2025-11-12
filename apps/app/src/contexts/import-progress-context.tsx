@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  type ProgressUpdate,
+  useImportWebSocket,
+} from "@/hooks/use-import-websocket";
 import { useTRPC } from "@/trpc/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, {
@@ -10,10 +14,6 @@ import React, {
   useCallback,
   type ReactNode,
 } from "react";
-import {
-  useImportWebSocket,
-  type ProgressUpdate,
-} from "@/hooks/use-import-websocket";
 
 //===================================================================================
 // TYPES & INTERFACES
@@ -224,7 +224,9 @@ export function ImportProgressProvider({
 
       // Auto-dismiss widget after completion (5 seconds)
       if (update.status === "COMPLETED") {
-        console.log("[ImportProgress] Import complete - invalidating product queries");
+        console.log(
+          "[ImportProgress] Import complete - invalidating product queries",
+        );
 
         // Invalidate products list to refresh dashboard/products pages
         void queryClient.invalidateQueries({
@@ -325,7 +327,9 @@ export function ImportProgressProvider({
 
     // Auto-dismiss widget after completion (5 seconds)
     if (statusData.status === "COMPLETED") {
-      console.log("[ImportProgress] Import complete - invalidating product queries");
+      console.log(
+        "[ImportProgress] Import complete - invalidating product queries",
+      );
 
       // Invalidate products list to refresh dashboard/products pages
       void queryClient.invalidateQueries({

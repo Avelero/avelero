@@ -1,7 +1,7 @@
 import { createClient } from "@v1/supabase/client";
 import { upload } from "@v1/supabase/storage";
 import type { Client } from "@v1/supabase/types";
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 
 interface UploadParams {
   file: File;

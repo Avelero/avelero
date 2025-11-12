@@ -12,14 +12,14 @@
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
     "@v1/logger": "workspace:*",
-    "react": "19.1.1",
+    "react": "19.2.0",
     "server-only": "^0.0.1",
     "supabase": "^2.34.3"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.57.2",
     "@types/node": "^24.0.1",
-    "next": "15.5.2",
+    "next": "16.0.1",
     "typescript": "^5.9.2"
   },
   "exports": {

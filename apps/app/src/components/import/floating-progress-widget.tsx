@@ -21,20 +21,35 @@ type WidgetState = "collapsed" | "expanded";
 /**
  * Get human-readable status text for display
  */
+function formatProcessedRange(
+  current: number,
+  total: number,
+  failed: number,
+  subtractFailed: boolean = false,
+): string {
+  const denominator = subtractFailed ? Math.max(total - failed, 0) : total;
+  return `${current.toLocaleString()} / ${denominator.toLocaleString()}`;
+}
+
 function getStatusText(
   status: string | null,
   current: number,
   total: number,
+  failed: number,
 ): string {
   switch (status) {
     case "PENDING":
       return "Processing products...";
     case "VALIDATING":
-      return `Processing products... ${current.toLocaleString()} / ${total.toLocaleString()}`;
+      // During processing, show full total (not adjusted for errors)
+      const processingText = formatProcessedRange(current, total, failed, false);
+      return `Processing products... ${processingText}`;
     case "VALIDATED":
       return "Ready for review";
     case "COMMITTING":
-      return `Importing - ${current.toLocaleString()} / ${total.toLocaleString()} products`;
+      // During import after approval, show total minus errors
+      const importingText = formatProcessedRange(current, total, failed, true);
+      return `Importing - ${importingText} products`;
     case "COMPLETED":
       return "Import complete";
     case "FAILED":
@@ -116,8 +131,17 @@ export function FloatingProgressWidget() {
     state.status,
     state.progress.current,
     state.progress.total,
+    state.progress.failed,
   );
   const statusColor = getStatusColor(state.status);
+
+  // Calculate total based on status:
+  // - During VALIDATING (processing): show full total
+  // - During COMMITTING (importing): show total minus errors
+  const shouldSubtractFailed = state.status === "COMMITTING";
+  const adjustedTotal = shouldSubtractFailed
+    ? Math.max(state.progress.total - state.progress.failed, 0)
+    : state.progress.total;
 
   const widget = (
     <div
@@ -212,7 +236,7 @@ export function FloatingProgressWidget() {
                     <span className="text-muted-foreground">Progress:</span>
                     <span className="font-medium">
                       {state.progress.current.toLocaleString()} /{" "}
-                      {state.progress.total.toLocaleString()}
+                      {adjustedTotal.toLocaleString()}
                     </span>
                   </div>
 

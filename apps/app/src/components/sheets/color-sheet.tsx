@@ -157,10 +157,14 @@ export function ColorSheet({
       toast.success(`Color "${name}" created successfully`);
 
       // Return created color data
+      const colorResponse = result?.data;
+      if (!colorResponse?.id) {
+        throw new Error("Color created without identifier");
+      }
       const colorData: ColorData = {
-        id: result.id,
-        name: result.name,
-        hex: result.hex,
+        id: colorResponse.id,
+        name: colorResponse.name,
+        hex: colorResponse.hex,
       };
 
       onColorCreated(colorData);
@@ -182,8 +186,8 @@ export function ColorSheet({
     <div className="flex-1 px-6 py-6 overflow-y-auto">
       <div className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="colorName" required>
-            Color Name
+          <Label htmlFor="colorName">
+            Color Name <span className="text-destructive">*</span>
           </Label>
           <Input
             id="colorName"
@@ -292,7 +296,7 @@ export function ColorSheet({
         <SheetBreadcrumbHeader
           pages={breadcrumbPages}
           currentPageIndex={currentPageIndex}
-          onPageChange={(index) => setCurrentPage(pages[index] as Page)}
+          onPageClick={(index) => setCurrentPage(pages[index] as Page)}
         />
 
         {/* Page content */}

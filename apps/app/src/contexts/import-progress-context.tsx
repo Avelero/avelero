@@ -170,6 +170,7 @@ export function ImportProgressProvider({
   // Initialize state from localStorage
   const [state, setState] = useState<ImportState>(INITIAL_STATE);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [hasOpenedReviewDialog, setHasOpenedReviewDialog] = useState(false);
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -202,8 +203,8 @@ export function ImportProgressProvider({
       setState(newState);
       saveStateToStorage(newState);
 
-      // Auto-open review dialog when validation complete
-      if (update.status === "VALIDATED") {
+      // Auto-open review dialog when validation complete (only once per job)
+      if (update.status === "VALIDATED" && !hasOpenedReviewDialog) {
         console.log(
           "[ImportProgress] Validation complete - prefetching review data and opening dialog",
         );
@@ -218,17 +219,24 @@ export function ImportProgressProvider({
         );
 
         setReviewDialogOpen(true);
+        setHasOpenedReviewDialog(true);
       }
 
       // Auto-dismiss widget after completion (5 seconds)
       if (update.status === "COMPLETED") {
-        console.log("[ImportProgress] Import complete - auto-dismissing in 5s");
+        console.log("[ImportProgress] Import complete - invalidating product queries");
+
+        // Invalidate products list to refresh dashboard/products pages
+        void queryClient.invalidateQueries({
+          queryKey: trpc.products.list.queryKey(),
+        });
+
         setTimeout(() => {
           dismissWidget();
         }, 5000);
       }
     },
-    [state.filename],
+    [state.filename, hasOpenedReviewDialog, queryClient, trpc],
   );
 
   // Connect to WebSocket for real-time updates
@@ -296,8 +304,8 @@ export function ImportProgressProvider({
     setState(newState);
     saveStateToStorage(newState);
 
-    // Auto-open review dialog when validation complete
-    if (statusData.status === "VALIDATED") {
+    // Auto-open review dialog when validation complete (only once per job)
+    if (statusData.status === "VALIDATED" && !hasOpenedReviewDialog) {
       console.log(
         "[ImportProgress] Validation complete - prefetching review data and opening dialog",
       );
@@ -312,16 +320,23 @@ export function ImportProgressProvider({
       );
 
       setReviewDialogOpen(true);
+      setHasOpenedReviewDialog(true);
     }
 
     // Auto-dismiss widget after completion (5 seconds)
     if (statusData.status === "COMPLETED") {
-      console.log("[ImportProgress] Import complete - auto-dismissing in 5s");
+      console.log("[ImportProgress] Import complete - invalidating product queries");
+
+      // Invalidate products list to refresh dashboard/products pages
+      void queryClient.invalidateQueries({
+        queryKey: trpc.products.list.queryKey(),
+      });
+
       setTimeout(() => {
         dismissWidget();
       }, 5000);
     }
-  }, [statusData, wsConnected]);
+  }, [statusData, wsConnected, hasOpenedReviewDialog, queryClient, trpc]);
 
   // Timeout detection for stuck jobs
   useEffect(() => {
@@ -366,6 +381,7 @@ export function ImportProgressProvider({
 
     setState(newState);
     saveStateToStorage(newState);
+    setHasOpenedReviewDialog(false); // Reset flag for new import
 
     console.log("[ImportProgress] Import started - polling will begin");
   }, []);
@@ -396,6 +412,7 @@ export function ImportProgressProvider({
     setState(INITIAL_STATE);
     clearStateFromStorage();
     setReviewDialogOpen(false);
+    setHasOpenedReviewDialog(false); // Reset flag when dismissing
   }, []);
 
   /**

@@ -40,6 +40,7 @@ import {
 } from "../lib/catalog-loader";
 import { findDuplicates, normalizeHeaders, parseFile } from "../lib/csv-parser";
 import { EntityType, ValueMapper } from "../lib/value-mapper";
+import { ProgressEmitter } from "./progress-emitter";
 
 /**
  * Task payload for Phase 1 validation and staging
@@ -241,123 +242,6 @@ interface ValidatedRowData {
 
 const BATCH_SIZE = 100;
 const TIMEOUT_MS = 1800000; // 30 minutes
-
-/**
- * Emit progress update to WebSocket clients via API endpoint
- */
-/**
- * Debounced progress emitter that batches WebSocket updates
- * Updates at most once per second to provide real-time feedback
- * without blocking batch processing
- */
-class ProgressEmitter {
-  private lastEmitTime = 0;
-  private pendingUpdate: any = null;
-  private emitPromise: Promise<void> | null = null;
-  private readonly EMIT_INTERVAL_MS = 1000; // Update every second
-  private readonly apiUrl: string;
-  private readonly apiKey: string;
-
-  constructor() {
-    this.apiUrl =
-      process.env.API_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      "http://localhost:4000";
-    this.apiKey = process.env.INTERNAL_API_KEY || "dev-internal-key";
-  }
-
-  /**
-   * Queue a progress update (non-blocking, debounced)
-   * Will emit immediately if 1 second has passed, otherwise queues for next interval
-   */
-  emit(params: {
-    jobId: string;
-    status:
-      | "PENDING"
-      | "VALIDATING"
-      | "VALIDATED"
-      | "COMMITTING"
-      | "COMPLETED"
-      | "FAILED"
-      | "CANCELLED";
-    phase: "validation" | "commit";
-    processed: number;
-    total: number;
-    created?: number;
-    updated?: number;
-    failed?: number;
-    percentage: number;
-    message?: string;
-  }): void {
-    const now = Date.now();
-    const timeSinceLastEmit = now - this.lastEmitTime;
-
-    // Always store the latest update
-    this.pendingUpdate = params;
-
-    // If enough time has passed, emit immediately (non-blocking)
-    if (timeSinceLastEmit >= this.EMIT_INTERVAL_MS) {
-      this.lastEmitTime = now;
-      this.sendUpdate(params);
-    }
-    // Otherwise, it will be picked up by the next update or flush
-  }
-
-  /**
-   * Force emit any pending update (for final updates)
-   */
-  async flush(): Promise<void> {
-    if (this.pendingUpdate) {
-      await this.sendUpdate(this.pendingUpdate);
-      this.pendingUpdate = null;
-    }
-  }
-
-  /**
-   * Send update to API endpoint
-   * When called via flush(), this will be awaited to ensure delivery
-   * When called directly, it returns a promise but caller doesn't await (fire-and-forget)
-   */
-  private async sendUpdate(params: any): Promise<void> {
-    const inputData = {
-      apiKey: this.apiKey,
-      ...params,
-    };
-
-    try {
-      const response = await fetch(
-        `${this.apiUrl}/trpc/internal.emitProgress`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            json: inputData,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.warn("[ProgressEmitter] Failed to emit:", {
-          status: response.status,
-          jobId: params.jobId,
-          error: errorText.substring(0, 200),
-        });
-      }
-      // Success - no logging to reduce noise
-    } catch (error) {
-      // Log errors in development mode
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[ProgressEmitter] Network error:", {
-          jobId: params.jobId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-  }
-}
 
 /**
  * Phase 1: Validate CSV data and populate staging tables

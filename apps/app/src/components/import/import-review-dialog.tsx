@@ -183,17 +183,18 @@ function ImportReviewDialogContent({
         SHOWCASE_BRAND: pending.filter((p) => p.entityType === "SHOWCASE_BRAND"),
       };
 
-  const created: Array<{ entity: any; pending: any }> = [];
+      const created: Array<{ entity: { id: string; name?: string }; pending: any }> = [];
       const failed: Array<{ pending: any; error: string }> = [];
 
       // Create all entities in parallel by type
       const createMaterial = async (p: any) => {
         try {
           const result = await createMaterialMutation.mutateAsync(p.entityData);
-          if (!result?.id) {
+          const material = result?.data;
+          if (!material?.id) {
             throw new Error("Material created without identifier");
           }
-          created.push({ entity: result, pending: p });
+          created.push({ entity: material, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -205,10 +206,11 @@ function ImportReviewDialogContent({
       const createSize = async (p: any) => {
         try {
           const result = await createSizeMutation.mutateAsync(p.entityData);
-          if (!result?.id) {
+          const size = result?.data;
+          if (!size?.id) {
             throw new Error("Size created without identifier");
           }
-          created.push({ entity: result, pending: p });
+          created.push({ entity: size, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -220,10 +222,11 @@ function ImportReviewDialogContent({
       const createSeason = async (p: any) => {
         try {
           const result = await createSeasonMutation.mutateAsync(p.entityData);
-          if (!result?.id) {
+          const season = result?.data;
+          if (!season?.id) {
             throw new Error("Season created without identifier");
           }
-          created.push({ entity: result, pending: p });
+          created.push({ entity: season, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -235,10 +238,11 @@ function ImportReviewDialogContent({
       const createFacility = async (p: any) => {
         try {
           const result = await createFacilityMutation.mutateAsync(p.entityData);
-          if (!result?.id) {
+          const facility = result?.data;
+          if (!facility?.id) {
             throw new Error("Facility created without identifier");
           }
-          created.push({ entity: result, pending: p });
+          created.push({ entity: facility, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -250,10 +254,11 @@ function ImportReviewDialogContent({
       const createShowcaseBrand = async (p: any) => {
         try {
           const result = await createShowcaseBrandMutation.mutateAsync(p.entityData);
-          if (!result?.id) {
+          const brand = result?.data;
+          if (!brand?.id) {
             throw new Error("Showcase brand created without identifier");
           }
-          created.push({ entity: result, pending: p });
+          created.push({ entity: brand, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -343,18 +348,24 @@ function ImportReviewDialogContent({
         clearPendingEntities();
       }
 
+      // Close sheet immediately BEFORE approving to prevent re-opening
+      closeReviewDialog();
+
       // STEP 2: Approve the import
       await approveImportMutation.mutateAsync({ jobId });
 
       toast.success("Import approved! Committing to production...");
 
-      // Close sheet and let the floating widget show progress
-      closeReviewDialog();
-
-      // Invalidate queries to refresh status
-      await queryClient.invalidateQueries({
-        queryKey: trpc.bulk.import.status.queryKey({ jobId }),
-      });
+      // Invalidate queries to refresh status and product data
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: trpc.bulk.import.status.queryKey({ jobId }),
+        }),
+        // Invalidate products list so dashboard/products pages show new imports
+        queryClient.invalidateQueries({
+          queryKey: trpc.products.list.queryKey(),
+        }),
+      ]);
     } catch (err) {
       const error = err as Error;
       toast.error(

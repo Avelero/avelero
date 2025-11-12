@@ -22,6 +22,11 @@ import { ShowcaseBrandSheet } from "../sheets/showcase-brand-sheet";
 import { OperatorSheet } from "../sheets/operator-sheet";
 import { colors as colorSelections } from "@v1/selections/colors";
 import { usePendingEntities, generatePendingEntityKey } from "@/contexts/pending-entities-context";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
+
+type BulkValuesRouter = inferRouterOutputs<AppRouter>["bulk"]["values"];
+type UnmappedValuesQueryData = BulkValuesRouter["unmapped"];
 
 /**
  * Entity types supported by the combobox
@@ -87,42 +92,56 @@ function levenshteinDistance(a: string, b: string): number {
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
 
-  const matrix: number[][] = Array.from({ length: a.length + 1 }, () => []);
+  const matrix = Array.from({ length: a.length + 1 }, () =>
+    new Array<number>(b.length + 1).fill(0),
+  );
 
   for (let i = 0; i <= a.length; i += 1) {
-    matrix[i][0] = i;
+    matrix[i]![0] = i;
   }
 
   for (let j = 0; j <= b.length; j += 1) {
-    matrix[0][j] = j;
+    matrix[0]![j] = j;
   }
 
   for (let i = 1; i <= a.length; i += 1) {
     for (let j = 1; j <= b.length; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
 
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,
-        matrix[i][j - 1] + 1,
-        matrix[i - 1][j - 1] + cost,
+      matrix[i]![j] = Math.min(
+        matrix[i - 1]![j]! + 1,
+        matrix[i]![j - 1]! + 1,
+        matrix[i - 1]![j - 1]! + cost,
       );
     }
   }
 
-  return matrix[a.length][b.length];
+  return matrix[a.length]?.[b.length] ?? 0;
 }
-type UnmappedValuesCache = {
-  unmappedValues: Array<{
-    entityType: EntityType;
-    values: Array<{
-      rawValue: string;
-      sourceColumn: string;
-      isDefined?: boolean;
-      [key: string]: unknown;
-    }>;
-  }>;
-  totalUnmapped: number;
-  totalDefined?: number;
+function normalizeEntityType(type: string): EntityType | null {
+  const normalized = type.toUpperCase();
+  if (
+    normalized === "COLOR" ||
+    normalized === "MATERIAL" ||
+    normalized === "SIZE" ||
+    normalized === "CATEGORY" ||
+    normalized === "SEASON" ||
+    normalized === "TAG" ||
+    normalized === "FACILITY" ||
+    normalized === "SHOWCASE_BRAND" ||
+    normalized === "ECO_CLAIM" ||
+    normalized === "CERTIFICATION"
+  ) {
+    return normalized;
+  }
+  return null;
+}
+type CatalogDataQueryData = BulkValuesRouter["catalogData"];
+type UnmappedValuesCache = UnmappedValuesQueryData;
+type CategoryIndexEntry = {
+  id: string;
+  name: string;
+  canonical: string;
 };
 
 /**
@@ -169,16 +188,18 @@ export function EntityValueCombobox({
   const markValueAsDefined = React.useCallback(() => {
     queryClient.setQueryData(
       trpc.bulk.values.unmapped.queryKey({ jobId }),
-      (existing: UnmappedValuesCache | undefined) => {
+      (existing) => {
         if (!existing) {
           return existing;
         }
 
+        const cache: UnmappedValuesCache = existing;
         let updated = false;
         let decrement = 0;
 
-        const updatedGroups = existing.unmappedValues.map((group) => {
-          if (group.entityType !== entityType) {
+        const updatedGroups = cache.unmappedValues.map((group) => {
+          const normalizedType = normalizeEntityType(group.entityType);
+          if (normalizedType !== entityType) {
             return group;
           }
 
@@ -206,24 +227,21 @@ export function EntityValueCombobox({
         });
 
         if (!updated) {
-          return existing;
+          return cache;
         }
 
         if (decrement === 0) {
           return {
-            ...existing,
+            ...cache,
             unmappedValues: updatedGroups,
           };
         }
 
-        const currentTotal = Number(existing.totalUnmapped ?? 0);
-        const currentDefined = Number(existing.totalDefined ?? 0);
-
         return {
-          ...existing,
+          ...cache,
           unmappedValues: updatedGroups,
-          totalUnmapped: Math.max(0, currentTotal - decrement),
-          totalDefined: currentDefined + decrement,
+          totalUnmapped: Math.max(0, cache.totalUnmapped - decrement),
+          totalDefined: cache.totalDefined + decrement,
         };
       },
     );
@@ -448,11 +466,11 @@ export function EntityValueCombobox({
     // Fetch sizes from catalog
     const { data: sizesData } = useQuery({
       ...trpc.bulk.values.catalogData.queryOptions({ jobId }),
-      select: (data) => data.sizes,
+      select: (data) => data.sizes as CatalogDataQueryData["sizes"],
     });
 
     const availableSizes = React.useMemo(() => {
-      return sizesData?.map((s: any) => s.name) || [];
+      return sizesData?.map((s) => s.name) ?? [];
     }, [sizesData]);
 
     const [sizeOpen, setSizeOpen] = React.useState(false);
@@ -589,7 +607,7 @@ export function EntityValueCombobox({
                             onSelect={async () => {
                               // Find the size ID from sizesData
                               const sizeData = sizesData?.find(
-                                (s: any) => s.name === size
+                                (s) => s.name === size
                               );
                               if (sizeData) {
                                 await handleMapEntity(sizeData.id, sizeData.name);
@@ -639,15 +657,15 @@ export function EntityValueCombobox({
     // Fetch categories from catalog
     const { data: categoriesData } = useQuery({
       ...trpc.bulk.values.catalogData.queryOptions({ jobId }),
-      select: (data) => data.categories,
+      select: (data) => data.categories as CatalogDataQueryData["categories"],
     });
 
     // State for the selected category path
     const [categoryValue, setCategoryValue] = React.useState<string>("Select category");
 
-    const categoryIndex = React.useMemo(() => {
-      if (!categoriesData) return [] as Array<{ id: string; name: string; canonical: string }>;
-      return categoriesData.map((category: any) => ({
+    const categoryIndex = React.useMemo<CategoryIndexEntry[]>(() => {
+      if (!categoriesData) return [];
+      return categoriesData.map((category) => ({
         id: category.id,
         name: category.name,
         canonical: canonicalizeCategoryName(category.name),
@@ -684,7 +702,7 @@ export function EntityValueCombobox({
 
         let bestMatch: { id: string; name: string; distance: number } | null = null;
 
-        categoryIndex.forEach((candidate) => {
+        for (const candidate of categoryIndex) {
           const distance = levenshteinDistance(canonicalLeaf, candidate.canonical);
           if (
             distance <= MAX_CATEGORY_FUZZY_DISTANCE &&
@@ -696,7 +714,7 @@ export function EntityValueCombobox({
               distance,
             };
           }
-        });
+        }
 
         if (bestMatch) {
           return { id: bestMatch.id, name: bestMatch.name };
@@ -764,9 +782,11 @@ export function EntityValueCombobox({
                         });
 
                         if (result?.id) {
+                          const latestSegment =
+                            pathSegments[pathSegments.length - 1] ?? rawValue;
                           resolvedCategory = {
                             id: result.id,
-                            name: pathSegments[pathSegments.length - 1],
+                            name: latestSegment,
                           };
 
                           await queryClient.invalidateQueries({

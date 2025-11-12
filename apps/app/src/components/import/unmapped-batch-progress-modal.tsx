@@ -174,7 +174,7 @@ export function UnmappedBatchProgressModal({
                       {result.success ? (
                         <Icons.CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                       ) : (
-                        <Icons.XCircle className="h-4 w-4 text-destructive shrink-0" />
+                        <Icons.X className="h-4 w-4 text-destructive shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">

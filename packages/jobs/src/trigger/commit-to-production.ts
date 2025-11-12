@@ -20,7 +20,7 @@ import {
   setProductJourneySteps,
   upsertProductEnvironment,
 } from "@v1/db/queries";
-// import { websocketManager } from "@v1/api/lib/websocket-manager";
+import { ProgressEmitter } from "./progress-emitter";
 
 /**
  * Task payload for Phase 2 production commit
@@ -80,6 +80,12 @@ export const commitToProduction = task({
     const jobStartTime = Date.now();
     const batchTimings: BatchTimingSnapshot[] = [];
     const failedRowIds: string[] = [];
+    const progressEmitter = new ProgressEmitter();
+    let totalRows = 0;
+    let processedCount = 0;
+    let createdCount = 0;
+    let updatedCount = 0;
+    let failedCount = 0;
 
     logger.info("Starting commit-to-production job", {
       jobId,
@@ -117,12 +123,12 @@ export const commitToProduction = task({
         });
       }
 
-      const totalRows =
+      totalRows =
         ((job.summary as Record<string, unknown>)?.total as number) || 0;
-      let processedCount = 0;
-      let createdCount = 0;
-      let updatedCount = 0;
-      let failedCount = 0;
+      processedCount = 0;
+      createdCount = 0;
+      updatedCount = 0;
+      failedCount = 0;
 
       logger.info("Starting production commit", {
         jobId,
@@ -209,6 +215,17 @@ export const commitToProduction = task({
             percentage,
           },
         });
+        progressEmitter.emit({
+          jobId,
+          status: "COMMITTING",
+          phase: "commit",
+          processed: processedCount,
+          total: totalRows,
+          created: createdCount,
+          updated: updatedCount,
+          failed: failedCount,
+          percentage,
+        });
         const progressDurationMs = Date.now() - progressStart;
         const totalBatchDurationMs = Date.now() - batchStartMs;
         batchTimings.push({
@@ -288,6 +305,19 @@ export const commitToProduction = task({
           timings: timingSummary,
         },
       });
+      progressEmitter.emit({
+        jobId,
+        status: "COMPLETED",
+        phase: "commit",
+        processed: totalRows,
+        total: totalRows,
+        created: createdCount,
+        updated: updatedCount,
+        failed: failedCount,
+        percentage: 100,
+        message: "Import completed successfully",
+      });
+      await progressEmitter.flush();
 
       // Send WebSocket completion notification (temporarily disabled)
       // websocketManager.emit(jobId, {
@@ -355,6 +385,18 @@ export const commitToProduction = task({
           timings: timingSummary,
         },
       });
+      progressEmitter.emit({
+        jobId,
+        status: "FAILED",
+        phase: "commit",
+        processed: 0,
+        total: 0,
+        failed: failedCount,
+        percentage: 0,
+        message:
+          error instanceof Error ? error.message : "Production commit failed",
+      });
+      await progressEmitter.flush();
 
       // Send WebSocket failure notification (temporarily disabled)
       // websocketManager.emit(jobId, {

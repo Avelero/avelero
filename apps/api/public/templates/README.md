@@ -17,122 +17,190 @@ This CSV template is used for bulk product imports into the Avelero system. It s
 At minimum, your CSV must include:
 
 1. **product_name** - Name of the product (required)
-2. **upid** OR **sku** - At least one unique identifier must be provided
+2. **sku** - Stock Keeping Unit identifier (required)
 
 ## Column Definitions
 
-### Product-Level Fields
+### Basic Product Fields
 
 #### product_name (Required)
 - **Type**: Text
 - **Length**: 1-100 characters
 - **Description**: Name of the product
-- **Example**: "Classic Cotton T-Shirt"
+- **Example**: "Organic Cotton T-Shirt"
+
+#### sku (Required)
+- **Type**: Text
+- **Description**: Stock Keeping Unit - unique identifier for the variant
+- **Format**: Any unique text
+- **Example**: "SKU-TSH-001", "TSH-NAVY-M-2024"
+- **Note**: Used to detect if product exists (for updates vs. creates)
 
 #### description (Optional)
 - **Type**: Text
 - **Length**: 1-2000 characters
 - **Description**: Detailed product description
-- **Example**: "A comfortable, breathable cotton t-shirt perfect for everyday wear"
+- **Example**: "Premium organic cotton t-shirt with sustainable production"
 
-#### category_name (Optional)
+#### ean (Optional)
 - **Type**: Text
-- **Description**: Category name (will be mapped to category_id)
-- **Example**: "T-Shirts", "Denim", "Outerwear"
-- **Note**: Category must exist in the system. Contact admin if new category needed.
+- **Description**: EAN-8 or EAN-13 barcode with valid checksum
+- **Example**: "5901234123457"
+- **Format**: 8 or 13 digits with valid checksum
+
+#### status (Optional)
+- **Type**: Text
+- **Options**: "draft", "published", "archived"
+- **Default**: "draft"
+- **Description**: Publication status of the product
+
+#### brand (Optional)
+- **Type**: Text
+- **Description**: Showcase brand name
+- **Example**: "EcoWear", "GreenThreads"
+- **Note**: Brand must exist in system or will need approval
+
+### Organization Fields
+
+#### category (Optional)
+- **Type**: Text (hierarchical path)
+- **Format**: Use " > " to separate hierarchy levels
+- **Description**: Product category as hierarchical path
+- **Example**: "Men's > Tops > T-Shirts", "Women's > Dresses"
+- **Note**: Categories must exist in the system
 
 #### season (Optional)
 - **Type**: Text
 - **Description**: Season or collection name
-- **Example**: "Spring 2024", "Fall/Winter 2024", "SS25"
+- **Example**: "SS 2025", "FW 2024", "Spring 2024"
+
+#### colors (Optional)
+- **Type**: Text (pipe-separated)
+- **Format**: Multiple colors separated by pipe (|)
+- **Description**: Color variants for this product
+- **Example**: "Navy Blue|Forest Green", "White"
+- **Note**: New colors will be auto-created if they don't exist
+
+#### size (Optional)
+- **Type**: Text
+- **Description**: Size name or measurement
+- **Example**: "M", "L", "XL", "32W x 32L"
+- **Note**: New sizes require approval with additional details
+
+#### tags (Optional)
+- **Type**: Text (pipe-separated)
+- **Format**: Multiple tags separated by pipe (|)
+- **Description**: Product tags for filtering and search
+- **Example**: "Organic|Sustainable|Premium"
+
+### Environmental Impact Fields
+
+#### carbon_footprint (Optional)
+- **Type**: Number (decimal)
+- **Unit**: kg CO2e
+- **Description**: Carbon footprint of the product
+- **Example**: "12.5", "28.7"
+
+#### water_usage (Optional)
+- **Type**: Number (decimal)
+- **Unit**: Liters
+- **Description**: Water consumption during production
+- **Example**: "85.3", "156.2"
+
+#### eco_claims (Optional)
+- **Type**: Text (pipe-separated)
+- **Format**: Multiple claims separated by pipe (|)
+- **Description**: Environmental or sustainability claims (max 5)
+- **Example**: "100% Organic Cotton|GOTS Certified|Carbon Neutral"
+- **Note**: New eco claims will be auto-created if they don't exist
+
+### Materials (Complex Format)
+
+#### materials (Optional)
+- **Type**: Text (complex pipe-separated format)
+- **Format**: `Name:Percentage[:Country:Recyclable:CertTitle:CertNumber:CertExpiry]|NextMaterial`
+- **Description**: Material composition with optional certification details
+
+**Simple Format** (Name and Percentage only):
+```
+Cotton:100
+Organic Cotton:75|Recycled Polyester:25
+```
+
+**Moderate Format** (with Country and Recyclability):
+```
+Organic Cotton:95:TR:yes|Elastane:5:DE:no
+Recycled Cotton:60:PT:yes|Recycled Polyester:20:PT:yes|Elastane:20:DE:no
+```
+
+**Full Format** (with Certification):
+```
+Organic Cotton:95:TR:yes:GOTS:GOTS-2024-001:2026-12-31|Elastane:5
+```
+
+**Field Details**:
+- **Name**: Material name (required)
+- **Percentage**: 0-100 (required, must sum to 100 across all materials)
+- **Country**: ISO 2-letter country code (optional, e.g., TR, IN, FR)
+- **Recyclable**: "yes" or "no" (optional)
+- **CertTitle**: Certification title (optional, e.g., GOTS, OEKO-TEX)
+- **CertNumber**: Certification number (optional)
+- **CertExpiry**: Expiry date in YYYY-MM-DD format (optional)
+
+### Journey Steps (Complex Format)
+
+#### journey_steps (Optional)
+- **Type**: Text (complex format)
+- **Format**: `StepName@Operator1,Operator2|NextStep@Operator3`
+- **Description**: Supply chain journey with operators at each step
+
+**Examples**:
+```
+Spinning@Eco Spinners|Weaving@Green Textiles
+Fiber Production@Turkish Cotton Co|Spinning@Eco Spinners|Weaving@Green Textiles|Dyeing@Natural Dye Works
+Harvesting@French Linen Fields|Spinning@Linen Masters
+```
+
+**Field Details**:
+- **StepName**: Journey step name (e.g., "Spinning", "Weaving", "Dyeing")
+- **Operators**: Comma-separated operator/facility names for this step
+- Separate multiple steps with pipe (|)
+
+### Image Fields
 
 #### primary_image_url (Optional)
 - **Type**: URL
 - **Description**: URL to main product image
-- **Example**: "https://cdn.example.com/products/tshirt-main.jpg"
+- **Example**: "https://example.com/images/tshirt-main.jpg"
 - **Note**: Must be a valid, publicly accessible URL
 
-### Variant-Level Fields
+#### additional_image_urls (Optional)
+- **Type**: Text (pipe-separated URLs)
+- **Format**: Multiple URLs separated by pipe (|)
+- **Description**: Additional product images
+- **Example**: "https://example.com/img1.jpg|https://example.com/img2.jpg"
 
-#### upid (Required if sku not provided)
-- **Type**: Text
-- **Description**: Unique Product Identifier - primary identifier for variants
-- **Format**: Any unique text (recommended: UPID-{number})
-- **Example**: "UPID-001234", "UPID-TSH-RED-M"
-- **Note**: Used to detect if product exists (for updates vs. creates)
+### Legacy Fields (Backward Compatible)
 
-#### sku (Required if upid not provided)
-- **Type**: Text
-- **Description**: Stock Keeping Unit - alternative identifier
-- **Format**: Any unique text
-- **Example**: "SKU-001234", "TSH-RED-M-2024"
-- **Note**: Can be used instead of UPID for matching existing products
-
-#### color_name (Optional)
-- **Type**: Text
-- **Description**: Color name
-- **Example**: "Red", "Navy Blue", "Mint Green"
-- **Note**: New colors will be auto-created if they don't exist
-
-#### size_name (Optional)
-- **Type**: Text
-- **Description**: Size name
-- **Example**: "Small", "Medium", "Large", "XL", "2XL"
-- **Note**: New sizes require approval with additional details (category, sort order)
-
-#### product_image_url (Optional)
-- **Type**: URL
-- **Description**: URL to variant-specific image (if different from primary)
-- **Example**: "https://cdn.example.com/products/tshirt-red.jpg"
-
-### Materials (Optional)
-
-You can specify up to 3 materials per product (extend as needed):
-
-#### material_1_name, material_2_name, material_3_name
-- **Type**: Text
-- **Description**: Material name
-- **Example**: "Cotton", "Polyester", "Organic Cotton", "Recycled Polyester"
-- **Note**: New materials require approval with details (recyclable status, country of origin)
-
-#### material_1_percentage, material_2_percentage, material_3_percentage
-- **Type**: Number
-- **Range**: 0-100
-- **Description**: Percentage of material in product
-- **Example**: "100", "65", "35"
-- **Note**: All percentages should sum to approximately 100
-
-### Sustainability Fields (Optional)
-
-#### care_codes (Optional)
-- **Type**: Text (comma-separated)
-- **Description**: Care instruction codes
-- **Example**: "MACHINE_WASH,TUMBLE_DRY,DO_NOT_BLEACH"
-- **Note**: Care codes must exist in the system
-
-#### eco_claims (Optional)
-- **Type**: Text (comma-separated)
-- **Description**: Environmental or sustainability claims
-- **Example**: "ORGANIC,RECYCLED,CARBON_NEUTRAL"
-- **Note**: New eco claims will be auto-created if they don't exist
-
-#### environment_score (Optional)
-- **Type**: Number
-- **Range**: 0-100
-- **Description**: Environmental impact score
-- **Example**: "85"
+The system also supports legacy column names for backward compatibility:
+- `category_name` → use `category` instead
+- `color_name` → use `colors` instead (pipe-separated for multiple)
+- `size_name` → use `size` instead
+- `upid` → use `sku` instead (both work)
+- Separate material columns (`material_1_name`, `material_1_percentage`, etc.) → use `materials` instead
+- Separate journey columns (`journey_step_1`, `journey_operator_1`, etc.) → use `journey_steps` instead
 
 ## Create vs Update Logic
 
-The system automatically determines whether to create or update products based on UPID/SKU:
+The system automatically determines whether to create or update products based on SKU:
 
 ### Creating New Products
-If the UPID/SKU in your CSV **does not exist** in the database:
+If the SKU in your CSV **does not exist** in the database:
 - A new product and variant will be created
 - All provided fields will be populated
 
 ### Updating Existing Products
-If the UPID/SKU in your CSV **already exists** in the database:
+If the SKU in your CSV **already exists** in the database:
 - The existing product and variant will be updated
 - Only fields included in the CSV will be updated
 - Empty/blank fields will preserve existing values (no overwrite)
@@ -142,17 +210,19 @@ If the UPID/SKU in your CSV **already exists** in the database:
 
 **Initial Import:**
 ```csv
-product_name,upid,sku,description
-"Basic T-Shirt",UPID-001,SKU-001,"A simple tee"
+product_name,sku,description
+Basic T-Shirt,SKU-001,A simple tee
 ```
-Result: Creates new product with UPID-001
+Result: Creates new product with SKU-001
 
-**Later Update (add materials):**
+**Later Update (add materials and environmental data):**
 ```csv
-product_name,upid,material_1_name,material_1_percentage
-"Basic T-Shirt",UPID-001,Cotton,100
+product_name,sku,materials,carbon_footprint,water_usage
+Basic T-Shirt Updated,SKU-001,Cotton:100,10.5,55.0
 ```
-Result: Updates existing product UPID-001, adds material, preserves SKU and description
+Result: Updates existing product SKU-001, adds materials and environmental data, preserves description
+
+**Note**: The system also supports `upid` as an alternative identifier for backward compatibility.
 
 ## Data Validation
 
@@ -273,21 +343,37 @@ For new materials, sizes, facilities:
 
 ### Minimal Example (Create)
 ```csv
-product_name,upid,sku
-"Classic Cotton T-Shirt",UPID-001,SKU-TSH-001
-"Slim Fit Jeans",UPID-002,SKU-JNS-001
+product_name,sku
+Classic Cotton T-Shirt,SKU-TSH-001
+Slim Fit Jeans,SKU-JNS-001
+Summer Dress,SKU-DRS-001
+```
+
+### Moderate Example (Create with Common Fields)
+```csv
+product_name,sku,description,status,category,season,colors,size
+Organic Cotton T-Shirt,SKU-TSH-002,Premium organic cotton t-shirt,published,Men's > Tops > T-Shirts,SS 2025,Navy Blue|White,M
+Recycled Denim Jeans,SKU-JNS-002,Comfortable jeans from recycled denim,draft,Men's > Bottoms > Jeans,FW 2024,Dark Blue,32W x 32L
 ```
 
 ### Full Example (Create with All Fields)
 ```csv
-product_name,upid,sku,description,category_name,season,primary_image_url,color_name,size_name,product_image_url,material_1_name,material_1_percentage,material_2_name,material_2_percentage,care_codes,eco_claims,environment_score
-"Organic Cotton T-Shirt",UPID-003,SKU-ORG-001,"Comfortable organic cotton tee","T-Shirts","Spring 2024","https://cdn.example.com/tshirt.jpg","Navy Blue","Medium","https://cdn.example.com/tshirt-navy.jpg","Organic Cotton",95,"Elastane",5,"MACHINE_WASH,TUMBLE_DRY","ORGANIC,GOTS_CERTIFIED",90
+product_name,sku,description,ean,status,brand,category,season,colors,size,tags,carbon_footprint,water_usage,eco_claims,materials,journey_steps,primary_image_url,additional_image_urls
+Sustainable Organic T-Shirt,SKU-ORG-001,Premium GOTS certified organic cotton tee,5901234123457,published,EcoWear,Men's > Tops > T-Shirts,SS 2025,Natural White|Earth Brown,M,Organic|Sustainable|GOTS,8.5,42.0,100% Organic Cotton|GOTS Certified|Carbon Neutral,Organic Cotton:95:IN:yes:GOTS:GOTS-2024-001:2026-12-31|Elastane:5:DE:no,Farming@Organic Farms India|Spinning@Eco Spinners|Weaving@Green Textiles|Dyeing@Natural Dye Works,https://example.com/tshirt.jpg,https://example.com/tshirt-2.jpg|https://example.com/tshirt-3.jpg
 ```
 
-### Update Example
+### Update Example (Updating Existing Products)
 ```csv
-product_name,upid,description,material_1_name,material_1_percentage
-"Classic Cotton T-Shirt",UPID-001,"Updated description with more details","Cotton",100
+product_name,sku,description,carbon_footprint,water_usage
+Classic Cotton T-Shirt Updated,SKU-TSH-001,Updated description with environmental metrics,10.5,55.0
+```
+
+### Mixed Example (Create and Update in One File)
+```csv
+product_name,sku,description,status,colors,size
+New Product Alpha,SKU-NEW-001,Brand new product,published,Red|Blue,M
+Updated Existing Product,SKU-TSH-001,Updating description of existing product,published,White,M
+New Product Beta,SKU-NEW-002,Another new product,draft,Green,L
 ```
 
 ## Troubleshooting
@@ -305,7 +391,7 @@ product_name,upid,description,material_1_name,material_1_percentage
 **Solution**: Click "Define Values" button, fill in required details for materials/sizes, approve each value.
 
 ### Issue: Update not working, creating duplicates instead
-**Solution**: Ensure UPID/SKU in CSV exactly matches existing records (case-sensitive). Check for typos.
+**Solution**: Ensure SKU in CSV exactly matches existing records (case-sensitive). Check for typos or extra spaces.
 
 ## Support
 

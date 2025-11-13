@@ -6,6 +6,7 @@ import { ValidationErrorList } from "@/components/import/validation-error-list";
 import type { ValidationError } from "@/components/import/validation-error-list";
 import { useImportProgress } from "@/contexts/import-progress-context";
 import { useUserQuery } from "@/hooks/use-user";
+import { validateImportFile } from "@/lib/csv-validation";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
@@ -58,12 +59,7 @@ export function PassportsUploadSheet() {
     }
   }, []);
 
-  // Validate import mutation
-  const validateImportMutation = useMutation(
-    trpc.bulk.import.validate.mutationOptions(),
-  );
-
-  // Start import mutation
+  // Start import mutation (validation now happens in background job)
   const startImportMutation = useMutation(
     trpc.bulk.import.start.mutationOptions(),
   );
@@ -91,11 +87,41 @@ export function PassportsUploadSheet() {
     try {
       setIsUploading(true);
       setUploadError(null);
+      setValidationErrors([]);
+
+      // Step 1: Client-side validation (instant, no upload)
+      const validationToastId = toast.loading("Validating file structure...");
+
+      const clientValidation = await validateImportFile(selectedFile);
+
+      toast.dismiss(validationToastId);
+
+      if (!clientValidation.valid) {
+        // Validation failed - show errors immediately
+        const errorCount = clientValidation.errors.length;
+        toast.error(
+          `Validation failed: ${errorCount} error${errorCount !== 1 ? "s" : ""} found`,
+        );
+
+        // Convert client validation errors to component format
+        const componentErrors: ValidationError[] = clientValidation.errors.map(err => ({
+          type: err.type,
+          message: err.message,
+        }));
+
+        setValidationErrors(componentErrors);
+        setUploadError(
+          `${errorCount} critical error${errorCount !== 1 ? "s" : ""} must be fixed before proceeding`,
+        );
+        return;
+      }
+
+      toast.success("File structure validated - uploading...");
 
       // Generate a temporary job ID for file storage
       const tempJobId = nanoid();
 
-      // Step 1: Upload file to Supabase storage
+      // Step 2: Upload file to Supabase storage
       const uploadToastId = toast.loading("Uploading file...");
 
       const uploadResult = await uploadImportFile(getSupabase(), {
@@ -107,53 +133,24 @@ export function PassportsUploadSheet() {
 
       toast.success("File uploaded successfully", { id: uploadToastId });
 
-      // Step 2: Validate import file
-      const validateToastId = toast.loading("Validating file...");
+      // Step 3: Start import job (full validation happens in background)
+      const importToastId = toast.loading("Starting import validation...");
 
-      const validationResult = await validateImportMutation.mutateAsync({
-        fileId: uploadResult.path,
-        filename: selectedFile.name,
-      });
-
-      toast.dismiss(validateToastId);
-
-      // Step 3: Check validation result
-      if (!validationResult.valid) {
-        // Validation failed - show errors
-        const errorCount = validationResult.errors.length;
-        toast.error(
-          `Validation failed: ${errorCount} error${errorCount !== 1 ? "s" : ""} found`,
-        );
-
-        // Store detailed validation errors for display
-        setValidationErrors(validationResult.errors || []);
-        setUploadError(
-          `${errorCount} critical error${errorCount !== 1 ? "s" : ""} must be fixed before proceeding`,
-        );
-        return;
-      }
-
-      // Validation passed - show success message
-      if (validationResult.warnings.length > 0) {
-        toast.warning(
-          `Validation passed with ${validationResult.warnings.length} warning${validationResult.warnings.length !== 1 ? "s" : ""}`,
-        );
-      } else {
-        toast.success("Validation passed - starting import...");
-      }
-
-      // Step 4: Auto-start import (no user approval needed for valid files)
       const importResult = await startImportMutation.mutateAsync({
         fileId: uploadResult.path,
         filename: selectedFile.name,
       });
 
-      // Step 5: Trigger import progress tracking
+      toast.success("Import validation started", { id: importToastId });
+
+      // Step 4: Trigger import progress tracking
       startImport(importResult.jobId, selectedFile.name);
 
-      toast.success("Import started successfully");
+      toast.success(
+        "Import job started! Full validation is running in the background.",
+      );
 
-      // Step 6: Close sheet - floating widget will track progress
+      // Step 5: Close sheet - floating widget will track progress
       setOpen(false);
     } catch (error) {
       console.error("Upload/import error:", error);
@@ -167,13 +164,7 @@ export function PassportsUploadSheet() {
     } finally {
       setIsUploading(false);
     }
-  }, [
-    selectedFile,
-    brandId,
-    validateImportMutation,
-    startImportMutation,
-    startImport,
-  ]);
+  }, [selectedFile, brandId, startImportMutation, startImport]);
 
   const hasFile = !!selectedFile;
   const canProceed = hasFile && !isUploading && !uploadError;

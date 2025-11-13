@@ -133,6 +133,9 @@ function calculatePercentage(processed: number, total: number): number {
 
 export const importRouter = createTRPCRouter({
   /**
+   * @deprecated This endpoint is no longer used. Validation now happens client-side
+   * for instant feedback, and full validation occurs in the background job.
+   *
    * Validate import file before processing
    *
    * Phase 1 - Server-side quick validation:

@@ -1,9 +1,12 @@
 /**
  * Bulk operations router implementation.
  *
- * Centralizes batch mutations that were previously scattered across domains.
- * Currently supports product imports and passport bulk updates with guardrails
- * for future domain support.
+ * Structure:
+ * - import.*: Async bulk import lifecycle (validate, start, status, approve, cancel)
+ * - staging.*: Staging data operations (preview, errors, export)
+ * - values.*: Value mapping operations (unmapped, define, batchDefine)
+ * - import (legacy): Synchronous product import (deprecated)
+ * - update: Passport bulk updates
  */
 import {
   type BulkChanges as PassportBulkChanges,
@@ -23,6 +26,9 @@ import {
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+import { importRouter } from "./import.js";
+import { stagingRouter } from "./staging.js";
+import { valuesRouter } from "./values.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -62,8 +68,25 @@ function toPassportSelection(
   };
 }
 
+/**
+ * Main bulk operations router with nested routers
+ */
 export const bulkRouter = createTRPCRouter({
-  import: brandRequiredProcedure
+  /**
+   * Nested routers for async bulk import operations
+   */
+  import: importRouter,
+  staging: stagingRouter,
+  values: valuesRouter,
+
+  /**
+   * LEGACY: Synchronous product import
+   * @deprecated Use bulk.import.* endpoints instead
+   *
+   * Kept for backwards compatibility. Directly creates products
+   * without validation or staging.
+   */
+  importLegacy: brandRequiredProcedure
     .input(bulkImportSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
@@ -100,6 +123,12 @@ export const bulkRouter = createTRPCRouter({
       }
     }),
 
+  /**
+   * Bulk update passports
+   *
+   * Supports bulk status changes for passports.
+   * Uses explicit selection (IDs) or "all with excludes" pattern.
+   */
   update: brandRequiredProcedure
     .input(bulkUpdateSchema)
     .mutation(async ({ ctx, input }) => {

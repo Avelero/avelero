@@ -117,7 +117,7 @@ export const db: ReturnType<typeof drizzle<typeof schema>> = new Proxy({} as any
 /**
  * Service database connection (with RLS bypass for background jobs)
  * Use this for Trigger.dev jobs and other background processes
- * Connection is created lazily on first access
+ * Connection is created lazily on first accesss
  */
 export const serviceDb: ReturnType<typeof drizzle<typeof schema>> = new Proxy({} as any, {
   get(_target, prop) {

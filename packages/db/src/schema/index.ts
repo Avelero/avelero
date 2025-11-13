@@ -16,6 +16,7 @@ export * from "./brands/brand-services";
 export * from "./brands/brand-sizes";
 export * from "./brands/care-codes";
 export * from "./brands/showcase-brands";
+export * from "./brands/brand-seasons";
 
 // Product schemas
 export * from "./products/products";

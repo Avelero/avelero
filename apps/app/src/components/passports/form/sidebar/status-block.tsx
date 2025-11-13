@@ -2,7 +2,6 @@
 
 import { Icons } from "@v1/ui/icons";
 import { Select } from "@v1/ui/select";
-import { useState } from "react";
 
 const STATUS_OPTIONS = [
   {
@@ -27,9 +26,12 @@ const STATUS_OPTIONS = [
   },
 ];
 
-export function StatusSection() {
-  const [status, setStatus] = useState<string>("published");
+interface StatusSectionProps {
+  status: string;
+  setStatus: (value: string) => void;
+}
 
+export function StatusSection({ status, setStatus }: StatusSectionProps) {
   return (
     <div className="border border-border bg-background p-4 flex flex-col gap-3">
       <p className="type-p !font-medium text-primary">Status</p>
@@ -38,7 +40,7 @@ export function StatusSection() {
         value={status}
         onValueChange={setStatus}
         placeholder="Select status"
-        width="w-[216px]"
+        width="w-full min-w-[200px] max-w-[320px]"
       />
     </div>
   );

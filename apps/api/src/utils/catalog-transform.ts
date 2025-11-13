@@ -6,6 +6,32 @@
  */
 
 /**
+ * Transforms season input from snake_case schema to camelCase DB format.
+ */
+export function transformSeasonInput<T extends Record<string, any>>(
+  input: T,
+): any {
+  const result: any = {};
+
+  for (const [key, value] of Object.entries(input)) {
+    switch (key) {
+      case "start_date":
+        // Convert YYYY-MM-DD string to Date object
+        result.startDate = value ? new Date(value) : null;
+        break;
+      case "end_date":
+        // Convert YYYY-MM-DD string to Date object
+        result.endDate = value ? new Date(value) : null;
+        break;
+      default:
+        result[key] = value;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Transforms size input from snake_case schema to camelCase DB format.
  */
 export function transformSizeInput<T extends Record<string, any>>(

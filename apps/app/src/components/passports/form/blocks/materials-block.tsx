@@ -1,9 +1,11 @@
 "use client";
 
+import { usePassportFormData } from "@/hooks/use-passport-form-data";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -28,29 +30,24 @@ interface Material {
   percentage: string;
 }
 
-// TODO: Load from API
-const MATERIAL_OPTIONS = [
-  "Recycled Polyester",
-  "Organic Cotton",
-  "Wool",
-  "Linen",
-  "Silk",
-  "Bamboo",
-  "Hemp",
-  "Tencel",
-];
-
 const MaterialDropdown = ({
   material,
   onMaterialChange,
   onCreateMaterial,
+  availableMaterials,
 }: {
   material: string;
   onMaterialChange: (material: string) => void;
   onCreateMaterial: (searchTerm: string) => void;
+  availableMaterials: Array<{ id: string; name: string }>;
 }) => {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+
+  const materialNames = React.useMemo(
+    () => availableMaterials.map(m => m.name),
+    [availableMaterials]
+  );
 
   const handleSelect = (selectedMaterial: string) => {
     onMaterialChange(selectedMaterial);
@@ -60,7 +57,7 @@ const MaterialDropdown = ({
 
   const handleCreate = () => {
     const trimmedQuery = searchQuery.trim();
-    if (trimmedQuery && !MATERIAL_OPTIONS.includes(trimmedQuery)) {
+    if (trimmedQuery && !materialNames.includes(trimmedQuery)) {
       // Open material sheet for creation
       onCreateMaterial(trimmedQuery);
       setSearchQuery("");
@@ -68,7 +65,7 @@ const MaterialDropdown = ({
     }
   };
 
-  const filteredOptions = MATERIAL_OPTIONS.filter((option) =>
+  const filteredOptions = materialNames.filter((option) =>
     option.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
@@ -95,14 +92,14 @@ const MaterialDropdown = ({
             </div>
           </button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-64" align="start" sideOffset={4}>
+        <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]" align="start" sideOffset={4}>
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search materials..."
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
                 {filteredOptions.length > 0 ? (
                   filteredOptions.map((option) => {
@@ -133,7 +130,11 @@ const MaterialDropdown = ({
                       </span>
                     </div>
                   </CommandItem>
-                ) : null}
+                ) : (
+                  <CommandEmpty>
+                    Start typing to create...
+                  </CommandEmpty>
+                )}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -233,41 +234,90 @@ const PercentageCell = ({
   );
 };
 
-export function MaterialsSection() {
-  const [materials, setMaterials] = React.useState<Material[]>([]);
+interface MaterialsSectionProps {
+  materials: Array<{ materialId: string; percentage: number }>;
+  setMaterials: (value: Array<{ materialId: string; percentage: number }>) => void;
+}
+
+export function MaterialsSection({
+  materials: parentMaterials,
+  setMaterials: setParentMaterials,
+}: MaterialsSectionProps) {
+  const { materials: materialOptions } = usePassportFormData();
+  // Local display state (enriched with names and countries from materialOptions)
+  const [displayMaterials, setDisplayMaterials] = React.useState<Material[]>([]);
   const [materialSheetOpen, setMaterialSheetOpen] = React.useState(false);
   const [materialSheetInitialName, setMaterialSheetInitialName] =
     React.useState("");
   const [creatingForMaterialId, setCreatingForMaterialId] = React.useState<
     string | null
   >(null);
+  
+  // Sync parent materials with display materials
+  React.useEffect(() => {
+    const enriched: Material[] = parentMaterials
+      .map(pm => {
+        const materialInfo = materialOptions.find(m => m.id === pm.materialId);
+        
+        // Skip materials not yet in materialOptions (waiting for refetch)
+        if (!materialInfo) {
+          return null;
+        }
+        
+        return {
+          id: pm.materialId,
+          name: materialInfo.name || "",
+          countries: materialInfo.country_of_origin ? [materialInfo.country_of_origin] : [],
+          percentage: pm.percentage === 0 ? "" : pm.percentage.toString(),
+        };
+      })
+      .filter((m): m is Material => m !== null);
+      
+    setDisplayMaterials(enriched);
+  }, [parentMaterials, materialOptions]);
+
+  // Helper to sync display materials back to parent
+  const syncToParent = (displayMats: Material[]) => {
+    const parentMats = displayMats
+      .filter(m => m.id && m.name) // Only include materials with ID and name
+      .map(m => {
+        const percentageValue = m.percentage.trim();
+        return {
+          materialId: m.id,
+          percentage: percentageValue ? Number.parseFloat(percentageValue) : 0,
+        };
+      });
+    setParentMaterials(parentMats);
+  };
 
   const handleMaterialCreated = (material: any) => {
     if (creatingForMaterialId) {
-      // Update the existing material row that initiated the creation
-      setMaterials((prev) =>
-        prev.map((m) =>
-          m.id === creatingForMaterialId
-            ? {
-                ...m,
-                name: material.name,
-                countries: material.countryOfOrigin
-                  ? [material.countryOfOrigin]
-                  : [],
-              }
-            : m,
-        ),
-      );
+      // Build parent materials array with real ID replacing temp ID
+      const updatedParentMaterials = displayMaterials
+        .map((m) => {
+          if (m.id === creatingForMaterialId) {
+            // Replace temp ID with real material ID
+            const percentageValue = m.percentage.trim();
+            return {
+              materialId: material.id,
+              percentage: percentageValue ? Number.parseFloat(percentageValue) : 0,
+            };
+          }
+          // Keep existing materials (only if they have real IDs)
+          if (m.id && m.name && !m.id.startsWith('temp-')) {
+            const percentageValue = m.percentage.trim();
+            return {
+              materialId: m.id,
+              percentage: percentageValue ? Number.parseFloat(percentageValue) : 0,
+            };
+          }
+          return null;
+        })
+        .filter((m): m is { materialId: string; percentage: number } => m !== null);
+      
+      // Update parent state (useEffect will rebuild displayMaterials)
+      setParentMaterials(updatedParentMaterials);
       setCreatingForMaterialId(null);
-    } else {
-      // Add a new material to the list (shouldn't happen in normal flow)
-      const newMaterial: Material = {
-        id: material.id,
-        name: material.name,
-        countries: material.countryOfOrigin ? [material.countryOfOrigin] : [],
-        percentage: "",
-      };
-      setMaterials((prev) => [...prev, newMaterial]);
     }
   };
 
@@ -278,31 +328,34 @@ export function MaterialsSection() {
   };
 
   const updateMaterial = (id: string, field: keyof Material, value: any) => {
-    setMaterials((prev) =>
-      prev.map((material) =>
-        material.id === id ? { ...material, [field]: value } : material,
-      ),
+    const updatedDisplay = displayMaterials.map((material) =>
+      material.id === id ? { ...material, [field]: value } : material,
     );
+    setDisplayMaterials(updatedDisplay);
+    syncToParent(updatedDisplay);
   };
 
   const deleteMaterial = (id: string) => {
-    setMaterials((prev) => prev.filter((material) => material.id !== id));
+    const updatedDisplay = displayMaterials.filter((material) => material.id !== id);
+    setDisplayMaterials(updatedDisplay);
+    syncToParent(updatedDisplay);
   };
 
   const addMaterial = () => {
     const newMaterial: Material = {
-      id: Date.now().toString(),
+      id: `temp-${Date.now()}`, // Temp ID until material is created
       name: "",
       countries: [],
       percentage: "",
     };
-    setMaterials((prev) => [...prev, newMaterial]);
+    setDisplayMaterials((prev) => [...prev, newMaterial]);
+    // Don't sync to parent yet (no real material ID)
   };
 
   // Calculate totals
-  const materialCount = materials.length;
-  const countryCount = new Set(materials.flatMap((m) => m.countries)).size;
-  const totalPercentage = materials.reduce((sum, material) => {
+  const materialCount = displayMaterials.length;
+  const countryCount = new Set(displayMaterials.flatMap((m) => m.countries)).size;
+  const totalPercentage = displayMaterials.reduce((sum, material) => {
     const percentage = Number.parseFloat(material.percentage) || 0;
     return sum + percentage;
   }, 0);
@@ -329,7 +382,7 @@ export function MaterialsSection() {
 
       {/* Empty State or Material Rows - with fixed height and scroll */}
       <div className="h-[200px] overflow-y-auto scrollbar-hide">
-        {materials.length === 0 ? (
+        {displayMaterials.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 h-full">
             <p className="type-p text-tertiary">No materials added</p>
             <Button
@@ -344,23 +397,33 @@ export function MaterialsSection() {
             </Button>
           </div>
         ) : (
-          materials.map((material) => (
+          displayMaterials.map((material) => (
             <div key={material.id} className="grid grid-cols-3">
               {/* Material Column */}
               <div className="border-r border-b border-border">
                 <MaterialDropdown
                   material={material.name}
+                  availableMaterials={materialOptions}
                   onMaterialChange={(value) => {
-                    updateMaterial(material.id, "name", value);
-                    // Mock: Set countries based on material selection
-                    if (value === "Recycled Polyester") {
-                      updateMaterial(material.id, "countries", ["China"]);
-                    } else if (value === "Organic Cotton") {
-                      updateMaterial(material.id, "countries", ["Portugal"]);
-                    } else if (value === "Wool") {
-                      updateMaterial(material.id, "countries", ["India"]);
-                    } else {
-                      updateMaterial(material.id, "countries", []);
+                    // Find the selected material to get its real ID
+                    const selectedMaterial = materialOptions.find(m => m.name === value);
+                    
+                    if (selectedMaterial) {
+                      // Replace the entire row with the selected material's data
+                      const updatedDisplay = displayMaterials.map((m) =>
+                        m.id === material.id
+                          ? {
+                              ...m,
+                              id: selectedMaterial.id, // Update to real ID
+                              name: selectedMaterial.name,
+                              countries: selectedMaterial.country_of_origin
+                                ? [selectedMaterial.country_of_origin]
+                                : [],
+                            }
+                          : m,
+                      );
+                      setDisplayMaterials(updatedDisplay);
+                      syncToParent(updatedDisplay);
                     }
                   }}
                   onCreateMaterial={(searchTerm) =>
@@ -394,7 +457,7 @@ export function MaterialsSection() {
       </div>
 
       {/* Summary Row */}
-      {materials.length > 0 && (
+      {displayMaterials.length > 0 && (
         <div className="grid grid-cols-3 -mt-px">
           <div className="bg-background px-4 py-2 border-t border-b border-border" />
           <div className="bg-background px-4 py-2 border-t border-b border-border" />
@@ -413,7 +476,7 @@ export function MaterialsSection() {
       )}
 
       {/* Add Material Button - Only show if materials exist */}
-      {materials.length > 0 && (
+      {displayMaterials.length > 0 && (
         <div className="bg-accent-light border-t border-border px-4 py-3 -mt-px">
           <Button
             type="button"

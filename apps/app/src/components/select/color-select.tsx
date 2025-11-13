@@ -1,9 +1,11 @@
 "use client";
 
+import { usePassportFormData } from "@/hooks/use-passport-form-data";
 import { SHADE_LABELS, colorFamilies } from "@v1/selections";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -21,7 +23,6 @@ export interface ColorOption {
 interface ColorSelectProps {
   value: ColorOption[];
   onValueChange: (value: ColorOption[]) => void;
-  defaultColors: ColorOption[];
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -75,11 +76,11 @@ const ColorLabel = ({
 export function ColorSelect({
   value,
   onValueChange,
-  defaultColors,
   placeholder = "Add color",
   disabled = false,
   className,
 }: ColorSelectProps) {
+  const { colors: defaultColors } = usePassportFormData();
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [view, setView] = React.useState<"main" | "picker">("main");
@@ -187,7 +188,7 @@ export function ColorSelect({
           )}
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-60 p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput
@@ -195,7 +196,7 @@ export function ColorSelect({
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
                 {filteredColors.length > 0 ? (
                   filteredColors.map((color) => {
@@ -230,11 +231,9 @@ export function ColorSelect({
                     </div>
                   </CommandItem>
                 ) : !searchTerm ? (
-                  <div className="px-3 py-8 text-center">
-                    <p className="type-p text-tertiary">
-                      Begin typing to create your first color
-                    </p>
-                  </div>
+                  <CommandEmpty>
+                    Start typing to create...
+                  </CommandEmpty>
                 ) : null}
               </CommandGroup>
             </CommandList>
@@ -246,7 +245,7 @@ export function ColorSelect({
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
                 {filteredColorFamilies.map((colorFamily) =>
                   colorFamily.shades.map((hex, index) => (

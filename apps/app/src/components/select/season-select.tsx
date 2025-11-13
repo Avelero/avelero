@@ -4,6 +4,7 @@ import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -110,14 +111,14 @@ export function SeasonSelect({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[360px] p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search seasons..."
             value={searchTerm}
             onValueChange={setSearchTerm}
           />
-          <CommandList>
+          <CommandList className="max-h-48">
             <CommandGroup>
               {filteredSeasons.length > 0 ? (
                 filteredSeasons.map((season) => (
@@ -153,11 +154,9 @@ export function SeasonSelect({
                   </div>
                 </CommandItem>
               ) : !searchTerm ? (
-                <div className="px-3 py-8 text-center">
-                  <p className="type-p text-tertiary">
-                    Begin typing to create your first season
-                  </p>
-                </div>
+                <CommandEmpty>
+                  Start typing to create...
+                </CommandEmpty>
               ) : null}
             </CommandGroup>
           </CommandList>

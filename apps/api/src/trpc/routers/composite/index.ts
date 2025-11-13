@@ -16,6 +16,7 @@ import {
   listFacilities,
   listMaterials,
   listPendingInvitesForEmail,
+  listSeasonsForBrand,
   listShowcaseBrands,
   listSizes,
 } from "@v1/db/queries";
@@ -384,6 +385,7 @@ export const compositeRouter = createTRPCRouter({
         sizes,
         certifications,
         operators,
+        seasons,
       ] = await Promise.all([
         listCategories(db),
         listMaterials(db, brandId),
@@ -391,7 +393,8 @@ export const compositeRouter = createTRPCRouter({
         listColors(db, brandId),
         listSizes(db, brandId),
         listCertifications(db, brandId),
-        listShowcaseBrands(db, brandId),
+        listFacilities(db, brandId), // Operators ARE facilities (production plants)
+        listSeasonsForBrand(db, brandId),
       ]);
 
       return {
@@ -403,6 +406,7 @@ export const compositeRouter = createTRPCRouter({
           sizes,
           certifications,
           operators,
+          seasons,
         },
       };
     } catch (error) {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
@@ -9,6 +11,7 @@ import {
   SheetContent,
   SheetFooter,
 } from "@v1/ui/sheet";
+import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { CountrySelect } from "../select/country-select";
 
@@ -40,6 +43,9 @@ export function ShowcaseBrandSheet({
   initialName = "",
   onBrandCreated,
 }: ShowcaseBrandSheetProps) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
   const [name, setName] = React.useState(initialName);
   const [legalName, setLegalName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -51,6 +57,11 @@ export function ShowcaseBrandSheet({
   const [state, setState] = React.useState("");
   const [zip, setZip] = React.useState("");
   const [countryCode, setCountryCode] = React.useState("");
+
+  // API mutation for creating showcase brand
+  const createBrandMutation = useMutation(
+    trpc.brand.showcaseBrands.create.mutationOptions(),
+  );
 
   // Update name when initialName changes (when sheet opens with pre-filled name)
   React.useEffect(() => {
@@ -76,29 +87,70 @@ export function ShowcaseBrandSheet({
     }
   }, [open]);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) {
       return;
     }
 
-    // Generate a temporary UUID for local state
-    const newBrand: ShowcaseBrandData = {
-      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-      name: name.trim(),
-      legalName: legalName.trim() || undefined,
-      email: email.trim() || undefined,
-      phone: phone.trim() || undefined,
-      website: website.trim() || undefined,
-      addressLine1: addressLine1.trim() || undefined,
-      addressLine2: addressLine2.trim() || undefined,
-      city: city.trim() || undefined,
-      state: state.trim() || undefined,
-      zip: zip.trim() || undefined,
-      countryCode: countryCode || undefined,
-    };
+    try {
+      // Call API to create showcase brand immediately
+      const result = await createBrandMutation.mutateAsync({
+        name: name.trim(),
+        legal_name: legalName.trim() || undefined,
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        website: website.trim() || undefined,
+        address_line_1: addressLine1.trim() || undefined,
+        address_line_2: addressLine2.trim() || undefined,
+        city: city.trim() || undefined,
+        state: state.trim() || undefined,
+        zip: zip.trim() || undefined,
+        country_code: countryCode || undefined,
+      });
 
-    onBrandCreated(newBrand);
-    onOpenChange(false);
+      const createdBrand = result?.data;
+      if (!createdBrand) {
+        throw new Error("No brand returned from API");
+      }
+
+      // Invalidate passportFormReferences query so dropdown updates
+      // (The form uses composite.passportFormReferences, not brand.showcaseBrands.list)
+      await queryClient.invalidateQueries({
+        queryKey: trpc.composite.passportFormReferences.queryKey(),
+      });
+
+      // Transform API response to component format
+      const brandData: ShowcaseBrandData = {
+        id: createdBrand.id,
+        name: createdBrand.name,
+        legalName: createdBrand.legal_name || undefined,
+        email: createdBrand.email || undefined,
+        phone: createdBrand.phone || undefined,
+        website: createdBrand.website || undefined,
+        addressLine1: createdBrand.address_line_1 || undefined,
+        addressLine2: createdBrand.address_line_2 || undefined,
+        city: createdBrand.city || undefined,
+        state: createdBrand.state || undefined,
+        zip: createdBrand.zip || undefined,
+        countryCode: createdBrand.country_code || undefined,
+      };
+
+      // Call parent callback with real data
+      onBrandCreated(brandData);
+
+      // Show success message
+      toast.success("Brand created successfully");
+
+      // Close sheet
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Failed to create brand:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to create brand. Please try again.",
+      );
+    }
   };
 
   const handleCancel = () => {
@@ -106,6 +158,7 @@ export function ShowcaseBrandSheet({
   };
 
   const isNameValid = name.trim().length > 0;
+  const isCreating = createBrandMutation.isPending;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -181,7 +234,7 @@ export function ShowcaseBrandSheet({
               <Label htmlFor="brand-website">Website</Label>
               <Input
                 id="brand-website"
-                type="url"
+                type="text"
                 value={website}
                 onChange={(e) => setWebsite(e.target.value)}
                 placeholder="example.com"
@@ -269,6 +322,7 @@ export function ShowcaseBrandSheet({
             variant="outline"
             size="default"
             onClick={handleCancel}
+            disabled={isCreating}
             className="w-[70px]"
           >
             Cancel
@@ -277,7 +331,7 @@ export function ShowcaseBrandSheet({
             variant="brand"
             size="default"
             onClick={handleCreate}
-            disabled={!isNameValid}
+            disabled={!isNameValid || isCreating}
             className="w-[70px]"
           >
             Create

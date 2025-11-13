@@ -1,5 +1,6 @@
 "use client";
 
+import { usePassportFormData } from "@/hooks/use-passport-form-data";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { Select } from "@v1/ui/select";
@@ -9,16 +10,30 @@ import {
   ShowcaseBrandSheet,
 } from "../../../sheets/showcase-brand-sheet";
 
-export function IdentifiersSection() {
-  const [sku, setSku] = useState("");
-  const [ean, setEan] = useState("");
-  const [brand, setBrand] = useState<string>("");
+interface IdentifiersSectionProps {
+  articleNumber: string;
+  setArticleNumber: (value: string) => void;
+  ean: string;
+  setEan: (value: string) => void;
+  showcaseBrandId: string | null;
+  setShowcaseBrandId: (value: string | null) => void;
+}
 
-  // TODO: Load from API - for now using local state
-  const [brandOptions, setBrandOptions] = useState([
-    { value: "brand-1", label: "Avelero Apparel" },
-    { value: "brand-2", label: "Example Brand Co." },
-  ]);
+export function IdentifiersSection({
+  articleNumber,
+  setArticleNumber,
+  ean,
+  setEan,
+  showcaseBrandId,
+  setShowcaseBrandId,
+}: IdentifiersSectionProps) {
+  const { operators: apiBrandOptions } = usePassportFormData();
+  
+  // Convert brandOptions from API format to Select format
+  const selectBrandOptions = apiBrandOptions.map(brand => ({
+    value: brand.id,
+    label: brand.name,
+  }));
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -30,15 +45,9 @@ export function IdentifiersSection() {
   };
 
   const handleBrandCreated = (brandData: ShowcaseBrandData) => {
-    // Add the new brand to options
-    const newOption = {
-      value: brandData.id,
-      label: brandData.name,
-    };
-    setBrandOptions((prev) => [...prev, newOption]);
-
     // Auto-select the newly created brand
-    setBrand(brandData.id);
+    // The brand will be available in the dropdown after the immediate mutation updates the query
+    setShowcaseBrandId(brandData.id);
   };
 
   return (
@@ -48,12 +57,13 @@ export function IdentifiersSection() {
 
         {/* SKU Input */}
         <div className="space-y-1.5">
-          <Label>SKU</Label>
+          <Label>Article number <span className="text-destructive">*</span></Label>
           <Input
-            value={sku}
-            onChange={(e) => setSku(e.target.value)}
-            placeholder="Enter SKU"
+            value={articleNumber}
+            onChange={(e) => setArticleNumber(e.target.value)}
+            placeholder="Enter article number"
             className="h-9"
+            required
           />
         </div>
 
@@ -72,12 +82,12 @@ export function IdentifiersSection() {
         <div className="space-y-1.5">
           <Label>Brand</Label>
           <Select
-            options={brandOptions}
-            value={brand}
-            onValueChange={setBrand}
+            options={selectBrandOptions}
+            value={showcaseBrandId || ""}
+            onValueChange={setShowcaseBrandId}
             placeholder="Select brand"
             searchable
-            searchPlaceholder="Search brand"
+            searchPlaceholder="Search brand..."
             hasCreateOption
             onCreateNew={handleCreateNewBrand}
             createLabel="Create"

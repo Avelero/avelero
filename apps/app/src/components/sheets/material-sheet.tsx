@@ -1,5 +1,7 @@
 "use client";
 
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUpload } from "@/hooks/use-upload";
 import type { Certification } from "@v1/selections/certifications";
 import { allCertifications } from "@v1/selections/certifications";
@@ -107,6 +109,8 @@ export function MaterialSheet({
   initialName = "",
   onMaterialCreated,
 }: MaterialSheetProps) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = React.useState<Page>("material");
 
   // Material form state
@@ -140,6 +144,15 @@ export function MaterialSheet({
   const [isDragging, setIsDragging] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { uploadFile, isLoading: isUploading } = useUpload();
+
+  // API mutations
+  const [isCreating, setIsCreating] = React.useState(false);
+  const createMaterialMutation = useMutation(
+    trpc.brand.materials.create.mutationOptions(),
+  );
+  const createCertificationMutation = useMutation(
+    trpc.brand.certifications.create.mutationOptions(),
+  );
 
   // Update name when initialName changes (when sheet opens with pre-filled name)
   React.useEffect(() => {
@@ -200,31 +213,70 @@ export function MaterialSheet({
     setCurrentPage("material");
   };
 
-  const handleCertificationCreate = () => {
+  const handleCertificationCreate = async () => {
     if (!certTitle.trim() || !certNumber.trim() || !certExpiry) {
       return;
     }
 
-    // Create certification data
-    const newCert: CertificationData = {
-      id: `cert-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-      title: certTitle.trim(),
-      code: certCode.trim(),
-      certificationNumber: certNumber.trim(),
-      instituteName: certInstitute.trim(),
-      expiryDate: certExpiry,
-      logo: certLogo,
-    };
+    setIsCreating(true);
 
-    // Set as selected certification
-    setCertificationData(newCert);
-    setSelectedCertificationId(newCert.id);
+    try {
+      // Format expiry date to ISO datetime (YYYY-MM-DDTHH:mm:ss.sssZ)
+      // Set to midnight in local timezone, then convert to ISO string
+      const expiryDateISO = new Date(
+        certExpiry.getFullYear(),
+        certExpiry.getMonth(),
+        certExpiry.getDate(),
+        0, 0, 0, 0
+      ).toISOString();
 
-    // Navigate back to material page
-    handleBackToMaterial();
+      // Create certification via API
+      const result = await createCertificationMutation.mutateAsync({
+        title: certTitle.trim(),
+        certification_code: certNumber.trim(), // "Certification number" from UI maps to certification_code in API
+        institute_name: certInstitute.trim() || undefined,
+        expiry_date: expiryDateISO,
+        file_asset_id: certLogo || undefined,
+      });
+
+      // Extract ID from wrapped response { data: { id: string } }
+      const certificationId = result?.data?.id;
+      if (!certificationId) {
+        throw new Error('No certification ID returned from API');
+      }
+
+      // Create local certification data with real ID
+      const newCert: CertificationData = {
+        id: certificationId,
+        title: certTitle.trim(),
+        code: certCode.trim(),
+        certificationNumber: certNumber.trim(),
+        instituteName: certInstitute.trim(),
+        expiryDate: certExpiry,
+        logo: certLogo,
+      };
+
+      // Set as selected certification
+      setCertificationData(newCert);
+      setSelectedCertificationId(certificationId);
+
+      toast.success("Certification created successfully");
+
+      // Navigate back to material page
+      handleBackToMaterial();
+    } catch (error) {
+      console.error("Failed to create certification:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to create certification. Please try again.",
+      );
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const handleMaterialCreate = () => {
+  const handleMaterialCreate = async () => {
     if (!name.trim()) {
       return;
     }
@@ -235,18 +287,54 @@ export function MaterialSheet({
       return;
     }
 
-    // Generate material
-    const newMaterial: MaterialData = {
-      id: `material-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-      name: name.trim(),
-      countryOfOrigin: countryOfOrigin || undefined,
-      recyclable,
-      certificationId: selectedCertificationId || undefined,
-      certification: certificationData || undefined,
-    };
+    setIsCreating(true);
 
-    onMaterialCreated(newMaterial);
-    onOpenChange(false);
+    try {
+      // Create material via API
+      const result = await createMaterialMutation.mutateAsync({
+        name: name.trim(),
+        country_of_origin: countryOfOrigin || undefined,
+        recyclable,
+        certification_id: selectedCertificationId || undefined,
+      });
+
+      // Extract ID from wrapped response { data: { id: string } }
+      const materialId = result?.data?.id;
+      if (!materialId) {
+        throw new Error('No material ID returned from API');
+      }
+
+      // Refetch passportFormReferences query to ensure fresh data
+      await queryClient.refetchQueries({
+        queryKey: trpc.composite.passportFormReferences.queryKey(),
+      });
+
+      // Wait a tick for the refetch to propagate to all consumers
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Build material data with real ID for parent callback
+      const newMaterial: MaterialData = {
+        id: materialId,
+        name: name.trim(),
+        countryOfOrigin: countryOfOrigin || undefined,
+        recyclable,
+        certificationId: selectedCertificationId || undefined,
+        certification: certificationData || undefined,
+      };
+
+      onMaterialCreated(newMaterial);
+      toast.success("Material created successfully");
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Failed to create material:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to create material. Please try again.",
+      );
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleCancel = () => {
@@ -698,6 +786,7 @@ export function MaterialSheet({
                 variant="outline"
                 size="default"
                 onClick={() => onOpenChange(false)}
+                disabled={isCreating}
                 className="w-[70px]"
               >
                 Cancel
@@ -706,7 +795,7 @@ export function MaterialSheet({
                 variant="brand"
                 size="default"
                 onClick={handleMaterialCreate}
-                disabled={!isMaterialValid}
+                disabled={!isMaterialValid || isCreating}
                 className="w-[70px]"
               >
                 Create
@@ -718,6 +807,7 @@ export function MaterialSheet({
                 variant="outline"
                 size="default"
                 onClick={handleBackToMaterial}
+                disabled={isCreating}
                 className="w-[70px]"
               >
                 Back
@@ -727,7 +817,7 @@ export function MaterialSheet({
                 size="default"
                 onClick={handleCertificationCreate}
                 disabled={
-                  !certTitle.trim() || !certNumber.trim() || !certExpiry
+                  !certTitle.trim() || !certNumber.trim() || !certExpiry || isCreating
                 }
                 className="w-[70px]"
               >

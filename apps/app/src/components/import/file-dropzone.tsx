@@ -1,6 +1,6 @@
 "use client";
 
-import { validateImportFile } from "@v1/supabase/storage/product-imports";
+import { validateImportFile } from "@v1/supabase/utils/product-imports";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";

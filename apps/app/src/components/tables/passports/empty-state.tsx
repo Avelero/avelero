@@ -23,7 +23,7 @@ function EmptyPanel({ title, description, action }: BaseProps) {
           <div className="pt-2">
             {"href" in action ? (
               <Button asChild variant="default" size="default">
-                <Link href={action.href}>{action.label}</Link>
+                <Link href={action.href} prefetch>{action.label}</Link>
               </Button>
             ) : (
               <Button onClick={action.onClick} variant="default" size="default">

@@ -24,6 +24,7 @@ export function Header({ hideUserMenu, disableLogoLink }: HeaderProps) {
             href="/"
             className="flex shrink-0 items-center border-r focus-visible:outline-none"
             style={{ width: "56px", height: "56px" }}
+            prefetch
           >
             <Image
               src={LogoIcon}

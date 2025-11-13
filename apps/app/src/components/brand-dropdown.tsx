@@ -171,7 +171,7 @@ export function BrandDropdown({
 
         <DropdownMenuGroup>
           <DropdownMenuItem asChild className="cursor-pointer" disabled={isSwitching}>
-            <Link href="/create-brand">
+            <Link href="/create-brand" prefetch>
               <div className="flex items-center gap-2">
                 <span className="type-p">Create Brand</span>
               </div>

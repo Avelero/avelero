@@ -1,4 +1,4 @@
-import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -7,15 +7,16 @@ export const metadata: Metadata = {
 
 export default async function DashboardPage() {
   const queryClient = getQueryClient();
-
-  // Get current user for basic info (already prefetched in layout)
-  const user = await queryClient.fetchQuery(trpc.user.get.queryOptions());
-
+  
+  // Re-fetch workflowInit (instant cache hit from sidebar layout)
+  // This gives Next.js something substantial to cache, preventing RSC refetches
+  await queryClient.fetchQuery(
+    trpc.composite.workflowInit.queryOptions()
+  );
+  
   return (
-    <HydrateClient>
-      <div className="flex justify-center items-center relative">
-        <div className="text-2xl font-bold">Dashboard</div>
-      </div>
-    </HydrateClient>
+    <div className="flex justify-center items-center relative">
+      <div className="text-2xl font-bold">Dashboard</div>
+    </div>
   );
 }

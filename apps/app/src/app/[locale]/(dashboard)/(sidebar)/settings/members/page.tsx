@@ -22,12 +22,10 @@ export default async function Page() {
   } catch {}
 
   return (
-    <HydrateClient>
-      <div className="w-full max-w-[700px]">
-        <Suspense fallback={<MembersSkeleton />}>
-          <MembersTable />
-        </Suspense>
-      </div>
-    </HydrateClient>
+    <div className="w-full max-w-[700px]">
+      <Suspense fallback={<MembersSkeleton />}>
+        <MembersTable />
+      </Suspense>
+    </div>
   );
 }

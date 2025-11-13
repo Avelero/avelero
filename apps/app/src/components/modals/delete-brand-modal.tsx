@@ -12,7 +12,7 @@ import {
 } from "@v1/ui/dialog";
 import { Input } from "@v1/ui/input";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Props {
   open: boolean;
@@ -28,6 +28,12 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
   const queryClient = useQueryClient();
   const deleteMutation = useMutation(trpc.workflow.delete.mutationOptions());
 
+  // Prefetch possible navigation routes for post-deletion
+  useEffect(() => {
+    router.prefetch("/");
+    router.prefetch("/create-brand");
+  }, [router]);
+
   async function onConfirm() {
     if (confirmText !== "DELETE" || deleteMutation.isPending) return;
     setError(null);
@@ -35,31 +41,6 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
     try {
       // Delete brand via API
       const result = await deleteMutation.mutateAsync({ brand_id: brandId });
-
-      // Invalidate specific brand-related queries to ensure UI updates
-      await queryClient.invalidateQueries({
-        queryKey: trpc.workflow.list.queryKey(),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: trpc.user.get.queryKey(),
-      });
-      // Invalidate members list and invites for safety
-      await queryClient.invalidateQueries({
-        queryKey: trpc.workflow.members.list.queryKey({
-          brand_id: brandId,
-        }),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: trpc.workflow.invites.list.queryKey({ brand_id: brandId }),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: trpc.composite.workflowInit.queryKey(),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: trpc.composite.membersWithInvites.queryKey({
-          brand_id: brandId,
-        }),
-      });
 
       // Close modal before redirect
       onOpenChange(false);
@@ -75,6 +56,9 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
         router.push("/create-brand");
         router.refresh();
       }
+
+      // Clear cache after navigation starts to avoid Suspense query refetch errors
+      setTimeout(() => queryClient.clear(), 0);
     } catch (e: unknown) {
       const error =
         e instanceof Error ? e : new Error("Failed to delete brand");

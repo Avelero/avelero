@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default async function Page() {
   return (
     <div className="h-full w-full">
-      <Header locale="en" hideUserMenu disableLogoLink />
+      <Header hideUserMenu disableLogoLink />
       <div className="h-[calc(100%-112px)] w-full flex justify-center items-center">
         <SetupForm />
       </div>

@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Base colors - customize these to your brand */
+    --background: 240 100% 99%;
+    --foreground: 240 80% 4%;
+    --border: 240 11% 89%;
+    --input: 240 100% 99%;
+    --ring: 240 100% 50%;
+
+    /* Card */
+    --card: 240 23% 95%;
+    --card-foreground: 240 80% 4%;
+
+    /* Popover */
+    --popover: 240 100% 99%;
+    --popover-foreground: 240 80% 4%;
+
+    /* Primary */
+    --primary: 240 100% 50%;
+    --primary-foreground: 240 100% 99%;
+
+    /* Destructive */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+}
+
+@layer utilities {
+    .button-3d-default {
+      box-shadow: inset 0.8px -0.8px 0 1px hsl(240 80% 4% / 5%), 
+                  inset 0 0 0 1px hsl(240 80% 4% / 10%),
+                  inset -0.8px 0.8px 0 1.5px hsl(240 100% 99% / 50%);
+      background: linear-gradient(45deg, hsl(240 23% 95%) 64%, hsl(240 23% 97%) 100%);
+      transition: filter 0.1s ease-in-out;
+    }
+    
+    .button-3d-default:hover {
+      filter: brightness(0.97);
+    }
+    
+    .button-3d-brand {
+        box-shadow: inset 0.8px -0.8px 0 1px hsl(240 80% 4% / 25%), 
+                    inset 0 0 0 1px hsl(240 80% 4% / 15%),
+                    inset -0.8px 0.8px 0 1.5px hsl(240 100% 99% / 25%);
+      background: linear-gradient(45deg, hsl(240 100% 50%) 64%, hsl(240 100% 60%) 100%);
+      transition: filter 0.1s ease-in-out;
+    }
+    
+    .button-3d-brand:hover {
+      filter: brightness(0.9);
+    }
+  }

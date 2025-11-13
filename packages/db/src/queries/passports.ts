@@ -337,22 +337,55 @@ async function hydratePassportRows(
     completionKey.set(`${r.passport_id}:${r.module_key}`, !!r.is_completed);
   }
 
-  const allCategories = await db
-    .select({
-      id: categories.id,
-      name: categories.name,
-      parent_id: categories.parentId,
-    })
-    .from(categories);
+  // Only fetch categories that are used in the current passport set
+  const uniqueCategoryIds = Array.from(
+    new Set(
+      rows
+        .map((r) => r.category_id)
+        .filter((id): id is string => id !== null && id !== undefined),
+    ),
+  );
+
   const catById = new Map<
     string,
     { id: string; name: string; parent_id: string | null }
-  >(
-    allCategories.map((c) => [
-      c.id,
-      { id: c.id, name: c.name, parent_id: c.parent_id ?? null },
-    ]),
-  );
+  >();
+
+  // Fetch categories iteratively, including ancestors
+  let pendingIds = uniqueCategoryIds;
+  const maxDepth = 10; // Safety limit to prevent infinite loops
+  for (let depth = 0; depth < maxDepth && pendingIds.length > 0; depth++) {
+    const fetchIds = pendingIds.filter((id) => !catById.has(id));
+    if (fetchIds.length === 0) break;
+
+    const fetchedCategories = await db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        parent_id: categories.parentId,
+      })
+      .from(categories)
+      .where(inArray(categories.id, fetchIds));
+
+    if (fetchedCategories.length === 0) break;
+
+    const nextIds = new Set<string>();
+
+    for (const cat of fetchedCategories) {
+      if (!catById.has(cat.id)) {
+        catById.set(cat.id, {
+          id: cat.id,
+          name: cat.name,
+          parent_id: cat.parent_id ?? null,
+        });
+      }
+      if (cat.parent_id && !catById.has(cat.parent_id)) {
+        nextIds.add(cat.parent_id);
+      }
+    }
+
+    pendingIds = Array.from(nextIds);
+  }
 
   const buildCategoryPath = (categoryId?: string | null): string[] => {
     if (!categoryId) return [];

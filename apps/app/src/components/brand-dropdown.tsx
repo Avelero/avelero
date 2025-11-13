@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Suspense } from "react";
 import { SignedAvatar } from "./signed-avatar";
 
@@ -66,9 +66,6 @@ export function BrandDropdown({
   isExpanded,
   onPopupChange,
 }: BrandDropdownProps) {
-  const router = useRouter();
-  const params = useParams<{ locale?: string }>();
-  const locale = params?.locale ?? "en";
   const { data: brandsData } = useUserBrandsQuery();
   const { data: user } = useUserQuery();
   const setActiveBrandMutation = useSetActiveBrandMutation();
@@ -76,26 +73,25 @@ export function BrandDropdown({
   const brands: Brand[] = (brandsData as Brand[] | undefined) ?? [];
   const currentUser = user as CurrentUser | null | undefined;
   const activeBrand = brands.find((b: Brand) => b.id === currentUser?.brand_id);
+  const isSwitching = setActiveBrandMutation.isPending;
 
   const handleBrandSelect = (brandId: string) => {
-    if (brandId !== currentUser?.brand_id) {
+    if (brandId !== currentUser?.brand_id && !isSwitching) {
       setActiveBrandMutation.mutate({ brand_id: brandId });
     }
   };
 
-  const handleCreateBrand = () => {
-    router.push(`/${locale}/create-brand`);
-  };
-
   return (
     <DropdownMenu onOpenChange={onPopupChange}>
-      <DropdownMenuTrigger asChild>
+      <DropdownMenuTrigger asChild disabled={isSwitching}>
         {/* Button is the sole interactive host. All visuals are inside. */}
         <Button
           variant="ghost"
+          disabled={isSwitching}
           className={cn(
             "relative group h-10 w-full p-0 bg-transparent hover:bg-transparent",
             "justify-start overflow-hidden",
+            isSwitching && "opacity-50",
           )}
         >
           {/* Expanding rail: 40px when collapsed, full inner width when expanded */}
@@ -155,9 +151,11 @@ export function BrandDropdown({
           {brands.map((brand: Brand) => (
             <DropdownMenuItem
               key={brand.id}
+              disabled={isSwitching}
               className={cn(
                 "cursor-pointer",
                 currentUser?.brand_id === brand.id && "bg-accent",
+                isSwitching && "opacity-50",
               )}
               onClick={() => handleBrandSelect(brand.id)}
             >
@@ -172,13 +170,12 @@ export function BrandDropdown({
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onClick={handleCreateBrand}
-          >
-            <div className="flex items-center gap-2">
-              <span className="type-p">Create Brand</span>
-            </div>
+          <DropdownMenuItem asChild className="cursor-pointer" disabled={isSwitching}>
+            <Link href="/create-brand">
+              <div className="flex items-center gap-2">
+                <span className="type-p">Create Brand</span>
+              </div>
+            </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

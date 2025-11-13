@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient } from "@v1/supabase/server";
 import type { Tables, TablesUpdate } from "@v1/supabase/types";
 import type { Database } from "@v1/supabase/types";
@@ -6,20 +6,27 @@ import type { Database } from "@v1/supabase/types";
 interface ResolveAuthRedirectOptions {
   next?: string | null;
   returnTo?: string | null;
+  client?: SupabaseClient<Database>;
+  user?: User | null;
 }
 
 export async function resolveAuthRedirectPath({
   next,
   returnTo,
+  client,
+  user,
 }: ResolveAuthRedirectOptions = {}): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const supabase = client ?? (await createClient());
 
-  if (!user) return "/login?error=auth-session-missing";
+  let currentUser = user ?? null;
+  if (currentUser === null && user === undefined) {
+    const { data: userResult } = await supabase.auth.getUser();
+    currentUser = userResult.user ?? null;
+  }
 
-  const userId = user.id;
+  if (!currentUser) return "/login?error=auth-session-missing";
+
+  const userId = currentUser.id;
 
   // Profile completeness check
   const { data: profile, error } = await supabase
@@ -85,5 +92,16 @@ export async function resolveAuthRedirectPath({
     }
   }
 
-  return target.startsWith("/") ? target : `/${target}`;
+  // Validate redirect target: reject protocol-relative URLs and absolute URLs
+  // Only check at the start to allow absolute URLs in query parameters
+  if (target.startsWith("//") || /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(target)) {
+    return "/";
+  }
+  
+  // Normalize path: collapse any leading slashes to a single "/"
+  if (target.startsWith("/")) {
+    return `/${target.replace(/^\/+/, "")}`;
+  }
+  
+  return `/${target}`;
 }

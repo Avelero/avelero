@@ -277,6 +277,45 @@ function MembershipRow({
 }
 
 /**
+ * Formats the time remaining until an invite expires in a human-readable format.
+ * Shows days, hours, or minutes depending on how much time remains.
+ *
+ * @param expiresAt - ISO date string of when the invite expires
+ * @returns Formatted string like "Invite expires in 5 days" or "Expired"
+ */
+function formatExpiresIn(expiresAt: string | null): string {
+  if (!expiresAt) return "";
+
+  const now = new Date();
+  const expiryDate = new Date(expiresAt);
+  const diffMs = expiryDate.getTime() - now.getTime();
+
+  // Already expired
+  if (diffMs <= 0) {
+    return "Expired";
+  }
+
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays > 0) {
+    return `Invite expires in ${diffDays} ${diffDays === 1 ? "day" : "days"}`;
+  }
+
+  if (diffHours > 0) {
+    return `Invite expires in ${diffHours} ${diffHours === 1 ? "hour" : "hours"}`;
+  }
+
+  if (diffSeconds < 60) {
+    return "Invite expires in less than a minute";
+  }
+
+  return `Invite expires in ${diffMinutes} ${diffMinutes === 1 ? "minute" : "minutes"}`;
+}
+
+/**
  * Renders a pending invitation row with revoke action.
  *
  * Displays the invitee's email, invited role, and who sent the invitation.
@@ -351,13 +390,6 @@ function InviteRowComp({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <SignedAvatar
-          bucket="avatars"
-          size={32}
-          name={invite.invitee_full_name ?? invite.email}
-          url={invite.invitee_avatar_url}
-          hue={invite.invitee_avatar_hue}
-        />
         <div className="flex flex-col">
           <span className="type-p !font-medium">{invite.email}</span>
           <span className="type-p text-secondary">
@@ -366,9 +398,9 @@ function InviteRowComp({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {invite.invited_by ? (
+        {invite.expires_at ? (
           <span className="type-p text-tertiary">
-            Invited by {invite.invited_by}
+            {formatExpiresIn(invite.expires_at)}
           </span>
         ) : null}
         <Button

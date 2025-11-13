@@ -7,8 +7,12 @@ import { DataCard } from "../data-card";
 export function DataSection() {
   const trpc = useTRPC();
   const { data } = useQuery(
-    trpc.passports.list.queryOptions({ includeStatusCounts: true }),
+    trpc.passports.list.queryOptions({
+      page: 0,
+      includeStatusCounts: true,
+    }),
   );
+
   const counts = data?.meta?.statusCounts ?? {
     published: 0,
     scheduled: 0,

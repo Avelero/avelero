@@ -1,7 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
 import { Button } from "@v1/ui/button";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@v1/ui/dialog";
 import { Input } from "@v1/ui/input";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Props {
   open: boolean;
@@ -26,8 +26,14 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const trpc = useTRPC();
   const supabase = createClient();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const deleteMutation = useMutation(trpc.user.delete.mutationOptions());
+
+  // Prefetch login route for post-deletion navigation
+  useEffect(() => {
+    router.prefetch("/login");
+  }, [router]);
 
   async function onConfirm() {
     if (confirmText !== "DELETE" || isSubmitting) return;
@@ -38,10 +44,10 @@ function DeleteAccountModal({ open, onOpenChange }: Props) {
       // Step 1: Delete account via API
       await deleteMutation.mutateAsync();
 
-      // Step 2: Sign out locally
+      // Step 2: Sign out locally (this will clear session)
       await supabase.auth.signOut({ scope: "local" });
 
-      // Step 3: Redirect to login
+      // Step 3: Redirect to login (query cache will be invalidated on navigation)
       router.push("/login");
     } catch (e: unknown) {
       const error =

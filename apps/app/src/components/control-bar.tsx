@@ -92,7 +92,7 @@ function ControlBarNavButton({
       <p
         className={cn(
           "type-p",
-          isActive ? "text-primary !font-medium" : "text-secondary",
+          isActive ? "text-primary !font-medium" : "text-secondary !font-medium hover:text-primary transition-colors duration-150",
         )}
       >
         {children}

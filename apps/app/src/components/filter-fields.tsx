@@ -1,7 +1,7 @@
 "use client";
 
 import { RELATIVE_DATE_OPTIONS } from "@/config/filters";
-import { useFieldOptions } from "@/hooks/use-field-options";
+import { useFieldOptions } from "@/hooks/use-filter-options";
 import { BooleanToggle } from "@v1/ui/boolean";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -45,8 +45,7 @@ export function FilterFieldInput({
 }: FilterFieldInputProps) {
   // Hoist dynamic options loading to satisfy Rules of Hooks
   const { options: dynamicOptions, isLoading } = useFieldOptions(
-    fieldConfig.optionsSource?.endpoint,
-    fieldConfig.optionsSource?.transform,
+    fieldConfig.id
   );
 
   // Boolean fields: show True/False only (no operator)

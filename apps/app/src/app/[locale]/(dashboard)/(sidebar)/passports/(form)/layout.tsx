@@ -3,7 +3,7 @@ import {
   ControlBarLeft,
   ControlBarRight,
 } from "@/components/control-bar";
-import { Button } from "@v1/ui/button";
+import { PassportFormActions } from "@/components/passports/form-actions";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -20,8 +20,7 @@ export default function PassportsFormLayout({
       <ControlBar>
         <ControlBarLeft />
         <ControlBarRight>
-          <Button variant="outline">Cancel</Button>
-          <Button variant="brand">Save</Button>
+          <PassportFormActions />
         </ControlBarRight>
       </ControlBar>
       <div className="flex w-full h-full justify-center items-start p-12 overflow-y-auto scrollbar-hide">

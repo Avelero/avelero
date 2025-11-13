@@ -1,8 +1,8 @@
 "use client";
 
 import type { SelectOption } from "@/components/passports/filter-types";
-import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
 import * as React from "react";
 
 /**
@@ -14,16 +14,16 @@ export function useFilterOptions() {
 
   // Fetch the main passport form references using proper tRPC query
   const { data: formData, isLoading: isFormDataLoading } = useQuery(
-    trpc.composite.passportFormReferences.queryOptions(),
+    trpc.composite.passportFormReferences.queryOptions()
   );
 
   // Fetch additional endpoints that aren't in the composite
   const { data: ecoClaimsData, isLoading: isEcoClaimsLoading } = useQuery(
-    trpc.brand.ecoClaims.list.queryOptions(undefined),
+    trpc.brand.ecoClaims.list.queryOptions(undefined)
   );
 
   const { data: templatesData, isLoading: isTemplatesLoading } = useQuery(
-    trpc.passports.templates.list.queryOptions(undefined),
+    trpc.passports.templates.list.queryOptions(undefined)
   );
 
   // Transform and memoize all options
@@ -37,52 +37,40 @@ export function useFilterOptions() {
         })) ?? [],
 
       colors:
-        formData?.brandCatalog?.colors?.map(
-          (c: { id: string; name: string }) => ({
-            value: c.id,
-            label: c.name,
-          }),
-        ) ?? [],
+        formData?.brandCatalog?.colors?.map((c: { id: string; name: string }) => ({
+          value: c.id,
+          label: c.name,
+        })) ?? [],
 
       sizes:
-        formData?.brandCatalog?.sizes?.map(
-          (s: { id: string; name: string }) => ({
-            value: s.id,
-            label: s.name,
-          }),
-        ) ?? [],
+        formData?.brandCatalog?.sizes?.map((s: { id: string; name: string }) => ({
+          value: s.id,
+          label: s.name,
+        })) ?? [],
 
       materials:
-        formData?.brandCatalog?.materials?.map(
-          (m: { id: string; name: string }) => ({
-            value: m.id,
-            label: m.name,
-          }),
-        ) ?? [],
+        formData?.brandCatalog?.materials?.map((m: { id: string; name: string }) => ({
+          value: m.id,
+          label: m.name,
+        })) ?? [],
 
       certifications:
-        formData?.brandCatalog?.certifications?.map(
-          (c: { id: string; title: string }) => ({
-            value: c.id,
-            label: c.title,
-          }),
-        ) ?? [],
+        formData?.brandCatalog?.certifications?.map((c: { id: string; title: string }) => ({
+          value: c.id,
+          label: c.title,
+        })) ?? [],
 
       facilities:
-        formData?.brandCatalog?.facilities?.map(
-          (f: { id: string; display_name: string }) => ({
-            value: f.id,
-            label: f.display_name,
-          }),
-        ) ?? [],
+        formData?.brandCatalog?.facilities?.map((f: { id: string; display_name: string }) => ({
+          value: f.id,
+          label: f.display_name,
+        })) ?? [],
 
       operators:
-        formData?.brandCatalog?.operators?.map(
-          (b: { id: string; name: string }) => ({
-            value: b.id,
-            label: b.name,
-          }),
-        ) ?? [],
+        formData?.brandCatalog?.operators?.map((b: { id: string; name: string }) => ({
+          value: b.id,
+          label: b.name,
+        })) ?? [],
 
       // From separate endpoints
       ecoClaims:
@@ -99,8 +87,7 @@ export function useFilterOptions() {
     };
   }, [formData, ecoClaimsData, templatesData]);
 
-  const isLoading =
-    isFormDataLoading || isEcoClaimsLoading || isTemplatesLoading;
+  const isLoading = isFormDataLoading || isEcoClaimsLoading || isTemplatesLoading;
 
   return {
     options,

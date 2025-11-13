@@ -9,7 +9,7 @@ import { useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { createClient } from "@v1/supabase/client";
-import { uploadImportFile } from "@v1/supabase/storage/product-imports";
+import { uploadImportFile } from "@v1/supabase/utils/product-imports";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import {

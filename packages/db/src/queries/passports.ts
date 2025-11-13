@@ -613,6 +613,10 @@ export async function createPassport(
   }
 
   const slug = variant.upid;
+  if (!slug) {
+    throw new Error("Variant must have a UPID to create a passport");
+  }
+
   await db.transaction(async (tx) => {
     const [existing] = await tx
       .select({ id: passports.id })

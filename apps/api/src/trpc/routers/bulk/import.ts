@@ -23,7 +23,7 @@ import {
   cancelImportSchema,
 } from "../../../schemas/bulk.js";
 import { parseFile, normalizeHeaders } from "../../../lib/csv-parser.js";
-import { downloadImportFile } from "@v1/supabase/storage/product-imports";
+import { downloadImportFile } from "@v1/supabase/utils/product-imports";
 import { tasks } from "@trigger.dev/sdk";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";

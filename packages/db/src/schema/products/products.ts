@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { brandCertifications } from "../brands/brand-certifications";
+import { brandSeasons } from "../brands/brand-seasons";
 import { categories } from "../brands/categories";
 import { showcaseBrands } from "../brands/showcase-brands";
 import { brands } from "../core/brands";
@@ -22,11 +23,17 @@ export const products = pgTable(
       },
     ),
     primaryImageUrl: text("primary_image_url"),
+    additionalImageUrls: text("additional_image_urls"), // Pipe-separated URLs
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    season: text("season"),
+    season: text("season"), // TODO: Migrate to seasonId FK
+    seasonId: uuid("season_id").references(() => brandSeasons.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
+    tags: text("tags"), // Pipe-separated tags
     brandCertificationId: uuid("brand_certification_id").references(
       () => brandCertifications.id,
       {

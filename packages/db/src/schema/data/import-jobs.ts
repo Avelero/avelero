@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   jsonb,
   pgPolicy,
   pgTable,
@@ -9,6 +10,11 @@ import {
 } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
 
+/**
+ * Import jobs table for tracking bulk product import operations
+ * Supports two-phase workflow: validation/staging → user approval → production commit
+ * @see prd.txt section 3.4 and section 5 for workflow details
+ */
 export const importJobs = pgTable(
   "import_jobs",
   {
@@ -24,7 +30,14 @@ export const importJobs = pgTable(
       withTimezone: true,
       mode: "string",
     }),
-    status: text("status").notNull().default("PENDING"), // PENDING RUNNING FAILED COMPLETED
+    commitStartedAt: timestamp("commit_started_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    status: text("status").notNull().default("PENDING"), // PENDING | VALIDATING | VALIDATED | COMMITTING | COMPLETED | FAILED | CANCELLED
+    requiresValueApproval: boolean("requires_value_approval")
+      .notNull()
+      .default(false),
     summary: jsonb("summary"),
   },
   (table) => [

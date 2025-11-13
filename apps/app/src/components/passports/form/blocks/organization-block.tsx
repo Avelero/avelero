@@ -19,6 +19,7 @@ import * as React from "react";
 
 // Generate season options for the next 3 years
 const SEASON_OPTIONS: Season[] = generateSeasonOptions(2024, 3).map((opt) => ({
+  id: `${opt.season.name.toLowerCase()}-${opt.year}`,
   name: opt.displayName,
   startDate: new Date(opt.year, (opt.season.startMonth || 1) - 1, 1),
   endDate: new Date(opt.year, (opt.season.endMonth || 12) - 1, 28),
@@ -90,7 +91,6 @@ export function OrganizationSection() {
                   <SeasonSelect
                     value={season}
                     onValueChange={setSeason}
-                    seasons={seasons}
                     onCreateNew={(term) => {
                       // Open modal with the typed term prefilled
                       setSeasonModalOpen(true);
@@ -274,6 +274,7 @@ export function OrganizationSection() {
         initialName={pendingSeasonName}
         onSave={(newSeason) => {
           const season: Season = {
+            id: crypto.randomUUID(),
             name: newSeason.name,
             startDate: newSeason.startDate || undefined,
             endDate: newSeason.endDate || undefined,

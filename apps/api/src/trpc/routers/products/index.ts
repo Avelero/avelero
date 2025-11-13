@@ -106,7 +106,8 @@ export const productsRouter = createTRPCRouter({
           name: input.name,
           description: input.description,
           categoryId: input.category_id,
-          season: input.season,
+          season: input.season, // Legacy: deprecated, use seasonId
+          seasonId: input.season_id,
           brandCertificationId: input.brand_certification_id,
           showcaseBrandId: input.showcase_brand_id,
           primaryImageUrl: input.primary_image_url,
@@ -133,7 +134,8 @@ export const productsRouter = createTRPCRouter({
           name: input.name,
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
-          season: input.season ?? null,
+          season: input.season ?? null, // Legacy: deprecated, use seasonId
+          seasonId: input.season_id ?? null,
           brandCertificationId: input.brand_certification_id ?? null,
           showcaseBrandId: input.showcase_brand_id ?? null,
           primaryImageUrl: input.primary_image_url ?? null,

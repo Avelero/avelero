@@ -35,37 +35,37 @@ export function useFilterOptions() {
           value: c.id,
           label: c.name,
         })) ?? [],
-      
+
       colors:
         formData?.brandCatalog?.colors?.map((c: { id: string; name: string }) => ({
           value: c.id,
           label: c.name,
         })) ?? [],
-      
+
       sizes:
         formData?.brandCatalog?.sizes?.map((s: { id: string; name: string }) => ({
           value: s.id,
           label: s.name,
         })) ?? [],
-      
+
       materials:
         formData?.brandCatalog?.materials?.map((m: { id: string; name: string }) => ({
           value: m.id,
           label: m.name,
         })) ?? [],
-      
+
       certifications:
         formData?.brandCatalog?.certifications?.map((c: { id: string; title: string }) => ({
           value: c.id,
           label: c.title,
         })) ?? [],
-      
+
       facilities:
         formData?.brandCatalog?.facilities?.map((f: { id: string; display_name: string }) => ({
           value: f.id,
           label: f.display_name,
         })) ?? [],
-      
+
       operators:
         formData?.brandCatalog?.operators?.map((b: { id: string; name: string }) => ({
           value: b.id,
@@ -78,7 +78,7 @@ export function useFilterOptions() {
           value: c.id,
           label: c.title,
         })) ?? [],
-      
+
       templates:
         templatesData?.data?.map((t: { id: string; name: string }) => ({
           value: t.id,
@@ -126,4 +126,3 @@ export function useFieldOptions(fieldId: string): {
     isLoading,
   };
 }
-

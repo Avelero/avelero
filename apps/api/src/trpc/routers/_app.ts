@@ -11,6 +11,7 @@ import { createTRPCRouter } from "../init.js";
 import { brandRouter } from "./brand/index.js";
 import { bulkRouter } from "./bulk/index.js";
 import { compositeRouter } from "./composite/index.js";
+import { internalRouter } from "./internal/index.js";
 import { passportsRouter } from "./passports/index.js";
 import { productsRouter } from "./products/index.js";
 import { userRouter } from "./user/index.js";
@@ -27,6 +28,7 @@ import { workflowRouter } from "./workflow/index.js";
  * - passports: Passports and templates (nested)
  * - bulk: Centralized bulk operations
  * - composite: Performance-optimized composite endpoints
+ * - internal: Internal server-to-server endpoints (protected by API key)
  */
 export const appRouter = createTRPCRouter({
   user: userRouter,
@@ -36,6 +38,7 @@ export const appRouter = createTRPCRouter({
   passports: passportsRouter,
   bulk: bulkRouter,
   composite: compositeRouter,
+  internal: internalRouter,
 });
 
 /** Convenience alias for the root router's runtime shape. */

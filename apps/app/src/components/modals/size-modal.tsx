@@ -286,7 +286,6 @@ export function SizeModal({
   const [category, setCategory] = React.useState<string | null>(null);
   const [rows, setRows] = React.useState<SizeRow[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
-  const [isCreating, setIsCreating] = React.useState(false);
   const [isInitializing, setIsInitializing] = React.useState(false);
 
   // Set mounted flag to prevent SSR/hydration issues
@@ -421,8 +420,6 @@ export function SizeModal({
       return;
     }
 
-    setIsCreating(true);
-
     try {
       // Get original sizes from DB for comparison
       const originalSizes = sizeOptions
@@ -519,6 +516,9 @@ export function SizeModal({
         queryKey: trpc.composite.passportFormReferences.queryKey(),
       });
 
+      // Wait for refetch to propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Build definition with all sizes
       const definition: SizeSystemDefinition = {
         categoryKey,
@@ -544,14 +544,18 @@ export function SizeModal({
           ? error.message
           : "Failed to save sizes. Please try again.",
       );
-    } finally {
-      setIsCreating(false);
     }
   };
 
   const handleCancel = () => {
     onOpenChange(false);
   };
+
+  // Compute loading state from mutations
+  const isCreating = 
+    createSizeMutation.isPending || 
+    updateSizeMutation.isPending || 
+    deleteSizeMutation.isPending;
 
   // Initialize when modal opens/closes
   React.useEffect(() => {

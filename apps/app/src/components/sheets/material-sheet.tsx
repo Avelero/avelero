@@ -146,13 +146,17 @@ export function MaterialSheet({
   const { uploadFile, isLoading: isUploading } = useUpload();
 
   // API mutations
-  const [isCreating, setIsCreating] = React.useState(false);
   const createMaterialMutation = useMutation(
     trpc.brand.materials.create.mutationOptions(),
   );
   const createCertificationMutation = useMutation(
     trpc.brand.certifications.create.mutationOptions(),
   );
+
+  // Compute loading state from mutations
+  const isCreating = 
+    createMaterialMutation.isPending || 
+    createCertificationMutation.isPending;
 
   // Update name when initialName changes (when sheet opens with pre-filled name)
   React.useEffect(() => {
@@ -218,8 +222,6 @@ export function MaterialSheet({
       return;
     }
 
-    setIsCreating(true);
-
     try {
       // Format expiry date to ISO datetime (YYYY-MM-DDTHH:mm:ss.sssZ)
       // Set to midnight in local timezone, then convert to ISO string
@@ -239,11 +241,13 @@ export function MaterialSheet({
         file_asset_id: certLogo || undefined,
       });
 
-      // Extract ID from wrapped response { data: { id: string } }
-      const certificationId = result?.data?.id;
-      if (!certificationId) {
-        throw new Error('No certification ID returned from API');
+      // Validate response
+      const createdCertification = result?.data;
+      if (!createdCertification?.id) {
+        throw new Error("No valid response returned from API");
       }
+      
+      const certificationId = createdCertification.id;
 
       // Create local certification data with real ID
       const newCert: CertificationData = {
@@ -271,8 +275,6 @@ export function MaterialSheet({
           ? error.message
           : "Failed to create certification. Please try again.",
       );
-    } finally {
-      setIsCreating(false);
     }
   };
 
@@ -287,8 +289,6 @@ export function MaterialSheet({
       return;
     }
 
-    setIsCreating(true);
-
     try {
       // Create material via API
       const result = await createMaterialMutation.mutateAsync({
@@ -298,11 +298,13 @@ export function MaterialSheet({
         certification_id: selectedCertificationId || undefined,
       });
 
-      // Extract ID from wrapped response { data: { id: string } }
-      const materialId = result?.data?.id;
-      if (!materialId) {
-        throw new Error('No material ID returned from API');
+      // Validate response
+      const createdMaterial = result?.data;
+      if (!createdMaterial?.id) {
+        throw new Error("No valid response returned from API");
       }
+      
+      const materialId = createdMaterial.id;
 
       // Refetch passportFormReferences query to ensure fresh data
       await queryClient.refetchQueries({
@@ -332,8 +334,6 @@ export function MaterialSheet({
           ? error.message
           : "Failed to create material. Please try again.",
       );
-    } finally {
-      setIsCreating(false);
     }
   };
 
@@ -429,7 +429,9 @@ export function MaterialSheet({
 
   const isNameValid = name.trim().length > 0;
   const isMaterialValid =
-    isNameValid && (!certified || certificationData);
+    isNameValid && 
+    (!certified || certificationData) && 
+    !isUploading;
 
   // Get certification options for the select on certification page
   const certificationOptions = allCertifications.map((cert: Certification) => ({

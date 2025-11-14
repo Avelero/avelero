@@ -61,15 +61,15 @@ export function useFilterOptions() {
         })) ?? [],
       
       facilities:
-        formData?.brandCatalog?.facilities?.map((f: { id: string; display_name: string }) => ({
+        formData?.brandCatalog?.operators?.map((f: { id: string; display_name: string }) => ({
           value: f.id,
           label: f.display_name,
         })) ?? [],
       
       operators:
-        formData?.brandCatalog?.operators?.map((b: { id: string; name: string }) => ({
+        formData?.brandCatalog?.operators?.map((b: { id: string; display_name: string }) => ({
           value: b.id,
-          label: b.name,
+          label: b.display_name,
         })) ?? [],
 
       // From separate endpoints

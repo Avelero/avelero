@@ -109,15 +109,17 @@ export function ShowcaseBrandSheet({
       });
 
       const createdBrand = result?.data;
-      if (!createdBrand) {
-        throw new Error("No brand returned from API");
+      if (!createdBrand?.id) {
+        throw new Error("No valid response returned from API");
       }
 
-      // Invalidate passportFormReferences query so dropdown updates
-      // (The form uses composite.passportFormReferences, not brand.showcaseBrands.list)
-      await queryClient.invalidateQueries({
+      // Refetch passportFormReferences query to ensure fresh data
+      await queryClient.refetchQueries({
         queryKey: trpc.composite.passportFormReferences.queryKey(),
       });
+
+      // Wait for refetch to propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Transform API response to component format
       const brandData: ShowcaseBrandData = {

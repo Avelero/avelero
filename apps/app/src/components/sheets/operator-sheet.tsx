@@ -55,12 +55,14 @@ export function OperatorSheet({
   const [state, setState] = React.useState("");
   const [zip, setZip] = React.useState("");
   const [countryCode, setCountryCode] = React.useState("");
-  const [isCreating, setIsCreating] = React.useState(false);
   
   // Operators are facilities (production plants)
   const createOperatorMutation = useMutation(
     trpc.brand.facilities.create.mutationOptions(),
   );
+
+  // Compute loading state from mutation
+  const isCreating = createOperatorMutation.isPending;
 
   // Update name when initialName changes (when sheet opens with pre-filled name)
   React.useEffect(() => {
@@ -90,8 +92,6 @@ export function OperatorSheet({
       return;
     }
 
-    setIsCreating(true);
-
     try {
       // Combine address lines into single address field
       const fullAddress = [addressLine1.trim(), addressLine2.trim()]
@@ -113,11 +113,13 @@ export function OperatorSheet({
         contact: contactInfo || undefined,
       });
 
-      // Extract ID from wrapped response
-      const operatorId = result?.data?.id;
-      if (!operatorId) {
-        throw new Error('No operator ID returned from API');
+      // Validate response
+      const createdOperator = result?.data;
+      if (!createdOperator?.id) {
+        throw new Error("No valid response returned from API");
       }
+      
+      const operatorId = createdOperator.id;
 
       // Refetch passportFormReferences query to ensure fresh data
       await queryClient.refetchQueries({
@@ -152,8 +154,6 @@ export function OperatorSheet({
           ? error.message
           : "Failed to create operator. Please try again.",
       );
-    } finally {
-      setIsCreating(false);
     }
   };
 

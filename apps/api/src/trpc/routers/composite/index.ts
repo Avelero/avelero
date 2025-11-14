@@ -380,33 +380,33 @@ export const compositeRouter = createTRPCRouter({
       const [
         categories,
         materials,
-        facilities,
+        operators,
         colors,
         sizes,
         certifications,
-        operators,
         seasons,
+        showcaseBrands,
       ] = await Promise.all([
         listCategories(db),
         listMaterials(db, brandId),
-        listFacilities(db, brandId),
+        listFacilities(db, brandId), // Operators/facilities from brand_facilities table
         listColors(db, brandId),
         listSizes(db, brandId),
         listCertifications(db, brandId),
-        listFacilities(db, brandId), // Operators ARE facilities (production plants)
         listSeasonsForBrand(db, brandId),
+        listShowcaseBrands(db, brandId), // Showcase brands from showcase_brands table
       ]);
 
       return {
         categories,
         brandCatalog: {
           materials,
-          facilities,
+          operators, // Facilities/production plants from brand_facilities table
           colors,
           sizes,
           certifications,
-          operators,
           seasons,
+          showcaseBrands, // Display brands from showcase_brands table
         },
       };
     } catch (error) {

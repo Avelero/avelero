@@ -180,6 +180,13 @@ const PercentageCell = ({
     e.stopPropagation();
   };
 
+  const handlePercentageChange = (value: string) => {
+    // Allow empty, numbers, and decimal point
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      onPercentageChange(value);
+    }
+  };
+
   return (
     <div
       className="flex items-center justify-between w-full h-full px-4 py-2 cursor-text"
@@ -193,7 +200,7 @@ const PercentageCell = ({
           ref={inputRef}
           type="text"
           value={percentage}
-          onChange={(e) => onPercentageChange(e.target.value)}
+          onChange={(e) => handlePercentageChange(e.target.value)}
           placeholder="Value"
           className="flex-1 type-p text-primary focus:outline-none placeholder:text-tertiary min-w-0 bg-transparent"
         />

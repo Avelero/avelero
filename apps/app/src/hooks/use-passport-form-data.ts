@@ -276,9 +276,9 @@ export function usePassportFormData() {
     
     // Brand catalog (API only, no defaults)
     materials: data?.brandCatalog.materials || [],
-    operators: data?.brandCatalog.operators || [],
-    facilities: data?.brandCatalog.facilities || [],
+    operators: data?.brandCatalog.operators || [], // Facilities/production plants from brand_facilities table
     certifications: data?.brandCatalog.certifications || [],
+    showcaseBrands: data?.brandCatalog.showcaseBrands || [], // Display brands from showcase_brands table
     seasons: (data?.brandCatalog.seasons || []).map(s => ({
       name: s.name,
       startDate: s.startDate ? new Date(s.startDate) : undefined,

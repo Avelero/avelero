@@ -27,10 +27,10 @@ export function IdentifiersSection({
   showcaseBrandId,
   setShowcaseBrandId,
 }: IdentifiersSectionProps) {
-  const { operators: apiBrandOptions } = usePassportFormData();
+  const { showcaseBrands: apiBrandOptions } = usePassportFormData();
   
   // Convert brandOptions from API format to Select format
-  const selectBrandOptions = apiBrandOptions.map(brand => ({
+  const selectBrandOptions = apiBrandOptions.map((brand: { id: string; name: string }) => ({
     value: brand.id,
     label: brand.name,
   }));

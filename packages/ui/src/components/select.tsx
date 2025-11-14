@@ -157,7 +157,10 @@ export function Select(props: SelectProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className={cn("w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]", "p-0")}
+        className={cn(
+          "w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]",
+          "p-0",
+        )}
         align="start"
         inline={inline}
       >

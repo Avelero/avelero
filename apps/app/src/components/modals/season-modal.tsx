@@ -60,20 +60,21 @@ export function SeasonModal({
     }
   }, [open, initialName]);
 
-  // Handle ongoing toggle with date preservation
-  React.useEffect(() => {
-    if (ongoing) {
-      // Preserve current dates (including null) before clearing
-      setPreservedStartDate(startDate);
-      setPreservedEndDate(endDate);
+  // Handle ongoing toggle - only preserve and clear when turning ON
+  const handleOngoingChange = (checked: boolean) => {
+    if (checked) {
+      // Turning ongoing ON - preserve current dates before clearing
+      if (startDate) setPreservedStartDate(startDate);
+      if (endDate) setPreservedEndDate(endDate);
       setStartDate(null);
       setEndDate(null);
     } else {
-      // Restore preserved dates when toggling back
-      setStartDate(preservedStartDate);
-      setEndDate(preservedEndDate);
+      // Turning ongoing OFF - restore preserved dates if available
+      if (preservedStartDate) setStartDate(preservedStartDate);
+      if (preservedEndDate) setEndDate(preservedEndDate);
     }
-  }, [ongoing]);
+    setOngoing(checked);
+  };
 
   const handleSave = async () => {
     // Validate dates for non-ongoing seasons
@@ -98,6 +99,16 @@ export function SeasonModal({
         return `${year}-${month}-${day}`;
       };
 
+      // Parse dates from YYYY-MM-DD strings (using local timezone)
+      const parseDate = (dateString: string | null | undefined): Date | null => {
+        if (!dateString) return null;
+        const parts = dateString.split('-').map(Number);
+        if (parts.length !== 3) return null;
+        const [year, month, day] = parts;
+        if (year === undefined || month === undefined || day === undefined) return null;
+        return new Date(year, month - 1, day);
+      };
+
       // Call API to create season immediately
       const result = await createSeasonMutation.mutateAsync({
         name: name.trim(),
@@ -107,35 +118,30 @@ export function SeasonModal({
       });
 
       const createdSeason = result?.data;
-      if (!createdSeason) {
-        throw new Error("No season returned from API");
+      if (!createdSeason?.id) {
+        throw new Error("No valid response returned from API");
       }
 
-      // Invalidate passportFormReferences query so dropdown updates
-      await queryClient.invalidateQueries({
+      // Refetch passportFormReferences query to ensure fresh data
+      await queryClient.refetchQueries({
         queryKey: trpc.composite.passportFormReferences.queryKey(),
       });
+
+      // Wait for refetch to propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Call parent callback with season data
       onSave({
         name: createdSeason.name,
-        startDate: createdSeason.startDate ? new Date(createdSeason.startDate) : null,
-        endDate: createdSeason.endDate ? new Date(createdSeason.endDate) : null,
+        startDate: parseDate(createdSeason.startDate),
+        endDate: parseDate(createdSeason.endDate),
         ongoing: createdSeason.ongoing,
       });
 
       // Show success message
       toast.success("Season created successfully");
 
-      // Reset form
-      setName("");
-      setStartDate(null);
-      setEndDate(null);
-      setOngoing(false);
-      setPreservedStartDate(null);
-      setPreservedEndDate(null);
-      
-      // Close modal
+      // Close modal (triggers reset via handleOpenChange)
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to create season:", error);
@@ -148,13 +154,7 @@ export function SeasonModal({
   };
 
   const handleCancel = () => {
-    // Reset form
-    setName("");
-    setStartDate(null);
-    setEndDate(null);
-    setOngoing(false);
-    setPreservedStartDate(null);
-    setPreservedEndDate(null);
+    // Close modal (triggers reset via handleOpenChange)
     onOpenChange(false);
   };
 
@@ -220,7 +220,7 @@ export function SeasonModal({
                   aria-label="Ongoing"
                   className="block h-4 w-4 shrink-0 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand cursor-pointer outline-none focus:outline-none"
                   checked={ongoing}
-                  onChange={(event) => setOngoing(event.target.checked)}
+                  onChange={(event) => handleOngoingChange(event.target.checked)}
                 />
                 {ongoing && (
                   <span className="absolute inset-0 flex items-center justify-center pointer-events-none">

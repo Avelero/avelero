@@ -94,17 +94,17 @@ export function SeasonSelect({
           className={cn("w-full justify-between h-9", className)}
           icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
-          {value ? (
+{value ? (
             <div className="flex items-center gap-2">
               <span className="type-p text-primary">{value.name}</span>
-              {formatSeasonDateRange(value) && (
-                <span className="type-p text-tertiary">
-                  {formatSeasonDateRange(value)}
-                </span>
-              )}
-              {value.isOngoing && (
-                <span className="type-p text-tertiary">Ongoing</span>
-              )}
+              {(() => {
+                const dateRange = formatSeasonDateRange(value);
+                return dateRange ? (
+                  <span className="type-p text-tertiary">{dateRange}</span>
+                ) : value.isOngoing ? (
+                  <span className="type-p text-tertiary">Ongoing</span>
+                ) : null;
+              })()}
             </div>
           ) : (
             <span className="text-tertiary">{placeholder}</span>
@@ -130,14 +130,14 @@ export function SeasonSelect({
                   >
                     <div className="flex items-center gap-2">
                       <span className="type-p text-primary">{season.name}</span>
-                      {formatSeasonDateRange(season) && (
-                        <span className="type-p text-tertiary">
-                          {formatSeasonDateRange(season)}
-                        </span>
-                      )}
-                      {season.isOngoing && (
-                        <span className="type-p text-tertiary">Ongoing</span>
-                      )}
+                      {(() => {
+                        const dateRange = formatSeasonDateRange(season);
+                        return dateRange ? (
+                          <span className="type-p text-tertiary">{dateRange}</span>
+                        ) : season.isOngoing ? (
+                          <span className="type-p text-tertiary">Ongoing</span>
+                        ) : null;
+                      })()}
                     </div>
                     {value?.name === season.name && (
                       <Icons.Check className="h-4 w-4" />

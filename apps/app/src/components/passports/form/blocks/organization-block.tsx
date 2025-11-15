@@ -187,7 +187,7 @@ export function OrganizationSection({
             name: newSeason.name,
             startDate: newSeason.startDate || undefined,
             endDate: newSeason.endDate || undefined,
-            isOngoing: newSeason.ongoing,
+            isOngoing: newSeason.isOngoing,
           };
           setSeasonObject(seasonObj);
           setSeason(newSeason.name);

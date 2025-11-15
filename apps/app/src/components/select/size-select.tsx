@@ -165,6 +165,8 @@ export function SizeSelect({
         return;
       }
       onValueChange([...value, size]);
+      // Clear search term after selection
+      setSearchTerm("");
     }
   };
 
@@ -197,15 +199,18 @@ export function SizeSelect({
   const handleOpenChange = (newOpen: boolean) => {
     if (disabled) return;
     setOpen(newOpen);
-    
-    // Delay reset until after popover close animation completes
-    if (!newOpen) {
-      setTimeout(() => {
+  };
+
+  // Reset navigation and search when popover closes (with cleanup)
+  React.useEffect(() => {
+    if (!open) {
+      const timer = setTimeout(() => {
         setNavigationPath([]);
         setSearchTerm("");
       }, 200); // Match popover animation duration
+      return () => clearTimeout(timer);
     }
-  };
+  }, [open]);
 
   // Check if sizes are from multiple systems
   const uniqueCategories = React.useMemo(() => {

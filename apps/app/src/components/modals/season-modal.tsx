@@ -1,5 +1,6 @@
 "use client";
 
+import { usePassportFormData } from "@/hooks/use-passport-form-data";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -23,7 +24,7 @@ interface SeasonModalProps {
     name: string;
     startDate: Date | null;
     endDate: Date | null;
-    ongoing: boolean;
+    isOngoing: boolean;
   }) => void;
   initialName?: string;
 }
@@ -36,6 +37,7 @@ export function SeasonModal({
 }: SeasonModalProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { seasons: existingSeasons } = usePassportFormData();
 
   const [name, setName] = React.useState("");
   const [startDate, setStartDate] = React.useState<Date | null>(null);
@@ -48,10 +50,37 @@ export function SeasonModal({
     null,
   );
 
+  // Validation error state
+  const [nameError, setNameError] = React.useState("");
+
   // API mutation for creating season
   const createSeasonMutation = useMutation(
     trpc.brand.seasons.create.mutationOptions(),
   );
+
+  // Date formatting and parsing functions (memoized)
+  const formatDate = React.useCallback((date: Date | null) => {
+    if (!date) return undefined;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const parseDate = React.useCallback((dateValue: string | Date | null | undefined): Date | null => {
+    if (!dateValue) return null;
+    // If it's already a Date object, return it directly
+    if (dateValue instanceof Date) return dateValue;
+    // If it's a string, parse it
+    if (typeof dateValue === 'string') {
+      const parts = dateValue.split('-').map(Number);
+      if (parts.length !== 3) return null;
+      const [year, month, day] = parts;
+      if (year === undefined || month === undefined || day === undefined) return null;
+      return new Date(year, month - 1, day);
+    }
+    return null;
+  }, []);
 
   // Prefill name when modal opens with provided initialName
   React.useEffect(() => {
@@ -59,6 +88,28 @@ export function SeasonModal({
       setName(initialName ?? "");
     }
   }, [open, initialName]);
+
+  // Validation function for season name
+  const validateName = (value: string): boolean => {
+    const trimmedName = value.trim();
+    
+    if (!trimmedName) {
+      setNameError("Season name is required");
+      return false;
+    }
+
+    const isDuplicate = existingSeasons.some(
+      (season) => season.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      setNameError("A season with this name already exists");
+      return false;
+    }
+
+    setNameError("");
+    return true;
+  };
 
   // Handle ongoing toggle - only preserve and clear when turning ON
   const handleOngoingChange = (checked: boolean) => {
@@ -72,85 +123,118 @@ export function SeasonModal({
       // Turning ongoing OFF - restore preserved dates if available
       if (preservedStartDate) setStartDate(preservedStartDate);
       if (preservedEndDate) setEndDate(preservedEndDate);
+      // Clear preserved dates after restoration
+      setPreservedStartDate(null);
+      setPreservedEndDate(null);
     }
     setOngoing(checked);
   };
 
   const handleSave = async () => {
+    // Validate name
+    const isNameValid = validateName(name);
+    if (!isNameValid) {
+      document.getElementById("season-name")?.focus();
+      return;
+    }
+
     // Validate dates for non-ongoing seasons
     if (!ongoing) {
-      if (!startDate || !endDate) {
+      // Both dates must be provided together
+      if (!startDate && !endDate) {
         toast.error("Please provide both start and end dates");
         return;
       }
-      if (startDate > endDate) {
+      if (startDate && !endDate) {
+        toast.error("End date is required when start date is provided");
+        return;
+      }
+      if (!startDate && endDate) {
+        toast.error("Start date is required when end date is provided");
+        return;
+      }
+      if (startDate && endDate && startDate > endDate) {
         toast.error("Start date must be before end date");
         return;
       }
     }
 
-    try {
-      // Format dates as YYYY-MM-DD strings for API (using local timezone)
-      const formatDate = (date: Date | null) => {
-        if (!date) return undefined;
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-
-      // Parse dates from YYYY-MM-DD strings (using local timezone)
-      const parseDate = (dateString: string | null | undefined): Date | null => {
-        if (!dateString) return null;
-        const parts = dateString.split('-').map(Number);
-        if (parts.length !== 3) return null;
-        const [year, month, day] = parts;
-        if (year === undefined || month === undefined || day === undefined) return null;
-        return new Date(year, month - 1, day);
-      };
-
-      // Call API to create season immediately
-      const result = await createSeasonMutation.mutateAsync({
-        name: name.trim(),
-        start_date: formatDate(startDate),
-        end_date: formatDate(endDate),
-        ongoing: ongoing,
-      });
-
-      const createdSeason = result?.data;
-      if (!createdSeason?.id) {
-        throw new Error("No valid response returned from API");
-      }
-
-      // Refetch passportFormReferences query to ensure fresh data
-      await queryClient.refetchQueries({
-        queryKey: trpc.composite.passportFormReferences.queryKey(),
-      });
-
-      // Wait for refetch to propagate
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Call parent callback with season data
-      onSave({
-        name: createdSeason.name,
-        startDate: parseDate(createdSeason.startDate),
-        endDate: parseDate(createdSeason.endDate),
-        ongoing: createdSeason.ongoing,
-      });
-
-      // Show success message
-      toast.success("Season created successfully");
-
-      // Close modal (triggers reset via handleOpenChange)
-      onOpenChange(false);
-    } catch (error) {
-      console.error("Failed to create season:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to create season. Please try again.",
-      );
+    // Validate that dates are NOT set when ongoing is true
+    if (ongoing && (startDate || endDate)) {
+      toast.error("Ongoing seasons cannot have specific start/end dates");
+      return;
     }
+
+    // Show loading toast and execute mutation - wrap entire operation in promise
+    // toast.loading will automatically handle success/error toasts
+    await toast.loading(
+      "Creating season...",
+      (async () => {
+        const result = await createSeasonMutation.mutateAsync({
+          name: name.trim(),
+          start_date: formatDate(startDate),
+          end_date: formatDate(endDate),
+          ongoing: ongoing,
+        });
+
+        const createdSeason = result?.data;
+        if (!createdSeason?.id) {
+          throw new Error("No valid response returned from API");
+        }
+
+        // Optimistically update the cache immediately
+        queryClient.setQueryData(
+          trpc.composite.passportFormReferences.queryKey(),
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              brandCatalog: {
+                ...old.brandCatalog,
+                seasons: [
+                  ...old.brandCatalog.seasons,
+                  {
+                    id: createdSeason.id,
+                    name: createdSeason.name,
+                    startDate: createdSeason.startDate,
+                    endDate: createdSeason.endDate,
+                    ongoing: createdSeason.ongoing,
+                    createdAt: createdSeason.createdAt,
+                    updatedAt: createdSeason.updatedAt,
+                  },
+                ],
+              },
+            };
+          },
+        );
+
+        // Invalidate to trigger background refetch
+        queryClient.invalidateQueries({
+          queryKey: trpc.composite.passportFormReferences.queryKey(),
+        });
+
+        // Close modal first
+        onOpenChange(false);
+
+        // Call parent callback with transformed data
+        // API returns Date objects from database (or null), use them directly
+        onSave({
+          name: createdSeason.name,
+          startDate: createdSeason.startDate || null,
+          endDate: createdSeason.endDate || null,
+          isOngoing: createdSeason.ongoing,
+        });
+
+        return result;
+      })(),
+      {
+        delay: 200,
+        successMessage: "Season created successfully",
+      },
+    ).catch((error) => {
+      // toast.loading already handles error toast, but we can log for debugging
+      console.error("Failed to create season:", error);
+    });
   };
 
   const handleCancel = () => {
@@ -167,6 +251,7 @@ export function SeasonModal({
       setOngoing(false);
       setPreservedStartDate(null);
       setPreservedEndDate(null);
+      setNameError("");
     }
     onOpenChange(newOpen);
   };
@@ -183,13 +268,26 @@ export function SeasonModal({
         <div className="px-6 flex flex-col gap-3">
           {/* Season Name */}
           <div className="space-y-1.5">
-            <Label>Season</Label>
+            <Label htmlFor="season-name">
+              Season <span className="text-destructive">*</span>
+            </Label>
             <Input
+              id="season-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError) validateName(e.target.value);
+              }}
+              onBlur={() => validateName(name)}
               placeholder="Enter season name"
               className="h-9"
+              maxLength={100}
+              aria-required="true"
+              required
             />
+            {nameError && (
+              <p className="text-xs text-destructive">{nameError}</p>
+            )}
           </div>
 
           {/* Date Range */}

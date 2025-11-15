@@ -254,6 +254,7 @@ function DraggableSizeRow({
             onChange={(e) => onUpdate(row.id, e.target.value)}
             placeholder="Enter size"
             className="h-9"
+            maxLength={50}
           />
         </div>
         <div className="absolute right-0 top-0 w-0 group-hover/field:w-9 overflow-hidden transition-[width] duration-200 ease-in-out">
@@ -286,7 +287,7 @@ export function SizeModal({
   const [category, setCategory] = React.useState<string | null>(null);
   const [rows, setRows] = React.useState<SizeRow[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = React.useState(false);
+  const [currentPrefillSize, setCurrentPrefillSize] = React.useState<string | null>(null);
 
   // Set mounted flag to prevent SSR/hydration issues
   React.useEffect(() => {
@@ -469,14 +470,46 @@ export function SizeModal({
       // Any remaining original sizes were deleted
       toDelete.push(...Array.from(originalSizes.keys()));
 
-      // Execute operations in parallel
-      const operations: Promise<any>[] = [];
+      // Execute operations with per-operation error handling
+      const operationResults: Array<{ type: string; success: boolean; error?: Error }> = [];
+      
+      // Helper to execute operation with error handling and response validation
+      const executeOperation = async <T,>(
+        operation: () => Promise<T>,
+        type: string,
+        validateResponse?: (result: T) => boolean,
+      ): Promise<T | null> => {
+        try {
+          const result = await operation();
+          
+          // Validate response if validator provided
+          if (validateResponse && !validateResponse(result)) {
+            throw new Error(`Invalid response returned from ${type} operation`);
+          }
+          
+          operationResults.push({ type, success: true });
+          return result;
+        } catch (error) {
+          operationResults.push({
+            type,
+            success: false,
+            error: error instanceof Error ? error : new Error(String(error)),
+          });
+          return null;
+        }
+      };
+
+      // Collect all operations
+      const operations: Array<() => Promise<any>> = [];
 
       // Deletions - only delete if ID exists in current DB state
       for (const id of toDelete) {
         if (validDbIds.has(id)) {
-          operations.push(
-            deleteSizeMutation.mutateAsync({ id })
+          operations.push(() =>
+            executeOperation(
+              () => deleteSizeMutation.mutateAsync({ id }),
+              `delete-${id}`,
+            ),
           );
         }
       }
@@ -484,40 +517,73 @@ export function SizeModal({
       // Updates - only update if ID exists in current DB state
       for (const size of toUpdate) {
         if (validDbIds.has(size.id)) {
-          operations.push(
-            updateSizeMutation.mutateAsync({
-              id: size.id,
-              name: size.name,
-              category_id: categoryId,
-              sort_index: size.sortIndex,
-            })
+          operations.push(() =>
+            executeOperation(
+              () =>
+                updateSizeMutation.mutateAsync({
+                  id: size.id,
+                  name: size.name,
+                  category_id: categoryId,
+                  sort_index: size.sortIndex,
+                }),
+              `update-${size.id}`,
+              (result: any) => {
+                // Validate response has expected structure
+                return result?.data?.id !== undefined;
+              },
+            ),
           );
         }
       }
 
       // Creations
       for (const size of toCreate) {
-        operations.push(
-          createSizeMutation.mutateAsync({
-            name: size.name,
-            category_id: categoryId,
-            sort_index: size.sortIndex,
-          })
+        operations.push(() =>
+          executeOperation(
+            () =>
+              createSizeMutation.mutateAsync({
+                name: size.name,
+                category_id: categoryId,
+                sort_index: size.sortIndex,
+              }),
+            `create-${size.name}`,
+            (result: any) => {
+              // Validate response has expected structure (similar to showcase-brand-sheet)
+              return result?.data?.id !== undefined;
+            },
+          ),
         );
       }
 
-      // Wait for all operations
+      // Execute all operations with toast.loading pattern
       if (operations.length > 0) {
-        await Promise.all(operations);
+        await toast.loading(
+          "Saving sizes...",
+          Promise.all(operations.map((op) => op())),
+          {
+            delay: 200,
+            successMessage: "Size system successfully updated",
+          },
+        );
       }
 
-      // Refetch passportFormReferences query to ensure fresh data
-      await queryClient.refetchQueries({
+      // Check for any failed operations
+      const failedOperations = operationResults.filter((r) => !r.success);
+      if (failedOperations.length > 0) {
+        const errorMessages = failedOperations
+          .map((r) => r.error?.message || "Unknown error")
+          .join(", ");
+        throw new Error(
+          `Failed to save ${failedOperations.length} operation(s): ${errorMessages}`,
+        );
+      }
+
+      // Response validation is handled in executeOperation for create/update operations
+
+      // Invalidate to trigger background refetch
+      queryClient.invalidateQueries({
         queryKey: trpc.composite.passportFormReferences.queryKey(),
       });
-
-      // Wait for refetch to propagate
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Build definition with all sizes
       const definition: SizeSystemDefinition = {
@@ -529,14 +595,11 @@ export function SizeModal({
         })),
       };
 
+      // Close modal first
+      onOpenChange(false);
+
       // Call parent callback
       onSave(definition);
-
-      // Show success message
-      toast.success("Size system successfully updated");
-
-      // Close modal
-      onOpenChange(false);
     } catch (error) {
       console.error("Failed to save sizes:", error);
       toast.error(
@@ -557,75 +620,71 @@ export function SizeModal({
     updateSizeMutation.isPending || 
     deleteSizeMutation.isPending;
 
-  // Initialize when modal opens/closes
+  // Initialize when modal opens
   React.useEffect(() => {
     if (open) {
-      setIsInitializing(true);
-      
       // Pre-fill category if provided from SizeSelect navigation
       setCategory(prefillCategory || null);
-      setRows([]);
-
-      // Reset flag after state updates settle
-      setTimeout(() => {
-        setIsInitializing(false);
-      }, 0);
-    } else {
-      // Clean up state when modal closes
-      setCategory(null);
+      setCurrentPrefillSize(prefillSize || null);
       setRows([]);
       setActiveId(null);
-      setIsInitializing(false);
+    } else {
+      // Clean up state when modal closes (delayed to avoid flash during animation)
+      const timer = setTimeout(() => {
+        setCategory(null);
+        setRows([]);
+        setActiveId(null);
+        setCurrentPrefillSize(null);
+      }, 350); // Match dialog close animation duration
+      return () => clearTimeout(timer);
     }
-  }, [open, prefillCategory]);
+  }, [open, prefillCategory, prefillSize]);
 
-  // Initialize rows when category is selected
+  // Initialize rows when category is selected or changes
   React.useEffect(() => {
-    if (
-      open &&
-      !isInitializing &&
-      category &&
-      category !== "Select category"
-    ) {
-      const newRows: SizeRow[] = [];
+    if (!open || !category || category === "Select category") {
+      return;
+    }
 
-      // Get existing sizes for this category from the database
-      const categoryKey = getCategoryKey(category);
-      const existingSizes = categoryKey 
-        ? sizeOptions
-            .filter(s => s.categoryPath === category)
-            .sort((a, b) => a.sortIndex - b.sortIndex)
-        : [];
+    const newRows: SizeRow[] = [];
 
-      // Add existing sizes first
-      for (const size of existingSizes) {
-        newRows.push({
-          id: size.id || `temp-${Date.now()}-${Math.random()}`,
-          value: size.name,
-          dbId: size.id,
-          originalValue: size.name,
-          isNew: false,
+    // Get existing sizes for this category from the database
+    const categoryKey = getCategoryKey(category);
+    const existingSizes = categoryKey 
+      ? sizeOptions
+          .filter(s => s.categoryPath === category)
+          .sort((a, b) => a.sortIndex - b.sortIndex)
+      : [];
+
+    // Add existing sizes first
+    for (const size of existingSizes) {
+      newRows.push({
+        id: size.id || `temp-${Date.now()}-${Math.random()}`,
+        value: size.name,
+        dbId: size.id,
+        originalValue: size.name,
+        isNew: false,
+      });
+    }
+
+    // If prefillSize is provided for this specific category and not already in the list, add it at the top
+    // Only use prefillSize if it matches the current category context
+    if (currentPrefillSize?.trim() && category === prefillCategory) {
+      const alreadyExists = existingSizes.some(
+        s => s.name.toLowerCase() === currentPrefillSize.toLowerCase()
+      );
+      
+      if (!alreadyExists) {
+        newRows.unshift({
+          id: `new-${Date.now()}`,
+          value: currentPrefillSize,
+          isNew: true,
         });
       }
-
-      // If prefillSize is provided and not already in the list, add it at the top
-      if (prefillSize?.trim()) {
-        const alreadyExists = existingSizes.some(
-          s => s.name.toLowerCase() === prefillSize.toLowerCase()
-        );
-        
-        if (!alreadyExists) {
-          newRows.unshift({
-            id: `new-${Date.now()}`,
-            value: prefillSize,
-            isNew: true,
-          });
-        }
-      }
-
-      setRows(newRows);
     }
-  }, [category, open, prefillSize, isInitializing, sizeOptions]);
+
+    setRows(newRows);
+  }, [category, open, currentPrefillSize, prefillCategory, sizeOptions]);
 
   // Don't render until client-side to avoid SSR issues
   if (!mounted) {
@@ -643,7 +702,11 @@ export function SizeModal({
           {/* Category Dropdown - Tier 2 only */}
           <TierTwoCategorySelect 
             value={category} 
-            onChange={setCategory}
+            onChange={(newCategory) => {
+              setCategory(newCategory);
+              // Clear prefillSize when category changes
+              setCurrentPrefillSize(null);
+            }}
           />
 
           {/* Animated container for category-dependent content */}

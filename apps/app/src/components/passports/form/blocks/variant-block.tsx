@@ -43,9 +43,6 @@ export function VariantSection({
   setSelectedSizes,
 }: VariantSectionProps) {
   const { colors: availableColors, sizeOptions } = usePassportFormData();
-  const [customSizeOptions, setCustomSizeOptions] = React.useState<
-    TierTwoSizeOption[]
-  >([]);
   const [sizeModalOpen, setSizeModalOpen] = React.useState(false);
   const [prefillSize, setPrefillSize] = React.useState<string | null>(null);
   const [prefillCategory, setPrefillCategory] = React.useState<string | null>(null);
@@ -60,43 +57,65 @@ export function VariantSection({
       .filter((c): c is ColorOption => c !== null);
   }, [colorIds, availableColors]);
 
-  const combinedSizeOptions = React.useMemo(() => {
-    if (customSizeOptions.length === 0) {
-      return sizeOptions;
-    }
-    const map = new Map<string, TierTwoSizeOption>();
-    // Only include options with valid names
-    for (const option of sizeOptions) {
-      if (option.name && typeof option.name === 'string') {
-        map.set(getSizeOptionKey(option), option);
-      }
-    }
-    for (const option of customSizeOptions) {
-      if (option.name && typeof option.name === 'string') {
-        map.set(getSizeOptionKey(option), option);
-      }
-    }
-    return Array.from(map.values());
-  }, [customSizeOptions, sizeOptions]);
-
+  // Normalize selected sizes to use real IDs from sizeOptions
+  // This ensures custom sizes created via SizeModal get their real DB IDs
   const normalizedSelectedSizes = React.useMemo(() => {
-    if (combinedSizeOptions.length === 0) {
+    if (sizeOptions.length === 0) {
       return selectedSizes.filter(s => s.name && typeof s.name === 'string');
     }
     const optionMap = new Map<string, TierTwoSizeOption>();
-    for (const option of combinedSizeOptions) {
-      optionMap.set(getSizeOptionKey(option), option);
+    for (const option of sizeOptions) {
+      if (option.name && typeof option.name === 'string' && option?.id) {
+        optionMap.set(getSizeOptionKey(option), option);
+      }
     }
     return selectedSizes
       .filter(s => s.name && typeof s.name === 'string')
       .map((size) => {
         const key = getSizeOptionKey(size);
-        return optionMap.get(key) ?? size;
-      });
-  }, [combinedSizeOptions, selectedSizes]);
+        const matchedOption = optionMap.get(key);
+        // Only return sizes with real IDs from the API
+        if (matchedOption?.id) {
+          return matchedOption;
+        }
+        // If no match found, return the size as-is (will be filtered out during submission)
+        return size;
+      })
+      .filter(s => s.id); // Filter out sizes without IDs
+  }, [sizeOptions, selectedSizes]);
+
+  // Watch for newly created sizes to appear in sizeOptions after modal saves
+  React.useEffect(() => {
+    if (!sizeModalOpen && prefillSize && prefillCategory) {
+      // Modal just closed, look for the prefillSize in sizeOptions
+      const matchLower = prefillSize.toLowerCase();
+      const match = sizeOptions.find(
+        (option) => 
+          option.name && 
+          option.name.toLowerCase() === matchLower &&
+          option.categoryPath === prefillCategory &&
+          option.id // Only select if it has a real ID
+      );
+      if (match) {
+        setSelectedSizes((current: TierTwoSizeOption[]) => {
+          const exists = current.some(
+            (option) => getSizeOptionKey(option) === getSizeOptionKey(match),
+          );
+          if (exists || current.length >= 12) {
+            return current;
+          }
+          return [...current, match];
+        });
+        // Clear prefill after successful selection
+        setPrefillSize(null);
+        setPrefillCategory(null);
+      }
+    }
+  }, [sizeModalOpen, prefillSize, prefillCategory, sizeOptions, setSelectedSizes]);
 
   React.useEffect(() => {
     if (!sizeModalOpen) {
+      // Clear prefill when modal closes (if not already cleared by selection)
       setPrefillSize(null);
       setPrefillCategory(null);
     }
@@ -110,50 +129,13 @@ export function VariantSection({
   );
 
   const handleSizeSystemSave = React.useCallback(
-    (definition: SizeSystemDefinition) => {
-      // Filter out any sizes with invalid names
-      const validSizes = definition.sizes.filter(
-        (size) => size.name && typeof size.name === 'string' && size.name.trim() !== ''
-      );
-
-      const nextOptions = validSizes.map((size) => ({
-        id: undefined,
-        name: size.name,
-        categoryKey: definition.categoryKey,
-        categoryPath: definition.categoryPath,
-        sortIndex: size.sortIndex,
-        source: "custom" as const,
-      }));
-
-      setCustomSizeOptions((current: TierTwoSizeOption[]) => {
-        const filtered = current.filter(
-          (option) => option.categoryKey !== definition.categoryKey,
-        );
-        return [...filtered, ...nextOptions];
-      });
-
-      if (prefillSize) {
-        const matchLower = prefillSize.toLowerCase();
-        const match = nextOptions.find(
-          (option) => option.name && option.name.toLowerCase() === matchLower,
-        );
-        if (match) {
-          setSelectedSizes((current: TierTwoSizeOption[]) => {
-            const exists = current.some(
-              (option) => getSizeOptionKey(option) === getSizeOptionKey(match),
-            );
-            if (exists || current.length >= 12) {
-              return current;
-            }
-            return [...current, match];
-          });
-        }
-      }
-
-      setPrefillSize(null);
-      setPrefillCategory(null);
+    (_definition: SizeSystemDefinition) => {
+      // SizeModal already creates sizes in DB and invalidates queries
+      // The useEffect above will watch for the new sizes to appear in sizeOptions
+      // and automatically select the prefillSize when it becomes available
+      // No need to do anything here - just let the refetch happen
     },
-    [prefillSize, setSelectedSizes],
+    [],
   );
 
   return (

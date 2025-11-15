@@ -49,6 +49,7 @@ export const brandSeasons = pgTable(
       for: "update",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
+      withCheck: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("brand_seasons_delete_by_brand_members", {
       as: "permissive",

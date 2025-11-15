@@ -365,9 +365,13 @@ export function SizeSelect({
                             </span>
                           </div>
                         </CommandItem>
-                      ) : !searchTerm ? (
+                      ) : !searchTerm && onCreateNew ? (
                         <CommandEmpty>
                           Start typing to create...
+                        </CommandEmpty>
+                      ) : searchTerm ? (
+                        <CommandEmpty>
+                          No results found
                         </CommandEmpty>
                       ) : null}
                     </CommandGroup>

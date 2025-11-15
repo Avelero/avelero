@@ -43,14 +43,23 @@ export function OrganizationSection({
   
   // Sync season object with parent's season string
   React.useEffect(() => {
-    if (season && !seasonObject) {
-      // Try to find matching season object
-      const found = seasons.find((s: Season) => s.name === season);
-      if (found) {
-        setSeasonObject(found);
+    if (season) {
+      // Check if current seasonObject matches the season prop
+      if (seasonObject?.name !== season) {
+        // Try to find matching season object
+        const found = seasons.find((s: Season) => s.name === season);
+        if (found) {
+          setSeasonObject(found);
+        } else {
+          // Clear seasonObject if season doesn't match any available season
+          setSeasonObject(null);
+        }
       }
+    } else {
+      // Clear seasonObject when season is null
+      setSeasonObject(null);
     }
-  }, [season, seasonObject, seasons]);
+  }, [season, seasons]);
 
   // Modal states
   const [seasonModalOpen, setSeasonModalOpen] = React.useState(false);

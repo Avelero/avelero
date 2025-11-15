@@ -57,7 +57,7 @@ function Toast({ id, message, state }: ToastProps) {
 /**
  * Shows a loading toast with a minimum delay.
  * Only displays if the promise takes longer than the specified delay.
- * 
+ *
  * @param message - Loading message to display
  * @param promise - Promise to wait for
  * @param options - Configuration options
@@ -70,13 +70,13 @@ async function loadingWithDelay<T>(
     delay?: number;
     successMessage?: string;
     errorMessage?: string;
-  } = {}
+  } = {},
 ): Promise<T> {
   const { delay = 200, successMessage, errorMessage } = options;
-  
+
   let toastId: string | number | undefined;
   let hasShownToast = false;
-  
+
   // Show loading toast only if promise takes longer than delay
   const timeoutId = setTimeout(() => {
     toastId = sonnerToast.custom((id) => (
@@ -84,35 +84,35 @@ async function loadingWithDelay<T>(
     ));
     hasShownToast = true;
   }, delay);
-  
+
   try {
     const result = await promise;
     clearTimeout(timeoutId);
-    
+
     // Dismiss loading toast if it was shown
     if (hasShownToast && toastId !== undefined) {
       sonnerToast.dismiss(toastId);
     }
-    
+
     // Show success message if provided
     if (successMessage) {
       toast.success(successMessage);
     }
-    
+
     return result;
   } catch (error) {
     clearTimeout(timeoutId);
-    
+
     // Dismiss loading toast if it was shown
     if (hasShownToast && toastId !== undefined) {
       sonnerToast.dismiss(toastId);
     }
-    
+
     // Show error message if provided
     if (errorMessage) {
       toast.error(errorMessage);
     }
-    
+
     throw error;
   }
 }

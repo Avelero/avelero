@@ -47,6 +47,15 @@ function formatSeasonDateRange(season: Season): string {
   return `${startMonth} to ${endMonth}`;
 }
 
+function renderSeasonDateRange(season: Season): React.ReactNode {
+  const dateRange = formatSeasonDateRange(season);
+  return dateRange ? (
+    <span className="type-p text-tertiary">{dateRange}</span>
+  ) : season.isOngoing ? (
+    <span className="type-p text-tertiary">Ongoing</span>
+  ) : null;
+}
+
 export function SeasonSelect({
   value,
   onValueChange,
@@ -97,14 +106,7 @@ export function SeasonSelect({
 {value ? (
             <div className="flex items-center gap-2">
               <span className="type-p text-primary">{value.name}</span>
-              {(() => {
-                const dateRange = formatSeasonDateRange(value);
-                return dateRange ? (
-                  <span className="type-p text-tertiary">{dateRange}</span>
-                ) : value.isOngoing ? (
-                  <span className="type-p text-tertiary">Ongoing</span>
-                ) : null;
-              })()}
+              {renderSeasonDateRange(value)}
             </div>
           ) : (
             <span className="text-tertiary">{placeholder}</span>
@@ -130,14 +132,7 @@ export function SeasonSelect({
                   >
                     <div className="flex items-center gap-2">
                       <span className="type-p text-primary">{season.name}</span>
-                      {(() => {
-                        const dateRange = formatSeasonDateRange(season);
-                        return dateRange ? (
-                          <span className="type-p text-tertiary">{dateRange}</span>
-                        ) : season.isOngoing ? (
-                          <span className="type-p text-tertiary">Ongoing</span>
-                        ) : null;
-                      })()}
+                      {renderSeasonDateRange(season)}
                     </div>
                     {value?.name === season.name && (
                       <Icons.Check className="h-4 w-4" />
@@ -154,10 +149,16 @@ export function SeasonSelect({
                   </div>
                 </CommandItem>
               ) : !searchTerm ? (
+                onCreateNew ? (
+                  <CommandEmpty>
+                    Start typing to create...
+                  </CommandEmpty>
+                ) : null
+              ) : (
                 <CommandEmpty>
-                  Start typing to create...
+                  No results found
                 </CommandEmpty>
-              ) : null}
+              )}
             </CommandGroup>
           </CommandList>
         </Command>

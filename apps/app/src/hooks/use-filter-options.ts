@@ -67,9 +67,9 @@ export function useFilterOptions() {
         })) ?? [],
       
       operators:
-        formData?.brandCatalog?.operators?.map((b: { id: string; display_name: string }) => ({
+        formData?.brandCatalog?.showcaseBrands?.map((b: { id: string; name: string }) => ({
           value: b.id,
-          label: b.display_name,
+          label: b.name,
         })) ?? [],
 
       // From separate endpoints

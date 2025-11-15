@@ -24,6 +24,8 @@ export interface PassportFormData {
   
   // Product-level identifier (article number) - required
   articleNumber: string;
+  ean?: string;
+  status?: string;
   
   // Variant info
   colorIds?: string[];
@@ -120,6 +122,8 @@ export function usePassportSubmission() {
       }
       
       // Step 2: Create product
+      // Note: articleNumber is used as SKU for variants (see Step 3), not stored as product-level identifier
+      // EAN is currently not persisted - would require product_identifiers API endpoint
       let productId: string;
       try {
         const productResult = await createProductMutation.mutateAsync({
@@ -167,7 +171,7 @@ export function usePassportSubmission() {
             const upid = `UPID-${productId}-${variantCounter.toString().padStart(3, "0")}`;
             variantsPayload.push({
               upid,
-              sku: null,
+              sku: articleNumber || null,
               color_id: colorId ?? null,
               size_id: sizeId ?? null,
             });
@@ -239,10 +243,11 @@ export function usePassportSubmission() {
         const passportResults = await Promise.all(
           variantIds.map(async (variantId) => {
             try {
+              const passportStatus = (formData.status || "unpublished") as "published" | "scheduled" | "unpublished" | "archived";
               const passportResult = await createPassportMutation.mutateAsync({
                 product_id: productId,
                 variant_id: variantId,
-                status: "unpublished",
+                status: passportStatus,
               });
               const createdPassportUpid = passportResult?.data?.upid ?? "";
               if (!createdPassportUpid) {

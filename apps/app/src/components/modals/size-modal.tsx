@@ -559,22 +559,26 @@ export function SizeModal({
       if (operations.length > 0) {
         await toast.loading(
           "Saving sizes...",
-          Promise.all(operations.map((op) => op())),
+          (async () => {
+            await Promise.all(operations.map((op) => op()));
+            
+            // Check for any failed operations after all operations complete
+            const failedOperations = operationResults.filter((r) => !r.success);
+            if (failedOperations.length > 0) {
+              const errorMessages = failedOperations
+                .map((r) => r.error?.message || "Unknown error")
+                .join(", ");
+              throw new Error(
+                `Failed to save ${failedOperations.length} operation(s): ${errorMessages}`,
+              );
+            }
+            
+            return { success: true };
+          })(),
           {
             delay: 200,
             successMessage: "Size system successfully updated",
           },
-        );
-      }
-
-      // Check for any failed operations
-      const failedOperations = operationResults.filter((r) => !r.success);
-      if (failedOperations.length > 0) {
-        const errorMessages = failedOperations
-          .map((r) => r.error?.message || "Unknown error")
-          .join(", ");
-        throw new Error(
-          `Failed to save ${failedOperations.length} operation(s): ${errorMessages}`,
         );
       }
 

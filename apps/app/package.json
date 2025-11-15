@@ -23,8 +23,6 @@
     "@trigger.dev/sdk": "4.0.6",
     "@trpc/client": "^11.4.3",
     "@trpc/tanstack-react-query": "^11.4.3",
-    "@types/google.maps": "^3.58.1",
-    "@types/validator": "^13.15.9",
     "@v1/analytics": "workspace:*",
     "@v1/api": "workspace:*",
     "@v1/kv": "workspace:*",
@@ -47,7 +45,7 @@
     "react-hook-form": "^7.62.0",
     "react-hotkeys-hook": "^5.1.0",
     "superjson": "^2.2.1",
-    "validator": "^13.15.23",
+    "validator": "^13.15.20",
     "zod": "3.25.64"
   },
   "devDependencies": {
@@ -55,6 +53,7 @@
     "@types/node": "^24.0.1",
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
+    "@types/validator": "^13.15.9",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.9.2"
   }

@@ -160,7 +160,7 @@ export function ShowcaseBrandSheet({
     }
 
     try {
-      // Show loading toast and execute mutation
+      // Execute mutation with toast.loading to handle loading/success/error states
       const mutationResult = await toast.loading(
         "Creating brand...",
         createBrandMutation.mutateAsync({

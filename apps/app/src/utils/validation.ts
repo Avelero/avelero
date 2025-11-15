@@ -1,11 +1,13 @@
-import { parsePhoneNumber } from "libphonenumber-js";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import validator from "validator";
 
 export function normalizeUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return "";
   
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+  // Check for http/https schemes case-insensitively
+  const lowerTrimmed = trimmed.toLowerCase();
+  if (lowerTrimmed.startsWith("http://") || lowerTrimmed.startsWith("https://")) {
     return validator.isURL(trimmed) ? trimmed : "";
   }
   
@@ -32,7 +34,7 @@ export function validatePhone(phone: string): {
   if (!trimmed) return { isValid: true };
   
   try {
-    const phoneNumber = parsePhoneNumber(trimmed);
+    const phoneNumber = parsePhoneNumberFromString(trimmed);
     if (phoneNumber?.isValid()) {
       return { isValid: true, formatted: phoneNumber.formatInternational() };
     }

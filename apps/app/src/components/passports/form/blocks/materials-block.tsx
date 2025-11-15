@@ -192,6 +192,11 @@ const PercentageCell = ({
   };
 
   const handlePercentageChange = (value: string) => {
+    // Coerce a single "." back to an empty string
+    if (value === '.') {
+      onPercentageChange('');
+      return;
+    }
     // Allow empty, numbers, and decimal point
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
       onPercentageChange(value);
@@ -272,6 +277,7 @@ export function MaterialsSection({
   >(null);
   
   // Sync parent materials with display materials
+  // Preserve pending materials (temp IDs) and materials being created
   React.useEffect(() => {
     const enriched: Material[] = parentMaterials
       .map(pm => {
@@ -290,8 +296,15 @@ export function MaterialsSection({
         };
       })
       .filter((m): m is Material => m !== null);
-      
-    setDisplayMaterials(enriched);
+    
+    // Preserve pending materials (temp IDs) that aren't in parentMaterials yet
+    // Use functional update to read current displayMaterials
+    setDisplayMaterials(prev => {
+      const pendingMaterials = prev.filter(
+        m => m.id.startsWith('temp-') && !parentMaterials.some(pm => pm.materialId === m.id)
+      );
+      return [...enriched, ...pendingMaterials];
+    });
   }, [parentMaterials, materialOptions]);
 
   // Helper to sync display materials back to parent
@@ -300,9 +313,18 @@ export function MaterialsSection({
       .filter(m => m.id && m.name) // Only include materials with ID and name
       .map(m => {
         const percentageValue = m.percentage.trim();
+        if (!percentageValue || percentageValue === '.') {
+          return {
+            materialId: m.id,
+            percentage: 0,
+          };
+        }
+        const parsed = Number.parseFloat(percentageValue);
+        // Treat NaN or non-finite values as 0
+        const safePercentage = Number.isFinite(parsed) ? parsed : 0;
         return {
           materialId: m.id,
-          percentage: percentageValue ? Number.parseFloat(percentageValue) : 0,
+          percentage: safePercentage,
         };
       });
     setParentMaterials(parentMats);

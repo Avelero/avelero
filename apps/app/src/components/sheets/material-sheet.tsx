@@ -241,7 +241,8 @@ export function MaterialSheet({
   };
 
   const handleCertificationCreate = async () => {
-    if (!certTitle.trim() || !certNumber.trim() || !certExpiry) {
+    // Validate required fields and file upload
+    if (!certTitle.trim() || !certNumber.trim() || !certExpiry || !certLogo || isUploading) {
       return;
     }
 
@@ -249,22 +250,28 @@ export function MaterialSheet({
     await toast.loading(
       "Creating certification...",
       (async () => {
-        // Format expiry date to ISO datetime (YYYY-MM-DDTHH:mm:ss.sssZ)
-        // Set to midnight in local timezone, then convert to ISO string
+        // Serialize expiry as date-only string (YYYY-MM-DD) using UTC
+        // to avoid timezone-shifting issues
+        // Use local date components to preserve the selected day, then construct UTC date
         const expiryDateISO = new Date(
-          certExpiry.getFullYear(),
-          certExpiry.getMonth(),
-          certExpiry.getDate(),
-          0, 0, 0, 0
+          Date.UTC(
+            certExpiry.getFullYear(),
+            certExpiry.getMonth(),
+            certExpiry.getDate(),
+            0, 0, 0, 0
+          )
         ).toISOString();
 
         // Create certification via API
+        // certification_code comes from certCode (short code)
+        // Store certNumber in notes field since API doesn't have a separate certification_number field
         const result = await createCertificationMutation.mutateAsync({
           title: certTitle.trim(),
-          certification_code: certNumber.trim(), // "Certification number" from UI maps to certification_code in API
+          certification_code: certCode.trim() || certTitle.trim().substring(0, 4).toUpperCase(),
           institute_name: certInstitute.trim() || undefined,
           expiry_date: expiryDateISO,
           file_asset_id: certLogo || undefined,
+          notes: certNumber.trim() || undefined,
         });
 
         // Validate response
@@ -291,10 +298,11 @@ export function MaterialSheet({
                   {
                     id: certificationId,
                     title: certTitle.trim(),
-                    certification_code: certNumber.trim(),
+                    certification_code: certCode.trim() || certTitle.trim().substring(0, 4).toUpperCase(),
                     institute_name: certInstitute.trim() || null,
                     expiry_date: expiryDateISO,
                     file_asset_id: certLogo || null,
+                    notes: certNumber.trim() || null,
                     created_at: now,
                     updated_at: now,
                   },
@@ -935,7 +943,7 @@ export function MaterialSheet({
                 size="default"
                 onClick={handleCertificationCreate}
                 disabled={
-                  !certTitle.trim() || !certNumber.trim() || !certExpiry || isCreating
+                  !certTitle.trim() || !certNumber.trim() || !certExpiry || !certLogo || isCreating
                 }
                 className="w-[70px]"
               >

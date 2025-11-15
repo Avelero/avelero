@@ -4,7 +4,7 @@ import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { Textarea } from "@v1/ui/textarea";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface BasicInfoSectionProps {
   title: string;
@@ -27,6 +27,19 @@ export function BasicInfoSection({
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Sync imagePreview from imageFile prop
+  useEffect(() => {
+    if (imageFile) {
+      const objectUrl = URL.createObjectURL(imageFile);
+      setImagePreview(objectUrl);
+      // Cleanup: revoke the URL when component unmounts or imageFile changes
+      return () => {
+        URL.revokeObjectURL(objectUrl);
+      };
+    }
+    setImagePreview(null);
+  }, [imageFile]);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -43,14 +56,7 @@ export function BasicInfoSection({
 
     const file = e.dataTransfer.files[0];
     if (file?.type.startsWith("image/")) {
-      // Store the file for upload on form submit
       setImageFile(file);
-      // Create a preview URL for display
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setImagePreview(evt.target?.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   }, [setImageFile]);
 
@@ -58,14 +64,7 @@ export function BasicInfoSection({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file?.type.startsWith("image/")) {
-        // Store the file for upload on form submit
         setImageFile(file);
-        // Create a preview URL for display
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          setImagePreview(evt.target?.result as string);
-        };
-        reader.readAsDataURL(file);
       }
       // Clear input value so same file can be selected again
       e.target.value = "";

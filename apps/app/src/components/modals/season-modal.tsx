@@ -114,15 +114,15 @@ export function SeasonModal({
   // Handle ongoing toggle - only preserve and clear when turning ON
   const handleOngoingChange = (checked: boolean) => {
     if (checked) {
-      // Turning ongoing ON - preserve current dates before clearing
-      if (startDate) setPreservedStartDate(startDate);
-      if (endDate) setPreservedEndDate(endDate);
+      // Turning ongoing ON - preserve current dates (including null) before clearing
+      setPreservedStartDate(startDate);
+      setPreservedEndDate(endDate);
       setStartDate(null);
       setEndDate(null);
     } else {
       // Turning ongoing OFF - restore preserved dates if available
-      if (preservedStartDate) setStartDate(preservedStartDate);
-      if (preservedEndDate) setEndDate(preservedEndDate);
+      if (preservedStartDate !== null) setStartDate(preservedStartDate);
+      if (preservedEndDate !== null) setEndDate(preservedEndDate);
       // Clear preserved dates after restoration
       setPreservedStartDate(null);
       setPreservedEndDate(null);
@@ -198,7 +198,7 @@ export function SeasonModal({
                     name: createdSeason.name,
                     startDate: createdSeason.startDate,
                     endDate: createdSeason.endDate,
-                    ongoing: createdSeason.ongoing,
+                    isOngoing: createdSeason.ongoing,
                     createdAt: createdSeason.createdAt,
                     updatedAt: createdSeason.updatedAt,
                   },

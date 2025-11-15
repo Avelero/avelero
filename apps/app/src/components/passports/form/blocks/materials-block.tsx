@@ -35,18 +35,29 @@ const MaterialDropdown = ({
   onMaterialChange,
   onCreateMaterial,
   availableMaterials,
+  excludeMaterialIds,
 }: {
   material: string;
   onMaterialChange: (material: string) => void;
   onCreateMaterial: (searchTerm: string) => void;
   availableMaterials: Array<{ id: string; name: string }>;
+  excludeMaterialIds?: string[];
 }) => {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
 
+  // Filter out materials that are already added
+  const filteredMaterials = React.useMemo(() => {
+    if (!excludeMaterialIds || excludeMaterialIds.length === 0) {
+      return availableMaterials;
+    }
+    const excludeSet = new Set(excludeMaterialIds);
+    return availableMaterials.filter(m => !excludeSet.has(m.id));
+  }, [availableMaterials, excludeMaterialIds]);
+
   const materialNames = React.useMemo(
-    () => availableMaterials.map(m => m.name),
-    [availableMaterials]
+    () => filteredMaterials.map(m => m.name),
+    [filteredMaterials]
   );
 
   const handleSelect = (selectedMaterial: string) => {
@@ -299,31 +310,28 @@ export function MaterialsSection({
 
   const handleMaterialCreated = (material: any) => {
     if (creatingForMaterialId) {
-      // Build parent materials array with real ID replacing temp ID
-      const updatedParentMaterials = displayMaterials
-        .map((m) => {
-          if (m.id === creatingForMaterialId) {
-            // Replace temp ID with real material ID
-            const percentageValue = m.percentage.trim();
-            return {
-              materialId: material.id,
-              percentage: percentageValue ? Number.parseFloat(percentageValue) : 0,
-            };
-          }
-          // Keep existing materials (only if they have real IDs)
-          if (m.id && m.name && !m.id.startsWith('temp-')) {
-            const percentageValue = m.percentage.trim();
-            return {
-              materialId: m.id,
-              percentage: percentageValue ? Number.parseFloat(percentageValue) : 0,
-            };
-          }
-          return null;
-        })
-        .filter((m): m is { materialId: string; percentage: number } => m !== null);
+      // Directly update displayMaterials with the real material data
+      // This avoids complex state sync and timing dependencies
+      const updatedDisplay = displayMaterials.map((m) => {
+        if (m.id === creatingForMaterialId) {
+          // Replace temp material with real material data
+          return {
+            id: material.id,
+            name: material.name,
+            countries: material.countryOfOrigin ? [material.countryOfOrigin] : [],
+            percentage: m.percentage, // Preserve existing percentage
+          };
+        }
+        return m;
+      });
       
-      // Update parent state (useEffect will rebuild displayMaterials)
-      setParentMaterials(updatedParentMaterials);
+      // Update display state immediately
+      setDisplayMaterials(updatedDisplay);
+      
+      // Sync to parent state
+      syncToParent(updatedDisplay);
+      
+      // Clear creating state
       setCreatingForMaterialId(null);
     }
   };
@@ -411,6 +419,9 @@ export function MaterialsSection({
                 <MaterialDropdown
                   material={material.name}
                   availableMaterials={materialOptions}
+                  excludeMaterialIds={displayMaterials
+                    .filter(m => m.id && !m.id.startsWith('temp-'))
+                    .map(m => m.id)}
                   onMaterialChange={(value) => {
                     // Find the selected material to get its real ID
                     const selectedMaterial = materialOptions.find(m => m.name === value);

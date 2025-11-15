@@ -1,6 +1,12 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
+import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import {
+  formatPhone,
+  isValidEmail,
+  validatePhone,
+} from "@/utils/validation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
@@ -44,6 +50,7 @@ export function OperatorSheet({
 }: OperatorSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { operators: existingOperators } = usePassportFormData();
   
   const [name, setName] = React.useState(initialName);
   const [legalName, setLegalName] = React.useState("");
@@ -55,6 +62,11 @@ export function OperatorSheet({
   const [state, setState] = React.useState("");
   const [zip, setZip] = React.useState("");
   const [countryCode, setCountryCode] = React.useState("");
+
+  // Validation error states
+  const [nameError, setNameError] = React.useState("");
+  const [emailError, setEmailError] = React.useState("");
+  const [phoneError, setPhoneError] = React.useState("");
   
   // Operators are facilities (production plants)
   const createOperatorMutation = useMutation(
@@ -66,94 +78,191 @@ export function OperatorSheet({
 
   // Update name when initialName changes (when sheet opens with pre-filled name)
   React.useEffect(() => {
-    if (open && initialName) {
+    if (open) {
       setName(initialName);
     }
   }, [open, initialName]);
 
-  // Reset form when sheet closes
+  // Reset form when sheet closes (delayed to avoid flash during animation)
   React.useEffect(() => {
     if (!open) {
-      setName("");
-      setLegalName("");
-      setEmail("");
-      setPhone("");
-      setAddressLine1("");
-      setAddressLine2("");
-      setCity("");
-      setState("");
-      setZip("");
-      setCountryCode("");
+      const timer = setTimeout(() => {
+        setName("");
+        setLegalName("");
+        setEmail("");
+        setPhone("");
+        setAddressLine1("");
+        setAddressLine2("");
+        setCity("");
+        setState("");
+        setZip("");
+        setCountryCode("");
+        setNameError("");
+        setEmailError("");
+        setPhoneError("");
+      }, 350); // Wait for sheet close animation
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
+  // Validation functions
+  const validateName = (value: string): boolean => {
+    const trimmedName = value.trim();
+    
+    if (!trimmedName) {
+      setNameError("Operator name is required");
+      return false;
+    }
+
+    const isDuplicate = existingOperators.some(
+      (operator) => operator.display_name.toLowerCase() === trimmedName.toLowerCase(),
+    );
+
+    if (isDuplicate) {
+      setNameError("An operator with this name already exists");
+      return false;
+    }
+
+    setNameError("");
+    return true;
+  };
+
   const handleCreate = async () => {
-    if (!name.trim()) {
+    // Validate all fields before submission
+    const isNameValid = validateName(name);
+    
+    const isEmailValid = email.trim() ? isValidEmail(email) : true;
+    if (!isEmailValid) setEmailError("Please enter a valid email address");
+    
+    const phoneResult = validatePhone(phone);
+    const isPhoneValid = phoneResult.isValid;
+    if (!isPhoneValid && phone.trim()) setPhoneError(phoneResult.error || "Invalid phone number");
+
+    if (!isNameValid || !isEmailValid || !isPhoneValid) {
+      // Focus the first invalid field
+      if (!isNameValid) {
+        document.getElementById("operator-name")?.focus();
+      } else if (!isEmailValid) {
+        document.getElementById("operator-email")?.focus();
+      } else if (!isPhoneValid) {
+        document.getElementById("operator-phone")?.focus();
+      }
       return;
     }
 
     try {
-      // Combine address lines into single address field
-      const fullAddress = [addressLine1.trim(), addressLine2.trim()]
-        .filter(Boolean)
-        .join(", ");
+      // Show loading toast and execute mutation
+      const mutationResult = await toast.loading(
+        "Creating operator...",
+        (async () => {
+          // Combine address lines into single address field
+          const fullAddress = [addressLine1.trim(), addressLine2.trim()]
+            .filter(Boolean)
+            .join(", ");
 
-      // Combine contact info (email + phone)
-      const contactInfo = [email.trim(), phone.trim()]
-        .filter(Boolean)
-        .join(" | ");
+          // Combine contact info (email + phone)
+          const contactInfo = [email.trim(), phone.trim()]
+            .filter(Boolean)
+            .join(" | ");
 
-      // Create operator via API (using facilities endpoint)
-      const result = await createOperatorMutation.mutateAsync({
-        display_name: name.trim(),
-        legal_name: legalName.trim() || undefined,
-        address: fullAddress || undefined,
-        city: city.trim() || undefined,
-        country_code: countryCode || undefined,
-        contact: contactInfo || undefined,
-      });
+          // Create operator via API (using facilities endpoint)
+          const result = await createOperatorMutation.mutateAsync({
+            display_name: name.trim(),
+            legal_name: legalName.trim() || undefined,
+            address: fullAddress || undefined,
+            city: city.trim() || undefined,
+            country_code: countryCode || undefined,
+            contact: contactInfo || undefined,
+          });
 
-      // Validate response
-      const createdOperator = result?.data;
-      if (!createdOperator?.id) {
-        throw new Error("No valid response returned from API");
-      }
-      
-      const operatorId = createdOperator.id;
+          // Validate response
+          const createdOperator = result?.data;
+          if (!createdOperator?.id) {
+            throw new Error("No valid response returned from API");
+          }
+          
+          const operatorId = createdOperator.id;
+          const now = new Date().toISOString();
 
-      // Refetch passportFormReferences query to ensure fresh data
-      await queryClient.refetchQueries({
-        queryKey: trpc.composite.passportFormReferences.queryKey(),
-      });
+          // Optimistically update the cache immediately
+          queryClient.setQueryData(
+            trpc.composite.passportFormReferences.queryKey(),
+            (old: any) => {
+              if (!old) return old;
+              return {
+                ...old,
+                brandCatalog: {
+                  ...old.brandCatalog,
+                  operators: [
+                    ...old.brandCatalog.operators,
+                    {
+                      id: operatorId,
+                      display_name: name.trim(),
+                      legal_name: legalName.trim() || null,
+                      address: fullAddress || null,
+                      city: city.trim() || null,
+                      country_code: countryCode || null,
+                      contact: contactInfo || null,
+                      vat_number: null,
+                      created_at: now,
+                      updated_at: now,
+                    },
+                  ],
+                },
+              };
+            },
+          );
 
-      // Wait for refetch to propagate
-      await new Promise(resolve => setTimeout(resolve, 100));
+          // Invalidate to trigger background refetch
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.passportFormReferences.queryKey(),
+          });
 
-      // Build operator data with real ID for parent callback
-      const newOperator: OperatorData = {
-        id: operatorId,
-        name: name.trim(),
-        legalName: legalName.trim() || undefined,
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-        addressLine1: addressLine1.trim() || undefined,
-        addressLine2: addressLine2.trim() || undefined,
-        city: city.trim() || undefined,
-        state: state.trim() || undefined,
-        zip: zip.trim() || undefined,
-        countryCode: countryCode || undefined,
-      };
+          // Build operator data with real ID for parent callback
+          const newOperator: OperatorData = {
+            id: operatorId,
+            name: name.trim(),
+            legalName: legalName.trim() || undefined,
+            email: email.trim() || undefined,
+            phone: phone.trim() || undefined,
+            addressLine1: addressLine1.trim() || undefined,
+            addressLine2: addressLine2.trim() || undefined,
+            city: city.trim() || undefined,
+            state: state.trim() || undefined,
+            zip: zip.trim() || undefined,
+            countryCode: countryCode || undefined,
+          };
 
-      onOperatorCreated(newOperator);
-      toast.success("Operator created successfully");
-      onOpenChange(false);
+          // Close sheet first
+          onOpenChange(false);
+
+          // Call parent callback with real data
+          onOperatorCreated(newOperator);
+
+          return result;
+        })(),
+        {
+          delay: 200,
+          successMessage: "Operator created successfully",
+        },
+      );
     } catch (error) {
       console.error("Failed to create operator:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to create operator. Please try again.",
-      );
+      
+      // Parse error for specific messages
+      let errorMessage = "Failed to create operator. Please try again.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes("unique constraint") || 
+            error.message.includes("duplicate")) {
+          errorMessage = "An operator with this name already exists.";
+        } else if (error.message.includes("network") || 
+                   error.message.includes("fetch")) {
+          errorMessage = "Network error. Please check your connection.";
+        }
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
@@ -161,7 +270,7 @@ export function OperatorSheet({
     onOpenChange(false);
   };
 
-  const isNameValid = name.trim().length > 0;
+  const isNameValid = name.trim().length > 0 && !nameError;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -189,10 +298,19 @@ export function OperatorSheet({
                 <Input
                   id="operator-name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (nameError) validateName(e.target.value);
+                  }}
+                  onBlur={() => validateName(name)}
                   placeholder="Factory Name"
                   className="h-9"
+                  aria-required="true"
+                  required
                 />
+                {nameError && (
+                  <p className="text-xs text-destructive">{nameError}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="operator-legal-name">Legal name</Label>
@@ -213,10 +331,25 @@ export function OperatorSheet({
                 id="operator-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError && e.target.value.trim()) {
+                    setEmailError(isValidEmail(e.target.value) ? "" : "Please enter a valid email address");
+                  }
+                }}
+                onBlur={() => {
+                  if (email.trim()) {
+                    setEmailError(isValidEmail(email) ? "" : "Please enter a valid email address");
+                  } else {
+                    setEmailError("");
+                  }
+                }}
                 placeholder="contact@example.com"
                 className="h-9"
               />
+              {emailError && (
+                <p className="text-xs text-destructive">{emailError}</p>
+              )}
             </div>
 
             {/* Operator phone */}
@@ -226,10 +359,32 @@ export function OperatorSheet({
                 id="operator-phone"
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (phoneError && e.target.value.trim()) {
+                    const result = validatePhone(e.target.value);
+                    setPhoneError(result.isValid ? "" : result.error || "Invalid phone number");
+                  }
+                }}
+                onBlur={() => {
+                  if (phone.trim()) {
+                    const result = validatePhone(phone);
+                    if (result.isValid) {
+                      setPhone(formatPhone(phone));
+                      setPhoneError("");
+                    } else {
+                      setPhoneError(result.error || "Invalid phone number");
+                    }
+                  } else {
+                    setPhoneError("");
+                  }
+                }}
                 placeholder="(020) 123 45 67"
                 className="h-9"
               />
+              {phoneError && (
+                <p className="text-xs text-destructive">{phoneError}</p>
+              )}
             </div>
 
             {/* Separator line */}

@@ -286,8 +286,17 @@ const OperatorCell = ({
 
   const handleOperatorCreated = (operator: OperatorData) => {
     // Add the newly created operator to the list and set the facility ID atomically
+    // The operator should already be in availableOperators due to optimistic cache update
     onOperatorAndFacilityChange(operator.name, operator.id);
     setNewOperatorName("");
+  };
+
+  const handleOperatorSheetClose = (open: boolean) => {
+    setOperatorSheetOpen(open);
+    // If sheet closes without creating operator, reset the name state
+    if (!open) {
+      setNewOperatorName("");
+    }
   };
 
   const handleRemoveOperator = (operatorToRemove: string) => {
@@ -416,7 +425,7 @@ const OperatorCell = ({
 
       <OperatorSheet
         open={operatorSheetOpen}
-        onOpenChange={setOperatorSheetOpen}
+        onOpenChange={handleOperatorSheetClose}
         initialName={newOperatorName}
         onOperatorCreated={handleOperatorCreated}
       />

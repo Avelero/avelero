@@ -3,6 +3,7 @@
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUpload } from "@/hooks/use-upload";
+import { usePassportFormData } from "@/hooks/use-passport-form-data";
 import type { Certification } from "@v1/selections/certifications";
 import { allCertifications } from "@v1/selections/certifications";
 import { BooleanToggle } from "@v1/ui/boolean";
@@ -111,6 +112,7 @@ export function MaterialSheet({
 }: MaterialSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { certifications: apiCertifications } = usePassportFormData();
   const [currentPage, setCurrentPage] = React.useState<Page>("material");
 
   // Material form state
@@ -123,9 +125,27 @@ export function MaterialSheet({
   const [selectedCertificationId, setSelectedCertificationId] = React.useState<
     string | null
   >(null);
-  const [certificationData, setCertificationData] =
-    React.useState<CertificationData | null>(null);
   const [certSearchTerm, setCertSearchTerm] = React.useState("");
+
+  // Transform API certifications to CertificationData format
+  const availableCertifications = React.useMemo<CertificationData[]>(() => {
+    return apiCertifications.map(cert => {
+      // Find matching predefined certification for code
+      const predefinedCert = allCertifications.find(
+        c => c.title.toLowerCase() === cert.title.toLowerCase()
+      );
+      
+      return {
+        id: cert.id,
+        title: cert.title,
+        code: predefinedCert?.code || cert.certification_code || cert.title.substring(0, 4).toUpperCase(),
+        certificationNumber: cert.certification_code || "",
+        instituteName: cert.institute_name || "",
+        expiryDate: cert.expiry_date ? new Date(cert.expiry_date) : undefined,
+        logo: cert.file_asset_id || undefined,
+      };
+    });
+  }, [apiCertifications]);
 
   // Certification form state
   const [certTitle, setCertTitle] = React.useState("");
@@ -153,10 +173,11 @@ export function MaterialSheet({
     trpc.brand.certifications.create.mutationOptions(),
   );
 
-  // Compute loading state from mutations
+  // Compute loading state from mutations and uploads
   const isCreating = 
     createMaterialMutation.isPending || 
-    createCertificationMutation.isPending;
+    createCertificationMutation.isPending ||
+    isUploading;
 
   // Update name when initialName changes (when sheet opens with pre-filled name)
   React.useEffect(() => {
@@ -165,24 +186,26 @@ export function MaterialSheet({
     }
   }, [open, initialName]);
 
-  // Reset form when sheet closes
+  // Reset form when sheet closes (delayed to avoid flash during animation)
   React.useEffect(() => {
     if (!open) {
-      setCurrentPage("material");
-      setName("");
-      setCountryOfOrigin("");
-      setRecyclable(undefined);
+      const timer = setTimeout(() => {
+        setCurrentPage("material");
+        setName("");
+        setCountryOfOrigin("");
+        setRecyclable(undefined);
       setCertified(false);
       setSelectedCertificationId(null);
-      setCertificationData(null);
       setCertSearchTerm("");
-      setCertTitle("");
-      setCertCode("");
-      setCertNumber("");
-      setCertInstitute("");
-      setCertExpiry(undefined);
-      setCertLogo(undefined);
-      setUploadedFileName(undefined);
+        setCertTitle("");
+        setCertCode("");
+        setCertNumber("");
+        setCertInstitute("");
+        setCertExpiry(undefined);
+        setCertLogo(undefined);
+        setUploadedFileName(undefined);
+      }, 350); // Wait for sheet close animation
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
@@ -222,60 +245,97 @@ export function MaterialSheet({
       return;
     }
 
-    try {
-      // Format expiry date to ISO datetime (YYYY-MM-DDTHH:mm:ss.sssZ)
-      // Set to midnight in local timezone, then convert to ISO string
-      const expiryDateISO = new Date(
-        certExpiry.getFullYear(),
-        certExpiry.getMonth(),
-        certExpiry.getDate(),
-        0, 0, 0, 0
-      ).toISOString();
+    // Show loading toast and execute mutation
+    await toast.loading(
+      "Creating certification...",
+      (async () => {
+        // Format expiry date to ISO datetime (YYYY-MM-DDTHH:mm:ss.sssZ)
+        // Set to midnight in local timezone, then convert to ISO string
+        const expiryDateISO = new Date(
+          certExpiry.getFullYear(),
+          certExpiry.getMonth(),
+          certExpiry.getDate(),
+          0, 0, 0, 0
+        ).toISOString();
 
-      // Create certification via API
-      const result = await createCertificationMutation.mutateAsync({
-        title: certTitle.trim(),
-        certification_code: certNumber.trim(), // "Certification number" from UI maps to certification_code in API
-        institute_name: certInstitute.trim() || undefined,
-        expiry_date: expiryDateISO,
-        file_asset_id: certLogo || undefined,
-      });
+        // Create certification via API
+        const result = await createCertificationMutation.mutateAsync({
+          title: certTitle.trim(),
+          certification_code: certNumber.trim(), // "Certification number" from UI maps to certification_code in API
+          institute_name: certInstitute.trim() || undefined,
+          expiry_date: expiryDateISO,
+          file_asset_id: certLogo || undefined,
+        });
 
-      // Validate response
-      const createdCertification = result?.data;
-      if (!createdCertification?.id) {
-        throw new Error("No valid response returned from API");
-      }
-      
-      const certificationId = createdCertification.id;
+        // Validate response
+        const createdCertification = result?.data;
+        if (!createdCertification?.id) {
+          throw new Error("No valid response returned from API");
+        }
+        
+        const certificationId = createdCertification.id;
 
-      // Create local certification data with real ID
-      const newCert: CertificationData = {
-        id: certificationId,
-        title: certTitle.trim(),
-        code: certCode.trim(),
-        certificationNumber: certNumber.trim(),
-        instituteName: certInstitute.trim(),
-        expiryDate: certExpiry,
-        logo: certLogo,
-      };
+        // Optimistically update the cache immediately
+        // Use input data + response ID + current timestamp
+        const now = new Date().toISOString();
+        queryClient.setQueryData(
+          trpc.composite.passportFormReferences.queryKey(),
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              brandCatalog: {
+                ...old.brandCatalog,
+                certifications: [
+                  ...old.brandCatalog.certifications,
+                  {
+                    id: certificationId,
+                    title: certTitle.trim(),
+                    certification_code: certNumber.trim(),
+                    institute_name: certInstitute.trim() || null,
+                    expiry_date: expiryDateISO,
+                    file_asset_id: certLogo || null,
+                    created_at: now,
+                    updated_at: now,
+                  },
+                ],
+              },
+            };
+          },
+        );
 
-      // Set as selected certification
-      setCertificationData(newCert);
-      setSelectedCertificationId(certificationId);
+        // Invalidate to trigger background refetch
+        queryClient.invalidateQueries({
+          queryKey: trpc.composite.passportFormReferences.queryKey(),
+        });
 
-      toast.success("Certification created successfully");
+        // Create local certification data with real ID
+        const newCert: CertificationData = {
+          id: certificationId,
+          title: certTitle.trim(),
+          code: certCode.trim(),
+          certificationNumber: certNumber.trim(),
+          instituteName: certInstitute.trim(),
+          expiryDate: certExpiry,
+          logo: certLogo,
+        };
 
-      // Navigate back to material page
-      handleBackToMaterial();
-    } catch (error) {
+        // Set as selected certification (will be available in availableCertifications after refetch)
+        setSelectedCertificationId(certificationId);
+
+        // Navigate back to material page
+        handleBackToMaterial();
+
+        return result;
+      })(),
+      {
+        delay: 200,
+        successMessage: "Certification created successfully",
+      },
+    ).catch((error) => {
+      // toast.loading already handles error toast, but we can log for debugging
       console.error("Failed to create certification:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to create certification. Please try again.",
-      );
-    }
+    });
   };
 
   const handleMaterialCreate = async () => {
@@ -284,57 +344,95 @@ export function MaterialSheet({
     }
 
     // Validate certification requirement
-    if (certified && !certificationData) {
-      toast.error("Please create a certification before saving");
+    if (certified && !selectedCertificationId) {
+      toast.error("Please select a certification before saving");
       return;
     }
 
-    try {
-      // Create material via API
-      const result = await createMaterialMutation.mutateAsync({
-        name: name.trim(),
-        country_of_origin: countryOfOrigin || undefined,
-        recyclable,
-        certification_id: selectedCertificationId || undefined,
-      });
+    // Show loading toast and execute mutation
+    await toast.loading(
+      "Creating material...",
+      (async () => {
+        // Create material via API
+        const result = await createMaterialMutation.mutateAsync({
+          name: name.trim(),
+          country_of_origin: countryOfOrigin || undefined,
+          recyclable,
+          certification_id: selectedCertificationId || undefined,
+        });
 
-      // Validate response
-      const createdMaterial = result?.data;
-      if (!createdMaterial?.id) {
-        throw new Error("No valid response returned from API");
-      }
-      
-      const materialId = createdMaterial.id;
+        // Validate response
+        const createdMaterial = result?.data;
+        if (!createdMaterial?.id) {
+          throw new Error("No valid response returned from API");
+        }
+        
+        const materialId = createdMaterial.id;
 
-      // Refetch passportFormReferences query to ensure fresh data
-      await queryClient.refetchQueries({
-        queryKey: trpc.composite.passportFormReferences.queryKey(),
-      });
+        // Optimistically update the cache immediately
+        // Use input data + response ID + current timestamp
+        const now = new Date().toISOString();
+        queryClient.setQueryData(
+          trpc.composite.passportFormReferences.queryKey(),
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              brandCatalog: {
+                ...old.brandCatalog,
+                materials: [
+                  ...old.brandCatalog.materials,
+                  {
+                    id: materialId,
+                    name: name.trim(),
+                    country_of_origin: countryOfOrigin || null,
+                    recyclable: recyclable ?? null,
+                    certification_id: selectedCertificationId || null,
+                    created_at: now,
+                    updated_at: now,
+                  },
+                ],
+              },
+            };
+          },
+        );
 
-      // Wait a tick for the refetch to propagate to all consumers
-      await new Promise(resolve => setTimeout(resolve, 100));
+        // Invalidate to trigger background refetch
+        queryClient.invalidateQueries({
+          queryKey: trpc.composite.passportFormReferences.queryKey(),
+        });
 
-      // Build material data with real ID for parent callback
-      const newMaterial: MaterialData = {
-        id: materialId,
-        name: name.trim(),
-        countryOfOrigin: countryOfOrigin || undefined,
-        recyclable,
-        certificationId: selectedCertificationId || undefined,
-        certification: certificationData || undefined,
-      };
+        // Find selected certification data if one is selected
+        const selectedCert = availableCertifications.find(
+          c => c.id === selectedCertificationId
+        );
 
-      onMaterialCreated(newMaterial);
-      toast.success("Material created successfully");
-      onOpenChange(false);
-    } catch (error) {
+        // Build material data with real ID for parent callback
+        const newMaterial: MaterialData = {
+          id: materialId,
+          name: name.trim(),
+          countryOfOrigin: countryOfOrigin || undefined,
+          recyclable,
+          certificationId: selectedCertificationId || undefined,
+          certification: selectedCert || undefined,
+        };
+
+        // Close sheet first
+        onOpenChange(false);
+
+        // Call parent callback with real data
+        onMaterialCreated(newMaterial);
+
+        return result;
+      })(),
+      {
+        delay: 200,
+        successMessage: "Material created successfully",
+      },
+    ).catch((error) => {
+      // toast.loading already handles error toast, but we can log for debugging
       console.error("Failed to create material:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to create material. Please try again.",
-      );
-    }
+    });
   };
 
   const handleCancel = () => {
@@ -430,7 +528,7 @@ export function MaterialSheet({
   const isNameValid = name.trim().length > 0;
   const isMaterialValid =
     isNameValid && 
-    (!certified || certificationData) && 
+    (!certified || selectedCertificationId) && 
     !isUploading;
 
   // Get certification options for the select on certification page
@@ -531,90 +629,126 @@ export function MaterialSheet({
                 {/* Certification List */}
                 {certified && (
                   <div className="space-y-3">
-                    {certificationData ? (
-                      <>
-                        {/* Search bar - shown when certifications exist */}
-                        <div className="relative">
-                          <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-tertiary" />
-                          <Input
-                            placeholder="Search certifications..."
-                            value={certSearchTerm}
-                            onChange={(e) => setCertSearchTerm(e.target.value)}
-                            className="pl-9 h-9"
-                          />
-                        </div>
+                    {/* Search bar */}
+                    <div className="relative">
+                      <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-tertiary" />
+                      <Input
+                        placeholder="Search certifications..."
+                        value={certSearchTerm}
+                        onChange={(e) => setCertSearchTerm(e.target.value)}
+                        className="pl-9 h-9"
+                      />
+                    </div>
 
-                        {/* Certification List */}
-                        <div className="border border-border bg-background overflow-hidden max-h-[280px] overflow-y-auto">
-                          {/* Show existing certification if it matches search */}
-                          {!certSearchTerm ||
-                          certificationData.title
-                            .toLowerCase()
-                            .includes(certSearchTerm.toLowerCase()) ||
-                          certificationData.certificationNumber
-                            .toLowerCase()
-                            .includes(certSearchTerm.toLowerCase()) ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSelectedCertificationId(certificationData.id)
-                              }
-                              className={cn(
-                                "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border last:border-b-0",
-                                selectedCertificationId ===
-                                  certificationData.id && "bg-accent-blue",
-                              )}
-                            >
-                              <div className="w-8 h-8 flex items-center justify-center shrink-0">
-                                {selectedCertificationId ===
-                                certificationData.id ? (
-                                  <Icons.Check className="h-5 w-5 text-brand" />
-                                ) : (
-                                  <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-medium text-secondary">
-                                    {certificationData.code.substring(0, 2)}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex flex-col gap-1 text-left mr-auto">
-                                <p className="type-p !leading-[14px] text-primary font-medium">
-                                  {certificationData.title}
-                                </p>
-                                <p className="type-small !leading-[14px] text-tertiary">
-                                  {certificationData.certificationNumber}
-                                </p>
-                              </div>
-                              {certificationData.expiryDate && (
-                                <div className="text-right">
-                                  <p className="type-small !leading-[14px] text-tertiary">
-                                    Expires on{" "}
-                                    {certificationData.expiryDate.toLocaleDateString(
-                                      "en-US",
-                                      {
-                                        month: "long",
-                                        day: "numeric",
-                                        year: "numeric",
-                                      },
+                    {/* Certification List */}
+                    <div className="border border-border bg-background overflow-hidden max-h-[280px] overflow-y-auto">
+                      {(() => {
+                        // Filter certifications by search term
+                        const filteredCerts = certSearchTerm
+                          ? availableCertifications.filter(
+                              cert =>
+                                cert.title
+                                  .toLowerCase()
+                                  .includes(certSearchTerm.toLowerCase()) ||
+                                cert.certificationNumber
+                                  .toLowerCase()
+                                  .includes(certSearchTerm.toLowerCase())
+                            )
+                          : availableCertifications;
+
+                        // Check if search term doesn't match any existing certification
+                        const showCreateOption =
+                          certSearchTerm &&
+                          !availableCertifications.some(
+                            cert =>
+                              cert.title
+                                .toLowerCase() ===
+                                certSearchTerm.toLowerCase() ||
+                              cert.certificationNumber
+                                .toLowerCase() ===
+                                certSearchTerm.toLowerCase()
+                          );
+
+                        return (
+                          <>
+                            {filteredCerts.length > 0 ? (
+                              filteredCerts.map((cert) => (
+                                <button
+                                  key={cert.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedCertificationId(cert.id)
+                                  }
+                                  className={cn(
+                                    "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border last:border-b-0",
+                                    selectedCertificationId === cert.id &&
+                                      "bg-accent-blue",
+                                  )}
+                                >
+                                  <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                                    {selectedCertificationId === cert.id ? (
+                                      <Icons.Check className="h-5 w-5 text-brand" />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-medium text-secondary">
+                                        {cert.code.substring(0, 2)}
+                                      </div>
                                     )}
-                                  </p>
-                                </div>
-                              )}
-                            </button>
-                          ) : null}
+                                  </div>
+                                  <div className="flex flex-col gap-1 text-left mr-auto">
+                                    <p className="type-p !leading-[14px] text-primary font-medium">
+                                      {cert.title}
+                                    </p>
+                                    {cert.certificationNumber && (
+                                      <p className="type-small !leading-[14px] text-tertiary">
+                                        {cert.certificationNumber}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {cert.expiryDate && (
+                                    <div className="text-right">
+                                      <p className="type-small !leading-[14px] text-tertiary">
+                                        Expires on{" "}
+                                        {cert.expiryDate.toLocaleDateString(
+                                          "en-US",
+                                          {
+                                            month: "long",
+                                            day: "numeric",
+                                            year: "numeric",
+                                          },
+                                        )}
+                                      </p>
+                                    </div>
+                                  )}
+                                </button>
+                              ))
+                            ) : availableCertifications.length === 0 &&
+                              !certSearchTerm ? (
+                              // Empty state - shown when no certifications exist and no search
+                              <div className="flex flex-col items-center justify-center py-12 px-4">
+                                <p className="type-p text-tertiary text-center mb-3">
+                                  No certifications yet
+                                </p>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCreateCertification()}
+                                  icon={<Icons.Plus />}
+                                  iconPosition="left"
+                                >
+                                  Create certification
+                                </Button>
+                              </div>
+                            ) : null}
 
-                          {/* Show "Create" option when search doesn't match */}
-                          {certSearchTerm &&
-                            !certificationData.title
-                              .toLowerCase()
-                              .includes(certSearchTerm.toLowerCase()) &&
-                            !certificationData.certificationNumber
-                              .toLowerCase()
-                              .includes(certSearchTerm.toLowerCase()) && (
+                            {/* Show "Create" option when search doesn't match */}
+                            {showCreateOption && (
                               <button
                                 type="button"
                                 onClick={() =>
                                   handleCreateCertification(certSearchTerm)
                                 }
-                                className="w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors"
+                                className="w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-t border-border"
                               >
                                 <Icons.Plus className="h-4 w-4 text-tertiary" />
                                 <span className="type-p text-primary">
@@ -622,28 +756,10 @@ export function MaterialSheet({
                                 </span>
                               </button>
                             )}
-                        </div>
-                      </>
-                    ) : (
-                      // Empty state - shown when no certifications exist
-                      <div className="border border-border bg-background overflow-hidden">
-                        <div className="flex flex-col items-center justify-center py-12 px-4">
-                          <p className="type-p text-tertiary text-center mb-3">
-                            No certifications yet
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCreateCertification()}
-                            icon={<Icons.Plus />}
-                            iconPosition="left"
-                          >
-                            Create certification
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>

@@ -10,8 +10,6 @@ import {
   type TierTwoSizeOption,
 } from "@/components/select/size-select";
 import { usePassportFormData } from "@/hooks/use-passport-form-data";
-import { Button } from "@v1/ui/button";
-import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
 import dynamic from "next/dynamic";
 import * as React from "react";
@@ -45,15 +43,12 @@ export function VariantSection({
   setSelectedSizes,
 }: VariantSectionProps) {
   const { colors: availableColors, sizeOptions } = usePassportFormData();
-  const [showColor, setShowColor] = React.useState(false);
-  const [showSize, setShowSize] = React.useState(false);
   const [customSizeOptions, setCustomSizeOptions] = React.useState<
     TierTwoSizeOption[]
   >([]);
   const [sizeModalOpen, setSizeModalOpen] = React.useState(false);
   const [prefillSize, setPrefillSize] = React.useState<string | null>(null);
   const [prefillCategory, setPrefillCategory] = React.useState<string | null>(null);
-  const [mounted, setMounted] = React.useState(false);
 
   // Convert colorIds to ColorOption objects for ColorSelect
   const selectedColors: ColorOption[] = React.useMemo(() => {
@@ -99,12 +94,6 @@ export function VariantSection({
         return optionMap.get(key) ?? size;
       });
   }, [combinedSizeOptions, selectedSizes]);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const hasFooterButtons = !showColor || !showSize;
 
   React.useEffect(() => {
     if (!sizeModalOpen) {
@@ -174,107 +163,39 @@ export function VariantSection({
           <p className="type-p !font-medium text-primary">Variant</p>
 
           {/* Color Field */}
-          {showColor && (
-            <div className="space-y-1.5 group/field">
-              <Label>Color</Label>
-              <div className="relative">
-                <div className="transition-[margin-right] duration-200 ease-in-out group-hover/field:mr-11">
-                  <ColorSelect
-                    value={selectedColors}
-                    onValueChange={(newColors) => {
-                      // Convert ColorOption[] to colorIds[]
-                      const newColorIds = newColors
-                        .map(color => {
-                          const found = availableColors.find(c => c.name === color.name);
-                          return found?.id;
-                        })
-                        .filter((id): id is string => !!id);
-                      setColorIds(newColorIds);
-                    }}
-                    placeholder="Add color"
-                  />
-                </div>
-                <div className="absolute right-0 top-0 w-0 group-hover/field:w-9 overflow-hidden transition-[width] duration-200 ease-in-out">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowColor(false);
-                      setColorIds([]);
-                    }}
-                    className="h-9 w-9 text-tertiary hover:text-destructive flex-shrink-0"
-                  >
-                    <Icons.X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label>Color</Label>
+            <ColorSelect
+              value={selectedColors}
+              onValueChange={(newColors) => {
+                // Convert ColorOption[] to colorIds[]
+                const newColorIds = newColors
+                  .map(color => {
+                    const found = availableColors.find(c => c.name === color.name);
+                    return found?.id;
+                  })
+                  .filter((id): id is string => !!id);
+                setColorIds(newColorIds);
+              }}
+              placeholder="Add color"
+            />
+          </div>
 
           {/* Size Field */}
-          {showSize && (
-            <div className="space-y-1.5 group/field">
-              <Label>Size</Label>
-              <div className="relative">
-                <div className="transition-[margin-right] duration-200 ease-in-out group-hover/field:mr-11">
-                  <SizeSelect
-                    value={normalizedSelectedSizes}
-                    onValueChange={handleSizeSelectionChange}
-                    onCreateNew={(initial, categoryPath) => {
-                      setPrefillSize(initial);
-                      setPrefillCategory(categoryPath || null);
-                      setSizeModalOpen(true);
-                    }}
-                    placeholder="Add size"
-                  />
-                </div>
-                <div className="absolute right-0 top-0 w-0 group-hover/field:w-9 overflow-hidden transition-[width] duration-200 ease-in-out">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowSize(false);
-                      setSelectedSizes([]);
-                    }}
-                    className="h-9 w-9 text-tertiary hover:text-destructive flex-shrink-0"
-                  >
-                    <Icons.X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer with Add Buttons (render after mount to avoid SSR/client mismatches) */}
-        {mounted && hasFooterButtons && (
-          <div className="border-t border-border px-4 py-3 bg-accent-light flex flex-wrap gap-2">
-            {!showSize && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowSize(true)}
-                icon={<Icons.Plus className="h-4 w-4" />}
-                iconPosition="left"
-              >
-                Size
-              </Button>
-            )}
-            {!showColor && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowColor(true)}
-                icon={<Icons.Plus className="h-4 w-4" />}
-                iconPosition="left"
-              >
-                Color
-              </Button>
-            )}
+          <div className="space-y-1.5">
+            <Label>Size</Label>
+            <SizeSelect
+              value={normalizedSelectedSizes}
+              onValueChange={handleSizeSelectionChange}
+              onCreateNew={(initial, categoryPath) => {
+                setPrefillSize(initial);
+                setPrefillCategory(categoryPath || null);
+                setSizeModalOpen(true);
+              }}
+              placeholder="Add size"
+            />
           </div>
-        )}
+        </div>
       </div>
 
       {/* Modals */}

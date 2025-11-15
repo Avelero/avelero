@@ -108,6 +108,7 @@ export const columns: ColumnDef<Passport>[] = [
           <div className="min-w-0 max-w-[680px] space-y-1">
             <Link
               href={`/passports/${product.id}`}
+              prefetch
               className="block max-w-full truncate type-p text-primary hover:text-brand cursor-pointer"
               onClick={(event) => event.stopPropagation()}
             >

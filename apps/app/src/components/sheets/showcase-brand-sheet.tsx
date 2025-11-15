@@ -1,5 +1,15 @@
 "use client";
 
+import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useTRPC } from "@/trpc/client";
+import {
+  formatPhone,
+  isValidEmail,
+  isValidUrl,
+  normalizeUrl,
+  validatePhone,
+} from "@/utils/validation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
@@ -9,6 +19,7 @@ import {
   SheetContent,
   SheetFooter,
 } from "@v1/ui/sheet";
+import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { CountrySelect } from "../select/country-select";
 
@@ -40,6 +51,10 @@ export function ShowcaseBrandSheet({
   initialName = "",
   onBrandCreated,
 }: ShowcaseBrandSheetProps) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { showcaseBrands: existingBrands } = usePassportFormData();
+
   const [name, setName] = React.useState(initialName);
   const [legalName, setLegalName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -52,60 +67,212 @@ export function ShowcaseBrandSheet({
   const [zip, setZip] = React.useState("");
   const [countryCode, setCountryCode] = React.useState("");
 
+  // Validation error states
+  const [nameError, setNameError] = React.useState("");
+  const [emailError, setEmailError] = React.useState("");
+  const [phoneError, setPhoneError] = React.useState("");
+  const [websiteError, setWebsiteError] = React.useState("");
+
+  // API mutation for creating showcase brand
+  const createBrandMutation = useMutation(
+    trpc.brand.showcaseBrands.create.mutationOptions(),
+  );
+
   // Update name when initialName changes (when sheet opens with pre-filled name)
   React.useEffect(() => {
-    if (open && initialName) {
+    if (open) {
       setName(initialName);
     }
   }, [open, initialName]);
 
-  // Reset form when sheet closes
+  // Reset form when sheet closes (delayed to avoid flash during animation)
   React.useEffect(() => {
     if (!open) {
-      setName("");
-      setLegalName("");
-      setEmail("");
-      setPhone("");
-      setWebsite("");
-      setAddressLine1("");
-      setAddressLine2("");
-      setCity("");
-      setState("");
-      setZip("");
-      setCountryCode("");
+      const timer = setTimeout(() => {
+        setName("");
+        setLegalName("");
+        setEmail("");
+        setPhone("");
+        setWebsite("");
+        setAddressLine1("");
+        setAddressLine2("");
+        setCity("");
+        setState("");
+        setZip("");
+        setCountryCode("");
+        setNameError("");
+        setEmailError("");
+        setPhoneError("");
+        setWebsiteError("");
+      }, 350); // Wait for sheet close animation
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
-  const handleCreate = () => {
-    if (!name.trim()) {
+  // Validation functions
+  const validateName = (value: string): boolean => {
+    const trimmedName = value.trim();
+    
+    if (!trimmedName) {
+      setNameError("Brand name is required");
+      return false;
+    }
+
+    const isDuplicate = existingBrands.some(
+      (brand) => brand.name.toLowerCase() === trimmedName.toLowerCase(),
+    );
+
+    if (isDuplicate) {
+      setNameError("A brand with this name already exists");
+      return false;
+    }
+
+    setNameError("");
+    return true;
+  };
+
+  const handleCreate = async () => {
+    // Validate all fields before submission
+    const isNameValid = validateName(name);
+    
+    const isEmailValid = email.trim() ? isValidEmail(email) : true;
+    if (!isEmailValid) setEmailError("Please enter a valid email address");
+    
+    const phoneResult = validatePhone(phone);
+    const isPhoneValid = phoneResult.isValid;
+    if (!isPhoneValid && phone.trim()) setPhoneError(phoneResult.error || "Invalid phone number");
+    
+    const isWebsiteValid = isValidUrl(website);
+    if (!isWebsiteValid && website.trim()) setWebsiteError("Please enter a valid URL");
+
+    if (!isNameValid || !isEmailValid || !isPhoneValid || !isWebsiteValid) {
+      // Focus the first invalid field
+      if (!isNameValid) {
+        document.getElementById("brand-name")?.focus();
+      } else if (!isEmailValid) {
+        document.getElementById("brand-email")?.focus();
+      } else if (!isPhoneValid) {
+        document.getElementById("brand-phone")?.focus();
+      } else if (!isWebsiteValid) {
+        document.getElementById("brand-website")?.focus();
+      }
       return;
     }
 
-    // Generate a temporary UUID for local state
-    const newBrand: ShowcaseBrandData = {
-      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-      name: name.trim(),
-      legalName: legalName.trim() || undefined,
-      email: email.trim() || undefined,
-      phone: phone.trim() || undefined,
-      website: website.trim() || undefined,
-      addressLine1: addressLine1.trim() || undefined,
-      addressLine2: addressLine2.trim() || undefined,
-      city: city.trim() || undefined,
-      state: state.trim() || undefined,
-      zip: zip.trim() || undefined,
-      countryCode: countryCode || undefined,
-    };
+    try {
+      // Show loading toast and execute mutation
+      const mutationResult = await toast.loading(
+        "Creating brand...",
+        createBrandMutation.mutateAsync({
+          name: name.trim(),
+          legal_name: legalName.trim() || undefined,
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+          website: website.trim() || undefined,
+          address_line_1: addressLine1.trim() || undefined,
+          address_line_2: addressLine2.trim() || undefined,
+          city: city.trim() || undefined,
+          state: state.trim() || undefined,
+          zip: zip.trim() || undefined,
+          country_code: countryCode || undefined,
+        }),
+        {
+          delay: 200,
+          successMessage: "Brand created successfully",
+        },
+      );
 
-    onBrandCreated(newBrand);
-    onOpenChange(false);
+      const createdBrand = mutationResult?.data;
+
+      if (!createdBrand?.id) {
+        throw new Error("No valid response returned from API");
+      }
+
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(
+        trpc.composite.passportFormReferences.queryKey(),
+        (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            brandCatalog: {
+              ...old.brandCatalog,
+              showcaseBrands: [
+                ...old.brandCatalog.showcaseBrands,
+                {
+                  id: createdBrand.id,
+                  name: createdBrand.name,
+                  legal_name: createdBrand.legal_name,
+                  email: createdBrand.email,
+                  phone: createdBrand.phone,
+                  website: createdBrand.website,
+                  address_line_1: createdBrand.address_line_1,
+                  address_line_2: createdBrand.address_line_2,
+                  city: createdBrand.city,
+                  state: createdBrand.state,
+                  zip: createdBrand.zip,
+                  country_code: createdBrand.country_code,
+                  created_at: createdBrand.created_at,
+                  updated_at: createdBrand.updated_at,
+                },
+              ],
+            },
+          };
+        },
+      );
+
+      // Invalidate to trigger background refetch
+      queryClient.invalidateQueries({
+        queryKey: trpc.composite.passportFormReferences.queryKey(),
+      });
+
+      // Transform API response to component format
+      const brandData: ShowcaseBrandData = {
+        id: createdBrand.id,
+        name: createdBrand.name,
+        legalName: createdBrand.legal_name || undefined,
+        email: createdBrand.email || undefined,
+        phone: createdBrand.phone || undefined,
+        website: createdBrand.website || undefined,
+        addressLine1: createdBrand.address_line_1 || undefined,
+        addressLine2: createdBrand.address_line_2 || undefined,
+        city: createdBrand.city || undefined,
+        state: createdBrand.state || undefined,
+        zip: createdBrand.zip || undefined,
+        countryCode: createdBrand.country_code || undefined,
+      };
+
+      // Close sheet first
+      onOpenChange(false);
+
+      // Call parent callback with real data
+      onBrandCreated(brandData);
+    } catch (error) {
+      console.error("Failed to create brand:", error);
+      
+      // Parse error for specific messages
+      let errorMessage = "Failed to create brand. Please try again.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes("unique constraint") || 
+            error.message.includes("duplicate")) {
+          errorMessage = "A brand with this name already exists.";
+        } else if (error.message.includes("network") || 
+                   error.message.includes("fetch")) {
+          errorMessage = "Network error. Please check your connection.";
+        }
+      }
+      
+      toast.error(errorMessage);
+    }
   };
 
   const handleCancel = () => {
     onOpenChange(false);
   };
 
-  const isNameValid = name.trim().length > 0;
+  const isNameValid = name.trim().length > 0 && !nameError;
+  const isCreating = createBrandMutation.isPending;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -133,10 +300,20 @@ export function ShowcaseBrandSheet({
                 <Input
                   id="brand-name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (nameError) validateName(e.target.value);
+                  }}
+                  onBlur={() => validateName(name)}
                   placeholder="Avelero Apparel"
                   className="h-9"
+                  maxLength={100}
+                  aria-required="true"
+                  required
                 />
+                {nameError && (
+                  <p className="text-xs text-destructive">{nameError}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="brand-legal-name">Legal name</Label>
@@ -146,6 +323,7 @@ export function ShowcaseBrandSheet({
                   onChange={(e) => setLegalName(e.target.value)}
                   placeholder="Brand Name Inc."
                   className="h-9"
+                  maxLength={100}
                 />
               </div>
             </div>
@@ -157,10 +335,26 @@ export function ShowcaseBrandSheet({
                 id="brand-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError && e.target.value.trim()) {
+                    setEmailError(isValidEmail(e.target.value) ? "" : "Please enter a valid email address");
+                  }
+                }}
+                onBlur={() => {
+                  if (email.trim()) {
+                    setEmailError(isValidEmail(email) ? "" : "Please enter a valid email address");
+                  } else {
+                    setEmailError("");
+                  }
+                }}
                 placeholder="help@example.com"
                 className="h-9"
+                maxLength={100}
               />
+              {emailError && (
+                <p className="text-xs text-destructive">{emailError}</p>
+              )}
             </div>
 
             {/* Public phone */}
@@ -170,10 +364,33 @@ export function ShowcaseBrandSheet({
                 id="brand-phone"
                 type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="(020) 123 45 67"
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (phoneError && e.target.value.trim()) {
+                    const result = validatePhone(e.target.value);
+                    setPhoneError(result.isValid ? "" : result.error || "Invalid phone number");
+                  }
+                }}
+                onBlur={() => {
+                  if (phone.trim()) {
+                    const result = validatePhone(phone);
+                    if (result.isValid) {
+                      setPhone(formatPhone(phone));
+                      setPhoneError("");
+                    } else {
+                      setPhoneError(result.error || "Invalid phone number");
+                    }
+                  } else {
+                    setPhoneError("");
+                  }
+                }}
+                placeholder="+31 20 123 4567"
                 className="h-9"
+                maxLength={100}
               />
+              {phoneError && (
+                <p className="text-xs text-destructive">{phoneError}</p>
+              )}
             </div>
 
             {/* Website */}
@@ -181,12 +398,34 @@ export function ShowcaseBrandSheet({
               <Label htmlFor="brand-website">Website</Label>
               <Input
                 id="brand-website"
-                type="url"
+                type="text"
                 value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="example.com"
+                onChange={(e) => {
+                  setWebsite(e.target.value);
+                  if (websiteError && e.target.value.trim()) {
+                    setWebsiteError(isValidUrl(e.target.value) ? "" : "Please enter a valid URL");
+                  }
+                }}
+                onBlur={() => {
+                  if (website.trim()) {
+                    const normalized = normalizeUrl(website);
+                    if (normalized) {
+                      setWebsite(normalized);
+                      setWebsiteError("");
+                    } else {
+                      setWebsiteError("Please enter a valid URL");
+                    }
+                  } else {
+                    setWebsiteError("");
+                  }
+                }}
+                placeholder="https://example.com"
                 className="h-9"
+                maxLength={100}
               />
+              {websiteError && (
+                <p className="text-xs text-destructive">{websiteError}</p>
+              )}
             </div>
 
             {/* Separator line */}
@@ -199,8 +438,9 @@ export function ShowcaseBrandSheet({
                 id="brand-address-1"
                 value={addressLine1}
                 onChange={(e) => setAddressLine1(e.target.value)}
-                placeholder="Street 123"
+                placeholder="Funenpark"
                 className="h-9"
+                maxLength={500}
               />
             </div>
 
@@ -213,6 +453,7 @@ export function ShowcaseBrandSheet({
                 onChange={(e) => setAddressLine2(e.target.value)}
                 placeholder="Building A"
                 className="h-9"
+                maxLength={500}
               />
             </div>
 
@@ -233,6 +474,7 @@ export function ShowcaseBrandSheet({
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="Amsterdam"
                   className="h-9"
+                  maxLength={100}
                 />
               </div>
             </div>
@@ -247,6 +489,7 @@ export function ShowcaseBrandSheet({
                   onChange={(e) => setState(e.target.value)}
                   placeholder="North-Holland"
                   className="h-9"
+                  maxLength={100}
                 />
               </div>
               <div className="space-y-1.5">
@@ -257,6 +500,7 @@ export function ShowcaseBrandSheet({
                   onChange={(e) => setZip(e.target.value)}
                   placeholder="1012AA"
                   className="h-9"
+                  maxLength={100}
                 />
               </div>
             </div>
@@ -269,7 +513,8 @@ export function ShowcaseBrandSheet({
             variant="outline"
             size="default"
             onClick={handleCancel}
-            className="w-[70px]"
+            disabled={isCreating}
+            className="min-w-[70px]"
           >
             Cancel
           </Button>
@@ -277,8 +522,8 @@ export function ShowcaseBrandSheet({
             variant="brand"
             size="default"
             onClick={handleCreate}
-            disabled={!isNameValid}
-            className="w-[70px]"
+            disabled={!isNameValid || isCreating}
+            className="min-w-[70px]"
           >
             Create
           </Button>

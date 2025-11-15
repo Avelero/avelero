@@ -32,7 +32,7 @@ export default function PassportsListLayout({
             asChild
             className="min-w-[100px]"
           >
-            <Link href="/passports/create">
+            <Link href="/passports/create" prefetch>
               <span className="px-1">Create</span>
             </Link>
           </Button>

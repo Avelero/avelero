@@ -12,7 +12,6 @@ import {
   emailSchema,
   mediumStringSchema,
   shortStringSchema,
-  urlSchema,
 } from "../_shared/primitives.js";
 
 /**
@@ -28,7 +27,7 @@ export const createShowcaseBrandSchema = z.object({
   legal_name: shortStringSchema.optional(),
   email: emailSchema.optional(),
   phone: shortStringSchema.optional(),
-  website: urlSchema.optional(),
+  website: shortStringSchema.optional(),
   address_line_1: mediumStringSchema.optional(),
   address_line_2: mediumStringSchema.optional(),
   city: shortStringSchema.optional(),

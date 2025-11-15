@@ -8,6 +8,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandEmpty,
 } from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
@@ -171,7 +172,7 @@ export function TagSelect({
           )}
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-60 p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput
@@ -179,7 +180,7 @@ export function TagSelect({
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
                 {filteredTags.length > 0 ? (
                   filteredTags.map((tag) => (
@@ -209,11 +210,9 @@ export function TagSelect({
                     </div>
                   </CommandItem>
                 ) : !searchTerm ? (
-                  <div className="px-3 py-8 text-center">
-                    <p className="type-p text-tertiary">
-                      Begin typing to create your first tag
-                    </p>
-                  </div>
+                  <CommandEmpty>
+                    Start typing to create...
+                  </CommandEmpty>
                 ) : null}
               </CommandGroup>
             </CommandList>
@@ -225,7 +224,7 @@ export function TagSelect({
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
                 {filteredColors.map((color) => (
                   <CommandItem

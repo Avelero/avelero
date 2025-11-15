@@ -12,9 +12,20 @@ interface EcoClaim {
   value: string;
 }
 
-export function EnvironmentSection() {
-  const [carbon, setCarbon] = React.useState("");
-  const [water, setWater] = React.useState("");
+interface EnvironmentSectionProps {
+  carbonKgCo2e: string;
+  setCarbonKgCo2e: (value: string) => void;
+  waterLiters: string;
+  setWaterLiters: (value: string) => void;
+}
+
+export function EnvironmentSection({
+  carbonKgCo2e,
+  setCarbonKgCo2e,
+  waterLiters,
+  setWaterLiters,
+}: EnvironmentSectionProps) {
+  // Eco-claims are local state (not yet implemented in API submission)
   const [ecoClaims, setEcoClaims] = React.useState<EcoClaim[]>([]);
 
   // Normalize numeric input: handle commas, spaces, multiple decimals, and precision
@@ -112,9 +123,9 @@ export function EnvironmentSection() {
             </div>
             <Input
               type="text"
-              value={carbon}
-              onChange={(e) => handleNumericChange(e.target.value, setCarbon)}
-              onBlur={(e) => handleNumericBlur(e.target.value, setCarbon)}
+              value={carbonKgCo2e}
+              onChange={(e) => handleNumericChange(e.target.value, setCarbonKgCo2e)}
+              onBlur={(e) => handleNumericBlur(e.target.value, setCarbonKgCo2e)}
               placeholder="Enter carbon value"
               className="h-9 flex-1"
             />
@@ -130,9 +141,9 @@ export function EnvironmentSection() {
             </div>
             <Input
               type="text"
-              value={water}
-              onChange={(e) => handleNumericChange(e.target.value, setWater)}
-              onBlur={(e) => handleNumericBlur(e.target.value, setWater)}
+              value={waterLiters}
+              onChange={(e) => handleNumericChange(e.target.value, setWaterLiters)}
+              onBlur={(e) => handleNumericBlur(e.target.value, setWaterLiters)}
               placeholder="Enter water value"
               className="h-9 flex-1"
             />

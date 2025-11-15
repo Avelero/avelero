@@ -12,3 +12,4 @@ export * from "./facilities";
 export * from "./materials";
 export * from "./showcase-brands";
 export * from "./sizes";
+export * from "./seasons";

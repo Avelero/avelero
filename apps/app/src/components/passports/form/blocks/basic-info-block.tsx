@@ -6,10 +6,24 @@ import { Label } from "@v1/ui/label";
 import { Textarea } from "@v1/ui/textarea";
 import { useCallback, useRef, useState } from "react";
 
-export function BasicInfoSection() {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [image, setImage] = useState<string | null>(null);
+interface BasicInfoSectionProps {
+  title: string;
+  setTitle: (value: string) => void;
+  description: string;
+  setDescription: (value: string) => void;
+  imageFile: File | null;
+  setImageFile: (file: File | null) => void;
+}
+
+export function BasicInfoSection({
+  title,
+  setTitle,
+  description,
+  setDescription,
+  imageFile,
+  setImageFile,
+}: BasicInfoSectionProps) {
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -29,32 +43,34 @@ export function BasicInfoSection() {
 
     const file = e.dataTransfer.files[0];
     if (file?.type.startsWith("image/")) {
-      // TODO: Upload to Supabase bucket and optimize image
-      // For now, just create a preview URL
+      // Store the file for upload on form submit
+      setImageFile(file);
+      // Create a preview URL for display
       const reader = new FileReader();
       reader.onload = (evt) => {
-        setImage(evt.target?.result as string);
+        setImagePreview(evt.target?.result as string);
       };
       reader.readAsDataURL(file);
     }
-  }, []);
+  }, [setImageFile]);
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file?.type.startsWith("image/")) {
-        // TODO: Upload to Supabase bucket and optimize image
-        // For now, just create a preview URL
+        // Store the file for upload on form submit
+        setImageFile(file);
+        // Create a preview URL for display
         const reader = new FileReader();
         reader.onload = (evt) => {
-          setImage(evt.target?.result as string);
+          setImagePreview(evt.target?.result as string);
         };
         reader.readAsDataURL(file);
       }
       // Clear input value so same file can be selected again
       e.target.value = "";
     },
-    [],
+    [setImageFile],
   );
 
   const handleClick = useCallback(() => {
@@ -65,12 +81,13 @@ export function BasicInfoSection() {
     <div className="border border-border bg-background p-4 flex flex-col gap-3">
       {/* Title Input */}
       <div className="space-y-1.5">
-        <Label>Title</Label>
+        <Label>Title <span className="text-destructive">*</span></Label>
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Enter product title"
           className="h-9"
+          required
         />
       </div>
 
@@ -109,9 +126,9 @@ export function BasicInfoSection() {
             }
           }}
         >
-          {image ? (
+          {imagePreview ? (
             <img
-              src={image}
+              src={imagePreview}
               alt="Product preview"
               className="w-full h-full object-contain"
             />

@@ -1,5 +1,7 @@
 "use client";
 
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
@@ -9,6 +11,7 @@ import {
   SheetContent,
   SheetFooter,
 } from "@v1/ui/sheet";
+import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { CountrySelect } from "../select/country-select";
 
@@ -39,6 +42,9 @@ export function OperatorSheet({
   initialName = "",
   onOperatorCreated,
 }: OperatorSheetProps) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  
   const [name, setName] = React.useState(initialName);
   const [legalName, setLegalName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -49,6 +55,14 @@ export function OperatorSheet({
   const [state, setState] = React.useState("");
   const [zip, setZip] = React.useState("");
   const [countryCode, setCountryCode] = React.useState("");
+  
+  // Operators are facilities (production plants)
+  const createOperatorMutation = useMutation(
+    trpc.brand.facilities.create.mutationOptions(),
+  );
+
+  // Compute loading state from mutation
+  const isCreating = createOperatorMutation.isPending;
 
   // Update name when initialName changes (when sheet opens with pre-filled name)
   React.useEffect(() => {
@@ -73,28 +87,74 @@ export function OperatorSheet({
     }
   }, [open]);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) {
       return;
     }
 
-    // Generate a temporary UUID for local state
-    const newOperator: OperatorData = {
-      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name: name.trim(),
-      legalName: legalName.trim() || undefined,
-      email: email.trim() || undefined,
-      phone: phone.trim() || undefined,
-      addressLine1: addressLine1.trim() || undefined,
-      addressLine2: addressLine2.trim() || undefined,
-      city: city.trim() || undefined,
-      state: state.trim() || undefined,
-      zip: zip.trim() || undefined,
-      countryCode: countryCode || undefined,
-    };
+    try {
+      // Combine address lines into single address field
+      const fullAddress = [addressLine1.trim(), addressLine2.trim()]
+        .filter(Boolean)
+        .join(", ");
 
-    onOperatorCreated(newOperator);
-    onOpenChange(false);
+      // Combine contact info (email + phone)
+      const contactInfo = [email.trim(), phone.trim()]
+        .filter(Boolean)
+        .join(" | ");
+
+      // Create operator via API (using facilities endpoint)
+      const result = await createOperatorMutation.mutateAsync({
+        display_name: name.trim(),
+        legal_name: legalName.trim() || undefined,
+        address: fullAddress || undefined,
+        city: city.trim() || undefined,
+        country_code: countryCode || undefined,
+        contact: contactInfo || undefined,
+      });
+
+      // Validate response
+      const createdOperator = result?.data;
+      if (!createdOperator?.id) {
+        throw new Error("No valid response returned from API");
+      }
+      
+      const operatorId = createdOperator.id;
+
+      // Refetch passportFormReferences query to ensure fresh data
+      await queryClient.refetchQueries({
+        queryKey: trpc.composite.passportFormReferences.queryKey(),
+      });
+
+      // Wait for refetch to propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Build operator data with real ID for parent callback
+      const newOperator: OperatorData = {
+        id: operatorId,
+        name: name.trim(),
+        legalName: legalName.trim() || undefined,
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        addressLine1: addressLine1.trim() || undefined,
+        addressLine2: addressLine2.trim() || undefined,
+        city: city.trim() || undefined,
+        state: state.trim() || undefined,
+        zip: zip.trim() || undefined,
+        countryCode: countryCode || undefined,
+      };
+
+      onOperatorCreated(newOperator);
+      toast.success("Operator created successfully");
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Failed to create operator:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to create operator. Please try again.",
+      );
+    }
   };
 
   const handleCancel = () => {
@@ -252,6 +312,7 @@ export function OperatorSheet({
             variant="outline"
             size="default"
             onClick={handleCancel}
+            disabled={isCreating}
             className="w-[70px]"
           >
             Cancel
@@ -260,7 +321,7 @@ export function OperatorSheet({
             variant="brand"
             size="default"
             onClick={handleCreate}
-            disabled={!isNameValid}
+            disabled={!isNameValid || isCreating}
             className="w-[70px]"
           >
             Create

@@ -4,6 +4,7 @@ import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -93,31 +94,31 @@ export function SeasonSelect({
           className={cn("w-full justify-between h-9", className)}
           icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
-          {value ? (
+{value ? (
             <div className="flex items-center gap-2">
               <span className="type-p text-primary">{value.name}</span>
-              {formatSeasonDateRange(value) && (
-                <span className="type-p text-tertiary">
-                  {formatSeasonDateRange(value)}
-                </span>
-              )}
-              {value.isOngoing && (
-                <span className="type-p text-tertiary">Ongoing</span>
-              )}
+              {(() => {
+                const dateRange = formatSeasonDateRange(value);
+                return dateRange ? (
+                  <span className="type-p text-tertiary">{dateRange}</span>
+                ) : value.isOngoing ? (
+                  <span className="type-p text-tertiary">Ongoing</span>
+                ) : null;
+              })()}
             </div>
           ) : (
             <span className="text-tertiary">{placeholder}</span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[360px] p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search seasons..."
             value={searchTerm}
             onValueChange={setSearchTerm}
           />
-          <CommandList>
+          <CommandList className="max-h-48">
             <CommandGroup>
               {filteredSeasons.length > 0 ? (
                 filteredSeasons.map((season) => (
@@ -129,14 +130,14 @@ export function SeasonSelect({
                   >
                     <div className="flex items-center gap-2">
                       <span className="type-p text-primary">{season.name}</span>
-                      {formatSeasonDateRange(season) && (
-                        <span className="type-p text-tertiary">
-                          {formatSeasonDateRange(season)}
-                        </span>
-                      )}
-                      {season.isOngoing && (
-                        <span className="type-p text-tertiary">Ongoing</span>
-                      )}
+                      {(() => {
+                        const dateRange = formatSeasonDateRange(season);
+                        return dateRange ? (
+                          <span className="type-p text-tertiary">{dateRange}</span>
+                        ) : season.isOngoing ? (
+                          <span className="type-p text-tertiary">Ongoing</span>
+                        ) : null;
+                      })()}
                     </div>
                     {value?.name === season.name && (
                       <Icons.Check className="h-4 w-4" />
@@ -153,11 +154,9 @@ export function SeasonSelect({
                   </div>
                 </CommandItem>
               ) : !searchTerm ? (
-                <div className="px-3 py-8 text-center">
-                  <p className="type-p text-tertiary">
-                    Begin typing to create your first season
-                  </p>
-                </div>
+                <CommandEmpty>
+                  Start typing to create...
+                </CommandEmpty>
               ) : null}
             </CommandGroup>
           </CommandList>

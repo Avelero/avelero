@@ -17,11 +17,13 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { usePassportFormData } from "@/hooks/use-passport-form-data";
 import { productionStepNames } from "@v1/selections/production-steps";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -46,23 +48,12 @@ interface JourneyStep {
   id: string;
   step: string;
   operators: string[];
+  facilityId?: string; // Store the real facility ID to prevent loss during sync
   position: number;
 }
 
 // Use production steps from selections package
 const STEP_OPTIONS = productionStepNames;
-
-// TODO: Load operators from API
-const OPERATOR_OPTIONS = [
-  "Sinopec Group",
-  "Indorama Ventures",
-  "Hengli Group",
-  "Hebei Loto Garment Co., Ltd",
-  "Nike Manufacturing",
-  "Adidas Production",
-  "H&M Supply Chain",
-  "Zara Manufacturing",
-];
 
 const StepDropdown = ({
   step,
@@ -140,7 +131,7 @@ const StepDropdown = ({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="p-0 w-64"
+          className="p-0 w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]"
           align="start"
           alignOffset={-40}
           sideOffset={4}
@@ -151,7 +142,7 @@ const StepDropdown = ({
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
                 {filteredOptions.length > 0 ? (
                   filteredOptions.map((option) => {
@@ -182,7 +173,11 @@ const StepDropdown = ({
                       </span>
                     </div>
                   </CommandItem>
-                ) : null}
+                ) : (
+                  <CommandEmpty>
+                    Start typing to create...
+                  </CommandEmpty>
+                )}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -237,11 +232,15 @@ const OperatorTags = ({
 const OperatorCell = ({
   operators,
   onOperatorsChange,
+  onOperatorAndFacilityChange,
   onDelete,
+  availableOperators,
 }: {
   operators: string[];
   onOperatorsChange: (operators: string[]) => void;
+  onOperatorAndFacilityChange: (operator: string, facilityId: string) => void;
   onDelete: () => void;
+  availableOperators: Array<{ id: string; name: string }>;
 }) => {
   const [isHovered, setIsHovered] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -250,13 +249,22 @@ const OperatorCell = ({
   const [operatorSheetOpen, setOperatorSheetOpen] = React.useState(false);
   const [newOperatorName, setNewOperatorName] = React.useState("");
 
+  const operatorNames = React.useMemo(
+    () => availableOperators.map(op => op.name),
+    [availableOperators]
+  );
+
   const handleSelect = (selectedOperator: string) => {
     if (operators.includes(selectedOperator)) {
       // Deselect if already selected
       onOperatorsChange(operators.filter((op) => op !== selectedOperator));
     } else {
-      // Add if not selected
-      onOperatorsChange([...operators, selectedOperator]);
+      // Find the facility ID for the selected operator
+      const facility = availableOperators.find(f => f.name === selectedOperator);
+      if (facility) {
+        // Update both the display name and the facility ID atomically
+        onOperatorAndFacilityChange(selectedOperator, facility.id);
+      }
     }
     setSearchQuery("");
   };
@@ -265,7 +273,7 @@ const OperatorCell = ({
     const trimmedQuery = searchQuery.trim();
     if (
       trimmedQuery &&
-      !OPERATOR_OPTIONS.includes(trimmedQuery) &&
+      !operatorNames.includes(trimmedQuery) &&
       !operators.includes(trimmedQuery)
     ) {
       // Open operator sheet with the searched name
@@ -277,8 +285,8 @@ const OperatorCell = ({
   };
 
   const handleOperatorCreated = (operator: OperatorData) => {
-    // Add the newly created operator to the list
-    onOperatorsChange([...operators, operator.name]);
+    // Add the newly created operator to the list and set the facility ID atomically
+    onOperatorAndFacilityChange(operator.name, operator.id);
     setNewOperatorName("");
   };
 
@@ -351,19 +359,19 @@ const OperatorCell = ({
           </div>
         </PopoverTrigger>
 
-        <PopoverContent className="p-0 w-60" align="start" sideOffset={4}>
+        <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]" align="start" sideOffset={4}>
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search operators..."
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
-                {OPERATOR_OPTIONS.filter((option) =>
+                {operatorNames.filter((option) =>
                   option.toLowerCase().includes(searchQuery.toLowerCase()),
                 ).length > 0 ? (
-                  OPERATOR_OPTIONS.filter((option) =>
+                  operatorNames.filter((option) =>
                     option.toLowerCase().includes(searchQuery.toLowerCase()),
                   ).map((option) => {
                     const isSelected = operators.includes(option);
@@ -382,7 +390,7 @@ const OperatorCell = ({
                     );
                   })
                 ) : searchQuery.trim() &&
-                  !OPERATOR_OPTIONS.includes(searchQuery.trim()) &&
+                  !operatorNames.includes(searchQuery.trim()) &&
                   !operators.includes(searchQuery.trim()) ? (
                   <CommandItem
                     value={searchQuery.trim()}
@@ -395,6 +403,10 @@ const OperatorCell = ({
                       </span>
                     </div>
                   </CommandItem>
+                ) : !searchQuery.trim() ? (
+                  <CommandEmpty>
+                    Start typing to create...
+                  </CommandEmpty>
                 ) : null}
               </CommandGroup>
             </CommandList>
@@ -416,12 +428,16 @@ function DraggableJourneyRow({
   journeyStep,
   onStepChange,
   onOperatorsChange,
+  onOperatorAndFacilityChange,
   onDelete,
+  availableOperators,
 }: {
   journeyStep: JourneyStep;
   onStepChange: (step: string) => void;
   onOperatorsChange: (operators: string[]) => void;
+  onOperatorAndFacilityChange: (operator: string, facilityId: string) => void;
   onDelete: () => void;
+  availableOperators: Array<{ id: string; name: string }>;
 }) {
   const {
     attributes,
@@ -462,16 +478,79 @@ function DraggableJourneyRow({
         <OperatorCell
           operators={journeyStep.operators}
           onOperatorsChange={onOperatorsChange}
+          onOperatorAndFacilityChange={onOperatorAndFacilityChange}
           onDelete={onDelete}
+          availableOperators={availableOperators}
         />
       </div>
     </div>
   );
 }
 
-export function JourneySection() {
-  const [journeySteps, setJourneySteps] = React.useState<JourneyStep[]>([]);
+interface JourneySectionProps {
+  journeySteps: Array<{ stepType: string; facilityId: string; sortIndex: number }>;
+  setJourneySteps: (value: Array<{ stepType: string; facilityId: string; sortIndex: number }>) => void;
+}
+
+export function JourneySection({
+  journeySteps: parentSteps,
+  setJourneySteps: setParentSteps,
+}: JourneySectionProps) {
+  const { operators } = usePassportFormData();
+  // Local display state for drag-and-drop (with operators as array)
+  const [displaySteps, setDisplaySteps] = React.useState<JourneyStep[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
+  
+  // Map operators (facilities) to the format expected by dropdowns
+  const availableOperators = React.useMemo(
+    () => operators.map(op => ({
+      id: op.id,
+      name: op.display_name
+    })),
+    [operators]
+  );
+  
+  // Sync parent steps to display steps, preserving incomplete local steps
+  React.useEffect(() => {
+    const enriched = parentSteps
+      .map((ps, index) => {
+        const operatorInfo = availableOperators.find(f => f.id === ps.facilityId);
+        
+        // Skip steps where we can't find the facility yet (data still loading)
+        if (!operatorInfo) {
+          return null;
+        }
+        
+        return {
+          id: `step-${index}`,
+          step: ps.stepType,
+          operators: [operatorInfo.name],
+          facilityId: ps.facilityId, // Store the real facility ID
+          position: ps.sortIndex,
+        };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+    
+    // Preserve any incomplete local steps (steps that don't have both step type and operator)
+    setDisplaySteps((prev) => {
+      const incompleteSteps = prev.filter(
+        (localStep) => !localStep.step || !localStep.facilityId || localStep.operators.length === 0
+      );
+      return [...enriched, ...incompleteSteps];
+    });
+  }, [parentSteps, availableOperators]);
+
+  // Helper to sync display steps back to parent
+  const syncToParent = React.useCallback((displaySteps: JourneyStep[]) => {
+    const parentSteps = displaySteps
+      .filter(s => s.step && s.operators.length > 0 && s.facilityId) // Only include complete steps
+      .map((s, index) => ({
+        stepType: s.step,
+        facilityId: s.facilityId!, // Use the stored facility ID
+        sortIndex: index,
+      }));
+    setParentSteps(parentSteps);
+  }, [setParentSteps]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -482,38 +561,40 @@ export function JourneySection() {
   );
 
   const activeStep = React.useMemo(
-    () => journeySteps.find((step) => step.id === activeId),
-    [activeId, journeySteps],
+    () => displaySteps.find((step) => step.id === activeId),
+    [activeId, displaySteps],
   );
 
   const updateJourneyStep = (
     id: string,
-    field: keyof Omit<JourneyStep, "position">,
-    value: any,
+    updates: Partial<Omit<JourneyStep, "id" | "position">>,
   ) => {
-    setJourneySteps((prev) =>
-      prev.map((step) => (step.id === id ? { ...step, [field]: value } : step)),
+    const updatedSteps = displaySteps.map((step) =>
+      step.id === id ? { ...step, ...updates } : step,
     );
+    setDisplaySteps(updatedSteps);
+    syncToParent(updatedSteps);
   };
 
   const deleteJourneyStep = (id: string) => {
-    setJourneySteps((prev) => {
-      const filteredSteps = prev.filter((step) => step.id !== id);
-      return filteredSteps.map((step, index) => ({
-        ...step,
-        position: index + 1,
-      }));
-    });
+    const filteredSteps = displaySteps.filter((step) => step.id !== id);
+    const reindexed = filteredSteps.map((step, index) => ({
+      ...step,
+      position: index + 1,
+    }));
+    setDisplaySteps(reindexed);
+    syncToParent(reindexed);
   };
 
   const addJourneyStep = () => {
     const newStep: JourneyStep = {
-      id: Date.now().toString(),
+      id: `step-${Date.now()}`,
       step: "",
       operators: [],
-      position: journeySteps.length + 1,
+      position: displaySteps.length + 1,
     };
-    setJourneySteps((prev) => [...prev, newStep]);
+    setDisplaySteps((prev) => [...prev, newStep]);
+    // Don't sync to parent yet (no step type or operator)
   };
 
   const handleDragStart = React.useCallback((event: DragStartEvent) => {
@@ -529,28 +610,30 @@ export function JourneySection() {
       return;
     }
 
-    setJourneySteps((items) => {
-      const oldIndex = items.findIndex((i) => i.id === active.id);
-      const newIndex = items.findIndex((i) => i.id === over.id);
+    const oldIndex = displaySteps.findIndex((i) => i.id === active.id);
+    const newIndex = displaySteps.findIndex((i) => i.id === over.id);
 
-      // If we can't find the indices, don't reorder
-      if (oldIndex === -1 || newIndex === -1) {
-        return items;
-      }
+    // If we can't find the indices, don't reorder
+    if (oldIndex === -1 || newIndex === -1) {
+      setActiveId(null);
+      return;
+    }
 
-      const next = [...items];
-      const [removed] = next.splice(oldIndex, 1);
-      if (removed) {
-        next.splice(newIndex, 0, removed);
-      }
+    const next = [...displaySteps];
+    const [removed] = next.splice(oldIndex, 1);
+    if (removed) {
+      next.splice(newIndex, 0, removed);
+    }
 
-      return next.map((step, index) => ({
-        ...step,
-        position: index + 1,
-      }));
-    });
+    const reordered = next.map((step, index) => ({
+      ...step,
+      position: index + 1,
+    }));
+    
+    setDisplaySteps(reordered);
+    syncToParent(reordered);
     setActiveId(null);
-  }, []);
+  }, [displaySteps, syncToParent]);
 
   return (
     <div className="relative flex flex-col border border-border bg-background">
@@ -571,7 +654,7 @@ export function JourneySection() {
 
       {/* Empty State or Journey Rows - with fixed height and scroll */}
       <div className="h-[200px] overflow-y-auto scrollbar-hide">
-        {journeySteps.length === 0 ? (
+        {displaySteps.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 h-full">
             <p className="type-p text-tertiary">No journey steps added</p>
             <Button
@@ -594,20 +677,24 @@ export function JourneySection() {
               onDragEnd={handleDragEnd}
             >
               <SortableContext
-                items={journeySteps.map((step) => step.id)}
+                items={displaySteps.map((step) => step.id)}
                 strategy={verticalListSortingStrategy}
               >
-                {journeySteps.map((step) => (
+                {displaySteps.map((step) => (
                   <DraggableJourneyRow
                     key={step.id}
                     journeyStep={step}
                     onStepChange={(value) =>
-                      updateJourneyStep(step.id, "step", value)
+                      updateJourneyStep(step.id, { step: value })
                     }
                     onOperatorsChange={(value) =>
-                      updateJourneyStep(step.id, "operators", value)
+                      updateJourneyStep(step.id, { operators: value })
+                    }
+                    onOperatorAndFacilityChange={(operator, facilityId) =>
+                      updateJourneyStep(step.id, { operators: [operator], facilityId })
                     }
                     onDelete={() => deleteJourneyStep(step.id)}
+                    availableOperators={availableOperators}
                   />
                 ))}
               </SortableContext>
@@ -661,7 +748,7 @@ export function JourneySection() {
       </div>
 
       {/* Add Journey Step Button - Only show if steps exist */}
-      {journeySteps.length > 0 && (
+      {displaySteps.length > 0 && (
         <div className="bg-accent-light border-t border-border px-4 py-3 -mt-px">
           <Button
             type="button"

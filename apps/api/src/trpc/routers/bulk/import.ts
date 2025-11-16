@@ -1,3 +1,4 @@
+import { tasks } from "@trigger.dev/sdk";
 /**
  * Bulk import lifecycle router.
  *
@@ -9,22 +10,25 @@
  * - cancel: Discard staging data and cancel job
  */
 import {
+  countStagingProductsByAction,
   createImportJob,
+  deleteStagingDataForJob,
   getImportJobStatus,
   updateImportJobStatus,
-  deleteStagingDataForJob,
-  countStagingProductsByAction,
 } from "@v1/db/queries";
+import { downloadImportFile } from "@v1/supabase/utils/product-imports";
 import {
-  validateImportSchema,
-  startImportSchema,
-  getImportStatusSchema,
+  normalizeHeader,
+  normalizeHeaders,
+  parseFile,
+} from "../../../lib/csv-parser.js";
+import {
   approveImportSchema,
   cancelImportSchema,
+  getImportStatusSchema,
+  startImportSchema,
+  validateImportSchema,
 } from "../../../schemas/bulk.js";
-import { parseFile, normalizeHeaders } from "../../../lib/csv-parser.js";
-import { downloadImportFile } from "@v1/supabase/utils/product-imports";
-import { tasks } from "@trigger.dev/sdk";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
@@ -306,7 +310,7 @@ export const importRouter = createTRPCRouter({
             hasSku,
             recognizedColumns: normalizedHeaders,
             unrecognizedColumns: parseResult.headers.filter(
-              (h) => !normalizedHeaders.includes(h.toLowerCase()),
+              (h) => !normalizedHeaders.includes(normalizeHeader(h)),
             ),
           },
         };

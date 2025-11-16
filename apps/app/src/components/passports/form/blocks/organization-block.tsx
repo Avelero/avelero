@@ -273,8 +273,9 @@ export function OrganizationSection() {
         onOpenChange={setSeasonModalOpen}
         initialName={pendingSeasonName}
         onSave={(newSeason) => {
+          // Use the backend-generated ID, not a random UUID
           const season: Season = {
-            id: crypto.randomUUID(),
+            id: newSeason.id,
             name: newSeason.name,
             startDate: newSeason.startDate || undefined,
             endDate: newSeason.endDate || undefined,

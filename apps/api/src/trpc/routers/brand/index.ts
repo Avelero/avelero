@@ -77,11 +77,6 @@ import {
   updateShowcaseBrandSchema,
   updateSizeSchema,
 } from "../../../schemas/brand-catalog/index.js";
-import { notFound, wrapError } from "../../../utils/errors.js";
-import {
-  createEntityResponse,
-  createListResponse,
-} from "../../../utils/response.js";
 import {
   transformCertificationInput,
   transformFacilityInput,
@@ -90,6 +85,11 @@ import {
   transformShowcaseBrandInput,
   transformSizeInput,
 } from "../../../utils/catalog-transform.js";
+import { notFound, wrapError } from "../../../utils/errors.js";
+import {
+  createEntityResponse,
+  createListResponse,
+} from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 

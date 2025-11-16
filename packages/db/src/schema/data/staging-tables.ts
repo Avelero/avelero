@@ -97,6 +97,8 @@ export const stagingProducts = pgTable(
         SELECT 1 FROM import_jobs
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)
+      ) AND brand_id IN (
+        SELECT import_jobs.brand_id FROM import_jobs WHERE import_jobs.id = job_id
       )`,
     }),
     pgPolicy("staging_products_update_by_system", {
@@ -107,6 +109,13 @@ export const stagingProducts = pgTable(
         SELECT 1 FROM import_jobs
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)
+      )`,
+      withCheck: sql`EXISTS (
+        SELECT 1 FROM import_jobs
+        WHERE import_jobs.id = job_id
+        AND is_brand_member(import_jobs.brand_id)
+      ) AND brand_id IN (
+        SELECT import_jobs.brand_id FROM import_jobs WHERE import_jobs.id = job_id
       )`,
     }),
     pgPolicy("staging_products_delete_by_system", {
@@ -213,6 +222,11 @@ export const stagingProductVariants = pgTable(
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)
       )`,
+      withCheck: sql`EXISTS (
+        SELECT 1 FROM import_jobs
+        WHERE import_jobs.id = job_id
+        AND is_brand_member(import_jobs.brand_id)
+      )`,
     }),
     pgPolicy("staging_product_variants_delete_by_system", {
       as: "permissive",
@@ -295,6 +309,11 @@ export const stagingProductMaterials = pgTable(
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`EXISTS (
+        SELECT 1 FROM import_jobs
+        WHERE import_jobs.id = job_id
+        AND is_brand_member(import_jobs.brand_id)
+      )`,
+      withCheck: sql`EXISTS (
         SELECT 1 FROM import_jobs
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)
@@ -384,6 +403,11 @@ export const stagingProductCareCodes = pgTable(
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)
       )`,
+      withCheck: sql`EXISTS (
+        SELECT 1 FROM import_jobs
+        WHERE import_jobs.id = job_id
+        AND is_brand_member(import_jobs.brand_id)
+      )`,
     }),
     pgPolicy("staging_product_care_codes_delete_by_system", {
       as: "permissive",
@@ -465,6 +489,11 @@ export const stagingProductEcoClaims = pgTable(
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`EXISTS (
+        SELECT 1 FROM import_jobs
+        WHERE import_jobs.id = job_id
+        AND is_brand_member(import_jobs.brand_id)
+      )`,
+      withCheck: sql`EXISTS (
         SELECT 1 FROM import_jobs
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)
@@ -556,6 +585,11 @@ export const stagingProductJourneySteps = pgTable(
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)
       )`,
+      withCheck: sql`EXISTS (
+        SELECT 1 FROM import_jobs
+        WHERE import_jobs.id = job_id
+        AND is_brand_member(import_jobs.brand_id)
+      )`,
     }),
     pgPolicy("staging_product_journey_steps_delete_by_system", {
       as: "permissive",
@@ -632,6 +666,11 @@ export const stagingProductEnvironment = pgTable(
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`EXISTS (
+        SELECT 1 FROM import_jobs
+        WHERE import_jobs.id = job_id
+        AND is_brand_member(import_jobs.brand_id)
+      )`,
+      withCheck: sql`EXISTS (
         SELECT 1 FROM import_jobs
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)
@@ -718,6 +757,11 @@ export const stagingProductIdentifiers = pgTable(
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)
       )`,
+      withCheck: sql`EXISTS (
+        SELECT 1 FROM import_jobs
+        WHERE import_jobs.id = job_id
+        AND is_brand_member(import_jobs.brand_id)
+      )`,
     }),
     pgPolicy("staging_product_identifiers_delete_by_system", {
       as: "permissive",
@@ -796,6 +840,11 @@ export const stagingProductVariantIdentifiers = pgTable(
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`EXISTS (
+        SELECT 1 FROM import_jobs
+        WHERE import_jobs.id = job_id
+        AND is_brand_member(import_jobs.brand_id)
+      )`,
+      withCheck: sql`EXISTS (
         SELECT 1 FROM import_jobs
         WHERE import_jobs.id = job_id
         AND is_brand_member(import_jobs.brand_id)

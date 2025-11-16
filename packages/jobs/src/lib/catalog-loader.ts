@@ -328,8 +328,8 @@ export function lookupOperatorId(
 
   const normalized = normalizeValue(operatorName);
 
-  // Check value mappings first
-  const mappingKey = createMappingKey("OPERATOR", sourceColumn, operatorName);
+  // Check value mappings first (use "FACILITY" not "OPERATOR" for value_mappings target)
+  const mappingKey = createMappingKey("FACILITY", sourceColumn, operatorName);
   const mappedId = catalog.valueMappings.get(mappingKey);
   if (mappedId) {
     return mappedId;

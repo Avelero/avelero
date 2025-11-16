@@ -6,11 +6,17 @@
  * by an internal API key.
  */
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "../../init.js";
 import { websocketManager } from "../../../lib/websocket-manager.js";
 import { badRequest } from "../../../utils/errors.js";
+import { createTRPCRouter, publicProcedure } from "../../init.js";
 
-const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY || "dev-internal-key";
+const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY;
+
+if (!INTERNAL_API_KEY) {
+  throw new Error(
+    "INTERNAL_API_KEY environment variable must be set for internal router security",
+  );
+}
 
 /**
  * Progress update schema matching WebSocket ProgressUpdate interface

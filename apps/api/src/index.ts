@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 /**
  * Bootstraps the public API server supporting the tRPC endpoints.
  *
@@ -9,10 +10,9 @@ import { trpcServer } from "@hono/trpc-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
+import { websocketManager } from "./lib/websocket-manager.js";
 import { createTRPCContext } from "./trpc/init.js";
 import { appRouter } from "./trpc/routers/_app.js";
-import { websocketManager } from "./lib/websocket-manager.js";
-import { createServer } from "node:http";
 
 const app = new Hono();
 
@@ -104,20 +104,43 @@ const httpServer = createServer((req, res) => {
     }
   }
 
+  // Convert Node.js request body to Web Streams API for POST/PUT/PATCH
+  const body =
+    req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS"
+      ? new ReadableStream({
+          start(controller) {
+            req.on("data", (chunk) => controller.enqueue(chunk));
+            req.on("end", () => controller.close());
+            req.on("error", (err) => controller.error(err));
+          },
+        })
+      : undefined;
+
   const request = new Request(url.toString(), {
     method: req.method,
     headers,
-    body:
-      req.method !== "GET" && req.method !== "HEAD"
-        ? (req as unknown as ReadableStream)
-        : undefined,
-  });
+    body,
+    duplex: body ? "half" : undefined,
+  } as RequestInit);
 
   void Promise.resolve(app.fetch(request)).then((response) => {
-    res.writeHead(
-      response.status,
-      Object.fromEntries(response.headers.entries()),
-    );
+    // Convert headers to Node.js format, preserving multiple values
+    const headerEntries: Record<string, string | string[]> = {};
+    for (const [key, value] of response.headers.entries()) {
+      if (headerEntries[key]) {
+        // Handle duplicate headers (e.g., Set-Cookie)
+        if (Array.isArray(headerEntries[key])) {
+          (headerEntries[key] as string[]).push(value);
+        } else {
+          headerEntries[key] = [headerEntries[key] as string, value];
+        }
+      } else {
+        headerEntries[key] = value;
+      }
+    }
+
+    res.writeHead(response.status, headerEntries);
+
     if (response.body) {
       response.body.pipeTo(
         new WritableStream({

@@ -349,12 +349,12 @@ export class ValueMapper {
     const synonym = this.findSynonymMatch(normalizedName);
     const searchValue = synonym || normalizedName;
 
-    // Check value_mappings table for existing mapping
+    // Check value_mappings table for existing mapping (use original normalizedName, not synonym)
     const existingMapping = await this.database.query.valueMappings.findFirst({
       where: and(
         eq(valueMappings.brandId, brandId),
         eq(valueMappings.sourceColumn, sourceColumn),
-        sql`LOWER(TRIM(${valueMappings.rawValue})) = LOWER(TRIM(${searchValue}))`,
+        sql`LOWER(TRIM(${valueMappings.rawValue})) = LOWER(TRIM(${normalizedName}))`,
       ),
     });
 
@@ -369,11 +369,11 @@ export class ValueMapper {
         targetId: existingMapping.targetId,
         found: true,
         confidence: 100,
-        matchType: synonym ? "fuzzy" : "exact",
+        matchType: "exact",
       };
     }
 
-    // Query brand_colors directly for exact match
+    // Query brand_colors directly for exact match (use synonym for canonical lookup)
     const color = await this.database.query.brandColors.findFirst({
       where: and(
         eq(brandColors.brandId, brandId),

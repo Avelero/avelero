@@ -1,3 +1,5 @@
+import type { IncomingMessage } from "node:http";
+import type { Server } from "node:http";
 /**
  * WebSocket Manager for real-time bulk import progress updates.
  *
@@ -8,8 +10,6 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@v1/supabase/types";
 import { WebSocket, WebSocketServer } from "ws";
-import type { IncomingMessage } from "node:http";
-import type { Server } from "node:http";
 
 /**
  * Progress update event payload sent to connected clients
@@ -233,6 +233,18 @@ export class WebSocketManager {
     brandId: string,
   ): void {
     const subscriptionId = `${jobId}-${userId}-${Date.now()}`;
+
+    // Remove any existing subscription for this socket first
+    const existingMetadata = this.connectionsBySocket.get(ws);
+    if (existingMetadata) {
+      const oldJobConnections = this.connections.get(existingMetadata.jobId);
+      if (oldJobConnections) {
+        oldJobConnections.delete(existingMetadata);
+        if (oldJobConnections.size === 0) {
+          this.connections.delete(existingMetadata.jobId);
+        }
+      }
+    }
 
     const metadata: ConnectionMetadata = {
       ws,

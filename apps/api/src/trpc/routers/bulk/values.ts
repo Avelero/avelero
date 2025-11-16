@@ -1,3 +1,4 @@
+import { serviceDb } from "@v1/db/client";
 /**
  * Bulk import value mapping router.
  *
@@ -7,28 +8,27 @@
  * - batchDefine: Create multiple catalog entities at once
  */
 import {
+  type ValueMappingTarget,
+  createValueMapping,
   getImportJobStatus,
   getUnmappedValuesForJob,
-  validateAndCreateEntity,
-  createValueMapping,
   getValueMapping,
-  updateValueMapping,
   updateImportJobProgress,
-  type ValueMappingTarget,
+  updateValueMapping,
+  validateAndCreateEntity,
 } from "@v1/db/queries";
 import { categories } from "@v1/db/schema";
-import { serviceDb } from "@v1/db/client";
+import { type SQL, and, eq, isNull } from "drizzle-orm";
+import { z } from "zod";
 import {
-  getUnmappedValuesSchema,
-  defineValueSchema,
   batchDefineValuesSchema,
+  defineValueSchema,
+  getUnmappedValuesSchema,
   mapToExistingEntitySchema,
 } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
-import { and, eq, isNull, type SQL } from "drizzle-orm";
-import { z } from "zod";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -313,8 +313,8 @@ export const valuesRouter = createTRPCRouter({
           input.entityData,
         );
 
-        // Create value mapping
-        await createValueMapping(brandCtx.db, {
+        // Create value mapping and capture the ID
+        const mapping = await createValueMapping(brandCtx.db, {
           brandId,
           sourceColumn: input.sourceColumn,
           rawValue: input.rawValue,
@@ -365,7 +365,7 @@ export const valuesRouter = createTRPCRouter({
           entityId: entity.id,
           entityType: input.entityType,
           name: input.rawValue,
-          valueMappingId: entity.id, // Placeholder - we'd need to return the actual mapping ID
+          valueMappingId: mapping.id,
           remainingUnmapped,
         };
       } catch (error) {
@@ -463,15 +463,24 @@ export const valuesRouter = createTRPCRouter({
         const pendingApproval = (summary.pending_approval as unknown[]) ?? [];
         const approvedValues = (summary.approved_values as unknown[]) ?? [];
 
-        // Filter out successfully created values from pending
-        const createdNames = new Set(created.map((c) => c.name));
+        // Filter out successfully created values from pending (match by both name and type)
+        const createdSet = new Set(
+          created.map((c) => `${c.entityType}:${c.name}`),
+        );
         const updatedPending = pendingApproval.filter((item) => {
-          const val = item as { name: string };
-          return !createdNames.has(val.name);
+          const val = item as { name: string; type: string };
+          const key = `${val.type}:${val.name}`;
+          return !createdSet.has(key);
         });
 
-        // Add all created values to approved
-        approvedValues.push(...created);
+        // Add all created values to approved (ensure consistent shape with type, not entityType)
+        approvedValues.push(
+          ...created.map((c) => ({
+            type: c.entityType,
+            name: c.name,
+            entityId: c.entityId,
+          })),
+        );
 
         await updateImportJobProgress(brandCtx.db, {
           jobId: input.jobId,

@@ -1,12 +1,12 @@
 import {
   and,
-  eq,
-  inArray,
-  sql,
   createBrand as createBrandRecord,
   deleteBrand as deleteBrandRecord,
+  eq,
   getBrandsByUserId,
+  inArray,
   setActiveBrand,
+  sql,
   updateBrand as updateBrandRecord,
 } from "@v1/db/queries";
 import { brandMembers } from "@v1/db/schema";

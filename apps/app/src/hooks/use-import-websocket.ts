@@ -156,8 +156,11 @@ export function useImportWebSocket({
           wasClean: event.wasClean,
         });
 
+        // Capture current enabled state to avoid stale closure
+        const shouldReconnect = enabled && jobId;
+
         // Attempt to reconnect if still enabled and not at max attempts
-        if (enabled && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        if (shouldReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
           const delay = Math.min(
             1000 * 2 ** reconnectAttemptsRef.current,
@@ -169,6 +172,7 @@ export function useImportWebSocket({
           );
 
           reconnectTimerRef.current = setTimeout(() => {
+            // Re-check enabled state before reconnecting
             connect();
           }, delay);
         } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
@@ -180,12 +184,16 @@ export function useImportWebSocket({
     } catch (error) {
       console.error("[WS] Error establishing connection:", error);
 
+      // Capture current enabled state to avoid stale closure
+      const shouldReconnect = enabled && jobId;
+
       // Attempt reconnect on error
-      if (enabled && reconnectAttemptsRef.current < maxReconnectAttempts) {
+      if (shouldReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
         reconnectAttemptsRef.current++;
         const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000);
 
         reconnectTimerRef.current = setTimeout(() => {
+          // Re-check enabled state before reconnecting
           connect();
         }, delay);
       }

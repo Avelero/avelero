@@ -108,7 +108,6 @@ export async function uploadImportFile(
     console.error("[Supabase Storage] Upload failed", {
       error: result.error,
       path,
-      statusCode: result.error.statusCode,
       message: result.error.message,
     });
     throw new Error(`Failed to upload file: ${result.error.message}`);

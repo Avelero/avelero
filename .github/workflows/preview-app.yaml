@@ -76,21 +76,22 @@ jobs:
           API_URL="${{ steps.api-url.outputs.url }}"
           echo "Waiting for API at ${API_URL}/health to be ready..."
 
-          MAX_RETRIES=6
+          MAX_RETRIES=30
+          RETRY_DELAY_SECONDS=10
           RETRY_COUNT=0
 
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -f -s "${API_URL}/health" > /dev/null 2>&1; then
+            if curl --fail --silent --show-error "${API_URL}/health" > /dev/null 2>&1; then
               echo "✅ API is ready!"
               exit 0
             fi
 
-            echo "API not ready yet (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES}), waiting 5 seconds..."
-            sleep 5
+            echo "API not ready yet (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES}), waiting ${RETRY_DELAY_SECONDS} seconds..."
+            sleep $RETRY_DELAY_SECONDS
             RETRY_COUNT=$((RETRY_COUNT + 1))
           done
 
-          echo "❌ API did not become ready after 30 seconds"
+          echo "❌ API did not become ready after $((MAX_RETRIES * RETRY_DELAY_SECONDS)) seconds"
           exit 1
       
       - name: 📤 Pull Vercel Environment Information

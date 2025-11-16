@@ -538,6 +538,7 @@ async function commitStagingRow(
               productIdentifier:
                 stagingProduct.productIdentifier ??
                 `PROD-${stagingProduct.id.slice(0, 8)}`,
+              upid: stagingProduct.productUpid || undefined,
               description: stagingProduct.description || undefined,
               categoryId: stagingProduct.categoryId || undefined,
               season: stagingProduct.season || undefined, // Legacy: kept for backward compatibility
@@ -549,6 +550,7 @@ async function commitStagingRow(
               additionalImageUrls:
                 stagingProduct.additionalImageUrls || undefined,
               tags: stagingProduct.tags || undefined,
+              status: stagingProduct.status || undefined,
             },
           );
 
@@ -570,6 +572,7 @@ async function commitStagingRow(
           {
             id: stagingProduct.existingProductId,
             name: stagingProduct.name,
+            upid: stagingProduct.productUpid,
             description: stagingProduct.description,
             categoryId: stagingProduct.categoryId,
             season: stagingProduct.season, // Legacy: kept for backward compatibility
@@ -579,6 +582,7 @@ async function commitStagingRow(
             primaryImageUrl: stagingProduct.primaryImageUrl,
             additionalImageUrls: stagingProduct.additionalImageUrls,
             tags: stagingProduct.tags,
+            status: stagingProduct.status,
           },
         );
 

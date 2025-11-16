@@ -634,6 +634,8 @@ export async function createProduct(
     name: string;
     /** Unique product identifier within the brand - optional; generated if missing */
     productIdentifier?: string;
+    /** Product-level UPID for passport URLs - optional */
+    upid?: string;
     description?: string;
     categoryId?: string;
     season?: string; // Legacy: will be deprecated after migration
@@ -643,6 +645,8 @@ export async function createProduct(
     primaryImageUrl?: string;
     additionalImageUrls?: string;
     tags?: string;
+    /** Product publication status */
+    status?: string;
     /** Optional: Color IDs to auto-generate variants */
     colorIds?: readonly string[];
     /** Optional: Size IDs to auto-generate variants */
@@ -661,6 +665,7 @@ export async function createProduct(
         brandId,
         name: input.name,
         productIdentifier: productIdentifierValue,
+        upid: input.upid ?? null,
         description: input.description ?? null,
         categoryId: input.categoryId ?? null,
         season: input.season ?? null, // Legacy: kept for backward compatibility
@@ -670,6 +675,7 @@ export async function createProduct(
         primaryImageUrl: input.primaryImageUrl ?? null,
         additionalImageUrls: input.additionalImageUrls ?? null,
         tags: input.tags ?? null,
+        status: input.status ?? "unpublished",
       })
       .returning({ id: products.id });
 
@@ -714,6 +720,7 @@ export async function updateProduct(
   input: {
     id: string;
     name?: string;
+    upid?: string | null;
     description?: string | null;
     categoryId?: string | null;
     season?: string | null; // Legacy: will be deprecated after migration
@@ -723,6 +730,7 @@ export async function updateProduct(
     primaryImageUrl?: string | null;
     additionalImageUrls?: string | null;
     tags?: string | null;
+    status?: string | null;
     /** Optional: Color IDs to regenerate variants (replaces existing variants) */
     colorIds?: readonly string[];
     /** Optional: Size IDs to regenerate variants (replaces existing variants) */
@@ -731,20 +739,28 @@ export async function updateProduct(
 ) {
   let updated: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
+    const updateData: Record<string, unknown> = {
+      name: input.name,
+      upid: input.upid ?? null,
+      description: input.description ?? null,
+      categoryId: input.categoryId ?? null,
+      season: input.season ?? null, // Legacy: kept for backward compatibility
+      seasonId: input.seasonId ?? null,
+      brandCertificationId: input.brandCertificationId ?? null,
+      showcaseBrandId: input.showcaseBrandId ?? null,
+      primaryImageUrl: input.primaryImageUrl ?? null,
+      additionalImageUrls: input.additionalImageUrls ?? null,
+      tags: input.tags ?? null,
+    };
+
+    // Only update status if provided (status cannot be null)
+    if (input.status !== undefined && input.status !== null) {
+      updateData.status = input.status;
+    }
+
     const [row] = await tx
       .update(products)
-      .set({
-        name: input.name,
-        description: input.description ?? null,
-        categoryId: input.categoryId ?? null,
-        season: input.season ?? null, // Legacy: kept for backward compatibility
-        seasonId: input.seasonId ?? null,
-        brandCertificationId: input.brandCertificationId ?? null,
-        showcaseBrandId: input.showcaseBrandId ?? null,
-        primaryImageUrl: input.primaryImageUrl ?? null,
-        additionalImageUrls: input.additionalImageUrls ?? null,
-        tags: input.tags ?? null,
-      })
+      .set(updateData)
       .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
       .returning({ id: products.id });
 

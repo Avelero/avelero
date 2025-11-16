@@ -1214,25 +1214,30 @@ function validateEAN(ean: string): boolean {
 
 /**
  * Validate status field against allowed values
+ * Valid statuses: published, unpublished, archived, scheduled
  * @param status - Status string from CSV
  * @returns Normalized status or null if invalid
  */
 function validateStatus(
   status: string | undefined,
-): "DRAFT" | "PUBLISHED" | "ARCHIVED" | null {
+): "published" | "unpublished" | "archived" | "scheduled" | null {
   if (!status) return null;
 
-  const normalized = status.trim().toUpperCase();
+  const normalized = status.trim().toLowerCase();
 
   switch (normalized) {
-    case "DRAFT":
-      return "DRAFT";
-    case "PUBLISHED":
-    case "PUBLISH":
-      return "PUBLISHED";
-    case "ARCHIVED":
-    case "ARCHIVE":
-      return "ARCHIVED";
+    case "published":
+    case "publish":
+      return "published";
+    case "unpublished":
+    case "draft":
+      return "unpublished";
+    case "archived":
+    case "archive":
+      return "archived";
+    case "scheduled":
+    case "schedule":
+      return "scheduled";
     default:
       return null; // Invalid status
   }
@@ -1553,9 +1558,9 @@ async function validateRow(
     }
   }
 
-  // Validate status (defaults to DRAFT if invalid/empty)
-  const validatedStatus = row.status ? validateStatus(row.status) : "DRAFT";
-  const productStatus = validatedStatus || "DRAFT"; // Default to DRAFT
+  // Validate status (defaults to unpublished if invalid/empty)
+  const validatedStatus = row.status ? validateStatus(row.status) : "unpublished";
+  const productStatus = validatedStatus || "unpublished"; // Default to unpublished
 
   // HARD ERROR: Carbon footprint validation
   if (row.carbon_footprint?.trim()) {

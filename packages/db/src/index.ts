@@ -1,5 +1,6 @@
 export * from "./client";
 export * as schema from "./schema";
+export * from "./utils/upid";
 // Re-export drizzle-orm utilities for consumers
 export {
   and,

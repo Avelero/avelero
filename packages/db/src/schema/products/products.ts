@@ -27,6 +27,13 @@ export const products = pgTable(
      * Replaces SKU as the main product identifier.
      */
     productIdentifier: text("product_identifier").notNull(),
+    /**
+     * Product-level UPID (Unique Product Identifier).
+     * 16-character lowercase alphanumeric string for product passport URLs.
+     * Used in routes like /passport/edit/{upid}.
+     * Must be unique within a brand.
+     */
+    upid: text("upid"),
     description: text("description"),
     showcaseBrandId: uuid("showcase_brand_id").references(
       () => showcaseBrands.id,
@@ -46,7 +53,7 @@ export const products = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    tags: text("tags"), // Pipe-separated tags
+    tags: text("tags"), // Pipe-separated tags (legacy - use brand_tags for new implementations)
     brandCertificationId: uuid("brand_certification_id").references(
       () => brandCertifications.id,
       {
@@ -54,6 +61,11 @@ export const products = pgTable(
         onUpdate: "cascade",
       },
     ),
+    /**
+     * Product publication status.
+     * Valid values: 'published', 'unpublished', 'archived', 'scheduled'
+     */
+    status: text("status").notNull().default("unpublished"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

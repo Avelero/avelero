@@ -3,18 +3,14 @@ import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
 
-export const brandColors = pgTable(
-  "brand_colors",
+export const brandTags = pgTable(
+  "brand_tags",
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     brandId: uuid("brand_id")
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     name: text("name").notNull(),
-    /**
-     * Hex color value for visual representation (e.g., #FF5733).
-     */
-    hex: text("hex"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -23,27 +19,27 @@ export const brandColors = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("brand_colors_brand_name_unq").on(table.brandId, table.name),
+    uniqueIndex("brand_tags_brand_name_unq").on(table.brandId, table.name),
     // RLS policies
-    pgPolicy("brand_colors_select_for_brand_members", {
+    pgPolicy("brand_tags_select_for_brand_members", {
       as: "permissive",
       for: "select",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_colors_insert_by_brand_owner", {
+    pgPolicy("brand_tags_insert_by_brand_members", {
       as: "permissive",
       for: "insert",
       to: ["authenticated"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_colors_update_by_brand_owner", {
+    pgPolicy("brand_tags_update_by_brand_members", {
       as: "permissive",
       for: "update",
       to: ["authenticated"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_colors_delete_by_brand_owner", {
+    pgPolicy("brand_tags_delete_by_brand_members", {
       as: "permissive",
       for: "delete",
       to: ["authenticated"],

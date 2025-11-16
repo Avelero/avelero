@@ -30,6 +30,7 @@
     "./queries": "./src/queries/index.ts",
     "./types": "./src/types/index.ts",
     "./storage": "./src/utils/storage.ts",
-    "./utils/product-imports": "./src/utils/product-imports.ts"
+    "./utils/product-imports": "./src/utils/product-imports.ts",
+    "./utils/product-images": "./src/utils/product-images.ts"
   }
 }

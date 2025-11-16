@@ -28,6 +28,7 @@ export interface InsertStagingProductParams {
   id: string;
   brandId: string;
   productIdentifier?: string | null;
+  productUpid?: string | null; // Product-level UPID for passport URLs
   name: string;
   description?: string | null;
   showcaseBrandId?: string | null;
@@ -38,6 +39,7 @@ export interface InsertStagingProductParams {
   seasonId?: string | null; // FK to brand_seasons.id
   tags?: string | null;
   brandCertificationId?: string | null;
+  status?: string | null; // Product publication status
 }
 
 /**
@@ -142,6 +144,8 @@ export interface StagingProductPreview {
   brandId: string;
   /** Product identifier for the product (brand-scoped) */
   productIdentifier?: string | null;
+  /** Product-level UPID for passport URLs */
+  productUpid?: string | null;
   name: string;
   description: string | null;
   showcaseBrandId: string | null;
@@ -152,6 +156,7 @@ export interface StagingProductPreview {
   season: string | null; // Legacy: will be deprecated after migration
   seasonId: string | null; // FK to brand_seasons.id
   brandCertificationId: string | null;
+  status: string | null; // Product publication status
   createdAt: string;
   variant: StagingVariantPreview | null;
   materials: StagingMaterialPreview[];
@@ -252,6 +257,7 @@ export async function insertStagingProduct(
       id: params.id,
       brandId: params.brandId,
       productIdentifier: params.productIdentifier ?? null,
+      productUpid: params.productUpid ?? null,
       name: params.name,
       description: params.description ?? null,
       showcaseBrandId: params.showcaseBrandId ?? null,
@@ -262,6 +268,7 @@ export async function insertStagingProduct(
       seasonId: params.seasonId ?? null,
       tags: params.tags ?? null,
       brandCertificationId: params.brandCertificationId ?? null,
+      status: params.status ?? null,
     })
     .returning({ stagingId: stagingProducts.stagingId });
 
@@ -299,6 +306,7 @@ export async function batchInsertStagingProducts(
     id: p.id,
     brandId: p.brandId,
     productIdentifier: p.productIdentifier ?? null,
+    productUpid: p.productUpid ?? null,
     name: p.name,
     description: p.description ?? null,
     showcaseBrandId: p.showcaseBrandId ?? null,
@@ -309,6 +317,7 @@ export async function batchInsertStagingProducts(
     seasonId: p.seasonId ?? null,
     tags: p.tags ?? null,
     brandCertificationId: p.brandCertificationId ?? null,
+    status: p.status ?? null,
   }));
 
   const results = await db
@@ -988,6 +997,8 @@ async function hydrateStagingProductPreviews(
     existingProductId: p.existingProductId,
     id: p.id,
     brandId: p.brandId,
+    productIdentifier: p.productIdentifier,
+    productUpid: p.productUpid,
     name: p.name,
     description: p.description,
     showcaseBrandId: p.showcaseBrandId,
@@ -998,6 +1009,7 @@ async function hydrateStagingProductPreviews(
     season: p.season,
     seasonId: p.seasonId,
     brandCertificationId: p.brandCertificationId,
+    status: p.status,
     createdAt: p.createdAt,
     variant: variantMap.get(p.stagingId) ?? null,
     materials: materialMap.get(p.stagingId) ?? [],

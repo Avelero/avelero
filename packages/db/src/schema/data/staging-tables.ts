@@ -51,6 +51,7 @@ export const stagingProducts = pgTable(
     id: uuid("id").notNull(), // Planned product ID for CREATE, existing ID for UPDATE
     brandId: uuid("brand_id").notNull(),
     productIdentifier: text("product_identifier"), // Product identifier for matching/tracking
+    productUpid: text("product_upid"), // Product-level UPID for passport URLs
     name: text("name").notNull(),
     description: text("description"),
     showcaseBrandId: uuid("showcase_brand_id"),
@@ -61,6 +62,7 @@ export const stagingProducts = pgTable(
     seasonId: uuid("season_id"),
     tags: text("tags"), // Pipe-separated tags
     brandCertificationId: uuid("brand_certification_id"),
+    status: text("status"), // Product publication status
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

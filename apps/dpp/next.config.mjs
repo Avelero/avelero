@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  output: 'standalone',
   images: {
-    domains: ["images.unsplash.com", "res.cloudinary.com"],
+    domains: ['images.unsplash.com', 'res.cloudinary.com'],
   },
   experimental: {
     typedRoutes: true,
@@ -10,3 +10,5 @@ const nextConfig = {
 };
 
 export default nextConfig;
+
+

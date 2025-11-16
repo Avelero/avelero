@@ -1,7 +1,7 @@
-import type { ThemeConfig } from "@/types/theme-config";
-import type { DppData } from "@/types/dpp-data";
-import { ProductImage } from "./product-image";
-import { InformationFrame } from "./information-frame";
+import type { ThemeConfig } from '@/types/theme-config';
+import type { DppData } from '@/types/dpp-data';
+import { ProductImage } from './product-image';
+import { InformationFrame } from './information-frame';
 
 interface Props {
   data: DppData;
@@ -21,7 +21,7 @@ export function ImageAndInfo({ data, themeConfig }: Props) {
           />
         </div>
       </div>
-
+      
       {/* Product Information Section */}
       <div className="md:flex md:justify-end md:w-full">
         <div className="md:w-5/6">
@@ -31,3 +31,5 @@ export function ImageAndInfo({ data, themeConfig }: Props) {
     </div>
   );
 }
+
+

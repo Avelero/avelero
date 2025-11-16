@@ -1,32 +1,29 @@
-import type { SimilarProduct } from "@/types/dpp-data";
-import { formatPrice } from "@/lib/utils/formatting";
+import type { SimilarProduct } from '@/types/dpp-data';
+import { formatPrice } from '@/lib/utils/formatting';
 
 interface Props {
   product: SimilarProduct;
   imageZoom?: number;
-  imagePosition?: "top" | "center" | "bottom";
+  imagePosition?: 'top' | 'center' | 'bottom';
 }
 
-export function ProductCard({
-  product,
-  imageZoom = 100,
-  imagePosition = "center",
-}: Props) {
+export function ProductCard({ product, imageZoom = 100, imagePosition = 'center' }: Props) {
+  
   // Convert zoom from percentage to scale value
   const zoomScale = Math.max(1, imageZoom / 100);
-
+  
   // Determine positioning values
-  let objectPosition = "50% 50%"; // Default: center
-  let transformOrigin = "50% 50%"; // Default: center
-
-  if (imagePosition === "top") {
-    objectPosition = "50% 0%";
-    transformOrigin = "50% 0%";
-  } else if (imagePosition === "bottom") {
-    objectPosition = "50% 100%";
-    transformOrigin = "50% 100%";
+  let objectPosition = '50% 50%'; // Default: center
+  let transformOrigin = '50% 50%'; // Default: center
+  
+  if (imagePosition === 'top') {
+    objectPosition = '50% 0%';
+    transformOrigin = '50% 0%';
+  } else if (imagePosition === 'bottom') {
+    objectPosition = '50% 100%';
+    transformOrigin = '50% 100%';
   }
-
+  
   return (
     <a
       href={product.url}
@@ -34,10 +31,7 @@ export function ProductCard({
       target="_blank"
       rel="noopener noreferrer"
     >
-      <div
-        className="relative w-full overflow-hidden border carousel__product-image"
-        style={{ aspectRatio: "3/4" }}
-      >
+      <div className="relative w-full overflow-hidden border carousel__product-image" style={{ aspectRatio: '3/4' }}>
         <img
           src={product.image}
           alt={product.name}
@@ -61,3 +55,5 @@ export function ProductCard({
     </a>
   );
 }
+
+

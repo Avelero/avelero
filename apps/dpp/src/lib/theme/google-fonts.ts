@@ -3,12 +3,7 @@
  * Consolidates all Google Fonts functionality in one place
  */
 
-import {
-  fonts,
-  findFont,
-  getFontFallback,
-  type FontMetadata,
-} from "@v1/selections/fonts";
+import { fonts, findFont, getFontFallback, type FontMetadata } from '@v1/selections/fonts';
 
 // ============================================================================
 // TYPES
@@ -23,7 +18,7 @@ export interface GoogleFontAxis {
 export interface GoogleFontMetadata {
   family: string;
   variants?: string[];
-  category: "serif" | "sans-serif" | "display" | "handwriting" | "monospace";
+  category: 'serif' | 'sans-serif' | 'display' | 'handwriting' | 'monospace';
   axes?: GoogleFontAxis[];
   isVariable: boolean;
 }
@@ -39,41 +34,40 @@ export interface GoogleFontMetadata {
  */
 export function isGoogleFont(fontFamily: string): boolean {
   const localFonts = [
-    "geist",
-    "geist sans",
-    "geist mono",
-    "inter",
-    "system-ui",
-    "sans-serif",
-    "monospace",
-    "serif",
-    "arial",
-    "helvetica",
-    "times",
-    "courier",
-    "verdana",
-    "georgia",
-    "palatino",
-    "garamond",
-    "bookman",
-    "comic sans ms",
-    "trebuchet ms",
-    "impact",
+    'geist',
+    'geist sans',
+    'geist mono',
+    'inter',
+    'system-ui',
+    'sans-serif',
+    'monospace',
+    'serif',
+    'arial',
+    'helvetica',
+    'times',
+    'courier',
+    'verdana',
+    'georgia',
+    'palatino',
+    'garamond',
+    'bookman',
+    'comic sans ms',
+    'trebuchet ms',
+    'impact',
   ];
-
+  
   // Parse font-family string to get primary family name
-  const primaryFamily =
-    fontFamily
-      .split(",")[0] // Take first font in stack
-      ?.replace(/['"]/g, "") // Remove quotes
-      ?.trim()
-      ?.toLowerCase() || "";
-
+  const primaryFamily = fontFamily
+    .split(',')[0] // Take first font in stack
+    ?.replace(/['"]/g, '') // Remove quotes
+    ?.trim()
+    ?.toLowerCase() || '';
+  
   // Return false for empty or whitespace-only input
   if (!primaryFamily) {
     return false;
   }
-
+  
   // Check for exact match against local fonts
   return !localFonts.includes(primaryFamily);
 }
@@ -88,7 +82,7 @@ export function isGoogleFont(fontFamily: string): boolean {
  * @returns Array of unique Google Font names to load
  */
 export function extractGoogleFontsFromTypography(
-  typography?: Record<string, any>,
+  typography?: Record<string, any>
 ): string[] {
   const fontSet = new Set<string>();
 
@@ -98,27 +92,26 @@ export function extractGoogleFontsFromTypography(
 
   // Extract fonts from all typescale entries
   const typescales = [
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    "body",
-    "body-sm",
-    "body-xs",
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'body',
+    'body-sm',
+    'body-xs',
   ];
 
   for (const scale of typescales) {
     const scaleConfig = typography[scale];
     if (scaleConfig?.fontFamily) {
       // Extract primary font name from font stack
-      const primaryFont =
-        scaleConfig.fontFamily
-          .split(",")[0] // Take first font in stack
-          ?.replace(/['"]/g, "") // Remove quotes
-          ?.trim() || "";
-
+      const primaryFont = scaleConfig.fontFamily
+        .split(',')[0] // Take first font in stack
+        ?.replace(/['"]/g, '') // Remove quotes
+        ?.trim() || '';
+      
       // Only add if it's a valid Google Font (check the normalized primary font)
       if (primaryFont && isGoogleFont(primaryFont)) {
         fontSet.add(primaryFont);
@@ -141,7 +134,7 @@ export function extractGoogleFontsFromTypography(
 export function getFontMetadata(fontFamily: string): GoogleFontMetadata | null {
   try {
     const font = findFont(fontFamily);
-
+    
     if (!font) {
       return null;
     }
@@ -154,10 +147,7 @@ export function getFontMetadata(fontFamily: string): GoogleFontMetadata | null {
       variants: font.variants,
     };
   } catch (error) {
-    console.warn(
-      `[Google Fonts] Failed to get metadata for font "${fontFamily}":`,
-      error,
-    );
+    console.warn(`[Google Fonts] Failed to get metadata for font "${fontFamily}":`, error);
     return null;
   }
 }
@@ -168,10 +158,10 @@ export function getFontMetadata(fontFamily: string): GoogleFontMetadata | null {
  * @returns Map of font family names to their metadata
  */
 export function getMultipleFontMetadata(
-  fontFamilies: string[],
+  fontFamilies: string[]
 ): Map<string, GoogleFontMetadata> {
   const metadataMap = new Map<string, GoogleFontMetadata>();
-
+  
   for (const fontFamily of fontFamilies) {
     const metadata = getFontMetadata(fontFamily);
     if (metadata) {
@@ -191,7 +181,7 @@ export function getMultipleFontMetadata(
  */
 export function getFontFallbackCategory(
   metadata: GoogleFontMetadata | null,
-  fontFamily: string,
+  fontFamily: string
 ): string {
   if (metadata?.category) {
     return metadata.category;
@@ -215,16 +205,16 @@ function generateAxisSpec(metadata: GoogleFontMetadata): string {
     // Non-variable font - check if it has any variants
     if (metadata.variants && metadata.variants.length > 0) {
       // Font has specific weight variants - request them
-      return `wght@${metadata.variants.join(";")}`;
+      return `wght@${metadata.variants.join(';')}`;
     }
     // Font has no variants (like Alfa Slab One) - return empty string
     // This will result in just the family name without any weight specification
-    return "";
+    return '';
   }
 
   // Standard registered axes supported by Google Fonts CSS2 API
   // Custom axes (like HEXP, CASL, CRSV, etc.) are NOT supported in URL format
-  const STANDARD_AXES = ["ital", "wght", "wdth", "slnt", "opsz"];
+  const STANDARD_AXES = ['ital', 'wght', 'wdth', 'slnt', 'opsz'];
 
   // Filter to only standard axes that Google Fonts CSS2 API supports
   const standardAxes = metadata.axes
@@ -232,21 +222,19 @@ function generateAxisSpec(metadata: GoogleFontMetadata): string {
     .sort((a, b) => a.tag.localeCompare(b.tag));
 
   // Log custom axes that are being filtered out
-  const customAxes = metadata.axes.filter(
-    (axis) => !STANDARD_AXES.includes(axis.tag),
-  );
+  const customAxes = metadata.axes.filter((axis) => !STANDARD_AXES.includes(axis.tag));
   if (customAxes.length > 0) {
     console.log(
-      `[Google Fonts] "${metadata.family}" has custom axes (${customAxes.map((a) => a.tag).join(", ")}) - these will be available in the font but cannot be specified in the URL`,
+      `[Google Fonts] "${metadata.family}" has custom axes (${customAxes.map((a) => a.tag).join(', ')}) - these will be available in the font but cannot be specified in the URL`
     );
   }
 
   if (standardAxes.length === 0) {
     // Font only has custom axes - fallback to requesting standard weights
     console.warn(
-      `[Google Fonts] "${metadata.family}" only has custom axes, no standard axes. Using fallback weight specification.`,
+      `[Google Fonts] "${metadata.family}" only has custom axes, no standard axes. Using fallback weight specification.`
     );
-    return "wght@400;700";
+    return 'wght@400;700';
   }
 
   // Variable font - build axis specification using only standard axes
@@ -257,15 +245,15 @@ function generateAxisSpec(metadata: GoogleFontMetadata): string {
   const axisRanges: string[][] = [];
 
   // Check if font has italic axis
-  const hasItalic = axes.some((axis) => axis.tag === "ital");
+  const hasItalic = axes.some((axis) => axis.tag === 'ital');
 
   if (hasItalic) {
-    axisTags.push("ital");
+    axisTags.push('ital');
   }
 
   // Add other axes
   for (const axis of axes) {
-    if (axis.tag !== "ital") {
+    if (axis.tag !== 'ital') {
       axisTags.push(axis.tag);
     }
   }
@@ -273,17 +261,17 @@ function generateAxisSpec(metadata: GoogleFontMetadata): string {
   // Generate tuples for all axis combinations
   if (hasItalic) {
     // Generate for both normal (0) and italic (1)
-    const nonItalicAxes = axes.filter((a) => a.tag !== "ital");
+    const nonItalicAxes = axes.filter((a) => a.tag !== 'ital');
 
     // Normal style tuple (ital=0)
-    const normalTuple = ["0"];
+    const normalTuple = ['0'];
     for (const axis of nonItalicAxes) {
       normalTuple.push(`${axis.start}..${axis.end}`);
     }
     axisRanges.push(normalTuple);
 
     // Italic style tuple (ital=1)
-    const italicTuple = ["1"];
+    const italicTuple = ['1'];
     for (const axis of nonItalicAxes) {
       italicTuple.push(`${axis.start}..${axis.end}`);
     }
@@ -297,8 +285,8 @@ function generateAxisSpec(metadata: GoogleFontMetadata): string {
     axisRanges.push(tuple);
   }
 
-  const axisTagsStr = axisTags.join(",");
-  const axisRangesStr = axisRanges.map((t) => t.join(",")).join(";");
+  const axisTagsStr = axisTags.join(',');
+  const axisRangesStr = axisRanges.map((t) => t.join(',')).join(';');
 
   return `${axisTagsStr}@${axisRangesStr}`;
 }
@@ -309,19 +297,19 @@ function generateAxisSpec(metadata: GoogleFontMetadata): string {
  * @returns Google Fonts URL with display=swap for optimal loading
  */
 export function generateGoogleFontsUrl(
-  fontsWithMetadata: Map<string, GoogleFontMetadata>,
+  fontsWithMetadata: Map<string, GoogleFontMetadata>
 ): string {
   if (fontsWithMetadata.size === 0) {
-    return "";
+    return '';
   }
 
   // Format each font with its proper axis specification
   const formattedFonts: string[] = [];
 
   for (const [fontFamily, metadata] of fontsWithMetadata.entries()) {
-    const fontName = fontFamily.replace(/\s+/g, "+");
+    const fontName = fontFamily.replace(/\s+/g, '+');
     const axisSpec = generateAxisSpec(metadata);
-
+    
     if (axisSpec) {
       // Font has axes or variants - include them in the URL
       formattedFonts.push(`family=${fontName}:${axisSpec}`);
@@ -331,7 +319,7 @@ export function generateGoogleFontsUrl(
     }
   }
 
-  const url = `https://fonts.googleapis.com/css2?${formattedFonts.join("&")}&display=swap`;
+  const url = `https://fonts.googleapis.com/css2?${formattedFonts.join('&')}&display=swap`;
 
   return url;
 }
@@ -347,18 +335,18 @@ export function generateFallbackGoogleFontsUrl(fonts: string[]): string {
   const googleFonts = fonts.filter(isGoogleFont);
 
   if (googleFonts.length === 0) {
-    return "";
+    return '';
   }
 
   // Use conservative approach - just request the basic font without weight specifications
   // This works for fonts like "Alfa Slab One" that don't have weight variations
   const formattedFonts = googleFonts
     .map((font) => {
-      const fontName = font.replace(/\s+/g, "+");
+      const fontName = font.replace(/\s+/g, '+');
       // Just request the basic font - Google Fonts will serve the default weight
       return `family=${fontName}`;
     })
-    .join("&");
+    .join('&');
 
   return `https://fonts.googleapis.com/css2?${formattedFonts}&display=swap`;
 }
@@ -370,18 +358,18 @@ export function generateFallbackGoogleFontsUrl(fonts: string[]): string {
  * @returns Google Fonts URL with display=swap for optimal loading
  */
 export function generateGoogleFontsUrlFromTypography(
-  typography?: Record<string, any>,
+  typography?: Record<string, any>
 ): string {
   // Extract Google Fonts from typography
   const googleFonts = extractGoogleFontsFromTypography(typography);
-
+  
   if (googleFonts.length === 0) {
-    return "";
+    return '';
   }
 
   // Get metadata for all fonts
   const fontsWithMetadata = getMultipleFontMetadata(googleFonts);
-
+  
   // Generate URL with proper axis specifications
   return generateGoogleFontsUrl(fontsWithMetadata);
 }
@@ -393,13 +381,13 @@ export function generateGoogleFontsUrlFromTypography(
  */
 export function generateGoogleFontsUrlForFont(fontFamily: string): string {
   if (!isGoogleFont(fontFamily)) {
-    return "";
+    return '';
   }
 
   const metadata = getFontMetadata(fontFamily);
   if (!metadata) {
     // Fallback to basic font request
-    const fontName = fontFamily.replace(/\s+/g, "+");
+    const fontName = fontFamily.replace(/\s+/g, '+');
     return `https://fonts.googleapis.com/css2?family=${fontName}&display=swap`;
   }
 

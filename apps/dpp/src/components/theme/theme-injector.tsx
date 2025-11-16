@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
 interface Props {
   cssVars: string;
@@ -26,9 +26,7 @@ export function ThemeInjector({ cssVars, googleFontsUrl, fontFaceCSS }: Props) {
     fontReferenceCount.set(googleFontsUrl, currentCount + 1);
 
     // Check if this font link already exists
-    const existingLink = document.querySelector(
-      `link[href="${googleFontsUrl}"]`,
-    );
+    const existingLink = document.querySelector(`link[href="${googleFontsUrl}"]`);
     if (existingLink) {
       // Font already exists, just increment reference count
       return () => {
@@ -43,38 +41,32 @@ export function ThemeInjector({ cssVars, googleFontsUrl, fontFaceCSS }: Props) {
     }
 
     // Add preconnect for fonts.googleapis.com
-    const preconnect1 = document.createElement("link");
-    preconnect1.rel = "preconnect";
-    preconnect1.href = "https://fonts.googleapis.com";
-    preconnect1.id = "preconnect-google-fonts";
+    const preconnect1 = document.createElement('link');
+    preconnect1.rel = 'preconnect';
+    preconnect1.href = 'https://fonts.googleapis.com';
+    preconnect1.id = 'preconnect-google-fonts';
 
     // Add preconnect for fonts.gstatic.com with crossorigin
-    const preconnect2 = document.createElement("link");
-    preconnect2.rel = "preconnect";
-    preconnect2.href = "https://fonts.gstatic.com";
-    preconnect2.crossOrigin = "anonymous";
-    preconnect2.id = "preconnect-gstatic";
+    const preconnect2 = document.createElement('link');
+    preconnect2.rel = 'preconnect';
+    preconnect2.href = 'https://fonts.gstatic.com';
+    preconnect2.crossOrigin = 'anonymous';
+    preconnect2.id = 'preconnect-gstatic';
 
     // Create and inject the Google Fonts stylesheet link
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
     link.href = googleFontsUrl;
 
     // Increment preconnect reference counts
-    preconnectReferenceCount.set(
-      "preconnect-google-fonts",
-      (preconnectReferenceCount.get("preconnect-google-fonts") || 0) + 1,
-    );
-    preconnectReferenceCount.set(
-      "preconnect-gstatic",
-      (preconnectReferenceCount.get("preconnect-gstatic") || 0) + 1,
-    );
+    preconnectReferenceCount.set('preconnect-google-fonts', (preconnectReferenceCount.get('preconnect-google-fonts') || 0) + 1);
+    preconnectReferenceCount.set('preconnect-gstatic', (preconnectReferenceCount.get('preconnect-gstatic') || 0) + 1);
 
     // Append in order: preconnects first, then stylesheet
-    if (!document.getElementById("preconnect-google-fonts")) {
+    if (!document.getElementById('preconnect-google-fonts')) {
       document.head.appendChild(preconnect1);
     }
-    if (!document.getElementById("preconnect-gstatic")) {
+    if (!document.getElementById('preconnect-gstatic')) {
       document.head.appendChild(preconnect2);
     }
     document.head.appendChild(link);
@@ -91,29 +83,21 @@ export function ThemeInjector({ cssVars, googleFontsUrl, fontFaceCSS }: Props) {
       }
 
       // Decrement preconnect reference counts
-      const newPreconnect1Count =
-        preconnectReferenceCount.get("preconnect-google-fonts") || 0;
-      const newPreconnect2Count =
-        preconnectReferenceCount.get("preconnect-gstatic") || 0;
-
+      const newPreconnect1Count = preconnectReferenceCount.get('preconnect-google-fonts') || 0;
+      const newPreconnect2Count = preconnectReferenceCount.get('preconnect-gstatic') || 0;
+      
       if (newPreconnect1Count <= 1) {
-        preconnectReferenceCount.delete("preconnect-google-fonts");
-        document.getElementById("preconnect-google-fonts")?.remove();
+        preconnectReferenceCount.delete('preconnect-google-fonts');
+        document.getElementById('preconnect-google-fonts')?.remove();
       } else {
-        preconnectReferenceCount.set(
-          "preconnect-google-fonts",
-          newPreconnect1Count - 1,
-        );
+        preconnectReferenceCount.set('preconnect-google-fonts', newPreconnect1Count - 1);
       }
 
       if (newPreconnect2Count <= 1) {
-        preconnectReferenceCount.delete("preconnect-gstatic");
-        document.getElementById("preconnect-gstatic")?.remove();
+        preconnectReferenceCount.delete('preconnect-gstatic');
+        document.getElementById('preconnect-gstatic')?.remove();
       } else {
-        preconnectReferenceCount.set(
-          "preconnect-gstatic",
-          newPreconnect2Count - 1,
-        );
+        preconnectReferenceCount.set('preconnect-gstatic', newPreconnect2Count - 1);
       }
     };
   }, [googleFontsUrl]);
@@ -121,8 +105,10 @@ export function ThemeInjector({ cssVars, googleFontsUrl, fontFaceCSS }: Props) {
   return (
     <>
       {/* Inject @font-face rules for custom CDN fonts */}
-      {fontFaceCSS && <style jsx global>{`${fontFaceCSS}`}</style>}
-
+      {fontFaceCSS && (
+        <style jsx global>{`${fontFaceCSS}`}</style>
+      )}
+      
       {/* Inject CSS variables */}
       {cssVars && (
         <style jsx global>{`

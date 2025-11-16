@@ -1,5 +1,5 @@
-import type { ThemeConfig } from "@/types/theme-config";
-import { SmallImpactCard } from "./small-impact-card";
+import type { ThemeConfig } from '@/types/theme-config';
+import { SmallImpactCard } from './small-impact-card';
 
 interface Props {
   claims: string[];

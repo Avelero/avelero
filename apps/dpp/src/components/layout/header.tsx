@@ -1,5 +1,5 @@
 import type { ThemeConfig } from '@/types/theme-config';
-import { AveleroLogoText } from '../icons/avelero-logo-text';
+import { AveleroLogo } from '@v1/ui/avelero-logo';
 
 interface Props {
   themeConfig: ThemeConfig;
@@ -42,7 +42,7 @@ export function Header({ themeConfig, brandName }: Props) {
         >
           Powered by
         </span>
-        <AveleroLogoText height={12} color="var(--foreground)" />
+        <AveleroLogo height={12} color="var(--foreground)" />
       </div>
     </div>
   );

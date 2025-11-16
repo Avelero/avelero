@@ -205,12 +205,30 @@ export const getUnmappedValuesSchema = z.object({
  */
 const defineColorDataSchema = z.object({
   name: z.string().min(1).max(100),
-  hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be valid hex color").optional(),
+  hex: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "Must be valid hex color")
+    .optional(),
 });
 
 const defineSizeDataSchema = z.object({
   name: z.string().min(1).max(100),
-  categoryId: uuidSchema.optional(),
+  categoryGroup: z
+    .enum([
+      "mens-tops",
+      "mens-bottoms",
+      "mens-outerwear",
+      "mens-footwear",
+      "mens-accessories",
+      "womens-tops",
+      "womens-bottoms",
+      "womens-dresses",
+      "womens-outerwear",
+      "womens-footwear",
+      "womens-accessories",
+    ])
+    .optional(),
+  categoryId: uuidSchema.optional(), // Legacy support
   sortIndex: z.number().int().nonnegative().optional(),
 });
 
@@ -290,7 +308,10 @@ const defineCategoryDataSchema = z.object({
 
 const defineTagDataSchema = z.object({
   name: z.string().min(1).max(100),
-  hex: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be valid hex color").optional(),
+  hex: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "Must be valid hex color")
+    .optional(),
 });
 
 const defineOperatorDataSchema = z.object({

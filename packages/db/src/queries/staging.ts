@@ -139,6 +139,8 @@ export interface StagingProductPreview {
   existingProductId: string | null;
   id: string;
   brandId: string;
+  /** Product identifier for the product (brand-scoped) */
+  productIdentifier?: string | null;
   name: string;
   description: string | null;
   showcaseBrandId: string | null;
@@ -723,6 +725,8 @@ export async function bulkCreateProductsFromStaging(
     id: row.id,
     brandId: row.brandId ?? brandId,
     name: row.name,
+    // Use provided productIdentifier or fallback to a generated one based on the planned id
+    productIdentifier: row.productIdentifier ?? `PROD-${row.id.slice(0, 8)}`,
     description: row.description ?? null,
     categoryId: row.categoryId ?? null,
     season: row.season ?? null,

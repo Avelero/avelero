@@ -534,6 +534,9 @@ async function commitStagingRow(
             brandId,
             {
               name: stagingProduct.name,
+              // productIdentifier is required; use provided or fallback to generated value
+              productIdentifier:
+                stagingProduct.productIdentifier ?? `PROD-${stagingProduct.id.slice(0, 8)}`,
               description: stagingProduct.description || undefined,
               categoryId: stagingProduct.categoryId || undefined,
               season: stagingProduct.season || undefined, // Legacy: kept for backward compatibility

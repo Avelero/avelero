@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { brandCertifications } from "../brands/brand-certifications";
 import { brandSeasons } from "../brands/brand-seasons";
 import { categories } from "../brands/categories";
@@ -14,6 +21,12 @@ export const products = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     name: text("name").notNull(),
+    /**
+     * Unique product identifier within the brand.
+     * This is the primary identifier for products, used for matching and tracking.
+     * Replaces SKU as the main product identifier.
+     */
+    productIdentifier: text("product_identifier").notNull(),
     description: text("description"),
     showcaseBrandId: uuid("showcase_brand_id").references(
       () => showcaseBrands.id,
@@ -49,6 +62,11 @@ export const products = pgTable(
       .notNull(),
   },
   (table) => [
+    // Unique constraint: product_identifier must be unique within each brand
+    uniqueIndex("products_brand_id_product_identifier_unq").on(
+      table.brandId,
+      table.productIdentifier,
+    ),
     // RLS policies - both members and owners can perform all operations
     pgPolicy("products_select_for_brand_members", {
       as: "permissive",

@@ -20,6 +20,16 @@ export const brandSizes = pgTable(
       .notNull(),
     name: text("name").notNull(),
     sortIndex: integer("sort_index"),
+    /**
+     * Category group key for size organization (e.g., "mens-tops", "womens-bottoms").
+     * This is the primary field for new size creation flow where users select
+     * gender + subgroup combination.
+     */
+    categoryGroup: text("category_group"),
+    /**
+     * @deprecated Legacy category reference. Kept for backward compatibility.
+     * New implementations should use categoryGroup instead.
+     */
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
       onUpdate: "cascade",

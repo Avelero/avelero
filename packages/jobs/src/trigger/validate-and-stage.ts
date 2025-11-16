@@ -216,7 +216,8 @@ interface ExistingVariant {
   // Variant fields
   variant_id: string;
   upid: string | null;
-  sku: string;
+  // SKU is now optional at variant level
+  sku: string | null;
   ean: string | null;
   colorId: string | null;
   sizeId: string | null;
@@ -1295,8 +1296,8 @@ function detectChanges(
     additionalImageUrls: string | null;
     tags: string | null;
     showcaseBrandId: string | null;
-    // Variant fields
-    sku: string;
+  // Variant fields
+  sku: string | null;
     upid: string | null;
     ean: string | null;
     colorId: string | null;

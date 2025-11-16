@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq, ilike, inArray } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import type { Database } from "../client";
 import { evaluateAndUpsertCompletion } from "../completion/evaluate";
 import type { ModuleKey } from "../completion/module-keys";
@@ -83,7 +84,8 @@ export interface ProductVariantSummary {
   product_id: string;
   color_id: string | null;
   size_id: string | null;
-  sku: string;
+  /** SKU is now optional - variants are tracked by UUID */
+  sku: string | null;
   ean: string | null;
   upid: string | null;
   status: string | null;
@@ -630,6 +632,8 @@ export async function createProduct(
   brandId: string,
   input: {
     name: string;
+    /** Unique product identifier within the brand - optional; generated if missing */
+    productIdentifier?: string;
     description?: string;
     categoryId?: string;
     season?: string; // Legacy: will be deprecated after migration
@@ -643,11 +647,15 @@ export async function createProduct(
 ) {
   let created: { id: string } | undefined;
   await db.transaction(async (tx) => {
+    const productIdentifierValue =
+      input.productIdentifier ?? `PROD-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
+
     const [row] = await tx
       .insert(products)
       .values({
         brandId,
         name: input.name,
+        productIdentifier: productIdentifierValue,
         description: input.description ?? null,
         categoryId: input.categoryId ?? null,
         season: input.season ?? null, // Legacy: kept for backward compatibility
@@ -779,6 +787,96 @@ export async function listVariants(db: Database, productId: string) {
     .from(productVariants)
     .where(eq(productVariants.productId, productId))
     .orderBy(asc(productVariants.createdAt));
+}
+
+/**
+ * Auto-generates product variants from color × size combinations.
+ *
+ * Creates all possible combinations of the provided colors and sizes for a product.
+ * Each variant is assigned a unique UUID. SKU and EAN can be optionally provided
+ * but are no longer required - variants are tracked via their UUID.
+ *
+ * @param db - Database instance
+ * @param productId - Product ID to generate variants for
+ * @param colorIds - Array of color IDs to combine
+ * @param sizeIds - Array of size IDs to combine
+ * @param commonFields - Optional common fields applied to all variants (sku, ean, status, etc.)
+ * @returns Array of created variant IDs
+ *
+ * @example
+ * ```ts
+ * // Generate 6 variants (2 colors × 3 sizes)
+ * const variantIds = await generateProductVariants(
+ *   db,
+ *   productId,
+ *   ['blue-id', 'red-id'],
+ *   ['small-id', 'medium-id', 'large-id']
+ * );
+ * // Results: Blue+S, Blue+M, Blue+L, Red+S, Red+M, Red+L
+ * ```
+ */
+export async function generateProductVariants(
+  db: Database,
+  productId: string,
+  colorIds: readonly string[],
+  sizeIds: readonly string[],
+  commonFields?: {
+    status?: string;
+    productImageUrl?: string;
+  },
+): Promise<readonly string[]> {
+  if (colorIds.length === 0 || sizeIds.length === 0) {
+    return [];
+  }
+
+  return db.transaction(async (tx) => {
+    const createdIds: string[] = [];
+
+    // Generate all color × size combinations
+    for (const colorId of colorIds) {
+      for (const sizeId of sizeIds) {
+        const [created] = await tx
+          .insert(productVariants)
+          .values({
+            productId,
+            colorId,
+            sizeId,
+            sku: null, // SKU is now optional - variants tracked by UUID
+            ean: null,
+            upid: null,
+            status: commonFields?.status ?? null,
+            productImageUrl: commonFields?.productImageUrl ?? null,
+          })
+          .returning({ id: productVariants.id });
+
+        if (created?.id) {
+          createdIds.push(created.id);
+        }
+      }
+    }
+
+    // Update product completion status after generating variants
+    if (createdIds.length > 0) {
+      const [{ brandId } = { brandId: undefined } as any] = await tx
+        .select({ brandId: products.brandId })
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1);
+
+      if (brandId) {
+        await evaluateAndUpsertCompletion(
+          tx as unknown as Database,
+          brandId,
+          productId,
+          {
+            onlyModules: ["core"] as ModuleKey[],
+          },
+        );
+      }
+    }
+
+    return createdIds as readonly string[];
+  });
 }
 
 export async function createVariant(

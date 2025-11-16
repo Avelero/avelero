@@ -11,6 +11,29 @@ import {
 } from "../schema";
 
 /**
+ * Valid category group keys for size organization.
+ * Format: "gender-subgroup" (e.g., "mens-tops", "womens-bottoms")
+ */
+export const VALID_CATEGORY_GROUPS = [
+  "mens-tops",
+  "mens-bottoms",
+  "mens-outerwear",
+  "mens-footwear",
+  "mens-accessories",
+  "womens-tops",
+  "womens-bottoms",
+  "womens-dresses",
+  "womens-outerwear",
+  "womens-footwear",
+  "womens-accessories",
+] as const;
+
+/**
+ * Type for valid category group values
+ */
+export type CategoryGroup = (typeof VALID_CATEGORY_GROUPS)[number];
+
+/**
  * Entity types for duplicate checking
  */
 export type CatalogEntityType =
@@ -88,22 +111,56 @@ export async function deleteColor(db: Database, brandId: string, id: string) {
 }
 
 // Sizes
+/**
+ * Validates if a category group string is valid
+ *
+ * @param categoryGroup - Category group to validate
+ * @returns True if valid, false otherwise
+ */
+export function isValidCategoryGroup(
+  categoryGroup: string,
+): categoryGroup is CategoryGroup {
+  return VALID_CATEGORY_GROUPS.includes(categoryGroup as CategoryGroup);
+}
+
+/**
+ * Lists sizes for a brand, optionally filtered by category group or legacy category ID
+ *
+ * @param db - Database connection
+ * @param brandId - Brand UUID
+ * @param opts - Optional filters for categoryGroup (preferred) or categoryId (legacy)
+ * @returns List of sizes
+ */
 export async function listSizes(
   db: Database,
   brandId: string,
-  opts?: { categoryId?: string },
+  opts?: { categoryGroup?: string; categoryId?: string },
 ) {
-  const where = opts?.categoryId
-    ? and(
-        eq(brandSizes.brandId, brandId),
-        eq(brandSizes.categoryId, opts.categoryId),
-      )
-    : eq(brandSizes.brandId, brandId);
+  let where: ReturnType<typeof and> | ReturnType<typeof eq>;
+
+  if (opts?.categoryGroup) {
+    // New approach: filter by category group
+    where = and(
+      eq(brandSizes.brandId, brandId),
+      eq(brandSizes.categoryGroup, opts.categoryGroup),
+    );
+  } else if (opts?.categoryId) {
+    // Legacy approach: filter by category ID
+    where = and(
+      eq(brandSizes.brandId, brandId),
+      eq(brandSizes.categoryId, opts.categoryId),
+    );
+  } else {
+    // No filter: return all sizes for brand
+    where = eq(brandSizes.brandId, brandId);
+  }
+
   return db
     .select({
       id: brandSizes.id,
       name: brandSizes.name,
       sort_index: brandSizes.sortIndex,
+      category_group: brandSizes.categoryGroup,
       category_id: brandSizes.categoryId,
       created_at: brandSizes.createdAt,
       updated_at: brandSizes.updatedAt,
@@ -113,16 +170,37 @@ export async function listSizes(
     .orderBy(asc(brandSizes.sortIndex), asc(brandSizes.name));
 }
 
+/**
+ * Creates a new size for a brand
+ *
+ * @param db - Database connection
+ * @param brandId - Brand UUID
+ * @param input - Size data with categoryGroup (preferred) or categoryId (legacy)
+ * @returns Created size ID
+ */
 export async function createSize(
   db: Database,
   brandId: string,
-  input: { name: string; categoryId?: string; sortIndex?: number },
+  input: {
+    name: string;
+    categoryGroup?: string;
+    categoryId?: string;
+    sortIndex?: number;
+  },
 ) {
+  // Validate category group if provided
+  if (input.categoryGroup && !isValidCategoryGroup(input.categoryGroup)) {
+    throw new Error(
+      `Invalid category group: ${input.categoryGroup}. Must be one of: ${VALID_CATEGORY_GROUPS.join(", ")}`,
+    );
+  }
+
   const [row] = await db
     .insert(brandSizes)
     .values({
       brandId,
       name: input.name,
+      categoryGroup: input.categoryGroup ?? null,
       categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
@@ -130,20 +208,42 @@ export async function createSize(
   return row;
 }
 
+/**
+ * Updates an existing size
+ *
+ * @param db - Database connection
+ * @param brandId - Brand UUID
+ * @param id - Size UUID
+ * @param input - Size data to update
+ * @returns Updated size ID
+ */
 export async function updateSize(
   db: Database,
   brandId: string,
   id: string,
   input: {
     name?: string;
+    categoryGroup?: string | null;
     categoryId?: string | null;
     sortIndex?: number | null;
   },
 ) {
+  // Validate category group if provided and not null
+  if (
+    input.categoryGroup !== undefined &&
+    input.categoryGroup !== null &&
+    !isValidCategoryGroup(input.categoryGroup)
+  ) {
+    throw new Error(
+      `Invalid category group: ${input.categoryGroup}. Must be one of: ${VALID_CATEGORY_GROUPS.join(", ")}`,
+    );
+  }
+
   const [row] = await db
     .update(brandSizes)
     .set({
       name: input.name,
+      categoryGroup: input.categoryGroup ?? null,
       categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
@@ -621,7 +721,7 @@ export async function deleteShowcaseBrand(
  * @param brandId - Brand UUID
  * @param entityType - Type of entity to check
  * @param name - Name to check for duplicates (case-insensitive)
- * @param categoryId - Optional category ID (for sizes only)
+ * @param options - Optional filters (categoryGroup or categoryId for sizes only)
  * @returns True if duplicate exists, false otherwise
  *
  * @example
@@ -630,6 +730,15 @@ export async function deleteShowcaseBrand(
  * if (exists) {
  *   throw new Error("Color 'Red' already exists");
  * }
+ *
+ * // Check size with category group
+ * const existsSize = await checkDuplicateName(
+ *   db,
+ *   "brand-uuid",
+ *   "SIZE",
+ *   "XL",
+ *   { categoryGroup: "mens-tops" }
+ * );
  * ```
  */
 export async function checkDuplicateName(
@@ -637,7 +746,7 @@ export async function checkDuplicateName(
   brandId: string,
   entityType: CatalogEntityType,
   name: string,
-  categoryId?: string,
+  options?: { categoryGroup?: string; categoryId?: string },
 ): Promise<boolean> {
   switch (entityType) {
     case "COLOR": {
@@ -654,18 +763,28 @@ export async function checkDuplicateName(
     }
 
     case "SIZE": {
+      // Build where clause based on categoryGroup (preferred) or categoryId (legacy)
+      const conditions = [
+        eq(brandSizes.brandId, brandId),
+        sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
+      ];
+
+      if (options?.categoryGroup) {
+        // New approach: check within category group
+        conditions.push(eq(brandSizes.categoryGroup, options.categoryGroup));
+      } else if (options?.categoryId) {
+        // Legacy approach: check within category ID
+        conditions.push(eq(brandSizes.categoryId, options.categoryId));
+      } else {
+        // No category specified: check for sizes without category group or ID
+        conditions.push(sql`${brandSizes.categoryGroup} IS NULL`);
+        conditions.push(sql`${brandSizes.categoryId} IS NULL`);
+      }
+
       const [result] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(brandSizes)
-        .where(
-          and(
-            eq(brandSizes.brandId, brandId),
-            sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
-            categoryId
-              ? eq(brandSizes.categoryId, categoryId)
-              : sql`${brandSizes.categoryId} IS NULL`,
-          ),
-        );
+        .where(and(...conditions));
       return (result?.count ?? 0) > 0;
     }
 
@@ -748,7 +867,7 @@ export async function checkDuplicateName(
  * @param brandId - Brand UUID
  * @param entityType - Type of entity to find
  * @param name - Name to search for (case-insensitive)
- * @param categoryId - Optional category ID (for sizes only)
+ * @param options - Optional filters (categoryGroup or categoryId for sizes only)
  * @returns Entity if found, null otherwise
  *
  * @example
@@ -757,6 +876,15 @@ export async function checkDuplicateName(
  * if (color) {
  *   console.log(`Found existing color with ID: ${color.id}`);
  * }
+ *
+ * // Find size in category group
+ * const size = await findEntityByName(
+ *   db,
+ *   "brand-uuid",
+ *   "SIZE",
+ *   "XL",
+ *   { categoryGroup: "mens-tops" }
+ * );
  * ```
  */
 export async function findEntityByName(
@@ -764,7 +892,7 @@ export async function findEntityByName(
   brandId: string,
   entityType: CatalogEntityType,
   name: string,
-  categoryId?: string,
+  options?: { categoryGroup?: string; categoryId?: string },
 ): Promise<{ id: string; name: string } | null> {
   switch (entityType) {
     case "COLOR": {
@@ -782,18 +910,25 @@ export async function findEntityByName(
     }
 
     case "SIZE": {
+      // Build where clause based on categoryGroup (preferred) or categoryId (legacy)
+      const conditions = [
+        eq(brandSizes.brandId, brandId),
+        sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
+      ];
+
+      if (options?.categoryGroup) {
+        conditions.push(eq(brandSizes.categoryGroup, options.categoryGroup));
+      } else if (options?.categoryId) {
+        conditions.push(eq(brandSizes.categoryId, options.categoryId));
+      } else {
+        conditions.push(sql`${brandSizes.categoryGroup} IS NULL`);
+        conditions.push(sql`${brandSizes.categoryId} IS NULL`);
+      }
+
       const [result] = await db
         .select({ id: brandSizes.id, name: brandSizes.name })
         .from(brandSizes)
-        .where(
-          and(
-            eq(brandSizes.brandId, brandId),
-            sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
-            categoryId
-              ? eq(brandSizes.categoryId, categoryId)
-              : sql`${brandSizes.categoryId} IS NULL`,
-          ),
-        )
+        .where(and(...conditions))
         .limit(1);
       return result ?? null;
     }
@@ -925,6 +1060,7 @@ export function validateColorInput(name: string): ValidationResult {
  */
 export function validateSizeInput(input: {
   name: string;
+  categoryGroup?: string;
   categoryId?: string;
   sortIndex?: number;
 }): ValidationResult {
@@ -941,6 +1077,15 @@ export function validateSizeInput(input: {
       field: "name",
       message: "Size name cannot exceed 100 characters",
       code: "FIELD_TOO_LONG",
+    });
+  }
+
+  // Validate category group if provided
+  if (input.categoryGroup && !isValidCategoryGroup(input.categoryGroup)) {
+    errors.push({
+      field: "categoryGroup",
+      message: `Invalid category group. Must be one of: ${VALID_CATEGORY_GROUPS.join(", ")}`,
+      code: "INVALID_VALUE",
     });
   }
 
@@ -1266,6 +1411,7 @@ export async function validateAndCreateEntity(
       validation = validateSizeInput(
         input as {
           name: string;
+          categoryGroup?: string;
           categoryId?: string;
           sortIndex?: number;
         },
@@ -1314,13 +1460,14 @@ export async function validateAndCreateEntity(
   }
 
   // Check for duplicates
-  const duplicate = await checkDuplicateName(
-    db,
-    brandId,
-    entityType,
-    name,
-    (input as { categoryId?: string }).categoryId,
-  );
+  const inputWithOptions = input as {
+    categoryGroup?: string;
+    categoryId?: string;
+  };
+  const duplicate = await checkDuplicateName(db, brandId, entityType, name, {
+    categoryGroup: inputWithOptions.categoryGroup,
+    categoryId: inputWithOptions.categoryId,
+  });
 
   if (duplicate) {
     throw new Error(
@@ -1341,6 +1488,7 @@ export async function validateAndCreateEntity(
         brandId,
         input as {
           name: string;
+          categoryGroup?: string;
           categoryId?: string;
           sortIndex?: number;
         },

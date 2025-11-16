@@ -81,10 +81,13 @@ export function PassportsUploadSheet() {
   // Handle upload and import workflow
   const handleUpload = useCallback(async () => {
     if (!selectedFile || !brandId) {
+      console.error('Upload blocked: missing file or brandId', { selectedFile: !!selectedFile, brandId });
+      toast.error('Cannot upload: missing file or brand information');
       return;
     }
 
     try {
+      console.log('[CSV Upload] Starting upload process', { filename: selectedFile.name, brandId, size: selectedFile.size });
       setIsUploading(true);
       setUploadError(null);
       setValidationErrors([]);
@@ -92,13 +95,16 @@ export function PassportsUploadSheet() {
       // Step 1: Client-side validation (instant, no upload)
       const validationToastId = toast.loading("Validating file structure...");
 
+      console.log('[CSV Upload] Starting client-side validation...');
       const clientValidation = await validateImportFile(selectedFile);
+      console.log('[CSV Upload] Validation result:', clientValidation);
 
       toast.dismiss(validationToastId);
 
       if (!clientValidation.valid) {
         // Validation failed - show errors immediately
         const errorCount = clientValidation.errors.length;
+        console.error('[CSV Upload] Validation failed:', clientValidation.errors);
         toast.error(
           `Validation failed: ${errorCount} error${errorCount !== 1 ? "s" : ""} found`,
         );
@@ -116,6 +122,7 @@ export function PassportsUploadSheet() {
         return;
       }
 
+      console.log('[CSV Upload] Client validation passed');
       toast.success("File structure validated - uploading...");
 
       // Generate a temporary job ID for file storage
@@ -124,13 +131,24 @@ export function PassportsUploadSheet() {
       // Step 2: Upload file to Supabase storage
       const uploadToastId = toast.loading("Uploading file...");
 
-      const uploadResult = await uploadImportFile(getSupabase(), {
+      console.log('[CSV Upload] Uploading to Supabase', { brandId, jobId: tempJobId, filename: selectedFile.name });
+
+      const supabaseClient = getSupabase();
+      const session = await supabaseClient.auth.getSession();
+      console.log('[CSV Upload] Auth status', {
+        hasSession: !!session.data.session,
+        userId: session.data.session?.user?.id,
+        userEmail: session.data.session?.user?.email
+      });
+
+      const uploadResult = await uploadImportFile(supabaseClient, {
         file: selectedFile,
         brandId,
         jobId: tempJobId,
         filename: selectedFile.name,
       });
 
+      console.log('[CSV Upload] Upload successful', uploadResult);
       toast.success("File uploaded successfully", { id: uploadToastId });
 
       // Step 3: Start import job (full validation happens in background)
@@ -153,7 +171,13 @@ export function PassportsUploadSheet() {
       // Step 5: Close sheet - floating widget will track progress
       setOpen(false);
     } catch (error) {
-      console.error("Upload/import error:", error);
+      console.error("[CSV Upload] Upload/import error:", error);
+      console.error("[CSV Upload] Error details:", {
+        error,
+        brandId,
+        filename: selectedFile?.name,
+        errorType: error?.constructor?.name
+      });
 
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";

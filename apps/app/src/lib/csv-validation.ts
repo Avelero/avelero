@@ -62,31 +62,62 @@ async function parseCSVHeaders(file: File): Promise<{
   headers: string[];
   error?: string;
 }> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let rowCount = 0;
     let headers: string[] = [];
+    let resolved = false;
 
-    Papa.parse(file, {
-      header: true,
-      preview: SAMPLE_ROWS, // Only parse first N rows
-      skipEmptyLines: true,
-      step: (results) => {
-        // Get headers from first row
-        if (rowCount === 0 && results.meta.fields) {
-          headers = results.meta.fields;
-        }
-        rowCount++;
-      },
-      complete: () => {
-        resolve({ headers });
-      },
-      error: (error) => {
+    // Add timeout to prevent hanging
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
         resolve({
           headers: [],
-          error: `Failed to parse CSV: ${error.message}`
+          error: 'CSV parsing timed out after 10 seconds'
         });
-      },
-    });
+      }
+    }, 10000);
+
+    try {
+      Papa.parse(file, {
+        header: true,
+        preview: SAMPLE_ROWS, // Only parse first N rows
+        skipEmptyLines: true,
+        step: (results) => {
+          // Get headers from first row
+          if (rowCount === 0 && results.meta.fields) {
+            headers = results.meta.fields;
+          }
+          rowCount++;
+        },
+        complete: () => {
+          clearTimeout(timeout);
+          if (!resolved) {
+            resolved = true;
+            resolve({ headers });
+          }
+        },
+        error: (error) => {
+          clearTimeout(timeout);
+          if (!resolved) {
+            resolved = true;
+            resolve({
+              headers: [],
+              error: `Failed to parse CSV: ${error.message}`
+            });
+          }
+        },
+      });
+    } catch (error) {
+      clearTimeout(timeout);
+      if (!resolved) {
+        resolved = true;
+        resolve({
+          headers: [],
+          error: error instanceof Error ? error.message : 'Unknown parsing error'
+        });
+      }
+    }
   });
 }
 
@@ -174,10 +205,31 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
     };
   }
 
+  // For large CSV files (>1MB), skip client validation to avoid hanging
+  // The backend will do comprehensive validation anyway
+  const isLargeFile = file.size > 1024 * 1024; // 1MB threshold
+
+  if (isLargeFile) {
+    console.log('[CSV Validation] Skipping client-side validation for large file (>1MB)');
+    return {
+      valid: true,
+      errors: [],
+      summary: {
+        filename: file.name,
+        fileSize: file.size,
+        headers: [],
+        hasUpid: true, // Backend will validate
+        hasSku: true,
+      },
+    };
+  }
+
   // Step 3: Parse CSV headers only (fast, <100ms even for large files)
+  console.log('[CSV Validation] Parsing headers for small CSV file');
   const { headers, error } = await parseCSVHeaders(file);
 
   if (error) {
+    console.error('[CSV Validation] Parse error:', error);
     return {
       valid: false,
       errors: [{
@@ -191,7 +243,7 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
   const headerErrors = validateHeaders(headers);
 
   const normalizedHeaders = headers.map(normalizeHeader);
-  const hasProductIdentifier = normalizedHeaders.some(h => 
+  const hasProductIdentifier = normalizedHeaders.some(h =>
     h === "product_identifier" || h === "productidentifier" || h === "upid" || h === "product_id"
   );
   const hasSku = normalizedHeaders.some(h => h === "sku");

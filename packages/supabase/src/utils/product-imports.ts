@@ -91,6 +91,13 @@ export async function uploadImportFile(
 
   const storage = client.storage.from(PRODUCT_IMPORTS_BUCKET);
 
+  console.log('[Supabase Storage] Attempting upload', {
+    bucket: PRODUCT_IMPORTS_BUCKET,
+    path,
+    fileSize: file.size,
+    contentType: file.type
+  });
+
   const result = await storage.upload(path, file, {
     upsert: true,
     cacheControl: "3600",
@@ -98,8 +105,19 @@ export async function uploadImportFile(
   });
 
   if (result.error) {
+    console.error('[Supabase Storage] Upload failed', {
+      error: result.error,
+      path,
+      statusCode: result.error.statusCode,
+      message: result.error.message
+    });
     throw new Error(`Failed to upload file: ${result.error.message}`);
   }
+
+  console.log('[Supabase Storage] Upload succeeded', {
+    path,
+    fullPath: result.data.fullPath
+  });
 
   // Always return the path we constructed, not what Supabase returns
   // to ensure consistency across the application

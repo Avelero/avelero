@@ -85,7 +85,7 @@ interface PassportSelectRow {
   variant_upid: string | null;
   color_name: string | null;
   size_name: string | null;
-  template_id: string;
+  template_id: string | null;
   template_name: string | null;
 }
 
@@ -403,8 +403,9 @@ async function hydratePassportRows(
   };
 
   return rows.map((r) => {
-    const modDefs =
-      templateIdToModules.get(r.template_id)?.filter((m) => m.enabled) ?? [];
+    const modDefs = r.template_id
+      ? templateIdToModules.get(r.template_id)?.filter((m) => m.enabled) ?? []
+      : [];
     const modules = modDefs.map((m) => ({
       key: m.key,
       completed: completionKey.get(`${r.id}:${m.key}`) ?? false,

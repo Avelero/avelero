@@ -65,18 +65,6 @@ async function parseCSVHeaders(file: File): Promise<{
   return new Promise((resolve) => {
     let rowCount = 0;
     let headers: string[] = [];
-    let resolved = false;
-
-    // Timeout after 10 seconds to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        resolve({
-          headers: [],
-          error: "CSV parsing timed out after 10 seconds"
-        });
-      }
-    }, 10000);
 
     Papa.parse(file, {
       header: true,
@@ -90,21 +78,13 @@ async function parseCSVHeaders(file: File): Promise<{
         rowCount++;
       },
       complete: () => {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timeoutId);
-          resolve({ headers });
-        }
+        resolve({ headers });
       },
       error: (error) => {
-        if (!resolved) {
-          resolved = true;
-          clearTimeout(timeoutId);
-          resolve({
-            headers: [],
-            error: `Failed to parse CSV: ${error.message}`
-          });
-        }
+        resolve({
+          headers: [],
+          error: `Failed to parse CSV: ${error.message}`
+        });
       },
     });
   });
@@ -141,14 +121,16 @@ function validateHeaders(headers: string[]): ValidationError[] {
     });
   }
 
-  // Check for UPID or SKU (at least one required)
-  const hasUpid = normalizedHeaders.some(h => h === "upid" || h === "product_id");
+  // Check for product_identifier or SKU (at least one required)
+  const hasProductIdentifier = normalizedHeaders.some(h => 
+    h === "product_identifier" || h === "productidentifier" || h === "upid" || h === "product_id"
+  );
   const hasSku = normalizedHeaders.some(h => h === "sku");
 
-  if (!hasUpid && !hasSku) {
+  if (!hasProductIdentifier && !hasSku) {
     errors.push({
       type: "MISSING_COLUMNS",
-      message: "Missing required column: either 'upid' or 'sku' must be present",
+      message: "Missing required column: either 'product_identifier' (or 'upid') or 'sku' must be present",
     });
   }
 
@@ -186,7 +168,7 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
         filename: file.name,
         fileSize: file.size,
         headers: [],
-        hasUpid: true, // Assume valid, backend will validate
+        hasUpid: true, // Assume valid (product_identifier or upid), backend will validate
         hasSku: true,
       },
     };
@@ -209,7 +191,9 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
   const headerErrors = validateHeaders(headers);
 
   const normalizedHeaders = headers.map(normalizeHeader);
-  const hasUpid = normalizedHeaders.some(h => h === "upid" || h === "product_id");
+  const hasProductIdentifier = normalizedHeaders.some(h => 
+    h === "product_identifier" || h === "productidentifier" || h === "upid" || h === "product_id"
+  );
   const hasSku = normalizedHeaders.some(h => h === "sku");
 
   return {
@@ -219,7 +203,7 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
       filename: file.name,
       fileSize: file.size,
       headers: headers,
-      hasUpid,
+      hasUpid: hasProductIdentifier,
       hasSku,
     },
   };

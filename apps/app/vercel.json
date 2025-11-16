@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd ../.. && bunx turbo run build --filter=app",
+  "buildCommand": "cd ../.. && bunx turbo run build --filter=@v1/app",
   "outputDirectory": ".next",
   "framework": "nextjs",
   "installCommand": "cd ../.. && bun install"

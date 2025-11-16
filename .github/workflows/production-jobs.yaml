@@ -1,0 +1,55 @@
+name: Production Jobs Deploy
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - packages/jobs/**
+      - packages/db/**
+      - packages/supabase/**
+      - packages/email/**
+      - packages/utils/**
+      - .github/workflows/production-jobs.yaml
+
+jobs:
+  deploy:
+    name: 🚀 Deploy Trigger.dev Jobs to Production
+    runs-on: ubuntu-latest
+    concurrency: trigger-production
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🥟 Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📦 Install dependencies
+        run: bun install
+
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./packages/jobs
+
+      - name: 🪐 Check TypeScript
+        run: bun run typecheck
+        working-directory: ./packages/jobs
+
+      - name: 🚀 Deploy to Trigger.dev Production
+        run: bun run deploy
+        working-directory: ./packages/jobs
+        env:
+          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+          # Environment variables needed for the deployment
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          API_URL: ${{ secrets.API_URL }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}

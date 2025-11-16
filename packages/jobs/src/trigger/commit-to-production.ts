@@ -54,10 +54,11 @@ interface BatchTimingSnapshot {
   totalMs: number;
 }
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 1000; // Optimized for maximum throughput
 const ROW_CONCURRENCY = resolveRowConcurrency();
 const STAGING_DELETE_CHUNK_SIZE = resolveDeleteChunkSize();
 const TIMEOUT_MS = 1800000; // 30 minutes
+const PROGRESS_UPDATE_FREQUENCY = 5; // Update progress every N batches
 
 /**
  * Phase 2: Commit validated staging data to production tables
@@ -211,33 +212,39 @@ export const commitToProduction = task({
           }
         }
 
-        // Update job progress
+        // Update job progress (only every N batches to reduce overhead)
         const progressStart = Date.now();
-        const percentage =
-          totalRows > 0 ? Math.round((processedCount / totalRows) * 100) : 100;
-        await updateImportJobProgress(db, {
-          jobId,
-          summary: {
-            total: totalRows,
+        let progressDurationMs = 0;
+        const shouldUpdateProgress =
+          batchNumber % PROGRESS_UPDATE_FREQUENCY === 0 || !hasMore;
+
+        if (shouldUpdateProgress) {
+          const percentage =
+            totalRows > 0 ? Math.round((processedCount / totalRows) * 100) : 100;
+          await updateImportJobProgress(db, {
+            jobId,
+            summary: {
+              total: totalRows,
+              processed: processedCount,
+              created: createdCount,
+              updated: updatedCount,
+              failed: failedCount,
+              percentage,
+            },
+          });
+          progressEmitter.emit({
+            jobId,
+            status: "COMMITTING",
+            phase: "commit",
             processed: processedCount,
+            total: totalRows,
             created: createdCount,
             updated: updatedCount,
             failed: failedCount,
             percentage,
-          },
-        });
-        progressEmitter.emit({
-          jobId,
-          status: "COMMITTING",
-          phase: "commit",
-          processed: processedCount,
-          total: totalRows,
-          created: createdCount,
-          updated: updatedCount,
-          failed: failedCount,
-          percentage,
-        });
-        const progressDurationMs = Date.now() - progressStart;
+          });
+          progressDurationMs = Date.now() - progressStart;
+        }
         const totalBatchDurationMs = Date.now() - batchStartMs;
         batchTimings.push({
           batchNumber,
@@ -718,17 +725,7 @@ async function commitStagingRow(
       relationDurationMs = Date.now() - relationsStart;
     });
 
-    const rowDurationMs = Date.now() - rowStart;
-    logger.info("Successfully committed staging row", {
-      rowNumber,
-      action,
-      productId,
-      variantId,
-      rowDurationMs,
-      coreDurationMs,
-      relationDurationMs,
-    });
-
+    // Removed per-row logging for performance - only log errors and batch summaries
     return {
       rowNumber,
       importRowId,
@@ -813,7 +810,7 @@ function summarizeTimings(
 function resolveRowConcurrency(): number {
   const envValue = process.env.COMMIT_ROW_CONCURRENCY;
   const parsed = envValue ? Number.parseInt(envValue, 10) : Number.NaN;
-  const base = Number.isNaN(parsed) ? 5 : parsed;
+  const base = Number.isNaN(parsed) ? 15 : parsed; // Ultra-optimized: 15 concurrent rows
   return Math.min(Math.max(base, 1), 20);
 }
 

@@ -46,17 +46,17 @@ export default function Page() {
             title="Extend the product lifecycle"
             description="Embed care guides, repair services, and resale options directly in the passport. Keep products in use and customers returning long after purchase."
             backgroundImage="/passport-menu-image.webp"
-          ></FeatureCard>
+          />
           <FeatureCard
             title="Re-engage your customers"
             description="Tell your story, share your impact, and build loyalty. Product passports become part of the brand experience."
             backgroundImage="/passport-banner-image.webp"
-          ></FeatureCard>
+          />
           <FeatureCard
             title="Drive traffic back to your store"
             description="Link to related products, promote campaigns, or capture newsletter signups directly from your product passport."
             backgroundImage="/passport-carousel-image.webp"
-          ></FeatureCard>
+          />
         </FeatureCards>
         <FeatureBlock id="footprint">
           <FeatureBlockImage

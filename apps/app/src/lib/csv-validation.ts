@@ -65,6 +65,18 @@ async function parseCSVHeaders(file: File): Promise<{
   return new Promise((resolve) => {
     let rowCount = 0;
     let headers: string[] = [];
+    let resolved = false;
+
+    // Timeout after 10 seconds to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve({
+          headers: [],
+          error: "CSV parsing timed out after 10 seconds"
+        });
+      }
+    }, 10000);
 
     Papa.parse(file, {
       header: true,
@@ -78,13 +90,21 @@ async function parseCSVHeaders(file: File): Promise<{
         rowCount++;
       },
       complete: () => {
-        resolve({ headers });
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeoutId);
+          resolve({ headers });
+        }
       },
       error: (error) => {
-        resolve({
-          headers: [],
-          error: `Failed to parse CSV: ${error.message}`
-        });
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeoutId);
+          resolve({
+            headers: [],
+            error: `Failed to parse CSV: ${error.message}`
+          });
+        }
       },
     });
   });
@@ -152,7 +172,27 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
     };
   }
 
-  // Step 2: Parse headers only (fast, <100ms even for large files)
+  // Step 2: Check if file is Excel format
+  const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
+  const isExcel = fileExtension === ".xlsx" || fileExtension === ".xls";
+
+  if (isExcel) {
+    // For Excel files, skip client-side header parsing
+    // Full parsing will happen on the backend
+    return {
+      valid: true,
+      errors: [],
+      summary: {
+        filename: file.name,
+        fileSize: file.size,
+        headers: [],
+        hasUpid: true, // Assume valid, backend will validate
+        hasSku: true,
+      },
+    };
+  }
+
+  // Step 3: Parse CSV headers only (fast, <100ms even for large files)
   const { headers, error } = await parseCSVHeaders(file);
 
   if (error) {
@@ -165,7 +205,7 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
     };
   }
 
-  // Step 3: Validate headers
+  // Step 4: Validate headers
   const headerErrors = validateHeaders(headers);
 
   const normalizedHeaders = headers.map(normalizeHeader);

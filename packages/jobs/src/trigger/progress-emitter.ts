@@ -20,7 +20,7 @@ interface ProgressPayload {
   message?: string;
 }
 
-const DEFAULT_API_URL = "http://localhost:4000";
+const DEFAULT_API_URL = "http://localhost:4100";
 const DEFAULT_INTERNAL_API_KEY = "dev-internal-key";
 
 /**

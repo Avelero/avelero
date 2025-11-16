@@ -82,7 +82,7 @@ export function useImportWebSocket({
       }
 
       // Construct WebSocket URL from API URL
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4100";
       const wsUrl = apiUrl.replace(/^http/, "ws");
       const wsEndpoint = `${wsUrl}/ws/import-progress?token=${session.access_token}`;
 

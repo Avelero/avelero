@@ -39,6 +39,8 @@ jobs:
       - name: 🔄 Deploy Background Jobs
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+          API_URL: https://api.avelero.com
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
         run: |
           bunx trigger.dev@4.0.6 deploy
         working-directory: packages/jobs

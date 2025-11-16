@@ -274,6 +274,17 @@ function resolveParallelBatches(): number {
  */
 export const validateAndStage = task({
   id: "validate-and-stage",
+  maxDuration: 300, // 5 minutes max
+  queue: {
+    concurrencyLimit: 5,
+  },
+  retry: {
+    maxAttempts: 2,
+    minTimeoutInMs: 5000,
+    maxTimeoutInMs: 60000,
+    factor: 2,
+    randomize: true,
+  },
   run: async (payload: ValidateAndStagePayload): Promise<void> => {
     const { jobId, brandId, filePath } = payload;
     const jobStartTime = Date.now();

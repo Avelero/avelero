@@ -75,6 +75,17 @@ const TIMEOUT_MS = 1800000; // 30 minutes
  */
 export const commitToProduction = task({
   id: "commit-to-production",
+  maxDuration: 300, // 5 minutes max
+  queue: {
+    concurrencyLimit: 3,
+  },
+  retry: {
+    maxAttempts: 2,
+    minTimeoutInMs: 5000,
+    maxTimeoutInMs: 60000,
+    factor: 2,
+    randomize: true,
+  },
   run: async (payload: CommitToProductionPayload): Promise<void> => {
     const { jobId, brandId } = payload;
     const jobStartTime = Date.now();

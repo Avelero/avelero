@@ -742,10 +742,7 @@ export async function bulkCreateProductsFromStaging(
   }));
 
   await db.transaction(async (tx) => {
-    await tx
-      .insert(products)
-      .values(insertValues)
-      .onConflictDoNothing();
+    await tx.insert(products).values(insertValues).onConflictDoNothing();
 
     for (const row of rows) {
       await evaluateAndUpsertCompletion(

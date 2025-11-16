@@ -11,7 +11,7 @@ export const metadata = {
 export default async function PrivacyPolicyPage() {
   const contentPath = join(process.cwd(), "content/legal/privacy-policy.mdx");
   const fileContent = await readFile(contentPath, "utf-8");
-  
+
   // Parse frontmatter and content
   const { content, data } = matter(fileContent);
 
@@ -23,4 +23,3 @@ export default async function PrivacyPolicyPage() {
     </main>
   );
 }
-

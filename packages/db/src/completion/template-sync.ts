@@ -9,7 +9,7 @@ async function getEnabledModulesForTemplate(
   templateId: string | null,
 ): Promise<ModuleKey[]> {
   if (!templateId) return [];
-  
+
   const rows = await db
     .select({ moduleKey: passportTemplateModules.moduleKey })
     .from(passportTemplateModules)

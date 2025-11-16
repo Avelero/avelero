@@ -19,8 +19,9 @@ function getDatabaseConfig() {
     /^(true|1|strict)$/i.test(process.env.DATABASE_SSL_STRICT ?? "") || false;
 
   const forceSslEnvValue = process.env.DATABASE_FORCE_SSL ?? "";
-  const forceSsl =
-    /^(true|1|require|verify-full|strict)$/i.test(forceSslEnvValue ?? "");
+  const forceSsl = /^(true|1|require|verify-full|strict)$/i.test(
+    forceSslEnvValue ?? "",
+  );
   const forceStrictSsl =
     /^(verify-full|strict)$/i.test(forceSslEnvValue ?? "") ||
     /^(verify-full|strict)$/i.test(process.env.DATABASE_SSL_STRICT ?? "");
@@ -75,7 +76,11 @@ function getDatabaseConfig() {
 /**
  * Create a postgres connection with the given options
  */
-function createConnection(options: { onconnect?: (connection: postgres.ReservedSql) => Promise<void> } = {}) {
+function createConnection(
+  options: {
+    onconnect?: (connection: postgres.ReservedSql) => Promise<void>;
+  } = {},
+) {
   const { connectionString, enableTls, strictTls } = getDatabaseConfig();
 
   const config: any = {
@@ -104,40 +109,49 @@ let _serviceDb: ReturnType<typeof drizzle<typeof schema>> | undefined;
  * Main database connection (with RLS enabled)
  * Connection is created lazily on first access
  */
-export const db: ReturnType<typeof drizzle<typeof schema>> = new Proxy({} as any, {
-  get(_target, prop) {
-    if (!_db) {
-      const connection = createConnection();
-      _db = drizzle(connection, { schema });
-    }
-    return (_db as any)[prop];
+export const db: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
+  {} as any,
+  {
+    get(_target, prop) {
+      if (!_db) {
+        const connection = createConnection();
+        _db = drizzle(connection, { schema });
+      }
+      return (_db as any)[prop];
+    },
   },
-}) as ReturnType<typeof drizzle<typeof schema>>;
+) as ReturnType<typeof drizzle<typeof schema>>;
 
 /**
  * Service database connection (with RLS bypass for background jobs)
  * Use this for Trigger.dev jobs and other background processes
  * Connection is created lazily on first accesss
  */
-export const serviceDb: ReturnType<typeof drizzle<typeof schema>> = new Proxy({} as any, {
-  get(_target, prop) {
-    if (!_serviceDb) {
-      const serviceConnection = createConnection({
-        onconnect: async (connection: postgres.ReservedSql) => {
-          try {
-            // Disable RLS checks for this connection session
-            // This works if the connection user is a superuser or has bypassrls privilege
-            await connection.unsafe("SET SESSION row_security = off");
-          } catch (error) {
-            console.warn("[serviceDb] Could not disable RLS for session:", error);
-            // Non-fatal - continue with RLS enabled
-          }
-        },
-      });
-      _serviceDb = drizzle(serviceConnection, { schema });
-    }
-    return (_serviceDb as any)[prop];
+export const serviceDb: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
+  {} as any,
+  {
+    get(_target, prop) {
+      if (!_serviceDb) {
+        const serviceConnection = createConnection({
+          onconnect: async (connection: postgres.ReservedSql) => {
+            try {
+              // Disable RLS checks for this connection session
+              // This works if the connection user is a superuser or has bypassrls privilege
+              await connection.unsafe("SET SESSION row_security = off");
+            } catch (error) {
+              console.warn(
+                "[serviceDb] Could not disable RLS for session:",
+                error,
+              );
+              // Non-fatal - continue with RLS enabled
+            }
+          },
+        });
+        _serviceDb = drizzle(serviceConnection, { schema });
+      }
+      return (_serviceDb as any)[prop];
+    },
   },
-}) as ReturnType<typeof drizzle<typeof schema>>;
+) as ReturnType<typeof drizzle<typeof schema>>;
 
 export type Database = typeof db;

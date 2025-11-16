@@ -652,7 +652,8 @@ export async function createProduct(
   let created: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
     const productIdentifierValue =
-      input.productIdentifier ?? `PROD-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
+      input.productIdentifier ??
+      `PROD-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
 
     const [row] = await tx
       .insert(products)
@@ -679,7 +680,12 @@ export async function createProduct(
     created = { id: row.id };
 
     // Auto-generate variants if colorIds and sizeIds provided
-    if (input.colorIds && input.sizeIds && input.colorIds.length > 0 && input.sizeIds.length > 0) {
+    if (
+      input.colorIds &&
+      input.sizeIds &&
+      input.colorIds.length > 0 &&
+      input.sizeIds.length > 0
+    ) {
       const variantIds = await generateProductVariants(
         tx as unknown as Database,
         row.id,
@@ -749,7 +755,12 @@ export async function updateProduct(
     updated = { id: row.id };
 
     // Regenerate variants if colorIds and sizeIds provided
-    if (input.colorIds && input.sizeIds && input.colorIds.length > 0 && input.sizeIds.length > 0) {
+    if (
+      input.colorIds &&
+      input.sizeIds &&
+      input.colorIds.length > 0 &&
+      input.sizeIds.length > 0
+    ) {
       // Delete existing variants for this product
       await tx
         .delete(productVariants)

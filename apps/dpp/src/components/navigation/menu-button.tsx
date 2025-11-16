@@ -1,4 +1,4 @@
-import { Icons } from '@v1/ui/icons';
+import { Icons } from "@v1/ui/icons";
 
 interface Props {
   label: string;
@@ -7,15 +7,14 @@ interface Props {
 }
 
 export function MenuButton({ label, url }: Props) {
-  
   // Check if URL is external
-  const isExternal = url.startsWith('http://') || url.startsWith('https://');
-  
+  const isExternal = url.startsWith("http://") || url.startsWith("https://");
+
   return (
     <a
       href={url}
-      target={isExternal ? '_blank' : undefined}
-      rel={isExternal ? 'noopener noreferrer' : undefined}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noopener noreferrer" : undefined}
       className="px-sm py-md flex justify-between items-center border-b cursor-pointer menu-button"
     >
       {label}

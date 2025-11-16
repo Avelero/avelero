@@ -11,7 +11,7 @@ export default async function CreatePassportsPage() {
 
   // Prefetch form reference data (categories, materials, facilities, colors, sizes, certifications, operators)
   await queryClient.prefetchQuery(
-    trpc.composite.passportFormReferences.queryOptions()
+    trpc.composite.passportFormReferences.queryOptions(),
   );
 
   return (

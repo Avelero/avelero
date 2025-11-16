@@ -61,7 +61,8 @@ export function PassportDataTable({
     return Array.isArray(d) ? (d as Passport[]) : [];
   }, [listResponse]);
   const total = React.useMemo<number>(() => {
-    const m = (listResponse as { meta?: { total?: unknown } } | undefined)?.meta;
+    const m = (listResponse as { meta?: { total?: unknown } } | undefined)
+      ?.meta;
     const t = (m?.total as number | undefined) ?? 0;
     return typeof t === "number" ? t : 0;
   }, [listResponse]);
@@ -265,11 +266,7 @@ export function PassportDataTable({
 
   if (isLoading) return <PassportTableSkeleton />;
   if (!data.length)
-    return total === 0 ? (
-      <EmptyState.NoPassports />
-    ) : (
-      <EmptyState.NoResults />
-    );
+    return total === 0 ? <EmptyState.NoPassports /> : <EmptyState.NoResults />;
 
   return (
     <div className="relative w-full h-full">

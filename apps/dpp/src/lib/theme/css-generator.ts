@@ -3,27 +3,52 @@
  * Converts theme style objects into CSS custom properties
  */
 
-import type { ThemeStyles, ComponentStyleOverride, CustomFont } from '@/types/theme-styles';
-import { getFontFallback } from '@v1/selections/fonts';
+import type {
+  ThemeStyles,
+  ComponentStyleOverride,
+  CustomFont,
+} from "@/types/theme-styles";
+import { getFontFallback } from "@v1/selections/fonts";
 
 /**
  * Properties that should receive 'px' units when numeric
  */
 const PX_UNIT_PROPERTIES = new Set([
-  'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
-  'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
-  'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-  'top', 'left', 'right', 'bottom',
-  'borderWidth', 'fontSize', 'gap',
-  'borderRadius', 'borderTopLeftRadius', 'borderTopRightRadius', 
-  'borderBottomLeftRadius', 'borderBottomRightRadius'
+  "width",
+  "height",
+  "minWidth",
+  "minHeight",
+  "maxWidth",
+  "maxHeight",
+  "margin",
+  "marginTop",
+  "marginRight",
+  "marginBottom",
+  "marginLeft",
+  "padding",
+  "paddingTop",
+  "paddingRight",
+  "paddingBottom",
+  "paddingLeft",
+  "top",
+  "left",
+  "right",
+  "bottom",
+  "borderWidth",
+  "fontSize",
+  "gap",
+  "borderRadius",
+  "borderTopLeftRadius",
+  "borderTopRightRadius",
+  "borderBottomLeftRadius",
+  "borderBottomRightRadius",
 ]);
 
 /**
  * Converts camelCase property names to kebab-case CSS property names
  */
 function camelToKebab(str: string): string {
-  return str.replace(/([A-Z])/g, '-$1').toLowerCase();
+  return str.replace(/([A-Z])/g, "-$1").toLowerCase();
 }
 
 /**
@@ -31,7 +56,7 @@ function camelToKebab(str: string): string {
  * e.g., "product__title" -> "product-title"
  */
 function classToVarPrefix(className: string): string {
-  return className.replace(/__/g, '-');
+  return className.replace(/__/g, "-");
 }
 
 /**
@@ -39,7 +64,7 @@ function classToVarPrefix(className: string): string {
  */
 function generateComponentCSS(
   className: string,
-  styles: ComponentStyleOverride
+  styles: ComponentStyleOverride,
 ): string[] {
   const vars: string[] = [];
   const prefix = classToVarPrefix(className);
@@ -48,26 +73,26 @@ function generateComponentCSS(
     if (value !== undefined && value !== null) {
       const cssProperty = camelToKebab(key);
       const cssVarName = `--${prefix}-${cssProperty}`;
-      
+
       // Handle special cases
       let cssValue = String(value);
-      
+
       // Add font fallback for fontFamily
-      if (key === 'fontFamily' && typeof value === 'string') {
+      if (key === "fontFamily" && typeof value === "string") {
         const fallback = getFontFallback(value);
         cssValue = `"${value}", ${fallback}`;
       }
-      
+
       // Add units for numeric values based on property type
-      if (typeof value === 'number') {
-        if (key === 'letterSpacing') {
+      if (typeof value === "number") {
+        if (key === "letterSpacing") {
           cssValue = `${value}px`;
         } else if (PX_UNIT_PROPERTIES.has(key)) {
           cssValue = `${value}px`;
         }
         // lineHeight, opacity, fontWeight remain unitless
       }
-      
+
       vars.push(`${cssVarName}: ${cssValue}`);
     }
   }
@@ -96,7 +121,7 @@ function generateDesignTokenCSS(themeStyles: ThemeStyles): string[] {
     for (const [scale, config] of Object.entries(themeStyles.typography)) {
       if (config) {
         const scaleKey = scale; // h1, body, body-sm, etc.
-        
+
         if (config.fontSize !== undefined) {
           vars.push(`--type-${scaleKey}-size: ${config.fontSize}`);
         }
@@ -105,15 +130,18 @@ function generateDesignTokenCSS(themeStyles: ThemeStyles): string[] {
         }
         if (config.fontFamily !== undefined) {
           const fallback = getFontFallback(config.fontFamily);
-          vars.push(`--type-${scaleKey}-family: "${config.fontFamily}", ${fallback}`);
+          vars.push(
+            `--type-${scaleKey}-family: "${config.fontFamily}", ${fallback}`,
+          );
         }
         if (config.lineHeight !== undefined) {
           vars.push(`--type-${scaleKey}-line-height: ${config.lineHeight}`);
         }
         if (config.letterSpacing !== undefined) {
-          const letterSpacingValue = typeof config.letterSpacing === 'number' 
-            ? `${config.letterSpacing}px` 
-            : config.letterSpacing;
+          const letterSpacingValue =
+            typeof config.letterSpacing === "number"
+              ? `${config.letterSpacing}px`
+              : config.letterSpacing;
           vars.push(`--type-${scaleKey}-letter-spacing: ${letterSpacingValue}`);
         }
       }
@@ -130,7 +158,7 @@ function generateDesignTokenCSS(themeStyles: ThemeStyles): string[] {
  */
 export function generateThemeCSS(themeStyles?: ThemeStyles): string {
   if (!themeStyles) {
-    return '';
+    return "";
   }
 
   const vars: string[] = [];
@@ -142,20 +170,23 @@ export function generateThemeCSS(themeStyles?: ThemeStyles): string {
   // Generate component class CSS
   for (const [className, styles] of Object.entries(themeStyles)) {
     // Skip design token properties
-    if (className === 'colors' || className === 'typography') {
+    if (className === "colors" || className === "typography") {
       continue;
     }
 
     // Skip non-component properties
-    if (typeof styles !== 'object' || styles === null) {
+    if (typeof styles !== "object" || styles === null) {
       continue;
     }
 
-    const componentVars = generateComponentCSS(className, styles as ComponentStyleOverride);
+    const componentVars = generateComponentCSS(
+      className,
+      styles as ComponentStyleOverride,
+    );
     vars.push(...componentVars);
   }
 
-  return vars.join(';\n    ');
+  return vars.join(";\n    ");
 }
 
 /**
@@ -165,7 +196,7 @@ export function generateThemeCSS(themeStyles?: ThemeStyles): string {
  */
 export function generateFontFaceCSS(customFonts?: CustomFont[]): string {
   if (!customFonts || customFonts.length === 0) {
-    return '';
+    return "";
   }
 
   return customFonts
@@ -176,13 +207,13 @@ export function generateFontFaceCSS(customFonts?: CustomFont[]): string {
         return JSON.stringify(value).slice(1, -1);
       };
 
-      const format = sanitize(font.format || 'woff2');
-      const fontDisplay = sanitize(font.fontDisplay || 'swap');
+      const format = sanitize(font.format || "woff2");
+      const fontDisplay = sanitize(font.fontDisplay || "swap");
       const fontWeight = font.fontWeight ?? 400;
-      const fontStyle = sanitize(font.fontStyle || 'normal');
+      const fontStyle = sanitize(font.fontStyle || "normal");
       const fontFamily = sanitize(font.fontFamily);
       const src = sanitize(font.src);
-      
+
       let css = `@font-face {
   font-family: "${fontFamily}";
   src: url('${src}') format('${format}');
@@ -194,8 +225,8 @@ export function generateFontFaceCSS(customFonts?: CustomFont[]): string {
         css += `\n  unicode-range: ${sanitize(font.unicodeRange)};`;
       }
 
-      css += '\n}';
+      css += "\n}";
       return css;
     })
-    .join('\n\n');
+    .join("\n\n");
 }

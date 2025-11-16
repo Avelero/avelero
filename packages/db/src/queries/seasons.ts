@@ -40,7 +40,9 @@ export async function getSeasonById(
       updatedAt: brandSeasons.updatedAt,
     })
     .from(brandSeasons)
-    .where(and(eq(brandSeasons.id, seasonId), eq(brandSeasons.brandId, brandId)))
+    .where(
+      and(eq(brandSeasons.id, seasonId), eq(brandSeasons.brandId, brandId)),
+    )
     .limit(1);
   return row;
 }

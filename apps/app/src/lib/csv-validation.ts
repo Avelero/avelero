@@ -43,8 +43,14 @@ function validateFileMetadata(file: File): ValidationError[] {
   }
 
   // Check file extension
-  const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
-  if (!ALLOWED_EXTENSIONS.includes(fileExtension as typeof ALLOWED_EXTENSIONS[number])) {
+  const fileExtension = file.name
+    .toLowerCase()
+    .slice(file.name.lastIndexOf("."));
+  if (
+    !ALLOWED_EXTENSIONS.includes(
+      fileExtension as (typeof ALLOWED_EXTENSIONS)[number],
+    )
+  ) {
     errors.push({
       type: "FILE_FORMAT",
       message: `Invalid file extension: ${fileExtension}. Allowed extensions: .csv, .xlsx, .xls`,
@@ -73,7 +79,7 @@ async function parseCSVHeaders(file: File): Promise<{
         resolved = true;
         resolve({
           headers: [],
-          error: 'CSV parsing timed out after 10 seconds'
+          error: "CSV parsing timed out after 10 seconds",
         });
       }
     }, 10000);
@@ -103,7 +109,7 @@ async function parseCSVHeaders(file: File): Promise<{
             resolved = true;
             resolve({
               headers: [],
-              error: `Failed to parse CSV: ${error.message}`
+              error: `Failed to parse CSV: ${error.message}`,
             });
           }
         },
@@ -114,7 +120,8 @@ async function parseCSVHeaders(file: File): Promise<{
         resolved = true;
         resolve({
           headers: [],
-          error: error instanceof Error ? error.message : 'Unknown parsing error'
+          error:
+            error instanceof Error ? error.message : "Unknown parsing error",
         });
       }
     }
@@ -141,8 +148,12 @@ function validateHeaders(headers: string[]): ValidationError[] {
   const normalizedHeaders = headers.map(normalizeHeader);
 
   // Check for product_name (required)
-  const hasProductName = normalizedHeaders.some(h =>
-    h === "product_name" || h === "productname" || h === "name" || h === "product"
+  const hasProductName = normalizedHeaders.some(
+    (h) =>
+      h === "product_name" ||
+      h === "productname" ||
+      h === "name" ||
+      h === "product",
   );
 
   if (!hasProductName) {
@@ -153,15 +164,20 @@ function validateHeaders(headers: string[]): ValidationError[] {
   }
 
   // Check for product_identifier or SKU (at least one required)
-  const hasProductIdentifier = normalizedHeaders.some(h => 
-    h === "product_identifier" || h === "productidentifier" || h === "upid" || h === "product_id"
+  const hasProductIdentifier = normalizedHeaders.some(
+    (h) =>
+      h === "product_identifier" ||
+      h === "productidentifier" ||
+      h === "upid" ||
+      h === "product_id",
   );
-  const hasSku = normalizedHeaders.some(h => h === "sku");
+  const hasSku = normalizedHeaders.some((h) => h === "sku");
 
   if (!hasProductIdentifier && !hasSku) {
     errors.push({
       type: "MISSING_COLUMNS",
-      message: "Missing required column: either 'product_identifier' (or 'upid') or 'sku' must be present",
+      message:
+        "Missing required column: either 'product_identifier' (or 'upid') or 'sku' must be present",
     });
   }
 
@@ -175,7 +191,9 @@ function validateHeaders(headers: string[]): ValidationError[] {
  * @param file - File to validate
  * @returns ValidationResult with errors (if any)
  */
-export async function validateImportFile(file: File): Promise<ValidationResult> {
+export async function validateImportFile(
+  file: File,
+): Promise<ValidationResult> {
   // Step 1: Validate file metadata (instant)
   const metadataErrors = validateFileMetadata(file);
   if (metadataErrors.length > 0) {
@@ -186,7 +204,9 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
   }
 
   // Step 2: Check if file is Excel format
-  const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
+  const fileExtension = file.name
+    .toLowerCase()
+    .slice(file.name.lastIndexOf("."));
   const isExcel = fileExtension === ".xlsx" || fileExtension === ".xls";
 
   if (isExcel) {
@@ -210,7 +230,9 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
   const isLargeFile = file.size > 1024 * 1024; // 1MB threshold
 
   if (isLargeFile) {
-    console.log('[CSV Validation] Skipping client-side validation for large file (>1MB)');
+    console.log(
+      "[CSV Validation] Skipping client-side validation for large file (>1MB)",
+    );
     return {
       valid: true,
       errors: [],
@@ -225,17 +247,19 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
   }
 
   // Step 3: Parse CSV headers only (fast, <100ms even for large files)
-  console.log('[CSV Validation] Parsing headers for small CSV file');
+  console.log("[CSV Validation] Parsing headers for small CSV file");
   const { headers, error } = await parseCSVHeaders(file);
 
   if (error) {
-    console.error('[CSV Validation] Parse error:', error);
+    console.error("[CSV Validation] Parse error:", error);
     return {
       valid: false,
-      errors: [{
-        type: "PARSE_ERROR",
-        message: error,
-      }],
+      errors: [
+        {
+          type: "PARSE_ERROR",
+          message: error,
+        },
+      ],
     };
   }
 
@@ -243,10 +267,14 @@ export async function validateImportFile(file: File): Promise<ValidationResult> 
   const headerErrors = validateHeaders(headers);
 
   const normalizedHeaders = headers.map(normalizeHeader);
-  const hasProductIdentifier = normalizedHeaders.some(h =>
-    h === "product_identifier" || h === "productidentifier" || h === "upid" || h === "product_id"
+  const hasProductIdentifier = normalizedHeaders.some(
+    (h) =>
+      h === "product_identifier" ||
+      h === "productidentifier" ||
+      h === "upid" ||
+      h === "product_id",
   );
-  const hasSku = normalizedHeaders.some(h => h === "sku");
+  const hasSku = normalizedHeaders.some((h) => h === "sku");
 
   return {
     valid: headerErrors.length === 0,

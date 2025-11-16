@@ -40,7 +40,10 @@ export const mdxComponents: MDXComponents = {
 
   // Paragraphs and text
   p: ({ children, ...props }) => (
-    <p className="text-small text-foreground/80 mb-4 leading-relaxed" {...props}>
+    <p
+      className="text-small text-foreground/80 mb-4 leading-relaxed"
+      {...props}
+    >
       {children}
     </p>
   ),
@@ -123,8 +126,5 @@ export const mdxComponents: MDXComponents = {
   ),
 
   // Horizontal rule
-  hr: ({ ...props }) => (
-    <hr className="border-border my-8" {...props} />
-  ),
+  hr: ({ ...props }) => <hr className="border-border my-8" {...props} />,
 };
-

@@ -18,16 +18,16 @@ interface PassportFormProps {
 export function PassportForm({ mode, upid }: PassportFormProps) {
   // TODO: fetch initial passport data using upid when mode is "edit"
   const router = useRouter();
-  
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     // TODO: Wire up submission logic to actually create/update passport
     // For now, just navigate back to the passports page
     router.push("/passports");
   };
-  
+
   return (
-    <form 
+    <form
       id="passport-form"
       className="flex justify-center w-full"
       onSubmit={handleSubmit}
@@ -62,4 +62,3 @@ export function CreatePassportForm() {
 export function EditPassportForm({ upid }: { upid: string }) {
   return <PassportForm mode="edit" upid={upid} />;
 }
-

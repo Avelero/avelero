@@ -23,7 +23,7 @@ export interface ImpactMetric {
   type: string;
   value: string;
   unit: string;
-  icon: 'leaf' | 'drop' | 'recycle' | 'factory';
+  icon: "leaf" | "drop" | "recycle" | "factory";
   iconColor?: string;
 }
 
@@ -47,19 +47,17 @@ export interface DppData {
   articleNumber: string;
   manufacturer: string;
   countryOfOrigin: string;
-  
+
   // Materials
   materials: Material[];
-  
+
   // Supply chain journey
   journey: JourneyStage[];
-  
+
   // Environmental impact
   impactMetrics: ImpactMetric[];
   impactClaims: string[];
-  
+
   // Similar products
   similarProducts: SimilarProduct[];
 }
-
-

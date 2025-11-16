@@ -109,7 +109,7 @@ export function useUserMutation() {
           const patch = newData as Partial<CurrentUser>;
           return prev
             ? { ...prev, ...patch }
-            : ((patch as unknown as CurrentUser) ?? null);
+            : (patch as unknown as CurrentUser) ?? null;
         });
 
         return { previousData } as const;

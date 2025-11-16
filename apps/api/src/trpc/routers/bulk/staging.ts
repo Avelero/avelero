@@ -28,13 +28,13 @@ type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 export const stagingRouter = createTRPCRouter({
   /**
    * Get comprehensive review data in a single request
-   * 
+   *
    * Optimized endpoint that fetches all necessary data for the review dialog:
    * - Job status and summary
    * - First page of staging preview
    * - First page of errors
    * - Summary statistics
-   * 
+   *
    * This reduces multiple round-trips to a single efficient query.
    */
   reviewSummary: brandRequiredProcedure

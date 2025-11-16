@@ -99,7 +99,10 @@ bun i
 cp apps/api/.env.example apps/api/.env
 cp apps/app/.env.example apps/app/.env
 cp apps/web/.env.example apps/web/.env
+cp packages/jobs/.env.example packages/jobs/.env
 ```
+
+3. Set up Trigger.dev auth: make sure `packages/jobs/.env` defines both `TRIGGER_SECRET_KEY` and `TRIGGER_ACCESS_TOKEN` (matching the values in your Trigger.dev project). See `packages/jobs/README.md` for details.
 
 4. Start the development server from either bun or turbo:
 

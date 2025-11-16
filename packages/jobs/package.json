@@ -6,8 +6,10 @@
     "clean": "rm -rf .turbo node_modules",
     "dev": "bun run jobs",
     "lint": "biome check .",
-    "jobs": "npx --yes trigger.dev@4.0.6 dev",
-    "deploy": "npx --yes trigger.dev@4.0.6 deploy",
+    "jobs": "bash ./scripts/run-trigger.sh dev",
+    "deploy": "bash ./scripts/run-trigger.sh deploy",
+    "login": "npx --yes trigger.dev@4.0.6 login",
+    "whoami": "npx --yes trigger.dev@4.0.6 whoami",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit"
   },

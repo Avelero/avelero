@@ -50,6 +50,7 @@ export const stagingProducts = pgTable(
     // Product fields (mirroring products table)
     id: uuid("id").notNull(), // Planned product ID for CREATE, existing ID for UPDATE
     brandId: uuid("brand_id").notNull(),
+    productIdentifier: text("product_identifier"), // Product identifier for matching/tracking
     name: text("name").notNull(),
     description: text("description"),
     showcaseBrandId: uuid("showcase_brand_id"),

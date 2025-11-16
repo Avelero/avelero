@@ -27,6 +27,7 @@ export interface InsertStagingProductParams {
   existingProductId?: string | null;
   id: string;
   brandId: string;
+  productIdentifier?: string | null;
   name: string;
   description?: string | null;
   showcaseBrandId?: string | null;
@@ -250,6 +251,7 @@ export async function insertStagingProduct(
       existingProductId: params.existingProductId ?? null,
       id: params.id,
       brandId: params.brandId,
+      productIdentifier: params.productIdentifier ?? null,
       name: params.name,
       description: params.description ?? null,
       showcaseBrandId: params.showcaseBrandId ?? null,
@@ -296,6 +298,7 @@ export async function batchInsertStagingProducts(
     existingProductId: p.existingProductId ?? null,
     id: p.id,
     brandId: p.brandId,
+    productIdentifier: p.productIdentifier ?? null,
     name: p.name,
     description: p.description ?? null,
     showcaseBrandId: p.showcaseBrandId ?? null,

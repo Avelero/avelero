@@ -27,6 +27,7 @@ import { productVariants, products } from "@v1/db/schema";
 import * as schema from "@v1/db/schema";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import { or, sql } from "drizzle-orm";
+import pMap from "p-map";
 import type { BrandCatalog } from "../lib/catalog-loader";
 import {
   addColorToCatalog,
@@ -72,6 +73,7 @@ interface CSVRow {
   // REQUIRED FIELDS
   // ============================================================================
   product_name: string; // Max 100 characters
+  product_identifier?: string; // Unique product identifier (brand-scoped)
   sku?: string; // Required if no EAN
 
   // ============================================================================
@@ -242,7 +244,19 @@ interface ValidatedRowData {
 }
 
 const BATCH_SIZE = 100;
+const MAX_PARALLEL_BATCHES = resolveParallelBatches();
 const TIMEOUT_MS = 1800000; // 30 minutes
+
+/**
+ * Resolve parallel batch count from environment
+ * @returns number of batches to process in parallel (1-10)
+ */
+function resolveParallelBatches(): number {
+  const envValue = process.env.VALIDATION_PARALLEL_BATCHES;
+  const parsed = envValue ? Number.parseInt(envValue, 10) : Number.NaN;
+  const base = Number.isNaN(parsed) ? 5 : parsed;
+  return Math.min(Math.max(base, 1), 10);
+}
 
 /**
  * Phase 1: Validate CSV data and populate staging tables
@@ -632,278 +646,307 @@ export const validateAndStage = task({
         }
       >();
 
-      console.log("[validate-and-stage] Starting batch processing...");
+      console.log("[validate-and-stage] Starting parallel batch processing...");
+      console.log(
+        `[validate-and-stage] Configuration: MAX_PARALLEL_BATCHES=${MAX_PARALLEL_BATCHES}`,
+      );
+
+      // Split data into batch chunks
+      const batches: Array<{
+        data: unknown[];
+        rows: typeof createdRows;
+        startIndex: number;
+      }> = [];
+
       for (let i = 0; i < totalRows; i += BATCH_SIZE) {
-        const batch = parseResult.data.slice(i, i + BATCH_SIZE);
-        const batchRows = createdRows.slice(i, i + BATCH_SIZE);
-        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(totalRows / BATCH_SIZE);
-
-        console.log(
-          `[validate-and-stage] Processing batch ${batchNumber}/${totalBatches}`,
-        );
-        logger.info(`Processing batch ${batchNumber}`, {
-          start: i + 1,
-          end: Math.min(i + BATCH_SIZE, totalRows),
-          total: totalRows,
+        batches.push({
+          data: parseResult.data.slice(i, i + BATCH_SIZE),
+          rows: createdRows.slice(i, i + BATCH_SIZE),
+          startIndex: i,
         });
+      }
 
-        // PHASE 2 OPTIMIZATION: Parallel validation using Promise.all()
-        // Validates all rows in batch simultaneously, utilizing multiple CPU cores
-        const validationStart = Date.now();
-        const validatedBatch = await Promise.all(
-          batch.map(async (row, j) => {
-            const importRow = batchRows[j];
-            if (!importRow) return null;
+      const totalBatches = batches.length;
+      logger.info("Starting parallel batch processing", {
+        totalRows,
+        batchSize: BATCH_SIZE,
+        totalBatches,
+        maxParallelBatches: MAX_PARALLEL_BATCHES,
+      });
 
-            const rowNumber = i + j + 1;
+      // Process batches in parallel with concurrency limit
+      await pMap(
+        batches,
+        async (batchData, batchIndex) => {
+          const { data: batch, rows: batchRows, startIndex: i } = batchData;
+          const batchNumber = batchIndex + 1;
 
-            try {
-              // Validate and transform row with in-memory catalog
-              const validated = await validateRow(
-                row as CSVRow,
-                brandId,
-                rowNumber,
-                jobId,
-                catalog,
-                unmappedValues,
-                unmappedValueDetails,
-                duplicateRowNumbers,
-                duplicateCheckColumn,
-                existingVariantsByUpid,
-                existingVariantsBySku,
-                db,
-              );
+          console.log(
+            `[validate-and-stage] Processing batch ${batchNumber}/${totalBatches}`,
+          );
+          logger.info(`Processing batch ${batchNumber}`, {
+            start: i + 1,
+            end: Math.min(i + BATCH_SIZE, totalRows),
+            total: totalRows,
+          });
 
-              // Only hard errors block validation (warnings are OK)
-              const hasHardErrors = validated.errors.length > 0;
+          // Parallel validation within batch
+          const validationStart = Date.now();
+          const validatedBatch = await Promise.all(
+            batch.map(async (row, j) => {
+              const importRow = batchRows[j];
+              if (!importRow) return null;
 
-              // Row is valid if it has no hard errors (warnings are acceptable)
-              if (!hasHardErrors) {
-                validCount++;
-                if (validated.action === "CREATE") willCreateCount++;
-                else if (validated.action === "UPDATE") willUpdateCount++;
-                else if (validated.action === "SKIP") willSkipCount++;
-              } else {
+              const rowNumber = i + j + 1;
+
+              try {
+                // Validate and transform row with in-memory catalog
+                const validated = await validateRow(
+                  row as CSVRow,
+                  brandId,
+                  rowNumber,
+                  jobId,
+                  catalog,
+                  unmappedValues,
+                  unmappedValueDetails,
+                  duplicateRowNumbers,
+                  duplicateCheckColumn,
+                  existingVariantsByUpid,
+                  existingVariantsBySku,
+                  db,
+                );
+
+                // Only hard errors block validation (warnings are OK)
+                const hasHardErrors = validated.errors.length > 0;
+
+                // Row is valid if it has no hard errors (warnings are acceptable)
+                if (!hasHardErrors) {
+                  validCount++;
+                  if (validated.action === "CREATE") willCreateCount++;
+                  else if (validated.action === "UPDATE") willUpdateCount++;
+                  else if (validated.action === "SKIP") willSkipCount++;
+                } else {
+                  invalidCount++;
+                }
+
+                return {
+                  importRowId: importRow.id,
+                  rowNumber,
+                  validated,
+                  error: hasHardErrors
+                    ? validated.errors.map((e) => e.message).join("; ")
+                    : null,
+                  hasHardErrors,
+                };
+              } catch (error) {
+                logger.error("Row validation error", {
+                  rowNumber,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+
                 invalidCount++;
+
+                return {
+                  importRowId: importRow.id,
+                  rowNumber,
+                  validated: null,
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Unknown validation error",
+                  hasHardErrors: true,
+                };
               }
-
-              return {
-                importRowId: importRow.id,
-                rowNumber,
-                validated,
-                error: hasHardErrors
-                  ? validated.errors.map((e) => e.message).join("; ")
-                  : null,
-                hasHardErrors,
-              };
-            } catch (error) {
-              logger.error("Row validation error", {
-                rowNumber,
-                error: error instanceof Error ? error.message : String(error),
-              });
-
-              invalidCount++;
-
-              return {
-                importRowId: importRow.id,
-                rowNumber,
-                validated: null,
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : "Unknown validation error",
-                hasHardErrors: true,
-              };
-            }
-          }),
-        ).then((results) =>
-          results.filter((r): r is NonNullable<typeof r> => r !== null),
-        );
-
-        const validationDuration = Date.now() - validationStart;
-        console.log(
-          `[validate-and-stage] Batch ${batchNumber} validated in ${validationDuration}ms (parallel)`,
-        );
-
-        // PHASE 2 OPTIMIZATION: Batch staging inserts
-        // PHASE 3A OPTIMIZATION: Wrap in transaction for connection pooling efficiency
-        // Single batch insert instead of individual inserts per row
-        const stagingInsertStart = Date.now();
-
-        // Separate valid and invalid rows
-        const validRows = validatedBatch.filter(
-          (item) => item.validated && !item.hasHardErrors,
-        );
-        const invalidRows = validatedBatch.filter(
-          (item) => !item.validated || item.hasHardErrors,
-        );
-
-        try {
-          if (validRows.length > 0) {
-            // PHASE 3D: Fast batch inserts without transaction overhead
-            // Run operations directly on the connection which has RLS disabled
-            // No transaction = no COMMIT overhead between batches
-
-            // Batch insert all products
-            const products = validRows.map((item) => item.validated!.product);
-            const stagingProductIds = await batchInsertStagingProducts(
-              db,
-              products,
-            );
-
-            // Batch insert all variants with staging product references
-            const variants = validRows.map((item, idx) => ({
-              ...item.validated!.variant,
-              stagingProductId: stagingProductIds[idx] as string,
-            }));
-            await batchInsertStagingVariants(db, variants);
-
-            // Status updates
-            const validStatusUpdates = validRows.map((item) => ({
-              id: item.importRowId,
-              status: "VALIDATED" as const,
-              normalized: {
-                action: item.validated!.action,
-                product_id: item.validated!.productId,
-                variant_id: item.validated!.variantId,
-                warnings:
-                  item.validated!.warnings.length > 0
-                    ? item.validated!.warnings.map((w) => ({
-                        type: w.subtype,
-                        field: w.field,
-                        message: w.message,
-                        entity_type: w.entityType,
-                      }))
-                    : undefined,
-              },
-            }));
-            await batchUpdateImportRowStatus(db, validStatusUpdates);
-
-            const stagingInsertDuration = Date.now() - stagingInsertStart;
-            console.log(
-              `[validate-and-stage] Batch ${batchNumber} staged ${validRows.length} rows in ${stagingInsertDuration}ms (batch insert)`,
-            );
-          }
-
-          // PHASE 2 OPTIMIZATION: Single batch status update for all invalid rows
-          if (invalidRows.length > 0) {
-            const invalidStatusUpdates = invalidRows.map((item) => ({
-              id: item.importRowId,
-              status: "FAILED" as const,
-              error: item.error || "Validation failed",
-            }));
-            await batchUpdateImportRowStatus(db, invalidStatusUpdates);
-          }
-        } catch (error) {
-          // Batch insert failed - fall back to individual inserts with error handling
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          logger.error(
-            "Batch staging insert failed, falling back to individual inserts",
-            {
-              batchNumber,
-              validRowCount: validRows.length,
-              error: errorMessage,
-            },
+            }),
+          ).then((results) =>
+            results.filter((r): r is NonNullable<typeof r> => r !== null),
           );
 
-          // Fall back to individual inserts for this batch
-          for (const item of validRows) {
-            try {
-              const stagingProductId = await insertStagingProduct(
+          const validationDuration = Date.now() - validationStart;
+          console.log(
+            `[validate-and-stage] Batch ${batchNumber} validated in ${validationDuration}ms (parallel)`,
+          );
+
+          // PHASE 2 OPTIMIZATION: Batch staging inserts
+          // PHASE 3A OPTIMIZATION: Wrap in transaction for connection pooling efficiency
+          // Single batch insert instead of individual inserts per row
+          const stagingInsertStart = Date.now();
+
+          // Separate valid and invalid rows
+          const validRows = validatedBatch.filter(
+            (item) => item.validated && !item.hasHardErrors,
+          );
+          const invalidRows = validatedBatch.filter(
+            (item) => !item.validated || item.hasHardErrors,
+          );
+
+          try {
+            if (validRows.length > 0) {
+              // PHASE 3D: Fast batch inserts without transaction overhead
+              // Run operations directly on the connection which has RLS disabled
+              // No transaction = no COMMIT overhead between batches
+
+              // Batch insert all products
+              const products = validRows.map((item) => item.validated!.product);
+              const stagingProductIds = await batchInsertStagingProducts(
                 db,
-                item.validated!.product,
+                products,
               );
-              const variantParams: InsertStagingVariantParams = {
+
+              // Batch insert all variants with staging product references
+              const variants = validRows.map((item, idx) => ({
                 ...item.validated!.variant,
-                stagingProductId,
-              };
-              await insertStagingVariant(db, variantParams);
+                stagingProductId: stagingProductIds[idx] as string,
+              }));
+              await batchInsertStagingVariants(db, variants);
 
-              await batchUpdateImportRowStatus(db, [
-                {
-                  id: item.importRowId,
-                  status: "VALIDATED",
-                  normalized: {
-                    action: item.validated!.action,
-                    product_id: item.validated!.productId,
-                    variant_id: item.validated!.variantId,
-                    warnings:
-                      item.validated!.warnings.length > 0
-                        ? item.validated!.warnings.map((w) => ({
-                            type: w.subtype,
-                            field: w.field,
-                            message: w.message,
-                            entity_type: w.entityType,
-                          }))
-                        : undefined,
-                  },
+              // Status updates
+              const validStatusUpdates = validRows.map((item) => ({
+                id: item.importRowId,
+                status: "VALIDATED" as const,
+                normalized: {
+                  action: item.validated!.action,
+                  product_id: item.validated!.productId,
+                  variant_id: item.validated!.variantId,
+                  warnings:
+                    item.validated!.warnings.length > 0
+                      ? item.validated!.warnings.map((w) => ({
+                          type: w.subtype,
+                          field: w.field,
+                          message: w.message,
+                          entity_type: w.entityType,
+                        }))
+                      : undefined,
                 },
-              ]);
-            } catch (individualError) {
-              logger.error("Individual staging insert failed", {
-                rowNumber: item.rowNumber,
-                error:
-                  individualError instanceof Error
-                    ? individualError.message
-                    : String(individualError),
-              });
+              }));
+              await batchUpdateImportRowStatus(db, validStatusUpdates);
 
-              await batchUpdateImportRowStatus(db, [
-                {
-                  id: item.importRowId,
-                  status: "FAILED",
+              const stagingInsertDuration = Date.now() - stagingInsertStart;
+              console.log(
+                `[validate-and-stage] Batch ${batchNumber} staged ${validRows.length} rows in ${stagingInsertDuration}ms (batch insert)`,
+              );
+            }
+
+            // PHASE 2 OPTIMIZATION: Single batch status update for all invalid rows
+            if (invalidRows.length > 0) {
+              const invalidStatusUpdates = invalidRows.map((item) => ({
+                id: item.importRowId,
+                status: "FAILED" as const,
+                error: item.error || "Validation failed",
+              }));
+              await batchUpdateImportRowStatus(db, invalidStatusUpdates);
+            }
+          } catch (error) {
+            // Batch insert failed - fall back to individual inserts with error handling
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            logger.error(
+              "Batch staging insert failed, falling back to individual inserts",
+              {
+                batchNumber,
+                validRowCount: validRows.length,
+                error: errorMessage,
+              },
+            );
+
+            // Fall back to individual inserts for this batch
+            for (const item of validRows) {
+              try {
+                const stagingProductId = await insertStagingProduct(
+                  db,
+                  item.validated!.product,
+                );
+                const variantParams: InsertStagingVariantParams = {
+                  ...item.validated!.variant,
+                  stagingProductId,
+                };
+                await insertStagingVariant(db, variantParams);
+
+                await batchUpdateImportRowStatus(db, [
+                  {
+                    id: item.importRowId,
+                    status: "VALIDATED",
+                    normalized: {
+                      action: item.validated!.action,
+                      product_id: item.validated!.productId,
+                      variant_id: item.validated!.variantId,
+                      warnings:
+                        item.validated!.warnings.length > 0
+                          ? item.validated!.warnings.map((w) => ({
+                              type: w.subtype,
+                              field: w.field,
+                              message: w.message,
+                              entity_type: w.entityType,
+                            }))
+                          : undefined,
+                    },
+                  },
+                ]);
+              } catch (individualError) {
+                logger.error("Individual staging insert failed", {
+                  rowNumber: item.rowNumber,
                   error:
                     individualError instanceof Error
                       ? individualError.message
-                      : "Failed to insert into staging",
-                },
-              ]);
+                      : String(individualError),
+                });
 
-              invalidCount++;
-              validCount--;
+                await batchUpdateImportRowStatus(db, [
+                  {
+                    id: item.importRowId,
+                    status: "FAILED",
+                    error:
+                      individualError instanceof Error
+                        ? individualError.message
+                        : "Failed to insert into staging",
+                  },
+                ]);
+
+                invalidCount++;
+                validCount--;
+              }
             }
           }
-        }
 
-        processedCount += batch.length;
+          processedCount += batch.length;
 
-        // OPTIMIZATION: Update DB progress every batch (cheap operation)
-        // WebSocket updates are automatically debounced to once per second
-        await updateImportJobProgress(db, {
-          jobId,
-          summary: {
-            total: totalRows,
+          // OPTIMIZATION: Update DB progress every batch (cheap operation)
+          // WebSocket updates are automatically debounced to once per second
+          await updateImportJobProgress(db, {
+            jobId,
+            summary: {
+              total: totalRows,
+              processed: processedCount,
+              valid: validCount,
+              invalid: invalidCount,
+              will_create: willCreateCount,
+              will_update: willUpdateCount,
+              will_skip: willSkipCount,
+              percentage: Math.round((processedCount / totalRows) * 100),
+            },
+          });
+
+          // OPTIMIZATION: Debounced WebSocket update (max once per second)
+          // Fire-and-forget, never blocks batch processing
+          progressEmitter.emit({
+            jobId,
+            status: "VALIDATING",
+            phase: "validation",
             processed: processedCount,
-            valid: validCount,
-            invalid: invalidCount,
-            will_create: willCreateCount,
-            will_update: willUpdateCount,
-            will_skip: willSkipCount,
+            total: totalRows,
+            failed: invalidCount,
             percentage: Math.round((processedCount / totalRows) * 100),
-          },
-        });
+          });
 
-        // OPTIMIZATION: Debounced WebSocket update (max once per second)
-        // Fire-and-forget, never blocks batch processing
-        progressEmitter.emit({
-          jobId,
-          status: "VALIDATING",
-          phase: "validation",
-          processed: processedCount,
-          total: totalRows,
-          failed: invalidCount,
-          percentage: Math.round((processedCount / totalRows) * 100),
-        });
-
-        logger.info("Batch processed", {
-          batchNumber: Math.floor(i / BATCH_SIZE) + 1,
-          processedCount,
-          validCount,
-          invalidCount,
-        });
-      }
+          logger.info("Batch processed", {
+            batchNumber,
+            processedCount,
+            validCount,
+            invalidCount,
+          });
+        },
+        { concurrency: MAX_PARALLEL_BATCHES },
+      );
 
       // Get final staging counts
       const stagingCounts = await countStagingProductsByAction(db, jobId);
@@ -1296,8 +1339,8 @@ function detectChanges(
     additionalImageUrls: string | null;
     tags: string | null;
     showcaseBrandId: string | null;
-  // Variant fields
-  sku: string | null;
+    // Variant fields
+    sku: string | null;
     upid: string | null;
     ean: string | null;
     colorId: string | null;
@@ -1984,6 +2027,7 @@ async function validateRow(
     existingProductId: existingVariant?.id || null,
     id: productId,
     brandId,
+    productIdentifier: row.product_identifier?.trim() || null,
     name: row.product_name?.trim() || "",
     description: row.description?.trim() || null,
     categoryId,

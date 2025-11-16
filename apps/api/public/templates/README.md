@@ -17,7 +17,7 @@ This CSV template is used for bulk product imports into the Avelero system. It s
 At minimum, your CSV must include:
 
 1. **product_name** - Name of the product (required)
-2. **sku** - Stock Keeping Unit identifier (required)
+2. **product_identifier** or **sku** - Product or variant identifier (at least one required)
 
 ## Column Definitions
 
@@ -29,12 +29,19 @@ At minimum, your CSV must include:
 - **Description**: Name of the product
 - **Example**: "Organic Cotton T-Shirt"
 
-#### sku (Required)
+#### product_identifier (Recommended)
 - **Type**: Text
-- **Description**: Stock Keeping Unit - unique identifier for the variant
+- **Description**: Unique product identifier within the brand (primary identifier)
 - **Format**: Any unique text
+- **Example**: "PROD-TSH-001", "ECO-TSHIRT-2024"
+- **Note**: Primary identifier for products. Used to detect if product exists (for updates vs. creates). Auto-generated if not provided.
+
+#### sku (Optional)
+- **Type**: Text
+- **Description**: Stock Keeping Unit - variant-level identifier (optional)
+- **Format**: Any text
 - **Example**: "SKU-TSH-001", "TSH-NAVY-M-2024"
-- **Note**: Used to detect if product exists (for updates vs. creates)
+- **Note**: Now optional. Can be used for variant-specific tracking. If product_identifier is not provided, SKU is used for matching.
 
 #### description (Optional)
 - **Type**: Text

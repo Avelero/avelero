@@ -643,9 +643,13 @@ export async function createProduct(
     primaryImageUrl?: string;
     additionalImageUrls?: string;
     tags?: string;
+    /** Optional: Color IDs to auto-generate variants */
+    colorIds?: readonly string[];
+    /** Optional: Size IDs to auto-generate variants */
+    sizeIds?: readonly string[];
   },
 ) {
-  let created: { id: string } | undefined;
+  let created: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
     const productIdentifierValue =
       input.productIdentifier ?? `PROD-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
@@ -667,8 +671,23 @@ export async function createProduct(
         tags: input.tags ?? null,
       })
       .returning({ id: products.id });
-    created = row;
-    if (row?.id) {
+
+    if (!row?.id) {
+      return;
+    }
+
+    created = { id: row.id };
+
+    // Auto-generate variants if colorIds and sizeIds provided
+    if (input.colorIds && input.sizeIds && input.colorIds.length > 0 && input.sizeIds.length > 0) {
+      const variantIds = await generateProductVariants(
+        tx as unknown as Database,
+        row.id,
+        input.colorIds,
+        input.sizeIds,
+      );
+      created.variantIds = variantIds;
+    } else {
       // Evaluate only core module for product basics
       await evaluateAndUpsertCompletion(
         tx as unknown as Database,
@@ -698,9 +717,13 @@ export async function updateProduct(
     primaryImageUrl?: string | null;
     additionalImageUrls?: string | null;
     tags?: string | null;
+    /** Optional: Color IDs to regenerate variants (replaces existing variants) */
+    colorIds?: readonly string[];
+    /** Optional: Size IDs to regenerate variants (replaces existing variants) */
+    sizeIds?: readonly string[];
   },
 ) {
-  let updated: { id: string } | undefined;
+  let updated: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
     const [row] = await tx
       .update(products)
@@ -718,8 +741,29 @@ export async function updateProduct(
       })
       .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
       .returning({ id: products.id });
-    updated = row;
-    if (row?.id) {
+
+    if (!row?.id) {
+      return;
+    }
+
+    updated = { id: row.id };
+
+    // Regenerate variants if colorIds and sizeIds provided
+    if (input.colorIds && input.sizeIds && input.colorIds.length > 0 && input.sizeIds.length > 0) {
+      // Delete existing variants for this product
+      await tx
+        .delete(productVariants)
+        .where(eq(productVariants.productId, row.id));
+
+      // Generate new variants
+      const variantIds = await generateProductVariants(
+        tx as unknown as Database,
+        row.id,
+        input.colorIds,
+        input.sizeIds,
+      );
+      updated.variantIds = variantIds;
+    } else {
       await evaluateAndUpsertCompletion(
         tx as unknown as Database,
         brandId,

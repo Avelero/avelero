@@ -11,6 +11,7 @@ export const brandTags = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     name: text("name").notNull(),
+    hex: text("hex"), // Optional hex color code for tag (e.g., "#FF5733")
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

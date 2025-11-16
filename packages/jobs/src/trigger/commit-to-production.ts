@@ -1,5 +1,5 @@
 import "./configure-trigger";
-import { logger, task } from "@trigger.dev/sdk";
+import { logger, task } from "@trigger.dev/sdk/v3";
 import { db } from "@v1/db/client";
 import type { Database } from "@v1/db/client";
 import {

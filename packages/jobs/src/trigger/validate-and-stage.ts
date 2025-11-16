@@ -1,7 +1,7 @@
 import "./configure-trigger";
 import { randomUUID } from "node:crypto";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { logger, task } from "@trigger.dev/sdk";
+import { logger, task } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import {
   type CreateImportRowParams,

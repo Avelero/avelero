@@ -1,4 +1,4 @@
-import { tasks } from "@trigger.dev/sdk";
+import { tasks } from "@trigger.dev/sdk/v3";
 /**
  * Bulk import lifecycle router.
  *

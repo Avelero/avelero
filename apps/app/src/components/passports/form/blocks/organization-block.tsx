@@ -1,13 +1,10 @@
 "use client";
 
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { SeasonModal } from "@/components/modals/season-modal";
 import { CategorySelect } from "@/components/select/category-select";
-import {
-  type Season,
-  SeasonSelect,
-} from "@/components/select/season-select";
-import { type TagOption, TagSelect } from "@/components/select/tag-select";
+import { type Season, SeasonSelect } from "@/components/select/season-select";
+import { TagSelect } from "@/components/select/tag-select";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
@@ -31,15 +28,14 @@ export function OrganizationSection({
   setTagIds,
 }: OrganizationSectionProps) {
   // Fetch seasons from API
-  const { seasons } = usePassportFormData();
+  const { seasons } = useBrandCatalog();
 
   // Track which optional fields are visible
-  const [showSeason, setShowSeason] = React.useState(false);
-  const [showTags, setShowTags] = React.useState(false);
+  const [showSeason, setShowSeason] = React.useState(() => Boolean(season));
+  const [showTags, setShowTags] = React.useState(() => tagIds.length > 0);
 
   // Field values (local state for complex objects, IDs are in parent)
   const [seasonObject, setSeasonObject] = React.useState<Season | null>(null);
-  const [tags, setTags] = React.useState<TagOption[]>([]);
   
   // Sync season object with parent's season string
   React.useEffect(() => {
@@ -60,6 +56,18 @@ export function OrganizationSection({
       setSeasonObject(null);
     }
   }, [season, seasons]);
+
+  React.useEffect(() => {
+    if (season && !showSeason) {
+      setShowSeason(true);
+    }
+  }, [season, showSeason]);
+
+  React.useEffect(() => {
+    if (tagIds.length > 0 && !showTags) {
+      setShowTags(true);
+    }
+  }, [tagIds, showTags]);
 
   // Modal states
   const [seasonModalOpen, setSeasonModalOpen] = React.useState(false);
@@ -130,8 +138,8 @@ export function OrganizationSection({
               <div className="relative">
                 <div className="transition-[margin-right] duration-200 ease-in-out group-hover/field:mr-11">
                   <TagSelect
-                    value={tags}
-                    onValueChange={setTags}
+                    value={tagIds}
+                    onValueChange={setTagIds}
                     placeholder="Add tags"
                   />
                 </div>
@@ -141,7 +149,7 @@ export function OrganizationSection({
                     variant="outline"
                     onClick={() => {
                       setShowTags(false);
-                      setTags([]);
+                      setTagIds([]);
                     }}
                     className="h-9 w-9 text-tertiary hover:text-destructive flex-shrink-0"
                   >

@@ -7,8 +7,11 @@
  */
 import { z } from "zod";
 import {
+  longStringSchema,
   nonNegativeIntSchema,
   shortStringSchema,
+  urlSchema,
+  uuidArraySchema,
   uuidSchema,
 } from "./_shared/primitives.js";
 
@@ -206,4 +209,74 @@ export const passportTemplatesDeleteSchema = z.object({
 
 export type PassportTemplatesDeleteInput = z.infer<
   typeof passportTemplatesDeleteSchema
+>;
+
+const compositeMaterialSchema = z.object({
+  brand_material_id: uuidSchema,
+  percentage: z.number().min(0).max(100).optional(),
+});
+
+const compositeJourneyStepSchema = z.object({
+  sort_index: nonNegativeIntSchema,
+  step_type: shortStringSchema,
+  facility_id: uuidSchema,
+});
+
+const compositeEnvironmentSchema = z.object({
+  carbon_kg_co2e: shortStringSchema.optional(),
+  water_liters: shortStringSchema.optional(),
+});
+
+export const compositePassportCreateSchema = z.object({
+  title: shortStringSchema,
+  product_identifier: shortStringSchema.optional(),
+  description: longStringSchema.optional(),
+  category_id: uuidSchema.optional(),
+  season: shortStringSchema.optional(),
+  season_id: uuidSchema.optional(),
+  brand_certification_id: uuidSchema.optional(),
+  showcase_brand_id: uuidSchema.optional(),
+  primary_image_url: urlSchema.optional(),
+  additional_image_urls: z.array(urlSchema).optional(),
+  tags: z.array(shortStringSchema).optional(),
+  sku: shortStringSchema,
+  ean: shortStringSchema.optional(),
+  color_ids: uuidArraySchema.optional(),
+  size_ids: uuidArraySchema.optional(),
+  status: passportStatusSchema.optional(),
+  template_id: uuidSchema.optional().nullable(),
+  materials: z.array(compositeMaterialSchema).optional(),
+  journey_steps: z.array(compositeJourneyStepSchema).optional(),
+  environment: compositeEnvironmentSchema.optional(),
+});
+
+export type CompositePassportCreateInput = z.infer<
+  typeof compositePassportCreateSchema
+>;
+
+export const compositePassportFormSchema = z.object({
+  product_upid: shortStringSchema,
+});
+
+export type CompositePassportFormInput = z.infer<
+  typeof compositePassportFormSchema
+>;
+
+export const compositePassportUpdateSchema = compositePassportCreateSchema
+  .extend({
+    product_upid: shortStringSchema,
+    product_id: uuidSchema,
+    primary_image_url: urlSchema.optional(),
+  })
+  .omit({
+    color_ids: true,
+    size_ids: true,
+  })
+  .extend({
+    color_ids: uuidArraySchema.optional(),
+    size_ids: uuidArraySchema.optional(),
+  });
+
+export type CompositePassportUpdateInput = z.infer<
+  typeof compositePassportUpdateSchema
 >;

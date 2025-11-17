@@ -6,8 +6,9 @@ import type { ModuleKey } from "./module-keys";
 
 async function getEnabledModulesForTemplate(
   db: Database,
-  templateId: string,
+  templateId: string | null,
 ): Promise<ModuleKey[]> {
+  if (!templateId) return [];
   const rows = await db
     .select({ moduleKey: passportTemplateModules.moduleKey })
     .from(passportTemplateModules)

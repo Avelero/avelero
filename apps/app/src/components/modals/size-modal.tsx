@@ -18,7 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { usePassportFormData, getCategoryKey } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog, getCategoryKey } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
@@ -66,7 +66,7 @@ function TierTwoCategorySelect({
   onChange: (value: string | null) => void;
 }) {
   const [mounted, setMounted] = React.useState(false);
-  const { tierTwoCategoryHierarchy } = usePassportFormData();
+  const { tierTwoCategoryHierarchy } = useBrandCatalog();
   const [open, setOpen] = React.useState(false);
   const [selectedCategoryPath, setSelectedCategoryPath] = React.useState<string | null>(value);
   const [navigationPath, setNavigationPath] = React.useState<string[]>([]); // ["Men's"] or empty
@@ -282,7 +282,7 @@ export function SizeModal({
   const [mounted, setMounted] = React.useState(false);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { categories, sizeOptions } = usePassportFormData();
+  const { categories, sizeOptions } = useBrandCatalog();
 
   const [category, setCategory] = React.useState<string | null>(null);
   const [rows, setRows] = React.useState<SizeRow[]>([]);

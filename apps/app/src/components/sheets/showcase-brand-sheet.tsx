@@ -1,14 +1,16 @@
 "use client";
 
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
 import {
-  formatPhone,
-  isValidEmail,
-  isValidUrl,
-  normalizeUrl,
-  validatePhone,
-} from "@/utils/validation";
+  getFirstInvalidField,
+  isFormValid,
+  rules,
+  type ValidationErrors,
+  type ValidationSchema,
+  validateForm,
+} from "@/hooks/use-form-validation";
+import { formatPhone, normalizeUrl } from "@/utils/validation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
@@ -38,6 +40,13 @@ export interface ShowcaseBrandData {
   countryCode?: string;
 }
 
+interface ShowcaseBrandFormValues {
+  name: string;
+  email: string;
+  phone: string;
+  website: string;
+}
+
 interface ShowcaseBrandSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -53,7 +62,7 @@ export function ShowcaseBrandSheet({
 }: ShowcaseBrandSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { showcaseBrands: existingBrands } = usePassportFormData();
+  const { showcaseBrands: existingBrands } = useBrandCatalog();
 
   const [name, setName] = React.useState(initialName);
   const [legalName, setLegalName] = React.useState("");
@@ -67,15 +76,67 @@ export function ShowcaseBrandSheet({
   const [zip, setZip] = React.useState("");
   const [countryCode, setCountryCode] = React.useState("");
 
-  // Validation error states
-  const [nameError, setNameError] = React.useState("");
-  const [emailError, setEmailError] = React.useState("");
-  const [phoneError, setPhoneError] = React.useState("");
-  const [websiteError, setWebsiteError] = React.useState("");
+  const [fieldErrors, setFieldErrors] =
+    React.useState<ValidationErrors<ShowcaseBrandFormValues>>({});
 
   // API mutation for creating showcase brand
   const createBrandMutation = useMutation(
     trpc.brand.showcaseBrands.create.mutationOptions(),
+  );
+
+  const validationSchema = React.useMemo<ValidationSchema<ShowcaseBrandFormValues>>(
+    () => ({
+      name: [
+        rules.required("Brand name is required"),
+        rules.maxLength(100, "Name must be 100 characters or less"),
+        rules.uniqueCaseInsensitive(
+          existingBrands.map((brand) => brand.name),
+          "A brand with this name already exists",
+        ),
+      ],
+      email: [
+        rules.maxLength(100, "Email must be 100 characters or less"),
+        rules.email(),
+      ],
+      phone: [
+        rules.maxLength(100, "Phone must be 100 characters or less"),
+        rules.phone(),
+      ],
+      website: [
+        rules.maxLength(100, "Website must be 100 characters or less"),
+        rules.url(),
+      ],
+    }),
+    [existingBrands],
+  );
+
+  const clearFieldError = React.useCallback(
+    (field: keyof ShowcaseBrandFormValues) => {
+      setFieldErrors((prev) => {
+        if (!prev[field]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    },
+    [],
+  );
+
+  const validateSingleField = React.useCallback(
+    (field: keyof ShowcaseBrandFormValues, value: string) => {
+      const values: ShowcaseBrandFormValues = {
+        name,
+        email,
+        phone,
+        website,
+      };
+      values[field] = value;
+      const errors = validateForm(values, validationSchema);
+      setFieldErrors((prev) => ({ ...prev, [field]: errors[field] }));
+    },
+    [name, email, phone, website, validationSchema],
   );
 
   // Update name when initialName changes (when sheet opens with pre-filled name)
@@ -100,64 +161,43 @@ export function ShowcaseBrandSheet({
         setState("");
         setZip("");
         setCountryCode("");
-        setNameError("");
-        setEmailError("");
-        setPhoneError("");
-        setWebsiteError("");
+        setFieldErrors({});
       }, 350); // Wait for sheet close animation
       return () => clearTimeout(timer);
     }
   }, [open]);
 
-  // Validation functions
-  const validateName = (value: string): boolean => {
-    const trimmedName = value.trim();
-    
-    if (!trimmedName) {
-      setNameError("Brand name is required");
-      return false;
-    }
-
-    const isDuplicate = existingBrands.some(
-      (brand) => brand.name.toLowerCase() === trimmedName.toLowerCase(),
-    );
-
-    if (isDuplicate) {
-      setNameError("A brand with this name already exists");
-      return false;
-    }
-
-    setNameError("");
-    return true;
-  };
-
   const handleCreate = async () => {
-    // Validate all fields before submission
-    const isNameValid = validateName(name);
-    
-    const isEmailValid = email.trim() ? isValidEmail(email) : true;
-    if (!isEmailValid) setEmailError("Please enter a valid email address");
-    
-    const phoneResult = validatePhone(phone);
-    const isPhoneValid = phoneResult.isValid;
-    if (!isPhoneValid && phone.trim()) setPhoneError(phoneResult.error || "Invalid phone number");
-    
-    const isWebsiteValid = isValidUrl(website);
-    if (!isWebsiteValid && website.trim()) setWebsiteError("Please enter a valid URL");
+    const formValues: ShowcaseBrandFormValues = {
+      name,
+      email,
+      phone,
+      website,
+    };
+    const validationErrors = validateForm(formValues, validationSchema);
+    setFieldErrors(validationErrors);
 
-    if (!isNameValid || !isEmailValid || !isPhoneValid || !isWebsiteValid) {
-      // Focus the first invalid field
-      if (!isNameValid) {
+    if (!isFormValid(validationErrors)) {
+      const firstInvalidField = getFirstInvalidField(validationErrors, [
+        "name",
+        "email",
+        "phone",
+        "website",
+      ]);
+      if (firstInvalidField === "name") {
         document.getElementById("brand-name")?.focus();
-      } else if (!isEmailValid) {
+      } else if (firstInvalidField === "email") {
         document.getElementById("brand-email")?.focus();
-      } else if (!isPhoneValid) {
+      } else if (firstInvalidField === "phone") {
         document.getElementById("brand-phone")?.focus();
-      } else if (!isWebsiteValid) {
+      } else if (firstInvalidField === "website") {
         document.getElementById("brand-website")?.focus();
       }
       return;
     }
+
+    const normalizedWebsite = website.trim() ? normalizeUrl(website) : "";
+    const formattedPhone = phone.trim() ? formatPhone(phone.trim()) : "";
 
     try {
       // Execute mutation with toast.loading to handle loading/success/error states
@@ -167,8 +207,8 @@ export function ShowcaseBrandSheet({
           name: name.trim(),
           legal_name: legalName.trim() || undefined,
           email: email.trim() || undefined,
-          phone: phone.trim() || undefined,
-          website: website.trim() || undefined,
+          phone: formattedPhone || undefined,
+          website: normalizedWebsite || undefined,
           address_line_1: addressLine1.trim() || undefined,
           address_line_2: addressLine2.trim() || undefined,
           city: city.trim() || undefined,
@@ -246,6 +286,7 @@ export function ShowcaseBrandSheet({
       onOpenChange(false);
 
       // Call parent callback with real data
+      setFieldErrors({});
       onBrandCreated(brandData);
     } catch (error) {
       console.error("Failed to create brand:", error);
@@ -271,7 +312,7 @@ export function ShowcaseBrandSheet({
     onOpenChange(false);
   };
 
-  const isNameValid = name.trim().length > 0 && !nameError;
+  const isNameValid = name.trim().length > 0 && !fieldErrors.name;
   const isCreating = createBrandMutation.isPending;
 
   return (
@@ -302,17 +343,17 @@ export function ShowcaseBrandSheet({
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
-                    if (nameError) validateName(e.target.value);
+                    clearFieldError("name");
                   }}
-                  onBlur={() => validateName(name)}
+                  onBlur={() => validateSingleField("name", name)}
                   placeholder="Avelero Apparel"
                   className="h-9"
                   maxLength={100}
                   aria-required="true"
                   required
                 />
-                {nameError && (
-                  <p className="text-xs text-destructive">{nameError}</p>
+                {fieldErrors.name && (
+                  <p className="text-xs text-destructive">{fieldErrors.name}</p>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -337,23 +378,23 @@ export function ShowcaseBrandSheet({
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  if (emailError && e.target.value.trim()) {
-                    setEmailError(isValidEmail(e.target.value) ? "" : "Please enter a valid email address");
+                  if (fieldErrors.email) {
+                    clearFieldError("email");
                   }
                 }}
                 onBlur={() => {
                   if (email.trim()) {
-                    setEmailError(isValidEmail(email) ? "" : "Please enter a valid email address");
+                    validateSingleField("email", email);
                   } else {
-                    setEmailError("");
+                    clearFieldError("email");
                   }
                 }}
                 placeholder="help@example.com"
                 className="h-9"
                 maxLength={100}
               />
-              {emailError && (
-                <p className="text-xs text-destructive">{emailError}</p>
+              {fieldErrors.email && (
+                <p className="text-xs text-destructive">{fieldErrors.email}</p>
               )}
             </div>
 
@@ -366,30 +407,24 @@ export function ShowcaseBrandSheet({
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value);
-                  if (phoneError && e.target.value.trim()) {
-                    const result = validatePhone(e.target.value);
-                    setPhoneError(result.isValid ? "" : result.error || "Invalid phone number");
+                  if (fieldErrors.phone) {
+                    clearFieldError("phone");
                   }
                 }}
                 onBlur={() => {
                   if (phone.trim()) {
-                    const result = validatePhone(phone);
-                    if (result.isValid) {
-                      setPhone(formatPhone(phone));
-                      setPhoneError("");
-                    } else {
-                      setPhoneError(result.error || "Invalid phone number");
-                    }
+                    validateSingleField("phone", phone);
+                    setPhone(formatPhone(phone.trim()));
                   } else {
-                    setPhoneError("");
+                    clearFieldError("phone");
                   }
                 }}
                 placeholder="+31 20 123 4567"
                 className="h-9"
                 maxLength={100}
               />
-              {phoneError && (
-                <p className="text-xs text-destructive">{phoneError}</p>
+              {fieldErrors.phone && (
+                <p className="text-xs text-destructive">{fieldErrors.phone}</p>
               )}
             </div>
 
@@ -402,8 +437,8 @@ export function ShowcaseBrandSheet({
                 value={website}
                 onChange={(e) => {
                   setWebsite(e.target.value);
-                  if (websiteError && e.target.value.trim()) {
-                    setWebsiteError(isValidUrl(e.target.value) ? "" : "Please enter a valid URL");
+                  if (fieldErrors.website) {
+                    clearFieldError("website");
                   }
                 }}
                 onBlur={() => {
@@ -411,20 +446,23 @@ export function ShowcaseBrandSheet({
                     const normalized = normalizeUrl(website);
                     if (normalized) {
                       setWebsite(normalized);
-                      setWebsiteError("");
+                      validateSingleField("website", normalized);
                     } else {
-                      setWebsiteError("Please enter a valid URL");
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        website: "Please enter a valid URL",
+                      }));
                     }
                   } else {
-                    setWebsiteError("");
+                    clearFieldError("website");
                   }
                 }}
                 placeholder="https://example.com"
                 className="h-9"
                 maxLength={100}
               />
-              {websiteError && (
-                <p className="text-xs text-destructive">{websiteError}</p>
+              {fieldErrors.website && (
+                <p className="text-xs text-destructive">{fieldErrors.website}</p>
               )}
             </div>
 

@@ -1,12 +1,16 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import {
-  formatPhone,
-  isValidEmail,
-  validatePhone,
-} from "@/utils/validation";
+  getFirstInvalidField,
+  isFormValid,
+  rules,
+  type ValidationErrors,
+  type ValidationSchema,
+  validateForm,
+} from "@/hooks/use-form-validation";
+import { formatPhone } from "@/utils/validation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
@@ -35,6 +39,12 @@ export interface OperatorData {
   countryCode?: string;
 }
 
+interface OperatorFormValues {
+  name: string;
+  email: string;
+  phone: string;
+}
+
 interface OperatorSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,7 +60,7 @@ export function OperatorSheet({
 }: OperatorSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { operators: existingOperators } = usePassportFormData();
+  const { operators: existingOperators } = useBrandCatalog();
   
   const [name, setName] = React.useState(initialName);
   const [legalName, setLegalName] = React.useState("");
@@ -64,13 +74,62 @@ export function OperatorSheet({
   const [countryCode, setCountryCode] = React.useState("");
 
   // Validation error states
-  const [nameError, setNameError] = React.useState("");
-  const [emailError, setEmailError] = React.useState("");
-  const [phoneError, setPhoneError] = React.useState("");
+  const [fieldErrors, setFieldErrors] =
+    React.useState<ValidationErrors<OperatorFormValues>>({});
   
   // Operators are facilities (production plants)
   const createOperatorMutation = useMutation(
     trpc.brand.facilities.create.mutationOptions(),
+  );
+
+  const validationSchema = React.useMemo<ValidationSchema<OperatorFormValues>>(
+    () => ({
+      name: [
+        rules.required("Operator name is required"),
+        rules.maxLength(100, "Name must be 100 characters or less"),
+        rules.uniqueCaseInsensitive(
+          existingOperators.map((operator) => operator.display_name),
+          "An operator with this name already exists",
+        ),
+      ],
+      email: [
+        rules.maxLength(100, "Email must be 100 characters or less"),
+        rules.email(),
+      ],
+      phone: [
+        rules.maxLength(100, "Phone must be 100 characters or less"),
+        rules.phone(),
+      ],
+    }),
+    [existingOperators],
+  );
+
+  const clearFieldError = React.useCallback(
+    (field: keyof OperatorFormValues) => {
+      setFieldErrors((prev) => {
+        if (!prev[field]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    },
+    [],
+  );
+
+  const validateSingleField = React.useCallback(
+    (field: keyof OperatorFormValues, value: string) => {
+      const values: OperatorFormValues = {
+        name,
+        email,
+        phone,
+      };
+      values[field] = value;
+      const errors = validateForm(values, validationSchema);
+      setFieldErrors((prev) => ({ ...prev, [field]: errors[field] }));
+    },
+    [name, email, phone, validationSchema],
   );
 
   // Compute loading state from mutation
@@ -97,58 +156,34 @@ export function OperatorSheet({
         setState("");
         setZip("");
         setCountryCode("");
-        setNameError("");
-        setEmailError("");
-        setPhoneError("");
+        setFieldErrors({});
       }, 350); // Wait for sheet close animation
       return () => clearTimeout(timer);
     }
   }, [open]);
 
-  // Validation functions
-  const validateName = (value: string): boolean => {
-    const trimmedName = value.trim();
-    
-    if (!trimmedName) {
-      setNameError("Operator name is required");
-      return false;
-    }
-
-    const isDuplicate = existingOperators.some(
-      (operator) => operator.display_name.toLowerCase() === trimmedName.toLowerCase(),
-    );
-
-    if (isDuplicate) {
-      setNameError("An operator with this name already exists");
-      return false;
-    }
-
-    setNameError("");
-    return true;
-  };
-
   const handleCreate = async () => {
-    // Validate all fields before submission
-    const isNameValid = validateName(name);
-    
-    const isEmailValid = email.trim() ? isValidEmail(email) : true;
-    if (!isEmailValid) setEmailError("Please enter a valid email address");
-    
-    const phoneResult = validatePhone(phone);
-    const isPhoneValid = phoneResult.isValid;
-    if (!isPhoneValid && phone.trim()) setPhoneError(phoneResult.error || "Invalid phone number");
+    const formValues: OperatorFormValues = { name, email, phone };
+    const validationErrors = validateForm(formValues, validationSchema);
+    setFieldErrors(validationErrors);
 
-    if (!isNameValid || !isEmailValid || !isPhoneValid) {
-      // Focus the first invalid field
-      if (!isNameValid) {
+    if (!isFormValid(validationErrors)) {
+      const firstInvalidField = getFirstInvalidField(validationErrors, [
+        "name",
+        "email",
+        "phone",
+      ]);
+      if (firstInvalidField === "name") {
         document.getElementById("operator-name")?.focus();
-      } else if (!isEmailValid) {
+      } else if (firstInvalidField === "email") {
         document.getElementById("operator-email")?.focus();
-      } else if (!isPhoneValid) {
+      } else if (firstInvalidField === "phone") {
         document.getElementById("operator-phone")?.focus();
       }
       return;
     }
+
+    const formattedPhone = phone.trim() ? formatPhone(phone.trim()) : "";
 
     try {
       // Show loading toast and execute mutation
@@ -161,7 +196,7 @@ export function OperatorSheet({
             .join(", ");
 
           // Combine contact info (email + phone)
-          const contactInfo = [email.trim(), phone.trim()]
+          const contactInfo = [email.trim(), formattedPhone]
             .filter(Boolean)
             .join(" | ");
 
@@ -234,7 +269,8 @@ export function OperatorSheet({
           };
 
           // Close sheet first
-          onOpenChange(false);
+      setFieldErrors({});
+      onOpenChange(false);
 
           // Call parent callback with real data
           onOperatorCreated(newOperator);
@@ -270,7 +306,7 @@ export function OperatorSheet({
     onOpenChange(false);
   };
 
-  const isNameValid = name.trim().length > 0 && !nameError;
+  const isNameValid = name.trim().length > 0 && !fieldErrors.name;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -300,16 +336,16 @@ export function OperatorSheet({
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
-                    if (nameError) validateName(e.target.value);
+                    clearFieldError("name");
                   }}
-                  onBlur={() => validateName(name)}
+                  onBlur={() => validateSingleField("name", name)}
                   placeholder="Factory Name"
                   className="h-9"
                   aria-required="true"
                   required
                 />
-                {nameError && (
-                  <p className="text-xs text-destructive">{nameError}</p>
+                {fieldErrors.name && (
+                  <p className="text-xs text-destructive">{fieldErrors.name}</p>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -333,22 +369,22 @@ export function OperatorSheet({
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  if (emailError && e.target.value.trim()) {
-                    setEmailError(isValidEmail(e.target.value) ? "" : "Please enter a valid email address");
+                  if (fieldErrors.email) {
+                    clearFieldError("email");
                   }
                 }}
                 onBlur={() => {
                   if (email.trim()) {
-                    setEmailError(isValidEmail(email) ? "" : "Please enter a valid email address");
+                    validateSingleField("email", email);
                   } else {
-                    setEmailError("");
+                    clearFieldError("email");
                   }
                 }}
                 placeholder="contact@example.com"
                 className="h-9"
               />
-              {emailError && (
-                <p className="text-xs text-destructive">{emailError}</p>
+              {fieldErrors.email && (
+                <p className="text-xs text-destructive">{fieldErrors.email}</p>
               )}
             </div>
 
@@ -361,29 +397,23 @@ export function OperatorSheet({
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value);
-                  if (phoneError && e.target.value.trim()) {
-                    const result = validatePhone(e.target.value);
-                    setPhoneError(result.isValid ? "" : result.error || "Invalid phone number");
+                  if (fieldErrors.phone) {
+                    clearFieldError("phone");
                   }
                 }}
                 onBlur={() => {
                   if (phone.trim()) {
-                    const result = validatePhone(phone);
-                    if (result.isValid) {
-                      setPhone(formatPhone(phone));
-                      setPhoneError("");
-                    } else {
-                      setPhoneError(result.error || "Invalid phone number");
-                    }
+                    validateSingleField("phone", phone);
+                    setPhone(formatPhone(phone.trim()));
                   } else {
-                    setPhoneError("");
+                    clearFieldError("phone");
                   }
                 }}
                 placeholder="(020) 123 45 67"
                 className="h-9"
               />
-              {phoneError && (
-                <p className="text-xs text-destructive">{phoneError}</p>
+              {fieldErrors.phone && (
+                <p className="text-xs text-destructive">{fieldErrors.phone}</p>
               )}
             </div>
 

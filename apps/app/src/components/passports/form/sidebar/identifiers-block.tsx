@@ -1,6 +1,7 @@
 "use client";
 
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { Select } from "@v1/ui/select";
@@ -17,6 +18,10 @@ interface IdentifiersSectionProps {
   setEan: (value: string) => void;
   showcaseBrandId: string | null;
   setShowcaseBrandId: (value: string | null) => void;
+  articleNumberError?: string;
+  eanError?: string;
+  articleNumberInputRef?: React.RefObject<HTMLInputElement | null>;
+  eanInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export function IdentifiersSection({
@@ -26,8 +31,12 @@ export function IdentifiersSection({
   setEan,
   showcaseBrandId,
   setShowcaseBrandId,
+  articleNumberError,
+  eanError,
+  articleNumberInputRef,
+  eanInputRef,
 }: IdentifiersSectionProps) {
-  const { showcaseBrands: apiBrandOptions } = usePassportFormData();
+  const { showcaseBrands: apiBrandOptions } = useBrandCatalog();
   
   // Convert brandOptions from API format to Select format
   const selectBrandOptions = apiBrandOptions.map((brand: { id: string; name: string }) => ({
@@ -59,23 +68,38 @@ export function IdentifiersSection({
         <div className="space-y-1.5">
           <Label>Article number <span className="text-destructive">*</span></Label>
           <Input
+            ref={articleNumberInputRef}
             value={articleNumber}
             onChange={(e) => setArticleNumber(e.target.value)}
             placeholder="Enter article number"
-            className="h-9"
-            required
+            className={cn(
+              "h-9",
+              articleNumberError &&
+                "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive"
+            )}
+            aria-invalid={Boolean(articleNumberError)}
           />
+          {articleNumberError && (
+            <p className="type-small text-destructive">{articleNumberError}</p>
+          )}
         </div>
 
         {/* EAN Input */}
         <div className="space-y-1.5">
           <Label>EAN</Label>
           <Input
+            ref={eanInputRef}
             value={ean}
             onChange={(e) => setEan(e.target.value)}
             placeholder="Enter EAN"
-            className="h-9"
+            className={cn(
+              "h-9",
+              eanError && "focus-visible:ring-destructive focus-visible:border-destructive"
+            )}
           />
+          {eanError && (
+            <p className="type-small text-destructive">{eanError}</p>
+          )}
         </div>
 
         {/* Brand Select */}

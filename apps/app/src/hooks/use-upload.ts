@@ -7,6 +7,7 @@ interface UploadParams {
   file: File;
   path: string[];
   bucket: string;
+  metadata?: Record<string, string>;
 }
 
 interface UploadResult {
@@ -22,13 +23,17 @@ export function useUpload() {
     file,
     path,
     bucket,
+    metadata,
   }: UploadParams): Promise<UploadResult> => {
     setLoading(true);
 
     try {
-      const result = await upload(supabase, { path, file, bucket });
+      const result = await upload(supabase, { path, file, bucket, metadata });
       const servedPath = result.path.join("/");
-      const url = `/api/images/${result.bucket}/${servedPath}`;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const url = supabaseUrl
+        ? `${supabaseUrl}/storage/v1/object/public/${bucket}/${servedPath}`
+        : `/api/images/${result.bucket}/${servedPath}`;
       return { url, path: result.path };
     } finally {
       setLoading(false);

@@ -17,6 +17,8 @@ interface EnvironmentSectionProps {
   setCarbonKgCo2e: (value: string) => void;
   waterLiters: string;
   setWaterLiters: (value: string) => void;
+  carbonError?: string;
+  waterError?: string;
 }
 
 export function EnvironmentSection({
@@ -24,6 +26,8 @@ export function EnvironmentSection({
   setCarbonKgCo2e,
   waterLiters,
   setWaterLiters,
+  carbonError,
+  waterError,
 }: EnvironmentSectionProps) {
   // Eco-claims are local state (not yet implemented in API submission)
   const [ecoClaims, setEcoClaims] = React.useState<EcoClaim[]>([]);
@@ -127,9 +131,15 @@ export function EnvironmentSection({
               onChange={(e) => handleNumericChange(e.target.value, setCarbonKgCo2e)}
               onBlur={(e) => handleNumericBlur(e.target.value, setCarbonKgCo2e)}
               placeholder="Enter carbon value"
-              className="h-9 flex-1"
+              className={cn(
+                "h-9 flex-1",
+                carbonError && "focus-visible:ring-destructive focus-visible:border-destructive"
+              )}
             />
           </div>
+          {carbonError && (
+            <p className="type-small text-destructive">{carbonError}</p>
+          )}
         </div>
 
         {/* Water Input */}
@@ -145,9 +155,15 @@ export function EnvironmentSection({
               onChange={(e) => handleNumericChange(e.target.value, setWaterLiters)}
               onBlur={(e) => handleNumericBlur(e.target.value, setWaterLiters)}
               placeholder="Enter water value"
-              className="h-9 flex-1"
+              className={cn(
+                "h-9 flex-1",
+                waterError && "focus-visible:ring-destructive focus-visible:border-destructive"
+              )}
             />
           </div>
+          {waterError && (
+            <p className="type-small text-destructive">{waterError}</p>
+          )}
         </div>
 
         {/* Separator if eco-claims exist */}

@@ -1,12 +1,4 @@
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  ilike,
-  inArray,
-} from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray } from "drizzle-orm";
 import type { Database } from "../client";
 import { evaluateAndUpsertCompletion } from "../completion/evaluate";
 import type { ModuleKey } from "../completion/module-keys";
@@ -30,6 +22,7 @@ import {
   products,
   showcaseBrands,
 } from "../schema";
+import { generateUniqueUpid } from "../utils/upid.js";
 
 /** Filter options for product list queries */
 type ListFilters = {
@@ -53,6 +46,7 @@ const PRODUCT_FIELD_MAP = {
   brand_certification_id: products.brandCertificationId,
   showcase_brand_id: products.showcaseBrandId,
   primary_image_url: products.primaryImageUrl,
+  product_upid: products.productUpid,
   created_at: products.createdAt,
   updated_at: products.updatedAt,
 } as const;
@@ -66,6 +60,19 @@ const PRODUCT_FIELDS = Object.keys(
   PRODUCT_FIELD_MAP,
 ) as readonly ProductField[];
 
+async function generateProductUpid(db: Database): Promise<string> {
+  return generateUniqueUpid({
+    isTaken: async (candidate) => {
+      const existing = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(eq(products.productUpid, candidate))
+        .limit(1);
+      return existing.length > 0;
+    },
+  });
+}
+
 /**
  * Represents the core product fields exposed by API queries.
  */
@@ -74,10 +81,12 @@ export interface ProductRecord {
   name?: string | null;
   description?: string | null;
   category_id?: string | null;
-  season?: string | null;
+  season?: string | null; // Legacy: will be deprecated after migration
+  season_id?: string | null; // FK to brand_seasons.id
   brand_certification_id?: string | null;
   showcase_brand_id?: string | null;
   primary_image_url?: string | null;
+  product_upid?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -90,8 +99,11 @@ export interface ProductVariantSummary {
   product_id: string;
   color_id: string | null;
   size_id: string | null;
+  /** SKU is now optional - variants are tracked by UUID */
   sku: string | null;
-  upid: string;
+  ean: string | null;
+  upid: string | null;
+  status: string | null;
   product_image_url: string | null;
   created_at: string;
   updated_at: string;
@@ -201,6 +213,8 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
   if ("showcase_brand_id" in row)
     product.showcase_brand_id =
       (row.showcase_brand_id as string | null) ?? null;
+  if ("product_upid" in row)
+    product.product_upid = (row.product_upid as string | null) ?? null;
   if ("primary_image_url" in row)
     product.primary_image_url =
       (row.primary_image_url as string | null) ?? null;
@@ -283,7 +297,9 @@ async function loadVariantsForProducts(
       color_id: productVariants.colorId,
       size_id: productVariants.sizeId,
       sku: productVariants.sku,
+      ean: productVariants.ean,
       upid: productVariants.upid,
+      status: productVariants.status,
       product_image_url: productVariants.productImageUrl,
       created_at: productVariants.createdAt,
       updated_at: productVariants.updatedAt,
@@ -299,8 +315,10 @@ async function loadVariantsForProducts(
       product_id: row.product_id,
       color_id: row.color_id ?? null,
       size_id: row.size_id ?? null,
-      sku: row.sku ?? null,
-      upid: row.upid,
+      sku: row.sku,
+      ean: row.ean ?? null,
+      upid: row.upid ?? null,
+      status: row.status ?? null,
       product_image_url: row.product_image_url ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -631,41 +649,61 @@ export async function createProduct(
   brandId: string,
   input: {
     name: string;
+    /** Unique product identifier within the brand. Must be provided by the brand. */
+    productIdentifier?: string;
     description?: string;
     categoryId?: string;
-    season?: string;
+    season?: string; // Legacy: will be deprecated after migration
+    seasonId?: string; // FK to brand_seasons.id
     brandCertificationId?: string;
     showcaseBrandId?: string;
     primaryImageUrl?: string;
+    additionalImageUrls?: string;
+    tags?: string;
   },
-) {
-  let created: { id: string } | undefined;
+): Promise<{ id: string; upid: string } | undefined> {
+  let created: { id: string; upid: string } | undefined;
+  const productUpidValue = await generateProductUpid(db);
   await db.transaction(async (tx) => {
+    const productIdentifierValue = input.productIdentifier?.trim();
+    if (!productIdentifierValue) {
+      throw new Error("Product identifier is required");
+    }
+
     const [row] = await tx
       .insert(products)
       .values({
         brandId,
         name: input.name,
+        productIdentifier: productIdentifierValue,
+        productUpid: productUpidValue,
         description: input.description ?? null,
         categoryId: input.categoryId ?? null,
-        season: input.season ?? null,
+        season: input.season ?? null, // Legacy: kept for backward compatibility
+        seasonId: input.seasonId ?? null,
         brandCertificationId: input.brandCertificationId ?? null,
         showcaseBrandId: input.showcaseBrandId ?? null,
         primaryImageUrl: input.primaryImageUrl ?? null,
+        additionalImageUrls: input.additionalImageUrls ?? null,
+        tags: input.tags ?? null,
       })
-      .returning({ id: products.id });
-    created = row;
-    if (row?.id) {
-      // Evaluate only core module for product basics
-      await evaluateAndUpsertCompletion(
-        tx as unknown as Database,
-        brandId,
-        row.id,
-        {
-          onlyModules: ["core"] as ModuleKey[],
-        },
-      );
+      .returning({ id: products.id, upid: products.productUpid });
+
+    if (!row?.id) {
+      return;
     }
+
+    created = { id: row.id, upid: row.upid };
+
+    // Evaluate only core module for product basics
+    await evaluateAndUpsertCompletion(
+      tx as unknown as Database,
+      brandId,
+      row.id,
+      {
+        onlyModules: ["core"] as ModuleKey[],
+      },
+    );
   });
   return created;
 }
@@ -678,12 +716,15 @@ export async function updateProduct(
     name?: string;
     description?: string | null;
     categoryId?: string | null;
-    season?: string | null;
+    season?: string | null; // Legacy: will be deprecated after migration
+    seasonId?: string | null; // FK to brand_seasons.id
     brandCertificationId?: string | null;
     showcaseBrandId?: string | null;
     primaryImageUrl?: string | null;
+    additionalImageUrls?: string | null;
+    tags?: string | null;
   },
-) {
+): Promise<{ id: string } | undefined> {
   let updated: { id: string } | undefined;
   await db.transaction(async (tx) => {
     const [row] = await tx
@@ -692,24 +733,31 @@ export async function updateProduct(
         name: input.name,
         description: input.description ?? null,
         categoryId: input.categoryId ?? null,
-        season: input.season ?? null,
+        season: input.season ?? null, // Legacy: kept for backward compatibility
+        seasonId: input.seasonId ?? null,
         brandCertificationId: input.brandCertificationId ?? null,
         showcaseBrandId: input.showcaseBrandId ?? null,
         primaryImageUrl: input.primaryImageUrl ?? null,
+        additionalImageUrls: input.additionalImageUrls ?? null,
+        tags: input.tags ?? null,
       })
       .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
       .returning({ id: products.id });
-    updated = row;
-    if (row?.id) {
-      await evaluateAndUpsertCompletion(
-        tx as unknown as Database,
-        brandId,
-        row.id,
-        {
-          onlyModules: ["core"] as ModuleKey[],
-        },
-      );
+
+    if (!row?.id) {
+      return;
     }
+
+    updated = { id: row.id };
+
+    await evaluateAndUpsertCompletion(
+      tx as unknown as Database,
+      brandId,
+      row.id,
+      {
+        onlyModules: ["core"] as ModuleKey[],
+      },
+    );
   });
   return updated;
 }
@@ -758,7 +806,9 @@ export async function listVariants(db: Database, productId: string) {
       color_id: productVariants.colorId,
       size_id: productVariants.sizeId,
       sku: productVariants.sku,
+      ean: productVariants.ean,
       upid: productVariants.upid,
+      status: productVariants.status,
       product_image_url: productVariants.productImageUrl,
       created_at: productVariants.createdAt,
       updated_at: productVariants.updatedAt,
@@ -774,8 +824,10 @@ export async function createVariant(
   input: {
     colorId?: string;
     sizeId?: string;
-    sku?: string;
-    upid: string;
+    sku: string;
+    ean?: string;
+    upid?: string;
+    status?: string;
     productImageUrl?: string;
   },
 ) {
@@ -787,8 +839,10 @@ export async function createVariant(
         productId,
         colorId: input.colorId ?? null,
         sizeId: input.sizeId ?? null,
-        sku: input.sku ?? null,
-        upid: input.upid,
+        sku: input.sku,
+        ean: input.ean ?? null,
+        upid: input.upid ?? null,
+        status: input.status ?? null,
         productImageUrl: input.productImageUrl ?? null,
       })
       .returning({ id: productVariants.id });
@@ -821,8 +875,10 @@ export async function updateVariant(
   input: {
     colorId?: string | null;
     sizeId?: string | null;
-    sku?: string | null;
-    upid?: string;
+    sku?: string;
+    ean?: string | null;
+    upid?: string | null;
+    status?: string | null;
     productImageUrl?: string | null;
   },
 ) {
@@ -833,8 +889,10 @@ export async function updateVariant(
       .set({
         colorId: input.colorId ?? null,
         sizeId: input.sizeId ?? null,
-        sku: input.sku ?? null,
-        upid: input.upid,
+        sku: input.sku,
+        ean: input.ean ?? null,
+        upid: input.upid ?? null,
+        status: input.status ?? null,
         productImageUrl: input.productImageUrl ?? null,
       })
       .where(eq(productVariants.id, id))
@@ -916,7 +974,9 @@ export async function upsertProductVariantsForBrand(
     color_id?: string | null;
     size_id?: string | null;
     sku?: string | null;
-    upid?: string;
+    ean?: string | null;
+    upid?: string | null;
+    status?: string | null;
     product_image_url?: string | null;
   }>,
 ): Promise<VariantUpsertResult[]> {
@@ -936,7 +996,7 @@ export async function upsertProductVariantsForBrand(
     type VariantLookup = {
       id: string;
       product_id: string;
-      upid: string;
+      upid: string | null;
     };
 
     const byId = new Map<string, VariantLookup>();
@@ -949,7 +1009,9 @@ export async function upsertProductVariantsForBrand(
         upid: row.upid,
       };
       byId.set(row.id, lookup);
-      byUpid.set(row.upid, lookup);
+      if (row.upid != null) {
+        byUpid.set(row.upid, lookup);
+      }
     }
 
     const results: VariantUpsertResult[] = [];
@@ -958,7 +1020,7 @@ export async function upsertProductVariantsForBrand(
     for (let index = 0; index < variants.length; index += 1) {
       const input = variants[index]!;
       const reference =
-        input.id ?? input.upid ?? `index:${index.toString().padStart(2, "0")}`;
+        input.id ?? input.sku ?? `index:${index.toString().padStart(2, "0")}`;
       try {
         let target: VariantLookup | undefined;
         if (input.id) {
@@ -969,20 +1031,20 @@ export async function upsertProductVariantsForBrand(
         }
 
         if (!target) {
-          if (!input.upid) {
-            throw new Error(
-              "New variants require an `upid` to ensure stable identity.",
-            );
+          const insertSku = input.sku ?? input.upid ?? reference;
+          if (!insertSku) {
+            throw new Error("SKU is required when creating a variant.");
           }
-
           const [created] = await tx
             .insert(productVariants)
             .values({
               productId,
               colorId: input.color_id ?? null,
               sizeId: input.size_id ?? null,
-              sku: input.sku ?? null,
-              upid: input.upid,
+              sku: insertSku,
+              ean: input.ean ?? null,
+              upid: input.upid ?? null,
+              status: input.status ?? null,
               productImageUrl: input.product_image_url ?? null,
             })
             .returning({ id: productVariants.id });
@@ -994,10 +1056,12 @@ export async function upsertProductVariantsForBrand(
           const lookup: VariantLookup = {
             id: created.id,
             product_id: productId,
-            upid: input.upid,
+            upid: input.upid ?? null,
           };
           byId.set(created.id, lookup);
-          byUpid.set(input.upid, lookup);
+          if (input.upid) {
+            byUpid.set(input.upid, lookup);
+          }
 
           results.push({
             reference,
@@ -1018,19 +1082,32 @@ export async function upsertProductVariantsForBrand(
           updateValues.sizeId = input.size_id ?? null;
         }
         if (hasOwn.call(input, "sku")) {
-          updateValues.sku = input.sku ?? null;
+          if (input.sku == null) {
+            throw new Error("SKU cannot be null when explicitly provided.");
+          }
+          updateValues.sku = input.sku;
+        }
+        if (hasOwn.call(input, "ean")) {
+          updateValues.ean = input.ean ?? null;
+        }
+        if (hasOwn.call(input, "status")) {
+          updateValues.status = input.status ?? null;
         }
         if (hasOwn.call(input, "product_image_url")) {
           updateValues.productImageUrl = input.product_image_url ?? null;
         }
-        if (hasOwn.call(input, "upid") && input.upid) {
-          updateValues.upid = input.upid;
-          byUpid.delete(target.upid);
-          byUpid.set(input.upid, {
-            id: target.id,
-            product_id: target.product_id,
-            upid: input.upid,
-          });
+        if (hasOwn.call(input, "upid")) {
+          updateValues.upid = input.upid ?? null;
+          if (target.upid) {
+            byUpid.delete(target.upid);
+          }
+          if (input.upid) {
+            byUpid.set(input.upid, {
+              id: target.id,
+              product_id: target.product_id,
+              upid: input.upid,
+            });
+          }
         }
 
         if (Object.keys(updateValues).length > 0) {

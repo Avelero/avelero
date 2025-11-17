@@ -6,6 +6,7 @@
  * `docs/NEW_API_ENDPOINTS.txt`.
  */
 import {
+  countProductPassportsByStatus,
   createPassport,
   deletePassport,
   getPassportByUpid,
@@ -36,21 +37,20 @@ export const passportsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       try {
-        const result = await listPassportsForBrand(
-          brandCtx.db,
-          brandCtx.brandId,
-          {
-            page: input.page,
-            includeStatusCounts: input.includeStatusCounts,
-            filters: input.filters,
-          },
-        );
+        const result = await listPassportsForBrand(brandCtx.db, brandCtx.brandId, {
+          page: input.page,
+          filters: input.filters,
+        });
+        const statusCounts = input.includeStatusCounts
+          ? await countProductPassportsByStatus(brandCtx.db, brandCtx.brandId)
+          : undefined;
         return {
           data: result.data,
           meta: {
             total: result.meta.total,
-            ...(result.meta.statusCounts
-              ? { statusCounts: result.meta.statusCounts }
+            productTotal: result.meta.productTotal,
+            ...(statusCounts
+              ? { statusCounts }
               : {}),
           },
         };

@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { productionStepNames } from "@v1/selections/production-steps";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -505,7 +505,7 @@ export function JourneySection({
   journeySteps: parentSteps,
   setJourneySteps: setParentSteps,
 }: JourneySectionProps) {
-  const { operators } = usePassportFormData();
+  const { operators } = useBrandCatalog();
   // Local display state for drag-and-drop (with operators as array)
   const [displaySteps, setDisplaySteps] = React.useState<JourneyStep[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);

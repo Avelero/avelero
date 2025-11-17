@@ -15,6 +15,12 @@ export interface TierTwoCategoryInfo {
   displayName: string;
 }
 
+export interface BrandTagOption {
+  id: string;
+  name: string;
+  hex: string;
+}
+
 /**
  * Helper: Extract level 2 category key from full category path
  * Examples:
@@ -91,14 +97,18 @@ function buildCategoryHierarchy(categories: Array<{ id: string; name: string; pa
 }
 
 /**
- * Hook to fetch and merge passport form reference data.
+ * Hook to fetch and merge brand catalog reference data.
  * 
  * Consumes the prefetched `passportFormReferences` query and merges
  * API data with client-side defaults from the selections package.
  * 
- * @returns Merged dropdown options for all form fields
+ * This hook provides brand-level catalog data (categories, colors, sizes,
+ * materials, operators, etc.) that can be used across the application,
+ * not just in passport forms.
+ * 
+ * @returns Merged dropdown options for brand catalog fields
  */
-export function usePassportFormData() {
+export function useBrandCatalog() {
   const trpc = useTRPC();
   
   // Access prefetched data from React Query cache
@@ -110,32 +120,40 @@ export function usePassportFormData() {
   const colors = React.useMemo(() => {
     const apiColors = data?.brandCatalog.colors || [];
     const defaultColors = allColors;
-    
+
+    const normalizeHex = (hex?: string | null) => {
+      if (!hex) return null;
+      return hex.replace("#", "").trim().toUpperCase();
+    };
+
     // Create a map to avoid duplicates (API colors take precedence)
     const colorMap = new Map<string, { id: string; name: string; hex: string }>();
-    
+
     // Add API colors first (these have real IDs from DB)
-    // Note: hex is not stored in DB, we look it up from selections
     for (const color of apiColors) {
-      const defaultColor = defaultColors.find(c => c.name.toLowerCase() === color.name.toLowerCase());
+      const defaultColor = defaultColors.find(
+        (c) => c.name.toLowerCase() === color.name.toLowerCase(),
+      );
+      const normalizedHex = normalizeHex(color.hex) ?? defaultColor?.hex ?? "000000";
       colorMap.set(color.name.toLowerCase(), {
         id: color.id,
         name: color.name,
-        hex: defaultColor?.hex || "000000"
+        hex: normalizedHex.toUpperCase(),
       });
     }
-    
+
     // Add default colors that aren't already in API colors (these need to be created when used)
     for (const color of defaultColors) {
-      if (!colorMap.has(color.name.toLowerCase())) {
-        colorMap.set(color.name.toLowerCase(), {
-          id: "", // Empty ID means it needs to be created
+      const key = color.name.toLowerCase();
+      if (!colorMap.has(key)) {
+        colorMap.set(key, {
+          id: "",
           name: color.name,
-          hex: color.hex
+          hex: normalizeHex(color.hex) ?? "000000",
         });
       }
     }
-    
+
     return Array.from(colorMap.values());
   }, [data?.brandCatalog.colors]);
 
@@ -268,6 +286,15 @@ export function usePassportFormData() {
     return hierarchy;
   }, [tierTwoCategories]);
 
+  const tags = React.useMemo<BrandTagOption[]>(() => {
+    const apiTags = data?.brandCatalog.tags ?? [];
+    return apiTags.map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+      hex: (tag.hex ?? "000000").toUpperCase(),
+    }));
+  }, [data?.brandCatalog.tags]);
+
   return {
     // System-level (no merging needed)
     categories: data?.categories || [],
@@ -289,6 +316,7 @@ export function usePassportFormData() {
     // Merged with defaults
     colors,
     sizeOptions,
+    tags,
     
     // Size-related
     tierTwoCategories,
@@ -298,4 +326,7 @@ export function usePassportFormData() {
     isLoading,
   };
 }
+
+// Backwards compatibility alias
+export const usePassportFormData = useBrandCatalog;
 

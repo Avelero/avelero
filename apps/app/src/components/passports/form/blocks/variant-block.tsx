@@ -9,7 +9,7 @@ import {
   SizeSelect,
   type TierTwoSizeOption,
 } from "@/components/select/size-select";
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Label } from "@v1/ui/label";
 import dynamic from "next/dynamic";
 import * as React from "react";
@@ -23,13 +23,19 @@ const SizeModal = dynamic(
   { ssr: false },
 );
 
+type PendingColorSelection = { name: string; hex: string };
+
 interface VariantSectionProps {
   colorIds: string[];
+  pendingColors: PendingColorSelection[];
   setColorIds: (value: string[]) => void;
+  setPendingColors: (value: PendingColorSelection[]) => void;
   selectedSizes: TierTwoSizeOption[];
   setSelectedSizes: React.Dispatch<
     React.SetStateAction<TierTwoSizeOption[]>
   >;
+  colorsError?: string;
+  sizesError?: string;
 }
 
 const getSizeOptionKey = (
@@ -38,24 +44,40 @@ const getSizeOptionKey = (
 
 export function VariantSection({
   colorIds,
+  pendingColors,
   setColorIds,
+  setPendingColors,
   selectedSizes,
   setSelectedSizes,
+  colorsError,
+  sizesError,
 }: VariantSectionProps) {
-  const { colors: availableColors, sizeOptions } = usePassportFormData();
+  const { colors: availableColors, sizeOptions } = useBrandCatalog();
   const [sizeModalOpen, setSizeModalOpen] = React.useState(false);
   const [prefillSize, setPrefillSize] = React.useState<string | null>(null);
   const [prefillCategory, setPrefillCategory] = React.useState<string | null>(null);
 
-  // Convert colorIds to ColorOption objects for ColorSelect
-  const selectedColors: ColorOption[] = React.useMemo(() => {
-    return colorIds
-      .map(id => {
-        const color = availableColors.find(c => c.id === id);
-        return color ? { name: color.name, hex: color.hex } : null;
-      })
-      .filter((c): c is ColorOption => c !== null);
-  }, [colorIds, availableColors]);
+  // Convert colorIds + pending colors to ColorOption objects for ColorSelect
+  const selectedColors = React.useMemo<ColorOption[]>(() => {
+    const mapped: ColorOption[] = [];
+    for (const id of colorIds) {
+      const color = availableColors.find((c) => c.id === id);
+      if (color) {
+        mapped.push({
+          id: color.id ?? undefined,
+          name: color.name,
+          hex: color.hex,
+        });
+      }
+    }
+    for (const pending of pendingColors) {
+      mapped.push({
+        name: pending.name,
+        hex: pending.hex,
+      });
+    }
+    return mapped;
+  }, [colorIds, pendingColors, availableColors]);
 
   // Normalize selected sizes to use real IDs from sizeOptions
   // This ensures custom sizes created via SizeModal get their real DB IDs
@@ -150,17 +172,33 @@ export function VariantSection({
             <ColorSelect
               value={selectedColors}
               onValueChange={(newColors) => {
-                // Convert ColorOption[] to colorIds[]
-                const newColorIds = newColors
-                  .map(color => {
-                    const found = availableColors.find(c => c.name === color.name);
-                    return found?.id;
-                  })
-                  .filter((id): id is string => !!id);
-                setColorIds(newColorIds);
+                if (newColors.length > 12) {
+                  return;
+                }
+                const nextIds = new Set<string>();
+                const pendingMap = new Map<string, PendingColorSelection>();
+
+                for (const color of newColors) {
+                  if (color.id) {
+                    nextIds.add(color.id);
+                  } else {
+                    const key = color.name.trim().toLowerCase();
+                    if (!key) return;
+                    pendingMap.set(key, {
+                      name: color.name.trim(),
+                      hex: color.hex.replace("#", "").trim().toUpperCase(),
+                    });
+                  }
+                }
+
+                setColorIds(Array.from(nextIds));
+                setPendingColors(Array.from(pendingMap.values()));
               }}
               placeholder="Add color"
             />
+            {colorsError && (
+              <p className="type-small text-destructive">{colorsError}</p>
+            )}
           </div>
 
           {/* Size Field */}
@@ -176,6 +214,9 @@ export function VariantSection({
               }}
               placeholder="Add size"
             />
+          {sizesError && (
+            <p className="type-small text-destructive">{sizesError}</p>
+          )}
           </div>
         </div>
       </div>

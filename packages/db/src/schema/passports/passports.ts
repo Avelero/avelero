@@ -32,12 +32,10 @@ export const passports = pgTable(
         onUpdate: "cascade",
       })
       .notNull(),
-    templateId: uuid("template_id")
-      .references(() => passportTemplates.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      })
-      .notNull(),
+    templateId: uuid("template_id").references(() => passportTemplates.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
     status: varchar("status").notNull(),
     slug: text("slug").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })

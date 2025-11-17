@@ -1,6 +1,6 @@
 "use client";
 
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
@@ -21,7 +21,7 @@ export function CategorySelect({
   label = "Category",
   className,
 }: CategorySelectProps) {
-  const { categoryHierarchy, categoryMap } = usePassportFormData();
+  const { categoryHierarchy, categoryMap } = useBrandCatalog();
   const [open, setOpen] = React.useState(false);
   const [categoryPath, setCategoryPath] = React.useState<string[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | null>(value);

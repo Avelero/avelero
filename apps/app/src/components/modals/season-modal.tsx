@@ -1,6 +1,6 @@
 "use client";
 
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -37,7 +37,7 @@ export function SeasonModal({
 }: SeasonModalProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { seasons: existingSeasons } = usePassportFormData();
+  const { seasons: existingSeasons } = useBrandCatalog();
 
   const [name, setName] = React.useState("");
   const [startDate, setStartDate] = React.useState<Date | null>(null);

@@ -26,6 +26,10 @@ export async function evaluateAndUpsertCompletion(
     .where(and(eq(products.id, productId), eq(passports.brandId, brandId)))
     .limit(1);
   if (!pp) return;
+  if (!pp.templateId) {
+    await pruneDisabledModules(db, pp.passportId, []);
+    return;
+  }
 
   const enabledModulesRows = await db
     .select({ moduleKey: passportTemplateModules.moduleKey })

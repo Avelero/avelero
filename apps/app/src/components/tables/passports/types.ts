@@ -31,6 +31,8 @@ export interface PassportTemplate {
 
 export interface Passport {
   id: string;
+  productId: string;
+  productUpid: string;
   // UI label for the product; typically maps from products.name
   title: string;
   // Primary SKU (may derive from a variant or identifier)
@@ -65,6 +67,19 @@ export interface Passport {
   // Timestamps (ISO strings from API or Date when client-side)
   createdAt: string | Date;
   updatedAt: string | Date;
+}
+
+export interface PassportTableRow extends Omit<Passport, "id"> {
+  /**
+   * Unique identifier for the row in the table (product-level).
+   * We map product IDs to rows while keeping a list of related passport IDs.
+   */
+  id: string;
+  /**
+    * All passport identifiers represented by this product row.
+    * Used for selection + bulk actions.
+    */
+  passportIds: string[];
 }
 
 // Selection model for scalable bulk actions

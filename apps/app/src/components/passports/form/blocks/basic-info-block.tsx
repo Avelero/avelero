@@ -13,6 +13,9 @@ interface BasicInfoSectionProps {
   setDescription: (value: string) => void;
   imageFile: File | null;
   setImageFile: (file: File | null) => void;
+  existingImageUrl?: string | null;
+  titleError?: string;
+  titleInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export function BasicInfoSection({
@@ -22,6 +25,9 @@ export function BasicInfoSection({
   setDescription,
   imageFile,
   setImageFile,
+  existingImageUrl = null,
+  titleError,
+  titleInputRef,
 }: BasicInfoSectionProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -37,8 +43,8 @@ export function BasicInfoSection({
         URL.revokeObjectURL(objectUrl);
       };
     }
-    setImagePreview(null);
-  }, [imageFile]);
+    setImagePreview(existingImageUrl ?? null);
+  }, [imageFile, existingImageUrl]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -82,12 +88,20 @@ export function BasicInfoSection({
       <div className="space-y-1.5">
         <Label>Title <span className="text-destructive">*</span></Label>
         <Input
+          ref={titleInputRef}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Enter product title"
-          className="h-9"
-          required
+          className={cn(
+            "h-9",
+            titleError &&
+              "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive"
+          )}
+          aria-invalid={Boolean(titleError)}
         />
+        {titleError && (
+          <p className="type-small text-destructive">{titleError}</p>
+        )}
       </div>
 
       {/* Description Input */}

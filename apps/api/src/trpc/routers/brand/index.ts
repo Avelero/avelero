@@ -10,6 +10,7 @@ import type { Database } from "@v1/db/client";
  * functions to minimize code duplication and ensure uniform error handling.
  */
 import {
+  createBrandTag,
   createCertification,
   createColor,
   createEcoClaim,
@@ -18,6 +19,7 @@ import {
   createSeason,
   createShowcaseBrand,
   createSize,
+  deleteBrandTag,
   deleteCertification,
   deleteColor,
   deleteEcoClaim,
@@ -26,6 +28,7 @@ import {
   deleteSeason,
   deleteShowcaseBrand,
   deleteSize,
+  listBrandTags,
   listCertifications,
   listColors,
   listEcoClaims,
@@ -34,6 +37,7 @@ import {
   listSeasonsForBrand,
   listShowcaseBrands,
   listSizes,
+  updateBrandTag,
   updateCertification,
   updateColor,
   updateEcoClaim,
@@ -44,6 +48,7 @@ import {
   updateSize,
 } from "@v1/db/queries";
 import {
+  createBrandTagSchema,
   createCertificationSchema,
   createColorSchema,
   createEcoClaimSchema,
@@ -52,6 +57,7 @@ import {
   createSeasonSchema,
   createShowcaseBrandSchema,
   createSizeSchema,
+  deleteBrandTagSchema,
   deleteCertificationSchema,
   deleteColorSchema,
   deleteEcoClaimSchema,
@@ -60,6 +66,7 @@ import {
   deleteSeasonSchema,
   deleteShowcaseBrandSchema,
   deleteSizeSchema,
+  listBrandTagsSchema,
   listCertificationsSchema,
   listColorsSchema,
   listEcoClaimsSchema,
@@ -68,6 +75,7 @@ import {
   listSeasonsSchema,
   listShowcaseBrandsSchema,
   listSizesSchema,
+  updateBrandTagSchema,
   updateCertificationSchema,
   updateColorSchema,
   updateEcoClaimSchema,
@@ -345,15 +353,37 @@ function createCatalogResourceRouter<T>(
  * - brand.showcaseBrands.* (list/create/update/delete)
  * - brand.ecoClaims.* (list/create/update/delete)
  * - brand.certifications.* (list/create/update/delete)
+ * - brand.tags.* (list/create/update/delete)
  *
- * Total: 32 endpoints (8 resources × 4 operations)
+ * Total: 36 endpoints (9 resources × 4 operations)
  */
 export const brandRouter = createTRPCRouter({
   /**
+   * Brand tags catalog endpoints.
+   *
+   * Powers tag selection + creation workflows in passport forms.
+   */
+  tags: createCatalogResourceRouter(
+    "tag",
+    {
+      list: listBrandTagsSchema,
+      create: createBrandTagSchema,
+      update: updateBrandTagSchema,
+      delete: deleteBrandTagSchema,
+    },
+    {
+      list: listBrandTags,
+      create: createBrandTag,
+      update: updateBrandTag,
+      delete: deleteBrandTag,
+    },
+  ),
+
+  /**
    * Colors catalog endpoints.
    *
-   * Note: Hex values are provided by @v1/selections/colors static package
-   * (intentional performance optimization). Database stores only color names.
+   * Stores name and hex values for brand-specific color palettes used
+   * throughout the passport workflow.
    */
   colors: createCatalogResourceRouter(
     "color",

@@ -7,11 +7,12 @@ type UploadParams = {
   file: File;
   path: string[];
   bucket: string;
+  metadata?: Record<string, string>;
 };
 
 export async function upload(
   client: Pick<SupabaseClient<Database>, "storage">,
-  { file, path, bucket }: UploadParams,
+  { file, path, bucket, metadata }: UploadParams,
 ): Promise<{ bucket: string; path: string[] }> {
   const storage = client.storage.from(bucket);
   const objectPath = path.join("/");
@@ -19,6 +20,7 @@ export async function upload(
   const result = await storage.upload(objectPath, file, {
     upsert: true,
     cacheControl: "3600",
+    metadata,
   });
 
   if (!result.error) {

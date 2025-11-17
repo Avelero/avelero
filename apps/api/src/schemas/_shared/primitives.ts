@@ -34,6 +34,16 @@ export const nonEmptyStringSchema = z.string().min(1);
 export const shortStringSchema = z.string().min(1).max(100);
 
 /**
+ * Validates 6-character hexadecimal color values (accepts optional #).
+ * Normalizes to uppercase without the # prefix.
+ * @example "#FFAA00", "1F2937"
+ */
+export const hexColorSchema = z
+  .string()
+  .regex(/^#?[0-9A-Fa-f]{6}$/, "Hex color must be a 6-character value")
+  .transform((value) => value.replace("#", "").toUpperCase());
+
+/**
  * Validates medium strings (1-500 characters).
  * Use for short descriptions, summaries, and brief text content.
  * @example "A high-quality sustainable cotton t-shirt made from organic materials."

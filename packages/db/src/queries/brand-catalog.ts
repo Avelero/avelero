@@ -7,6 +7,7 @@ import {
   brandFacilities,
   brandMaterials,
   brandSizes,
+  brandTags,
   showcaseBrands,
 } from "../schema";
 
@@ -16,6 +17,7 @@ export async function listColors(db: Database, brandId: string) {
     .select({
       id: brandColors.id,
       name: brandColors.name,
+      hex: brandColors.hex,
       created_at: brandColors.createdAt,
       updated_at: brandColors.updatedAt,
     })
@@ -27,12 +29,18 @@ export async function listColors(db: Database, brandId: string) {
 export async function createColor(
   db: Database,
   brandId: string,
-  input: { name: string },
+  input: { name: string; hex: string },
 ) {
   const [row] = await db
     .insert(brandColors)
-    .values({ brandId, name: input.name })
-    .returning({ id: brandColors.id });
+    .values({ brandId, name: input.name, hex: input.hex })
+    .returning({
+      id: brandColors.id,
+      name: brandColors.name,
+      hex: brandColors.hex,
+      created_at: brandColors.createdAt,
+      updated_at: brandColors.updatedAt,
+    });
   return row;
 }
 
@@ -40,13 +48,30 @@ export async function updateColor(
   db: Database,
   brandId: string,
   id: string,
-  input: { name: string },
+  input: { name?: string; hex?: string },
 ) {
+  const updateData: Partial<{
+    name: string;
+    hex: string;
+  }> = {};
+  if (input.name !== undefined) {
+    updateData.name = input.name;
+  }
+  if (input.hex !== undefined) {
+    updateData.hex = input.hex;
+  }
+
   const [row] = await db
     .update(brandColors)
-    .set({ name: input.name })
+    .set(updateData)
     .where(and(eq(brandColors.id, id), eq(brandColors.brandId, brandId)))
-    .returning({ id: brandColors.id });
+    .returning({
+      id: brandColors.id,
+      name: brandColors.name,
+      hex: brandColors.hex,
+      created_at: brandColors.createdAt,
+      updated_at: brandColors.updatedAt,
+    });
   return row;
 }
 
@@ -55,6 +80,74 @@ export async function deleteColor(db: Database, brandId: string, id: string) {
     .delete(brandColors)
     .where(and(eq(brandColors.id, id), eq(brandColors.brandId, brandId)))
     .returning({ id: brandColors.id });
+  return row;
+}
+
+// Tags
+export async function listBrandTags(db: Database, brandId: string) {
+  return db
+    .select({
+      id: brandTags.id,
+      name: brandTags.name,
+      hex: brandTags.hex,
+      created_at: brandTags.createdAt,
+      updated_at: brandTags.updatedAt,
+    })
+    .from(brandTags)
+    .where(eq(brandTags.brandId, brandId))
+    .orderBy(asc(brandTags.name));
+}
+
+export async function createBrandTag(
+  db: Database,
+  brandId: string,
+  input: { name: string; hex: string },
+) {
+  const [row] = await db
+    .insert(brandTags)
+    .values({
+      brandId,
+      name: input.name,
+      hex: input.hex,
+    })
+    .returning({
+      id: brandTags.id,
+      name: brandTags.name,
+      hex: brandTags.hex,
+      created_at: brandTags.createdAt,
+      updated_at: brandTags.updatedAt,
+    });
+  return row;
+}
+
+export async function updateBrandTag(
+  db: Database,
+  brandId: string,
+  id: string,
+  input: { name?: string; hex?: string },
+) {
+  const [row] = await db
+    .update(brandTags)
+    .set({
+      name: input.name,
+      hex: input.hex,
+    })
+    .where(and(eq(brandTags.id, id), eq(brandTags.brandId, brandId)))
+    .returning({
+      id: brandTags.id,
+      name: brandTags.name,
+      hex: brandTags.hex,
+      created_at: brandTags.createdAt,
+      updated_at: brandTags.updatedAt,
+    });
+  return row;
+}
+
+export async function deleteBrandTag(db: Database, brandId: string, id: string) {
+  const [row] = await db
+    .delete(brandTags)
+    .where(and(eq(brandTags.id, id), eq(brandTags.brandId, brandId)))
+    .returning({ id: brandTags.id });
   return row;
 }
 

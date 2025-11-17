@@ -18,8 +18,8 @@ export const productEnvironment = pgTable(
       })
       .primaryKey()
       .notNull(),
-    carbonKgCo2e: numeric("carbon_kg_co2e", { precision: 6, scale: 4 }),
-    waterLiters: numeric("water_liters", { precision: 6, scale: 4 }),
+    carbonKgCo2e: numeric("carbon_kg_co2e", { precision: 12, scale: 4 }),
+    waterLiters: numeric("water_liters", { precision: 12, scale: 4 }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

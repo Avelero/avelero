@@ -1,6 +1,6 @@
 "use client";
 
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -78,7 +78,7 @@ export function SizeSelect({
   disabled = false,
   className,
 }: SizeSelectProps) {
-  const { sizeOptions, tierTwoCategoryHierarchy } = usePassportFormData();
+  const { sizeOptions, tierTwoCategoryHierarchy } = useBrandCatalog();
   const [open, setOpen] = React.useState(false);
   const [navigationPath, setNavigationPath] = React.useState<string[]>([]); // ["Men's"] or ["Men's", "Tops"]
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -229,7 +229,7 @@ export function SizeSelect({
         <PopoverTrigger asChild disabled={disabled}>
           <div
             className={cn(
-              "flex flex-wrap items-center py-[5px] px-2 w-full min-h-9 border border-border bg-background gap-1.5",
+              "group flex flex-wrap items-center py-[5px] px-2 w-full min-h-9 border border-border bg-background gap-1.5 cursor-pointer",
               disabled && "opacity-50 cursor-not-allowed",
               className,
             )}
@@ -252,7 +252,7 @@ export function SizeSelect({
                   e.stopPropagation();
                   setOpen(!open);
                 }}
-                className="mx-1 border-b border-border type-p text-tertiary hover:text-secondary hover:border-secondary cursor-pointer transition-colors"
+                className="mx-1 border-b border-border type-p text-tertiary group-hover:text-secondary group-hover:border-secondary cursor-pointer transition-colors"
               >
                 {placeholder}
               </button>

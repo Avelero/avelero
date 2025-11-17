@@ -31,15 +31,10 @@ export type PassportStatus =
   | "unpublished"
   | "archived";
 
-export type PassportStatusCounts = {
-  published: number;
-  scheduled: number;
-  unpublished: number;
-  archived: number;
-};
-
 export interface PassportSummary {
   readonly id: string;
+  readonly productId: string;
+  readonly productUpid: string;
   readonly upid: string;
   readonly title: string;
   readonly sku?: string;
@@ -63,20 +58,14 @@ export interface PassportSummary {
   readonly updatedAt: string;
 }
 
-const EMPTY_STATUS_COUNTS: PassportStatusCounts = {
-  published: 0,
-  scheduled: 0,
-  unpublished: 0,
-  archived: 0,
-};
-
-interface PassportSelectRow {
+type PassportSelectRow = {
   id: string;
+  product_id: string;
+  product_upid: string | null;
   slug: string;
   status: string;
   created_at: string;
   updated_at: string;
-  product_id: string;
   title: string | null;
   season: string | null;
   primary_image_url: string | null;
@@ -85,193 +74,9 @@ interface PassportSelectRow {
   variant_upid: string | null;
   color_name: string | null;
   size_name: string | null;
-  template_id: string;
+  template_id: string | null;
   template_name: string | null;
-}
-
-export type CompletionXofN = {
-  passportId: string;
-  productId: string;
-  completed: number;
-  total: number;
 };
-
-export async function getCompletionForProducts(
-  db: Database,
-  brandId: string,
-  productIds: string[],
-): Promise<CompletionXofN[]> {
-  if (!productIds.length) return [];
-
-  const rows = await db
-    .select({
-      passportId: passports.id,
-      productId: passports.productId,
-      total: count(passportTemplateModules.moduleKey),
-      completed: sum(
-        sql`CASE WHEN ${passportModuleCompletion.isCompleted} = true THEN 1 ELSE 0 END`,
-      ).mapWith(Number),
-    })
-    .from(passports)
-    .leftJoin(
-      passportTemplateModules,
-      and(
-        eq(passportTemplateModules.templateId, passports.templateId),
-        eq(passportTemplateModules.enabled, true),
-      ),
-    )
-    .leftJoin(
-      passportModuleCompletion,
-      and(
-        eq(passportModuleCompletion.passportId, passports.id),
-        eq(
-          passportModuleCompletion.moduleKey,
-          passportTemplateModules.moduleKey,
-        ),
-      ),
-    )
-    .where(
-      and(
-        eq(passports.brandId, brandId),
-        inArray(passports.productId, productIds),
-      ),
-    )
-    .groupBy(passports.id, passports.productId);
-
-  return rows.map((r) => ({
-    passportId: r.passportId,
-    productId: r.productId,
-    completed: Number(r.completed ?? 0),
-    total: Number(r.total ?? 0),
-  }));
-}
-
-export type ModuleIncompleteCount = {
-  moduleKey: string;
-  incomplete: number;
-  total: number;
-  completed: number;
-};
-
-export async function getIncompleteCountsByModuleForBrand(
-  db: Database,
-  brandId: string,
-): Promise<ModuleIncompleteCount[]> {
-  const rows = await db
-    .select({
-      moduleKey: passportTemplateModules.moduleKey,
-      total: count(passports.id),
-      completed: sum(
-        sql`CASE WHEN ${passportModuleCompletion.isCompleted} = true THEN 1 ELSE 0 END`,
-      ).mapWith(Number),
-    })
-    .from(passports)
-    .innerJoin(
-      passportTemplateModules,
-      and(
-        eq(passportTemplateModules.templateId, passports.templateId),
-        eq(passportTemplateModules.enabled, true),
-      ),
-    )
-    .leftJoin(
-      passportModuleCompletion,
-      and(
-        eq(passportModuleCompletion.passportId, passports.id),
-        eq(
-          passportModuleCompletion.moduleKey,
-          passportTemplateModules.moduleKey,
-        ),
-      ),
-    )
-    .where(eq(passports.brandId, brandId))
-    .groupBy(passportTemplateModules.moduleKey);
-
-  return rows.map((r) => {
-    const total = Number(r.total ?? 0);
-    const completed = Number(r.completed ?? 0);
-    const incomplete = Math.max(0, total - completed);
-    return { moduleKey: r.moduleKey, total, completed, incomplete };
-  });
-}
-
-export async function getPassportStatusByProduct(
-  db: Database,
-  brandId: string,
-  productId: string,
-) {
-  const rows = await db
-    .select({ id: passports.id, status: passports.status })
-    .from(passports)
-    .where(
-      and(eq(passports.brandId, brandId), eq(passports.productId, productId)),
-    )
-    .limit(1);
-  return rows[0] ?? null;
-}
-
-export async function setPassportStatusByProduct(
-  db: Database,
-  brandId: string,
-  productId: string,
-  status: string,
-) {
-  const [row] = await db
-    .update(passports)
-    .set({ status })
-    .where(
-      and(eq(passports.brandId, brandId), eq(passports.productId, productId)),
-    )
-    .returning({ id: passports.id, status: passports.status });
-  return row ?? null;
-}
-
-export type CompletionForPassport = {
-  passportId: string;
-  completed: number;
-  total: number;
-};
-
-export async function getCompletionForPassports(
-  db: Database,
-  passportIds: string[],
-): Promise<CompletionForPassport[]> {
-  if (!passportIds.length) return [];
-
-  const rows = await db
-    .select({
-      passportId: passports.id,
-      total: count(passportTemplateModules.moduleKey),
-      completed: sum(
-        sql`CASE WHEN ${passportModuleCompletion.isCompleted} = true THEN 1 ELSE 0 END`,
-      ).mapWith(Number),
-    })
-    .from(passports)
-    .leftJoin(
-      passportTemplateModules,
-      and(
-        eq(passportTemplateModules.templateId, passports.templateId),
-        eq(passportTemplateModules.enabled, true),
-      ),
-    )
-    .leftJoin(
-      passportModuleCompletion,
-      and(
-        eq(passportModuleCompletion.passportId, passports.id),
-        eq(
-          passportModuleCompletion.moduleKey,
-          passportTemplateModules.moduleKey,
-        ),
-      ),
-    )
-    .where(inArray(passports.id, passportIds))
-    .groupBy(passports.id);
-
-  return rows.map((r) => ({
-    passportId: r.passportId,
-    completed: Number(r.completed ?? 0),
-    total: Number(r.total ?? 0),
-  }));
-}
 
 function buildPassportWhereClause(
   brandId: string,
@@ -404,7 +209,9 @@ async function hydratePassportRows(
 
   return rows.map((r) => {
     const modDefs =
-      templateIdToModules.get(r.template_id)?.filter((m) => m.enabled) ?? [];
+      (r.template_id
+        ? templateIdToModules.get(r.template_id)?.filter((m) => m.enabled)
+        : undefined) ?? [];
     const modules = modDefs.map((m) => ({
       key: m.key,
       completed: completionKey.get(`${r.id}:${m.key}`) ?? false,
@@ -417,6 +224,8 @@ async function hydratePassportRows(
 
     return {
       id: r.id,
+      productId: r.product_id,
+      productUpid: r.product_upid ?? "",
       upid: r.slug,
       title: r.title ?? "-",
       sku,
@@ -449,12 +258,14 @@ export async function listPassportsForBrand(
   brandId: string,
   opts: {
     page?: number;
-    includeStatusCounts?: boolean;
     filters?: { status?: readonly string[] };
   } = {},
 ): Promise<{
   readonly data: PassportSummary[];
-  readonly meta: { total: number; statusCounts?: PassportStatusCounts };
+  readonly meta: {
+    total: number;
+    productTotal: number;
+  };
 }> {
   const pageSize = 50;
   const page = Math.max(0, opts.page ?? 0);
@@ -464,11 +275,12 @@ export async function listPassportsForBrand(
   const rows = await db
     .select({
       id: passports.id,
+      product_id: products.id,
+      product_upid: products.productUpid,
       slug: passports.slug,
       status: passports.status,
       created_at: passports.createdAt,
       updated_at: passports.updatedAt,
-      product_id: products.id,
       title: products.name,
       season: products.season,
       primary_image_url: products.primaryImageUrl,
@@ -485,7 +297,7 @@ export async function listPassportsForBrand(
     .innerJoin(productVariants, eq(productVariants.id, passports.variantId))
     .leftJoin(brandColors, eq(brandColors.id, productVariants.colorId))
     .leftJoin(brandSizes, eq(brandSizes.id, productVariants.sizeId))
-    .innerJoin(
+    .leftJoin(
       passportTemplates,
       eq(passportTemplates.id, passports.templateId),
     )
@@ -495,18 +307,23 @@ export async function listPassportsForBrand(
     .offset(offset);
 
   const totalRes = await db
-    .select({ value: count(passports.id) })
+    .select({
+      passportCount: count(passports.id),
+      productCount: sql<number>`COUNT(DISTINCT ${passports.productId})`,
+    })
     .from(passports)
     .where(whereExpr);
-  const total = Number(totalRes[0]?.value ?? 0);
+  const total = Number(totalRes[0]?.passportCount ?? 0);
+  const productTotal = Number(totalRes[0]?.productCount ?? 0);
 
   const data = await hydratePassportRows(db, rows);
-  const meta: { total: number; statusCounts?: PassportStatusCounts } = {
+  const meta: {
+    total: number;
+    productTotal: number;
+  } = {
     total,
+    productTotal,
   };
-  if (opts.includeStatusCounts) {
-    meta.statusCounts = await countPassportsByStatus(db, brandId);
-  }
   return { data, meta };
 }
 
@@ -526,11 +343,12 @@ export async function getPassportByUpid(
   const rows = await db
     .select({
       id: passports.id,
+      product_id: products.id,
+      product_upid: products.productUpid,
       slug: passports.slug,
       status: passports.status,
       created_at: passports.createdAt,
       updated_at: passports.updatedAt,
-      product_id: products.id,
       title: products.name,
       season: products.season,
       primary_image_url: products.primaryImageUrl,
@@ -547,7 +365,7 @@ export async function getPassportByUpid(
     .innerJoin(productVariants, eq(productVariants.id, passports.variantId))
     .leftJoin(brandColors, eq(brandColors.id, productVariants.colorId))
     .leftJoin(brandSizes, eq(brandSizes.id, productVariants.sizeId))
-    .innerJoin(
+    .leftJoin(
       passportTemplates,
       eq(passportTemplates.id, passports.templateId),
     )
@@ -589,7 +407,7 @@ export async function createPassport(
     throw new Error("Variant does not belong to the provided product");
   }
 
-  let templateId = input.templateId ?? null;
+  const templateId = input.templateId ?? null;
   if (templateId) {
     const [template] = await db
       .select({ id: passportTemplates.id, brandId: passportTemplates.brandId })
@@ -599,20 +417,13 @@ export async function createPassport(
     if (!template || template.brandId !== brandId) {
       throw new Error("Template not found for active brand");
     }
-  } else {
-    const [defaultTemplate] = await db
-      .select({ id: passportTemplates.id })
-      .from(passportTemplates)
-      .where(eq(passportTemplates.brandId, brandId))
-      .orderBy(asc(passportTemplates.createdAt))
-      .limit(1);
-    if (!defaultTemplate) {
-      throw new Error("No passport templates configured for this brand");
-    }
-    templateId = defaultTemplate.id;
   }
 
   const slug = variant.upid;
+  if (!slug) {
+    throw new Error("Variant must have a UPID to create a passport");
+  }
+
   await db.transaction(async (tx) => {
     const [existing] = await tx
       .select({ id: passports.id })
@@ -723,26 +534,6 @@ export async function deletePassport(
     .returning({ slug: passports.slug });
   if (!row) return null;
   return { upid: row.slug };
-}
-
-export async function countPassportsByStatus(
-  db: Database,
-  brandId: string,
-): Promise<PassportStatusCounts> {
-  const rows = await db
-    .select({ status: passports.status, value: count(passports.id) })
-    .from(passports)
-    .where(eq(passports.brandId, brandId))
-    .groupBy(passports.status);
-
-  const base = { ...EMPTY_STATUS_COUNTS };
-  for (const r of rows) {
-    const key = String(r.status) as PassportStatus;
-    if (key in base) {
-      base[key] = Number(r.value ?? 0);
-    }
-  }
-  return base;
 }
 
 // Generic bulk update helper (extendable beyond status later)

@@ -3,7 +3,7 @@
  */
 import { z } from "zod";
 import { byIdSchema, updateFrom, voidSchema } from "../_shared/patterns.js";
-import { shortStringSchema } from "../_shared/primitives.js";
+import { hexColorSchema, shortStringSchema } from "../_shared/primitives.js";
 
 /**
  * Empty payload for listing brand colors.
@@ -13,7 +13,10 @@ export const listColorsSchema = voidSchema;
 /**
  * Payload for creating a brand color.
  */
-export const createColorSchema = z.object({ name: shortStringSchema });
+export const createColorSchema = z.object({
+  name: shortStringSchema,
+  hex: hexColorSchema,
+});
 
 /**
  * Payload for updating a brand color.

@@ -11,8 +11,5 @@ export default async function EditPassportPage({
   params: Promise<{ upid: string }>;
 }) {
   const { upid } = await params;
-
-  return (
-    <EditPassportForm upid={upid} />
-  );
+  return <EditPassportForm productUpid={upid} />;
 }

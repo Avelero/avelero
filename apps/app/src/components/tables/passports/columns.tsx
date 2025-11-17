@@ -22,13 +22,13 @@ import {
   TooltipTrigger,
 } from "@v1/ui/tooltip";
 import Link from "next/link";
-import type { Passport } from "./types";
+import type { PassportTableRow } from "./types";
 
 const MAX_COLUMN_WIDTH = 320;
 const CELL_PADDING_X = "px-4";
 const CELL_HEIGHT = "h-14";
 
-export const columns: ColumnDef<Passport>[] = [
+export const columns: ColumnDef<PassportTableRow>[] = [
   {
     id: "product",
     header: "Product",
@@ -107,7 +107,7 @@ export const columns: ColumnDef<Passport>[] = [
           </label>
           <div className="min-w-0 max-w-[680px] space-y-1">
             <Link
-              href={`/passports/${product.id}`}
+              href={`/passports/edit/${product.productUpid}`}
               prefetch
               className="block max-w-full truncate type-p text-primary hover:text-brand cursor-pointer"
               onClick={(event) => event.stopPropagation()}

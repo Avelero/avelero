@@ -1,6 +1,6 @@
 "use client";
 
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -260,13 +260,17 @@ const PercentageCell = ({
 interface MaterialsSectionProps {
   materials: Array<{ materialId: string; percentage: number }>;
   setMaterials: (value: Array<{ materialId: string; percentage: number }>) => void;
+  materialsError?: string;
+  sectionRef?: React.Ref<HTMLDivElement>;
 }
 
 export function MaterialsSection({
   materials: parentMaterials,
   setMaterials: setParentMaterials,
+  materialsError,
+  sectionRef,
 }: MaterialsSectionProps) {
-  const { materials: materialOptions } = usePassportFormData();
+  const { materials: materialOptions } = useBrandCatalog();
   // Local display state (enriched with names and countries from materialOptions)
   const [displayMaterials, setDisplayMaterials] = React.useState<Material[]>([]);
   const [materialSheetOpen, setMaterialSheetOpen] = React.useState(false);
@@ -398,10 +402,21 @@ export function MaterialsSection({
   }, 0);
 
   return (
-    <div className="relative flex flex-col border border-border bg-background">
+    <div
+      ref={sectionRef}
+      className={cn(
+        "relative flex flex-col border border-border bg-background focus:outline-none",
+        materialsError &&
+          "border-destructive focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-destructive",
+      )}
+      tabIndex={-1}
+    >
       {/* Header */}
-      <div className="p-4">
+      <div className="p-4 flex flex-col gap-1.5">
         <p className="type-p !font-medium text-primary">Materials</p>
+        {materialsError && (
+          <p className="type-small text-destructive">{materialsError}</p>
+        )}
       </div>
 
       {/* Table Header */}

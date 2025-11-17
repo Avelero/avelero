@@ -13,12 +13,12 @@ import { Skeleton } from "@v1/ui/skeleton";
 import { Table, TableBody, TableCell, TableRow } from "@v1/ui/table";
 import { columns } from "./columns";
 import { PassportTableHeader } from "./table-header";
-import type { Passport } from "./types";
+import type { PassportTableRow } from "./types";
 
 export function PassportTableSkeleton({ rows = 16 }: { rows?: number }) {
   // Force Actions column to a fixed width in the skeleton
-  const skeletonColumns: ColumnDef<Passport, unknown>[] = (
-    columns as ColumnDef<Passport, unknown>[]
+  const skeletonColumns: ColumnDef<PassportTableRow, unknown>[] = (
+    columns as ColumnDef<PassportTableRow, unknown>[]
   ).map((col) => {
     if ((col as { id?: string }).id === "actions") {
       const fixedWidth = "w-[181.12px] min-w-[181.12px] max-w-[181.12px]";
@@ -29,13 +29,13 @@ export function PassportTableSkeleton({ rows = 16 }: { rows?: number }) {
           headerClassName: cn(fixedWidth),
           cellClassName: cn(fixedWidth),
         },
-      } as ColumnDef<Passport, unknown>;
+      } as ColumnDef<PassportTableRow, unknown>;
     }
     return col;
   });
   // Create a mock table instance for the header
   const mockTable = useReactTable({
-    data: [] as Passport[],
+    data: [] as PassportTableRow[],
     columns: skeletonColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

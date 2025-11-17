@@ -5,6 +5,8 @@ import * as React from "react";
 interface PassportFormContextType {
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
+  hasUnsavedChanges: boolean;
+  setHasUnsavedChanges: (value: boolean) => void;
 }
 
 const PassportFormContext = React.createContext<PassportFormContextType | null>(
@@ -21,10 +23,11 @@ export function PassportFormProvider({
   children: React.ReactNode;
 }) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
 
   const value = React.useMemo(
-    () => ({ isSubmitting, setIsSubmitting }),
-    [isSubmitting],
+    () => ({ isSubmitting, setIsSubmitting, hasUnsavedChanges, setHasUnsavedChanges }),
+    [isSubmitting, hasUnsavedChanges],
   );
 
   return (

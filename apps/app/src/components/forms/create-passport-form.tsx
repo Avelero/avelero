@@ -11,60 +11,196 @@ import { IdentifiersSection } from "@/components/passports/form/sidebar/identifi
 import { StatusSection } from "@/components/passports/form/sidebar/status-block";
 import type { TierTwoSizeOption } from "@/components/select/size-select";
 import { usePassportFormContext } from "@/contexts/passport-form-context";
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
-import { usePassportSubmission } from "@/hooks/use-passport-submission";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { usePassportForm } from "@/hooks/use-passport-form";
+import { getFirstInvalidField, isFormValid } from "@/hooks/use-form-validation";
+import type { PassportFormValidationErrors } from "@/hooks/use-passport-form";
 import { useUserQuery } from "@/hooks/use-user";
-import { useRouter } from "next/navigation";
+import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
 interface PassportFormProps {
   mode: "create" | "edit";
-  upid?: string;
+  productUpid?: string;
 }
 
-export function PassportForm({ mode, upid }: PassportFormProps) {
-  const router = useRouter();
+export function PassportForm({ mode, productUpid }: PassportFormProps) {
   const { data: user } = useUserQuery();
-  const { isLoading } = usePassportFormData();
-  const { submit, isSubmitting } = usePassportSubmission();
-  const { setIsSubmitting: setContextIsSubmitting } = usePassportFormContext();
+  const { isLoading, sizeOptions, colors: brandColors } = useBrandCatalog();
+  const {
+    setIsSubmitting: setContextIsSubmitting,
+    setHasUnsavedChanges: setContextHasUnsavedChanges,
+  } = usePassportFormContext();
+  const isEditMode = mode === "edit";
 
-  // Basic info
-  const [title, setTitle] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [imageFile, setImageFile] = React.useState<File | null>(null);
+  // Consolidated form hook (state + validation + submission)
+  const {
+    state,
+    setField,
+    updateField,
+    clearValidationError,
+    validate,
+    submit,
+    isSubmitting,
+    isInitializing,
+    hasUnsavedChanges,
+  } = usePassportForm({ mode, productUpid, sizeOptions, colors: brandColors });
 
-  // Organization
-  const [categoryId, setCategoryId] = React.useState<string | null>(null);
-  const [season, setSeason] = React.useState<string | null>(null);
-  const [tagIds, setTagIds] = React.useState<string[]>([]);
+  const handleSelectedSizesChange = React.useCallback<
+    React.Dispatch<React.SetStateAction<TierTwoSizeOption[]>>
+  >(
+    (value) => {
+      if (typeof value === "function") {
+        updateField("selectedSizes", value);
+      } else {
+        setField("selectedSizes", value);
+      }
+    },
+    [setField, updateField],
+  );
 
-  // Identifiers
-  const [articleNumber, setArticleNumber] = React.useState("");
-  const [ean, setEan] = React.useState("");
-  const [showcaseBrandId, setShowcaseBrandId] = React.useState<string | null>(null);
+  // Clear errors when fields change (after first submit attempt)
+  React.useEffect(() => {
+    if (state.hasAttemptedSubmit && state.title && state.validationErrors.title) {
+      clearValidationError("title");
+    }
+  }, [state.title, state.hasAttemptedSubmit, state.validationErrors.title, clearValidationError]);
 
-  // Variant
-  const [colorIds, setColorIds] = React.useState<string[]>([]);
-  const [selectedSizes, setSelectedSizes] = React.useState<TierTwoSizeOption[]>([]);
+  React.useEffect(() => {
+    if (
+      state.hasAttemptedSubmit &&
+      state.articleNumber &&
+      state.validationErrors.articleNumber
+    ) {
+      clearValidationError("articleNumber");
+    }
+  }, [
+    state.articleNumber,
+    state.hasAttemptedSubmit,
+    state.validationErrors.articleNumber,
+    clearValidationError,
+  ]);
 
-  // Materials
-  const [materialData, setMaterialData] = React.useState<Array<{ materialId: string; percentage: number }>>([]);
+  React.useEffect(() => {
+    if (state.hasAttemptedSubmit && state.ean && state.validationErrors.ean) {
+      clearValidationError("ean");
+    }
+  }, [state.ean, state.hasAttemptedSubmit, state.validationErrors.ean, clearValidationError]);
 
-  // Journey
-  const [journeySteps, setJourneySteps] = React.useState<Array<{ stepType: string; facilityId: string; sortIndex: number }>>([]);
+  React.useEffect(() => {
+    if (
+      state.hasAttemptedSubmit &&
+      state.validationErrors.colors &&
+      state.colorIds.length + state.pendingColors.length <= 12
+    ) {
+      clearValidationError("colors");
+    }
+  }, [
+    state.colorIds,
+    state.pendingColors,
+    state.hasAttemptedSubmit,
+    state.validationErrors.colors,
+    clearValidationError,
+  ]);
 
-  // Environment
-  const [carbonKgCo2e, setCarbonKgCo2e] = React.useState("");
-  const [waterLiters, setWaterLiters] = React.useState("");
+  React.useEffect(() => {
+    if (
+      state.hasAttemptedSubmit &&
+      state.validationErrors.selectedSizes &&
+      state.selectedSizes.length <= 12
+    ) {
+      clearValidationError("selectedSizes");
+    }
+  }, [
+    state.selectedSizes,
+    state.hasAttemptedSubmit,
+    state.validationErrors.selectedSizes,
+    clearValidationError,
+  ]);
 
-  // Status
-  const [status, setStatus] = React.useState<string>("unpublished");
+  React.useEffect(() => {
+    if (
+      state.hasAttemptedSubmit &&
+      state.materialData.length > 0 &&
+      state.validationErrors.materials
+    ) {
+      // Re-validate materials when they change
+      const errors = validate();
+      if (!errors.materials) {
+        clearValidationError("materials");
+      }
+    }
+  }, [
+    state.materialData,
+    state.hasAttemptedSubmit,
+    state.validationErrors.materials,
+    validate,
+    clearValidationError,
+  ]);
 
-  // Sync submission state to context so PassportFormActions can access it
+  React.useEffect(() => {
+    if (
+      state.hasAttemptedSubmit &&
+      state.carbonKgCo2e &&
+      state.validationErrors.carbonKgCo2e
+    ) {
+      const carbonValue = Number.parseFloat(state.carbonKgCo2e);
+      if (!Number.isNaN(carbonValue) && carbonValue >= 0) {
+        clearValidationError("carbonKgCo2e");
+      }
+    }
+  }, [
+    state.carbonKgCo2e,
+    state.hasAttemptedSubmit,
+    state.validationErrors.carbonKgCo2e,
+    clearValidationError,
+  ]);
+
+  React.useEffect(() => {
+    if (
+      state.hasAttemptedSubmit &&
+      state.waterLiters &&
+      state.validationErrors.waterLiters
+    ) {
+      const waterValue = Number.parseFloat(state.waterLiters);
+      if (!Number.isNaN(waterValue) && waterValue >= 0) {
+        clearValidationError("waterLiters");
+      }
+    }
+  }, [
+    state.waterLiters,
+    state.hasAttemptedSubmit,
+    state.validationErrors.waterLiters,
+    clearValidationError,
+  ]);
+
   React.useEffect(() => {
     setContextIsSubmitting(isSubmitting);
   }, [isSubmitting, setContextIsSubmitting]);
+
+  React.useEffect(() => {
+    setContextHasUnsavedChanges(isEditMode ? hasUnsavedChanges : false);
+  }, [hasUnsavedChanges, isEditMode, setContextHasUnsavedChanges]);
+
+  React.useEffect(() => {
+    if (!isEditMode || !hasUnsavedChanges) {
+      return;
+    }
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges, isEditMode]);
+
+  // Refs for focusing invalid fields
+  const titleInputRef = React.useRef<HTMLInputElement>(null);
+  const articleNumberInputRef = React.useRef<HTMLInputElement>(null);
+  const eanInputRef = React.useRef<HTMLInputElement>(null);
+  const materialsSectionRef = React.useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -73,33 +209,67 @@ export function PassportForm({ mode, upid }: PassportFormProps) {
       return;
     }
 
+    // Validate form
+    const errors = validate();
+    const missingRequired =
+      !state.title.trim() || !state.articleNumber.trim();
+    const materialsErrorMessage = errors.materials;
+
+    // If form is invalid, show toast and focus first invalid field
+    if (!isFormValid(errors)) {
+      if (missingRequired) {
+        toast.error("Please fill in the required fields");
+      } else if (materialsErrorMessage) {
+        toast.error(materialsErrorMessage);
+      } else {
+        toast.error("Please fix the errors in the form before submitting");
+      }
+
+      // Focus on first invalid field
+      const fieldOrder: Array<keyof PassportFormValidationErrors> = [
+        "title",
+        "articleNumber",
+        "ean",
+        "colors",
+        "selectedSizes",
+        "materials",
+        "carbonKgCo2e",
+        "waterLiters",
+      ];
+      const firstInvalidField = getFirstInvalidField(errors, fieldOrder);
+      if (firstInvalidField === "title") {
+        titleInputRef.current?.focus();
+        titleInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (firstInvalidField === "articleNumber") {
+        articleNumberInputRef.current?.focus();
+        articleNumberInputRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else if (firstInvalidField === "ean") {
+        eanInputRef.current?.focus();
+        eanInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (firstInvalidField === "materials") {
+        materialsSectionRef.current?.focus();
+        materialsSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+
+      return;
+    }
+
+    // Form is valid, proceed with submission
     try {
-      await submit({
-        brandId: user.brand_id,
-        title,
-        description,
-        imageFile,
-        categoryId,
-        season,
-        showcaseBrandId,
-        articleNumber,
-        ean,
-        status,
-        colorIds,
-        sizeIds: selectedSizes.map(s => s.id).filter((id): id is string => !!id),
-        materials: materialData,
-        journeySteps,
-        carbonKgCo2e,
-        waterLiters,
-        tagIds,
-      });
+      await submit(user.brand_id);
     } catch (err) {
       // Error is already handled by the submission hook
       console.error("Form submission failed:", err);
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isInitializing) {
     return <div>Loading...</div>;
   }
 
@@ -114,56 +284,100 @@ export function PassportForm({ mode, upid }: PassportFormProps) {
         left={
           <>
             <BasicInfoSection
-              title={title}
-              setTitle={setTitle}
-              description={description}
-              setDescription={setDescription}
-              imageFile={imageFile}
-              setImageFile={setImageFile}
+              title={state.title}
+              setTitle={(value) => setField("title", value)}
+              description={state.description}
+              setDescription={(value) => setField("description", value)}
+              imageFile={state.imageFile}
+              setImageFile={(file) => {
+                setField("imageFile", file);
+                if (file) {
+                  setField("existingImageUrl", null);
+                }
+              }}
+              existingImageUrl={state.existingImageUrl}
+              titleError={
+                state.hasAttemptedSubmit ? state.validationErrors.title : undefined
+              }
+              titleInputRef={titleInputRef}
             />
             <OrganizationSection
-              categoryId={categoryId}
-              setCategoryId={setCategoryId}
-              season={season}
-              setSeason={setSeason}
-              tagIds={tagIds}
-              setTagIds={setTagIds}
+              categoryId={state.categoryId}
+              setCategoryId={(value) => setField("categoryId", value)}
+              season={state.season}
+              setSeason={(value) => setField("season", value)}
+              tagIds={state.tagIds}
+              setTagIds={(value) => setField("tagIds", value)}
             />
             <VariantSection
-              colorIds={colorIds}
-              setColorIds={setColorIds}
-              selectedSizes={selectedSizes}
-              setSelectedSizes={setSelectedSizes}
+              colorIds={state.colorIds}
+              pendingColors={state.pendingColors}
+              setColorIds={(value) => setField("colorIds", value)}
+              setPendingColors={(value) => setField("pendingColors", value)}
+              selectedSizes={state.selectedSizes}
+              setSelectedSizes={handleSelectedSizesChange}
+              colorsError={
+                state.hasAttemptedSubmit ? state.validationErrors.colors : undefined
+              }
+              sizesError={
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.selectedSizes
+                  : undefined
+              }
             />
             <EnvironmentSection
-              carbonKgCo2e={carbonKgCo2e}
-              setCarbonKgCo2e={setCarbonKgCo2e}
-              waterLiters={waterLiters}
-              setWaterLiters={setWaterLiters}
+              carbonKgCo2e={state.carbonKgCo2e}
+              setCarbonKgCo2e={(value) => setField("carbonKgCo2e", value)}
+              waterLiters={state.waterLiters}
+              setWaterLiters={(value) => setField("waterLiters", value)}
+              carbonError={
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.carbonKgCo2e
+                  : undefined
+              }
+              waterError={
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.waterLiters
+                  : undefined
+              }
             />
             <MaterialsSection
-              materials={materialData}
-              setMaterials={setMaterialData}
+              materials={state.materialData}
+              setMaterials={(value) => setField("materialData", value)}
+              materialsError={
+                state.hasAttemptedSubmit ? state.validationErrors.materials : undefined
+              }
+              sectionRef={materialsSectionRef}
             />
             <JourneySection
-              journeySteps={journeySteps}
-              setJourneySteps={setJourneySteps}
+              journeySteps={state.journeySteps}
+              setJourneySteps={(value) => setField("journeySteps", value)}
             />
           </>
         }
         right={
           <>
             <StatusSection
-              status={status}
-              setStatus={setStatus}
+              status={state.status}
+              setStatus={(value) => setField("status", value)}
             />
             <IdentifiersSection
-              articleNumber={articleNumber}
-              setArticleNumber={setArticleNumber}
-              ean={ean}
-              setEan={setEan}
-              showcaseBrandId={showcaseBrandId}
-              setShowcaseBrandId={setShowcaseBrandId}
+              articleNumber={state.articleNumber}
+              setArticleNumber={(value) => setField("articleNumber", value)}
+              ean={state.ean}
+              setEan={(value) => setField("ean", value)}
+              showcaseBrandId={state.showcaseBrandId}
+              setShowcaseBrandId={(value) => setField("showcaseBrandId", value)}
+              articleNumberError={
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.articleNumber
+                  : undefined
+              }
+              eanError={
+                state.hasAttemptedSubmit ? state.validationErrors.ean : undefined
+              }
+              articleNumberInputRef={articleNumberInputRef}
+              eanInputRef={eanInputRef}
             />
           </>
         }
@@ -177,7 +391,7 @@ export function CreatePassportForm() {
   return <PassportForm mode="create" />;
 }
 
-export function EditPassportForm({ upid }: { upid: string }) {
-  return <PassportForm mode="edit" upid={upid} />;
+export function EditPassportForm({ productUpid }: { productUpid: string }) {
+  return <PassportForm mode="edit" productUpid={productUpid} />;
 }
 

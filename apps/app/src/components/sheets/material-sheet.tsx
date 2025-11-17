@@ -3,7 +3,7 @@
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUpload } from "@/hooks/use-upload";
-import { usePassportFormData } from "@/hooks/use-passport-form-data";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import type { Certification } from "@v1/selections/certifications";
 import { allCertifications } from "@v1/selections/certifications";
 import { BooleanToggle } from "@v1/ui/boolean";
@@ -112,7 +112,7 @@ export function MaterialSheet({
 }: MaterialSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { certifications: apiCertifications } = usePassportFormData();
+  const { certifications: apiCertifications } = useBrandCatalog();
   const [currentPage, setCurrentPage] = React.useState<Page>("material");
 
   // Material form state

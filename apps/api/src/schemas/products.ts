@@ -73,6 +73,8 @@ export const getProductSchema = byIdSchema;
  */
 export const createProductSchema = z.object({
   name: shortStringSchema,
+  /** Optional product identifier - server generates if not provided */
+  product_identifier: shortStringSchema.optional(),
   description: longStringSchema.optional(),
   category_id: uuidSchema.optional(),
   season: shortStringSchema.optional(), // Legacy: deprecated, use season_id
@@ -80,6 +82,10 @@ export const createProductSchema = z.object({
   brand_certification_id: uuidSchema.optional(),
   showcase_brand_id: uuidSchema.optional(),
   primary_image_url: urlSchema.optional(),
+  /** Optional: Array of color IDs to auto-generate variants */
+  color_ids: uuidArraySchema.optional(),
+  /** Optional: Array of size IDs to auto-generate variants */
+  size_ids: uuidArraySchema.optional(),
 });
 
 /**
@@ -93,6 +99,9 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
   "brand_certification_id",
   "showcase_brand_id",
   "primary_image_url",
+  "product_identifier",
+  "color_ids",
+  "size_ids",
 ]);
 
 /**
@@ -117,13 +126,18 @@ export const listVariantsSchema = byParentId("product_id");
 
 /**
  * Required fields for creating a product variant.
+ * 
+ * Note: SKU is now optional. Variants are tracked by UUID.
+ * UPID is also optional when using auto-generated variants.
  */
 export const createVariantSchema = z.object({
   product_id: uuidSchema,
   color_id: uuidSchema.optional(),
   size_id: uuidSchema.optional(),
+  /** SKU is optional - variants are primarily tracked by UUID */
   sku: shortStringSchema.optional(),
-  upid: shortStringSchema,
+  /** UPID is optional - required only for manual variant creation */
+  upid: shortStringSchema.optional(),
   product_image_url: urlSchema.optional(),
 });
 

@@ -21,14 +21,8 @@ export const brandSizes = pgTable(
     name: text("name").notNull(),
     sortIndex: integer("sort_index"),
     /**
-     * Category group key for size organization (e.g., "mens-tops", "womens-bottoms").
-     * This is the primary field for new size creation flow where users select
-     * gender + subgroup combination.
-     */
-    categoryGroup: text("category_group"),
-    /**
      * @deprecated Legacy category reference. Kept for backward compatibility.
-     * New implementations should use categoryGroup instead.
+     * New implementations should use alternative size organization methods.
      */
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
@@ -51,25 +45,25 @@ export const brandSizes = pgTable(
     pgPolicy("brand_sizes_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("brand_sizes_insert_by_brand_owner", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("brand_sizes_update_by_brand_owner", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("brand_sizes_delete_by_brand_owner", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
   ],

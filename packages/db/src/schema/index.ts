@@ -16,7 +16,6 @@ export * from "./brands/brand-seasons";
 export * from "./brands/brand-services";
 export * from "./brands/brand-sizes";
 export * from "./brands/brand-tags";
-export * from "./brands/care-codes";
 export * from "./brands/showcase-brands";
 
 // Product schemas
@@ -25,11 +24,9 @@ export * from "./products/product-variants";
 export * from "./products/product-materials";
 export * from "./products/product-journey-steps";
 export * from "./products/product-environment";
-export * from "./products/product-identifiers";
-export * from "./products/product-variant-identifiers";
 export * from "./products/product-eco-claims";
-export * from "./products/product-care-codes";
 export * from "./products/tags-on-product";
+export * from "./products/product-module-completion";
 
 // Data schemas
 export * from "./data/file-assets";
@@ -39,7 +36,5 @@ export * from "./data/value-mappings";
 export * from "./data/staging-tables";
 
 // Passport schemas
-export * from "./passports/passports";
 export * from "./passports/passport-templates";
 export * from "./passports/passport-template-modules";
-export * from "./passports/passport-module-completion";

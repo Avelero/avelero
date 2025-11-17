@@ -4,30 +4,22 @@ import type { Database } from "../client";
 import { evaluateAndUpsertCompletion } from "../completion/evaluate";
 import type { ModuleKey } from "../completion/module-keys";
 import {
-  brandCertifications,
-  brandColors,
   brandEcoClaims,
   brandFacilities,
   brandMaterials,
-  brandSizes,
-  careCodes,
-  categories,
-  productCareCodes,
   productEcoClaims,
   productEnvironment,
-  productIdentifiers,
   productJourneySteps,
   productMaterials,
-  productVariantIdentifiers,
   productVariants,
   products,
-  showcaseBrands,
 } from "../schema";
+import { bulkCreateVariants } from "./product-variants";
 
 /** Filter options for product list queries */
 type ListFilters = {
   categoryId?: string;
-  season?: string;
+  seasonId?: string;
   search?: string;
 };
 
@@ -42,8 +34,8 @@ const PRODUCT_FIELD_MAP = {
   name: products.name,
   description: products.description,
   category_id: products.categoryId,
-  season: products.season,
-  brand_certification_id: products.brandCertificationId,
+  season_id: products.seasonId,
+  template_id: products.templateId,
   showcase_brand_id: products.showcaseBrandId,
   primary_image_url: products.primaryImageUrl,
   created_at: products.createdAt,
@@ -71,9 +63,8 @@ export interface ProductRecord {
   name?: string | null;
   description?: string | null;
   category_id?: string | null;
-  season?: string | null; // Legacy: will be deprecated after migration
   season_id?: string | null; // FK to brand_seasons.id
-  brand_certification_id?: string | null;
+  template_id?: string | null; // FK to passport_templates.id
   showcase_brand_id?: string | null;
   primary_image_url?: string | null;
   created_at?: string;
@@ -88,12 +79,7 @@ export interface ProductVariantSummary {
   product_id: string;
   color_id: string | null;
   size_id: string | null;
-  /** SKU is now optional - variants are tracked by UUID */
-  sku: string | null;
-  ean: string | null;
   upid: string | null;
-  status: string | null;
-  product_image_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -106,16 +92,6 @@ export interface ProductMaterialSummary {
   brand_material_id: string;
   material_name: string | null;
   percentage: string | null;
-}
-
-/**
- * Care code association summary for a product.
- */
-export interface ProductCareCodeSummary {
-  id: string;
-  care_code_id: string;
-  code: string | null;
-  name: string | null;
 }
 
 /**
@@ -152,7 +128,6 @@ export interface ProductEnvironmentSummary {
  */
 export interface ProductAttributesBundle {
   materials: ProductMaterialSummary[];
-  careCodes: ProductCareCodeSummary[];
   ecoClaims: ProductEcoClaimSummary[];
   environment: ProductEnvironmentSummary | null;
   journey: ProductJourneyStepSummary[];
@@ -195,10 +170,10 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
     product.description = (row.description as string | null) ?? null;
   if ("category_id" in row)
     product.category_id = (row.category_id as string | null) ?? null;
-  if ("season" in row) product.season = (row.season as string | null) ?? null;
-  if ("brand_certification_id" in row)
-    product.brand_certification_id =
-      (row.brand_certification_id as string | null) ?? null;
+  if ("season_id" in row)
+    product.season_id = (row.season_id as string | null) ?? null;
+  if ("template_id" in row)
+    product.template_id = (row.template_id as string | null) ?? null;
   if ("showcase_brand_id" in row)
     product.showcase_brand_id =
       (row.showcase_brand_id as string | null) ?? null;
@@ -223,7 +198,6 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
 function createEmptyAttributes(): ProductAttributesBundle {
   return {
     materials: [],
-    careCodes: [],
     ecoClaims: [],
     environment: null,
     journey: [],
@@ -283,11 +257,7 @@ async function loadVariantsForProducts(
       product_id: productVariants.productId,
       color_id: productVariants.colorId,
       size_id: productVariants.sizeId,
-      sku: productVariants.sku,
-      ean: productVariants.ean,
       upid: productVariants.upid,
-      status: productVariants.status,
-      product_image_url: productVariants.productImageUrl,
       created_at: productVariants.createdAt,
       updated_at: productVariants.updatedAt,
     })
@@ -302,11 +272,7 @@ async function loadVariantsForProducts(
       product_id: row.product_id,
       color_id: row.color_id ?? null,
       size_id: row.size_id ?? null,
-      sku: row.sku,
-      ean: row.ean ?? null,
       upid: row.upid ?? null,
-      status: row.status ?? null,
-      product_image_url: row.product_image_url ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at,
     });
@@ -353,29 +319,6 @@ async function loadAttributesForProducts(
       brand_material_id: row.brand_material_id,
       material_name: row.material_name ?? null,
       percentage: row.percentage ? String(row.percentage) : null,
-    });
-  }
-
-  const careRows = await db
-    .select({
-      id: productCareCodes.id,
-      product_id: productCareCodes.productId,
-      care_code_id: productCareCodes.careCodeId,
-      code: careCodes.code,
-      name: careCodes.name,
-    })
-    .from(productCareCodes)
-    .leftJoin(careCodes, eq(careCodes.id, productCareCodes.careCodeId))
-    .where(inArray(productCareCodes.productId, [...productIds]))
-    .orderBy(asc(productCareCodes.createdAt));
-
-  for (const row of careRows) {
-    const bundle = ensureBundle(row.product_id);
-    bundle.careCodes.push({
-      id: row.id,
-      care_code_id: row.care_code_id,
-      code: row.code ?? null,
-      name: row.name ?? null,
     });
   }
 
@@ -490,7 +433,7 @@ export async function listProducts(
   const whereClauses = [eq(products.brandId, brandId)];
   if (filters.categoryId)
     whereClauses.push(eq(products.categoryId, filters.categoryId));
-  if (filters.season) whereClauses.push(eq(products.season, filters.season));
+  if (filters.seasonId) whereClauses.push(eq(products.seasonId, filters.seasonId));
   if (filters.search)
     whereClauses.push(ilike(products.name, `%${filters.search}%`));
 
@@ -618,8 +561,8 @@ export async function getProduct(db: Database, brandId: string, id: string) {
       name: products.name,
       description: products.description,
       category_id: products.categoryId,
-      season: products.season,
-      brand_certification_id: products.brandCertificationId,
+      season_id: products.seasonId,
+      template_id: products.templateId,
       showcase_brand_id: products.showcaseBrandId,
       primary_image_url: products.primaryImageUrl,
       created_at: products.createdAt,
@@ -642,13 +585,10 @@ export async function createProduct(
     upid?: string;
     description?: string;
     categoryId?: string;
-    season?: string; // Legacy: will be deprecated after migration
     seasonId?: string; // FK to brand_seasons.id
-    brandCertificationId?: string;
+    templateId?: string; // FK to passport_templates.id
     showcaseBrandId?: string;
     primaryImageUrl?: string;
-    additionalImageUrls?: string;
-    tags?: string;
     /** Product publication status */
     status?: string;
     /** Optional: Color IDs to auto-generate variants */
@@ -673,13 +613,10 @@ export async function createProduct(
         upid: input.upid ?? null,
         description: input.description ?? null,
         categoryId: input.categoryId ?? null,
-        season: input.season ?? null, // Legacy: kept for backward compatibility
         seasonId: input.seasonId ?? null,
-        brandCertificationId: input.brandCertificationId ?? null,
+        templateId: input.templateId ?? null,
         showcaseBrandId: input.showcaseBrandId ?? null,
         primaryImageUrl: input.primaryImageUrl ?? null,
-        additionalImageUrls: input.additionalImageUrls ?? null,
-        tags: input.tags ?? null,
         status: input.status ?? "unpublished",
       })
       .returning({ id: products.id });
@@ -697,7 +634,7 @@ export async function createProduct(
       input.colorIds.length > 0 &&
       input.sizeIds.length > 0
     ) {
-      const variantIds = await generateProductVariants(
+      const variantIds = await bulkCreateVariants(
         tx as unknown as Database,
         row.id,
         input.colorIds,
@@ -728,13 +665,10 @@ export async function updateProduct(
     upid?: string | null;
     description?: string | null;
     categoryId?: string | null;
-    season?: string | null; // Legacy: will be deprecated after migration
     seasonId?: string | null; // FK to brand_seasons.id
-    brandCertificationId?: string | null;
+    templateId?: string | null; // FK to passport_templates.id
     showcaseBrandId?: string | null;
     primaryImageUrl?: string | null;
-    additionalImageUrls?: string | null;
-    tags?: string | null;
     status?: string | null;
     /** Optional: Color IDs to regenerate variants (replaces existing variants) */
     colorIds?: readonly string[];
@@ -750,13 +684,10 @@ export async function updateProduct(
       upid: input.upid ?? null,
       description: input.description ?? null,
       categoryId: input.categoryId ?? null,
-      season: input.season ?? null, // Legacy: kept for backward compatibility
       seasonId: input.seasonId ?? null,
-      brandCertificationId: input.brandCertificationId ?? null,
+      templateId: input.templateId ?? null,
       showcaseBrandId: input.showcaseBrandId ?? null,
       primaryImageUrl: input.primaryImageUrl ?? null,
-      additionalImageUrls: input.additionalImageUrls ?? null,
-      tags: input.tags ?? null,
     };
 
     // Only update status if provided (status cannot be null)
@@ -789,7 +720,7 @@ export async function updateProduct(
         .where(eq(productVariants.productId, row.id));
 
       // Generate new variants
-      const variantIds = await generateProductVariants(
+      const variantIds = await bulkCreateVariants(
         tx as unknown as Database,
         row.id,
         input.colorIds,
@@ -816,566 +747,4 @@ export async function deleteProduct(db: Database, brandId: string, id: string) {
     .where(and(eq(products.id, id), eq(products.brandId, brandId)))
     .returning({ id: products.id });
   return row;
-}
-
-export async function upsertProductIdentifier(
-  db: Database,
-  productId: string,
-  idType: string,
-  value: string,
-) {
-  // Rely on unique index (product_id, id_type, value); duplicate inserts will error; emulate upsert via delete+insert minimalism.
-  // First ensure no exact duplicate exists; if exists, return quickly.
-  const existing = await db
-    .select({ id: productIdentifiers.id })
-    .from(productIdentifiers)
-    .where(
-      and(
-        eq(productIdentifiers.productId, productId),
-        eq(productIdentifiers.idType, idType),
-        eq(productIdentifiers.value, value),
-      ),
-    )
-    .limit(1);
-  if (existing[0]) return existing[0];
-  const [row] = await db
-    .insert(productIdentifiers)
-    .values({ productId, idType, value })
-    .returning({ id: productIdentifiers.id });
-  return row;
-}
-
-// Variants
-export async function listVariants(db: Database, productId: string) {
-  return db
-    .select({
-      id: productVariants.id,
-      product_id: productVariants.productId,
-      color_id: productVariants.colorId,
-      size_id: productVariants.sizeId,
-      sku: productVariants.sku,
-      ean: productVariants.ean,
-      upid: productVariants.upid,
-      status: productVariants.status,
-      product_image_url: productVariants.productImageUrl,
-      created_at: productVariants.createdAt,
-      updated_at: productVariants.updatedAt,
-    })
-    .from(productVariants)
-    .where(eq(productVariants.productId, productId))
-    .orderBy(asc(productVariants.createdAt));
-}
-
-/**
- * Auto-generates product variants from color × size combinations.
- *
- * Creates all possible combinations of the provided colors and sizes for a product.
- * Each variant is assigned a unique UUID. SKU and EAN can be optionally provided
- * but are no longer required - variants are tracked via their UUID.
- *
- * @param db - Database instance
- * @param productId - Product ID to generate variants for
- * @param colorIds - Array of color IDs to combine
- * @param sizeIds - Array of size IDs to combine
- * @param commonFields - Optional common fields applied to all variants (sku, ean, status, etc.)
- * @returns Array of created variant IDs
- *
- * @example
- * ```ts
- * // Generate 6 variants (2 colors × 3 sizes)
- * const variantIds = await generateProductVariants(
- *   db,
- *   productId,
- *   ['blue-id', 'red-id'],
- *   ['small-id', 'medium-id', 'large-id']
- * );
- * // Results: Blue+S, Blue+M, Blue+L, Red+S, Red+M, Red+L
- * ```
- */
-export async function generateProductVariants(
-  db: Database,
-  productId: string,
-  colorIds: readonly string[],
-  sizeIds: readonly string[],
-  commonFields?: {
-    status?: string;
-    productImageUrl?: string;
-  },
-): Promise<readonly string[]> {
-  if (colorIds.length === 0 || sizeIds.length === 0) {
-    return [];
-  }
-
-  return db.transaction(async (tx) => {
-    const createdIds: string[] = [];
-
-    // Generate all color × size combinations
-    for (const colorId of colorIds) {
-      for (const sizeId of sizeIds) {
-        const [created] = await tx
-          .insert(productVariants)
-          .values({
-            productId,
-            colorId,
-            sizeId,
-            sku: null, // SKU is now optional - variants tracked by UUID
-            ean: null,
-            upid: null,
-            status: commonFields?.status ?? null,
-            productImageUrl: commonFields?.productImageUrl ?? null,
-          })
-          .returning({ id: productVariants.id });
-
-        if (created?.id) {
-          createdIds.push(created.id);
-        }
-      }
-    }
-
-    // Update product completion status after generating variants
-    if (createdIds.length > 0) {
-      const [{ brandId } = { brandId: undefined } as any] = await tx
-        .select({ brandId: products.brandId })
-        .from(products)
-        .where(eq(products.id, productId))
-        .limit(1);
-
-      if (brandId) {
-        await evaluateAndUpsertCompletion(
-          tx as unknown as Database,
-          brandId,
-          productId,
-          {
-            onlyModules: ["core"] as ModuleKey[],
-          },
-        );
-      }
-    }
-
-    return createdIds as readonly string[];
-  });
-}
-
-export async function createVariant(
-  db: Database,
-  productId: string,
-  input: {
-    colorId?: string;
-    sizeId?: string;
-    sku: string;
-    ean?: string;
-    upid?: string;
-    status?: string;
-    productImageUrl?: string;
-  },
-  options?: CompletionEvalOptions,
-) {
-  let created: { id: string } | undefined;
-  await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(productVariants)
-      .values({
-        productId,
-        colorId: input.colorId ?? null,
-        sizeId: input.sizeId ?? null,
-        sku: input.sku,
-        ean: input.ean ?? null,
-        upid: input.upid ?? null,
-        status: input.status ?? null,
-        productImageUrl: input.productImageUrl ?? null,
-      })
-      .returning({ id: productVariants.id });
-    created = row;
-    if (row?.id && !options?.skipCompletionEval) {
-      // Need brandId for evaluator: read via product
-      const [{ brandId } = { brandId: undefined } as any] = await tx
-        .select({ brandId: products.brandId })
-        .from(products)
-        .where(eq(products.id, productId))
-        .limit(1);
-      if (brandId) {
-        await evaluateAndUpsertCompletion(
-          tx as unknown as Database,
-          brandId,
-          productId,
-          {
-            onlyModules: ["core"] as ModuleKey[],
-          },
-        );
-      }
-    }
-  });
-  return created;
-}
-
-export async function updateVariant(
-  db: Database,
-  id: string,
-  input: {
-    colorId?: string | null;
-    sizeId?: string | null;
-    sku?: string;
-    ean?: string | null;
-    upid?: string | null;
-    status?: string | null;
-    productImageUrl?: string | null;
-  },
-  options?: CompletionEvalOptions,
-) {
-  let updated: { id: string } | undefined;
-  await db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(productVariants)
-      .set({
-        colorId: input.colorId ?? null,
-        sizeId: input.sizeId ?? null,
-        sku: input.sku,
-        ean: input.ean ?? null,
-        upid: input.upid ?? null,
-        status: input.status ?? null,
-        productImageUrl: input.productImageUrl ?? null,
-      })
-      .where(eq(productVariants.id, id))
-      .returning({
-        id: productVariants.id,
-        productId: productVariants.productId,
-      });
-    updated = row ? { id: row.id } : undefined;
-    if (row?.productId && !options?.skipCompletionEval) {
-      const [{ brandId } = { brandId: undefined } as any] = await tx
-        .select({ brandId: products.brandId })
-        .from(products)
-        .where(eq(products.id, row.productId))
-        .limit(1);
-      if (brandId) {
-        await evaluateAndUpsertCompletion(
-          tx as unknown as Database,
-          brandId,
-          row.productId,
-          {
-            onlyModules: ["core"] as ModuleKey[],
-          },
-        );
-      }
-    }
-  });
-  return updated;
-}
-
-export async function deleteVariant(db: Database, id: string) {
-  const [row] = await db
-    .delete(productVariants)
-    .where(eq(productVariants.id, id))
-    .returning({ id: productVariants.id });
-  return row;
-}
-
-export async function upsertVariantIdentifier(
-  db: Database,
-  variantId: string,
-  idType: string,
-  value: string,
-) {
-  const existing = await db
-    .select({ id: productVariantIdentifiers.id })
-    .from(productVariantIdentifiers)
-    .where(
-      and(
-        eq(productVariantIdentifiers.variantId, variantId),
-        eq(productVariantIdentifiers.idType, idType),
-        eq(productVariantIdentifiers.value, value),
-      ),
-    )
-    .limit(1);
-  if (existing[0]) return existing[0];
-  const [row] = await db
-    .insert(productVariantIdentifiers)
-    .values({ variantId, idType, value })
-    .returning({ id: productVariantIdentifiers.id });
-  return row;
-}
-
-export async function listProductVariantsForBrand(
-  db: Database,
-  brandId: string,
-  productId: string,
-): Promise<ProductVariantSummary[]> {
-  await ensureProductBelongsToBrand(db, brandId, productId);
-  const variantsMap = await loadVariantsForProducts(db, [productId]);
-  return variantsMap.get(productId) ?? [];
-}
-
-export async function upsertProductVariantsForBrand(
-  db: Database,
-  brandId: string,
-  productId: string,
-  variants: ReadonlyArray<{
-    id?: string;
-    color_id?: string | null;
-    size_id?: string | null;
-    sku?: string | null;
-    ean?: string | null;
-    upid?: string | null;
-    status?: string | null;
-    product_image_url?: string | null;
-  }>,
-): Promise<VariantUpsertResult[]> {
-  if (variants.length === 0) return [];
-  await ensureProductBelongsToBrand(db, brandId, productId);
-
-  return db.transaction(async (tx) => {
-    const existing = await tx
-      .select({
-        id: productVariants.id,
-        product_id: productVariants.productId,
-        upid: productVariants.upid,
-      })
-      .from(productVariants)
-      .where(eq(productVariants.productId, productId));
-
-    type VariantLookup = {
-      id: string;
-      product_id: string;
-      upid: string | null;
-    };
-
-    const byId = new Map<string, VariantLookup>();
-    const byUpid = new Map<string, VariantLookup>();
-
-    for (const row of existing) {
-      const lookup: VariantLookup = {
-        id: row.id,
-        product_id: row.product_id,
-        upid: row.upid,
-      };
-      byId.set(row.id, lookup);
-      if (row.upid != null) {
-        byUpid.set(row.upid, lookup);
-      }
-    }
-
-    const results: VariantUpsertResult[] = [];
-    let mutated = false;
-
-    for (let index = 0; index < variants.length; index += 1) {
-      const input = variants[index]!;
-      const reference =
-        input.id ?? input.sku ?? `index:${index.toString().padStart(2, "0")}`;
-      try {
-        let target: VariantLookup | undefined;
-        if (input.id) {
-          target = byId.get(input.id);
-        }
-        if (!target && input.upid) {
-          target = byUpid.get(input.upid);
-        }
-
-        if (!target) {
-          const insertSku = input.sku ?? input.upid ?? reference;
-          if (!insertSku) {
-            throw new Error("SKU is required when creating a variant.");
-          }
-          const [created] = await tx
-            .insert(productVariants)
-            .values({
-              productId,
-              colorId: input.color_id ?? null,
-              sizeId: input.size_id ?? null,
-              sku: insertSku,
-              ean: input.ean ?? null,
-              upid: input.upid ?? null,
-              status: input.status ?? null,
-              productImageUrl: input.product_image_url ?? null,
-            })
-            .returning({ id: productVariants.id });
-
-          if (!created?.id) {
-            throw new Error("Failed to create product variant.");
-          }
-
-          const lookup: VariantLookup = {
-            id: created.id,
-            product_id: productId,
-            upid: input.upid ?? null,
-          };
-          byId.set(created.id, lookup);
-          if (input.upid) {
-            byUpid.set(input.upid, lookup);
-          }
-
-          results.push({
-            reference,
-            variant_id: created.id,
-            status: "created",
-          });
-          mutated = true;
-          continue;
-        }
-
-        const updateValues: Partial<typeof productVariants.$inferInsert> = {};
-        const hasOwn = Object.prototype.hasOwnProperty;
-
-        if (hasOwn.call(input, "color_id")) {
-          updateValues.colorId = input.color_id ?? null;
-        }
-        if (hasOwn.call(input, "size_id")) {
-          updateValues.sizeId = input.size_id ?? null;
-        }
-        if (hasOwn.call(input, "sku")) {
-          if (input.sku == null) {
-            throw new Error("SKU cannot be null when explicitly provided.");
-          }
-          updateValues.sku = input.sku;
-        }
-        if (hasOwn.call(input, "ean")) {
-          updateValues.ean = input.ean ?? null;
-        }
-        if (hasOwn.call(input, "status")) {
-          updateValues.status = input.status ?? null;
-        }
-        if (hasOwn.call(input, "product_image_url")) {
-          updateValues.productImageUrl = input.product_image_url ?? null;
-        }
-        if (hasOwn.call(input, "upid")) {
-          updateValues.upid = input.upid ?? null;
-          if (target.upid) {
-            byUpid.delete(target.upid);
-          }
-          if (input.upid) {
-            byUpid.set(input.upid, {
-              id: target.id,
-              product_id: target.product_id,
-              upid: input.upid,
-            });
-          }
-        }
-
-        if (Object.keys(updateValues).length > 0) {
-          await tx
-            .update(productVariants)
-            .set(updateValues)
-            .where(eq(productVariants.id, target.id));
-          mutated = true;
-        }
-
-        results.push({
-          reference,
-          variant_id: target.id,
-          status: "updated",
-        });
-      } catch (error) {
-        results.push({
-          reference,
-          status: "error",
-          error:
-            error instanceof Error ? error.message : "Unknown variant error",
-        });
-      }
-    }
-
-    if (mutated) {
-      await evaluateAndUpsertCompletion(
-        tx as unknown as Database,
-        brandId,
-        productId,
-        {
-          onlyModules: ["core"] as ModuleKey[],
-        },
-      );
-    }
-
-    return results;
-  });
-}
-
-export async function deleteProductVariantsForBrand(
-  db: Database,
-  brandId: string,
-  input:
-    | {
-        variant_ids: readonly string[];
-      }
-    | {
-        product_id: string;
-        filter?: {
-          color_id?: string;
-          size_id?: string;
-        };
-      },
-): Promise<number> {
-  return db.transaction(async (tx) => {
-    let affected = 0;
-    const impactedProducts = new Set<string>();
-
-    if ("variant_ids" in input) {
-      if (input.variant_ids.length === 0) return 0;
-      const rows = await tx
-        .select({
-          id: productVariants.id,
-          product_id: productVariants.productId,
-        })
-        .from(productVariants)
-        .innerJoin(products, eq(products.id, productVariants.productId))
-        .where(
-          and(
-            inArray(productVariants.id, [...input.variant_ids]),
-            eq(products.brandId, brandId),
-          ),
-        );
-
-      const idsToDelete = rows.map((row) => row.id);
-      for (const row of rows) {
-        impactedProducts.add(row.product_id);
-      }
-
-      if (idsToDelete.length === 0) {
-        return 0;
-      }
-
-      const deleted = await tx
-        .delete(productVariants)
-        .where(inArray(productVariants.id, idsToDelete))
-        .returning({ id: productVariants.id });
-      affected = deleted.length;
-    } else {
-      await ensureProductBelongsToBrand(
-        tx as unknown as Database,
-        brandId,
-        input.product_id,
-      );
-
-      const conditions = [eq(productVariants.productId, input.product_id)];
-
-      if (input.filter?.color_id) {
-        conditions.push(eq(productVariants.colorId, input.filter.color_id));
-      }
-      if (input.filter?.size_id) {
-        conditions.push(eq(productVariants.sizeId, input.filter.size_id));
-      }
-
-      const deleted = await tx
-        .delete(productVariants)
-        .where(and(...conditions))
-        .returning({ id: productVariants.id });
-      affected = deleted.length;
-      if (affected > 0) {
-        impactedProducts.add(input.product_id);
-      }
-    }
-
-    if (affected > 0) {
-      for (const productId of impactedProducts) {
-        await evaluateAndUpsertCompletion(
-          tx as unknown as Database,
-          brandId,
-          productId,
-          {
-            onlyModules: ["core"] as ModuleKey[],
-          },
-        );
-      }
-    }
-
-    return affected;
-  });
 }

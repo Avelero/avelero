@@ -7,11 +7,11 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brandCertifications } from "../brands/brand-certifications";
 import { brandSeasons } from "../brands/brand-seasons";
 import { categories } from "../brands/categories";
 import { showcaseBrands } from "../brands/showcase-brands";
 import { brands } from "../core/brands";
+import { passportTemplates } from "../passports/passport-templates";
 
 export const products = pgTable(
   "products",
@@ -43,24 +43,22 @@ export const products = pgTable(
       },
     ),
     primaryImageUrl: text("primary_image_url"),
-    additionalImageUrls: text("additional_image_urls"), // Pipe-separated URLs
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    season: text("season"), // TODO: Migrate to seasonId FK
     seasonId: uuid("season_id").references(() => brandSeasons.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    tags: text("tags"), // Pipe-separated tags (legacy - use brand_tags for new implementations)
-    brandCertificationId: uuid("brand_certification_id").references(
-      () => brandCertifications.id,
-      {
-        onDelete: "set null",
-        onUpdate: "cascade",
-      },
-    ),
+    /**
+     * Reference to passport template for this product.
+     * Defines which modules and theme are used for product passports.
+     */
+    templateId: uuid("template_id").references(() => passportTemplates.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
     /**
      * Product publication status.
      * Valid values: 'published', 'unpublished', 'archived', 'scheduled'
@@ -83,25 +81,25 @@ export const products = pgTable(
     pgPolicy("products_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("products_insert_by_brand_members", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("products_update_by_brand_members", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("products_delete_by_brand_members", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
   ],

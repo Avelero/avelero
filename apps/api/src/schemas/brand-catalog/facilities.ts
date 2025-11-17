@@ -24,11 +24,14 @@ export const listFacilitiesSchema = voidSchema;
 export const createFacilitySchema = z.object({
   display_name: shortStringSchema,
   legal_name: shortStringSchema.optional(),
-  address: mediumStringSchema.optional(),
+  address_line_1: mediumStringSchema.optional(),
+  address_line_2: mediumStringSchema.optional(),
   city: shortStringSchema.optional(),
+  state: shortStringSchema.optional(),
+  zip: shortStringSchema.optional(),
   country_code: countryCodeSchema.optional(),
-  contact: shortStringSchema.optional(),
-  vat_number: shortStringSchema.optional(),
+  phone: shortStringSchema.optional(),
+  email: shortStringSchema.optional(),
 });
 
 /**
@@ -36,11 +39,14 @@ export const createFacilitySchema = z.object({
  */
 export const updateFacilitySchema = updateWithNullable(createFacilitySchema, [
   "legal_name",
-  "address",
+  "address_line_1",
+  "address_line_2",
   "city",
+  "state",
+  "zip",
   "country_code",
-  "contact",
-  "vat_number",
+  "phone",
+  "email",
 ]);
 
 /**

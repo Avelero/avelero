@@ -34,8 +34,8 @@ export const PRODUCT_FIELDS = [
   "name",
   "description",
   "category_id",
-  "season",
-  "brand_certification_id",
+  "season_id",
+  "template_id",
   "showcase_brand_id",
   "primary_image_url",
   "created_at",
@@ -57,7 +57,7 @@ export const listProductsSchema = z.object({
   filters: z
     .object({
       category_id: uuidSchema.optional(),
-      season: shortStringSchema.optional(),
+      season_id: uuidSchema.optional(),
       search: shortStringSchema.optional(),
     })
     .optional(),
@@ -77,9 +77,8 @@ export const createProductSchema = z.object({
   product_identifier: shortStringSchema.optional(),
   description: longStringSchema.optional(),
   category_id: uuidSchema.optional(),
-  season: shortStringSchema.optional(), // Legacy: deprecated, use season_id
   season_id: uuidSchema.optional(), // FK to brand_seasons.id
-  brand_certification_id: uuidSchema.optional(),
+  template_id: uuidSchema.optional(), // FK to passport_templates.id
   showcase_brand_id: uuidSchema.optional(),
   primary_image_url: urlSchema.optional(),
   /** Optional: Array of color IDs to auto-generate variants */
@@ -94,9 +93,8 @@ export const createProductSchema = z.object({
 export const updateProductSchema = updateWithNullable(createProductSchema, [
   "description",
   "category_id",
-  "season",
   "season_id",
-  "brand_certification_id",
+  "template_id",
   "showcase_brand_id",
   "primary_image_url",
   "product_identifier",
@@ -134,11 +132,8 @@ export const createVariantSchema = z.object({
   product_id: uuidSchema,
   color_id: uuidSchema.optional(),
   size_id: uuidSchema.optional(),
-  /** SKU is optional - variants are primarily tracked by UUID */
-  sku: shortStringSchema.optional(),
   /** UPID is optional - required only for manual variant creation */
   upid: shortStringSchema.optional(),
-  product_image_url: urlSchema.optional(),
 });
 
 /**
@@ -146,7 +141,7 @@ export const createVariantSchema = z.object({
  */
 export const updateVariantSchema = updateWithNullable(
   createVariantSchema.omit({ product_id: true }),
-  ["color_id", "size_id", "sku", "product_image_url"],
+  ["color_id", "size_id", "upid"],
 );
 
 /**
@@ -224,7 +219,6 @@ export const productsDomainUpdateSchema = updateProductSchema.extend({
       }),
     )
     .optional(),
-  careCodes: uuidArraySchema.optional(),
   ecoClaims: uuidArraySchema.optional(),
   environment: z
     .object({
@@ -276,9 +270,7 @@ export const productVariantsUpsertSchema = z.object({
           id: uuidSchema.optional(),
           color_id: uuidSchema.optional().nullable(),
           size_id: uuidSchema.optional().nullable(),
-          sku: shortStringSchema.optional().nullable(),
-          upid: shortStringSchema.optional(),
-          product_image_url: urlSchema.optional().nullable(),
+          upid: shortStringSchema.optional().nullable(),
         })
         .refine((value) => value.id || value.upid, {
           message:

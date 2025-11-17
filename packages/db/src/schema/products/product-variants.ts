@@ -23,15 +23,10 @@ export const productVariants = pgTable(
       onUpdate: "cascade",
     }),
     /**
-     * Stock Keeping Unit (optional).
-     * Can be used for variant-specific tracking but is no longer required.
-     * Product identification is now handled at the product level via product_identifier.
+     * Variant-level UPID (Unique Product Identifier).
+     * 16-character lowercase alphanumeric string for variant passport URLs.
      */
-    sku: text("sku"),
     upid: text("upid"),
-    ean: text("ean"), // European Article Number / barcode
-    status: text("status"), // e.g., "active", "discontinued"
-    productImageUrl: text("product_image_url"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -44,40 +39,40 @@ export const productVariants = pgTable(
     pgPolicy("product_variants_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
-      SELECT 1 FROM products 
-      WHERE products.id = product_id 
+      SELECT 1 FROM products
+      WHERE products.id = product_id
       AND is_brand_member(products.brand_id)
     )`,
     }),
     pgPolicy("product_variants_insert_by_brand_owner", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`EXISTS (
-      SELECT 1 FROM products 
-      WHERE products.id = product_id 
+      SELECT 1 FROM products
+      WHERE products.id = product_id
       AND is_brand_member(products.brand_id)
     )`,
     }),
     pgPolicy("product_variants_update_by_brand_owner", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
-      SELECT 1 FROM products 
-      WHERE products.id = product_id 
+      SELECT 1 FROM products
+      WHERE products.id = product_id
       AND is_brand_member(products.brand_id)
     )`,
     }),
     pgPolicy("product_variants_delete_by_brand_owner", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
-      SELECT 1 FROM products 
-      WHERE products.id = product_id 
+      SELECT 1 FROM products
+      WHERE products.id = product_id
       AND is_brand_member(products.brand_id)
     )`,
     }),

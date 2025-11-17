@@ -10,7 +10,6 @@ import {
   deleteProduct,
   getProductWithIncludes,
   listProductsWithIncludes,
-  setProductCareCodes,
   setProductEcoClaims,
   setProductJourneySteps,
   updateProduct,
@@ -31,7 +30,6 @@ import {
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
-import { productVariantsRouter } from "./variants.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -102,19 +100,59 @@ export const productsRouter = createTRPCRouter({
       const brandId = ensureBrandScope(brandCtx, input.brand_id);
 
       try {
+        // Create product with basic fields
         const product = await createProduct(brandCtx.db, brandId, {
           name: input.name,
           productIdentifier: input.product_identifier,
           description: input.description,
           categoryId: input.category_id,
-          season: input.season, // Legacy: deprecated, use seasonId
           seasonId: input.season_id,
-          brandCertificationId: input.brand_certification_id,
+          templateId: input.template_id,
           showcaseBrandId: input.showcase_brand_id,
           primaryImageUrl: input.primary_image_url,
           colorIds: input.color_ids,
           sizeIds: input.size_ids,
         });
+
+        // Set product attributes if provided
+        if (input.materials && Array.isArray(input.materials)) {
+          await upsertProductMaterials(
+            brandCtx.db,
+            product.id,
+            input.materials.map((m: any) => ({
+              brandMaterialId: m.brand_material_id,
+              percentage: m.percentage,
+            })),
+          );
+        }
+
+        if (input.ecoClaims && Array.isArray(input.ecoClaims)) {
+          await setProductEcoClaims(
+            brandCtx.db,
+            product.id,
+            input.ecoClaims as string[],
+          );
+        }
+
+        if (input.environment && typeof input.environment === "object") {
+          await upsertProductEnvironment(brandCtx.db, product.id, {
+            carbonKgCo2e: (input.environment as any).carbon_kg_co2e,
+            waterLiters: (input.environment as any).water_liters,
+          });
+        }
+
+        if (input.journeySteps && Array.isArray(input.journeySteps)) {
+          await setProductJourneySteps(
+            brandCtx.db,
+            product.id,
+            input.journeySteps.map((step: any) => ({
+              sortIndex: step.sort_index,
+              stepType: step.step_type,
+              facilityId: step.facility_id,
+            })),
+          );
+        }
+
         return createEntityResponse(product);
       } catch (error) {
         throw wrapError(error, "Failed to create product");
@@ -137,9 +175,8 @@ export const productsRouter = createTRPCRouter({
           name: input.name,
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
-          season: input.season ?? null, // Legacy: deprecated, use seasonId
           seasonId: input.season_id ?? null,
-          brandCertificationId: input.brand_certification_id ?? null,
+          templateId: input.template_id ?? null,
           showcaseBrandId: input.showcase_brand_id ?? null,
           primaryImageUrl: input.primary_image_url ?? null,
           colorIds: input.color_ids,
@@ -156,14 +193,6 @@ export const productsRouter = createTRPCRouter({
               brandMaterialId: m.brand_material_id,
               percentage: m.percentage,
             })),
-          );
-        }
-
-        if (input.careCodes && Array.isArray(input.careCodes)) {
-          await setProductCareCodes(
-            brandCtx.db,
-            input.id,
-            input.careCodes as string[],
           );
         }
 
@@ -216,8 +245,6 @@ export const productsRouter = createTRPCRouter({
         throw wrapError(error, "Failed to delete product");
       }
     }),
-
-  variants: productVariantsRouter,
 });
 
 export type ProductsRouter = typeof productsRouter;

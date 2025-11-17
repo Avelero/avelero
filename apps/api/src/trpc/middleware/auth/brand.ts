@@ -1,5 +1,5 @@
-import { type Role, isRole } from "@api/config/roles.js";
-import type { TRPCContext } from "@api/trpc/init.ts";
+import { type Role, isRole } from "../../config/roles.js";
+import type { TRPCContext } from "../init.js";
 import { logger } from "@v1/logger";
 
 const BRAND_CONTEXT_CACHE = Symbol("brandContextCache");

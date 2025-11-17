@@ -1,5 +1,5 @@
-import type { Role } from "@api/config/roles.js";
-import { t } from "@api/trpc/init.js";
+import type { Role } from "../../config/roles.js";
+import { t } from "../init.js";
 import { TRPCError } from "@trpc/server";
 
 /**

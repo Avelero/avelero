@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm";
 import {
   check,
   index,
-  pgEnum,
   pgPolicy,
   pgSchema,
   pgTable,
@@ -12,8 +11,6 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
-
-export const userRoleEnum = pgEnum("user_role", ["owner", "member"]);
 
 // Minimal auth schema to express the FK on users.id → auth.users(id)
 const auth = pgSchema("auth");
@@ -32,7 +29,6 @@ export const users = pgTable(
     fullName: text("full_name"),
     avatarPath: text("avatar_path"),
     avatarHue: smallint("avatar_hue"),
-    role: userRoleEnum("role").notNull().default("member"),
     brandId: uuid("brand_id"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
@@ -51,19 +47,19 @@ export const users = pgTable(
     pgPolicy("users_select_own_profile", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`auth.uid() = id`,
     }),
     pgPolicy("users_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`shares_brand_with(id)`,
     }),
     pgPolicy("users_update_own_profile", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`auth.uid() = id`,
       withCheck: sql`
         auth.uid() = id
@@ -81,7 +77,7 @@ export const users = pgTable(
     pgPolicy("users_insert_own_profile", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`auth.uid() = id`,
     }),
   ],

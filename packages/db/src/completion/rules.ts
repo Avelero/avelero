@@ -19,7 +19,7 @@ export type ModuleRule = {
   evaluate: (ctx: ModuleEvaluationContext) => Promise<boolean>;
 };
 
-// Core: product has name, description, category, primary image, and at least one variant with a SKU
+// Core: product has name, description, category, primary image, and at least one variant
 const coreRule: ModuleRule = {
   key: "core",
   evaluate: async ({ db, productId }) => {
@@ -38,17 +38,12 @@ const coreRule: ModuleRule = {
       p.name && p.description && p.categoryId && p.primaryImageUrl,
     );
     if (!hasBasics) return false;
-    const [{ value: variantWithSkuCount = 0 } = { value: 0 }] = await db
+    const [{ value: variantCount = 0 } = { value: 0 }] = await db
       .select({ value: count(productVariants.id) })
       .from(productVariants)
-      .where(
-        and(
-          eq(productVariants.productId, productId),
-          isNotNull(productVariants.sku),
-        ),
-      )
+      .where(eq(productVariants.productId, productId))
       .limit(1);
-    return variantWithSkuCount > 0;
+    return variantCount > 0;
   },
 };
 

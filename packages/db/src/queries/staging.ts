@@ -33,12 +33,9 @@ export interface InsertStagingProductParams {
   description?: string | null;
   showcaseBrandId?: string | null;
   primaryImageUrl?: string | null;
-  additionalImageUrls?: string | null;
   categoryId?: string | null;
-  season?: string | null; // Legacy: will be deprecated after migration
   seasonId?: string | null; // FK to brand_seasons.id
-  tags?: string | null;
-  brandCertificationId?: string | null;
+  templateId?: string | null; // FK to passport_templates.id
   status?: string | null; // Product publication status
 }
 
@@ -55,11 +52,7 @@ export interface InsertStagingVariantParams {
   productId: string;
   colorId?: string | null;
   sizeId?: string | null;
-  sku?: string | null;
-  ean?: string | null;
   upid: string;
-  productImageUrl?: string | null;
-  status?: string | null;
 }
 
 /**
@@ -150,12 +143,9 @@ export interface StagingProductPreview {
   description: string | null;
   showcaseBrandId: string | null;
   primaryImageUrl: string | null;
-  additionalImageUrls: string | null;
-  tags: string | null;
   categoryId: string | null;
-  season: string | null; // Legacy: will be deprecated after migration
   seasonId: string | null; // FK to brand_seasons.id
-  brandCertificationId: string | null;
+  templateId: string | null; // FK to passport_templates.id
   status: string | null; // Product publication status
   createdAt: string;
   variant: StagingVariantPreview | null;
@@ -179,11 +169,7 @@ export interface StagingVariantPreview {
   productId: string;
   colorId: string | null;
   sizeId: string | null;
-  sku: string | null;
-  ean: string | null;
   upid: string;
-  status: string | null;
-  productImageUrl: string | null;
   createdAt: string;
 }
 
@@ -262,12 +248,9 @@ export async function insertStagingProduct(
       description: params.description ?? null,
       showcaseBrandId: params.showcaseBrandId ?? null,
       primaryImageUrl: params.primaryImageUrl ?? null,
-      additionalImageUrls: params.additionalImageUrls ?? null,
       categoryId: params.categoryId ?? null,
-      season: params.season ?? null, // Legacy: kept for backward compatibility
       seasonId: params.seasonId ?? null,
-      tags: params.tags ?? null,
-      brandCertificationId: params.brandCertificationId ?? null,
+      templateId: params.templateId ?? null,
       status: params.status ?? null,
     })
     .returning({ stagingId: stagingProducts.stagingId });
@@ -311,12 +294,9 @@ export async function batchInsertStagingProducts(
     description: p.description ?? null,
     showcaseBrandId: p.showcaseBrandId ?? null,
     primaryImageUrl: p.primaryImageUrl ?? null,
-    additionalImageUrls: p.additionalImageUrls ?? null,
     categoryId: p.categoryId ?? null,
-    season: p.season ?? null, // Legacy: kept for backward compatibility
+    seasonId: p.seasonId ?? null, // Legacy: kept for backward compatibility
     seasonId: p.seasonId ?? null,
-    tags: p.tags ?? null,
-    brandCertificationId: p.brandCertificationId ?? null,
     status: p.status ?? null,
   }));
 
@@ -353,11 +333,9 @@ export async function insertStagingVariant(
       productId: params.productId,
       colorId: params.colorId ?? null,
       sizeId: params.sizeId ?? null,
-      sku: params.sku ?? null,
-      ean: params.ean ?? null,
       upid: params.upid,
-      productImageUrl: params.productImageUrl ?? null,
-      status: params.status ?? null,
+      // Variant productImageUrl removed
+      // Variant status removed
     })
     .returning({ stagingId: stagingProductVariants.stagingId });
 
@@ -397,11 +375,9 @@ export async function batchInsertStagingVariants(
     productId: v.productId,
     colorId: v.colorId ?? null,
     sizeId: v.sizeId ?? null,
-    sku: v.sku ?? null,
-    ean: v.ean ?? null,
     upid: v.upid,
-    productImageUrl: v.productImageUrl ?? null,
-    status: v.status ?? null,
+    // Variant productImageUrl removed
+    // Variant status removed
   }));
 
   const results = await db
@@ -744,11 +720,8 @@ export async function bulkCreateProductsFromStaging(
     categoryId: row.categoryId ?? null,
     season: row.season ?? null,
     seasonId: row.seasonId ?? null,
-    brandCertificationId: row.brandCertificationId ?? null,
     showcaseBrandId: row.showcaseBrandId ?? null,
     primaryImageUrl: row.primaryImageUrl ?? null,
-    additionalImageUrls: row.additionalImageUrls ?? null,
-    tags: row.tags ?? null,
   }));
 
   await db.transaction(async (tx) => {
@@ -929,8 +902,6 @@ async function hydrateStagingProductPreviews(
       productId: v.productId,
       colorId: v.colorId,
       sizeId: v.sizeId,
-      sku: v.sku,
-      ean: v.ean,
       upid: v.upid,
       status: v.status,
       productImageUrl: v.productImageUrl,
@@ -1006,12 +977,9 @@ async function hydrateStagingProductPreviews(
     description: p.description,
     showcaseBrandId: p.showcaseBrandId,
     primaryImageUrl: p.primaryImageUrl,
-    additionalImageUrls: p.additionalImageUrls,
-    tags: p.tags,
     categoryId: p.categoryId,
     season: p.season,
     seasonId: p.seasonId,
-    brandCertificationId: p.brandCertificationId,
     status: p.status,
     createdAt: p.createdAt,
     variant: variantMap.get(p.stagingId) ?? null,
@@ -1160,12 +1128,9 @@ export async function batchInsertStagingWithStatus(
     description: p.description ?? null,
     showcaseBrandId: p.showcaseBrandId ?? null,
     primaryImageUrl: p.primaryImageUrl ?? null,
-    additionalImageUrls: p.additionalImageUrls ?? null,
     categoryId: p.categoryId ?? null,
-    season: p.season ?? null,
     seasonId: p.seasonId ?? null,
-    tags: p.tags ?? null,
-    brandCertificationId: p.brandCertificationId ?? null,
+    seasonId: p.seasonId ?? null,
     status: p.status ?? null,
   }));
 
@@ -1179,11 +1144,9 @@ export async function batchInsertStagingWithStatus(
     productId: v.productId,
     colorId: v.colorId ?? null,
     sizeId: v.sizeId ?? null,
-    sku: v.sku ?? null,
-    ean: v.ean ?? null,
     upid: v.upid,
-    productImageUrl: v.productImageUrl ?? null,
-    status: v.status ?? null,
+    // Variant productImageUrl removed
+    // Variant status removed
   }));
 
   // Prepare status updates data

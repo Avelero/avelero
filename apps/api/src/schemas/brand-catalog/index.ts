@@ -5,11 +5,11 @@
  * colors, sizes, materials, certifications, eco claims, facilities, and
  * showcase brands.
  */
-export * from "./certifications";
-export * from "./colors";
-export * from "./eco-claims";
-export * from "./facilities";
-export * from "./materials";
-export * from "./seasons";
-export * from "./showcase-brands";
-export * from "./sizes";
+export * from "./certifications.js";
+export * from "./colors.js";
+export * from "./eco-claims.js";
+export * from "./facilities.js";
+export * from "./materials.js";
+export * from "./seasons.js";
+export * from "./showcase-brands.js";
+export * from "./sizes.js";

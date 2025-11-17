@@ -14,13 +14,10 @@ import { importJobs } from "./import-jobs";
 import { products } from "../products/products";
 import { productVariants } from "../products/product-variants";
 import { brandMaterials } from "../brands/brand-materials";
-import { careCodes } from "../brands/care-codes";
 import { brandEcoClaims } from "../brands/brand-eco-claims";
 import { brandFacilities } from "../brands/brand-facilities";
 import { productJourneySteps } from "../products/product-journey-steps";
 import { productEnvironment } from "../products/product-environment";
-import { productIdentifiers } from "../products/product-identifiers";
-import { productVariantIdentifiers } from "../products/product-variant-identifiers";
 
 /**
  * Staging table for products during bulk import Phase 1
@@ -56,12 +53,9 @@ export const stagingProducts = pgTable(
     description: text("description"),
     showcaseBrandId: uuid("showcase_brand_id"),
     primaryImageUrl: text("primary_image_url"),
-    additionalImageUrls: text("additional_image_urls"), // Pipe-separated URLs
     categoryId: uuid("category_id"),
-    season: text("season"), // TODO: Migrate to seasonId FK
     seasonId: uuid("season_id"),
-    tags: text("tags"), // Pipe-separated tags
-    brandCertificationId: uuid("brand_certification_id"),
+    templateId: uuid("template_id"), // Reference to passport template
     status: text("status"), // Product publication status
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
@@ -169,11 +163,7 @@ export const stagingProductVariants = pgTable(
     productId: uuid("product_id").notNull(),
     colorId: uuid("color_id"),
     sizeId: uuid("size_id"),
-    sku: text("sku"),
-    ean: text("ean"), // EAN barcode
     upid: text("upid").notNull(),
-    productImageUrl: text("product_image_url"),
-    status: text("status"), // draft|published|archived
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

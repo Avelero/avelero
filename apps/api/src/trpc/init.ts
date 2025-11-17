@@ -11,7 +11,7 @@ import { db as drizzleDb } from "@v1/db/client";
 import type { Database as DrizzleDatabase } from "@v1/db/client";
 import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import superjson from "superjson";
-import type { Role } from "../config/roles";
+import type { Role } from "../config/roles.js";
 import type { DataLoaders } from "../utils/dataloader.js";
 import { createDataLoaders } from "../utils/dataloader.js";
 import { noBrandSelected, unauthorized } from "../utils/errors.js";

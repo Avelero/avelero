@@ -373,6 +373,12 @@ export const validateAndStage = task({
       const supabase = createSupabaseClient<SupabaseDatabase>(
         supabaseUrl,
         supabaseServiceKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        },
       );
 
       // Download file from storage

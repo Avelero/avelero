@@ -17,7 +17,12 @@ export const cleanupExpiredInvites = schedules.task({
       throw new Error("Missing Supabase configuration");
     }
 
-    const supabase = createSupabaseClient<Database>(url, serviceKey);
+    const supabase = createSupabaseClient<Database>(url, serviceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
     const nowIso = new Date().toISOString();
 
     // Delete invites that have an expires_at in the past

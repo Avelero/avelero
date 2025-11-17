@@ -1,4 +1,4 @@
-name: Staging Jobs Deploy
+name: Staging Jobs Deploy (PR Only)
 
 permissions:
   contents: read
@@ -6,19 +6,8 @@ permissions:
   pull-requests: write
 
 on:
-  push:
-    branches:
-      - 'feature/**'
-      - 'feat/**'
-    paths:
-      - packages/jobs/**
-      - packages/db/**
-      - packages/supabase/**
-      - packages/email/**
-      - packages/utils/**
-      - .github/workflows/staging-jobs.yaml
-
-  # Also trigger on PR updates to keep staging in sync
+  # Staging environment is now specifically for PRs targeting main
+  # Feature branches get their own isolated environments (see feature-branch-jobs.yaml)
   pull_request:
     types: [opened, reopened, synchronize]
     branches:
@@ -58,22 +47,14 @@ jobs:
         run: bun run typecheck
         working-directory: ./packages/jobs
 
-      # Determine API URL based on whether this is a PR or feature branch push
+      # For PRs, use PR-specific API URL
       - name: 🔧 Set API URL
         id: api-url
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            # For PRs, use PR-specific API
-            API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
-            echo "type=pr" >> $GITHUB_OUTPUT
-          else
-            # For feature branch pushes, use a staging API URL
-            # You can customize this based on your Fly.io setup
-            API_URL="https://staging-avelero-api.fly.dev"
-            echo "type=feature" >> $GITHUB_OUTPUT
-          fi
+          # PRs get their own preview API on Fly.io
+          API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
-          echo "Deploying to staging with API: ${API_URL}"
+          echo "Deploying PR #${{ github.event.number }} to staging with API: ${API_URL}"
 
       - name: 🚀 Deploy to Trigger.dev Staging
         run: bunx trigger.dev@4.0.6 deploy --env staging
@@ -90,7 +71,6 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
       - name: 📝 Comment deployment info on PR
-        if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
           script: |
@@ -99,11 +79,13 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## ✅ Background Jobs Deployed to Staging
+              body: `## ✅ Background Jobs Deployed to Staging (PR Preview)
 
-              **Environment:** Staging
+              **Environment:** Staging (PR #${{ github.event.number }})
               **API URL:** ${apiUrl}
               **Trigger.dev:** https://cloud.trigger.dev/projects/v3/proj_mqxiyipljbptdmfeivig/runs?environment=staging
 
-              All background jobs (validate-and-stage, commit-to-production, etc.) are now using the staging environment.`
+              All background jobs (validate-and-stage, commit-to-production, etc.) are now connected to your PR preview API.
+              
+              💡 **Note:** This uses the shared staging environment. Your feature branch has its own isolated environment that was deployed separately.`
             })

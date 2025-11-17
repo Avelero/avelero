@@ -15,24 +15,10 @@ export const config: TriggerConfig = {
       randomize: true,
     },
   },
-  // Define environments for proper deployment targeting
-  environments: [
-    {
-      id: "dev",
-      name: "Development",
-      apiKey: process.env.TRIGGER_ACCESS_TOKEN,
-    },
-    {
-      id: "staging",
-      name: "Staging",
-      apiKey: process.env.TRIGGER_ACCESS_TOKEN,
-    },
-    {
-      id: "prod",
-      name: "Production",
-      apiKey: process.env.TRIGGER_ACCESS_TOKEN,
-    },
-  ],
+  // Note: Feature branch environments are created dynamically by Trigger.dev
+  // when using the --env flag with a branch name. No need to pre-define them here.
+  // The environments array is optional and only needed for explicitly defined environments.
+  // Trigger.dev v4 automatically creates and manages feature branch environments.
   build: {
     extensions: [
       syncEnvVars(async (ctx) => {
@@ -40,8 +26,9 @@ export const config: TriggerConfig = {
         //
         // Environment mapping:
         // - dev: Local development (http://localhost:4100)
-        // - staging: All feature branches and PRs (pr-X-avelero-api.fly.dev)
-        // - prod: Production main branch (avelero-api.fly.dev)
+        // - staging: PRs targeting main (pr-X-avelero-api.fly.dev)
+        // - feature branches: Dynamic per-branch environments (feature-specific API URLs)
+        // - prod: Production main branch only (avelero-api.fly.dev)
         //
         // This extension reads API_URL and INTERNAL_API_KEY from GitHub Actions
         // environment and syncs them to Trigger.dev for runtime access

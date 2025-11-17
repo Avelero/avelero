@@ -2,6 +2,7 @@ import "./configure-trigger";
 import { randomUUID } from "node:crypto";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
+import { generateUpid } from "@v1/db/index";
 import {
   type CreateImportRowParams,
   type UpdateImportRowStatusParams,
@@ -134,8 +135,9 @@ interface CSVRow {
   // REQUIRED FIELDS
   // ============================================================================
   product_name: string; // Max 100 characters
-  product_identifier?: string; // Unique product identifier (brand-scoped)
-  sku?: string; // Required if no EAN
+  product_identifier: string; // Required - Unique product identifier (brand-scoped, shared across variants)
+  upid?: string; // Optional - Unique variant identifier (auto-generated if not provided)
+  sku?: string; // Optional - Legacy/external variant tracking
 
   // ============================================================================
   // BASIC INFORMATION (NEW FORMAT)
@@ -193,7 +195,6 @@ interface CSVRow {
   size_name?: string;
 
   // Legacy variant identifiers
-  upid?: string;
   product_image_url?: string;
 
   // Legacy materials (separate columns)
@@ -268,6 +269,7 @@ interface ValidationWarning {
 interface ExistingVariant {
   // Product fields
   id: string;
+  productIdentifier: string | null;
   name: string;
   description: string | null;
   categoryId: string | null;
@@ -279,8 +281,7 @@ interface ExistingVariant {
   // Variant fields
   variant_id: string;
   upid: string | null;
-  // SKU is now optional at variant level
-  sku: string | null;
+  sku: string | null; // Optional metadata only, not used for matching
   ean: string | null;
   colorId: string | null;
   sizeId: string | null;
@@ -325,7 +326,7 @@ function resolveParallelBatches(): number {
  * This background job:
  * 1. Downloads and parses the uploaded CSV/XLSX file
  * 2. Validates each row comprehensively
- * 3. Determines CREATE vs UPDATE action based on UPID/SKU matching
+ * 3. Determines CREATE vs UPDATE action based on UPID matching (product_identifier for product grouping)
  * 4. Auto-creates simple entities (colors, eco-claims) when needed
  * 5. Populates staging tables with validated data
  * 6. Tracks unmapped values that need user approval
@@ -482,11 +483,9 @@ export const validateAndStage = task({
       const { normalized: normalizedHeaders, mapping: headerMapping } =
         normalizeHeaders(parseResult.headers);
 
-      // Check for duplicate UPID/SKU values in the file
+      // Check for duplicate UPID values in the file (UPID is required for all variants)
       console.log("[validate-and-stage] Checking for duplicates...");
-      const hasUpid = normalizedHeaders.includes("upid");
-      const hasSku = normalizedHeaders.includes("sku");
-      const duplicateCheckColumn = hasUpid ? "upid" : "sku";
+      const duplicateCheckColumn = "upid";
       console.log(
         "[validate-and-stage] Duplicate check column:",
         duplicateCheckColumn,
@@ -607,6 +606,7 @@ export const validateAndStage = task({
             variantId: productVariants.id,
             productId: productVariants.productId,
             brandId: products.brandId,
+            productIdentifier: products.productIdentifier,
             name: products.name,
             description: products.description,
             categoryId: products.categoryId,
@@ -630,21 +630,20 @@ export const validateAndStage = task({
             and(
               eq(products.brandId, brandId),
               or(
-                allUpids.length > 0
-                  ? inArray(productVariants.upid, allUpids)
-                  : undefined,
+                inArray(productVariants.upid, allUpids),
                 allSkus.length > 0
                   ? inArray(productVariants.sku, allSkus)
-                  : undefined,
+                  : sql`FALSE`,
               ),
             ),
           );
 
-        // Build separate lookup maps for UPID and SKU to detect conflicts
+        // Build UPID lookup map for variant matching
         for (const v of existingVariants) {
           const variant: ExistingVariant = {
             // Product fields
             id: v.productId,
+            productIdentifier: v.productIdentifier,
             name: v.name,
             description: v.description,
             categoryId: v.categoryId,
@@ -667,6 +666,7 @@ export const validateAndStage = task({
           if (v.upid && v.upid.trim() !== "") {
             existingVariantsByUpid.set(v.upid, variant);
           }
+
           if (v.sku && v.sku.trim() !== "") {
             existingVariantsBySku.set(v.sku, variant);
           }
@@ -1562,19 +1562,19 @@ async function validateRow(
     });
   }
 
-  // HARD ERROR: UPID or SKU required
-  const upid = row.upid?.trim() || "";
-  const sku = row.sku?.trim() || "";
-
-  if (!upid && !sku) {
+  // HARD ERROR: product_identifier is required (product-level identification)
+  if (!row.product_identifier || row.product_identifier.trim() === "") {
     errors.push({
       type: "HARD_ERROR",
       subtype: "REQUIRED_FIELD_EMPTY",
-      field: "upid/sku",
-      message: "Either UPID or SKU must be provided",
+      field: "product_identifier",
+      message: "Product identifier is required",
       severity: "error",
     });
   }
+
+  // Auto-generate UPID if not provided (variant-level identification)
+  const upid = row.upid?.trim() || generateUpid();
 
   // HARD ERROR: Check string length limits
   if (row.product_name && row.product_name.length > 100) {
@@ -2041,39 +2041,16 @@ async function validateRow(
   }
 
   // ========================================================================
-  // IMPROVED CREATE vs UPDATE DETECTION with Ambiguity Checking
+  // CREATE vs UPDATE DETECTION - UPID-based matching only
   // ========================================================================
 
-  // Look up by UPID and SKU separately to detect ambiguous matches
+  // Look up by UPID (required field)
   const matchedByUpid = (upid ? existingVariantsByUpid.get(upid) : null) as
     | ExistingVariant
     | null
     | undefined;
-  const matchedBySku = (sku ? existingVariantsBySku.get(sku) : null) as
-    | ExistingVariant
-    | null
-    | undefined;
 
-  let existingVariant: ExistingVariant | null = null;
-
-  // Priority: UPID takes precedence over SKU for matching
-  if (matchedByUpid) {
-    existingVariant = matchedByUpid;
-
-    // AMBIGUITY WARNING: Both UPID and SKU provided but point to different products
-    if (matchedBySku && matchedBySku.variant_id !== matchedByUpid.variant_id) {
-      warnings.push({
-        type: "WARNING",
-        subtype: "AMBIGUOUS_MATCH",
-        field: "upid/sku",
-        message: `Ambiguous match: UPID "${upid}" and SKU "${sku}" reference different products. Using UPID match (Variant ID: ${matchedByUpid.variant_id})`,
-        severity: "warning",
-        entityType: "PRODUCT_VARIANT",
-      });
-    }
-  } else if (matchedBySku) {
-    existingVariant = matchedBySku;
-  }
+  const existingVariant: ExistingVariant | null = matchedByUpid || null;
 
   // Generate UUIDs for new records or use existing
   const productId = existingVariant?.id || randomUUID();
@@ -2112,7 +2089,7 @@ async function validateRow(
     id: variantId,
     productId,
     upid: upid || "",
-    sku: sku || null,
+    sku: row.sku?.trim() || null,
     ean: row.ean?.trim() || null,
     colorId,
     sizeId,

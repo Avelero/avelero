@@ -59,6 +59,10 @@ const PRODUCT_FIELDS = Object.keys(
   PRODUCT_FIELD_MAP,
 ) as readonly ProductField[];
 
+type CompletionEvalOptions = {
+  skipCompletionEval?: boolean;
+};
+
 /**
  * Represents the core product fields exposed by API queries.
  */
@@ -652,6 +656,7 @@ export async function createProduct(
     /** Optional: Size IDs to auto-generate variants */
     sizeIds?: readonly string[];
   },
+  options?: CompletionEvalOptions,
 ) {
   let created: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
@@ -699,7 +704,7 @@ export async function createProduct(
         input.sizeIds,
       );
       created.variantIds = variantIds;
-    } else {
+    } else if (!options?.skipCompletionEval) {
       // Evaluate only core module for product basics
       await evaluateAndUpsertCompletion(
         tx as unknown as Database,
@@ -736,6 +741,7 @@ export async function updateProduct(
     /** Optional: Size IDs to regenerate variants (replaces existing variants) */
     sizeIds?: readonly string[];
   },
+  options?: CompletionEvalOptions,
 ) {
   let updated: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
@@ -790,7 +796,7 @@ export async function updateProduct(
         input.sizeIds,
       );
       updated.variantIds = variantIds;
-    } else {
+    } else if (!options?.skipCompletionEval) {
       await evaluateAndUpsertCompletion(
         tx as unknown as Database,
         brandId,
@@ -962,6 +968,7 @@ export async function createVariant(
     status?: string;
     productImageUrl?: string;
   },
+  options?: CompletionEvalOptions,
 ) {
   let created: { id: string } | undefined;
   await db.transaction(async (tx) => {
@@ -979,7 +986,7 @@ export async function createVariant(
       })
       .returning({ id: productVariants.id });
     created = row;
-    if (row?.id) {
+    if (row?.id && !options?.skipCompletionEval) {
       // Need brandId for evaluator: read via product
       const [{ brandId } = { brandId: undefined } as any] = await tx
         .select({ brandId: products.brandId })
@@ -1013,6 +1020,7 @@ export async function updateVariant(
     status?: string | null;
     productImageUrl?: string | null;
   },
+  options?: CompletionEvalOptions,
 ) {
   let updated: { id: string } | undefined;
   await db.transaction(async (tx) => {
@@ -1033,7 +1041,7 @@ export async function updateVariant(
         productId: productVariants.productId,
       });
     updated = row ? { id: row.id } : undefined;
-    if (row?.productId) {
+    if (row?.productId && !options?.skipCompletionEval) {
       const [{ brandId } = { brandId: undefined } as any] = await tx
         .select({ brandId: products.brandId })
         .from(products)

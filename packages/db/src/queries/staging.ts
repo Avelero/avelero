@@ -728,6 +728,7 @@ export async function bulkCreateProductsFromStaging(
   db: Database,
   brandId: string,
   rows: StagingProductPreview[],
+  options?: { skipCompletionEval?: boolean },
 ): Promise<Map<string, string>> {
   if (rows.length === 0) {
     return new Map();
@@ -753,15 +754,17 @@ export async function bulkCreateProductsFromStaging(
   await db.transaction(async (tx) => {
     await tx.insert(products).values(insertValues).onConflictDoNothing();
 
-    for (const row of rows) {
-      await evaluateAndUpsertCompletion(
-        tx as unknown as Database,
-        brandId,
-        row.id,
-        {
-          onlyModules: ["core"] as ModuleKey[],
-        },
-      );
+    if (!options?.skipCompletionEval) {
+      for (const row of rows) {
+        await evaluateAndUpsertCompletion(
+          tx as unknown as Database,
+          brandId,
+          row.id,
+          {
+            onlyModules: ["core"] as ModuleKey[],
+          },
+        );
+      }
     }
   });
 

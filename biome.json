@@ -12,6 +12,8 @@
       ".turbo",
       ".next",
       ".next/**",
+      ".trigger",
+      ".trigger/**",
       ".react-email",
       ".react-email/**"
     ]
@@ -21,6 +23,7 @@
       ".wrangler",
       "node_modules",
       ".next",
+      ".trigger",
       "packages/tsconfig",
       ".react-email"
     ],

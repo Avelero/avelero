@@ -2,6 +2,8 @@ import "./configure-trigger";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { db } from "@v1/db/client";
 import type { Database } from "@v1/db/client";
+import { evaluateAndUpsertCompletion } from "@v1/db/index";
+import type { ModuleKey } from "@v1/db/index";
 import {
   type StagingProductPreview,
   batchUpdateImportRowStatus,
@@ -458,7 +460,9 @@ async function processBatch(
   );
   const precreatedProducts =
     createRows.length > 0
-      ? await bulkCreateProductsFromStaging(db, brandId, createRows)
+      ? await bulkCreateProductsFromStaging(db, brandId, createRows, {
+          skipCompletionEval: true,
+        })
       : new Map<string, string>();
 
   if (precreatedProducts.size > 0) {
@@ -531,6 +535,7 @@ async function commitStagingRow(
   const rowStart = Date.now();
   let relationDurationMs = 0;
   let coreDurationMs = 0;
+  const modulesToEvaluate: Set<ModuleKey> = new Set(["core"]);
 
   if (!variant) {
     throw new Error("Staging product missing variant data");
@@ -572,6 +577,7 @@ async function commitStagingRow(
               tags: stagingProduct.tags || undefined,
               status: stagingProduct.status || undefined,
             },
+            { skipCompletionEval: true },
           );
 
           if (!created?.id) {
@@ -604,6 +610,7 @@ async function commitStagingRow(
             tags: stagingProduct.tags,
             status: stagingProduct.status,
           },
+          { skipCompletionEval: true },
         );
 
         if (!updated?.id) {
@@ -627,6 +634,7 @@ async function commitStagingRow(
             sizeId: variant.sizeId || undefined,
             productImageUrl: variant.productImageUrl || undefined,
           },
+          { skipCompletionEval: true },
         );
 
         if (!createdVariant?.id) {
@@ -652,6 +660,7 @@ async function commitStagingRow(
             sizeId: variant.sizeId ?? undefined,
             productImageUrl: variant.productImageUrl ?? undefined,
           },
+          { skipCompletionEval: true },
         );
 
         if (!updatedVariant?.id) {
@@ -667,6 +676,7 @@ async function commitStagingRow(
       const relationsStart = Date.now();
       const stagingMaterials = stagingProduct.materials;
       if (stagingMaterials.length > 0) {
+        modulesToEvaluate.add("materials");
         await upsertProductMaterials(
           tx as unknown as Database,
           productId,
@@ -674,6 +684,7 @@ async function commitStagingRow(
             brandMaterialId: m.brandMaterialId,
             percentage: m.percentage || undefined,
           })),
+          { skipCompletionEval: true },
         );
       }
 
@@ -690,6 +701,7 @@ async function commitStagingRow(
       // Fetch and insert journey steps
       const stagingJourneySteps = stagingProduct.journeySteps;
       if (stagingJourneySteps.length > 0) {
+        modulesToEvaluate.add("journey");
         await setProductJourneySteps(
           tx as unknown as Database,
           productId,
@@ -698,16 +710,23 @@ async function commitStagingRow(
             stepType: s.stepType,
             facilityId: s.facilityId,
           })),
+          { skipCompletionEval: true },
         );
       }
 
       // Fetch and insert environment data
       const stagingEnvironment = stagingProduct.environment;
       if (stagingEnvironment) {
-        await upsertProductEnvironment(tx as unknown as Database, productId, {
-          carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
-          waterLiters: stagingEnvironment.waterLiters || undefined,
-        });
+        modulesToEvaluate.add("environment");
+        await upsertProductEnvironment(
+          tx as unknown as Database,
+          productId,
+          {
+            carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
+            waterLiters: stagingEnvironment.waterLiters || undefined,
+          },
+          { skipCompletionEval: true },
+        );
       }
 
       // Step 4: Mark import_row as APPLIED
@@ -726,6 +745,12 @@ async function commitStagingRow(
       importRowId = stagingProduct.stagingId;
       relationDurationMs = Date.now() - relationsStart;
     });
+
+    if (productId && modulesToEvaluate.size > 0) {
+      await evaluateAndUpsertCompletion(db, brandId, productId, {
+        onlyModules: Array.from(modulesToEvaluate),
+      });
+    }
 
     // Removed per-row logging for performance - only log errors and batch summaries
     return {

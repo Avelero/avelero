@@ -22,13 +22,7 @@ const ALLOWED_MIME_TYPES = [
   "image/avif",
 ] as const;
 
-const ALLOWED_EXTENSIONS = [
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".webp",
-  ".avif",
-] as const;
+const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".avif"] as const;
 
 // Generate 8-character random suffix for uniqueness
 const nanoid = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 8);
@@ -155,7 +149,9 @@ export async function uploadProductImage(
   }
 
   // Extract file extension
-  const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
+  const fileExtension = file.name
+    .toLowerCase()
+    .slice(file.name.lastIndexOf("."));
   if (
     !ALLOWED_EXTENSIONS.includes(
       fileExtension as (typeof ALLOWED_EXTENSIONS)[number],
@@ -222,9 +218,7 @@ export async function deleteProductImage(
   const result = await storage.remove([path]);
 
   if (result.error) {
-    throw new Error(
-      `Failed to delete product image: ${result.error.message}`,
-    );
+    throw new Error(`Failed to delete product image: ${result.error.message}`);
   }
 }
 
@@ -371,7 +365,9 @@ export function validateProductImage(file: File): {
   }
 
   // Check extension
-  const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
+  const fileExtension = file.name
+    .toLowerCase()
+    .slice(file.name.lastIndexOf("."));
   if (
     !ALLOWED_EXTENSIONS.includes(
       fileExtension as (typeof ALLOWED_EXTENSIONS)[number],
@@ -394,4 +390,3 @@ export const PRODUCT_IMAGE_CONSTANTS = {
   ALLOWED_MIME_TYPES,
   ALLOWED_EXTENSIONS,
 } as const;
-

@@ -1615,7 +1615,9 @@ async function validateRow(
   }
 
   // Validate status (defaults to unpublished if invalid/empty)
-  const validatedStatus = row.status ? validateStatus(row.status) : "unpublished";
+  const validatedStatus = row.status
+    ? validateStatus(row.status)
+    : "unpublished";
   const productStatus = validatedStatus || "unpublished"; // Default to unpublished
 
   // HARD ERROR: Carbon footprint validation

@@ -220,7 +220,9 @@ export const commitToProduction = task({
 
         if (shouldUpdateProgress) {
           const percentage =
-            totalRows > 0 ? Math.round((processedCount / totalRows) * 100) : 100;
+            totalRows > 0
+              ? Math.round((processedCount / totalRows) * 100)
+              : 100;
           await updateImportJobProgress(db, {
             jobId,
             summary: {

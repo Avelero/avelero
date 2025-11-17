@@ -1,5 +1,5 @@
-import type { TriggerConfig } from "@trigger.dev/sdk/v3";
 import { syncEnvVars } from "@trigger.dev/build/extensions/core";
+import type { TriggerConfig } from "@trigger.dev/sdk/v3";
 
 export const config: TriggerConfig = {
   project: "proj_mqxiyipljbptdmfeivig",
@@ -34,13 +34,22 @@ export const config: TriggerConfig = {
         }
 
         if (process.env.INTERNAL_API_KEY) {
-          envVars.push({ name: "INTERNAL_API_KEY", value: process.env.INTERNAL_API_KEY });
+          envVars.push({
+            name: "INTERNAL_API_KEY",
+            value: process.env.INTERNAL_API_KEY,
+          });
         }
 
         console.log(`[syncEnvVars] Environment: ${ctx.environment}`);
-        console.log(`[syncEnvVars] Syncing ${envVars.length} environment variables`);
-        console.log(`[syncEnvVars] API_URL: ${process.env.API_URL ? 'SET' : 'NOT SET'}`);
-        console.log(`[syncEnvVars] INTERNAL_API_KEY: ${process.env.INTERNAL_API_KEY ? 'SET' : 'NOT SET'}`);
+        console.log(
+          `[syncEnvVars] Syncing ${envVars.length} environment variables`,
+        );
+        console.log(
+          `[syncEnvVars] API_URL: ${process.env.API_URL ? "SET" : "NOT SET"}`,
+        );
+        console.log(
+          `[syncEnvVars] INTERNAL_API_KEY: ${process.env.INTERNAL_API_KEY ? "SET" : "NOT SET"}`,
+        );
 
         return envVars;
       }),

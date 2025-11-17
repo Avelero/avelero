@@ -896,6 +896,56 @@ export function findDuplicates<T extends Record<string, unknown>>(
 }
 
 /**
+ * Find duplicates based on composite key (multiple columns combined)
+ *
+ * Detects duplicate variants by checking if the combination of columns
+ * (e.g., product_identifier + colors + size) appears multiple times.
+ * This catches true business duplicates where the same variant is entered twice.
+ *
+ * @param data - Array of parsed rows
+ * @param columns - Column names to combine into composite key
+ * @returns Array of duplicate information with row numbers and composite key value
+ *
+ * @example
+ * ```typescript
+ * // Detect duplicate variants (same product + color + size)
+ * const duplicates = findCompositeDuplicates(data, 
+ *   ["product_identifier", "colors", "size"]
+ * );
+ * // Returns: [{ rows: [3, 7], compositeKey: "TSHIRT-001|Blue|M" }]
+ * ```
+ */
+export function findCompositeDuplicates<T extends Record<string, unknown>>(
+  data: T[],
+  columns: string[],
+): Array<{ rows: number[]; compositeKey: string }> {
+  const valueMap = new Map<string, number[]>();
+
+  data.forEach((row, index) => {
+    // Build composite key from all columns
+    const keyParts = columns.map((col) => String(row[col] || "").trim());
+
+    // Only check if all parts exist (skip rows with missing required fields)
+    if (keyParts.every((part) => part !== "")) {
+      const compositeKey = keyParts.join("|");
+      const existing = valueMap.get(compositeKey) || [];
+      existing.push(index + 1); // 1-indexed for user display
+      valueMap.set(compositeKey, existing);
+    }
+  });
+
+  const duplicates: Array<{ rows: number[]; compositeKey: string }> = [];
+
+  valueMap.forEach((rows, compositeKey) => {
+    if (rows.length > 1) {
+      duplicates.push({ rows, compositeKey });
+    }
+  });
+
+  return duplicates;
+}
+
+/**
  * Extract unique values from a column
  *
  * @param data - Array of parsed rows

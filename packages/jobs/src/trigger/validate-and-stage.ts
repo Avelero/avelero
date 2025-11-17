@@ -39,7 +39,12 @@ import {
   lookupSeasonId,
   lookupSizeId,
 } from "../lib/catalog-loader";
-import { findDuplicates, normalizeHeaders, parseFile } from "../lib/csv-parser";
+import {
+  findCompositeDuplicates,
+  findDuplicates,
+  normalizeHeaders,
+  parseFile,
+} from "../lib/csv-parser";
 import { EntityType, ValueMapper } from "../lib/value-mapper";
 import { ProgressEmitter } from "./progress-emitter";
 
@@ -483,35 +488,64 @@ export const validateAndStage = task({
       const { normalized: normalizedHeaders, mapping: headerMapping } =
         normalizeHeaders(parseResult.headers);
 
-      // Check for duplicate UPID values in the file (UPID is required for all variants)
+      // ========================================================================
+      // DUPLICATE DETECTION - Two-level approach:
+      // 1. Check for duplicate UPIDs (when provided)
+      // 2. Check for duplicate composite keys (product_identifier + color + size)
+      // ========================================================================
       console.log("[validate-and-stage] Checking for duplicates...");
-      const duplicateCheckColumn = "upid";
-      console.log(
-        "[validate-and-stage] Duplicate check column:",
-        duplicateCheckColumn,
-      );
 
-      const duplicates = findDuplicates(parseResult.data, [
-        duplicateCheckColumn,
+      // Check for duplicate UPIDs (when provided in CSV)
+      const upidDuplicates = findDuplicates(parseResult.data, ["upid"]);
+
+      // Check for duplicate composite keys (true variant duplicates)
+      const compositeDuplicates = findCompositeDuplicates(parseResult.data, [
+        "product_identifier",
+        "colors",
+        "size",
       ]);
-      const duplicateRowNumbers = new Set<number>();
 
-      // Build a map of row numbers that have duplicates
-      for (const dup of duplicates) {
+      // Build a map of row numbers that have any type of duplicate
+      const duplicateRowNumbers = new Set<number>();
+      const duplicateDetails = new Map<
+        number,
+        { type: "upid" | "composite"; value: string }
+      >();
+
+      // Mark rows with duplicate UPIDs
+      for (const dup of upidDuplicates) {
         for (const rowNum of dup.rows) {
           duplicateRowNumbers.add(rowNum);
+          duplicateDetails.set(rowNum, { type: "upid", value: dup.value });
         }
       }
 
-      if (duplicates.length > 0) {
+      // Mark rows with duplicate composite keys
+      for (const dup of compositeDuplicates) {
+        for (const rowNum of dup.rows) {
+          duplicateRowNumbers.add(rowNum);
+          // Only set if not already marked as UPID duplicate
+          if (!duplicateDetails.has(rowNum)) {
+            duplicateDetails.set(rowNum, {
+              type: "composite",
+              value: dup.compositeKey,
+            });
+          }
+        }
+      }
+
+      const totalDuplicates = upidDuplicates.length + compositeDuplicates.length;
+
+      if (totalDuplicates > 0) {
         console.log("[validate-and-stage] Found duplicates:", {
-          duplicateCount: duplicates.length,
+          upidDuplicateCount: upidDuplicates.length,
+          compositeDuplicateCount: compositeDuplicates.length,
           affectedRows: duplicateRowNumbers.size,
         });
         logger.warn("Duplicate values found in file", {
-          duplicateCount: duplicates.length,
+          upidDuplicateCount: upidDuplicates.length,
+          compositeDuplicateCount: compositeDuplicates.length,
           affectedRows: duplicateRowNumbers.size,
-          column: duplicateCheckColumn,
         });
       } else {
         console.log("[validate-and-stage] No duplicates found");
@@ -770,9 +804,8 @@ export const validateAndStage = task({
                   unmappedValues,
                   unmappedValueDetails,
                   duplicateRowNumbers,
-                  duplicateCheckColumn,
+                  duplicateDetails,
                   existingVariantsByUpid,
-                  existingVariantsBySku,
                   db,
                 );
 
@@ -1515,17 +1548,8 @@ async function validateRow(
     }
   >,
   duplicateRowNumbers: Set<number>,
-  duplicateCheckColumn: string,
+  duplicateDetails: Map<number, { type: "upid" | "composite"; value: string }>,
   existingVariantsByUpid: Map<
-    string,
-    {
-      id: string;
-      variant_id: string;
-      upid: string | null;
-      sku: string | null;
-    }
-  >,
-  existingVariantsBySku: Map<
     string,
     {
       id: string;
@@ -1539,16 +1563,38 @@ async function validateRow(
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
 
-  // HARD ERROR: Duplicate UPID/SKU
+  // HARD ERROR: Duplicate detection (UPID or composite key)
   if (duplicateRowNumbers.has(rowNumber)) {
-    const duplicateValue = String(row[duplicateCheckColumn] || "").trim();
-    errors.push({
-      type: "HARD_ERROR",
-      subtype: "DUPLICATE_VALUE",
-      field: duplicateCheckColumn,
-      message: `Duplicate ${duplicateCheckColumn.toUpperCase()}: "${duplicateValue}" appears multiple times in the file`,
-      severity: "error",
-    });
+    const dupInfo = duplicateDetails.get(rowNumber);
+    if (dupInfo) {
+      if (dupInfo.type === "upid") {
+        errors.push({
+          type: "HARD_ERROR",
+          subtype: "DUPLICATE_VALUE",
+          field: "upid",
+          message: `Duplicate UPID: "${dupInfo.value}" appears multiple times in the file`,
+          severity: "error",
+        });
+      } else {
+        // Composite key duplicate
+        errors.push({
+          type: "HARD_ERROR",
+          subtype: "DUPLICATE_VALUE",
+          field: "product_identifier+colors+size",
+          message: `Duplicate variant: "${dupInfo.value}" (same product + color + size combination) appears multiple times in the file`,
+          severity: "error",
+        });
+      }
+    } else {
+      // Fallback if details not found
+      errors.push({
+        type: "HARD_ERROR",
+        subtype: "DUPLICATE_VALUE",
+        field: "duplicate",
+        message: "This row is a duplicate and appears multiple times in the file",
+        severity: "error",
+      });
+    }
   }
 
   // HARD ERROR: Required field validation

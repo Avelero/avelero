@@ -861,11 +861,12 @@ export const validateAndStage = task({
               await batchUpdateImportRowStatus(db, invalidStatusUpdates);
             }
           } catch (error) {
-            // Batch insert failed - fall back to separate batch inserts (not single round trip)
+            // Batch insert failed - fall back to individual row inserts
+            // This ensures we don't lose good rows due to one bad row
             const errorMessage =
               error instanceof Error ? error.message : String(error);
             logger.error(
-              "Batch staging insert failed, falling back to separate batch inserts",
+              "Batch staging insert failed, falling back to individual row inserts",
               {
                 batchNumber,
                 validRowCount: validRows.length,
@@ -873,70 +874,79 @@ export const validateAndStage = task({
               },
             );
 
-            // Fallback: Use separate batch inserts instead of individual inserts
-            // This is much faster than individual inserts (500 rows in 1 second vs 3 minutes)
-            try {
-              const products = validRows.map((item) => item.validated!.product);
-              const productStagingIds = await batchInsertStagingProducts(
-                db,
-                products,
-              );
+            // Fallback: Process each row individually to isolate failures
+            let successCount = 0;
+            let fallbackFailCount = 0;
 
-              // Map product staging IDs to variants
-              const variants = validRows.map((item, index) => ({
-                ...item.validated!.variant,
-                stagingProductId: productStagingIds[index]!,
-              }));
-              await batchInsertStagingVariants(db, variants);
+            for (const validRow of validRows) {
+              try {
+                // Insert product and variant individually
+                const productStagingId = await insertStagingProduct(
+                  db,
+                  validRow.validated!.product,
+                );
+                await insertStagingVariant(db, {
+                  ...validRow.validated!.variant,
+                  stagingProductId: productStagingId,
+                });
 
-              // Batch update status for all valid rows
-              const validStatusUpdates = validRows.map((item) => ({
-                id: item.importRowId,
-                status: "VALIDATED" as const,
-                normalized: {
-                  action: item.validated!.action,
-                  product_id: item.validated!.productId,
-                  variant_id: item.validated!.variantId,
-                  warnings:
-                    item.validated!.warnings.length > 0
-                      ? item.validated!.warnings.map((w) => ({
-                          type: w.subtype,
-                          field: w.field,
-                          message: w.message,
-                          entity_type: w.entityType,
-                        }))
-                      : undefined,
-                },
-              }));
-              await batchUpdateImportRowStatus(db, validStatusUpdates);
+                // Update status for this row
+                await batchUpdateImportRowStatus(db, [
+                  {
+                    id: validRow.importRowId,
+                    status: "VALIDATED" as const,
+                    normalized: {
+                      action: validRow.validated!.action,
+                      product_id: validRow.validated!.productId,
+                      variant_id: validRow.validated!.variantId,
+                      warnings:
+                        validRow.validated!.warnings.length > 0
+                          ? validRow.validated!.warnings.map((w) => ({
+                              type: w.subtype,
+                              field: w.field,
+                              message: w.message,
+                              entity_type: w.entityType,
+                            }))
+                          : undefined,
+                    },
+                  },
+                ]);
 
-              logger.info("Batch fallback completed successfully", {
-                batchNumber,
-                validRowCount: validRows.length,
-              });
-            } catch (fallbackError) {
-              // If even batch fallback fails, mark all rows as failed
-              logger.error("Batch fallback failed", {
-                batchNumber,
-                error:
-                  fallbackError instanceof Error
-                    ? fallbackError.message
-                    : String(fallbackError),
-              });
+                successCount++;
+              } catch (rowError) {
+                // This specific row failed - mark only this row as failed
+                logger.error("Individual row insert failed", {
+                  batchNumber,
+                  rowNumber: validRow.rowNumber,
+                  error:
+                    rowError instanceof Error
+                      ? rowError.message
+                      : String(rowError),
+                });
 
-              const failedStatusUpdates = validRows.map((item) => ({
-                id: item.importRowId,
-                status: "FAILED" as const,
-                error:
-                  fallbackError instanceof Error
-                    ? fallbackError.message
-                    : "Failed to insert into staging",
-              }));
-              await batchUpdateImportRowStatus(db, failedStatusUpdates);
+                await batchUpdateImportRowStatus(db, [
+                  {
+                    id: validRow.importRowId,
+                    status: "FAILED" as const,
+                    error:
+                      rowError instanceof Error
+                        ? rowError.message
+                        : "Failed to insert into staging",
+                  },
+                ]);
 
-              invalidCount += validRows.length;
-              validCount -= validRows.length;
+                fallbackFailCount++;
+                invalidCount++;
+                validCount--;
+              }
             }
+
+            logger.info("Individual row fallback completed", {
+              batchNumber,
+              totalRows: validRows.length,
+              successCount,
+              fallbackFailCount,
+            });
           }
 
           processedCount += batch.length;

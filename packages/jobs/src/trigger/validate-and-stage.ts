@@ -452,7 +452,7 @@ export const validateAndStage = task({
       console.log("[validate-and-stage] File buffer size:", fileBuffer.length);
 
       const parseResult = await parseFile(
-        new File([fileBuffer], "import.csv"),
+        new File([fileBuffer.buffer as ArrayBuffer], "import.csv"),
         { trimValues: true },
       );
 

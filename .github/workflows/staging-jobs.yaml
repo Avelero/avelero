@@ -1,0 +1,107 @@
+name: Staging Jobs Deploy
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'feat/**'
+    paths:
+      - packages/jobs/**
+      - packages/db/**
+      - packages/supabase/**
+      - packages/email/**
+      - packages/utils/**
+      - .github/workflows/staging-jobs.yaml
+
+  # Also trigger on PR updates to keep staging in sync
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - main
+    paths:
+      - packages/jobs/**
+      - packages/db/**
+      - packages/supabase/**
+      - packages/email/**
+      - packages/utils/**
+
+jobs:
+  deploy:
+    name: 🚀 Deploy Trigger.dev Jobs to Staging
+    runs-on: ubuntu-latest
+    concurrency:
+      group: trigger-staging-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🥟 Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📦 Install dependencies
+        run: bun install
+
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./packages/jobs
+
+      - name: 🪐 Check TypeScript
+        run: bun run typecheck
+        working-directory: ./packages/jobs
+
+      # Determine API URL based on whether this is a PR or feature branch push
+      - name: 🔧 Set API URL
+        id: api-url
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PRs, use PR-specific API
+            API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
+            echo "type=pr" >> $GITHUB_OUTPUT
+          else
+            # For feature branch pushes, use a staging API URL
+            # You can customize this based on your Fly.io setup
+            API_URL="https://staging-avelero-api.fly.dev"
+            echo "type=feature" >> $GITHUB_OUTPUT
+          fi
+          echo "url=${API_URL}" >> $GITHUB_OUTPUT
+          echo "Deploying to staging with API: ${API_URL}"
+
+      - name: 🚀 Deploy to Trigger.dev Staging
+        run: bunx trigger.dev@4.0.6 deploy --env staging
+        working-directory: ./packages/jobs
+        env:
+          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+          # Sync these variables to Trigger.dev via syncEnvVars extension
+          API_URL: ${{ steps.api-url.outputs.url }}
+          INTERNAL_API_KEY: ${{ secrets.STAGING_INTERNAL_API_KEY }}
+          # Other required env vars for deployment
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+
+      - name: 📝 Comment deployment info on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const apiUrl = '${{ steps.api-url.outputs.url }}';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ✅ Background Jobs Deployed to Staging
+
+              **Environment:** Staging
+              **API URL:** ${apiUrl}
+              **Trigger.dev:** https://cloud.trigger.dev/projects/v3/proj_mqxiyipljbptdmfeivig/runs?environment=staging
+
+              All background jobs (validate-and-stage, commit-to-production, etc.) are now using the staging environment.`
+            })

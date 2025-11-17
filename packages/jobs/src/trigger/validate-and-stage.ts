@@ -303,7 +303,7 @@ interface ValidatedRowData {
   changedFields?: string[]; // Fields that changed (for UPDATE action only)
 }
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 500; // Increased from 100 to reduce network round-trips in production
 const MAX_PARALLEL_BATCHES = resolveParallelBatches();
 const TIMEOUT_MS = 1800000; // 30 minutes
 

@@ -105,16 +105,10 @@ jobs:
       
       - name: 📤 Pull Environment Variables
         run: bunx vercel env pull apps/app/.env --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-      
-      - name: 🔄 Deploy Background Jobs
-        env:
-          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
-          API_URL: ${{ steps.api-url.outputs.url }}
-          INTERNAL_API_KEY: ${{ secrets.PREVIEW_INTERNAL_API_KEY }}
-        run: |
-          bunx trigger.dev@4.0.6 deploy
-        working-directory: packages/jobs
-      
+
+      # Note: Background jobs are now deployed via staging-jobs.yaml workflow
+      # This ensures consistent Trigger.dev staging environment for all PRs
+
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |

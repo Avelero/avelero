@@ -1,6 +1,5 @@
 import "./configure-trigger";
 import { randomUUID } from "node:crypto";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import {
@@ -25,7 +24,6 @@ import {
 import { and, eq, inArray } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
 import * as schema from "@v1/db/schema";
-import type { Database as SupabaseDatabase } from "@v1/supabase/types";
 import { or, sql } from "drizzle-orm";
 import pMap from "p-map";
 import type { BrandCatalog } from "../lib/catalog-loader";
@@ -50,6 +48,68 @@ interface ValidateAndStagePayload {
   jobId: string;
   brandId: string;
   filePath: string;
+}
+
+interface StorageDownloadParams {
+  supabaseUrl: string;
+  serviceKey: string;
+  bucket: string;
+  path: string;
+}
+
+async function downloadFileFromSupabase({
+  supabaseUrl,
+  serviceKey,
+  bucket,
+  path,
+}: StorageDownloadParams): Promise<Buffer> {
+  const normalizedBaseUrl = supabaseUrl.endsWith("/")
+    ? supabaseUrl.slice(0, -1)
+    : supabaseUrl;
+
+  const encodedPath = path
+    .split("/")
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  const downloadUrl = `${normalizedBaseUrl}/storage/v1/object/${bucket}/${encodedPath}`;
+
+  let response: Response;
+  try {
+    response = await fetch(downloadUrl, {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+    });
+  } catch (networkError) {
+    throw new Error(
+      `Failed to reach Supabase Storage: ${
+        networkError instanceof Error
+          ? networkError.message
+          : String(networkError)
+      }`,
+    );
+  }
+
+  if (!response.ok) {
+    let responseBody: string | undefined;
+    try {
+      responseBody = await response.text();
+    } catch {
+      responseBody = undefined;
+    }
+
+    throw new Error(
+      `Supabase storage download failed (${response.status} ${response.statusText})${
+        responseBody ? `: ${responseBody}` : ""
+      }`,
+    );
+  }
+
+  const fileArrayBuffer = await response.arrayBuffer();
+  return Buffer.from(fileArrayBuffer);
 }
 
 /**
@@ -370,42 +430,24 @@ export const validateAndStage = task({
         throw new Error("Supabase configuration missing");
       }
 
-      const supabase = createSupabaseClient<SupabaseDatabase>(
-        supabaseUrl,
-        supabaseServiceKey,
-        {
-          auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-          },
-        },
-      );
-
       // Download file from storage
       console.log(
         "[validate-and-stage] Downloading file from storage:",
         filePath,
       );
       logger.info("Downloading file from storage", { filePath });
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from("product-imports")
-        .download(filePath);
+      const fileBuffer = await downloadFileFromSupabase({
+        supabaseUrl,
+        serviceKey: supabaseServiceKey,
+        bucket: "product-imports",
+        path: filePath,
+      });
 
-      if (downloadError || !fileData) {
-        console.error(
-          "[validate-and-stage] File download failed:",
-          downloadError,
-        );
-        throw new Error(
-          `Failed to download file: ${downloadError?.message || "Unknown error"}`,
-        );
-      }
       console.log("[validate-and-stage] File downloaded successfully");
 
       // Parse CSV/XLSX file
       console.log("[validate-and-stage] Parsing file...");
       logger.info("Parsing file");
-      const fileBuffer = Buffer.from(await fileData.arrayBuffer());
       console.log("[validate-and-stage] File buffer size:", fileBuffer.length);
 
       const parseResult = await parseFile(

@@ -45,6 +45,13 @@ export const config: TriggerConfig = {
           });
         }
 
+        if (process.env.BRANCH_NAME) {
+          envVars.push({
+            name: "BRANCH_NAME",
+            value: process.env.BRANCH_NAME,
+          });
+        }
+
         console.log(`[syncEnvVars] Environment: ${ctx.environment}`);
         console.log(
           `[syncEnvVars] Syncing ${envVars.length} environment variables`,
@@ -54,6 +61,9 @@ export const config: TriggerConfig = {
         );
         console.log(
           `[syncEnvVars] INTERNAL_API_KEY: ${process.env.INTERNAL_API_KEY ? "SET" : "NOT SET"}`,
+        );
+        console.log(
+          `[syncEnvVars] BRANCH_NAME: ${process.env.BRANCH_NAME ? "SET" : "NOT SET"}`,
         );
 
         return envVars;

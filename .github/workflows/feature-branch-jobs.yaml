@@ -83,10 +83,12 @@ jobs:
           echo "Deploying to feature environment with API: ${API_URL}"
 
       - name: 🚀 Deploy to Trigger.dev Feature Environment
-        run: bunx trigger.dev@4.0.6 deploy --env preview --env-var BRANCH_NAME=${{ steps.env-name.outputs.name }}
+        run: bunx trigger.dev@4.0.6 deploy --env preview
         working-directory: ./packages/jobs
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+          # Branch identification for tracking within preview environment
+          BRANCH_NAME: ${{ steps.env-name.outputs.name }}
           # Sync these variables to Trigger.dev via syncEnvVars extension
           API_URL: ${{ steps.api-url.outputs.url }}
           INTERNAL_API_KEY: ${{ secrets.STAGING_INTERNAL_API_KEY }}

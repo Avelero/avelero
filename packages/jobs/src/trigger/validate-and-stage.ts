@@ -39,7 +39,12 @@ import {
   lookupSeasonId,
   lookupSizeId,
 } from "../lib/catalog-loader";
-import { findDuplicates, normalizeHeaders, parseFile } from "../lib/csv-parser";
+import {
+  findCompositeDuplicates,
+  findDuplicates,
+  normalizeHeaders,
+  parseFile,
+} from "../lib/csv-parser";
 import { EntityType, ValueMapper } from "../lib/value-mapper";
 import { ProgressEmitter } from "./progress-emitter";
 
@@ -484,21 +489,31 @@ export const validateAndStage = task({
         normalizeHeaders(parseResult.headers);
 
       // ========================================================================
-      // DUPLICATE DETECTION - UPID-based only for performance
+      // DUPLICATE DETECTION - Two-level approach for data integrity:
+      // 1. Check for duplicate UPIDs (when provided)
+      // 2. Check for duplicate composite keys (product_identifier + colors + size)
       // ========================================================================
-      console.log("[validate-and-stage] Checking for duplicate UPIDs...");
+      console.log("[validate-and-stage] Checking for duplicates...");
 
       // Check for duplicate UPIDs (when provided in CSV)
       const upidDuplicates = findDuplicates(parseResult.data, ["upid"]);
 
-      // Build a map of row numbers that have duplicate UPIDs
+      // Check for duplicate composite keys (true variant duplicates)
+      // This catches duplicates even when UPID is not provided
+      const compositeDuplicates = findCompositeDuplicates(parseResult.data, [
+        "product_identifier",
+        "colors",
+        "size",
+      ]);
+
+      // Build a map of row numbers that have any type of duplicate
       const duplicateRowNumbers = new Set<number>();
       const duplicateDetails = new Map<
         number,
-        { type: "upid"; value: string }
+        { type: "upid" | "composite"; value: string }
       >();
 
-      // Mark rows with duplicate UPIDs
+      // Mark rows with duplicate UPIDs (highest priority)
       for (const dup of upidDuplicates) {
         for (const rowNum of dup.rows) {
           duplicateRowNumbers.add(rowNum);
@@ -506,17 +521,36 @@ export const validateAndStage = task({
         }
       }
 
-      if (upidDuplicates.length > 0) {
-        console.log("[validate-and-stage] Found duplicate UPIDs:", {
-          duplicateCount: upidDuplicates.length,
+      // Mark rows with duplicate composite keys (if not already marked)
+      for (const dup of compositeDuplicates) {
+        for (const rowNum of dup.rows) {
+          duplicateRowNumbers.add(rowNum);
+          // Only set if not already marked as UPID duplicate
+          if (!duplicateDetails.has(rowNum)) {
+            duplicateDetails.set(rowNum, {
+              type: "composite",
+              value: dup.compositeKey,
+            });
+          }
+        }
+      }
+
+      const totalDuplicates =
+        upidDuplicates.length + compositeDuplicates.length;
+
+      if (totalDuplicates > 0) {
+        console.log("[validate-and-stage] Found duplicates:", {
+          upidDuplicateCount: upidDuplicates.length,
+          compositeDuplicateCount: compositeDuplicates.length,
           affectedRows: duplicateRowNumbers.size,
         });
-        logger.warn("Duplicate UPIDs found in file", {
-          duplicateCount: upidDuplicates.length,
+        logger.warn("Duplicate values found in file", {
+          upidDuplicateCount: upidDuplicates.length,
+          compositeDuplicateCount: compositeDuplicates.length,
           affectedRows: duplicateRowNumbers.size,
         });
       } else {
-        console.log("[validate-and-stage] No duplicate UPIDs found");
+        console.log("[validate-and-stage] No duplicates found");
       }
 
       // Clean up any existing staging data for this job (handles retry scenarios)
@@ -654,13 +688,18 @@ export const validateAndStage = task({
           });
 
           // Load existing variants for this batch only (per-batch queries)
+          // Support both UPID and SKU matching since UPID is optional
           const batchUpids = batch
             .map((r) => (r as CSVRow).upid)
             .filter((v): v is string => !!v && v.trim() !== "");
+          const batchSkus = batch
+            .map((r) => (r as CSVRow).sku)
+            .filter((v): v is string => !!v && v.trim() !== "");
 
           const existingVariantsByUpid = new Map<string, ExistingVariant>();
+          const existingVariantsBySku = new Map<string, ExistingVariant>();
 
-          if (batchUpids.length > 0) {
+          if (batchUpids.length > 0 || batchSkus.length > 0) {
             const existingVariants = await db
               .select({
                 variantId: productVariants.id,
@@ -687,7 +726,14 @@ export const validateAndStage = task({
               .where(
                 and(
                   eq(products.brandId, brandId),
-                  inArray(productVariants.upid, batchUpids),
+                  or(
+                    batchUpids.length > 0
+                      ? inArray(productVariants.upid, batchUpids)
+                      : sql`FALSE`,
+                    batchSkus.length > 0
+                      ? inArray(productVariants.sku, batchSkus)
+                      : sql`FALSE`,
+                  ),
                 ),
               );
 
@@ -713,8 +759,12 @@ export const validateAndStage = task({
                 productImageUrl: v.productImageUrl,
               };
 
+              // Index by both UPID and SKU for flexible matching
               if (v.upid && v.upid.trim() !== "") {
                 existingVariantsByUpid.set(v.upid, variant);
+              }
+              if (v.sku && v.sku.trim() !== "") {
+                existingVariantsBySku.set(v.sku, variant);
               }
             }
           }
@@ -741,6 +791,7 @@ export const validateAndStage = task({
                   duplicateRowNumbers,
                   duplicateDetails,
                   existingVariantsByUpid,
+                  existingVariantsBySku,
                   db,
                 );
 
@@ -1500,8 +1551,17 @@ async function validateRow(
     }
   >,
   duplicateRowNumbers: Set<number>,
-  duplicateDetails: Map<number, { type: "upid"; value: string }>,
+  duplicateDetails: Map<number, { type: "upid" | "composite"; value: string }>,
   existingVariantsByUpid: Map<
+    string,
+    {
+      id: string;
+      variant_id: string;
+      upid: string | null;
+      sku: string | null;
+    }
+  >,
+  existingVariantsBySku: Map<
     string,
     {
       id: string;
@@ -1515,17 +1575,30 @@ async function validateRow(
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
 
-  // HARD ERROR: Duplicate UPID detection
+  // HARD ERROR: Duplicate detection (UPID or composite key)
   if (duplicateRowNumbers.has(rowNumber)) {
     const dupInfo = duplicateDetails.get(rowNumber);
-    const duplicateValue = dupInfo?.value || "unknown";
-    errors.push({
-      type: "HARD_ERROR",
-      subtype: "DUPLICATE_VALUE",
-      field: "upid",
-      message: `Duplicate UPID: "${duplicateValue}" appears multiple times in the file`,
-      severity: "error",
-    });
+    if (dupInfo) {
+      if (dupInfo.type === "upid") {
+        errors.push({
+          type: "HARD_ERROR",
+          subtype: "DUPLICATE_VALUE",
+          field: "upid",
+          message: `Duplicate UPID: "${dupInfo.value}" appears multiple times in the file`,
+          severity: "error",
+        });
+      } else {
+        // Composite key duplicate
+        errors.push({
+          type: "HARD_ERROR",
+          subtype: "DUPLICATE_VALUE",
+          field: "product_identifier+colors+size",
+          message:
+            "Duplicate variant: This combination of product, color, and size appears multiple times in the file",
+          severity: "error",
+        });
+      }
+    }
   }
 
   // HARD ERROR: Required field validation
@@ -1925,16 +1998,24 @@ async function validateRow(
   }
 
   // ========================================================================
-  // CREATE vs UPDATE DETECTION - UPID-based matching only
+  // CREATE vs UPDATE DETECTION - UPID and SKU matching
   // ========================================================================
 
-  // Look up by UPID (required field)
+  // Look up by UPID first (preferred), then by SKU (fallback)
+  // Since UPID is optional in schema, SKU matching ensures we don't duplicate existing variants
   const matchedByUpid = (upid ? existingVariantsByUpid.get(upid) : null) as
     | ExistingVariant
     | null
     | undefined;
 
-  const existingVariant: ExistingVariant | null = matchedByUpid || null;
+  const matchedBySku = (sku ? existingVariantsBySku.get(sku) : null) as
+    | ExistingVariant
+    | null
+    | undefined;
+
+  // Prefer UPID match, fallback to SKU match
+  const existingVariant: ExistingVariant | null =
+    matchedByUpid || matchedBySku || null;
 
   // Generate UUIDs for new records or use existing
   const productId = existingVariant?.id || randomUUID();

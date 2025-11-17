@@ -927,7 +927,9 @@ export function findCompositeDuplicates<T extends Record<string, unknown>>(
 
     // Only check if all parts exist (skip rows with missing required fields)
     if (keyParts.every((part) => part !== "")) {
-      const compositeKey = keyParts.join("|");
+      // Use JSON.stringify to avoid collisions when data contains delimiters
+      // This ensures "A|B" + "C" is distinct from "A" + "B|C"
+      const compositeKey = JSON.stringify(keyParts);
       const existing = valueMap.get(compositeKey) || [];
       existing.push(index + 1); // 1-indexed for user display
       valueMap.set(compositeKey, existing);

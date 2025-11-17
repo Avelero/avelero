@@ -1793,7 +1793,7 @@ async function validateRow(
       }
     }
     // For variant, use first color as primary
-    colorId = colorIds.length > 0 ? (colorIds[0] ?? null) : null;
+    colorId = colorIds.length > 0 ? colorIds[0] ?? null : null;
   } else if (row.color_name) {
     // Legacy single color support
     colorId = lookupColorId(catalog, row.color_name, "color_name");

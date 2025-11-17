@@ -1626,6 +1626,9 @@ async function validateRow(
   // Auto-generate UPID if not provided (variant-level identification)
   const upid = row.upid?.trim() || generateUpid();
 
+  // Extract SKU for variant matching (optional field)
+  const sku = row.sku?.trim() || null;
+
   // HARD ERROR: Check string length limits
   if (row.product_name && row.product_name.length > 100) {
     errors.push({

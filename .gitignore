@@ -119,3 +119,10 @@ GEMINI.md
 #mcp_files
 .env.example
 .taskmaster
+
+# Test CSV files
+csv/
+*.csv
+!apps/api/public/templates/*.csv
+!apps/app/public/templates/*.csv
+generate-test-csvs.py

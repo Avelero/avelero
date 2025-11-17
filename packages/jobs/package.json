@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "clean": "rm -rf .turbo node_modules",
+    "dev": "bun run jobs",
     "lint": "biome check .",
-    "jobs": "trigger dev",
-    "deploy": "trigger deploy",
+    "jobs": "bash ./scripts/run-trigger.sh dev",
+    "deploy": "bash ./scripts/run-trigger.sh deploy",
+    "login": "npx --yes trigger.dev@4.0.6 login",
+    "whoami": "npx --yes trigger.dev@4.0.6 whoami",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit"
   },
@@ -14,13 +17,27 @@
     "@react-email/render": "^1.2.0",
     "@supabase/supabase-js": "^2.57.2",
     "@trigger.dev/sdk": "4.0.6",
+    "@v1/db": "workspace:*",
     "@v1/email": "workspace:*",
     "@v1/supabase": "workspace:*",
+    "@v1/utils": "workspace:*",
+    "dotenv": "^17.2.3",
+    "jschardet": "^3.1.4",
+    "p-map": "^7.0.2",
+    "papaparse": "^5.5.3",
     "react": "19.1.1",
-    "resend": "^6.4.2"
+    "resend": "^6.4.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@trigger.dev/build": "4.0.6",
+    "@types/papaparse": "^5.5.0",
     "trigger.dev": "4.0.6",
     "typescript": "^5.9.2"
+  },
+  "exports": {
+    "./trigger": "./src/trigger/index.ts",
+    "./trigger/validate-and-stage": "./src/trigger/validate-and-stage.ts",
+    "./trigger/commit-to-production": "./src/trigger/commit-to-production.ts"
   }
 }

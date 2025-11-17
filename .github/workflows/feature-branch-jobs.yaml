@@ -1,0 +1,114 @@
+name: Feature Branch Jobs Deploy
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'feat/**'
+    paths:
+      - packages/jobs/**
+      - packages/db/**
+      - packages/supabase/**
+      - packages/email/**
+      - packages/utils/**
+      - .github/workflows/feature-branch-jobs.yaml
+
+jobs:
+  deploy:
+    name: 🚀 Deploy to Feature Branch Environment
+    runs-on: ubuntu-latest
+    concurrency:
+      # Each feature branch gets its own concurrency group
+      group: trigger-feature-${{ github.ref_name }}
+      cancel-in-progress: true
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🥟 Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📦 Install dependencies
+        run: bun install
+
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./packages/jobs
+
+      - name: 🪐 Check TypeScript
+        run: bun run typecheck
+        working-directory: ./packages/jobs
+
+      # Sanitize branch name for use as environment name
+      # Trigger.dev environment names must be alphanumeric with hyphens
+      - name: 🔧 Prepare environment name
+        id: env-name
+        run: |
+          # Get branch name and sanitize it
+          BRANCH_NAME="${{ github.ref_name }}"
+          # Replace slashes and special chars with hyphens, convert to lowercase
+          ENV_NAME=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
+          # Truncate to 50 chars (Trigger.dev limit)
+          ENV_NAME=$(echo "$ENV_NAME" | cut -c1-50)
+          echo "name=${ENV_NAME}" >> $GITHUB_OUTPUT
+          echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "Deploying branch '${BRANCH_NAME}' to environment '${ENV_NAME}'"
+
+      # Feature branches can use staging database or branch-specific database
+      # For now, using staging database - adjust if you have per-branch DBs
+      - name: 🔧 Set API URL
+        id: api-url
+        run: |
+          # For feature branches, you can either:
+          # 1. Use a shared staging API (simple)
+          # 2. Deploy a branch-specific API to Fly.io (advanced)
+          # 
+          # Option 1 (current): Shared staging API
+          API_URL="https://staging-avelero-api.fly.dev"
+          
+          # Option 2 (future): Branch-specific Fly.io deployment
+          # Uncomment and adjust if you set up per-branch Fly.io apps:
+          # SANITIZED_BRANCH=$(echo "${{ github.ref_name }}" | sed 's/[^a-z0-9-]/-/g' | cut -c1-30)
+          # API_URL="https://${SANITIZED_BRANCH}-avelero-api.fly.dev"
+          
+          echo "url=${API_URL}" >> $GITHUB_OUTPUT
+          echo "Deploying to feature environment with API: ${API_URL}"
+
+      - name: 🚀 Deploy to Trigger.dev Feature Environment
+        run: bunx trigger.dev@4.0.6 deploy --env preview
+        working-directory: ./packages/jobs
+        env:
+          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+          # Branch identification for tracking within preview environment
+          BRANCH_NAME: ${{ steps.env-name.outputs.name }}
+          # Sync these variables to Trigger.dev via syncEnvVars extension
+          API_URL: ${{ steps.api-url.outputs.url }}
+          INTERNAL_API_KEY: ${{ secrets.STAGING_INTERNAL_API_KEY }}
+          # Other required env vars for deployment
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+
+      - name: 📝 Log deployment details
+        run: |
+          echo "✅ Successfully deployed to feature branch environment"
+          echo ""
+          echo "📋 Deployment Details:"
+          echo "  Branch: ${{ steps.env-name.outputs.branch }}"
+          echo "  Environment: preview (with BRANCH_NAME=${{ steps.env-name.outputs.name }})"
+          echo "  API URL: ${{ steps.api-url.outputs.url }}"
+          echo ""
+          echo "🔗 View in Trigger.dev:"
+          echo "  https://cloud.trigger.dev/projects/v3/proj_mqxiyipljbptdmfeivig/runs?environment=preview"
+          echo ""
+          echo "💡 Feature branches use the preview environment with branch identification"
+          echo "   via BRANCH_NAME environment variable for tracking."

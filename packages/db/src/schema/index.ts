@@ -12,8 +12,10 @@ export * from "./brands/brand-colors";
 export * from "./brands/brand-eco-claims";
 export * from "./brands/brand-facilities";
 export * from "./brands/brand-materials";
+export * from "./brands/brand-seasons";
 export * from "./brands/brand-services";
 export * from "./brands/brand-sizes";
+export * from "./brands/brand-tags";
 export * from "./brands/care-codes";
 export * from "./brands/showcase-brands";
 
@@ -27,12 +29,14 @@ export * from "./products/product-identifiers";
 export * from "./products/product-variant-identifiers";
 export * from "./products/product-eco-claims";
 export * from "./products/product-care-codes";
+export * from "./products/tags-on-product";
 
 // Data schemas
 export * from "./data/file-assets";
 export * from "./data/import-jobs";
 export * from "./data/import-rows";
 export * from "./data/value-mappings";
+export * from "./data/staging-tables";
 
 // Passport schemas
 export * from "./passports/passports";

@@ -6,6 +6,30 @@
  */
 
 /**
+ * Transforms season input from snake_case schema to camelCase DB format.
+ */
+export function transformSeasonInput<T extends Record<string, any>>(
+  input: T,
+): any {
+  const result: any = {};
+
+  for (const [key, value] of Object.entries(input)) {
+    switch (key) {
+      case "start_date":
+        result.startDate = value;
+        break;
+      case "end_date":
+        result.endDate = value;
+        break;
+      default:
+        result[key] = value;
+    }
+  }
+
+  return result;
+}
+
+/**
  * Transforms size input from snake_case schema to camelCase DB format.
  */
 export function transformSizeInput<T extends Record<string, any>>(
@@ -15,6 +39,9 @@ export function transformSizeInput<T extends Record<string, any>>(
 
   for (const [key, value] of Object.entries(input)) {
     switch (key) {
+      case "category_group":
+        result.categoryGroup = value;
+        break;
       case "category_id":
         result.categoryId = value;
         break;

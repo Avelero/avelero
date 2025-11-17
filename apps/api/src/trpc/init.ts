@@ -134,11 +134,25 @@ export async function createTRPCContextFromHeaders(
 
   let brandId: string | null | undefined = undefined;
   if (user) {
-    const userRow = await db.query.users.findFirst({
-      columns: { brandId: true },
-      where: (tbl, { eq }) => eq(tbl.id, user.id),
-    });
-    brandId = userRow?.brandId ?? null;
+    try {
+      // Query using Supabase client instead of Drizzle to respect RLS policies
+      // The Supabase client has the auth context, while Drizzle doesn't
+      const { data: userRow, error } = await supabase
+        .from("users")
+        .select("brand_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("[trpc-context] Failed to fetch user brandId:", error);
+        brandId = null;
+      } else {
+        brandId = userRow?.brand_id ?? null;
+      }
+    } catch (err) {
+      console.warn("[trpc-context] Error fetching user brandId:", err);
+      brandId = null;
+    }
   }
 
   return {

@@ -6,6 +6,7 @@ import {
   brandEcoClaims,
   brandFacilities,
   brandMaterials,
+  brandSeasons,
   brandSizes,
   showcaseBrands,
 } from "../schema";
@@ -43,7 +44,8 @@ export type CatalogEntityType =
   | "ECO_CLAIM"
   | "FACILITY"
   | "SHOWCASE_BRAND"
-  | "CERTIFICATION";
+  | "CERTIFICATION"
+  | "SEASON";
 
 /**
  * Validation error structure
@@ -110,6 +112,78 @@ export async function deleteColor(db: Database, brandId: string, id: string) {
   return row;
 }
 
+// Seasons
+export async function listSeasonsForBrand(db: Database, brandId: string) {
+  return db
+    .select({
+      id: brandSeasons.id,
+      name: brandSeasons.name,
+      start_date: brandSeasons.startDate,
+      end_date: brandSeasons.endDate,
+      ongoing: brandSeasons.ongoing,
+      created_at: brandSeasons.createdAt,
+      updated_at: brandSeasons.updatedAt,
+    })
+    .from(brandSeasons)
+    .where(eq(brandSeasons.brandId, brandId))
+    .orderBy(asc(brandSeasons.name));
+}
+
+export async function createSeason(
+  db: Database,
+  brandId: string,
+  input: {
+    name: string;
+    startDate?: string;
+    endDate?: string;
+    ongoing?: boolean;
+  },
+) {
+  const [row] = await db
+    .insert(brandSeasons)
+    .values({
+      brandId: brandId,
+      name: input.name,
+      startDate: input.startDate ? new Date(input.startDate) : null,
+      endDate: input.endDate ? new Date(input.endDate) : null,
+      ongoing: input.ongoing ?? false,
+    })
+    .returning({ id: brandSeasons.id });
+  return row;
+}
+
+export async function updateSeason(
+  db: Database,
+  brandId: string,
+  id: string,
+  input: {
+    name?: string;
+    startDate?: string | null;
+    endDate?: string | null;
+    ongoing?: boolean;
+  },
+) {
+  const [row] = await db
+    .update(brandSeasons)
+    .set({
+      name: input.name,
+      startDate: input.startDate ? new Date(input.startDate) : (input.startDate === null ? null : undefined),
+      endDate: input.endDate ? new Date(input.endDate) : (input.endDate === null ? null : undefined),
+      ongoing: input.ongoing,
+    })
+    .where(and(eq(brandSeasons.id, id), eq(brandSeasons.brandId, brandId)))
+    .returning({ id: brandSeasons.id });
+  return row;
+}
+
+export async function deleteSeason(db: Database, brandId: string, id: string) {
+  const [row] = await db
+    .delete(brandSeasons)
+    .where(and(eq(brandSeasons.id, id), eq(brandSeasons.brandId, brandId)))
+    .returning({ id: brandSeasons.id });
+  return row;
+}
+
 // Sizes
 /**
  * Validates if a category group string is valid
@@ -124,28 +198,22 @@ export function isValidCategoryGroup(
 }
 
 /**
- * Lists sizes for a brand, optionally filtered by category group or legacy category ID
+ * Lists sizes for a brand, optionally filtered by category ID
  *
  * @param db - Database connection
  * @param brandId - Brand UUID
- * @param opts - Optional filters for categoryGroup (preferred) or categoryId (legacy)
+ * @param opts - Optional filters for categoryId
  * @returns List of sizes
  */
 export async function listSizes(
   db: Database,
   brandId: string,
-  opts?: { categoryGroup?: string; categoryId?: string },
+  opts?: { categoryId?: string },
 ) {
   let where: ReturnType<typeof and> | ReturnType<typeof eq>;
 
-  if (opts?.categoryGroup) {
-    // New approach: filter by category group
-    where = and(
-      eq(brandSizes.brandId, brandId),
-      eq(brandSizes.categoryGroup, opts.categoryGroup),
-    );
-  } else if (opts?.categoryId) {
-    // Legacy approach: filter by category ID
+  if (opts?.categoryId) {
+    // Filter by category ID
     where = and(
       eq(brandSizes.brandId, brandId),
       eq(brandSizes.categoryId, opts.categoryId),
@@ -160,7 +228,6 @@ export async function listSizes(
       id: brandSizes.id,
       name: brandSizes.name,
       sort_index: brandSizes.sortIndex,
-      category_group: brandSizes.categoryGroup,
       category_id: brandSizes.categoryId,
       created_at: brandSizes.createdAt,
       updated_at: brandSizes.updatedAt,
@@ -175,7 +242,7 @@ export async function listSizes(
  *
  * @param db - Database connection
  * @param brandId - Brand UUID
- * @param input - Size data with categoryGroup (preferred) or categoryId (legacy)
+ * @param input - Size data
  * @returns Created size ID
  */
 export async function createSize(
@@ -183,24 +250,15 @@ export async function createSize(
   brandId: string,
   input: {
     name: string;
-    categoryGroup?: string;
     categoryId?: string;
     sortIndex?: number;
   },
 ) {
-  // Validate category group if provided
-  if (input.categoryGroup && !isValidCategoryGroup(input.categoryGroup)) {
-    throw new Error(
-      `Invalid category group: ${input.categoryGroup}. Must be one of: ${VALID_CATEGORY_GROUPS.join(", ")}`,
-    );
-  }
-
   const [row] = await db
     .insert(brandSizes)
     .values({
-      brandId,
+      brandId: brandId,
       name: input.name,
-      categoryGroup: input.categoryGroup ?? null,
       categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
@@ -223,27 +281,14 @@ export async function updateSize(
   id: string,
   input: {
     name?: string;
-    categoryGroup?: string | null;
     categoryId?: string | null;
     sortIndex?: number | null;
   },
 ) {
-  // Validate category group if provided and not null
-  if (
-    input.categoryGroup !== undefined &&
-    input.categoryGroup !== null &&
-    !isValidCategoryGroup(input.categoryGroup)
-  ) {
-    throw new Error(
-      `Invalid category group: ${input.categoryGroup}. Must be one of: ${VALID_CATEGORY_GROUPS.join(", ")}`,
-    );
-  }
-
   const [row] = await db
     .update(brandSizes)
     .set({
       name: input.name,
-      categoryGroup: input.categoryGroup ?? null,
       categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
@@ -511,11 +556,14 @@ export async function listFacilities(db: Database, brandId: string) {
       id: brandFacilities.id,
       display_name: brandFacilities.displayName,
       legal_name: brandFacilities.legalName,
-      address: brandFacilities.address,
+      address_line_1: brandFacilities.addressLine1,
+      address_line_2: brandFacilities.addressLine2,
       city: brandFacilities.city,
+      state: brandFacilities.state,
+      zip: brandFacilities.zip,
       country_code: brandFacilities.countryCode,
-      contact: brandFacilities.contact,
-      vat_number: brandFacilities.vatNumber,
+      phone: brandFacilities.phone,
+      email: brandFacilities.email,
       created_at: brandFacilities.createdAt,
       updated_at: brandFacilities.updatedAt,
     })
@@ -530,24 +578,30 @@ export async function createFacility(
   input: {
     displayName: string;
     legalName?: string;
-    address?: string;
+    addressLine1?: string;
+    addressLine2?: string;
     city?: string;
+    state?: string;
+    zip?: string;
     countryCode?: string;
-    contact?: string;
-    vatNumber?: string;
+    phone?: string;
+    email?: string;
   },
 ) {
   const [row] = await db
     .insert(brandFacilities)
     .values({
-      brandId,
+      brandId: brandId,
       displayName: input.displayName,
       legalName: input.legalName ?? null,
-      address: input.address ?? null,
+      addressLine1: input.addressLine1 ?? null,
+      addressLine2: input.addressLine2 ?? null,
       city: input.city ?? null,
+      state: input.state ?? null,
+      zip: input.zip ?? null,
       countryCode: input.countryCode ?? null,
-      contact: input.contact ?? null,
-      vatNumber: input.vatNumber ?? null,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
     })
     .returning({ id: brandFacilities.id });
   return row;
@@ -560,11 +614,14 @@ export async function updateFacility(
   input: Partial<{
     displayName: string;
     legalName: string | null;
-    address: string | null;
+    addressLine1: string | null;
+    addressLine2: string | null;
     city: string | null;
+    state: string | null;
+    zip: string | null;
     countryCode: string | null;
-    contact: string | null;
-    vatNumber: string | null;
+    phone: string | null;
+    email: string | null;
   }>,
 ) {
   const [row] = await db
@@ -572,11 +629,14 @@ export async function updateFacility(
     .set({
       displayName: input.displayName,
       legalName: input.legalName ?? null,
-      address: input.address ?? null,
+      addressLine1: input.addressLine1 ?? null,
+      addressLine2: input.addressLine2 ?? null,
       city: input.city ?? null,
+      state: input.state ?? null,
+      zip: input.zip ?? null,
       countryCode: input.countryCode ?? null,
-      contact: input.contact ?? null,
-      vatNumber: input.vatNumber ?? null,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
     })
     .where(
       and(eq(brandFacilities.id, id), eq(brandFacilities.brandId, brandId)),
@@ -763,21 +823,16 @@ export async function checkDuplicateName(
     }
 
     case "SIZE": {
-      // Build where clause based on categoryGroup (preferred) or categoryId (legacy)
+      // Build where clause based on categoryId
       const conditions = [
         eq(brandSizes.brandId, brandId),
         sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
       ];
 
-      if (options?.categoryGroup) {
-        // New approach: check within category group
-        conditions.push(eq(brandSizes.categoryGroup, options.categoryGroup));
-      } else if (options?.categoryId) {
-        // Legacy approach: check within category ID
+      if (options?.categoryId) {
         conditions.push(eq(brandSizes.categoryId, options.categoryId));
       } else {
-        // No category specified: check for sizes without category group or ID
-        conditions.push(sql`${brandSizes.categoryGroup} IS NULL`);
+        // No category specified: check for sizes without category ID
         conditions.push(sql`${brandSizes.categoryId} IS NULL`);
       }
 
@@ -853,6 +908,19 @@ export async function checkDuplicateName(
       return (result?.count ?? 0) > 0;
     }
 
+    case "SEASON": {
+      const [result] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(brandSeasons)
+        .where(
+          and(
+            eq(brandSeasons.brandId, brandId),
+            sql`LOWER(${brandSeasons.name}) = LOWER(${name})`,
+          ),
+        );
+      return (result?.count ?? 0) > 0;
+    }
+
     default: {
       const _exhaustive: never = entityType;
       throw new Error(`Unknown entity type: ${_exhaustive}`);
@@ -910,18 +978,15 @@ export async function findEntityByName(
     }
 
     case "SIZE": {
-      // Build where clause based on categoryGroup (preferred) or categoryId (legacy)
+      // Build where clause based on categoryId
       const conditions = [
         eq(brandSizes.brandId, brandId),
         sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
       ];
 
-      if (options?.categoryGroup) {
-        conditions.push(eq(brandSizes.categoryGroup, options.categoryGroup));
-      } else if (options?.categoryId) {
+      if (options?.categoryId) {
         conditions.push(eq(brandSizes.categoryId, options.categoryId));
       } else {
-        conditions.push(sql`${brandSizes.categoryGroup} IS NULL`);
         conditions.push(sql`${brandSizes.categoryId} IS NULL`);
       }
 
@@ -1009,6 +1074,20 @@ export async function findEntityByName(
       return result ?? null;
     }
 
+    case "SEASON": {
+      const [result] = await db
+        .select({ id: brandSeasons.id, name: brandSeasons.name })
+        .from(brandSeasons)
+        .where(
+          and(
+            eq(brandSeasons.brandId, brandId),
+            sql`LOWER(${brandSeasons.name}) = LOWER(${name})`,
+          ),
+        )
+        .limit(1);
+      return result ?? null;
+    }
+
     default: {
       const _exhaustive: never = entityType;
       throw new Error(`Unknown entity type: ${_exhaustive}`);
@@ -1060,7 +1139,6 @@ export function validateColorInput(name: string): ValidationResult {
  */
 export function validateSizeInput(input: {
   name: string;
-  categoryGroup?: string;
   categoryId?: string;
   sortIndex?: number;
 }): ValidationResult {
@@ -1077,15 +1155,6 @@ export function validateSizeInput(input: {
       field: "name",
       message: "Size name cannot exceed 100 characters",
       code: "FIELD_TOO_LONG",
-    });
-  }
-
-  // Validate category group if provided
-  if (input.categoryGroup && !isValidCategoryGroup(input.categoryGroup)) {
-    errors.push({
-      field: "categoryGroup",
-      message: `Invalid category group. Must be one of: ${VALID_CATEGORY_GROUPS.join(", ")}`,
-      code: "INVALID_VALUE",
     });
   }
 
@@ -1171,6 +1240,69 @@ export function validateEcoClaimInput(claim: string): ValidationResult {
 }
 
 /**
+ * Validates season input data
+ *
+ * @param input - Season data
+ * @returns Validation result with any errors
+ */
+export function validateSeasonInput(input: {
+  name: string;
+  startDate?: string;
+  endDate?: string;
+  ongoing?: boolean;
+}): ValidationResult {
+  const errors: ValidationError[] = [];
+
+  if (!input.name || input.name.trim().length === 0) {
+    errors.push({
+      field: "name",
+      message: "Season name is required",
+      code: "REQUIRED_FIELD",
+    });
+  } else if (input.name.length > 100) {
+    errors.push({
+      field: "name",
+      message: "Season name cannot exceed 100 characters",
+      code: "FIELD_TOO_LONG",
+    });
+  }
+
+  // Date validation
+  if (input.startDate) {
+    const startDate = new Date(input.startDate);
+    if (isNaN(startDate.getTime())) {
+      errors.push({
+        field: "startDate",
+        message: "Invalid start date format",
+        code: "INVALID_FORMAT",
+      });
+    }
+  }
+
+  if (input.endDate) {
+    const endDate = new Date(input.endDate);
+    if (isNaN(endDate.getTime())) {
+      errors.push({
+        field: "endDate",
+        message: "Invalid end date format",
+        code: "INVALID_FORMAT",
+      });
+    } else if (input.startDate) {
+      const startDate = new Date(input.startDate);
+      if (!isNaN(startDate.getTime()) && endDate <= startDate) {
+        errors.push({
+          field: "endDate",
+          message: "End date must be after start date",
+          code: "INVALID_VALUE",
+        });
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
  * Validates facility input data
  *
  * @param input - Facility data
@@ -1179,11 +1311,14 @@ export function validateEcoClaimInput(claim: string): ValidationResult {
 export function validateFacilityInput(input: {
   displayName: string;
   legalName?: string;
-  address?: string;
+  addressLine1?: string;
+  addressLine2?: string;
   city?: string;
+  state?: string;
+  zip?: string;
   countryCode?: string;
-  contact?: string;
-  vatNumber?: string;
+  phone?: string;
+  email?: string;
 }): ValidationResult {
   const errors: ValidationError[] = [];
 
@@ -1209,6 +1344,16 @@ export function validateFacilityInput(input: {
     });
   }
 
+  // Email validation
+  if (input.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email)) {
+    errors.push({
+      field: "email",
+      message: "Invalid email format",
+      code: "INVALID_FORMAT",
+    });
+  }
+
+  // Country code validation
   if (
     input.countryCode &&
     !/^[A-Z]{2}$/.test(input.countryCode.toUpperCase())
@@ -1411,7 +1556,6 @@ export async function validateAndCreateEntity(
       validation = validateSizeInput(
         input as {
           name: string;
-          categoryGroup?: string;
           categoryId?: string;
           sortIndex?: number;
         },
@@ -1432,6 +1576,17 @@ export async function validateAndCreateEntity(
     case "ECO_CLAIM":
       validation = validateEcoClaimInput((input as { claim: string }).claim);
       name = (input as { claim: string }).claim;
+      break;
+    case "SEASON":
+      validation = validateSeasonInput(
+        input as {
+          name: string;
+          startDate?: string;
+          endDate?: string;
+          ongoing?: boolean;
+        },
+      );
+      name = (input as { name: string }).name;
       break;
     case "FACILITY":
       validation = validateFacilityInput(input as { displayName: string });
@@ -1461,11 +1616,9 @@ export async function validateAndCreateEntity(
 
   // Check for duplicates
   const inputWithOptions = input as {
-    categoryGroup?: string;
     categoryId?: string;
   };
   const duplicate = await checkDuplicateName(db, brandId, entityType, name, {
-    categoryGroup: inputWithOptions.categoryGroup,
     categoryId: inputWithOptions.categoryId,
   });
 
@@ -1488,7 +1641,6 @@ export async function validateAndCreateEntity(
         brandId,
         input as {
           name: string;
-          categoryGroup?: string;
           categoryId?: string;
           sortIndex?: number;
         },
@@ -1508,6 +1660,18 @@ export async function validateAndCreateEntity(
       break;
     case "ECO_CLAIM":
       result = await createEcoClaim(db, brandId, input as { claim: string });
+      break;
+    case "SEASON":
+      result = await createSeason(
+        db,
+        brandId,
+        input as {
+          name: string;
+          startDate?: string;
+          endDate?: string;
+          ongoing?: boolean;
+        },
+      );
       break;
     case "FACILITY":
       result = await createFacility(

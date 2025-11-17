@@ -8,11 +8,11 @@
  */
 import { tasks } from "@trigger.dev/sdk/v3";
 import {
-  desc,
-  eq,
   acceptBrandInvite,
   createBrandInvites,
   declineBrandInvite,
+  desc,
+  eq,
   revokeBrandInviteByOwner,
 } from "@v1/db/queries";
 import { brandInvites, users } from "@v1/db/schema";

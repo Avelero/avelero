@@ -38,10 +38,12 @@ export function MainMenu({ onSelectAction, isExpanded = false }: Props) {
       <div className="flex flex-col gap-2">
         {items.map((item) => {
           // Special handling for root path to avoid matching all paths
-          const isActive = item.path === "/" 
-            ? pathname === "/" 
-            : (pathname?.startsWith(item.path) ?? false);
-          const animationData = animations[item.path as keyof typeof animations];
+          const isActive =
+            item.path === "/"
+              ? pathname === "/"
+              : pathname?.startsWith(item.path) ?? false;
+          const animationData =
+            animations[item.path as keyof typeof animations];
 
           return (
             <SidebarButton

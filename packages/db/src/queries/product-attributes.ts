@@ -11,10 +11,15 @@ import {
   products,
 } from "../schema";
 
+type CompletionEvalOptions = {
+  skipCompletionEval?: boolean;
+};
+
 export async function upsertProductMaterials(
   db: Database,
   productId: string,
   items: { brandMaterialId: string; percentage?: string | number }[],
+  options?: CompletionEvalOptions,
 ) {
   let countInserted = 0;
   await db.transaction(async (tx) => {
@@ -43,7 +48,7 @@ export async function upsertProductMaterials(
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
-    if (brandId) {
+    if (brandId && !options?.skipCompletionEval) {
       await evaluateAndUpsertCompletion(
         tx as unknown as Database,
         brandId,
@@ -124,6 +129,7 @@ export async function upsertProductEnvironment(
   db: Database,
   productId: string,
   input: { carbonKgCo2e?: string; waterLiters?: string },
+  options?: CompletionEvalOptions,
 ) {
   let result: { product_id: string } | undefined;
   await db.transaction(async (tx) => {
@@ -148,7 +154,7 @@ export async function upsertProductEnvironment(
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
-    if (brandId) {
+    if (brandId && !options?.skipCompletionEval) {
       await evaluateAndUpsertCompletion(
         tx as unknown as Database,
         brandId,
@@ -166,6 +172,7 @@ export async function setProductJourneySteps(
   db: Database,
   productId: string,
   steps: { sortIndex: number; stepType: string; facilityId: string }[],
+  options?: CompletionEvalOptions,
 ) {
   let countInserted = 0;
   await db.transaction(async (tx) => {
@@ -193,7 +200,7 @@ export async function setProductJourneySteps(
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
-    if (brandId) {
+    if (brandId && !options?.skipCompletionEval) {
       await evaluateAndUpsertCompletion(
         tx as unknown as Database,
         brandId,

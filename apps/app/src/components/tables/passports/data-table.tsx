@@ -132,7 +132,8 @@ export function PassportDataTable({
     [rawData],
   );
   const total = React.useMemo<number>(() => {
-    const m = (listResponse as { meta?: { total?: unknown } } | undefined)?.meta;
+    const m = (listResponse as { meta?: { total?: unknown } } | undefined)
+      ?.meta;
     const t = (m?.total as number | undefined) ?? 0;
     return typeof t === "number" ? t : 0;
   }, [listResponse]);

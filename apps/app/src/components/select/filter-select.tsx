@@ -202,9 +202,7 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
   selectedValues: string[];
   onToggleValue: (optionValue: string) => void;
 }) {
-  const { options: dynamicOptions, isLoading } = useFieldOptions(
-    field.id
-  );
+  const { options: dynamicOptions, isLoading } = useFieldOptions(field.id);
 
   const options = React.useMemo(
     () => field.options ?? dynamicOptions,

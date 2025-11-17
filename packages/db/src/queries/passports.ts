@@ -208,10 +208,9 @@ async function hydratePassportRows(
   };
 
   return rows.map((r) => {
-    const modDefs =
-      (r.template_id
-        ? templateIdToModules.get(r.template_id)?.filter((m) => m.enabled)
-        : undefined) ?? [];
+    const modDefs = r.template_id
+      ? templateIdToModules.get(r.template_id)?.filter((m) => m.enabled) ?? []
+      : [];
     const modules = modDefs.map((m) => ({
       key: m.key,
       completed: completionKey.get(`${r.id}:${m.key}`) ?? false,

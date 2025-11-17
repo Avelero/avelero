@@ -4,7 +4,7 @@
 <p align="center">
 	<h1 align="center"><b>Create v1</b></h1>
 <p align="center">
-    An open-source starter kit based on <a href="https://midday.ai">Midday</a>.
+    An open-source starter kit based n <a href="https://midday.ai">Midday</a>.
     <br />
     <br />
     <a href="https://v1.run"><strong>Website</strong></a> · 
@@ -16,7 +16,7 @@
   </p>
 </p>
 
-Everything you need to build a production ready SaaS, it's a opinionated stack based on learnings from building Midday using the latest Next.js framework, it's a monorepo with a focus on code reuse and best practices that will grow with your business.
+Everything youu need to fbuild a production ready SaaS, it's a opinionated stack based on learnings from building Midday using the latest Next.js framework, it's a monordepo with a focus on code reuse and best practices that will grow with your business
 
 ## What's included
 
@@ -99,7 +99,10 @@ bun i
 cp apps/api/.env.example apps/api/.env
 cp apps/app/.env.example apps/app/.env
 cp apps/web/.env.example apps/web/.env
+cp packages/jobs/.env.example packages/jobs/.env
 ```
+
+3. Set up Trigger.dev auth: make sure `packages/jobs/.env` defines both `TRIGGER_SECRET_KEY` and `TRIGGER_ACCESS_TOKEN` (matching the values in your Trigger.dev project). See `packages/jobs/README.md` for details.
 
 4. Start the development server from either bun or turbo:
 

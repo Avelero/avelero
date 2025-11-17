@@ -17,6 +17,7 @@ import {
   createFacility,
   createMaterial,
   createSeason,
+  createSeason,
   createShowcaseBrand,
   createSize,
   deleteBrandTag,
@@ -25,6 +26,7 @@ import {
   deleteEcoClaim,
   deleteFacility,
   deleteMaterial,
+  deleteSeason,
   deleteSeason,
   deleteShowcaseBrand,
   deleteSize,
@@ -35,6 +37,7 @@ import {
   listFacilities,
   listMaterials,
   listSeasonsForBrand,
+  listSeasonsForBrand,
   listShowcaseBrands,
   listSizes,
   updateBrandTag,
@@ -43,6 +46,7 @@ import {
   updateEcoClaim,
   updateFacility,
   updateMaterial,
+  updateSeason,
   updateSeason,
   updateShowcaseBrand,
   updateSize,
@@ -55,6 +59,7 @@ import {
   createFacilitySchema,
   createMaterialSchema,
   createSeasonSchema,
+  createSeasonSchema,
   createShowcaseBrandSchema,
   createSizeSchema,
   deleteBrandTagSchema,
@@ -63,6 +68,7 @@ import {
   deleteEcoClaimSchema,
   deleteFacilitySchema,
   deleteMaterialSchema,
+  deleteSeasonSchema,
   deleteSeasonSchema,
   deleteShowcaseBrandSchema,
   deleteSizeSchema,
@@ -73,6 +79,7 @@ import {
   listFacilitiesSchema,
   listMaterialsSchema,
   listSeasonsSchema,
+  listSeasonsSchema,
   listShowcaseBrandsSchema,
   listSizesSchema,
   updateBrandTagSchema,
@@ -82,22 +89,24 @@ import {
   updateFacilitySchema,
   updateMaterialSchema,
   updateSeasonSchema,
+  updateSeasonSchema,
   updateShowcaseBrandSchema,
   updateSizeSchema,
 } from "../../../schemas/brand-catalog/index.js";
-import { notFound, wrapError } from "../../../utils/errors.js";
-import {
-  createEntityResponse,
-  createListResponse,
-} from "../../../utils/response.js";
 import {
   transformCertificationInput,
   transformFacilityInput,
   transformMaterialInput,
   transformSeasonInput,
+  transformSeasonInput,
   transformShowcaseBrandInput,
   transformSizeInput,
 } from "../../../utils/catalog-transform.js";
+import { notFound, wrapError } from "../../../utils/errors.js";
+import {
+  createEntityResponse,
+  createListResponse,
+} from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
@@ -349,6 +358,7 @@ function createCatalogResourceRouter<T>(
  * - brand.sizes.* (list/create/update/delete)
  * - brand.materials.* (list/create/update/delete)
  * - brand.seasons.* (list/create/update/delete)
+ * - brand.seasons.* (list/create/update/delete)
  * - brand.facilities.* (list/create/update/delete)
  * - brand.showcaseBrands.* (list/create/update/delete)
  * - brand.ecoClaims.* (list/create/update/delete)
@@ -443,6 +453,28 @@ export const brandRouter = createTRPCRouter({
       delete: deleteMaterial,
     },
     transformMaterialInput,
+  ),
+
+  /**
+   * Seasons catalog endpoints.
+   *
+   * Manages seasonal collections with optional start/end dates or ongoing flag.
+   */
+  seasons: createCatalogResourceRouter(
+    "season",
+    {
+      list: listSeasonsSchema,
+      create: createSeasonSchema,
+      update: updateSeasonSchema,
+      delete: deleteSeasonSchema,
+    },
+    {
+      list: listSeasonsForBrand,
+      create: createSeason,
+      update: updateSeason,
+      delete: deleteSeason,
+    },
+    transformSeasonInput,
   ),
 
   /**

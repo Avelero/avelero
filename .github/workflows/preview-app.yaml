@@ -70,6 +70,29 @@ jobs:
         run: |
           API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
+
+      - name: ⏳ Wait for API to be ready
+        run: |
+          API_URL="${{ steps.api-url.outputs.url }}"
+          echo "Waiting for API at ${API_URL}/health to be ready..."
+
+          MAX_RETRIES=30
+          RETRY_DELAY_SECONDS=10
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl --fail --silent --show-error "${API_URL}/health" > /dev/null 2>&1; then
+              echo "✅ API is ready!"
+              exit 0
+            fi
+
+            echo "API not ready yet (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES}), waiting ${RETRY_DELAY_SECONDS} seconds..."
+            sleep $RETRY_DELAY_SECONDS
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+
+          echo "❌ API did not become ready after $((MAX_RETRIES * RETRY_DELAY_SECONDS)) seconds"
+          exit 1
       
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
@@ -81,15 +104,11 @@ jobs:
           NEXT_PUBLIC_API_URL: ${{ steps.api-url.outputs.url }}
       
       - name: 📤 Pull Environment Variables
-        run: bunx vercel env pull .env --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-      
-      - name: 🔄 Deploy Background Jobs
-        env:
-          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
-        run: |
-          bunx trigger.dev@4.0.6 deploy
-        working-directory: packages/jobs
-      
+        run: bunx vercel env pull apps/app/.env --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      # Note: Background jobs are now deployed via staging-jobs.yaml workflow
+      # This ensures consistent Trigger.dev staging environment for all PRs
+
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |

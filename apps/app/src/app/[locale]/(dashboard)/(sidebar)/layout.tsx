@@ -1,7 +1,13 @@
 import { getQueryClient, trpc } from "@/trpc/server";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/header";
+import { FloatingProgressWidget } from "@/components/import/floating-progress-widget";
+import { ImportReviewDialog } from "@/components/import/import-review-dialog";
 import { Sidebar } from "@/components/sidebar";
+import { ImportProgressProvider } from "@/contexts/import-progress-context";
+import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 export default async function SidebarLayout({
   children,
@@ -35,14 +41,20 @@ export default async function SidebarLayout({
   );
   
   return (
-    <div className="relative h-full">
-      <Header />
-      <div className="flex flex-row justify-start h-[calc(100%-56px)]">
-        <Sidebar />
-        <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
-          {children}
+    <HydrateClient>
+      <ImportProgressProvider>
+        <div className="relative h-full">
+          <Header />
+          <div className="flex flex-row justify-start h-[calc(100%-56px)]">
+            <Sidebar />
+            <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
+              {children}
+            </div>
+          </div>
+          <FloatingProgressWidget />
+          <ImportReviewDialog />
         </div>
-      </div>
-    </div>
+      </ImportProgressProvider>
+    </HydrateClient>
   );
 }

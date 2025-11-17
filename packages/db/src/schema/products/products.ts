@@ -28,10 +28,12 @@ export const products = pgTable(
      */
     productIdentifier: text("product_identifier").notNull(),
     /**
-     * Public UPID used for routing and sharing product-level URLs.
-     * Random 16-character base36 string unique across all products.
+     * Product-level UPID (Unique Product Identifier).
+     * 16-character lowercase alphanumeric string for product passport URLs.
+     * Used in routes like /passport/edit/{upid}.
+     * Must be unique within a brand.
      */
-    productUpid: text("upid").notNull(),
+    upid: text("upid"),
     description: text("description"),
     showcaseBrandId: uuid("showcase_brand_id").references(
       () => showcaseBrands.id,
@@ -51,7 +53,7 @@ export const products = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    tags: text("tags"), // Pipe-separated tags
+    tags: text("tags"), // Pipe-separated tags (legacy - use brand_tags for new implementations)
     brandCertificationId: uuid("brand_certification_id").references(
       () => brandCertifications.id,
       {
@@ -59,6 +61,11 @@ export const products = pgTable(
         onUpdate: "cascade",
       },
     ),
+    /**
+     * Product publication status.
+     * Valid values: 'published', 'unpublished', 'archived', 'scheduled'
+     */
+    status: text("status").notNull().default("unpublished"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -72,7 +79,6 @@ export const products = pgTable(
       table.brandId,
       table.productIdentifier,
     ),
-    uniqueIndex("products_upid_unq").on(table.productUpid),
     // RLS policies - both members and owners can perform all operations
     pgPolicy("products_select_for_brand_members", {
       as: "permissive",

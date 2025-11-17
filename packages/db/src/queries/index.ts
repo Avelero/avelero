@@ -9,7 +9,19 @@ export * from "./product-attributes.js";
 export * from "./product-passports.js";
 export * from "./passports.js";
 export * from "./passport-templates.js";
+export * from "./bulk-import.js";
+export * from "./staging.js";
+export * from "./value-mappings.js";
 export * from "./seasons.js";
 
 // Re-export drizzle-orm utilities for consumers
-export { and, asc, desc, eq, inArray, sql, SQL, type SQLWrapper } from "drizzle-orm";
+export {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  sql,
+  SQL,
+  type SQLWrapper,
+} from "drizzle-orm";

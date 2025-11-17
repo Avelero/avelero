@@ -1,9 +1,9 @@
 import {
-  asc,
-  eq,
   BrandMemberForbiddenError,
   BrandMemberSoleOwnerError,
+  asc,
   deleteMember,
+  eq,
   leaveBrand,
   updateMemberRole,
 } from "@v1/db/queries";

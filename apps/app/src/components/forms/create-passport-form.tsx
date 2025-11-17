@@ -274,7 +274,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
   }
 
   return (
-    <form 
+    <form
       id="passport-form"
       className="flex justify-center w-full"
       onSubmit={handleSubmit}
@@ -394,4 +394,3 @@ export function CreatePassportForm() {
 export function EditPassportForm({ productUpid }: { productUpid: string }) {
   return <PassportForm mode="edit" productUpid={productUpid} />;
 }
-

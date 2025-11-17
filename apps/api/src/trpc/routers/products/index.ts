@@ -112,6 +112,8 @@ export const productsRouter = createTRPCRouter({
           brandCertificationId: input.brand_certification_id,
           showcaseBrandId: input.showcase_brand_id,
           primaryImageUrl: input.primary_image_url,
+          colorIds: input.color_ids,
+          sizeIds: input.size_ids,
         });
         return createEntityResponse(product);
       } catch (error) {
@@ -140,6 +142,8 @@ export const productsRouter = createTRPCRouter({
           brandCertificationId: input.brand_certification_id ?? null,
           showcaseBrandId: input.showcase_brand_id ?? null,
           primaryImageUrl: input.primary_image_url ?? null,
+          colorIds: input.color_ids,
+          sizeIds: input.size_ids,
         });
 
         // Update product attributes if provided

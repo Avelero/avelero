@@ -41,6 +41,9 @@ export function transformSizeInput<T extends Record<string, any>>(
 
   for (const [key, value] of Object.entries(input)) {
     switch (key) {
+      case "category_group":
+        result.categoryGroup = value;
+        break;
       case "category_id":
         result.categoryId = value;
         break;

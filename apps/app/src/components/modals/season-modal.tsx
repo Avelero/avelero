@@ -21,6 +21,7 @@ interface SeasonModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (season: {
+    id: string;
     name: string;
     startDate: Date | null;
     endDate: Date | null;
@@ -43,6 +44,11 @@ export function SeasonModal({
   const [startDate, setStartDate] = React.useState<Date | null>(null);
   const [endDate, setEndDate] = React.useState<Date | null>(null);
   const [ongoing, setOngoing] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const createSeasonMutation = useMutation(
+    trpc.brand.seasons.create.mutationOptions(),
+  );
   // Preserve dates when toggling ongoing to allow restoration
   const [preservedStartDate, setPreservedStartDate] =
     React.useState<Date | null>(null);

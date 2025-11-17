@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 /**
  * User domain router for the reorganized API surface.
  *
@@ -14,7 +15,7 @@ import {
 } from "@v1/db/queries";
 import type { UserInviteSummaryRow } from "@v1/db/queries";
 import { logger } from "@v1/logger";
-import { TRPCError } from "@trpc/server";
+import { getAppUrl } from "@v1/utils/envs";
 import { userDomainUpdateSchema } from "../../../schemas/user.js";
 import {
   badRequest,
@@ -22,7 +23,6 @@ import {
   unauthorized,
   wrapError,
 } from "../../../utils/errors.js";
-import { getAppUrl } from "@v1/utils/envs";
 import { createTRPCRouter, protectedProcedure } from "../../init.js";
 
 interface MinimalUserRecord {
@@ -54,7 +54,9 @@ function buildUserAvatarUrl(path: string | null): string | null {
  * @param urlOrPath - Full URL or storage path
  * @returns Storage path (e.g., "user-123/avatar.png")
  */
-function extractAvatarPath(urlOrPath: string | null | undefined): string | null {
+function extractAvatarPath(
+  urlOrPath: string | null | undefined,
+): string | null {
   if (!urlOrPath) return null;
 
   // If it's already a storage path (no protocol, doesn't start with /), return as-is

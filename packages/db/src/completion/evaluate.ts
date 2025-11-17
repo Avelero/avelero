@@ -31,6 +31,11 @@ export async function evaluateAndUpsertCompletion(
     return;
   }
 
+  // If passport has no template, return early with no enabled modules
+  if (!pp.templateId) {
+    return;
+  }
+
   const enabledModulesRows = await db
     .select({ moduleKey: passportTemplateModules.moduleKey })
     .from(passportTemplateModules)

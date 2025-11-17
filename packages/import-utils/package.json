@@ -1,0 +1,23 @@
+{
+  "name": "@v1/import-utils",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./value-mapper": "./src/value-mapper.ts",
+    "./csv-parser": "./src/csv-parser.ts",
+    "./validation": "./src/validation.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@v1/db": "workspace:*",
+    "papaparse": "^5.4.1"
+  },
+  "devDependencies": {
+    "@v1/tsconfig": "workspace:*",
+    "@types/papaparse": "^5.3.14",
+    "typescript": "^5.6.3"
+  }
+}

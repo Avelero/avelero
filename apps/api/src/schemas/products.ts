@@ -126,7 +126,7 @@ export const listVariantsSchema = byParentId("product_id");
 
 /**
  * Required fields for creating a product variant.
- * 
+ *
  * Note: SKU is now optional. Variants are tracked by UUID.
  * UPID is also optional when using auto-generated variants.
  */

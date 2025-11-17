@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq, ilike, inArray } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import type { Database } from "../client";
 import { evaluateAndUpsertCompletion } from "../completion/evaluate";
 import type { ModuleKey } from "../completion/module-keys";
@@ -60,18 +61,9 @@ const PRODUCT_FIELDS = Object.keys(
   PRODUCT_FIELD_MAP,
 ) as readonly ProductField[];
 
-async function generateProductUpid(db: Database): Promise<string> {
-  return generateUniqueUpid({
-    isTaken: async (candidate) => {
-      const existing = await db
-        .select({ id: products.id })
-        .from(products)
-        .where(eq(products.productUpid, candidate))
-        .limit(1);
-      return existing.length > 0;
-    },
-  });
-}
+type CompletionEvalOptions = {
+  skipCompletionEval?: boolean;
+};
 
 /**
  * Represents the core product fields exposed by API queries.
@@ -649,8 +641,10 @@ export async function createProduct(
   brandId: string,
   input: {
     name: string;
-    /** Unique product identifier within the brand. Must be provided by the brand. */
+    /** Unique product identifier within the brand - optional; generated if missing */
     productIdentifier?: string;
+    /** Product-level UPID for passport URLs - optional */
+    upid?: string;
     description?: string;
     categoryId?: string;
     season?: string; // Legacy: will be deprecated after migration
@@ -660,15 +654,20 @@ export async function createProduct(
     primaryImageUrl?: string;
     additionalImageUrls?: string;
     tags?: string;
+    /** Product publication status */
+    status?: string;
+    /** Optional: Color IDs to auto-generate variants */
+    colorIds?: readonly string[];
+    /** Optional: Size IDs to auto-generate variants */
+    sizeIds?: readonly string[];
   },
-): Promise<{ id: string; upid: string } | undefined> {
-  let created: { id: string; upid: string } | undefined;
-  const productUpidValue = await generateProductUpid(db);
+  options?: CompletionEvalOptions,
+) {
+  let created: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
-    const productIdentifierValue = input.productIdentifier?.trim();
-    if (!productIdentifierValue) {
-      throw new Error("Product identifier is required");
-    }
+    const productIdentifierValue =
+      input.productIdentifier ??
+      `PROD-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
 
     const [row] = await tx
       .insert(products)
@@ -676,7 +675,7 @@ export async function createProduct(
         brandId,
         name: input.name,
         productIdentifier: productIdentifierValue,
-        productUpid: productUpidValue,
+        upid: input.upid ?? null,
         description: input.description ?? null,
         categoryId: input.categoryId ?? null,
         season: input.season ?? null, // Legacy: kept for backward compatibility
@@ -686,24 +685,41 @@ export async function createProduct(
         primaryImageUrl: input.primaryImageUrl ?? null,
         additionalImageUrls: input.additionalImageUrls ?? null,
         tags: input.tags ?? null,
+        status: input.status ?? "unpublished",
       })
-      .returning({ id: products.id, upid: products.productUpid });
+      .returning({ id: products.id });
 
     if (!row?.id) {
       return;
     }
 
-    created = { id: row.id, upid: row.upid };
+    created = { id: row.id };
 
-    // Evaluate only core module for product basics
-    await evaluateAndUpsertCompletion(
-      tx as unknown as Database,
-      brandId,
-      row.id,
-      {
-        onlyModules: ["core"] as ModuleKey[],
-      },
-    );
+    // Auto-generate variants if colorIds and sizeIds provided
+    if (
+      input.colorIds &&
+      input.sizeIds &&
+      input.colorIds.length > 0 &&
+      input.sizeIds.length > 0
+    ) {
+      const variantIds = await generateProductVariants(
+        tx as unknown as Database,
+        row.id,
+        input.colorIds,
+        input.sizeIds,
+      );
+      created.variantIds = variantIds;
+    } else if (!options?.skipCompletionEval) {
+      // Evaluate only core module for product basics
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        row.id,
+        {
+          onlyModules: ["core"] as ModuleKey[],
+        },
+      );
+    }
   });
   return created;
 }
@@ -714,6 +730,7 @@ export async function updateProduct(
   input: {
     id: string;
     name?: string;
+    upid?: string | null;
     description?: string | null;
     categoryId?: string | null;
     season?: string | null; // Legacy: will be deprecated after migration
@@ -723,24 +740,38 @@ export async function updateProduct(
     primaryImageUrl?: string | null;
     additionalImageUrls?: string | null;
     tags?: string | null;
+    status?: string | null;
+    /** Optional: Color IDs to regenerate variants (replaces existing variants) */
+    colorIds?: readonly string[];
+    /** Optional: Size IDs to regenerate variants (replaces existing variants) */
+    sizeIds?: readonly string[];
   },
-): Promise<{ id: string } | undefined> {
-  let updated: { id: string } | undefined;
+  options?: CompletionEvalOptions,
+) {
+  let updated: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
+    const updateData: Record<string, unknown> = {
+      name: input.name,
+      upid: input.upid ?? null,
+      description: input.description ?? null,
+      categoryId: input.categoryId ?? null,
+      season: input.season ?? null, // Legacy: kept for backward compatibility
+      seasonId: input.seasonId ?? null,
+      brandCertificationId: input.brandCertificationId ?? null,
+      showcaseBrandId: input.showcaseBrandId ?? null,
+      primaryImageUrl: input.primaryImageUrl ?? null,
+      additionalImageUrls: input.additionalImageUrls ?? null,
+      tags: input.tags ?? null,
+    };
+
+    // Only update status if provided (status cannot be null)
+    if (input.status !== undefined && input.status !== null) {
+      updateData.status = input.status;
+    }
+
     const [row] = await tx
       .update(products)
-      .set({
-        name: input.name,
-        description: input.description ?? null,
-        categoryId: input.categoryId ?? null,
-        season: input.season ?? null, // Legacy: kept for backward compatibility
-        seasonId: input.seasonId ?? null,
-        brandCertificationId: input.brandCertificationId ?? null,
-        showcaseBrandId: input.showcaseBrandId ?? null,
-        primaryImageUrl: input.primaryImageUrl ?? null,
-        additionalImageUrls: input.additionalImageUrls ?? null,
-        tags: input.tags ?? null,
-      })
+      .set(updateData)
       .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
       .returning({ id: products.id });
 
@@ -750,14 +781,36 @@ export async function updateProduct(
 
     updated = { id: row.id };
 
-    await evaluateAndUpsertCompletion(
-      tx as unknown as Database,
-      brandId,
-      row.id,
-      {
-        onlyModules: ["core"] as ModuleKey[],
-      },
-    );
+    // Regenerate variants if colorIds and sizeIds provided
+    if (
+      input.colorIds &&
+      input.sizeIds &&
+      input.colorIds.length > 0 &&
+      input.sizeIds.length > 0
+    ) {
+      // Delete existing variants for this product
+      await tx
+        .delete(productVariants)
+        .where(eq(productVariants.productId, row.id));
+
+      // Generate new variants
+      const variantIds = await generateProductVariants(
+        tx as unknown as Database,
+        row.id,
+        input.colorIds,
+        input.sizeIds,
+      );
+      updated.variantIds = variantIds;
+    } else if (!options?.skipCompletionEval) {
+      await evaluateAndUpsertCompletion(
+        tx as unknown as Database,
+        brandId,
+        row.id,
+        {
+          onlyModules: ["core"] as ModuleKey[],
+        },
+      );
+    }
   });
   return updated;
 }
@@ -818,6 +871,96 @@ export async function listVariants(db: Database, productId: string) {
     .orderBy(asc(productVariants.createdAt));
 }
 
+/**
+ * Auto-generates product variants from color × size combinations.
+ *
+ * Creates all possible combinations of the provided colors and sizes for a product.
+ * Each variant is assigned a unique UUID. SKU and EAN can be optionally provided
+ * but are no longer required - variants are tracked via their UUID.
+ *
+ * @param db - Database instance
+ * @param productId - Product ID to generate variants for
+ * @param colorIds - Array of color IDs to combine
+ * @param sizeIds - Array of size IDs to combine
+ * @param commonFields - Optional common fields applied to all variants (sku, ean, status, etc.)
+ * @returns Array of created variant IDs
+ *
+ * @example
+ * ```ts
+ * // Generate 6 variants (2 colors × 3 sizes)
+ * const variantIds = await generateProductVariants(
+ *   db,
+ *   productId,
+ *   ['blue-id', 'red-id'],
+ *   ['small-id', 'medium-id', 'large-id']
+ * );
+ * // Results: Blue+S, Blue+M, Blue+L, Red+S, Red+M, Red+L
+ * ```
+ */
+export async function generateProductVariants(
+  db: Database,
+  productId: string,
+  colorIds: readonly string[],
+  sizeIds: readonly string[],
+  commonFields?: {
+    status?: string;
+    productImageUrl?: string;
+  },
+): Promise<readonly string[]> {
+  if (colorIds.length === 0 || sizeIds.length === 0) {
+    return [];
+  }
+
+  return db.transaction(async (tx) => {
+    const createdIds: string[] = [];
+
+    // Generate all color × size combinations
+    for (const colorId of colorIds) {
+      for (const sizeId of sizeIds) {
+        const [created] = await tx
+          .insert(productVariants)
+          .values({
+            productId,
+            colorId,
+            sizeId,
+            sku: null, // SKU is now optional - variants tracked by UUID
+            ean: null,
+            upid: null,
+            status: commonFields?.status ?? null,
+            productImageUrl: commonFields?.productImageUrl ?? null,
+          })
+          .returning({ id: productVariants.id });
+
+        if (created?.id) {
+          createdIds.push(created.id);
+        }
+      }
+    }
+
+    // Update product completion status after generating variants
+    if (createdIds.length > 0) {
+      const [{ brandId } = { brandId: undefined } as any] = await tx
+        .select({ brandId: products.brandId })
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1);
+
+      if (brandId) {
+        await evaluateAndUpsertCompletion(
+          tx as unknown as Database,
+          brandId,
+          productId,
+          {
+            onlyModules: ["core"] as ModuleKey[],
+          },
+        );
+      }
+    }
+
+    return createdIds as readonly string[];
+  });
+}
+
 export async function createVariant(
   db: Database,
   productId: string,
@@ -830,6 +973,7 @@ export async function createVariant(
     status?: string;
     productImageUrl?: string;
   },
+  options?: CompletionEvalOptions,
 ) {
   let created: { id: string } | undefined;
   await db.transaction(async (tx) => {
@@ -847,7 +991,7 @@ export async function createVariant(
       })
       .returning({ id: productVariants.id });
     created = row;
-    if (row?.id) {
+    if (row?.id && !options?.skipCompletionEval) {
       // Need brandId for evaluator: read via product
       const [{ brandId } = { brandId: undefined } as any] = await tx
         .select({ brandId: products.brandId })
@@ -881,6 +1025,7 @@ export async function updateVariant(
     status?: string | null;
     productImageUrl?: string | null;
   },
+  options?: CompletionEvalOptions,
 ) {
   let updated: { id: string } | undefined;
   await db.transaction(async (tx) => {
@@ -901,7 +1046,7 @@ export async function updateVariant(
         productId: productVariants.productId,
       });
     updated = row ? { id: row.id } : undefined;
-    if (row?.productId) {
+    if (row?.productId && !options?.skipCompletionEval) {
       const [{ brandId } = { brandId: undefined } as any] = await tx
         .select({ brandId: products.brandId })
         .from(products)

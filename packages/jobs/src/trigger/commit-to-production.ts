@@ -78,7 +78,7 @@ const PROGRESS_UPDATE_FREQUENCY = 5; // Update progress every N batches
  */
 export const commitToProduction = task({
   id: "commit-to-production",
-  maxDuration: 300, // 5 minutes max
+  maxDuration: 1800, // 30 minutes max - handles large imports with 10k+ rows
   queue: {
     concurrencyLimit: 3,
   },

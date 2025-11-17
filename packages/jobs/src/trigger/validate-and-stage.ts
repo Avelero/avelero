@@ -534,7 +534,8 @@ export const validateAndStage = task({
         }
       }
 
-      const totalDuplicates = upidDuplicates.length + compositeDuplicates.length;
+      const totalDuplicates =
+        upidDuplicates.length + compositeDuplicates.length;
 
       if (totalDuplicates > 0) {
         console.log("[validate-and-stage] Found duplicates:", {
@@ -1591,7 +1592,8 @@ async function validateRow(
         type: "HARD_ERROR",
         subtype: "DUPLICATE_VALUE",
         field: "duplicate",
-        message: "This row is a duplicate and appears multiple times in the file",
+        message:
+          "This row is a duplicate and appears multiple times in the file",
         severity: "error",
       });
     }

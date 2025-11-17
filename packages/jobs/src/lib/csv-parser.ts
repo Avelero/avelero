@@ -909,7 +909,7 @@ export function findDuplicates<T extends Record<string, unknown>>(
  * @example
  * ```typescript
  * // Detect duplicate variants (same product + color + size)
- * const duplicates = findCompositeDuplicates(data, 
+ * const duplicates = findCompositeDuplicates(data,
  *   ["product_identifier", "colors", "size"]
  * );
  * // Returns: [{ rows: [3, 7], compositeKey: "TSHIRT-001|Blue|M" }]

@@ -83,7 +83,7 @@ jobs:
           echo "Deploying to feature environment with API: ${API_URL}"
 
       - name: 🚀 Deploy to Trigger.dev Feature Environment
-        run: bunx trigger.dev@4.0.6 deploy --env ${{ steps.env-name.outputs.name }}
+        run: bunx trigger.dev@4.0.6 deploy --env preview --env-var BRANCH_NAME=${{ steps.env-name.outputs.name }}
         working-directory: ./packages/jobs
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
@@ -102,11 +102,11 @@ jobs:
           echo ""
           echo "📋 Deployment Details:"
           echo "  Branch: ${{ steps.env-name.outputs.branch }}"
-          echo "  Environment: ${{ steps.env-name.outputs.name }}"
+          echo "  Environment: preview (with BRANCH_NAME=${{ steps.env-name.outputs.name }})"
           echo "  API URL: ${{ steps.api-url.outputs.url }}"
           echo ""
           echo "🔗 View in Trigger.dev:"
-          echo "  https://cloud.trigger.dev/projects/v3/proj_mqxiyipljbptdmfeivig/runs?environment=${{ steps.env-name.outputs.name }}"
+          echo "  https://cloud.trigger.dev/projects/v3/proj_mqxiyipljbptdmfeivig/runs?environment=preview"
           echo ""
-          echo "💡 This feature branch has its own isolated Trigger.dev environment"
-          echo "   separate from staging and production."
+          echo "💡 Feature branches use the preview environment with branch identification"
+          echo "   via BRANCH_NAME environment variable for tracking."

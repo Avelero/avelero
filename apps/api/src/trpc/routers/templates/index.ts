@@ -1,14 +1,7 @@
 /**
- * Passport templates router implementation.
+ * Templates router implementation.
  *
- * Targets:
- * - passports.templates.list
- * - passports.templates.get
- * - passports.templates.create
- * - passports.templates.update
- *
- * Supports replace-all semantics for module configuration and leverages
- * completion delta helpers to keep passport module completion in sync.
+ * Exposes CRUD operations for passport templates as a top-level router.
  */
 import {
   createPassportTemplate,
@@ -23,15 +16,15 @@ import {
   passportTemplatesGetSchema,
   passportTemplatesListSchema,
   passportTemplatesUpdateSchema,
-} from "../../../../schemas/passports.js";
-import { badRequest, notFound, wrapError } from "../../../../utils/errors.js";
+} from "../../../schemas/templates.js";
+import { badRequest, notFound, wrapError } from "../../../utils/errors.js";
 import {
   createEntityResponse,
   createListResponse,
   createSuccessResponse,
-} from "../../../../utils/response.js";
-import type { AuthenticatedTRPCContext } from "../../../init.js";
-import { brandRequiredProcedure, createTRPCRouter } from "../../../init.js";
+} from "../../../utils/response.js";
+import type { AuthenticatedTRPCContext } from "../../init.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -49,7 +42,7 @@ function ensureBrandScope(
   return active;
 }
 
-export const passportTemplatesRouter = createTRPCRouter({
+export const templatesRouter = createTRPCRouter({
   list: brandRequiredProcedure
     .input(passportTemplatesListSchema.optional())
     .query(async ({ ctx, input }) => {
@@ -157,4 +150,5 @@ export const passportTemplatesRouter = createTRPCRouter({
     }),
 });
 
-export type PassportTemplatesRouter = typeof passportTemplatesRouter;
+export type TemplatesRouter = typeof templatesRouter;
+

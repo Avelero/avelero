@@ -10,12 +10,7 @@ import {
   deleteProduct,
   getProductWithIncludes,
   listProductsWithIncludes,
-  setProductCareCodes,
-  setProductEcoClaims,
-  setProductJourneySteps,
   updateProduct,
-  upsertProductEnvironment,
-  upsertProductMaterials,
 } from "@v1/db/queries";
 import {
   productsDomainCreateSchema,
@@ -50,6 +45,9 @@ function normalizeBrandId(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+type CreateProductInput = Parameters<typeof createProduct>[2];
+type UpdateProductInput = Parameters<typeof updateProduct>[2];
+
 export const productsRouter = createTRPCRouter({
   list: brandRequiredProcedure
     .input(productsDomainListSchema)
@@ -63,17 +61,19 @@ export const productsRouter = createTRPCRouter({
       const result = await listProductsWithIncludes(
         brandCtx.db,
         brandId,
-        {
+        ({
           categoryId: input.filters?.category_id,
-          season: input.filters?.season,
+          seasonId: input.filters?.season_id,
           search: input.filters?.search,
-        },
+        } as unknown as Parameters<typeof listProductsWithIncludes>[2]),
         {
           cursor: input.cursor,
           limit: input.limit,
-          fields: input.fields,
+          fields: input.fields as unknown as Parameters<
+            typeof listProductsWithIncludes
+          >[3]["fields"],
           includeVariants: input.includeVariants,
-          includeAttributes: input.includeAttributes,
+          includeAttributes: false,
         },
       );
 
@@ -91,7 +91,7 @@ export const productsRouter = createTRPCRouter({
       const brandId = ensureBrandScope(brandCtx);
       return getProductWithIncludes(brandCtx.db, brandId, input.id, {
         includeVariants: input.includeVariants,
-        includeAttributes: input.includeAttributes,
+        includeAttributes: false,
       });
     }),
 
@@ -102,19 +102,25 @@ export const productsRouter = createTRPCRouter({
       const brandId = ensureBrandScope(brandCtx, input.brand_id);
 
       try {
-        const product = await createProduct(brandCtx.db, brandId, {
+        const payload: Record<string, unknown> = {
           name: input.name,
+          upid: input.upid,
           productIdentifier: input.product_identifier,
-          description: input.description,
-          categoryId: input.category_id,
-          season: input.season, // Legacy: deprecated, use seasonId
-          seasonId: input.season_id,
-          brandCertificationId: input.brand_certification_id,
-          showcaseBrandId: input.showcase_brand_id,
-          primaryImageUrl: input.primary_image_url,
-          colorIds: input.color_ids,
-          sizeIds: input.size_ids,
-        });
+          description: input.description ?? null,
+          categoryId: input.category_id ?? null,
+          seasonId: input.season_id ?? null,
+          showcaseBrandId: input.showcase_brand_id ?? null,
+          primaryImageUrl: input.primary_image_url ?? null,
+          templateId: input.template_id ?? null,
+          status: input.status ?? undefined,
+        };
+
+        const product = await createProduct(
+          brandCtx.db,
+          brandId,
+          payload as CreateProductInput,
+        );
+
         return createEntityResponse(product);
       } catch (error) {
         throw wrapError(error, "Failed to create product");
@@ -132,67 +138,25 @@ export const productsRouter = createTRPCRouter({
 
       try {
         // Update basic product fields
-        const product = await updateProduct(brandCtx.db, brandId, {
+        const payload: Record<string, unknown> = {
           id: input.id,
+          productIdentifier: input.product_identifier,
+          upid: input.upid ?? null,
           name: input.name,
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
-          season: input.season ?? null, // Legacy: deprecated, use seasonId
           seasonId: input.season_id ?? null,
-          brandCertificationId: input.brand_certification_id ?? null,
           showcaseBrandId: input.showcase_brand_id ?? null,
           primaryImageUrl: input.primary_image_url ?? null,
-          colorIds: input.color_ids,
-          sizeIds: input.size_ids,
-        });
+          templateId: input.template_id ?? null,
+          status: input.status ?? undefined,
+        };
 
-        // Update product attributes if provided
-        // Each attribute update triggers module completion evaluation
-        if (input.materials && Array.isArray(input.materials)) {
-          await upsertProductMaterials(
-            brandCtx.db,
-            input.id,
-            input.materials.map((m: any) => ({
-              brandMaterialId: m.brand_material_id,
-              percentage: m.percentage,
-            })),
-          );
-        }
-
-        if (input.careCodes && Array.isArray(input.careCodes)) {
-          await setProductCareCodes(
-            brandCtx.db,
-            input.id,
-            input.careCodes as string[],
-          );
-        }
-
-        if (input.ecoClaims && Array.isArray(input.ecoClaims)) {
-          await setProductEcoClaims(
-            brandCtx.db,
-            input.id,
-            input.ecoClaims as string[],
-          );
-        }
-
-        if (input.environment && typeof input.environment === "object") {
-          await upsertProductEnvironment(brandCtx.db, input.id, {
-            carbonKgCo2e: (input.environment as any).carbon_kg_co2e,
-            waterLiters: (input.environment as any).water_liters,
-          });
-        }
-
-        if (input.journeySteps && Array.isArray(input.journeySteps)) {
-          await setProductJourneySteps(
-            brandCtx.db,
-            input.id,
-            input.journeySteps.map((step: any) => ({
-              sortIndex: step.sort_index,
-              stepType: step.step_type,
-              facilityId: step.facility_id,
-            })),
-          );
-        }
+        const product = await updateProduct(
+          brandCtx.db,
+          brandId,
+          payload as UpdateProductInput,
+        );
 
         return createEntityResponse(product);
       } catch (error) {

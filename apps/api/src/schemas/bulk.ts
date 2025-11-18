@@ -7,7 +7,12 @@
  */
 import { z } from "zod";
 import { uuidArraySchema, uuidSchema } from "./_shared/primitives.js";
-import { passportStatusSchema } from "./passports.js";
+const passportStatusSchema = z.enum([
+  "published",
+  "scheduled",
+  "unpublished",
+  "archived",
+]);
 import { productsDomainCreateSchema } from "./products.js";
 
 /**

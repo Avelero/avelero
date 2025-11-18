@@ -7,7 +7,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brandCertifications } from "../brands/brand-certifications";
+import { passportTemplates } from "../passports/passport-templates";
 import { brandSeasons } from "../brands/brand-seasons";
 import { categories } from "../brands/categories";
 import { showcaseBrands } from "../brands/showcase-brands";
@@ -43,28 +43,18 @@ export const products = pgTable(
       },
     ),
     primaryImageUrl: text("primary_image_url"),
-    additionalImageUrls: text("additional_image_urls"), // Pipe-separated URLs
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    season: text("season"), // TODO: Migrate to seasonId FK
     seasonId: uuid("season_id").references(() => brandSeasons.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    tags: text("tags"), // Pipe-separated tags (legacy - use brand_tags for new implementations)
-    brandCertificationId: uuid("brand_certification_id").references(
-      () => brandCertifications.id,
-      {
-        onDelete: "set null",
-        onUpdate: "cascade",
-      },
-    ),
-    /**
-     * Product publication status.
-     * Valid values: 'published', 'unpublished', 'archived', 'scheduled'
-     */
+    templateId: uuid("template_id").references(() => passportTemplates.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
     status: text("status").notNull().default("unpublished"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()

@@ -11,11 +11,15 @@ export const brandFacilities = pgTable(
       .notNull(),
     displayName: text("display_name").notNull(),
     legalName: text("legal_name"),
-    address: text("address"),
+    email: text("email"),
+    phone: text("phone"),
+    website: text("website"),
+    addressLine1: text("address_line_1"),
+    addressLine2: text("address_line_2"),
     city: text("city"),
+    state: text("state"),
+    zip: text("zip"),
     countryCode: text("country_code"),
-    contact: text("contact"),
-    vatNumber: text("vat_number"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

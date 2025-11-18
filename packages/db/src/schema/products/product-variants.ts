@@ -22,16 +22,7 @@ export const productVariants = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
-    /**
-     * Stock Keeping Unit (optional).
-     * Can be used for variant-specific tracking but is no longer required.
-     * Product identification is now handled at the product level via product_identifier.
-     */
-    sku: text("sku"),
     upid: text("upid"),
-    ean: text("ean"), // European Article Number / barcode
-    status: text("status"), // e.g., "active", "discontinued"
-    productImageUrl: text("product_image_url"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

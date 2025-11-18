@@ -46,7 +46,7 @@ export const tagsOnProduct = pgTable(
     pgPolicy("tags_on_product_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
       SELECT 1 FROM products 
       WHERE products.id = product_id 
@@ -56,7 +56,7 @@ export const tagsOnProduct = pgTable(
     pgPolicy("tags_on_product_insert_by_brand_members", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`EXISTS (
       SELECT 1 FROM products 
       WHERE products.id = product_id 
@@ -66,7 +66,7 @@ export const tagsOnProduct = pgTable(
     pgPolicy("tags_on_product_delete_by_brand_members", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
       SELECT 1 FROM products 
       WHERE products.id = product_id 

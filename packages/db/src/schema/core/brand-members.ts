@@ -66,28 +66,29 @@ export const brandMembers = pgTable(
     pgPolicy("users_on_brand_update_by_owner", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_owner(brand_id)`,
     }),
     pgPolicy("users_on_brand_select_for_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
+      using: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("users_on_brand_delete_self", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
     }),
     pgPolicy("users_on_brand_delete_owner_non_owner", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
     }),
     pgPolicy("users_on_brand_insert_first_owner_self", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
     }),
   ],
 );

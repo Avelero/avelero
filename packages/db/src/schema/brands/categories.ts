@@ -33,14 +33,14 @@ export const categories = pgTable(
     pgPolicy("categories_select_for_authenticated", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`true`,
     }),
     // Only allow system/admin operations for modifications (restrict to superuser)
     pgPolicy("categories_modify_system_only", {
       as: "restrictive",
       for: "all",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`false`,
       withCheck: sql`false`,
     }),

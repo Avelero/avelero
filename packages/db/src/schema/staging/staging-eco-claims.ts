@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   foreignKey,
   index,
@@ -71,7 +71,13 @@ export const stagingProductEcoClaims = pgTable(
     pgPolicy("staging_product_eco_claims_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
+      using: sql`EXISTS (
+        SELECT 1
+        FROM import_jobs
+        WHERE import_jobs.id = job_id
+          AND is_brand_member(import_jobs.brand_id)
+      )`,
     }),
     pgPolicy("staging_product_eco_claims_update_by_system", {
       as: "permissive",
@@ -98,4 +104,3 @@ export const stagingProductEcoClaimsRelations = relations(
     }),
   }),
 );
-

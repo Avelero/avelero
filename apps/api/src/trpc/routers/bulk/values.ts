@@ -7,7 +7,11 @@ import { serviceDb } from "@v1/db/client";
  * - define: Create single catalog entity inline
  * - batchDefine: Create multiple catalog entities at once
  */
+import type { SQL } from "drizzle-orm";
+import { categories } from "@v1/db/schema";
 import {
+  and,
+  eq,
   type ValueMappingTarget,
   createValueMapping,
   getImportJobStatus,
@@ -17,8 +21,7 @@ import {
   updateValueMapping,
   validateAndCreateEntity,
 } from "@v1/db/queries";
-import { categories } from "@v1/db/schema";
-import { type SQL, and, eq, isNull } from "drizzle-orm";
+import { isNull } from "drizzle-orm";
 import { z } from "zod";
 import {
   batchDefineValuesSchema,

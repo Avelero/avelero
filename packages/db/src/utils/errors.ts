@@ -32,3 +32,4 @@ export function buildDatabaseErrorMessage(
   return meta.detail ?? meta.message ?? fallback;
 }
 
+

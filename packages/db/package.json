@@ -18,7 +18,8 @@
     "./client": "./src/client.ts",
     "./schema": "./src/schema/index.ts",
     "./queries": "./src/queries/index.ts",
-    "./index": "./src/index.ts"
+    "./index": "./src/index.ts",
+    "./utils": "./src/utils/index.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.5",

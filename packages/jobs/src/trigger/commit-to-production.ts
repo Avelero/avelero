@@ -1,5 +1,6 @@
 import "./configure-trigger";
 import { logger, task } from "@trigger.dev/sdk/v3";
+import { eq } from "drizzle-orm";
 import { db } from "@v1/db/client";
 import type { Database } from "@v1/db/client";
 import { evaluateAndUpsertCompletion } from "@v1/db/index";
@@ -9,7 +10,6 @@ import {
   batchUpdateImportRowStatus,
   bulkCreateProductsFromStaging,
   createProduct,
-  createVariant,
   deleteStagingDataForJob,
   getImportJobStatus,
   getStagingProductsForCommit,
@@ -18,10 +18,10 @@ import {
   updateImportJobProgress,
   updateImportJobStatus,
   updateProduct,
-  updateVariant,
   upsertProductEnvironment,
   upsertProductMaterials,
 } from "@v1/db/queries";
+import { productVariants } from "@v1/db/schema";
 import { ProgressEmitter } from "./progress-emitter";
 
 /**
@@ -559,22 +559,12 @@ async function commitStagingRow(
             brandId,
             {
               name: stagingProduct.name,
-              // productIdentifier is required; use provided or fallback to generated value
-              productIdentifier:
-                stagingProduct.productIdentifier ??
-                `PROD-${stagingProduct.id.slice(0, 8)}`,
-              upid: stagingProduct.productUpid || undefined,
+              productIdentifier: stagingProduct.productIdentifier ?? undefined,
               description: stagingProduct.description || undefined,
               categoryId: stagingProduct.categoryId || undefined,
-              season: stagingProduct.season || undefined, // Legacy: kept for backward compatibility
               seasonId: stagingProduct.seasonId || undefined,
-              brandCertificationId:
-                stagingProduct.brandCertificationId || undefined,
               showcaseBrandId: stagingProduct.showcaseBrandId || undefined,
               primaryImageUrl: stagingProduct.primaryImageUrl || undefined,
-              additionalImageUrls:
-                stagingProduct.additionalImageUrls || undefined,
-              tags: stagingProduct.tags || undefined,
               status: stagingProduct.status || undefined,
             },
             { skipCompletionEval: true },
@@ -592,26 +582,22 @@ async function commitStagingRow(
           throw new Error("UPDATE action missing existingProductId");
         }
 
-        const updated = await updateProduct(
-          tx as unknown as Database,
-          brandId,
-          {
-            id: stagingProduct.existingProductId,
-            name: stagingProduct.name,
-            upid: stagingProduct.productUpid,
-            description: stagingProduct.description,
-            categoryId: stagingProduct.categoryId,
-            season: stagingProduct.season, // Legacy: kept for backward compatibility
-            seasonId: stagingProduct.seasonId,
-            brandCertificationId: stagingProduct.brandCertificationId,
-            showcaseBrandId: stagingProduct.showcaseBrandId,
-            primaryImageUrl: stagingProduct.primaryImageUrl,
-            additionalImageUrls: stagingProduct.additionalImageUrls,
-            tags: stagingProduct.tags,
-            status: stagingProduct.status,
-          },
-          { skipCompletionEval: true },
-        );
+          const updated = await updateProduct(
+            tx as unknown as Database,
+            brandId,
+            {
+              id: stagingProduct.existingProductId,
+              name: stagingProduct.name,
+              productIdentifier: stagingProduct.productIdentifier ?? undefined,
+              description: stagingProduct.description ?? undefined,
+              categoryId: stagingProduct.categoryId ?? undefined,
+              seasonId: stagingProduct.seasonId ?? undefined,
+              showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
+              primaryImageUrl: stagingProduct.primaryImageUrl ?? undefined,
+              status: stagingProduct.status ?? undefined,
+            },
+            { skipCompletionEval: true },
+          );
 
         if (!updated?.id) {
           throw new Error("Failed to update product");
@@ -622,20 +608,16 @@ async function commitStagingRow(
 
       // Step 2: Create or update the product variant
       if (action === "CREATE") {
-        const createdVariant = await createVariant(
-          tx as unknown as Database,
-          productId,
-          {
-            sku: variant.sku || "",
-            ean: variant.ean || undefined,
-            upid: variant.upid || undefined,
-            status: variant.status || undefined,
-            colorId: variant.colorId || undefined,
-            sizeId: variant.sizeId || undefined,
-            productImageUrl: variant.productImageUrl || undefined,
-          },
-          { skipCompletionEval: true },
-        );
+        const [createdVariant] = await tx
+          .insert(productVariants)
+          .values({
+            id: variant.id,
+            productId,
+            colorId: variant.colorId ?? null,
+            sizeId: variant.sizeId ?? null,
+            upid: variant.upid,
+          })
+          .returning({ id: productVariants.id });
 
         if (!createdVariant?.id) {
           throw new Error("Failed to create variant");
@@ -648,20 +630,15 @@ async function commitStagingRow(
           throw new Error("UPDATE action missing existingVariantId");
         }
 
-        const updatedVariant = await updateVariant(
-          tx as unknown as Database,
-          variant.existingVariantId,
-          {
-            sku: variant.sku ?? undefined,
-            ean: variant.ean ?? undefined,
+        const [updatedVariant] = await tx
+          .update(productVariants)
+          .set({
+            colorId: variant.colorId ?? null,
+            sizeId: variant.sizeId ?? null,
             upid: variant.upid ?? undefined,
-            status: variant.status ?? undefined,
-            colorId: variant.colorId ?? undefined,
-            sizeId: variant.sizeId ?? undefined,
-            productImageUrl: variant.productImageUrl ?? undefined,
-          },
-          { skipCompletionEval: true },
-        );
+          })
+          .where(eq(productVariants.id, variant.existingVariantId))
+          .returning({ id: productVariants.id });
 
         if (!updatedVariant?.id) {
           throw new Error("Failed to update variant");

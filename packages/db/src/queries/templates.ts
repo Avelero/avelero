@@ -198,17 +198,28 @@ export async function updatePassportTemplate(
     const updatePayload: Partial<typeof passportTemplates.$inferInsert> = {};
     if (input.name !== undefined) updatePayload.name = input.name;
     if (input.theme !== undefined) {
-      updatePayload.theme = input.theme ?? ({} as Record<string, unknown>);
+      updatePayload.theme = input.theme as Record<string, unknown>;
     }
-    if (Object.keys(updatePayload).length > 0) {
-      await tx
-        .update(passportTemplates)
-        .set(updatePayload)
-        .where(eq(passportTemplates.id, input.id));
+
+    const [result] = await tx
+      .update(passportTemplates)
+      .set(updatePayload)
+      .where(eq(passportTemplates.id, input.id))
+      .returning({
+        id: passportTemplates.id,
+        brandId: passportTemplates.brandId,
+        name: passportTemplates.name,
+        theme: passportTemplates.theme,
+        createdAt: passportTemplates.createdAt,
+        updatedAt: passportTemplates.updatedAt,
+      });
+
+    if (!result) {
+      return false;
     }
 
     if (modules) {
-      const previousModules = await tx
+      const current = await tx
         .select({
           module_key: passportTemplateModules.moduleKey,
           enabled: passportTemplateModules.enabled,
@@ -216,9 +227,22 @@ export async function updatePassportTemplate(
         .from(passportTemplateModules)
         .where(eq(passportTemplateModules.templateId, input.id));
 
-      await tx
-        .delete(passportTemplateModules)
-        .where(eq(passportTemplateModules.templateId, input.id));
+      const currentEnabled = new Set(
+        current.filter((m) => m.enabled).map((m) => m.module_key as ModuleKey),
+      );
+      const nextEnabled = new Set(
+        modules
+          .filter((module) => module.enabled ?? true)
+          .map((module) => module.module_key as ModuleKey),
+      );
+
+      const added = [...nextEnabled].filter((k) => !currentEnabled.has(k));
+      const removed = [...currentEnabled].filter((k) => !nextEnabled.has(k));
+      delta = { added, removed };
+
+      await tx.delete(passportTemplateModules).where(
+        eq(passportTemplateModules.templateId, input.id),
+      );
 
       if (modules.length > 0) {
         await tx.insert(passportTemplateModules).values(
@@ -230,35 +254,12 @@ export async function updatePassportTemplate(
           })),
         );
       }
-
-      const prevEnabled = new Set(
-        previousModules
-          .filter((m) => m.enabled)
-          .map((m) => m.module_key as ModuleKey),
-      );
-      const nextEnabled = new Set(
-        modules
-          .filter((m) => m.enabled ?? true)
-          .map((m) => m.module_key as ModuleKey),
-      );
-
-      const added: ModuleKey[] = [];
-      const removed: ModuleKey[] = [];
-      for (const key of nextEnabled) {
-        if (!prevEnabled.has(key)) added.push(key);
-      }
-      for (const key of prevEnabled) {
-        if (!nextEnabled.has(key)) removed.push(key);
-      }
-      delta = { added, removed };
     }
 
-    return true;
+    return result;
   });
 
-  if (!updated) {
-    return null;
-  }
+  if (!updated) return null;
 
   if (delta) {
     await syncTemplateModuleDelta(db, input.id, delta);
@@ -271,8 +272,8 @@ export async function deletePassportTemplate(
   db: Database,
   brandId: string,
   templateId: string,
-): Promise<boolean> {
-  const result = await db
+) {
+  const [row] = await db
     .delete(passportTemplates)
     .where(
       and(
@@ -281,76 +282,5 @@ export async function deletePassportTemplate(
       ),
     )
     .returning({ id: passportTemplates.id });
-
-  return result.length > 0;
-}
-
-export async function enableTemplateModules(
-  db: Database,
-  templateId: string,
-  modules: ModuleKey[],
-) {
-  if (!modules.length) return { count: 0 } as const;
-  await db.transaction(async (tx) => {
-    // Set enabled=true for listed modules; insert missing rows
-    for (const m of modules) {
-      await tx
-        .insert(passportTemplateModules)
-        .values({ templateId, moduleKey: m, enabled: true, sortIndex: 0 })
-        .onConflictDoUpdate({
-          target: [
-            passportTemplateModules.templateId,
-            passportTemplateModules.moduleKey,
-          ],
-          set: { enabled: true },
-        });
-    }
-  });
-  // Evaluate only added modules for all passports on this template
-  await syncTemplateModuleDelta(db, templateId, {
-    added: modules,
-    removed: [],
-  });
-  return { count: modules.length } as const;
-}
-
-export async function disableTemplateModules(
-  db: Database,
-  templateId: string,
-  modules: ModuleKey[],
-) {
-  if (!modules.length) return { count: 0 } as const;
-  await db
-    .update(passportTemplateModules)
-    .set({ enabled: false })
-    .where(
-      and(
-        eq(passportTemplateModules.templateId, templateId),
-        eq(passportTemplateModules.enabled, true),
-        // Typing: `inArray` is not imported to keep this minimal; do per-module updates
-        // If large sets are common, switch to inArray-based batch update.
-        // We'll keep this simple with a chain of OR via multiple calls for now.
-        // The per-item update approach is acceptable due to small module set size.
-        eq(passportTemplateModules.moduleKey, modules[0] as string),
-      ),
-    );
-  // For remaining modules beyond index 0, run updates individually
-  for (let i = 1; i < modules.length; i++) {
-    await db
-      .update(passportTemplateModules)
-      .set({ enabled: false })
-      .where(
-        and(
-          eq(passportTemplateModules.templateId, templateId),
-          eq(passportTemplateModules.moduleKey, modules[i] as string),
-          eq(passportTemplateModules.enabled, true),
-        ),
-      );
-  }
-  // Prune-only path via delta with removed modules
-  await syncTemplateModuleDelta(db, templateId, {
-    added: [],
-    removed: modules,
-  });
-  return { count: modules.length } as const;
+  return row;
 }

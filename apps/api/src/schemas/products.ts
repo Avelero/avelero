@@ -13,6 +13,7 @@ import {
 } from "./_shared/patterns.js";
 import {
   longStringSchema,
+  nonNegativeIntSchema,
   paginationLimitSchema,
   shortStringSchema,
   urlSchema,
@@ -80,7 +81,6 @@ export const createProductSchema = z.object({
    * a brand. Required alongside the product name when creating products.
    */
   product_identifier: shortStringSchema,
-  upid: shortStringSchema.optional(),
   description: longStringSchema.optional(),
   category_id: uuidSchema.optional(),
   season_id: uuidSchema.optional(), // FK to brand_seasons.id
@@ -88,6 +88,32 @@ export const createProductSchema = z.object({
   primary_image_url: urlSchema.optional(),
   template_id: uuidSchema.optional(),
   status: shortStringSchema.optional(),
+  color_ids: uuidArraySchema.max(12).optional(),
+  size_ids: uuidArraySchema.max(12).optional(),
+  materials: z
+    .array(
+      z.object({
+        brand_material_id: uuidSchema,
+        percentage: z.union([z.string(), z.number()]).optional(),
+      }),
+    )
+    .optional(),
+  eco_claim_ids: uuidArraySchema.optional(),
+  journey_steps: z
+    .array(
+      z.object({
+        sort_index: nonNegativeIntSchema,
+        step_type: shortStringSchema,
+        facility_id: uuidSchema,
+      }),
+    )
+    .optional(),
+  environment: z
+    .object({
+      carbon_kg_co2e: z.union([z.string(), z.number()]).optional(),
+      water_liters: z.union([z.string(), z.number()]).optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -101,7 +127,6 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
   "primary_image_url",
   "template_id",
   "status",
-  "upid",
   "product_identifier",
 ]);
 

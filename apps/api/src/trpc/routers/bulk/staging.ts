@@ -82,16 +82,14 @@ export const stagingRouter = createTRPCRouter({
                 name: p.name,
                 description: p.description,
                 categoryId: p.categoryId,
-                season: p.season,
+                seasonId: p.seasonId,
                 primaryImageUrl: p.primaryImageUrl,
               },
               variant: p.variant
                 ? {
                     upid: p.variant.upid,
-                    sku: p.variant.sku,
                     colorId: p.variant.colorId,
                     sizeId: p.variant.sizeId,
-                    productImageUrl: p.variant.productImageUrl,
                   }
                 : null,
             })),
@@ -186,16 +184,14 @@ export const stagingRouter = createTRPCRouter({
               name: p.name,
               description: p.description,
               categoryId: p.categoryId,
-              season: p.season,
+              seasonId: p.seasonId,
               primaryImageUrl: p.primaryImageUrl,
             },
             variant: p.variant
               ? {
                   upid: p.variant.upid,
-                  sku: p.variant.sku,
                   colorId: p.variant.colorId,
                   sizeId: p.variant.sizeId,
-                  productImageUrl: p.variant.productImageUrl,
                 }
               : null,
           })),

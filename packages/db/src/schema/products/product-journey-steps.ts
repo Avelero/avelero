@@ -45,37 +45,37 @@ export const productJourneySteps = pgTable(
     pgPolicy("product_journey_steps_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_journey_steps_insert_by_brand_owner", {
+    pgPolicy("product_journey_steps_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_journey_steps_update_by_brand_owner", {
+    pgPolicy("product_journey_steps_update_by_brand_member", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_journey_steps_delete_by_brand_owner", {
+    pgPolicy("product_journey_steps_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 

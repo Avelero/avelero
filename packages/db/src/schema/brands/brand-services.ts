@@ -26,26 +26,26 @@ export const brandServices = pgTable(
     pgPolicy("brand_services_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_services_insert_by_brand_owner", {
+    pgPolicy("brand_services_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
-      withCheck: sql`is_brand_owner(brand_id)`,
+      to: ["authenticated", "service_role"],
+      withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_services_update_by_brand_owner", {
+    pgPolicy("brand_services_update_by_brand_member", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
-      using: sql`is_brand_owner(brand_id)`,
+      to: ["authenticated", "service_role"],
+      using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_services_delete_by_brand_owner", {
+    pgPolicy("brand_services_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
-      using: sql`is_brand_owner(brand_id)`,
+      to: ["authenticated", "service_role"],
+      using: sql`is_brand_member(brand_id)`,
     }),
   ],
 );

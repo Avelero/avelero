@@ -17,7 +17,6 @@ import {
   createFacility,
   createMaterial,
   createSeason,
-  createSeason,
   createShowcaseBrand,
   createSize,
   deleteBrandTag,
@@ -26,7 +25,6 @@ import {
   deleteEcoClaim,
   deleteFacility,
   deleteMaterial,
-  deleteSeason,
   deleteSeason,
   deleteShowcaseBrand,
   deleteSize,
@@ -37,7 +35,6 @@ import {
   listFacilities,
   listMaterials,
   listSeasonsForBrand,
-  listSeasonsForBrand,
   listShowcaseBrands,
   listSizes,
   updateBrandTag,
@@ -46,7 +43,6 @@ import {
   updateEcoClaim,
   updateFacility,
   updateMaterial,
-  updateSeason,
   updateSeason,
   updateShowcaseBrand,
   updateSize,
@@ -59,7 +55,6 @@ import {
   createFacilitySchema,
   createMaterialSchema,
   createSeasonSchema,
-  createSeasonSchema,
   createShowcaseBrandSchema,
   createSizeSchema,
   deleteBrandTagSchema,
@@ -68,7 +63,6 @@ import {
   deleteEcoClaimSchema,
   deleteFacilitySchema,
   deleteMaterialSchema,
-  deleteSeasonSchema,
   deleteSeasonSchema,
   deleteShowcaseBrandSchema,
   deleteSizeSchema,
@@ -79,7 +73,6 @@ import {
   listFacilitiesSchema,
   listMaterialsSchema,
   listSeasonsSchema,
-  listSeasonsSchema,
   listShowcaseBrandsSchema,
   listSizesSchema,
   updateBrandTagSchema,
@@ -89,7 +82,6 @@ import {
   updateFacilitySchema,
   updateMaterialSchema,
   updateSeasonSchema,
-  updateSeasonSchema,
   updateShowcaseBrandSchema,
   updateSizeSchema,
 } from "../../../schemas/brand-catalog/index.js";
@@ -97,7 +89,6 @@ import {
   transformCertificationInput,
   transformFacilityInput,
   transformMaterialInput,
-  transformSeasonInput,
   transformSeasonInput,
   transformShowcaseBrandInput,
   transformSizeInput,
@@ -453,28 +444,6 @@ export const brandRouter = createTRPCRouter({
       delete: deleteMaterial,
     },
     transformMaterialInput,
-  ),
-
-  /**
-   * Seasons catalog endpoints.
-   *
-   * Manages seasonal collections with optional start/end dates or ongoing flag.
-   */
-  seasons: createCatalogResourceRouter(
-    "season",
-    {
-      list: listSeasonsSchema,
-      create: createSeasonSchema,
-      update: updateSeasonSchema,
-      delete: deleteSeasonSchema,
-    },
-    {
-      list: listSeasonsForBrand,
-      create: createSeason,
-      update: updateSeason,
-      delete: deleteSeason,
-    },
-    transformSeasonInput,
   ),
 
   /**

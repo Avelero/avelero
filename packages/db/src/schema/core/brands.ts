@@ -30,31 +30,33 @@ export const brands = pgTable(
       "brands_avatar_hue_check",
       sql`(avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360))`,
     ),
-    pgPolicy("brands_update_by_owner", {
+    pgPolicy("brands_update_by_member", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
-      using: sql`is_brand_owner(id)`,
+      to: ["authenticated", "service_role"],
+      using: sql`is_brand_member(id)`,
     }),
     pgPolicy("brands_delete_by_owner", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
+      using: sql`is_brand_owner(id)`,
     }),
     pgPolicy("brands_select_for_invite_recipients", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
     }),
     pgPolicy("brands_select_for_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
+      using: sql`is_brand_member(id)`,
     }),
     pgPolicy("brands_insert_by_authenticated", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
     }),
   ],
 );

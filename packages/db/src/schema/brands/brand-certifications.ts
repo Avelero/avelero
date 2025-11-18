@@ -41,19 +41,19 @@ export const brandCertifications = pgTable(
       to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_certifications_insert_by_brand_owner", {
+    pgPolicy("brand_certifications_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
       to: ["authenticated", "service_role"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_certifications_update_by_brand_owner", {
+    pgPolicy("brand_certifications_update_by_brand_member", {
       as: "permissive",
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_certifications_delete_by_brand_owner", {
+    pgPolicy("brand_certifications_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
       to: ["authenticated", "service_role"],

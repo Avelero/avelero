@@ -40,25 +40,25 @@ export const passportTemplateModules = pgTable(
     pgPolicy("passport_template_modules_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member((SELECT brand_id FROM passport_templates WHERE id = template_id))`,
     }),
-    pgPolicy("passport_template_modules_insert_by_brand_owner", {
+    pgPolicy("passport_template_modules_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`is_brand_member((SELECT brand_id FROM passport_templates WHERE id = template_id))`,
     }),
-    pgPolicy("passport_template_modules_update_by_brand_owner", {
+    pgPolicy("passport_template_modules_update_by_brand_member", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member((SELECT brand_id FROM passport_templates WHERE id = template_id))`,
     }),
-    pgPolicy("passport_template_modules_delete_by_brand_owner", {
+    pgPolicy("passport_template_modules_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member((SELECT brand_id FROM passport_templates WHERE id = template_id))`,
     }),
   ],

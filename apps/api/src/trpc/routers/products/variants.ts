@@ -4,7 +4,7 @@
  * Covers the nested `products.variants.*` namespace responsible for variant
  * listings, batch upserts, and explicit delete operations.
  */
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
 import {
   getVariantsSchema,
@@ -121,7 +121,7 @@ async function fetchProductVariants(
 ) {
   await assertProductForBrand(db, brandId, productId);
 
-  let query = db
+  const baseQuery = db
     .select({
       id: productVariants.id,
       product_id: productVariants.productId,
@@ -135,11 +135,7 @@ async function fetchProductVariants(
     .where(eq(productVariants.productId, productId))
     .orderBy(productVariants.createdAt, productVariants.id);
 
-  if (opts.limit) {
-    query = query.limit(opts.limit);
-  }
-
-  const rows = await query;
+  const rows = opts.limit ? await baseQuery.limit(opts.limit) : await baseQuery;
   return rows;
 }
 

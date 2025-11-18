@@ -9,15 +9,7 @@ import {
   getBrandsByUserId,
   getUserById,
   inArray,
-  listCategories,
-  listCertifications,
-  listColors,
-  listFacilities,
-  listMaterials,
   listPendingInvitesForEmail,
-  listSeasonsForBrand,
-  listShowcaseBrands,
-  listSizes,
   sql,
 } from "@v1/db/queries";
 import { brandInvites, brandMembers, users } from "@v1/db/schema";
@@ -31,11 +23,6 @@ import { getAppUrl } from "@v1/utils/envs";
  * - composite.passportFormReferences
  */
 import { ROLES } from "../../../config/roles.js";
-import {
-  compositePassportCreateSchema,
-  compositePassportFormSchema,
-  compositePassportUpdateSchema,
-} from "../../../schemas/passports.js";
 import { workflowBrandIdSchema } from "../../../schemas/workflow.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
 import { createEntityResponse } from "../../../utils/response.js";
@@ -376,169 +363,6 @@ export const compositeRouter = createTRPCRouter({
       return { members, invites };
     }),
 
-  /**
-   * Provides all reference data required to render the passport form in one round trip.
-   */
-  passportFormReferences: brandRequiredProcedure.query(async ({ ctx }) => {
-    const { db, brandId } = ctx;
-
-    try {
-      const [
-        categories,
-        materials,
-        operators,
-        colors,
-        sizes,
-        certifications,
-        seasons,
-        showcaseBrands,
-        tags,
-      ] = await Promise.all([
-        listCategories(db),
-        listMaterials(db, brandId),
-        listFacilities(db, brandId), // Operators/facilities from brand_facilities table
-        listColors(db, brandId),
-        listSizes(db, brandId),
-        listCertifications(db, brandId),
-        listSeasonsForBrand(db, brandId),
-        listShowcaseBrands(db, brandId), // Showcase brands from showcase_brands table
-        listBrandTags(db, brandId),
-      ]);
-
-      return {
-        categories,
-        brandCatalog: {
-          materials,
-          operators, // Facilities/production plants from brand_facilities table
-          colors,
-          sizes,
-          certifications,
-          seasons,
-          showcaseBrands, // Display brands from showcase_brands table
-          tags,
-        },
-      };
-    } catch (error) {
-      throw wrapError(error, "Failed to load passport form references");
-    }
-  }),
-
-  passportForm: brandRequiredProcedure
-    .input(compositePassportFormSchema)
-    .query(async ({ ctx, input }) => {
-      const { db, brandId } = ctx;
-      try {
-        const data = await getPassportFormData(db, brandId, input.product_upid);
-        return data;
-      } catch (error) {
-        throw wrapError(error, "Failed to load passport form data");
-      }
-    }),
-
-  passportCreate: brandRequiredProcedure
-    .input(compositePassportCreateSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { db, brandId } = ctx;
-      try {
-        const result = await createPassportWorkflow(db, brandId, {
-          title: input.title,
-          productIdentifier: input.product_identifier ?? undefined,
-          description: input.description ?? undefined,
-          categoryId: input.category_id ?? undefined,
-          season: input.season ?? undefined,
-          seasonId: input.season_id ?? undefined,
-          brandCertificationId: input.brand_certification_id ?? undefined,
-          showcaseBrandId: input.showcase_brand_id ?? undefined,
-          primaryImageUrl: input.primary_image_url ?? undefined,
-          additionalImageUrls: input.additional_image_urls ?? undefined,
-          tags: input.tags ?? undefined,
-          sku: input.sku,
-          ean: input.ean ?? undefined,
-          colorIds: input.color_ids ?? undefined,
-          sizeIds: input.size_ids ?? undefined,
-          status: input.status ?? undefined,
-          templateId: input.template_id ?? undefined,
-          materials: input.materials
-            ? input.materials.map((material) => ({
-                brandMaterialId: material.brand_material_id,
-                percentage: material.percentage,
-              }))
-            : undefined,
-          journeySteps: input.journey_steps
-            ? input.journey_steps.map((step) => ({
-                sortIndex: step.sort_index,
-                stepType: step.step_type,
-                facilityId: step.facility_id,
-              }))
-            : undefined,
-          environment: input.environment
-            ? {
-                carbonKgCo2e: input.environment.carbon_kg_co2e ?? undefined,
-                waterLiters: input.environment.water_liters ?? undefined,
-              }
-            : undefined,
-        });
-
-        return createEntityResponse(result);
-      } catch (error) {
-        if (error instanceof Error && error.message) {
-          throw badRequest(error.message);
-        }
-        throw wrapError(error, "Failed to create passport workflow");
-      }
-    }),
-
-  passportUpdate: brandRequiredProcedure
-    .input(compositePassportUpdateSchema)
-    .mutation(async ({ ctx, input }) => {
-      const { db, brandId } = ctx;
-      try {
-        const productIdentifier = input.product_identifier?.trim();
-        if (!productIdentifier) {
-          throw badRequest("product_identifier is required");
-        }
-        const result = await updatePassportWorkflow(db, brandId, {
-          productUpid: input.product_upid,
-          productId: input.product_id,
-          title: input.title,
-          productIdentifier,
-          description: input.description ?? undefined,
-          categoryId: input.category_id ?? undefined,
-          season: input.season ?? undefined,
-          showcaseBrandId: input.showcase_brand_id ?? undefined,
-          primaryImageUrl: input.primary_image_url ?? undefined,
-          tagIds: input.tags ?? undefined,
-          sku: input.sku,
-          ean: input.ean ?? undefined,
-          status: input.status ?? undefined,
-          materials: input.materials
-            ? input.materials.map((material) => ({
-                brandMaterialId: material.brand_material_id,
-                percentage: material.percentage,
-              }))
-            : [],
-          journeySteps: input.journey_steps
-            ? input.journey_steps.map((step) => ({
-                sortIndex: step.sort_index,
-                stepType: step.step_type,
-                facilityId: step.facility_id,
-              }))
-            : [],
-          environment: input.environment
-            ? {
-                carbonKgCo2e: input.environment.carbon_kg_co2e ?? undefined,
-                waterLiters: input.environment.water_liters ?? undefined,
-              }
-            : undefined,
-        });
-        return createEntityResponse(result);
-      } catch (error) {
-        if (error instanceof Error && error.message) {
-          throw badRequest(error.message);
-        }
-        throw wrapError(error, "Failed to update passport workflow");
-      }
-    }),
 });
 
 export type CompositeRouter = typeof compositeRouter;

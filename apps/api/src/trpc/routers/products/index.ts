@@ -15,6 +15,8 @@ import {
   setProductJourneySteps,
   upsertProductEnvironment,
   upsertProductMaterials,
+  getProductWithIncludesByUpid,
+  setProductTags,
 } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
 import { and, eq, inArray } from "@v1/db/queries";
@@ -24,6 +26,7 @@ import {
   productsDomainDeleteSchema,
   productsDomainGetSchema,
   productsDomainListSchema,
+  productsDomainGetByUpidSchema,
   productsDomainUpdateSchema,
 } from "../../../schemas/products.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -66,6 +69,7 @@ type AttributeInput = {
     carbon_kg_co2e?: string | number;
     water_liters?: string | number;
   };
+  tag_ids?: string[];
 };
 
 export const productsRouter = createTRPCRouter({
@@ -90,7 +94,7 @@ export const productsRouter = createTRPCRouter({
           cursor: input.cursor,
           limit: input.limit,
           includeVariants: input.includeVariants,
-          includeAttributes: false,
+          includeAttributes: input.includeAttributes,
         },
       );
 
@@ -108,7 +112,18 @@ export const productsRouter = createTRPCRouter({
       const brandId = ensureBrandScope(brandCtx);
       return getProductWithIncludes(brandCtx.db, brandId, input.id, {
         includeVariants: input.includeVariants,
-        includeAttributes: false,
+        includeAttributes: input.includeAttributes,
+      });
+    }),
+
+  getByUpid: brandRequiredProcedure
+    .input(productsDomainGetByUpidSchema)
+    .query(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = ensureBrandScope(brandCtx);
+      return getProductWithIncludesByUpid(brandCtx.db, brandId, input.upid, {
+        includeVariants: input.includeVariants,
+        includeAttributes: input.includeAttributes,
       });
     }),
 
@@ -297,6 +312,10 @@ async function applyProductAttributes(
         facilityId: step.facility_id,
       })),
     );
+  }
+
+  if (input.tag_ids) {
+    await setProductTags(ctx.db, productId, input.tag_ids);
   }
 }
 

@@ -235,14 +235,14 @@ export async function listBrandTags(db: Database, brandId: string) {
 export async function createBrandTag(
   db: Database,
   brandId: string,
-  input: { name: string; hex: string },
+  input: { name: string; hex?: string | null },
 ) {
   const [row] = await db
     .insert(brandTags)
     .values({
       brandId,
       name: input.name,
-      hex: input.hex,
+      hex: input.hex ?? null,
     })
     .returning({
       id: brandTags.id,
@@ -258,13 +258,13 @@ export async function updateBrandTag(
   db: Database,
   brandId: string,
   id: string,
-  input: { name?: string; hex?: string },
+  input: { name?: string; hex?: string | null },
 ) {
   const [row] = await db
     .update(brandTags)
     .set({
       name: input.name,
-      hex: input.hex,
+      hex: input.hex ?? null,
     })
     .where(and(eq(brandTags.id, id), eq(brandTags.brandId, brandId)))
     .returning({

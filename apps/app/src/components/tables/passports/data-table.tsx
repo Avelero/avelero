@@ -1,8 +1,6 @@
 "use client";
 
 import { useTableScroll } from "@/hooks/use-table-scroll";
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   flexRender,
@@ -23,74 +21,7 @@ import { columns } from "./columns";
 import { EmptyState } from "./empty-state";
 import { PassportTableHeader } from "./table-header";
 import { PassportTableSkeleton } from "./table-skeleton";
-import type { Passport, PassportTableRow, SelectionState } from "./types";
-
-const formatValueList = (values: string[]): string | undefined => {
-  if (!values.length) return undefined;
-  return values.join(", ");
-};
-
-const addUniqueValue = (list: string[], value?: string | null) => {
-  if (!value) return;
-  if (!list.includes(value)) list.push(value);
-};
-
-const aggregatePassports = (rows: Passport[]): PassportTableRow[] => {
-  if (!rows.length) return [];
-
-  const groups = new Map<
-    string,
-    {
-      base: Passport;
-      passportIds: string[];
-      colors: string[];
-      sizes: string[];
-      skus: string[];
-      passportUrl?: string;
-    }
-  >();
-
-  for (const passport of rows) {
-    const rowId = passport.productId || passport.id;
-    let group = groups.get(rowId);
-
-    if (!group) {
-      group = {
-        base: passport,
-        passportIds: [passport.id],
-        colors: [],
-        sizes: [],
-        skus: [],
-        passportUrl: passport.passportUrl,
-      };
-      addUniqueValue(group.colors, passport.color);
-      addUniqueValue(group.sizes, passport.size);
-      addUniqueValue(group.skus, passport.sku);
-      groups.set(rowId, group);
-      continue;
-    }
-
-    group.passportIds.push(passport.id);
-    addUniqueValue(group.colors, passport.color);
-    addUniqueValue(group.sizes, passport.size);
-    addUniqueValue(group.skus, passport.sku);
-    if (!group.passportUrl && passport.passportUrl) {
-      group.passportUrl = passport.passportUrl;
-    }
-  }
-
-  return Array.from(groups.values()).map(
-    ({ base, passportIds, colors, sizes, skus, passportUrl }) => ({
-      ...base,
-      id: base.productId || base.id,
-      passportIds,
-      color: formatValueList(colors),
-      size: formatValueList(sizes),
-      sku: formatValueList(skus),
-      passportUrl,
-    }),
-  );
-};
+import type { PassportTableRow, SelectionState } from "./types";
 
 export function PassportDataTable({
   onSelectionChangeAction,
@@ -99,7 +30,14 @@ export function PassportDataTable({
   onTotalCountChangeAction,
   selection,
   onSelectionStateChangeAction,
-  filterState,
+  rows,
+  total,
+  isLoading,
+  pageInfo,
+  onNextPage,
+  onPrevPage,
+  onFirstPage,
+  onLastPage,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
@@ -107,43 +45,29 @@ export function PassportDataTable({
   onTotalCountChangeAction?: (hasAny: boolean) => void;
   selection: SelectionState;
   onSelectionStateChangeAction: (next: SelectionState) => void;
-  filterState?: any; // FilterState type - not used yet, ready for backend integration
+  rows: PassportTableRow[];
+  total: number;
+  isLoading: boolean;
+  pageInfo: {
+    hasNext: boolean;
+    hasPrev: boolean;
+    hasFirst: boolean;
+    hasLast: boolean;
+    start: number;
+    end: number;
+  };
+  onNextPage: () => void;
+  onPrevPage: () => void;
+  onFirstPage: () => void;
+  onLastPage: () => void;
 }) {
-  const [page, setPage] = React.useState(0);
   const pageSize = 50;
-  const trpc = useTRPC();
-  const isPageZero = page === 0;
-  const listQueryOptions = React.useMemo(
-    () =>
-      trpc.passports.list.queryOptions({
-        page,
-        includeStatusCounts: isPageZero ? true : undefined,
-      }),
-    [trpc, page, isPageZero],
-  );
-
-  const { data: listResponse, isLoading } = useQuery(listQueryOptions);
-  const rawData = React.useMemo<Passport[]>(() => {
-    const d = (listResponse as { data?: unknown } | undefined)?.data;
-    return Array.isArray(d) ? (d as Passport[]) : [];
-  }, [listResponse]);
-  const tableData = React.useMemo<PassportTableRow[]>(
-    () => aggregatePassports(rawData),
-    [rawData],
-  );
-  const total = React.useMemo<number>(() => {
-    const m = (listResponse as { meta?: { total?: unknown } } | undefined)
-      ?.meta;
-    const t = (m?.total as number | undefined) ?? 0;
-    return typeof t === "number" ? t : 0;
-  }, [listResponse]);
-  const totalProducts = React.useMemo<number>(() => {
-    const m = (listResponse as { meta?: { productTotal?: unknown } } | undefined)
-      ?.meta;
-    const fallback = tableData.length;
-    const t = (m?.productTotal as number | undefined) ?? fallback;
-    return typeof t === "number" && !Number.isNaN(t) ? t : fallback;
-  }, [listResponse, tableData.length]);
+  const page =
+    pageInfo.start > 0
+      ? Math.max(0, Math.floor((pageInfo.start - 1) / pageSize))
+      : 0;
+  const tableData = rows;
+  const totalProducts = total;
 
   const mapRowIdsToPassportIds = React.useCallback(
     (rowIds: string[]) => {
@@ -388,7 +312,13 @@ export function PassportDataTable({
     setOptimisticRowSelection(nextMap);
   }, [tableData, selection, isPending]);
 
-  if (isLoading) return <PassportTableSkeleton />;
+  if (isLoading)
+    return (
+      <PassportTableSkeleton
+        columnVisibility={columnVisibility}
+        columnOrder={columnOrder}
+      />
+    );
   if (!tableData.length)
     return total === 0 ? (
       <EmptyState.NoPassports />
@@ -471,59 +401,57 @@ export function PassportDataTable({
               ))}
             </TableBody>
           </Table>
+    </div>
+  </div>
+  {(() => {
+    const start = pageInfo.start;
+    const end = pageInfo.end;
+    const canGoPrev = pageInfo.hasPrev;
+    const canGoNext = pageInfo.hasNext;
+    const canGoFirst = pageInfo.hasFirst;
+    const canGoLast = pageInfo.hasLast;
+    return (
+      <div className="flex items-center justify-end gap-4 py-3">
+        <div className="type-p text-secondary">
+          {start} - {end} of {totalProducts}
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="First page"
+            onClick={onFirstPage}
+            disabled={!canGoFirst}
+            icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Previous page"
+            onClick={onPrevPage}
+            disabled={!canGoPrev}
+            icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Next page"
+            onClick={onNextPage}
+            disabled={!canGoNext}
+            icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Last page"
+            onClick={onLastPage}
+            disabled={!canGoLast}
+            icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
+          />
         </div>
       </div>
-      {(() => {
-        const start =
-          totalProducts === 0
-            ? 0
-            : Math.min(page * pageSize + 1, totalProducts);
-        const end = Math.min(page * pageSize + tableData.length, totalProducts);
-        const lastPage = Math.max(0, Math.ceil(total / pageSize) - 1);
-        const canGoPrev = page > 0;
-        const canGoNext = page < lastPage;
-        return (
-          <div className="flex items-center justify-end gap-4 py-3">
-            <div className="type-p text-secondary">
-              {start} - {end} of {totalProducts}
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="First page"
-                onClick={() => setPage(0)}
-                disabled={!canGoPrev}
-                icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Previous page"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={!canGoPrev}
-                icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Next page"
-                onClick={() => setPage((p) => p + 1)}
-                disabled={!canGoNext}
-                icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Last page"
-                onClick={() => setPage(lastPage)}
-                disabled={!canGoNext}
-                icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
-              />
-            </div>
-          </div>
-        );
-      })()}
-    </div>
+    );
+  })()}
+</div>
   );
 }

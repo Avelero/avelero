@@ -95,34 +95,26 @@ export function TagSelect({
   const mergedTags = React.useMemo(() => {
     const map = new Map<string, BrandTagOption>();
     for (const tag of catalogTags) {
-      map.set(tag.name.toLowerCase(), tag);
+      map.set(tag.id, tag);
     }
     for (const tag of localTags) {
-      map.set(tag.name.toLowerCase(), tag);
+      if (!map.has(tag.id)) {
+        map.set(tag.id, tag);
+      }
     }
     return Array.from(map.values());
   }, [catalogTags, localTags]);
 
   const selectedTagOptions = React.useMemo(() => {
-    const uniqueNames = Array.from(new Set(value));
-    const tagMap = new Map(
-      mergedTags.map((tag) => [tag.name.toLowerCase(), tag]),
-    );
-    return uniqueNames.map((tagName) => {
-      const existing = tagMap.get(tagName.toLowerCase());
+    const tagMap = new Map(mergedTags.map((tag) => [tag.id, tag]));
+    return value.map((tagId) => {
+      const existing = tagMap.get(tagId);
       if (existing) return existing;
-      const fallbackHex =
-        allColors.find(
-          (color) => color.name.toLowerCase() === tagName.toLowerCase(),
-        )?.hex ?? "000000";
-      return { id: tagName, name: tagName, hex: fallbackHex };
+      return { id: tagId, name: tagId, hex: "000000" };
     });
   }, [mergedTags, value]);
 
-  const normalizedSelected = React.useMemo(
-    () => new Set(value.map((tag) => tag.toLowerCase())),
-    [value],
-  );
+  const normalizedSelected = React.useMemo(() => new Set(value), [value]);
 
   const filteredTags = React.useMemo(() => {
     if (!searchTerm) return mergedTags;
@@ -146,15 +138,15 @@ export function TagSelect({
       (tag) => tag.name.toLowerCase() === searchTerm.trim().toLowerCase(),
     );
 
-  const handleRemoveTag = (tagName: string) => {
-    onValueChange(value.filter((name) => name !== tagName));
+  const handleRemoveTag = (tagId: string) => {
+    onValueChange(value.filter((id) => id !== tagId));
   };
 
-  const handleToggleTag = (tagName: string) => {
-    if (normalizedSelected.has(tagName.toLowerCase())) {
-      handleRemoveTag(tagName);
+  const handleToggleTag = (tagId: string) => {
+    if (normalizedSelected.has(tagId)) {
+      handleRemoveTag(tagId);
     } else {
-      onValueChange([...value, tagName]);
+      onValueChange([...value, tagId]);
     }
   };
 
@@ -210,7 +202,7 @@ export function TagSelect({
       ]);
 
       queryClient.setQueryData(
-        trpc.composite.passportFormReferences.queryKey(),
+        trpc.composite.brandCatalogContent.queryKey(),
         (old: any) => {
           if (!old?.brandCatalog) return old;
           const existingTags = old.brandCatalog.tags ?? [];
@@ -232,10 +224,10 @@ export function TagSelect({
       );
 
       queryClient.invalidateQueries({
-        queryKey: trpc.composite.passportFormReferences.queryKey(),
+        queryKey: trpc.composite.brandCatalogContent.queryKey(),
       });
 
-      onValueChange([...new Set([...value, trimmedName])]);
+      onValueChange([...new Set([...value, optimisticTag.id])]);
       setView("main");
       setPendingTagName("");
       setOpen(false);
@@ -276,7 +268,7 @@ export function TagSelect({
             <TagLabel
               key={tag.id}
               tag={tag}
-              onRemove={() => handleRemoveTag(tag.name)}
+              onRemove={() => handleRemoveTag(tag.id)}
               disabled={disabled}
             />
           ))}
@@ -306,14 +298,12 @@ export function TagSelect({
               <CommandGroup>
                 {filteredTags.length > 0 &&
                   filteredTags.map((tag) => {
-                    const isSelected = normalizedSelected.has(
-                      tag.name.toLowerCase(),
-                    );
+                    const isSelected = normalizedSelected.has(tag.id);
                     return (
                       <CommandItem
                         key={tag.id}
                         value={tag.name}
-                        onSelect={() => handleToggleTag(tag.name)}
+                        onSelect={() => handleToggleTag(tag.id)}
                         className="justify-between"
                       >
                         <div className="flex items-center gap-2">

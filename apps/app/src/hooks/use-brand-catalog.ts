@@ -99,7 +99,7 @@ function buildCategoryHierarchy(categories: Array<{ id: string; name: string; pa
 /**
  * Hook to fetch and merge brand catalog reference data.
  * 
- * Consumes the prefetched `passportFormReferences` query and merges
+ * Consumes the prefetched `brandCatalogContent` query and merges
  * API data with client-side defaults from the selections package.
  * 
  * This hook provides brand-level catalog data (categories, colors, sizes,
@@ -113,7 +113,7 @@ export function useBrandCatalog() {
   
   // Access prefetched data from React Query cache
   const { data, isLoading } = useQuery(
-    trpc.composite.passportFormReferences.queryOptions()
+    trpc.composite.brandCatalogContent.queryOptions()
   );
 
   // Merge colors: API colors + default colors from selections
@@ -306,7 +306,8 @@ export function useBrandCatalog() {
     operators: data?.brandCatalog.operators || [], // Facilities/production plants from brand_facilities table
     certifications: data?.brandCatalog.certifications || [],
     showcaseBrands: data?.brandCatalog.showcaseBrands || [], // Display brands from showcase_brands table
-    seasons: (data?.brandCatalog.seasons || []).map(s => ({
+    seasons: (data?.brandCatalog.seasons || []).map((s) => ({
+      id: (s as any).id ?? "",
       name: s.name,
       startDate: s.startDate ? new Date(s.startDate) : undefined,
       endDate: s.endDate ? new Date(s.endDate) : undefined,
@@ -329,4 +330,3 @@ export function useBrandCatalog() {
 
 // Backwards compatibility alias
 export const usePassportFormData = useBrandCatalog;
-

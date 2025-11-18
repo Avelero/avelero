@@ -509,6 +509,8 @@ export function JourneySection({
   // Local display state for drag-and-drop (with operators as array)
   const [displaySteps, setDisplaySteps] = React.useState<JourneyStep[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
+  const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const stepIdMapRef = React.useRef<Map<string, string>>(new Map());
   
   // Map operators (facilities) to the format expected by dropdowns
   const availableOperators = React.useMemo(
@@ -522,16 +524,29 @@ export function JourneySection({
   // Sync parent steps to display steps, preserving incomplete local steps
   React.useEffect(() => {
     const enriched = parentSteps
-      .map((ps, index) => {
-        const operatorInfo = availableOperators.find(f => f.id === ps.facilityId);
-        
+      .map((ps) => {
+        const operatorInfo = availableOperators.find(
+          (f) => f.id === ps.facilityId,
+        );
+
         // Skip steps where we can't find the facility yet (data still loading)
         if (!operatorInfo) {
           return null;
         }
-        
+
+        // Stable ID based on facility + step type; generate once
+        const key = `${ps.facilityId ?? "unknown"}|${ps.stepType ?? "unknown"}`;
+        if (!stepIdMapRef.current.has(key)) {
+          const generatedId =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `step-${Math.random().toString(16).slice(2)}`;
+          stepIdMapRef.current.set(key, generatedId);
+        }
+        const stableId = stepIdMapRef.current.get(key) as string;
+
         return {
-          id: `step-${index}`,
+          id: stableId,
           step: ps.stepType,
           operators: [operatorInfo.name],
           facilityId: ps.facilityId, // Store the real facility ID
@@ -550,16 +565,35 @@ export function JourneySection({
   }, [parentSteps, availableOperators]);
 
   // Helper to sync display steps back to parent
-  const syncToParent = React.useCallback((displaySteps: JourneyStep[]) => {
-    const parentSteps = displaySteps
-      .filter(s => s.step && s.operators.length > 0 && s.facilityId) // Only include complete steps
-      .map((s, index) => ({
-        stepType: s.step,
-        facilityId: s.facilityId!, // Use the stored facility ID
-        sortIndex: index,
-      }));
-    setParentSteps(parentSteps);
-  }, [setParentSteps]);
+  const syncToParent = React.useCallback(
+    (steps: JourneyStep[]) => {
+      const parentSteps = steps
+        .filter((s) => s.step && s.operators.length > 0 && s.facilityId) // Only include complete steps
+        .map((s, index) => ({
+          stepType: s.step,
+          facilityId: s.facilityId!, // Use the stored facility ID
+          sortIndex: index,
+        }));
+      setParentSteps(parentSteps);
+    },
+    [setParentSteps],
+  );
+
+  // Debounce syncing to parent to avoid rerendering the whole form on every keystroke
+  React.useEffect(() => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    syncTimeoutRef.current = setTimeout(() => {
+      syncToParent(displaySteps);
+    }, 150);
+
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [displaySteps, syncToParent]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -578,21 +612,19 @@ export function JourneySection({
     id: string,
     updates: Partial<Omit<JourneyStep, "id" | "position">>,
   ) => {
-    const updatedSteps = displaySteps.map((step) =>
-      step.id === id ? { ...step, ...updates } : step,
+    setDisplaySteps((prev) =>
+      prev.map((step) => (step.id === id ? { ...step, ...updates } : step)),
     );
-    setDisplaySteps(updatedSteps);
-    syncToParent(updatedSteps);
   };
 
   const deleteJourneyStep = (id: string) => {
-    const filteredSteps = displaySteps.filter((step) => step.id !== id);
-    const reindexed = filteredSteps.map((step, index) => ({
-      ...step,
-      position: index + 1,
-    }));
-    setDisplaySteps(reindexed);
-    syncToParent(reindexed);
+    setDisplaySteps((prev) => {
+      const filteredSteps = prev.filter((step) => step.id !== id);
+      return filteredSteps.map((step, index) => ({
+        ...step,
+        position: index + 1,
+      }));
+    });
   };
 
   const addJourneyStep = () => {

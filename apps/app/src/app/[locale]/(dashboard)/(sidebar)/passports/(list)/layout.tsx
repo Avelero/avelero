@@ -7,7 +7,7 @@ import {
 import { Button } from "@v1/ui/button";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PassportsUploadSheet } from "@/components/passports/upload-sheet";
+import { PassportsUploadSheet } from "@/components/sheets/upload-sheet";
 
 export const metadata: Metadata = {
   title: "Passports | Avelero",

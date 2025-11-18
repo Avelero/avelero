@@ -18,20 +18,17 @@ export type PendingColorSelection = { name: string; hex: string };
 
 export interface PassportFormValues {
   // Basic info
-  title: string;
+  name: string;
+  productIdentifier: string;
   description: string;
   imageFile: File | null;
   existingImageUrl: string | null;
 
   // Organization
   categoryId: string | null;
-  season: string | null;
-  tagIds: string[];
-
-  // Identifiers
-  articleNumber: string;
-  ean: string;
+  seasonId: string | null;
   showcaseBrandId: string | null;
+  tagIds: string[];
 
   // Variant
   colorIds: string[];
@@ -40,6 +37,7 @@ export interface PassportFormValues {
 
   // Materials
   materialData: Array<{ materialId: string; percentage: number }>;
+  ecoClaimIds: string[];
 
   // Journey
   journeySteps: Array<{
@@ -69,20 +67,20 @@ interface UsePassportFormOptions {
 }
 
 const initialFormValues: PassportFormValues = {
-  title: "",
+  name: "",
+  productIdentifier: "",
   description: "",
   imageFile: null,
   existingImageUrl: null,
   categoryId: null,
-  season: null,
-  tagIds: [],
-  articleNumber: "",
-  ean: "",
+  seasonId: null,
   showcaseBrandId: null,
+  tagIds: [],
   colorIds: [],
   pendingColors: [],
   selectedSizes: [],
   materialData: [],
+  ecoClaimIds: [],
   journeySteps: [],
   carbonKgCo2e: "",
   waterLiters: "",
@@ -90,9 +88,8 @@ const initialFormValues: PassportFormValues = {
 };
 
 export interface PassportFormValidationErrors {
-  title?: string;
-  articleNumber?: string;
-  ean?: string;
+  name?: string;
+  productIdentifier?: string;
   description?: string;
   colors?: string;
   selectedSizes?: string;
@@ -103,9 +100,8 @@ export interface PassportFormValidationErrors {
 
 type PassportFormValidationFields = Pick<
   PassportFormValues,
-  | "title"
-  | "articleNumber"
-  | "ean"
+  | "name"
+  | "productIdentifier"
   | "description"
   | "colorIds"
   | "selectedSizes"
@@ -115,15 +111,14 @@ type PassportFormValidationFields = Pick<
 >;
 
 const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
-  title: [
-    rules.required("Title is required"),
-    rules.maxLength(100, "Title must be 100 characters or less"),
+  name: [
+    rules.required("Name is required"),
+    rules.maxLength(100, "Name must be 100 characters or less"),
   ],
-  articleNumber: [
-    rules.required("Article number is required"),
-    rules.maxLength(100, "Article number must be 100 characters or less"),
+  productIdentifier: [
+    rules.required("Product identifier is required"),
+    rules.maxLength(100, "Product identifier must be 100 characters or less"),
   ],
-  ean: [rules.ean()],
   description: [rules.maxLength(1000, "Description must be 1000 characters or less")],
   colorIds: [rules.maxArrayLength(12, "You can select up to 12 colors per passport")],
   selectedSizes: [rules.maxArrayLength(12, "You can select up to 12 sizes per passport")],
@@ -160,9 +155,9 @@ function mapValidationErrors(
 ): PassportFormValidationErrors {
   const mapped: PassportFormValidationErrors = {};
 
-  if (errors.title) mapped.title = errors.title;
-  if (errors.articleNumber) mapped.articleNumber = errors.articleNumber;
-  if (errors.ean) mapped.ean = errors.ean;
+  if (errors.name) mapped.name = errors.name;
+  if (errors.productIdentifier)
+    mapped.productIdentifier = errors.productIdentifier;
   if (errors.description) mapped.description = errors.description;
   if (errors.colorIds) mapped.colors = errors.colorIds;
   if (errors.selectedSizes) mapped.selectedSizes = errors.selectedSizes;
@@ -177,9 +172,8 @@ function getPassportValidationErrors(
   values: PassportFormValues,
 ): PassportFormValidationErrors {
   const fields: PassportFormValidationFields = {
-    title: values.title,
-    articleNumber: values.articleNumber,
-    ean: values.ean,
+    name: values.name,
+    productIdentifier: values.productIdentifier,
     description: values.description,
     colorIds: values.colorIds,
     selectedSizes: values.selectedSizes,
@@ -234,13 +228,16 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     productUpid?: string;
   }>({});
   const hasHydratedRef = React.useRef(false);
+  const initialVariantSignatureRef = React.useRef<string | null>(null);
 
-  const createPassportWorkflowMutation = useMutation(
-    trpc.composite.passportCreate.mutationOptions(),
+  const createProductMutation = useMutation(
+    trpc.products.create.mutationOptions(),
   );
-
-  const updatePassportWorkflowMutation = useMutation(
-    trpc.composite.passportUpdate.mutationOptions(),
+  const updateProductMutation = useMutation(
+    trpc.products.update.mutationOptions(),
+  );
+  const upsertVariantsMutation = useMutation(
+    trpc.products.variants.upsert.mutationOptions(),
   );
 
   const createBrandColorMutation = useMutation(
@@ -248,8 +245,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   );
 
   const passportFormQuery = useQuery({
-    ...trpc.composite.passportForm.queryOptions({
-      product_upid: productUpid ?? "",
+    ...trpc.products.getByUpid.queryOptions({
+      upid: productUpid ?? "",
+      includeVariants: true,
+      includeAttributes: true,
     }),
     enabled: isEditMode && !!productUpid,
   });
@@ -300,14 +299,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
   const computeComparableState = React.useCallback(
     (values: PassportFormValues) => ({
-      title: values.title,
+      name: values.name,
+      productIdentifier: values.productIdentifier,
       description: values.description,
       categoryId: values.categoryId,
-      season: values.season,
-      tagIds: values.tagIds,
-      articleNumber: values.articleNumber,
-      ean: values.ean,
+      seasonId: values.seasonId,
       showcaseBrandId: values.showcaseBrandId,
+      tagIds: values.tagIds,
       colorIds: values.colorIds,
       pendingColors: values.pendingColors.map(
         (color) => `${color.name}:${color.hex}`,
@@ -319,6 +317,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         materialId: material.materialId,
         percentage: material.percentage,
       })),
+      ecoClaimIds: values.ecoClaimIds,
       journeySteps: values.journeySteps.map((step) => ({
         sortIndex: step.sortIndex,
         stepType: step.stepType,
@@ -332,6 +331,15 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         ? `${values.imageFile.name}:${values.imageFile.lastModified}`
         : null,
     }),
+    [],
+  );
+
+  const buildVariantSignature = React.useCallback(
+    (colorIds?: readonly string[], sizeIds?: readonly string[]) => {
+      const normalize = (ids?: readonly string[]) =>
+        Array.from(new Set((ids ?? []).filter(Boolean))).sort().join("|");
+      return `${normalize(colorIds)}::${normalize(sizeIds)}`;
+    },
     [],
   );
 
@@ -354,46 +362,109 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     if (hasHydratedRef.current) {
       return;
     }
-    const payload = passportFormQuery.data;
-    if ((payload.sizeIds?.length ?? 0) > 0 && sizeOptions.length === 0) {
+    const payload = passportFormQuery.data as any;
+
+    const variants = Array.isArray(payload?.variants)
+      ? payload.variants
+      : [];
+    const colorIds: string[] = Array.from(
+      new Set(
+        variants
+          .map((v: any) => v.color_id ?? v.colorId ?? null)
+          .filter((id: any): id is string => typeof id === "string"),
+      ),
+    );
+    const sizeIds: string[] = Array.from(
+      new Set(
+        variants
+          .map((v: any) => v.size_id ?? v.sizeId ?? null)
+          .filter((id: any): id is string => typeof id === "string"),
+      ),
+    );
+    if (sizeIds.length > 0 && sizeOptions.length === 0) {
       return;
     }
-    const selectedSizes = mapSizeIdsToOptions(payload.sizeIds);
+    const selectedSizes = mapSizeIdsToOptions(sizeIds);
+
+    const attributes = payload.attributes ?? {};
+    const materials =
+      attributes.materials?.map((material: any) => ({
+        materialId:
+          material.brand_material_id ??
+          material.material_id ??
+          material.materialId,
+        percentage:
+          typeof material.percentage === "string"
+            ? Number(material.percentage)
+            : material.percentage,
+      })) ?? [];
+    const ecoClaimIds =
+      attributes.ecoClaims?.map(
+        (claim: any) => claim.eco_claim_id ?? claim.ecoClaimId,
+      ) ?? [];
+    const journeySteps =
+      attributes.journey?.map((step: any) => ({
+        sortIndex: step.sort_index ?? step.sortIndex ?? 0,
+        stepType: step.step_type ?? step.stepType ?? "",
+        facilityId: step.facility_id ?? step.facilityId ?? "",
+      })) ?? [];
+    const tagIds =
+      attributes.tags?.map((tag: any) => tag.tag_id ?? tag.tagId).filter(Boolean) ??
+      [];
+    const environment = attributes.environment ?? {};
+
     const nextValues: PassportFormValues = {
       ...initialFormValues,
-      title: payload.title ?? "",
+      name: payload.name ?? "",
+      productIdentifier:
+        (payload as any).productIdentifier ??
+        (payload as any).product_identifier ??
+        "",
       description: payload.description ?? "",
       imageFile: null,
-      existingImageUrl: payload.primaryImageUrl ?? null,
-      categoryId: payload.categoryId ?? null,
-      season: payload.season ?? null,
-      tagIds: payload.tagIds ?? [],
-      articleNumber: payload.productIdentifier ?? "",
-      ean: payload.ean ?? "",
-      showcaseBrandId: payload.showcaseBrandId ?? null,
-      colorIds: payload.colorIds ?? [],
+      existingImageUrl:
+        payload.primaryImageUrl ??
+        (payload as any).primary_image_url ??
+        null,
+      categoryId: payload.categoryId ?? payload.category_id ?? null,
+      seasonId: payload.seasonId ?? payload.season_id ?? null,
+      showcaseBrandId:
+        payload.showcaseBrandId ?? payload.showcase_brand_id ?? null,
+      tagIds,
+      colorIds,
       pendingColors: [],
       selectedSizes,
-      materialData: (payload.materials ?? []).map((material) => ({
-        materialId: material.brandMaterialId,
-        percentage: material.percentage,
-      })),
-      journeySteps: payload.journeySteps ?? [],
-      carbonKgCo2e: payload.environment?.carbonKgCo2e ?? "",
-      waterLiters: payload.environment?.waterLiters ?? "",
+      materialData: materials,
+      ecoClaimIds,
+      journeySteps,
+      carbonKgCo2e:
+        environment.carbonKgCo2e ??
+        environment.carbon_kg_co2e ??
+        "",
+      waterLiters:
+        environment.waterLiters ??
+        environment.water_liters ??
+        "",
       status: payload.status ?? "unpublished",
     };
     setFields(nextValues);
     metadataRef.current = {
-      productId: payload.productId,
-      passportUpid: payload.passportUpid,
-      productUpid: payload.productUpid,
+      productId: payload.id,
+      productUpid: payload.upid ?? productUpid ?? undefined,
     };
+    const hydratedSizeIds: string[] = selectedSizes
+      .map((size) => size.id)
+      .filter((id): id is string => Boolean(id));
+    initialVariantSignatureRef.current = buildVariantSignature(
+      colorIds,
+      hydratedSizeIds,
+    );
     const snapshot = JSON.stringify(computeComparableState(nextValues));
     setInitialSnapshot(snapshot);
     setHasAttemptedSubmit(false);
     hasHydratedRef.current = true;
   }, [
+    buildVariantSignature,
     computeComparableState,
     isEditMode,
     mapSizeIdsToOptions,
@@ -411,7 +482,20 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
     const snapshot = JSON.stringify(computeComparableState(formValues));
     setInitialSnapshot(snapshot);
-  }, [computeComparableState, formValues, initialSnapshot, isEditMode]);
+    const initialSizeIds: string[] = formValues.selectedSizes
+      .map((size) => size.id)
+      .filter((id): id is string => Boolean(id));
+    initialVariantSignatureRef.current = buildVariantSignature(
+      formValues.colorIds,
+      initialSizeIds,
+    );
+  }, [
+    buildVariantSignature,
+    computeComparableState,
+    formValues,
+    initialSnapshot,
+    isEditMode,
+  ]);
 
   const comparableState = React.useMemo(
     () => computeComparableState(formValues),
@@ -491,15 +575,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
     if (createdColorMetadata.length > 0) {
       queryClient.setQueryData(
-        trpc.composite.passportFormReferences.queryKey(),
+        trpc.brand.colors.list.queryKey(),
         (old: any) => {
-          if (!old?.brandCatalog?.colors) {
+          if (!old?.data) {
             return old;
           }
           const existingNames = new Set(
-            old.brandCatalog.colors.map((color: any) =>
-              color.name.toLowerCase(),
-            ),
+            old.data.map((color: any) => color.name.toLowerCase()),
           );
           const appended = createdColorMetadata.filter(
             (color) => !existingNames.has(color.name.toLowerCase()),
@@ -509,15 +591,15 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           }
           return {
             ...old,
-            brandCatalog: {
-              ...old.brandCatalog,
-              colors: [...old.brandCatalog.colors, ...appended],
-            },
+            data: [...old.data, ...appended],
           };
         },
       );
       void queryClient.invalidateQueries({
-        queryKey: trpc.composite.passportFormReferences.queryKey(),
+        queryKey: trpc.brand.colors.list.queryKey(),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: trpc.composite.brandCatalogContent.queryKey(),
       });
     }
 
@@ -535,7 +617,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     formValues.pendingColors,
     queryClient,
     setFields,
-    trpc.composite.passportFormReferences,
+    trpc.composite.brandCatalogContent,
   ]);
 
   const submit = React.useCallback(
@@ -551,14 +633,14 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       }
 
       try {
-        const title = formValues.title?.trim();
-        if (!title) {
-          throw new Error("Title is required");
+        const name = formValues.name.trim();
+        if (!name) {
+          throw new Error("Name is required");
         }
 
-        const articleNumber = formValues.articleNumber?.trim();
-        if (!articleNumber) {
-          throw new Error("Article number is required");
+        const productIdentifier = formValues.productIdentifier.trim();
+        if (!productIdentifier) {
+          throw new Error("Product identifier is required");
         }
 
         let primaryImageUrl: string | undefined;
@@ -587,29 +669,29 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         }
 
         const safeDescription = formValues.description.trim() || undefined;
-        const safeSeason = formValues.season?.trim() || undefined;
+        const safeSeasonId = formValues.seasonId || undefined;
         const safeShowcaseBrandId = formValues.showcaseBrandId || undefined;
-        const safeProductIdentifier =
-          formValues.articleNumber.trim() || undefined;
-        const ean = formValues.ean.trim() || undefined;
         const resolvedColorIds = await resolvePendingColors();
         const colorIds =
           resolvedColorIds.length > 0 ? resolvedColorIds : undefined;
         const sizeIds = formValues.selectedSizes
           .map((size) => size.id)
           .filter((id): id is string => Boolean(id));
-        const tags =
-          formValues.tagIds.length > 0
-            ? formValues.tagIds
-                .map((tag) => tag.trim())
-                .filter((tag) => tag.length > 0)
-            : undefined;
+        const variantSignature = buildVariantSignature(colorIds, sizeIds);
+        const variantsChanged =
+          initialVariantSignatureRef.current !== variantSignature;
         const materials =
           formValues.materialData.length > 0
             ? formValues.materialData.map((material) => ({
                 brand_material_id: material.materialId,
                 percentage: material.percentage,
               }))
+            : undefined;
+        const tagIds =
+          formValues.tagIds.length > 0 ? formValues.tagIds : undefined;
+        const ecoClaimIds =
+          formValues.ecoClaimIds.length > 0
+            ? formValues.ecoClaimIds
             : undefined;
         const journeySteps =
           formValues.journeySteps.length > 0
@@ -627,6 +709,29 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               }
             : undefined;
 
+        const basePayload = {
+          brand_id: brandId,
+          name,
+          product_identifier: productIdentifier,
+          description: safeDescription,
+          category_id: formValues.categoryId ?? undefined,
+          season_id: safeSeasonId,
+          showcase_brand_id: safeShowcaseBrandId,
+          primary_image_url:
+            primaryImageUrl ?? formValues.existingImageUrl ?? undefined,
+          status: (formValues.status ||
+            "unpublished") as
+            | "published"
+            | "scheduled"
+            | "unpublished"
+            | "archived",
+          materials,
+          tag_ids: tagIds,
+          eco_claim_ids: ecoClaimIds,
+          journey_steps: journeySteps,
+          environment: environmentPayload,
+        };
+
         if (isEditMode) {
           const effectiveProductUpid =
             productUpid ?? metadataRef.current.productUpid ?? null;
@@ -634,43 +739,39 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             throw new Error("Unable to update passport: missing context");
           }
 
-          await updatePassportWorkflowMutation.mutateAsync({
-            product_upid: effectiveProductUpid,
-            product_id: metadataRef.current.productId,
-            title,
-            product_identifier: safeProductIdentifier ?? articleNumber,
-            description: safeDescription,
-            category_id: formValues.categoryId ?? undefined,
-            season: safeSeason,
-            showcase_brand_id: safeShowcaseBrandId,
-            primary_image_url:
-              primaryImageUrl ?? formValues.existingImageUrl ?? undefined,
-            tags: tags ?? [],
-            sku: articleNumber,
-            ean,
-            color_ids: colorIds,
-            size_ids: sizeIds.length > 0 ? sizeIds : undefined,
-            status: (formValues.status ||
-              "unpublished") as
-              | "published"
-              | "scheduled"
-              | "unpublished"
-              | "archived",
-            materials: materials ?? [],
-            journey_steps: journeySteps ?? [],
-            environment: environmentPayload,
+          await updateProductMutation.mutateAsync({
+            ...basePayload,
+            id: metadataRef.current.productId,
+            brand_id: brandId,
           });
 
+          if (variantsChanged) {
+            await upsertVariantsMutation.mutateAsync({
+              product_id: metadataRef.current.productId,
+              color_ids: colorIds,
+              size_ids: sizeIds,
+            });
+          }
+
           const nextValues: Partial<PassportFormValues> = {
-            title,
+            name,
+            productIdentifier,
             description: safeDescription ?? "",
-            season: safeSeason ?? null,
+            seasonId: safeSeasonId ?? null,
             showcaseBrandId: safeShowcaseBrandId ?? null,
-            articleNumber,
-            ean: ean ?? "",
+            tagIds: formValues.tagIds,
             imageFile: null,
             existingImageUrl:
               primaryImageUrl ?? formValues.existingImageUrl ?? null,
+            colorIds: colorIds ?? [],
+            pendingColors: [],
+            selectedSizes: formValues.selectedSizes,
+            materialData: formValues.materialData,
+            ecoClaimIds: formValues.ecoClaimIds,
+            journeySteps: formValues.journeySteps,
+            carbonKgCo2e: formValues.carbonKgCo2e,
+            waterLiters: formValues.waterLiters,
+            status: basePayload.status,
           };
           setFields(nextValues);
           setHasAttemptedSubmit(false);
@@ -682,71 +783,82 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             } as PassportFormValues),
           );
           setInitialSnapshot(snapshot);
-          const passportSlug = metadataRef.current.passportUpid;
-          if (passportSlug) {
-            void queryClient.invalidateQueries({
-              queryKey: trpc.passports.get.queryKey({ upid: passportSlug }),
-            });
-          }
+          initialVariantSignatureRef.current = variantSignature;
           if (effectiveProductUpid) {
             void queryClient.invalidateQueries({
-              queryKey: trpc.composite.passportForm.queryKey({
-                product_upid: effectiveProductUpid,
+              queryKey: trpc.products.getByUpid.queryKey({
+                upid: effectiveProductUpid,
               }),
             });
           }
+          void queryClient.invalidateQueries({
+            queryKey: trpc.products.get.queryKey({
+              id: metadataRef.current.productId,
+            }),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: trpc.products.list.queryKey(),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: trpc.summary.productStatus.queryKey(),
+          });
           toast.success("Passport updated successfully");
           return;
         }
 
-        const workflowResult =
-          await createPassportWorkflowMutation.mutateAsync({
-            title,
-            sku: articleNumber,
-            product_identifier: safeProductIdentifier,
-            description: safeDescription,
-            category_id: formValues.categoryId ?? undefined,
-            season: safeSeason,
-            showcase_brand_id: safeShowcaseBrandId,
-            primary_image_url: primaryImageUrl,
-            tags,
-            ean,
-            color_ids: colorIds,
-            size_ids: sizeIds.length > 0 ? sizeIds : undefined,
-            status: (formValues.status ||
-              "unpublished") as
-              | "published"
-              | "scheduled"
-              | "unpublished"
-              | "archived",
-            template_id: undefined,
-            materials,
-            journey_steps: journeySteps,
-            environment: environmentPayload,
-          });
+        const created = await createProductMutation.mutateAsync({
+          ...basePayload,
+          brand_id: brandId,
+        });
 
-        const workflowData = workflowResult?.data;
+        const productId = created?.data?.id;
         const targetProductUpid =
-          workflowData?.productUpid ??
-          (workflowData as any)?.product_upid;
-        if (!targetProductUpid) {
-          throw new Error("Passport workflow did not return a product UPID");
+          (created as any)?.data?.upid ?? productUpid ?? null;
+        if (!productId) {
+          throw new Error("Product was not created");
+        }
+
+        const shouldUpsertVariants =
+          (colorIds?.length ?? 0) > 0 || sizeIds.length > 0;
+        if (shouldUpsertVariants) {
+          await upsertVariantsMutation.mutateAsync({
+            product_id: productId,
+            color_ids: colorIds,
+            size_ids: sizeIds,
+          });
         }
 
         void Promise.allSettled([
           queryClient.invalidateQueries({
-            queryKey: trpc.passports.list.queryKey(),
-          }),
-          queryClient.invalidateQueries({
             queryKey: trpc.products.list.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.passportFormReferences.queryKey(),
+            queryKey: trpc.brand.colors.list.queryKey(),
           }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.brandCatalogContent.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.products.get.queryKey({ id: productId }),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.summary.productStatus.queryKey(),
+          }),
+          targetProductUpid
+            ? queryClient.invalidateQueries({
+                queryKey: trpc.products.getByUpid.queryKey({
+                  upid: targetProductUpid,
+                }),
+              })
+            : Promise.resolve(),
         ]);
 
         toast.success("Passports created successfully");
-        router.push(`/passports/edit/${targetProductUpid}`);
+        if (targetProductUpid) {
+          router.push(`/passports/edit/${targetProductUpid}`);
+        } else {
+          router.push("/passports");
+        }
 
         setValidationErrors({});
         setHasAttemptedSubmit(false);
@@ -762,6 +874,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       }
     },
     [
+      buildVariantSignature,
       computeComparableState,
       formValues,
       isEditMode,
@@ -769,12 +882,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       queryClient,
       router,
       trpc,
-      updatePassportWorkflowMutation,
       uploadFile,
       validate,
-      createPassportWorkflowMutation,
       productUpid,
       resolvePendingColors,
+      createProductMutation,
+      updateProductMutation,
+      upsertVariantsMutation,
     ],
   );
 
@@ -793,4 +907,3 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     hasUnsavedChanges,
   };
 }
-

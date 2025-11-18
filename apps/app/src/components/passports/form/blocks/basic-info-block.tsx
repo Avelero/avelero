@@ -7,27 +7,27 @@ import { Textarea } from "@v1/ui/textarea";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface BasicInfoSectionProps {
-  title: string;
-  setTitle: (value: string) => void;
+  name: string;
+  setName: (value: string) => void;
   description: string;
   setDescription: (value: string) => void;
   imageFile: File | null;
   setImageFile: (file: File | null) => void;
   existingImageUrl?: string | null;
-  titleError?: string;
-  titleInputRef?: React.RefObject<HTMLInputElement | null>;
+  nameError?: string;
+  nameInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export function BasicInfoSection({
-  title,
-  setTitle,
+  name,
+  setName,
   description,
   setDescription,
   imageFile,
   setImageFile,
   existingImageUrl = null,
-  titleError,
-  titleInputRef,
+  nameError,
+  nameInputRef,
 }: BasicInfoSectionProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -84,23 +84,23 @@ export function BasicInfoSection({
 
   return (
     <div className="border border-border bg-background p-4 flex flex-col gap-3">
-      {/* Title Input */}
+      {/* Name Input */}
       <div className="space-y-1.5">
-        <Label>Title <span className="text-destructive">*</span></Label>
+        <Label>Name <span className="text-destructive">*</span></Label>
         <Input
-          ref={titleInputRef}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Enter product title"
+          ref={nameInputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter product name"
           className={cn(
             "h-9",
-            titleError &&
+            nameError &&
               "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive"
           )}
-          aria-invalid={Boolean(titleError)}
+          aria-invalid={Boolean(nameError)}
         />
-        {titleError && (
-          <p className="type-small text-destructive">{titleError}</p>
+        {nameError && (
+          <p className="type-small text-destructive">{nameError}</p>
         )}
       </div>
 

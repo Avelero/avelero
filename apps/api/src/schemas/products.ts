@@ -90,6 +90,7 @@ export const createProductSchema = z.object({
   status: shortStringSchema.optional(),
   color_ids: uuidArraySchema.max(12).optional(),
   size_ids: uuidArraySchema.max(12).optional(),
+  tag_ids: uuidArraySchema.optional(),
   materials: z
     .array(
       z.object({
@@ -185,6 +186,7 @@ export const productVariantsDeleteSchema = z.union([
 export const productsDomainListSchema = listProductsSchema.extend({
   brand_id: uuidSchema.optional(),
   includeVariants: z.boolean().optional().default(false),
+  includeAttributes: z.boolean().optional().default(false),
 });
 
 export type ProductsDomainListInput = z.infer<typeof productsDomainListSchema>;
@@ -196,9 +198,23 @@ export type ProductsDomainListInput = z.infer<typeof productsDomainListSchema>;
  */
 export const productsDomainGetSchema = getProductSchema.extend({
   includeVariants: z.boolean().optional().default(false),
+  includeAttributes: z.boolean().optional().default(false),
 });
 
 export type ProductsDomainGetInput = z.infer<typeof productsDomainGetSchema>;
+
+/**
+ * Input payload for fetching a product by UPID.
+ */
+export const productsDomainGetByUpidSchema = z.object({
+  upid: shortStringSchema,
+  includeVariants: z.boolean().optional().default(false),
+  includeAttributes: z.boolean().optional().default(false),
+});
+
+export type ProductsDomainGetByUpidInput = z.infer<
+  typeof productsDomainGetByUpidSchema
+>;
 
 /**
  * Input payload for `products.create` in the v2 API.

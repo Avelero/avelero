@@ -7,12 +7,11 @@ import { serviceDb } from "@v1/db/client";
  * - define: Create single catalog entity inline
  * - batchDefine: Create multiple catalog entities at once
  */
-import type { SQL } from "drizzle-orm";
 import { categories } from "@v1/db/schema";
 import {
   and,
   eq,
-  type ValueMappingTarget,
+  isNull,
   createValueMapping,
   getImportJobStatus,
   getUnmappedValuesForJob,
@@ -20,8 +19,10 @@ import {
   updateImportJobProgress,
   updateValueMapping,
   validateAndCreateEntity,
+  createSeason,
+  createBrandTag,
 } from "@v1/db/queries";
-import { isNull } from "drizzle-orm";
+import type { SQL, ValueMappingTarget } from "@v1/db/queries";
 import { z } from "zod";
 import {
   batchDefineValuesSchema,
@@ -34,6 +35,78 @@ import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
+
+async function createEntityForType(
+  db: BrandContext["db"],
+  brandId: string,
+  entityType: ValueMappingTarget,
+  entityData: unknown,
+) {
+  switch (entityType) {
+    case "SEASON": {
+      const payload = entityData as {
+        name: string;
+        startDate?: string;
+        endDate?: string;
+        isOngoing?: boolean;
+      };
+
+      if (!payload.name?.trim()) {
+        throw badRequest("Season name is required");
+      }
+
+      const startDate =
+        payload.startDate != null ? new Date(payload.startDate) : null;
+      const endDate = payload.endDate != null ? new Date(payload.endDate) : null;
+
+      if (startDate !== null && Number.isNaN(startDate.getTime())) {
+        throw badRequest("Invalid season start date");
+      }
+      if (endDate !== null && Number.isNaN(endDate.getTime())) {
+        throw badRequest("Invalid season end date");
+      }
+
+      const created = await createSeason(db, brandId, {
+        name: payload.name.trim(),
+        startDate,
+        endDate,
+        ongoing: payload.isOngoing ?? false,
+      });
+
+      if (!created?.id) {
+        throw new Error("Failed to create season");
+      }
+
+      return { id: created.id };
+    }
+    case "TAG": {
+      const payload = entityData as { name: string; hex?: string | null };
+      if (!payload.name?.trim()) {
+        throw badRequest("Tag name is required");
+      }
+      const created = await createBrandTag(db, brandId, {
+        name: payload.name.trim(),
+        hex: payload.hex ?? null,
+      });
+      if (!created?.id) {
+        throw new Error("Failed to create tag");
+      }
+      return { id: created.id };
+    }
+    case "CATEGORY": {
+      throw badRequest(
+        "Categories are created via ensureCategory path handling. Inline creation is not supported.",
+      );
+    }
+    default:
+      return validateAndCreateEntity(
+        db,
+        brandId,
+        entityType,
+        entityData,
+      );
+  }
+}
 
 export const valuesRouter = createTRPCRouter({
   /**
@@ -107,6 +180,8 @@ export const valuesRouter = createTRPCRouter({
           showcaseBrands,
           categories,
           certifications,
+          seasons,
+          tags,
         ] = await Promise.all([
           brandCtx.db.query.brandColors.findMany({
             where: (colors, { eq }) => eq(colors.brandId, brandId),
@@ -142,6 +217,16 @@ export const valuesRouter = createTRPCRouter({
             columns: { id: true, title: true },
             orderBy: (certs, { asc }) => [asc(certs.title)],
           }),
+          brandCtx.db.query.brandSeasons.findMany({
+            where: (season, { eq }) => eq(season.brandId, brandId),
+            columns: { id: true, name: true },
+            orderBy: (season, { asc }) => [asc(season.name)],
+          }),
+          brandCtx.db.query.brandTags.findMany({
+            where: (tag, { eq }) => eq(tag.brandId, brandId),
+            columns: { id: true, name: true, hex: true },
+            orderBy: (tag, { asc }) => [asc(tag.name)],
+          }),
         ]);
 
         return {
@@ -161,9 +246,12 @@ export const valuesRouter = createTRPCRouter({
             id: c.id,
             name: c.title,
           })),
-          // TODO: Add seasons and tags when database tables are created
-          seasons: [],
-          tags: [],
+          seasons: seasons.map((s) => ({ id: s.id, name: s.name })),
+          tags: tags.map((t) => ({
+            id: t.id,
+            name: t.name,
+            hex: t.hex ?? undefined,
+          })),
         };
       } catch (error) {
         throw wrapError(error, "Failed to get catalog data");
@@ -302,17 +390,10 @@ export const valuesRouter = createTRPCRouter({
         }
 
         // Create the entity based on type
-        const entity = await validateAndCreateEntity(
+        const entity = await createEntityForType(
           brandCtx.db,
           brandId,
-          input.entityType as
-            | "COLOR"
-            | "SIZE"
-            | "MATERIAL"
-            | "ECO_CLAIM"
-            | "FACILITY"
-            | "SHOWCASE_BRAND"
-            | "CERTIFICATION",
+          input.entityType as ValueMappingTarget,
           input.entityData,
         );
 
@@ -321,14 +402,7 @@ export const valuesRouter = createTRPCRouter({
           brandId,
           sourceColumn: input.sourceColumn,
           rawValue: input.rawValue,
-          target: input.entityType as
-            | "COLOR"
-            | "SIZE"
-            | "MATERIAL"
-            | "ECO_CLAIM"
-            | "FACILITY"
-            | "SHOWCASE_BRAND"
-            | "CERTIFICATION",
+          target: input.entityType as ValueMappingTarget,
           targetId: entity.id,
         });
 
@@ -418,17 +492,10 @@ export const valuesRouter = createTRPCRouter({
         for (const value of input.values) {
           try {
             // Create the entity
-            const entity = await validateAndCreateEntity(
+            const entity = await createEntityForType(
               brandCtx.db,
               brandId,
-              value.entityType as
-                | "COLOR"
-                | "SIZE"
-                | "MATERIAL"
-                | "ECO_CLAIM"
-                | "FACILITY"
-                | "SHOWCASE_BRAND"
-                | "CERTIFICATION",
+              value.entityType as ValueMappingTarget,
               value.entityData,
             );
 
@@ -437,14 +504,7 @@ export const valuesRouter = createTRPCRouter({
               brandId,
               sourceColumn: value.sourceColumn,
               rawValue: value.rawValue,
-              target: value.entityType as
-                | "COLOR"
-                | "SIZE"
-                | "MATERIAL"
-                | "ECO_CLAIM"
-                | "FACILITY"
-                | "SHOWCASE_BRAND"
-                | "CERTIFICATION",
+              target: value.entityType as ValueMappingTarget,
               targetId: entity.id,
             });
 

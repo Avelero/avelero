@@ -12,29 +12,21 @@ import {
 } from "../../../sheets/showcase-brand-sheet";
 
 interface IdentifiersSectionProps {
-  articleNumber: string;
-  setArticleNumber: (value: string) => void;
-  ean: string;
-  setEan: (value: string) => void;
+  productIdentifier: string;
+  setProductIdentifier: (value: string) => void;
   showcaseBrandId: string | null;
   setShowcaseBrandId: (value: string | null) => void;
-  articleNumberError?: string;
-  eanError?: string;
-  articleNumberInputRef?: React.RefObject<HTMLInputElement | null>;
-  eanInputRef?: React.RefObject<HTMLInputElement | null>;
+  productIdentifierError?: string;
+  productIdentifierInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export function IdentifiersSection({
-  articleNumber,
-  setArticleNumber,
-  ean,
-  setEan,
+  productIdentifier,
+  setProductIdentifier,
   showcaseBrandId,
   setShowcaseBrandId,
-  articleNumberError,
-  eanError,
-  articleNumberInputRef,
-  eanInputRef,
+  productIdentifierError,
+  productIdentifierInputRef,
 }: IdentifiersSectionProps) {
   const { showcaseBrands: apiBrandOptions } = useBrandCatalog();
   
@@ -64,41 +56,25 @@ export function IdentifiersSection({
       <div className="border border-border bg-background p-4 flex flex-col gap-3">
         <p className="type-p !font-medium text-primary">Identifiers</p>
 
-        {/* SKU Input */}
+        {/* Product Identifier */}
         <div className="space-y-1.5">
-          <Label>Article number <span className="text-destructive">*</span></Label>
+          <Label>Product identifier <span className="text-destructive">*</span></Label>
           <Input
-            ref={articleNumberInputRef}
-            value={articleNumber}
-            onChange={(e) => setArticleNumber(e.target.value)}
-            placeholder="Enter article number"
+            ref={productIdentifierInputRef}
+            value={productIdentifier}
+            onChange={(e) => setProductIdentifier(e.target.value)}
+            placeholder="Enter product identifier"
             className={cn(
               "h-9",
-              articleNumberError &&
+              productIdentifierError &&
                 "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive"
             )}
-            aria-invalid={Boolean(articleNumberError)}
+            aria-invalid={Boolean(productIdentifierError)}
           />
-          {articleNumberError && (
-            <p className="type-small text-destructive">{articleNumberError}</p>
-          )}
-        </div>
-
-        {/* EAN Input */}
-        <div className="space-y-1.5">
-          <Label>EAN</Label>
-          <Input
-            ref={eanInputRef}
-            value={ean}
-            onChange={(e) => setEan(e.target.value)}
-            placeholder="Enter EAN"
-            className={cn(
-              "h-9",
-              eanError && "focus-visible:ring-destructive focus-visible:border-destructive"
-            )}
-          />
-          {eanError && (
-            <p className="type-small text-destructive">{eanError}</p>
+          {productIdentifierError && (
+            <p className="type-small text-destructive">
+              {productIdentifierError}
+            </p>
           )}
         </div>
 

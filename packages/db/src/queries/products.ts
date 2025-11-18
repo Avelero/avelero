@@ -1,19 +1,19 @@
 import { and, asc, count, desc, eq, ilike, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../client";
-import { evaluateAndUpsertCompletion } from "../completion/evaluate";
-import type { ModuleKey } from "../completion/module-keys";
 import { generateUniqueUpid } from "../utils/upid.js";
 import {
   brandEcoClaims,
   brandFacilities,
   brandMaterials,
+  brandTags,
   productEcoClaims,
   productEnvironment,
   productJourneySteps,
   productMaterials,
   productVariants,
   products,
+  tagsOnProduct,
 } from "../schema";
 
 /** Filter options for product list queries */
@@ -53,10 +53,6 @@ export type ProductField = keyof typeof PRODUCT_FIELD_MAP;
 const PRODUCT_FIELDS = Object.keys(
   PRODUCT_FIELD_MAP,
 ) as readonly ProductField[];
-
-type CompletionEvalOptions = {
-  skipCompletionEval?: boolean;
-};
 
 /**
  * Represents the core product fields exposed by API queries.
@@ -137,6 +133,7 @@ export interface ProductAttributesBundle {
   ecoClaims: ProductEcoClaimSummary[];
   environment: ProductEnvironmentSummary | null;
   journey: ProductJourneyStepSummary[];
+  tags: Array<{ id: string; tag_id: string; name: string | null; hex: string | null }>;
 }
 
 /**
@@ -205,6 +202,7 @@ function createEmptyAttributes(): ProductAttributesBundle {
     ecoClaims: [],
     environment: null,
     journey: [],
+    tags: [],
   };
 }
 
@@ -396,6 +394,28 @@ async function loadAttributesForProducts(
     });
   }
 
+  const tagRows = await db
+    .select({
+      id: tagsOnProduct.id,
+      product_id: tagsOnProduct.productId,
+      tag_id: tagsOnProduct.tagId,
+      name: brandTags.name,
+      hex: brandTags.hex,
+    })
+    .from(tagsOnProduct)
+    .leftJoin(brandTags, eq(brandTags.id, tagsOnProduct.tagId))
+    .where(inArray(tagsOnProduct.productId, [...productIds]));
+
+  for (const row of tagRows) {
+    const bundle = ensureBundle(row.product_id);
+    bundle.tags.push({
+      id: row.id,
+      tag_id: row.tag_id,
+      name: row.name ?? null,
+      hex: row.hex ?? null,
+    });
+  }
+
   // Ensure every product id has a bundle even if empty
   for (const id of productIds) {
     ensureBundle(id);
@@ -434,6 +454,10 @@ export async function listProducts(
   };
 }> {
   const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
+  const offset = Number.isFinite(Number(opts.cursor))
+    ? Math.max(0, Number(opts.cursor))
+    : 0;
+
   const whereClauses = [eq(products.brandId, brandId)];
   if (filters.categoryId)
     whereClauses.push(eq(products.categoryId, filters.categoryId));
@@ -456,7 +480,8 @@ export async function listProducts(
     .from(products)
     .where(and(...whereClauses))
     .orderBy(desc(products.createdAt))
-    .limit(limit);
+    .limit(limit)
+    .offset(offset);
 
   const result = await db
     .select({ value: count(products.id) })
@@ -464,12 +489,13 @@ export async function listProducts(
     .where(and(...whereClauses));
   const total = result[0]?.value ?? 0;
 
-  const hasMore = total > rows.length;
+  const nextOffset = offset + rows.length;
+  const hasMore = total > nextOffset;
   return {
     data: rows,
     meta: {
       total,
-      cursor: null,
+      cursor: hasMore ? String(nextOffset) : null,
       hasMore,
     },
   } as const;
@@ -560,6 +586,32 @@ export async function getProductWithIncludes(
   return product;
 }
 
+export async function getProductWithIncludesByUpid(
+  db: Database,
+  brandId: string,
+  productUpid: string,
+  opts: { includeVariants?: boolean; includeAttributes?: boolean } = {},
+): Promise<ProductWithRelations | null> {
+  const base = await getProductByUpid(db, brandId, productUpid);
+  if (!base) return null;
+
+  const product: ProductWithRelations = { ...base };
+  const productIds = [product.id];
+
+  if (opts.includeVariants) {
+    const variantsMap = await loadVariantsForProducts(db, productIds);
+    product.variants = variantsMap.get(product.id) ?? [];
+  }
+
+  if (opts.includeAttributes) {
+    const attributesMap = await loadAttributesForProducts(db, productIds);
+    product.attributes =
+      attributesMap.get(product.id) ?? createEmptyAttributes();
+  }
+
+  return product;
+}
+
 export async function getProduct(db: Database, brandId: string, id: string) {
   const rows = await db
     .select({
@@ -583,6 +635,33 @@ export async function getProduct(db: Database, brandId: string, id: string) {
   return rows[0] ?? null;
 }
 
+export async function getProductByUpid(
+  db: Database,
+  brandId: string,
+  upid: string,
+) {
+  const rows = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      description: products.description,
+      category_id: products.categoryId,
+      season_id: products.seasonId,
+      showcase_brand_id: products.showcaseBrandId,
+      primary_image_url: products.primaryImageUrl,
+      product_identifier: products.productIdentifier,
+      upid: products.upid,
+      template_id: products.templateId,
+      status: products.status,
+      created_at: products.createdAt,
+      updated_at: products.updatedAt,
+    })
+    .from(products)
+    .where(and(eq(products.upid, upid), eq(products.brandId, brandId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function createProduct(
   db: Database,
   brandId: string,
@@ -597,9 +676,10 @@ export async function createProduct(
     primaryImageUrl?: string;
     status?: string;
   },
-  options?: CompletionEvalOptions,
 ) {
-  let created: { id: string; variantIds?: readonly string[] } | undefined;
+  let created:
+    | { id: string; upid: string | null; variantIds?: readonly string[] }
+    | undefined;
   await db.transaction(async (tx) => {
     const productIdentifierValue =
       input.productIdentifier ??
@@ -631,24 +711,13 @@ export async function createProduct(
         primaryImageUrl: input.primaryImageUrl ?? null,
         status: input.status ?? "unpublished",
       })
-      .returning({ id: products.id });
+      .returning({ id: products.id, upid: products.upid });
 
     if (!row?.id) {
       return;
     }
 
-    created = { id: row.id };
-
-    if (!options?.skipCompletionEval) {
-      await evaluateAndUpsertCompletion(
-        tx as unknown as Database,
-        brandId,
-        row.id,
-        {
-          onlyModules: ["core"] as ModuleKey[],
-        },
-      );
-    }
+    created = { id: row.id, upid: row.upid ?? null };
   });
   return created;
 }
@@ -668,7 +737,6 @@ export async function updateProduct(
     primaryImageUrl?: string | null;
     status?: string | null;
   },
-  options?: CompletionEvalOptions,
 ) {
   let updated: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
@@ -699,17 +767,6 @@ export async function updateProduct(
     }
 
     updated = { id: row.id };
-
-    if (!options?.skipCompletionEval) {
-      await evaluateAndUpsertCompletion(
-        tx as unknown as Database,
-        brandId,
-        row.id,
-        {
-          onlyModules: ["core"] as ModuleKey[],
-        },
-      );
-    }
   });
   return updated;
 }
@@ -729,7 +786,6 @@ export async function upsertProductMaterials(
   db: Database,
   productId: string,
   items: { brandMaterialId: string; percentage?: string | number }[],
-  options?: CompletionEvalOptions,
 ) {
   let countInserted = 0;
   await db.transaction(async (tx) => {
@@ -754,16 +810,6 @@ export async function upsertProductMaterials(
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
-    if (brandId && !options?.skipCompletionEval) {
-      await evaluateAndUpsertCompletion(
-        tx as unknown as Database,
-        brandId,
-        productId,
-        {
-          onlyModules: ["materials"] as ModuleKey[],
-        },
-      );
-    }
   });
   return { count: countInserted } as const;
 }
@@ -803,7 +849,6 @@ export async function upsertProductEnvironment(
   db: Database,
   productId: string,
   input: { carbonKgCo2e?: string; waterLiters?: string },
-  options?: CompletionEvalOptions,
 ) {
   let result: { product_id: string } | undefined;
   await db.transaction(async (tx) => {
@@ -828,16 +873,6 @@ export async function upsertProductEnvironment(
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
-    if (brandId && !options?.skipCompletionEval) {
-      await evaluateAndUpsertCompletion(
-        tx as unknown as Database,
-        brandId,
-        productId,
-        {
-          onlyModules: ["environment"] as ModuleKey[],
-        },
-      );
-    }
   });
   return result as { product_id: string };
 }
@@ -846,7 +881,6 @@ export async function setProductJourneySteps(
   db: Database,
   productId: string,
   steps: { sortIndex: number; stepType: string; facilityId: string }[],
-  options?: CompletionEvalOptions,
 ) {
   let countInserted = 0;
   await db.transaction(async (tx) => {
@@ -874,16 +908,29 @@ export async function setProductJourneySteps(
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
-    if (brandId && !options?.skipCompletionEval) {
-      await evaluateAndUpsertCompletion(
-        tx as unknown as Database,
-        brandId,
-        productId,
-        {
-          onlyModules: ["journey"] as ModuleKey[],
-        },
-      );
-    }
   });
   return { count: countInserted } as const;
+}
+
+export async function setProductTags(
+  db: Database,
+  productId: string,
+  tagIds: string[],
+) {
+  await db.transaction(async (tx) => {
+    await tx.delete(tagsOnProduct).where(eq(tagsOnProduct.productId, productId));
+    if (tagIds.length === 0) {
+      return;
+    }
+    await tx
+      .insert(tagsOnProduct)
+      .values(
+        tagIds.map((tagId) => ({
+          productId,
+          tagId,
+        })),
+      )
+      .returning({ id: tagsOnProduct.id });
+  });
+  return { count: tagIds.length } as const;
 }

@@ -23,7 +23,7 @@ import {
 } from "@v1/ui/sheet";
 import { nanoid } from "nanoid";
 import { useCallback, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@v1/ui/sonner";
 
 export function PassportsUploadSheet() {
   const [open, setOpen] = useState(false);
@@ -100,13 +100,13 @@ export function PassportsUploadSheet() {
       setValidationErrors([]);
 
       // Step 1: Client-side validation (instant, no upload)
-      const validationToastId = toast.loading("Validating file structure...");
-
-      console.log("[CSV Upload] Starting client-side validation...");
-      const clientValidation = await validateImportFile(selectedFile);
-      console.log("[CSV Upload] Validation result:", clientValidation);
-
-      toast.dismiss(validationToastId);
+      const clientValidation = await toast.loading(
+        "Validating file structure...",
+        validateImportFile(selectedFile),
+        {
+          errorMessage: "Validation failed",
+        },
+      );
 
       if (!clientValidation.valid) {
         // Validation failed - show errors immediately
@@ -141,8 +141,6 @@ export function PassportsUploadSheet() {
       const tempJobId = nanoid();
 
       // Step 2: Upload file to Supabase storage
-      const uploadToastId = toast.loading("Uploading file...");
-
       console.log("[CSV Upload] Uploading to Supabase", {
         brandId,
         jobId: tempJobId,
@@ -157,25 +155,34 @@ export function PassportsUploadSheet() {
         userEmail: session.data.session?.user?.email,
       });
 
-      const uploadResult = await uploadImportFile(supabaseClient, {
-        file: selectedFile,
-        brandId,
-        jobId: tempJobId,
-        filename: selectedFile.name,
-      });
+      const uploadResult = await toast.loading(
+        "Uploading file...",
+        uploadImportFile(supabaseClient, {
+          file: selectedFile,
+          brandId,
+          jobId: tempJobId,
+          filename: selectedFile.name,
+        }),
+        {
+          successMessage: "File uploaded successfully",
+          errorMessage: "Upload failed",
+        },
+      );
 
       console.log("[CSV Upload] Upload successful", uploadResult);
-      toast.success("File uploaded successfully", { id: uploadToastId });
 
       // Step 3: Start import job (full validation happens in background)
-      const importToastId = toast.loading("Starting import validation...");
-
-      const importResult = await startImportMutation.mutateAsync({
-        fileId: uploadResult.path,
-        filename: selectedFile.name,
-      });
-
-      toast.success("Import validation started", { id: importToastId });
+      const importResult = await toast.loading(
+        "Starting import validation...",
+        startImportMutation.mutateAsync({
+          fileId: uploadResult.path,
+          filename: selectedFile.name,
+        }),
+        {
+          successMessage: "Import validation started",
+          errorMessage: "Failed to start import",
+        },
+      );
 
       // Step 4: Trigger import progress tracking
       startImport(importResult.jobId, selectedFile.name);

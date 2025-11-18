@@ -10,9 +10,8 @@ export default async function PassportsLayout({
   // Prefetch form reference data used by both list and form pages
   // (categories, materials, facilities, colors, sizes, certifications, operators)
   await queryClient.prefetchQuery(
-    trpc.composite.passportFormReferences.queryOptions()
+    trpc.composite.brandCatalogContent.queryOptions()
   );
 
   return <>{children}</>;
 }
-

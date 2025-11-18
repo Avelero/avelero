@@ -1,7 +1,5 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../client";
-import type { ModuleKey } from "../completion/module-keys";
-import { syncTemplateModuleDelta } from "../completion/template-sync";
 import { passportTemplateModules, passportTemplates } from "../schema";
 
 export interface PassportTemplateModuleRow {
@@ -150,16 +148,6 @@ export async function createPassportTemplate(
     throw new Error("Passport template id missing after creation");
   }
 
-  const enabledModules = modules
-    .filter((module) => module.enabled ?? true)
-    .map((module) => module.module_key as ModuleKey);
-  if (enabledModules.length) {
-    await syncTemplateModuleDelta(db, templateId, {
-      added: enabledModules,
-      removed: [],
-    });
-  }
-
   const created = await getPassportTemplateWithModules(db, brandId, templateId);
   if (!created) {
     throw new Error("Failed to load created passport template");
@@ -177,7 +165,6 @@ export async function updatePassportTemplate(
     modules?: PassportTemplateModuleRow[];
   },
 ): Promise<PassportTemplateRecord | null> {
-  let delta: { added: ModuleKey[]; removed: ModuleKey[] } | null = null;
   const modules = input.modules;
 
   const updated = await db.transaction(async (tx) => {
@@ -219,27 +206,6 @@ export async function updatePassportTemplate(
     }
 
     if (modules) {
-      const current = await tx
-        .select({
-          module_key: passportTemplateModules.moduleKey,
-          enabled: passportTemplateModules.enabled,
-        })
-        .from(passportTemplateModules)
-        .where(eq(passportTemplateModules.templateId, input.id));
-
-      const currentEnabled = new Set(
-        current.filter((m) => m.enabled).map((m) => m.module_key as ModuleKey),
-      );
-      const nextEnabled = new Set(
-        modules
-          .filter((module) => module.enabled ?? true)
-          .map((module) => module.module_key as ModuleKey),
-      );
-
-      const added = [...nextEnabled].filter((k) => !currentEnabled.has(k));
-      const removed = [...currentEnabled].filter((k) => !nextEnabled.has(k));
-      delta = { added, removed };
-
       await tx.delete(passportTemplateModules).where(
         eq(passportTemplateModules.templateId, input.id),
       );
@@ -260,10 +226,6 @@ export async function updatePassportTemplate(
   });
 
   if (!updated) return null;
-
-  if (delta) {
-    await syncTemplateModuleDelta(db, input.id, delta);
-  }
 
   return getPassportTemplateWithModules(db, brandId, input.id);
 }

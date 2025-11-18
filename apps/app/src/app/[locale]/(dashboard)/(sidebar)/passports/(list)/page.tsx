@@ -5,12 +5,16 @@ import { getQueryClient, trpc } from "@/trpc/server";
 export default async function PassportsPage() {
   const queryClient = getQueryClient();
 
-  await queryClient.prefetchQuery(
-    trpc.passports.list.queryOptions({
-      page: 0,
-      includeStatusCounts: true,
-    }),
-  );
+  await Promise.allSettled([
+    queryClient.prefetchQuery(
+      trpc.products.list.queryOptions({
+        limit: 50,
+        includeVariants: true,
+      }),
+    ),
+    queryClient.prefetchQuery(trpc.summary.productStatus.queryOptions()),
+    queryClient.prefetchQuery(trpc.composite.brandCatalogContent.queryOptions()),
+  ]);
 
   return (
     <div className="w-full">

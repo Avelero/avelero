@@ -1,7 +1,5 @@
 import { and, asc, count, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { evaluateAndUpsertCompletion } from "../completion/evaluate";
-import type { ModuleKey } from "../completion/module-keys";
 import {
   stagingProducts,
   stagingProductVariants,
@@ -565,14 +563,12 @@ export async function deleteStagingDataForJob(
 /**
  * Bulk creates products for CREATE staging rows using planned IDs.
  *
- * Inserts rows directly into products table and re-evaluates completion state
- * for the core module to mimic createProduct side effects.
+ * Inserts rows directly into products table using planned IDs.
  */
 export async function bulkCreateProductsFromStaging(
   db: Database,
   brandId: string,
   rows: StagingProductPreview[],
-  options?: { skipCompletionEval?: boolean },
 ): Promise<Map<string, string>> {
   if (rows.length === 0) {
     return new Map();
@@ -594,19 +590,6 @@ export async function bulkCreateProductsFromStaging(
 
   await db.transaction(async (tx) => {
     await tx.insert(products).values(insertValues).onConflictDoNothing();
-
-    if (!options?.skipCompletionEval) {
-      for (const row of rows) {
-        await evaluateAndUpsertCompletion(
-          tx as unknown as Database,
-          brandId,
-          row.id,
-          {
-            onlyModules: ["core"] as ModuleKey[],
-          },
-        );
-      }
-    }
   });
 
   const map = new Map<string, string>();
@@ -829,6 +812,14 @@ async function hydrateStagingProductPreviews(
     });
   }
 
+  for (const p of products) {
+    if (!p.productIdentifier) {
+      throw new Error(
+        `Staging product ${p.stagingId} is missing productIdentifier`,
+      );
+    }
+  }
+
   return products.map((p) => ({
     stagingId: p.stagingId,
     jobId: p.jobId,
@@ -837,7 +828,7 @@ async function hydrateStagingProductPreviews(
     existingProductId: p.existingProductId,
     id: p.id,
     brandId: p.brandId,
-    productIdentifier: p.productIdentifier,
+    productIdentifier: p.productIdentifier as string,
     productUpid: p.productUpid,
     name: p.name,
     description: p.description,
@@ -987,7 +978,7 @@ export async function batchInsertStagingWithStatus(
     existingProductId: p.existingProductId ?? null,
     id: p.id,
     brandId: p.brandId,
-    productIdentifier: p.productIdentifier ?? null,
+    productIdentifier: p.productIdentifier,
     productUpid: p.productUpid ?? null,
     name: p.name,
     description: p.description ?? null,

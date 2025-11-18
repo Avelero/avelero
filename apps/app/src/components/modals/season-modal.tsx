@@ -46,9 +46,6 @@ export function SeasonModal({
   const [ongoing, setOngoing] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const createSeasonMutation = useMutation(
-    trpc.brand.seasons.create.mutationOptions(),
-  );
   // Preserve dates when toggling ongoing to allow restoration
   const [preservedStartDate, setPreservedStartDate] =
     React.useState<Date | null>(null);
@@ -190,7 +187,7 @@ export function SeasonModal({
 
         // Optimistically update the cache immediately
         queryClient.setQueryData(
-          trpc.composite.passportFormReferences.queryKey(),
+          trpc.composite.brandCatalogContent.queryKey(),
           (old: any) => {
             if (!old) return old;
             return {
@@ -216,7 +213,7 @@ export function SeasonModal({
 
         // Invalidate to trigger background refetch
         queryClient.invalidateQueries({
-          queryKey: trpc.composite.passportFormReferences.queryKey(),
+        queryKey: trpc.composite.brandCatalogContent.queryKey(),
         });
 
         // Close modal first
@@ -225,6 +222,7 @@ export function SeasonModal({
         // Call parent callback with transformed data
         // API returns Date objects from database (or null), use them directly
         onSave({
+          id: createdSeason.id,
           name: createdSeason.name,
           startDate: createdSeason.startDate || null,
           endDate: createdSeason.endDate || null,

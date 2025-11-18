@@ -22,8 +22,8 @@
     "./utils": "./src/utils/index.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.5",
-    "nanoid": "^3.3.11",
+    "drizzle-orm": "^0.44.7",
+    "nanoid": "^5.1.6",
     "postgres": "^3.4.7"
   },
   "devDependencies": {

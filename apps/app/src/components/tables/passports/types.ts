@@ -29,57 +29,26 @@ export interface PassportTemplate {
   color: string; // hex color string (e.g., #3B82F6)
 }
 
-export interface Passport {
-  id: string;
-  productId: string;
+export interface ProductPassportRow {
+  id: string; // product id
   productUpid: string;
-  // UI label for the product; typically maps from products.name
-  title: string;
-  // Primary SKU (may derive from a variant or identifier)
-  sku?: string;
-  // Variant presentation
-  color?: string;
-  size?: string;
-
-  // Publishing state
+  name: string;
+  productIdentifier?: string;
   status: PassportStatus;
-
-  // Completion overview (e.g., X of 6 sections complete)
-  completedSections: number;
-  totalSections: number;
-  // Module-by-module detail (keys ordered per template, completion state)
-  modules?: { key: string; completed: boolean }[];
-
-  // Category presentation
-  category: string; // lowest-level category label (e.g., "Hoodies")
-  categoryPath: string[]; // full path for hover breadcrumb
-
-  // Season & template display
-  season?: string; // e.g., "SS24", "AW25"
-  template?: PassportTemplate;
-
-  // Public DPP URL when published
-  passportUrl?: string;
-
-  // Optional image for future use
-  primaryImageUrl?: string;
-
-  // Timestamps (ISO strings from API or Date when client-side)
+  category?: string | null;
+  categoryPath?: string[] | null;
+  season?: string | null;
+  showcaseBrand?: string | null;
+  primaryImageUrl?: string | null;
+  colors?: string[]; // distinct color names/hexes for variants
+  sizes?: string[]; // distinct size names
+  variantCount?: number;
   createdAt: string | Date;
   updatedAt: string | Date;
 }
 
-export interface PassportTableRow extends Omit<Passport, "id"> {
-  /**
-   * Unique identifier for the row in the table (product-level).
-   * We map product IDs to rows while keeping a list of related passport IDs.
-   */
-  id: string;
-  /**
-    * All passport identifiers represented by this product row.
-    * Used for selection + bulk actions.
-    */
-  passportIds: string[];
+export interface PassportTableRow extends ProductPassportRow {
+  passportIds: string[]; // legacy hook for bulk selection, maps to product/row id
 }
 
 // Selection model for scalable bulk actions

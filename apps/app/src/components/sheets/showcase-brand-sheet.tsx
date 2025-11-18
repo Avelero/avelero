@@ -230,7 +230,7 @@ export function ShowcaseBrandSheet({
 
       // Optimistically update the cache immediately
       queryClient.setQueryData(
-        trpc.composite.passportFormReferences.queryKey(),
+        trpc.composite.brandCatalogContent.queryKey(),
         (old: any) => {
           if (!old) return old;
           return {
@@ -263,7 +263,7 @@ export function ShowcaseBrandSheet({
 
       // Invalidate to trigger background refetch
       queryClient.invalidateQueries({
-        queryKey: trpc.composite.passportFormReferences.queryKey(),
+        queryKey: trpc.composite.brandCatalogContent.queryKey(),
       });
 
       // Transform API response to component format

@@ -72,7 +72,7 @@ export function SeasonSelect({
 
   // Fetch seasons from API
   const { data: seasonsData, isLoading } = useQuery(
-    trpc.brand.seasons.list.queryOptions({}),
+    trpc.brand.seasons.list.queryOptions(undefined),
   );
 
   // Transform API response to Season interface

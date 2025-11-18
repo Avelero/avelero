@@ -1,10 +1,8 @@
 import "./configure-trigger";
 import { logger, task } from "@trigger.dev/sdk/v3";
-import { eq } from "drizzle-orm";
 import { db } from "@v1/db/client";
 import type { Database } from "@v1/db/client";
-import { evaluateAndUpsertCompletion } from "@v1/db/index";
-import type { ModuleKey } from "@v1/db/index";
+import { eq } from "@v1/db/index";
 import {
   type StagingProductPreview,
   batchUpdateImportRowStatus,
@@ -460,9 +458,7 @@ async function processBatch(
   );
   const precreatedProducts =
     createRows.length > 0
-      ? await bulkCreateProductsFromStaging(db, brandId, createRows, {
-          skipCompletionEval: true,
-        })
+      ? await bulkCreateProductsFromStaging(db, brandId, createRows)
       : new Map<string, string>();
 
   if (precreatedProducts.size > 0) {
@@ -535,7 +531,6 @@ async function commitStagingRow(
   const rowStart = Date.now();
   let relationDurationMs = 0;
   let coreDurationMs = 0;
-  const modulesToEvaluate: Set<ModuleKey> = new Set(["core"]);
 
   if (!variant) {
     throw new Error("Staging product missing variant data");
@@ -562,12 +557,11 @@ async function commitStagingRow(
               productIdentifier: stagingProduct.productIdentifier ?? undefined,
               description: stagingProduct.description || undefined,
               categoryId: stagingProduct.categoryId || undefined,
-              seasonId: stagingProduct.seasonId || undefined,
-              showcaseBrandId: stagingProduct.showcaseBrandId || undefined,
-              primaryImageUrl: stagingProduct.primaryImageUrl || undefined,
-              status: stagingProduct.status || undefined,
+              seasonId: stagingProduct.seasonId ?? undefined,
+              showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
+              primaryImageUrl: stagingProduct.primaryImageUrl ?? undefined,
+              status: stagingProduct.status ?? undefined,
             },
-            { skipCompletionEval: true },
           );
 
           if (!created?.id) {
@@ -582,22 +576,21 @@ async function commitStagingRow(
           throw new Error("UPDATE action missing existingProductId");
         }
 
-          const updated = await updateProduct(
-            tx as unknown as Database,
-            brandId,
-            {
-              id: stagingProduct.existingProductId,
-              name: stagingProduct.name,
-              productIdentifier: stagingProduct.productIdentifier ?? undefined,
-              description: stagingProduct.description ?? undefined,
-              categoryId: stagingProduct.categoryId ?? undefined,
-              seasonId: stagingProduct.seasonId ?? undefined,
-              showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
-              primaryImageUrl: stagingProduct.primaryImageUrl ?? undefined,
-              status: stagingProduct.status ?? undefined,
-            },
-            { skipCompletionEval: true },
-          );
+        const updated = await updateProduct(
+          tx as unknown as Database,
+          brandId,
+          {
+            id: stagingProduct.existingProductId,
+            name: stagingProduct.name,
+            productIdentifier: stagingProduct.productIdentifier ?? undefined,
+            description: stagingProduct.description ?? undefined,
+            categoryId: stagingProduct.categoryId ?? undefined,
+            seasonId: stagingProduct.seasonId ?? undefined,
+            showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
+            primaryImageUrl: stagingProduct.primaryImageUrl ?? undefined,
+            status: stagingProduct.status ?? undefined,
+          },
+        );
 
         if (!updated?.id) {
           throw new Error("Failed to update product");
@@ -653,7 +646,6 @@ async function commitStagingRow(
       const relationsStart = Date.now();
       const stagingMaterials = stagingProduct.materials;
       if (stagingMaterials.length > 0) {
-        modulesToEvaluate.add("materials");
         await upsertProductMaterials(
           tx as unknown as Database,
           productId,
@@ -661,7 +653,6 @@ async function commitStagingRow(
             brandMaterialId: m.brandMaterialId,
             percentage: m.percentage || undefined,
           })),
-          { skipCompletionEval: true },
         );
       }
 
@@ -678,7 +669,6 @@ async function commitStagingRow(
       // Fetch and insert journey steps
       const stagingJourneySteps = stagingProduct.journeySteps;
       if (stagingJourneySteps.length > 0) {
-        modulesToEvaluate.add("journey");
         await setProductJourneySteps(
           tx as unknown as Database,
           productId,
@@ -687,23 +677,16 @@ async function commitStagingRow(
             stepType: s.stepType,
             facilityId: s.facilityId,
           })),
-          { skipCompletionEval: true },
         );
       }
 
       // Fetch and insert environment data
       const stagingEnvironment = stagingProduct.environment;
       if (stagingEnvironment) {
-        modulesToEvaluate.add("environment");
-        await upsertProductEnvironment(
-          tx as unknown as Database,
-          productId,
-          {
-            carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
-            waterLiters: stagingEnvironment.waterLiters || undefined,
-          },
-          { skipCompletionEval: true },
-        );
+        await upsertProductEnvironment(tx as unknown as Database, productId, {
+          carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
+          waterLiters: stagingEnvironment.waterLiters || undefined,
+        });
       }
 
       // Step 4: Mark import_row as APPLIED
@@ -722,12 +705,6 @@ async function commitStagingRow(
       importRowId = stagingProduct.stagingId;
       relationDurationMs = Date.now() - relationsStart;
     });
-
-    if (productId && modulesToEvaluate.size > 0) {
-      await evaluateAndUpsertCompletion(db, brandId, productId, {
-        onlyModules: Array.from(modulesToEvaluate),
-      });
-    }
 
     // Removed per-row logging for performance - only log errors and batch summaries
     return {

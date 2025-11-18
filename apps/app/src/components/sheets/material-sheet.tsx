@@ -286,7 +286,7 @@ export function MaterialSheet({
         // Use input data + response ID + current timestamp
         const now = new Date().toISOString();
         queryClient.setQueryData(
-          trpc.composite.passportFormReferences.queryKey(),
+          trpc.composite.brandCatalogContent.queryKey(),
           (old: any) => {
             if (!old) return old;
             return {
@@ -314,7 +314,7 @@ export function MaterialSheet({
 
         // Invalidate to trigger background refetch
         queryClient.invalidateQueries({
-          queryKey: trpc.composite.passportFormReferences.queryKey(),
+          queryKey: trpc.composite.brandCatalogContent.queryKey(),
         });
 
         // Create local certification data with real ID
@@ -381,7 +381,7 @@ export function MaterialSheet({
         // Use input data + response ID + current timestamp
         const now = new Date().toISOString();
         queryClient.setQueryData(
-          trpc.composite.passportFormReferences.queryKey(),
+          trpc.composite.brandCatalogContent.queryKey(),
           (old: any) => {
             if (!old) return old;
             return {
@@ -407,7 +407,7 @@ export function MaterialSheet({
 
         // Invalidate to trigger background refetch
         queryClient.invalidateQueries({
-          queryKey: trpc.composite.passportFormReferences.queryKey(),
+          queryKey: trpc.composite.brandCatalogContent.queryKey(),
         });
 
         // Find selected certification data if one is selected

@@ -236,7 +236,7 @@ export const importRouter = createTRPCRouter({
             summary: {
               totalRows: 0,
               hasUpid: false,
-              hasSku: false,
+              hasProductIdentifier: false,
               recognizedColumns: [],
               unrecognizedColumns: [],
             },
@@ -247,7 +247,7 @@ export const importRouter = createTRPCRouter({
         const { normalized: normalizedHeaders, mapping: headerMapping } =
           normalizeHeaders(parseResult.headers);
 
-        const requiredHeaders = ["product_name"];
+        const requiredHeaders = ["product_name", "product_identifier"];
         const missingRequired = requiredHeaders.filter(
           (h) => !normalizedHeaders.includes(h),
         );
@@ -266,37 +266,18 @@ export const importRouter = createTRPCRouter({
             summary: {
               totalRows: parseResult.rowCount,
               hasUpid: normalizedHeaders.includes("upid"),
-              hasSku: normalizedHeaders.includes("sku"),
+              hasProductIdentifier: normalizedHeaders.includes(
+                "product_identifier",
+              ),
               recognizedColumns: normalizedHeaders,
               unrecognizedColumns: [],
             },
           };
         }
 
-        // Check for UPID or SKU
         const hasUpid = normalizedHeaders.includes("upid");
-        const hasSku = normalizedHeaders.includes("sku");
-
-        if (!hasUpid && !hasSku) {
-          return {
-            valid: false,
-            fileId: input.fileId,
-            warnings: [],
-            errors: [
-              {
-                type: "MISSING_COLUMNS",
-                message: "Either 'upid' or 'sku' column is required",
-              },
-            ],
-            summary: {
-              totalRows: parseResult.rowCount,
-              hasUpid: false,
-              hasSku: false,
-              recognizedColumns: normalizedHeaders,
-              unrecognizedColumns: [],
-            },
-          };
-        }
+        const hasProductIdentifier =
+          normalizedHeaders.includes("product_identifier");
 
         // File structure is valid - duplicates will be checked in background job
         return {
@@ -307,7 +288,7 @@ export const importRouter = createTRPCRouter({
           summary: {
             totalRows: parseResult.rowCount,
             hasUpid,
-            hasSku,
+            hasProductIdentifier,
             recognizedColumns: normalizedHeaders,
             unrecognizedColumns: parseResult.headers.filter(
               (h) => !normalizedHeaders.includes(normalizeHeader(h)),

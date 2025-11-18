@@ -45,6 +45,9 @@ const MaterialDropdown = ({
 }) => {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [pendingSelectedId, setPendingSelectedId] = React.useState<string | null>(
+    null,
+  );
 
   // Filter out materials that are already added
   const filteredMaterials = React.useMemo(() => {
@@ -52,8 +55,13 @@ const MaterialDropdown = ({
       return availableMaterials;
     }
     const excludeSet = new Set(excludeMaterialIds);
-    return availableMaterials.filter(m => !excludeSet.has(m.id));
-  }, [availableMaterials, excludeMaterialIds]);
+    return availableMaterials.filter((m) => {
+      if (pendingSelectedId && m.id === pendingSelectedId) {
+        return true; // allow the recently selected option to persist during close animation
+      }
+      return !excludeSet.has(m.id);
+    });
+  }, [availableMaterials, excludeMaterialIds, pendingSelectedId]);
 
   const materialNames = React.useMemo(
     () => filteredMaterials.map(m => m.name),
@@ -61,9 +69,16 @@ const MaterialDropdown = ({
   );
 
   const handleSelect = (selectedMaterial: string) => {
+    const selected = availableMaterials.find((m) => m.name === selectedMaterial);
+    if (selected?.id) {
+      setPendingSelectedId(selected.id);
+    }
     onMaterialChange(selectedMaterial);
     setDropdownOpen(false);
     setSearchQuery("");
+    if (selected?.id) {
+      setTimeout(() => setPendingSelectedId(null), 180);
+    }
   };
 
   const handleCreate = () => {
@@ -279,6 +294,7 @@ export function MaterialsSection({
   const [creatingForMaterialId, setCreatingForMaterialId] = React.useState<
     string | null
   >(null);
+  const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   
   // Sync parent materials with display materials
   // Preserve pending materials (temp IDs) and materials being created
@@ -305,34 +321,55 @@ export function MaterialsSection({
     // Use functional update to read current displayMaterials
     setDisplayMaterials(prev => {
       const pendingMaterials = prev.filter(
-        m => m.id.startsWith('temp-') && !parentMaterials.some(pm => pm.materialId === m.id)
+        m =>
+          m.id.startsWith("temp-") &&
+          !parentMaterials.some((pm) => pm.materialId === m.id),
       );
       return [...enriched, ...pendingMaterials];
     });
   }, [parentMaterials, materialOptions]);
 
   // Helper to sync display materials back to parent
-  const syncToParent = (displayMats: Material[]) => {
-    const parentMats = displayMats
-      .filter(m => m.id && m.name) // Only include materials with ID and name
-      .map(m => {
-        const percentageValue = m.percentage.trim();
-        if (!percentageValue || percentageValue === '.') {
+  const syncToParent = React.useCallback(
+    (displayMats: Material[]) => {
+      const parentMats = displayMats
+        .filter((m) => m.id && m.name) // Only include materials with ID and name
+        .map((m) => {
+          const percentageValue = m.percentage.trim();
+          if (!percentageValue || percentageValue === ".") {
+            return {
+              materialId: m.id,
+              percentage: 0,
+            };
+          }
+          const parsed = Number.parseFloat(percentageValue);
+          // Treat NaN or non-finite values as 0
+          const safePercentage = Number.isFinite(parsed) ? parsed : 0;
           return {
             materialId: m.id,
-            percentage: 0,
+            percentage: safePercentage,
           };
-        }
-        const parsed = Number.parseFloat(percentageValue);
-        // Treat NaN or non-finite values as 0
-        const safePercentage = Number.isFinite(parsed) ? parsed : 0;
-        return {
-          materialId: m.id,
-          percentage: safePercentage,
-        };
-      });
-    setParentMaterials(parentMats);
-  };
+        });
+      setParentMaterials(parentMats);
+    },
+    [setParentMaterials],
+  );
+
+  // Debounce syncing to the parent to reduce rerenders during typing
+  React.useEffect(() => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    syncTimeoutRef.current = setTimeout(() => {
+      syncToParent(displayMaterials);
+    }, 150);
+
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [displayMaterials, syncToParent]);
 
   const handleMaterialCreated = (material: any) => {
     if (creatingForMaterialId) {
@@ -354,9 +391,6 @@ export function MaterialsSection({
       // Update display state immediately
       setDisplayMaterials(updatedDisplay);
       
-      // Sync to parent state
-      syncToParent(updatedDisplay);
-      
       // Clear creating state
       setCreatingForMaterialId(null);
     }
@@ -369,17 +403,17 @@ export function MaterialsSection({
   };
 
   const updateMaterial = (id: string, field: keyof Material, value: any) => {
-    const updatedDisplay = displayMaterials.map((material) =>
-      material.id === id ? { ...material, [field]: value } : material,
+    setDisplayMaterials((prev) =>
+      prev.map((material) =>
+        material.id === id ? { ...material, [field]: value } : material,
+      ),
     );
-    setDisplayMaterials(updatedDisplay);
-    syncToParent(updatedDisplay);
   };
 
   const deleteMaterial = (id: string) => {
-    const updatedDisplay = displayMaterials.filter((material) => material.id !== id);
-    setDisplayMaterials(updatedDisplay);
-    syncToParent(updatedDisplay);
+    setDisplayMaterials((prev) =>
+      prev.filter((material) => material.id !== id),
+    );
   };
 
   const addMaterial = () => {
@@ -465,20 +499,20 @@ export function MaterialsSection({
                     
                     if (selectedMaterial) {
                       // Replace the entire row with the selected material's data
-                      const updatedDisplay = displayMaterials.map((m) =>
-                        m.id === material.id
-                          ? {
-                              ...m,
-                              id: selectedMaterial.id, // Update to real ID
-                              name: selectedMaterial.name,
-                              countries: selectedMaterial.country_of_origin
-                                ? [selectedMaterial.country_of_origin]
-                                : [],
-                            }
-                          : m,
+                      setDisplayMaterials((prev) =>
+                        prev.map((m) =>
+                          m.id === material.id
+                            ? {
+                                ...m,
+                                id: selectedMaterial.id, // Update to real ID
+                                name: selectedMaterial.name,
+                                countries: selectedMaterial.country_of_origin
+                                  ? [selectedMaterial.country_of_origin]
+                                  : [],
+                              }
+                            : m,
+                        ),
                       );
-                      setDisplayMaterials(updatedDisplay);
-                      syncToParent(updatedDisplay);
                     }
                   }}
                   onCreateMaterial={(searchTerm) =>

@@ -11,6 +11,16 @@ import {
   inArray,
   listPendingInvitesForEmail,
   sql,
+  listCategories,
+  listColors,
+  listSizes,
+  listMaterials,
+  listFacilities,
+  listShowcaseBrands,
+  listEcoClaims,
+  listCertifications,
+  listBrandTags,
+  listSeasonsForBrand,
 } from "@v1/db/queries";
 import { brandInvites, brandMembers, users } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
@@ -20,7 +30,7 @@ import { getAppUrl } from "@v1/utils/envs";
  * Targets:
  * - composite.workflowInit
  * - composite.membersWithInvites
- * - composite.passportFormReferences
+ * - composite.brandCatalogContent
  */
 import { ROLES } from "../../../config/roles.js";
 import { workflowBrandIdSchema } from "../../../schemas/workflow.js";
@@ -30,10 +40,12 @@ import {
   brandRequiredProcedure,
   createTRPCRouter,
   protectedProcedure,
+  type AuthenticatedTRPCContext,
 } from "../../init.js";
 
 /** User's role within a brand */
 type BrandRole = "owner" | "member";
+type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
 /**
  * Minimal user record shape for profile mapping.
@@ -362,6 +374,62 @@ export const compositeRouter = createTRPCRouter({
 
       return { members, invites };
     }),
+
+  /**
+   * Bundled reference data for passport form initialization.
+   *
+   * Returns brand catalog entities and global categories in a single call to
+   * minimize waterfall requests in the app.
+   */
+  brandCatalogContent: brandRequiredProcedure.query(
+    async ({ ctx }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = brandCtx.brandId;
+
+      try {
+        const [
+          categories,
+          colors,
+          sizes,
+          materials,
+          facilities,
+          showcaseBrands,
+          ecoClaims,
+          certifications,
+          tags,
+          seasons,
+        ] = await Promise.all([
+          listCategories(brandCtx.db),
+          listColors(brandCtx.db, brandId),
+          listSizes(brandCtx.db, brandId),
+          listMaterials(brandCtx.db, brandId),
+          listFacilities(brandCtx.db, brandId),
+          listShowcaseBrands(brandCtx.db, brandId),
+          listEcoClaims(brandCtx.db, brandId),
+          listCertifications(brandCtx.db, brandId),
+          listBrandTags(brandCtx.db, brandId),
+          listSeasonsForBrand(brandCtx.db, brandId),
+        ]);
+
+        return {
+          categories,
+          brandCatalog: {
+            colors,
+            sizes,
+            materials,
+            operators: facilities,
+            showcaseBrands,
+            ecoClaims,
+            certifications,
+            tags,
+            seasons,
+          },
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to load passport form references");
+      }
+    },
+  ),
 
 });
 

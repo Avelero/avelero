@@ -13,8 +13,8 @@ import * as React from "react";
 interface OrganizationSectionProps {
   categoryId: string | null;
   setCategoryId: (value: string | null) => void;
-  season: string | null;
-  setSeason: (value: string | null) => void;
+  seasonId: string | null;
+  setSeasonId: (value: string | null) => void;
   tagIds: string[];
   setTagIds: (value: string[]) => void;
 }
@@ -22,8 +22,8 @@ interface OrganizationSectionProps {
 export function OrganizationSection({
   categoryId,
   setCategoryId,
-  season,
-  setSeason,
+  seasonId,
+  setSeasonId,
   tagIds,
   setTagIds,
 }: OrganizationSectionProps) {
@@ -31,7 +31,7 @@ export function OrganizationSection({
   const { seasons } = useBrandCatalog();
 
   // Track which optional fields are visible
-  const [showSeason, setShowSeason] = React.useState(() => Boolean(season));
+  const [showSeason, setShowSeason] = React.useState(() => Boolean(seasonId));
   const [showTags, setShowTags] = React.useState(() => tagIds.length > 0);
 
   // Field values (local state for complex objects, IDs are in parent)
@@ -39,29 +39,24 @@ export function OrganizationSection({
   
   // Sync season object with parent's season string
   React.useEffect(() => {
-    if (season) {
-      // Check if current seasonObject matches the season prop
-      if (seasonObject?.name !== season) {
-        // Try to find matching season object
-        const found = seasons.find((s: Season) => s.name === season);
+    if (seasonId) {
+      if (seasonObject?.id !== seasonId) {
+        const found = seasons.find((s: Season) => s.id === seasonId);
         if (found) {
           setSeasonObject(found);
-        } else {
-          // Clear seasonObject if season doesn't match any available season
-          setSeasonObject(null);
         }
       }
     } else {
       // Clear seasonObject when season is null
       setSeasonObject(null);
     }
-  }, [season, seasons]);
+  }, [seasonId, seasons]);
 
   React.useEffect(() => {
-    if (season && !showSeason) {
+    if (seasonId && !showSeason) {
       setShowSeason(true);
     }
-  }, [season, showSeason]);
+  }, [seasonId, showSeason]);
 
   React.useEffect(() => {
     if (tagIds.length > 0 && !showTags) {
@@ -101,16 +96,15 @@ export function OrganizationSection({
                 <div className="transition-[margin-right] duration-200 ease-in-out group-hover/field:mr-11">
                   <SeasonSelect
                     value={seasonObject}
-                    onValueChange={(newSeason) => {
-                      setSeasonObject(newSeason);
-                      setSeason(newSeason?.name ?? null);
-                    }}
-                    seasons={seasons}
-                    onCreateNew={(name: string) => {
-                      setPendingSeasonName(name);
-                      setSeasonModalOpen(true);
-                    }}
-                    placeholder="Select season"
+                  onValueChange={(newSeason) => {
+                    setSeasonObject(newSeason);
+                    setSeasonId(newSeason?.id ?? null);
+                  }}
+                  onCreateNew={(name: string) => {
+                    setPendingSeasonName(name);
+                    setSeasonModalOpen(true);
+                  }}
+                  placeholder="Select season"
                   />
                 </div>
                 <div className="absolute right-0 top-0 w-0 group-hover/field:w-9 overflow-hidden transition-[width] duration-200 ease-in-out">
@@ -120,7 +114,7 @@ export function OrganizationSection({
                     onClick={() => {
                       setShowSeason(false);
                       setSeasonObject(null);
-                      setSeason(null);
+                      setSeasonId(null);
                     }}
                     className="h-9 w-9 text-tertiary hover:text-destructive flex-shrink-0"
                   >
@@ -159,6 +153,7 @@ export function OrganizationSection({
               </div>
             </div>
           )}
+
         </div>
 
         {/* Footer with Add Buttons (render after mount to avoid SSR/client mismatches) */}
@@ -201,13 +196,14 @@ export function OrganizationSection({
           // React Query will automatically refetch and update the seasons list
           // Convert the season modal output to Season type
           const seasonObj: Season = {
+            id: newSeason.id ?? "",
             name: newSeason.name,
             startDate: newSeason.startDate || undefined,
             endDate: newSeason.endDate || undefined,
             isOngoing: newSeason.isOngoing,
           };
           setSeasonObject(seasonObj);
-          setSeason(newSeason.name);
+          setSeasonId(newSeason.id ?? null);
           setShowSeason(true);
         }}
       />

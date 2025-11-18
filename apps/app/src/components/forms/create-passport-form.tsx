@@ -61,31 +61,25 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
 
   // Clear errors when fields change (after first submit attempt)
   React.useEffect(() => {
-    if (state.hasAttemptedSubmit && state.title && state.validationErrors.title) {
-      clearValidationError("title");
+    if (state.hasAttemptedSubmit && state.name && state.validationErrors.name) {
+      clearValidationError("name");
     }
-  }, [state.title, state.hasAttemptedSubmit, state.validationErrors.title, clearValidationError]);
+  }, [state.name, state.hasAttemptedSubmit, state.validationErrors.name, clearValidationError]);
 
   React.useEffect(() => {
     if (
       state.hasAttemptedSubmit &&
-      state.articleNumber &&
-      state.validationErrors.articleNumber
+      state.productIdentifier &&
+      state.validationErrors.productIdentifier
     ) {
-      clearValidationError("articleNumber");
+      clearValidationError("productIdentifier");
     }
   }, [
-    state.articleNumber,
+    state.productIdentifier,
     state.hasAttemptedSubmit,
-    state.validationErrors.articleNumber,
+    state.validationErrors.productIdentifier,
     clearValidationError,
   ]);
-
-  React.useEffect(() => {
-    if (state.hasAttemptedSubmit && state.ean && state.validationErrors.ean) {
-      clearValidationError("ean");
-    }
-  }, [state.ean, state.hasAttemptedSubmit, state.validationErrors.ean, clearValidationError]);
 
   React.useEffect(() => {
     if (
@@ -197,9 +191,8 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
   }, [hasUnsavedChanges, isEditMode]);
 
   // Refs for focusing invalid fields
-  const titleInputRef = React.useRef<HTMLInputElement>(null);
-  const articleNumberInputRef = React.useRef<HTMLInputElement>(null);
-  const eanInputRef = React.useRef<HTMLInputElement>(null);
+  const nameInputRef = React.useRef<HTMLInputElement>(null);
+  const productIdentifierInputRef = React.useRef<HTMLInputElement>(null);
   const materialsSectionRef = React.useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -212,7 +205,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     // Validate form
     const errors = validate();
     const missingRequired =
-      !state.title.trim() || !state.articleNumber.trim();
+      !state.name.trim() || !state.productIdentifier.trim();
     const materialsErrorMessage = errors.materials;
 
     // If form is invalid, show toast and focus first invalid field
@@ -227,9 +220,8 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
 
       // Focus on first invalid field
       const fieldOrder: Array<keyof PassportFormValidationErrors> = [
-        "title",
-        "articleNumber",
-        "ean",
+        "name",
+        "productIdentifier",
         "colors",
         "selectedSizes",
         "materials",
@@ -237,18 +229,15 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
         "waterLiters",
       ];
       const firstInvalidField = getFirstInvalidField(errors, fieldOrder);
-      if (firstInvalidField === "title") {
-        titleInputRef.current?.focus();
-        titleInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      } else if (firstInvalidField === "articleNumber") {
-        articleNumberInputRef.current?.focus();
-        articleNumberInputRef.current?.scrollIntoView({
+      if (firstInvalidField === "name") {
+        nameInputRef.current?.focus();
+        nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (firstInvalidField === "productIdentifier") {
+        productIdentifierInputRef.current?.focus();
+        productIdentifierInputRef.current?.scrollIntoView({
           behavior: "smooth",
           block: "center",
         });
-      } else if (firstInvalidField === "ean") {
-        eanInputRef.current?.focus();
-        eanInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       } else if (firstInvalidField === "materials") {
         materialsSectionRef.current?.focus();
         materialsSectionRef.current?.scrollIntoView({
@@ -279,13 +268,13 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
       className="flex justify-center w-full"
       onSubmit={handleSubmit}
     >
-      <PassportFormScaffold
+        <PassportFormScaffold
         title={mode === "create" ? "Create passport" : "Edit passport"}
         left={
           <>
             <BasicInfoSection
-              title={state.title}
-              setTitle={(value) => setField("title", value)}
+              name={state.name}
+              setName={(value) => setField("name", value)}
               description={state.description}
               setDescription={(value) => setField("description", value)}
               imageFile={state.imageFile}
@@ -296,16 +285,16 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
                 }
               }}
               existingImageUrl={state.existingImageUrl}
-              titleError={
-                state.hasAttemptedSubmit ? state.validationErrors.title : undefined
+              nameError={
+                state.hasAttemptedSubmit ? state.validationErrors.name : undefined
               }
-              titleInputRef={titleInputRef}
+              nameInputRef={nameInputRef}
             />
             <OrganizationSection
               categoryId={state.categoryId}
               setCategoryId={(value) => setField("categoryId", value)}
-              season={state.season}
-              setSeason={(value) => setField("season", value)}
+              seasonId={state.seasonId}
+              setSeasonId={(value) => setField("seasonId", value)}
               tagIds={state.tagIds}
               setTagIds={(value) => setField("tagIds", value)}
             />
@@ -362,22 +351,16 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               setStatus={(value) => setField("status", value)}
             />
             <IdentifiersSection
-              articleNumber={state.articleNumber}
-              setArticleNumber={(value) => setField("articleNumber", value)}
-              ean={state.ean}
-              setEan={(value) => setField("ean", value)}
+              productIdentifier={state.productIdentifier}
+              setProductIdentifier={(value) => setField("productIdentifier", value)}
               showcaseBrandId={state.showcaseBrandId}
               setShowcaseBrandId={(value) => setField("showcaseBrandId", value)}
-              articleNumberError={
+              productIdentifierError={
                 state.hasAttemptedSubmit
-                  ? state.validationErrors.articleNumber
+                  ? state.validationErrors.productIdentifier
                   : undefined
               }
-              eanError={
-                state.hasAttemptedSubmit ? state.validationErrors.ean : undefined
-              }
-              articleNumberInputRef={articleNumberInputRef}
-              eanInputRef={eanInputRef}
+              productIdentifierInputRef={productIdentifierInputRef}
             />
           </>
         }

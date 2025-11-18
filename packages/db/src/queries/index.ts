@@ -17,6 +17,7 @@ export {
   desc,
   eq,
   inArray,
+  isNull,
   sql,
   SQL,
   type SQLWrapper,

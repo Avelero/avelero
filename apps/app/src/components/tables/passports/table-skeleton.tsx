@@ -15,7 +15,15 @@ import { columns } from "./columns";
 import { PassportTableHeader } from "./table-header";
 import type { PassportTableRow } from "./types";
 
-export function PassportTableSkeleton({ rows = 16 }: { rows?: number }) {
+export function PassportTableSkeleton({
+  rows = 16,
+  columnVisibility,
+  columnOrder,
+}: {
+  rows?: number;
+  columnVisibility?: Record<string, boolean>;
+  columnOrder?: string[];
+}) {
   // Force Actions column to a fixed width in the skeleton
   const skeletonColumns: ColumnDef<PassportTableRow, unknown>[] = (
     columns as ColumnDef<PassportTableRow, unknown>[]
@@ -39,7 +47,11 @@ export function PassportTableSkeleton({ rows = 16 }: { rows?: number }) {
     columns: skeletonColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    state: { rowSelection: {} },
+    state: {
+      rowSelection: {},
+      columnVisibility,
+      columnOrder,
+    },
   });
 
   return (

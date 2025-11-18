@@ -4,7 +4,6 @@ import { validateImportFile } from "@v1/supabase/utils/product-imports";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import { FileSpreadsheet, X } from "lucide-react";
 import {
   type ChangeEvent,
   type DragEvent,
@@ -201,7 +200,7 @@ export function FileDropzone({
           </>
         ) : hasFile ? (
           <>
-            <FileSpreadsheet className="h-12 w-12 text-brand mb-4" />
+            <Icons.FileText className="h-12 w-12 text-brand mb-4" />
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {selectedFile.name}
             </p>
@@ -219,7 +218,7 @@ export function FileDropzone({
                 }}
                 className="mt-3"
               >
-                <X className="h-4 w-4 mr-1" />
+                <Icons.X className="h-4 w-4 mr-1" />
                 Remove
               </Button>
             )}

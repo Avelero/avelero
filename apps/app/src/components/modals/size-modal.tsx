@@ -586,7 +586,7 @@ export function SizeModal({
 
       // Invalidate to trigger background refetch
       queryClient.invalidateQueries({
-        queryKey: trpc.composite.passportFormReferences.queryKey(),
+        queryKey: trpc.composite.brandCatalogContent.queryKey(),
       });
 
       // Build definition with all sizes

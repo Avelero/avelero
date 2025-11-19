@@ -112,9 +112,7 @@ function MembershipRow({
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const queryKey = trpc.composite.membersWithInvites.queryKey({
-    brand_id: brandId,
-  });
+  const queryKey = trpc.composite.membersWithInvites.queryKey({});
 
   const displayName = membership.full_name ?? membership.email ?? undefined;
   const email = membership.email ?? "";
@@ -232,7 +230,6 @@ function MembershipRow({
                   disabled={membership.role === "owner"}
                   onClick={() =>
                     updateMemberMutation.mutate({
-                      brand_id: brandId,
                       user_id: membership.user_id ?? undefined,
                       role: "owner",
                     })
@@ -244,7 +241,6 @@ function MembershipRow({
                   disabled={membership.role === "member"}
                   onClick={() =>
                     updateMemberMutation.mutate({
-                      brand_id: brandId,
                       user_id: membership.user_id ?? undefined,
                       role: "member",
                     })
@@ -261,7 +257,6 @@ function MembershipRow({
               }
               onClick={() =>
                 deleteMemberMutation.mutate({
-                  brand_id: brandId,
                   user_id: membership.user_id ?? undefined,
                   role: null,
                 })
@@ -335,9 +330,7 @@ function InviteRowComp({
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const queryKey = trpc.composite.membersWithInvites.queryKey({
-    brand_id: brandId,
-  });
+  const queryKey = trpc.composite.membersWithInvites.queryKey({});
 
   const revokeInviteMutation = useMutation(
     trpc.workflow.invites.respond.mutationOptions({
@@ -366,14 +359,10 @@ function InviteRowComp({
         await Promise.all([
           queryClient.invalidateQueries({ queryKey }),
           queryClient.invalidateQueries({
-            queryKey: trpc.workflow.invites.list.queryKey({
-              brand_id: brandId,
-            }),
+            queryKey: trpc.workflow.invites.list.queryKey({}),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.membersWithInvites.queryKey({
-              brand_id: brandId,
-            }),
+            queryKey: trpc.composite.membersWithInvites.queryKey({}),
           }),
         ]);
       },

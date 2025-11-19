@@ -41,10 +41,8 @@ export function MembersTable() {
   }
 
   const compositeOptions = useMemo(() => {
-    return trpc.composite.membersWithInvites.queryOptions({
-      brand_id: brandId,
-    });
-  }, [trpc, brandId]);
+    return trpc.composite.membersWithInvites.queryOptions({});
+  }, [trpc]);
 
   const { data: compositeRes } = useSuspenseQuery(compositeOptions);
 

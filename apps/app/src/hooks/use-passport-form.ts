@@ -230,6 +230,16 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const hasHydratedRef = React.useRef(false);
   const initialVariantSignatureRef = React.useRef<string | null>(null);
 
+  React.useEffect(() => {
+    if (!isEditMode) {
+      return;
+    }
+    hasHydratedRef.current = false;
+    metadataRef.current = {};
+    initialVariantSignatureRef.current = null;
+    setInitialSnapshot(null);
+  }, [isEditMode, productUpid]);
+
   const createProductMutation = useMutation(
     trpc.products.create.mutationOptions(),
   );
@@ -359,10 +369,15 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     if (!passportFormQuery.data) {
       return;
     }
-    if (hasHydratedRef.current) {
+    const payload = passportFormQuery.data as any;
+    const resolvedProductUpid =
+      payload?.upid ?? productUpid ?? metadataRef.current.productUpid ?? null;
+    if (
+      hasHydratedRef.current &&
+      metadataRef.current.productUpid === resolvedProductUpid
+    ) {
       return;
     }
-    const payload = passportFormQuery.data as any;
 
     const variants = Array.isArray(payload?.variants)
       ? payload.variants
@@ -450,7 +465,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     setFields(nextValues);
     metadataRef.current = {
       productId: payload.id,
-      productUpid: payload.upid ?? productUpid ?? undefined,
+      productUpid: resolvedProductUpid ?? undefined,
     };
     const hydratedSizeIds: string[] = selectedSizes
       .map((size) => size.id)
@@ -469,6 +484,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     isEditMode,
     mapSizeIdsToOptions,
     passportFormQuery.data,
+    productUpid,
     setFields,
     sizeOptions,
   ]);

@@ -26,7 +26,7 @@ interface PassportFormProps {
 
 export function PassportForm({ mode, productUpid }: PassportFormProps) {
   const { data: user } = useUserQuery();
-  const { isLoading, sizeOptions, colors: brandColors } = useBrandCatalog();
+  const { sizeOptions, colors: brandColors } = useBrandCatalog();
   const {
     setIsSubmitting: setContextIsSubmitting,
     setHasUnsavedChanges: setContextHasUnsavedChanges,
@@ -42,7 +42,6 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     validate,
     submit,
     isSubmitting,
-    isInitializing,
     hasUnsavedChanges,
   } = usePassportForm({ mode, productUpid, sizeOptions, colors: brandColors });
 
@@ -257,10 +256,6 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
       console.error("Form submission failed:", err);
     }
   };
-
-  if (isLoading || isInitializing) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <form

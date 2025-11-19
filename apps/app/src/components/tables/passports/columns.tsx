@@ -18,11 +18,42 @@ import {
   TooltipTrigger,
 } from "@v1/ui/tooltip";
 import Link from "next/link";
+import { useState } from "react";
 import type { PassportTableRow } from "./types";
 
 const MAX_COLUMN_WIDTH = 320;
 const CELL_PADDING_X = "px-4";
 const CELL_HEIGHT = "h-14";
+
+/**
+ * Link component with hover-triggered prefetching.
+ * Prefetches the route only when the user hovers over the link.
+ */
+function HoverPrefetchLink({
+  href,
+  children,
+  className,
+  onClick,
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
+}) {
+  const [active, setActive] = useState(false);
+
+  return (
+    <Link
+      href={href}
+      prefetch={active ? null : false}
+      onMouseEnter={() => setActive(true)}
+      className={className}
+      onClick={onClick}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export const columns: ColumnDef<PassportTableRow>[] = [
   {
@@ -102,14 +133,13 @@ export const columns: ColumnDef<PassportTableRow>[] = [
             )}
           </label>
           <div className="min-w-0 max-w-[680px] space-y-1">
-            <Link
+            <HoverPrefetchLink
               href={`/passports/edit/${product.productUpid}`}
-              prefetch
               className="block max-w-full truncate type-p text-primary hover:text-brand cursor-pointer"
               onClick={(event) => event.stopPropagation()}
             >
               {product.name}
-            </Link>
+            </HoverPrefetchLink>
             {product.productIdentifier ? (
               <span className="block max-w-full truncate type-small text-secondary">
                 {product.productIdentifier}

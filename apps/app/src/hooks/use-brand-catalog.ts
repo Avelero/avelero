@@ -1,6 +1,6 @@
 import type { TierTwoSizeOption } from "@/components/select/size-select";
 import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { allColors } from "@v1/selections/colors";
 import * as React from "react";
 
@@ -112,8 +112,8 @@ export function useBrandCatalog() {
   const trpc = useTRPC();
   
   // Access prefetched data from React Query cache
-  const { data, isLoading } = useQuery(
-    trpc.composite.brandCatalogContent.queryOptions()
+  const { data } = useSuspenseQuery(
+    trpc.composite.brandCatalogContent.queryOptions(),
   );
 
   // Merge colors: API colors + default colors from selections
@@ -322,9 +322,6 @@ export function useBrandCatalog() {
     // Size-related
     tierTwoCategories,
     tierTwoCategoryHierarchy,
-    
-    // Loading state
-    isLoading,
   };
 }
 

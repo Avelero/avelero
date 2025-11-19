@@ -67,7 +67,7 @@ export function SeasonSelect({
 }: SeasonSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const { seasons, isLoading } = useBrandCatalog();
+  const { seasons } = useBrandCatalog();
 
   const handleSelect = (season: Season) => {
     onValueChange(season);
@@ -125,11 +125,7 @@ export function SeasonSelect({
           />
           <CommandList className="max-h-48">
             <CommandGroup>
-              {isLoading ? (
-                <div className="px-3 py-8 text-center">
-                  <p className="type-p text-tertiary">Loading seasons...</p>
-                </div>
-              ) : filteredSeasons.length > 0 ? (
+              {filteredSeasons.length > 0 ? (
                 filteredSeasons.map((season: Season) => (
                   <CommandItem
                     key={season.id}

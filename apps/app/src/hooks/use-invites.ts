@@ -118,19 +118,13 @@ export function useAcceptInviteMutation() {
         toast.success(`Accepted invite from ${brandName}`);
         const brandId = (data as { brandId?: string | null } | undefined)
           ?.brandId;
-        // Invalidate brand-specific queries if brand ID is available
-        if (brandId) {
-          void queryClient.invalidateQueries({
-            queryKey: trpc.workflow.members.list.queryKey({
-              brand_id: brandId,
-            }),
-          });
-          void queryClient.invalidateQueries({
-            queryKey: trpc.composite.membersWithInvites.queryKey({
-              brand_id: brandId,
-            }),
-          });
-        }
+        // Invalidate brand-specific queries (uses active brand from context)
+        void queryClient.invalidateQueries({
+          queryKey: trpc.workflow.members.list.queryKey({}),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: trpc.composite.membersWithInvites.queryKey({}),
+        });
       },
       onSettled: async () => {
         // Refresh invite inbox and memberships

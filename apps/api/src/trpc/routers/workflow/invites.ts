@@ -62,7 +62,7 @@ export const workflowInvitesRouter = createTRPCRouter({
     .input(workflowInvitesListSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
-      if (brandId !== input.brand_id) {
+      if (input.brand_id !== undefined && brandId !== input.brand_id) {
         throw badRequest("Active brand does not match the requested workflow");
       }
 
@@ -101,12 +101,12 @@ export const workflowInvitesRouter = createTRPCRouter({
     .input(workflowInvitesSendSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, brandId } = ctx;
-      if (brandId !== input.brand_id) {
+      if (input.brand_id !== undefined && brandId !== input.brand_id) {
         throw badRequest("Active brand does not match the requested workflow");
       }
 
       const result = await createBrandInvites(db, {
-        brandId: input.brand_id,
+        brandId,
         invites: [
           {
             email: input.email,

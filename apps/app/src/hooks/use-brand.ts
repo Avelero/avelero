@@ -227,7 +227,7 @@ export function useBrandUpdateMutation() {
  * const leaveBrand = useLeaveBrandMutation();
  *
  * const handleLeaveBrand = async () => {
- *   await leaveBrand.mutateAsync({ brand_id: brandId });
+ *   await leaveBrand.mutateAsync({});
  * };
  * ```
  */
@@ -245,7 +245,7 @@ export function useLeaveBrandMutation() {
     trpc.workflow.members.update.mutationOptions({
       onSuccess: async (
         res: LeaveBrandResult,
-        variables: { brand_id: string },
+        _variables,
       ) => {
         await Promise.all([
           queryClient.invalidateQueries({
@@ -258,9 +258,7 @@ export function useLeaveBrandMutation() {
             queryKey: trpc.composite.workflowInit.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.membersWithInvites.queryKey({
-              brand_id: variables.brand_id,
-            }),
+            queryKey: trpc.composite.membersWithInvites.queryKey({}),
           }),
         ]);
         const nextBrandId =

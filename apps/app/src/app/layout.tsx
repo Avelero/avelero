@@ -1,13 +1,12 @@
 import "@v1/ui/globals.css";
 import { TRPCReactProvider } from "@/trpc/client";
+import { HydrateClient } from "@/trpc/server";
 import { cn } from "@v1/ui/cn";
 import { Toaster } from "@v1/ui/sonner";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "next-themes";
-import { Suspense } from "react";
-import { MainSkeleton } from "@/components/main-skeleton";
 
 export const metadata: Metadata = {
   title: "Avelero",
@@ -106,12 +105,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Suspense fallback={<MainSkeleton />}>
             <TRPCReactProvider>
-              <div className="h-screen w-screen">{children}</div>
-              <Toaster />
+              <HydrateClient>
+                <div className="h-screen w-screen">{children}</div>
+                <Toaster />
+              </HydrateClient>
             </TRPCReactProvider>
-          </Suspense>
         </ThemeProvider>
       </body>
     </html>

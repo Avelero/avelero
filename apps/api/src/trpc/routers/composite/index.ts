@@ -33,7 +33,7 @@ import { getAppUrl } from "@v1/utils/envs";
  * - composite.brandCatalogContent
  */
 import { ROLES } from "../../../config/roles.js";
-import { workflowBrandIdSchema } from "../../../schemas/workflow.js";
+import { workflowBrandIdOptionalSchema } from "../../../schemas/workflow.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
 import { createEntityResponse } from "../../../utils/response.js";
 import {
@@ -355,10 +355,10 @@ export const compositeRouter = createTRPCRouter({
    * Combines workflow members and pending invites for the selected brand.
    */
   membersWithInvites: brandRequiredProcedure
-    .input(workflowBrandIdSchema)
+    .input(workflowBrandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId, role } = ctx;
-      if (brandId !== input.brand_id) {
+      if (input.brand_id !== undefined && brandId !== input.brand_id) {
         throw badRequest("Active brand does not match the requested workflow");
       }
 

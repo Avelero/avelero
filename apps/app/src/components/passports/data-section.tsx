@@ -2,7 +2,6 @@
 
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Suspense } from "react";
 import { DataCard, DataCardSkeleton } from "../data-card";
 
 const CARD_CONFIG = [
@@ -12,15 +11,7 @@ const CARD_CONFIG = [
   { key: "archived", title: "Archived" },
 ] as const;
 
-export function DataSection() {
-  return (
-    <Suspense fallback={<DataSectionSkeleton />}>
-      <DataSectionContent />
-    </Suspense>
-  );
-}
-
-function DataSectionContent() {
+export function DataSectionContent() {
   const trpc = useTRPC();
   const { data } = useSuspenseQuery(
     trpc.summary.productStatus.queryOptions(),
@@ -42,7 +33,7 @@ function DataSectionContent() {
   );
 }
 
-function DataSectionSkeleton() {
+export function DataSectionSkeleton() {
   return (
     <div className="flex flex-row gap-6">
       {CARD_CONFIG.map(({ key, title }) => (

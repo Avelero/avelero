@@ -9,7 +9,7 @@ import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type { PassportTableRow, SelectionState } from "../tables/passports/types";
 import { PassportControls } from "./passport-controls";
 
-export function TableSection() {
+export function TableSectionContent() {
   const [selectedCount, setSelectedCount] = useState(0);
   const [selection, setSelection] = useState<SelectionState>({
     mode: "explicit",
@@ -166,6 +166,27 @@ export function TableSection() {
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const pageSize = 50;
+  const [isInnerSuspenseEnabled, setIsInnerSuspenseEnabled] = useState(false);
+
+  useEffect(() => {
+    setIsInnerSuspenseEnabled(true);
+  }, []);
+
+  const tableContent = (
+    <TableContent
+      columnOrder={columnOrder}
+      columnVisibility={columnVisibility}
+      cursor={cursor}
+      cursorStack={cursorStack}
+      onCursorChange={setCursor}
+      onCursorStackChange={setCursorStack}
+      onSelectionChangeAction={setSelectedCount}
+      onSelectionStateChangeAction={setSelection}
+      onTotalCountChangeAction={setHasAnyPassports}
+      pageSize={pageSize}
+      selection={selection}
+    />
+  );
 
   return (
     <div className="w-full">
@@ -187,29 +208,20 @@ export function TableSection() {
         sortState={sortState}
         onSortChange={setSortState}
       />
-      <Suspense
-        fallback={
-          <TableSkeletonFallback
-            columnOrder={columnOrder}
-            columnVisibility={columnVisibility}
-            onDisableControls={() => setHasAnyPassports(false)}
-          />
-        }
-      >
-        <TableContent
-          columnOrder={columnOrder}
-          columnVisibility={columnVisibility}
-          cursor={cursor}
-          cursorStack={cursorStack}
-          onCursorChange={setCursor}
-          onCursorStackChange={setCursorStack}
-          onSelectionChangeAction={setSelectedCount}
-          onSelectionStateChangeAction={setSelection}
-          onTotalCountChangeAction={setHasAnyPassports}
-          pageSize={pageSize}
-          selection={selection}
-        />
-      </Suspense>
+      {isInnerSuspenseEnabled ? (
+        <Suspense
+          fallback={
+            <PassportTableSkeleton
+              columnOrder={columnOrder}
+              columnVisibility={columnVisibility}
+            />
+          }
+        >
+          {tableContent}
+        </Suspense>
+      ) : (
+        tableContent
+      )}
     </div>
   );
 }
@@ -358,27 +370,6 @@ function TableContent({
       onPrevPage={handlePrevPage}
       onFirstPage={handleFirstPage}
       onLastPage={handleLastPage}
-    />
-  );
-}
-
-function TableSkeletonFallback({
-  columnOrder,
-  columnVisibility,
-  onDisableControls,
-}: {
-  columnOrder: string[];
-  columnVisibility: Record<string, boolean>;
-  onDisableControls: () => void;
-}) {
-  useEffect(() => {
-    onDisableControls();
-  }, [onDisableControls]);
-
-  return (
-    <PassportTableSkeleton
-      columnOrder={columnOrder}
-      columnVisibility={columnVisibility}
     />
   );
 }

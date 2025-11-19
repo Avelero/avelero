@@ -1,9 +1,11 @@
 import { BrandsTable } from "@/components/tables/brands/brands";
 import { BrandsSkeleton } from "@/components/tables/brands/skeleton";
 import { Suspense } from "react";
+import { prefetch, trpc } from "@/trpc/server";
 
-export default async function Page() {
-  // workflowInit is already prefetched in parent layout
+export default function Page() {
+  prefetch(trpc.user.invites.list.queryOptions());
+
   return (
     <div className="w-full max-w-[700px]">
       <Suspense fallback={<BrandsSkeleton />}>

@@ -4,7 +4,8 @@ import { ImportReviewDialog } from "@/components/import/import-review-dialog";
 import { MainSkeleton } from "@/components/main-skeleton";
 import { Sidebar } from "@/components/sidebar";
 import { ImportProgressProvider } from "@/contexts/import-progress-context";
-import { HydrateClient, getQueryClient, trpc } from "@/trpc/server";
+import { batchPrefetch, getQueryClient, HydrateClient, trpc } from "@/trpc/server";
+import { cacheLife } from "next/cache";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
@@ -25,31 +26,12 @@ async function SidebarLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
-  const queryClient = getQueryClient();
+  await ensureWorkflowSetup();
 
-  // Fetch complete workflow data (user, brands, invites)
-  // Parent layout already fetched basic user.get, this will fetch the composite
-  const workflowInit = await queryClient.fetchQuery(
-    trpc.composite.workflowInit.queryOptions(),
-  );
-
-  const user = workflowInit.user;
-
-  // Redirect to complete setup if needed
-  if (!user?.full_name) {
-    redirect("/setup");
-  }
-
-  if (!user?.brand_id) {
-    redirect("/create-brand");
-  }
-
-  // Populate cache for all sidebar routes
-  queryClient.setQueryData(trpc.workflow.list.queryKey(), workflowInit.brands);
-  queryClient.setQueryData(
-    trpc.user.invites.list.queryKey(),
-    workflowInit.myInvites,
-  );
+  await batchPrefetch([
+    trpc.user.get.queryOptions(),
+    trpc.workflow.list.queryOptions(),
+  ]);
 
   return (
     <HydrateClient>
@@ -68,4 +50,20 @@ async function SidebarLayoutContent({
       </ImportProgressProvider>
     </HydrateClient>
   );
+}
+
+async function ensureWorkflowSetup() {
+  "use cache: private";
+  cacheLife("hours");
+
+  const queryClient = getQueryClient();
+  
+  const workflowInit = await queryClient.fetchQuery(
+    trpc.composite.workflowInit.queryOptions(),
+  );
+
+  const user = workflowInit.user;
+
+  if (!user?.full_name) redirect("/setup");
+  if (!user?.brand_id) redirect("/create-brand");
 }

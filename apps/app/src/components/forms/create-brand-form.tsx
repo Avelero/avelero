@@ -4,6 +4,7 @@ import { CountrySelect } from "@/components/select/country-select";
 import { useTRPC } from "@/trpc/client";
 import { hueFromName } from "@/utils/avatar-hue";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@v1/ui/skeleton";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
@@ -111,6 +112,30 @@ export function CreateBrandForm() {
           ? "Creating..."
           : "Create"}
       </Button>
+    </div>
+  );
+}
+
+export function CreateBrandFormSkeleton() {
+  return (
+    <div className="mx-auto w-full  max-w-[360px] space-y-6">
+      <div className="text-center space-y-2">
+        <h6 className="text-foreground">Create your brand</h6>
+        <p className="text-secondary">
+          Name your brand and select the country where it operates.
+        </p>
+      </div>
+      <div className="flex flex-col items-center gap-4 w-full">
+        <div className="space-y-1.5 w-full">
+          <Label>Brand name</Label>
+          <Skeleton className="h-[38px] w-full" />
+        </div>
+        <div className="space-y-1.5 w-full">
+          <Label>Country</Label>
+          <Skeleton className="h-[36px] w-full" />
+        </div>
+      </div>
+      <Button className="w-full" disabled>Create</Button>
     </div>
   );
 }

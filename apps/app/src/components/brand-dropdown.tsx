@@ -2,14 +2,9 @@
 
 import {
   useSetActiveBrandMutation,
-  useUserBrandsQuery,
   useUserBrandsQuerySuspense,
 } from "@/hooks/use-brand";
-import {
-  type CurrentUser,
-  useUserQuery,
-  useUserQuerySuspense,
-} from "@/hooks/use-user";
+import { type CurrentUser, useUserQuerySuspense } from "@/hooks/use-user";
 import { SmartAvatar } from "@v1/ui/avatar";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -43,31 +38,12 @@ interface BrandDropdownProps {
   onPopupChange: (isOpen: boolean) => void;
 }
 
-function BrandAvatar() {
-  const { data: brandsData } = useUserBrandsQuerySuspense();
-  const { data: user } = useUserQuerySuspense();
-  const brands = (brandsData as Brand[] | undefined) ?? [];
-  const activeBrand = brands.find(
-    (b) => b.id === (user as CurrentUser | null | undefined)?.brand_id,
-  );
-
-  return (
-    <SignedAvatar
-      bucket="brand-avatars"
-      size={24}
-      name={activeBrand?.name}
-      url={activeBrand?.logo_url ?? undefined}
-      hue={activeBrand?.avatar_hue ?? undefined}
-    />
-  );
-}
-
-export function BrandDropdown({
+function BrandDropdownContent({
   isExpanded,
   onPopupChange,
 }: BrandDropdownProps) {
-  const { data: brandsData } = useUserBrandsQuery();
-  const { data: user } = useUserQuery();
+  const { data: brandsData } = useUserBrandsQuerySuspense();
+  const { data: user } = useUserQuerySuspense();
   const setActiveBrandMutation = useSetActiveBrandMutation();
 
   const brands: Brand[] = (brandsData as Brand[] | undefined) ?? [];
@@ -105,9 +81,13 @@ export function BrandDropdown({
 
           {/* Icon block: fixed 40×40, anchored to inner left edge */}
           <div className="absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center pointer-events-none">
-            <Suspense fallback={<SmartAvatar size={24} loading />}>
-              <BrandAvatar />
-            </Suspense>
+            <SignedAvatar
+              bucket="brand-avatars"
+              size={24}
+              name={activeBrand?.name}
+              url={activeBrand?.logo_url ?? undefined}
+              hue={activeBrand?.avatar_hue ?? undefined}
+            />
           </div>
 
           {/* Label: always mounted, fades in on expand. Starts at 48px (40 icon + 8 gap). */}
@@ -180,5 +160,23 @@ export function BrandDropdown({
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function BrandDropdownSkeleton() {
+  return (
+    <div className="relative h-10 w-full rounded-full border border-transparent">
+      <div className="absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center">
+        <SmartAvatar size={24} loading />
+      </div>
+    </div>
+  );
+}
+
+export function BrandDropdown(props: BrandDropdownProps) {
+  return (
+    <Suspense fallback={<BrandDropdownSkeleton/>}>
+      <BrandDropdownContent {...props} />
+    </Suspense>
   );
 }

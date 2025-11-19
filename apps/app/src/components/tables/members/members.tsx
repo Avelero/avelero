@@ -6,7 +6,6 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
 import { Skeleton } from "@v1/ui/skeleton";
-import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { MembersHeader } from "./members-header";
 import { MembersRow } from "./members-row";
@@ -16,8 +15,6 @@ type TabKey = "members" | "invites";
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 export function MembersTable() {
-  const params = useParams<{ locale?: string }>();
-  const locale = params?.locale ?? "en";
   const [tab, setTab] = useState<TabKey>("members");
 
   const trpc = useTRPC();
@@ -32,7 +29,6 @@ export function MembersTable() {
         <MembersHeader
           activeTab="members"
           onTabChange={() => undefined}
-          locale={String(locale)}
           brandId={undefined}
         />
         <div className="border p-6">
@@ -78,7 +74,6 @@ export function MembersTable() {
         onTabChange={(t) => {
           setTab(t);
         }}
-        locale={String(locale)}
         brandId={brandId ?? undefined}
       />
 

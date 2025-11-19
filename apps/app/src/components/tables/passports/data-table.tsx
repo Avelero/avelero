@@ -15,12 +15,10 @@ import * as React from "react";
 import {
   applyRangeSelection,
   calculateRangeSelection,
-  fetchRowIdsByRange,
 } from "../../../utils/range-selection";
 import { columns } from "./columns";
 import { EmptyState } from "./empty-state";
 import { PassportTableHeader } from "./table-header";
-import { PassportTableSkeleton } from "./table-skeleton";
 import type { PassportTableRow, SelectionState } from "./types";
 
 export function PassportDataTable({
@@ -32,7 +30,6 @@ export function PassportDataTable({
   onSelectionStateChangeAction,
   rows,
   total,
-  isLoading,
   pageInfo,
   onNextPage,
   onPrevPage,
@@ -47,7 +44,6 @@ export function PassportDataTable({
   onSelectionStateChangeAction: (next: SelectionState) => void;
   rows: PassportTableRow[];
   total: number;
-  isLoading: boolean;
   pageInfo: {
     hasNext: boolean;
     hasPrev: boolean;
@@ -311,14 +307,6 @@ export function PassportDataTable({
 
     setOptimisticRowSelection(nextMap);
   }, [tableData, selection, isPending]);
-
-  if (isLoading)
-    return (
-      <PassportTableSkeleton
-        columnVisibility={columnVisibility}
-        columnOrder={columnOrder}
-      />
-    );
   if (!tableData.length)
     return total === 0 ? (
       <EmptyState.NoPassports />

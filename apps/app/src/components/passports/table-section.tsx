@@ -3,33 +3,31 @@
 import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
-import * as React from "react";
-import { PassportDataTable } from "../tables/passports";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { Suspense, useState, useMemo, useCallback, useEffect } from "react";
+import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type { PassportTableRow, SelectionState } from "../tables/passports/types";
 import { PassportControls } from "./passport-controls";
 
 export function TableSection() {
-  const [selectedCount, setSelectedCount] = React.useState(0);
-  const [selection, setSelection] = React.useState<SelectionState>({
+  const [selectedCount, setSelectedCount] = useState(0);
+  const [selection, setSelection] = useState<SelectionState>({
     mode: "explicit",
     includeIds: [],
     excludeIds: [],
   });
-  const [hasAnyPassports, setHasAnyPassports] = React.useState(true);
-  const trpc = useTRPC();
-
+  const [hasAnyPassports, setHasAnyPassports] = useState(false);
   // Filter state management
   const [filterState, filterActions] = useFilterState();
 
   // Sort state management (UI only for now)
-  const [sortState, setSortState] = React.useState<{
+  const [sortState, setSortState] = useState<{
     field: string;
     direction: "asc" | "desc";
   } | null>(null);
 
   // Column preferences state (excludes locked `product` and fixed `actions`)
-  const DEFAULT_VISIBLE: string[] = React.useMemo(
+  const DEFAULT_VISIBLE: string[] = useMemo(
     () => ["status", "category", "season", "variantCount"],
     [],
   );
@@ -41,7 +39,7 @@ export function TableSection() {
     | undefined;
   const userId = (userQuery.data as any)?.id as string | null | undefined;
 
-  const buildCookieKeys = React.useCallback(() => {
+  const buildCookieKeys = useCallback(() => {
     const base = "avelero.passports.columns.v1";
     const keys: string[] = [];
     if (brandId && userId) keys.push(`${base}:${brandId}:${userId}`);
@@ -51,7 +49,7 @@ export function TableSection() {
     return keys;
   }, [brandId, userId]);
 
-  const readCookie = React.useCallback((): string[] | null => {
+  const readCookie = useCallback((): string[] | null => {
     if (typeof document === "undefined") return null;
     const keys = buildCookieKeys();
     for (const key of keys) {
@@ -70,7 +68,7 @@ export function TableSection() {
     return null;
   }, [buildCookieKeys]);
 
-  const writeCookie = React.useCallback(
+  const writeCookie = useCallback(
     (visible: string[], scope: "specific" | "brand" | "user" | "global") => {
       if (typeof document === "undefined") return;
       const base = "avelero.passports.columns.v1";
@@ -86,12 +84,12 @@ export function TableSection() {
     [brandId, userId],
   );
 
-  const deleteCookie = React.useCallback((key: string) => {
+  const deleteCookie = useCallback((key: string) => {
     if (typeof document === "undefined") return;
     document.cookie = `${key}=; Max-Age=0; Path=/; SameSite=Lax; Secure`;
   }, []);
 
-  const migrateIfNeeded = React.useCallback(
+  const migrateIfNeeded = useCallback(
     (visible: string[] | null) => {
       if (!visible) return;
       if (brandId && userId) {
@@ -115,9 +113,9 @@ export function TableSection() {
   );
 
   const [visibleColumns, setVisibleColumns] =
-    React.useState<string[]>(DEFAULT_VISIBLE);
+    useState<string[]>(DEFAULT_VISIBLE);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const saved = readCookie();
     if (saved?.length) {
       setVisibleColumns(saved);
@@ -127,7 +125,7 @@ export function TableSection() {
     }
   }, [readCookie, migrateIfNeeded, DEFAULT_VISIBLE]);
 
-  const handleSavePrefs = React.useCallback(
+  const handleSavePrefs = useCallback(
     (nextVisible: string[]) => {
       setVisibleColumns(nextVisible);
       if (brandId && userId) writeCookie(nextVisible, "specific");
@@ -139,11 +137,11 @@ export function TableSection() {
   );
 
   // Compute table state from visible
-  const columnOrder = React.useMemo(() => {
+  const columnOrder = useMemo(() => {
     return ["product", ...visibleColumns, "actions"];
   }, [visibleColumns]);
 
-  const columnVisibility = React.useMemo(() => {
+  const columnVisibility = useMemo(() => {
     const all: Record<string, boolean> = {
       product: true,
       status: false,
@@ -155,7 +153,7 @@ export function TableSection() {
     return all;
   }, [visibleColumns]);
 
-  const allCustomizable = React.useMemo(
+  const allCustomizable = useMemo(
     () => [
       { id: "status", label: "Status" },
       { id: "category", label: "Category" },
@@ -165,11 +163,86 @@ export function TableSection() {
     [],
   );
 
-  const [cursorStack, setCursorStack] = React.useState<string[]>([]);
-  const [cursor, setCursor] = React.useState<string | undefined>(undefined);
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
   const pageSize = 50;
 
-  const { data: productsResponse, isLoading } = useQuery(
+  return (
+    <div className="w-full">
+      <PassportControls
+        selectedCount={selectedCount}
+        disabled={!hasAnyPassports}
+        selection={selection}
+        onClearSelectionAction={() => {
+          setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+        }}
+        displayProps={{
+          productLabel: "Product",
+          allColumns: allCustomizable,
+          initialVisible: visibleColumns,
+          onSave: handleSavePrefs,
+        }}
+        filterState={filterState}
+        filterActions={filterActions}
+        sortState={sortState}
+        onSortChange={setSortState}
+      />
+      <Suspense
+        fallback={
+          <TableSkeletonFallback
+            columnOrder={columnOrder}
+            columnVisibility={columnVisibility}
+            onDisableControls={() => setHasAnyPassports(false)}
+          />
+        }
+      >
+        <TableContent
+          columnOrder={columnOrder}
+          columnVisibility={columnVisibility}
+          cursor={cursor}
+          cursorStack={cursorStack}
+          onCursorChange={setCursor}
+          onCursorStackChange={setCursorStack}
+          onSelectionChangeAction={setSelectedCount}
+          onSelectionStateChangeAction={setSelection}
+          onTotalCountChangeAction={setHasAnyPassports}
+          pageSize={pageSize}
+          selection={selection}
+        />
+      </Suspense>
+    </div>
+  );
+}
+
+interface TableContentProps {
+  columnOrder: string[];
+  columnVisibility: Record<string, boolean>;
+  cursor: string | undefined;
+  cursorStack: string[];
+  onCursorChange: React.Dispatch<React.SetStateAction<string | undefined>>;
+  onCursorStackChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onSelectionChangeAction: (count: number) => void;
+  onSelectionStateChangeAction: (next: SelectionState) => void;
+  onTotalCountChangeAction: (hasAny: boolean) => void;
+  pageSize: number;
+  selection: SelectionState;
+}
+
+function TableContent({
+  columnOrder,
+  columnVisibility,
+  cursor,
+  cursorStack,
+  onCursorChange,
+  onCursorStackChange,
+  onSelectionChangeAction,
+  onSelectionStateChangeAction,
+  onTotalCountChangeAction,
+  pageSize,
+  selection,
+}: TableContentProps) {
+  const trpc = useTRPC();
+  const { data: productsResponse } = useSuspenseQuery(
     trpc.products.list.queryOptions({
       cursor,
       limit: pageSize,
@@ -177,7 +250,7 @@ export function TableSection() {
     }),
   );
 
-  const tableRows = React.useMemo<PassportTableRow[]>(() => {
+  const tableRows = useMemo<PassportTableRow[]>(() => {
     const list = productsResponse?.data ?? [];
     return list.map((p: any) => {
       const variants: any[] = Array.isArray(p.variants) ? p.variants : [];
@@ -222,88 +295,90 @@ export function TableSection() {
   const pageIndex = cursorStack.length;
   const lastPageIndex =
     totalRows > 0 ? Math.max(0, Math.ceil(totalRows / pageSize) - 1) : 0;
-  const handleNextPage = React.useCallback(() => {
+
+  const handleNextPage = useCallback(() => {
     if (!meta?.cursor && !meta?.hasMore) return;
-    setCursorStack((prev) => [...prev, cursor ?? ""]);
-    setCursor(meta?.cursor ?? undefined);
-  }, [meta?.cursor, meta?.hasMore, cursor]);
+    onCursorStackChange((prev) => [...prev, cursor ?? ""]);
+    onCursorChange(meta?.cursor ?? undefined);
+  }, [cursor, meta?.cursor, meta?.hasMore, onCursorChange, onCursorStackChange]);
 
-  const handlePrevPage = React.useCallback(() => {
-      setCursorStack((prev) => {
-        if (!prev.length) return prev;
-        const next = [...prev];
-        const last = next.pop();
-        setCursor(last?.length ? last : undefined);
-        return next;
-      });
-  }, []);
+  const handlePrevPage = useCallback(() => {
+    onCursorStackChange((prev) => {
+      if (!prev.length) return prev;
+      const next = [...prev];
+      const last = next.pop();
+      onCursorChange(last?.length ? last : undefined);
+      return next;
+    });
+  }, [onCursorChange, onCursorStackChange]);
 
-  const handleFirstPage = React.useCallback(() => {
-    setCursorStack([]);
-    setCursor(undefined);
-  }, []);
+  const handleFirstPage = useCallback(() => {
+    onCursorStackChange([]);
+    onCursorChange(undefined);
+  }, [onCursorChange, onCursorStackChange]);
 
-  const handleLastPage = React.useCallback(() => {
+  const handleLastPage = useCallback(() => {
     const targetIndex = lastPageIndex;
     if (targetIndex <= 0) {
-      setCursorStack([]);
-      setCursor(undefined);
+      onCursorStackChange([]);
+      onCursorChange(undefined);
       return;
     }
 
     const stack = Array.from({ length: targetIndex }, (_, i) =>
       i === 0 ? "" : String(i * pageSize),
     );
-    setCursorStack(stack);
-    setCursor(String(targetIndex * pageSize));
-  }, [lastPageIndex, pageSize]);
+    onCursorStackChange(stack);
+    onCursorChange(String(targetIndex * pageSize));
+  }, [lastPageIndex, onCursorChange, onCursorStackChange, pageSize]);
 
   const pageStart =
     totalRows === 0 ? 0 : cursorStack.length * pageSize + (tableRows.length ? 1 : 0);
   const pageEnd = cursorStack.length * pageSize + tableRows.length;
+
   return (
-    <div className="w-full">
-      <PassportControls
-        selectedCount={selectedCount}
-        disabled={!hasAnyPassports}
-        selection={selection}
-        onClearSelectionAction={() => {
-          setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
-        }}
-        displayProps={{
-          productLabel: "Product",
-          allColumns: allCustomizable,
-          initialVisible: visibleColumns,
-          onSave: handleSavePrefs,
-        }}
-        filterState={filterState}
-        filterActions={filterActions}
-        sortState={sortState}
-        onSortChange={setSortState}
-      />
-      <PassportDataTable
-        onTotalCountChangeAction={setHasAnyPassports}
-        onSelectionChangeAction={setSelectedCount}
-        selection={selection}
-        onSelectionStateChangeAction={setSelection}
-        columnOrder={columnOrder}
-        columnVisibility={columnVisibility}
-        rows={tableRows}
-        total={totalRows}
-        isLoading={isLoading}
-        pageInfo={{
-          hasNext,
-          hasPrev: cursorStack.length > 0,
-          hasFirst: pageIndex > 0,
-          hasLast: pageIndex < lastPageIndex,
-          start: pageStart,
-          end: pageEnd,
-        }}
-        onNextPage={handleNextPage}
-        onPrevPage={handlePrevPage}
-        onFirstPage={handleFirstPage}
-        onLastPage={handleLastPage}
-      />
-    </div>
+    <PassportDataTable
+      onTotalCountChangeAction={onTotalCountChangeAction}
+      onSelectionChangeAction={onSelectionChangeAction}
+      selection={selection}
+      onSelectionStateChangeAction={onSelectionStateChangeAction}
+      columnOrder={columnOrder}
+      columnVisibility={columnVisibility}
+      rows={tableRows}
+      total={totalRows}
+      pageInfo={{
+        hasNext,
+        hasPrev: cursorStack.length > 0,
+        hasFirst: pageIndex > 0,
+        hasLast: pageIndex < lastPageIndex,
+        start: pageStart,
+        end: pageEnd,
+      }}
+      onNextPage={handleNextPage}
+      onPrevPage={handlePrevPage}
+      onFirstPage={handleFirstPage}
+      onLastPage={handleLastPage}
+    />
+  );
+}
+
+function TableSkeletonFallback({
+  columnOrder,
+  columnVisibility,
+  onDisableControls,
+}: {
+  columnOrder: string[];
+  columnVisibility: Record<string, boolean>;
+  onDisableControls: () => void;
+}) {
+  useEffect(() => {
+    onDisableControls();
+  }, [onDisableControls]);
+
+  return (
+    <PassportTableSkeleton
+      columnOrder={columnOrder}
+      columnVisibility={columnVisibility}
+    />
   );
 }

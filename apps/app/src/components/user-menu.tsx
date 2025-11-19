@@ -1,11 +1,7 @@
 "use client";
 
 import { SignOut } from "@/components/auth/sign-out";
-import {
-  type CurrentUser,
-  useUserQuery,
-  useUserQuerySuspense,
-} from "@/hooks/use-user";
+import { type CurrentUser, useUserQuerySuspense } from "@/hooks/use-user";
 import { SmartAvatar } from "@v1/ui/avatar";
 import {
   DropdownMenu,
@@ -25,21 +21,9 @@ type Props = {
   onlySignOut?: boolean;
 };
 
-function UserAvatar() {
+function UserMenuContent({ onlySignOut }: Props) {
   const { data } = useUserQuerySuspense();
-  const user = data as CurrentUser | null;
-  return (
-    <SignedAvatar
-      bucket="avatars"
-      url={user?.avatar_url ?? null}
-      name={user?.full_name ?? undefined}
-      size={32}
-    />
-  );
-}
-
-export function UserMenu({ onlySignOut }: Props) {
-  const { data: user } = useUserQuery();
+  const user = data as CurrentUser | null | undefined;
 
   return (
     <DropdownMenu>
@@ -48,9 +32,12 @@ export function UserMenu({ onlySignOut }: Props) {
           type="button"
           className="rounded-full focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
         >
-          <Suspense fallback={<SmartAvatar size={32} loading />}>
-            <UserAvatar />
-          </Suspense>
+          <SignedAvatar
+            bucket="avatars"
+            url={user?.avatar_url ?? null}
+            name={user?.full_name ?? undefined}
+            size={32}
+          />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[240px]" sideOffset={10} align="end">
@@ -60,10 +47,10 @@ export function UserMenu({ onlySignOut }: Props) {
               <div className="flex justify-between items-center">
                 <div className="flex flex-col">
                   <span className="truncate line-clamp-1 max-w-[155px] text-foreground font-medium block">
-                    {(user as CurrentUser | null | undefined)?.full_name ?? ""}
+                    {user?.full_name ?? ""}
                   </span>
                   <span className="truncate text-s text-secondary">
-                    {(user as CurrentUser | null | undefined)?.email ?? ""}
+                    {user?.email ?? ""}
                   </span>
                 </div>
               </div>
@@ -84,5 +71,21 @@ export function UserMenu({ onlySignOut }: Props) {
         <SignOut />
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function UserMenuSkeleton() {
+  return (
+    <div className="rounded-full">
+      <SmartAvatar size={32} loading />
+    </div>
+  );
+}
+
+export function UserMenu(props: Props) {
+  return (
+    <Suspense fallback={<UserMenuSkeleton />}>
+      <UserMenuContent {...props} />
+    </Suspense>
   );
 }

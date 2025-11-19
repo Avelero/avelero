@@ -1,12 +1,30 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
-import { DataCard } from "../data-card";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { Suspense } from "react";
+import { DataCard, DataCardSkeleton } from "../data-card";
+
+const CARD_CONFIG = [
+  { key: "published", title: "Published" },
+  { key: "scheduled", title: "Scheduled" },
+  { key: "unpublished", title: "Unpublished" },
+  { key: "archived", title: "Archived" },
+] as const;
 
 export function DataSection() {
+  return (
+    <Suspense fallback={<DataSectionSkeleton />}>
+      <DataSectionContent />
+    </Suspense>
+  );
+}
+
+function DataSectionContent() {
   const trpc = useTRPC();
-  const { data } = useQuery(trpc.summary.productStatus.queryOptions());
+  const { data } = useSuspenseQuery(
+    trpc.summary.productStatus.queryOptions(),
+  );
 
   const counts = {
     published: data?.data?.published ?? 0,
@@ -14,12 +32,22 @@ export function DataSection() {
     unpublished: data?.data?.unpublished ?? 0,
     archived: data?.data?.archived ?? 0,
   };
+
   return (
     <div className="flex flex-row gap-6">
-      <DataCard title="Published" value={counts.published} />
-      <DataCard title="Scheduled" value={counts.scheduled} />
-      <DataCard title="Unpublished" value={counts.unpublished} />
-      <DataCard title="Archived" value={counts.archived} />
+      {CARD_CONFIG.map(({ key, title }) => (
+        <DataCard key={key} title={title} value={counts[key]} />
+      ))}
+    </div>
+  );
+}
+
+function DataSectionSkeleton() {
+  return (
+    <div className="flex flex-row gap-6">
+      {CARD_CONFIG.map(({ key, title }) => (
+        <DataCardSkeleton key={key} title={title} />
+      ))}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { AvatarUpload } from "@/components/avatar-upload";
-import { CountrySelect } from "@/components/select/country-select";
+import { Skeleton } from "@v1/ui/skeleton";
 import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { Label } from "@v1/ui/label";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { z } from "zod";
+import { SmartAvatar } from "@v1/ui/avatar";
 
 const schema = z.object({
   full_name: z.string().min(2, "Please enter your full name"),
@@ -135,6 +136,25 @@ export function SetupForm() {
           ? "Saving..."
           : "Continue"}
       </Button>
+    </div>
+  );
+}
+
+export function SetupFormSkeleton() {
+  return (
+    <div className="mx-auto w-full  max-w-[360px] space-y-6">
+      <div className="text-center space-y-2">
+        <h6 className="text-foreground">Complete your account</h6>
+        <p className="text-secondary">Add your name and an optional avatar.</p>
+      </div>
+      <div className="flex flex-col items-center gap-6 w-full">
+        <SmartAvatar size={72} loading/>
+        <div className="flex flex-col gap-1 w-full">
+          <Label>Full name</Label>
+          <Skeleton className="h-[38px] w-full" />
+        </div>
+      </div>
+      <Button className="w-full" disabled>Continue</Button>
     </div>
   );
 }

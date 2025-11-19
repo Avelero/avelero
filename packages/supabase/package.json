@@ -13,21 +13,21 @@
     "@supabase/ssr": "^0.7.0",
     "@v1/logger": "workspace:*",
     "nanoid": "^5.1.6",
-    "react": "19.1.1",
+    "react": "19.2.0",
     "server-only": "^0.0.1",
     "supabase": "^2.34.3"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.57.2",
     "@types/node": "^24.0.1",
-    "next": "15.5.2",
+    "next": "16.0.3",
     "typescript": "^5.9.2"
   },
   "exports": {
     "./server": "./src/clients/server.ts",
     "./client": "./src/clients/client.ts",
     "./mutations": "./src/mutations/index.ts",
-    "./middleware": "./src/clients/middleware.ts",
+    "./proxy": "./src/clients/proxy.ts",
     "./queries": "./src/queries/index.ts",
     "./types": "./src/types/index.ts",
     "./storage": "./src/utils/storage.ts",

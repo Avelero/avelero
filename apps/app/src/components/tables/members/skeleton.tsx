@@ -1,25 +1,29 @@
 "use client";
 
+import { Button } from "@v1/ui/button";
 import { Skeleton } from "@v1/ui/skeleton";
 
 export function MembersSkeleton() {
   return (
-    <div className="p-4 space-y-2">
-      {["a", "b", "c"].map((k) => (
-        <div
-          key={`members-skel-${k}`}
-          className="flex items-center justify-between p-3 border rounded"
-        >
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3 w-24" />
-            </div>
-          </div>
-          <Skeleton className="h-4 w-40" />
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="!font-medium hover:bg-background hover:cursor-default w-[84px]">
+            Members
+          </Button>
+          <Button variant="ghost" className="!font-medium text-secondary hover:text-primary hover:bg-transparent w-[81px]">
+            Invites
+          </Button>
         </div>
-      ))}
+        <Button disabled>
+          Invite members
+        </Button>
+      </div>
+      <div className="w-full h-[261px] p-4 space-y-3 border">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-1/3" />
+      </div>
     </div>
   );
 }

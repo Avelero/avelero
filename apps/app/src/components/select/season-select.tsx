@@ -1,7 +1,6 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -66,26 +65,9 @@ export function SeasonSelect({
   disabled = false,
   className,
 }: SeasonSelectProps) {
-  const trpc = useTRPC();
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
-
-  // Fetch seasons from API
-  const { data: seasonsData, isLoading } = useQuery(
-    trpc.brand.seasons.list.queryOptions(undefined),
-  );
-
-  // Transform API response to Season interface
-  const seasons = React.useMemo(() => {
-    if (!seasonsData?.data) return [];
-    return seasonsData.data.map((s) => ({
-      id: s.id,
-      name: s.name,
-      startDate: s.start_date ? new Date(s.start_date) : null,
-      endDate: s.end_date ? new Date(s.end_date) : null,
-      isOngoing: s.ongoing,
-    }));
-  }, [seasonsData]);
+  const { seasons, isLoading } = useBrandCatalog();
 
   const handleSelect = (season: Season) => {
     onValueChange(season);

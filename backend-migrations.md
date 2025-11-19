@@ -233,3 +233,20 @@ products:
 
 general:
 - Create a product-variants.ts query file, makes more sense to separate into its own query file.
+
+
+In staging I noticed that we have a fallback built in in case the productIDentifier is missing, however, two things:
+
+1. Product idenrtifier and article name are rrquired data, a product may not be created if one of the two is missing, we will not generate a fallback for them.
+2. The only auto-generated data is the UPID, which is our internal product code, the record id's for relational foreign keys, but that's hardly data, and beyond that nothing. We will not provide fallabcks, if the user is missing data, the data is missing.
+
+[staging.ts](packages/db/src/queries/staging.ts) 
+
+    name: row.name,
+    // Use provided productIdentifier or fallback to a generated one based on the planned id
+    productIdentifier: row.productIdentifier ?? `PROD-${row.id.slice(0, 8)}`,
+
+Secondly, please fix the errors pasted below if possible. Don't fix the erorr if the error has a scope broader than the routers, queries, schemas, or DB schemas. For now we're only focussing on fixing the API server, which only covers the router schemas, the routers, the queries, and the database schemas.
+
+
+

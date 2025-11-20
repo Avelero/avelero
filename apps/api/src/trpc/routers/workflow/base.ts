@@ -4,12 +4,10 @@ import {
   deleteBrand as deleteBrandRecord,
   eq,
   getBrandsByUserId,
-  inArray,
+  getOwnerCountsByBrandIds,
   setActiveBrand,
-  sql,
   updateBrand as updateBrandRecord,
 } from "@v1/db/queries";
-import { brandMembers } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
 /**
  * Workflow brand operations implementation.
@@ -78,26 +76,8 @@ export const workflowListProcedure = protectedProcedure.query(
       .filter((brand) => brand.role === "owner")
       .map((brand) => brand.id);
 
-    const ownerCounts = new Map<string, number>();
-    if (ownerBrandIds.length > 0) {
-      const rows = await db
-        .select({
-          brandId: brandMembers.brandId,
-          count: sql<number>`COUNT(*)::int`,
-        })
-        .from(brandMembers)
-        .where(
-          and(
-            inArray(brandMembers.brandId, ownerBrandIds),
-            eq(brandMembers.role, "owner"),
-          ),
-        )
-        .groupBy(brandMembers.brandId);
-
-      for (const row of rows) {
-        ownerCounts.set(row.brandId, row.count);
-      }
-    }
+    // Use standardized query function to get owner counts
+    const ownerCounts = await getOwnerCountsByBrandIds(db, ownerBrandIds);
 
     return memberships.map((membership) => {
       const ownerCount = ownerCounts.get(membership.id) ?? 1;

@@ -28,11 +28,6 @@ async function SidebarLayoutContent({
 }) {
   await ensureWorkflowSetup();
 
-  await batchPrefetch([
-    trpc.user.get.queryOptions(),
-    trpc.workflow.list.queryOptions(),
-  ]);
-
   return (
     <HydrateClient>
       <ImportProgressProvider>

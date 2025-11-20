@@ -70,7 +70,7 @@ function EditPassportLink({
   return (
     <Link
       href={href}
-      prefetch={false} // Disable Next.js server prefetch
+      prefetch={active ? null : false}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setActive(false)}
       className={className}

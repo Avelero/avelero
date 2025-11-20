@@ -7,10 +7,10 @@ import {
   desc,
   eq,
   getBrandsByUserId,
+  getOwnerCountsByBrandIds,
   getUserById,
   inArray,
   listPendingInvitesForEmail,
-  sql,
   listCategories,
   listColors,
   listSizes,
@@ -186,27 +186,8 @@ async function mapWorkflowBrands(
     .filter((brand) => brand.role === "owner")
     .map((brand) => brand.id);
 
-  // Batch fetch owner counts for all relevant brands
-  const ownerCounts = new Map<string, number>();
-  if (ownerBrandIds.length > 0) {
-    const rows = await db
-      .select({
-        brandId: brandMembers.brandId,
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(brandMembers)
-      .where(
-        and(
-          inArray(brandMembers.brandId, ownerBrandIds),
-          eq(brandMembers.role, "owner"),
-        ),
-      )
-      .groupBy(brandMembers.brandId);
-
-    for (const row of rows) {
-      ownerCounts.set(row.brandId, row.count);
-    }
-  }
+  // Batch fetch owner counts for all relevant brands using standardized query
+  const ownerCounts = await getOwnerCountsByBrandIds(db, ownerBrandIds);
 
   return memberships.map((membership) => {
     const ownerCount = ownerCounts.get(membership.id) ?? 1;

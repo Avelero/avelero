@@ -85,10 +85,12 @@ function createConnection(
 
   const config: any = {
     prepare: false,
-    keep_alive: 0,
+    keep_alive: 30,
     fetch_types: false,
-    max: 20,
-    connect_timeout: 10,
+    max: 15,
+    connect_timeout: 30,
+    idle_timeout: 20,
+    max_lifetime: 60 * 30,
     ...(enableTls
       ? { ssl: strictTls ? { rejectUnauthorized: true } : "prefer" }
       : {}),

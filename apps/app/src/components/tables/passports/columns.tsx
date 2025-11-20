@@ -70,7 +70,7 @@ function EditPassportLink({
   return (
     <Link
       href={href}
-      prefetch={active ? null : false}
+      prefetch={active}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setActive(false)}
       className={className}

@@ -173,6 +173,7 @@ export const productsRouter = createTRPCRouter({
           eco_claim_ids: input.eco_claim_ids,
           journey_steps: input.journey_steps,
           environment: input.environment,
+          tag_ids: input.tag_ids,
         });
         if (input.color_ids && input.size_ids) {
           await replaceVariantsForProduct(
@@ -224,6 +225,7 @@ export const productsRouter = createTRPCRouter({
           eco_claim_ids: input.eco_claim_ids,
           journey_steps: input.journey_steps,
           environment: input.environment,
+          tag_ids: input.tag_ids,
         });
         if (input.color_ids && input.size_ids) {
           await replaceVariantsForProduct(

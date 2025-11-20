@@ -26,10 +26,10 @@ async function EditPassportContent({
 }: {
   params: Promise<{ upid: string }>;
 }) {
-
-  unstable_noStore();
   
   const { upid } = await params;
+
+  unstable_noStore();
 
   return (
     <HydrateClient>

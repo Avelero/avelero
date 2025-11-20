@@ -50,19 +50,21 @@ export function OrganizationSection({
       // Clear seasonObject when season is null
       setSeasonObject(null);
     }
-  }, [seasonId, seasons]);
+  }, [seasonId, seasons, seasonObject?.id]);
 
+  // Update showSeason when seasonId changes - show if seasonId exists
   React.useEffect(() => {
-    if (seasonId && !showSeason) {
+    if (seasonId) {
       setShowSeason(true);
     }
-  }, [seasonId, showSeason]);
+  }, [seasonId]);
 
+  // Update showTags when tagIds changes - show if tags exist
   React.useEffect(() => {
-    if (tagIds.length > 0 && !showTags) {
+    if (tagIds.length > 0) {
       setShowTags(true);
     }
-  }, [tagIds, showTags]);
+  }, [tagIds]);
 
   // Modal states
   const [seasonModalOpen, setSeasonModalOpen] = React.useState(false);

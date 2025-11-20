@@ -230,16 +230,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const hasHydratedRef = React.useRef(false);
   const initialVariantSignatureRef = React.useRef<string | null>(null);
 
-  React.useEffect(() => {
-    if (!isEditMode) {
-      return;
-    }
-    hasHydratedRef.current = false;
-    metadataRef.current = {};
-    initialVariantSignatureRef.current = null;
-    setInitialSnapshot(null);
-  }, [isEditMode, productUpid]);
-
   const createProductMutation = useMutation(
     trpc.products.create.mutationOptions(),
   );
@@ -369,15 +359,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     if (!passportFormQuery.data) {
       return;
     }
-    const payload = passportFormQuery.data as any;
-    const resolvedProductUpid =
-      payload?.upid ?? productUpid ?? metadataRef.current.productUpid ?? null;
-    if (
-      hasHydratedRef.current &&
-      metadataRef.current.productUpid === resolvedProductUpid
-    ) {
+    if (hasHydratedRef.current) {
       return;
     }
+    const payload = passportFormQuery.data as any;
 
     const variants = Array.isArray(payload?.variants)
       ? payload.variants
@@ -465,7 +450,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     setFields(nextValues);
     metadataRef.current = {
       productId: payload.id,
-      productUpid: resolvedProductUpid ?? undefined,
+      productUpid: payload.upid ?? productUpid ?? undefined,
     };
     const hydratedSizeIds: string[] = selectedSizes
       .map((size) => size.id)
@@ -484,7 +469,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     isEditMode,
     mapSizeIdsToOptions,
     passportFormQuery.data,
-    productUpid,
     setFields,
     sizeOptions,
   ]);
@@ -860,13 +844,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           queryClient.invalidateQueries({
             queryKey: trpc.summary.productStatus.queryKey(),
           }),
-          targetProductUpid
-            ? queryClient.invalidateQueries({
-                queryKey: trpc.products.getByUpid.queryKey({
-                  upid: targetProductUpid,
-                }),
-              })
-            : Promise.resolve(),
         ]);
 
         toast.success("Passports created successfully");

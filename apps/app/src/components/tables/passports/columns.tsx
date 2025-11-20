@@ -20,6 +20,8 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import type { PassportTableRow } from "./types";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
 
 const MAX_COLUMN_WIDTH = 320;
 const CELL_PADDING_X = "px-4";
@@ -28,8 +30,9 @@ const CELL_HEIGHT = "h-14";
 /**
  * Link component with hover-triggered prefetching.
  * Prefetches the route only when the user hovers over the link.
+ * Disables prefetch for edit links to avoid auth errors during hover prefetch.
  */
-function HoverPrefetchLink({
+function EditPassportLink({
   href,
   children,
   className,
@@ -40,13 +43,36 @@ function HoverPrefetchLink({
   className?: string;
   onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [active, setActive] = useState(false);
+
+  const upid = href.split('/passports/edit/')[1];
+  
+  const handleMouseEnter = () => {
+    if (!upid) return;
+
+    void queryClient.prefetchQuery(
+      trpc.products.getByUpid.queryOptions({
+        upid,
+        includeVariants: true,
+        includeAttributes: true,
+      }),
+    );
+
+    void queryClient.prefetchQuery(
+      trpc.composite.brandCatalogContent.queryOptions(),
+    );
+
+    setActive(true);
+  };
 
   return (
     <Link
       href={href}
-      prefetch={active ? null : false}
-      onMouseEnter={() => setActive(true)}
+      prefetch={false} // Disable Next.js server prefetch
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setActive(false)}
       className={className}
       onClick={onClick}
     >
@@ -133,13 +159,13 @@ export const columns: ColumnDef<PassportTableRow>[] = [
             )}
           </label>
           <div className="min-w-0 max-w-[680px] space-y-1">
-            <HoverPrefetchLink
+            <EditPassportLink
               href={`/passports/edit/${product.productUpid}`}
               className="block max-w-full truncate type-p text-primary hover:text-brand cursor-pointer"
               onClick={(event) => event.stopPropagation()}
             >
               {product.name}
-            </HoverPrefetchLink>
+            </EditPassportLink>
             {product.productIdentifier ? (
               <span className="block max-w-full truncate type-small text-secondary">
                 {product.productIdentifier}

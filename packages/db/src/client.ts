@@ -87,7 +87,7 @@ function createConnection(
     prepare: false,
     keep_alive: 0,
     fetch_types: false,
-    max: 10,
+    max: 20,
     connect_timeout: 10,
     ...(enableTls
       ? { ssl: strictTls ? { rejectUnauthorized: true } : "prefer" }

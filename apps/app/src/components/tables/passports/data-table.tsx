@@ -35,6 +35,10 @@ export function PassportDataTable({
   onPrevPage,
   onFirstPage,
   onLastPage,
+  onPrefetchNext,
+  onPrefetchPrev,
+  onPrefetchFirst,
+  onPrefetchLast,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
@@ -56,6 +60,10 @@ export function PassportDataTable({
   onPrevPage: () => void;
   onFirstPage: () => void;
   onLastPage: () => void;
+  onPrefetchNext?: () => void;
+  onPrefetchPrev?: () => void;
+  onPrefetchFirst?: () => void;
+  onPrefetchLast?: () => void;
 }) {
   const pageSize = 50;
   const page =
@@ -409,6 +417,7 @@ export function PassportDataTable({
             size="sm"
             aria-label="First page"
             onClick={onFirstPage}
+            onMouseEnter={onPrefetchFirst}
             disabled={!canGoFirst}
             icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
           />
@@ -417,6 +426,7 @@ export function PassportDataTable({
             size="sm"
             aria-label="Previous page"
             onClick={onPrevPage}
+            onMouseEnter={onPrefetchPrev}
             disabled={!canGoPrev}
             icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
           />
@@ -425,6 +435,7 @@ export function PassportDataTable({
             size="sm"
             aria-label="Next page"
             onClick={onNextPage}
+            onMouseEnter={onPrefetchNext}
             disabled={!canGoNext}
             icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
           />
@@ -433,6 +444,7 @@ export function PassportDataTable({
             size="sm"
             aria-label="Last page"
             onClick={onLastPage}
+            onMouseEnter={onPrefetchLast}
             disabled={!canGoLast}
             icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
           />

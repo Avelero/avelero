@@ -16,6 +16,8 @@ import { usePassportForm } from "@/hooks/use-passport-form";
 import { getFirstInvalidField, isFormValid } from "@/hooks/use-form-validation";
 import type { PassportFormValidationErrors } from "@/hooks/use-passport-form";
 import { useUserQuery } from "@/hooks/use-user";
+import { useTRPC } from "@/trpc/client";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
@@ -370,5 +372,13 @@ export function CreatePassportForm() {
 }
 
 export function EditPassportForm({ productUpid }: { productUpid: string }) {
+  const trpc = useTRPC();
+  useSuspenseQuery(
+    trpc.products.getByUpid.queryOptions({
+      upid: productUpid,
+      includeVariants: true,
+      includeAttributes: true,
+    }),
+  );
   return <PassportForm mode="edit" productUpid={productUpid} />;
 }

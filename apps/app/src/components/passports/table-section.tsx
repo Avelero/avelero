@@ -3,7 +3,7 @@
 import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useState, useMemo, useCallback, useEffect } from "react";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type { PassportTableRow, SelectionState } from "../tables/passports/types";
@@ -254,6 +254,7 @@ function TableContent({
   selection,
 }: TableContentProps) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const { data: productsResponse } = useSuspenseQuery(
     trpc.products.list.queryOptions({
       cursor,
@@ -344,6 +345,56 @@ function TableContent({
     onCursorChange(String(targetIndex * pageSize));
   }, [lastPageIndex, onCursorChange, onCursorStackChange, pageSize]);
 
+  // Prefetch handlers for hover prefetching
+  const handlePrefetchNext = useCallback(() => {
+    if (!meta?.cursor && !meta?.hasMore) return;
+    void queryClient.prefetchQuery(
+      trpc.products.list.queryOptions({
+        cursor: meta?.cursor ?? undefined,
+        limit: pageSize,
+        includeVariants: true,
+      }),
+    );
+  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize]);
+
+  const handlePrefetchPrev = useCallback(() => {
+    if (!cursorStack.length) return;
+    const prevCursor = cursorStack[cursorStack.length - 1] || undefined;
+    void queryClient.prefetchQuery(
+      trpc.products.list.queryOptions({
+        cursor: prevCursor,
+        limit: pageSize,
+        includeVariants: true,
+      }),
+    );
+  }, [queryClient, trpc, cursorStack, pageSize]);
+
+  const handlePrefetchFirst = useCallback(() => {
+    void queryClient.prefetchQuery(
+      trpc.products.list.queryOptions({
+        cursor: undefined,
+        limit: pageSize,
+        includeVariants: true,
+      }),
+    );
+  }, [queryClient, trpc, pageSize]);
+
+  const handlePrefetchLast = useCallback(() => {
+    const targetIndex = lastPageIndex;
+    if (targetIndex <= 0) {
+      handlePrefetchFirst();
+      return;
+    }
+    const lastCursor = String(targetIndex * pageSize);
+    void queryClient.prefetchQuery(
+      trpc.products.list.queryOptions({
+        cursor: lastCursor,
+        limit: pageSize,
+        includeVariants: true,
+      }),
+    );
+  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst]);
+
   const pageStart =
     totalRows === 0 ? 0 : cursorStack.length * pageSize + (tableRows.length ? 1 : 0);
   const pageEnd = cursorStack.length * pageSize + tableRows.length;
@@ -370,6 +421,10 @@ function TableContent({
       onPrevPage={handlePrevPage}
       onFirstPage={handleFirstPage}
       onLastPage={handleLastPage}
+      onPrefetchNext={handlePrefetchNext}
+      onPrefetchPrev={handlePrefetchPrev}
+      onPrefetchFirst={handlePrefetchFirst}
+      onPrefetchLast={handlePrefetchLast}
     />
   );
 }

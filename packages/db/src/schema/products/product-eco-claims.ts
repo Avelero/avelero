@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { pgPolicy, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgPolicy,
+  pgTable,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
 import { brandEcoClaims } from "../brands/brand-eco-claims";
 import { products } from "./products";
@@ -31,6 +37,18 @@ export const productEcoClaims = pgTable(
     uniqueIndex("product_eco_claims_unique").on(
       table.productId,
       table.ecoClaimId,
+    ),
+    // Indexes for query performance
+    // For loadAttributesForProducts - batch loading eco claims
+    index("idx_product_eco_claims_product_id").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+    ),
+    // For ordering by createdAt
+    index("idx_product_eco_claims_product_created").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+      table.createdAt.asc().nullsLast().op("timestamptz_ops"),
     ),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_eco_claims_select_for_brand_members", {

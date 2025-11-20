@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  index,
   integer,
   pgPolicy,
   pgTable,
@@ -40,6 +41,18 @@ export const productJourneySteps = pgTable(
     uniqueIndex("product_journey_steps_product_sort_unq").on(
       table.productId,
       table.sortIndex,
+    ),
+    // Indexes for query performance
+    // For loadAttributesForProducts - batch loading journey steps
+    index("idx_product_journey_steps_product_id").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+    ),
+    // For ordering by sortIndex
+    index("idx_product_journey_steps_product_sort").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+      table.sortIndex.asc().nullsLast().op("int4_ops"),
     ),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_journey_steps_select_for_brand_members", {

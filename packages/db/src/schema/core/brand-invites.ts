@@ -61,6 +61,18 @@ export const brandInvites = pgTable(
       t.expiresAt.asc().nullsLast().op("timestamptz_ops"),
     ),
 
+    // For listPendingInvitesForEmail - filtering by email
+    index("idx_brand_invites_email").using(
+      "btree",
+      t.email.asc().nullsLast().op("text_ops"),
+    ),
+    // Composite for email + expiresAt lookups (for pending invites)
+    index("idx_brand_invites_email_expires").using(
+      "btree",
+      t.email.asc().nullsLast().op("text_ops"),
+      t.expiresAt.asc().nullsLast().op("timestamptz_ops"),
+    ),
+
     // Partial unique index on token_hash when not null
     uniqueIndex("ux_brand_invites_token_hash_not_null")
       .using("btree", t.tokenHash.asc().nullsLast().op("text_ops"))

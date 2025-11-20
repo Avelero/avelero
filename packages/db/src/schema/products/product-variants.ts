@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { brandColors } from "../brands/brand-colors";
 import { brandSizes } from "../brands/brand-sizes";
 import { products } from "./products";
@@ -31,6 +38,23 @@ export const productVariants = pgTable(
       .notNull(),
   },
   (table) => [
+    // Indexes for query performance
+    // For loadVariantsForProducts - batch loading variants
+    index("idx_product_variants_product_id").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+    ),
+    // For ordering variants by createdAt
+    index("idx_product_variants_product_created").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+      table.createdAt.asc().nullsLast().op("timestamptz_ops"),
+    ),
+    // For UPID uniqueness checks during variant creation
+    index("idx_product_variants_upid").using(
+      "btree",
+      table.upid.asc().nullsLast().op("text_ops"),
+    ).where(sql`(upid IS NOT NULL)`),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_variants_select_for_brand_members", {
       as: "permissive",

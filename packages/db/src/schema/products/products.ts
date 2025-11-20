@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  index,
   pgPolicy,
   pgTable,
   text,
@@ -68,6 +69,48 @@ export const products = pgTable(
     uniqueIndex("products_brand_id_product_identifier_unq").on(
       table.brandId,
       table.productIdentifier,
+    ),
+    // Indexes for query performance
+    // For products.list - filtering by brand
+    index("idx_products_brand_id").using(
+      "btree",
+      table.brandId.asc().nullsLast().op("uuid_ops"),
+    ),
+    // For summary.productStatus - GROUP BY status
+    index("idx_products_brand_status").using(
+      "btree",
+      table.brandId.asc().nullsLast().op("uuid_ops"),
+      table.status.asc().nullsLast().op("text_ops"),
+    ),
+    // For products.list - ordering by createdAt DESC
+    index("idx_products_brand_created").using(
+      "btree",
+      table.brandId.asc().nullsLast().op("uuid_ops"),
+      table.createdAt.desc().nullsLast().op("timestamptz_ops"),
+    ),
+    // For products.getByUpid - lookup by UPID
+    index("idx_products_brand_upid").using(
+      "btree",
+      table.brandId.asc().nullsLast().op("uuid_ops"),
+      table.upid.asc().nullsLast().op("text_ops"),
+    ),
+    // For products.list - filtering by category
+    index("idx_products_brand_category").using(
+      "btree",
+      table.brandId.asc().nullsLast().op("uuid_ops"),
+      table.categoryId.asc().nullsLast().op("uuid_ops"),
+    ),
+    // For products.list - filtering by season
+    index("idx_products_brand_season").using(
+      "btree",
+      table.brandId.asc().nullsLast().op("uuid_ops"),
+      table.seasonId.asc().nullsLast().op("uuid_ops"),
+    ),
+    // For products.list - ILIKE search on name
+    index("idx_products_brand_name").using(
+      "btree",
+      table.brandId.asc().nullsLast().op("uuid_ops"),
+      table.name.asc().nullsLast().op("text_ops"),
     ),
     // RLS policies - both members and owners can perform all operations
     pgPolicy("products_select_for_brand_members", {

@@ -675,7 +675,7 @@ async function commitStagingRow(
           stagingJourneySteps.map((s) => ({
             sortIndex: s.sortIndex,
             stepType: s.stepType,
-            facilityId: s.facilityId,
+            facilityIds: [s.facilityId],
           })),
         );
       }

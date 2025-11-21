@@ -24,6 +24,7 @@ export * from "./products/products";
 export * from "./products/product-variants";
 export * from "./products/product-materials";
 export * from "./products/product-journey-steps";
+export * from "./products/product-journey-step-facilities";
 export * from "./products/product-environment";
 export * from "./products/product-eco-claims";
 export * from "./products/tags-on-product";

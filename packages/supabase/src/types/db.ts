@@ -830,10 +830,48 @@ export type Database = {
           },
         ];
       };
-      product_journey_steps: {
+      product_journey_step_facilities: {
         Row: {
           created_at: string;
           facility_id: string;
+          id: string;
+          journey_step_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          facility_id: string;
+          id?: string;
+          journey_step_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          facility_id?: string;
+          id?: string;
+          journey_step_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_journey_step_facilities_facility_id_brand_facilities_id";
+            columns: ["facility_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_facilities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_journey_step_facilities_journey_step_id_product_journey";
+            columns: ["journey_step_id"];
+            isOneToOne: false;
+            referencedRelation: "product_journey_steps";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_journey_steps: {
+        Row: {
+          created_at: string;
           id: string;
           product_id: string;
           sort_index: number;
@@ -842,7 +880,6 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
-          facility_id: string;
           id?: string;
           product_id: string;
           sort_index: number;
@@ -851,7 +888,6 @@ export type Database = {
         };
         Update: {
           created_at?: string;
-          facility_id?: string;
           id?: string;
           product_id?: string;
           sort_index?: number;
@@ -859,13 +895,6 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: "product_journey_steps_facility_id_brand_facilities_id_fk";
-            columns: ["facility_id"];
-            isOneToOne: false;
-            referencedRelation: "brand_facilities";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "product_journey_steps_product_id_products_id_fk";
             columns: ["product_id"];

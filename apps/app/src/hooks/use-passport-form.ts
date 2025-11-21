@@ -42,7 +42,7 @@ export interface PassportFormValues {
   // Journey
   journeySteps: Array<{
     stepType: string;
-    facilityId: string;
+    facilityIds: string[]; // Changed from facilityId to support multiple operators
     sortIndex: number;
   }>;
 
@@ -321,7 +321,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       journeySteps: values.journeySteps.map((step) => ({
         sortIndex: step.sortIndex,
         stepType: step.stepType,
-        facilityId: step.facilityId,
+        facilityIds: step.facilityIds,
       })),
       carbonKgCo2e: values.carbonKgCo2e,
       waterLiters: values.waterLiters,
@@ -406,7 +406,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       attributes.journey?.map((step: any) => ({
         sortIndex: step.sort_index ?? step.sortIndex ?? 0,
         stepType: step.step_type ?? step.stepType ?? "",
-        facilityId: step.facility_id ?? step.facilityId ?? "",
+        facilityIds: step.facility_ids ?? step.facilityIds ?? [], // Changed from facilityId to support multiple operators
       })) ?? [];
     const tagIds =
       attributes.tags?.map((tag: any) => tag.tag_id ?? tag.tagId).filter(Boolean) ??
@@ -661,8 +661,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             primaryImageUrl = result.url;
           } catch (err) {
             throw new Error(
-              `Failed to upload image: ${
-                err instanceof Error ? err.message : "Unknown error"
+              `Failed to upload image: ${err instanceof Error ? err.message : "Unknown error"
               }`,
             );
           }
@@ -683,9 +682,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const materials =
           formValues.materialData.length > 0
             ? formValues.materialData.map((material) => ({
-                brand_material_id: material.materialId,
-                percentage: material.percentage,
-              }))
+              brand_material_id: material.materialId,
+              percentage: material.percentage,
+            }))
             : undefined;
         const tagIds =
           formValues.tagIds.length > 0 ? formValues.tagIds : undefined;
@@ -696,17 +695,17 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const journeySteps =
           formValues.journeySteps.length > 0
             ? formValues.journeySteps.map((step) => ({
-                sort_index: step.sortIndex,
-                step_type: step.stepType,
-                facility_id: step.facilityId,
-              }))
+              sort_index: step.sortIndex,
+              step_type: step.stepType,
+              facility_ids: step.facilityIds, // Changed from facilityId to support multiple operators
+            }))
             : undefined;
         const environmentPayload =
           formValues.carbonKgCo2e.trim() || formValues.waterLiters.trim()
             ? {
-                carbon_kg_co2e: formValues.carbonKgCo2e.trim() || undefined,
-                water_liters: formValues.waterLiters.trim() || undefined,
-              }
+              carbon_kg_co2e: formValues.carbonKgCo2e.trim() || undefined,
+              water_liters: formValues.waterLiters.trim() || undefined,
+            }
             : undefined;
 
         const basePayload = {

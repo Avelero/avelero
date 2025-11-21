@@ -134,7 +134,7 @@ export function MaterialSheet({
       const predefinedCert = allCertifications.find(
         c => c.title.toLowerCase() === cert.title.toLowerCase()
       );
-      
+
       return {
         id: cert.id,
         title: cert.title,
@@ -174,8 +174,8 @@ export function MaterialSheet({
   );
 
   // Compute loading state from mutations and uploads
-  const isCreating = 
-    createMaterialMutation.isPending || 
+  const isCreating =
+    createMaterialMutation.isPending ||
     createCertificationMutation.isPending ||
     isUploading;
 
@@ -194,9 +194,9 @@ export function MaterialSheet({
         setName("");
         setCountryOfOrigin("");
         setRecyclable(undefined);
-      setCertified(false);
-      setSelectedCertificationId(null);
-      setCertSearchTerm("");
+        setCertified(false);
+        setSelectedCertificationId(null);
+        setCertSearchTerm("");
         setCertTitle("");
         setCertCode("");
         setCertNumber("");
@@ -279,7 +279,7 @@ export function MaterialSheet({
         if (!createdCertification?.id) {
           throw new Error("No valid response returned from API");
         }
-        
+
         const certificationId = createdCertification.id;
 
         // Optimistically update the cache immediately
@@ -337,7 +337,7 @@ export function MaterialSheet({
         return result;
       })(),
       {
-        delay: 200,
+        delay: 500,
         successMessage: "Certification created successfully",
       },
     ).catch((error) => {
@@ -374,7 +374,7 @@ export function MaterialSheet({
         if (!createdMaterial?.id) {
           throw new Error("No valid response returned from API");
         }
-        
+
         const materialId = createdMaterial.id;
 
         // Optimistically update the cache immediately
@@ -425,16 +425,16 @@ export function MaterialSheet({
           certification: selectedCert || undefined,
         };
 
-        // Close sheet first
-        onOpenChange(false);
-
         // Call parent callback with real data
         onMaterialCreated(newMaterial);
+
+        // Close sheet first
+        onOpenChange(false);
 
         return result;
       })(),
       {
-        delay: 200,
+        delay: 500,
         successMessage: "Material created successfully",
       },
     ).catch((error) => {
@@ -535,8 +535,8 @@ export function MaterialSheet({
 
   const isNameValid = name.trim().length > 0;
   const isMaterialValid =
-    isNameValid && 
-    (!certified || selectedCertificationId) && 
+    isNameValid &&
+    (!certified || selectedCertificationId) &&
     !isUploading;
 
   // Get certification options for the select on certification page
@@ -654,14 +654,14 @@ export function MaterialSheet({
                         // Filter certifications by search term
                         const filteredCerts = certSearchTerm
                           ? availableCertifications.filter(
-                              cert =>
-                                cert.title
-                                  .toLowerCase()
-                                  .includes(certSearchTerm.toLowerCase()) ||
-                                cert.certificationNumber
-                                  .toLowerCase()
-                                  .includes(certSearchTerm.toLowerCase())
-                            )
+                            cert =>
+                              cert.title
+                                .toLowerCase()
+                                .includes(certSearchTerm.toLowerCase()) ||
+                              cert.certificationNumber
+                                .toLowerCase()
+                                .includes(certSearchTerm.toLowerCase())
+                          )
                           : availableCertifications;
 
                         // Check if search term doesn't match any existing certification
@@ -671,10 +671,10 @@ export function MaterialSheet({
                             cert =>
                               cert.title
                                 .toLowerCase() ===
-                                certSearchTerm.toLowerCase() ||
+                              certSearchTerm.toLowerCase() ||
                               cert.certificationNumber
                                 .toLowerCase() ===
-                                certSearchTerm.toLowerCase()
+                              certSearchTerm.toLowerCase()
                           );
 
                         return (
@@ -690,7 +690,7 @@ export function MaterialSheet({
                                   className={cn(
                                     "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border last:border-b-0",
                                     selectedCertificationId === cert.id &&
-                                      "bg-accent-blue",
+                                    "bg-accent-blue",
                                   )}
                                 >
                                   <div className="w-8 h-8 flex items-center justify-center shrink-0">
@@ -785,7 +785,7 @@ export function MaterialSheet({
                   value={
                     certTitle
                       ? allCertifications.find((c) => c.title === certTitle)
-                          ?.id || ""
+                        ?.id || ""
                       : ""
                   }
                   onValueChange={handleCertificationSelectChange}

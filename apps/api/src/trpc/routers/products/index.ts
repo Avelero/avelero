@@ -63,7 +63,7 @@ type AttributeInput = {
   journey_steps?: {
     sort_index: number;
     step_type: string;
-    facility_id: string;
+    facility_ids: string[]; // Changed from facility_id to support multiple operators
   }[];
   environment?: {
     carbon_kg_co2e?: string | number;
@@ -311,7 +311,7 @@ async function applyProductAttributes(
       input.journey_steps.map((step) => ({
         sortIndex: step.sort_index,
         stepType: step.step_type,
-        facilityId: step.facility_id,
+        facilityIds: step.facility_ids, // Changed from facilityId to support multiple operators
       })),
     );
   }

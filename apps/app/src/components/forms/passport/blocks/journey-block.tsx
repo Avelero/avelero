@@ -48,7 +48,7 @@ interface JourneyStep {
   id: string;
   step: string;
   operators: string[];
-  facilityId?: string; // Store the real facility ID to prevent loss during sync
+  facilityIds: string[]; // Store the real facility IDs to prevent loss during sync
   position: number;
 }
 
@@ -231,14 +231,14 @@ const OperatorTags = ({
 
 const OperatorCell = ({
   operators,
+  facilityIds,
   onOperatorsChange,
-  onOperatorAndFacilityChange,
   onDelete,
   availableOperators,
 }: {
   operators: string[];
-  onOperatorsChange: (operators: string[]) => void;
-  onOperatorAndFacilityChange: (operator: string, facilityId: string) => void;
+  facilityIds: string[];
+  onOperatorsChange: (operators: string[], facilityIds: string[]) => void;
   onDelete: () => void;
   availableOperators: Array<{ id: string; name: string }>;
 }) => {
@@ -250,21 +250,25 @@ const OperatorCell = ({
   const [newOperatorName, setNewOperatorName] = React.useState("");
 
   const operatorNames = React.useMemo(
-    () => availableOperators.map(op => op.name),
-    [availableOperators]
+    () => availableOperators.map((op) => op.name),
+    [availableOperators],
   );
 
   const handleSelect = (selectedOperator: string) => {
+    const facility = availableOperators.find((f) => f.name === selectedOperator);
+    if (!facility) return;
+
     if (operators.includes(selectedOperator)) {
-      // Deselect if already selected
-      onOperatorsChange(operators.filter((op) => op !== selectedOperator));
+      // Deselect
+      const newOperators = operators.filter((op) => op !== selectedOperator);
+      const newFacilityIds = facilityIds.filter((id) => id !== facility.id);
+      onOperatorsChange(newOperators, newFacilityIds);
     } else {
-      // Find the facility ID for the selected operator
-      const facility = availableOperators.find(f => f.name === selectedOperator);
-      if (facility) {
-        // Update both the display name and the facility ID atomically
-        onOperatorAndFacilityChange(selectedOperator, facility.id);
-      }
+      // Select
+      onOperatorsChange(
+        [...operators, selectedOperator],
+        [...facilityIds, facility.id],
+      );
     }
     setSearchQuery("");
   };
@@ -285,22 +289,32 @@ const OperatorCell = ({
   };
 
   const handleOperatorCreated = (operator: OperatorData) => {
-    // Add the newly created operator to the list and set the facility ID atomically
-    // The operator should already be in availableOperators due to optimistic cache update
-    onOperatorAndFacilityChange(operator.name, operator.id);
+    // Add the newly created operator to the list
+    onOperatorsChange(
+      [...operators, operator.name],
+      [...facilityIds, operator.id],
+    );
     setNewOperatorName("");
   };
 
   const handleOperatorSheetClose = (open: boolean) => {
     setOperatorSheetOpen(open);
-    // If sheet closes without creating operator, reset the name state
-    if (!open) {
+    // If sheet closes without creating operator (and it's not in the list), reset the name state
+    if (!open && !operators.includes(newOperatorName)) {
       setNewOperatorName("");
     }
   };
 
   const handleRemoveOperator = (operatorToRemove: string) => {
-    onOperatorsChange(operators.filter((op) => op !== operatorToRemove));
+    const facilityToRemove = availableOperators.find(
+      (f) => f.name === operatorToRemove,
+    );
+    const newOperators = operators.filter((op) => op !== operatorToRemove);
+    const newFacilityIds = facilityToRemove
+      ? facilityIds.filter((id) => id !== facilityToRemove.id)
+      : facilityIds;
+
+    onOperatorsChange(newOperators, newFacilityIds);
   };
 
   const handleMenuClick = (e: React.MouseEvent) => {
@@ -437,14 +451,12 @@ function DraggableJourneyRow({
   journeyStep,
   onStepChange,
   onOperatorsChange,
-  onOperatorAndFacilityChange,
   onDelete,
   availableOperators,
 }: {
   journeyStep: JourneyStep;
   onStepChange: (step: string) => void;
-  onOperatorsChange: (operators: string[]) => void;
-  onOperatorAndFacilityChange: (operator: string, facilityId: string) => void;
+  onOperatorsChange: (operators: string[], facilityIds: string[]) => void;
   onDelete: () => void;
   availableOperators: Array<{ id: string; name: string }>;
 }) {
@@ -486,8 +498,8 @@ function DraggableJourneyRow({
       <div className="border-b border-border">
         <OperatorCell
           operators={journeyStep.operators}
+          facilityIds={journeyStep.facilityIds}
           onOperatorsChange={onOperatorsChange}
-          onOperatorAndFacilityChange={onOperatorAndFacilityChange}
           onDelete={onDelete}
           availableOperators={availableOperators}
         />
@@ -497,8 +509,18 @@ function DraggableJourneyRow({
 }
 
 interface JourneySectionProps {
-  journeySteps: Array<{ stepType: string; facilityId: string; sortIndex: number }>;
-  setJourneySteps: (value: Array<{ stepType: string; facilityId: string; sortIndex: number }>) => void;
+  journeySteps: Array<{
+    stepType: string;
+    facilityIds: string[];
+    sortIndex: number;
+  }>;
+  setJourneySteps: (
+    value: Array<{
+      stepType: string;
+      facilityIds: string[];
+      sortIndex: number;
+    }>,
+  ) => void;
 }
 
 export function JourneySection({
@@ -511,31 +533,30 @@ export function JourneySection({
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const stepIdMapRef = React.useRef<Map<string, string>>(new Map());
-  
+
   // Map operators (facilities) to the format expected by dropdowns
   const availableOperators = React.useMemo(
-    () => operators.map(op => ({
-      id: op.id,
-      name: op.display_name
-    })),
-    [operators]
+    () =>
+      operators.map((op) => ({
+        id: op.id,
+        name: op.display_name,
+      })),
+    [operators],
   );
-  
+
   // Sync parent steps to display steps, preserving incomplete local steps
   React.useEffect(() => {
     const enriched = parentSteps
       .map((ps) => {
-        const operatorInfo = availableOperators.find(
-          (f) => f.id === ps.facilityId,
-        );
+        // Find all operator names for the facility IDs
+        const stepOperators = ps.facilityIds
+          .map((fid) => availableOperators.find((op) => op.id === fid))
+          .filter((op): op is { id: string; name: string } => !!op);
 
-        // Skip steps where we can't find the facility yet (data still loading)
-        if (!operatorInfo) {
-          return null;
-        }
+        const operatorNames = stepOperators.map((op) => op.name);
 
         // Stable ID based on facility + step type; generate once
-        const key = `${ps.facilityId ?? "unknown"}|${ps.stepType ?? "unknown"}`;
+        const key = `${ps.facilityIds.join(",")}|${ps.stepType ?? "unknown"}`;
         if (!stepIdMapRef.current.has(key)) {
           const generatedId =
             typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -548,17 +569,20 @@ export function JourneySection({
         return {
           id: stableId,
           step: ps.stepType,
-          operators: [operatorInfo.name],
-          facilityId: ps.facilityId, // Store the real facility ID
+          operators: operatorNames,
+          facilityIds: ps.facilityIds, // Store the real facility IDs
           position: ps.sortIndex,
         };
       })
       .filter((s): s is NonNullable<typeof s> => s !== null);
-    
+
     // Preserve any incomplete local steps (steps that don't have both step type and operator)
     setDisplaySteps((prev) => {
       const incompleteSteps = prev.filter(
-        (localStep) => !localStep.step || !localStep.facilityId || localStep.operators.length === 0
+        (localStep) =>
+          !localStep.step ||
+          localStep.facilityIds.length === 0 ||
+          localStep.operators.length === 0,
       );
       return [...enriched, ...incompleteSteps];
     });
@@ -568,10 +592,12 @@ export function JourneySection({
   const syncToParent = React.useCallback(
     (steps: JourneyStep[]) => {
       const parentSteps = steps
-        .filter((s) => s.step && s.operators.length > 0 && s.facilityId) // Only include complete steps
+        .filter(
+          (s) => s.step && s.operators.length > 0 && s.facilityIds.length > 0,
+        ) // Only include complete steps
         .map((s, index) => ({
           stepType: s.step,
-          facilityId: s.facilityId!, // Use the stored facility ID
+          facilityIds: s.facilityIds, // Use the stored facility IDs
           sortIndex: index,
         }));
       setParentSteps(parentSteps);
@@ -632,6 +658,7 @@ export function JourneySection({
       id: `step-${Date.now()}`,
       step: "",
       operators: [],
+      facilityIds: [],
       position: displaySteps.length + 1,
     };
     setDisplaySteps((prev) => [...prev, newStep]);
@@ -670,7 +697,7 @@ export function JourneySection({
       ...step,
       position: index + 1,
     }));
-    
+
     setDisplaySteps(reordered);
     syncToParent(reordered);
     setActiveId(null);
@@ -728,11 +755,8 @@ export function JourneySection({
                     onStepChange={(value) =>
                       updateJourneyStep(step.id, { step: value })
                     }
-                    onOperatorsChange={(value) =>
-                      updateJourneyStep(step.id, { operators: value })
-                    }
-                    onOperatorAndFacilityChange={(operator, facilityId) =>
-                      updateJourneyStep(step.id, { operators: [operator], facilityId })
+                    onOperatorsChange={(operators, facilityIds) =>
+                      updateJourneyStep(step.id, { operators, facilityIds })
                     }
                     onDelete={() => deleteJourneyStep(step.id)}
                     availableOperators={availableOperators}

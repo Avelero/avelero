@@ -109,7 +109,7 @@ function TierTwoCategorySelect({
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
-    
+
     // Delay reset until after popover close animation completes
     if (!newOpen) {
       setTimeout(() => {
@@ -308,12 +308,12 @@ export function SizeModal({
   // Helper to find category ID from category path (e.g., "Men's / Tops")
   const findCategoryIdFromPath = React.useCallback((categoryPath: string): string | null => {
     if (!categoryPath) return null;
-    
+
     const parts = categoryPath.split(" / ");
     if (parts.length !== 2) return null;
-    
+
     const [tierOneName, tierTwoName] = parts;
-    
+
     // Find the tier-two category by matching both parent and child names
     for (const cat of categories) {
       if (cat.name === tierTwoName && cat.parent_id) {
@@ -324,7 +324,7 @@ export function SizeModal({
         }
       }
     }
-    
+
     return null;
   }, [categories]);
 
@@ -415,7 +415,7 @@ export function SizeModal({
     const duplicates = Array.from(nameMap.entries())
       .filter(([, count]) => count > 1)
       .map(([name]) => name);
-    
+
     if (duplicates.length > 0) {
       toast.error(`Duplicate size names: ${duplicates.join(", ")}`);
       return;
@@ -429,7 +429,7 @@ export function SizeModal({
           acc.set(s.id!, s);
           return acc;
         }, new Map<string, typeof sizeOptions[0]>());
-      
+
       // Get valid DB IDs for safety checks
       const validDbIds = new Set(Array.from(originalSizes.keys()));
 
@@ -452,7 +452,7 @@ export function SizeModal({
           if (original) {
             const nameChanged = row.value !== original.name;
             const orderChanged = index !== original.sortIndex;
-            
+
             if (nameChanged || orderChanged) {
               toUpdate.push({
                 id: row.dbId,
@@ -460,7 +460,7 @@ export function SizeModal({
                 sortIndex: index,
               });
             }
-            
+
             // Mark as still present
             originalSizes.delete(row.dbId);
           }
@@ -472,7 +472,7 @@ export function SizeModal({
 
       // Execute operations with per-operation error handling
       const operationResults: Array<{ type: string; success: boolean; error?: Error }> = [];
-      
+
       // Helper to execute operation with error handling and response validation
       const executeOperation = async <T,>(
         operation: () => Promise<T>,
@@ -481,12 +481,12 @@ export function SizeModal({
       ): Promise<T | null> => {
         try {
           const result = await operation();
-          
+
           // Validate response if validator provided
           if (validateResponse && !validateResponse(result)) {
             throw new Error(`Invalid response returned from ${type} operation`);
           }
-          
+
           operationResults.push({ type, success: true });
           return result;
         } catch (error) {
@@ -561,7 +561,7 @@ export function SizeModal({
           "Saving sizes...",
           (async () => {
             await Promise.all(operations.map((op) => op()));
-            
+
             // Check for any failed operations after all operations complete
             const failedOperations = operationResults.filter((r) => !r.success);
             if (failedOperations.length > 0) {
@@ -572,11 +572,11 @@ export function SizeModal({
                 `Failed to save ${failedOperations.length} operation(s): ${errorMessages}`,
               );
             }
-            
+
             return { success: true };
           })(),
           {
-            delay: 200,
+            delay: 500,
             successMessage: "Size system successfully updated",
           },
         );
@@ -619,9 +619,9 @@ export function SizeModal({
   };
 
   // Compute loading state from mutations
-  const isCreating = 
-    createSizeMutation.isPending || 
-    updateSizeMutation.isPending || 
+  const isCreating =
+    createSizeMutation.isPending ||
+    updateSizeMutation.isPending ||
     deleteSizeMutation.isPending;
 
   // Initialize when modal opens
@@ -654,10 +654,10 @@ export function SizeModal({
 
     // Get existing sizes for this category from the database
     const categoryKey = getCategoryKey(category);
-    const existingSizes = categoryKey 
+    const existingSizes = categoryKey
       ? sizeOptions
-          .filter(s => s.categoryPath === category)
-          .sort((a, b) => a.sortIndex - b.sortIndex)
+        .filter(s => s.categoryPath === category)
+        .sort((a, b) => a.sortIndex - b.sortIndex)
       : [];
 
     // Add existing sizes first
@@ -677,7 +677,7 @@ export function SizeModal({
       const alreadyExists = existingSizes.some(
         s => s.name.toLowerCase() === currentPrefillSize.toLowerCase()
       );
-      
+
       if (!alreadyExists) {
         newRows.unshift({
           id: `new-${Date.now()}`,
@@ -704,8 +704,8 @@ export function SizeModal({
 
         <div className="px-6 flex flex-col gap-2 items-start">
           {/* Category Dropdown - Tier 2 only */}
-          <TierTwoCategorySelect 
-            value={category} 
+          <TierTwoCategorySelect
+            value={category}
             onChange={(newCategory) => {
               setCategory(newCategory);
               // Clear prefillSize when category changes
@@ -725,7 +725,7 @@ export function SizeModal({
                 {/* Info message */}
                 <div className="w-full space-y-1.5">
                   <p className="type-small text-tertiary">
-                    {rows.length > 0 
+                    {rows.length > 0
                       ? `Managing sizes for ${category}. Drag to reorder, edit names, click X to delete, or add more.`
                       : `No sizes found for ${category}. Click "Add size" below to create your size list.`}
                   </p>

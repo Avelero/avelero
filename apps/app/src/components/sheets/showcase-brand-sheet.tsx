@@ -217,7 +217,7 @@ export function ShowcaseBrandSheet({
           country_code: countryCode || undefined,
         }),
         {
-          delay: 200,
+          delay: 500,
           successMessage: "Brand created successfully",
         },
       );
@@ -282,28 +282,28 @@ export function ShowcaseBrandSheet({
         countryCode: createdBrand.country_code || undefined,
       };
 
-      // Close sheet first
-      onOpenChange(false);
-
       // Call parent callback with real data
       setFieldErrors({});
       onBrandCreated(brandData);
+
+      // Close sheet first
+      onOpenChange(false);
     } catch (error) {
       console.error("Failed to create brand:", error);
-      
+
       // Parse error for specific messages
       let errorMessage = "Failed to create brand. Please try again.";
-      
+
       if (error instanceof Error) {
-        if (error.message.includes("unique constraint") || 
-            error.message.includes("duplicate")) {
+        if (error.message.includes("unique constraint") ||
+          error.message.includes("duplicate")) {
           errorMessage = "A brand with this name already exists.";
-        } else if (error.message.includes("network") || 
-                   error.message.includes("fetch")) {
+        } else if (error.message.includes("network") ||
+          error.message.includes("fetch")) {
           errorMessage = "Network error. Please check your connection.";
         }
       }
-      
+
       toast.error(errorMessage);
     }
   };

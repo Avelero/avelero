@@ -95,7 +95,7 @@ export function SeasonModal({
   // Validation function for season name
   const validateName = (value: string): boolean => {
     const trimmedName = value.trim();
-    
+
     if (!trimmedName) {
       setNameError("Season name is required");
       return false;
@@ -213,7 +213,7 @@ export function SeasonModal({
 
         // Invalidate to trigger background refetch
         queryClient.invalidateQueries({
-        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+          queryKey: trpc.composite.brandCatalogContent.queryKey(),
         });
 
         // Close modal first
@@ -232,7 +232,7 @@ export function SeasonModal({
         return result;
       })(),
       {
-        delay: 200,
+        delay: 500,
         successMessage: "Season created successfully",
       },
     ).catch((error) => {

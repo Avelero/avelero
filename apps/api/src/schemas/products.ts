@@ -105,7 +105,7 @@ export const createProductSchema = z.object({
       z.object({
         sort_index: nonNegativeIntSchema,
         step_type: shortStringSchema,
-        facility_id: uuidSchema,
+        facility_ids: uuidArraySchema, // Changed from facility_id to support multiple operators
       }),
     )
     .optional(),

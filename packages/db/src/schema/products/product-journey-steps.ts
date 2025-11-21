@@ -9,7 +9,6 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
-import { brandFacilities } from "../brands/brand-facilities";
 import { products } from "./products";
 
 export const productJourneySteps = pgTable(
@@ -24,12 +23,6 @@ export const productJourneySteps = pgTable(
       .notNull(),
     sortIndex: integer("sort_index").notNull(),
     stepType: text("step_type").notNull(),
-    facilityId: uuid("facility_id")
-      .references(() => brandFacilities.id, {
-        onDelete: "restrict",
-        onUpdate: "cascade",
-      })
-      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

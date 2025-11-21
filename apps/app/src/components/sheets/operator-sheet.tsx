@@ -61,7 +61,7 @@ export function OperatorSheet({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { operators: existingOperators } = useBrandCatalog();
-  
+
   const [name, setName] = React.useState(initialName);
   const [legalName, setLegalName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -76,7 +76,7 @@ export function OperatorSheet({
   // Validation error states
   const [fieldErrors, setFieldErrors] =
     React.useState<ValidationErrors<OperatorFormValues>>({});
-  
+
   // Operators are facilities (production plants)
   const createOperatorMutation = useMutation(
     trpc.brand.facilities.create.mutationOptions(),
@@ -215,7 +215,7 @@ export function OperatorSheet({
           if (!createdOperator?.id) {
             throw new Error("No valid response returned from API");
           }
-          
+
           const operatorId = createdOperator.id;
           const now = new Date().toISOString();
 
@@ -268,36 +268,36 @@ export function OperatorSheet({
             countryCode: countryCode || undefined,
           };
 
-          // Close sheet first
-      setFieldErrors({});
-      onOpenChange(false);
-
           // Call parent callback with real data
           onOperatorCreated(newOperator);
+
+          // Close sheet first
+          setFieldErrors({});
+          onOpenChange(false);
 
           return result;
         })(),
         {
-          delay: 200,
+          delay: 500,
           successMessage: "Operator created successfully",
         },
       );
     } catch (error) {
       console.error("Failed to create operator:", error);
-      
+
       // Parse error for specific messages
       let errorMessage = "Failed to create operator. Please try again.";
-      
+
       if (error instanceof Error) {
-        if (error.message.includes("unique constraint") || 
-            error.message.includes("duplicate")) {
+        if (error.message.includes("unique constraint") ||
+          error.message.includes("duplicate")) {
           errorMessage = "An operator with this name already exists.";
-        } else if (error.message.includes("network") || 
-                   error.message.includes("fetch")) {
+        } else if (error.message.includes("network") ||
+          error.message.includes("fetch")) {
           errorMessage = "Network error. Please check your connection.";
         }
       }
-      
+
       toast.error(errorMessage);
     }
   };

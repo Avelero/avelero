@@ -22,6 +22,20 @@
       "when": 1763751141243,
       "tag": "20251121185221_opposite_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1763752760366,
+      "tag": "20251121191920_heavy_red_skull",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1763752867333,
+      "tag": "20251121192107_ordinary_ultimates",
+      "breakpoints": true
     }
   ]
 }

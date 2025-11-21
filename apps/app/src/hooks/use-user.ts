@@ -43,6 +43,8 @@ export interface CurrentUser {
   full_name: string | null;
   /** Avatar image URL or path (optional) */
   avatar_url: string | null;
+  /** Avatar hue for colored background fallback (1-360) */
+  avatar_hue: number | null;
   /** Currently active brand ID (optional) */
   brand_id: string | null;
 }

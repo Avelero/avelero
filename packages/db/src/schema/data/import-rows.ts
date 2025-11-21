@@ -36,41 +36,41 @@ export const importRows = pgTable(
     pgPolicy("import_rows_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM import_jobs 
         WHERE import_jobs.id = job_id 
         AND is_brand_member(import_jobs.brand_id)
       )`,
     }),
-    pgPolicy("import_rows_insert_by_brand_owner", {
+    pgPolicy("import_rows_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`EXISTS (
         SELECT 1 FROM import_jobs 
         WHERE import_jobs.id = job_id 
-        AND is_brand_owner(import_jobs.brand_id)
+        AND is_brand_member(import_jobs.brand_id)
       )`,
     }),
-    pgPolicy("import_rows_update_by_brand_owner", {
+    pgPolicy("import_rows_update_by_brand_member", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM import_jobs 
         WHERE import_jobs.id = job_id 
-        AND is_brand_owner(import_jobs.brand_id)
+        AND is_brand_member(import_jobs.brand_id)
       )`,
     }),
-    pgPolicy("import_rows_delete_by_brand_owner", {
+    pgPolicy("import_rows_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM import_jobs 
         WHERE import_jobs.id = job_id 
-        AND is_brand_owner(import_jobs.brand_id)
+        AND is_brand_member(import_jobs.brand_id)
       )`,
     }),
   ],

@@ -7,17 +7,20 @@ import {
   desc,
   eq,
   getBrandsByUserId,
+  getOwnerCountsByBrandIds,
   getUserById,
   inArray,
-  listCategories,
-  listCertifications,
-  listColors,
-  listFacilities,
-  listMaterials,
   listPendingInvitesForEmail,
-  listShowcaseBrands,
+  listCategories,
+  listColors,
   listSizes,
-  sql,
+  listMaterials,
+  listFacilities,
+  listShowcaseBrands,
+  listEcoClaims,
+  listCertifications,
+  listBrandTags,
+  listSeasonsForBrand,
 } from "@v1/db/queries";
 import { brandInvites, brandMembers, users } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
@@ -27,19 +30,22 @@ import { getAppUrl } from "@v1/utils/envs";
  * Targets:
  * - composite.workflowInit
  * - composite.membersWithInvites
- * - composite.passportFormReferences
+ * - composite.brandCatalogContent
  */
 import { ROLES } from "../../../config/roles.js";
-import { workflowBrandIdSchema } from "../../../schemas/workflow.js";
+import { workflowBrandIdOptionalSchema } from "../../../schemas/workflow.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
+import { createEntityResponse } from "../../../utils/response.js";
 import {
   brandRequiredProcedure,
   createTRPCRouter,
   protectedProcedure,
+  type AuthenticatedTRPCContext,
 } from "../../init.js";
 
 /** User's role within a brand */
 type BrandRole = "owner" | "member";
+type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
 /**
  * Minimal user record shape for profile mapping.
@@ -49,6 +55,7 @@ interface MinimalUserRecord {
   email: string | null;
   fullName: string | null;
   avatarPath: string | null;
+  avatarHue: number | null;
   brandId: string | null;
 }
 
@@ -130,6 +137,7 @@ function mapUserProfile(
     email,
     full_name: record.fullName ?? null,
     avatar_url: buildUserAvatarUrl(record.avatarPath),
+    avatar_hue: record.avatarHue ?? null,
     brand_id: record.brandId ?? null,
   };
 }
@@ -145,6 +153,7 @@ function mapInvite(invite: UserInviteSummaryRow) {
     id: invite.id,
     brand_name: invite.brandName,
     brand_logo: buildBrandLogoUrl(invite.brandLogoPath ?? null),
+    brand_avatar_hue: invite.brandAvatarHue ?? null,
     role: invite.role,
     invited_by: invite.invitedByFullName ?? invite.invitedByEmail ?? null,
     invited_by_avatar_url: buildUserAvatarUrl(invite.invitedByAvatarPath),
@@ -180,27 +189,8 @@ async function mapWorkflowBrands(
     .filter((brand) => brand.role === "owner")
     .map((brand) => brand.id);
 
-  // Batch fetch owner counts for all relevant brands
-  const ownerCounts = new Map<string, number>();
-  if (ownerBrandIds.length > 0) {
-    const rows = await db
-      .select({
-        brandId: brandMembers.brandId,
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(brandMembers)
-      .where(
-        and(
-          inArray(brandMembers.brandId, ownerBrandIds),
-          eq(brandMembers.role, "owner"),
-        ),
-      )
-      .groupBy(brandMembers.brandId);
-
-    for (const row of rows) {
-      ownerCounts.set(row.brandId, row.count);
-    }
-  }
+  // Batch fetch owner counts for all relevant brands using standardized query
+  const ownerCounts = await getOwnerCountsByBrandIds(db, ownerBrandIds);
 
   return memberships.map((membership) => {
     const ownerCount = ownerCounts.get(membership.id) ?? 1;
@@ -349,10 +339,10 @@ export const compositeRouter = createTRPCRouter({
    * Combines workflow members and pending invites for the selected brand.
    */
   membersWithInvites: brandRequiredProcedure
-    .input(workflowBrandIdSchema)
+    .input(workflowBrandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId, role } = ctx;
-      if (brandId !== input.brand_id) {
+      if (input.brand_id !== undefined && brandId !== input.brand_id) {
         throw badRequest("Active brand does not match the requested workflow");
       }
 
@@ -370,45 +360,61 @@ export const compositeRouter = createTRPCRouter({
     }),
 
   /**
-   * Provides all reference data required to render the passport form in one round trip.
+   * Bundled reference data for passport form initialization.
+   *
+   * Returns brand catalog entities and global categories in a single call to
+   * minimize waterfall requests in the app.
    */
-  passportFormReferences: brandRequiredProcedure.query(async ({ ctx }) => {
-    const { db, brandId } = ctx;
+  brandCatalogContent: brandRequiredProcedure.query(
+    async ({ ctx }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = brandCtx.brandId;
 
-    try {
-      const [
-        categories,
-        materials,
-        facilities,
-        colors,
-        sizes,
-        certifications,
-        operators,
-      ] = await Promise.all([
-        listCategories(db),
-        listMaterials(db, brandId),
-        listFacilities(db, brandId),
-        listColors(db, brandId),
-        listSizes(db, brandId),
-        listCertifications(db, brandId),
-        listShowcaseBrands(db, brandId),
-      ]);
-
-      return {
-        categories,
-        brandCatalog: {
-          materials,
-          facilities,
+      try {
+        const [
+          categories,
           colors,
           sizes,
+          materials,
+          facilities,
+          showcaseBrands,
+          ecoClaims,
           certifications,
-          operators,
-        },
-      };
-    } catch (error) {
-      throw wrapError(error, "Failed to load passport form references");
-    }
-  }),
+          tags,
+          seasons,
+        ] = await Promise.all([
+          listCategories(brandCtx.db),
+          listColors(brandCtx.db, brandId),
+          listSizes(brandCtx.db, brandId),
+          listMaterials(brandCtx.db, brandId),
+          listFacilities(brandCtx.db, brandId),
+          listShowcaseBrands(brandCtx.db, brandId),
+          listEcoClaims(brandCtx.db, brandId),
+          listCertifications(brandCtx.db, brandId),
+          listBrandTags(brandCtx.db, brandId),
+          listSeasonsForBrand(brandCtx.db, brandId),
+        ]);
+
+        return {
+          categories,
+          brandCatalog: {
+            colors,
+            sizes,
+            materials,
+            operators: facilities,
+            showcaseBrands,
+            ecoClaims,
+            certifications,
+            tags,
+            seasons,
+          },
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to load passport form references");
+      }
+    },
+  ),
+
 });
 
 export type CompositeRouter = typeof compositeRouter;

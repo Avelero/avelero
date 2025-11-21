@@ -1,9 +1,11 @@
 "use client";
 
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { SHADE_LABELS, colorFamilies } from "@v1/selections";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -14,14 +16,21 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import * as React from "react";
 
 export interface ColorOption {
+  id?: string;
   name: string;
   hex: string; // Without the # prefix
 }
 
+const getColorKey = (color: ColorOption) =>
+  color.id && color.id.length > 0
+    ? color.id
+    : color.name.trim().toLowerCase();
+
+const normalizeHexInput = (hex: string) => hex.replace("#", "").trim().toUpperCase();
+
 interface ColorSelectProps {
   value: ColorOption[];
   onValueChange: (value: ColorOption[]) => void;
-  defaultColors: ColorOption[];
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -75,54 +84,69 @@ const ColorLabel = ({
 export function ColorSelect({
   value,
   onValueChange,
-  defaultColors,
   placeholder = "Add color",
   disabled = false,
   className,
 }: ColorSelectProps) {
+  const { colors: catalogColors } = useBrandCatalog();
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [view, setView] = React.useState<"main" | "picker">("main");
   const [pendingColorName, setPendingColorName] = React.useState("");
 
   const handleToggleColor = (color: ColorOption) => {
-    const isSelected = value.some((c) => c.name === color.name);
+    const targetKey = getColorKey(color);
+    const isSelected = value.some((c) => getColorKey(c) === targetKey);
     if (isSelected) {
-      onValueChange(value.filter((c) => c.name !== color.name));
+      onValueChange(value.filter((c) => getColorKey(c) !== targetKey));
     } else {
       onValueChange([...value, color]);
     }
   };
 
-  const handleRemoveColor = (colorName: string) => {
-    onValueChange(value.filter((c) => c.name !== colorName));
+  const handleRemoveColor = (colorToRemove: ColorOption) => {
+    const targetKey = getColorKey(colorToRemove);
+    onValueChange(value.filter((c) => getColorKey(c) !== targetKey));
   };
 
   const handleCreateClick = () => {
-    if (searchTerm) {
-      setPendingColorName(searchTerm);
+    const trimmed = searchTerm.trim();
+    if (trimmed) {
+      setPendingColorName(trimmed);
       setView("picker");
       setSearchTerm("");
     }
   };
 
-  const handleColorPick = (hex: string, shadeName: string) => {
+  const handleColorPick = (hex: string) => {
+    const colorName = pendingColorName.trim();
+    if (!colorName) {
+      return;
+    }
+
+    const normalizedHex = normalizeHexInput(hex);
     const newColor: ColorOption = {
-      name: pendingColorName,
-      hex: hex,
+      name: colorName,
+      hex: normalizedHex,
     };
-    onValueChange([...value, newColor]);
+
+    const targetKey = getColorKey(newColor);
+    const exists = value.some((c) => getColorKey(c) === targetKey);
+    if (!exists) {
+      onValueChange([...value, newColor]);
+    }
+
     setView("main");
     setPendingColorName("");
     setOpen(false);
   };
 
   const filteredColors = React.useMemo(() => {
-    if (!searchTerm) return defaultColors;
-    return defaultColors.filter((c) =>
+    if (!searchTerm) return catalogColors;
+    return catalogColors.filter((c) =>
       c.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
-  }, [defaultColors, searchTerm]);
+  }, [catalogColors, searchTerm]);
 
   const filteredColorFamilies = React.useMemo(() => {
     if (!searchTerm) return colorFamilies;
@@ -131,12 +155,13 @@ export function ColorSelect({
     );
   }, [searchTerm]);
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
   const showCreateOption =
-    searchTerm &&
-    !defaultColors.some(
-      (c) => c.name.toLowerCase() === searchTerm.toLowerCase(),
+    !!normalizedSearch &&
+    !catalogColors.some(
+      (c) => c.name.toLowerCase() === normalizedSearch,
     ) &&
-    !value.some((c) => c.name.toLowerCase() === searchTerm.toLowerCase());
+    !value.some((c) => c.name.toLowerCase() === normalizedSearch);
 
   // Reset view when popover closes
   React.useEffect(() => {
@@ -157,7 +182,7 @@ export function ColorSelect({
       <PopoverTrigger asChild disabled={disabled}>
         <div
           className={cn(
-            "flex flex-wrap items-center py-[5px] px-2 w-full min-h-9 border border-border bg-background gap-1.5",
+            "group flex flex-wrap items-center py-[5px] px-2 w-full min-h-9 border border-border bg-background gap-1.5 cursor-pointer",
             disabled && "opacity-50 cursor-not-allowed",
             className,
           )}
@@ -167,9 +192,9 @@ export function ColorSelect({
         >
           {value.map((color) => (
             <ColorLabel
-              key={color.name}
+              key={color.id ?? color.name}
               color={color}
-              onRemove={() => handleRemoveColor(color.name)}
+              onRemove={() => handleRemoveColor(color)}
               disabled={disabled}
             />
           ))}
@@ -180,14 +205,14 @@ export function ColorSelect({
                 e.stopPropagation();
                 setOpen(!open);
               }}
-              className="mx-1 border-b border-border type-p text-tertiary hover:text-secondary hover:border-secondary cursor-pointer transition-colors"
+              className="mx-1 border-b border-border type-p text-tertiary group-hover:text-secondary group-hover:border-secondary cursor-pointer transition-colors"
             >
               {placeholder}
             </button>
           )}
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-60 p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput
@@ -195,11 +220,14 @@ export function ColorSelect({
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
                 {filteredColors.length > 0 ? (
                   filteredColors.map((color) => {
-                    const isSelected = value.some((c) => c.name === color.name);
+                    const colorKey = getColorKey(color);
+                    const isSelected = value.some(
+                      (c) => getColorKey(c) === colorKey,
+                    );
                     return (
                       <CommandItem
                         key={color.name}
@@ -230,11 +258,9 @@ export function ColorSelect({
                     </div>
                   </CommandItem>
                 ) : !searchTerm ? (
-                  <div className="px-3 py-8 text-center">
-                    <p className="type-p text-tertiary">
-                      Begin typing to create your first color
-                    </p>
-                  </div>
+                  <CommandEmpty>
+                    Start typing to create...
+                  </CommandEmpty>
                 ) : null}
               </CommandGroup>
             </CommandList>
@@ -246,19 +272,14 @@ export function ColorSelect({
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
                 {filteredColorFamilies.map((colorFamily) =>
                   colorFamily.shades.map((hex, index) => (
                     <CommandItem
                       key={`${colorFamily.name}-${SHADE_LABELS[index]}`}
                       value={`${colorFamily.name} ${SHADE_LABELS[index]}`}
-                      onSelect={() =>
-                        handleColorPick(
-                          hex,
-                          `${colorFamily.name} ${SHADE_LABELS[index]}`,
-                        )
-                      }
+                      onSelect={() => handleColorPick(hex)}
                     >
                       <div className="flex items-center gap-2">
                         <div

@@ -1,5 +1,11 @@
 import { sql } from "drizzle-orm";
-import { pgPolicy, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgPolicy,
+  pgTable,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
 import { brandEcoClaims } from "../brands/brand-eco-claims";
 import { products } from "./products";
@@ -32,41 +38,53 @@ export const productEcoClaims = pgTable(
       table.productId,
       table.ecoClaimId,
     ),
+    // Indexes for query performance
+    // For loadAttributesForProducts - batch loading eco claims
+    index("idx_product_eco_claims_product_id").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+    ),
+    // For ordering by createdAt
+    index("idx_product_eco_claims_product_created").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+      table.createdAt.asc().nullsLast().op("timestamptz_ops"),
+    ),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_eco_claims_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_eco_claims_insert_by_brand_owner", {
+    pgPolicy("product_eco_claims_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_eco_claims_update_by_brand_owner", {
+    pgPolicy("product_eco_claims_update_by_brand_member", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_eco_claims_delete_by_brand_owner", {
+    pgPolicy("product_eco_claims_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 

@@ -24,7 +24,7 @@ export interface ValidationResult {
     fileSize: number;
     headers: string[];
     hasUpid: boolean;
-    hasSku: boolean;
+    hasProductIdentifier: boolean;
   };
 }
 
@@ -147,37 +147,20 @@ function validateHeaders(headers: string[]): ValidationError[] {
   const errors: ValidationError[] = [];
   const normalizedHeaders = headers.map(normalizeHeader);
 
-  // Check for product_name (required)
-  const hasProductName = normalizedHeaders.some(
-    (h) =>
-      h === "product_name" ||
-      h === "productname" ||
-      h === "name" ||
-      h === "product",
-  );
+  const hasProductName = normalizedHeaders.includes("product_name");
+  const hasProductIdentifier = normalizedHeaders.includes("product_identifier");
 
   if (!hasProductName) {
     errors.push({
       type: "MISSING_COLUMNS",
-      message: "Missing required column: 'product_name' (or 'name', 'product')",
+      message: "Missing required column: 'product_name'",
     });
   }
 
-  // Check for product_identifier or SKU (at least one required)
-  const hasProductIdentifier = normalizedHeaders.some(
-    (h) =>
-      h === "product_identifier" ||
-      h === "productidentifier" ||
-      h === "upid" ||
-      h === "product_id",
-  );
-  const hasSku = normalizedHeaders.some((h) => h === "sku");
-
-  if (!hasProductIdentifier && !hasSku) {
+  if (!hasProductIdentifier) {
     errors.push({
       type: "MISSING_COLUMNS",
-      message:
-        "Missing required column: either 'product_identifier' (or 'upid') or 'sku' must be present",
+      message: "Missing required column: 'product_identifier'",
     });
   }
 
@@ -220,7 +203,7 @@ export async function validateImportFile(
         fileSize: file.size,
         headers: [],
         hasUpid: true, // Assume valid (product_identifier or upid), backend will validate
-        hasSku: true,
+        hasProductIdentifier: true,
       },
     };
   }
@@ -241,7 +224,7 @@ export async function validateImportFile(
         fileSize: file.size,
         headers: [],
         hasUpid: true, // Backend will validate
-        hasSku: true,
+        hasProductIdentifier: true,
       },
     };
   }
@@ -267,14 +250,7 @@ export async function validateImportFile(
   const headerErrors = validateHeaders(headers);
 
   const normalizedHeaders = headers.map(normalizeHeader);
-  const hasProductIdentifier = normalizedHeaders.some(
-    (h) =>
-      h === "product_identifier" ||
-      h === "productidentifier" ||
-      h === "upid" ||
-      h === "product_id",
-  );
-  const hasSku = normalizedHeaders.some((h) => h === "sku");
+  const hasProductIdentifier = normalizedHeaders.includes("product_identifier");
 
   return {
     valid: headerErrors.length === 0,
@@ -283,8 +259,8 @@ export async function validateImportFile(
       filename: file.name,
       fileSize: file.size,
       headers: headers,
-      hasUpid: hasProductIdentifier,
-      hasSku,
+      hasUpid: normalizedHeaders.includes("upid"),
+      hasProductIdentifier,
     },
   };
 }

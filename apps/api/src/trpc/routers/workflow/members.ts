@@ -17,7 +17,7 @@ import { brandMembers, users } from "@v1/db/schema";
  */
 import { ROLES } from "../../../config/roles.js";
 import {
-  workflowBrandIdSchema,
+  workflowBrandIdOptionalSchema,
   workflowMembersUpdateSchema,
 } from "../../../schemas/workflow.js";
 import {
@@ -39,10 +39,10 @@ export const workflowMembersRouter = createTRPCRouter({
    * metadata derived from owner counts.
    */
   list: brandRequiredProcedure
-    .input(workflowBrandIdSchema)
+    .input(workflowBrandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
-      if (brandId !== input.brand_id) {
+      if (input.brand_id !== undefined && brandId !== input.brand_id) {
         throw badRequest("Active brand does not match the requested workflow");
       }
 
@@ -84,15 +84,15 @@ export const workflowMembersRouter = createTRPCRouter({
   update: brandRequiredProcedure
     .input(workflowMembersUpdateSchema)
     .mutation(async ({ ctx, input }) => {
-      const { db, brandId, role: actingRole, user } = ctx;
-      if (brandId !== input.brand_id) {
-        throw badRequest("Active brand does not match the requested workflow");
-      }
-
+      const { db, brandId: activeBrandId, role: actingRole, user } = ctx;
       const targetUserId = input.user_id;
 
+      // Special case: Leave brand operation
+      // Allow leaving any brand the user is a member of (not just active)
+      // The leaveBrand function validates membership internally
       if (!targetUserId) {
-        const result = await leaveBrand(db, user.id, brandId);
+        const brandIdToLeave = input.brand_id ?? activeBrandId;
+        const result = await leaveBrand(db, user.id, brandIdToLeave);
         if (!result.ok && result.code === "SOLE_OWNER") {
           throw soleOwnerError();
         }
@@ -103,6 +103,12 @@ export const workflowMembersRouter = createTRPCRouter({
           success: true as const,
           nextBrandId: result.nextBrandId ?? null,
         };
+      }
+
+      // For other operations (update role, remove member), enforce active brand
+      const brandId = input.brand_id ?? activeBrandId;
+      if (input.brand_id !== undefined && brandId !== activeBrandId) {
+        throw badRequest("Active brand does not match the requested workflow");
       }
 
       if (input.role === null) {

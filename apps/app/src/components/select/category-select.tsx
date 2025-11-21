@@ -1,6 +1,6 @@
 "use client";
 
-import { categoryHierarchy } from "@v1/selections/categories";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
@@ -9,8 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import * as React from "react";
 
 interface CategorySelectProps {
-  value: string;
-  onChange: (value: string) => void;
+  value: string | null; // Category ID or null
+  onChange: (value: string | null) => void; // Returns category ID or null
   label?: string;
   className?: string;
 }
@@ -21,78 +21,47 @@ export function CategorySelect({
   label = "Category",
   className,
 }: CategorySelectProps) {
+  const { categoryHierarchy, categoryMap } = useBrandCatalog();
   const [open, setOpen] = React.useState(false);
   const [categoryPath, setCategoryPath] = React.useState<string[]>([]);
-  const [selectedCategoryPath, setSelectedCategoryPath] = React.useState<
-    string[]
-  >([]);
+  const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | null>(value);
   const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
   const [hoveredArea, setHoveredArea] = React.useState<
     "selection" | "navigation" | null
   >(null);
 
-  // Helper function to find path from display string
-  const findPathFromDisplayString = React.useCallback(
-    (displayString: string): string[] => {
-      if (displayString === "Select category" || !displayString) {
-        return [];
-      }
+  // Helper function to get path (array of IDs) for a category
+  const getCategoryPath = React.useCallback((categoryId: string | null): string[] => {
+    if (!categoryId) return [];
+    
+    const path: string[] = [];
+    let currentId: string | null = categoryId;
+    
+    while (currentId) {
+      path.unshift(currentId);
+      const category = categoryMap.get(currentId);
+      currentId = category?.parentId || null;
+    }
+    
+    return path;
+  }, [categoryMap]);
 
-      const findPathRecursive = (
-        current: any,
-        currentPath: string[],
-      ): string[] | null => {
-        for (const [key, val] of Object.entries(current)) {
-          const newPath = [...currentPath, key];
-          const labels: string[] = [];
-          let temp: any = categoryHierarchy;
+  // Helper function to get display string for a category
+  const getCategoryDisplayString = React.useCallback((categoryId: string | null): string => {
+    if (!categoryId) return "Select category";
+    
+    const path = getCategoryPath(categoryId);
+    const labels = path.map(id => categoryMap.get(id)?.name || "").filter(Boolean);
+    
+    if (labels.length === 0) return "Select category";
+    if (labels.length <= 3) return labels.join(" / ");
+    return `${labels[0]} / ... / ${labels[labels.length - 1]}`;
+  }, [categoryMap, getCategoryPath]);
 
-          for (const pathKey of newPath) {
-            if (temp[pathKey]) {
-              labels.push(temp[pathKey].label);
-              temp = temp[pathKey].children || {};
-            }
-          }
-
-          const fullString = labels.join(" / ");
-          const truncatedString =
-            labels.length <= 3
-              ? fullString
-              : `${labels[0]} / ... / ${labels[labels.length - 1]}`;
-
-          if (
-            fullString === displayString ||
-            truncatedString === displayString
-          ) {
-            return newPath;
-          }
-
-          if ((val as any).children) {
-            const foundPath = findPathRecursive((val as any).children, newPath);
-            if (foundPath) return foundPath;
-          }
-        }
-        return null;
-      };
-
-      return findPathRecursive(categoryHierarchy, []) || [];
-    },
-    [],
-  );
-
-  // Sync selectedCategoryPath when value changes from outside
+  // Sync selected category when value prop changes
   React.useEffect(() => {
-    const pathFromValue = findPathFromDisplayString(value);
-
-    // Only update if the path is different from current selectedCategoryPath
-    setSelectedCategoryPath((currentPath) => {
-      const pathsMatch =
-        pathFromValue.length === currentPath.length &&
-        pathFromValue.every((segment, index) => segment === currentPath[index]);
-
-      return pathsMatch ? currentPath : pathFromValue;
-    });
-  }, [value, findPathFromDisplayString]);
+    setSelectedCategoryId(value);
+  }, [value]);
 
   // Helper function to get current level options
   const getCurrentLevelOptions = () => {
@@ -120,41 +89,18 @@ export function CategorySelect({
     return labels.join(" / ");
   };
 
-  const handleCategorySelect = (key: string) => {
-    const newPath = [...categoryPath, key];
-
+  const handleCategorySelect = (categoryId: string) => {
     // Check if this category is already selected
-    const isCurrentlySelected =
-      selectedCategoryPath.length === newPath.length &&
-      selectedCategoryPath.every(
-        (segment, index) => segment === newPath[index],
-      );
+    const isCurrentlySelected = selectedCategoryId === categoryId;
 
     if (isCurrentlySelected) {
       // Deselect
-      setSelectedCategoryPath([]);
-      onChange("Select category");
+      setSelectedCategoryId(null);
+      onChange(null);
     } else {
       // Select new category
-      setSelectedCategoryPath(newPath);
-
-      // Generate display string
-      const labels: string[] = [];
-      let current: any = categoryHierarchy;
-
-      for (const pathKey of newPath) {
-        if (current[pathKey]) {
-          labels.push(current[pathKey].label);
-          current = current[pathKey].children || {};
-        }
-      }
-
-      const displayString =
-        labels.length <= 3
-          ? labels.join(" / ")
-          : `${labels[0]} / ... / ${labels[labels.length - 1]}`;
-
-      onChange(displayString);
+      setSelectedCategoryId(categoryId);
+      onChange(categoryId);
     }
 
     setOpen(false);
@@ -171,8 +117,10 @@ export function CategorySelect({
   };
 
   const initializeCategoryNavigation = () => {
-    if (selectedCategoryPath.length > 0) {
-      setCategoryPath(selectedCategoryPath.slice(0, -1));
+    if (selectedCategoryId) {
+      const path = getCategoryPath(selectedCategoryId);
+      // Set the path to everything except the last element (the selected category itself)
+      setCategoryPath(path.slice(0, -1));
     } else {
       setCategoryPath([]);
     }
@@ -207,15 +155,15 @@ export function CategorySelect({
             <span
               className={cn(
                 "truncate",
-                value === "Select category" ? "text-tertiary" : "text-primary",
+                !value ? "text-tertiary" : "text-primary",
               )}
             >
-              {value}
+              {getCategoryDisplayString(value)}
             </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="p-0 w-[--radix-popover-trigger-width]"
+          className="p-0 w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]"
           align="start"
         >
           <div className="flex flex-col">
@@ -234,17 +182,13 @@ export function CategorySelect({
             )}
 
             {/* Options */}
-            <div className="max-h-48 overflow-y-auto">
+            <div className="max-h-48 overflow-y-auto scrollbar-hide">
               {Object.entries(getCurrentLevelOptions()).map(
                 ([key, value]: [string, any]) => {
                   const hasChildren =
                     value.children && Object.keys(value.children).length > 0;
-                  const currentPath = [...categoryPath, key];
-                  const isSelected =
-                    selectedCategoryPath.length === currentPath.length &&
-                    selectedCategoryPath.every(
-                      (segment, index) => segment === currentPath[index],
-                    );
+                  // key is the category ID
+                  const isSelected = selectedCategoryId === key;
 
                   return (
                     <div key={key} className="relative">

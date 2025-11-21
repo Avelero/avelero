@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  index,
   integer,
   pgPolicy,
   pgTable,
@@ -8,7 +9,6 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
-import { brandFacilities } from "../brands/brand-facilities";
 import { products } from "./products";
 
 export const productJourneySteps = pgTable(
@@ -23,12 +23,6 @@ export const productJourneySteps = pgTable(
       .notNull(),
     sortIndex: integer("sort_index").notNull(),
     stepType: text("step_type").notNull(),
-    facilityId: uuid("facility_id")
-      .references(() => brandFacilities.id, {
-        onDelete: "restrict",
-        onUpdate: "cascade",
-      })
-      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -41,41 +35,53 @@ export const productJourneySteps = pgTable(
       table.productId,
       table.sortIndex,
     ),
+    // Indexes for query performance
+    // For loadAttributesForProducts - batch loading journey steps
+    index("idx_product_journey_steps_product_id").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+    ),
+    // For ordering by sortIndex
+    index("idx_product_journey_steps_product_sort").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+      table.sortIndex.asc().nullsLast().op("int4_ops"),
+    ),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_journey_steps_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_journey_steps_insert_by_brand_owner", {
+    pgPolicy("product_journey_steps_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_journey_steps_update_by_brand_owner", {
+    pgPolicy("product_journey_steps_update_by_brand_member", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_journey_steps_delete_by_brand_owner", {
+    pgPolicy("product_journey_steps_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 

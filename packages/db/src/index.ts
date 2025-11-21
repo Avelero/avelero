@@ -1,8 +1,6 @@
 export * from "./client";
 export * as schema from "./schema";
-export * from "./utils/upid";
-export { evaluateAndUpsertCompletion } from "./completion/evaluate";
-export type { ModuleKey } from "./completion/module-keys";
+export * as utils from "./utils";
 // Re-export drizzle-orm utilities for consumers
 export {
   and,

@@ -45,26 +45,26 @@ export const importJobs = pgTable(
     pgPolicy("import_jobs_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("import_jobs_insert_by_brand_owner", {
+    pgPolicy("import_jobs_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
-      withCheck: sql`is_brand_owner(brand_id)`,
+      to: ["authenticated", "service_role"],
+      withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("import_jobs_update_by_brand_owner", {
+    pgPolicy("import_jobs_update_by_brand_member", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
-      using: sql`is_brand_owner(brand_id)`,
+      to: ["authenticated", "service_role"],
+      using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("import_jobs_delete_by_brand_owner", {
+    pgPolicy("import_jobs_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
-      using: sql`is_brand_owner(brand_id)`,
+      to: ["authenticated", "service_role"],
+      using: sql`is_brand_member(brand_id)`,
     }),
   ],
 );

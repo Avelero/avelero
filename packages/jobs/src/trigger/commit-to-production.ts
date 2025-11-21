@@ -2,14 +2,12 @@ import "./configure-trigger";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { db } from "@v1/db/client";
 import type { Database } from "@v1/db/client";
-import { evaluateAndUpsertCompletion } from "@v1/db/index";
-import type { ModuleKey } from "@v1/db/index";
+import { eq } from "@v1/db/index";
 import {
   type StagingProductPreview,
   batchUpdateImportRowStatus,
   bulkCreateProductsFromStaging,
   createProduct,
-  createVariant,
   deleteStagingDataForJob,
   getImportJobStatus,
   getStagingProductsForCommit,
@@ -18,10 +16,10 @@ import {
   updateImportJobProgress,
   updateImportJobStatus,
   updateProduct,
-  updateVariant,
   upsertProductEnvironment,
   upsertProductMaterials,
 } from "@v1/db/queries";
+import { productVariants } from "@v1/db/schema";
 import { ProgressEmitter } from "./progress-emitter";
 
 /**
@@ -460,9 +458,7 @@ async function processBatch(
   );
   const precreatedProducts =
     createRows.length > 0
-      ? await bulkCreateProductsFromStaging(db, brandId, createRows, {
-          skipCompletionEval: true,
-        })
+      ? await bulkCreateProductsFromStaging(db, brandId, createRows)
       : new Map<string, string>();
 
   if (precreatedProducts.size > 0) {
@@ -535,7 +531,6 @@ async function commitStagingRow(
   const rowStart = Date.now();
   let relationDurationMs = 0;
   let coreDurationMs = 0;
-  const modulesToEvaluate: Set<ModuleKey> = new Set(["core"]);
 
   if (!variant) {
     throw new Error("Staging product missing variant data");
@@ -559,25 +554,14 @@ async function commitStagingRow(
             brandId,
             {
               name: stagingProduct.name,
-              // productIdentifier is required; use provided or fallback to generated value
-              productIdentifier:
-                stagingProduct.productIdentifier ??
-                `PROD-${stagingProduct.id.slice(0, 8)}`,
-              upid: stagingProduct.productUpid || undefined,
+              productIdentifier: stagingProduct.productIdentifier ?? undefined,
               description: stagingProduct.description || undefined,
               categoryId: stagingProduct.categoryId || undefined,
-              season: stagingProduct.season || undefined, // Legacy: kept for backward compatibility
-              seasonId: stagingProduct.seasonId || undefined,
-              brandCertificationId:
-                stagingProduct.brandCertificationId || undefined,
-              showcaseBrandId: stagingProduct.showcaseBrandId || undefined,
-              primaryImageUrl: stagingProduct.primaryImageUrl || undefined,
-              additionalImageUrls:
-                stagingProduct.additionalImageUrls || undefined,
-              tags: stagingProduct.tags || undefined,
-              status: stagingProduct.status || undefined,
+              seasonId: stagingProduct.seasonId ?? undefined,
+              showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
+              primaryImageUrl: stagingProduct.primaryImageUrl ?? undefined,
+              status: stagingProduct.status ?? undefined,
             },
-            { skipCompletionEval: true },
           );
 
           if (!created?.id) {
@@ -598,19 +582,14 @@ async function commitStagingRow(
           {
             id: stagingProduct.existingProductId,
             name: stagingProduct.name,
-            upid: stagingProduct.productUpid,
-            description: stagingProduct.description,
-            categoryId: stagingProduct.categoryId,
-            season: stagingProduct.season, // Legacy: kept for backward compatibility
-            seasonId: stagingProduct.seasonId,
-            brandCertificationId: stagingProduct.brandCertificationId,
-            showcaseBrandId: stagingProduct.showcaseBrandId,
-            primaryImageUrl: stagingProduct.primaryImageUrl,
-            additionalImageUrls: stagingProduct.additionalImageUrls,
-            tags: stagingProduct.tags,
-            status: stagingProduct.status,
+            productIdentifier: stagingProduct.productIdentifier ?? undefined,
+            description: stagingProduct.description ?? undefined,
+            categoryId: stagingProduct.categoryId ?? undefined,
+            seasonId: stagingProduct.seasonId ?? undefined,
+            showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
+            primaryImageUrl: stagingProduct.primaryImageUrl ?? undefined,
+            status: stagingProduct.status ?? undefined,
           },
-          { skipCompletionEval: true },
         );
 
         if (!updated?.id) {
@@ -622,20 +601,16 @@ async function commitStagingRow(
 
       // Step 2: Create or update the product variant
       if (action === "CREATE") {
-        const createdVariant = await createVariant(
-          tx as unknown as Database,
-          productId,
-          {
-            sku: variant.sku || "",
-            ean: variant.ean || undefined,
-            upid: variant.upid || undefined,
-            status: variant.status || undefined,
-            colorId: variant.colorId || undefined,
-            sizeId: variant.sizeId || undefined,
-            productImageUrl: variant.productImageUrl || undefined,
-          },
-          { skipCompletionEval: true },
-        );
+        const [createdVariant] = await tx
+          .insert(productVariants)
+          .values({
+            id: variant.id,
+            productId,
+            colorId: variant.colorId ?? null,
+            sizeId: variant.sizeId ?? null,
+            upid: variant.upid,
+          })
+          .returning({ id: productVariants.id });
 
         if (!createdVariant?.id) {
           throw new Error("Failed to create variant");
@@ -648,20 +623,15 @@ async function commitStagingRow(
           throw new Error("UPDATE action missing existingVariantId");
         }
 
-        const updatedVariant = await updateVariant(
-          tx as unknown as Database,
-          variant.existingVariantId,
-          {
-            sku: variant.sku ?? undefined,
-            ean: variant.ean ?? undefined,
+        const [updatedVariant] = await tx
+          .update(productVariants)
+          .set({
+            colorId: variant.colorId ?? null,
+            sizeId: variant.sizeId ?? null,
             upid: variant.upid ?? undefined,
-            status: variant.status ?? undefined,
-            colorId: variant.colorId ?? undefined,
-            sizeId: variant.sizeId ?? undefined,
-            productImageUrl: variant.productImageUrl ?? undefined,
-          },
-          { skipCompletionEval: true },
-        );
+          })
+          .where(eq(productVariants.id, variant.existingVariantId))
+          .returning({ id: productVariants.id });
 
         if (!updatedVariant?.id) {
           throw new Error("Failed to update variant");
@@ -676,7 +646,6 @@ async function commitStagingRow(
       const relationsStart = Date.now();
       const stagingMaterials = stagingProduct.materials;
       if (stagingMaterials.length > 0) {
-        modulesToEvaluate.add("materials");
         await upsertProductMaterials(
           tx as unknown as Database,
           productId,
@@ -684,7 +653,6 @@ async function commitStagingRow(
             brandMaterialId: m.brandMaterialId,
             percentage: m.percentage || undefined,
           })),
-          { skipCompletionEval: true },
         );
       }
 
@@ -701,32 +669,24 @@ async function commitStagingRow(
       // Fetch and insert journey steps
       const stagingJourneySteps = stagingProduct.journeySteps;
       if (stagingJourneySteps.length > 0) {
-        modulesToEvaluate.add("journey");
         await setProductJourneySteps(
           tx as unknown as Database,
           productId,
           stagingJourneySteps.map((s) => ({
             sortIndex: s.sortIndex,
             stepType: s.stepType,
-            facilityId: s.facilityId,
+            facilityIds: [s.facilityId],
           })),
-          { skipCompletionEval: true },
         );
       }
 
       // Fetch and insert environment data
       const stagingEnvironment = stagingProduct.environment;
       if (stagingEnvironment) {
-        modulesToEvaluate.add("environment");
-        await upsertProductEnvironment(
-          tx as unknown as Database,
-          productId,
-          {
-            carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
-            waterLiters: stagingEnvironment.waterLiters || undefined,
-          },
-          { skipCompletionEval: true },
-        );
+        await upsertProductEnvironment(tx as unknown as Database, productId, {
+          carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
+          waterLiters: stagingEnvironment.waterLiters || undefined,
+        });
       }
 
       // Step 4: Mark import_row as APPLIED
@@ -745,12 +705,6 @@ async function commitStagingRow(
       importRowId = stagingProduct.stagingId;
       relationDurationMs = Date.now() - relationsStart;
     });
-
-    if (productId && modulesToEvaluate.size > 0) {
-      await evaluateAndUpsertCompletion(db, brandId, productId, {
-        onlyModules: Array.from(modulesToEvaluate),
-      });
-    }
 
     // Removed per-row logging for performance - only log errors and batch summaries
     return {

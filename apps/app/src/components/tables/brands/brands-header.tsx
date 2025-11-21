@@ -38,7 +38,9 @@ export function BrandsHeader({ activeTab, onTabChange }: Props) {
       </div>
 
       <Button asChild>
-        <Link href="/create-brand">Create brand</Link>
+        <Link href="/create-brand" prefetch>
+          Create brand
+        </Link>
       </Button>
     </div>
   );

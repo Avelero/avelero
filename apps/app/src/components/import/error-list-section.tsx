@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@v1/ui/table";
 import * as React from "react";
-import { toast } from "sonner";
+import { toast } from "@v1/ui/sonner";
 
 /**
  * Import error data type from getImportErrors endpoint
@@ -241,15 +241,19 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
 
     try {
       setIsExporting(true);
-      const toastId = toast.loading("Exporting failed rows...");
-
-      // Use queryClient to fetch data directly
-      const result = await queryClient.fetchQuery(
+      const exportPromise = queryClient.fetchQuery(
         trpc.bulk.staging.export.queryOptions({ jobId }),
+      );
+      const result = await toast.loading(
+        "Exporting failed rows...",
+        exportPromise,
+        {
+          errorMessage: "Failed to export failed rows. Please try again.",
+        },
       );
 
       if (result.totalRows === 0) {
-        toast.info("No failed rows to export", { id: toastId });
+        toast.success("No failed rows to export");
         return;
       }
 
@@ -264,11 +268,8 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success(`Exported ${result.totalRows} failed rows`, {
-        id: toastId,
-      });
+      toast.success(`Exported ${result.totalRows} failed rows`);
     } catch (err) {
-      toast.error("Failed to export failed rows. Please try again.");
       console.error("Export error:", err);
     } finally {
       setIsExporting(false);

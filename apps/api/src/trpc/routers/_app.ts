@@ -12,8 +12,9 @@ import { brandRouter } from "./brand/index.js";
 import { bulkRouter } from "./bulk/index.js";
 import { compositeRouter } from "./composite/index.js";
 import { internalRouter } from "./internal/index.js";
-import { passportsRouter } from "./passports/index.js";
+import { templatesRouter } from "./templates/index.js";
 import { productsRouter } from "./products/index.js";
+import { summaryRouter } from "./summary/index.js";
 import { userRouter } from "./user/index.js";
 import { workflowRouter } from "./workflow/index.js";
 
@@ -25,9 +26,10 @@ import { workflowRouter } from "./workflow/index.js";
  * - workflow: Brand lifecycle, members, and invites (renamed from "brand")
  * - brand: Brand catalog (colors, sizes, materials, etc.) (renamed from "brandCatalog")
  * - products: Products, variants, and attributes
- * - passports: Passports and templates (nested)
+ * - templates: Passport templates management
  * - bulk: Centralized bulk operations
  * - composite: Performance-optimized composite endpoints
+ * - summary: Aggregated stats endpoints
  * - internal: Internal server-to-server endpoints (protected by API key)
  */
 export const appRouter = createTRPCRouter({
@@ -35,9 +37,10 @@ export const appRouter = createTRPCRouter({
   workflow: workflowRouter,
   brand: brandRouter,
   products: productsRouter,
-  passports: passportsRouter,
+  templates: templatesRouter,
   bulk: bulkRouter,
   composite: compositeRouter,
+  summary: summaryRouter,
   internal: internalRouter,
 });
 

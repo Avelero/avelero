@@ -15,7 +15,7 @@ export type ValueMappingTarget =
   | "SHOWCASE_BRAND"
   | "CERTIFICATION"
   | "SEASON"
-  | "CARE_CODE";
+  | "TAG";
 
 /**
  * Input for creating a new value mapping

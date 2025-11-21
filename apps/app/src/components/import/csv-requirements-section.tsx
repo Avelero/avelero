@@ -2,8 +2,8 @@
 
 import { Button } from "@v1/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@v1/ui/tabs";
-import { CheckCircle, FileDown, Info } from "lucide-react";
-import { toast } from "sonner";
+import { Icons } from "@v1/ui/icons";
+import { toast } from "@v1/ui/sonner";
 
 // CSV template columns matching the backend expectations
 // 35 columns total - rich material details (country, recyclable) are entered via UI
@@ -106,7 +106,7 @@ export function CSVRequirementsSection() {
           {/* Required Columns */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 mb-4">
-              <CheckCircle className="h-4 w-4 text-brand" />
+              <Icons.CheckCircle className="h-4 w-4 text-brand" />
               <h4 className="text-sm font-semibold text-foreground">
                 Required Columns
               </h4>
@@ -146,7 +146,7 @@ export function CSVRequirementsSection() {
           {/* Optional Columns */}
           <div className="space-y-3 pt-4 border-t border-border">
             <div className="flex items-center gap-2 mb-4">
-              <Info className="h-4 w-4 text-gray-500" />
+              <Icons.AlertCircle className="h-4 w-4 text-gray-500" />
               <h4 className="text-sm font-semibold text-foreground">
                 Optional Columns
               </h4>
@@ -205,7 +205,7 @@ export function CSVRequirementsSection() {
         <TabsContent value="template" className="p-6 m-0">
           <div className="flex flex-col items-center justify-center py-8 space-y-6">
             <div className="text-center space-y-2">
-              <FileDown className="h-12 w-12 text-brand mx-auto mb-4" />
+              <Icons.Download className="h-12 w-12 text-brand mx-auto mb-4" />
               <h4 className="text-base font-semibold text-foreground">
                 Download CSV Template
               </h4>
@@ -222,17 +222,17 @@ export function CSVRequirementsSection() {
               type="button"
               className="gap-2"
             >
-              <FileDown className="h-4 w-4" />
+              <Icons.Download className="h-4 w-4" />
               Download Template
             </Button>
 
             <div className="flex items-center gap-6 text-xs text-gray-500 pt-4">
               <div className="flex items-center gap-1">
-                <Info className="h-3 w-3" />
+                <Icons.AlertCircle className="h-3 w-3" />
                 <span>CSV Format</span>
               </div>
               <div className="flex items-center gap-1">
-                <CheckCircle className="h-3 w-3" />
+                <Icons.CheckCircle className="h-3 w-3" />
                 <span>{TEMPLATE_COLUMNS.length} Columns</span>
               </div>
             </div>

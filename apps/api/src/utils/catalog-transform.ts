@@ -16,10 +16,12 @@ export function transformSeasonInput<T extends Record<string, any>>(
   for (const [key, value] of Object.entries(input)) {
     switch (key) {
       case "start_date":
-        result.startDate = value;
+        // Convert YYYY-MM-DD string to Date object
+        result.startDate = value ? new Date(value) : null;
         break;
       case "end_date":
-        result.endDate = value;
+        // Convert YYYY-MM-DD string to Date object
+        result.endDate = value ? new Date(value) : null;
         break;
       default:
         result[key] = value;
@@ -138,11 +140,29 @@ export function transformFacilityInput<T extends Record<string, any>>(
       case "legal_name":
         result.legalName = value;
         break;
+      case "email":
+        result.email = value;
+        break;
+      case "phone":
+        result.phone = value;
+        break;
+      case "website":
+        result.website = value;
+        break;
+      case "address_line_1":
+        result.addressLine1 = value;
+        break;
+      case "address_line_2":
+        result.addressLine2 = value;
+        break;
       case "country_code":
         result.countryCode = value;
         break;
-      case "vat_number":
-        result.vatNumber = value;
+      case "state":
+        result.state = value;
+        break;
+      case "zip":
+        result.zip = value;
         break;
       default:
         result[key] = value;

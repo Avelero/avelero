@@ -1,11 +1,11 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -48,6 +48,15 @@ function formatSeasonDateRange(season: Season): string {
   return `${startMonth} to ${endMonth}`;
 }
 
+function renderSeasonDateRange(season: Season): React.ReactNode {
+  const dateRange = formatSeasonDateRange(season);
+  return dateRange ? (
+    <span className="type-p text-tertiary">{dateRange}</span>
+  ) : season.isOngoing ? (
+    <span className="type-p text-tertiary">Ongoing</span>
+  ) : null;
+}
+
 export function SeasonSelect({
   value,
   onValueChange,
@@ -56,26 +65,9 @@ export function SeasonSelect({
   disabled = false,
   className,
 }: SeasonSelectProps) {
-  const trpc = useTRPC();
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
-
-  // Fetch seasons from API
-  const { data: seasonsData, isLoading } = useQuery(
-    trpc.brand.seasons.list.queryOptions({}),
-  );
-
-  // Transform API response to Season interface
-  const seasons = React.useMemo(() => {
-    if (!seasonsData?.data) return [];
-    return seasonsData.data.map((s) => ({
-      id: s.id,
-      name: s.name,
-      startDate: s.start_date ? new Date(s.start_date) : null,
-      endDate: s.end_date ? new Date(s.end_date) : null,
-      isOngoing: s.ongoing,
-    }));
-  }, [seasonsData]);
+  const { seasons } = useBrandCatalog();
 
   const handleSelect = (season: Season) => {
     onValueChange(season);
@@ -114,37 +106,26 @@ export function SeasonSelect({
           className={cn("w-full justify-between h-9", className)}
           icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
-          {value ? (
+{value ? (
             <div className="flex items-center gap-2">
               <span className="type-p text-primary">{value.name}</span>
-              {formatSeasonDateRange(value) && (
-                <span className="type-p text-tertiary">
-                  {formatSeasonDateRange(value)}
-                </span>
-              )}
-              {value.isOngoing && (
-                <span className="type-p text-tertiary">Ongoing</span>
-              )}
+              {renderSeasonDateRange(value)}
             </div>
           ) : (
             <span className="text-tertiary">{placeholder}</span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[360px] p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search seasons..."
             value={searchTerm}
             onValueChange={setSearchTerm}
           />
-          <CommandList>
+          <CommandList className="max-h-48">
             <CommandGroup>
-              {isLoading ? (
-                <div className="px-3 py-8 text-center">
-                  <p className="type-p text-tertiary">Loading seasons...</p>
-                </div>
-              ) : filteredSeasons.length > 0 ? (
+              {filteredSeasons.length > 0 ? (
                 filteredSeasons.map((season: Season) => (
                   <CommandItem
                     key={season.id}
@@ -154,14 +135,7 @@ export function SeasonSelect({
                   >
                     <div className="flex items-center gap-2">
                       <span className="type-p text-primary">{season.name}</span>
-                      {formatSeasonDateRange(season) && (
-                        <span className="type-p text-tertiary">
-                          {formatSeasonDateRange(season)}
-                        </span>
-                      )}
-                      {season.isOngoing && (
-                        <span className="type-p text-tertiary">Ongoing</span>
-                      )}
+                      {renderSeasonDateRange(season)}
                     </div>
                     {value?.id === season.id && (
                       <Icons.Check className="h-4 w-4" />
@@ -178,14 +152,16 @@ export function SeasonSelect({
                   </div>
                 </CommandItem>
               ) : !searchTerm ? (
-                <div className="px-3 py-8 text-center">
-                  <p className="type-p text-tertiary">
-                    {seasons.length === 0
-                      ? "Begin typing to create your first season"
-                      : "No seasons found"}
-                  </p>
-                </div>
-              ) : null}
+                onCreateNew ? (
+                  <CommandEmpty>
+                    Start typing to create...
+                  </CommandEmpty>
+                ) : null
+              ) : (
+                <CommandEmpty>
+                  No results found
+                </CommandEmpty>
+              )}
             </CommandGroup>
           </CommandList>
         </Command>

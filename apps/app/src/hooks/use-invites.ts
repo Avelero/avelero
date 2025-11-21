@@ -55,25 +55,30 @@ export function useMyInvitesQuerySuspense() {
  * Accepts a brand invitation and adds the user as a member.
  *
  * Implements optimistic updates to immediately remove the invite from the UI
- * before server confirmation. On success, shows a toast notification and
- * invalidates all brand-related queries to reflect the new membership.
+ * before server confirmation. On success, shows a toast notification,
+ * automatically sets the new brand as active (triggering a full page refresh),
+ * and invalidates all brand-related queries to reflect the new membership.
  * On error, rolls back the optimistic update and shows an error toast.
  *
+ * @param options.setActiveBrand - Mutation function from useSetActiveBrandMutation to trigger brand switch
  * @returns Mutation hook for accepting brand invites
  *
  * @example
  * ```tsx
- * const acceptInvite = useAcceptInviteMutation();
+ * const setActiveBrand = useSetActiveBrandMutation();
+ * const acceptInvite = useAcceptInviteMutation({ setActiveBrand: setActiveBrand.mutate });
  *
  * const handleAccept = async (inviteId: string) => {
- *   await acceptInvite.mutateAsync({
+ *   acceptInvite.mutate({
  *     invite_id: inviteId,
  *     action: "accept"
  *   });
  * };
  * ```
  */
-export function useAcceptInviteMutation() {
+export function useAcceptInviteMutation(opts?: {
+  setActiveBrand?: (variables: { brand_id: string }) => void;
+}) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   type RouterOutputs = inferRouterOutputs<AppRouter>;
@@ -118,19 +123,19 @@ export function useAcceptInviteMutation() {
         toast.success(`Accepted invite from ${brandName}`);
         const brandId = (data as { brandId?: string | null } | undefined)
           ?.brandId;
-        // Invalidate brand-specific queries if brand ID is available
-        if (brandId) {
-          void queryClient.invalidateQueries({
-            queryKey: trpc.workflow.members.list.queryKey({
-              brand_id: brandId,
-            }),
-          });
-          void queryClient.invalidateQueries({
-            queryKey: trpc.composite.membersWithInvites.queryKey({
-              brand_id: brandId,
-            }),
-          });
+
+        // Automatically set the new brand as active, triggering a full page refresh
+        if (brandId && opts?.setActiveBrand) {
+          opts.setActiveBrand({ brand_id: brandId });
         }
+
+        // Invalidate brand-specific queries (uses active brand from context)
+        void queryClient.invalidateQueries({
+          queryKey: trpc.workflow.members.list.queryKey({}),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: trpc.composite.membersWithInvites.queryKey({}),
+        });
       },
       onSettled: async () => {
         // Refresh invite inbox and memberships

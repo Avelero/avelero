@@ -2,7 +2,7 @@
 
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Icons } from "@v1/ui/icons";
 import { useState } from "react";
 
 export interface ValidationError {
@@ -41,7 +41,7 @@ export function ValidationErrorList({
     >
       {/* Error Summary Header */}
       <div className="flex items-start gap-3 p-3">
-        <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+        <Icons.AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-destructive">
             {errorCount} {errorCount === 1 ? "error" : "errors"} must be fixed
@@ -54,12 +54,12 @@ export function ValidationErrorList({
           >
             {isExpanded ? (
               <>
-                <ChevronUp className="h-3 w-3" />
+                <Icons.ChevronsUpDown className="h-3 w-3" />
                 Hide details
               </>
             ) : (
               <>
-                <ChevronDown className="h-3 w-3" />
+                <Icons.ChevronDown className="h-3 w-3" />
                 Show error details
               </>
             )}

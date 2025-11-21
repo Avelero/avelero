@@ -106,8 +106,19 @@ SmartAvatar.displayName = "SmartAvatar";
 const AvatarImageNext = React.forwardRef<
   React.ElementRef<typeof Image>,
   React.ComponentPropsWithoutRef<typeof Image>
->(({ className, onError, src, ...rest }, ref) => {
+>(({ className, onError, onLoad, src, ...rest }, ref) => {
   const [hasError, setHasError] = React.useState(false);
+  const imgRef = React.useRef<HTMLImageElement>(null);
+
+  // Check if image is already loaded (from cache)
+  React.useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      // Image is already loaded from cache, fire onLoad immediately
+      onLoad?.(new Event("load") as any);
+    }
+  }, [src, onLoad]);
+
   const srcStr = src as unknown as string | undefined;
   const isAbsoluteHttp =
     typeof srcStr === "string" && /^https?:\/\//i.test(srcStr);
@@ -117,7 +128,12 @@ const AvatarImageNext = React.forwardRef<
 
   return (
     <Image
-      ref={ref}
+      ref={(node) => {
+        // @ts-ignore
+        imgRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) ref.current = node;
+      }}
       className={cn(
         "absolute inset-0 z-10 h-full w-full object-cover object-center",
         className,
@@ -127,6 +143,9 @@ const AvatarImageNext = React.forwardRef<
         onError?.(e);
       }}
       unoptimized={isAbsoluteHttp}
+      onLoad={(e) => {
+        onLoad?.(e);
+      }}
       src={srcStr!}
       {...rest}
     />

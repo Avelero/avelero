@@ -1,7 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -65,40 +65,13 @@ export function PassportControls({
   const hasSelection = selectedCount > 0;
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const bulkUpdateMutation = useMutation(trpc.bulk.update.mutationOptions());
 
   async function handleBulkStatusChange(
     status: "published" | "scheduled" | "unpublished" | "archived",
   ) {
-    if (!selection) return;
-    try {
-      const res = await bulkUpdateMutation.mutateAsync({
-        domain: "passports",
-        selection:
-          selection.mode === "all"
-            ? { mode: "all", excludeIds: selection.excludeIds }
-            : { mode: "explicit", includeIds: selection.includeIds },
-        changes: { status },
-      } as any);
-      const affected =
-        (res as { affectedCount?: number } | undefined)?.affectedCount ??
-        selectedCount;
-      toast.success(`Edited ${affected} passports successfully`);
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: trpc.passports.list.queryKey(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: trpc.passports.list.queryKey({
-            includeStatusCounts: true,
-          }),
-        }),
-      ]);
-      // Clear selection and close popover after success
-      onClearSelectionAction?.();
-    } catch (err) {
-      toast.error("Bulk update failed, please try again");
-    }
+    // Bulk update API not available in this router yet; gracefully notify.
+    toast.error("Bulk update is not available right now.");
+    onClearSelectionAction?.();
   }
 
   return (

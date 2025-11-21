@@ -7,6 +7,7 @@ import { GeistMono } from "geist/font/mono";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { CTABlock } from "@/components/cta-block";
+import { Analytics } from "@vercel/analytics/next";
 
 const Switzer = localFont({
   src: "../../public/fonts/Switzer-Regular.woff2",
@@ -191,6 +192,7 @@ export default function RootLayout({
             <Footer />
           </div>
         </div>
+        <Analytics />
       </body>
     </html>
   );

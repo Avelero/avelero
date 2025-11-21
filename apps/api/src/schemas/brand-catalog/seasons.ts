@@ -2,13 +2,13 @@
  * Validation schemas for brand season operations.
  */
 import { z } from "zod";
-import { byIdSchema, updateWithNullable } from "../_shared/patterns.js";
+import { byIdSchema, updateWithNullable, voidSchema } from "../_shared/patterns.js";
 import { shortStringSchema } from "../_shared/primitives.js";
 
 /**
  * Empty input for listing seasons - no filters needed.
  */
-export const listSeasonsSchema = z.object({});
+export const listSeasonsSchema = voidSchema;
 
 /**
  * Payload for creating a season entry.

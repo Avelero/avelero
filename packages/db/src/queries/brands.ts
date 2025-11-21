@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { brandMembers, brands, users } from "../schema";
 
@@ -56,6 +56,44 @@ const BRAND_FIELD_MAP = {
  * Type-safe brand field names.
  */
 export type BrandField = keyof typeof BRAND_FIELD_MAP;
+
+/**
+ * Gets owner counts for multiple brands in a single query.
+ *
+ * Efficiently fetches the count of owners for each brand in the provided
+ * array, returning a map of brandId -> owner count. This is useful for
+ * determining whether users can leave brands (sole owners cannot leave).
+ *
+ * @param db - Database instance
+ * @param brandIds - Array of brand IDs to get owner counts for
+ * @returns Map of brandId -> owner count
+ */
+export async function getOwnerCountsByBrandIds(
+  db: Database,
+  brandIds: string[],
+): Promise<Map<string, number>> {
+  if (brandIds.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      brandId: brandMembers.brandId,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(brandMembers)
+    .where(
+      and(
+        inArray(brandMembers.brandId, brandIds),
+        eq(brandMembers.role, "owner"),
+      ),
+    )
+    .groupBy(brandMembers.brandId);
+
+  const ownerCounts = new Map<string, number>();
+  for (const row of rows) {
+    ownerCounts.set(row.brandId, row.count);
+  }
+  return ownerCounts;
+}
 
 /**
  * Gets brands for a user with optional field selection.

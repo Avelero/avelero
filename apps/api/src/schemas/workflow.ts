@@ -47,6 +47,15 @@ export const workflowBrandIdSchema = z.object({
 });
 
 /**
+ * Optional schema for endpoints that use brandRequiredProcedure.
+ * These endpoints automatically use the active brand from context, so
+ * brand_id is optional and only used for validation if provided.
+ */
+export const workflowBrandIdOptionalSchema = z.object({
+  brand_id: uuidSchema.optional(),
+});
+
+/**
  * Payload for the multi-purpose members mutation supporting leave, removal,
  * and role updates. Validation ensures that either:
  * - both `user_id` and `role` are provided (update)
@@ -55,7 +64,7 @@ export const workflowBrandIdSchema = z.object({
  */
 export const workflowMembersUpdateSchema = z
   .object({
-    brand_id: uuidSchema,
+    brand_id: uuidSchema.optional(),
     user_id: uuidSchema.optional(),
     role: roleSchema.nullable().optional(),
   })
@@ -76,13 +85,13 @@ export const workflowMembersUpdateSchema = z
 /**
  * Payload for listing pending invites for a workflow.
  */
-export const workflowInvitesListSchema = workflowBrandIdSchema;
+export const workflowInvitesListSchema = workflowBrandIdOptionalSchema;
 
 /**
  * Payload for sending a workflow invite.
  */
 export const workflowInvitesSendSchema = z.object({
-  brand_id: uuidSchema,
+  brand_id: uuidSchema.optional(),
   email: emailSchema,
   role: roleSchema.default("member"),
 });

@@ -10,18 +10,23 @@ import {
   deleteProduct,
   getProductWithIncludes,
   listProductsWithIncludes,
-  setProductCareCodes,
+  updateProduct,
   setProductEcoClaims,
   setProductJourneySteps,
-  updateProduct,
   upsertProductEnvironment,
   upsertProductMaterials,
+  getProductWithIncludesByUpid,
+  setProductTags,
 } from "@v1/db/queries";
+import { productVariants, products } from "@v1/db/schema";
+import { and, eq, inArray } from "@v1/db/queries";
+import { generateUniqueUpid, generateUniqueUpids } from "@v1/db/utils";
 import {
   productsDomainCreateSchema,
   productsDomainDeleteSchema,
   productsDomainGetSchema,
   productsDomainListSchema,
+  productsDomainGetByUpidSchema,
   productsDomainUpdateSchema,
 } from "../../../schemas/products.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -50,6 +55,23 @@ function normalizeBrandId(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+type CreateProductInput = Parameters<typeof createProduct>[2];
+type UpdateProductInput = Parameters<typeof updateProduct>[2];
+type AttributeInput = {
+  materials?: { brand_material_id: string; percentage?: string | number }[];
+  eco_claim_ids?: string[];
+  journey_steps?: {
+    sort_index: number;
+    step_type: string;
+    facility_ids: string[]; // Changed from facility_id to support multiple operators
+  }[];
+  environment?: {
+    carbon_kg_co2e?: string | number;
+    water_liters?: string | number;
+  };
+  tag_ids?: string[];
+};
+
 export const productsRouter = createTRPCRouter({
   list: brandRequiredProcedure
     .input(productsDomainListSchema)
@@ -63,15 +85,14 @@ export const productsRouter = createTRPCRouter({
       const result = await listProductsWithIncludes(
         brandCtx.db,
         brandId,
-        {
+        ({
           categoryId: input.filters?.category_id,
-          season: input.filters?.season,
+          seasonId: input.filters?.season_id,
           search: input.filters?.search,
-        },
+        } as unknown as Parameters<typeof listProductsWithIncludes>[2]),
         {
           cursor: input.cursor,
           limit: input.limit,
-          fields: input.fields,
           includeVariants: input.includeVariants,
           includeAttributes: input.includeAttributes,
         },
@@ -95,6 +116,17 @@ export const productsRouter = createTRPCRouter({
       });
     }),
 
+  getByUpid: brandRequiredProcedure
+    .input(productsDomainGetByUpidSchema)
+    .query(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = ensureBrandScope(brandCtx);
+      return getProductWithIncludesByUpid(brandCtx.db, brandId, input.upid, {
+        includeVariants: input.includeVariants,
+        includeAttributes: input.includeAttributes,
+      });
+    }),
+
   create: brandRequiredProcedure
     .input(productsDomainCreateSchema)
     .mutation(async ({ ctx, input }) => {
@@ -102,19 +134,56 @@ export const productsRouter = createTRPCRouter({
       const brandId = ensureBrandScope(brandCtx, input.brand_id);
 
       try {
-        const product = await createProduct(brandCtx.db, brandId, {
-          name: input.name,
-          productIdentifier: input.product_identifier,
-          description: input.description,
-          categoryId: input.category_id,
-          season: input.season, // Legacy: deprecated, use seasonId
-          seasonId: input.season_id,
-          brandCertificationId: input.brand_certification_id,
-          showcaseBrandId: input.showcase_brand_id,
-          primaryImageUrl: input.primary_image_url,
-          colorIds: input.color_ids,
-          sizeIds: input.size_ids,
+        const upid = await generateUniqueUpid({
+          isTaken: async (candidate: string) => {
+            const existing = await brandCtx.db
+              .select({ id: products.id })
+              .from(products)
+              .where(and(eq(products.brandId, brandId), eq(products.upid, candidate)))
+              .limit(1);
+            return Boolean(existing[0]);
+          },
         });
+
+        const payload: Record<string, unknown> = {
+          name: input.name,
+          upid,
+          productIdentifier: input.product_identifier,
+          description: input.description ?? null,
+          categoryId: input.category_id ?? null,
+          seasonId: input.season_id ?? null,
+          showcaseBrandId: input.showcase_brand_id ?? null,
+          primaryImageUrl: input.primary_image_url ?? null,
+          templateId: input.template_id ?? null,
+          status: input.status ?? undefined,
+        };
+
+        const product = await createProduct(
+          brandCtx.db,
+          brandId,
+          payload as CreateProductInput,
+        );
+
+        if (!product?.id) {
+          throw badRequest("Product was not created");
+        }
+
+        await applyProductAttributes(brandCtx, product.id, {
+          materials: input.materials,
+          eco_claim_ids: input.eco_claim_ids,
+          journey_steps: input.journey_steps,
+          environment: input.environment,
+          tag_ids: input.tag_ids,
+        });
+        if (input.color_ids && input.size_ids) {
+          await replaceVariantsForProduct(
+            brandCtx,
+            product.id,
+            input.color_ids,
+            input.size_ids,
+          );
+        }
+
         return createEntityResponse(product);
       } catch (error) {
         throw wrapError(error, "Failed to create product");
@@ -132,65 +201,38 @@ export const productsRouter = createTRPCRouter({
 
       try {
         // Update basic product fields
-        const product = await updateProduct(brandCtx.db, brandId, {
+        const payload: Record<string, unknown> = {
           id: input.id,
+          productIdentifier: input.product_identifier,
           name: input.name,
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
-          season: input.season ?? null, // Legacy: deprecated, use seasonId
           seasonId: input.season_id ?? null,
-          brandCertificationId: input.brand_certification_id ?? null,
           showcaseBrandId: input.showcase_brand_id ?? null,
           primaryImageUrl: input.primary_image_url ?? null,
-          colorIds: input.color_ids,
-          sizeIds: input.size_ids,
+          templateId: input.template_id ?? null,
+          status: input.status ?? undefined,
+        };
+
+        const product = await updateProduct(
+          brandCtx.db,
+          brandId,
+          payload as UpdateProductInput,
+        );
+
+        await applyProductAttributes(brandCtx, input.id, {
+          materials: input.materials,
+          eco_claim_ids: input.eco_claim_ids,
+          journey_steps: input.journey_steps,
+          environment: input.environment,
+          tag_ids: input.tag_ids,
         });
-
-        // Update product attributes if provided
-        // Each attribute update triggers module completion evaluation
-        if (input.materials && Array.isArray(input.materials)) {
-          await upsertProductMaterials(
-            brandCtx.db,
+        if (input.color_ids && input.size_ids) {
+          await replaceVariantsForProduct(
+            brandCtx,
             input.id,
-            input.materials.map((m: any) => ({
-              brandMaterialId: m.brand_material_id,
-              percentage: m.percentage,
-            })),
-          );
-        }
-
-        if (input.careCodes && Array.isArray(input.careCodes)) {
-          await setProductCareCodes(
-            brandCtx.db,
-            input.id,
-            input.careCodes as string[],
-          );
-        }
-
-        if (input.ecoClaims && Array.isArray(input.ecoClaims)) {
-          await setProductEcoClaims(
-            brandCtx.db,
-            input.id,
-            input.ecoClaims as string[],
-          );
-        }
-
-        if (input.environment && typeof input.environment === "object") {
-          await upsertProductEnvironment(brandCtx.db, input.id, {
-            carbonKgCo2e: (input.environment as any).carbon_kg_co2e,
-            waterLiters: (input.environment as any).water_liters,
-          });
-        }
-
-        if (input.journeySteps && Array.isArray(input.journeySteps)) {
-          await setProductJourneySteps(
-            brandCtx.db,
-            input.id,
-            input.journeySteps.map((step: any) => ({
-              sortIndex: step.sort_index,
-              stepType: step.step_type,
-              facilityId: step.facility_id,
-            })),
+            input.color_ids,
+            input.size_ids,
           );
         }
 
@@ -221,3 +263,150 @@ export const productsRouter = createTRPCRouter({
 });
 
 export type ProductsRouter = typeof productsRouter;
+
+async function applyProductAttributes(
+  ctx: BrandContext,
+  productId: string,
+  input: AttributeInput,
+) {
+  // Materials
+  if (input.materials) {
+    await upsertProductMaterials(
+      ctx.db,
+      productId,
+      input.materials.map((material) => ({
+        brandMaterialId: material.brand_material_id,
+        percentage:
+          material.percentage !== undefined
+            ? String(material.percentage)
+            : undefined,
+      })),
+    );
+  }
+
+  // Eco-claims
+  if (input.eco_claim_ids) {
+    await setProductEcoClaims(ctx.db, productId, input.eco_claim_ids);
+  }
+
+  // Environment
+  if (input.environment) {
+    await upsertProductEnvironment(ctx.db, productId, {
+      carbonKgCo2e:
+        input.environment.carbon_kg_co2e !== undefined
+          ? String(input.environment.carbon_kg_co2e)
+          : undefined,
+      waterLiters:
+        input.environment.water_liters !== undefined
+          ? String(input.environment.water_liters)
+          : undefined,
+    });
+  }
+
+  // Journey steps
+  if (input.journey_steps) {
+    await setProductJourneySteps(
+      ctx.db,
+      productId,
+      input.journey_steps.map((step) => ({
+        sortIndex: step.sort_index,
+        stepType: step.step_type,
+        facilityIds: step.facility_ids, // Changed from facilityId to support multiple operators
+      })),
+    );
+  }
+
+  if (input.tag_ids) {
+    await setProductTags(ctx.db, productId, input.tag_ids);
+  }
+}
+
+async function replaceVariantsForProduct(
+  ctx: BrandContext,
+  productId: string,
+  colorIds: string[],
+  sizeIds: string[],
+) {
+  const uniqueColors = Array.from(new Set(colorIds));
+  const uniqueSizes = Array.from(new Set(sizeIds));
+
+  const desired: Array<{ colorId: string | null; sizeId: string | null }> = [];
+  if (uniqueColors.length === 0 && uniqueSizes.length === 0) return;
+  if (uniqueColors.length === 0) {
+    for (const sizeId of uniqueSizes) desired.push({ colorId: null, sizeId });
+  } else if (uniqueSizes.length === 0) {
+    for (const colorId of uniqueColors) desired.push({ colorId, sizeId: null });
+  } else {
+    for (const colorId of uniqueColors) {
+      for (const sizeId of uniqueSizes) desired.push({ colorId, sizeId });
+    }
+  }
+
+  await ctx.db.transaction(async (tx) => {
+    const existing = await tx
+      .select({
+        id: productVariants.id,
+        color_id: productVariants.colorId,
+        size_id: productVariants.sizeId,
+        upid: productVariants.upid,
+      })
+      .from(productVariants)
+      .where(eq(productVariants.productId, productId));
+
+    const makeKey = (c: string | null, s: string | null) =>
+      `${c ?? "null"}:${s ?? "null"}`;
+
+    const existingByKey = new Map<string, { id: string; upid: string | null }>();
+    for (const row of existing) {
+      existingByKey.set(makeKey(row.color_id, row.size_id), {
+        id: row.id,
+        upid: row.upid,
+      });
+    }
+
+    const desiredKeys = new Set(desired.map((v) => makeKey(v.colorId, v.sizeId)));
+
+    const idsToDelete = existing
+      .filter((row) => !desiredKeys.has(makeKey(row.color_id, row.size_id)))
+      .map((row) => row.id);
+
+    if (idsToDelete.length) {
+      await tx.delete(productVariants).where(inArray(productVariants.id, idsToDelete));
+    }
+
+    const toInsert = desired.filter(
+      (v) => !existingByKey.has(makeKey(v.colorId, v.sizeId)),
+    );
+
+    if (toInsert.length) {
+      const needed = toInsert.length;
+      const upids = await generateUniqueUpids({
+        count: needed,
+        isTaken: async (candidate: string) => {
+          const [row] = await tx
+            .select({ id: productVariants.id })
+            .from(productVariants)
+            .where(eq(productVariants.upid, candidate))
+            .limit(1);
+          return Boolean(row);
+        },
+        fetchTakenSet: async (candidates: readonly string[]) => {
+          const rows = await tx
+            .select({ upid: productVariants.upid })
+            .from(productVariants)
+            .where(inArray(productVariants.upid, candidates));
+          return new Set(rows.map((r) => r.upid!).filter(Boolean));
+        },
+      });
+
+      await tx.insert(productVariants).values(
+        toInsert.map((variant, idx) => ({
+          productId,
+          colorId: variant.colorId,
+          sizeId: variant.sizeId,
+          upid: upids[idx] ?? null,
+        })),
+      );
+    }
+  });
+}

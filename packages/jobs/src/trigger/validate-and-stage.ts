@@ -2,7 +2,6 @@ import "./configure-trigger";
 import { randomUUID } from "node:crypto";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
-import { generateUpid } from "@v1/db/index";
 import {
   type CreateImportRowParams,
   type UpdateImportRowStatusParams,
@@ -26,7 +25,7 @@ import {
 import { and, eq, inArray } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
 import * as schema from "@v1/db/schema";
-import { or, sql } from "drizzle-orm";
+import { generateUniqueUpid } from "@v1/db/utils";
 import pMap from "p-map";
 import type { BrandCatalog } from "../lib/catalog-loader";
 import {
@@ -125,15 +124,10 @@ async function downloadFileFromSupabase({
  * NEW FORMAT (minimal):
  * - category: hierarchical path (e.g., "Men's > Tops > T-Shirts")
  * - colors: pipe-separated (e.g., "Blue|Green|Custom:Navy")
- * - tags: pipe-separated with optional color (e.g., "Tag1|New:Tag2:#10B981")
  * - eco_claims: pipe-separated (e.g., "Claim1|Claim2|Claim3")
  * - materials: complex format (e.g., "Cotton:75:TR:yes:GOTS:123:2025-12-31|Polyester:25")
  * - journey_steps: step@operators format (e.g., "Spinning@SupplierA,SupplierB|Weaving@SupplierC")
- *
- * LEGACY FORMAT (backward compatible):
- * - Old material columns (material_1_name, material_1_percentage, etc.)
- * - Old journey columns (journey_step_1, journey_operator_1, etc.)
- * - Old color_name (single value)
+ * Legacy columns are not supported in the new pipeline.
  */
 interface CSVRow {
   // ============================================================================
@@ -142,93 +136,47 @@ interface CSVRow {
   product_name: string; // Max 100 characters
   product_identifier: string; // Required - Unique product identifier (brand-scoped, shared across variants)
   upid?: string; // Optional - Unique variant identifier (auto-generated if not provided)
-  sku?: string; // Optional - Legacy/external variant tracking
 
   // ============================================================================
-  // BASIC INFORMATION (NEW FORMAT)
+  // BASIC INFORMATION
   // ============================================================================
   description?: string; // Max 2000 characters
-  ean?: string; // EAN-8 or EAN-13 with valid checksum
   status?: string; // draft|published|archived (default: draft)
   brand?: string; // Showcase brand name
 
   // ============================================================================
-  // ORGANIZATION (NEW FORMAT)
+  // ORGANIZATION
   // ============================================================================
   category?: string; // Hierarchical path: "Men's > Tops > T-Shirts"
   season?: string; // Season name: "SS 2025" or "FW 2024"
   colors?: string; // Pipe-separated: "Blue|Green"
   size?: string; // Size name: "S", "M", "L", "XL", etc.
-  tags?: string; // Pipe-separated: "Tag1|Tag2|Tag3"
 
   // ============================================================================
-  // ENVIRONMENT (NEW FORMAT)
+  // ENVIRONMENT
   // ============================================================================
   carbon_footprint?: string; // Single decimal value (kg CO2e)
   water_usage?: string; // Single decimal value (liters)
   eco_claims?: string; // Pipe-separated claims (max 5, each max 50 chars)
 
   // ============================================================================
-  // MATERIALS (NEW FORMAT)
+  // MATERIALS
   // ============================================================================
   // Format: "Name:Percentage[:Country:Recyclable:CertTitle:CertNumber:CertExpiry]|..."
   // Example: "Cotton:75:TR:yes:GOTS:123:2025-12-31|Polyester:25"
   materials?: string;
 
   // ============================================================================
-  // JOURNEY STEPS (NEW FORMAT)
+  // JOURNEY STEPS
   // ============================================================================
   // Format: "StepName@Operator1,Operator2|Step2@Operator3"
   // Example: "Spinning@SupplierA,SupplierB|Weaving@SupplierC"
   journey_steps?: string;
 
   // ============================================================================
-  // IMAGES (NEW FORMAT)
+  // IMAGES
   // ============================================================================
   primary_image_url?: string; // Single URL
-  additional_image_urls?: string; // Pipe-separated URLs
-
-  // ============================================================================
-  // LEGACY FIELDS (BACKWARD COMPATIBILITY)
-  // ============================================================================
-  // Legacy organization
-  category_id?: string;
-  category_name?: string; // Legacy: single category name
-  color_name?: string; // Legacy: single color (replaced by colors)
-  color_id?: string;
-  size_id?: string;
-  size_name?: string;
-
-  // Legacy variant identifiers
-  product_image_url?: string;
-
-  // Legacy materials (separate columns)
-  material_1_name?: string;
-  material_1_percentage?: string;
-  material_2_name?: string;
-  material_2_percentage?: string;
-  material_3_name?: string;
-  material_3_percentage?: string;
-
-  // Legacy journey (separate columns)
-  journey_step_1?: string;
-  journey_operator_1?: string;
-  journey_step_2?: string;
-  journey_operator_2?: string;
-  journey_step_3?: string;
-  journey_operator_3?: string;
-  journey_step_4?: string;
-  journey_operator_4?: string;
-  journey_step_5?: string;
-  journey_operator_5?: string;
-
-  // Legacy care & certifications
-  care_codes?: string;
-  certifications?: string;
-
-  // Legacy brand fields
-  showcase_brand_id?: string;
-  brand_certification_id?: string;
 
   [key: string]: unknown;
 }
@@ -280,18 +228,13 @@ interface ExistingVariant {
   categoryId: string | null;
   seasonId: string | null;
   primaryImageUrl: string | null;
-  additionalImageUrls: string | null;
-  tags: string | null;
   showcaseBrandId: string | null;
+  status: string | null;
   // Variant fields
   variant_id: string;
   upid: string | null;
-  sku: string | null; // Optional metadata only, not used for matching
-  ean: string | null;
   colorId: string | null;
   sizeId: string | null;
-  status: string | null;
-  productImageUrl: string | null;
 }
 
 /**
@@ -688,18 +631,13 @@ export const validateAndStage = task({
           });
 
           // Load existing variants for this batch only (per-batch queries)
-          // Support both UPID and SKU matching since UPID is optional
           const batchUpids = batch
             .map((r) => (r as CSVRow).upid)
             .filter((v): v is string => !!v && v.trim() !== "");
-          const batchSkus = batch
-            .map((r) => (r as CSVRow).sku)
-            .filter((v): v is string => !!v && v.trim() !== "");
 
           const existingVariantsByUpid = new Map<string, ExistingVariant>();
-          const existingVariantsBySku = new Map<string, ExistingVariant>();
 
-          if (batchUpids.length > 0 || batchSkus.length > 0) {
+          if (batchUpids.length > 0) {
             const existingVariants = await db
               .select({
                 variantId: productVariants.id,
@@ -710,30 +648,18 @@ export const validateAndStage = task({
                 categoryId: products.categoryId,
                 seasonId: products.seasonId,
                 primaryImageUrl: products.primaryImageUrl,
-                additionalImageUrls: products.additionalImageUrls,
-                tags: products.tags,
                 showcaseBrandId: products.showcaseBrandId,
+                status: products.status,
                 upid: productVariants.upid,
-                sku: productVariants.sku,
-                ean: productVariants.ean,
                 colorId: productVariants.colorId,
                 sizeId: productVariants.sizeId,
-                status: productVariants.status,
-                productImageUrl: productVariants.productImageUrl,
               })
               .from(productVariants)
               .innerJoin(products, eq(productVariants.productId, products.id))
               .where(
                 and(
                   eq(products.brandId, brandId),
-                  or(
-                    batchUpids.length > 0
-                      ? inArray(productVariants.upid, batchUpids)
-                      : sql`FALSE`,
-                    batchSkus.length > 0
-                      ? inArray(productVariants.sku, batchSkus)
-                      : sql`FALSE`,
-                  ),
+                  inArray(productVariants.upid, batchUpids),
                 ),
               );
 
@@ -746,25 +672,16 @@ export const validateAndStage = task({
                 categoryId: v.categoryId,
                 seasonId: v.seasonId,
                 primaryImageUrl: v.primaryImageUrl,
-                additionalImageUrls: v.additionalImageUrls,
-                tags: v.tags,
                 showcaseBrandId: v.showcaseBrandId,
+                status: v.status,
                 variant_id: v.variantId,
                 upid: v.upid,
-                sku: v.sku,
-                ean: v.ean,
                 colorId: v.colorId,
                 sizeId: v.sizeId,
-                status: v.status,
-                productImageUrl: v.productImageUrl,
               };
 
-              // Index by both UPID and SKU for flexible matching
               if (v.upid && v.upid.trim() !== "") {
                 existingVariantsByUpid.set(v.upid, variant);
-              }
-              if (v.sku && v.sku.trim() !== "") {
-                existingVariantsBySku.set(v.sku, variant);
               }
             }
           }
@@ -791,7 +708,6 @@ export const validateAndStage = task({
                   duplicateRowNumbers,
                   duplicateDetails,
                   existingVariantsByUpid,
-                  existingVariantsBySku,
                   db,
                 );
 
@@ -1433,17 +1349,12 @@ function detectChanges(
     categoryId: string | null;
     seasonId: string | null;
     primaryImageUrl: string | null;
-    additionalImageUrls: string | null;
-    tags: string | null;
     showcaseBrandId: string | null;
+    status: string | null;
     // Variant fields
-    sku: string | null;
     upid: string | null;
-    ean: string | null;
     colorId: string | null;
     sizeId: string | null;
-    status: string | null;
-    productImageUrl: string | null;
   },
 ): { hasChanges: boolean; changedFields: string[] } {
   const changedFields: string[] = [];
@@ -1472,46 +1383,22 @@ function detectChanges(
     changedFields.push("seasonId");
   if (isDifferent(newProduct.primaryImageUrl, existing.primaryImageUrl))
     changedFields.push("primaryImageUrl");
-  if (isDifferent(newProduct.additionalImageUrls, existing.additionalImageUrls))
-    changedFields.push("additionalImageUrls");
-  if (isDifferent(newProduct.tags, existing.tags)) changedFields.push("tags");
   if (isDifferent(newProduct.showcaseBrandId, existing.showcaseBrandId))
     changedFields.push("showcaseBrandId");
+  if (isDifferent(newProduct.status, existing.status))
+    changedFields.push("status");
 
   // Compare variant fields
-  if (isDifferent(newVariant.sku, existing.sku)) changedFields.push("sku");
   if (isDifferent(newVariant.upid, existing.upid)) changedFields.push("upid");
-  if (isDifferent(newVariant.ean, existing.ean)) changedFields.push("ean");
   if (isDifferent(newVariant.colorId, existing.colorId))
     changedFields.push("colorId");
   if (isDifferent(newVariant.sizeId, existing.sizeId))
     changedFields.push("sizeId");
-  if (isDifferent(newVariant.productImageUrl, existing.productImageUrl))
-    changedFields.push("productImageUrl");
-
-  // Status: normalize to uppercase for comparison
-  const newStatus = (newVariant.status || "DRAFT").toUpperCase();
-  const oldStatus = (existing.status || "DRAFT").toUpperCase();
-  if (newStatus !== oldStatus) changedFields.push("status");
 
   return {
     hasChanges: changedFields.length > 0,
     changedFields,
   };
-}
-
-/**
- * Validate URL format
- * @param url - URL string from CSV
- * @returns true if valid URL format
- */
-function validateURL(url: string): boolean {
-  try {
-    const parsed = new URL(url.trim());
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -1528,9 +1415,9 @@ function validateURL(url: string): boolean {
  * @param catalog - In-memory brand catalog for fast lookups
  * @param unmappedValues - Map to track unmapped values
  * @param unmappedValueDetails - Map to track detailed unmapped value information for pending_approval
- * @param duplicateRowNumbers - Set of row numbers that have duplicate UPID/SKU
- * @param duplicateCheckColumn - Column name being checked for duplicates (upid or sku)
- * @param existingVariantsMap - Pre-loaded map of existing variants (UPID/SKU -> product/variant IDs)
+ * @param duplicateRowNumbers - Set of row numbers that have duplicate UPID
+ * @param duplicateCheckColumn - Column name being checked for duplicates (upid)
+ * @param existingVariantsMap - Pre-loaded map of existing variants (UPID -> product/variant IDs)
  * @param db - Database instance for auto-creating entities
  * @returns Validated row data with errors and warnings
  */
@@ -1552,24 +1439,7 @@ async function validateRow(
   >,
   duplicateRowNumbers: Set<number>,
   duplicateDetails: Map<number, { type: "upid" | "composite"; value: string }>,
-  existingVariantsByUpid: Map<
-    string,
-    {
-      id: string;
-      variant_id: string;
-      upid: string | null;
-      sku: string | null;
-    }
-  >,
-  existingVariantsBySku: Map<
-    string,
-    {
-      id: string;
-      variant_id: string;
-      upid: string | null;
-      sku: string | null;
-    }
-  >,
+  existingVariantsByUpid: Map<string, ExistingVariant>,
   db: Database,
 ): Promise<ValidatedRowData> {
   const errors: ValidationError[] = [];
@@ -1624,10 +1494,18 @@ async function validateRow(
   }
 
   // Auto-generate UPID if not provided (variant-level identification)
-  const upid = row.upid?.trim() || generateUpid();
-
-  // Extract SKU for variant matching (optional field)
-  const sku = row.sku?.trim() || null;
+  const upid =
+    row.upid?.trim() ||
+    (await generateUniqueUpid({
+      isTaken: async (candidate: string) => {
+        const [existing] = await db
+          .select({ id: productVariants.id })
+          .from(productVariants)
+          .where(eq(productVariants.upid, candidate))
+          .limit(1);
+        return Boolean(existing);
+      },
+    }));
 
   // HARD ERROR: Check string length limits
   if (row.product_name && row.product_name.length > 100) {
@@ -1648,23 +1526,6 @@ async function validateRow(
       message: "Description cannot exceed 2000 characters",
       severity: "error",
     });
-  }
-
-  // ========================================================================
-  // NEW FIELD VALIDATIONS (Task 26)
-  // ========================================================================
-
-  // HARD ERROR: EAN validation
-  if (row.ean?.trim()) {
-    if (!validateEAN(row.ean)) {
-      errors.push({
-        type: "HARD_ERROR",
-        subtype: "INVALID_EAN",
-        field: "ean",
-        message: `Invalid EAN barcode: "${row.ean}". Must be EAN-8 or EAN-13 with valid checksum`,
-        severity: "error",
-      });
-    }
   }
 
   // Validate status (defaults to unpublished if invalid/empty)
@@ -1702,39 +1563,14 @@ async function validateRow(
   }
 
   // ========================================================================
-  // MATERIALS VALIDATION - Support both NEW and LEGACY formats
+  // MATERIALS VALIDATION
   // ========================================================================
-  // NEW format: materials field with complex format
-  // LEGACY format: material_1_name, material_1_percentage, etc.
+  // Format: materials field with complex format
 
   let materialsToValidate: ParsedMaterial[] = [];
 
-  // Try NEW format first
   if (row.materials?.trim()) {
     materialsToValidate = parseMaterials(row.materials);
-  }
-  // Fall back to LEGACY format
-  else if (row.material_1_name || row.material_2_name || row.material_3_name) {
-    // Convert legacy format to ParsedMaterial format
-    const legacyMaterials = [
-      { name: row.material_1_name, percentageStr: row.material_1_percentage },
-      { name: row.material_2_name, percentageStr: row.material_2_percentage },
-      { name: row.material_3_name, percentageStr: row.material_3_percentage },
-    ];
-
-    for (const mat of legacyMaterials) {
-      if (mat.name?.trim()) {
-        const percentage = mat.percentageStr
-          ? Number.parseFloat(mat.percentageStr)
-          : 0;
-        if (!Number.isNaN(percentage)) {
-          materialsToValidate.push({
-            name: mat.name.trim(),
-            percentage,
-          });
-        }
-      }
-    }
   }
 
   // Simplified material validation - only check for critical errors
@@ -1805,19 +1641,9 @@ async function validateRow(
   // Note: URL validation removed for performance
   // URLs will be validated when actually used/accessed
 
-  // ========================================================================
-  // BACKWARD COMPATIBILITY: Support both old and new CSV formats
-  // ========================================================================
-  // Old format (19 columns): uses color_name (single value)
-  // New format (44 columns): uses colors (pipe-separated multi-value)
-  // This ensures existing CSVs continue to work while supporting new features
-  // ========================================================================
-
   // Parse multi-value fields (pipe-separated)
-  const colors = parsePipeSeparated(row.colors || row.color_name); // Backward compatibility: colors OR color_name
-  const tags = parsePipeSeparated(row.tags);
+  const colors = parsePipeSeparated(row.colors);
   // ecoClaims already parsed above in ECO-CLAIMS VALIDATION section
-  const certifications = parsePipeSeparated(row.certifications);
 
   // ========================================================================
   // END NEW FIELD VALIDATIONS
@@ -1849,7 +1675,7 @@ async function validateRow(
   }
 
   // ========================================================================
-  // COLOR VALIDATION - Support both single (legacy) and multiple (new) format
+  // COLOR VALIDATION
   // ========================================================================
   let colorId: string | null = null;
   const colorIds: string[] = [];
@@ -1880,33 +1706,13 @@ async function validateRow(
     }
     // For variant, use first color as primary
     colorId = colorIds.length > 0 ? colorIds[0] ?? null : null;
-  } else if (row.color_name) {
-    // Legacy single color support
-    colorId = lookupColorId(catalog, row.color_name, "color_name");
-    if (!colorId) {
-      trackUnmappedValue(
-        unmappedValues,
-        unmappedValueDetails,
-        "COLOR",
-        row.color_name,
-        "color_name",
-      );
-      warnings.push({
-        type: "NEEDS_DEFINITION",
-        subtype: "MISSING_COLOR",
-        field: "color_name",
-        message: `Color "${row.color_name}" needs to be mapped to an existing color`,
-        severity: "warning",
-        entityType: "COLOR",
-      });
-    }
   }
 
   // ========================================================================
-  // SIZE VALIDATION - Support both new 'size' and legacy 'size_name' columns
+  // SIZE VALIDATION
   // ========================================================================
   let sizeId: string | null = null;
-  const sizeName = row.size || row.size_name;
+  const sizeName = row.size;
 
   if (sizeName?.trim()) {
     sizeId = lookupSizeId(catalog, sizeName, "size");
@@ -1928,13 +1734,6 @@ async function validateRow(
       });
     }
   }
-
-  // ========================================================================
-  // TAGS VALIDATION
-  // ========================================================================
-  // Tags are stored as text in products table, no FK validation needed
-  // Just validate format and store as pipe-separated string
-  const tagsString = tags.length > 0 ? tags.join("|") : null;
 
   // ========================================================================
   // SEASON VALIDATION - Lookup from brand_seasons table
@@ -1962,9 +1761,8 @@ async function validateRow(
   }
 
   // WARNING: Missing category (needs user definition)
-  // Support both NEW format (hierarchical path) and LEGACY format (flat name)
   let categoryId: string | null = null;
-  const categoryValue = row.category || row.category_name;
+  const categoryValue = row.category;
 
   if (categoryValue?.trim()) {
     // NEW format: hierarchical path like "Men's > Tops > T-Shirts"
@@ -1995,39 +1793,25 @@ async function validateRow(
       });
       // Leave categoryId as null - will be populated after user maps category
     }
-  } else if (row.category_id) {
-    // Direct category ID provided (legacy support)
-    categoryId = row.category_id;
   }
 
   // ========================================================================
-  // CREATE vs UPDATE DETECTION - UPID and SKU matching
+  // CREATE vs UPDATE DETECTION - UPID matching
   // ========================================================================
 
-  // Look up by UPID first (preferred), then by SKU (fallback)
-  // Since UPID is optional in schema, SKU matching ensures we don't duplicate existing variants
   const matchedByUpid = (upid ? existingVariantsByUpid.get(upid) : null) as
     | ExistingVariant
     | null
     | undefined;
 
-  const matchedBySku = (sku ? existingVariantsBySku.get(sku) : null) as
-    | ExistingVariant
-    | null
-    | undefined;
-
-  // Prefer UPID match, fallback to SKU match
-  const existingVariant: ExistingVariant | null =
-    matchedByUpid || matchedBySku || null;
+  const existingVariant: ExistingVariant | null = matchedByUpid || null;
 
   // Generate UUIDs for new records or use existing
   const productId = existingVariant?.id || randomUUID();
   const variantId = existingVariant?.variant_id || randomUUID();
 
-  // Prepare staging data
-  const additionalImagesString = row.additional_image_urls?.trim() || null;
-
   // Build temporary product and variant objects for change detection
+  const productIdentifier = row.product_identifier.trim();
   const tempProduct: InsertStagingProductParams = {
     jobId,
     rowNumber,
@@ -2035,17 +1819,14 @@ async function validateRow(
     existingProductId: existingVariant?.id || null,
     id: productId,
     brandId,
-    productIdentifier: row.product_identifier?.trim() || null,
+    productIdentifier,
     name: row.product_name?.trim() || "",
     description: row.description?.trim() || null,
     categoryId,
-    season: row.season?.trim() || null, // Legacy: kept for backward compatibility
     seasonId,
     primaryImageUrl: row.primary_image_url?.trim() || null,
-    additionalImageUrls: additionalImagesString,
-    tags: tagsString,
-    showcaseBrandId: showcaseBrandId || row.showcase_brand_id?.trim() || null,
-    brandCertificationId: row.brand_certification_id?.trim() || null,
+    status: productStatus,
+    showcaseBrandId,
   };
 
   const tempVariant: InsertStagingVariantParams = {
@@ -2057,12 +1838,8 @@ async function validateRow(
     id: variantId,
     productId,
     upid: upid || "",
-    sku: row.sku?.trim() || null,
-    ean: row.ean?.trim() || null,
     colorId,
     sizeId,
-    productImageUrl: row.product_image_url?.trim() || null,
-    status: productStatus,
   };
 
   // ========================================================================

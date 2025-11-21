@@ -15,7 +15,6 @@ import {
   longStringSchema,
   nonNegativeIntSchema,
   paginationLimitSchema,
-  percentageSchema,
   shortStringSchema,
   urlSchema,
   uuidArraySchema,
@@ -33,11 +32,15 @@ export const PRODUCT_FIELDS = [
   "id",
   "name",
   "description",
+  "brand_id",
   "category_id",
-  "season",
-  "brand_certification_id",
+  "season_id",
   "showcase_brand_id",
   "primary_image_url",
+  "product_identifier",
+  "upid",
+  "template_id",
+  "status",
   "created_at",
   "updated_at",
 ] as const;
@@ -57,7 +60,7 @@ export const listProductsSchema = z.object({
   filters: z
     .object({
       category_id: uuidSchema.optional(),
-      season: shortStringSchema.optional(),
+      season_id: uuidSchema.optional(),
       search: shortStringSchema.optional(),
     })
     .optional(),
@@ -73,19 +76,45 @@ export const getProductSchema = byIdSchema;
  */
 export const createProductSchema = z.object({
   name: shortStringSchema,
-  /** Optional product identifier - server generates if not provided */
-  product_identifier: shortStringSchema.optional(),
+  /**
+   * Human-friendly article number that uniquely identifies the product within
+   * a brand. Required alongside the product name when creating products.
+   */
+  product_identifier: shortStringSchema,
   description: longStringSchema.optional(),
   category_id: uuidSchema.optional(),
-  season: shortStringSchema.optional(), // Legacy: deprecated, use season_id
   season_id: uuidSchema.optional(), // FK to brand_seasons.id
-  brand_certification_id: uuidSchema.optional(),
   showcase_brand_id: uuidSchema.optional(),
   primary_image_url: urlSchema.optional(),
-  /** Optional: Array of color IDs to auto-generate variants */
-  color_ids: uuidArraySchema.optional(),
-  /** Optional: Array of size IDs to auto-generate variants */
-  size_ids: uuidArraySchema.optional(),
+  template_id: uuidSchema.optional(),
+  status: shortStringSchema.optional(),
+  color_ids: uuidArraySchema.max(12).optional(),
+  size_ids: uuidArraySchema.max(12).optional(),
+  tag_ids: uuidArraySchema.optional(),
+  materials: z
+    .array(
+      z.object({
+        brand_material_id: uuidSchema,
+        percentage: z.union([z.string(), z.number()]).optional(),
+      }),
+    )
+    .optional(),
+  eco_claim_ids: uuidArraySchema.optional(),
+  journey_steps: z
+    .array(
+      z.object({
+        sort_index: nonNegativeIntSchema,
+        step_type: shortStringSchema,
+        facility_ids: uuidArraySchema, // Changed from facility_id to support multiple operators
+      }),
+    )
+    .optional(),
+  environment: z
+    .object({
+      carbon_kg_co2e: z.union([z.string(), z.number()]).optional(),
+      water_liters: z.union([z.string(), z.number()]).optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -94,14 +123,12 @@ export const createProductSchema = z.object({
 export const updateProductSchema = updateWithNullable(createProductSchema, [
   "description",
   "category_id",
-  "season",
   "season_id",
-  "brand_certification_id",
   "showcase_brand_id",
   "primary_image_url",
+  "template_id",
+  "status",
   "product_identifier",
-  "color_ids",
-  "size_ids",
 ]);
 
 /**
@@ -122,46 +149,33 @@ export const upsertProductIdentifierSchema = z.object({
 /**
  * Identifies the parent product whose variants should be listed.
  */
-export const listVariantsSchema = byParentId("product_id");
-
-/**
- * Required fields for creating a product variant.
- *
- * Note: SKU is now optional. Variants are tracked by UUID.
- * UPID is also optional when using auto-generated variants.
- */
-export const createVariantSchema = z.object({
+export const listVariantsSchema = z.object({
   product_id: uuidSchema,
-  color_id: uuidSchema.optional(),
-  size_id: uuidSchema.optional(),
-  /** SKU is optional - variants are primarily tracked by UUID */
-  sku: shortStringSchema.optional(),
-  /** UPID is optional - required only for manual variant creation */
-  upid: shortStringSchema.optional(),
-  product_image_url: urlSchema.optional(),
+  cursor: z.string().optional(),
+  limit: paginationLimitSchema.optional(),
 });
 
 /**
- * Permitted updates to a variant record.
+ * Retrieves all variants for a given product_id.
  */
-export const updateVariantSchema = updateWithNullable(
-  createVariantSchema.omit({ product_id: true }),
-  ["color_id", "size_id", "sku", "product_image_url"],
-);
+export const getVariantsSchema = byParentId("product_id");
 
 /**
- * Payload for deleting a variant.
+ * Upsert/replace variants for a product by providing colors and sizes.
  */
-export const deleteVariantSchema = byIdSchema;
-
-/**
- * Upsert payload used for variant-level identifiers.
- */
-export const upsertVariantIdentifierSchema = z.object({
-  variant_id: uuidSchema,
-  id_type: shortStringSchema,
-  value: shortStringSchema,
+export const productVariantsUpsertSchema = z.object({
+  product_id: uuidSchema,
+  color_ids: uuidArraySchema.max(12).optional(),
+  size_ids: uuidArraySchema.max(12).optional(),
 });
+
+/**
+ * Deletes variants by id or by parent product.
+ */
+export const productVariantsDeleteSchema = z.union([
+  z.object({ variant_id: uuidSchema }),
+  z.object({ product_id: uuidSchema }),
+]);
 
 /**
  * Input payload for `products.list` in the reorganized API.
@@ -190,10 +204,25 @@ export const productsDomainGetSchema = getProductSchema.extend({
 export type ProductsDomainGetInput = z.infer<typeof productsDomainGetSchema>;
 
 /**
+ * Input payload for fetching a product by UPID.
+ */
+export const productsDomainGetByUpidSchema = z.object({
+  upid: shortStringSchema,
+  includeVariants: z.boolean().optional().default(false),
+  includeAttributes: z.boolean().optional().default(false),
+});
+
+export type ProductsDomainGetByUpidInput = z.infer<
+  typeof productsDomainGetByUpidSchema
+>;
+
+/**
  * Input payload for `products.create` in the v2 API.
  *
  * Requires the caller to explicitly state the brand identifier to avoid
- * accidental cross-tenant inserts.
+ * accidental cross-tenant inserts. Supports the same optional attribute payload
+ * used by the update route so that products can be fully defined in a single
+ * mutation.
  */
 export const productsDomainCreateSchema = createProductSchema.extend({
   brand_id: uuidSchema,
@@ -208,39 +237,11 @@ export type ProductsDomainCreateInput = z.infer<
  *
  * Allows optional brand scoping so the server can validate the caller is
  * operating within the active tenant context.
- *
- * **Extended with product attributes** - all attribute fields are optional.
- * Attributes are properties of the product and should be updated via this
- * endpoint rather than separate attribute endpoints.
+ * Shares the same attribute payload shape as `products.create`, enabling both
+ * routes to remain feature-parity.
  */
 export const productsDomainUpdateSchema = updateProductSchema.extend({
   brand_id: uuidSchema.optional(),
-  // Product attribute fields (all optional)
-  materials: z
-    .array(
-      z.object({
-        brand_material_id: uuidSchema,
-        percentage: percentageSchema.optional(),
-      }),
-    )
-    .optional(),
-  careCodes: uuidArraySchema.optional(),
-  ecoClaims: uuidArraySchema.optional(),
-  environment: z
-    .object({
-      carbon_kg_co2e: z.string().optional(),
-      water_liters: z.string().optional(),
-    })
-    .optional(),
-  journeySteps: z
-    .array(
-      z.object({
-        sort_index: nonNegativeIntSchema,
-        step_type: shortStringSchema,
-        facility_id: uuidSchema,
-      }),
-    )
-    .optional(),
 });
 
 export type ProductsDomainUpdateInput = z.infer<
@@ -263,56 +264,16 @@ export type ProductsDomainDeleteInput = z.infer<
 /**
  * Input payload for `products.variants.upsert`.
  *
- * Accepts a batch of variants that should be created or updated in place.
- * Omits destructive operations so clients must call the delete endpoint for
- * intentional removals.
+ * Accepts color and size selections; the cartesian product becomes the final
+ * variant set, replacing any existing variants for the product.
  */
-export const productVariantsUpsertSchema = z.object({
-  product_id: uuidSchema,
-  variants: z
-    .array(
-      z
-        .object({
-          id: uuidSchema.optional(),
-          color_id: uuidSchema.optional().nullable(),
-          size_id: uuidSchema.optional().nullable(),
-          sku: shortStringSchema.optional().nullable(),
-          upid: shortStringSchema.optional(),
-          product_image_url: urlSchema.optional().nullable(),
-        })
-        .refine((value) => value.id || value.upid, {
-          message:
-            "Each variant must include an id or upid to ensure stable updates.",
-        }),
-    )
-    .min(1),
-});
-
 export type ProductVariantsUpsertInput = z.infer<
   typeof productVariantsUpsertSchema
 >;
 
 /**
  * Input payload for `products.variants.delete`.
- *
- * Supports deleting by explicit variant identifiers or by product-level
- * filters that can remove multiple rows at once.
  */
-export const productVariantsDeleteSchema = z.union([
-  z.object({
-    variant_ids: uuidArraySchema.min(1),
-  }),
-  z.object({
-    product_id: uuidSchema,
-    filter: z
-      .object({
-        color_id: uuidSchema.optional(),
-        size_id: uuidSchema.optional(),
-      })
-      .optional(),
-  }),
-]);
-
 export type ProductVariantsDeleteInput = z.infer<
   typeof productVariantsDeleteSchema
 >;

@@ -24,6 +24,6 @@ primary_region = 'ams'
     path = "/health"
 
 [[vm]]
-  memory = '512mb'
+  memory = '2gb'
   cpu_kind = 'shared'
   cpus = 1

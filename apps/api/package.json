@@ -10,7 +10,7 @@
     "migrate": "supabase migration up",
     "seed": "supabase db seed generate && supabase db seed run",
     "reset": "supabase db reset",
-    "generate": "supabase gen types --lang=typescript --local --schema public > ../../packages/supabase/src/types/db.ts",
+    "generate": "supabase gen types --lang=typescript --project-id ebshgnuavsacpplatsqt --schema public > ../../packages/supabase/src/types/db.ts",
     "lint": "biome lint",
     "typecheck": "tsc --noEmit",
     "test": "jest"
@@ -27,6 +27,7 @@
     "@v1/supabase": "workspace:*",
     "@v1/utils": "workspace:*",
     "dataloader": "^2.2.3",
+    "drizzle-orm": "^0.44.7",
     "hono": "^4.5.10",
     "jschardet": "^3.1.4",
     "papaparse": "^5.5.3",

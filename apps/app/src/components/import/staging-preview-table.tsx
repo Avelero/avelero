@@ -32,15 +32,13 @@ interface StagingDataRow {
     name: string;
     description: string | null;
     categoryId: string | null;
-    season: string | null;
+    seasonId: string | null;
     primaryImageUrl: string | null;
   };
   variant: {
     upid: string;
-    sku: string | null;
     colorId: string | null;
     sizeId: string | null;
-    productImageUrl: string | null;
   } | null;
 }
 
@@ -101,16 +99,6 @@ const columns: ColumnDef<StagingDataRow>[] = [
     cell: ({ row }) => (
       <div className="text-secondary font-mono text-xs">
         {row.original.variant?.upid ?? "—"}
-      </div>
-    ),
-  },
-  {
-    id: "sku",
-    header: "SKU",
-    size: 150,
-    cell: ({ row }) => (
-      <div className="text-secondary font-mono text-xs">
-        {row.original.variant?.sku ?? "—"}
       </div>
     ),
   },

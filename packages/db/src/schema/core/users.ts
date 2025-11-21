@@ -47,23 +47,28 @@ export const users = pgTable(
       "users_avatar_hue_check",
       sql`(avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360))`,
     ),
+    // For filtering users by active brand (used in composite.workflowInit and brand deletion)
+    index("idx_users_brand_id").using(
+      "btree",
+      table.brandId.asc().nullsLast().op("uuid_ops"),
+    ).where(sql`(brand_id IS NOT NULL)`),
     // RLS policies
     pgPolicy("users_select_own_profile", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`auth.uid() = id`,
     }),
     pgPolicy("users_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`shares_brand_with(id)`,
     }),
     pgPolicy("users_update_own_profile", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`auth.uid() = id`,
       withCheck: sql`
         auth.uid() = id
@@ -81,7 +86,7 @@ export const users = pgTable(
     pgPolicy("users_insert_own_profile", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`auth.uid() = id`,
     }),
   ],

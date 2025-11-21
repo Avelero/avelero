@@ -1,8 +1,6 @@
 "use client";
 
 import { useTableScroll } from "@/hooks/use-table-scroll";
-import { useTRPC } from "@/trpc/client";
-import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   flexRender,
@@ -17,13 +15,11 @@ import * as React from "react";
 import {
   applyRangeSelection,
   calculateRangeSelection,
-  fetchRowIdsByRange,
 } from "../../../utils/range-selection";
 import { columns } from "./columns";
 import { EmptyState } from "./empty-state";
 import { PassportTableHeader } from "./table-header";
-import { PassportTableSkeleton } from "./table-skeleton";
-import type { Passport, SelectionState } from "./types";
+import type { PassportTableRow, SelectionState } from "./types";
 
 export function PassportDataTable({
   onSelectionChangeAction,
@@ -32,7 +28,17 @@ export function PassportDataTable({
   onTotalCountChangeAction,
   selection,
   onSelectionStateChangeAction,
-  filterState,
+  rows,
+  total,
+  pageInfo,
+  onNextPage,
+  onPrevPage,
+  onFirstPage,
+  onLastPage,
+  onPrefetchNext,
+  onPrefetchPrev,
+  onPrefetchFirst,
+  onPrefetchLast,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
@@ -40,32 +46,53 @@ export function PassportDataTable({
   onTotalCountChangeAction?: (hasAny: boolean) => void;
   selection: SelectionState;
   onSelectionStateChangeAction: (next: SelectionState) => void;
-  filterState?: any; // FilterState type - not used yet, ready for backend integration
+  rows: PassportTableRow[];
+  total: number;
+  pageInfo: {
+    hasNext: boolean;
+    hasPrev: boolean;
+    hasFirst: boolean;
+    hasLast: boolean;
+    start: number;
+    end: number;
+  };
+  onNextPage: () => void;
+  onPrevPage: () => void;
+  onFirstPage: () => void;
+  onLastPage: () => void;
+  onPrefetchNext?: () => void;
+  onPrefetchPrev?: () => void;
+  onPrefetchFirst?: () => void;
+  onPrefetchLast?: () => void;
 }) {
-  const [page, setPage] = React.useState(0);
   const pageSize = 50;
-  const trpc = useTRPC();
-  const isPageZero = page === 0;
-  const listQueryOptions = React.useMemo(
-    () =>
-      trpc.passports.list.queryOptions({
-        page,
-        includeStatusCounts: isPageZero ? true : undefined,
-      }),
-    [trpc, page, isPageZero],
-  );
+  const page =
+    pageInfo.start > 0
+      ? Math.max(0, Math.floor((pageInfo.start - 1) / pageSize))
+      : 0;
+  const tableData = rows;
+  const totalProducts = total;
 
-  const { data: listResponse, isLoading } = useQuery(listQueryOptions);
-  const data = React.useMemo<Passport[]>(() => {
-    const d = (listResponse as { data?: unknown } | undefined)?.data;
-    return Array.isArray(d) ? (d as Passport[]) : [];
-  }, [listResponse]);
-  const total = React.useMemo<number>(() => {
-    const m = (listResponse as { meta?: { total?: unknown } } | undefined)
-      ?.meta;
-    const t = (m?.total as number | undefined) ?? 0;
-    return typeof t === "number" ? t : 0;
-  }, [listResponse]);
+  const mapRowIdsToPassportIds = React.useCallback(
+    (rowIds: string[]) => {
+      if (!rowIds.length) return [];
+      const expanded: string[] = [];
+      const seen = new Set<string>();
+
+      for (const rowId of rowIds) {
+        const row = tableData.find((item) => item.id === rowId);
+        if (!row) continue;
+        for (const passportId of row.passportIds) {
+          if (seen.has(passportId)) continue;
+          seen.add(passportId);
+          expanded.push(passportId);
+        }
+      }
+
+      return expanded;
+    },
+    [tableData],
+  );
 
   React.useEffect(() => {
     onTotalCountChangeAction?.(total > 0);
@@ -100,7 +127,7 @@ export function PassportDataTable({
       const result = calculateRangeSelection({
         currentGlobalIndex: globalIndex,
         lastClickedGlobalIndex: lastClickedIndex,
-        currentPageData: data,
+        currentPageData: tableData,
         currentPage: page,
         pageSize,
         selection,
@@ -110,6 +137,11 @@ export function PassportDataTable({
 
       if (result.type === "same-page" && result.rowIdsToSelect) {
         const idsToSelect = result.rowIdsToSelect;
+        const passportIdsToSelect = mapRowIdsToPassportIds(idsToSelect);
+        if (!passportIdsToSelect.length) {
+          setLastClickedIndex(globalIndex);
+          return;
+        }
 
         // INSTANT UPDATE - synchronous, no delays
         const next: Record<string, boolean> = { ...optimisticRowSelection };
@@ -120,7 +152,10 @@ export function PassportDataTable({
 
         // Defer parent update (non-blocking)
         startTransition(() => {
-          const newSelection = applyRangeSelection(selection, idsToSelect);
+          const newSelection = applyRangeSelection(
+            selection,
+            passportIdsToSelect,
+          );
           onSelectionStateChangeAction(newSelection);
         });
       } else if (result.type === "cross-page" && result.rangeInfo) {
@@ -135,16 +170,17 @@ export function PassportDataTable({
       page,
       pageSize,
       lastClickedIndex,
-      data,
+      tableData,
       selection,
       onSelectionStateChangeAction,
       optimisticRowSelection,
+      mapRowIdsToPassportIds,
     ],
   );
 
   const table = useReactTable({
-    data,
-    columns: columns as ColumnDef<Passport, unknown>[],
+    data: tableData,
+    columns: columns as ColumnDef<PassportTableRow, unknown>[],
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     onRowSelectionChange: (updater) => {
@@ -158,12 +194,18 @@ export function PassportDataTable({
         if (selection.mode === "all") {
           // In "all" mode: unchecking adds to excludeIds
           const exclude = new Set(selection.excludeIds);
-          for (const row of data) {
+          for (const row of tableData) {
             const isChecked = !!next[row.id];
+            const targetIds = row.passportIds;
+            if (!targetIds.length) continue;
             if (isChecked) {
-              exclude.delete(row.id); // Re-selecting removes from exclusions
+              for (const id of targetIds) {
+                exclude.delete(id); // Re-selecting removes from exclusions
+              }
             } else {
-              exclude.add(row.id); // Deselecting adds to exclusions
+              for (const id of targetIds) {
+                exclude.add(id); // Deselecting adds to exclusions
+              }
             }
           }
           const nextExcludeIds = Array.from(exclude);
@@ -181,12 +223,18 @@ export function PassportDataTable({
         } else {
           // In "explicit" mode: checking adds to includeIds
           const include = new Set(selection.includeIds);
-          for (const row of data) {
+          for (const row of tableData) {
             const isChecked = !!next[row.id];
+            const targetIds = row.passportIds;
+            if (!targetIds.length) continue;
             if (isChecked) {
-              include.add(row.id);
+              for (const id of targetIds) {
+                include.add(id);
+              }
             } else {
-              include.delete(row.id);
+              for (const id of targetIds) {
+                include.delete(id);
+              }
             }
           }
           const nextIncludeIds = Array.from(include);
@@ -242,7 +290,7 @@ export function PassportDataTable({
     // Don't overwrite optimistic updates during transitions
     if (isPending) return;
 
-    if (!data.length) {
+    if (!tableData.length) {
       setOptimisticRowSelection({});
       return;
     }
@@ -251,22 +299,28 @@ export function PassportDataTable({
 
     if (selection.mode === "all") {
       const excludeSet = new Set(selection.excludeIds);
-      for (const row of data) {
-        nextMap[row.id] = !excludeSet.has(row.id);
+      for (const row of tableData) {
+        nextMap[row.id] = row.passportIds.every(
+          (passportId) => !excludeSet.has(passportId),
+        );
       }
     } else {
       const includeSet = new Set(selection.includeIds);
-      for (const row of data) {
-        nextMap[row.id] = includeSet.has(row.id);
+      for (const row of tableData) {
+        nextMap[row.id] = row.passportIds.every((passportId) =>
+          includeSet.has(passportId),
+        );
       }
     }
 
     setOptimisticRowSelection(nextMap);
-  }, [data, selection, isPending]);
-
-  if (isLoading) return <PassportTableSkeleton />;
-  if (!data.length)
-    return total === 0 ? <EmptyState.NoPassports /> : <EmptyState.NoResults />;
+  }, [tableData, selection, isPending]);
+  if (!tableData.length)
+    return total === 0 ? (
+      <EmptyState.NoPassports />
+    ) : (
+      <EmptyState.NoResults />
+    );
 
   return (
     <div className="relative w-full h-full">
@@ -285,7 +339,7 @@ export function PassportDataTable({
                 // Switch to "all" mode - selects ALL products in filter (not just visible)
                 // INSTANT UPDATE - synchronous, no delays
                 const next: Record<string, boolean> = {};
-                for (const row of data) next[row.id] = true;
+                for (const row of tableData) next[row.id] = true;
                 setOptimisticRowSelection(next);
 
                 // Defer parent update (non-blocking)
@@ -343,56 +397,61 @@ export function PassportDataTable({
               ))}
             </TableBody>
           </Table>
+    </div>
+  </div>
+  {(() => {
+    const start = pageInfo.start;
+    const end = pageInfo.end;
+    const canGoPrev = pageInfo.hasPrev;
+    const canGoNext = pageInfo.hasNext;
+    const canGoFirst = pageInfo.hasFirst;
+    const canGoLast = pageInfo.hasLast;
+    return (
+      <div className="flex items-center justify-end gap-4 py-3">
+        <div className="type-p text-secondary">
+          {start} - {end} of {totalProducts}
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="First page"
+            onClick={onFirstPage}
+            onMouseEnter={onPrefetchFirst}
+            disabled={!canGoFirst}
+            icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Previous page"
+            onClick={onPrevPage}
+            onMouseEnter={onPrefetchPrev}
+            disabled={!canGoPrev}
+            icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Next page"
+            onClick={onNextPage}
+            onMouseEnter={onPrefetchNext}
+            disabled={!canGoNext}
+            icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Last page"
+            onClick={onLastPage}
+            onMouseEnter={onPrefetchLast}
+            disabled={!canGoLast}
+            icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
+          />
         </div>
       </div>
-      {(() => {
-        const start = total === 0 ? 0 : page * pageSize + 1;
-        const end = page * pageSize + data.length;
-        const lastPage = Math.max(0, Math.ceil(total / pageSize) - 1);
-        const canGoPrev = page > 0;
-        const canGoNext = page < lastPage;
-        return (
-          <div className="flex items-center justify-end gap-4 py-3">
-            <div className="type-p text-secondary">
-              {start} - {end} of {total}
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="First page"
-                onClick={() => setPage(0)}
-                disabled={!canGoPrev}
-                icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Previous page"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={!canGoPrev}
-                icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Next page"
-                onClick={() => setPage((p) => p + 1)}
-                disabled={!canGoNext}
-                icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Last page"
-                onClick={() => setPage(lastPage)}
-                disabled={!canGoNext}
-                icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
-              />
-            </div>
-          </div>
-        );
-      })()}
-    </div>
+    );
+  })()}
+</div>
   );
 }

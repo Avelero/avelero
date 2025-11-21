@@ -19,7 +19,7 @@ import {
 } from "@v1/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@v1/ui/tabs";
 import * as React from "react";
-import { toast } from "sonner";
+import { toast } from "@v1/ui/sonner";
 import { ErrorListSection } from "./error-list-section";
 import { StagingPreviewTable } from "./staging-preview-table";
 import { UnmappedValuesSection } from "./unmapped-values-section";
@@ -341,9 +341,14 @@ function ImportReviewDialogContent({
       // STEP 1: Batch create all pending entities and map them
       const pendingCount = getPendingCount();
       if (pendingCount > 0) {
-        toast.info(`Creating ${pendingCount} entities...`);
-
-        const result = await batchCreateEntitiesMutation.mutateAsync();
+        const result = await toast.loading(
+          `Creating ${pendingCount} entities...`,
+          batchCreateEntitiesMutation.mutateAsync(),
+          {
+            errorMessage:
+              "Failed to create pending entities. Please review and try again.",
+          },
+        );
 
         if (result.failed.length > 0) {
           toast.error(

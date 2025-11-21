@@ -7,7 +7,6 @@
  */
 import { z } from "zod";
 import { uuidArraySchema, uuidSchema } from "./_shared/primitives.js";
-import { passportStatusSchema } from "./passports.js";
 import { productsDomainCreateSchema } from "./products.js";
 
 /**
@@ -39,20 +38,6 @@ export const bulkImportSchema = z.object({
   domain: z.literal("products"),
   items: productsDomainCreateSchema.omit({ brand_id: true }).array().min(1),
 });
-
-/**
- * Permitted passport mutations for bulk updates.
- *
- * The schema ensures at least one change is supplied.
- */
-export const bulkUpdatePassportsChangesSchema = z
-  .object({
-    status: passportStatusSchema.optional(),
-  })
-  .refine((value) => value.status !== undefined, {
-    message: "Provide at least one passport field to update.",
-    path: ["status"],
-  });
 
 /**
  * Placeholder schema for future product bulk updates.
@@ -98,11 +83,6 @@ export const bulkUpdateBrandChangesSchema = z
  * payload to domain-appropriate fields.
  */
 export const bulkUpdateSchema = z.discriminatedUnion("domain", [
-  z.object({
-    domain: z.literal("passports"),
-    selection: bulkSelectionSchema,
-    changes: bulkUpdatePassportsChangesSchema,
-  }),
   z.object({
     domain: z.literal("products"),
     selection: bulkSelectionSchema,
@@ -314,22 +294,6 @@ const defineTagDataSchema = z.object({
     .optional(),
 });
 
-const defineOperatorDataSchema = z.object({
-  name: z.string().min(1).max(200),
-  legalName: z.string().max(200).optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  addressLine1: z.string().optional(),
-  addressLine2: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zip: z.string().optional(),
-  countryCode: z
-    .string()
-    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
-    .optional(),
-});
-
 /**
  * Entity type enum for value definition
  */
@@ -339,7 +303,6 @@ export const entityTypeSchema = z.enum([
   "SIZE",
   "ECO_CLAIM",
   "FACILITY",
-  "OPERATOR",
   "SHOWCASE_BRAND",
   "CERTIFICATION",
   "SEASON",
@@ -364,7 +327,6 @@ export const defineValueSchema = z.object({
     defineMaterialDataSchema,
     defineEcoClaimDataSchema,
     defineFacilityDataSchema,
-    defineOperatorDataSchema,
     defineShowcaseBrandDataSchema,
     defineCertificationDataSchema,
     defineSeasonDataSchema,
@@ -393,7 +355,6 @@ export const batchDefineValuesSchema = z.object({
           defineMaterialDataSchema,
           defineEcoClaimDataSchema,
           defineFacilityDataSchema,
-          defineOperatorDataSchema,
           defineShowcaseBrandDataSchema,
           defineCertificationDataSchema,
           defineSeasonDataSchema,

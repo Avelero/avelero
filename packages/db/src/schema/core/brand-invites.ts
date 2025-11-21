@@ -61,6 +61,18 @@ export const brandInvites = pgTable(
       t.expiresAt.asc().nullsLast().op("timestamptz_ops"),
     ),
 
+    // For listPendingInvitesForEmail - filtering by email
+    index("idx_brand_invites_email").using(
+      "btree",
+      t.email.asc().nullsLast().op("text_ops"),
+    ),
+    // Composite for email + expiresAt lookups (for pending invites)
+    index("idx_brand_invites_email_expires").using(
+      "btree",
+      t.email.asc().nullsLast().op("text_ops"),
+      t.expiresAt.asc().nullsLast().op("timestamptz_ops"),
+    ),
+
     // Partial unique index on token_hash when not null
     uniqueIndex("ux_brand_invites_token_hash_not_null")
       .using("btree", t.tokenHash.asc().nullsLast().op("text_ops"))
@@ -70,33 +82,35 @@ export const brandInvites = pgTable(
     pgPolicy("brand_invites_update_by_owner", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`is_brand_owner(brand_id)`,
     }),
     pgPolicy("brand_invites_insert_by_owner", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
+      withCheck: sql`is_brand_owner(brand_id)`,
     }),
     pgPolicy("brand_invites_delete_by_owner", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
+      using: sql`is_brand_owner(brand_id)`,
     }),
     pgPolicy("brand_invites_select_for_recipient", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
     }),
     pgPolicy("brand_invites_delete_by_recipient", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
     }),
     pgPolicy("brand_invites_select_for_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
     }),
   ],
 );

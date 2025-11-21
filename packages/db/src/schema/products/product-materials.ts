@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  index,
   numeric,
   pgPolicy,
   pgTable,
@@ -39,41 +40,53 @@ export const productMaterials = pgTable(
       table.productId,
       table.brandMaterialId,
     ),
+    // Indexes for query performance
+    // For loadAttributesForProducts - batch loading materials
+    index("idx_product_materials_product_id").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+    ),
+    // For ordering by createdAt
+    index("idx_product_materials_product_created").using(
+      "btree",
+      table.productId.asc().nullsLast().op("uuid_ops"),
+      table.createdAt.asc().nullsLast().op("timestamptz_ops"),
+    ),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_materials_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_materials_insert_by_brand_owner", {
+    pgPolicy("product_materials_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       withCheck: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_materials_update_by_brand_owner", {
+    pgPolicy("product_materials_update_by_brand_member", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 
         AND is_brand_member(products.brand_id)
       )`,
     }),
-    pgPolicy("product_materials_delete_by_brand_owner", {
+    pgPolicy("product_materials_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`EXISTS (
         SELECT 1 FROM products 
         WHERE products.id = product_id 

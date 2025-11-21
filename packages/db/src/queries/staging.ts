@@ -1,17 +1,12 @@
 import { and, asc, count, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { evaluateAndUpsertCompletion } from "../completion/evaluate";
-import type { ModuleKey } from "../completion/module-keys";
 import {
   stagingProducts,
   stagingProductVariants,
   stagingProductMaterials,
-  stagingProductCareCodes,
   stagingProductEcoClaims,
   stagingProductJourneySteps,
   stagingProductEnvironment,
-  stagingProductIdentifiers,
-  stagingProductVariantIdentifiers,
   products,
 } from "../schema";
 import type { PgTransaction } from "drizzle-orm/pg-core";
@@ -27,18 +22,14 @@ export interface InsertStagingProductParams {
   existingProductId?: string | null;
   id: string;
   brandId: string;
-  productIdentifier?: string | null;
+  productIdentifier: string;
   productUpid?: string | null; // Product-level UPID for passport URLs
   name: string;
   description?: string | null;
   showcaseBrandId?: string | null;
   primaryImageUrl?: string | null;
-  additionalImageUrls?: string | null;
   categoryId?: string | null;
-  season?: string | null; // Legacy: will be deprecated after migration
   seasonId?: string | null; // FK to brand_seasons.id
-  tags?: string | null;
-  brandCertificationId?: string | null;
   status?: string | null; // Product publication status
 }
 
@@ -55,11 +46,7 @@ export interface InsertStagingVariantParams {
   productId: string;
   colorId?: string | null;
   sizeId?: string | null;
-  sku?: string | null;
-  ean?: string | null;
   upid: string;
-  productImageUrl?: string | null;
-  status?: string | null;
 }
 
 /**
@@ -70,15 +57,6 @@ export interface InsertStagingMaterialParams {
   jobId: string;
   brandMaterialId: string;
   percentage?: string | null;
-}
-
-/**
- * Staging product care code insertion parameters
- */
-export interface InsertStagingCareCodeParams {
-  stagingProductId: string;
-  jobId: string;
-  careCodeId: string;
 }
 
 /**
@@ -112,26 +90,6 @@ export interface InsertStagingEnvironmentParams {
 }
 
 /**
- * Staging product identifier insertion parameters
- */
-export interface InsertStagingIdentifierParams {
-  stagingProductId: string;
-  jobId: string;
-  idType: string;
-  value: string;
-}
-
-/**
- * Staging product variant identifier insertion parameters
- */
-export interface InsertStagingVariantIdentifierParams {
-  stagingVariantId: string;
-  jobId: string;
-  idType: string;
-  value: string;
-}
-
-/**
  * Staging product preview data
  */
 export interface StagingProductPreview {
@@ -143,19 +101,15 @@ export interface StagingProductPreview {
   id: string;
   brandId: string;
   /** Product identifier for the product (brand-scoped) */
-  productIdentifier?: string | null;
+  productIdentifier: string;
   /** Product-level UPID for passport URLs */
   productUpid?: string | null;
   name: string;
   description: string | null;
   showcaseBrandId: string | null;
   primaryImageUrl: string | null;
-  additionalImageUrls: string | null;
-  tags: string | null;
   categoryId: string | null;
-  season: string | null; // Legacy: will be deprecated after migration
   seasonId: string | null; // FK to brand_seasons.id
-  brandCertificationId: string | null;
   status: string | null; // Product publication status
   createdAt: string;
   variant: StagingVariantPreview | null;
@@ -179,11 +133,7 @@ export interface StagingVariantPreview {
   productId: string;
   colorId: string | null;
   sizeId: string | null;
-  sku: string | null;
-  ean: string | null;
   upid: string;
-  status: string | null;
-  productImageUrl: string | null;
   createdAt: string;
 }
 
@@ -256,18 +206,14 @@ export async function insertStagingProduct(
       existingProductId: params.existingProductId ?? null,
       id: params.id,
       brandId: params.brandId,
-      productIdentifier: params.productIdentifier ?? null,
+      productIdentifier: params.productIdentifier,
       productUpid: params.productUpid ?? null,
       name: params.name,
       description: params.description ?? null,
       showcaseBrandId: params.showcaseBrandId ?? null,
       primaryImageUrl: params.primaryImageUrl ?? null,
-      additionalImageUrls: params.additionalImageUrls ?? null,
       categoryId: params.categoryId ?? null,
-      season: params.season ?? null, // Legacy: kept for backward compatibility
       seasonId: params.seasonId ?? null,
-      tags: params.tags ?? null,
-      brandCertificationId: params.brandCertificationId ?? null,
       status: params.status ?? null,
     })
     .returning({ stagingId: stagingProducts.stagingId });
@@ -305,18 +251,14 @@ export async function batchInsertStagingProducts(
     existingProductId: p.existingProductId ?? null,
     id: p.id,
     brandId: p.brandId,
-    productIdentifier: p.productIdentifier ?? null,
+    productIdentifier: p.productIdentifier as string,
     productUpid: p.productUpid ?? null,
     name: p.name,
     description: p.description ?? null,
     showcaseBrandId: p.showcaseBrandId ?? null,
     primaryImageUrl: p.primaryImageUrl ?? null,
-    additionalImageUrls: p.additionalImageUrls ?? null,
     categoryId: p.categoryId ?? null,
-    season: p.season ?? null, // Legacy: kept for backward compatibility
     seasonId: p.seasonId ?? null,
-    tags: p.tags ?? null,
-    brandCertificationId: p.brandCertificationId ?? null,
     status: p.status ?? null,
   }));
 
@@ -353,11 +295,7 @@ export async function insertStagingVariant(
       productId: params.productId,
       colorId: params.colorId ?? null,
       sizeId: params.sizeId ?? null,
-      sku: params.sku ?? null,
-      ean: params.ean ?? null,
       upid: params.upid,
-      productImageUrl: params.productImageUrl ?? null,
-      status: params.status ?? null,
     })
     .returning({ stagingId: stagingProductVariants.stagingId });
 
@@ -397,11 +335,7 @@ export async function batchInsertStagingVariants(
     productId: v.productId,
     colorId: v.colorId ?? null,
     sizeId: v.sizeId ?? null,
-    sku: v.sku ?? null,
-    ean: v.ean ?? null,
     upid: v.upid,
-    productImageUrl: v.productImageUrl ?? null,
-    status: v.status ?? null,
   }));
 
   const results = await db
@@ -438,36 +372,6 @@ export async function insertStagingMaterials(
 
   const results = await db
     .insert(stagingProductMaterials)
-    .values(values)
-    .returning();
-  return results.length;
-}
-
-/**
- * Inserts staging product care codes
- *
- * @param db - Database instance or transaction
- * @param careCodes - Array of care code parameters
- * @returns Number of inserted records
- */
-export async function insertStagingCareCodes(
-  db:
-    | Database
-    | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
-  careCodes: InsertStagingCareCodeParams[],
-): Promise<number> {
-  if (careCodes.length === 0) {
-    return 0;
-  }
-
-  const values = careCodes.map((c) => ({
-    stagingProductId: c.stagingProductId,
-    jobId: c.jobId,
-    careCodeId: c.careCodeId,
-  }));
-
-  const results = await db
-    .insert(stagingProductCareCodes)
     .values(values)
     .returning();
   return results.length;
@@ -553,7 +457,7 @@ export async function insertStagingEnvironment(
     .values({
       stagingProductId: environment.stagingProductId,
       jobId: environment.jobId,
-      carbonKgCo2e: environment.carbonKgCo2e ?? null,
+      carbonKgCo2E: environment.carbonKgCo2e ?? null,
       waterLiters: environment.waterLiters ?? null,
     })
     .returning({ stagingId: stagingProductEnvironment.stagingId });
@@ -565,68 +469,6 @@ export async function insertStagingEnvironment(
   }
 
   return result.stagingId;
-}
-
-/**
- * Inserts staging product identifiers
- *
- * @param db - Database instance or transaction
- * @param identifiers - Array of identifier parameters
- * @returns Number of inserted records
- */
-export async function insertStagingIdentifiers(
-  db:
-    | Database
-    | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
-  identifiers: InsertStagingIdentifierParams[],
-): Promise<number> {
-  if (identifiers.length === 0) {
-    return 0;
-  }
-
-  const values = identifiers.map((i) => ({
-    stagingProductId: i.stagingProductId,
-    jobId: i.jobId,
-    idType: i.idType,
-    value: i.value,
-  }));
-
-  const results = await db
-    .insert(stagingProductIdentifiers)
-    .values(values)
-    .returning();
-  return results.length;
-}
-
-/**
- * Inserts staging product variant identifiers
- *
- * @param db - Database instance or transaction
- * @param identifiers - Array of variant identifier parameters
- * @returns Number of inserted records
- */
-export async function insertStagingVariantIdentifiers(
-  db:
-    | Database
-    | PgTransaction<PostgresJsQueryResultHKT, typeof import("../schema"), any>,
-  identifiers: InsertStagingVariantIdentifierParams[],
-): Promise<number> {
-  if (identifiers.length === 0) {
-    return 0;
-  }
-
-  const values = identifiers.map((i) => ({
-    stagingVariantId: i.stagingVariantId,
-    jobId: i.jobId,
-    idType: i.idType,
-    value: i.value,
-  }));
-
-  const results = await db
-    .insert(stagingProductVariantIdentifiers)
-    .values(values)
-    .returning();
-  return results.length;
 }
 
 /**
@@ -721,14 +563,12 @@ export async function deleteStagingDataForJob(
 /**
  * Bulk creates products for CREATE staging rows using planned IDs.
  *
- * Inserts rows directly into products table and re-evaluates completion state
- * for the core module to mimic createProduct side effects.
+ * Inserts rows directly into products table using planned IDs.
  */
 export async function bulkCreateProductsFromStaging(
   db: Database,
   brandId: string,
   rows: StagingProductPreview[],
-  options?: { skipCompletionEval?: boolean },
 ): Promise<Map<string, string>> {
   if (rows.length === 0) {
     return new Map();
@@ -738,34 +578,18 @@ export async function bulkCreateProductsFromStaging(
     id: row.id,
     brandId: row.brandId ?? brandId,
     name: row.name,
-    // Use provided productIdentifier or fallback to a generated one based on the planned id
-    productIdentifier: row.productIdentifier ?? `PROD-${row.id.slice(0, 8)}`,
+    productIdentifier: row.productIdentifier,
+    upid: row.productUpid ?? null,
     description: row.description ?? null,
     categoryId: row.categoryId ?? null,
-    season: row.season ?? null,
     seasonId: row.seasonId ?? null,
-    brandCertificationId: row.brandCertificationId ?? null,
     showcaseBrandId: row.showcaseBrandId ?? null,
     primaryImageUrl: row.primaryImageUrl ?? null,
-    additionalImageUrls: row.additionalImageUrls ?? null,
-    tags: row.tags ?? null,
+    status: row.status ?? undefined,
   }));
 
   await db.transaction(async (tx) => {
     await tx.insert(products).values(insertValues).onConflictDoNothing();
-
-    if (!options?.skipCompletionEval) {
-      for (const row of rows) {
-        await evaluateAndUpsertCompletion(
-          tx as unknown as Database,
-          brandId,
-          row.id,
-          {
-            onlyModules: ["core"] as ModuleKey[],
-          },
-        );
-      }
-    }
   });
 
   const map = new Map<string, string>();
@@ -929,11 +753,7 @@ async function hydrateStagingProductPreviews(
       productId: v.productId,
       colorId: v.colorId,
       sizeId: v.sizeId,
-      sku: v.sku,
-      ean: v.ean,
       upid: v.upid,
-      status: v.status,
-      productImageUrl: v.productImageUrl,
       createdAt: v.createdAt,
     });
   }
@@ -986,10 +806,18 @@ async function hydrateStagingProductPreviews(
       stagingId: environment.stagingId,
       stagingProductId: environment.stagingProductId,
       jobId: environment.jobId,
-      carbonKgCo2e: environment.carbonKgCo2e ?? null,
+      carbonKgCo2e: environment.carbonKgCo2E ?? null,
       waterLiters: environment.waterLiters ?? null,
       createdAt: environment.createdAt,
     });
+  }
+
+  for (const p of products) {
+    if (!p.productIdentifier) {
+      throw new Error(
+        `Staging product ${p.stagingId} is missing productIdentifier`,
+      );
+    }
   }
 
   return products.map((p) => ({
@@ -1000,18 +828,14 @@ async function hydrateStagingProductPreviews(
     existingProductId: p.existingProductId,
     id: p.id,
     brandId: p.brandId,
-    productIdentifier: p.productIdentifier,
+    productIdentifier: p.productIdentifier as string,
     productUpid: p.productUpid,
     name: p.name,
     description: p.description,
     showcaseBrandId: p.showcaseBrandId,
     primaryImageUrl: p.primaryImageUrl,
-    additionalImageUrls: p.additionalImageUrls,
-    tags: p.tags,
     categoryId: p.categoryId,
-    season: p.season,
     seasonId: p.seasonId,
-    brandCertificationId: p.brandCertificationId,
     status: p.status,
     createdAt: p.createdAt,
     variant: variantMap.get(p.stagingId) ?? null,
@@ -1154,18 +978,14 @@ export async function batchInsertStagingWithStatus(
     existingProductId: p.existingProductId ?? null,
     id: p.id,
     brandId: p.brandId,
-    productIdentifier: p.productIdentifier ?? null,
+    productIdentifier: p.productIdentifier,
     productUpid: p.productUpid ?? null,
     name: p.name,
     description: p.description ?? null,
     showcaseBrandId: p.showcaseBrandId ?? null,
     primaryImageUrl: p.primaryImageUrl ?? null,
-    additionalImageUrls: p.additionalImageUrls ?? null,
     categoryId: p.categoryId ?? null,
-    season: p.season ?? null,
     seasonId: p.seasonId ?? null,
-    tags: p.tags ?? null,
-    brandCertificationId: p.brandCertificationId ?? null,
     status: p.status ?? null,
   }));
 
@@ -1179,11 +999,7 @@ export async function batchInsertStagingWithStatus(
     productId: v.productId,
     colorId: v.colorId ?? null,
     sizeId: v.sizeId ?? null,
-    sku: v.sku ?? null,
-    ean: v.ean ?? null,
     upid: v.upid,
-    productImageUrl: v.productImageUrl ?? null,
-    status: v.status ?? null,
   }));
 
   // Prepare status updates data

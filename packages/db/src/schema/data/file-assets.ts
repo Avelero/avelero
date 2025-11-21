@@ -32,26 +32,26 @@ export const fileAssets = pgTable(
     pgPolicy("file_assets_select_for_brand_members", {
       as: "permissive",
       for: "select",
-      to: ["authenticated"],
+      to: ["authenticated", "service_role"],
       using: sql`(brand_id IS NULL) OR is_brand_member(brand_id)`,
     }),
-    pgPolicy("file_assets_insert_by_brand_owner_or_system", {
+    pgPolicy("file_assets_insert_by_brand_member_or_system", {
       as: "permissive",
       for: "insert",
-      to: ["authenticated"],
-      withCheck: sql`(brand_id IS NULL) OR is_brand_owner(brand_id)`,
+      to: ["authenticated", "service_role"],
+      withCheck: sql`(brand_id IS NULL) OR is_brand_member(brand_id)`,
     }),
-    pgPolicy("file_assets_update_by_brand_owner_or_system", {
+    pgPolicy("file_assets_update_by_brand_member_or_system", {
       as: "permissive",
       for: "update",
-      to: ["authenticated"],
-      using: sql`(brand_id IS NULL) OR is_brand_owner(brand_id)`,
+      to: ["authenticated", "service_role"],
+      using: sql`(brand_id IS NULL) OR is_brand_member(brand_id)`,
     }),
-    pgPolicy("file_assets_delete_by_brand_owner_or_system", {
+    pgPolicy("file_assets_delete_by_brand_member_or_system", {
       as: "permissive",
       for: "delete",
-      to: ["authenticated"],
-      using: sql`(brand_id IS NULL) OR is_brand_owner(brand_id)`,
+      to: ["authenticated", "service_role"],
+      using: sql`(brand_id IS NULL) OR is_brand_member(brand_id)`,
     }),
   ],
 );

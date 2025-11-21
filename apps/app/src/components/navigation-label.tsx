@@ -53,9 +53,8 @@ interface BreadcrumbItem {
 }
 
 function getBreadcrumbsForPath(pathname: string): BreadcrumbItem[] {
-  // Normalize pathname - remove locale segment and trailing slash
-  const normalized =
-    pathname.replace(/\/[a-z]{2}(\/|$)/, "/").replace(/\/$/, "") || "/";
+  // Normalize pathname by trimming the trailing slash (except for root)
+  const normalized = pathname.replace(/\/$/, "") || "/";
 
   // If this is a top-level route, return just itself
   if (TOP_LEVEL_ROUTES.has(normalized)) {

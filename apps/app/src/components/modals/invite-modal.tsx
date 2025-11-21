@@ -91,14 +91,10 @@ export function InviteModal({ brandId }: { brandId: string }) {
       onSuccess: async () => {
         await Promise.all([
           queryClient.invalidateQueries({
-            queryKey: trpc.workflow.invites.list.queryKey({
-              brand_id: brandId,
-            }),
+            queryKey: trpc.workflow.invites.list.queryKey({}),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.membersWithInvites.queryKey({
-              brand_id: brandId,
-            }),
+            queryKey: trpc.composite.membersWithInvites.queryKey({}),
           }),
         ]);
       },
@@ -113,7 +109,6 @@ export function InviteModal({ brandId }: { brandId: string }) {
         const parsed = emailSchema.safeParse(inv.email);
         if (!parsed.success) throw new Error(`Invalid email: ${inv.email}`);
         await sendInvite.mutateAsync({
-          brand_id: brandId,
           email: inv.email,
           role: inv.role,
         });

@@ -14,7 +14,7 @@ export function useFilterOptions() {
 
   // Fetch the main passport form references using proper tRPC query
   const { data: formData, isLoading: isFormDataLoading } = useQuery(
-    trpc.composite.passportFormReferences.queryOptions(),
+    trpc.composite.brandCatalogContent.queryOptions(),
   );
 
   // Fetch additional endpoints that aren't in the composite
@@ -23,13 +23,13 @@ export function useFilterOptions() {
   );
 
   const { data: templatesData, isLoading: isTemplatesLoading } = useQuery(
-    trpc.passports.templates.list.queryOptions(undefined),
+    trpc.templates.list.queryOptions(undefined),
   );
 
   // Transform and memoize all options
   const options = React.useMemo(() => {
     return {
-      // From composite.passportFormReferences
+      // From composite.brandCatalogContent
       categories:
         formData?.categories?.map((c: { id: string; name: string }) => ({
           value: c.id,
@@ -69,20 +69,16 @@ export function useFilterOptions() {
         ) ?? [],
 
       facilities:
-        formData?.brandCatalog?.facilities?.map(
-          (f: { id: string; display_name: string }) => ({
-            value: f.id,
-            label: f.display_name,
-          }),
-        ) ?? [],
-
+        formData?.brandCatalog?.operators?.map((f: { id: string; display_name: string }) => ({
+          value: f.id,
+          label: f.display_name,
+        })) ?? [],
+      
       operators:
-        formData?.brandCatalog?.operators?.map(
-          (b: { id: string; name: string }) => ({
-            value: b.id,
-            label: b.name,
-          }),
-        ) ?? [],
+        formData?.brandCatalog?.showcaseBrands?.map((b: { id: string; name: string }) => ({
+          value: b.id,
+          label: b.name,
+        })) ?? [],
 
       // From separate endpoints
       ecoClaims:
@@ -92,10 +88,12 @@ export function useFilterOptions() {
         })) ?? [],
 
       templates:
-        templatesData?.data?.map((t: { id: string; name: string }) => ({
-          value: t.id,
-          label: t.name,
-        })) ?? [],
+        (templatesData as any)?.data?.map(
+          (t: { id: string; name: string }) => ({
+            value: t.id,
+            label: t.name,
+          }),
+        ) ?? [],
     };
   }, [formData, ecoClaimsData, templatesData]);
 

@@ -1,9 +1,13 @@
 "use client";
 
+import { useBrandCatalog, type BrandTagOption } from "@/hooks/use-brand-catalog";
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { allColors } from "@v1/selections";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
+  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -11,16 +15,14 @@ import {
 } from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
-export interface TagOption {
-  name: string;
-  hex: string; // Without the # prefix
-}
+export interface TagOption extends BrandTagOption {}
 
 interface TagSelectProps {
-  value: TagOption[];
-  onValueChange: (value: TagOption[]) => void;
+  value: string[];
+  onValueChange: (value: string[]) => void;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -76,51 +78,164 @@ export function TagSelect({
   disabled = false,
   className,
 }: TagSelectProps) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { tags: catalogTags } = useBrandCatalog();
+  const [localTags, setLocalTags] = React.useState<BrandTagOption[]>([]);
+
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [view, setView] = React.useState<"main" | "picker">("main");
   const [pendingTagName, setPendingTagName] = React.useState("");
 
-  const handleRemoveTag = (tagName: string) => {
-    onValueChange(value.filter((t) => t.name !== tagName));
+  const createTagMutation = useMutation(
+    trpc.brand.tags.create.mutationOptions(),
+  );
+
+  const mergedTags = React.useMemo(() => {
+    const map = new Map<string, BrandTagOption>();
+    for (const tag of catalogTags) {
+      map.set(tag.id, tag);
+    }
+    for (const tag of localTags) {
+      if (!map.has(tag.id)) {
+        map.set(tag.id, tag);
+      }
+    }
+    return Array.from(map.values());
+  }, [catalogTags, localTags]);
+
+  const selectedTagOptions = React.useMemo(() => {
+    const tagMap = new Map(mergedTags.map((tag) => [tag.id, tag]));
+    return value.map((tagId) => {
+      const existing = tagMap.get(tagId);
+      if (existing) return existing;
+      return { id: tagId, name: tagId, hex: "000000" };
+    });
+  }, [mergedTags, value]);
+
+  const normalizedSelected = React.useMemo(() => new Set(value), [value]);
+
+  const filteredTags = React.useMemo(() => {
+    if (!searchTerm) return mergedTags;
+    const normalized = searchTerm.toLowerCase();
+    return mergedTags.filter((tag) =>
+      tag.name.toLowerCase().includes(normalized),
+    );
+  }, [mergedTags, searchTerm]);
+
+  const filteredColors = React.useMemo(() => {
+    if (!searchTerm) return allColors;
+    const normalized = searchTerm.toLowerCase();
+    return allColors.filter((color) =>
+      color.name.toLowerCase().includes(normalized),
+    );
+  }, [searchTerm]);
+
+  const showCreateOption =
+    !!searchTerm &&
+    !catalogTags.some(
+      (tag) => tag.name.toLowerCase() === searchTerm.trim().toLowerCase(),
+    );
+
+  const handleRemoveTag = (tagId: string) => {
+    onValueChange(value.filter((id) => id !== tagId));
+  };
+
+  const handleToggleTag = (tagId: string) => {
+    if (normalizedSelected.has(tagId)) {
+      handleRemoveTag(tagId);
+    } else {
+      onValueChange([...value, tagId]);
+    }
   };
 
   const handleCreateClick = () => {
-    if (searchTerm) {
-      setPendingTagName(searchTerm);
+    const trimmed = searchTerm.trim();
+    if (trimmed) {
+      setPendingTagName(trimmed);
       setView("picker");
       setSearchTerm("");
     }
   };
 
-  const handleColorPick = (color: { name: string; hex: string }) => {
-    const newTag: TagOption = {
-      name: pendingTagName,
-      hex: color.hex,
-    };
-    onValueChange([...value, newTag]);
-    setView("main");
-    setPendingTagName("");
-    setOpen(false);
+  const handleColorPick = async (color: { name: string; hex: string }) => {
+    if (!pendingTagName || createTagMutation.isPending) {
+      return;
+    }
+    const trimmedName = pendingTagName.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    const hexValue = color.hex.toUpperCase();
+
+    try {
+      const result = await toast.loading(
+        "Creating tag...",
+        createTagMutation.mutateAsync({
+          name: trimmedName,
+          hex: hexValue,
+        }),
+        {
+          delay: 200,
+          successMessage: "Tag created successfully",
+        },
+      );
+
+      const createdTag = result?.data;
+      const optimisticTag = {
+        id: createdTag?.id ?? `temp-${Date.now()}`,
+        name: trimmedName,
+        hex: hexValue,
+        created_at: createdTag?.created_at ?? new Date().toISOString(),
+        updated_at: createdTag?.updated_at ?? new Date().toISOString(),
+      };
+
+      setLocalTags((prev) => [
+        ...prev,
+        {
+          id: optimisticTag.id,
+          name: optimisticTag.name,
+          hex: optimisticTag.hex,
+        },
+      ]);
+
+      queryClient.setQueryData(
+        trpc.composite.brandCatalogContent.queryKey(),
+        (old: any) => {
+          if (!old?.brandCatalog) return old;
+          const existingTags = old.brandCatalog.tags ?? [];
+          const alreadyExists = existingTags.some(
+            (tag: any) =>
+              tag.name?.toLowerCase() === trimmedName.toLowerCase(),
+          );
+          if (alreadyExists) {
+            return old;
+          }
+          return {
+            ...old,
+            brandCatalog: {
+              ...old.brandCatalog,
+              tags: [...existingTags, optimisticTag],
+            },
+          };
+        },
+      );
+
+      queryClient.invalidateQueries({
+        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+      });
+
+      onValueChange([...new Set([...value, optimisticTag.id])]);
+      setView("main");
+      setPendingTagName("");
+      setOpen(false);
+    } catch (error) {
+      console.error("Failed to create tag:", error);
+      toast.error("Failed to create tag. Please try again.");
+    }
   };
-
-  const filteredTags = React.useMemo(() => {
-    if (!searchTerm) return value;
-    return value.filter((t) =>
-      t.name.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }, [value, searchTerm]);
-
-  const filteredColors = React.useMemo(() => {
-    if (!searchTerm) return allColors;
-    return allColors.filter((c) =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }, [searchTerm]);
-
-  const showCreateOption =
-    searchTerm &&
-    !value.some((t) => t.name.toLowerCase() === searchTerm.toLowerCase());
 
   // Reset view when popover closes
   React.useEffect(() => {
@@ -141,7 +256,7 @@ export function TagSelect({
       <PopoverTrigger asChild disabled={disabled}>
         <div
           className={cn(
-            "flex flex-wrap items-center py-[5px] px-2 w-full min-h-9 border border-border bg-background gap-1.5",
+            "group flex flex-wrap items-center py-[5px] px-2 w-full min-h-9 border border-border bg-background gap-1.5 cursor-pointer",
             disabled && "opacity-50 cursor-not-allowed",
             className,
           )}
@@ -149,11 +264,11 @@ export function TagSelect({
             if (disabled) e.preventDefault();
           }}
         >
-          {value.map((tag) => (
+          {selectedTagOptions.map((tag) => (
             <TagLabel
-              key={tag.name}
+              key={tag.id}
               tag={tag}
-              onRemove={() => handleRemoveTag(tag.name)}
+              onRemove={() => handleRemoveTag(tag.id)}
               disabled={disabled}
             />
           ))}
@@ -164,14 +279,14 @@ export function TagSelect({
                 e.stopPropagation();
                 setOpen(!open);
               }}
-              className="mx-1 border-b border-border type-p text-tertiary hover:text-secondary hover:border-secondary cursor-pointer transition-colors"
+              className="mx-1 border-b border-border type-p text-tertiary group-hover:text-secondary group-hover:border-secondary cursor-pointer transition-colors"
             >
               {placeholder}
             </button>
           )}
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-60 p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput
@@ -179,42 +294,46 @@ export function TagSelect({
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
-                {filteredTags.length > 0 ? (
-                  filteredTags.map((tag) => (
-                    <CommandItem
-                      key={tag.name}
-                      value={tag.name}
-                      onSelect={() => handleRemoveTag(tag.name)}
-                      className="justify-between"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="h-3.5 w-3.5 rounded-full border border-border"
-                          style={{ backgroundColor: `#${tag.hex}` }}
-                        />
-                        <span className="type-p text-primary">{tag.name}</span>
-                      </div>
-                      <Icons.Check className="h-4 w-4" />
-                    </CommandItem>
-                  ))
-                ) : searchTerm && showCreateOption ? (
+                {filteredTags.length > 0 &&
+                  filteredTags.map((tag) => {
+                    const isSelected = normalizedSelected.has(tag.id);
+                    return (
+                      <CommandItem
+                        key={tag.id}
+                        value={tag.name}
+                        onSelect={() => handleToggleTag(tag.id)}
+                        className="justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-3.5 w-3.5 rounded-full border border-border"
+                            style={{ backgroundColor: `#${tag.hex}` }}
+                          />
+                          <span className="type-p text-primary">
+                            {tag.name}
+                          </span>
+                        </div>
+                        {isSelected && <Icons.Check className="h-4 w-4" />}
+                      </CommandItem>
+                    );
+                  })}
+                {filteredTags.length === 0 && showCreateOption && (
                   <CommandItem value={searchTerm} onSelect={handleCreateClick}>
                     <div className="flex items-center gap-2">
                       <Icons.Plus className="h-3.5 w-3.5" />
                       <span className="type-p text-primary">
-                        Create &quot;{searchTerm}&quot;
+                        Create &quot;{searchTerm.trim()}&quot;
                       </span>
                     </div>
                   </CommandItem>
-                ) : !searchTerm ? (
-                  <div className="px-3 py-8 text-center">
-                    <p className="type-p text-tertiary">
-                      Begin typing to create your first tag
-                    </p>
-                  </div>
-                ) : null}
+                )}
+                {filteredTags.length === 0 && !showCreateOption && (
+                  <CommandEmpty>
+                    {searchTerm ? "No tags found" : "No tags yet"}
+                  </CommandEmpty>
+                )}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -225,13 +344,14 @@ export function TagSelect({
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
-            <CommandList>
+            <CommandList className="max-h-48">
               <CommandGroup>
                 {filteredColors.map((color) => (
                   <CommandItem
                     key={color.name}
                     value={color.name}
                     onSelect={() => handleColorPick(color)}
+                    disabled={createTagMutation.isPending}
                   >
                     <div className="flex items-center gap-2">
                       <div
@@ -242,6 +362,9 @@ export function TagSelect({
                     </div>
                   </CommandItem>
                 ))}
+                {filteredColors.length === 0 && (
+                  <CommandEmpty>No colors found</CommandEmpty>
+                )}
               </CommandGroup>
             </CommandList>
           </Command>

@@ -5,83 +5,22 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1757938133981,
-      "tag": "0000_yummy_glorian"
+      "when": 1763496845733,
+      "tag": "20251118201405_lazy_warhawk",
+      "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1757938133982,
-      "tag": "20250915125209_chilly_menace"
+      "when": 1763648581053,
+      "tag": "20251120142301_flowery_wallflower",
+      "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1757942422734,
-      "tag": "20250915132022_breezy_ozymandias",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1759063297221,
-      "tag": "20250928124137_slim_eddie_brock",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1759065745680,
-      "tag": "20250928132225_quiet_ben_urich",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1759067223226,
-      "tag": "20250928134703_cheerful_maginty",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1759068152860,
-      "tag": "20250928140232_silky_namora",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1759219337169,
-      "tag": "20250930080217_sturdy_puma",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1762889716164,
-      "tag": "20251111193516_gorgeous_blockbuster",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1762890110966,
-      "tag": "20251111194150_outstanding_firebrand",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1762891973829,
-      "tag": "20251111201253_typical_killmonger",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1762892180078,
-      "tag": "20251111201620_stiff_tempest",
+      "when": 1763751141243,
+      "tag": "20251121185221_opposite_lake",
       "breakpoints": true
     }
   ]

@@ -676,9 +676,9 @@ export function EntityValueCombobox({
       select: (data) => data.categories as CatalogDataQueryData["categories"],
     });
 
-    // State for the selected category path
+    // State for the selected category id
     const [categoryValue, setCategoryValue] =
-      React.useState<string>("Select category");
+      React.useState<string | null>(null);
 
     const categoryIndex = React.useMemo<CategoryIndexEntry[]>(() => {
       if (!categoriesData) return [];
@@ -693,13 +693,20 @@ export function EntityValueCombobox({
     // CategorySelect returns a path like "Men's / Tops / T-Shirts"
     // We need to extract the leaf category name and find its ID
     const findCategoryId = React.useCallback(
-      (categoryPath: string): { id: string; name: string } | null => {
+      (categoryPath: string | null): { id: string; name: string } | null => {
         if (
           !categoryIndex.length ||
           !categoryPath ||
           categoryPath === "Select category"
         ) {
           return null;
+        }
+
+        const idMatch = categoryIndex.find(
+          (candidate) => candidate.id === categoryPath,
+        );
+        if (idMatch) {
+          return { id: idMatch.id, name: idMatch.name };
         }
 
         const parts = categoryPath
@@ -844,12 +851,12 @@ export function EntityValueCombobox({
                       resolvedCategory.id,
                       resolvedCategory.name,
                     );
-                    setCategoryValue("Select category"); // Reset after mapping
+                    setCategoryValue(null); // Reset after mapping
                   } else {
                     toast.error(
-                      `Category "${categoryPath}" not found in database`,
+                      `Category "${categoryPath ?? rawValue}" not found in database`,
                     );
-                    setCategoryValue("Select category"); // Reset on error
+                    setCategoryValue(null); // Reset on error
                   }
                 }
               }}
@@ -1000,6 +1007,9 @@ export function EntityValueCombobox({
             onOpenChange={setSeasonModalOpen}
             initialName={rawValue}
             onSave={(seasonData) => {
+              const formatDate = (value: Date | null) =>
+                value ? value.toISOString().slice(0, 10) : undefined;
+
               // Store season data for batch creation
               setPendingEntity({
                 key,
@@ -1009,9 +1019,9 @@ export function EntityValueCombobox({
                 jobId,
                 entityData: {
                   name: seasonData.name || rawValue,
-                  start_date: seasonData.startDate,
-                  end_date: seasonData.endDate,
-                  is_ongoing: seasonData.ongoing,
+                  start_date: formatDate(seasonData.startDate),
+                  end_date: formatDate(seasonData.endDate),
+                  ongoing: seasonData.isOngoing,
                 },
               });
 

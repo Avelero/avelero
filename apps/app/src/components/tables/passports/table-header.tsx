@@ -6,7 +6,7 @@ import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { TableHead, TableHeader, TableRow } from "@v1/ui/table";
 import * as React from "react";
-import type { Passport } from "./types";
+import type { PassportTableRow } from "./types";
 
 interface ColumnMeta {
   headerClassName?: string;
@@ -15,7 +15,7 @@ interface ColumnMeta {
 }
 
 function getHeaderClassName(
-  header: HeaderContext<Passport, unknown>["header"],
+  header: HeaderContext<PassportTableRow, unknown>["header"],
   meta: ColumnMeta | null,
 ) {
   const stickyClass =
@@ -86,7 +86,7 @@ export function PassportTableHeader({
   isAllMode,
   hasAnySelection,
 }: {
-  table: ReactTable<Passport>;
+  table: ReactTable<PassportTableRow>;
   isScrollable?: boolean;
   onScrollLeftAction?: () => void;
   onScrollRightAction?: () => void;

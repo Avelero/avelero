@@ -85,7 +85,6 @@ function createConnection(
   const { connectionString, enableTls, strictTls } = getDatabaseConfig();
 
   const config: any = {
-    prepare: false,
     keep_alive: 30,
     fetch_types: false,
     max: options.maxConnections || 12,

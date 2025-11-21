@@ -79,6 +79,7 @@ function getDatabaseConfig() {
 function createConnection(
   options: {
     onconnect?: (connection: postgres.ReservedSql) => Promise<void>;
+    maxConnections?: number;
   } = {},
 ) {
   const { connectionString, enableTls, strictTls } = getDatabaseConfig();
@@ -87,8 +88,8 @@ function createConnection(
     prepare: false,
     keep_alive: 30,
     fetch_types: false,
-    max: 15,
-    connect_timeout: 30,
+    max: options.maxConnections || 12,
+    connect_timeout: 10,
     idle_timeout: 20,
     max_lifetime: 60 * 30,
     ...(enableTls
@@ -116,7 +117,7 @@ export const db: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
   {
     get(_target, prop) {
       if (!_db) {
-        const connection = createConnection();
+        const connection = createConnection({ maxConnections: 8 });
         _db = drizzle(connection, { schema });
       }
       return (_db as any)[prop];
@@ -135,6 +136,7 @@ export const serviceDb: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
     get(_target, prop) {
       if (!_serviceDb) {
         const serviceConnection = createConnection({
+          maxConnections: 2,
           onconnect: async (connection: postgres.ReservedSql) => {
             try {
               // Disable RLS checks for this connection session

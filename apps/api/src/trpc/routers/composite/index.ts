@@ -55,6 +55,7 @@ interface MinimalUserRecord {
   email: string | null;
   fullName: string | null;
   avatarPath: string | null;
+  avatarHue: number | null;
   brandId: string | null;
 }
 
@@ -136,6 +137,7 @@ function mapUserProfile(
     email,
     full_name: record.fullName ?? null,
     avatar_url: buildUserAvatarUrl(record.avatarPath),
+    avatar_hue: record.avatarHue ?? null,
     brand_id: record.brandId ?? null,
   };
 }
@@ -151,6 +153,7 @@ function mapInvite(invite: UserInviteSummaryRow) {
     id: invite.id,
     brand_name: invite.brandName,
     brand_logo: buildBrandLogoUrl(invite.brandLogoPath ?? null),
+    brand_avatar_hue: invite.brandAvatarHue ?? null,
     role: invite.role,
     invited_by: invite.invitedByFullName ?? invite.invitedByEmail ?? null,
     invited_by_avatar_url: buildUserAvatarUrl(invite.invitedByAvatarPath),

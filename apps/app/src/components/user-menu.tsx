@@ -36,6 +36,7 @@ function UserMenuContent({ onlySignOut }: Props) {
             bucket="avatars"
             url={user?.avatar_url ?? null}
             name={user?.full_name ?? undefined}
+            hue={user?.avatar_hue ?? undefined}
             size={32}
           />
         </button>

@@ -49,9 +49,15 @@ async function SidebarLayoutContent({
     workflowInit.brands,
   );
 
+  queryClient.setQueryData(
+    trpc.user.invites.list.queryOptions().queryKey,
+    workflowInit.myInvites,
+  );
+
   // Redirect logic based on bootstrap data
   if (!user?.full_name) redirect("/setup");
-  if (!user?.brand_id) redirect("/create-brand");
+  if (workflowInit.brands.length === 0 && workflowInit.myInvites.length === 0) redirect("/create-brand");
+  if (workflowInit.brands.length === 0 && workflowInit.myInvites.length > 0) redirect("/invites");
 
   return (
     <HydrateClient>

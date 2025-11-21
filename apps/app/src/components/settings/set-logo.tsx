@@ -10,6 +10,7 @@ interface Brand {
   id: string;
   name: string;
   logo_url?: string | null;
+  avatar_hue?: number | null;
   role?: "owner" | "member" | null;
   canLeave?: boolean;
 }
@@ -36,7 +37,7 @@ function InnerLogoUpload() {
       entityId={activeBrand.id}
       avatarUrl={activeBrand.logo_url}
       name={activeBrand.name}
-      hue={null}
+      hue={activeBrand.avatar_hue ?? null}
       size={52}
     />
   );

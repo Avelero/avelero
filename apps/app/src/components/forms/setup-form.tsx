@@ -40,6 +40,7 @@ export function SetupForm() {
   useEffect(() => {
     router.prefetch("/");
     router.prefetch("/create-brand");
+    router.prefetch("/invites");
   }, [router]);
 
   const updateUserMutation = useMutation(
@@ -55,11 +56,20 @@ export function SetupForm() {
         await queryClient.invalidateQueries({
           queryKey: trpc.composite.workflowInit.queryKey(),
         });
-        const brands = await queryClient.fetchQuery(
-          trpc.workflow.list.queryOptions(),
-        );
+        const [brands, invites] = await Promise.all([
+          queryClient.fetchQuery(trpc.workflow.list.queryOptions()),
+          queryClient.fetchQuery(trpc.user.invites.list.queryOptions()),
+        ]);
         const hasBrands = Array.isArray(brands) && brands.length > 0;
-        router.push(hasBrands ? "/" : "/create-brand");
+        const hasInvites = Array.isArray(invites) && invites.length > 0;
+        
+        if (hasBrands) {
+          router.push("/");
+        } else if (hasInvites) {
+          router.push("/invites");
+        } else {
+          router.push("/create-brand");
+        }
       },
       onError: (err) => {
         setError(err.message || "Failed to save profile");

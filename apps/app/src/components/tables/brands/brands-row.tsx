@@ -31,9 +31,10 @@ interface BrandWithRole {
 
 interface InviteRow {
   id: string;
-  role: "owner" | "member";
-  brand_name: string;
-  brand_logo?: string | null;
+  role: string;
+  brand_name: string | null;
+  brand_logo: string | null;
+  brand_avatar_hue?: number | null;
 }
 
 type Props = { membership: BrandWithRole } | { invite: InviteRow };
@@ -115,22 +116,29 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
 }
 
 function InviteRowComp({ invite }: { invite: InviteRow }) {
-  const accept = useAcceptInviteMutation();
+  const setActiveBrand = useSetActiveBrandMutation();
+  const accept = useAcceptInviteMutation({
+    setActiveBrand: setActiveBrand.mutate,
+  });
   const reject = useRejectInviteMutation();
   const router = useRouter();
+
+  const isProcessing = accept.isPending || reject.isPending || setActiveBrand.isPending;
 
   // Prefetch dashboard route for post-acceptance navigation
   useEffect(() => {
     router.prefetch("/");
   }, [router]);
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
         <SignedAvatar
           bucket="brand-avatars"
-          path={invite.brand_logo ?? null}
+          path={invite.brand_logo}
+          name={invite.brand_name ?? undefined}
+          hue={invite.brand_avatar_hue ?? undefined}
           size={32}
-          name={invite.brand_name}
         />
         <div className="flex flex-col">
           <span className="type-p !font-medium">{invite.brand_name}</span>
@@ -143,6 +151,7 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
         <Button
           variant="outline"
           size="icon"
+          disabled={isProcessing}
           onClick={() =>
             reject.mutate({ invite_id: invite.id, action: "decline" })
           }
@@ -153,15 +162,9 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
         <Button
           variant="outline"
           size="icon"
+          disabled={isProcessing}
           onClick={() =>
-            accept.mutate(
-              { invite_id: invite.id, action: "accept" },
-              {
-                onSuccess: () => {
-                  router.push("/");
-                },
-              },
-            )
+            accept.mutate({ invite_id: invite.id, action: "accept" })
           }
           aria-label="Accept"
         >

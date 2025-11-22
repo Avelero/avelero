@@ -202,8 +202,8 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       );
     },
     meta: {
-      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
-      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
     },
   },
   // Category with hover path
@@ -242,22 +242,28 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       );
     },
     meta: {
-      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
-      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
     },
   },
   // Season chip
   {
     accessorKey: "season",
     header: "Season",
-    cell: ({ row }) => (
-      <span className="inline-flex h-6 items-center rounded-full border bg-background px-2 type-small text-primary">
-        {row.original.season ?? "-"}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const season = row.original.season;
+      if (!season) {
+        return null;
+      }
+      return (
+        <span className="inline-flex h-6 items-center rounded-full border bg-background px-2 type-small text-primary">
+          {season}
+        </span>
+      );
+    },
     meta: {
-      headerClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
-      cellClassName: cn("w-[240px] min-w-[240px] max-w-[240px]"),
+      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
     },
   },
   // Variants count
@@ -270,8 +276,8 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       </span>
     ),
     meta: {
-      headerClassName: cn("w-[120px] min-w-[120px] max-w-[140px]"),
-      cellClassName: cn("w-[120px] min-w-[120px] max-w-[140px]"),
+      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
     },
   },
   {

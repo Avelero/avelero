@@ -4,7 +4,7 @@ import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { Suspense, useState, useMemo, useCallback, useEffect } from "react";
+import { Suspense, useState, useMemo, useCallback, useEffect, useDeferredValue } from "react";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type { PassportTableRow, SelectionState } from "../tables/passports/types";
 import { PassportControls } from "./passport-controls";
@@ -19,6 +19,10 @@ export function TableSectionContent() {
   const [hasAnyPassports, setHasAnyPassports] = useState(false);
   // Filter state management
   const [filterState, filterActions] = useFilterState();
+
+  // Search state management (debounced)
+  const [searchValue, setSearchValue] = useState("");
+  const deferredSearch = useDeferredValue(searchValue);
 
   // Sort state management (UI only for now)
   const [sortState, setSortState] = useState<{
@@ -172,6 +176,18 @@ export function TableSectionContent() {
     setIsInnerSuspenseEnabled(true);
   }, []);
 
+  // Check if there are active filters or search
+  const hasActiveFilters = useMemo(() => {
+    const hasSearch = deferredSearch.trim().length > 0;
+    const hasFilterGroups = filterState.groups.length > 0;
+    return hasSearch || hasFilterGroups;
+  }, [deferredSearch, filterState.groups]);
+
+  const handleClearFilters = useCallback(() => {
+    setSearchValue("");
+    filterActions.clearAll();
+  }, [filterActions]);
+
   const tableContent = (
     <TableContent
       columnOrder={columnOrder}
@@ -185,6 +201,9 @@ export function TableSectionContent() {
       onTotalCountChangeAction={setHasAnyPassports}
       pageSize={pageSize}
       selection={selection}
+      search={deferredSearch}
+      hasActiveFilters={hasActiveFilters}
+      onClearFilters={handleClearFilters}
     />
   );
 
@@ -192,7 +211,7 @@ export function TableSectionContent() {
     <div className="w-full">
       <PassportControls
         selectedCount={selectedCount}
-        disabled={!hasAnyPassports}
+        disabled={!hasAnyPassports && !hasActiveFilters}
         selection={selection}
         onClearSelectionAction={() => {
           setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
@@ -207,6 +226,8 @@ export function TableSectionContent() {
         filterActions={filterActions}
         sortState={sortState}
         onSortChange={setSortState}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
       />
       {isInnerSuspenseEnabled ? (
         <Suspense
@@ -238,6 +259,9 @@ interface TableContentProps {
   onTotalCountChangeAction: (hasAny: boolean) => void;
   pageSize: number;
   selection: SelectionState;
+  search?: string;
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
 }
 
 function TableContent({
@@ -252,14 +276,31 @@ function TableContent({
   onTotalCountChangeAction,
   pageSize,
   selection,
+  search,
+  hasActiveFilters = false,
+  onClearFilters,
 }: TableContentProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  
+  // Reset to first page when search changes
+  useEffect(() => {
+    if (search) {
+      onCursorStackChange([]);
+      onCursorChange(undefined);
+    }
+  }, [search, onCursorChange, onCursorStackChange]);
+  
   const { data: productsResponse } = useSuspenseQuery(
     trpc.products.list.queryOptions({
       cursor,
       limit: pageSize,
       includeVariants: true,
+      filters: search
+        ? {
+            search: search.trim() || undefined,
+          }
+        : undefined,
     }),
   );
 
@@ -283,12 +324,8 @@ function TableContent({
         productIdentifier: p.product_identifier ?? p.productIdentifier ?? "",
         status: (p.status ?? "unpublished") as any,
         category: (p as any).category_name ?? null,
-        categoryPath: null,
-        season:
-          (p as any).season_name ??
-          (p as any).season ??
-          (p as any).seasonId ??
-          null,
+        categoryPath: (p as any).category_path ?? null,
+        season: (p as any).season_name ?? null,
         primaryImageUrl: p.primary_image_url ?? p.primaryImageUrl ?? null,
         variantCount: variants.length || undefined,
         createdAt: p.created_at ?? p.createdAt ?? "",
@@ -353,9 +390,14 @@ function TableContent({
         cursor: meta?.cursor ?? undefined,
         limit: pageSize,
         includeVariants: true,
+        filters: search
+          ? {
+              search: search.trim() || undefined,
+            }
+          : undefined,
       }),
     );
-  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize]);
+  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize, search]);
 
   const handlePrefetchPrev = useCallback(() => {
     if (!cursorStack.length) return;
@@ -365,9 +407,14 @@ function TableContent({
         cursor: prevCursor,
         limit: pageSize,
         includeVariants: true,
+        filters: search
+          ? {
+              search: search.trim() || undefined,
+            }
+          : undefined,
       }),
     );
-  }, [queryClient, trpc, cursorStack, pageSize]);
+  }, [queryClient, trpc, cursorStack, pageSize, search]);
 
   const handlePrefetchFirst = useCallback(() => {
     void queryClient.prefetchQuery(
@@ -375,9 +422,14 @@ function TableContent({
         cursor: undefined,
         limit: pageSize,
         includeVariants: true,
+        filters: search
+          ? {
+              search: search.trim() || undefined,
+            }
+          : undefined,
       }),
     );
-  }, [queryClient, trpc, pageSize]);
+  }, [queryClient, trpc, pageSize, search]);
 
   const handlePrefetchLast = useCallback(() => {
     const targetIndex = lastPageIndex;
@@ -391,13 +443,34 @@ function TableContent({
         cursor: lastCursor,
         limit: pageSize,
         includeVariants: true,
+        filters: search
+          ? {
+              search: search.trim() || undefined,
+            }
+          : undefined,
       }),
     );
-  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst]);
+  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst, search]);
 
   const pageStart =
     totalRows === 0 ? 0 : cursorStack.length * pageSize + (tableRows.length ? 1 : 0);
   const pageEnd = cursorStack.length * pageSize + tableRows.length;
+
+  // Track if there are truly no products (not filtered)
+  // If filters are active and we have 0 results, it means products exist but don't match filters
+  // Only set hasAnyPassports to false if there are no products AND no active filters
+  useEffect(() => {
+    if (totalRows > 0) {
+      // We have products
+      onTotalCountChangeAction(true);
+    } else if (hasActiveFilters) {
+      // Filters are active but no results - means products exist, just don't match
+      onTotalCountChangeAction(true);
+    } else {
+      // No products and no filters - truly no products
+      onTotalCountChangeAction(false);
+    }
+  }, [totalRows, hasActiveFilters, onTotalCountChangeAction]);
 
   return (
     <PassportDataTable
@@ -425,6 +498,8 @@ function TableContent({
       onPrefetchPrev={handlePrefetchPrev}
       onPrefetchFirst={handlePrefetchFirst}
       onPrefetchLast={handlePrefetchLast}
+      hasActiveFilters={hasActiveFilters}
+      onClearFilters={onClearFilters}
     />
   );
 }

@@ -51,7 +51,7 @@ export function NoResults({ onClearAction }: { onClearAction?: () => void }) {
   return (
     <EmptyPanel
       title="No results"
-      description="Try adjusting your filters or search query."
+      description="Change your search query or filters."
       action={
         onClearAction
           ? { label: "Clear filters", onClick: onClearAction }

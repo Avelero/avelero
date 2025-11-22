@@ -39,6 +39,8 @@ export function PassportDataTable({
   onPrefetchPrev,
   onPrefetchFirst,
   onPrefetchLast,
+  hasActiveFilters,
+  onClearFilters,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
@@ -64,6 +66,8 @@ export function PassportDataTable({
   onPrefetchPrev?: () => void;
   onPrefetchFirst?: () => void;
   onPrefetchLast?: () => void;
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
 }) {
   const pageSize = 50;
   const page =
@@ -315,12 +319,16 @@ export function PassportDataTable({
 
     setOptimisticRowSelection(nextMap);
   }, [tableData, selection, isPending]);
-  if (!tableData.length)
-    return total === 0 ? (
+  if (!tableData.length) {
+    // Show "No passports yet" only if there are truly no products AND no active filters/search
+    // If there are active filters/search and no results, show "No results"
+    const hasNoProductsAtAll = total === 0 && !hasActiveFilters;
+    return hasNoProductsAtAll ? (
       <EmptyState.NoPassports />
     ) : (
-      <EmptyState.NoResults />
+      <EmptyState.NoResults onClearAction={onClearFilters} />
     );
+  }
 
   return (
     <div className="relative w-full h-full">

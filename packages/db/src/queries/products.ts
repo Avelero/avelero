@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../client";
 import { generateUniqueUpid } from "../utils/upid.js";
@@ -6,7 +6,9 @@ import {
   brandEcoClaims,
   brandFacilities,
   brandMaterials,
+  brandSeasons,
   brandTags,
+  categories,
   productEcoClaims,
   productEnvironment,
   productJourneyStepFacilities,
@@ -72,6 +74,10 @@ export interface ProductRecord {
   status?: string | null;
   created_at?: string;
   updated_at?: string;
+  // Enriched fields from joins
+  category_name?: string | null;
+  category_path?: string[] | null;
+  season_name?: string | null;
 }
 
 /**
@@ -186,6 +192,12 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
     product.created_at = (row.created_at as string | null) ?? undefined;
   if ("updated_at" in row)
     product.updated_at = (row.updated_at as string | null) ?? undefined;
+  if ("category_name" in row)
+    product.category_name = (row.category_name as string | null) ?? null;
+  if ("category_path" in row)
+    product.category_path = (row.category_path as string[] | null) ?? null;
+  if ("season_name" in row)
+    product.season_name = (row.season_name as string | null) ?? null;
 
   return product;
 }
@@ -465,6 +477,69 @@ async function loadAttributesForProducts(
 }
 
 /**
+ * Batch loads category paths for multiple products.
+ *
+ * Performs a single database query to fetch all categories, then builds
+ * hierarchical paths in memory for efficient lookups. Optimizes N+1 query
+ * problems when loading product lists with category information.
+ *
+ * @param db - Database instance
+ * @param categoryIds - Array of category IDs to build paths for
+ * @returns Map of category ID to array of category names (path from root to leaf)
+ */
+async function loadCategoryPathsForProducts(
+  db: Database,
+  categoryIds: readonly (string | null)[],
+): Promise<Map<string | null, string[]>> {
+  const map = new Map<string | null, string[]>();
+  const uniqueIds = Array.from(
+    new Set(categoryIds.filter((id): id is string => id !== null)),
+  );
+
+  if (uniqueIds.length === 0) return map;
+
+  // Load all categories in one query
+  const allCategories = await db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      parentId: categories.parentId,
+    })
+    .from(categories);
+
+  // Build in-memory lookup map for O(1) access
+  const categoryMap = new Map(
+    allCategories.map((c) => [
+      c.id,
+      { name: c.name, parentId: c.parentId ?? null },
+    ]),
+  );
+
+  // Build paths for each unique category ID by traversing parent chain
+  function buildPath(categoryId: string): string[] {
+    const path: string[] = [];
+    let currentId: string | null = categoryId;
+
+    while (currentId) {
+      const category = categoryMap.get(currentId);
+      if (!category) break;
+
+      path.unshift(category.name); // Add to front of array
+      currentId = category.parentId; // Move to parent
+    }
+
+    return path;
+  }
+
+  // Build paths for all unique category IDs
+  for (const id of uniqueIds) {
+    map.set(id, buildPath(id));
+  }
+
+  return map;
+}
+
+/**
  * Lists products with optional field selection for performance optimization.
  *
  * Supports selective field querying to reduce data transfer and query overhead.
@@ -504,7 +579,42 @@ export async function listProducts(
   if (filters.seasonId) whereClauses.push(eq(products.seasonId, filters.seasonId));
   if (filters.search) {
     const term = `%${filters.search}%`;
-    whereClauses.push(ilike(products.name, term));
+    // Search across: name, productIdentifier, season name, category name, status, and tags
+    const searchConditions = [
+      ilike(products.name, term),
+      ilike(products.productIdentifier, term),
+      // Status search (exact match or contains)
+      ilike(products.status, term),
+    ];
+
+    // Add season search (requires join, handled in subquery)
+    // Add category search (requires join, handled in subquery)
+    // Add tag search (requires EXISTS subquery for many-to-many)
+    
+    whereClauses.push(
+      or(
+        ...searchConditions,
+        // Season name search via EXISTS
+        sql`EXISTS (
+          SELECT 1 FROM ${brandSeasons}
+          WHERE ${brandSeasons.id} = ${products.seasonId}
+          AND ${brandSeasons.name} ILIKE ${term}
+        )`,
+        // Category name search via EXISTS (including parent categories)
+        sql`EXISTS (
+          SELECT 1 FROM ${categories}
+          WHERE ${categories.id} = ${products.categoryId}
+          AND ${categories.name} ILIKE ${term}
+        )`,
+        // Tag search via EXISTS
+        sql`EXISTS (
+          SELECT 1 FROM ${tagsOnProduct}
+          INNER JOIN ${brandTags} ON ${brandTags.id} = ${tagsOnProduct.tagId}
+          WHERE ${tagsOnProduct.productId} = ${products.id}
+          AND ${brandTags.name} ILIKE ${term}
+        )`,
+      )!,
+    );
   }
 
   // Build select object based on requested fields
@@ -515,9 +625,18 @@ export async function listProducts(
       )
       : PRODUCT_FIELD_MAP;
 
+  // Add joined fields for category and season names
+  const selectWithJoins = {
+    ...selectFields,
+    category_name: categories.name,
+    season_name: brandSeasons.name,
+  };
+
   const rows = await db
-    .select(selectFields)
+    .select(selectWithJoins)
     .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(brandSeasons, eq(products.seasonId, brandSeasons.id))
     .where(and(...whereClauses))
     .orderBy(desc(products.createdAt))
     .limit(limit)
@@ -574,6 +693,17 @@ export async function listProductsWithIncludes(
   const products = base.data.map(mapProductRow);
   const productIds = products.map((product) => product.id);
 
+  // Load category paths for all products (batch operation)
+  // Note: category_name is already available from the join in listProducts,
+  // but we need to build the full hierarchical path
+  const categoryIds = products
+    .map((p) => p.category_id)
+    .filter((id): id is string => id !== null);
+  const categoryPathsMap = await loadCategoryPathsForProducts(db, categoryIds);
+
+  // Note: season_name is already available from the join in listProducts,
+  // so we don't need to load seasons again
+
   const variantsMap = opts.includeVariants
     ? await loadVariantsForProducts(db, productIds)
     : new Map<string, ProductVariantSummary[]>();
@@ -584,6 +714,14 @@ export async function listProductsWithIncludes(
 
   const data: ProductWithRelations[] = products.map((product) => {
     const enriched: ProductWithRelations = { ...product };
+
+    // Enrich with category path (category_name is already set from join)
+    if (product.category_id && !product.category_path) {
+      enriched.category_path = categoryPathsMap.get(product.category_id) ?? null;
+    }
+
+    // season_name is already set from the join in listProducts, no need to enrich
+
     if (opts.includeVariants) {
       enriched.variants = variantsMap.get(product.id) ?? [];
     }

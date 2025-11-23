@@ -111,9 +111,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     inputType: "hierarchical",
     operators: [...OPERATORS.hierarchical] as FilterOperator[],
     description: "Filter by product category with hierarchy support",
-    // Also available in advanced filters as multi-select
-    advancedInputType: "multi-select",
-    advancedOperators: [...OPERATORS.multiSelect] as FilterOperator[],
+    // Also available in advanced filters as multi-select (handled by getFieldConfig)
   },
 
   colorId: {

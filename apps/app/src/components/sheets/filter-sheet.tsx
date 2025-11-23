@@ -1,6 +1,10 @@
 "use client";
 
 import { useFilterMetadata } from "@/hooks/use-filter-state";
+import {
+  getAdvancedFilterGroups,
+  hasQuickFilters,
+} from "@/utils/filter-converter";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import {
@@ -44,16 +48,25 @@ export function AdvancedFilterPanel({
   availableFields,
 }: AdvancedFilterPanelProps) {
   // Local state for editing - only syncs back on Apply
-  const [localState, setLocalState] = React.useState<FilterState>(filterState);
+  const [localState, setLocalState] = React.useState<FilterState>({ groups: [] });
 
-  // Sync local state when panel opens with new applied filters
+  // Sync local state when panel opens
+  // If quick filters are active, start empty (advanced filters will overwrite)
+  // If advanced filters are active, show those existing filters
   React.useEffect(() => {
     if (open) {
-      setLocalState(filterState);
+      if (hasQuickFilters(filterState)) {
+        // Quick filters are active - start with empty advanced filters
+        setLocalState({ groups: [] });
+      } else {
+        // Advanced filters are active (or no filters) - show existing advanced filters
+        const advancedGroups = getAdvancedFilterGroups(filterState);
+        setLocalState({ groups: advancedGroups });
+      }
     }
   }, [open, filterState]);
 
-  // Initialize with empty group if needed
+  // Initialize with empty group if needed (only if no groups exist)
   React.useEffect(() => {
     if (open && localState.groups.length === 0) {
       setLocalState((prev) => ({
@@ -177,8 +190,10 @@ export function AdvancedFilterPanel({
     [],
   );
 
-  // Handle apply - sync to real state and close
+  // Handle apply - completely replace FilterState with advanced filter groups
+  // This overwrites any quick filters that might be active
   const handleApply = () => {
+    // Always replace entire FilterState with advanced filter groups
     filterActions.setGroups(localState.groups);
     onOpenChange(false);
   };

@@ -50,20 +50,92 @@ export const PRODUCT_FIELDS = [
  */
 export type ProductField = (typeof PRODUCT_FIELDS)[number];
 
+// ============================================================================
+// FilterState Schema Definitions
+// ============================================================================
+
+/**
+ * Filter value types matching FilterValue from filter-types.ts
+ */
+const filterValueSchema: z.ZodType<any> = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.array(z.string()),
+  z.object({
+    date: z.string(), // ISO date string
+  }),
+  z.object({
+    type: z.literal("relative"),
+    option: z.enum([
+      "today",
+      "yesterday",
+      "last 7 days",
+      "last 30 days",
+      "this month",
+      "last month",
+      "this quarter",
+      "this year",
+      "more than X days ago",
+    ]),
+    customDays: z.number().optional(),
+  }),
+  z.object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+  }),
+  z.object({
+    after: z.string().optional(), // ISO date string
+    before: z.string().optional(), // ISO date string
+  }),
+  z.null(),
+  z.undefined(),
+]);
+
+/**
+ * Filter condition schema matching FilterCondition
+ * Uses z.lazy for recursive nested conditions support
+ */
+const filterConditionSchema: z.ZodType<any> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    fieldId: z.string(),
+    operator: z.string(), // All operators from FilterOperator type
+    value: filterValueSchema,
+    nestedConditions: z.array(filterConditionSchema).optional(),
+  })
+);
+
+/**
+ * Filter group schema matching FilterGroup
+ */
+const filterGroupSchema = z.object({
+  id: z.string(),
+  conditions: z.array(filterConditionSchema), // OR logic within group
+  asGroup: z.boolean().optional(),
+});
+
+/**
+ * Filter state schema matching FilterState
+ * Groups are ANDed together, conditions within groups are ORed
+ */
+const filterStateSchema = z.object({
+  groups: z.array(filterGroupSchema), // AND logic between groups
+});
+
 /**
  * Cursor-based listing parameters for product tables.
+ * 
+ * Updated to use FilterState for advanced filtering and search as top-level parameter.
  */
 export const listProductsSchema = z.object({
   cursor: z.string().optional(),
   limit: paginationLimitSchema.optional(),
   fields: createFieldSelection(PRODUCT_FIELDS),
-  filters: z
-    .object({
-      category_id: uuidSchema.optional(),
-      season_id: uuidSchema.optional(),
-      search: shortStringSchema.optional(),
-    })
-    .optional(),
+  // Advanced filters using FilterState structure (groups with AND/OR logic)
+  filters: filterStateSchema.optional(),
+  // Search is now top-level, separate from advanced filters
+  search: shortStringSchema.optional(),
   sort: z
     .object({
       field: z.enum([
@@ -291,3 +363,15 @@ export type ProductVariantsUpsertInput = z.infer<
 export type ProductVariantsDeleteInput = z.infer<
   typeof productVariantsDeleteSchema
 >;
+
+// ============================================================================
+// FilterState Type Exports
+// ============================================================================
+
+/**
+ * Type exports for FilterState structures (matching client-side filter-types.ts)
+ */
+export type FilterValue = z.infer<typeof filterValueSchema>;
+export type FilterCondition = z.infer<typeof filterConditionSchema>;
+export type FilterGroup = z.infer<typeof filterGroupSchema>;
+export type FilterState = z.infer<typeof filterStateSchema>;

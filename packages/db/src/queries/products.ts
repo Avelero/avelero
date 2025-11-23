@@ -19,11 +19,29 @@ import {
   tagsOnProduct,
 } from "../schema";
 
-/** Filter options for product list queries */
+/**
+ * Filter options for product list queries
+ * 
+ * Uses FilterState structure (groups with AND/OR logic).
+ * Full FilterState → SQL conversion will be implemented in Phase 5.
+ */
 type ListFilters = {
-  categoryId?: string;
-  seasonId?: string;
-  search?: string;
+  search?: string; // Top-level search (separate from FilterState)
+  // FilterState structure (groups with AND/OR logic)
+  // Will be converted to SQL WHERE clauses in Phase 5
+  filterState?: {
+    groups: Array<{
+      id: string;
+      conditions: Array<{
+        id: string;
+        fieldId: string;
+        operator: string;
+        value: any;
+        nestedConditions?: Array<any>;
+      }>;
+      asGroup?: boolean;
+    }>;
+  };
 };
 
 /**
@@ -591,9 +609,15 @@ export async function listProducts(
     : 0;
 
   const whereClauses = [eq(products.brandId, brandId)];
-  if (filters.categoryId)
-    whereClauses.push(eq(products.categoryId, filters.categoryId));
-  if (filters.seasonId) whereClauses.push(eq(products.seasonId, filters.seasonId));
+  
+  // Search is top-level (separate from FilterState)
+  // Full FilterState → SQL conversion will be implemented in Phase 5
+  // For now, FilterState is accepted but not yet converted to WHERE clauses
+  if (filters.filterState) {
+    // TODO: Phase 5 - Convert FilterState to SQL WHERE clauses
+    // This will use convertFilterStateToWhereClauses() function
+  }
+  
   if (filters.search) {
     const term = `%${filters.search}%`;
     // Search across: name, productIdentifier, season name, category name, status, and tags

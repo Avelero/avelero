@@ -7,6 +7,7 @@ import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense, useState, useMemo, useCallback, useEffect, useDeferredValue } from "react";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type { PassportTableRow, SelectionState } from "../tables/passports/types";
+import type { FilterState } from "../passports/filter-types";
 import { PassportControls } from "./passport-controls";
 
 type SortField = "name" | "status" | "createdAt" | "updatedAt" | "category" | "season" | "productIdentifier";
@@ -228,6 +229,7 @@ export function TableSectionContent() {
       selection={selection}
       search={deferredSearch}
       sort={mappedSort}
+      filterState={filterState}
       hasActiveFilters={hasActiveFilters}
       onClearFilters={handleClearFilters}
     />
@@ -287,6 +289,7 @@ interface TableContentProps {
   selection: SelectionState;
   search?: string;
   sort?: { field: SortField; direction: "asc" | "desc" };
+  filterState: FilterState;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
 }
@@ -305,6 +308,7 @@ function TableContent({
   selection,
   search,
   sort,
+  filterState,
   hasActiveFilters = false,
   onClearFilters,
 }: TableContentProps) {
@@ -326,17 +330,22 @@ function TableContent({
       onCursorChange(undefined);
     }
   }, [sort?.field, sort?.direction, onCursorChange, onCursorStackChange]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    if (filterState.groups.length > 0) {
+      onCursorStackChange([]);
+      onCursorChange(undefined);
+    }
+  }, [filterState.groups.length, onCursorChange, onCursorStackChange]);
   
   const { data: productsResponse } = useSuspenseQuery(
     trpc.products.list.queryOptions({
       cursor,
       limit: pageSize,
       includeVariants: true,
-      filters: search
-        ? {
-            search: search.trim() || undefined,
-          }
-        : undefined,
+      filters: filterState.groups.length > 0 ? filterState : undefined,
+      search: search?.trim() || undefined,
       sort: sort,
     }),
   );
@@ -427,15 +436,12 @@ function TableContent({
         cursor: meta?.cursor ?? undefined,
         limit: pageSize,
         includeVariants: true,
-        filters: search
-          ? {
-              search: search.trim() || undefined,
-            }
-          : undefined,
+        filters: filterState.groups.length > 0 ? filterState : undefined,
+        search: search?.trim() || undefined,
         sort: sort,
       }),
     );
-  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize, search, sort]);
+  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize, search, sort, filterState]);
 
   const handlePrefetchPrev = useCallback(() => {
     if (!cursorStack.length) return;
@@ -445,15 +451,12 @@ function TableContent({
         cursor: prevCursor,
         limit: pageSize,
         includeVariants: true,
-        filters: search
-          ? {
-              search: search.trim() || undefined,
-            }
-          : undefined,
+        filters: filterState.groups.length > 0 ? filterState : undefined,
+        search: search?.trim() || undefined,
         sort: sort,
       }),
     );
-  }, [queryClient, trpc, cursorStack, pageSize, search, sort]);
+  }, [queryClient, trpc, cursorStack, pageSize, search, sort, filterState]);
 
   const handlePrefetchFirst = useCallback(() => {
     void queryClient.prefetchQuery(
@@ -461,15 +464,12 @@ function TableContent({
         cursor: undefined,
         limit: pageSize,
         includeVariants: true,
-        filters: search
-          ? {
-              search: search.trim() || undefined,
-            }
-          : undefined,
+        filters: filterState.groups.length > 0 ? filterState : undefined,
+        search: search?.trim() || undefined,
         sort: sort,
       }),
     );
-  }, [queryClient, trpc, pageSize, search, sort]);
+  }, [queryClient, trpc, pageSize, search, sort, filterState]);
 
   const handlePrefetchLast = useCallback(() => {
     const targetIndex = lastPageIndex;
@@ -483,15 +483,12 @@ function TableContent({
         cursor: lastCursor,
         limit: pageSize,
         includeVariants: true,
-        filters: search
-          ? {
-              search: search.trim() || undefined,
-            }
-          : undefined,
+        filters: filterState.groups.length > 0 ? filterState : undefined,
+        search: search?.trim() || undefined,
         sort: sort,
       }),
     );
-  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst, search, sort]);
+  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst, search, sort, filterState]);
 
   const pageStart =
     totalRows === 0 ? 0 : cursorStack.length * pageSize + (tableRows.length ? 1 : 0);

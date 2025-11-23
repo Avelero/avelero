@@ -2,6 +2,12 @@
 
 import { getQuickFilterFields } from "@/config/filters";
 import { useFieldOptions } from "@/hooks/use-filter-options";
+import {
+  convertQuickFiltersToFilterState,
+  extractQuickFiltersFromFilterState,
+  hasAdvancedFilters,
+  hasQuickFilters,
+} from "@/utils/filter-converter";
 import { useTRPC } from "@/trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -52,16 +58,21 @@ const renderStatusIcon = (fieldId: string, value: string) => {
 };
 
 export function QuickFiltersPopover({
-  filterState: _filterState,
-  filterActions: _filterActions,
+  filterState,
+  filterActions,
   onOpenAdvanced,
   disabled = false,
 }: QuickFiltersPopoverProps) {
   const [open, setOpen] = React.useState(false);
-  // Local quick-filter state (decoupled from Advanced filters)
-  const [quickFilters, setQuickFilters] = React.useState<
-    Record<string, string[]>
-  >({});
+
+  // Extract current quick filter selections from FilterState
+  // If advanced filters exist, show empty (quick filters will overwrite on apply)
+  const currentQuickFilters = React.useMemo(() => {
+    if (hasQuickFilters(filterState)) {
+      return extractQuickFiltersFromFilterState(filterState);
+    }
+    return {};
+  }, [filterState]);
 
   const activeFilters = React.useMemo(() => {
     const filters: Array<{
@@ -70,7 +81,7 @@ export function QuickFiltersPopover({
       value: string[];
     }> = [];
     for (const field of QUICK_FIELDS) {
-      const values = quickFilters[field.id] ?? [];
+      const values = currentQuickFilters[field.id] ?? [];
       if (values.length > 0) {
         filters.push({
           fieldId: field.id,
@@ -80,7 +91,7 @@ export function QuickFiltersPopover({
       }
     }
     return filters;
-  }, [quickFilters]);
+  }, [currentQuickFilters]);
 
   const getOptionLabel = React.useCallback((fieldId: string, value: string) => {
     const field = QUICK_FIELDS.find((f) => f.id === fieldId);
@@ -88,13 +99,44 @@ export function QuickFiltersPopover({
     return option?.label ?? value;
   }, []);
 
-  const removeFilter = React.useCallback((fieldId: string) => {
-    setQuickFilters((prev) => {
-      const next = { ...prev };
-      delete next[fieldId];
-      return next;
-    });
-  }, []);
+  // Handle toggling a quick filter value
+  const handleToggleValue = React.useCallback(
+    (fieldId: string, optionValue: string) => {
+      const newQuickFilters = { ...currentQuickFilters };
+      const current = newQuickFilters[fieldId] ?? [];
+      const nextValues = current.includes(optionValue)
+        ? current.filter((v) => v !== optionValue)
+        : [...current, optionValue];
+
+      if (nextValues.length > 0) {
+        newQuickFilters[fieldId] = nextValues;
+      } else {
+        delete newQuickFilters[fieldId];
+      }
+
+      // Convert to FilterState and replace entire FilterState
+      // This ensures quick filters overwrite advanced filters if they exist
+      const newFilterState = convertQuickFiltersToFilterState(newQuickFilters);
+      filterActions.setGroups(newFilterState.groups);
+    },
+    [currentQuickFilters, filterActions],
+  );
+
+  const removeFilter = React.useCallback(
+    (fieldId: string) => {
+      const newQuickFilters = { ...currentQuickFilters };
+      delete newQuickFilters[fieldId];
+
+      // If no quick filters remain, clear FilterState
+      if (Object.keys(newQuickFilters).length === 0) {
+        filterActions.setGroups([]);
+      } else {
+        const newFilterState = convertQuickFiltersToFilterState(newQuickFilters);
+        filterActions.setGroups(newFilterState.groups);
+      }
+    },
+    [currentQuickFilters, filterActions],
+  );
 
   const handleAdvancedClick = React.useCallback(() => {
     setOpen(false);
@@ -130,24 +172,15 @@ export function QuickFiltersPopover({
           <div className="max-h-[400px] overflow-y-auto">
             <div>
               {QUICK_FIELDS.map((field) => {
-                const selectedValues = quickFilters[field.id] ?? [];
+                const selectedValues = currentQuickFilters[field.id] ?? [];
                 return (
                   <QuickFilterItem
                     key={field.id}
                     field={field}
                     selectedValues={selectedValues}
-                    onToggleValue={(optionValue: string) => {
-                      setQuickFilters((prev) => {
-                        const current = prev[field.id] ?? [];
-                        const nextValues = current.includes(optionValue)
-                          ? current.filter((v) => v !== optionValue)
-                          : [...current, optionValue];
-                        const next = { ...prev } as Record<string, string[]>;
-                        if (nextValues.length > 0) next[field.id] = nextValues;
-                        else delete next[field.id];
-                        return next;
-                      });
-                    }}
+                    onToggleValue={(optionValue: string) =>
+                      handleToggleValue(field.id, optionValue)
+                    }
                   />
                 );
               })}

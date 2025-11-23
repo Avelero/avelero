@@ -64,6 +64,20 @@ export const listProductsSchema = z.object({
       search: shortStringSchema.optional(),
     })
     .optional(),
+  sort: z
+    .object({
+      field: z.enum([
+        "name",
+        "status",
+        "createdAt",
+        "updatedAt",
+        "category",
+        "season",
+        "productIdentifier",
+      ]),
+      direction: z.enum(["asc", "desc"]).default("desc"),
+    })
+    .optional(),
 });
 
 /**

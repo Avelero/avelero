@@ -36,7 +36,7 @@ interface SortPopoverProps {
 
 const SORT_FIELDS: SortField[] = [
   { id: "title", label: "Product title", dataType: "text" },
-  { id: "completion", label: "Completion", dataType: "number" },
+  { id: "productIdentifier", label: "Product identifier", dataType: "text" },
   { id: "status", label: "Status", dataType: "text" },
   { id: "category", label: "Category", dataType: "text" },
   { id: "season", label: "Season", dataType: "text" },

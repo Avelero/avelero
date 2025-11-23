@@ -95,6 +95,7 @@ export const productsRouter = createTRPCRouter({
           limit: input.limit,
           includeVariants: input.includeVariants,
           includeAttributes: input.includeAttributes,
+          sort: input.sort,
         },
       );
 

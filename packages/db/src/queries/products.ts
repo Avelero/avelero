@@ -58,6 +58,22 @@ const PRODUCT_FIELDS = Object.keys(
 ) as readonly ProductField[];
 
 /**
+ * Maps sort field names to database column references.
+ *
+ * Used for sorting product queries by different fields.
+ * Note: Some fields require joins (category, season).
+ */
+const SORT_FIELD_MAP: Record<string, any> = {
+  name: products.name,
+  status: products.status,
+  createdAt: products.createdAt,
+  updatedAt: products.updatedAt,
+  category: categories.name, // Requires join
+  season: null, // Special handling required - see buildSeasonOrderBy
+  productIdentifier: products.productIdentifier,
+} as const;
+
+/**
  * Represents the core product fields exposed by API queries.
  */
 export interface ProductRecord {
@@ -559,6 +575,7 @@ export async function listProducts(
     cursor?: string;
     limit?: number;
     fields?: readonly ProductField[];
+    sort?: { field: string; direction: "asc" | "desc" };
   } = {},
 ): Promise<{
   readonly data: ReadonlyArray<Record<string, unknown>>;
@@ -632,13 +649,63 @@ export async function listProducts(
     season_name: brandSeasons.name,
   };
 
+  // Determine sort field and direction
+  // Special handling for season and category sorting: empty records always appear last
+  let orderBy: ReturnType<typeof asc> | ReturnType<typeof desc> | ReturnType<typeof sql> | Array<ReturnType<typeof asc> | ReturnType<typeof desc> | ReturnType<typeof sql>>;
+  if (opts.sort?.field === "season") {
+    if (opts.sort.direction === "asc") {
+      // Ascending: oldest end dates first, ongoing seasons last (treated as most recent)
+      // Products without seasons (NULL) always appear last
+      // Secondary sort by season name alphabetically for same end dates/ongoing status
+      orderBy = [
+        sql`CASE 
+          WHEN ${products.seasonId} IS NULL THEN NULL
+          WHEN ${brandSeasons.ongoing} = true THEN '9999-12-31'::date 
+          WHEN ${brandSeasons.endDate} IS NULL THEN '9999-12-31'::date
+          ELSE ${brandSeasons.endDate} 
+        END ASC NULLS LAST`,
+        sql`${brandSeasons.name} ASC NULLS LAST`,
+      ];
+    } else {
+      // Descending: most recent end dates first, ongoing seasons at top (treated as most recent)
+      // Products without seasons (NULL) always appear last
+      // Secondary sort by season name alphabetically for same end dates/ongoing status
+      orderBy = [
+        sql`CASE 
+          WHEN ${products.seasonId} IS NULL THEN NULL
+          WHEN ${brandSeasons.ongoing} = true THEN '9999-12-31'::date 
+          WHEN ${brandSeasons.endDate} IS NULL THEN '9999-12-31'::date
+          ELSE ${brandSeasons.endDate} 
+        END DESC NULLS LAST`,
+        sql`${brandSeasons.name} ASC NULLS LAST`,
+      ];
+    }
+  } else if (opts.sort?.field === "category") {
+    // Category sorting: products without category always appear last
+    const categorySortField = categories.name;
+    if (opts.sort.direction === "asc") {
+      orderBy = sql`${categorySortField} ASC NULLS LAST`;
+    } else {
+      orderBy = sql`${categorySortField} DESC NULLS LAST`;
+    }
+  } else {
+    const sortField = opts.sort?.field
+      ? SORT_FIELD_MAP[opts.sort.field] ?? products.createdAt
+      : products.createdAt;
+
+    orderBy =
+      opts.sort?.direction === "asc"
+        ? asc(sortField)
+        : desc(sortField);
+  }
+
   const rows = await db
     .select(selectWithJoins)
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(brandSeasons, eq(products.seasonId, brandSeasons.id))
     .where(and(...whereClauses))
-    .orderBy(desc(products.createdAt))
+    .orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy]))
     .limit(limit)
     .offset(offset);
 
@@ -670,6 +737,7 @@ export async function listProductsWithIncludes(
     fields?: readonly ProductField[];
     includeVariants?: boolean;
     includeAttributes?: boolean;
+    sort?: { field: string; direction: "asc" | "desc" };
   } = {},
 ): Promise<{
   readonly data: ProductWithRelations[];
@@ -688,6 +756,7 @@ export async function listProductsWithIncludes(
     cursor: opts.cursor,
     limit: opts.limit,
     fields: fieldsWithId,
+    sort: opts.sort,
   });
 
   const products = base.data.map(mapProductRow);

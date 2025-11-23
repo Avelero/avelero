@@ -9,6 +9,8 @@ import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type { PassportTableRow, SelectionState } from "../tables/passports/types";
 import { PassportControls } from "./passport-controls";
 
+type SortField = "name" | "status" | "createdAt" | "updatedAt" | "category" | "season" | "productIdentifier";
+
 export function TableSectionContent() {
   const [selectedCount, setSelectedCount] = useState(0);
   const [selection, setSelection] = useState<SelectionState>({
@@ -188,6 +190,29 @@ export function TableSectionContent() {
     filterActions.clearAll();
   }, [filterActions]);
 
+  // Map UI field names to API field names
+  const mapSortField = useCallback((uiField: string): SortField => {
+    const fieldMap: Record<string, SortField> = {
+      title: "name",
+      productIdentifier: "productIdentifier",
+      status: "status",
+      category: "category",
+      season: "season",
+      updatedAt: "updatedAt",
+      createdAt: "createdAt",
+    };
+    return fieldMap[uiField] ?? "createdAt";
+  }, []);
+
+  // Memoize the sort object to prevent infinite loops
+  const mappedSort = useMemo(() => {
+    if (!sortState) return undefined;
+    return {
+      field: mapSortField(sortState.field),
+      direction: sortState.direction,
+    };
+  }, [sortState, mapSortField]);
+
   const tableContent = (
     <TableContent
       columnOrder={columnOrder}
@@ -202,6 +227,7 @@ export function TableSectionContent() {
       pageSize={pageSize}
       selection={selection}
       search={deferredSearch}
+      sort={mappedSort}
       hasActiveFilters={hasActiveFilters}
       onClearFilters={handleClearFilters}
     />
@@ -260,6 +286,7 @@ interface TableContentProps {
   pageSize: number;
   selection: SelectionState;
   search?: string;
+  sort?: { field: SortField; direction: "asc" | "desc" };
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
 }
@@ -277,6 +304,7 @@ function TableContent({
   pageSize,
   selection,
   search,
+  sort,
   hasActiveFilters = false,
   onClearFilters,
 }: TableContentProps) {
@@ -290,6 +318,14 @@ function TableContent({
       onCursorChange(undefined);
     }
   }, [search, onCursorChange, onCursorStackChange]);
+
+  // Reset to first page when sort changes (use field and direction to avoid object reference issues)
+  useEffect(() => {
+    if (sort) {
+      onCursorStackChange([]);
+      onCursorChange(undefined);
+    }
+  }, [sort?.field, sort?.direction, onCursorChange, onCursorStackChange]);
   
   const { data: productsResponse } = useSuspenseQuery(
     trpc.products.list.queryOptions({
@@ -301,6 +337,7 @@ function TableContent({
             search: search.trim() || undefined,
           }
         : undefined,
+      sort: sort,
     }),
   );
 
@@ -395,9 +432,10 @@ function TableContent({
               search: search.trim() || undefined,
             }
           : undefined,
+        sort: sort,
       }),
     );
-  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize, search]);
+  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize, search, sort]);
 
   const handlePrefetchPrev = useCallback(() => {
     if (!cursorStack.length) return;
@@ -412,9 +450,10 @@ function TableContent({
               search: search.trim() || undefined,
             }
           : undefined,
+        sort: sort,
       }),
     );
-  }, [queryClient, trpc, cursorStack, pageSize, search]);
+  }, [queryClient, trpc, cursorStack, pageSize, search, sort]);
 
   const handlePrefetchFirst = useCallback(() => {
     void queryClient.prefetchQuery(
@@ -427,9 +466,10 @@ function TableContent({
               search: search.trim() || undefined,
             }
           : undefined,
+        sort: sort,
       }),
     );
-  }, [queryClient, trpc, pageSize, search]);
+  }, [queryClient, trpc, pageSize, search, sort]);
 
   const handlePrefetchLast = useCallback(() => {
     const targetIndex = lastPageIndex;
@@ -448,9 +488,10 @@ function TableContent({
               search: search.trim() || undefined,
             }
           : undefined,
+        sort: sort,
       }),
     );
-  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst, search]);
+  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst, search, sort]);
 
   const pageStart =
     totalRows === 0 ? 0 : cursorStack.length * pageSize + (tableRows.length ? 1 : 0);

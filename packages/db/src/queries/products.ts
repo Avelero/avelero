@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
 import { randomUUID } from "node:crypto";
 import type { Database } from "../client";
 import { generateUniqueUpid } from "../utils/upid.js";
+import { convertFilterStateToWhereClauses } from "../utils/filter-converter.js";
 import {
   brandEcoClaims,
   brandFacilities,
@@ -610,12 +611,14 @@ export async function listProducts(
 
   const whereClauses = [eq(products.brandId, brandId)];
   
-  // Search is top-level (separate from FilterState)
-  // Full FilterState → SQL conversion will be implemented in Phase 5
-  // For now, FilterState is accepted but not yet converted to WHERE clauses
+  // Convert FilterState to SQL WHERE clauses
   if (filters.filterState) {
-    // TODO: Phase 5 - Convert FilterState to SQL WHERE clauses
-    // This will use convertFilterStateToWhereClauses() function
+    const filterClauses = convertFilterStateToWhereClauses(
+      filters.filterState,
+      db,
+      brandId,
+    );
+    whereClauses.push(...filterClauses);
   }
   
   if (filters.search) {

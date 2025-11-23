@@ -59,7 +59,7 @@ export function FilterRow({
   boxed = false,
 }: FilterRowProps) {
   const fieldConfig = condition.fieldId
-    ? getFieldConfig(condition.fieldId)
+    ? getFieldConfig(condition.fieldId, true) // Use advanced filters transformation
     : null;
   const isUnselected = !fieldConfig;
 
@@ -75,7 +75,7 @@ export function FilterRow({
 
   // Handle field selection
   const handleFieldSelect = (fieldId: string) => {
-    const newFieldConfig = getFieldConfig(fieldId);
+    const newFieldConfig = getFieldConfig(fieldId, true); // Use advanced filters transformation
     if (!newFieldConfig) return;
 
     // Reset operator and value when field changes

@@ -22,6 +22,10 @@ export function useFilterOptions() {
     trpc.brand.ecoClaims.list.queryOptions(undefined),
   );
 
+  const { data: tagsData, isLoading: isTagsLoading } = useQuery(
+    trpc.brand.tags.list.queryOptions(undefined),
+  );
+
   const { data: templatesData, isLoading: isTemplatesLoading } = useQuery(
     trpc.templates.list.queryOptions(undefined),
   );
@@ -80,11 +84,28 @@ export function useFilterOptions() {
           label: b.name,
         })) ?? [],
 
-      // From separate endpoints
+      seasons:
+        formData?.brandCatalog?.seasons?.map((s: { id: string; name: string }) => ({
+          value: s.id,
+          label: s.name,
+        })) ?? [],
+
+      // From separate endpoints (also available in brandCatalogContent, but using separate query for consistency)
       ecoClaims:
-        ecoClaimsData?.data?.map((c: { id: string; title: string }) => ({
+        (ecoClaimsData?.data?.map((c: { id: string; claim: string }) => ({
           value: c.id,
-          label: c.title,
+          label: c.claim,
+        })) ??
+          formData?.brandCatalog?.ecoClaims?.map((c: { id: string; claim: string }) => ({
+            value: c.id,
+            label: c.claim,
+          }))) ??
+        [],
+
+      tags:
+        tagsData?.data?.map((t: { id: string; name: string }) => ({
+          value: t.id,
+          label: t.name,
         })) ?? [],
 
       templates:
@@ -95,10 +116,10 @@ export function useFilterOptions() {
           }),
         ) ?? [],
     };
-  }, [formData, ecoClaimsData, templatesData]);
+  }, [formData, ecoClaimsData, tagsData, templatesData]);
 
   const isLoading =
-    isFormDataLoading || isEcoClaimsLoading || isTemplatesLoading;
+    isFormDataLoading || isEcoClaimsLoading || isTagsLoading || isTemplatesLoading;
 
   return {
     options,
@@ -122,11 +143,12 @@ export function useFieldOptions(fieldId: string): {
       colorId: options.colors,
       sizeId: options.sizes,
       materials: options.materials,
-      certificationId: options.certifications,
-      facilityId: options.facilities,
+      brandCertificationId: options.certifications,
+      operatorId: options.facilities,
       showcaseBrandId: options.operators,
       ecoClaimId: options.ecoClaims,
-      templateId: options.templates,
+      tagId: options.tags,
+      season: options.seasons ?? [],
     };
 
     return fieldMap[fieldId] ?? [];

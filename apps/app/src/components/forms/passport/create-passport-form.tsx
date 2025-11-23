@@ -265,7 +265,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
       className="flex justify-center w-full"
       onSubmit={handleSubmit}
     >
-        <PassportFormScaffold
+      <PassportFormScaffold
         title={mode === "create" ? "Create passport" : "Edit passport"}
         left={
           <>
@@ -316,6 +316,8 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               setCarbonKgCo2e={(value) => setField("carbonKgCo2e", value)}
               waterLiters={state.waterLiters}
               setWaterLiters={(value) => setField("waterLiters", value)}
+              ecoClaims={state.ecoClaims}
+              setEcoClaims={(value) => setField("ecoClaims", value)}
               carbonError={
                 state.hasAttemptedSubmit
                   ? state.validationErrors.carbonKgCo2e

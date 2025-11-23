@@ -37,7 +37,7 @@ export interface PassportFormValues {
 
   // Materials
   materialData: Array<{ materialId: string; percentage: number }>;
-  ecoClaimIds: string[];
+  ecoClaims: Array<{ id: string; value: string }>;
 
   // Journey
   journeySteps: Array<{
@@ -80,7 +80,7 @@ const initialFormValues: PassportFormValues = {
   pendingColors: [],
   selectedSizes: [],
   materialData: [],
-  ecoClaimIds: [],
+  ecoClaims: [],
   journeySteps: [],
   carbonKgCo2e: "",
   waterLiters: "",
@@ -317,7 +317,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         materialId: material.materialId,
         percentage: material.percentage,
       })),
-      ecoClaimIds: values.ecoClaimIds,
+      ecoClaims: values.ecoClaims,
       journeySteps: values.journeySteps.map((step) => ({
         sortIndex: step.sortIndex,
         stepType: step.stepType,
@@ -398,9 +398,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             ? Number(material.percentage)
             : material.percentage,
       })) ?? [];
-    const ecoClaimIds =
+    const ecoClaims =
       attributes.ecoClaims?.map(
-        (claim: any) => claim.eco_claim_id ?? claim.ecoClaimId,
+        (claim: any) => ({
+          id: claim.eco_claim_id ?? claim.ecoClaimId ?? claim.id,
+          value: claim.claim ?? "",
+        }),
       ) ?? [];
     const journeySteps =
       attributes.journey?.map((step: any) => ({
@@ -435,7 +438,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       pendingColors: [],
       selectedSizes,
       materialData: materials,
-      ecoClaimIds,
+      ecoClaims,
       journeySteps,
       carbonKgCo2e:
         environment.carbonKgCo2e ??
@@ -620,6 +623,84 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     trpc.composite.brandCatalogContent,
   ]);
 
+  const createEcoClaimMutation = useMutation(
+    trpc.brand.ecoClaims.create.mutationOptions(),
+  );
+
+  const resolveEcoClaims = React.useCallback(async () => {
+    if (!formValues.ecoClaims.length) {
+      return [];
+    }
+
+    // Filter out eco-claims with empty values
+    const validClaims = formValues.ecoClaims.filter((claim) =>
+      claim.value.trim().length > 0
+    );
+
+    if (validClaims.length === 0) {
+      return [];
+    }
+
+    const resolvedIds: string[] = [];
+    const updatedClaims: Array<{ id: string; value: string }> = [];
+
+    // Get existing eco-claims to check for duplicates
+    const existingEcoClaimsQuery = queryClient.getQueryData(
+      trpc.brand.ecoClaims.list.queryKey(),
+    ) as any;
+    const existingEcoClaims = existingEcoClaimsQuery?.data ?? [];
+
+    const ecoClaimByText = new Map<string, { id?: string; claim: string }>();
+    for (const ecoClaim of existingEcoClaims) {
+      const normalizedClaim = ecoClaim.claim.trim().toLowerCase();
+      ecoClaimByText.set(normalizedClaim, {
+        id: ecoClaim.id,
+        claim: ecoClaim.claim,
+      });
+    }
+
+    for (const claim of validClaims) {
+      const normalizedText = claim.value.trim().toLowerCase();
+      const existing = ecoClaimByText.get(normalizedText);
+
+      if (existing?.id) {
+        // Use existing eco-claim ID
+        resolvedIds.push(existing.id);
+        updatedClaims.push({ id: existing.id, value: existing.claim });
+        continue;
+      }
+
+      // Create new eco-claim
+      const result = await createEcoClaimMutation.mutateAsync({
+        claim: claim.value.trim(),
+      });
+      const created = result?.data;
+      if (!created?.id) {
+        throw new Error("Failed to create eco-claim");
+      }
+
+      resolvedIds.push(created.id);
+      updatedClaims.push({ id: created.id, value: created.claim });
+      ecoClaimByText.set(normalizedText, {
+        id: created.id,
+        claim: created.claim,
+      });
+    }
+
+    // Invalidate eco-claims cache so the list is fresh
+    void queryClient.invalidateQueries({
+      queryKey: trpc.brand.ecoClaims.list.queryKey(),
+    });
+
+    return resolvedIds;
+  }, [
+    formValues.ecoClaims,
+    createEcoClaimMutation,
+    queryClient,
+    setFields,
+    trpc.brand.ecoClaims.list,
+  ]);
+
   const submit = React.useCallback(
     async (brandId: string) => {
       setIsSubmitting(true);
@@ -688,10 +769,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             : undefined;
         const tagIds =
           formValues.tagIds.length > 0 ? formValues.tagIds : undefined;
+
+        // Resolve eco-claims (create brand eco-claims and get IDs)
+        const resolvedEcoClaimIds = await resolveEcoClaims();
         const ecoClaimIds =
-          formValues.ecoClaimIds.length > 0
-            ? formValues.ecoClaimIds
-            : undefined;
+          resolvedEcoClaimIds.length > 0 ? resolvedEcoClaimIds : undefined;
+
         const journeySteps =
           formValues.journeySteps.length > 0
             ? formValues.journeySteps.map((step) => ({
@@ -766,7 +849,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             pendingColors: [],
             selectedSizes: formValues.selectedSizes,
             materialData: formValues.materialData,
-            ecoClaimIds: formValues.ecoClaimIds,
+            ecoClaims: formValues.ecoClaims,
             journeySteps: formValues.journeySteps,
             carbonKgCo2e: formValues.carbonKgCo2e,
             waterLiters: formValues.waterLiters,
@@ -878,6 +961,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       validate,
       productUpid,
       resolvePendingColors,
+      resolveEcoClaims,
       createProductMutation,
       updateProductMutation,
       upsertVariantsMutation,

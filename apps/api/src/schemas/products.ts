@@ -57,11 +57,56 @@ export type ProductField = (typeof PRODUCT_FIELDS)[number];
 /**
  * Filter value types matching FilterValue from filter-types.ts
  */
+// Date range object - must be checked early in union to match correctly
+// Requires at least one of 'after' or 'before' to be present and non-empty
+const dateRangeValueSchema = z.object({
+  after: z.string().optional(), // ISO date string (empty string is valid)
+  before: z.string().optional(), // ISO date string (empty string is valid)
+}).passthrough() // Allow additional properties to pass through
+  .refine(
+    (val) => {
+      // At least one of after or before must be present and non-empty
+      const hasAfter = val.after != null && val.after !== "";
+      const hasBefore = val.before != null && val.before !== "";
+      return hasAfter || hasBefore;
+    },
+    { message: "Date range must have at least 'after' or 'before' with a value" }
+  )
+  .refine(
+    (val) => {
+      // Cannot have min/max properties (those belong to number range)
+      return !("min" in val) && !("max" in val);
+    },
+    { message: "Date range cannot have min/max properties" }
+  );
+
+// Number range object - requires at least one of min or max
+const numberRangeValueSchema = z.object({
+  min: z.number().optional(),
+  max: z.number().optional(),
+}).passthrough() // Allow additional properties to pass through
+  .refine(
+    (val) => {
+      // At least one of min or max must be present
+      return val.min != null || val.max != null;
+    },
+    { message: "Number range must have at least 'min' or 'max'" }
+  )
+  .refine(
+    (val) => {
+      // Cannot have after/before properties (those belong to date range)
+      return !("after" in val) && !("before" in val);
+    },
+    { message: "Number range cannot have after/before properties" }
+  );
+
 const filterValueSchema: z.ZodType<any> = z.union([
   z.string(),
   z.number(),
   z.boolean(),
   z.array(z.string()),
+  // Date range - check early since it's a common case
+  dateRangeValueSchema,
   z.object({
     date: z.string(), // ISO date string
   }),
@@ -80,14 +125,8 @@ const filterValueSchema: z.ZodType<any> = z.union([
     ]),
     customDays: z.number().optional(),
   }),
-  z.object({
-    min: z.number().optional(),
-    max: z.number().optional(),
-  }),
-  z.object({
-    after: z.string().optional(), // ISO date string
-    before: z.string().optional(), // ISO date string
-  }),
+  // Number range - after date range to avoid conflicts
+  numberRangeValueSchema,
   z.null(),
   z.undefined(),
 ]);

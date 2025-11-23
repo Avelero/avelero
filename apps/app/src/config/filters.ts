@@ -10,6 +10,7 @@ import type {
   FilterOperator,
   SelectOption,
 } from "@/components/passports/filter-types";
+import { allProductionSteps } from "@v1/selections/production-steps";
 
 // ============================================================================
 // Operator Definitions by Input Type
@@ -58,8 +59,6 @@ export const OPERATORS = {
   date: ["is before", "is after", "is between"] as const,
 
   boolean: ["is true", "is false"] as const,
-
-  moduleCompletion: ["is complete", "is not complete"] as const,
 } as const;
 
 // ============================================================================
@@ -71,15 +70,6 @@ export const STATUS_OPTIONS: SelectOption[] = [
   { value: "scheduled", label: "Scheduled" },
   { value: "unpublished", label: "Unpublished" },
   { value: "archived", label: "Archived" },
-];
-
-export const MODULE_OPTIONS: SelectOption[] = [
-  { value: "core", label: "Core" },
-  { value: "environment", label: "Environment" },
-  { value: "journey", label: "Journey" },
-  { value: "materials", label: "Materials" },
-  { value: "certifications", label: "Certifications" },
-  { value: "care", label: "Care" },
 ];
 
 export const RELATIVE_DATE_OPTIONS: SelectOption[] = [
@@ -113,21 +103,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     description: "Filter by passport publication status",
   },
 
-  moduleCompletion: {
-    id: "moduleCompletion",
-    label: "Module completion",
-    tier: 1,
-    category: "metadata",
-    inputType: "multi-select",
-    operators: [
-      "is complete",
-      "is not complete",
-    ] as unknown as FilterOperator[],
-    options: MODULE_OPTIONS,
-    description:
-      "Filter by specific module completion status (e.g., Environment complete, Journey not complete)",
-  },
-
   categoryId: {
     id: "categoryId",
     label: "Category",
@@ -136,6 +111,9 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     inputType: "hierarchical",
     operators: [...OPERATORS.hierarchical] as FilterOperator[],
     description: "Filter by product category with hierarchy support",
+    // Also available in advanced filters as multi-select
+    advancedInputType: "multi-select",
+    advancedOperators: [...OPERATORS.multiSelect] as FilterOperator[],
   },
 
   colorId: {
@@ -213,19 +191,9 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     label: "Materials",
     tier: 2,
     category: "manufacturing",
-    inputType: "nested",
-    operators: [...OPERATORS.relational] as FilterOperator[],
-    nested: {
-      type: "materials",
-      primaryField: "brandMaterialId",
-      nestedFields: [
-        "percentage",
-        "recyclable",
-        "countryOfOrigin",
-        "certificationId",
-      ],
-    },
-    description: "Filter by materials with nested conditions",
+    inputType: "multi-select",
+    operators: [...OPERATORS.multiSelect] as FilterOperator[],
+    description: "Filter by materials",
   },
 
   ecoClaimId: {
@@ -234,28 +202,18 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     tier: 2,
     category: "sustainability",
     inputType: "multi-select",
-    operators: [...OPERATORS.relational] as FilterOperator[],
+    operators: [...OPERATORS.multiSelect] as FilterOperator[],
     description: "Filter by eco claims",
   },
 
-  templateId: {
-    id: "templateId",
-    label: "Template",
+  tagId: {
+    id: "tagId",
+    label: "Tags",
     tier: 2,
     category: "metadata",
-    inputType: "select",
-    operators: ["is", "is not", "is any of"] as FilterOperator[],
-    description: "Filter by passport template",
-  },
-
-  facilityCountryCode: {
-    id: "facilityCountryCode",
-    label: "Country of manufacture",
-    tier: 2,
-    category: "manufacturing",
-    inputType: "country",
-    operators: ["is", "is not", "is any of"] as FilterOperator[],
-    description: "Filter by manufacturing country (nested in facilities)",
+    inputType: "multi-select",
+    operators: [...OPERATORS.multiSelect] as FilterOperator[],
+    description: "Filter by organizational tags",
   },
 
   brandCertificationId: {
@@ -265,17 +223,6 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "sustainability",
     inputType: "multi-select",
     operators: [...OPERATORS.multiSelect] as FilterOperator[],
-    optionsSource: {
-      type: "trpc",
-      endpoint: "brand.certifications.list",
-      transform: (data: any) => {
-        const certs = data?.data ?? [];
-        return certs.map((c: any) => ({
-          value: c.id,
-          label: c.title,
-        }));
-      },
-    },
     description: "Filter by certifications",
   },
 
@@ -303,41 +250,14 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
   // TIER 3: Power User Filters
   // ==========================================================================
 
-  sku: {
-    id: "sku",
-    label: "SKU",
-    tier: 3,
-    category: "variants",
-    inputType: "text",
-    operators: [...OPERATORS.text] as FilterOperator[],
-    placeholder: "Search SKUs...",
-    description: "Filter by product SKU",
-  },
-
-  upid: {
-    id: "upid",
-    label: "UPID",
-    tier: 3,
-    category: "variants",
-    inputType: "text",
-    operators: [...OPERATORS.text] as FilterOperator[],
-    placeholder: "Search UPIDs...",
-    description: "Filter by unique product ID",
-  },
-
-  facilityId: {
-    id: "facilityId",
-    label: "Facility",
-    tier: 3,
+  operatorId: {
+    id: "operatorId",
+    label: "Operator",
+    tier: 2,
     category: "manufacturing",
-    inputType: "nested",
-    operators: [...OPERATORS.relational] as FilterOperator[],
-    nested: {
-      type: "facilities",
-      primaryField: "facilityId",
-      nestedFields: ["countryCode", "city", "stepType"],
-    },
-    description: "Filter by manufacturing facilities with nested conditions",
+    inputType: "multi-select",
+    operators: [...OPERATORS.multiSelect] as FilterOperator[],
+    description: "Filter by operators",
   },
 
   stepType: {
@@ -347,12 +267,10 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     category: "manufacturing",
     inputType: "multi-select",
     operators: [...OPERATORS.relational] as FilterOperator[],
-    options: [
-      { value: "manufacturing", label: "Manufacturing" },
-      { value: "assembly", label: "Assembly" },
-      { value: "finishing", label: "Finishing" },
-      { value: "packaging", label: "Packaging" },
-    ],
+    options: allProductionSteps.map((step) => ({
+      value: step.name,
+      label: step.name,
+    })),
     description: "Filter by journey step types",
   },
 
@@ -416,6 +334,8 @@ export const FIELD_CATEGORIES = {
       "description",
       "season",
       "categoryId",
+      "colorId",
+      "sizeId",
       "hasImage",
       "showcaseBrandId",
     ],
@@ -432,18 +352,17 @@ export const FIELD_CATEGORIES = {
   },
   variants: {
     label: "Variants",
-    fields: ["colorId", "sizeId", "sku", "upid"],
+    fields: [],
   },
   manufacturing: {
     label: "Manufacturing",
-    fields: ["materials", "facilityId", "facilityCountryCode", "stepType"],
+    fields: ["materials", "operatorId", "stepType"],
   },
   metadata: {
     label: "Metadata",
     fields: [
       "status",
-      "moduleCompletion",
-      "templateId",
+      "tagId",
       "createdAt",
       "updatedAt",
     ],
@@ -479,9 +398,22 @@ export function getFieldsByCategory(
 
 /**
  * Get field configuration by ID
+ * For advanced filters, returns transformed version if applicable (e.g., categoryId as multi-select)
  */
-export function getFieldConfig(fieldId: string): FilterFieldConfig | undefined {
-  return FILTER_FIELDS[fieldId];
+export function getFieldConfig(fieldId: string, forAdvancedFilters = false): FilterFieldConfig | undefined {
+  const field = FILTER_FIELDS[fieldId];
+  if (!field) return undefined;
+  
+  // For advanced filters, transform categoryId from hierarchical to multi-select
+  if (forAdvancedFilters && fieldId === "categoryId" && field.tier === 1) {
+    return {
+      ...field,
+      inputType: "multi-select" as const,
+      operators: [...OPERATORS.multiSelect] as FilterOperator[],
+    };
+  }
+  
+  return field;
 }
 
 /**
@@ -526,20 +458,39 @@ export function getAdvancedFilterFields(): FilterFieldConfig[] {
 }
 
 /**
- * Get advanced fields organized by category (excludes tier 1 quick filters)
+ * Get advanced fields organized by category (includes tier 1 fields for categoryId, colorId, sizeId, season)
  */
 export function getAdvancedFieldsByCategoryForUI(): Array<{
   category: string;
   label: string;
   fields: FilterFieldConfig[];
 }> {
+  // Fields that should be available in advanced filters even though they're Tier 1
+  const tier1FieldsInAdvanced = ["categoryId", "colorId", "sizeId", "season"];
+  
   return Object.entries(FIELD_CATEGORIES)
     .map(([category, config]) => ({
       category,
       label: config.label,
       fields: config.fields
-        .map((fieldId) => FILTER_FIELDS[fieldId])
-        .filter((field) => field && field.tier !== 1) as FilterFieldConfig[],
+        .map((fieldId) => {
+          const field = FILTER_FIELDS[fieldId];
+          if (!field) return null;
+          // Include Tier 2/3 fields, or Tier 1 fields that should be in advanced
+          if (field.tier !== 1 || tier1FieldsInAdvanced.includes(fieldId)) {
+            // For categoryId in advanced filters, create a multi-select version
+            if (fieldId === "categoryId" && field.tier === 1) {
+              return {
+                ...field,
+                inputType: "multi-select" as const,
+                operators: [...OPERATORS.multiSelect] as FilterOperator[],
+              };
+            }
+            return field;
+          }
+          return null;
+        })
+        .filter((field): field is FilterFieldConfig => field !== null),
     }))
     .filter((categoryGroup) => categoryGroup.fields.length > 0);
 }

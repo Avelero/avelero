@@ -19,7 +19,6 @@ export type FilterInputType =
   | "date" // Date picker
   | "date-relative" // Relative date (last 7 days, etc.)
   | "country" // Country selector
-  | "module-picker" // Module completion picker
   | "hierarchical" // Hierarchical select (e.g., categories with parent/child)
   | "nested"; // Nested conditions (e.g., materials, facilities)
 
@@ -63,15 +62,12 @@ export type DateOperator =
 
 export type BooleanOperator = "is true" | "is false";
 
-export type ModuleCompletionOperator = "is complete" | "is not complete";
-
 export type FilterOperator =
   | TextOperator
   | NumberOperator
   | MultiSelectOperator
   | DateOperator
-  | BooleanOperator
-  | ModuleCompletionOperator;
+  | BooleanOperator;
 
 // ============================================================================
 // Relative Date Types
@@ -145,6 +141,8 @@ export interface FilterGroup {
   conditions: FilterCondition[]; // OR logic within group
   // UI-only flag: when true, render as a visible group container even if only one condition
   asGroup?: boolean;
+  // Source of the filter: "quick" if created in quick filter popover, "advanced" if created in advanced filter sheet
+  source?: "quick" | "advanced";
 }
 
 export interface FilterState {

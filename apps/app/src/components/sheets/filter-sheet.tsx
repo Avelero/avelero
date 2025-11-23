@@ -83,6 +83,7 @@ export function AdvancedFilterPanel({
               },
             ],
             asGroup: false,
+            source: "advanced", // Mark as advanced filter
           },
         ],
       }));
@@ -110,6 +111,7 @@ export function AdvancedFilterPanel({
                 },
               ],
               asGroup: false,
+              source: "advanced", // Mark as advanced filter
             },
           ],
         }));
@@ -193,8 +195,12 @@ export function AdvancedFilterPanel({
   // Handle apply - completely replace FilterState with advanced filter groups
   // This overwrites any quick filters that might be active
   const handleApply = () => {
-    // Always replace entire FilterState with advanced filter groups
-    filterActions.setGroups(localState.groups);
+    // Mark all groups as advanced filters and replace entire FilterState
+    const advancedGroups = localState.groups.map((group) => ({
+      ...group,
+      source: "advanced" as const,
+    }));
+    filterActions.setGroups(advancedGroups);
     onOpenChange(false);
   };
 

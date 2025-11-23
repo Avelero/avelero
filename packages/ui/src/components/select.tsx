@@ -201,28 +201,12 @@ export function Select(props: SelectProps) {
                         )}
                         <span>{option.label}</span>
                       </div>
-                      {isMultiple ? (
-                        <div className="relative inline-flex h-4 w-4 items-center justify-center">
-                          <input
-                            type="checkbox"
-                            className="block h-4 w-4 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand cursor-pointer"
-                            checked={isSelected}
-                            readOnly
-                          />
-                          {isSelected && (
-                            <div className="absolute top-0 left-0 w-4 h-4 flex items-center justify-center pointer-events-none">
-                              <div className="w-[10px] h-[10px] bg-brand" />
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <Icons.Check
-                          className={cn(
-                            "h-4 w-4",
-                            isSelected ? "opacity-100" : "opacity-0",
-                          )}
-                        />
-                      )}
+                      <Icons.Check
+                        className={cn(
+                          "h-4 w-4",
+                          isSelected ? "opacity-100" : "opacity-0",
+                        )}
+                      />
                     </CommandItem>
                   );
                 })

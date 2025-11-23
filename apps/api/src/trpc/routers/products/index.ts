@@ -83,14 +83,13 @@ export const productsRouter = createTRPCRouter({
       );
 
       // Pass FilterState and search separately to database layer
-      // Note: Full FilterState → SQL conversion will be implemented in Phase 5
-      // For now, we pass the structure but conversion logic is pending
+      // FilterState is converted to SQL WHERE clauses in the database query layer
       const result = await listProductsWithIncludes(
         brandCtx.db,
         brandId,
         {
           search: input.search, // Search is top-level (separate from FilterState)
-          filterState: input.filters, // FilterState structure (will be converted to SQL in Phase 5)
+          filterState: input.filters, // FilterState structure (converted to SQL WHERE clauses)
         } as unknown as Parameters<typeof listProductsWithIncludes>[2],
         {
           cursor: input.cursor,

@@ -21,22 +21,10 @@ export function getQuickFilterFieldIds(): string[] {
 
 /**
  * Check if a filter group is a quick filter group
- * Quick filter groups have:
- * - Single condition with fieldId matching a quick filter field
- * - Operator is "is any of"
- * - Value is an array of strings
+ * Quick filter groups are identified by their source field
  */
 export function isQuickFilterGroup(group: FilterGroup): boolean {
-  if (group.conditions.length !== 1) return false;
-
-  const condition = group.conditions[0]!;
-  const quickFilterFieldIds = getQuickFilterFieldIds();
-
-  return (
-    quickFilterFieldIds.includes(condition.fieldId) &&
-    condition.operator === "is any of" &&
-    Array.isArray(condition.value)
-  );
+  return group.source === "quick";
 }
 
 /**
@@ -48,10 +36,10 @@ export function hasQuickFilters(filterState: FilterState): boolean {
 
 /**
  * Check if FilterState contains advanced filter groups
- * (groups that are NOT quick filter groups)
+ * Advanced filter groups are identified by their source field
  */
 export function hasAdvancedFilters(filterState: FilterState): boolean {
-  return filterState.groups.some((group) => !isQuickFilterGroup(group));
+  return filterState.groups.some((group) => group.source === "advanced");
 }
 
 /**
@@ -81,6 +69,7 @@ export function extractQuickFiltersFromFilterState(
 /**
  * Convert quick filter selections to FilterState format
  * Each quick filter field becomes its own AND group with "is any of" operator
+ * Marked with source: "quick" to distinguish from advanced filters
  */
 export function convertQuickFiltersToFilterState(
   quickFilters: Record<string, string[]>,
@@ -102,6 +91,7 @@ export function convertQuickFiltersToFilterState(
       id: `group-${fieldId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       conditions: [condition],
       asGroup: false,
+      source: "quick", // Mark as quick filter
     });
   }
 
@@ -115,6 +105,6 @@ export function convertQuickFiltersToFilterState(
 export function getAdvancedFilterGroups(
   filterState: FilterState,
 ): FilterGroup[] {
-  return filterState.groups.filter((group) => !isQuickFilterGroup(group));
+  return filterState.groups.filter((group) => group.source === "advanced");
 }
 

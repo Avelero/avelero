@@ -18,8 +18,8 @@ export function useFilterOptions() {
   );
 
   // Fetch additional endpoints that aren't in the composite
-  const { data: ecoClaimsData, isLoading: isEcoClaimsLoading } = useQuery(
-    trpc.brand.ecoClaims.list.queryOptions(undefined),
+  const { data: tagsData, isLoading: isTagsLoading } = useQuery(
+    trpc.brand.tags.list.queryOptions(undefined),
   );
 
   const { data: templatesData, isLoading: isTemplatesLoading } = useQuery(
@@ -80,11 +80,23 @@ export function useFilterOptions() {
           label: b.name,
         })) ?? [],
 
-      // From separate endpoints
+      seasons:
+        formData?.brandCatalog?.seasons?.map((s: { id: string; name: string }) => ({
+          value: s.id,
+          label: s.name,
+        })) ?? [],
+
+      // From composite.brandCatalogContent
       ecoClaims:
-        ecoClaimsData?.data?.map((c: { id: string; title: string }) => ({
+        formData?.brandCatalog?.ecoClaims?.map((c: { id: string; claim: string }) => ({
           value: c.id,
-          label: c.title,
+          label: c.claim,
+        })) ?? [],
+
+      tags:
+        tagsData?.data?.map((t: { id: string; name: string }) => ({
+          value: t.id,
+          label: t.name,
         })) ?? [],
 
       templates:
@@ -95,10 +107,10 @@ export function useFilterOptions() {
           }),
         ) ?? [],
     };
-  }, [formData, ecoClaimsData, templatesData]);
+  }, [formData, tagsData, templatesData]);
 
   const isLoading =
-    isFormDataLoading || isEcoClaimsLoading || isTemplatesLoading;
+    isFormDataLoading || isTagsLoading || isTemplatesLoading;
 
   return {
     options,
@@ -122,11 +134,12 @@ export function useFieldOptions(fieldId: string): {
       colorId: options.colors,
       sizeId: options.sizes,
       materials: options.materials,
-      certificationId: options.certifications,
-      facilityId: options.facilities,
+      brandCertificationId: options.certifications,
+      operatorId: options.facilities,
       showcaseBrandId: options.operators,
       ecoClaimId: options.ecoClaims,
-      templateId: options.templates,
+      tagId: options.tags,
+      season: options.seasons ?? [],
     };
 
     return fieldMap[fieldId] ?? [];

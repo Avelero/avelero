@@ -82,19 +82,21 @@ export const productsRouter = createTRPCRouter({
         normalizeBrandId(input.brand_id),
       );
 
+      // Pass FilterState and search separately to database layer
+      // FilterState is converted to SQL WHERE clauses in the database query layer
       const result = await listProductsWithIncludes(
         brandCtx.db,
         brandId,
-        ({
-          categoryId: input.filters?.category_id,
-          seasonId: input.filters?.season_id,
-          search: input.filters?.search,
-        } as unknown as Parameters<typeof listProductsWithIncludes>[2]),
+        {
+          search: input.search, // Search is top-level (separate from FilterState)
+          filterState: input.filters, // FilterState structure (converted to SQL WHERE clauses)
+        } as unknown as Parameters<typeof listProductsWithIncludes>[2],
         {
           cursor: input.cursor,
           limit: input.limit,
           includeVariants: input.includeVariants,
           includeAttributes: input.includeAttributes,
+          sort: input.sort,
         },
       );
 

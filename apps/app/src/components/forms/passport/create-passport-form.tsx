@@ -60,6 +60,19 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     [setField, updateField],
   );
 
+  const handleEcoClaimsChange = React.useCallback<
+    React.Dispatch<React.SetStateAction<{ id: string; value: string }[]>>
+  >(
+    (value) => {
+      if (typeof value === "function") {
+        updateField("ecoClaims", value);
+      } else {
+        setField("ecoClaims", value);
+      }
+    },
+    [setField, updateField],
+  );
+
   // Clear errors when fields change (after first submit attempt)
   React.useEffect(() => {
     if (state.hasAttemptedSubmit && state.name && state.validationErrors.name) {
@@ -265,7 +278,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
       className="flex justify-center w-full"
       onSubmit={handleSubmit}
     >
-        <PassportFormScaffold
+      <PassportFormScaffold
         title={mode === "create" ? "Create passport" : "Edit passport"}
         left={
           <>
@@ -316,6 +329,8 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               setCarbonKgCo2e={(value) => setField("carbonKgCo2e", value)}
               waterLiters={state.waterLiters}
               setWaterLiters={(value) => setField("waterLiters", value)}
+              ecoClaims={state.ecoClaims}
+              setEcoClaims={handleEcoClaimsChange}
               carbonError={
                 state.hasAttemptedSubmit
                   ? state.validationErrors.carbonKgCo2e

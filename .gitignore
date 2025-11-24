@@ -126,3 +126,5 @@ csv/
 !apps/api/public/templates/*.csv
 !apps/app/public/templates/*.csv
 generate-test-csvs.py
+
+sort-and-filter-plan.md

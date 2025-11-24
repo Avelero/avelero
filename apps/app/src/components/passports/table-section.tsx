@@ -4,12 +4,15 @@ import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { Suspense, useState, useMemo, useCallback, useEffect } from "react";
+import { Suspense, useState, useMemo, useCallback, useEffect, useRef, useDeferredValue } from "react";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type { PassportTableRow, SelectionState } from "../tables/passports/types";
+import type { FilterState } from "./filter-types";
 import { PassportControls } from "./passport-controls";
 
-export function TableSectionContent() {
+type SortField = "name" | "status" | "createdAt" | "updatedAt" | "category" | "season" | "productIdentifier";
+
+export function TableSection() {
   const [selectedCount, setSelectedCount] = useState(0);
   const [selection, setSelection] = useState<SelectionState>({
     mode: "explicit",
@@ -19,6 +22,10 @@ export function TableSectionContent() {
   const [hasAnyPassports, setHasAnyPassports] = useState(false);
   // Filter state management
   const [filterState, filterActions] = useFilterState();
+
+  // Search state management (debounced)
+  const [searchValue, setSearchValue] = useState("");
+  const deferredSearch = useDeferredValue(searchValue);
 
   // Sort state management (UI only for now)
   const [sortState, setSortState] = useState<{
@@ -62,7 +69,7 @@ export function TableSectionContent() {
           const parsed = JSON.parse(val) as { visible?: string[] } | string[];
           if (Array.isArray(parsed)) return parsed;
           if (parsed && Array.isArray(parsed.visible)) return parsed.visible;
-        } catch {}
+        } catch { }
       }
     }
     return null;
@@ -172,6 +179,41 @@ export function TableSectionContent() {
     setIsInnerSuspenseEnabled(true);
   }, []);
 
+  // Check if there are active filters or search
+  const hasActiveFilters = useMemo(() => {
+    const hasSearch = deferredSearch.trim().length > 0;
+    const hasFilterGroups = filterState.groups.length > 0;
+    return hasSearch || hasFilterGroups;
+  }, [deferredSearch, filterState.groups]);
+
+  const handleClearFilters = useCallback(() => {
+    setSearchValue("");
+    filterActions.clearAll();
+  }, [filterActions]);
+
+  // Map UI field names to API field names
+  const mapSortField = useCallback((uiField: string): SortField => {
+    const fieldMap: Record<string, SortField> = {
+      title: "name",
+      productIdentifier: "productIdentifier",
+      status: "status",
+      category: "category",
+      season: "season",
+      updatedAt: "updatedAt",
+      createdAt: "createdAt",
+    };
+    return fieldMap[uiField] ?? "createdAt";
+  }, []);
+
+  // Memoize the sort object to prevent infinite loops
+  const mappedSort = useMemo(() => {
+    if (!sortState) return undefined;
+    return {
+      field: mapSortField(sortState.field),
+      direction: sortState.direction,
+    };
+  }, [sortState, mapSortField]);
+
   const tableContent = (
     <TableContent
       columnOrder={columnOrder}
@@ -185,6 +227,11 @@ export function TableSectionContent() {
       onTotalCountChangeAction={setHasAnyPassports}
       pageSize={pageSize}
       selection={selection}
+      search={deferredSearch}
+      sort={mappedSort}
+      filterState={filterState}
+      hasActiveFilters={hasActiveFilters}
+      onClearFilters={handleClearFilters}
     />
   );
 
@@ -192,7 +239,7 @@ export function TableSectionContent() {
     <div className="w-full">
       <PassportControls
         selectedCount={selectedCount}
-        disabled={!hasAnyPassports}
+        disabled={!hasAnyPassports && !hasActiveFilters}
         selection={selection}
         onClearSelectionAction={() => {
           setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
@@ -207,6 +254,8 @@ export function TableSectionContent() {
         filterActions={filterActions}
         sortState={sortState}
         onSortChange={setSortState}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
       />
       {isInnerSuspenseEnabled ? (
         <Suspense
@@ -238,6 +287,11 @@ interface TableContentProps {
   onTotalCountChangeAction: (hasAny: boolean) => void;
   pageSize: number;
   selection: SelectionState;
+  search?: string;
+  sort?: { field: SortField; direction: "asc" | "desc" };
+  filterState: FilterState;
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
 }
 
 function TableContent({
@@ -252,14 +306,66 @@ function TableContent({
   onTotalCountChangeAction,
   pageSize,
   selection,
+  search,
+  sort,
+  filterState,
+  hasActiveFilters = false,
+  onClearFilters,
 }: TableContentProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+
+  // Track previous values to detect changes (including clearing)
+  const prevSearchRef = useRef<string | undefined>(search);
+  const prevSortRef = useRef<{ field: SortField; direction: "asc" | "desc" } | undefined>(sort);
+  const prevFiltersRef = useRef<string>(JSON.stringify(filterState.groups));
+
+  // Reset to first page when search changes (including clearing)
+  useEffect(() => {
+    const currentSearch = search ?? "";
+    const prevSearch = prevSearchRef.current ?? "";
+
+    if (currentSearch !== prevSearch) {
+      onCursorStackChange([]);
+      onCursorChange(undefined);
+      prevSearchRef.current = search;
+    }
+  }, [search, onCursorChange, onCursorStackChange]);
+
+  // Reset to first page when sort changes (including clearing)
+  useEffect(() => {
+    const currentSort = sort ? `${sort.field}:${sort.direction}` : "";
+    const prevSort = prevSortRef.current ? `${prevSortRef.current.field}:${prevSortRef.current.direction}` : "";
+
+    if (currentSort !== prevSort) {
+      onCursorStackChange([]);
+      onCursorChange(undefined);
+      prevSortRef.current = sort;
+    }
+  }, [sort, onCursorChange, onCursorStackChange]);
+
+  // Reset to first page when filters change (including clearing)
+  // Serialize filterState to detect content changes, not just group count changes
+  const serializedFilters = useMemo(() => JSON.stringify(filterState.groups), [filterState.groups]);
+
+  useEffect(() => {
+    const prevFilters = prevFiltersRef.current;
+
+    if (serializedFilters !== prevFilters) {
+      onCursorStackChange([]);
+      onCursorChange(undefined);
+      prevFiltersRef.current = serializedFilters;
+    }
+  }, [serializedFilters, onCursorChange, onCursorStackChange]);
+
   const { data: productsResponse } = useSuspenseQuery(
     trpc.products.list.queryOptions({
       cursor,
       limit: pageSize,
       includeVariants: true,
+      filters: filterState.groups.length > 0 ? filterState : undefined,
+      search: search?.trim() || undefined,
+      sort: sort,
     }),
   );
 
@@ -283,12 +389,8 @@ function TableContent({
         productIdentifier: p.product_identifier ?? p.productIdentifier ?? "",
         status: (p.status ?? "unpublished") as any,
         category: (p as any).category_name ?? null,
-        categoryPath: null,
-        season:
-          (p as any).season_name ??
-          (p as any).season ??
-          (p as any).seasonId ??
-          null,
+        categoryPath: (p as any).category_path ?? null,
+        season: (p as any).season_name ?? null,
         primaryImageUrl: p.primary_image_url ?? p.primaryImageUrl ?? null,
         variantCount: variants.length || undefined,
         createdAt: p.created_at ?? p.createdAt ?? "",
@@ -353,9 +455,12 @@ function TableContent({
         cursor: meta?.cursor ?? undefined,
         limit: pageSize,
         includeVariants: true,
+        filters: filterState.groups.length > 0 ? filterState : undefined,
+        search: search?.trim() || undefined,
+        sort: sort,
       }),
     );
-  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize]);
+  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize, search, sort, filterState]);
 
   const handlePrefetchPrev = useCallback(() => {
     if (!cursorStack.length) return;
@@ -365,9 +470,12 @@ function TableContent({
         cursor: prevCursor,
         limit: pageSize,
         includeVariants: true,
+        filters: filterState.groups.length > 0 ? filterState : undefined,
+        search: search?.trim() || undefined,
+        sort: sort,
       }),
     );
-  }, [queryClient, trpc, cursorStack, pageSize]);
+  }, [queryClient, trpc, cursorStack, pageSize, search, sort, filterState]);
 
   const handlePrefetchFirst = useCallback(() => {
     void queryClient.prefetchQuery(
@@ -375,9 +483,12 @@ function TableContent({
         cursor: undefined,
         limit: pageSize,
         includeVariants: true,
+        filters: filterState.groups.length > 0 ? filterState : undefined,
+        search: search?.trim() || undefined,
+        sort: sort,
       }),
     );
-  }, [queryClient, trpc, pageSize]);
+  }, [queryClient, trpc, pageSize, search, sort, filterState]);
 
   const handlePrefetchLast = useCallback(() => {
     const targetIndex = lastPageIndex;
@@ -391,13 +502,32 @@ function TableContent({
         cursor: lastCursor,
         limit: pageSize,
         includeVariants: true,
+        filters: filterState.groups.length > 0 ? filterState : undefined,
+        search: search?.trim() || undefined,
+        sort: sort,
       }),
     );
-  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst]);
+  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst, search, sort, filterState]);
 
   const pageStart =
     totalRows === 0 ? 0 : cursorStack.length * pageSize + (tableRows.length ? 1 : 0);
   const pageEnd = cursorStack.length * pageSize + tableRows.length;
+
+  // Track if there are truly no products (not filtered)
+  // If filters are active and we have 0 results, it means products exist but don't match filters
+  // Only set hasAnyPassports to false if there are no products AND no active filters
+  useEffect(() => {
+    if (totalRows > 0) {
+      // We have products
+      onTotalCountChangeAction(true);
+    } else if (hasActiveFilters) {
+      // Filters are active but no results - means products exist, just don't match
+      onTotalCountChangeAction(true);
+    } else {
+      // No products and no filters - truly no products
+      onTotalCountChangeAction(false);
+    }
+  }, [totalRows, hasActiveFilters, onTotalCountChangeAction]);
 
   return (
     <PassportDataTable
@@ -425,6 +555,8 @@ function TableContent({
       onPrefetchPrev={handlePrefetchPrev}
       onPrefetchFirst={handlePrefetchFirst}
       onPrefetchLast={handlePrefetchLast}
+      hasActiveFilters={hasActiveFilters}
+      onClearFilters={onClearFilters}
     />
   );
 }

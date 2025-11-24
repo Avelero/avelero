@@ -1,12 +1,15 @@
-import { and, asc, count, desc, eq, ilike, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../client";
 import { generateUniqueUpid } from "../utils/upid.js";
+import { convertFilterStateToWhereClauses } from "../utils/filter-converter.js";
 import {
   brandEcoClaims,
   brandFacilities,
   brandMaterials,
+  brandSeasons,
   brandTags,
+  categories,
   productEcoClaims,
   productEnvironment,
   productJourneyStepFacilities,
@@ -17,11 +20,29 @@ import {
   tagsOnProduct,
 } from "../schema";
 
-/** Filter options for product list queries */
+/**
+ * Filter options for product list queries
+ * 
+ * Uses FilterState structure (groups with AND/OR logic).
+ * Full FilterState → SQL conversion will be implemented in Phase 5.
+ */
 type ListFilters = {
-  categoryId?: string;
-  seasonId?: string;
-  search?: string;
+  search?: string; // Top-level search (separate from FilterState)
+  // FilterState structure (groups with AND/OR logic)
+  // Will be converted to SQL WHERE clauses in Phase 5
+  filterState?: {
+    groups: Array<{
+      id: string;
+      conditions: Array<{
+        id: string;
+        fieldId: string;
+        operator: string;
+        value: any;
+        nestedConditions?: Array<any>;
+      }>;
+      asGroup?: boolean;
+    }>;
+  };
 };
 
 /**
@@ -56,6 +77,22 @@ const PRODUCT_FIELDS = Object.keys(
 ) as readonly ProductField[];
 
 /**
+ * Maps sort field names to database column references.
+ *
+ * Used for sorting product queries by different fields.
+ * Note: Some fields require joins (category, season).
+ */
+const SORT_FIELD_MAP: Record<string, any> = {
+  name: products.name,
+  status: products.status,
+  createdAt: products.createdAt,
+  updatedAt: products.updatedAt,
+  category: categories.name, // Requires join
+  season: null, // Special handling required - see buildSeasonOrderBy
+  productIdentifier: products.productIdentifier,
+} as const;
+
+/**
  * Represents the core product fields exposed by API queries.
  */
 export interface ProductRecord {
@@ -72,6 +109,10 @@ export interface ProductRecord {
   status?: string | null;
   created_at?: string;
   updated_at?: string;
+  // Enriched fields from joins
+  category_name?: string | null;
+  category_path?: string[] | null;
+  season_name?: string | null;
 }
 
 /**
@@ -186,6 +227,12 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
     product.created_at = (row.created_at as string | null) ?? undefined;
   if ("updated_at" in row)
     product.updated_at = (row.updated_at as string | null) ?? undefined;
+  if ("category_name" in row)
+    product.category_name = (row.category_name as string | null) ?? null;
+  if ("category_path" in row)
+    product.category_path = (row.category_path as string[] | null) ?? null;
+  if ("season_name" in row)
+    product.season_name = (row.season_name as string | null) ?? null;
 
   return product;
 }
@@ -465,6 +512,69 @@ async function loadAttributesForProducts(
 }
 
 /**
+ * Batch loads category paths for multiple products.
+ *
+ * Performs a single database query to fetch all categories, then builds
+ * hierarchical paths in memory for efficient lookups. Optimizes N+1 query
+ * problems when loading product lists with category information.
+ *
+ * @param db - Database instance
+ * @param categoryIds - Array of category IDs to build paths for
+ * @returns Map of category ID to array of category names (path from root to leaf)
+ */
+async function loadCategoryPathsForProducts(
+  db: Database,
+  categoryIds: readonly (string | null)[],
+): Promise<Map<string | null, string[]>> {
+  const map = new Map<string | null, string[]>();
+  const uniqueIds = Array.from(
+    new Set(categoryIds.filter((id): id is string => id !== null)),
+  );
+
+  if (uniqueIds.length === 0) return map;
+
+  // Load all categories in one query
+  const allCategories = await db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      parentId: categories.parentId,
+    })
+    .from(categories);
+
+  // Build in-memory lookup map for O(1) access
+  const categoryMap = new Map(
+    allCategories.map((c) => [
+      c.id,
+      { name: c.name, parentId: c.parentId ?? null },
+    ]),
+  );
+
+  // Build paths for each unique category ID by traversing parent chain
+  function buildPath(categoryId: string): string[] {
+    const path: string[] = [];
+    let currentId: string | null = categoryId;
+
+    while (currentId) {
+      const category = categoryMap.get(currentId);
+      if (!category) break;
+
+      path.unshift(category.name); // Add to front of array
+      currentId = category.parentId; // Move to parent
+    }
+
+    return path;
+  }
+
+  // Build paths for all unique category IDs
+  for (const id of uniqueIds) {
+    map.set(id, buildPath(id));
+  }
+
+  return map;
+}
+
+/**
  * Lists products with optional field selection for performance optimization.
  *
  * Supports selective field querying to reduce data transfer and query overhead.
@@ -484,6 +594,7 @@ export async function listProducts(
     cursor?: string;
     limit?: number;
     fields?: readonly ProductField[];
+    sort?: { field: string; direction: "asc" | "desc" };
   } = {},
 ): Promise<{
   readonly data: ReadonlyArray<Record<string, unknown>>;
@@ -499,12 +610,66 @@ export async function listProducts(
     : 0;
 
   const whereClauses = [eq(products.brandId, brandId)];
-  if (filters.categoryId)
-    whereClauses.push(eq(products.categoryId, filters.categoryId));
-  if (filters.seasonId) whereClauses.push(eq(products.seasonId, filters.seasonId));
+
+  // Convert FilterState to SQL WHERE clauses
+  if (filters.filterState) {
+    const filterClauses = convertFilterStateToWhereClauses(
+      filters.filterState,
+      db,
+      brandId,
+    );
+    whereClauses.push(...filterClauses);
+  }
+
   if (filters.search) {
     const term = `%${filters.search}%`;
-    whereClauses.push(ilike(products.name, term));
+    // Search across: name, productIdentifier, season name, category name, status, and tags
+    const searchConditions = [
+      ilike(products.name, term),
+      ilike(products.productIdentifier, term),
+      // Status search (exact match or contains)
+      ilike(products.status, term),
+    ];
+
+    // Add season search (requires join, handled in subquery)
+    // Add category search (requires join, handled in subquery)
+    // Add tag search (requires EXISTS subquery for many-to-many)
+
+    whereClauses.push(
+      or(
+        ...searchConditions,
+        // Season name search via EXISTS
+        sql`EXISTS (
+          SELECT 1 FROM ${brandSeasons}
+          WHERE ${brandSeasons.id} = ${products.seasonId}
+          AND ${brandSeasons.name} ILIKE ${term}
+        )`,
+        // Category name search via EXISTS (including parent categories)
+        // Uses recursive CTE to traverse up the category hierarchy
+        sql`EXISTS (
+          WITH RECURSIVE category_hierarchy AS (
+            -- Base case: the product's direct category
+            SELECT id, name, parent_id FROM ${categories}
+            WHERE ${categories.id} = ${products.categoryId}
+            
+            UNION
+            
+            -- Recursive case: parent categories
+            SELECT c.id, c.name, c.parent_id FROM ${categories} c
+            INNER JOIN category_hierarchy ch ON c.id = ch.parent_id
+          )
+          SELECT 1 FROM category_hierarchy
+          WHERE name ILIKE ${term}
+        )`,
+        // Tag search via EXISTS
+        sql`EXISTS (
+          SELECT 1 FROM ${tagsOnProduct}
+          INNER JOIN ${brandTags} ON ${brandTags.id} = ${tagsOnProduct.tagId}
+          WHERE ${tagsOnProduct.productId} = ${products.id}
+          AND ${brandTags.name} ILIKE ${term}
+        )`,
+      )!,
+    );
   }
 
   // Build select object based on requested fields
@@ -515,11 +680,72 @@ export async function listProducts(
       )
       : PRODUCT_FIELD_MAP;
 
+  // Add joined fields for category and season names
+  const selectWithJoins = {
+    ...selectFields,
+    category_name: categories.name,
+    season_name: brandSeasons.name,
+  };
+
+  // Determine sort field and direction
+  // Special handling for season and category sorting: empty records always appear last
+  let orderBy: ReturnType<typeof asc> | ReturnType<typeof desc> | ReturnType<typeof sql> | Array<ReturnType<typeof asc> | ReturnType<typeof desc> | ReturnType<typeof sql>>;
+  if (opts.sort?.field === "season") {
+    if (opts.sort.direction === "asc") {
+      // Ascending: oldest end dates first, ongoing seasons last (treated as most recent)
+      // Products without seasons (NULL) always appear last
+      // Secondary sort by season name alphabetically for same end dates/ongoing status
+      orderBy = [
+        sql`CASE 
+          WHEN ${products.seasonId} IS NULL THEN NULL
+          WHEN ${brandSeasons.ongoing} = true THEN '9999-12-31'::date 
+          WHEN ${brandSeasons.endDate} IS NULL THEN '9999-12-31'::date
+          ELSE ${brandSeasons.endDate} 
+        END ASC NULLS LAST`,
+        sql`${brandSeasons.name} ASC NULLS LAST`,
+        asc(products.id), // Stable tie-breaker for deterministic pagination
+      ];
+    } else {
+      // Descending: most recent end dates first, ongoing seasons at top (treated as most recent)
+      // Products without seasons (NULL) always appear last
+      // Secondary sort by season name alphabetically for same end dates/ongoing status
+      orderBy = [
+        sql`CASE 
+          WHEN ${products.seasonId} IS NULL THEN NULL
+          WHEN ${brandSeasons.ongoing} = true THEN '9999-12-31'::date 
+          WHEN ${brandSeasons.endDate} IS NULL THEN '9999-12-31'::date
+          ELSE ${brandSeasons.endDate} 
+        END DESC NULLS LAST`,
+        sql`${brandSeasons.name} ASC NULLS LAST`,
+        desc(products.id), // Stable tie-breaker for deterministic pagination
+      ];
+    }
+  } else if (opts.sort?.field === "category") {
+    // Category sorting: products without category always appear last
+    const categorySortField = categories.name;
+    if (opts.sort.direction === "asc") {
+      orderBy = [sql`${categorySortField} ASC NULLS LAST`, asc(products.id)];
+    } else {
+      orderBy = [sql`${categorySortField} DESC NULLS LAST`, desc(products.id)];
+    }
+  } else {
+    const sortField = opts.sort?.field
+      ? SORT_FIELD_MAP[opts.sort.field] ?? products.createdAt
+      : products.createdAt;
+
+    // Add product ID as a stable tie-breaker for deterministic pagination
+    orderBy = opts.sort?.direction === "asc"
+      ? [asc(sortField), asc(products.id)]
+      : [desc(sortField), desc(products.id)];
+  }
+
   const rows = await db
-    .select(selectFields)
+    .select(selectWithJoins)
     .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(brandSeasons, eq(products.seasonId, brandSeasons.id))
     .where(and(...whereClauses))
-    .orderBy(desc(products.createdAt))
+    .orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy]))
     .limit(limit)
     .offset(offset);
 
@@ -551,6 +777,7 @@ export async function listProductsWithIncludes(
     fields?: readonly ProductField[];
     includeVariants?: boolean;
     includeAttributes?: boolean;
+    sort?: { field: string; direction: "asc" | "desc" };
   } = {},
 ): Promise<{
   readonly data: ProductWithRelations[];
@@ -569,10 +796,22 @@ export async function listProductsWithIncludes(
     cursor: opts.cursor,
     limit: opts.limit,
     fields: fieldsWithId,
+    sort: opts.sort,
   });
 
   const products = base.data.map(mapProductRow);
   const productIds = products.map((product) => product.id);
+
+  // Load category paths for all products (batch operation)
+  // Note: category_name is already available from the join in listProducts,
+  // but we need to build the full hierarchical path
+  const categoryIds = products
+    .map((p) => p.category_id)
+    .filter((id): id is string => id !== null);
+  const categoryPathsMap = await loadCategoryPathsForProducts(db, categoryIds);
+
+  // Note: season_name is already available from the join in listProducts,
+  // so we don't need to load seasons again
 
   const variantsMap = opts.includeVariants
     ? await loadVariantsForProducts(db, productIds)
@@ -584,6 +823,14 @@ export async function listProductsWithIncludes(
 
   const data: ProductWithRelations[] = products.map((product) => {
     const enriched: ProductWithRelations = { ...product };
+
+    // Enrich with category path (category_name is already set from join)
+    if (product.category_id && !product.category_path) {
+      enriched.category_path = categoryPathsMap.get(product.category_id) ?? null;
+    }
+
+    // season_name is already set from the join in listProducts, no need to enrich
+
     if (opts.includeVariants) {
       enriched.variants = variantsMap.get(product.id) ?? [];
     }

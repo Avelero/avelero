@@ -46,6 +46,8 @@ interface PassportControlsProps {
   onSortChange?: (
     sort: { field: string; direction: "asc" | "desc" } | null,
   ) => void;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
 }
 
 export function PassportControls({
@@ -58,6 +60,8 @@ export function PassportControls({
   filterActions,
   sortState,
   onSortChange,
+  searchValue = "",
+  onSearchChange,
 }: PassportControlsProps) {
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
   const [advancedFilterOpen, setAdvancedFilterOpen] = React.useState(false);
@@ -103,6 +107,8 @@ export function PassportControls({
               isSearchFocused ? "ring-1 ring-brand" : "ring-0",
             )}
             disabled={disabled}
+            value={searchValue}
+            onChange={(e) => onSearchChange?.(e.target.value)}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
           />

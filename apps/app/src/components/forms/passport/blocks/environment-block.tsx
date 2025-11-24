@@ -17,6 +17,8 @@ interface EnvironmentSectionProps {
   setCarbonKgCo2e: (value: string) => void;
   waterLiters: string;
   setWaterLiters: (value: string) => void;
+  ecoClaims: EcoClaim[];
+  setEcoClaims: (value: EcoClaim[] | ((prev: EcoClaim[]) => EcoClaim[])) => void;
   carbonError?: string;
   waterError?: string;
 }
@@ -26,11 +28,11 @@ export function EnvironmentSection({
   setCarbonKgCo2e,
   waterLiters,
   setWaterLiters,
+  ecoClaims,
+  setEcoClaims,
   carbonError,
   waterError,
 }: EnvironmentSectionProps) {
-  // Eco-claims are local state (not yet implemented in API submission)
-  const [ecoClaims, setEcoClaims] = React.useState<EcoClaim[]>([]);
 
   // Normalize numeric input: handle commas, spaces, multiple decimals, and precision
   const normalizeNumericInput = (value: string): string => {
@@ -89,13 +91,16 @@ export function EnvironmentSection({
   };
 
   const addEcoClaim = () => {
-    if (ecoClaims.length < 5) {
-      const newClaim: EcoClaim = {
-        id: Date.now().toString(),
-        value: "",
-      };
-      setEcoClaims((prev) => [...prev, newClaim]);
-    }
+    setEcoClaims((prev) => {
+      if (prev.length < 5) {
+        const newClaim: EcoClaim = {
+          id: Date.now().toString(),
+          value: "",
+        };
+        return [...prev, newClaim];
+      }
+      return prev;
+    });
   };
 
   const updateEcoClaim = (id: string, value: string) => {

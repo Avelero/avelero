@@ -50,18 +50,143 @@ export const PRODUCT_FIELDS = [
  */
 export type ProductField = (typeof PRODUCT_FIELDS)[number];
 
+// ============================================================================
+// FilterState Schema Definitions
+// ============================================================================
+
+/**
+ * Filter value types matching FilterValue from filter-types.ts
+ */
+// Date range object - must be checked early in union to match correctly
+// Requires at least one of 'after' or 'before' to be present and non-empty
+const dateRangeValueSchema = z.object({
+  after: z.string().optional(), // ISO date string (empty string is valid)
+  before: z.string().optional(), // ISO date string (empty string is valid)
+}).passthrough() // Allow additional properties to pass through
+  .refine(
+    (val) => {
+      // At least one of after or before must be present and non-empty
+      const hasAfter = val.after != null && val.after !== "";
+      const hasBefore = val.before != null && val.before !== "";
+      return hasAfter || hasBefore;
+    },
+    { message: "Date range must have at least 'after' or 'before' with a value" }
+  )
+  .refine(
+    (val) => {
+      // Cannot have min/max properties (those belong to number range)
+      return !("min" in val) && !("max" in val);
+    },
+    { message: "Date range cannot have min/max properties" }
+  );
+
+// Number range object - requires at least one of min or max
+const numberRangeValueSchema = z.object({
+  min: z.number().optional(),
+  max: z.number().optional(),
+}).passthrough() // Allow additional properties to pass through
+  .refine(
+    (val) => {
+      // At least one of min or max must be present
+      return val.min != null || val.max != null;
+    },
+    { message: "Number range must have at least 'min' or 'max'" }
+  )
+  .refine(
+    (val) => {
+      // Cannot have after/before properties (those belong to date range)
+      return !("after" in val) && !("before" in val);
+    },
+    { message: "Number range cannot have after/before properties" }
+  );
+
+const filterValueSchema: z.ZodType<any> = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.array(z.string()),
+  // Date range - check early since it's a common case
+  dateRangeValueSchema,
+  z.object({
+    date: z.string(), // ISO date string
+  }),
+  z.object({
+    type: z.literal("relative"),
+    option: z.enum([
+      "today",
+      "yesterday",
+      "last 7 days",
+      "last 30 days",
+      "this month",
+      "last month",
+      "this quarter",
+      "this year",
+      "more than X days ago",
+    ]),
+    customDays: z.number().optional(),
+  }),
+  // Number range - after date range to avoid conflicts
+  numberRangeValueSchema,
+  z.null(),
+  z.undefined(),
+]);
+
+/**
+ * Filter condition schema matching FilterCondition
+ * Uses z.lazy for recursive nested conditions support
+ */
+const filterConditionSchema: z.ZodType<any> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    fieldId: z.string(),
+    operator: z.string(), // All operators from FilterOperator type
+    value: filterValueSchema,
+    nestedConditions: z.array(filterConditionSchema).optional(),
+  })
+);
+
+/**
+ * Filter group schema matching FilterGroup
+ */
+const filterGroupSchema = z.object({
+  id: z.string(),
+  conditions: z.array(filterConditionSchema), // OR logic within group
+  asGroup: z.boolean().optional(),
+});
+
+/**
+ * Filter state schema matching FilterState
+ * Groups are ANDed together, conditions within groups are ORed
+ */
+const filterStateSchema = z.object({
+  groups: z.array(filterGroupSchema), // AND logic between groups
+});
+
 /**
  * Cursor-based listing parameters for product tables.
+ * 
+ * Updated to use FilterState for advanced filtering and search as top-level parameter.
  */
 export const listProductsSchema = z.object({
   cursor: z.string().optional(),
   limit: paginationLimitSchema.optional(),
   fields: createFieldSelection(PRODUCT_FIELDS),
-  filters: z
+  // Advanced filters using FilterState structure (groups with AND/OR logic)
+  filters: filterStateSchema.optional(),
+  // Search is now top-level, separate from advanced filters
+  search: shortStringSchema.optional(),
+  sort: z
     .object({
-      category_id: uuidSchema.optional(),
-      season_id: uuidSchema.optional(),
-      search: shortStringSchema.optional(),
+      field: z.enum([
+        "name",
+        "status",
+        "createdAt",
+        "updatedAt",
+        "category",
+        "season",
+        "productIdentifier",
+      ]),
+      direction: z.enum(["asc", "desc"]).default("desc"),
     })
     .optional(),
 });
@@ -277,3 +402,15 @@ export type ProductVariantsUpsertInput = z.infer<
 export type ProductVariantsDeleteInput = z.infer<
   typeof productVariantsDeleteSchema
 >;
+
+// ============================================================================
+// FilterState Type Exports
+// ============================================================================
+
+/**
+ * Type exports for FilterState structures (matching client-side filter-types.ts)
+ */
+export type FilterValue = z.infer<typeof filterValueSchema>;
+export type FilterCondition = z.infer<typeof filterConditionSchema>;
+export type FilterGroup = z.infer<typeof filterGroupSchema>;
+export type FilterState = z.infer<typeof filterStateSchema>;

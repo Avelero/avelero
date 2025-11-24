@@ -11,7 +11,7 @@ const CARD_CONFIG = [
   { key: "archived", title: "Archived" },
 ] as const;
 
-export function DataSectionContent() {
+export function DataSection() {
   const trpc = useTRPC();
   const { data } = useSuspenseQuery(
     trpc.summary.productStatus.queryOptions(),

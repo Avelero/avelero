@@ -175,8 +175,19 @@ function buildConditionClause(
   const { fieldId, operator, value, nestedConditions } = condition;
 
   // Handle nested conditions (for materials/facilities)
+  // Directly call the appropriate nested builder instead of recursing
   if (nestedConditions && nestedConditions.length > 0) {
-    return buildNestedConditionClause(condition, schema, db, brandId);
+    // Nested conditions are only valid for materials and facilities
+    // These are handled in their respective builders (buildMaterialsClause, buildFacilityClause)
+    // which already process nestedConditions properly
+    if (fieldId === "materials") {
+      return buildMaterialsClause(schema, operator, value, nestedConditions, db, brandId);
+    }
+    if (fieldId === "operatorId") {
+      return buildFacilityClause(schema, operator, value, nestedConditions, db, brandId);
+    }
+    // If we somehow have nested conditions for an unsupported field, ignore them
+    // and fall through to normal processing
   }
 
   // Map fieldId to database column/table
@@ -454,7 +465,7 @@ function buildDateClause(
     ("after" in value || "before" in value)
   ) {
     const conditions: SQL[] = [];
-    
+
     // After filled = "is on or after" (gte)
     const afterValue = value.after;
     if (
@@ -463,8 +474,8 @@ function buildDateClause(
       (typeof afterValue === "string" || afterValue instanceof Date)
     ) {
       try {
-        const afterDate = typeof afterValue === "string" 
-          ? new Date(afterValue) 
+        const afterDate = typeof afterValue === "string"
+          ? new Date(afterValue)
           : afterValue;
         if (!Number.isNaN(afterDate.getTime())) {
           // Extract UTC date components and set to start of day
@@ -479,7 +490,7 @@ function buildDateClause(
         // Invalid date, skip
       }
     }
-    
+
     // Before filled = "is on or before" (lte)
     const beforeValue = value.before;
     if (
@@ -488,8 +499,8 @@ function buildDateClause(
       (typeof beforeValue === "string" || beforeValue instanceof Date)
     ) {
       try {
-        const beforeDate = typeof beforeValue === "string" 
-          ? new Date(beforeValue) 
+        const beforeDate = typeof beforeValue === "string"
+          ? new Date(beforeValue)
           : beforeValue;
         if (!Number.isNaN(beforeDate.getTime())) {
           // Extract UTC date components and set to end of day
@@ -504,14 +515,14 @@ function buildDateClause(
         // Invalid date, skip
       }
     }
-    
+
     // If neither after nor before is provided, return null
     if (conditions.length === 0) {
       return null;
     }
-    
+
     // Combine conditions with AND
-    return conditions.length === 1 
+    return conditions.length === 1
       ? conditions[0]!
       : and(...conditions)!;
   }
@@ -630,7 +641,7 @@ function buildEnvironmentClause(
       ("min" in value || "max" in value)
     ) {
       const conditions: SQL[] = [];
-      
+
       // min filled = "is greater than or equal to"
       if (
         value.min != null &&
@@ -639,7 +650,7 @@ function buildEnvironmentClause(
       ) {
         conditions.push(gte(column, value.min));
       }
-      
+
       // max filled = "is less than or equal to"
       if (
         value.max != null &&
@@ -648,17 +659,17 @@ function buildEnvironmentClause(
       ) {
         conditions.push(lte(column, value.max));
       }
-      
+
       // If neither min nor max is provided, return null
       if (conditions.length === 0) {
         return null;
       }
-      
+
       // Combine conditions with AND
-      const whereClause = conditions.length === 1 
+      const whereClause = conditions.length === 1
         ? conditions[0]!
         : and(...conditions)!;
-      
+
       return sql`EXISTS (
         SELECT 1 FROM ${schema.productEnvironment}
         WHERE ${schema.productEnvironment.productId} = ${schema.products.id}
@@ -1043,7 +1054,7 @@ function buildStepTypeClause(
 ): SQL | null {
   // Normalize values: ensure they're strings and filter out empty values
   let stepTypes: string[] = [];
-  
+
   if (Array.isArray(value)) {
     stepTypes = value
       .filter((v) => v != null && v !== "")
@@ -1245,23 +1256,5 @@ function buildSeasonClause(
     default:
       return null;
   }
-}
-
-// ============================================================================
-// Nested Condition Clause Builder (for materials/facilities)
-// ============================================================================
-
-/**
- * Builds nested condition clause (for materials/facilities with nested conditions)
- */
-function buildNestedConditionClause(
-  condition: FilterCondition,
-  schema: SchemaRefs,
-  db: Database,
-  brandId: string,
-): SQL | null {
-  // This is handled by the specific builders (buildMaterialsClause, buildFacilityClause)
-  // which already handle nestedConditions
-  return buildConditionClause(condition, schema, db, brandId);
 }
 

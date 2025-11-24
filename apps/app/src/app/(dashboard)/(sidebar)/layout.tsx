@@ -27,10 +27,10 @@ async function SidebarLayoutContent({
   children: React.ReactNode;
 }) {
   "use cache: private";
-  cacheLife("hours");
+  cacheLife("minutes");
 
   const queryClient = getQueryClient();
-  
+
   // Single bootstrap fetch
   const workflowInit = await queryClient.fetchQuery(
     trpc.composite.workflowInit.queryOptions(),

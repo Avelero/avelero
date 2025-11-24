@@ -18,7 +18,7 @@ interface EnvironmentSectionProps {
   waterLiters: string;
   setWaterLiters: (value: string) => void;
   ecoClaims: EcoClaim[];
-  setEcoClaims: (value: EcoClaim[]) => void;
+  setEcoClaims: (value: EcoClaim[] | ((prev: EcoClaim[]) => EcoClaim[])) => void;
   carbonError?: string;
   waterError?: string;
 }
@@ -91,26 +91,29 @@ export function EnvironmentSection({
   };
 
   const addEcoClaim = () => {
-    if (ecoClaims.length < 5) {
-      const newClaim: EcoClaim = {
-        id: Date.now().toString(),
-        value: "",
-      };
-      setEcoClaims([...ecoClaims, newClaim]);
-    }
+    setEcoClaims((prev) => {
+      if (prev.length < 5) {
+        const newClaim: EcoClaim = {
+          id: Date.now().toString(),
+          value: "",
+        };
+        return [...prev, newClaim];
+      }
+      return prev;
+    });
   };
 
   const updateEcoClaim = (id: string, value: string) => {
     // Limit to 50 characters
     if (value.length <= 50) {
-      setEcoClaims(
-        ecoClaims.map((claim) => (claim.id === id ? { ...claim, value } : claim)),
+      setEcoClaims((prev) =>
+        prev.map((claim) => (claim.id === id ? { ...claim, value } : claim)),
       );
     }
   };
 
   const removeEcoClaim = (id: string) => {
-    setEcoClaims(ecoClaims.filter((claim) => claim.id !== id));
+    setEcoClaims((prev) => prev.filter((claim) => claim.id !== id));
   };
 
   const canAddEcoClaim = ecoClaims.length < 5;

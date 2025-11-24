@@ -610,7 +610,7 @@ export async function listProducts(
     : 0;
 
   const whereClauses = [eq(products.brandId, brandId)];
-  
+
   // Convert FilterState to SQL WHERE clauses
   if (filters.filterState) {
     const filterClauses = convertFilterStateToWhereClauses(
@@ -620,7 +620,7 @@ export async function listProducts(
     );
     whereClauses.push(...filterClauses);
   }
-  
+
   if (filters.search) {
     const term = `%${filters.search}%`;
     // Search across: name, productIdentifier, season name, category name, status, and tags
@@ -634,7 +634,7 @@ export async function listProducts(
     // Add season search (requires join, handled in subquery)
     // Add category search (requires join, handled in subquery)
     // Add tag search (requires EXISTS subquery for many-to-many)
-    
+
     whereClauses.push(
       or(
         ...searchConditions,
@@ -645,10 +645,21 @@ export async function listProducts(
           AND ${brandSeasons.name} ILIKE ${term}
         )`,
         // Category name search via EXISTS (including parent categories)
+        // Uses recursive CTE to traverse up the category hierarchy
         sql`EXISTS (
-          SELECT 1 FROM ${categories}
-          WHERE ${categories.id} = ${products.categoryId}
-          AND ${categories.name} ILIKE ${term}
+          WITH RECURSIVE category_hierarchy AS (
+            -- Base case: the product's direct category
+            SELECT id, name, parent_id FROM ${categories}
+            WHERE ${categories.id} = ${products.categoryId}
+            
+            UNION
+            
+            -- Recursive case: parent categories
+            SELECT c.id, c.name, c.parent_id FROM ${categories} c
+            INNER JOIN category_hierarchy ch ON c.id = ch.parent_id
+          )
+          SELECT 1 FROM category_hierarchy
+          WHERE name ILIKE ${term}
         )`,
         // Tag search via EXISTS
         sql`EXISTS (
@@ -692,6 +703,7 @@ export async function listProducts(
           ELSE ${brandSeasons.endDate} 
         END ASC NULLS LAST`,
         sql`${brandSeasons.name} ASC NULLS LAST`,
+        asc(products.id), // Stable tie-breaker for deterministic pagination
       ];
     } else {
       // Descending: most recent end dates first, ongoing seasons at top (treated as most recent)
@@ -705,25 +717,26 @@ export async function listProducts(
           ELSE ${brandSeasons.endDate} 
         END DESC NULLS LAST`,
         sql`${brandSeasons.name} ASC NULLS LAST`,
+        desc(products.id), // Stable tie-breaker for deterministic pagination
       ];
     }
   } else if (opts.sort?.field === "category") {
     // Category sorting: products without category always appear last
     const categorySortField = categories.name;
     if (opts.sort.direction === "asc") {
-      orderBy = sql`${categorySortField} ASC NULLS LAST`;
+      orderBy = [sql`${categorySortField} ASC NULLS LAST`, asc(products.id)];
     } else {
-      orderBy = sql`${categorySortField} DESC NULLS LAST`;
+      orderBy = [sql`${categorySortField} DESC NULLS LAST`, desc(products.id)];
     }
   } else {
     const sortField = opts.sort?.field
       ? SORT_FIELD_MAP[opts.sort.field] ?? products.createdAt
       : products.createdAt;
 
-    orderBy =
-      opts.sort?.direction === "asc"
-        ? asc(sortField)
-        : desc(sortField);
+    // Add product ID as a stable tie-breaker for deterministic pagination
+    orderBy = opts.sort?.direction === "asc"
+      ? [asc(sortField), asc(products.id)]
+      : [desc(sortField), desc(products.id)];
   }
 
   const rows = await db

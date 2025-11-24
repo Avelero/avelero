@@ -18,10 +18,6 @@ export function useFilterOptions() {
   );
 
   // Fetch additional endpoints that aren't in the composite
-  const { data: ecoClaimsData, isLoading: isEcoClaimsLoading } = useQuery(
-    trpc.brand.ecoClaims.list.queryOptions(undefined),
-  );
-
   const { data: tagsData, isLoading: isTagsLoading } = useQuery(
     trpc.brand.tags.list.queryOptions(undefined),
   );
@@ -90,17 +86,12 @@ export function useFilterOptions() {
           label: s.name,
         })) ?? [],
 
-      // From separate endpoints (also available in brandCatalogContent, but using separate query for consistency)
+      // From composite.brandCatalogContent
       ecoClaims:
-        (ecoClaimsData?.data?.map((c: { id: string; claim: string }) => ({
+        formData?.brandCatalog?.ecoClaims?.map((c: { id: string; claim: string }) => ({
           value: c.id,
           label: c.claim,
-        })) ??
-          formData?.brandCatalog?.ecoClaims?.map((c: { id: string; claim: string }) => ({
-            value: c.id,
-            label: c.claim,
-          }))) ??
-        [],
+        })) ?? [],
 
       tags:
         tagsData?.data?.map((t: { id: string; name: string }) => ({
@@ -116,10 +107,10 @@ export function useFilterOptions() {
           }),
         ) ?? [],
     };
-  }, [formData, ecoClaimsData, tagsData, templatesData]);
+  }, [formData, tagsData, templatesData]);
 
   const isLoading =
-    isFormDataLoading || isEcoClaimsLoading || isTagsLoading || isTemplatesLoading;
+    isFormDataLoading || isTagsLoading || isTemplatesLoading;
 
   return {
     options,

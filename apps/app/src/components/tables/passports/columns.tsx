@@ -20,8 +20,6 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 import type { PassportTableRow } from "./types";
-import { useQueryClient } from "@tanstack/react-query";
-import { useTRPC } from "@/trpc/client";
 
 const MAX_COLUMN_WIDTH = 320;
 const CELL_PADDING_X = "px-4";
@@ -43,35 +41,13 @@ function EditPassportLink({
   className?: string;
   onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
   const [active, setActive] = useState(false);
-
-  const upid = href.split('/passports/edit/')[1];
-  
-  const handleMouseEnter = () => {
-    if (!upid) return;
-
-    void queryClient.prefetchQuery(
-      trpc.products.getByUpid.queryOptions({
-        upid,
-        includeVariants: true,
-        includeAttributes: true,
-      }),
-    );
-
-    void queryClient.prefetchQuery(
-      trpc.composite.brandCatalogContent.queryOptions(),
-    );
-
-    setActive(true);
-  };
 
   return (
     <Link
       href={href}
       prefetch={active}
-      onMouseEnter={handleMouseEnter}
+      onMouseEnter={() => setActive(true)}
       onMouseLeave={() => setActive(false)}
       className={className}
       onClick={onClick}

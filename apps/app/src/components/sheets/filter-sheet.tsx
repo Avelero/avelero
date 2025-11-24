@@ -48,7 +48,8 @@ export function AdvancedFilterPanel({
   availableFields,
 }: AdvancedFilterPanelProps) {
   // Local state for editing - only syncs back on Apply
-  const [localState, setLocalState] = React.useState<FilterState>({ groups: [] });
+  // Initialize with current filterState to preserve existing advanced filters
+  const [localState, setLocalState] = React.useState<FilterState>(filterState);
 
   // Sync local state when panel opens
   // If quick filters are active, start empty (advanced filters will overwrite)
@@ -136,18 +137,18 @@ export function AdvancedFilterPanel({
           groups: prev.groups.map((g) =>
             g.id === groupId
               ? {
-                  ...g,
-                  conditions: [
-                    ...g.conditions,
-                    {
-                      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                      fieldId: "",
-                      operator: "is" as any,
-                      value: null,
-                      ...(initial ?? {}),
-                    },
-                  ],
-                }
+                ...g,
+                conditions: [
+                  ...g.conditions,
+                  {
+                    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    fieldId: "",
+                    operator: "is" as any,
+                    value: null,
+                    ...(initial ?? {}),
+                  },
+                ],
+              }
               : g,
           ),
         }));
@@ -158,11 +159,11 @@ export function AdvancedFilterPanel({
           groups: prev.groups.map((g) =>
             g.id === groupId
               ? {
-                  ...g,
-                  conditions: g.conditions.map((c) =>
-                    c.id === conditionId ? { ...c, ...updates } : c,
-                  ),
-                }
+                ...g,
+                conditions: g.conditions.map((c) =>
+                  c.id === conditionId ? { ...c, ...updates } : c,
+                ),
+              }
               : g,
           ),
         }));

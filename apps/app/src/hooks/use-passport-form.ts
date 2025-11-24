@@ -661,6 +661,20 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
     for (const claim of validClaims) {
       const normalizedText = claim.value.trim().toLowerCase();
+
+      // First, check if the claim already has a valid ID in the form state
+      // This happens when editing an existing product with eco-claims
+      if (claim.id && claim.id.length > 5) { // Assuming UUIDs are longer than timestamp strings
+        // Verify the ID is still valid by checking if it exists in cache
+        const existsInCache = existingEcoClaims.some((ec: any) => ec.id === claim.id);
+        if (existsInCache) {
+          resolvedIds.push(claim.id);
+          updatedClaims.push({ id: claim.id, value: claim.value.trim() });
+          continue;
+        }
+      }
+
+      // Check if an eco-claim with the same text already exists
       const existing = ecoClaimByText.get(normalizedText);
 
       if (existing?.id) {

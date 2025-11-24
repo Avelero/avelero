@@ -4,15 +4,15 @@ import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { Suspense, useState, useMemo, useCallback, useEffect, useDeferredValue } from "react";
+import { Suspense, useState, useMemo, useCallback, useEffect, useRef, useDeferredValue } from "react";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type { PassportTableRow, SelectionState } from "../tables/passports/types";
-import type { FilterState } from "../passports/filter-types";
+import type { FilterState } from "./filter-types";
 import { PassportControls } from "./passport-controls";
 
 type SortField = "name" | "status" | "createdAt" | "updatedAt" | "category" | "season" | "productIdentifier";
 
-export function TableSectionContent() {
+export function TableSection() {
   const [selectedCount, setSelectedCount] = useState(0);
   const [selection, setSelection] = useState<SelectionState>({
     mode: "explicit",
@@ -69,7 +69,7 @@ export function TableSectionContent() {
           const parsed = JSON.parse(val) as { visible?: string[] } | string[];
           if (Array.isArray(parsed)) return parsed;
           if (parsed && Array.isArray(parsed.visible)) return parsed.visible;
-        } catch {}
+        } catch { }
       }
     }
     return null;
@@ -314,31 +314,50 @@ function TableContent({
 }: TableContentProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  
-  // Reset to first page when search changes
+
+  // Track previous values to detect changes (including clearing)
+  const prevSearchRef = useRef<string | undefined>(search);
+  const prevSortRef = useRef<{ field: SortField; direction: "asc" | "desc" } | undefined>(sort);
+  const prevFiltersRef = useRef<string>(JSON.stringify(filterState.groups));
+
+  // Reset to first page when search changes (including clearing)
   useEffect(() => {
-    if (search) {
+    const currentSearch = search ?? "";
+    const prevSearch = prevSearchRef.current ?? "";
+
+    if (currentSearch !== prevSearch) {
       onCursorStackChange([]);
       onCursorChange(undefined);
+      prevSearchRef.current = search;
     }
   }, [search, onCursorChange, onCursorStackChange]);
 
-  // Reset to first page when sort changes (use field and direction to avoid object reference issues)
+  // Reset to first page when sort changes (including clearing)
   useEffect(() => {
-    if (sort) {
-      onCursorStackChange([]);
-      onCursorChange(undefined);
-    }
-  }, [sort?.field, sort?.direction, onCursorChange, onCursorStackChange]);
+    const currentSort = sort ? `${sort.field}:${sort.direction}` : "";
+    const prevSort = prevSortRef.current ? `${prevSortRef.current.field}:${prevSortRef.current.direction}` : "";
 
-  // Reset to first page when filters change
-  useEffect(() => {
-    if (filterState.groups.length > 0) {
+    if (currentSort !== prevSort) {
       onCursorStackChange([]);
       onCursorChange(undefined);
+      prevSortRef.current = sort;
     }
-  }, [filterState.groups.length, onCursorChange, onCursorStackChange]);
-  
+  }, [sort, onCursorChange, onCursorStackChange]);
+
+  // Reset to first page when filters change (including clearing)
+  // Serialize filterState to detect content changes, not just group count changes
+  const serializedFilters = useMemo(() => JSON.stringify(filterState.groups), [filterState.groups]);
+
+  useEffect(() => {
+    const prevFilters = prevFiltersRef.current;
+
+    if (serializedFilters !== prevFilters) {
+      onCursorStackChange([]);
+      onCursorChange(undefined);
+      prevFiltersRef.current = serializedFilters;
+    }
+  }, [serializedFilters, onCursorChange, onCursorStackChange]);
+
   const { data: productsResponse } = useSuspenseQuery(
     trpc.products.list.queryOptions({
       cursor,

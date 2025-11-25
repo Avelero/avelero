@@ -26,6 +26,10 @@ const ROUTE_LABELS: Record<string, string> = {
   "/passports/create": "Create",
   "/passports/edit": "Edit",
 
+  // Design children
+  "/design": "Design",
+  "/design/theme": "Theme",
+
   // Account children
   "/account/brands": "Brands",
 

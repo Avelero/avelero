@@ -35,6 +35,7 @@ import {
   GripVertical,
   Instagram,
   Leaf,
+  Link,
   Linkedin,
   Loader2,
   Lock,
@@ -335,4 +336,5 @@ export const Icons = {
   Pinterest,
   TikTok,
   Linkedin,
+  Link,
 };

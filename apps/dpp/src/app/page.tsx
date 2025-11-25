@@ -17,26 +17,26 @@ export const metadata: Metadata = {
 export default function DemoPage() {
   // Generate CSS variables from theme styles (using default styles, no override)
   const cssVars = generateThemeCSS(undefined);
-  
+
   // No custom typography, so no Google Fonts needed
   const googleFontsUrl = '';
-  
+
   return (
     <>
       {/* Theme injection - CSS variables (default styling) */}
       <ThemeInjector cssVars={cssVars} googleFontsUrl={googleFontsUrl} />
-      
+
       <div className="min-h-screen flex flex-col">
         {/* Header with spacer for fixed positioning */}
         <div style={{ height: 'var(--header-height)' }} />
         <Header themeConfig={demoThemeConfig} brandName={demoProductData.brandName} />
-        
+
         {/* Main content */}
         <ContentFrame data={demoProductData} themeConfig={demoThemeConfig} />
-        
+
         {/* Demo CTA Button - sticky positioned above footer */}
         <DemoCTA />
-        
+
         {/* Footer */}
         <Footer themeConfig={demoThemeConfig} />
       </div>

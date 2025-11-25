@@ -4,19 +4,22 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SidebarButton } from "./sidebar-button";
 import dashboardAnimation from "@/animations/avelero-icon-animation.json";
-import passportsAnimation from "@/animations/system-regular-727-spinner-dashes-hover-rotation.json";
+import designAnimation from "@/animations/system-regular-727-spinner-dashes-hover-rotation.json";
 import analyticsAnimation from "@/animations/system-regular-10-analytics-hover-analytics.json";
+import passportsAnimation from "@/animations/system-regular-40-add-card-hover-add-card.json";
 import settingsAnimation from "@/animations/system-regular-63-settings-cog-hover-cog-1.json";
 
 const animations = {
   "/": dashboardAnimation,
   "/passports": passportsAnimation,
+  "/design": designAnimation,
   "/settings": settingsAnimation,
 } as const;
 
 const items = [
   { path: "/", name: "Dashboard" },
   { path: "/passports", name: "Passports" },
+  { path: "/design", name: "Design" },
   { path: "/settings", name: "Settings" },
 ] as const;
 

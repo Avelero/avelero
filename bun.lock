@@ -64,6 +64,7 @@
         "@trpc/tanstack-react-query": "^11.4.3",
         "@v1/analytics": "workspace:*",
         "@v1/api": "workspace:*",
+        "@v1/dpp": "workspace:*",
         "@v1/kv": "workspace:*",
         "@v1/logger": "workspace:*",
         "@v1/selections": "workspace:*",

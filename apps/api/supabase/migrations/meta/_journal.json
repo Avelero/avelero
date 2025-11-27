@@ -36,6 +36,13 @@
       "when": 1763752867333,
       "tag": "20251121192107_ordinary_ultimates",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1764274624559,
+      "tag": "20251127201704_special_enchantress",
+      "breakpoints": true
     }
   ]
 }

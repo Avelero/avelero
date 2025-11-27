@@ -205,6 +205,9 @@
     "packages/dpp-components": {
       "name": "@v1/dpp-components",
       "version": "0.1.0",
+      "dependencies": {
+        "@v1/selections": "workspace:*",
+      },
       "devDependencies": {
         "@types/node": "^24.0.1",
         "typescript": "^5.9.2",

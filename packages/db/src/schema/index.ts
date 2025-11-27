@@ -18,6 +18,7 @@ export * from "./brands/brand-sizes";
 export * from "./brands/brand-tags";
 export * from "./brands/showcase-brands";
 export * from "./brands/brand-seasons";
+export * from "./brand/brand-theme";
 
 // Product schemas
 export * from "./products/products";

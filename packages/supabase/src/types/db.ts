@@ -498,6 +498,44 @@ export type Database = {
           },
         ];
       };
+      brand_theme: {
+        Row: {
+          brand_id: string;
+          created_at: string;
+          google_fonts_url: string | null;
+          stylesheet_path: string | null;
+          theme_config: Json;
+          theme_styles: Json;
+          updated_at: string;
+        };
+        Insert: {
+          brand_id: string;
+          created_at?: string;
+          google_fonts_url?: string | null;
+          stylesheet_path?: string | null;
+          theme_config?: Json;
+          theme_styles?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          brand_id?: string;
+          created_at?: string;
+          google_fonts_url?: string | null;
+          stylesheet_path?: string | null;
+          theme_config?: Json;
+          theme_styles?: Json;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_theme_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: true;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       brands: {
         Row: {
           avatar_hue: number | null;

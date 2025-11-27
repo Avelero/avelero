@@ -431,6 +431,7 @@ type DesignEditorState = {
 - Extract or centralize types:
   - Ensure `ThemeConfig`, `ThemeStyles`, and `DppData` types are exported from `packages/dpp-components` (or a dedicated `dpp-types` module) and consumed by both `apps/dpp` and `apps/app`.
 - Document current visual structure of the DPP (components and class names) for reference while rebuilding the preview.
+  - **Status (done):** Types are centralized in `packages/dpp-components` and referenced from both apps; DPP visual structure documented in `design_docs/dpp-structure.md`.
 
 ### Phase 1 – Data & Storage Layer
 
@@ -442,6 +443,7 @@ type DesignEditorState = {
 - Implement a server helper:
   - `saveBrandTheme(brandId, themeStyles, themeConfig)`.
   - Uses the generator + Supabase + DB update.
+  - **Status (done):** `brand_theme` schema added (`packages/db/src/schema/brand/brand-theme.ts`), bucket RLS policies created remotely, server-safe CSS/font generators added to `packages/dpp-components/src/lib`, and `apps/app/src/actions/design/save-theme-action.ts` stubs the save flow (upload + DB upsert).
 
 ### Phase 2 – Wire Up Public DPP to New Theme Model
 
@@ -516,5 +518,3 @@ type DesignEditorState = {
 - Audit log of style/config changes.
 
 These can be layered on top of the architecture above without major structural changes, as long as the **DB `brand_theme` JSON and stylesheet pipeline** remain the canonical path for creating and serving themes.
-
-

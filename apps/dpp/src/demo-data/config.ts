@@ -1,4 +1,4 @@
-import type { ThemeConfig } from '@/types/theme-config';
+import type { ThemeConfig } from '@v1/dpp-components';
 
 /**
  * Demo theme configuration for Avelero Apparel
@@ -69,4 +69,3 @@ export const demoThemeConfig: ThemeConfig = {
     showCertificationCheckIcon: true,
   },
 };
-

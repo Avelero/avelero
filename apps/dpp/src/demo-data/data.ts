@@ -1,4 +1,4 @@
-import type { DppData } from '@/types/dpp-data';
+import type { DppData } from '@v1/dpp-components';
 
 /**
  * Demo product data for Avelero Apparel
@@ -127,4 +127,3 @@ export const demoProductData: DppData = {
     },
   ],
 };
-

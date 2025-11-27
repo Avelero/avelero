@@ -65,6 +65,7 @@
         "@v1/analytics": "workspace:*",
         "@v1/api": "workspace:*",
         "@v1/dpp": "workspace:*",
+        "@v1/dpp-components": "workspace:*",
         "@v1/kv": "workspace:*",
         "@v1/logger": "workspace:*",
         "@v1/selections": "workspace:*",
@@ -108,6 +109,7 @@
       "name": "@v1/dpp",
       "version": "0.1.0",
       "dependencies": {
+        "@v1/dpp-components": "workspace:*",
         "@v1/selections": "workspace:*",
         "@v1/ui": "workspace:*",
         "clsx": "^2.1.1",
@@ -197,6 +199,14 @@
         "@types/node": "^24.0.1",
         "dotenv": "^17.2.3",
         "drizzle-kit": "^0.31.7",
+        "typescript": "^5.9.2",
+      },
+    },
+    "packages/dpp-components": {
+      "name": "@v1/dpp-components",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/node": "^24.0.1",
         "typescript": "^5.9.2",
       },
     },
@@ -1191,6 +1201,8 @@
     "@v1/db": ["@v1/db@workspace:packages/db"],
 
     "@v1/dpp": ["@v1/dpp@workspace:apps/dpp"],
+
+    "@v1/dpp-components": ["@v1/dpp-components@workspace:packages/dpp-components"],
 
     "@v1/email": ["@v1/email@workspace:packages/email"],
 

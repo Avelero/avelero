@@ -1,0 +1,25 @@
+{
+  "name": "@v1/dpp-components",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false,
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.1",
+    "typescript": "^5.9.2"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts",
+    "./types/dpp-data": "./src/types/dpp-data.ts",
+    "./types/theme-config": "./src/types/theme-config.ts",
+    "./types/theme-styles": "./src/types/theme-styles.ts"
+  }
+}

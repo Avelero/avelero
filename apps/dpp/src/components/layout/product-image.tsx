@@ -1,4 +1,4 @@
-import type { ThemeConfig } from '@/types/theme-config';
+import type { ThemeConfig } from '@v1/dpp-components';
 
 interface Props {
   image: string;
@@ -55,5 +55,4 @@ export function ProductImage({ image, alt, themeConfig }: Props) {
     </div>
   );
 }
-
 

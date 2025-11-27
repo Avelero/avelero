@@ -1,4 +1,4 @@
-import type { DppData } from '@/types/dpp-data';
+import type { DppData } from '@v1/dpp-components';
 
 /**
  * Mock product data for development
@@ -777,5 +777,4 @@ export const mockProducts: Record<string, DppData> = {
     ],
   },
 };
-
 

@@ -1,5 +1,4 @@
-import type { ThemeConfig } from '@/types/theme-config';
-import type { DppData } from '@/types/dpp-data';
+import type { ThemeConfig, DppData } from '@v1/dpp-components';
 import { ProductImage } from './product-image';
 import { InformationFrame } from './information-frame';
 
@@ -31,5 +30,4 @@ export function ImageAndInfo({ data, themeConfig }: Props) {
     </div>
   );
 }
-
 

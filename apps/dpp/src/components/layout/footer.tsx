@@ -1,4 +1,4 @@
-import type { ThemeConfig } from '@/types/theme-config';
+import type { ThemeConfig } from '@v1/dpp-components';
 import { Icons } from "@v1/ui/icons";
 
 interface Props {

@@ -1,4 +1,3 @@
-import type { ThemeConfig } from '@/types/theme-config';
 import { Icons } from '@v1/ui/icons';
 import { truncateText } from '@/lib/utils/formatting';
 

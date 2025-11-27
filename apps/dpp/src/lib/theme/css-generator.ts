@@ -3,7 +3,7 @@
  * Converts theme style objects into CSS custom properties
  */
 
-import type { ThemeStyles, ComponentStyleOverride, CustomFont } from '@/types/theme-styles';
+import type { ThemeStyles, ComponentStyleOverride, CustomFont } from '@v1/dpp-components';
 import { getFontFallback } from '@v1/selections/fonts';
 
 /**

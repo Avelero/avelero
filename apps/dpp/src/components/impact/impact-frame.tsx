@@ -1,5 +1,4 @@
-import type { ThemeConfig } from '@/types/theme-config';
-import type { ImpactMetric } from '@/types/dpp-data';
+import type { ImpactMetric } from '@v1/dpp-components';
 import { LargeImpactCard } from './large-impact-card';
 import { SmallImpactFrame } from './small-impact-frame';
 

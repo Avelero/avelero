@@ -1,5 +1,4 @@
-import type { ThemeConfig } from '@/types/theme-config';
-import type { JourneyStage } from '@/types/dpp-data';
+import type { JourneyStage, ThemeConfig } from '@v1/dpp-components';
 
 interface Props {
   journey: JourneyStage[];

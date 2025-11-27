@@ -1,6 +1,5 @@
 import { Fragment } from 'react';
-import type { Material } from '@/types/dpp-data';
-import type { ThemeConfig } from '@/types/theme-config';
+import type { Material, ThemeConfig } from '@v1/dpp-components';
 import { Icons } from '@v1/ui/icons';
 
 interface Props {

@@ -1,5 +1,4 @@
-import type { ThemeConfig } from '@/types/theme-config';
-import type { DppData } from '@/types/dpp-data';
+import type { ThemeConfig, DppData } from '@v1/dpp-components';
 import { ImageAndInfo } from './image-and-info';
 import { ProductCarousel } from '../carousel/product-carousel';
 import { CTABanner } from '../cta/cta-banner';
@@ -42,5 +41,4 @@ export function ContentFrame({ data, themeConfig }: Props) {
     </main>
   );
 }
-
 

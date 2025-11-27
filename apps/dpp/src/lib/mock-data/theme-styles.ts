@@ -1,4 +1,4 @@
-import type { ThemeStyles } from '@/types/theme-styles';
+import type { ThemeStyles } from '@v1/dpp-components';
 
 /**
  * Mock theme styles for development

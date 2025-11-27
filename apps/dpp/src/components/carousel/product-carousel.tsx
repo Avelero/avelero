@@ -1,8 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect, useCallback } from 'react';
-import type { ThemeConfig } from '@/types/theme-config';
-import type { SimilarProduct } from '@/types/dpp-data';
+import type { ThemeConfig, SimilarProduct } from '@v1/dpp-components';
 import { ProductCard } from './product-card';
 import { Icons } from '@v1/ui/icons';
 

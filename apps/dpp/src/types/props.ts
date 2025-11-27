@@ -2,8 +2,7 @@
  * Common Component Props
  */
 
-import type { ThemeConfig } from './theme-config';
-import type { ThemeStyles } from './theme-styles';
+import type { ThemeConfig, ThemeStyles } from '@v1/dpp-components';
 
 export interface BaseComponentProps {
   themeConfig: ThemeConfig;

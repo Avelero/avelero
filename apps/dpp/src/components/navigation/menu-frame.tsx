@@ -1,4 +1,4 @@
-import type { ThemeConfig } from '@/types/theme-config';
+import type { ThemeConfig } from '@v1/dpp-components';
 import { MenuButton } from './menu-button';
 
 interface MenuItem {

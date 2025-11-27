@@ -1,5 +1,4 @@
-import type { ThemeConfig } from '@/types/theme-config';
-import type { DppData } from '@/types/dpp-data';
+import type { ThemeConfig, DppData } from '@v1/dpp-components';
 import { ProductDescription } from '../product/product-description';
 import { ProductDetails } from '../product/product-details';
 import { MenuFrame } from '../navigation/menu-frame';
@@ -101,5 +100,4 @@ export function InformationFrame({ data, themeConfig }: Props) {
     </div>
   );
 }
-
 

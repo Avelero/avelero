@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@tailwindcss/container-queries": "^0.1.1",
     "@types/color": "^4.2.0",
     "@types/react": "19.2.6",
     "@types/react-dom": "19.2.3",

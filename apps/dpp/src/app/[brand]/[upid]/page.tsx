@@ -3,10 +3,7 @@ import { notFound } from 'next/navigation';
 import { demoThemeConfig } from '@/demo-data/config';
 import { generateThemeCSS, generateFontFaceCSS } from '@/lib/theme/css-generator';
 import { generateGoogleFontsUrlFromTypography } from '@/lib/theme/google-fonts';
-import { ThemeInjector } from '@/components/theme/theme-injector';
-import { Header } from '@/components/layout/header';
-import { ContentFrame } from '@/components/layout/content-frame';
-import { Footer } from '@/components/layout/footer';
+import { ThemeInjector, Header, ContentFrame, Footer } from '@v1/dpp-components';
 import { createClient } from '@v1/supabase/server';
 import { getPublicUrl } from '@v1/supabase/utils/storage-urls';
 import type { DppData, ThemeConfig, ThemeStyles } from '@v1/dpp-components';
@@ -101,8 +98,8 @@ export default async function DPPPage({ params }: PageProps) {
     .eq('brand_id', product.brand_id)
     .maybeSingle();
 
-  const themeConfig: ThemeConfig = (brandTheme?.theme_config as ThemeConfig) ?? demoThemeConfig;
-  const themeStyles: ThemeStyles | undefined = brandTheme?.theme_styles as ThemeStyles | undefined;
+  const themeConfig: ThemeConfig = (brandTheme?.theme_config as unknown as ThemeConfig) ?? demoThemeConfig;
+  const themeStyles: ThemeStyles | undefined = brandTheme?.theme_styles as unknown as ThemeStyles | undefined;
 
   // Build DPP data from DB (use empty strings/arrays for optional fields)
   const productData: DppData = {
@@ -154,7 +151,7 @@ export default async function DPPPage({ params }: PageProps) {
         <link rel="stylesheet" href={publicStylesheetUrl} />
       )}
       
-      <div className="min-h-screen flex flex-col">
+      <div className="dpp-root min-h-screen flex flex-col">
         {/* Header with spacer for fixed positioning */}
         <div style={{ height: 'var(--header-height)' }} />
         <Header themeConfig={themeConfig} brandName={productData.brandName} />

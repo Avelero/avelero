@@ -21,6 +21,17 @@ export default {
         mono: "var(--font-geist-mono)",
         serif: "var(--font-serif)",
       },
+      // DPP spacing tokens - shared for DPP components
+      spacing: {
+        micro: "var(--spacing-micro)",
+        xs: "var(--spacing-xs)",
+        sm: "var(--spacing-sm)",
+        md: "var(--spacing-md)",
+        lg: "var(--spacing-lg)",
+        xl: "var(--spacing-xl)",
+        "2x": "var(--spacing-2x)",
+        "3x": "var(--spacing-3x)",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -170,5 +181,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/container-queries")],
 } satisfies Config;

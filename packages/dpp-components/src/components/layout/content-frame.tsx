@@ -12,10 +12,10 @@ export function ContentFrame({ data, themeConfig }: Props) {
   const { sections, images } = themeConfig;
   
   return (
-    <main className="flex-grow flex flex-col md:pt-lg w-full">
+    <main className="flex-grow flex flex-col @3xl:pt-lg w-full">
       <div className="flex flex-col">
         {/* Product image and information section */}
-        <div className="max-w-container mx-auto w-full md:px-lg">
+        <div className="max-w-container mx-auto w-full @3xl:px-lg">
           <ImageAndInfo data={data} themeConfig={themeConfig} />
         </div>
         
@@ -33,7 +33,7 @@ export function ContentFrame({ data, themeConfig }: Props) {
         
         {/* Optional CTA Banner */}
         {sections.showCTABanner && (
-          <div className="max-w-container mx-auto w-full md:px-lg">
+          <div className="max-w-container mx-auto w-full @3xl:px-lg">
             <CTABanner themeConfig={themeConfig} />
           </div>
         )}

@@ -12,10 +12,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@v1/selections": "workspace:*"
+    "@v1/selections": "workspace:*",
+    "@v1/ui": "workspace:*",
+    "react": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.1",
+    "@types/react": "^19.1.8",
     "typescript": "^5.9.2"
   },
   "exports": {
@@ -25,6 +28,8 @@
     "./types/theme-config": "./src/types/theme-config.ts",
     "./types/theme-styles": "./src/types/theme-styles.ts",
     "./lib/css-generator": "./src/lib/css-generator.ts",
-    "./lib/google-fonts": "./src/lib/google-fonts.ts"
+    "./lib/google-fonts": "./src/lib/google-fonts.ts",
+    "./components": "./src/components/index.ts",
+    "./globals.css": "./src/styles/globals.css"
   }
 }

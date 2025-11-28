@@ -1,5 +1,5 @@
 import type { SimilarProduct } from '@v1/dpp-components';
-import { formatPrice } from '@/lib/utils/formatting';
+import { formatPrice } from '../../utils/formatting';
 
 interface Props {
   product: SimilarProduct;
@@ -55,4 +55,3 @@ export function ProductCard({ product, imageZoom = 100, imagePosition = 'center'
     </a>
   );
 }
-

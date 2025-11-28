@@ -454,6 +454,7 @@ type DesignEditorState = {
 - Once stable:
   - Switch the public DPP fully to `<link rel="stylesheet">` pointing to Supabase CSS.
   - Reduce `ThemeInjector` to preview-only usage.
+  - **Status (done):** Brand routes now fetch product + brand + `brand_theme` from Supabase (no mock fallback); demo remains at `/` using `demo-data`. Supabase `stylesheet_path` is linked when present; inline CSS generation is used only when missing. Google Fonts prefers stored URL with fallback derived from typography.
 
 ### Phase 3 – Design Editor Shell & State
 
@@ -466,6 +467,7 @@ type DesignEditorState = {
   - Draft theme state.
   - Selection/hover state.
   - `hasUnsavedChanges` and save/cancel control logic (stub server action).
+  - **Status (in progress):** Dashboard design page scaffolded with three panels and Save/Cancel pill; preview uses shared DPP components and scoped CSS, provider holds draft state and save/reset hooks. Further work needed for interactive controls and real data wiring.
 
 ### Phase 4 – Basic Live Preview & Typography Editor
 

@@ -14,7 +14,7 @@ interface Props {
 }
 
 export function MenuFrame({ menuItems, themeConfig, isLastMenu = false }: Props) {
-  const menuClasses = isLastMenu ? 'w-full mt-lg mb-lg md:mb-0 md:mx-0' : 'w-full mt-lg mb-lg md:mx-0';
+  const menuClasses = isLastMenu ? 'w-full mt-lg mb-lg @3xl:mb-0 @3xl:mx-0' : 'w-full mt-lg mb-lg @3xl:mx-0';
   
   if (menuItems.length === 0) return null;
   

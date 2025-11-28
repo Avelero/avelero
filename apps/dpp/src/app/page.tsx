@@ -3,11 +3,7 @@ import { demoProductData } from '@/demo-data/data';
 import { demoThemeConfig } from '@/demo-data/config';
 import { generateThemeCSS } from '@/lib/theme/css-generator';
 import { generateGoogleFontsUrlFromTypography } from '@/lib/theme/google-fonts';
-import { ThemeInjector } from '@/components/theme/theme-injector';
-import { Header } from '@/components/layout/header';
-import { ContentFrame } from '@/components/layout/content-frame';
-import { Footer } from '@/components/layout/footer';
-import { DemoCTA } from '@/components/layout/demo-cta';
+import { ThemeInjector, Header, ContentFrame, Footer, DemoCTA } from '@v1/dpp-components';
 
 export const metadata: Metadata = {
   title: `${demoProductData.brandName} | ${demoProductData.title}`,
@@ -26,7 +22,7 @@ export default function DemoPage() {
       {/* Theme injection - CSS variables (default styling) */}
       <ThemeInjector cssVars={cssVars} googleFontsUrl={googleFontsUrl} />
 
-      <div className="min-h-screen flex flex-col">
+      <div className="dpp-root min-h-screen flex flex-col @container">
         {/* Header with spacer for fixed positioning */}
         <div style={{ height: 'var(--header-height)' }} />
         <Header themeConfig={demoThemeConfig} brandName={demoProductData.brandName} />
@@ -43,4 +39,3 @@ export default function DemoPage() {
     </>
   );
 }
-

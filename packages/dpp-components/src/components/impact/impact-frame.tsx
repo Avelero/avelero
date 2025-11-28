@@ -11,7 +11,7 @@ interface Props {
 export function ImpactFrame({ metrics, claims, isLast = false }: Props) {
   
   return (
-    <div className={`px-sm md:px-0 pt-lg pb-lg flex flex-col gap-sm${isLast ? ' pb-0' : ''}`}>
+    <div className={`px-sm @3xl:px-0 pt-lg pb-lg flex flex-col gap-sm${isLast ? ' pb-0' : ''}`}>
       <h6 className="impact-card__title">
         Impact
       </h6>

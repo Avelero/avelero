@@ -25,7 +25,7 @@ export function ProductDetails({
   const manufacturerClickable = true;
   
   return (
-    <div className={`w-full px-sm md:px-0 pt-md pb-lg${isLast ? ' pb-0' : ''}`}>
+    <div className={`w-full px-sm @3xl:px-0 pt-md pb-lg${isLast ? ' pb-0' : ''}`}>
       <div className="product-details w-full border">
         {/* Article Number Row */}
         <div

@@ -1,11 +1,12 @@
 export function DemoCTA() {
   return (
-    <div className="sticky bottom-3 md:bottom-6 z-50 flex justify-end pr-3 md:pr-6 mb-3 md:mb-6 pointer-events-none">
+    <div className="sticky bottom-3 @3xl:bottom-6 z-50 flex justify-end pr-3 @3xl:pr-6 mb-3 @3xl:mb-6 pointer-events-none">
       <a
         href="https://www.avelero.com"
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center justify-center transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 p-2 h-9 px-2 py-[10px] text-[14px] leading-[16px] text-primary-foreground bg-brand hover:bg-brand/90 pointer-events-auto shadow-sm box-border"
+        className="inline-flex items-center justify-center transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 p-2 h-9 px-2 py-[10px] text-[14px] leading-[16px] hover:opacity-90 pointer-events-auto shadow-sm box-border"
+        style={{ color: 'var(--highlight-foreground)', backgroundColor: 'var(--highlight)' }}
       >
         <div className="inline-flex items-center px-1">Talk to founders</div>
         <span className="inline-flex items-center h-4 w-4">

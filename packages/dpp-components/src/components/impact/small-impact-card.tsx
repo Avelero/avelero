@@ -1,5 +1,5 @@
 import { Icons } from '@v1/ui/icons';
-import { truncateText } from '@/lib/utils/formatting';
+import { truncateText } from '../../utils/formatting';
 
 interface Props {
   claim: string;

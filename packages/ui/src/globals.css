@@ -158,6 +158,6 @@ input:-webkit-autofill:focus-visible {
   }
   
   .type-small {
-    @apply text-[12px] font-normal leading-[18px] tracking-wide;
+    @apply text-[13px] font-normal leading-[18px] tracking-wide;
   }
 }

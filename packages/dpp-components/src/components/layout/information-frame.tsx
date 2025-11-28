@@ -29,7 +29,7 @@ export function InformationFrame({ data, themeConfig }: Props) {
   const lastSection = visibleSections[visibleSections.length - 1];
   
   return (
-    <div className="flex flex-col overflow-x-hidden relative md:ml-auto md:w-full">
+    <div className="flex flex-col overflow-x-hidden relative @3xl:ml-auto @3xl:w-full">
       {/* Product Description Section */}
       <ProductDescription
         brand={data.brandName}

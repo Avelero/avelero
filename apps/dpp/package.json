@@ -17,6 +17,7 @@
   "dependencies": {
     "@v1/dpp-components": "workspace:*",
     "@v1/selections": "workspace:*",
+    "@v1/supabase": "workspace:*",
     "@v1/ui": "workspace:*",
     "clsx": "^2.1.1",
     "geist": "^1.5.1",

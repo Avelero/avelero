@@ -2,7 +2,7 @@ import "./src/env.mjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@v1/supabase", "@v1/selections", "@v1/ui", "@v1/utils"],
+  transpilePackages: ["@v1/supabase", "@v1/selections", "@v1/ui", "@v1/utils", "@v1/dpp-components"],
   cacheComponents: true,
   serverExternalPackages: ['pino', 'thread-stream'],
   images: {

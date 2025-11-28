@@ -111,6 +111,7 @@
       "dependencies": {
         "@v1/dpp-components": "workspace:*",
         "@v1/selections": "workspace:*",
+        "@v1/supabase": "workspace:*",
         "@v1/ui": "workspace:*",
         "clsx": "^2.1.1",
         "geist": "^1.5.1",
@@ -207,9 +208,12 @@
       "version": "0.1.0",
       "dependencies": {
         "@v1/selections": "workspace:*",
+        "@v1/ui": "workspace:*",
+        "react": "^19.1.0",
       },
       "devDependencies": {
         "@types/node": "^24.0.1",
+        "@types/react": "^19.1.8",
         "typescript": "^5.9.2",
       },
     },
@@ -355,6 +359,7 @@
         "tailwindcss-animate": "^1.0.7",
       },
       "devDependencies": {
+        "@tailwindcss/container-queries": "^0.1.1",
         "@types/color": "^4.2.0",
         "@types/react": "19.2.6",
         "@types/react-dom": "19.2.3",

@@ -71,7 +71,7 @@ export function ProductDescription({ brand, title, description, themeConfig, isL
   
   return (
     <div
-      className={`pt-xl pb-md px-sm md:px-0 md:pt-0 flex flex-col gap-sm w-full${isLast ? ' pb-0' : ''}`}
+      className={`pt-xl pb-md px-sm @3xl:px-0 @3xl:pt-0 flex flex-col gap-sm w-full${isLast ? ' pb-0' : ''}`}
     >
       <div className="product__brand">
         {brand}

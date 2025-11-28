@@ -9,7 +9,7 @@ interface Props {
 export function JourneyFrame({ journey, themeConfig, isLast = false }: Props) {
   
   return (
-    <div className={`mx-sm md:mx-0 mt-lg mb-lg flex flex-col gap-sm${isLast ? ' mb-0' : ''}`}>
+    <div className={`mx-sm @3xl:mx-0 mt-lg mb-lg flex flex-col gap-sm${isLast ? ' mb-0' : ''}`}>
       <h6 className="journey-card__title">
         Journey
       </h6>

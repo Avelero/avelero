@@ -1,4 +1,4 @@
-import type { ThemeConfig } from '@v1/dpp-components';
+import type { ThemeConfig } from "@v1/dpp-components";
 
 interface Props {
   image: string;
@@ -8,27 +8,27 @@ interface Props {
 
 export function ProductImage({ image, alt, themeConfig }: Props) {
   const { images } = themeConfig;
-  
+
   // Convert zoom from percentage to scale value
   const zoomScale = Math.max(1, images.productImageZoom / 100);
-  
+
   // Determine positioning values
-  let objectPosition = '50% 50%'; // Default: center
-  let transformOrigin = '50% 50%'; // Default: center
-  
-  if (images.productImagePosition === 'top') {
-    objectPosition = '50% 0%';
-    transformOrigin = '50% 0%';
-  } else if (images.productImagePosition === 'bottom') {
-    objectPosition = '50% 100%';
-    transformOrigin = '50% 100%';
+  let objectPosition = "50% 50%"; // Default: center
+  let transformOrigin = "50% 50%"; // Default: center
+
+  if (images.productImagePosition === "top") {
+    objectPosition = "50% 0%";
+    transformOrigin = "50% 0%";
+  } else if (images.productImagePosition === "bottom") {
+    objectPosition = "50% 100%";
+    transformOrigin = "50% 100%";
   }
-  
+
   return (
     <div
       className="product__image relative w-full border-b @3xl:border overflow-hidden"
       style={{
-        aspectRatio: '393 / 539',
+        aspectRatio: "393 / 539",
       }}
     >
       {image ? (
@@ -46,9 +46,9 @@ export function ProductImage({ image, alt, themeConfig }: Props) {
       ) : (
         <div
           className="absolute top-0 left-0 w-full h-full flex items-center justify-center"
-          style={{ backgroundColor: 'var(--accent)' }}
+          style={{ backgroundColor: "var(--accent)" }}
         >
-          <span className="type-body-sm" style={{ color: 'var(--secondary)' }}>
+          <span className="type-body-sm" style={{ color: "var(--secondary)" }}>
             No product image available
           </span>
         </div>
@@ -56,4 +56,3 @@ export function ProductImage({ image, alt, themeConfig }: Props) {
     </div>
   );
 }
-

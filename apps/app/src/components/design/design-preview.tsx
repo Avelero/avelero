@@ -1,34 +1,32 @@
+"use client";
+
 import { PreviewThemeInjector } from "./preview-theme-injector";
 import {
   ContentFrame,
   Header,
   Footer,
-  type DppData,
-  type ThemeConfig,
-  type ThemeStyles,
 } from "@v1/dpp-components";
+import { useDesignEditor } from "@/contexts/design-editor-provider";
+import { SaveBar } from "./save-bar";
 
-type Props = {
-  data: DppData;
-  themeConfig: ThemeConfig;
-  themeStyles?: ThemeStyles;
-};
+export function DesignPreview() {
+  const { previewData, themeConfigDraft, themeStylesDraft } = useDesignEditor();
 
-export function DesignPreview({ data, themeConfig, themeStyles }: Props) {
   return (
-    <div className="w-full h-full bg-accent p-6">
+    <div className="w-full h-full bg-accent p-6 flex flex-col gap-6 items-center">
       <div className="w-full h-full bg-white border border-border overflow-auto scrollbar-hide">
-        <PreviewThemeInjector themeStyles={themeStyles} />
+        <PreviewThemeInjector themeStyles={themeStylesDraft} />
         <div className="dpp-root min-h-full flex flex-col @container">
           <Header
-            themeConfig={themeConfig}
-            brandName={data.brandName}
+            themeConfig={themeConfigDraft}
+            brandName={previewData.brandName}
             position="sticky"
           />
-          <ContentFrame data={data} themeConfig={themeConfig} />
-          <Footer themeConfig={themeConfig} />
+          <ContentFrame data={previewData} themeConfig={themeConfigDraft} />
+          <Footer themeConfig={themeConfigDraft} />
         </div>
       </div>
+      <SaveBar />
     </div>
   );
 }

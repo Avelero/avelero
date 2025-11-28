@@ -467,7 +467,7 @@ type DesignEditorState = {
   - Draft theme state.
   - Selection/hover state.
   - `hasUnsavedChanges` and save/cancel control logic (stub server action).
-  - **Status (in progress):** Dashboard design page scaffolded with three panels and Save/Cancel pill; preview uses shared DPP components and scoped CSS, provider holds draft state and save/reset hooks. Further work needed for interactive controls and real data wiring.
+  - **Status (done):** Dashboard design page scaffolded with three panels and Save/Cancel pill; preview uses shared DPP components and scoped CSS, provider holds draft state and save/reset hooks; styling is scoped to avoid conflicts with the dashboard app.
 
 ### Phase 4 – Basic Live Preview & Typography Editor
 
@@ -476,8 +476,23 @@ type DesignEditorState = {
 - Integrate a minimal `PreviewThemeInjector` that:
   - Generates CSS from `themeStylesDraft`.
   - Injects a `<style>` tag inside the preview container.
-- Implement the right panel’s **typography accordions** and hook them to `themeStylesDraft`.
+- Implement the right panel's **typography accordions** and hook them to `themeStylesDraft`.
 - Confirm that typography edits update the preview instantly.
+  - **Status (done):** 
+    - `DesignPreview` component rebuilt using shared `@v1/dpp-components` package, consuming `themeStylesDraft` and `themeConfigDraft` from context (no static props).
+    - `PreviewThemeInjector` generates and injects CSS from draft state, scoped to `.dpp-root` to match `globals.css` structure.
+    - Right panel (`DesignRightPanel`) implements collapsible accordions for all typography scales (H1-H6, Body, Small) and Colors.
+    - Typography editor fields implemented:
+      - Font family selector with virtualized list (1900+ Google Fonts, popular fonts first, searchable).
+      - Size input (px values, auto-converted to rem in CSS generator).
+      - Weight selector (Light 300, Regular 400, Medium 500, Bold 700).
+      - Line height selector (Tight, Normal, Relaxed, Double).
+      - Letter spacing/Tracking selector (Tight, Normal, Wide).
+    - Color accordion with color picker fields for all design tokens (background, foreground, primary, secondary, accent, highlight, success, border).
+    - CSS generator updated to output `.dpp-root { ... }` instead of `:root { ... }` for proper scoping.
+    - Google Fonts URL generation updated to load weights 300, 400, 500, 700.
+    - All changes update preview instantly via `themeStylesDraft` state.
+    - Field components created: `ColorField`, `FontFamilySelect`, `NumberField`, `SelectField`, `TypographyScaleEditor`.
 
 ### Phase 5 – Component Selection & Highlighting
 

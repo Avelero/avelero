@@ -1,4 +1,4 @@
-import { SmallImpactCard } from './small-impact-card';
+import { SmallImpactCard } from "./small-impact-card";
 
 interface Props {
   claims: string[];

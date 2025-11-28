@@ -1,12 +1,15 @@
 "use client";
 
-import {
-  type DppData,
-  type ThemeConfig,
-  type ThemeStyles,
+import type {
+  DppData,
+  ThemeConfig,
+  ThemeStyles,
+  TypographyScale,
 } from "@v1/dpp-components";
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState, useCallback } from "react";
 import { saveThemeAction } from "@/actions/design/save-theme-action";
+
+type TypographyScaleKey = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "body" | "body-sm" | "body-xs";
 
 type DesignEditorContextValue = {
   themeConfigDraft: ThemeConfig;
@@ -20,6 +23,9 @@ type DesignEditorContextValue = {
   resetDrafts: () => void;
   saveDrafts: () => Promise<void>;
   previewData: DppData;
+  // Helper setters for nested updates
+  updateTypographyScale: (scale: TypographyScaleKey, value: TypographyScale) => void;
+  updateColor: (colorKey: string, value: string) => void;
 };
 
 const DesignEditorContext = createContext<DesignEditorContextValue | null>(
@@ -51,12 +57,12 @@ export function DesignEditorProvider({
     JSON.stringify(themeConfigDraft) !== JSON.stringify(initialThemeConfig) ||
     JSON.stringify(themeStylesDraft) !== JSON.stringify(initialThemeStyles);
 
-  const resetDrafts = () => {
+  const resetDrafts = useCallback(() => {
     setThemeConfigDraft(initialThemeConfig);
     setThemeStylesDraft(initialThemeStyles);
-  };
+  }, [initialThemeConfig, initialThemeStyles]);
 
-  const saveDrafts = async () => {
+  const saveDrafts = useCallback(async () => {
     if (!brandId) return;
     setIsSaving(true);
     try {
@@ -68,7 +74,27 @@ export function DesignEditorProvider({
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [brandId, themeConfigDraft, themeStylesDraft]);
+
+  const updateTypographyScale = useCallback((scale: TypographyScaleKey, value: TypographyScale) => {
+    setThemeStylesDraft((prev) => ({
+      ...prev,
+      typography: {
+        ...prev.typography,
+        [scale]: value,
+      },
+    }));
+  }, []);
+
+  const updateColor = useCallback((colorKey: string, value: string) => {
+    setThemeStylesDraft((prev) => ({
+      ...prev,
+      colors: {
+        ...prev.colors,
+        [colorKey]: value,
+      },
+    }));
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -83,6 +109,8 @@ export function DesignEditorProvider({
       resetDrafts,
       saveDrafts,
       previewData,
+      updateTypographyScale,
+      updateColor,
     }),
     [
       themeConfigDraft,
@@ -92,6 +120,10 @@ export function DesignEditorProvider({
       hasUnsavedChanges,
       isSaving,
       previewData,
+      resetDrafts,
+      saveDrafts,
+      updateTypographyScale,
+      updateColor,
     ],
   );
 

@@ -247,7 +247,7 @@
   .dpp-root .product-details__row-label {
     font-family: var(--product-details-row-label-font-family, var(--type-body-sm-family));
     font-size: var(--product-details-row-label-font-size, var(--type-body-sm-size));
-    font-weight: var(--product-details-row-label-font-weight, 500);
+    font-weight: var(--product-details-row-label-font-weight, var(--type-body-sm-weight));
     line-height: var(--product-details-row-label-line-height, 1.25);
     letter-spacing: var(--product-details-row-label-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--product-details-row-label-color, var(--primary));
@@ -276,7 +276,7 @@
     border-color: var(--menu-button-border-color, var(--border));
     font-family: var(--menu-button-font-family, var(--type-body-family));
     font-size: var(--menu-button-font-size, var(--type-body-size));
-    font-weight: var(--menu-button-font-weight, 500);
+    font-weight: var(--menu-button-font-weight, var(--type-body-weight));
     line-height: var(--menu-button-line-height, 1);
     letter-spacing: var(--menu-button-letter-spacing, var(--type-body-letter-spacing));
     color: var(--menu-button-color, var(--primary));
@@ -342,7 +342,7 @@
   .dpp-root .impact-card__eco-claim-text {
     font-family: var(--impact-card-eco-claim-font-family, var(--type-body-sm-family));
     font-size: var(--impact-card-eco-claim-font-size, var(--type-body-sm-size));
-    font-weight: var(--impact-card-eco-claim-font-weight, 500); 
+    font-weight: var(--impact-card-eco-claim-font-weight, var(--type-body-sm-weight)); 
     line-height: var(--impact-card-eco-claim-line-height, 1.25);
     letter-spacing: var(--impact-card-eco-claim-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--impact-card-eco-claim-color, var(--primary));
@@ -376,7 +376,7 @@
   .dpp-root .materials-card__title {
     font-family: var(--materials-card-title-font-family, var(--type-h6-family));
     font-size: var(--materials-card-title-font-size, var(--type-h6-size));
-    font-weight: var(--materials-card-title-font-weight, 500);
+    font-weight: var(--materials-card-title-font-weight, var(--type-h6-weight));
     line-height: var(--materials-card-title-line-height, 1);
     letter-spacing: var(--materials-card-title-letter-spacing, var(--type-h6-letter-spacing));
     color: var(--materials-card-title-color, var(--primary));
@@ -387,7 +387,7 @@
   .dpp-root .materials-card__percentage {
     font-family: var(--materials-card-percentage-font-family, var(--type-body-family));
     font-size: var(--materials-card-percentage-font-size, var(--type-body-size));
-    font-weight: var(--materials-card-percentage-font-weight, 500);
+    font-weight: var(--materials-card-percentage-font-weight, var(--type-body-weight));
     line-height: var(--materials-card-percentage-line-height, var(--type-body-line-height));
     letter-spacing: var(--materials-card-percentage-letter-spacing, var(--type-body-letter-spacing));
     color: var(--materials-card-percentage-color, var(--primary));
@@ -398,7 +398,7 @@
   .dpp-root .materials-card__type {
     font-family: var(--materials-card-type-font-family, var(--type-body-family));
     font-size: var(--materials-card-type-font-size, var(--type-body-size));
-    font-weight: var(--materials-card-type-font-weight, 500);
+    font-weight: var(--materials-card-type-font-weight, var(--type-body-weight));
     line-height: var(--materials-card-type-line-height, var(--type-body-line-height));
     letter-spacing: var(--materials-card-type-letter-spacing, var(--type-body-letter-spacing));
     color: var(--materials-card-type-color, var(--primary));
@@ -435,7 +435,7 @@
     color: var(--materials-card-certification-text-color, var(--highlight));
     font-family: var(--materials-card-certification-text-font-family, var(--type-body-xs-family));
     font-size: var(--materials-card-certification-text-font-size, var(--type-body-xs-size));
-    font-weight: var(--materials-card-certification-text-font-weight, 500);
+    font-weight: var(--materials-card-certification-text-font-weight, var(--type-body-xs-weight));
     line-height: var(--materials-card-certification-text-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--materials-card-certification-text-letter-spacing, var(--type-body-xs-letter-spacing));
     text-transform: var(--materials-card-certification-text-text-transform, uppercase);
@@ -452,7 +452,7 @@
   .dpp-root .journey-card__title {
     font-family: var(--journey-card-title-font-family, var(--type-h6-family));
     font-size: var(--journey-card-title-font-size, var(--type-h6-size));
-    font-weight: var(--journey-card-title-font-weight, 500);
+    font-weight: var(--journey-card-title-font-weight, var(--type-h6-weight));
     line-height: var(--journey-card-title-line-height, 1);
     letter-spacing: var(--journey-card-title-letter-spacing, var(--type-h6-letter-spacing));
     color: var(--journey-card-title-color, var(--primary));
@@ -467,7 +467,7 @@
   .dpp-root .journey-card__type {
     font-family: var(--journey-card-type-font-family, var(--type-body-family));
     font-size: var(--journey-card-type-font-size, var(--type-body-size));
-    font-weight: var(--journey-card-type-font-weight, 500);
+    font-weight: var(--journey-card-type-font-weight, var(--type-body-weight));
     line-height: var(--journey-card-type-line-height, var(--type-body-line-height));
     letter-spacing: var(--journey-card-type-letter-spacing, var(--type-body-letter-spacing));
     color: var(--journey-card-type-color, var(--primary));
@@ -489,7 +489,7 @@
   .dpp-root .carousel__title {
     font-family: var(--carousel-title-font-family, var(--type-h6-family));
     font-size: var(--carousel-title-font-size, var(--type-h6-size));
-    font-weight: var(--carousel-title-font-weight, 500);
+    font-weight: var(--carousel-title-font-weight, var(--type-h6-weight));
     line-height: var(--carousel-title-line-height, 1);
     letter-spacing: var(--carousel-title-letter-spacing, var(--type-h6-letter-spacing));
     color: var(--carousel-title-color, var(--primary));
@@ -519,7 +519,7 @@
   .dpp-root .carousel__product-name {
     font-family: var(--carousel-product-name-font-family, var(--type-body-family));
     font-size: var(--carousel-product-name-font-size, var(--type-body-size));
-    font-weight: var(--carousel-product-name-font-weight, 500);
+    font-weight: var(--carousel-product-name-font-weight, var(--type-body-weight));
     line-height: var(--carousel-product-name-line-height, var(--type-body-line-height));
     letter-spacing: var(--carousel-product-name-letter-spacing, var(--type-body-letter-spacing));
     color: var(--carousel-product-name-color, var(--highlight));

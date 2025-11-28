@@ -6,6 +6,8 @@ import { DesignRightPanel } from "@/components/design/design-right-panel";
 import { SaveBar } from "@/components/design/save-bar";
 import "@v1/dpp-components/globals.css";
 
+// Demo data for the design editor preview
+
 const demoThemeConfig: ThemeConfig = {
   branding: {
     headerLogoUrl:
@@ -134,7 +136,7 @@ const demoDppData: DppData = {
   similarProducts: [],
 };
 
-export default function ContentPage() {
+export default function DesignPage() {
   return (
     <DesignEditorProvider
       initialThemeConfig={demoThemeConfig}
@@ -144,14 +146,9 @@ export default function ContentPage() {
       <div className="flex h-full w-full">
         <DesignLeftPanel />
         <div className="flex h-full min-h-full flex-1 flex-col">
-          <DesignPreview
-            data={demoDppData}
-            themeConfig={demoThemeConfig}
-            themeStyles={demoThemeStyles}
-          />
+          <DesignPreview />
         </div>
         <DesignRightPanel />
-        <SaveBar />
       </div>
     </DesignEditorProvider>
   );

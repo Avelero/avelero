@@ -1,9 +1,5 @@
-import type {
-  ComponentStyleOverride,
-  CustomFont,
-  ThemeStyles,
-} from "../types";
 import { getFontFallback } from "@v1/selections/fonts";
+import type { ComponentStyleOverride, CustomFont, ThemeStyles } from "../types";
 
 /**
  * Properties that should receive 'px' units when numeric
@@ -117,14 +113,21 @@ function generateDesignTokenCSS(themeStyles: ThemeStyles): string[] {
         const scaleKey = scale; // h1, body, body-sm, etc.
 
         if (config.fontSize !== undefined) {
-          vars.push(`--type-${scaleKey}-size: ${config.fontSize}`);
+          // Convert numeric px values to rem (divide by 16)
+          const fontSizeValue =
+            typeof config.fontSize === "number"
+              ? `${config.fontSize / 16}rem`
+              : config.fontSize;
+          vars.push(`--type-${scaleKey}-size: ${fontSizeValue}`);
         }
         if (config.fontWeight !== undefined) {
           vars.push(`--type-${scaleKey}-weight: ${config.fontWeight}`);
         }
         if (config.fontFamily !== undefined) {
           const fallback = getFontFallback(config.fontFamily);
-          vars.push(`--type-${scaleKey}-family: "${config.fontFamily}", ${fallback}`);
+          vars.push(
+            `--type-${scaleKey}-family: "${config.fontFamily}", ${fallback}`,
+          );
         }
         if (config.lineHeight !== undefined) {
           vars.push(`--type-${scaleKey}-line-height: ${config.lineHeight}`);
@@ -144,7 +147,8 @@ function generateDesignTokenCSS(themeStyles: ThemeStyles): string[] {
 }
 
 /**
- * Generates CSS custom properties from theme styles and wraps them in :root
+ * Generates CSS custom properties from theme styles and wraps them in .dpp-root
+ * This scopes the overrides to the DPP preview container, matching globals.css.
  * Returns an empty string if there are no overrides.
  */
 export function generateThemeCSS(themeStyles?: ThemeStyles): string {
@@ -154,14 +158,18 @@ export function generateThemeCSS(themeStyles?: ThemeStyles): string {
 
   const vars: string[] = [];
 
-  // Generate design token CSS first (these override :root defaults)
+  // Generate design token CSS first (these override .dpp-root defaults)
   const designTokenVars = generateDesignTokenCSS(themeStyles);
   vars.push(...designTokenVars);
 
   // Generate component class CSS
   for (const [className, styles] of Object.entries(themeStyles)) {
     // Skip design token properties
-    if (className === "colors" || className === "typography" || className === "customFonts") {
+    if (
+      className === "colors" ||
+      className === "typography" ||
+      className === "customFonts"
+    ) {
       continue;
     }
 
@@ -181,7 +189,8 @@ export function generateThemeCSS(themeStyles?: ThemeStyles): string {
     return "";
   }
 
-  return `:root {\n  ${vars.join(";\n  ")};\n}`;
+  // Scope all CSS variables under .dpp-root to match globals.css
+  return `.dpp-root {\n  ${vars.join(";\n  ")};\n}`;
 }
 
 /**

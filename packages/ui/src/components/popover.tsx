@@ -30,6 +30,7 @@ const PopoverContent = React.forwardRef<
         ref={ref}
         align={align}
         sideOffset={sideOffset}
+        collisionPadding={8}
         className={cn(
           "z-50 min-w-[8rem] overflow-hidden rounded-none",
           "border border-border bg-background p-0 shadow-lg",

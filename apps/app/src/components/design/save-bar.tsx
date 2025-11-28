@@ -2,6 +2,7 @@
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { Button } from "@v1/ui/button";
+import { Icons } from "@v1/ui/icons";
 
 export function SaveBar() {
   const { hasUnsavedChanges, isSaving, resetDrafts, saveDrafts } =
@@ -12,20 +13,24 @@ export function SaveBar() {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center pb-4">
-      <div className="flex items-center gap-3 rounded-full border bg-white px-4 py-2 shadow-md">
-        <div className="text-sm text-muted-foreground">
+    <div className="flex items-center justify-between rounded-full border bg-background pl-4 pr-2 py-2 w-[440px] shadow-sm">
+      <div className="flex items-center gap-2">
+        <Icons.Info className="h-3.5 w-3.5 text-secondary" />
+        <div className="type-p text-secondary">
           You have unsaved changes
         </div>
+      </div>
+      <div className="flex items-center gap-2">
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={resetDrafts}
           disabled={isSaving}
+          className="rounded-full"
         >
           Cancel
         </Button>
-        <Button size="sm" onClick={saveDrafts} disabled={isSaving}>
+        <Button variant="brand" size="sm" onClick={saveDrafts} disabled={isSaving} className="rounded-full">
           {isSaving ? "Saving..." : "Save"}
         </Button>
       </div>

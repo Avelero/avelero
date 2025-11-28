@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import { useRef, useState, useEffect, useCallback } from 'react';
-import type { ThemeConfig, SimilarProduct } from '@v1/dpp-components';
-import { ProductCard } from './product-card';
-import { Icons } from '@v1/ui/icons';
+import type { SimilarProduct, ThemeConfig } from "@v1/dpp-components";
+import { Icons } from "@v1/ui/icons";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ProductCard } from "./product-card";
 
 interface Props {
   products: SimilarProduct[];
   themeConfig: ThemeConfig;
   imageZoom?: number;
-  imagePosition?: 'top' | 'center' | 'bottom';
+  imagePosition?: "top" | "center" | "bottom";
 }
 
 export function ProductCarousel({
   products,
   themeConfig,
   imageZoom = 100,
-  imagePosition = 'center',
+  imagePosition = "center",
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -32,7 +32,10 @@ export function ProductCarousel({
 
     // Get the computed padding-inline and gap values from the content element
     const computedStyle = window.getComputedStyle(contentRef.current);
-    const paddingInline = computedStyle.paddingInlineStart || computedStyle.paddingInline || computedStyle.paddingLeft;
+    const paddingInline =
+      computedStyle.paddingInlineStart ||
+      computedStyle.paddingInline ||
+      computedStyle.paddingLeft;
     const paddingValue = Number.parseFloat(paddingInline);
     const gapValue = Number.parseFloat(computedStyle.gap) || 0;
 
@@ -52,10 +55,12 @@ export function ProductCarousel({
   }, []);
 
   // Scroll handler - travels 2 cards + 2 gaps
-  const scroll = useCallback((direction: 'left' | 'right') => {
+  const scroll = useCallback((direction: "left" | "right") => {
     if (!scrollRef.current || !contentRef.current) return;
 
-    const card = scrollRef.current.querySelector('.product-item') as HTMLElement;
+    const card = scrollRef.current.querySelector(
+      ".product-item",
+    ) as HTMLElement;
     if (!card) return;
 
     // Get the computed gap value from the content element
@@ -65,14 +70,15 @@ export function ProductCarousel({
     // Calculate distance: 2 cards + 2 gaps
     const scrollDistance = (card.getBoundingClientRect().width + gapValue) * 2;
     const current = scrollRef.current.scrollLeft;
-    const maxScroll = scrollRef.current.scrollWidth - scrollRef.current.clientWidth;
+    const maxScroll =
+      scrollRef.current.scrollWidth - scrollRef.current.clientWidth;
 
     const target =
-      direction === 'left'
+      direction === "left"
         ? Math.max(current - scrollDistance, 0)
         : Math.min(current + scrollDistance, maxScroll);
 
-    scrollRef.current.scrollTo({ left: target, behavior: 'smooth' });
+    scrollRef.current.scrollTo({ left: target, behavior: "smooth" });
   }, []);
 
   // Handle scroll events with debounced fade effect
@@ -94,15 +100,16 @@ export function ProductCarousel({
 
     updateEndSpacer();
     updateButtonVisibility();
-    scrollContainer.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', updateEndSpacer);
-    window.addEventListener('resize', updateButtonVisibility);
+    scrollContainer.addEventListener("scroll", handleScroll);
+    window.addEventListener("resize", updateEndSpacer);
+    window.addEventListener("resize", updateButtonVisibility);
 
     return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', updateEndSpacer);
-      window.removeEventListener('resize', updateButtonVisibility);
-      if (scrollTimeoutRef.current) window.clearTimeout(scrollTimeoutRef.current);
+      scrollContainer.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", updateEndSpacer);
+      window.removeEventListener("resize", updateButtonVisibility);
+      if (scrollTimeoutRef.current)
+        window.clearTimeout(scrollTimeoutRef.current);
     };
   }, [handleScroll, updateButtonVisibility, updateEndSpacer]);
 
@@ -114,11 +121,9 @@ export function ProductCarousel({
     <div className="carousel py-lg @3xl:pt-2x @3xl:pb-lg w-full">
       {/* Header container - keeps the title aligned with the page content */}
       <div className="max-w-container mx-auto px-sm @3xl:px-lg">
-        <h6 className="carousel__title">
-          Similar Items
-        </h6>
+        <h6 className="carousel__title">Similar Items</h6>
       </div>
-      
+
       {/* Carousel container */}
       <div className="relative pt-sm">
         <div className="w-full overflow-hidden">
@@ -126,18 +131,12 @@ export function ProductCarousel({
             ref={scrollRef}
             className="overflow-x-auto scrollbar-none"
             style={{
-              scrollBehavior: 'smooth',
+              scrollBehavior: "smooth",
             }}
           >
-            <div
-              ref={contentRef}
-              className="carousel__content flex gap-sm"
-            >
+            <div ref={contentRef} className="carousel__content flex gap-sm">
               {products.map((product, index) => (
-                <div
-                  key={`${product.name}-${index}`}
-                  className="product-item"
-                >
+                <div key={`${product.name}-${index}`} className="product-item">
                   <ProductCard
                     product={product}
                     imageZoom={imageZoom}
@@ -159,8 +158,8 @@ export function ProductCarousel({
           <>
             <button
               type="button"
-              onClick={() => scroll('left')}
-              className={`nav-button-fade border carousel__nav-button carousel__nav-button--prev hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollLeft ? '@3xl:hidden' : ''} ${isScrolling ? 'fading' : ''}`}
+              onClick={() => scroll("left")}
+              className={`nav-button-fade border carousel__nav-button carousel__nav-button--prev hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollLeft ? "@3xl:hidden" : ""} ${isScrolling ? "fading" : ""}`}
               aria-label="Previous items"
             >
               <Icons.ChevronLeft className="w-4 h-4" />
@@ -168,8 +167,8 @@ export function ProductCarousel({
 
             <button
               type="button"
-              onClick={() => scroll('right')}
-              className={`nav-button-fade border carousel__nav-button carousel__nav-button--next hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollRight ? '@3xl:hidden' : ''} ${isScrolling ? 'fading' : ''}`}
+              onClick={() => scroll("right")}
+              className={`nav-button-fade border carousel__nav-button carousel__nav-button--next hidden @3xl:flex absolute top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center cursor-pointer ${!canScrollRight ? "@3xl:hidden" : ""} ${isScrolling ? "fading" : ""}`}
               aria-label="Next items"
             >
               <Icons.ChevronRight className="w-4 h-4" />

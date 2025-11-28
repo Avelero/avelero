@@ -209,11 +209,11 @@
       "dependencies": {
         "@v1/selections": "workspace:*",
         "@v1/ui": "workspace:*",
-        "react": "^19.1.0",
+        "react": "19.2.0",
       },
       "devDependencies": {
         "@types/node": "^24.0.1",
-        "@types/react": "^19.1.8",
+        "@types/react": "19.2.6",
         "typescript": "^5.9.2",
       },
     },

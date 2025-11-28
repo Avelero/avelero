@@ -7,7 +7,6 @@ const LOCAL_FONTS = [
   "geist",
   "geist sans",
   "geist mono",
-  "inter",
   "system-ui",
   "sans-serif",
   "monospace",
@@ -15,15 +14,7 @@ const LOCAL_FONTS = [
   "arial",
   "helvetica",
   "times",
-  "courier",
   "verdana",
-  "georgia",
-  "palatino",
-  "garamond",
-  "bookman",
-  "comic sans ms",
-  "trebuchet ms",
-  "impact",
 ];
 
 /**
@@ -31,11 +22,7 @@ const LOCAL_FONTS = [
  */
 export function isGoogleFont(fontFamily: string): boolean {
   const primaryFamily =
-    fontFamily
-      .split(",")[0]
-      ?.replace(/['"]/g, "")
-      ?.trim()
-      ?.toLowerCase() || "";
+    fontFamily.split(",")[0]?.replace(/['"]/g, "")?.trim()?.toLowerCase() || "";
 
   if (!primaryFamily) {
     return false;
@@ -72,10 +59,8 @@ export function extractGoogleFontsFromTypography(
     const scaleConfig = typography[scale];
     if (scaleConfig?.fontFamily) {
       const primaryFont =
-        scaleConfig.fontFamily
-          .split(",")[0]
-          ?.replace(/['"]/g, "")
-          ?.trim() || "";
+        scaleConfig.fontFamily.split(",")[0]?.replace(/['"]/g, "")?.trim() ||
+        "";
 
       if (primaryFont && isGoogleFont(primaryFont)) {
         fontSet.add(primaryFont);
@@ -91,14 +76,14 @@ function formatFontFamily(font: string): string {
 }
 
 /**
- * Generates a conservative Google Fonts CSS2 URL for a list of fonts.
- * Uses a basic weight request (400..700) to keep responses small.
+ * Generates a Google Fonts CSS2 URL for a list of fonts.
+ * Loads weights 300, 400, 500, 700 to support Light, Regular, Medium, Bold.
  */
 export function generateGoogleFontsUrl(fonts: string[]): string {
   if (!fonts.length) return "";
 
   const families = fonts.map(
-    (font) => `family=${formatFontFamily(font)}:wght@400;700`,
+    (font) => `family=${formatFontFamily(font)}:wght@300;400;500;700`,
   );
 
   return `https://fonts.googleapis.com/css2?${families.join("&")}&display=swap`;

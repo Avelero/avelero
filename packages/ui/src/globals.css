@@ -128,6 +128,37 @@ input:-webkit-autofill:focus-visible {
   border-radius: 0px;
 }
 
+/* Design Editor Selection Styles */
+[data-hover-selection="true"],
+[data-selected-selection="true"] {
+  outline: 2px solid hsl(var(--brand));
+  outline-offset: -2px;
+}
+
+/* 
+ * Components with internal absolute-positioned content need pseudo-element borders
+ * instead of outline, so the border renders above the internal content.
+ */
+.product__image[data-hover-selection="true"],
+.product__image[data-selected-selection="true"],
+.product__description[data-hover-selection="true"],
+.product__description[data-selected-selection="true"] {
+  outline: none;
+  position: relative;
+}
+
+.product__image[data-hover-selection="true"]::after,
+.product__image[data-selected-selection="true"]::after,
+.product__description[data-hover-selection="true"]::after,
+.product__description[data-selected-selection="true"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid hsl(var(--brand));
+  pointer-events: none;
+  z-index: 10;
+}
+
 @layer utilities {
   .type-h1 {
     @apply text-[42px] font-semibold leading-[50px] tracking-normal;

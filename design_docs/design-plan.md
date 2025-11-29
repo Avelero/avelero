@@ -13,13 +13,13 @@ This document describes how to architect the new design editor, live DPP preview
   - DPP HTML is rendered from `DppData` and `ThemeConfig`.
   - Brand styles are loaded via a **single stylesheet URL** per brand (stored in Supabase storage).
 - **Interactive design editor**:
-  - Three-panel layout (left navigation, center live preview, right editor).
+  - **Two-panel layout** (left panel with navigation, center live preview).
   - Live preview updates **instantly** on local changes (before save).
-  - Hover/select on preview highlights components and drives the right-side panel.
-  - Single global **“You have unsaved changes” pill** with Save / Cancel.
+  - Hover/select on preview highlights components and navigates to their editor in the left panel.
+  - Single global **"You have unsaved changes" pill** with Save / Cancel (below the preview).
 - **Avoid duplication & complexity**:
   - Reuse the existing DPP layout and component classes where possible.
-  - Replace the current “CSS variables generated at runtime” complexity with a simpler “theme JSON → CSS file” pipeline, while still using the existing component class names.
+  - Replace the current "CSS variables generated at runtime" complexity with a simpler "theme JSON → CSS file" pipeline, while still using the existing component class names.
 
 ---
 
@@ -92,7 +92,7 @@ We will keep these three conceptual layers, but simplify how they are stored and
       - Persist `theme_styles` + `theme_config` JSONB to `brand_theme`.
       - Generate a **CSS overrides file** from `theme_styles` and upload to Supabase, overriding `theme.css`.
       - Recompute `google_fonts_url` from `theme_styles.typography` and update `brand_theme`.
-    - Return the new canonical values to the client and clear the “dirty” flag.
+    - Return the new canonical values to the client and clear the "dirty" flag.
 
 - **On Cancel**
   - Discard the local drafts and reset to the last persisted `theme_styles`/`theme_config` from `brand_theme`.
@@ -173,209 +173,233 @@ We want the live preview to **match the public DPP** visually but also be highly
 
 ### 4.2 Selectable Components & Highlighting
 
-- Wrap each customizable piece of UI in a thin `Selectable` wrapper:
-  - Responsibilities:
-    - Adds data attributes: `data-dpp-component-id`, `data-dpp-field`, etc.
-    - Handles `onMouseEnter`, `onMouseLeave`, `onClick` to update shared editor state:
-      - `hoveredComponentId`
-      - `selectedComponentId`
-    - Applies blue highlight styles based on hover/selection state.
-  - This can be a generic component used across all cards:
+**Implementation (CSS-driven data attributes):**
 
-```tsx
-<Selectable id="journey-card">
-  <JourneyCard ... />
-</Selectable>
-```
+Instead of wrapping components with a `Selectable` wrapper (which would require modifying the shared DPP components), we use a **CSS-driven approach** with data attributes:
 
-- Highlight behavior:
-  - **Hover**: blue outline or background (using a single shared CSS class that wraps the component).
-  - **Selected**: stronger blue outline or overlay; persists until another component is clicked.
+1. **Detection Hook** (`apps/app/src/hooks/use-selectable-detection.ts`):
+   - Listens to mouse events on the preview container.
+   - Traverses the event target's DOM ancestry to find elements with class names matching component IDs in the registry.
+   - Uses `requestAnimationFrame` for smooth 60fps updates.
+   - Sets `hoveredComponentId` and `selectedComponentId` in context.
+
+2. **Styling via Data Attributes**:
+   - When a component is hovered/selected, the hook adds `data-hover-selection="true"` or `data-selected-selection="true"` to all elements with that component's class name.
+   - CSS in `packages/ui/src/globals.css` handles the visual styling:
+     ```css
+     [data-hover-selection="true"],
+     [data-selected-selection="true"] {
+       outline: 2px solid hsl(var(--brand));
+       outline-offset: -2px;
+     }
+     ```
+
+3. **Behavior**:
+   - **Hover**: Shows blue outline on component (visual feedback only).
+   - **Click**: Selects the component and will navigate to its editor in the left panel (to be implemented).
+
+This approach:
+- Doesn't modify the DPP components (they remain pure and reusable).
+- Uses GPU-accelerated CSS rendering for smooth highlights.
+- Handles nested elements elegantly (deepest selectable component is detected).
 
 ### 4.3 Applying Draft Styles in Preview
 
 - The preview uses the **draft `ThemeStyles`** object, not the persisted one.
-- Two implementation options:
-  - **Option 1 – Local ThemeInjector**:
-    - Keep `css-generator.ts` in a shared place.
-    - In the preview, generate CSS from the current `themeStylesDraft` on each change (debounced).
-    - Inject it via a `PreviewThemeInjector` client component that:
-      - Manages a `<style>` tag scoped to the preview container (e.g. by prefixing selectors with `.dpp-root`).
-  - **Option 2 – Inline style props**:
-    - Pass styles as props into each component and apply them inline or via Tailwind class composition.
-    - Much more work and diverges from the public DPP styling model.
-
-**Decision**: Use **Option 1** to stay aligned with the existing variable-based theming, but switch to generating the CSS **entirely client-side in the editor** using the draft state. This minimizes changes to the DPP visual system while moving the heavy lifting to the save pipeline for production use.
+- **Implementation (Option 1 – Local ThemeInjector)**:
+  - Keep `css-generator.ts` in a shared place.
+  - In the preview, generate CSS from the current `themeStylesDraft` on each change (debounced).
+  - Inject it via a `PreviewThemeInjector` client component that:
+    - Manages a `<style>` tag scoped to the preview container (e.g. by prefixing selectors with `.dpp-root`).
 
 ---
 
-## 5. Left Panel – Navigation & Nested Menus
+## 5. Single-Panel Design Editor Architecture
 
-### 5.1 Functional Requirements
+> **Major Architecture Change**: The original three-panel design (left navigation, center preview, right editor) has been replaced with a **two-panel design** (left panel with integrated navigation + editing, center preview). This provides more screen space for the preview on smaller screens (especially MacBooks) and creates a more intuitive editing flow.
 
-- Structured like the mockups:
-  - Root category: “Content”.
-  - Sub-items: Logo, First menu, Second menu, Product carousel, Banner, Socials, etc.
-- When entering a sub-section:
-  - The left panel header label changes and shows a back chevron.
-  - Clicking the header navigates back, similar to `CategorySelect`’s breadcrumb.
-- Should not require separate route files for each sub-panel; it should be **data-driven**.
+### 5.1 Panel Layout
 
-### 5.2 Data-Driven Nav Model
-
-- Define a static nav tree object:
-
-```ts
-type DesignNavItem = {
-  id: string;                    // e.g. "logo", "primaryMenu"
-  label: string;
-  icon?: ReactNode;
-  children?: DesignNavItem[];
-  panelType?: 'theme-config' | 'component' | 'typography';
-  panelKey?: string;             // e.g. "branding.headerLogoUrl"
-};
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Dashboard Header                                                     │
+├───────────────┬─────────────────────────────────────────────────────┤
+│               │                                                      │
+│  Left Panel   │              Live Preview                            │
+│  (300px)      │              (flex-1)                                │
+│               │                                                      │
+│  - Navigation │              ┌────────────────────────────┐          │
+│  - Editors    │              │  .dpp-root container       │          │
+│               │              │  (DPP components render)   │          │
+│               │              │                            │          │
+│               │              └────────────────────────────┘          │
+│               │                                                      │
+│               │              ┌────────────────────────────┐          │
+│               │              │  Save/Cancel Pill          │          │
+│               │              └────────────────────────────┘          │
+└───────────────┴─────────────────────────────────────────────────────┘
 ```
 
-- Store this in a config module used by the left panel and right panel.
+### 5.2 Left Panel Navigation Structure
 
-### 5.3 Component Structure
+The left panel has a **three-level navigation** system:
 
-- `DesignLeftPanel` (client component):
-  - State:
-    - `navPath: string[]` – array of nav item IDs from root to current.
-  - Derived:
-    - `currentItems` – children of last item in `navPath` (or root list).
-    - `headerLabel` – label of last item in `navPath` (or “Content”).
-  - Renders:
-    - Header button with back chevron if `navPath.length > 0`.
-    - List of items for the current level.
-  - On item click:
-    - If item has `children`, push it to `navPath`.
-    - If item is leaf, set `selectedNavItemId` in global editor state (for right panel) and keep `navPath` for context.
+```
+Level 0 (Root)           Level 1 (Section)           Level 2 (Component)
+─────────────────────    ─────────────────────       ─────────────────────
+Header: "Passport"       Header: "Layout"            Header: "Product Details"
+                         (with back button)          (with back button)
 
-This gives you one generic left panel implementation with no copy-pasted code per menu.
+┌─────────────────┐      ┌─────────────────┐        ┌─────────────────┐
+│ 🔲 Layout    >  │      │ ▶ Header        │        │ Border Color    │
+│ T  Typography > │      │ ▶ Product Image │        │ Border Radius   │
+│ 🎨 Colors    >  │      │ ▶ Product Info  │        │ ...             │
+└─────────────────┘      │ ▶ Product Detls │        └─────────────────┘
+                         │   ├─ Details Row│
+                         │   └─ Row Label  │
+                         │ ▶ Primary Menu 👁│
+                         │ ...             │
+                         └─────────────────┘
+```
+
+**Navigation Sections:**
+
+1. **Layout**: Hierarchical tree view of all DPP components
+   - Expand/collapse chevrons for items with children
+   - Click item label → navigates to component editor
+   - Visibility toggles (eye icon) for: Banner, Product Carousel, Primary Menu, Secondary Menu
+   
+2. **Typography**: Accordion editors for typography scales
+   - Heading 1–6, Body, Small
+   - Each with: Font family, size, weight, line height, letter spacing
+   
+3. **Colors**: Direct list of color token editors
+   - Background, Foreground, Primary, Secondary, Accent, Highlight, Success, Border
+
+### 5.3 Component Registry
+
+A central registry (`apps/app/src/components/design/layout/component-registry.ts`) defines:
+
+- **Component hierarchy**: Which components are nested in which
+- **Display names**: Human-readable labels for the UI
+- **Style fields**: Which `ThemeStyles` properties are editable per component
+- **Config fields**: Which `ThemeConfig` properties are editable per component
+- **Visibility toggles**: Which components can be shown/hidden
+
+```typescript
+export interface ComponentDefinition {
+  id: string;                    // CSS class name, e.g. "product-details"
+  displayName: string;           // UI label, e.g. "Product Details"
+  children?: ComponentDefinition[];
+  canToggleVisibility?: boolean;
+  visibilityPath?: string;       // e.g. "sections.showCTABanner"
+  styleFields?: StyleField[];    // Design token fields
+  configFields?: ConfigField[];  // Content/config fields
+}
+```
+
+This registry is the **single source of truth** for:
+- What components exist and their nesting structure
+- What's editable for each component
+- What the layout tree renders
+- What fields the component editor shows
+
+### 5.4 Files Structure
+
+```
+apps/app/src/
+├── components/design/
+│   ├── design-left-panel.tsx      # Main left panel with navigation
+│   ├── design-preview.tsx         # Preview container with selection hooks
+│   ├── save-bar.tsx               # Save/Cancel pill
+│   ├── preview-theme-injector.tsx # Injects draft CSS into preview
+│   │
+│   ├── navigation/
+│   │   └── panel-header.tsx       # Header with title and back button
+│   │
+│   ├── layout/
+│   │   ├── component-registry.ts  # Component hierarchy & field definitions
+│   │   └── layout-tree.tsx        # Recursive tree view component
+│   │
+│   ├── editors/
+│   │   ├── typography-editor.tsx  # Typography section (accordions)
+│   │   ├── colors-editor.tsx      # Colors section (direct list)
+│   │   └── index.ts               # Barrel export
+│   │
+│   └── fields/
+│       ├── color-field.tsx
+│       ├── font-family-select.tsx
+│       ├── number-field.tsx
+│       ├── select-field.tsx
+│       ├── typography-scale-editor.tsx
+│       └── index.ts
+│
+├── contexts/
+│   └── design-editor-provider.tsx # Central state: drafts, navigation, selection
+│
+└── hooks/
+    └── use-selectable-detection.ts # Mouse event handling for preview
+```
 
 ---
 
-## 6. Right Panel – Editor UI
+## 6. State Management & Save Flow
 
-### 6.1 Default Typography Mode (No Selection)
+### 6.1 Central Editor Store
 
-- When **no component is selected in the preview** and no specific nav item is active:
-  - Show the default **typography accordions**:
-    - Heading 1–6
-    - Body
-    - Small
-  - Show a **Colors** accordion for design tokens:
-    - Background, foreground, primary, secondary, accent, highlight, success, border, etc.
-  - Each accordion expands to a set of shared controls:
-    - Font family (with font selector tied to Google Fonts utilities).
-    - Size, weight, line-height.
-    - Tracking / letter-spacing.
-  - Typography fields are bound to `themeStylesDraft.typography[scaleKey]`.
-  - Color fields are bound to `themeStylesDraft.colors`.
+Using a React context (`DesignEditorProvider`) in `@app`:
 
-### 6.2 Component-Specific Mode (Selection or Nav)
-
-- When a component is selected (hover/click) or a nav item maps to a component:
-  - Right panel switches from accordion view to a **focused form**:
-    - E.g. for `journey-card`, fields might be:
-      - Background color, border radius, stroke color, spacing, etc.
-  - This mapping is driven by a central **component schema registry**:
-
-```ts
-type StyleField =
-  | { type: 'color'; path: string; label: string }
-  | { type: 'number'; path: string; label: string; unit?: 'px' | '%' }
-  | { type: 'four-sides'; basePath: string; label: string } // for spacing, border radius, etc.
-  | { type: 'select'; path: string; label: string; options: ... }
-  | { type: 'toggle'; path: string; label: string };
-
-type ComponentEditorSchema = {
-  id: string; // "journey-card"
-  displayName: string;
-  fields: StyleField[];
-};
-```
-
-- The right panel looks up the schema by `selectedComponentId` or `selectedNavItemId` and renders the appropriate fields.
-
-**Schema location / single source of truth**
-
-- Maintain a central registry (ideally in `packages/dpp-components` or a sibling `theme` module) that exports:
-
-```ts
-type ComponentKey = keyof ThemeStyles;
-
-type ComponentEditorRegistry = Record<ComponentKey, ComponentEditorSchema>;
-```
-
-- Because the keys are typed as `keyof ThemeStyles`, any change to the `ThemeStyles` interface will surface as type errors in the registry, keeping it as the single runtime source of truth for:
-  - Which components are editable.
-  - How each style property maps to concrete UI fields in the editor.
-
-### 6.3 Shared Field Components
-
-Implement shared UI building blocks (using `@v1/ui`) so fields are not duplicated:
-
-- `ColorField` (swatch + hex input + optional alpha).
-- `NumberFieldWithUnit`.
-- `FourSideInput` (for top/right/bottom/left groups).
-- `TypographyFieldGroup`.
-- `ToggleField` / `SwitchField`.
-
-Each field:
-- Reads its current value from `themeStylesDraft` or `themeConfigDraft` via a helper (e.g. using `dot-prop` semantics for paths).
-- Updates the draft and sets the editor state `dirty` flag on change.
-
----
-
-## 7. State Management & Save Flow
-
-### 7.1 Central Editor Store
-
-- Use a dedicated client-side store (e.g. Zustand or a custom React context) in `@app`:
-
-```ts
-type DesignEditorState = {
+```typescript
+type DesignEditorContextValue = {
+  // Theme drafts
   themeStylesDraft: ThemeStyles;
   themeConfigDraft: ThemeConfig;
   initialThemeStyles: ThemeStyles;
   initialThemeConfig: ThemeConfig;
-  hoveredComponentId: string | null;
-  selectedComponentId: string | null;
-  selectedNavItemId: string | null;
   hasUnsavedChanges: boolean;
   isSaving: boolean;
-  // actions: setters & resetters
+  
+  // Draft update helpers
+  updateTypographyScale: (scale: string, value: TypographyScale) => void;
+  updateColor: (colorKey: string, value: string) => void;
+  
+  // Navigation state
+  navigation: NavigationState;  // { level, section?, componentId? }
+  navigateToSection: (section: NavigationSection) => void;
+  navigateToComponent: (componentId: string) => void;
+  navigateBack: () => void;
+  navigateToRoot: () => void;
+  
+  // Layout tree expand/collapse
+  expandedItems: Set<string>;
+  toggleExpanded: (componentId: string) => void;
+  
+  // Preview selection
+  hoveredComponentId: string | null;
+  selectedComponentId: string | null;
+  setHoveredComponentId: (id: string | null) => void;
+  setSelectedComponentId: (id: string | null) => void;
+  
+  // Actions
+  resetDrafts: () => void;
+  saveDrafts: () => Promise<void>;
 };
 ```
 
-- `DesignEditorProvider`:
-  - Server component parent fetches:
-    - `ThemeStyles` + `ThemeConfig` from `brand_theme`.
-    - Demo `DppData` (or a selected product) for preview.
-  - Wraps the whole design page in this provider.
-
-### 7.2 Save / Cancel Pill
+### 6.2 Save / Cancel Pill
 
 - `SaveBar` component:
-  - Fixed positioned pill under the preview (as in the mock).
+  - Fixed positioned pill below the preview.
   - Shows only when `hasUnsavedChanges` is true.
   - Buttons:
-    - **Cancel**:
-      - Resets drafts to `initialThemeStyles` / `initialThemeConfig`.
-      - Clears `hasUnsavedChanges`.
-    - **Save**:
-      - Calls a server action with the current drafts.
-      - Shows loading state (`isSaving`).
-      - On success, updates `initial*` to current drafts and clears `hasUnsavedChanges`.
+    - **Cancel**: Resets drafts to initial values.
+    - **Save**: Calls server action with drafts, shows loading state.
 
 ---
 
-## 8. Hydrating the Editor from Storage
+## 7. Hydrating the Editor from Storage
 
-### 8.1 Loading Existing Themes
+### 7.1 Loading Existing Themes
 
 - Editor load:
   - Server:
@@ -385,7 +409,7 @@ type DesignEditorState = {
     - Initialize `initialThemeStyles`, `initialThemeConfig`, and corresponding drafts.
   - No need to fetch or parse the CSS from Supabase – the JSON is canonical.
 
-### 8.2 Migration Strategy from Current System
+### 7.2 Migration Strategy from Current System
 
 - Current state:
   - `apps/dpp` uses `mockThemeConfigs` and `mockThemeStyles` with `ThemeInjector` + `generateThemeCSS`.
@@ -400,9 +424,9 @@ type DesignEditorState = {
 
 ---
 
-## 9. DPP Data & Theme-Config Fetching Performance
+## 8. DPP Data & Theme-Config Fetching Performance
 
-### 9.1 Public DPP Endpoint
+### 8.1 Public DPP Endpoint
 
 - Primary query plan:
   - `SELECT * FROM product_variants WHERE upid = $1` (indexed on `upid`).
@@ -413,18 +437,18 @@ type DesignEditorState = {
   - They can be wrapped in a single RPC or a small server helper to keep the DPP page clean.
   - The CSS overrides file is served via Supabase + CDN and benefits from HTTP caching; regeneration happens only on theme save, not per request.
 
-### 9.2 Editor Data Fetch
+### 8.2 Editor Data Fetch
 
 - Editor typically operates on **one brand** (and one or a few products for preview).
 - On editor page load:
   - Fetch `brand_theme` and either:
     - A demo `DppData` per brand.
-    - Or a selected product’s `DppData` from `dpp_product`.
+    - Or a selected product's `DppData` from `dpp_product`.
   - This is cheap and can be done in a single TRPC or server action call.
 
 ---
 
-## 10. Phased Implementation Plan
+## 9. Phased Implementation Plan
 
 ### Phase 0 – Prep & Shared Types
 
@@ -450,7 +474,7 @@ type DesignEditorState = {
 - Replace `mockThemeConfigs`/`mockThemeStyles` in `apps/dpp` with DB-backed fetches.
 - For now, keep using `ThemeInjector` to inject the generated CSS variables, but:
   - Generate the CSS **once per request** from DB-backed `ThemeStyles` instead of mocks.
-  - Add support for consuming the Supabase stylesheet once it’s ready.
+  - Add support for consuming the Supabase stylesheet once it's ready.
 - Once stable:
   - Switch the public DPP fully to `<link rel="stylesheet">` pointing to Supabase CSS.
   - Reduce `ThemeInjector` to preview-only usage.
@@ -461,13 +485,13 @@ type DesignEditorState = {
 - Build the dashboard design page layout:
   - Left panel stub.
   - Center preview container.
-  - Right panel stub.
+  - ~~Right panel stub.~~ (Removed in restructuring)
   - Bottom Save/Cancel pill.
 - Implement `DesignEditorProvider` with:
   - Draft theme state.
   - Selection/hover state.
   - `hasUnsavedChanges` and save/cancel control logic (stub server action).
-  - **Status (done):** Dashboard design page scaffolded with three panels and Save/Cancel pill; preview uses shared DPP components and scoped CSS, provider holds draft state and save/reset hooks; styling is scoped to avoid conflicts with the dashboard app.
+  - **Status (done):** Dashboard design page scaffolded; preview uses shared DPP components and scoped CSS; provider holds draft state, navigation state, and save/reset hooks; styling is scoped to avoid conflicts with the dashboard app.
 
 ### Phase 4 – Basic Live Preview & Typography Editor
 
@@ -476,37 +500,61 @@ type DesignEditorState = {
 - Integrate a minimal `PreviewThemeInjector` that:
   - Generates CSS from `themeStylesDraft`.
   - Injects a `<style>` tag inside the preview container.
-- Implement the right panel's **typography accordions** and hook them to `themeStylesDraft`.
+- Implement typography and color editors (originally in right panel, now in left panel).
 - Confirm that typography edits update the preview instantly.
   - **Status (done):** 
-    - `DesignPreview` component rebuilt using shared `@v1/dpp-components` package, consuming `themeStylesDraft` and `themeConfigDraft` from context (no static props).
-    - `PreviewThemeInjector` generates and injects CSS from draft state, scoped to `.dpp-root` to match `globals.css` structure.
-    - Right panel (`DesignRightPanel`) implements collapsible accordions for all typography scales (H1-H6, Body, Small) and Colors.
-    - Typography editor fields implemented:
-      - Font family selector with virtualized list (1900+ Google Fonts, popular fonts first, searchable).
-      - Size input (px values, auto-converted to rem in CSS generator).
-      - Weight selector (Light 300, Regular 400, Medium 500, Bold 700).
-      - Line height selector (Tight, Normal, Relaxed, Double).
-      - Letter spacing/Tracking selector (Tight, Normal, Wide).
-    - Color accordion with color picker fields for all design tokens (background, foreground, primary, secondary, accent, highlight, success, border).
-    - CSS generator updated to output `.dpp-root { ... }` instead of `:root { ... }` for proper scoping.
-    - Google Fonts URL generation updated to load weights 300, 400, 500, 700.
-    - All changes update preview instantly via `themeStylesDraft` state.
-    - Field components created: `ColorField`, `FontFamilySelect`, `NumberField`, `SelectField`, `TypographyScaleEditor`.
+    - `DesignPreview` component rebuilt using shared `@v1/dpp-components` package.
+    - `PreviewThemeInjector` generates and injects CSS from draft state, scoped to `.dpp-root`.
+    - Typography editor (`TypographyEditor`) with accordions for H1-H6, Body, Small.
+    - Colors editor (`ColorsEditor`) with direct color field list.
+    - Field components: `ColorField`, `FontFamilySelect`, `NumberField`, `SelectField`, `TypographyScaleEditor`.
 
 ### Phase 5 – Component Selection & Highlighting
 
-- Introduce the `Selectable` wrapper across the preview DPP components.
-- Wire hover + click to `hoveredComponentId` and `selectedComponentId`.
+- ~~Introduce the `Selectable` wrapper across the preview DPP components.~~ (Changed approach)
+- Wire hover + click to `hoveredComponentId` and `selectedComponentId` using CSS data attributes.
 - Add the blue highlight behavior based on state.
-- Connect the right panel to `selectedComponentId` and render component-specific schemas for a few key components (e.g. journey frame, materials card) as proof of concept.
+- **Status (done):**
+  - Created `use-selectable-detection.ts` hook that:
+    - Detects selectable components on mouse move using class name matching against the component registry.
+    - Uses `requestAnimationFrame` throttling for smooth 60fps updates.
+    - Applies `data-hover-selection` and `data-selected-selection` attributes to elements.
+  - Added CSS rules in `packages/ui/src/globals.css` for selection highlighting:
+    - Blue outline (2px solid brand color) on hover and selected states.
+    - Special handling for components with internal absolute content (pseudo-element borders).
+  - Preview now responds to hover/click without modifying DPP components.
 
-### Phase 6 – Left Panel & ThemeConfig Editing
+### Phase 5.5 – Panel Restructuring (NEW)
 
-- Implement `DesignLeftPanel` with data-driven nav tree and dynamic header/back behavior (modeled on `CategorySelect`).
+- **Major architecture change**: Removed the right panel entirely.
+- Restructured the left panel with three-level navigation:
+  - Root: Layout, Typography, Colors buttons
+  - Section: Section-specific content (tree, accordions, color fields)
+  - Component: Component-specific editor fields (to be implemented)
+- Created the Layout tree (`layout-tree.tsx`) with:
+  - Hierarchical rendering of components from `COMPONENT_TREE`
+  - Expand/collapse functionality
+  - Visibility toggle icons for appropriate components
+  - Hover states and navigation chevrons
+- Created comprehensive component registry (`component-registry.ts`) with:
+  - Full hierarchy of all DPP components
+  - Style fields and config fields per component
+  - Visibility toggle configuration
+  - Utility functions: `findComponentById`, `getComponentAncestry`, `getAllComponentIds`, `isSelectableComponent`
+- **Status (done):**
+  - Left panel navigation working with back button
+  - Typography section with all typography scale accordions
+  - Colors section with all color token fields
+  - Layout tree with expand/collapse and visibility toggles (UI only)
+  - Component registry fully defined
+
+### Phase 6 – Component Editor & ThemeConfig Editing
+
+- Connect click in preview → navigate to component in Layout tree
+- Implement component-specific editor rendering based on `selectedComponentId`
 - Add editor schemas for:
   - `branding.headerLogoUrl` / `branding.bannerLogoUrl`.
-  - Menus (primary/secondary).
+  - Menus (primary/secondary) with add/remove/edit functionality.
   - CTA banner fields.
   - Social links and toggles.
   - Section visibility flags.
@@ -527,7 +575,7 @@ type DesignEditorState = {
 
 ---
 
-## 11. Future Extensions (Out of Scope for First Version)
+## 10. Future Extensions (Out of Scope for First Version)
 
 - Theme versioning / rollback per brand.
 - Multi-product previews and viewports (mobile/desktop toggles).

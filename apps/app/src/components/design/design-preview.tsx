@@ -13,7 +13,7 @@ export function DesignPreview() {
   const { previewData, themeConfigDraft, themeStylesDraft } = useDesignEditor();
 
   return (
-    <div className="w-full h-full bg-accent p-6 flex flex-col gap-6 items-center">
+    <div className="w-full h-full bg-accent p-3 flex flex-col gap-3 items-center">
       <div className="w-full h-full bg-white border border-border overflow-auto scrollbar-hide">
         <PreviewThemeInjector themeStyles={themeStylesDraft} />
         <div className="dpp-root min-h-full flex flex-col @container">

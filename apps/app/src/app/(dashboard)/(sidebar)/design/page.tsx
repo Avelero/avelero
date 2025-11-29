@@ -2,8 +2,6 @@ import type { DppData, ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 import { DesignEditorProvider } from "@/contexts/design-editor-provider";
 import { DesignLeftPanel } from "@/components/design/design-left-panel";
 import { DesignPreview } from "@/components/design/design-preview";
-import { DesignRightPanel } from "@/components/design/design-right-panel";
-import { SaveBar } from "@/components/design/save-bar";
 import "@v1/dpp-components/globals.css";
 
 // Demo data for the design editor preview
@@ -118,7 +116,10 @@ const demoDppData: DppData = {
     {
       name: "Assembly",
       companies: [
-        { name: "Hebei Loto Garment Co., Ltd", location: "Hebei Province, China" },
+        {
+          name: "Hebei Loto Garment Co., Ltd",
+          location: "Hebei Province, China",
+        },
       ],
     },
     {
@@ -148,7 +149,6 @@ export default function DesignPage() {
         <div className="flex h-full min-h-full flex-1 flex-col">
           <DesignPreview />
         </div>
-        <DesignRightPanel />
       </div>
     </DesignEditorProvider>
   );

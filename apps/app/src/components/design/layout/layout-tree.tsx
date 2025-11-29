@@ -1,10 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Icons } from "@v1/ui/icons";
 import { cn } from "@v1/ui/cn";
-import { COMPONENT_TREE, type ComponentDefinition } from "./component-registry";
+import {
+  COMPONENT_TREE,
+  type ComponentDefinition,
+  getComponentAncestry,
+} from "./component-registry";
+import { useDesignEditor } from "@/contexts/design-editor-provider";
+
+/** 
+ * Debounce delay for triggering live preview highlight when hovering layout tree items (ms).
+ * The layout tree item's own CSS hover is instant, this only affects the preview.
+ */
+const PREVIEW_HIGHLIGHT_DEBOUNCE_MS = 100;
 
 // =============================================================================
 // LAYOUT TREE ITEM
@@ -15,8 +26,11 @@ interface LayoutTreeItemProps {
   level: number;
   expandedItems: Set<string>;
   hiddenItems: Set<string>;
+  highlightedId: string | null;
   onToggleExpand: (id: string) => void;
   onToggleVisibility: (id: string) => void;
+  onItemClick: (id: string) => void;
+  onItemHover: (id: string | null) => void;
 }
 
 function LayoutTreeItem({
@@ -24,9 +38,13 @@ function LayoutTreeItem({
   level,
   expandedItems,
   hiddenItems,
+  highlightedId,
   onToggleExpand,
   onToggleVisibility,
+  onItemClick,
+  onItemHover,
 }: LayoutTreeItemProps) {
+  const isHighlighted = item.id === highlightedId;
   const hasChildren = item.children && item.children.length > 0;
   const isExpanded = expandedItems.has(item.id);
   const isHidden = hiddenItems.has(item.id);
@@ -37,10 +55,17 @@ function LayoutTreeItem({
   return (
     <div className="flex flex-col">
       {/* Item row */}
-      <div className="flex items-center h-8 group">
+      <div
+        className="flex items-center h-8 group"
+        onMouseEnter={() => onItemHover(item.id)}
+        onMouseLeave={() => onItemHover(null)}
+      >
         {/* Inner container with h-7 hover background */}
         <div
-          className="relative flex items-center w-full h-7 group-hover:bg-accent"
+          className={cn(
+            "relative flex items-center w-full h-7 group-hover:bg-accent",
+            isHighlighted && "bg-accent"
+          )}
           style={{ paddingLeft: `${indentPx}px` }}
         >
           {/* Expand/collapse chevron or spacer */}
@@ -65,6 +90,7 @@ function LayoutTreeItem({
           {/* Item label + chevron - main clickable area for navigation */}
           <button
             type="button"
+            onClick={() => onItemClick(item.id)}
             className="flex flex-row items-center justify-between text-left h-7 flex-1 type-small text-primary"
           >
             <div
@@ -120,8 +146,11 @@ function LayoutTreeItem({
               level={level + 1}
               expandedItems={expandedItems}
               hiddenItems={hiddenItems}
+              highlightedId={highlightedId}
               onToggleExpand={onToggleExpand}
               onToggleVisibility={onToggleVisibility}
+              onItemClick={onItemClick}
+              onItemHover={onItemHover}
             />
           ))}
         </div>
@@ -131,27 +160,67 @@ function LayoutTreeItem({
 }
 
 // =============================================================================
+// HELPER: Find visible parent for highlighting
+// =============================================================================
+
+/**
+ * Given a hovered component ID and the current expanded items,
+ * find which tree item should be highlighted.
+ * If the hovered component is visible (all ancestors expanded), return it.
+ * Otherwise, return the deepest visible ancestor.
+ */
+function findVisibleHighlightTarget(
+  hoveredId: string | null,
+  expandedItems: Set<string>
+): string | null {
+  if (!hoveredId) return null;
+
+  const ancestry = getComponentAncestry(hoveredId);
+  if (!ancestry || ancestry.length === 0) return null;
+
+  // Walk through the ancestry from root to target
+  // The last item where all its ancestors are expanded is the visible one
+  let lastVisible: string | null = null;
+
+  for (let i = 0; i < ancestry.length; i++) {
+    const component = ancestry[i];
+    if (!component) continue;
+    
+    // Check if all parents up to this point are expanded
+    const parentsExpanded = ancestry.slice(0, i).every((parent) =>
+      expandedItems.has(parent.id)
+    );
+
+    if (i === 0 || parentsExpanded) {
+      lastVisible = component.id;
+    } else {
+      // Parent is not expanded, so this component is not visible
+      break;
+    }
+  }
+
+  return lastVisible;
+}
+
+// =============================================================================
 // LAYOUT TREE (Main Export)
 // =============================================================================
 
 export function LayoutTree() {
-  // Local state for expand/collapse
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  
+  const {
+    expandedItems,
+    toggleExpanded,
+    navigateToComponent,
+    hoveredComponentId,
+    setHoveredComponentId,
+  } = useDesignEditor();
+
   // Local state for visibility toggle (UI only for now)
   const [hiddenItems, setHiddenItems] = useState<Set<string>>(new Set());
 
-  const handleToggleExpand = (id: string) => {
-    setExpandedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
+  // Debounce timer for hover from layout tree
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingHoverRef = useRef<string | null>(null);
 
   const handleToggleVisibility = (id: string) => {
     setHiddenItems((prev) => {
@@ -165,8 +234,65 @@ export function LayoutTree() {
     });
   };
 
+  const handleItemClick = (id: string) => {
+    navigateToComponent(id);
+  };
+
+  /**
+   * Handle hover on layout tree items.
+   * Uses debounce so highlight only shows after cursor stops.
+   */
+  const handleItemHover = useCallback(
+    (id: string | null) => {
+      // If leaving (id is null), clear immediately
+      if (id === null) {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+          debounceTimerRef.current = null;
+        }
+        pendingHoverRef.current = null;
+        setHoveredComponentId(null);
+        return;
+      }
+
+      // If same as pending, do nothing
+      if (id === pendingHoverRef.current) return;
+
+      pendingHoverRef.current = id;
+
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Start new debounce timer
+      debounceTimerRef.current = setTimeout(() => {
+        if (pendingHoverRef.current !== hoveredComponentId) {
+          setHoveredComponentId(pendingHoverRef.current);
+        }
+        debounceTimerRef.current = null;
+      }, PREVIEW_HIGHLIGHT_DEBOUNCE_MS);
+    },
+    [hoveredComponentId, setHoveredComponentId]
+  );
+
+  // Cleanup debounce timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Determine which item should be highlighted based on hover
+  const highlightedId = findVisibleHighlightTarget(hoveredComponentId, expandedItems);
+
   return (
-    <div className="flex-1 p-2 overflow-y-auto scrollbar-hide">
+    <div
+      className="flex-1 p-2 overflow-y-auto scrollbar-hide"
+      onMouseLeave={() => handleItemHover(null)}
+    >
       {COMPONENT_TREE.map((item) => (
         <LayoutTreeItem
           key={item.id}
@@ -174,8 +300,11 @@ export function LayoutTree() {
           level={0}
           expandedItems={expandedItems}
           hiddenItems={hiddenItems}
-          onToggleExpand={handleToggleExpand}
+          highlightedId={highlightedId}
+          onToggleExpand={toggleExpanded}
           onToggleVisibility={handleToggleVisibility}
+          onItemClick={handleItemClick}
+          onItemHover={handleItemHover}
         />
       ))}
     </div>

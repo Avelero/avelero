@@ -24,8 +24,8 @@ export function MaterialsFrame({
       <div className="materials-card border grid grid-cols-[max-content_1fr]">
         {materials.map((material, index) => (
           <Fragment key={`${material.type}-${material.percentage}-${index}`}>
-            <div className="p-md materials-card__percentage">
-              {material.percentage}%
+            <div className="flex items-start p-md">
+              <span className="materials-card__percentage">{material.percentage}%</span>
             </div>
             <div
               className="py-md pr-md flex flex-col gap-xs"

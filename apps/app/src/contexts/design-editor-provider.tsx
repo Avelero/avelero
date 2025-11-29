@@ -67,6 +67,8 @@ type DesignEditorContextValue = {
     value: TypographyScale
   ) => void;
   updateColor: (colorKey: string, value: string) => void;
+  updateComponentStyle: (path: string, value: string | number) => void;
+  getComponentStyleValue: (path: string) => string | number | undefined;
 
   // Navigation state
   navigation: NavigationState;
@@ -160,6 +162,48 @@ export function DesignEditorProvider({
     }));
   }, []);
 
+  /**
+   * Update a component style property using dot-notation path
+   * e.g., updateComponentStyle("journey-card.borderColor", "#FF0000")
+   */
+  const updateComponentStyle = useCallback(
+    (path: string, value: string | number) => {
+      const [componentKey, ...propertyPath] = path.split(".");
+      const propertyKey = propertyPath.join(".");
+
+      setThemeStylesDraft((prev) => {
+        const currentComponent = (prev as Record<string, unknown>)[
+          componentKey
+        ] as Record<string, unknown> | undefined;
+        return {
+          ...prev,
+          [componentKey]: {
+            ...currentComponent,
+            [propertyKey]: value,
+          },
+        };
+      });
+    },
+    []
+  );
+
+  /**
+   * Get a component style value using dot-notation path
+   * e.g., getComponentStyleValue("journey-card.borderColor")
+   */
+  const getComponentStyleValue = useCallback(
+    (path: string): string | number | undefined => {
+      const [componentKey, ...propertyPath] = path.split(".");
+      const propertyKey = propertyPath.join(".");
+
+      const component = (themeStylesDraft as Record<string, unknown>)[
+        componentKey
+      ] as Record<string, unknown> | undefined;
+      return component?.[propertyKey] as string | number | undefined;
+    },
+    [themeStylesDraft]
+  );
+
   // ---------------------------------------------------------------------------
   // Navigation State
   // ---------------------------------------------------------------------------
@@ -173,12 +217,14 @@ export function DesignEditorProvider({
 
   const navigateToComponent = useCallback((componentId: string) => {
     setNavigation({ level: "component", section: "layout", componentId });
+    setSelectedComponentId(componentId);
   }, []);
 
   const navigateBack = useCallback(() => {
     setNavigation((prev) => {
       if (prev.level === "component") {
-        // Go back to layout section
+        // Go back to layout section and clear selection
+        setSelectedComponentId(null);
         return { level: "section", section: "layout" };
       }
       if (prev.level === "section") {
@@ -239,6 +285,8 @@ export function DesignEditorProvider({
       previewData,
       updateTypographyScale,
       updateColor,
+      updateComponentStyle,
+      getComponentStyleValue,
       // Navigation state
       navigation,
       navigateToSection,
@@ -266,6 +314,8 @@ export function DesignEditorProvider({
       saveDrafts,
       updateTypographyScale,
       updateColor,
+      updateComponentStyle,
+      getComponentStyleValue,
       navigation,
       navigateToSection,
       navigateToComponent,

@@ -4,6 +4,9 @@ import { useCallback, useRef, useEffect } from "react";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { isSelectableComponent } from "@/components/design/layout/component-registry";
 
+/** Debounce delay in ms - hover is only shown after cursor stops for this duration */
+const HOVER_DEBOUNCE_MS = 25;
+
 /**
  * Apply selection data attribute to all elements with a given class within a container.
  * CSS handles the visual styling via [data-*] selectors.
@@ -47,6 +50,7 @@ function toKebabCase(str: string): string {
 /**
  * Hook for detecting selectable components in the DPP preview.
  * Uses CSS-driven styling via data attributes for GPU-accelerated rendering.
+ * Includes debounce so hover only shows after cursor stops moving.
  */
 export function useSelectableDetection(
   containerRef: React.RefObject<HTMLElement | null>
@@ -56,11 +60,14 @@ export function useSelectableDetection(
     setHoveredComponentId,
     selectedComponentId,
     setSelectedComponentId,
+    navigateToComponent,
+    navigateBack,
   } = useDesignEditor();
 
-  // requestAnimationFrame-based throttling for smooth 60fps updates
-  const pendingFrameRef = useRef<number | null>(null);
-  const pendingTargetRef = useRef<EventTarget | null>(null);
+  // Debounce timer for hover detection
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track the component under cursor (before debounce completes)
+  const pendingComponentRef = useRef<string | null>(null);
 
   // Track previous IDs to know when to update attributes
   const prevHoveredRef = useRef<string | null>(null);
@@ -133,34 +140,43 @@ export function useSelectableDetection(
         removeSelectionAttribute(container, "hoverSelection");
         removeSelectionAttribute(container, "selectedSelection");
       }
-      // Cancel any pending animation frame
-      if (pendingFrameRef.current !== null) {
-        cancelAnimationFrame(pendingFrameRef.current);
+      // Cancel any pending debounce timer
+      if (debounceTimerRef.current !== null) {
+        clearTimeout(debounceTimerRef.current);
       }
     };
   }, [containerRef]);
 
   /**
    * Handle mouse move - detect which component is under cursor.
-   * Uses requestAnimationFrame for smooth, render-cycle-synced updates.
+   * Uses debounce so hover only shows after cursor STOPS moving.
+   * 
+   * Behavior:
+   * - When cursor is moving, keep the current hover (don't clear it)
+   * - When cursor stops, update hover to whatever component is under cursor
+   * - This means hover persists while moving, only changes when cursor stops
    */
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
-      // Store the latest target
-      pendingTargetRef.current = event.target;
+      const componentId = findSelectableComponentId(event.target);
 
-      // Only schedule a new frame if one isn't already pending
-      if (pendingFrameRef.current === null) {
-        pendingFrameRef.current = requestAnimationFrame(() => {
-          const componentId = findSelectableComponentId(pendingTargetRef.current);
+      // Always update the pending component (what's currently under cursor)
+      pendingComponentRef.current = componentId;
 
-          if (componentId !== hoveredComponentId) {
-            setHoveredComponentId(componentId);
-          }
-
-          pendingFrameRef.current = null;
-        });
+      // Clear any existing debounce timer (cursor moved, so reset)
+      if (debounceTimerRef.current !== null) {
+        clearTimeout(debounceTimerRef.current);
       }
+
+      // Start a new debounce timer - will fire when cursor stops moving
+      debounceTimerRef.current = setTimeout(() => {
+        // Cursor has stopped - update hover to whatever component is under cursor
+        // This could be a different component, the same component, or null (no component)
+        if (pendingComponentRef.current !== hoveredComponentId) {
+          setHoveredComponentId(pendingComponentRef.current);
+        }
+        debounceTimerRef.current = null;
+      }, HOVER_DEBOUNCE_MS);
     },
     [findSelectableComponentId, hoveredComponentId, setHoveredComponentId]
   );
@@ -169,23 +185,38 @@ export function useSelectableDetection(
    * Handle mouse leave - clear hover state
    */
   const handleMouseLeave = useCallback(() => {
-    // Cancel any pending frame
-    if (pendingFrameRef.current !== null) {
-      cancelAnimationFrame(pendingFrameRef.current);
-      pendingFrameRef.current = null;
+    // Cancel any pending debounce timer
+    if (debounceTimerRef.current !== null) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
+    pendingComponentRef.current = null;
     setHoveredComponentId(null);
   }, [setHoveredComponentId]);
 
   /**
-   * Handle click - select the component
+   * Handle click - select the component and navigate to its editor,
+   * or deselect if clicking on background.
+   * Prevents default behavior (links, buttons) so preview is non-interactive.
    */
   const handleClick = useCallback(
     (event: React.MouseEvent) => {
+      // Prevent default behavior (links opening, buttons submitting, etc.)
+      event.preventDefault();
+      event.stopPropagation();
+
       const componentId = findSelectableComponentId(event.target);
-      setSelectedComponentId(componentId);
+      if (componentId) {
+        // Clicked on a component - select it and navigate to editor
+        setSelectedComponentId(componentId);
+        navigateToComponent(componentId);
+      } else {
+        // Clicked on background - clear selection and go back to layout menu
+        setSelectedComponentId(null);
+        navigateBack();
+      }
     },
-    [findSelectableComponentId, setSelectedComponentId]
+    [findSelectableComponentId, setSelectedComponentId, navigateToComponent, navigateBack]
   );
 
   return {

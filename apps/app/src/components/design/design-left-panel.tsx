@@ -3,8 +3,9 @@
 import { Icons } from "@v1/ui/icons";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { PanelHeader } from "./navigation/panel-header";
-import { TypographyEditor, ColorsEditor } from "./editors";
+import { TypographyEditor, ColorsEditor, ComponentEditor } from "./editors";
 import { LayoutTree } from "./layout/layout-tree";
+import { findComponentById } from "./layout/component-registry";
 import type { NavigationSection } from "@/contexts/design-editor-provider";
 
 // Main menu items configuration
@@ -52,8 +53,8 @@ function getNavigationTitle(
     }
   }
   if (level === "component" && componentId) {
-    // TODO: Get display name from component registry
-    return componentId;
+    const component = findComponentById(componentId);
+    return component?.displayName || componentId;
   }
   return "Passport";
 }
@@ -111,9 +112,8 @@ export function DesignLeftPanel() {
       }
     }
 
-    if (navigation.level === "component") {
-      // TODO: Implement component editor
-      return <LayoutTree />;
+    if (navigation.level === "component" && navigation.componentId) {
+      return <ComponentEditor componentId={navigation.componentId} />;
     }
 
     return <RootMenu />;

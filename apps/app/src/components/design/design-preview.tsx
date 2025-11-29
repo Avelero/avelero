@@ -21,7 +21,7 @@ export function DesignPreview() {
         className="relative w-full h-full bg-white border border-border overflow-auto scrollbar-hide cursor-default [&_*]:!cursor-default"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        onClick={handleClick}
+        onClickCapture={handleClick}
       >
         <PreviewThemeInjector themeStyles={themeStylesDraft} />
         <div className="dpp-root min-h-full flex flex-col @container">

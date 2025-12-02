@@ -39,6 +39,7 @@
     --border: #E9E9EC;
     --input: #E9E9EC;
     --ring: #0000FF;
+    --link: #0000FF; /* Global link color */
     
     /* Spacing Tokens - Used by Tailwind utilities */
     --spacing-micro: 0.25rem;
@@ -139,14 +140,25 @@
   .dpp-root * {
     border-color: var(--border);
   }
+
+  /* Global link styling within .dpp-root */
+  .dpp-root a {
+    color: var(--link);
+  }
 }
 
 /* Component Classes - Default styling for all components */
 @layer components {
 
-  /* Header */
+  /* ==========================================================================
+     HEADER - Single wrapper that controls border for all inner sections
+     ========================================================================== */
   .dpp-root .header {
     background-color: var(--header-background-color, var(--background));
+  }
+
+  /* Header sections inherit border color from header */
+  .dpp-root .header .header__section {
     border-color: var(--header-border-color, var(--border));
   }
 
@@ -159,7 +171,9 @@
     text-decoration: var(--header-text-logo-text-decoration, none);
   }
   
-  /* Footer */
+  /* ==========================================================================
+     FOOTER
+     ========================================================================== */
   .dpp-root .footer {
     background-color: var(--footer-background-color, var(--background));
     border-color: var(--footer-border-color, var(--border));
@@ -182,11 +196,13 @@
     font-weight: var(--footer-social-icons-font-weight, var(--type-body-sm-weight));
     line-height: var(--footer-social-icons-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--footer-social-icons-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--footer-social-icons-color, var(--highlight));
+    color: var(--footer-social-icons-color, var(--link));
     text-decoration: var(--footer-social-icons-text-decoration, none);
   }
 
-  /* Product */
+  /* ==========================================================================
+     PRODUCT
+     ========================================================================== */
   .dpp-root .product__image {
     border-color: var(--product-image-border-color, var(--border));
     border-radius: var(--product-image-border-radius, var(--radius-none));
@@ -229,62 +245,100 @@
     font-family: var(--product-show-more-font-family, var(--type-body-xs-family));
     font-weight: var(--product-show-more-font-weight, var(--type-body-xs-weight));
     letter-spacing: var(--product-show-more-letter-spacing, var(--type-body-xs-letter-spacing));
-    color: var(--product-show-more-color, var(--highlight));
+    color: var(--product-show-more-color, var(--link));
     text-transform: var(--product-show-more-text-transform, uppercase);
     text-decoration: var(--product-show-more-text-decoration, none);
   }
 
-  /* Product Details */
+  /* ==========================================================================
+     PRODUCT DETAILS
+     Container border color is inherited by inner row borders
+     ========================================================================== */
   .dpp-root .product-details {
     border-color: var(--product-details-border-color, var(--border));
     border-radius: var(--product-details-border-radius, var(--radius-none));
+    background-color: var(--product-details-background-color, var(--background));
   }
 
+  /* Rows inherit border color from container */
   .dpp-root .product-details__row {
     border-color: var(--product-details-border-color, var(--border));
   }
 
-  .dpp-root .product-details__row-label {
-    font-family: var(--product-details-row-label-font-family, var(--type-body-sm-family));
-    font-size: var(--product-details-row-label-font-size, var(--type-body-sm-size));
-    font-weight: var(--product-details-row-label-font-weight, var(--type-body-sm-weight));
-    line-height: var(--product-details-row-label-line-height, 1.25);
-    letter-spacing: var(--product-details-row-label-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--product-details-row-label-color, var(--primary));
-    text-transform: var(--product-details-row-label-text-transform, uppercase);
-    text-decoration: var(--product-details-row-label-text-decoration, none);
+  .dpp-root .product-details__label {
+    font-family: var(--product-details-label-font-family, var(--type-body-sm-family));
+    font-size: var(--product-details-label-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-details-label-font-weight, var(--type-body-sm-weight));
+    line-height: var(--product-details-label-line-height, 1.25);
+    letter-spacing: var(--product-details-label-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--product-details-label-color, var(--primary));
+    text-transform: var(--product-details-label-text-transform, uppercase);
+    text-decoration: var(--product-details-label-text-decoration, none);
   }
 
-  .dpp-root .product-details__row-value {
-    font-family: var(--product-details-row-value-font-family, var(--type-body-sm-family));
-    font-size: var(--product-details-row-value-font-size, var(--type-body-sm-size));
-    font-weight: var(--product-details-row-value-font-weight, var(--type-body-sm-weight));
-    line-height: var(--product-details-row-value-line-height, 1.25);
-    letter-spacing: var(--product-details-row-value-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--product-details-row-value-color, var(--secondary));
-    text-transform: var(--product-details-row-value-text-transform, none);
-    text-decoration: var(--product-details-row-value-text-decoration, none);
+  .dpp-root .product-details__value {
+    font-family: var(--product-details-value-font-family, var(--type-body-sm-family));
+    font-size: var(--product-details-value-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-details-value-font-weight, var(--type-body-sm-weight));
+    line-height: var(--product-details-value-line-height, 1.25);
+    letter-spacing: var(--product-details-value-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--product-details-value-color, var(--secondary));
+    text-transform: var(--product-details-value-text-transform, none);
+    text-decoration: var(--product-details-value-text-decoration, none);
   }
 
-  .dpp-root .product-details__row-link {
-    color: var(--product-details-row-link-color, var(--highlight));
-    text-decoration: var(--product-details-row-link-text-decoration, none);
+  /* Links inside product-details__value use the global link color */
+  .dpp-root .product-details__value a {
+    color: var(--link);
   }
 
-  /* Menu Button */
-  .dpp-root .menu-button {
-    border-color: var(--menu-button-border-color, var(--border));
-    font-family: var(--menu-button-font-family, var(--type-body-family));
-    font-size: var(--menu-button-font-size, var(--type-body-size));
-    font-weight: var(--menu-button-font-weight, var(--type-body-weight));
-    line-height: var(--menu-button-line-height, 1);
-    letter-spacing: var(--menu-button-letter-spacing, var(--type-body-letter-spacing));
-    color: var(--menu-button-color, var(--primary));
-    text-transform: var(--menu-button-text-transform, uppercase);
-    text-decoration: var(--menu-button-text-decoration, none);
+  /* ==========================================================================
+     PRIMARY MENU BUTTON
+     ========================================================================== */
+  .dpp-root .menu-primary-button {
+    border-color: var(--menu-primary-button-border-color, var(--border));
+    background-color: var(--menu-primary-button-background-color, var(--background));
+    font-family: var(--menu-primary-button-font-family, var(--type-body-family));
+    font-size: var(--menu-primary-button-font-size, var(--type-body-size));
+    font-weight: var(--menu-primary-button-font-weight, var(--type-body-weight));
+    line-height: var(--menu-primary-button-line-height, 1);
+    letter-spacing: var(--menu-primary-button-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--menu-primary-button-color, var(--primary));
+    text-transform: var(--menu-primary-button-text-transform, uppercase);
+    text-decoration: var(--menu-primary-button-text-decoration, none);
   }
 
-  /* Impact */
+  .dpp-root .menu-primary-button__icon {
+    color: var(--menu-primary-button-icon-color, var(--primary));
+    width: var(--menu-primary-button-icon-size, 20px);
+    height: var(--menu-primary-button-icon-size, 20px);
+  }
+
+  /* ==========================================================================
+     SECONDARY MENU BUTTON
+     ========================================================================== */
+  .dpp-root .menu-secondary-button {
+    border-color: var(--menu-secondary-button-border-color, var(--border));
+    background-color: var(--menu-secondary-button-background-color, var(--background));
+    font-family: var(--menu-secondary-button-font-family, var(--type-body-family));
+    font-size: var(--menu-secondary-button-font-size, var(--type-body-size));
+    font-weight: var(--menu-secondary-button-font-weight, var(--type-body-weight));
+    line-height: var(--menu-secondary-button-line-height, 1);
+    letter-spacing: var(--menu-secondary-button-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--menu-secondary-button-color, var(--primary));
+    text-transform: var(--menu-secondary-button-text-transform, uppercase);
+    text-decoration: var(--menu-secondary-button-text-decoration, none);
+  }
+
+  .dpp-root .menu-secondary-button__icon {
+    color: var(--menu-secondary-button-icon-color, var(--primary));
+    width: var(--menu-secondary-button-icon-size, 20px);
+    height: var(--menu-secondary-button-icon-size, 20px);
+  }
+
+  /* ==========================================================================
+     IMPACT
+     ========================================================================== */
   .dpp-root .impact-card {
     border-color: var(--impact-card-border-color, var(--border));
     border-radius: var(--impact-card-border-radius, var(--radius-none));
@@ -303,9 +357,9 @@
   }
 
   .dpp-root .impact-card__type {
-    font-family: var(--impact-card-type-family, var(--type-body-xs-family));
-    font-size: var(--impact-card-type-size, var(--type-body-xs-size));
-    font-weight: var(--impact-card-type-weight, var(--type-body-xs-weight));
+    font-family: var(--impact-card-type-font-family, var(--type-body-xs-family));
+    font-size: var(--impact-card-type-font-size, var(--type-body-xs-size));
+    font-weight: var(--impact-card-type-font-weight, var(--type-body-xs-weight));
     line-height: var(--impact-card-type-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--impact-card-type-letter-spacing, var(--type-body-xs-letter-spacing));
     color: var(--impact-card-type-color, var(--secondary));
@@ -319,6 +373,7 @@
     font-weight: var(--impact-card-value-font-weight, var(--type-h1-weight));
     line-height: var(--impact-card-value-line-height, var(--type-h1-line-height));
     letter-spacing: var(--impact-card-value-letter-spacing, var(--type-h1-letter-spacing));
+    color: var(--impact-card-value-color, var(--primary));
   }
 
   .dpp-root .impact-card__unit {
@@ -336,37 +391,52 @@
     border-color: var(--impact-card-eco-claim-border-color, var(--border));
     border-radius: var(--impact-card-eco-claim-border-radius, var(--radius-none));
     background-color: var(--impact-card-eco-claim-background-color, var(--background));
-    color: var(--impact-card-eco-claim-color, var(--highlight));
+  }
+
+  .dpp-root .impact-card__eco-claim-icon {
+    color: var(--impact-card-eco-claim-icon-color, var(--link));
+    width: var(--impact-card-eco-claim-icon-size, 17.5px);
+    height: var(--impact-card-eco-claim-icon-size, 17.5px);
   }
 
   .dpp-root .impact-card__eco-claim-text {
-    font-family: var(--impact-card-eco-claim-font-family, var(--type-body-sm-family));
-    font-size: var(--impact-card-eco-claim-font-size, var(--type-body-sm-size));
-    font-weight: var(--impact-card-eco-claim-font-weight, var(--type-body-sm-weight)); 
-    line-height: var(--impact-card-eco-claim-line-height, 1.25);
-    letter-spacing: var(--impact-card-eco-claim-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--impact-card-eco-claim-color, var(--primary));
-    text-transform: var(--impact-card-eco-claim-text-transform, none);
-    text-decoration: var(--impact-card-eco-claim-text-decoration, none);
+    font-family: var(--impact-card-eco-claim-text-font-family, var(--type-body-sm-family));
+    font-size: var(--impact-card-eco-claim-text-font-size, var(--type-body-sm-size));
+    font-weight: var(--impact-card-eco-claim-text-font-weight, var(--type-body-sm-weight)); 
+    line-height: var(--impact-card-eco-claim-text-line-height, 1.25);
+    letter-spacing: var(--impact-card-eco-claim-text-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--impact-card-eco-claim-text-color, var(--primary));
+    text-transform: var(--impact-card-eco-claim-text-text-transform, none);
+    text-decoration: var(--impact-card-eco-claim-text-text-decoration, none);
   }
 
+  /* Impact card icons - consolidated styling */
+  .dpp-root .impact-card__icon {
+    color: var(--impact-card-icon-color, var(--secondary));
+    width: var(--impact-card-icon-size, 28px);
+    height: var(--impact-card-icon-size, 28px);
+  }
+
+  /* Individual icon color overrides (for backwards compatibility) */
   .dpp-root .impact-card__icon-leaf {
-    color: var(--impact-card-icon-leaf-color, #03A458);
+    color: var(--impact-card-icon-color, #03A458);
   }
 
   .dpp-root .impact-card__icon-drop {
-    color: var(--impact-card-icon-drop-color, #0000FF);
+    color: var(--impact-card-icon-color, #0000FF);
   }
 
   .dpp-root .impact-card__icon-recycle {
-    color: var(--impact-card-icon-recycle-color, #0000FF);
+    color: var(--impact-card-icon-color, #0000FF);
   }
 
   .dpp-root .impact-card__icon-factory {
-    color: var(--impact-card-icon-factory-color, #6B7280);
+    color: var(--impact-card-icon-color, #6B7280);
   }
 
-  /* Materials */
+  /* ==========================================================================
+     MATERIALS
+     ========================================================================== */
   .dpp-root .materials-card {
     border-color: var(--materials-card-border-color, var(--border));
     border-radius: var(--materials-card-border-radius, var(--radius-none));
@@ -415,15 +485,21 @@
     color: var(--materials-card-certification-color, var(--success-foreground));
     background-color: var(--materials-card-certification-background-color, var(--success));
     border-radius: var(--materials-card-certification-border-radius, var(--radius-sm));
-    border: var(--materials-card-certification-border, none);
+    border-color: var(--materials-card-certification-border-color, transparent);
     text-transform: var(--materials-card-certification-text-transform, none);
     text-decoration: var(--materials-card-certification-text-decoration, none);
   }
 
+  .dpp-root .materials-card__certification-icon {
+    color: var(--materials-card-certification-icon-color, currentColor);
+    width: var(--materials-card-certification-icon-size, 12px);
+    height: var(--materials-card-certification-icon-size, 12px);
+  }
+
   .dpp-root .materials-card__origin {
-    font-family: var(--materials-card-origin-family, var(--type-body-xs-family));
-    font-size: var(--materials-card-origin-size, var(--type-body-xs-size));
-    font-weight: var(--materials-card-origin-weight, var(--type-body-xs-weight));
+    font-family: var(--materials-card-origin-font-family, var(--type-body-xs-family));
+    font-size: var(--materials-card-origin-font-size, var(--type-body-xs-size));
+    font-weight: var(--materials-card-origin-font-weight, var(--type-body-xs-weight));
     line-height: var(--materials-card-origin-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--materials-card-origin-letter-spacing, var(--type-body-xs-letter-spacing));
     color: var(--materials-card-origin-color, var(--secondary));
@@ -432,7 +508,7 @@
   }
 
   .dpp-root .materials-card__certification-text {
-    color: var(--materials-card-certification-text-color, var(--highlight));
+    color: var(--materials-card-certification-text-color, var(--link));
     font-family: var(--materials-card-certification-text-font-family, var(--type-body-xs-family));
     font-size: var(--materials-card-certification-text-font-size, var(--type-body-xs-size));
     font-weight: var(--materials-card-certification-text-font-weight, var(--type-body-xs-weight));
@@ -442,7 +518,9 @@
     text-decoration: var(--materials-card-certification-text-text-decoration, none);
   }
 
-  /* Journey */
+  /* ==========================================================================
+     JOURNEY
+     ========================================================================== */
   .dpp-root .journey-card {
     border-color: var(--journey-card-border-color, var(--border));
     border-radius: var(--journey-card-border-radius, var(--radius-none));
@@ -461,7 +539,7 @@
   }
 
   .dpp-root .journey-card__line {
-    background-color: var(--journey-card-line-color, var(--secondary));
+    background-color: var(--journey-card-line-background-color, var(--secondary));
   }
 
   .dpp-root .journey-card__type {
@@ -486,6 +564,9 @@
     text-decoration: var(--journey-card-operator-text-decoration, none);
   }
 
+  /* ==========================================================================
+     CAROUSEL
+     ========================================================================== */
   .dpp-root .carousel__title {
     font-family: var(--carousel-title-font-family, var(--type-h6-family));
     font-size: var(--carousel-title-font-size, var(--type-h6-size));
@@ -498,10 +579,15 @@
   }
 
   .dpp-root .carousel__nav-button {
-    border-color: var(--carousel-nav-button-border-color, var(--highlight));
+    border-color: var(--carousel-nav-button-border-color, var(--link));
     background-color: var(--carousel-nav-button-background-color, transparent);
-    color: var(--carousel-nav-button-color, var(--highlight));
+    color: var(--carousel-nav-button-color, var(--link));
     border-radius: var(--carousel-nav-button-border-radius, var(--radius-none));
+  }
+
+  .dpp-root .carousel__nav-button-icon {
+    width: var(--carousel-nav-button-icon-size, 16px);
+    height: var(--carousel-nav-button-icon-size, 16px);
   }
 
   .dpp-root .carousel__product-image {
@@ -522,7 +608,7 @@
     font-weight: var(--carousel-product-name-font-weight, var(--type-body-weight));
     line-height: var(--carousel-product-name-line-height, var(--type-body-line-height));
     letter-spacing: var(--carousel-product-name-letter-spacing, var(--type-body-letter-spacing));
-    color: var(--carousel-product-name-color, var(--highlight));
+    color: var(--carousel-product-name-color, var(--link));
     text-transform: var(--carousel-product-name-text-transform, uppercase);
     text-decoration: var(--carousel-product-name-text-decoration, none);
     text-align: var(--carousel-product-name-text-align, left);
@@ -540,7 +626,9 @@
     text-align: var(--carousel-product-price-text-align, left);
   }
 
-  /* Banner */
+  /* ==========================================================================
+     BANNER
+     ========================================================================== */
   .dpp-root .banner {
     background-color: var(--banner-background-color, var(--background));
     border: var(--banner-border, none);

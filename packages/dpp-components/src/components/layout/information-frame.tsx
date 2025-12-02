@@ -65,6 +65,7 @@ export function InformationFrame({ data, themeConfig }: Props) {
           menuItems={themeConfig.menus.primary}
           themeConfig={themeConfig}
           isLastMenu={lastSection === "PrimaryMenu"}
+          variant="primary"
         />
       )}
 
@@ -102,6 +103,7 @@ export function InformationFrame({ data, themeConfig }: Props) {
           menuItems={themeConfig.menus.secondary}
           themeConfig={themeConfig}
           isLastMenu={lastSection === "SecondaryMenu"}
+          variant="secondary"
         />
       )}
     </div>

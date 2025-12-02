@@ -77,7 +77,7 @@ export const columns: ColumnDef<PassportTableRow>[] = [
         CELL_HEIGHT,
         // Sticky first column with its own always-on divider (no native border to avoid double lines)
         "relative min-w-[260px] max-w-[680px] sticky left-0 z-[12] bg-background border-r-0",
-        "before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-border",
+        "before:absolute before:inset-y-0 before:right-0 before:w-px before:bg-accent-dark",
         // Sync background with row hover/selected
         "[tr:hover_&]:bg-accent-light [tr[data-state=selected]_&]:bg-accent-blue",
       ),

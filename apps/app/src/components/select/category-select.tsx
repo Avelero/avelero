@@ -218,7 +218,7 @@ export function CategorySelect({
                                 ? "bg-accent-blue text-brand"
                                 : hoveredRow === key &&
                                     hoveredArea === "selection"
-                                  ? "bg-border text-primary"
+                                  ? "bg-accent-dark text-primary"
                                   : "text-primary",
                             )}
                           >

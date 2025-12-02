@@ -30,9 +30,9 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
   const positionProps = getPositionProps();
 
   return (
-    <div className={positionProps.className} style={positionProps.style}>
+    <div className={`header ${positionProps.className}`} style={positionProps.style}>
       {/* Brand section */}
-      <div className="header flex items-center justify-center w-full py-sm border-b">
+      <div className="header__section flex items-center justify-center w-full py-sm border-b">
         {branding.headerLogoUrl ? (
           <img
             src={branding.headerLogoUrl}
@@ -51,7 +51,7 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
       </div>
 
       {/* Powered by Avelero section */}
-      <div className="header flex items-center justify-center w-full gap-micro py-xs border-b">
+      <div className="header__section flex items-center justify-center w-full gap-micro py-xs border-b">
         <span
           className="text-geist text-[12px] leading-[100%]"
           style={{ color: "var(--foreground)" }}

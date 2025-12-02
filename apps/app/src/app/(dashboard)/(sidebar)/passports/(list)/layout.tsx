@@ -38,7 +38,7 @@ export default function PassportsListLayout({
           </Button>
         </ControlBarRight>
       </ControlBar>
-      <div className="flex w-full h-full justify-center items-start p-6 overflow-y-auto scrollbar-hide">
+      <div className="flex w-full h-full justify-center items-start p-8 overflow-y-auto scrollbar-hide">
         {children}
       </div>
     </div>

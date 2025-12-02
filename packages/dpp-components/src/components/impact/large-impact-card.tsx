@@ -13,15 +13,7 @@ export function LargeImpactCard({ metric }: Props) {
     factory: Icons.Factory,
   };
 
-  const iconClassMap = {
-    leaf: "impact-card__icon-leaf",
-    drop: "impact-card__icon-drop",
-    recycle: "impact-card__icon-recycle",
-    factory: "impact-card__icon-factory",
-  };
-
   const IconComponent = iconMap[metric.icon] ?? Icons.Leaf; // Safe fallback
-  const iconClass = iconClassMap[metric.icon] ?? iconClassMap.leaf;
 
   return (
     <div className="p-md impact-card border flex justify-between items-center">
@@ -33,7 +25,7 @@ export function LargeImpactCard({ metric }: Props) {
         </div>
       </div>
       <IconComponent
-        className={`w-7 h-7 ${iconClass}`}
+        className="impact-card__icon"
         style={metric.iconColor ? { color: metric.iconColor } : undefined}
       />
     </div>

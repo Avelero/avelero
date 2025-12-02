@@ -2,10 +2,12 @@
 
 import { Icons } from "@v1/ui/icons";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { PanelHeader } from "./navigation/panel-header";
-import { TypographyEditor, ColorsEditor, ComponentEditor } from "./editors";
-import { LayoutTree } from "./layout/layout-tree";
-import { findComponentById } from "./layout/component-registry";
+import { PanelHeader } from "./panel-header";
+import { TypographyEditor } from "./sections/typography-editor";
+import { ColorsEditor } from "./sections/colors-editor";
+import { ComponentSection } from "./sections/component-section";
+import { LayoutTree } from "./sections/layout-tree";
+import { findComponentById } from "../registry/component-registry";
 import type { NavigationSection } from "@/contexts/design-editor-provider";
 
 // Main menu items configuration
@@ -83,7 +85,7 @@ function RootMenu() {
   );
 }
 
-export function DesignLeftPanel() {
+export function DesignPanel() {
   const { navigation, navigateBack } = useDesignEditor();
 
   const title = getNavigationTitle(
@@ -113,7 +115,7 @@ export function DesignLeftPanel() {
     }
 
     if (navigation.level === "component" && navigation.componentId) {
-      return <ComponentEditor componentId={navigation.componentId} />;
+      return <ComponentSection componentId={navigation.componentId} />;
     }
 
     return <RootMenu />;
@@ -130,3 +132,4 @@ export function DesignLeftPanel() {
     </div>
   );
 }
+

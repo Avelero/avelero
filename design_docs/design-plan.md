@@ -575,6 +575,73 @@ type DesignEditorContextValue = {
 
 ---
 
+## 9.1 Remaining Work – Style Fields & Config Fields Implementation
+
+This section documents which editor features and field types still need to be created in `component-editor.tsx` and related files.
+
+### 9.1.1 Field Type Implementations
+
+| Field Type | Status | Notes |
+|------------|--------|-------|
+| `color` | ✅ Done | `ColorField` component working |
+| `number` | ✅ Done | `NumberField` component with units (px, %, em, rem) |
+| `typescale` | ✅ Done | `TypescaleField` dropdown for H1-H6, Body, Body-sm, Body-xs |
+| `select` | ✅ Done | `SelectField` dropdown for options like capitalization |
+| `toggle` | ✅ Done | `ToggleField` component using Switch from @v1/ui |
+| `text` | ✅ Done | `TextField` component for text input |
+| `url` | ✅ Done | `UrlField` component with validation hint and external link icon |
+| `image` | ✅ Done | `ImageField` component with preview thumbnail |
+| `menu-items` | ✅ Done | `MenuItemsField` with add/remove/reorder functionality |
+
+### 9.1.2 Config Field Implementations by Component
+
+All config field types are now implemented. The `ComponentEditor` component renders config fields using the new field components:
+
+| Component | Config Fields | Status |
+|-----------|---------------|--------|
+| **Header** | `branding.headerLogoUrl` (image) | ✅ Done |
+| **Product Image** | (no config fields) | ✅ Done |
+| **Primary Menu** | `menus.primary` (menu-items) | ✅ Done |
+| **Secondary Menu** | `menus.secondary` (menu-items) | ✅ Done |
+| **Carousel** | `images.carouselImageZoom` (number), `images.carouselImagePosition` (select) | ✅ Done |
+| **Banner** | `cta.bannerBackgroundImage` (image), `branding.bannerLogoUrl` (image), `branding.bannerLogoHeight` (number) | ✅ Done |
+| **Banner Subheadline** | `cta.bannerShowSubline` (toggle), `cta.bannerSubline` (text) | ✅ Done |
+| **Banner Button** | `cta.bannerCTAText` (text), `cta.bannerCTAUrl` (url) | ✅ Done |
+| **Footer** | `social.legalName` (text), `social.useIcons` (toggle), social platform toggles + URLs | ✅ Done |
+
+**Implementation Details:**
+- `design-editor-provider.tsx` now includes `updateConfigValue` and `getConfigValue` helpers for nested config paths
+- `component-editor.tsx` includes `ConfigFieldRenderer` which renders the appropriate field component based on `ConfigField.type`
+- All config fields are rendered under a "Content" section in the component editor
+
+### 9.1.3 Missing Style Properties
+
+| Component | Missing Style Property | Notes |
+|-----------|------------------------|-------|
+| **Product Details** | `direction` (select: row/column) | Missing from registry, needs CSS variable |
+| **Journey Card** | `direction` (select: horizontal/vertical) | If timeline direction is customizable |
+| **All text components** | `letterSpacing`, `lineHeight` | Currently handled via typescale, but may need fine-tuning |
+
+### 9.1.4 CSS Generator Updates Needed
+
+The following CSS variable mappings may need verification/updates:
+- Menu button icon sizing (`menu-primary-button-icon-size`, `menu-secondary-button-icon-size`)
+- Impact card icon sizing and color
+- Materials certification tag styling
+- Product details direction support
+
+### 9.1.5 Remaining Work
+
+All core field types are now implemented. Remaining items:
+
+1. **Low Priority (Polish)**
+   - Direction select for product details layout
+   - Fine-grained typography controls (if not using typescale)
+   - Image upload (currently URL-only)
+   - Drag-and-drop reordering for menu items (currently uses up/down buttons)
+
+---
+
 ## 10. Future Extensions (Out of Scope for First Version)
 
 - Theme versioning / rollback per brand.

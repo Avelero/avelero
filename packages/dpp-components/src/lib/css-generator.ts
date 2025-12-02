@@ -33,6 +33,7 @@ const PX_UNIT_PROPERTIES = new Set([
   "borderTopRightRadius",
   "borderBottomLeftRadius",
   "borderBottomRightRadius",
+  "size",
 ]);
 
 /**
@@ -52,6 +53,8 @@ function classToVarPrefix(className: string): string {
 
 /**
  * Generates CSS variables for a component style override
+ * Handles the special 'typescale' property which sets font-related properties
+ * based on a typescale reference (h1, h2, ..., body, body-sm, body-xs)
  */
 function generateComponentCSS(
   className: string,
@@ -60,7 +63,22 @@ function generateComponentCSS(
   const vars: string[] = [];
   const prefix = classToVarPrefix(className);
 
+  // If typescale is set, generate font property references
+  if (styles.typescale) {
+    const scale = styles.typescale;
+    vars.push(`--${prefix}-font-family: var(--type-${scale}-family)`);
+    vars.push(`--${prefix}-font-size: var(--type-${scale}-size)`);
+    vars.push(`--${prefix}-font-weight: var(--type-${scale}-weight)`);
+    vars.push(`--${prefix}-line-height: var(--type-${scale}-line-height)`);
+    vars.push(`--${prefix}-letter-spacing: var(--type-${scale}-letter-spacing)`);
+  }
+
   for (const [key, value] of Object.entries(styles)) {
+    // Skip typescale as we handled it above
+    if (key === "typescale") {
+      continue;
+    }
+
     if (value !== undefined && value !== null) {
       const cssProperty = camelToKebab(key);
       const cssVarName = `--${prefix}-${cssProperty}`;

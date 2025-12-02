@@ -2,8 +2,9 @@
 
 import { Input } from "@v1/ui/input";
 import { cn } from "@v1/ui/cn";
+import { Label } from "@v1/ui/label";
 
-interface ColorFieldProps {
+interface ColorInputProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -31,7 +32,7 @@ function isValidHex(hex: string): boolean {
   return /^[A-Fa-f0-9]{6}$/.test(hex);
 }
 
-export function ColorField({
+export function ColorInput({
   label,
   value,
   onChange,
@@ -39,15 +40,15 @@ export function ColorField({
   opacity = 100,
   onOpacityChange,
   className,
-}: ColorFieldProps) {
+}: ColorInputProps) {
   const displayValue = normalizeHex(value);
   const backgroundColor = isValidHex(displayValue)
     ? `#${displayValue}`
     : "#FFFFFF";
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <span className="type-small text-secondary">{label}</span>
+    <div className={cn("space-y-1.5", className)}>
+      <Label variant="small">{label}</Label>
       <div className="flex items-center gap-2">
         {/* Hex input with embedded color swatch */}
         <div className="relative flex-1">
@@ -71,16 +72,17 @@ export function ColorField({
           <div className="relative">
             <Input
               type="number"
+              allowEmpty
               min={0}
               max={100}
               value={opacity}
               onChange={(e) => {
-                const val = Math.max(0, Math.min(100, Number(e.target.value)));
+                const val = Number(e.target.value);
                 onOpacityChange?.(val);
               }}
-              className="h-8 w-[72px] pr-6 text-sm"
+              className="h-8 w-[72px] pr-7 text-sm"
             />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 type-small text-secondary pointer-events-none">
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">
               %
             </span>
           </div>

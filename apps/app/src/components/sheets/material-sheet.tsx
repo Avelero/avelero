@@ -2,7 +2,7 @@
 
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useUpload } from "@/hooks/use-upload";
+import { useImageUpload } from "@/hooks/use-image-upload";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import type { Certification } from "@v1/selections/certifications";
 import { allCertifications } from "@v1/selections/certifications";
@@ -163,7 +163,7 @@ export function MaterialSheet({
   // File upload state
   const [isDragging, setIsDragging] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const { uploadFile, isLoading: isUploading } = useUpload();
+  const { uploadImage, buildPath, isLoading: isUploading } = useImageUpload();
 
   // API mutations
   const createMaterialMutation = useMutation(
@@ -489,16 +489,31 @@ export function MaterialSheet({
     }
 
     try {
-      // Upload file to certifications bucket
-      const timestamp = Date.now();
-      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const result = await uploadFile({
+      const path = buildPath(["certifications"], file);
+      const result = await uploadImage({
         file,
-        path: ["certifications", `${timestamp}-${sanitizedFileName}`],
+        path,
         bucket: "certifications",
+        isPublic: true,
+        validate: (f) => {
+          if (!allowedTypes.includes(f.type)) {
+            return {
+              valid: false,
+              error:
+                "Invalid file type. Please upload a PDF, JPG, JPEG, or PNG file.",
+            };
+          }
+          if (f.size > maxSize) {
+            return {
+              valid: false,
+              error: "File too large. Please upload a file smaller than 4MB.",
+            };
+          }
+          return { valid: true };
+        },
       });
 
-      setCertLogo(result.url);
+      setCertLogo(result.displayUrl);
       setUploadedFileName(file.name);
       toast.success("Certificate uploaded successfully");
     } catch (error) {

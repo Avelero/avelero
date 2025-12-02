@@ -59,8 +59,6 @@ export interface ThemeConfig {
 
   // Image controls
   images: {
-    productImageZoom: number;
-    productImagePosition: "top" | "center" | "bottom";
     carouselImageZoom: number;
     carouselImagePosition: "top" | "center" | "bottom";
   };

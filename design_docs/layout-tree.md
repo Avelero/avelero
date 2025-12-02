@@ -1,0 +1,272 @@
+- Header
+    - Design:
+        - Border (color, opcaity, weight)
+        - Background (color, opacity)
+    - Config:
+        - Logo (upload)
+- Product image
+    - Design:
+        - Border (color, opacity, weight)
+        - Radius (pixel)
+- Product information
+    - Brand name
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Product title
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Product description
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Show more
+        - Design:
+            - Color (color, opacity)
+- Product details
+    - Design:
+        - Border (color, opacity, weight)
+        - Background (color, opacity)
+        - Radius (pixel)
+    - Label
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Value
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+- Primary menu
+    - Menu button
+        - Design:
+            - Text
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+            - Icon
+                - Color (color, opacity)
+                - Size (pixels)
+            - Border (color, opacity, weight)
+            - Background (color, opacity)
+    - Config:
+        - Menu buttons (max 5)
+            - Label
+            - Link
+- Impact
+    - Title
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Impact card
+        - Design:
+            - Border (color, opacity, weight)
+            - Background (color, opacity)
+            - Radius (pixel)
+            - Icon
+                - Color (color, opacity)
+                - Size (pixels)
+        - Type
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+        - Value
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+        - Unit
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+    - Eco claim
+        - Design:
+            - Border (color, opacity, weight)
+            - Background (color, opacity)
+            - Radius (pixel)
+            - Icon
+                - Color (color, opacity)
+                - Size (pixels)
+        - Claim
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+- Materials
+    - Title
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Materials card
+        - Design:
+            - Border (color, opacity, weight)
+            - Background (color, opacity)
+            - Radius (pixel)
+        - Percentage
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+        - Material
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+        - Origin
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+        - Certification
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+        - Tag
+            - Design:
+                - Border (color, opacity, weight)
+                - Background (color, opacity)
+                - Radius (pixel)
+                - Icon
+                    - Color (color, opacity)
+                    - Size (pixels)
+            - Text
+                - Design:
+                    - Color (color, opacity)
+                    - Typescale (H1, H2, ..., Body, Small)
+                    - Capitalization (normal, uppercase, lowercase)
+- Journey
+    - Title
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Journey card
+        - Design:
+            - Border (color, opacity, weight)
+            - Background (color, opacity)
+            - Radius (pixel)
+        - Step
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+        - Operator
+            - Design:
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+        - Line
+            - Design:
+                - Color (color, opacity)
+- Secondary menu
+    - Menu button
+        - Design:
+            - Text
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+            - Icon
+                - Color (color, opacity)
+                - Size (pixels)
+            - Border (color, opacity, weight)
+            - Background (color, opacity)
+    - Config:
+        - Menu buttons (max 5)
+            - Label
+            - Link
+- Product carousel
+    - Config:
+        - Number of products (max 12)
+        - Button that redirects to page to setup products for this carousel
+    - Title
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Product card
+        - Design:
+            - Product image
+                - Border (color, opacity, weight)
+                - Radius (pixel)
+        - Product details
+            - Design:
+                - Direction (justify-start, items-start, etc)
+            - Title
+                - Design:
+                    - Color (color, opacity)
+                    - Typescale (H1, H2, ..., Body, Small)
+                    - Capitalization (normal, uppercase, lowercase)
+            - Price
+                - Design:
+                    - Color (color, opacity)
+                    - Typescale (H1, H2, ..., Body, Small)
+                    - Capitalization (normal, uppercase, lowercase)
+    - Scroll button
+        - Design:
+            - Border (color, opacity, weight)
+            - Background (color, opacity)
+            - Radius (pixel)
+            - Icon
+                - Color (color, opacity)
+                - Size (pixels)
+- Banner
+    - Config:
+        - Background image
+        - Headline
+        - Subheadline
+    - Design:
+        - Border (color, opacity, weight)
+        - Radius (pixel)
+    - Headline (if present)
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Subheadline (if present)
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Button
+        - Config:
+            - Label
+            - Link
+        - Design:
+            - Border (color, opacity, weight)
+            - Background (color, opacity)
+            - Radius (pixel)
+            - Label
+                - Color (color, opacity)
+                - Typescale (H1, H2, ..., Body, Small)
+                - Capitalization (normal, uppercase, lowercase)
+- Footer
+    - Design:
+        - Border (color, opcaity, weight)
+        - Background (color, opacity)
+    - Brand
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small)
+            - Capitalization (normal, uppercase, lowercase)
+    - Socials
+        - Config:
+            - Icons or text
+            - Instagram link
+            - Facebook link
+            - LinkedIn link
+            - Pinterest link
+            - X link
+        - Design:
+            - Color (color, opacity)
+            - Typescale (H1, H2, ..., Body, Small) (if text)
+            - Capitalization (normal, uppercase, lowercase) (if text)

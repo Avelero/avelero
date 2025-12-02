@@ -50,7 +50,7 @@ export function Header({ hideUserMenu, disableLogoLink }: HeaderProps) {
         )}
 
         {/* Navigation Section */}
-        <div className="flex min-w-0 flex-1 items-center justify-between px-6">
+        <div className="flex min-w-0 flex-1 items-center justify-between px-4">
           <NavigationLabel />
           <div className="flex items-center gap-2">
             {!hideUserMenu && <UserMenu />}

@@ -43,7 +43,7 @@ export function MaterialsFrame({
 
                 {material.certification && (
                   <span className="inline-flex items-center gap-micro py-micro px-xs materials-card__certification">
-                    {showCheckIcon && <Icons.Check className="w-3 h-3" />}
+                    {showCheckIcon && <Icons.Check className="materials-card__certification-icon" />}
                     <span className="!leading-[100%]">Certified</span>
                   </span>
                 )}

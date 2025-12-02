@@ -4,38 +4,39 @@
 
 @layer base {
   :root {
-    --background: 240 100% 99%;
-    --foreground: 240 80% 4%;
-    --border: 240 11% 89%;
-    --input: 240 100% 99%;
-    --ring: 240 100% 50%;
+    --background: oklch(0.9975 0 264);
+    --foreground: oklch(0.10 0.04 264);
+    --border: oklch(0.10 0.04 264 / 0.12);
+    --input: oklch(0.9975 0 264);
+    --ring: oklch(0.45 0.3132 264);
 
-    --card: 240 100% 99%;
-    --card-foreground: 240 80% 4%;
-    --popover: 240 100% 99%;
-    --popover-foreground: 240 80% 4%;
+    --card: oklch(0.9975 0 264);
+    --card-foreground: oklch(0.10 0.04 264);
+    --popover: oklch(0.9975 0 264);
+    --popover-foreground: oklch(0.10 0.04 264);
 
-    --primary: 240 80% 4%;
-    --primary-foreground: 240 100% 99%;
-    --secondary: 240 8% 32%;
-    --secondary-foreground: 240 100% 99%;
-    --tertiary: 240 4% 51%;
-    --tertiary-foreground: 240 100% 99%;
+    --primary: oklch(0.10 0.04 264);
+    --primary-foreground: oklch(0.9975 0 264);
+    --secondary: oklch(0.50 0.03 264);
+    --secondary-foreground: oklch(0.9975 0 264);
+    --tertiary: oklch(0.62 0.03 264);
+    --tertiary-foreground: oklch(0.9975 0 264);
 
-    --muted: 240 0% 50%;
-    --muted-foreground: 240 100% 99%;
+    --muted: oklch(0.10 0.04 264 / 0.5);
+    --muted-foreground: oklch(0.9975 0 264);
 
-    --accent: 240 10% 94%;
-    --accent-foreground: 240 80% 4%;
-    --accent-light: 240 24% 97%;
-    --accent-blue: 219 100% 97.5%;
-    --accent-red: 1 100% 97%;
+    --accent-light: oklch(0.98 0 264);
+    --accent: oklch(0.97 0 264);
+    --accent-dark: oklch(0.96 0 264);
+    --accent-foreground: oklch(0.10 0.04 264);
+    --accent-blue: oklch(0.985 0.01 264);
+    --accent-red: oklch(0.985 0.01 29);
 
-    --destructive: 1 97% 30%;
-    --destructive-foreground: 240 100% 99%;
+    --destructive: oklch(0.43 0.17 29);
+    --destructive-foreground: oklch(0.9975 0 264);
 
-    --brand: 240 100% 50%;
-    --brand-foreground: 240 100% 99%;
+    --brand: oklch(0.45 0.3132 264);
+    --brand-foreground: oklch(0.9975 0 264);
 
     /* Radius */
     --radius: 0.5rem;
@@ -47,8 +48,8 @@
     @apply border-border;
   }
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: var(--background);
+    color: var(--foreground);
     position: fixed;
     width: 100%;
     height: 100%;

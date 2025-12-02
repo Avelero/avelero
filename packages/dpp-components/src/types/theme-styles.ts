@@ -45,6 +45,7 @@ export interface DesignTokens {
     border?: string;
     input?: string;
     ring?: string;
+    link?: string; // Global link color
   };
   typography?: {
     h1?: TypographyScale;
@@ -70,6 +71,10 @@ export interface ComponentStyleOverride {
   textDecoration?: string;
   whiteSpace?: string;
   textAlign?: string;
+
+  // Typescale selection (h1, h2, ..., body, body-sm, body-xs)
+  // When set, overrides individual typography properties
+  typescale?: string;
 
   // Colors
   color?: string;
@@ -126,6 +131,9 @@ export interface ComponentStyleOverride {
   transition?: string;
   boxShadow?: string;
   outline?: string;
+
+  // Icon sizing
+  size?: string | number;
 }
 
 /**
@@ -134,52 +142,74 @@ export interface ComponentStyleOverride {
  */
 export interface ThemeStyles extends DesignTokens {
   customFonts?: CustomFont[]; // Array of custom CDN fonts to load via @font-face
-  // Component class overrides - key matches the component class name in globals.css
+  
+  // Header
   header?: ComponentStyleOverride;
   "header__text-logo"?: ComponentStyleOverride;
+  
+  // Footer
   footer?: ComponentStyleOverride;
   "footer__legal-name"?: ComponentStyleOverride;
   "footer__social-icons"?: ComponentStyleOverride;
+  
+  // Product
   product__image?: ComponentStyleOverride;
   product__title?: ComponentStyleOverride;
   product__description?: ComponentStyleOverride;
   product__brand?: ComponentStyleOverride;
   "product__show-more"?: ComponentStyleOverride;
+  
+  // Product Details (simplified - container border color inherited by rows)
   "product-details"?: ComponentStyleOverride;
-  "product-details__row"?: ComponentStyleOverride;
-  "product-details__row-label"?: ComponentStyleOverride;
-  "product-details__row-value"?: ComponentStyleOverride;
-  "product-details__row-link"?: ComponentStyleOverride;
-  "menu-button"?: ComponentStyleOverride;
+  "product-details__label"?: ComponentStyleOverride;
+  "product-details__value"?: ComponentStyleOverride;
+  
+  // Primary Menu Button
+  "menu-primary-button"?: ComponentStyleOverride;
+  "menu-primary-button__icon"?: ComponentStyleOverride;
+  
+  // Secondary Menu Button
+  "menu-secondary-button"?: ComponentStyleOverride;
+  "menu-secondary-button__icon"?: ComponentStyleOverride;
+  
+  // Impact
   "impact-card"?: ComponentStyleOverride;
   "impact-card__title"?: ComponentStyleOverride;
   "impact-card__type"?: ComponentStyleOverride;
   "impact-card__value"?: ComponentStyleOverride;
   "impact-card__unit"?: ComponentStyleOverride;
+  "impact-card__icon"?: ComponentStyleOverride;
   "impact-card__eco-claim"?: ComponentStyleOverride;
+  "impact-card__eco-claim-icon"?: ComponentStyleOverride;
   "impact-card__eco-claim-text"?: ComponentStyleOverride;
-  "impact-card__icon-leaf"?: ComponentStyleOverride;
-  "impact-card__icon-drop"?: ComponentStyleOverride;
-  "impact-card__icon-recycle"?: ComponentStyleOverride;
-  "impact-card__icon-factory"?: ComponentStyleOverride;
+  
+  // Materials
   "materials-card"?: ComponentStyleOverride;
   "materials-card__title"?: ComponentStyleOverride;
   "materials-card__percentage"?: ComponentStyleOverride;
   "materials-card__type"?: ComponentStyleOverride;
   "materials-card__certification"?: ComponentStyleOverride;
+  "materials-card__certification-icon"?: ComponentStyleOverride;
   "materials-card__origin"?: ComponentStyleOverride;
   "materials-card__certification-text"?: ComponentStyleOverride;
+  
+  // Journey
   "journey-card"?: ComponentStyleOverride;
   "journey-card__title"?: ComponentStyleOverride;
   "journey-card__line"?: ComponentStyleOverride;
   "journey-card__type"?: ComponentStyleOverride;
   "journey-card__operator"?: ComponentStyleOverride;
+  
+  // Carousel
   carousel__title?: ComponentStyleOverride;
   "carousel__nav-button"?: ComponentStyleOverride;
+  "carousel__nav-button-icon"?: ComponentStyleOverride;
   "carousel__product-image"?: ComponentStyleOverride;
   "carousel__product-details"?: ComponentStyleOverride;
   "carousel__product-name"?: ComponentStyleOverride;
   "carousel__product-price"?: ComponentStyleOverride;
+  
+  // Banner
   banner?: ComponentStyleOverride;
   banner__container?: ComponentStyleOverride;
   banner__subline?: ComponentStyleOverride;

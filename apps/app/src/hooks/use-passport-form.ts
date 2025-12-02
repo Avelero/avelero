@@ -1,7 +1,7 @@
 import type { TierTwoSizeOption } from "@/components/select/size-select";
 import { useTRPC } from "@/trpc/client";
 import { useFormState } from "@/hooks/use-form-state";
-import { useUpload } from "@/hooks/use-upload";
+import { useImageUpload } from "@/hooks/use-image-upload";
 import {
   rules,
   validateForm,
@@ -204,7 +204,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { uploadFile } = useUpload();
+  const { uploadImage, buildPath } = useImageUpload();
 
   const {
     state: formValues,
@@ -741,19 +741,19 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         let primaryImageUrl: string | undefined;
         if (formValues.imageFile) {
           try {
-            const timestamp = Date.now();
-            const sanitizedFileName = formValues.imageFile.name.replace(
-              /[^a-zA-Z0-9.-]/g,
-              "_",
-            );
             const sanitizedBrandId = brandId.trim();
-            const result = await uploadFile({
+            const path = buildPath(
+              [sanitizedBrandId],
+              formValues.imageFile,
+            );
+            const result = await uploadImage({
               file: formValues.imageFile,
-              path: [sanitizedBrandId, `${timestamp}-${sanitizedFileName}`],
+              path,
               bucket: "products",
               metadata: { brand_id: sanitizedBrandId },
+              isPublic: true,
             });
-            primaryImageUrl = result.url;
+            primaryImageUrl = result.displayUrl;
           } catch (err) {
             throw new Error(
               `Failed to upload image: ${err instanceof Error ? err.message : "Unknown error"
@@ -971,7 +971,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       queryClient,
       router,
       trpc,
-      uploadFile,
+      uploadImage,
       validate,
       productUpid,
       resolvePendingColors,

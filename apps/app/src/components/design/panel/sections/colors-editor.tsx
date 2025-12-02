@@ -1,7 +1,7 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { ColorField } from "../fields";
+import { ColorInput } from "../inputs/color-input";
 
 // Color tokens configuration
 const COLOR_TOKENS = [
@@ -11,6 +11,7 @@ const COLOR_TOKENS = [
   { key: "secondary", label: "Secondary" },
   { key: "accent", label: "Accent" },
   { key: "highlight", label: "Highlight" },
+  { key: "link", label: "Link" },
   { key: "success", label: "Success" },
   { key: "border", label: "Border" },
 ] as const;
@@ -30,7 +31,7 @@ export function ColorsEditor() {
     <div className="flex-1 overflow-y-auto scrollbar-hide p-4">
       <div className="flex flex-col gap-4">
         {COLOR_TOKENS.map(({ key, label }) => (
-          <ColorField
+          <ColorInput
             key={key}
             label={label}
             value={getColorValue(key)}

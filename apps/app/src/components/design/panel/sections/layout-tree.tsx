@@ -8,7 +8,8 @@ import {
   COMPONENT_TREE,
   type ComponentDefinition,
   getComponentAncestry,
-} from "./component-registry";
+  hasEditableContent,
+} from "../../registry/component-registry";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 
 /** 
@@ -48,9 +49,23 @@ function LayoutTreeItem({
   const hasChildren = item.children && item.children.length > 0;
   const isExpanded = expandedItems.has(item.id);
   const isHidden = hiddenItems.has(item.id);
+  const isEditable = hasEditableContent(item);
 
   // Calculate indentation - 24px per level
   const indentPx = level * 24;
+
+  /**
+   * Handle click on the main item area:
+   * - If item has editable content → navigate to editor
+   * - If item only has children → toggle expand/collapse
+   */
+  const handleMainClick = () => {
+    if (isEditable) {
+      onItemClick(item.id);
+    } else if (hasChildren) {
+      onToggleExpand(item.id);
+    }
+  };
 
   return (
     <div className="flex flex-col">
@@ -87,11 +102,15 @@ function LayoutTreeItem({
             <div className="min-w-4" />
           )}
 
-          {/* Item label + chevron - main clickable area for navigation */}
+          {/* Item label + chevron - main clickable area */}
           <button
             type="button"
-            onClick={() => onItemClick(item.id)}
-            className="flex flex-row items-center justify-between text-left h-7 flex-1 type-small text-primary"
+            onClick={handleMainClick}
+            className={cn(
+              "flex flex-row items-center justify-between text-left h-7 flex-1 type-small text-primary",
+              // Only show cursor-pointer for editable items
+              isEditable ? "cursor-pointer" : "cursor-default"
+            )}
           >
             <div
               className={cn(
@@ -105,10 +124,12 @@ function LayoutTreeItem({
               </div>
               <div className="flex items-center px-2 h-7">{item.displayName}</div>
             </div>
-            {/* Navigation chevron - at far right, shows on hover */}
-            <div className="flex items-center justify-center min-w-7 h-7 opacity-0 group-hover:opacity-100">
-              <Icons.ChevronRight className="h-3.5 w-3.5 text-primary" />
-            </div>
+            {/* Navigation chevron - only show for editable items, at far right, shows on hover */}
+            {isEditable && (
+              <div className="flex items-center justify-center min-w-7 h-7 opacity-0 group-hover:opacity-100">
+                <Icons.ChevronRight className="h-3.5 w-3.5 text-primary" />
+              </div>
+            )}
           </button>
 
           {/* Visibility toggle - positioned absolutely to sit between label and chevron */}

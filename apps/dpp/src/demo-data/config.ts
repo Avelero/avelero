@@ -59,8 +59,6 @@ export const demoThemeConfig: ThemeConfig = {
   },
   
   images: {
-    productImageZoom: 100,
-    productImagePosition: 'top',
     carouselImageZoom: 100,
     carouselImagePosition: 'top',
   },

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useEffect } from "react";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { isSelectableComponent } from "@/components/design/layout/component-registry";
+import { findComponentById, hasEditableContent } from "@/components/design/registry/component-registry";
 
 /** Debounce delay in ms - hover is only shown after cursor stops for this duration */
 const HOVER_DEBOUNCE_MS = 25;
@@ -84,7 +84,8 @@ export function useSelectableDetection(
 
       while (current) {
         for (const className of current.classList) {
-          if (isSelectableComponent(className)) {
+          const component = findComponentById(className);
+          if (component && hasEditableContent(component)) {
             return className;
           }
         }

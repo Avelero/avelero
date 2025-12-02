@@ -1,13 +1,14 @@
 "use client";
 
 import { useBrandUpdateMutation } from "@/hooks/use-brand";
-import { useUpload } from "@/hooks/use-upload";
+import { useImageUpload } from "@/hooks/use-image-upload";
 import { useUserMutation } from "@/hooks/use-user";
 import { createClient } from "@v1/supabase/client";
 import { SmartAvatar as Avatar } from "@v1/ui/avatar";
 import { cn } from "@v1/ui/cn";
 import { toast } from "@v1/ui/sonner";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { removeFolderContents, validateImageFile } from "@/utils/image-upload";
 
 type Entity = "user" | "brand";
 
@@ -48,7 +49,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
     const [avatar, setAvatar] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const prevUrlRef = useRef<string | null | undefined>(undefined);
-    const { isLoading, uploadFile } = useUpload();
+  const { uploadImage, isLoading } = useImageUpload();
 
     // If parent provided a storage path, use proxy URL for optimized delivery. If absolute URL, use as-is.
     useEffect(() => {
@@ -125,22 +126,16 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
       [onUpload, entity, entityId, userMutation, brandMutation],
     );
 
-    const validate = (file: File): string | null => {
-      if (!ACCEPTED_MIME.includes(file.type)) {
-        return "Only JPG, JPEG, or PNG files are allowed.";
-      }
-      if (file.size > MAX_SIZE) {
-        return "File is larger than 4MB.";
-      }
-      return null;
-    };
-
     const handleChange = useCallback(
       async (evt: React.ChangeEvent<HTMLInputElement>) => {
         const f = evt.target.files?.[0];
         if (!f) return;
 
-        const msg = validate(f);
+        const validation = validateImageFile(f, {
+          maxBytes: MAX_SIZE,
+          allowedMime: ACCEPTED_MIME,
+        });
+        const msg = validation.valid ? null : validation.error;
         if (msg) {
           return;
         }
@@ -165,34 +160,22 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           // Clean up old avatar files before uploading new one
           const bucket = entity === "user" ? "avatars" : "brand-avatars";
           try {
-            const supabase = createClient();
-            const { data: existingFiles } = await supabase.storage
-              .from(bucket)
-              .list(folderId);
-
-            if (existingFiles && existingFiles.length > 0) {
-              const filePaths = existingFiles.map(
-                (file) => `${folderId}/${file.name}`,
-              );
-              await supabase.storage.from(bucket).remove(filePaths);
-            }
+            await removeFolderContents(bucket, folderId);
           } catch (cleanupError) {
             // Don't fail the upload if cleanup fails, just log it
             console.warn("Failed to cleanup old avatar files:", cleanupError);
           }
 
-          await uploadFile({
+          const { displayUrl } = await uploadImage({
             bucket,
             path: [folderId, filename],
             file: f,
+            isPublic: false,
           });
 
           const objectPath = [folderId, filename].join("/");
           persistUrl(objectPath);
-          const encoded = [folderId, filename]
-            .map((s) => encodeURIComponent(s))
-            .join("/");
-          setAvatar(`/api/storage/${bucket}/${encoded}`);
+          setAvatar(displayUrl);
         } catch (e) {
           toast.error("Action failed, please try again");
         } finally {
@@ -200,7 +183,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           evt.target.value = "";
         }
       },
-      [entity, entityId, uploadFile, persistUrl],
+      [entity, entityId, uploadImage, persistUrl],
     );
 
     const fileInputRef = ref || inputRef;

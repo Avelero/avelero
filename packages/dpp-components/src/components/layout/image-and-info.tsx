@@ -16,7 +16,6 @@ export function ImageAndInfo({ data, themeConfig }: Props) {
           <ProductImage
             image={data.productImage}
             alt={`${data.brandName} ${data.title}`}
-            themeConfig={themeConfig}
           />
         </div>
       </div>

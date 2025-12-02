@@ -547,7 +547,7 @@ function CategoryPopoverSelect({
                             ? "bg-accent-blue text-brand"
                             : hoveredRow === categoryId &&
                                 hoveredArea === "selection"
-                              ? "bg-border text-primary"
+                              ? "bg-accent-dark text-primary"
                               : "text-primary",
                         )}
                       >

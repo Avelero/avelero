@@ -20,7 +20,7 @@ function getHeaderClassName(
 ) {
   const stickyClass =
     meta?.sticky === "left"
-      ? "sticky left-0 z-[15] bg-background border-r-0 before:absolute before:right-0 before:top-0 before:bottom-0 before:w-px before:bg-border"
+      ? "sticky left-0 z-[15] bg-background border-r-0 before:absolute before:right-0 before:top-0 before:bottom-0 before:w-px before:bg-accent-dark"
       : meta?.sticky === "right"
         ? "sticky right-0 z-[15] border-l border-border bg-background"
         : "";

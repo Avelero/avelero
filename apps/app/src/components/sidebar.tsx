@@ -4,8 +4,13 @@ import { cn } from "@v1/ui/cn";
 import { useEffect, useRef, useState } from "react";
 import { BrandDropdown } from "./brand-dropdown";
 import { MainMenu } from "./main-menu";
+import { EditorMenu } from "./editor-menu";
 
-export function Sidebar() {
+interface SidebarProps {
+  variant?: "default" | "editor";
+}
+
+export function Sidebar({ variant = "default" }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isBrandPopupOpen, setIsBrandPopupOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -59,12 +64,19 @@ export function Sidebar() {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <BrandDropdown
-        isExpanded={isExpanded}
-        onPopupChange={handleBrandPopupChange}
-      />
+      {variant === "default" && (
+        <>
+          <BrandDropdown
+            isExpanded={isExpanded}
+            onPopupChange={handleBrandPopupChange}
+          />
+          <MainMenu isExpanded={isExpanded} />
+        </>
+      )}
 
-      <MainMenu isExpanded={isExpanded} />
+      {variant === "editor" && (
+        <EditorMenu isExpanded={isExpanded} />
+      )}
     </aside>
   );
 }

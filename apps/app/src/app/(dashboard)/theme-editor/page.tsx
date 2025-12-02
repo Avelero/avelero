@@ -1,14 +1,14 @@
-import { CreateBrandForm, CreateBrandFormSkeleton } from "@/components/forms/create-brand-form";
-import { Header } from "@/components/header";
 import type { DppData, ThemeConfig, ThemeStyles } from "@v1/dpp-components";
-import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
+import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { Sidebar } from "@/components/sidebar";
 import { DesignPageClient } from "@/components/theme-editor/design-page-client";
+import "@v1/dpp-components/globals.css";
+import { Suspense } from "react";
+import { MainSkeleton } from "@/components/main-skeleton";
+import { connection } from "next/server";
 
 export const metadata: Metadata = {
-  title: "Create a brand | Avelero",
+  title: "Theme Editor | Avelero",
 };
 
 // Demo data for the design editor preview
@@ -203,22 +203,31 @@ const demoThemeConfig: ThemeConfig = {
     ],
   };
 
-export default async function Page() {
+export default function page() {
+  return (
+    <Suspense fallback={<MainSkeleton />}>
+      <ThemeEditorPage/>
+    </Suspense>
+  );
+}
+
+async function ThemeEditorPage() {
+  await connection();
+
+  batchPrefetch([
+    trpc.workflow.list.queryOptions(),
+    trpc.user.invites.list.queryOptions(),
+  ]);
+
   return (
     <HydrateClient>
-      <div className="relative h-full">
-          <Header />
-          <div className="flex flex-row justify-start h-[calc(100%-56px)]">
-            <Sidebar />
-            <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
-              <DesignPageClient
-                initialThemeConfig={demoThemeConfig}
-                initialThemeStyles={demoThemeStyles}
-                previewData={demoDppData}
-              />
-            </div>
-          </div>
-        </div>
+      <Suspense fallback={<MainSkeleton />}>
+        <DesignPageClient
+          initialThemeConfig={demoThemeConfig}
+          initialThemeStyles={demoThemeStyles}
+          previewData={demoDppData}
+        />
+      </Suspense>
     </HydrateClient>
   );
 }

@@ -275,7 +275,8 @@ export function DesignEditorProvider({
   // Navigation State
   // ---------------------------------------------------------------------------
   const [navigation, setNavigation] = useState<NavigationState>({
-    level: "root",
+    level: "section",
+    section: "layout",
   });
 
   const navigateToSection = useCallback((section: NavigationSection) => {

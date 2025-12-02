@@ -34,7 +34,7 @@ export default function DemoPage() {
         <DemoCTA />
 
         {/* Footer */}
-        <Footer themeConfig={demoThemeConfig} />
+        <Footer themeConfig={demoThemeConfig} brandName={demoProductData.brandName} />
       </div>
     </>
   );

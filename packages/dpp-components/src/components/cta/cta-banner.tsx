@@ -5,7 +5,7 @@ interface Props {
 }
 
 export function CTABanner({ themeConfig }: Props) {
-  const { cta, branding } = themeConfig;
+  const { cta } = themeConfig;
 
   return (
     <div className="mt-2x mb-3x">
@@ -18,26 +18,13 @@ export function CTABanner({ themeConfig }: Props) {
         }}
       >
         <div className="banner__container relative z-10 flex flex-col gap-xl w-full">
-          {branding?.bannerLogoUrl && (
-            <div className="logo-container">
-              <img
-                src={branding.bannerLogoUrl}
-                alt="Brand Logo"
-                className="object-contain"
-                style={
-                  typeof branding?.bannerLogoHeight === "number" &&
-                  Number.isFinite(branding.bannerLogoHeight)
-                    ? {
-                        height: `${branding.bannerLogoHeight}px`,
-                        width: "auto",
-                      }
-                    : { width: "auto" }
-                }
-              />
-            </div>
+          {cta?.bannerHeadline && (
+            <h2 className="banner__headline text-center max-w-[600px] px-md">
+              {cta.bannerHeadline}
+            </h2>
           )}
 
-          {cta?.bannerShowSubline && cta?.bannerSubline && (
+          {cta?.bannerSubline && (
             <p className="banner__subline text-center max-w-[600px] px-md">
               {cta.bannerSubline}
             </p>

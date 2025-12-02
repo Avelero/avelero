@@ -1,11 +1,12 @@
 import type { ThemeConfig } from "@v1/dpp-components";
-import { Icons } from "@v1/ui/icons";
 
 interface Props {
   themeConfig: ThemeConfig;
+  /** Brand name to display in footer - comes from product data (showcase brand) */
+  brandName: string;
 }
 
-export function Footer({ themeConfig }: Props) {
+export function Footer({ themeConfig, brandName }: Props) {
   const { social } = themeConfig;
 
   // Helper function to validate URLs
@@ -21,49 +22,19 @@ export function Footer({ themeConfig }: Props) {
 
   // Build social media array with URL validation
   const socialMedia = [
-    {
-      show: social?.showInstagram,
-      text: "IG",
-      Icon: Icons.Instagram,
-      url: social?.instagramUrl,
-    },
-    {
-      show: social?.showFacebook,
-      text: "FB",
-      Icon: Icons.Facebook,
-      url: social?.facebookUrl,
-    },
-    {
-      show: social?.showTwitter,
-      text: "X",
-      Icon: Icons.Twitter,
-      url: social?.twitterUrl,
-    },
-    {
-      show: social?.showPinterest,
-      text: "PT",
-      Icon: Icons.Pinterest,
-      url: social?.pinterestUrl,
-    },
-    {
-      show: social?.showTiktok,
-      text: "TK",
-      Icon: Icons.TikTok,
-      url: social?.tiktokUrl,
-    },
-    {
-      show: social?.showLinkedin,
-      text: "LK",
-      Icon: Icons.Linkedin,
-      url: social?.linkedinUrl,
-    },
+    { show: social?.showInstagram, text: "IG", url: social?.instagramUrl },
+    { show: social?.showFacebook, text: "FB", url: social?.facebookUrl },
+    { show: social?.showTwitter, text: "X", url: social?.twitterUrl },
+    { show: social?.showPinterest, text: "PT", url: social?.pinterestUrl },
+    { show: social?.showTiktok, text: "TK", url: social?.tiktokUrl },
+    { show: social?.showLinkedin, text: "LK", url: social?.linkedinUrl },
   ].filter((item) => item.show && isValidUrl(item.url));
 
   return (
     <div className="w-full">
       <div className="footer flex justify-between items-center p-sm border-t">
-        {/* Brand name on the left */}
-        <div className="footer__legal-name">{social?.legalName}</div>
+        {/* Brand name on the left - comes from product data (showcase brand) */}
+        <div className="footer__legal-name">{brandName}</div>
 
         {/* Social media on the right */}
         <div className="flex items-center gap-md">
@@ -76,11 +47,7 @@ export function Footer({ themeConfig }: Props) {
               rel="noopener noreferrer"
               aria-label={`Visit ${item.text} (opens in new tab)`}
             >
-              {social?.useIcons ? (
-                <item.Icon className="w-[16px] h-[16px]" />
-              ) : (
-                <span>{item.text}</span>
-              )}
+              <span>{item.text}</span>
             </a>
           ))}
         </div>

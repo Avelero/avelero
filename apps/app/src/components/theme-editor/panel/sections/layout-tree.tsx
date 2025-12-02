@@ -9,6 +9,7 @@ import {
   type ComponentDefinition,
   getComponentAncestry,
   hasEditableContent,
+  findComponentById,
 } from "../../registry/component-registry";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 
@@ -262,15 +263,27 @@ export function LayoutTree() {
   /**
    * Handle hover on layout tree items.
    * Uses debounce so highlight only shows after cursor stops.
+   * Only triggers preview highlight for editable components (not grouping items).
    */
   const handleItemHover = useCallback(
     (id: string | null) => {
+      // Clear any pending timer first
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+
       // If leaving (id is null), clear immediately
       if (id === null) {
-        if (debounceTimerRef.current) {
-          clearTimeout(debounceTimerRef.current);
-          debounceTimerRef.current = null;
-        }
+        pendingHoverRef.current = null;
+        setHoveredComponentId(null);
+        return;
+      }
+
+      // Only trigger preview highlight for components with editable content
+      const component = findComponentById(id);
+      if (!component || !hasEditableContent(component)) {
+        // Clear hover when hovering non-editable items
         pendingHoverRef.current = null;
         setHoveredComponentId(null);
         return;
@@ -280,11 +293,6 @@ export function LayoutTree() {
       if (id === pendingHoverRef.current) return;
 
       pendingHoverRef.current = id;
-
-      // Clear existing timer
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
 
       // Start new debounce timer
       debounceTimerRef.current = setTimeout(() => {

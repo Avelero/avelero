@@ -83,22 +83,41 @@ function generateComponentCSS(
       const cssProperty = camelToKebab(key);
       const cssVarName = `--${prefix}-${cssProperty}`;
 
-      let cssValue = String(value);
+      let cssValue: string;
 
+      // Handle borderRadius object (4-corner values)
+      if (
+        key === "borderRadius" &&
+        typeof value === "object" &&
+        value !== null &&
+        "topLeft" in value
+      ) {
+        const r = value as {
+          topLeft: number;
+          topRight: number;
+          bottomLeft: number;
+          bottomRight: number;
+        };
+        // CSS shorthand: border-radius: TL TR BR BL
+        cssValue = `${r.topLeft}px ${r.topRight}px ${r.bottomRight}px ${r.bottomLeft}px`;
+      }
       // Add font fallback for fontFamily
-      if (key === "fontFamily" && typeof value === "string") {
+      else if (key === "fontFamily" && typeof value === "string") {
         const fallback = getFontFallback(value);
         cssValue = `"${value}", ${fallback}`;
       }
-
       // Add units for numeric values based on property type
-      if (typeof value === "number") {
+      else if (typeof value === "number") {
         if (key === "letterSpacing") {
           cssValue = `${value}px`;
         } else if (PX_UNIT_PROPERTIES.has(key)) {
           cssValue = `${value}px`;
+        } else {
+          // lineHeight, opacity, fontWeight remain unitless
+          cssValue = String(value);
         }
-        // lineHeight, opacity, fontWeight remain unitless
+      } else {
+        cssValue = String(value);
       }
 
       vars.push(`${cssVarName}: ${cssValue}`);

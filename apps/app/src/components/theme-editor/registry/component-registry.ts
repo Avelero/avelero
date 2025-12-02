@@ -5,7 +5,6 @@
  * - Component hierarchy (what's nested in what)
  * - Display names for the UI
  * - Which style fields (ThemeStyles) are editable per component
- * - Which config fields (ThemeConfig) are editable per component
  * - Which components can be toggled visible/hidden
  *
  * ## Design Principles
@@ -22,8 +21,11 @@
  *    sub-elements like "Text" or "Icon" become sections in the parent's editor using
  *    the `section` property on StyleField.
  *
- * 5. **Pure groupings just expand** - Items without styleFields/configFields only
+ * 5. **Pure groupings just expand** - Items without styleFields only
  *    expand/collapse on click, they don't navigate to an editor.
+ *
+ * 6. **Content fields are managed separately** - All ThemeConfig content (logos,
+ *    menus, social links, etc.) is managed on the /design/content page, not here.
  */
 
 // =============================================================================
@@ -54,26 +56,6 @@ export interface StyleField {
    * Example sections: "Text", "Icon", "Background", "Border"
    */
   section?: string;
-}
-
-export type ConfigFieldType =
-  | "text"
-  | "url"
-  | "image"
-  | "number"
-  | "toggle"
-  | "select"
-  | "menu-items";
-
-export interface ConfigField {
-  type: ConfigFieldType;
-  /**
-   * Path into ThemeConfig object, e.g. "branding.headerLogoUrl"
-   */
-  path: string;
-  label: string;
-  placeholder?: string;
-  options?: Array<{ value: string; label: string }>;
 }
 
 export interface ComponentDefinition {
@@ -110,11 +92,6 @@ export interface ComponentDefinition {
   styleFields?: StyleField[];
 
   /**
-   * Content/config fields from ThemeConfig
-   */
-  configFields?: ConfigField[];
-
-  /**
    * If true, this component only serves to group children in the tree.
    * It will expand/collapse on click instead of navigating to an editor.
    * - No chevronRight icon shown
@@ -141,9 +118,30 @@ export const TYPESCALE_OPTIONS = [
 ];
 
 export const CAPITALIZATION_OPTIONS = [
-  { value: "none", label: "Normal" },
+  { value: "none", label: "None" },
+  { value: "capitalize", label: "Capitalize" },
   { value: "uppercase", label: "Uppercase" },
   { value: "lowercase", label: "Lowercase" },
+];
+
+export const FLEX_DIRECTION_OPTIONS = [
+  { value: "column", label: "Vertical" },
+  { value: "row", label: "Horizontal" },
+];
+
+export const ALIGN_ITEMS_OPTIONS = [
+  { value: "flex-start", label: "Start" },
+  { value: "center", label: "Center" },
+  { value: "flex-end", label: "End" },
+  { value: "stretch", label: "Stretch" },
+];
+
+export const JUSTIFY_CONTENT_OPTIONS = [
+  { value: "flex-start", label: "Start" },
+  { value: "center", label: "Center" },
+  { value: "flex-end", label: "End" },
+  { value: "space-between", label: "Space Between" },
+  { value: "space-around", label: "Space Around" },
 ];
 
 // =============================================================================
@@ -157,12 +155,17 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   {
     id: "header",
     displayName: "Header",
-    configFields: [
-      { type: "image", path: "branding.headerLogoUrl", label: "Logo" },
-    ],
     styleFields: [
-      { type: "color", path: "header.borderColor", label: "Border Color" },
-      { type: "color", path: "header.backgroundColor", label: "Background" },
+      {
+        type: "color",
+        path: "header.borderColor",
+        label: "Border Color",
+      },
+      {
+        type: "color",
+        path: "header.backgroundColor",
+        label: "Background",
+      },
     ],
   },
 
@@ -198,7 +201,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         id: "product__brand",
         displayName: "Brand Name",
         styleFields: [
-          { type: "color", path: "product__brand.color", label: "Color" },
+          {
+            type: "color",
+            path: "product__brand.color",
+            label: "Color",
+          },
           {
             type: "typescale",
             path: "product__brand.typescale",
@@ -216,7 +223,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         id: "product__title",
         displayName: "Product Title",
         styleFields: [
-          { type: "color", path: "product__title.color", label: "Color" },
+          {
+            type: "color",
+            path: "product__title.color",
+            label: "Color",
+          },
           {
             type: "typescale",
             path: "product__title.typescale",
@@ -234,7 +245,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         id: "product__description",
         displayName: "Product Description",
         styleFields: [
-          { type: "color", path: "product__description.color", label: "Color" },
+          {
+            type: "color",
+            path: "product__description.color",
+            label: "Color",
+          },
           {
             type: "typescale",
             path: "product__description.typescale",
@@ -252,7 +267,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         id: "product__show-more",
         displayName: "Show More",
         styleFields: [
-          { type: "color", path: "product__show-more.color", label: "Color" },
+          {
+            type: "color",
+            path: "product__show-more.color",
+            label: "Color",
+          },
         ],
       },
     ],
@@ -338,60 +357,51 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
     displayName: "First Menu",
     canToggleVisibility: true,
     visibilityPath: "sections.showPrimaryMenu",
-    configFields: [
-      { type: "menu-items", path: "menus.primary", label: "Menu Items" },
-    ],
-    children: [
+    styleFields: [
+      // Border & Background
       {
-        id: "menu-primary-button",
-        displayName: "Menu Button",
-        styleFields: [
-          // Border & Background
-          {
-            type: "color",
-            path: "menu-primary-button.borderColor",
-            label: "Border Color",
-          },
-          {
-            type: "color",
-            path: "menu-primary-button.backgroundColor",
-            label: "Background",
-          },
-          // Text section
-          {
-            type: "color",
-            path: "menu-primary-button.color",
-            label: "Color",
-            section: "Text",
-          },
-          {
-            type: "typescale",
-            path: "menu-primary-button.typescale",
-            label: "Typescale",
-            section: "Text",
-          },
-          {
-            type: "select",
-            path: "menu-primary-button.textTransform",
-            label: "Capitalization",
-            section: "Text",
-            options: CAPITALIZATION_OPTIONS,
-          },
-          // Icon section
-          {
-            type: "color",
-            path: "menu-primary-button__icon.color",
-            label: "Color",
-            section: "Icon",
-          },
-          {
-            type: "number",
-            path: "menu-primary-button__icon.size",
-            label: "Size",
-            section: "Icon",
-            unit: "px",
-          },
-        ],
+        type: "color",
+        path: "menu-primary-button.borderColor",
+        label: "Border Color",
+      },
+      {
+        type: "color",
+        path: "menu-primary-button.backgroundColor",
+        label: "Background",
+      },
+      // Text section
+      {
+        type: "color",
+        path: "menu-primary-button.color",
+        label: "Color",
+        section: "Text",
+      },
+      {
+        type: "typescale",
+        path: "menu-primary-button.typescale",
+        label: "Typescale",
+        section: "Text",
+      },
+      {
+        type: "select",
+        path: "menu-primary-button.textTransform",
+        label: "Capitalization",
+        section: "Text",
+        options: CAPITALIZATION_OPTIONS,
+      },
+      // Icon section
+      {
+        type: "color",
+        path: "menu-primary-button__icon.color",
+        label: "Color",
+        section: "Icon",
+      },
+      {
+        type: "number",
+        path: "menu-primary-button__icon.size",
+        label: "Size",
+        section: "Icon",
+        unit: "px",
       },
     ],
   },
@@ -442,22 +452,25 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
             path: "impact-card.borderRadius",
             label: "Rounding",
           },
-          // Icon section
-          {
-            type: "color",
-            path: "impact-card__icon.color",
-            label: "Color",
-            section: "Icon",
-          },
-          {
-            type: "number",
-            path: "impact-card__icon.size",
-            label: "Size",
-            section: "Icon",
-            unit: "px",
-          },
         ],
         children: [
+          {
+            id: "impact-card__icon",
+            displayName: "Icon",
+            styleFields: [
+              {
+                type: "color",
+                path: "impact-card__icon.color",
+                label: "Color",
+              },
+              {
+                type: "number",
+                path: "impact-card__icon.size",
+                label: "Size",
+                unit: "px",
+              },
+            ],
+          },
           {
             id: "impact-card__type",
             displayName: "Type",
@@ -542,22 +555,25 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
             path: "impact-card__eco-claim.borderRadius",
             label: "Rounding",
           },
-          // Icon section
-          {
-            type: "color",
-            path: "impact-card__eco-claim-icon.color",
-            label: "Color",
-            section: "Icon",
-          },
-          {
-            type: "number",
-            path: "impact-card__eco-claim-icon.size",
-            label: "Size",
-            section: "Icon",
-            unit: "px",
-          },
         ],
         children: [
+          {
+            id: "impact-card__eco-claim-icon",
+            displayName: "Icon",
+            styleFields: [
+              {
+                type: "color",
+                path: "impact-card__eco-claim-icon.color",
+                label: "Color",
+              },
+              {
+                type: "number",
+                path: "impact-card__eco-claim-icon.size",
+                label: "Size",
+                unit: "px",
+              },
+            ],
+          },
           {
             id: "impact-card__eco-claim-text",
             displayName: "Claim",
@@ -797,7 +813,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         id: "journey-card__title",
         displayName: "Title",
         styleFields: [
-          { type: "color", path: "journey-card__title.color", label: "Color" },
+          {
+            type: "color",
+            path: "journey-card__title.color",
+            label: "Color",
+          },
           {
             type: "typescale",
             path: "journey-card__title.typescale",
@@ -901,60 +921,51 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
     displayName: "Second Menu",
     canToggleVisibility: true,
     visibilityPath: "sections.showSecondaryMenu",
-    configFields: [
-      { type: "menu-items", path: "menus.secondary", label: "Menu Items" },
-    ],
-    children: [
+    styleFields: [
+      // Border & Background
       {
-        id: "menu-secondary-button",
-        displayName: "Menu Button",
-        styleFields: [
-          // Border & Background
-          {
-            type: "color",
-            path: "menu-secondary-button.borderColor",
-            label: "Border Color",
-          },
-          {
-            type: "color",
-            path: "menu-secondary-button.backgroundColor",
-            label: "Background",
-          },
-          // Text section
-          {
-            type: "color",
-            path: "menu-secondary-button.color",
-            label: "Color",
-            section: "Text",
-          },
-          {
-            type: "typescale",
-            path: "menu-secondary-button.typescale",
-            label: "Typescale",
-            section: "Text",
-          },
-          {
-            type: "select",
-            path: "menu-secondary-button.textTransform",
-            label: "Capitalization",
-            section: "Text",
-            options: CAPITALIZATION_OPTIONS,
-          },
-          // Icon section
-          {
-            type: "color",
-            path: "menu-secondary-button__icon.color",
-            label: "Color",
-            section: "Icon",
-          },
-          {
-            type: "number",
-            path: "menu-secondary-button__icon.size",
-            label: "Size",
-            section: "Icon",
-            unit: "px",
-          },
-        ],
+        type: "color",
+        path: "menu-secondary-button.borderColor",
+        label: "Border Color",
+      },
+      {
+        type: "color",
+        path: "menu-secondary-button.backgroundColor",
+        label: "Background",
+      },
+      // Text section
+      {
+        type: "color",
+        path: "menu-secondary-button.color",
+        label: "Color",
+        section: "Text",
+      },
+      {
+        type: "typescale",
+        path: "menu-secondary-button.typescale",
+        label: "Typescale",
+        section: "Text",
+      },
+      {
+        type: "select",
+        path: "menu-secondary-button.textTransform",
+        label: "Capitalization",
+        section: "Text",
+        options: CAPITALIZATION_OPTIONS,
+      },
+      // Icon section
+      {
+        type: "color",
+        path: "menu-secondary-button__icon.color",
+        label: "Color",
+        section: "Icon",
+      },
+      {
+        type: "number",
+        path: "menu-secondary-button__icon.size",
+        label: "Size",
+        section: "Icon",
+        unit: "px",
       },
     ],
   },
@@ -965,25 +976,9 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   {
     id: "carousel",
     displayName: "Product Carousel",
+    isGrouping: true,
     canToggleVisibility: true,
     visibilityPath: "sections.showSimilarProducts",
-    configFields: [
-      {
-        type: "number",
-        path: "images.carouselImageZoom",
-        label: "Image Zoom",
-      },
-      {
-        type: "select",
-        path: "images.carouselImagePosition",
-        label: "Image Position",
-        options: [
-          { value: "top", label: "Top" },
-          { value: "center", label: "Center" },
-          { value: "bottom", label: "Bottom" },
-        ],
-      },
-    ],
     children: [
       {
         id: "carousel__title",
@@ -1027,7 +1022,26 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
           {
             id: "carousel__product-details",
             displayName: "Product Details",
-            isGrouping: true,
+            styleFields: [
+              {
+                type: "select",
+                path: "carousel__product-details.flexDirection",
+                label: "Direction",
+                options: FLEX_DIRECTION_OPTIONS,
+              },
+              {
+                type: "select",
+                path: "carousel__product-details.alignItems",
+                label: "Align Items",
+                options: ALIGN_ITEMS_OPTIONS,
+              },
+              {
+                type: "select",
+                path: "carousel__product-details.justifyContent",
+                label: "Justify Content",
+                options: JUSTIFY_CONTENT_OPTIONS,
+              },
+            ],
             children: [
               {
                 id: "carousel__product-name",
@@ -1124,19 +1138,6 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
     displayName: "Banner",
     canToggleVisibility: true,
     visibilityPath: "sections.showCTABanner",
-    configFields: [
-      {
-        type: "image",
-        path: "cta.bannerBackgroundImage",
-        label: "Background Image",
-      },
-      { type: "image", path: "branding.bannerLogoUrl", label: "Logo Image" },
-      {
-        type: "number",
-        path: "branding.bannerLogoHeight",
-        label: "Logo Height",
-      },
-    ],
     styleFields: [
       {
         type: "color",
@@ -1151,16 +1152,26 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
     ],
     children: [
       {
+        id: "banner__headline",
+        displayName: "Headline",
+        styleFields: [
+          { type: "color", path: "banner__headline.color", label: "Color" },
+          {
+            type: "typescale",
+            path: "banner__headline.typescale",
+            label: "Typescale",
+          },
+          {
+            type: "select",
+            path: "banner__headline.textTransform",
+            label: "Capitalization",
+            options: CAPITALIZATION_OPTIONS,
+          },
+        ],
+      },
+      {
         id: "banner__subline",
         displayName: "Subheadline",
-        configFields: [
-          {
-            type: "toggle",
-            path: "cta.bannerShowSubline",
-            label: "Show Subheadline",
-          },
-          { type: "text", path: "cta.bannerSubline", label: "Text" },
-        ],
         styleFields: [
           { type: "color", path: "banner__subline.color", label: "Color" },
           {
@@ -1179,10 +1190,6 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
       {
         id: "banner__button",
         displayName: "Button",
-        configFields: [
-          { type: "text", path: "cta.bannerCTAText", label: "Label" },
-          { type: "url", path: "cta.bannerCTAUrl", label: "Link" },
-        ],
         styleFields: [
           // Border & Background
           {
@@ -1231,28 +1238,12 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   {
     id: "footer",
     displayName: "Footer",
-    configFields: [
-      { type: "text", path: "social.legalName", label: "Legal Name" },
-      { type: "toggle", path: "social.useIcons", label: "Use Icons" },
-      { type: "toggle", path: "social.showInstagram", label: "Show Instagram" },
-      { type: "url", path: "social.instagramUrl", label: "Instagram URL" },
-      { type: "toggle", path: "social.showFacebook", label: "Show Facebook" },
-      { type: "url", path: "social.facebookUrl", label: "Facebook URL" },
-      { type: "toggle", path: "social.showTwitter", label: "Show X/Twitter" },
-      { type: "url", path: "social.twitterUrl", label: "X/Twitter URL" },
-      {
-        type: "toggle",
-        path: "social.showPinterest",
-        label: "Show Pinterest",
-      },
-      { type: "url", path: "social.pinterestUrl", label: "Pinterest URL" },
-      { type: "toggle", path: "social.showTiktok", label: "Show TikTok" },
-      { type: "url", path: "social.tiktokUrl", label: "TikTok URL" },
-      { type: "toggle", path: "social.showLinkedin", label: "Show LinkedIn" },
-      { type: "url", path: "social.linkedinUrl", label: "LinkedIn URL" },
-    ],
     styleFields: [
-      { type: "color", path: "footer.borderColor", label: "Border Color" },
+      {
+        type: "color",
+        path: "footer.borderColor",
+        label: "Border Color",
+      },
       {
         type: "color",
         path: "footer.backgroundColor",
@@ -1295,12 +1286,6 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
             type: "typescale",
             path: "footer__social-icons.typescale",
             label: "Typescale",
-          },
-          {
-            type: "select",
-            path: "footer__social-icons.textTransform",
-            label: "Capitalization",
-            options: CAPITALIZATION_OPTIONS,
           },
         ],
       },
@@ -1371,13 +1356,15 @@ export function getAllComponentIds(
 }
 
 /**
- * Check if a component has editable content (styleFields or configFields).
+ * Check if a component has editable style fields.
  * Used to determine if clicking should navigate to editor or just expand.
  */
 export function hasEditableContent(component: ComponentDefinition): boolean {
-  const hasStyles = (component.styleFields?.length ?? 0) > 0;
-  const hasConfig = (component.configFields?.length ?? 0) > 0;
-  return hasStyles || hasConfig;
+  // Grouping-only components are never directly editable
+  if (component.isGrouping) {
+    return false;
+  }
+  return (component.styleFields?.length ?? 0) > 0;
 }
 
 /**

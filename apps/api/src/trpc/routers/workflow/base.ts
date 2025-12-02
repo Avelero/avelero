@@ -4,6 +4,7 @@ import {
   deleteBrand as deleteBrandRecord,
   eq,
   getBrandsByUserId,
+  getBrandTheme,
   getOwnerCountsByBrandIds,
   setActiveBrand,
   updateBrand as updateBrandRecord,
@@ -194,12 +195,40 @@ export const workflowDeleteProcedure = protectedProcedure
     }
   });
 
+/**
+ * Fetches the theme configuration for the active brand.
+ * Returns theme styles and config for the theme editor.
+ */
+export const workflowGetThemeProcedure = brandRequiredProcedure.query(
+  async ({ ctx }) => {
+    const { db, brandId } = ctx;
+    try {
+      const theme = await getBrandTheme(db, brandId);
+      if (!theme) {
+        return {
+          themeStyles: {},
+          themeConfig: {},
+          updatedAt: null,
+        };
+      }
+      return {
+        themeStyles: theme.themeStyles,
+        themeConfig: theme.themeConfig,
+        updatedAt: theme.updatedAt,
+      };
+    } catch (error) {
+      throw wrapError(error, "Failed to fetch theme");
+    }
+  },
+);
+
 export const workflowBaseRouter = createTRPCRouter({
   list: workflowListProcedure,
   create: workflowCreateProcedure,
   update: workflowUpdateProcedure,
   setActive: workflowSetActiveProcedure,
   delete: workflowDeleteProcedure,
+  getTheme: workflowGetThemeProcedure,
 });
 
 export type WorkflowBaseRouter = typeof workflowBaseRouter;

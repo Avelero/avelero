@@ -5,6 +5,7 @@ import { Icons } from "@v1/ui/icons";
 import { cn } from "@v1/ui/cn";
 import { Select } from "@v1/ui/select";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
+import { FontSelect } from "@/components/select/font-select";
 import { PixelInput } from "../inputs/pixel-input";
 import { FieldWrapper } from "../inputs/field-wrapper";
 import type { TypographyScale } from "@v1/dpp-components";
@@ -43,25 +44,6 @@ const LETTER_SPACING_OPTIONS = [
   { value: "-0.025em", label: "Tight" },
   { value: "0em", label: "Normal" },
   { value: "0.025em", label: "Wide" },
-];
-
-// Popular fonts for the font selector
-const FONT_OPTIONS = [
-  { value: "Inter", label: "Inter" },
-  { value: "Roboto", label: "Roboto" },
-  { value: "Open Sans", label: "Open Sans" },
-  { value: "Lato", label: "Lato" },
-  { value: "Montserrat", label: "Montserrat" },
-  { value: "Poppins", label: "Poppins" },
-  { value: "Playfair Display", label: "Playfair Display" },
-  { value: "Source Sans 3", label: "Source Sans 3" },
-  { value: "Raleway", label: "Raleway" },
-  { value: "Nunito", label: "Nunito" },
-  { value: "Work Sans", label: "Work Sans" },
-  { value: "DM Sans", label: "DM Sans" },
-  { value: "Space Grotesk", label: "Space Grotesk" },
-  { value: "Outfit", label: "Outfit" },
-  { value: "Sora", label: "Sora" },
 ];
 
 // Simple accordion item component
@@ -121,11 +103,9 @@ function TypographyScaleForm({ value, onChange }: TypographyScaleFormProps) {
     <div className="flex flex-col gap-4">
       {/* Font Family */}
       <FieldWrapper label="Font">
-        <Select
+        <FontSelect
           value={value.fontFamily || null}
           onValueChange={(v) => handleChange("fontFamily", v)}
-          options={FONT_OPTIONS}
-          searchable
           placeholder="Select font..."
           className="h-8 text-sm"
         />

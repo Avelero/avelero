@@ -132,15 +132,19 @@ export function DesignEditorProvider({
   const [themeStylesDraft, setThemeStylesDraft] =
     useState<ThemeStyles>(initialThemeStyles);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Track the last saved state to properly detect unsaved changes
+  const [savedThemeConfig, setSavedThemeConfig] = useState<ThemeConfig>(initialThemeConfig);
+  const [savedThemeStyles, setSavedThemeStyles] = useState<ThemeStyles>(initialThemeStyles);
 
   const hasUnsavedChanges =
-    JSON.stringify(themeConfigDraft) !== JSON.stringify(initialThemeConfig) ||
-    JSON.stringify(themeStylesDraft) !== JSON.stringify(initialThemeStyles);
+    JSON.stringify(themeConfigDraft) !== JSON.stringify(savedThemeConfig) ||
+    JSON.stringify(themeStylesDraft) !== JSON.stringify(savedThemeStyles);
 
   const resetDrafts = useCallback(() => {
-    setThemeConfigDraft(initialThemeConfig);
-    setThemeStylesDraft(initialThemeStyles);
-  }, [initialThemeConfig, initialThemeStyles]);
+    setThemeConfigDraft(savedThemeConfig);
+    setThemeStylesDraft(savedThemeStyles);
+  }, [savedThemeConfig, savedThemeStyles]);
 
   const saveDrafts = useCallback(async () => {
     if (!brandId) return;
@@ -151,6 +155,9 @@ export function DesignEditorProvider({
         themeConfig: themeConfigDraft,
         themeStyles: themeStylesDraft,
       });
+      // Update saved state to match current drafts after successful save
+      setSavedThemeConfig(themeConfigDraft);
+      setSavedThemeStyles(themeStylesDraft);
     } finally {
       setIsSaving(false);
     }

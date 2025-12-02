@@ -16,7 +16,7 @@ export function ProductCarousel({
   products,
   themeConfig,
   imageZoom = 100,
-  imagePosition = "center",
+  imagePosition = "top",
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);

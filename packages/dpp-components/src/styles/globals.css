@@ -641,6 +641,17 @@
     justify-content: var(--banner-container-justify-content, center);
   }
   
+  .dpp-root .banner__headline {
+    font-family: var(--banner-headline-font-family, var(--type-h3-family));
+    font-size: var(--banner-headline-font-size, var(--type-h3-size));
+    font-weight: var(--banner-headline-font-weight, var(--type-h3-weight));
+    line-height: var(--banner-headline-line-height, var(--type-h3-line-height));
+    letter-spacing: var(--banner-headline-letter-spacing, var(--type-h3-letter-spacing));
+    color: var(--banner-headline-color, #FFFFFF);
+    text-transform: var(--banner-headline-text-transform, none);
+    text-decoration: var(--banner-headline-text-decoration, none);
+  }
+
   .dpp-root .banner__subline {
     font-family: var(--banner-subline-font-family, var(--type-h5-family));
     font-size: var(--banner-subline-font-size, var(--type-h5-size));

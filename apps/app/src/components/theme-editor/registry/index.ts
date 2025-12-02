@@ -5,6 +5,4 @@ export {
   hasEditableContent,
   type ComponentDefinition,
   type StyleField,
-  type ConfigField,
 } from "./component-registry";
-

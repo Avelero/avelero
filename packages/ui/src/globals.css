@@ -25,9 +25,9 @@
     --muted: oklch(0.10 0.04 264 / 0.5);
     --muted-foreground: oklch(0.9975 0 264);
 
-    --accent-light: oklch(0.98 0 264);
+    --accent-light: oklch(0.985 0 264);
     --accent: oklch(0.97 0 264);
-    --accent-dark: oklch(0.96 0 264);
+    --accent-dark: oklch(0.95 0 264);
     --accent-foreground: oklch(0.10 0.04 264);
     --accent-blue: oklch(0.985 0.01 264);
     --accent-red: oklch(0.985 0.01 29);
@@ -140,13 +140,16 @@ input:-webkit-autofill:focus-visible {
 }
 
 /* 
- * Components with internal absolute-positioned content need pseudo-element borders
- * instead of outline, so the border renders above the internal content.
+ * Components with overflow-hidden or internal absolute-positioned content need 
+ * pseudo-element borders instead of outline, so the border renders correctly
+ * without being clipped.
  */
 .product__image[data-hover-selection="true"],
 .product__image[data-selected-selection="true"],
 .product__description[data-hover-selection="true"],
-.product__description[data-selected-selection="true"] {
+.product__description[data-selected-selection="true"],
+.carousel__product-image[data-hover-selection="true"],
+.carousel__product-image[data-selected-selection="true"] {
   outline: none;
   position: relative;
 }
@@ -154,7 +157,9 @@ input:-webkit-autofill:focus-visible {
 .product__image[data-hover-selection="true"]::after,
 .product__image[data-selected-selection="true"]::after,
 .product__description[data-hover-selection="true"]::after,
-.product__description[data-selected-selection="true"]::after {
+.product__description[data-selected-selection="true"]::after,
+.carousel__product-image[data-hover-selection="true"]::after,
+.carousel__product-image[data-selected-selection="true"]::after {
   content: '';
   position: absolute;
   inset: 0;

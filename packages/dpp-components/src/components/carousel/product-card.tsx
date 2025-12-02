@@ -50,11 +50,11 @@ export function ProductCard({
           loading="lazy"
         />
       </div>
-      <div className="flex carousel__product-details gap-micro">
-        <div className="carousel__product-name truncate w-full">
+      <div className="flex carousel__product-details gap-xs">
+        <div className="carousel__product-name line-clamp-2 min-w-0">
           {product.name}
         </div>
-        <div className="carousel__product-price">
+        <div className="carousel__product-price flex-shrink-0">
           {formatPrice(product.price, product.currency)}
         </div>
       </div>

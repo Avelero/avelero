@@ -160,7 +160,7 @@ export default async function DPPPage({ params }: PageProps) {
         <ContentFrame data={productData} themeConfig={themeConfig} />
         
         {/* Footer */}
-        <Footer themeConfig={themeConfig} />
+        <Footer themeConfig={themeConfig} brandName={productData.brandName} />
       </div>
     </>
   );

@@ -31,7 +31,7 @@ export function DesignPreview() {
             position="sticky"
           />
           <ContentFrame data={previewData} themeConfig={themeConfigDraft} />
-          <Footer themeConfig={themeConfigDraft} />
+          <Footer themeConfig={themeConfigDraft} brandName={previewData.brandName} />
         </div>
       </div>
       <SaveBar />

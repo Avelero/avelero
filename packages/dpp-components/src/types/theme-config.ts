@@ -8,8 +8,6 @@ export interface ThemeConfig {
   // Branding assets
   branding: {
     headerLogoUrl: string;
-    bannerLogoUrl: string;
-    bannerLogoHeight: number;
   };
 
   // Navigation menus
@@ -21,22 +19,20 @@ export interface ThemeConfig {
   // CTA Banner configuration
   cta: {
     bannerBackgroundImage: string;
+    bannerHeadline: string;
+    bannerSubline: string;
     bannerCTAText: string;
     bannerCTAUrl: string;
-    bannerShowSubline: boolean;
-    bannerSubline: string;
   };
 
-  // Social footer configuration
+  // Social footer configuration (brand name comes from DppData.brandName)
   social: {
-    legalName: string;
     showInstagram: boolean;
     showFacebook: boolean;
     showTwitter: boolean;
     showPinterest: boolean;
     showTiktok: boolean;
     showLinkedin: boolean;
-    useIcons: boolean;
     instagramUrl: string;
     facebookUrl: string;
     twitterUrl: string;

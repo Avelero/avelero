@@ -7,8 +7,6 @@ import type { ThemeConfig } from '@v1/dpp-components';
 export const demoThemeConfig: ThemeConfig = {
   branding: {
     headerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746526939/aveleroApparelLogoBlack_iuhow7.png',
-    bannerLogoUrl: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_webp/v1746527118/aveleroApparelLogoWhite_b5drvc.png',
-    bannerLogoHeight: 40,
   },
   
   menus: {
@@ -24,21 +22,19 @@ export const demoThemeConfig: ThemeConfig = {
   
   cta: {
     bannerBackgroundImage: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745934275/cta-banner-background_o3vjjw.jpg',
+    bannerHeadline: 'Avelero Apparel',
+    bannerSubline: 'Discover our sustainable fashion collection',
     bannerCTAText: 'DISCOVER MORE',
     bannerCTAUrl: 'https://avelero.com',
-    bannerShowSubline: false,
-    bannerSubline: '',
   },
   
   social: {
-    legalName: 'Avelero Apparel',
     showInstagram: false,
     showFacebook: false,
     showTwitter: true,
     showPinterest: false,
     showTiktok: false,
     showLinkedin: true,
-    useIcons: false,
     instagramUrl: '',
     facebookUrl: '',
     twitterUrl: 'https://x.com/avelerodpp',

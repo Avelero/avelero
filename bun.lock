@@ -192,6 +192,7 @@
       "name": "@v1/db",
       "version": "0.1.0",
       "dependencies": {
+        "@v1/dpp-components": "workspace:*",
         "drizzle-orm": "^0.44.7",
         "nanoid": "^5.1.6",
         "postgres": "^3.4.7",

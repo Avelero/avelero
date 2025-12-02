@@ -38,31 +38,42 @@ export const saveThemeAction = authActionClient
     const stylesheetPath = `brand-${brandId}/theme.css`;
     const now = new Date().toISOString();
 
-    // Upload CSS overrides to Supabase storage (bucket must already exist)
+    // Try to upload CSS to Supabase storage (non-blocking - we still save to DB even if this fails)
+    let stylesheetUploaded = false;
     if (stylesheetContent) {
-      const file = new Blob([stylesheetContent], { type: "text/css" });
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET_NAME)
-        .upload(stylesheetPath, file, {
-          upsert: true,
-          contentType: "text/css",
-        });
+      try {
+        const file = new Blob([stylesheetContent], { type: "text/css" });
+        const { error: uploadError } = await supabase.storage
+          .from(BUCKET_NAME)
+          .upload(stylesheetPath, file, {
+            upsert: true,
+            contentType: "text/css",
+          });
 
-      if (uploadError) {
-        throw new Error(
-          `Failed to upload theme stylesheet: ${uploadError.message}`,
+        if (uploadError) {
+          console.warn(
+            `[save-theme] Storage upload warning: ${uploadError.message}`,
+          );
+        } else {
+          stylesheetUploaded = true;
+        }
+      } catch (storageError) {
+        // Log but don't fail - the DB save is more important
+        console.warn(
+          `[save-theme] Storage upload failed (bucket may not exist): ${storageError}`,
         );
       }
     }
 
-    // Persist JSON + derived paths into brand_theme (new table)
-    const { error: dbError } = await (supabase as any)
+    // Persist JSON + derived paths into brand_theme
+    const { error: dbError } = await supabase
       .from("brand_theme")
       .upsert({
         brand_id: brandId,
         theme_styles: themeStyles ?? {},
         theme_config: themeConfig ?? {},
-        stylesheet_path: stylesheetPath,
+        // Only set stylesheet_path if upload succeeded
+        stylesheet_path: stylesheetUploaded ? stylesheetPath : null,
         google_fonts_url: googleFontsUrl || null,
         updated_at: now,
       });
@@ -75,7 +86,7 @@ export const saveThemeAction = authActionClient
 
     return {
       brandId,
-      stylesheetPath,
+      stylesheetPath: stylesheetUploaded ? stylesheetPath : null,
       googleFontsUrl,
       updatedAt: now,
     };

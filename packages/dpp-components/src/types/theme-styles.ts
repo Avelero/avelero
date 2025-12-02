@@ -86,7 +86,12 @@ export interface ComponentStyleOverride {
   borderColor?: string;
   borderWidth?: string | number;
   borderStyle?: string;
-  borderRadius?: string | number;
+  borderRadius?: string | number | {
+    topLeft: number;
+    topRight: number;
+    bottomLeft: number;
+    bottomRight: number;
+  };
 
   // Layout
   display?: string;
@@ -212,6 +217,7 @@ export interface ThemeStyles extends DesignTokens {
   // Banner
   banner?: ComponentStyleOverride;
   banner__container?: ComponentStyleOverride;
+  banner__headline?: ComponentStyleOverride;
   banner__subline?: ComponentStyleOverride;
   banner__button?: ComponentStyleOverride;
 }

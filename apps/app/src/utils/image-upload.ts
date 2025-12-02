@@ -1,12 +1,13 @@
 import { createClient } from "@v1/supabase/client";
 
-export const DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB
+export const DEFAULT_MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
 export const DEFAULT_ALLOWED_MIME = [
   "image/jpeg",
   "image/jpg",
   "image/png",
   "image/webp",
   "image/avif",
+  "image/svg",
 ] as const;
 
 export type ImageValidationResult =

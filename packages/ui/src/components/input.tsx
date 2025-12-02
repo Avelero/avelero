@@ -1,8 +1,25 @@
+import { type VariantProps, cva } from "class-variance-authority";
 import * as React from "react";
 import { cn } from "../utils";
 
+const inputVariants = cva(
+  "flex w-full rounded-none border border-border bg-background px-3 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-tertiary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+  {
+    variants: {
+      variant: {
+        default: "py-2 !type-p",
+        small: "py-1.5 !type-small",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  },
+);
+
 export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+  extends React.InputHTMLAttributes<HTMLInputElement>,
+    VariantProps<typeof inputVariants> {
   /**
    * When true and type="number", allows empty input while typing.
    * Defaults to the provided defaultValue (or 0) on blur if left empty.
@@ -16,7 +33,7 @@ export interface InputProps
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, allowEmpty, emptyDefault = 0, value, onChange, onBlur, onFocus, min, max, ...props }, ref) => {
+  ({ className, type, allowEmpty, emptyDefault = 0, variant, value, onChange, onBlur, onFocus, min, max, ...props }, ref) => {
     // For numeric inputs with allowEmpty, track local string state
     const [localValue, setLocalValue] = React.useState<string>(
       value !== undefined ? String(value) : ""
@@ -88,11 +105,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <input
         type={type}
-        className={cn(
-          "flex w-full rounded-none border border-border bg-background px-3 py-2 !type-p ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-tertiary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 transition-colors",
-          "[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-          className,
-        )}
+        className={cn(inputVariants({ variant, className }))}
         ref={ref}
         value={isNumericWithEmpty ? localValue : value}
         onChange={handleChange}
@@ -107,4 +120,4 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 );
 Input.displayName = "Input";
 
-export { Input };
+export { Input, inputVariants };

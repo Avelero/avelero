@@ -11,7 +11,7 @@ const labelVariants = cva(
     variants: {
       variant: {
         default: "type-p",
-        small: "type-small text-secondary",
+        small: "type-small",
       },
     },
     defaultVariants: {

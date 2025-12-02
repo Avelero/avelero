@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useEffect } from "react";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { findComponentById, hasEditableContent } from "@/components/design/registry/component-registry";
+import { findComponentById, hasEditableContent } from "@/components/theme-editor/registry/component-registry";
 
 /** Debounce delay in ms - hover is only shown after cursor stops for this duration */
 const HOVER_DEBOUNCE_MS = 25;

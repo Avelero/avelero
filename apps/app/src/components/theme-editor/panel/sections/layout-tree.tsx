@@ -88,7 +88,7 @@ function LayoutTreeItem({
             <button
               type="button"
               onClick={() => onToggleExpand(item.id)}
-              className="flex items-center justify-center min-w-4 h-7 hover:bg-border transition-colors duration-100"
+              className="flex items-center justify-center min-w-4 h-7 hover:bg-accent-dark transition-colors duration-100"
               aria-label={isExpanded ? "Collapse" : "Expand"}
             >
               <Icons.ChevronRight
@@ -141,7 +141,7 @@ function LayoutTreeItem({
                 onToggleVisibility(item.id);
               }}
               className={cn(
-                "absolute right-7 flex items-center justify-center w-7 h-7 hover:bg-border z-10",
+                "absolute right-7 flex items-center justify-center w-7 h-7 hover:bg-accent-dark z-10",
                 // Always visible if hidden, otherwise only on hover
                 isHidden ? "opacity-100" : "opacity-0 group-hover:opacity-100"
               )}

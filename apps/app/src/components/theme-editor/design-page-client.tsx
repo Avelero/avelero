@@ -2,7 +2,7 @@
 
 import type { DppData, ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 import { DesignEditorProvider } from "@/contexts/design-editor-provider";
-import { DesignPanel } from "./panel";
+import { DesignPanel } from "../theme-editor/panel";
 import { DesignPreview } from "./design-preview";
 import { useUserQuery } from "@/hooks/use-user";
 

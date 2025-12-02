@@ -5,6 +5,8 @@ import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { useImageUpload } from "@/hooks/use-image-upload";
 import { validateImageFile, type ImageValidationResult } from "@/utils/image-upload";
+import { toast } from "@v1/ui/sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 
 type UploaderMode = "public" | "private";
 
@@ -46,6 +48,7 @@ export function ImageUploader({
   );
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, isLoading } = useImageUpload();
   const lastObjectUrl = useRef<string | null>(null);
@@ -53,6 +56,12 @@ export function ImageUploader({
   useEffect(() => {
     setPreviewUrl(initialUrl?.trim() || null);
   }, [initialUrl]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   const effectiveWidth = useMemo(
     () => (typeof width === "number" ? `${width}px` : width),
@@ -157,94 +166,136 @@ export function ImageUploader({
 
   const disabledUpload = disabled || isLoading;
 
+  const handleContainerClick = () => {
+    if (disabledUpload) return;
+    if (previewUrl) {
+      setPopoverOpen(true);
+    } else {
+      inputRef.current?.click();
+    }
+  };
+
+  const handleChangeImage = () => {
+    setPopoverOpen(false);
+    inputRef.current?.click();
+  };
+
+  const handleDeleteImage = () => {
+    setPopoverOpen(false);
+    clearImage();
+  };
+
   return (
     <div className={cn("space-y-1.5", className)}>
       {label && <span className="type-small text-secondary">{label}</span>}
-      <div
-        role="button"
-        tabIndex={0}
-        style={{ width: effectiveWidth, height: effectiveHeight }}
-        className={cn(
-          "relative border border-dashed transition-colors duration-200 cursor-pointer",
-          isDragging
-            ? "border-brand bg-accent"
-            : "border-border hover:border-tertiary hover:bg-accent",
-          disabledUpload && "opacity-60 cursor-not-allowed bg-background",
-        )}
-        onClick={() => {
-          if (!disabledUpload) inputRef.current?.click();
-        }}
-        onKeyDown={(e) => {
-          if (disabledUpload) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
-        onDragOver={(e) => {
-          if (disabledUpload) return;
-          e.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={(e) => {
-          if (disabledUpload) return;
-          e.preventDefault();
-          setIsDragging(false);
-        }}
-        onDrop={disabledUpload ? undefined : handleDrop}
-        aria-label={label}
-      >
-        {previewUrl ? (
-          <div className="relative w-full h-full">
-            <img src={previewUrl} alt="Preview" className="w-full h-full object-contain" />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                clearImage();
-              }}
-              className="absolute top-2 right-2 p-1.5 bg-background/80 hover:bg-background rounded transition-colors shadow-sm"
-              aria-label="Remove image"
-            >
-              <Icons.X className="h-4 w-4 text-primary" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-tertiary px-4">
-            <p className="type-small text-center">
-              {disabledUpload
-                ? "Upload disabled"
-                : "Drop image here or click to upload."}
-            </p>
-          </div>
-        )}
+      <Popover open={popoverOpen} onOpenChange={(open) => {
+        // Only allow opening if there's an image
+        if (open && !previewUrl) return;
+        setPopoverOpen(open);
+      }}>
+        <PopoverTrigger asChild>
+          <div
+            role="button"
+            tabIndex={0}
+            style={{ width: effectiveWidth, height: effectiveHeight }}
+            className={cn(
+              "relative border transition-colors duration-200 cursor-pointer overflow-hidden group",
+              previewUrl
+                ? "border-border"
+                : isDragging
+                  ? "border-dashed border-brand bg-accent"
+                  : "border-dashed border-border hover:border-tertiary hover:bg-accent",
+              disabledUpload && "opacity-60 cursor-not-allowed bg-background",
+            )}
+            onClick={handleContainerClick}
+            onKeyDown={(e) => {
+              if (disabledUpload) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleContainerClick();
+              }
+            }}
+            onDragOver={(e) => {
+              if (disabledUpload) return;
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={(e) => {
+              if (disabledUpload) return;
+              e.preventDefault();
+              setIsDragging(false);
+            }}
+            onDrop={disabledUpload ? undefined : handleDrop}
+            aria-label={label}
+          >
+            {previewUrl ? (
+              <div className="relative w-full h-full">
+                {/* Image with inner shadow */}
+                <div className="absolute inset-x-0 top-1 bottom-1 flex items-center justify-center">
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="h-full w-auto max-w-none object-contain"
+                  />
+                </div>
+                {/* Inner shadow overlay */}
+                <div className="absolute inset-0 shadow-[inset_0_-24px_24px_rgba(0,0,0,0.12)] pointer-events-none" />
+                {/* Hover overlay with "Change" text */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-150 flex items-center justify-center">
+                  <span className="text-primary-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    Change
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-2 text-tertiary px-4">
+                <p className="type-small text-center">
+                  {disabledUpload
+                    ? "Upload disabled"
+                    : "Drop image here or click to upload."}
+                </p>
+              </div>
+            )}
 
-        {isLoading && (
-          <div className="absolute inset-0 bg-background/70 backdrop-blur-[1px] flex items-center justify-center">
-            <div className="flex items-center gap-2 type-small text-primary">
-              <Icons.Loader className="h-4 w-4 animate-spin" />
-              Uploading...
-            </div>
-          </div>
-        )}
+            {isLoading && (
+              <div className="absolute inset-0 bg-background/70 backdrop-blur-[1px] flex items-center justify-center">
+                <div className="flex items-center gap-2 type-small text-primary">
+                  <Icons.Loader className="h-4 w-4 animate-spin" />
+                  Uploading...
+                </div>
+              </div>
+            )}
 
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-      </div>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+          </div>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[140px]">
+          <button
+            type="button"
+            onClick={handleChangeImage}
+            className="w-full flex items-center gap-2 px-3 py-2 type-p text-primary hover:bg-accent transition-colors"
+          >
+            <Icons.Upload className="h-4 w-4" />
+            Change
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteImage}
+            className="w-full flex items-center gap-2 px-3 py-2 type-p text-destructive hover:bg-accent transition-colors"
+          >
+            <Icons.Trash2 className="h-4 w-4" />
+            Delete
+          </button>
+        </PopoverContent>
+      </Popover>
 
       {helperText && <span className="type-small text-tertiary">{helperText}</span>}
-
-      {error && (
-        <div className="flex items-center gap-2 rounded border border-destructive/60 bg-destructive/5 px-2 py-1.5">
-          <Icons.AlertCircle className="h-4 w-4 text-destructive" />
-          <span className="type-small text-destructive">{error}</span>
-        </div>
-      )}
     </div>
   );
 }

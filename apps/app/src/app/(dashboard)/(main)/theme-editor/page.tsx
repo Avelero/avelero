@@ -1,11 +1,7 @@
 import type { DppData, ThemeConfig, ThemeStyles } from "@v1/dpp-components";
-import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { DesignPageClient } from "@/components/theme-editor/design-page-client";
 import "@v1/dpp-components/globals.css";
-import { Suspense } from "react";
-import { MainSkeleton } from "@/components/main-skeleton";
-import { connection } from "next/server";
 
 export const metadata: Metadata = {
   title: "Theme Editor | Avelero",
@@ -203,31 +199,12 @@ const demoThemeConfig: ThemeConfig = {
     ],
   };
 
-export default function page() {
+export default function ThemeEditorPage() {
   return (
-    <Suspense fallback={<MainSkeleton />}>
-      <ThemeEditorPage/>
-    </Suspense>
-  );
-}
-
-async function ThemeEditorPage() {
-  await connection();
-
-  batchPrefetch([
-    trpc.workflow.list.queryOptions(),
-    trpc.user.invites.list.queryOptions(),
-  ]);
-
-  return (
-    <HydrateClient>
-      <Suspense fallback={<MainSkeleton />}>
-        <DesignPageClient
-          initialThemeConfig={demoThemeConfig}
-          initialThemeStyles={demoThemeStyles}
-          previewData={demoDppData}
-        />
-      </Suspense>
-    </HydrateClient>
+    <DesignPageClient
+      initialThemeConfig={demoThemeConfig}
+      initialThemeStyles={demoThemeStyles}
+      previewData={demoDppData}
+    />
   );
 }

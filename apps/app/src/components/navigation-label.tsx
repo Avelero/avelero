@@ -20,7 +20,9 @@ const ROUTE_LABELS: Record<string, string> = {
 
   // Special pages (no parents)
   "/setup": "Setup",
-  "/create-brand": "Create Brand",
+  "/create-brand": "Create brand",
+  "/theme-editor": "Theme editor",
+  "/invites": "Invites",
 
   // Passports children
   "/passports/create": "Create",
@@ -28,7 +30,8 @@ const ROUTE_LABELS: Record<string, string> = {
 
   // Design children
   "/design": "Design",
-  "/design/theme": "Theme",
+  "/design/content": "Content",
+  "/design/content/products": "Products",
 
   // Account children
   "/account/brands": "Brands",

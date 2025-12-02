@@ -1,0 +1,63 @@
+import { Header } from "@/components/header";
+import { FloatingProgressWidget } from "@/components/import/floating-progress-widget";
+import { ImportReviewDialog } from "@/components/import/import-review-dialog";
+import { Sidebar } from "@/components/sidebar";
+import { ImportProgressProvider } from "@/contexts/import-progress-context";
+import { getQueryClient, trpc } from "@/trpc/server";
+
+/**
+ * Sidebar Layout - Chrome Rendering
+ * 
+ * This layout renders the main application chrome (Header, Sidebar)
+ * and import-related providers/dialogs.
+ * 
+ * Auth bootstrap is handled by (dashboard)/layout.tsx.
+ * Redirect logic is handled by (main)/layout.tsx.
+ * 
+ * This layout also seeds the query cache for client components
+ * (BrandDropdown, UserMenu, etc.) that need the user/brands data.
+ */
+export default async function SidebarLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const queryClient = getQueryClient();
+
+  // Fetch data (will use cached result from parent layouts)
+  const workflowInit = await queryClient.fetchQuery(
+    trpc.composite.workflowInit.queryOptions(),
+  );
+
+  // Seed caches for client components (Header, Sidebar, BrandDropdown, etc.)
+  queryClient.setQueryData(
+    trpc.user.get.queryOptions().queryKey,
+    workflowInit.user,
+  );
+
+  queryClient.setQueryData(
+    trpc.workflow.list.queryOptions().queryKey,
+    workflowInit.brands,
+  );
+
+  queryClient.setQueryData(
+    trpc.user.invites.list.queryOptions().queryKey,
+    workflowInit.myInvites,
+  );
+
+  return (
+    <ImportProgressProvider>
+      <div className="relative h-full">
+        <Header />
+        <div className="flex flex-row justify-start h-[calc(100%-56px)]">
+          <Sidebar />
+          <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
+            {children}
+          </div>
+        </div>
+        <FloatingProgressWidget />
+        <ImportReviewDialog />
+      </div>
+    </ImportProgressProvider>
+  );
+}

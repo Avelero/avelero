@@ -2,16 +2,13 @@
 
 import { SidebarButton } from "./sidebar-button";
 import { useDesignEditor, type NavigationSection } from "@/contexts/design-editor-provider";
+import { Icons } from "@v1/ui/icons";
+import type { LucideIcon } from "lucide-react";
 
-// Using existing animations - can be updated later with more specific ones
-import layoutAnimation from "@/animations/system-regular-727-spinner-dashes-hover-rotation.json";
-import typographyAnimation from "@/animations/system-regular-63-settings-cog-hover-cog-1.json";
-import colorsAnimation from "@/animations/system-regular-10-analytics-hover-analytics.json";
-
-const items: Array<{ id: NavigationSection; name: string; animation: object }> = [
-  { id: "layout", name: "Layout", animation: layoutAnimation },
-  { id: "typography", name: "Typography", animation: typographyAnimation },
-  { id: "colors", name: "Colors", animation: colorsAnimation },
+const items: Array<{ id: NavigationSection; name: string; icon: LucideIcon }> = [
+  { id: "layout", name: "Layout", icon: Icons.GalleryVertical },
+  { id: "typography", name: "Typography", icon: Icons.Type },
+  { id: "colors", name: "Colors", icon: Icons.Palette },
 ];
 
 interface EditorMenuProps {
@@ -28,7 +25,7 @@ export function EditorMenu({ isExpanded }: EditorMenuProps) {
           <SidebarButton
             key={item.id}
             item={{ name: item.name }}
-            animationData={item.animation}
+            icon={item.icon}
             isActive={navigation.section === item.id}
             isExpanded={isExpanded}
             onClick={() => navigateToSection(item.id)}
@@ -38,4 +35,3 @@ export function EditorMenu({ isExpanded }: EditorMenuProps) {
     </nav>
   );
 }
-

@@ -25,7 +25,7 @@ export function Header({ hideUserMenu, disableLogoLink, variant = "default" }: H
         {isEditor ? (
           <Link
             href="/design"
-            className="flex shrink-0 items-center justify-center border-r hover:bg-accent transition-colors focus-visible:outline-none"
+            className="flex shrink-0 items-center justify-center border-r border-b hover:bg-accent transition-colors focus-visible:outline-none"
             style={{ width: "56px", height: "56px" }}
             prefetch
           >
@@ -63,11 +63,12 @@ export function Header({ hideUserMenu, disableLogoLink, variant = "default" }: H
 
         {/* Navigation Section */}
         <div className="flex min-w-0 flex-1 items-center justify-between px-4">
-          {isEditor ? (
-            <EditorHeaderStatus />
-          ) : (
+          <div className="flex items-center gap-2">
             <NavigationLabel />
-          )}
+            {isEditor ? (
+              <EditorHeaderStatus />
+            ) : null}
+          </div>
           <div className="flex items-center gap-2">
             {!hideUserMenu && <UserMenu />}
           </div>
@@ -79,11 +80,14 @@ export function Header({ hideUserMenu, disableLogoLink, variant = "default" }: H
 
 function EditorHeaderStatus() {
   return (
-    <div className="flex items-center gap-3">
-      {/* Live indicator */}
-      <div className="flex items-center gap-2 px-2.5 py-1 bg-success/10 rounded-full">
-        <div className="h-1.5 w-1.5 rounded-full bg-success" />
-        <span className="text-xs font-medium text-success">Live</span>
+    <div className="flex items-center gap-2">
+      <div className="relative flex items-center justify-center px-2 h-6 rounded-full bg-success">
+        <div className="flex items-center justify-center h-[12px] w-[12px]">
+          <div className="h-2.5 w-2.5 rounded-full bg-success-foreground"/>
+        </div>
+        <p className="type-small leading-none text-success-foreground ml-1.5">
+          Live
+        </p>
       </div>
     </div>
   );

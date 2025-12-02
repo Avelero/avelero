@@ -4,6 +4,7 @@ import { cn } from "@v1/ui/cn";
 import { LordIcon, type LottieRefCurrentProps } from "@v1/ui/lord-icon";
 import Link from "next/link";
 import { useRef } from "react";
+import type { LucideIcon } from "lucide-react";
 
 interface ItemData {
   path?: string;
@@ -13,7 +14,8 @@ interface ItemData {
 
 interface SidebarButtonProps {
   item: ItemData;
-  animationData: object;
+  animationData?: object;
+  icon?: LucideIcon;
   isActive: boolean;
   isExpanded: boolean;
   isItemExpanded?: boolean;
@@ -25,6 +27,7 @@ interface SidebarButtonProps {
 export function SidebarButton({
   item,
   animationData,
+  icon: Icon,
   isActive,
   isExpanded,
   isItemExpanded, // reserved for nested items
@@ -79,13 +82,17 @@ export function SidebarButton({
             : "text-secondary group-hover:text-primary",
         )}
       >
-        <LordIcon
-          animationData={animationData}
-          style={{ width: 20, height: 20 }}
-          loop={false}
-          autoplay={false}
-          lottieRef={lottieRef}
-        />
+        {Icon ? (
+          <Icon className="w-5 h-5" />
+        ) : animationData ? (
+          <LordIcon
+            animationData={animationData}
+            style={{ width: 20, height: 20 }}
+            loop={false}
+            autoplay={false}
+            lottieRef={lottieRef}
+          />
+        ) : null}
       </div>
 
       {/* Label: always mounted, fades in on expand. Starts at 48px (40 icon + 8 gap). */}

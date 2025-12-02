@@ -32,6 +32,9 @@
     --accent-blue: oklch(0.985 0.01 264);
     --accent-red: oklch(0.985 0.01 29);
 
+    --success: oklch(0.935 0.094 162);
+    --success-foreground: oklch(0.45 0.083 177);
+
     --destructive: oklch(0.43 0.17 29);
     --destructive-foreground: oklch(0.9975 0 264);
 

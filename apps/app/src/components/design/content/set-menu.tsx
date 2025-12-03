@@ -24,14 +24,25 @@ import { Switch } from "@v1/ui/switch";
 import * as React from "react";
 import { createPortal } from "react-dom";
 
-interface MenuItem {
+// Internal type with ID for drag-and-drop
+interface MenuItemInternal {
   id: string;
+  label: string;
+  url: string;
+}
+
+// External type from ThemeConfig
+interface MenuItem {
   label: string;
   url: string;
 }
 
 interface SetMenuProps {
   menuType: "primary" | "secondary";
+  items: MenuItem[];
+  enabled: boolean;
+  onItemsChange: (items: MenuItem[]) => void;
+  onEnabledChange: (enabled: boolean) => void;
 }
 
 function DraggableMenuItem({
@@ -46,7 +57,7 @@ function DraggableMenuItem({
   onEditLabelChange,
   onEditUrlChange,
 }: {
-  item: MenuItem;
+  item: MenuItemInternal;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onUpdate: (id: string, label: string, url: string) => void;
@@ -165,8 +176,25 @@ function DraggableMenuItem({
   );
 }
 
-export function SetMenu({ menuType }: SetMenuProps) {
-  const [menuItems, setMenuItems] = React.useState<MenuItem[]>([]);
+export function SetMenu({
+  menuType,
+  items,
+  enabled,
+  onItemsChange,
+  onEnabledChange,
+}: SetMenuProps) {
+  // Convert external items to internal items with IDs
+  const menuItemsWithIds = React.useMemo<MenuItemInternal[]>(
+    () =>
+      items.map((item, index) => ({
+        id: `${menuType}-${index}-${item.label}`,
+        label: item.label,
+        url: item.url,
+      })),
+    [items, menuType],
+  );
+
+  // Local UI state for editing
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   const [editLabel, setEditLabel] = React.useState("");
   const [editUrl, setEditUrl] = React.useState("");
@@ -183,52 +211,57 @@ export function SetMenu({ menuType }: SetMenuProps) {
   );
 
   const activeItem = React.useMemo(
-    () => menuItems.find((item) => item.id === activeId),
-    [activeId, menuItems],
+    () => menuItemsWithIds.find((item) => item.id === activeId),
+    [activeId, menuItemsWithIds],
   );
 
   const handleDragStart = React.useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   }, []);
 
-  const handleDragEnd = React.useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
+  const handleDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      setMenuItems((items) => {
-        const oldIndex = items.findIndex((i) => i.id === active.id);
-        const newIndex = items.findIndex((i) => i.id === over.id);
+      if (over && active.id !== over.id) {
+        const oldIndex = menuItemsWithIds.findIndex((i) => i.id === active.id);
+        const newIndex = menuItemsWithIds.findIndex((i) => i.id === over.id);
 
-        const next = [...items];
+        const next = [...menuItemsWithIds];
         const [removed] = next.splice(oldIndex, 1);
         if (removed) {
           next.splice(newIndex, 0, removed);
         }
-        return next;
-      });
-    }
-    setActiveId(null);
-  }, []);
+
+        // Convert back to external format and notify parent
+        onItemsChange(next.map(({ label, url }) => ({ label, url })));
+      }
+      setActiveId(null);
+    },
+    [menuItemsWithIds, onItemsChange],
+  );
 
   const addMenuItem = () => {
-    if (menuItems.length < 5) {
-      const newItem: MenuItem = {
-        id: Date.now().toString(),
-        label: "",
-        url: "",
-      };
-      setMenuItems((prev) => [...prev, newItem]);
+    if (items.length < 5) {
+      onItemsChange([...items, { label: "", url: "" }]);
     }
   };
 
   const updateMenuItem = (id: string, label: string, url: string) => {
-    setMenuItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, label, url } : item)),
-    );
+    const index = menuItemsWithIds.findIndex((i) => i.id === id);
+    if (index !== -1) {
+      const newItems = [...items];
+      newItems[index] = { label, url };
+      onItemsChange(newItems);
+    }
   };
 
   const removeMenuItem = (id: string) => {
-    setMenuItems((prev) => prev.filter((item) => item.id !== id));
+    const index = menuItemsWithIds.findIndex((i) => i.id === id);
+    if (index !== -1) {
+      const newItems = items.filter((_, i) => i !== index);
+      onItemsChange(newItems);
+    }
     if (expandedId === id) {
       setExpandedId(null);
     }
@@ -238,7 +271,7 @@ export function SetMenu({ menuType }: SetMenuProps) {
     if (expandedId === id) {
       setExpandedId(null);
     } else {
-      const item = menuItems.find((i) => i.id === id);
+      const item = menuItemsWithIds.find((i) => i.id === id);
       if (item) {
         setEditLabel(item.label);
         setEditUrl(item.url);
@@ -252,7 +285,7 @@ export function SetMenu({ menuType }: SetMenuProps) {
     setExpandedId(null);
   };
 
-  const canAddMenuItem = menuItems.length < 5;
+  const canAddMenuItem = items.length < 5;
 
   return (
     <div className="border border-border bg-background">
@@ -260,8 +293,8 @@ export function SetMenu({ menuType }: SetMenuProps) {
         <div className="flex flex-row justify-between items-center">
           <p className="type-p !font-medium text-primary">{title}</p>
           <Switch
-            checked={true}
-            onCheckedChange={() => {}}
+            checked={enabled}
+            onCheckedChange={onEnabledChange}
             className="max-w-[250px]"
           />
         </div>
@@ -274,10 +307,10 @@ export function SetMenu({ menuType }: SetMenuProps) {
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={menuItems.map((item) => item.id)}
+            items={menuItemsWithIds.map((item) => item.id)}
             strategy={verticalListSortingStrategy}
           >
-            {menuItems.map((item) => (
+            {menuItemsWithIds.map((item) => (
               <DraggableMenuItem
                 key={item.id}
                 item={item}

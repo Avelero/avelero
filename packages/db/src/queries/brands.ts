@@ -474,3 +474,25 @@ export async function getBrandTheme(
 
   return row ?? null;
 }
+
+/**
+ * Updates the theme config (content) for a brand.
+ * Only updates the theme_config column, preserving theme_styles.
+ */
+export async function updateBrandThemeConfig(
+  db: Database,
+  brandId: string,
+  themeConfig: unknown,
+): Promise<{ success: true; updatedAt: string }> {
+  const now = new Date().toISOString();
+
+  await db
+    .update(brandTheme)
+    .set({
+      themeConfig,
+      updatedAt: now,
+    })
+    .where(eq(brandTheme.brandId, brandId));
+
+  return { success: true, updatedAt: now };
+}

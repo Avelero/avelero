@@ -1,18 +1,37 @@
 "use client";
 
-import { useState } from "react";
 import { Label } from "@v1/ui/label";
 import { Input } from "@v1/ui/input";
-import { Switch } from "@v1/ui/switch";
 
-export function SetFooter() {
-  const [instagramUrl, setInstagramUrl] = useState<string>("");
-  const [facebookUrl, setFacebookUrl] = useState<string>("");
-  const [linkedinUrl, setLinkedinUrl] = useState<string>("");
-  const [pinterestUrl, setPinterestUrl] = useState<string>("");
-  const [tiktokUrl, setTiktokUrl] = useState<string>("");
-  const [xUrl, setXUrl] = useState<string>("");
+interface SetFooterProps {
+  instagramUrl: string;
+  facebookUrl: string;
+  linkedinUrl: string;
+  pinterestUrl: string;
+  tiktokUrl: string;
+  xUrl: string;
+  onInstagramChange: (value: string) => void;
+  onFacebookChange: (value: string) => void;
+  onLinkedinChange: (value: string) => void;
+  onPinterestChange: (value: string) => void;
+  onTiktokChange: (value: string) => void;
+  onXChange: (value: string) => void;
+}
 
+export function SetFooter({
+  instagramUrl,
+  facebookUrl,
+  linkedinUrl,
+  pinterestUrl,
+  tiktokUrl,
+  xUrl,
+  onInstagramChange,
+  onFacebookChange,
+  onLinkedinChange,
+  onPinterestChange,
+  onTiktokChange,
+  onXChange,
+}: SetFooterProps) {
   return (
     <div className="border border-border bg-background p-4 flex flex-col gap-3">
       <p className="type-p !font-medium text-primary">Footer</p>
@@ -22,7 +41,7 @@ export function SetFooter() {
         <Label>Instagram</Label>
         <Input
           value={instagramUrl}
-          onChange={(e) => setInstagramUrl(e.target.value)}
+          onChange={(e) => onInstagramChange(e.target.value)}
           placeholder="Instagram url"
           className="h-9"
         />
@@ -33,7 +52,7 @@ export function SetFooter() {
         <Label>Facebook</Label>
         <Input
           value={facebookUrl}
-          onChange={(e) => setFacebookUrl(e.target.value)}
+          onChange={(e) => onFacebookChange(e.target.value)}
           placeholder="Facebook url"
           className="h-9"
         />
@@ -44,7 +63,7 @@ export function SetFooter() {
         <Label>LinkedIn</Label>
         <Input
           value={linkedinUrl}
-          onChange={(e) => setLinkedinUrl(e.target.value)}
+          onChange={(e) => onLinkedinChange(e.target.value)}
           placeholder="LinkedIn url"
           className="h-9"
         />
@@ -55,7 +74,7 @@ export function SetFooter() {
         <Label>Pinterest</Label>
         <Input
           value={pinterestUrl}
-          onChange={(e) => setPinterestUrl(e.target.value)}
+          onChange={(e) => onPinterestChange(e.target.value)}
           placeholder="Pinterest url"
           className="h-9"
         />
@@ -66,7 +85,7 @@ export function SetFooter() {
         <Label>TikTok</Label>
         <Input
           value={tiktokUrl}
-          onChange={(e) => setTiktokUrl(e.target.value)}
+          onChange={(e) => onTiktokChange(e.target.value)}
           placeholder="TikTok url"
           className="h-9"
         />
@@ -77,7 +96,7 @@ export function SetFooter() {
         <Label>X</Label>
         <Input
           value={xUrl}
-          onChange={(e) => setXUrl(e.target.value)}
+          onChange={(e) => onXChange(e.target.value)}
           placeholder="X url"
           className="h-9"
         />

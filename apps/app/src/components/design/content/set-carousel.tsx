@@ -1,31 +1,31 @@
 "use client";
 
-import { useBrandUpdateMutation, useUserBrandsQuery } from "@/hooks/use-brand";
-import { type CurrentUser, useUserQuery } from "@/hooks/use-user";
 import { Label } from "@v1/ui/label";
 import { Input } from "@v1/ui/input";
 import { Icons } from "@v1/ui/icons";
 import { Switch } from "@v1/ui/switch";
-import { toast } from "@v1/ui/sonner";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@v1/ui/button";
 
-interface Brand {
-  id: string;
-  name: string;
-  country_code?: string | null;
+interface SetCarouselProps {
+  enabled: boolean;
+  onEnabledChange: (enabled: boolean) => void;
 }
 
-export function SetCarousel() {
+export function SetCarousel({ enabled, onEnabledChange }: SetCarouselProps) {
+  // Local state for options not yet in ThemeConfig
+  // TODO: Add these to ThemeConfig when needed
   const [productCount, setProductCount] = useState<string>("");
+  const [showTitle, setShowTitle] = useState(true);
+  const [showPrice, setShowPrice] = useState(true);
 
   return (
     <div className="border border-border bg-background p-4 flex flex-col gap-4">
       <div className="flex flex-row justify-between items-center">
         <p className="type-p !font-medium text-primary">Product carousel</p>
         <Switch
-          checked={true}
-          onCheckedChange={() => {}}
+          checked={enabled}
+          onCheckedChange={onEnabledChange}
           className="max-w-[250px]"
         />
       </div>
@@ -68,8 +68,8 @@ export function SetCarousel() {
       <div className="flex flex-row justify-between items-center">
         <Label>Show title</Label>
         <Switch
-          checked={true}
-          onCheckedChange={() => {}}
+          checked={showTitle}
+          onCheckedChange={setShowTitle}
           className="max-w-[250px]"
         />
       </div>
@@ -81,8 +81,8 @@ export function SetCarousel() {
       <div className="flex flex-row justify-between items-center">
         <Label>Show price</Label>
         <Switch
-          checked={true}
-          onCheckedChange={() => {}}
+          checked={showPrice}
+          onCheckedChange={setShowPrice}
           className="max-w-[250px]"
         />
       </div>

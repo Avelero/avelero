@@ -284,30 +284,30 @@ export function ComponentSection({ componentId }: ComponentSectionProps) {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hide">
-      {/* Main field groups with section borders */}
-      {mainGroups.background.length > 0 && (
-        <EditorSection title="Background">
-          {mainGroups.background.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
+            {/* Main field groups with section borders */}
+            {mainGroups.background.length > 0 && (
+              <EditorSection title="Background">
+                {mainGroups.background.map((field) => (
+                  <StyleFieldRenderer key={field.path} field={field} />
+                ))}
+              </EditorSection>
+            )}
 
-      {mainGroups.stroke.length > 0 && (
-        <EditorSection title="Stroke">
-          {mainGroups.stroke.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
+            {mainGroups.stroke.length > 0 && (
+              <EditorSection title="Stroke">
+                {mainGroups.stroke.map((field) => (
+                  <StyleFieldRenderer key={field.path} field={field} />
+                ))}
+              </EditorSection>
+            )}
 
-      {mainGroups.typography.length > 0 && (
-        <EditorSection title="Typography">
-          {mainGroups.typography.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
+            {mainGroups.typography.length > 0 && (
+              <EditorSection title="Typography">
+                {mainGroups.typography.map((field) => (
+                  <StyleFieldRenderer key={field.path} field={field} />
+                ))}
+              </EditorSection>
+            )}
 
       {mainGroups.sizing.length > 0 && (
         <EditorSection title="Sizing">
@@ -317,34 +317,34 @@ export function ComponentSection({ componentId }: ComponentSectionProps) {
         </EditorSection>
       )}
 
-      {mainGroups.spacing.length > 0 && (
-        <EditorSection title="Spacing">
-          {mainGroups.spacing.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
+            {mainGroups.spacing.length > 0 && (
+              <EditorSection title="Spacing">
+                {mainGroups.spacing.map((field) => (
+                  <StyleFieldRenderer key={field.path} field={field} />
+                ))}
+              </EditorSection>
+            )}
 
-      {mainGroups.other.length > 0 && (
-        <EditorSection title="Other">
-          {mainGroups.other.map((field) => (
-            <StyleFieldRenderer key={field.path} field={field} />
-          ))}
-        </EditorSection>
-      )}
+            {mainGroups.other.length > 0 && (
+              <EditorSection title="Other">
+                {mainGroups.other.map((field) => (
+                  <StyleFieldRenderer key={field.path} field={field} />
+                ))}
+              </EditorSection>
+            )}
 
-      {/* Named section groups */}
-      {sectionOrder.map((sectionName) => {
-        const fields = sectionGroups[sectionName];
-        if (!fields) return null;
-        return (
-          <EditorSection key={sectionName} title={sectionName}>
-            {fields.map((field) => (
-              <StyleFieldRenderer key={field.path} field={field} />
-            ))}
-          </EditorSection>
-        );
-      })}
+            {/* Named section groups */}
+            {sectionOrder.map((sectionName) => {
+              const fields = sectionGroups[sectionName];
+              if (!fields) return null;
+              return (
+                <EditorSection key={sectionName} title={sectionName}>
+                  {fields.map((field) => (
+                    <StyleFieldRenderer key={field.path} field={field} />
+                  ))}
+                </EditorSection>
+              );
+            })}
     </div>
   );
 }

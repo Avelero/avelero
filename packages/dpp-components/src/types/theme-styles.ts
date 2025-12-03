@@ -24,28 +24,29 @@ export interface TypographyScale {
 
 export interface DesignTokens {
   colors?: {
-    primary?: string;
-    foreground?: string;
+    // Core colors
     background?: string;
-    card?: string;
-    cardForeground?: string;
-    popover?: string;
-    popoverForeground?: string;
-    primaryForeground?: string;
-    secondary?: string;
-    secondaryForeground?: string;
+    foreground?: string;
+    // Muted colors
+    muted?: string;
+    mutedForeground?: string;
+    // Accent colors
     accent?: string;
     accentForeground?: string;
+    // Card colors
+    card?: string;
+    cardForeground?: string;
+    // Primary colors
+    primary?: string;
+    primaryForeground?: string;
+    // Status colors
     destructive?: string;
     destructiveForeground?: string;
-    highlight?: string;
-    highlightForeground?: string;
     success?: string;
     successForeground?: string;
+    // Utility colors
     border?: string;
-    input?: string;
-    ring?: string;
-    link?: string; // Global link color
+    link?: string;
   };
   typography?: {
     h1?: TypographyScale;

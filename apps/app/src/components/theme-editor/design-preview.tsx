@@ -8,7 +8,7 @@ import { SaveBar } from "./save-bar";
 import { useSelectableDetection } from "@/hooks/use-selectable-detection";
 
 export function DesignPreview() {
-  const { previewData, themeConfigDraft, themeStylesDraft } = useDesignEditor();
+  const { previewData, themeConfig, themeStylesDraft } = useDesignEditor();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { handleMouseMove, handleMouseLeave, handleClick } =
@@ -26,12 +26,12 @@ export function DesignPreview() {
         <PreviewThemeInjector themeStyles={themeStylesDraft} />
         <div className="dpp-root min-h-full flex flex-col @container">
           <Header
-            themeConfig={themeConfigDraft}
+            themeConfig={themeConfig}
             brandName={previewData.brandName}
             position="sticky"
           />
-          <ContentFrame data={previewData} themeConfig={themeConfigDraft} />
-          <Footer themeConfig={themeConfigDraft} brandName={previewData.brandName} />
+          <ContentFrame data={previewData} themeConfig={themeConfig} />
+          <Footer themeConfig={themeConfig} brandName={previewData.brandName} />
         </div>
       </div>
       <SaveBar />

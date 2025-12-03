@@ -142,7 +142,7 @@ export function generateThemeCSS(themeStyles?: ThemeStyles): string {
   // Generate component class CSS
   for (const [className, styles] of Object.entries(themeStyles)) {
     // Skip design token properties
-    if (className === 'colors' || className === 'typography') {
+    if (className === 'colors' || className === 'typography' || className === 'customFonts') {
       continue;
     }
 

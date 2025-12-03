@@ -7,8 +7,8 @@ export function DemoCTA() {
         rel="noopener noreferrer"
         className="inline-flex items-center justify-center transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 p-2 h-9 px-2 py-[10px] text-[14px] leading-[16px] hover:opacity-90 pointer-events-auto shadow-sm box-border"
         style={{
-          color: "var(--highlight-foreground)",
-          backgroundColor: "var(--highlight)",
+          color: "var(--primary-foreground)",
+          backgroundColor: "var(--primary)",
         }}
       >
         <div className="inline-flex items-center px-1">Talk to founders</div>

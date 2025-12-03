@@ -23,7 +23,7 @@ export function ProductImage({ image, alt }: Props) {
           className="absolute top-0 left-0 w-full h-full flex items-center justify-center"
           style={{ backgroundColor: "var(--accent)" }}
         >
-          <span className="type-body-sm" style={{ color: "var(--secondary)" }}>
+          <span className="type-body-sm" style={{ color: "var(--muted-foreground)" }}>
             No product image available
           </span>
         </div>

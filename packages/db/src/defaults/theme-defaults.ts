@@ -9,14 +9,20 @@ import type { ThemeStyles, ThemeConfig } from "@v1/dpp-components";
  * Color references resolved:
  * - --background: #FFFFFF
  * - --foreground: #1E2040
- * - --primary: #1E2040
- * - --secondary: #62637A
- * - --border: #E9E9EC
- * - --link: #0000FF
- * - --highlight: #0000FF
- * - --highlight-foreground: #FFFFFF
- * - --success: #CDEDDE
+ * - --muted: #F8F8F9
+ * - --muted-foreground: #62637A
+ * - --accent: #F8F8F9
+ * - --accent-foreground: #1E2040
+ * - --card: #FFFFFF
+ * - --card-foreground: #1E2040
+ * - --primary: #0000FF
+ * - --primary-foreground: #FFFFFF
+ * - --destructive: #EDCDCD
+ * - --destructive-foreground: #A40303
+ * - --success: #CEEDDF
  * - --success-foreground: #03A458
+ * - --border: #E8E9EC
+ * - --link: #0000FF
  */
 export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // ===========================================================================
@@ -25,32 +31,38 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   colors: {
     background: "#FFFFFF",
     foreground: "#1E2040",
-    primary: "#1E2040",
-    secondary: "#62637A",
+    muted: "#F8F8F9",
+    mutedForeground: "#62637A",
     accent: "#F8F8F9",
-    highlight: "#0000FF",
-    success: "#CDEDDE",
+    accentForeground: "#1E2040",
+    card: "#FFFFFF",
+    cardForeground: "#1E2040",
+    primary: "#0000FF",
+    primaryForeground: "#FFFFFF",
+    destructive: "#EDCDCD",
+    destructiveForeground: "#A40303",
+    success: "#CEEDDF",
     successForeground: "#03A458",
-    border: "#E9E9EC",
+    border: "#E8E9EC",
     link: "#0000FF",
   },
   typography: {
-    h1: { fontFamily: "Geist", fontSize: 32, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.02em" },
-    h2: { fontFamily: "Geist", fontSize: 29, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.01em" },
-    h3: { fontFamily: "Geist", fontSize: 26, fontWeight: 500, lineHeight: 1.1, letterSpacing: "-0.01em" },
-    h4: { fontFamily: "Geist", fontSize: 23, fontWeight: 500, lineHeight: 1.1, letterSpacing: "-0.01em" },
-    h5: { fontFamily: "Geist", fontSize: 20, fontWeight: 500, lineHeight: 1.2, letterSpacing: "0em" },
+    h1: { fontFamily: "Geist", fontSize: 32, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.025em" },
+    h2: { fontFamily: "Geist", fontSize: 29, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.025em" },
+    h3: { fontFamily: "Geist", fontSize: 26, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.025em" },
+    h4: { fontFamily: "Geist", fontSize: 23, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.025em" },
+    h5: { fontFamily: "Geist", fontSize: 20, fontWeight: 500, lineHeight: 1.25, letterSpacing: "0em" },
     h6: { fontFamily: "Geist", fontSize: 18, fontWeight: 500, lineHeight: 1.25, letterSpacing: "0em" },
     body: { fontFamily: "Geist", fontSize: 16, fontWeight: 400, lineHeight: 1.25, letterSpacing: "0em" },
     "body-sm": { fontFamily: "Geist", fontSize: 14, fontWeight: 400, lineHeight: 1.5, letterSpacing: "0em" },
-    "body-xs": { fontFamily: "Geist", fontSize: 12, fontWeight: 400, lineHeight: 1.4, letterSpacing: "0em" },
+    "body-xs": { fontFamily: "Geist", fontSize: 12, fontWeight: 400, lineHeight: 1.5, letterSpacing: "0em" },
   },
 
   // ===========================================================================
   // HEADER
   // ===========================================================================
   header: {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     backgroundColor: "#FFFFFF",
   },
 
@@ -58,7 +70,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // FOOTER
   // ===========================================================================
   footer: {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     backgroundColor: "#FFFFFF",
   },
   "footer__legal-name": {
@@ -75,7 +87,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // PRODUCT
   // ===========================================================================
   "product__image": {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     borderRadius: 0,
   },
   "product__title": {
@@ -101,7 +113,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // PRODUCT DETAILS
   // ===========================================================================
   "product-details": {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     borderRadius: 0,
     backgroundColor: "#FFFFFF",
   },
@@ -120,7 +132,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // PRIMARY MENU
   // ===========================================================================
   "menu-primary-button": {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     backgroundColor: "#FFFFFF",
     color: "#1E2040",
     typescale: "body",
@@ -135,7 +147,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // SECONDARY MENU
   // ===========================================================================
   "menu-secondary-button": {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     backgroundColor: "#FFFFFF",
     color: "#1E2040",
     typescale: "body",
@@ -150,7 +162,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // IMPACT
   // ===========================================================================
   "impact-card": {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     borderRadius: 0,
     backgroundColor: "#FFFFFF",
   },
@@ -174,7 +186,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
     textTransform: "none",
   },
   "impact-card__eco-claim": {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     borderRadius: 0,
     backgroundColor: "#FFFFFF",
   },
@@ -196,7 +208,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // MATERIALS
   // ===========================================================================
   "materials-card": {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     borderRadius: 0,
     backgroundColor: "#FFFFFF",
   },
@@ -217,7 +229,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   },
   "materials-card__certification": {
     color: "#03A458",
-    backgroundColor: "#CDEDDE",
+    backgroundColor: "#CEEDDF",
     borderRadius: 4,
     borderColor: "transparent",
     typescale: "body-xs",
@@ -241,7 +253,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // JOURNEY
   // ===========================================================================
   "journey-card": {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     borderRadius: 0,
     backgroundColor: "#FFFFFF",
   },
@@ -282,7 +294,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
     size: 16,
   },
   "carousel__product-image": {
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     borderRadius: 0,
   },
   "carousel__product-details": {
@@ -306,7 +318,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // ===========================================================================
   banner: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#E9E9EC",
+    borderColor: "#E8E9EC",
     borderRadius: 0,
   },
   banner__container: {

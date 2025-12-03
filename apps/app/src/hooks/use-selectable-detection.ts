@@ -212,12 +212,16 @@ export function useSelectableDetection(
         setSelectedComponentId(componentId);
         navigateToComponent(componentId);
       } else {
-        // Clicked on background - clear selection and go back to layout menu
-        setSelectedComponentId(null);
-        navigateBack();
+        // Clicked on background - only navigate back if a component was selected
+        // This preserves the current section (layout/typography/colors) when clicking background
+        if (selectedComponentId) {
+          setSelectedComponentId(null);
+          navigateBack();
+        }
+        // If no component was selected, do nothing - keep current section active
       }
     },
-    [findSelectableComponentId, setSelectedComponentId, navigateToComponent, navigateBack]
+    [findSelectableComponentId, setSelectedComponentId, navigateToComponent, navigateBack, selectedComponentId]
   );
 
   return {

@@ -4,32 +4,30 @@ import { authActionClient } from "@/actions/safe-action";
 import {
   buildThemeStylesheet,
   generateGoogleFontsUrlFromTypography,
-  type ThemeConfig,
   type ThemeStyles,
 } from "@v1/dpp-components";
-import { createClient } from "@v1/supabase/server";
 import { z } from "zod";
 
 const BUCKET_NAME = "dpp-themes";
 
 const schema = z.object({
   brandId: z.string().uuid(),
-  themeStyles: z.custom<ThemeStyles>().optional(),
-  themeConfig: z.custom<ThemeConfig>().optional(),
+  themeStyles: z.custom<ThemeStyles>(),
 });
 
 export const saveThemeAction = authActionClient
   .schema(schema)
   .metadata({ name: "design.save-theme" })
   .action(async ({ parsedInput, ctx }) => {
-    const { brandId, themeStyles, themeConfig } = parsedInput;
-    const supabase = ctx.supabase ?? (await createClient());
+    const { brandId, themeStyles } = parsedInput;
+    const supabase = ctx.supabase;
 
-    // Compute derived artifacts
+    // Generate Google Fonts URL from typography settings
     const googleFontsUrl = generateGoogleFontsUrlFromTypography(
       themeStyles?.typography,
     );
 
+    // Build CSS stylesheet from theme styles
     const stylesheetContent = buildThemeStylesheet({
       themeStyles,
       includeFontFaces: true,
@@ -38,55 +36,43 @@ export const saveThemeAction = authActionClient
     const stylesheetPath = `brand-${brandId}/theme.css`;
     const now = new Date().toISOString();
 
-    // Try to upload CSS to Supabase storage (non-blocking - we still save to DB even if this fails)
-    let stylesheetUploaded = false;
+    // Upload CSS to Supabase storage
     if (stylesheetContent) {
-      try {
-        const file = new Blob([stylesheetContent], { type: "text/css" });
-        const { error: uploadError } = await supabase.storage
-          .from(BUCKET_NAME)
-          .upload(stylesheetPath, file, {
-            upsert: true,
-            contentType: "text/css",
-          });
+      const file = new Blob([stylesheetContent], { type: "text/css" });
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .upload(stylesheetPath, file, {
+          upsert: true,
+          contentType: "text/css",
+        });
 
-        if (uploadError) {
-          console.warn(
-            `[save-theme] Storage upload warning: ${uploadError.message}`,
-          );
-        } else {
-          stylesheetUploaded = true;
-        }
-      } catch (storageError) {
-        // Log but don't fail - the DB save is more important
-        console.warn(
-          `[save-theme] Storage upload failed (bucket may not exist): ${storageError}`,
+      if (uploadError) {
+        throw new Error(
+          `Failed to upload theme stylesheet: ${uploadError.message}`,
         );
       }
     }
 
-    // Persist JSON + derived paths into brand_theme
+    // Update theme_styles in brand_theme table (preserves theme_config)
     const { error: dbError } = await supabase
       .from("brand_theme")
-      .upsert({
-        brand_id: brandId,
-        theme_styles: themeStyles ?? {},
-        theme_config: themeConfig ?? {},
-        // Only set stylesheet_path if upload succeeded
-        stylesheet_path: stylesheetUploaded ? stylesheetPath : null,
+      .update({
+        theme_styles: themeStyles,
+        stylesheet_path: stylesheetPath,
         google_fonts_url: googleFontsUrl || null,
         updated_at: now,
-      });
+      })
+      .eq("brand_id", brandId);
 
     if (dbError) {
       throw new Error(
-        dbError.message || "Unable to save theme configuration for brand",
+        dbError.message || "Unable to save theme styles for brand",
       );
     }
 
     return {
       brandId,
-      stylesheetPath: stylesheetUploaded ? stylesheetPath : null,
+      stylesheetPath,
       googleFontsUrl,
       updatedAt: now,
     };

@@ -5,7 +5,6 @@
  * - Component hierarchy (what's nested in what)
  * - Display names for the UI
  * - Which style fields (ThemeStyles) are editable per component
- * - Which components can be toggled visible/hidden
  *
  * ## Design Principles
  *
@@ -79,12 +78,10 @@ export interface ComponentDefinition {
    * If true, shows an eye icon to toggle visibility
    * Only for top-level sections that have corresponding sections.show* flags
    */
-  canToggleVisibility?: boolean;
 
   /**
    * The ThemeConfig path to toggle visibility, e.g. "sections.showCTABanner"
    */
-  visibilityPath?: string;
 
   /**
    * Design token fields from ThemeStyles
@@ -355,8 +352,6 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   {
     id: "menu-primary",
     displayName: "First Menu",
-    canToggleVisibility: true,
-    visibilityPath: "sections.showPrimaryMenu",
     styleFields: [
       // Border & Background
       {
@@ -919,8 +914,6 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   {
     id: "menu-secondary",
     displayName: "Second Menu",
-    canToggleVisibility: true,
-    visibilityPath: "sections.showSecondaryMenu",
     styleFields: [
       // Border & Background
       {
@@ -977,8 +970,6 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
     id: "carousel",
     displayName: "Product Carousel",
     isGrouping: true,
-    canToggleVisibility: true,
-    visibilityPath: "sections.showSimilarProducts",
     children: [
       {
         id: "carousel__title",
@@ -1136,8 +1127,6 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   {
     id: "banner",
     displayName: "Banner",
-    canToggleVisibility: true,
-    visibilityPath: "sections.showCTABanner",
     styleFields: [
       {
         type: "color",

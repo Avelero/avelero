@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { Icons } from "@v1/ui/icons";
 import { cn } from "@v1/ui/cn";
 import {
@@ -27,10 +27,8 @@ interface LayoutTreeItemProps {
   item: ComponentDefinition;
   level: number;
   expandedItems: Set<string>;
-  hiddenItems: Set<string>;
   highlightedId: string | null;
   onToggleExpand: (id: string) => void;
-  onToggleVisibility: (id: string) => void;
   onItemClick: (id: string) => void;
   onItemHover: (id: string | null) => void;
 }
@@ -39,17 +37,14 @@ function LayoutTreeItem({
   item,
   level,
   expandedItems,
-  hiddenItems,
   highlightedId,
   onToggleExpand,
-  onToggleVisibility,
   onItemClick,
   onItemHover,
 }: LayoutTreeItemProps) {
   const isHighlighted = item.id === highlightedId;
   const hasChildren = item.children && item.children.length > 0;
   const isExpanded = expandedItems.has(item.id);
-  const isHidden = hiddenItems.has(item.id);
   const isEditable = hasEditableContent(item);
 
   // Calculate indentation - 24px per level
@@ -113,48 +108,19 @@ function LayoutTreeItem({
               isEditable ? "cursor-pointer" : "cursor-default"
             )}
           >
-            <div
-              className={cn(
-                "flex items-center truncate",
-                // Add right margin to make room for eye button when it exists
-                item.canToggleVisibility ? "mr-7" : ""
-              )}
-            >
+            <div className="flex items-center truncate">
               <div className="flex items-center justify-center min-w-4 h-7">
                 <Icons.GalleryVertical className="h-3 w-3 text-tertiary" />
               </div>
               <div className="flex items-center px-2 h-7">{item.displayName}</div>
             </div>
-            {/* Navigation chevron - only show for editable items, at far right, shows on hover */}
+            {/* Navigation chevron - only show for editable items, shows on hover */}
             {isEditable && (
               <div className="flex items-center justify-center min-w-7 h-7 opacity-0 group-hover:opacity-100">
                 <Icons.ChevronRight className="h-3.5 w-3.5 text-primary" />
               </div>
             )}
           </button>
-
-          {/* Visibility toggle - positioned absolutely to sit between label and chevron */}
-          {item.canToggleVisibility && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleVisibility(item.id);
-              }}
-              className={cn(
-                "absolute right-7 flex items-center justify-center w-7 h-7 hover:bg-accent-dark z-10",
-                // Always visible if hidden, otherwise only on hover
-                isHidden ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-              )}
-              aria-label={isHidden ? "Show" : "Hide"}
-            >
-              {isHidden ? (
-                <Icons.EyeOff className="h-3.5 w-3.5 text-primary" />
-              ) : (
-                <Icons.Eye className="h-3.5 w-3.5 text-primary" />
-              )}
-            </button>
-          )}
         </div>
       </div>
 
@@ -167,10 +133,8 @@ function LayoutTreeItem({
               item={child}
               level={level + 1}
               expandedItems={expandedItems}
-              hiddenItems={hiddenItems}
               highlightedId={highlightedId}
               onToggleExpand={onToggleExpand}
-              onToggleVisibility={onToggleVisibility}
               onItemClick={onItemClick}
               onItemHover={onItemHover}
             />
@@ -237,24 +201,9 @@ export function LayoutTree() {
     setHoveredComponentId,
   } = useDesignEditor();
 
-  // Local state for visibility toggle (UI only for now)
-  const [hiddenItems, setHiddenItems] = useState<Set<string>>(new Set());
-
   // Debounce timer for hover from layout tree
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingHoverRef = useRef<string | null>(null);
-
-  const handleToggleVisibility = (id: string) => {
-    setHiddenItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
 
   const handleItemClick = (id: string) => {
     navigateToComponent(id);
@@ -328,10 +277,8 @@ export function LayoutTree() {
           item={item}
           level={0}
           expandedItems={expandedItems}
-          hiddenItems={hiddenItems}
           highlightedId={highlightedId}
           onToggleExpand={toggleExpanded}
-          onToggleVisibility={handleToggleVisibility}
           onItemClick={handleItemClick}
           onItemHover={handleItemHover}
         />
@@ -339,4 +286,3 @@ export function LayoutTree() {
     </div>
   );
 }
-

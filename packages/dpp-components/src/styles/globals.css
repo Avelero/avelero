@@ -17,29 +17,22 @@
     --header-height: calc(2.5rem + 32px);
     
     /* Design Token Defaults - These can be overridden by theme system */
-    /* Color Tokens */
     --background: #FFFFFF;
     --foreground: #1E2040;
-    --card: #FFFFFF;
-    --card-foreground: #1E2040;
-    --popover: #FFFFFF;
-    --popover-foreground: #1E2040;
-    --primary: #1E2040;
-    --primary-foreground: #FFFFFF;
-    --secondary: #62637A;
-    --secondary-foreground: #FFFFFF;
+    --muted: #F8F8F9;
+    --muted-foreground: #62637A;
     --accent: #F8F8F9;
     --accent-foreground: #1E2040;
-    --destructive: #A40303;
+    --card: #FFFFFF;
+    --card-foreground: #1E2040;
+    --primary: #0000FF;
+    --primary-foreground: #FFFFFF;
+    --destructive: #EDCDCD;
     --destructive-foreground: #A40303;
-    --highlight: #0000FF;
-    --highlight-foreground: #FFFFFF;
-    --success: #CDEDDE;
+    --success: #CEEDDF;
     --success-foreground: #03A458;
-    --border: #E9E9EC;
-    --input: #E9E9EC;
-    --ring: #0000FF;
-    --link: #0000FF; /* Global link color */
+    --border: #E8E9EC;
+    --link: #0000FF;
     
     /* Spacing Tokens - Used by Tailwind utilities */
     --spacing-micro: 0.25rem;
@@ -77,34 +70,34 @@
     --type-h1-size: 2rem;
     --type-h1-weight: 500;
     --type-h1-line-height: 1;
-    --type-h1-letter-spacing: -0.02em;
+    --type-h1-letter-spacing: -0.025em;
     
     /* Heading 2 */
     --type-h2-family: var(--font-primary);
     --type-h2-size: 1.8125rem;
     --type-h2-weight: 500;
     --type-h2-line-height: 1;
-    --type-h2-letter-spacing: -0.01em;
+    --type-h2-letter-spacing: -0.025em;
     
     /* Heading 3 */
     --type-h3-family: var(--font-primary);
     --type-h3-size: 1.625rem;
     --type-h3-weight: 500;
-    --type-h3-line-height: 1.1;
-    --type-h3-letter-spacing: -0.01em;
+    --type-h3-line-height: 1;
+    --type-h3-letter-spacing: -0.025em;
     
     /* Heading 4 */
     --type-h4-family: var(--font-primary);
     --type-h4-size: 1.4375rem;
     --type-h4-weight: 500;
-    --type-h4-line-height: 1.1;
-    --type-h4-letter-spacing: -0.01em;
+    --type-h4-line-height: 1;
+    --type-h4-letter-spacing: -0.025em;
     
     /* Heading 5 */
     --type-h5-family: var(--font-primary);
     --type-h5-size: 1.25rem;
     --type-h5-weight: 500;
-    --type-h5-line-height: 1.2;
+    --type-h5-line-height: 1.25;
     --type-h5-letter-spacing: 0em;
     
     /* Heading 6 */
@@ -132,7 +125,7 @@
     --type-body-xs-family: var(--font-primary);
     --type-body-xs-size: 0.75rem;
     --type-body-xs-weight: 400;
-    --type-body-xs-line-height: 1.4;
+    --type-body-xs-line-height: 1.5;
     --type-body-xs-letter-spacing: 0em;
   }
   
@@ -185,7 +178,7 @@
     font-weight: var(--footer-legal-name-font-weight, var(--type-body-sm-weight));
     line-height: var(--footer-legal-name-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--footer-legal-name-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--footer-legal-name-color, var(--secondary));
+    color: var(--footer-legal-name-color, var(--muted-foreground));
     text-transform: var(--footer-legal-name-text-transform, none);
     text-decoration: var(--footer-legal-name-text-decoration, none);
   }
@@ -212,9 +205,9 @@
     font-family: var(--product-title-font-family, var(--type-h5-family));
     font-size: var(--product-title-font-size, var(--type-h5-size));
     font-weight: var(--product-title-font-weight, var(--type-h5-weight));
-    line-height: var(--product-title-line-height, 1);
+    line-height: var(--product-title-line-height, var(--type-h5-line-height));
     letter-spacing: var(--product-title-letter-spacing, var(--type-h5-letter-spacing));
-    color: var(--product-title-color, var(--primary));
+    color: var(--product-title-color, var(--foreground));
     text-transform: var(--product-title-text-transform, uppercase);
     text-decoration: var(--product-title-text-decoration, none);
   }
@@ -225,7 +218,7 @@
     font-weight: var(--product-description-font-weight, var(--type-body-sm-weight));
     line-height: var(--product-description-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--product-description-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--product-description-color, var(--secondary));
+    color: var(--product-description-color, var(--muted-foreground));
     text-transform: var(--product-description-text-transform, none);
     text-decoration: var(--product-description-text-decoration, none);
   }
@@ -234,17 +227,17 @@
     font-family: var(--product-brand-font-family, var(--type-body-sm-family));
     font-size: var(--product-brand-font-size, var(--type-body-sm-size));
     font-weight: var(--product-brand-font-weight, var(--type-body-sm-weight));
-    line-height: var(--product-brand-line-height, 1);
+    line-height: var(--product-brand-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--product-brand-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--product-brand-color, var(--primary));
+    color: var(--product-brand-color, var(--foreground));
     text-transform: var(--product-brand-text-transform, uppercase);
     text-decoration: var(--product-brand-text-decoration, none);
   }
 
   .dpp-root .product__show-more {
-    font-family: var(--product-show-more-font-family, var(--type-body-xs-family));
-    font-weight: var(--product-show-more-font-weight, var(--type-body-xs-weight));
-    letter-spacing: var(--product-show-more-letter-spacing, var(--type-body-xs-letter-spacing));
+    font-family: var(--product-show-more-font-family, "Geist", sans-serif);
+    font-weight: var(--product-show-more-font-weight, 400);
+    letter-spacing: var(--product-show-more-letter-spacing, 0);
     color: var(--product-show-more-color, var(--link));
     text-transform: var(--product-show-more-text-transform, uppercase);
     text-decoration: var(--product-show-more-text-decoration, none);
@@ -257,7 +250,7 @@
   .dpp-root .product-details {
     border-color: var(--product-details-border-color, var(--border));
     border-radius: var(--product-details-border-radius, var(--radius-none));
-    background-color: var(--product-details-background-color, var(--background));
+    background-color: var(--product-details-background-color, var(--card));
   }
 
   /* Rows inherit border color from container */
@@ -269,9 +262,9 @@
     font-family: var(--product-details-label-font-family, var(--type-body-sm-family));
     font-size: var(--product-details-label-font-size, var(--type-body-sm-size));
     font-weight: var(--product-details-label-font-weight, var(--type-body-sm-weight));
-    line-height: var(--product-details-label-line-height, 1.25);
+    line-height: var(--product-details-label-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--product-details-label-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--product-details-label-color, var(--primary));
+    color: var(--product-details-label-color, var(--card-foreground));
     text-transform: var(--product-details-label-text-transform, uppercase);
     text-decoration: var(--product-details-label-text-decoration, none);
   }
@@ -280,9 +273,9 @@
     font-family: var(--product-details-value-font-family, var(--type-body-sm-family));
     font-size: var(--product-details-value-font-size, var(--type-body-sm-size));
     font-weight: var(--product-details-value-font-weight, var(--type-body-sm-weight));
-    line-height: var(--product-details-value-line-height, 1.25);
+    line-height: var(--product-details-value-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--product-details-value-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--product-details-value-color, var(--secondary));
+    color: var(--product-details-value-color, var(--muted-foreground));
     text-transform: var(--product-details-value-text-transform, none);
     text-decoration: var(--product-details-value-text-decoration, none);
   }
@@ -301,15 +294,15 @@
     font-family: var(--menu-primary-button-font-family, var(--type-body-family));
     font-size: var(--menu-primary-button-font-size, var(--type-body-size));
     font-weight: var(--menu-primary-button-font-weight, var(--type-body-weight));
-    line-height: var(--menu-primary-button-line-height, 1);
+    line-height: var(--menu-primary-button-line-height, var(--type-body-line-height));
     letter-spacing: var(--menu-primary-button-letter-spacing, var(--type-body-letter-spacing));
-    color: var(--menu-primary-button-color, var(--primary));
+    color: var(--menu-primary-button-color, var(--foreground));
     text-transform: var(--menu-primary-button-text-transform, uppercase);
     text-decoration: var(--menu-primary-button-text-decoration, none);
   }
 
   .dpp-root .menu-primary-button__icon {
-    color: var(--menu-primary-button-icon-color, var(--primary));
+    color: var(--menu-primary-button-icon-color, var(--foreground));
     width: var(--menu-primary-button-icon-size, 20px);
     height: var(--menu-primary-button-icon-size, 20px);
   }
@@ -323,15 +316,15 @@
     font-family: var(--menu-secondary-button-font-family, var(--type-body-family));
     font-size: var(--menu-secondary-button-font-size, var(--type-body-size));
     font-weight: var(--menu-secondary-button-font-weight, var(--type-body-weight));
-    line-height: var(--menu-secondary-button-line-height, 1);
+    line-height: var(--menu-secondary-button-line-height, var(--type-body-line-height));
     letter-spacing: var(--menu-secondary-button-letter-spacing, var(--type-body-letter-spacing));
-    color: var(--menu-secondary-button-color, var(--primary));
+    color: var(--menu-secondary-button-color, var(--foreground));
     text-transform: var(--menu-secondary-button-text-transform, uppercase);
     text-decoration: var(--menu-secondary-button-text-decoration, none);
   }
 
   .dpp-root .menu-secondary-button__icon {
-    color: var(--menu-secondary-button-icon-color, var(--primary));
+    color: var(--menu-secondary-button-icon-color, var(--foreground));
     width: var(--menu-secondary-button-icon-size, 20px);
     height: var(--menu-secondary-button-icon-size, 20px);
   }
@@ -342,16 +335,16 @@
   .dpp-root .impact-card {
     border-color: var(--impact-card-border-color, var(--border));
     border-radius: var(--impact-card-border-radius, var(--radius-none));
-    background-color: var(--impact-card-background-color, var(--background));
+    background-color: var(--impact-card-background-color, var(--card));
   }
 
   .dpp-root .impact-card__title {
     font-family: var(--impact-card-title-font-family, var(--type-h6-family));
     font-size: var(--impact-card-title-font-size, var(--type-h6-size));
     font-weight: var(--impact-card-title-font-weight, var(--type-h6-weight));
-    line-height: var(--impact-card-title-line-height, 1);
+    line-height: var(--impact-card-title-line-height, var(--type-h6-line-height));
     letter-spacing: var(--impact-card-title-letter-spacing, var(--type-h6-letter-spacing));
-    color: var(--impact-card-title-color, var(--primary));
+    color: var(--impact-card-title-color, var(--foreground));
     text-transform: var(--impact-card-title-text-transform, uppercase);
     text-decoration: var(--impact-card-title-text-decoration, none);
   }
@@ -362,7 +355,7 @@
     font-weight: var(--impact-card-type-font-weight, var(--type-body-xs-weight));
     line-height: var(--impact-card-type-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--impact-card-type-letter-spacing, var(--type-body-xs-letter-spacing));
-    color: var(--impact-card-type-color, var(--secondary));
+    color: var(--impact-card-type-color, var(--muted-foreground));
     text-transform: var(--impact-card-type-text-transform, uppercase);
     text-decoration: var(--impact-card-type-text-decoration, none);
   }
@@ -373,7 +366,7 @@
     font-weight: var(--impact-card-value-font-weight, var(--type-h1-weight));
     line-height: var(--impact-card-value-line-height, var(--type-h1-line-height));
     letter-spacing: var(--impact-card-value-letter-spacing, var(--type-h1-letter-spacing));
-    color: var(--impact-card-value-color, var(--primary));
+    color: var(--impact-card-value-color, var(--card-foreground));
   }
 
   .dpp-root .impact-card__unit {
@@ -382,7 +375,7 @@
     font-weight: var(--impact-card-unit-font-weight, var(--type-body-xs-weight));
     line-height: var(--impact-card-unit-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--impact-card-unit-letter-spacing, var(--type-body-xs-letter-spacing));
-    color: var(--impact-card-unit-color, var(--secondary));
+    color: var(--impact-card-unit-color, var(--muted-foreground));
     text-transform: var(--impact-card-unit-text-transform, none);
     text-decoration: var(--impact-card-unit-text-decoration, none);
   }
@@ -390,11 +383,11 @@
   .dpp-root .impact-card__eco-claim {
     border-color: var(--impact-card-eco-claim-border-color, var(--border));
     border-radius: var(--impact-card-eco-claim-border-radius, var(--radius-none));
-    background-color: var(--impact-card-eco-claim-background-color, var(--background));
+    background-color: var(--impact-card-eco-claim-background-color, var(--card));
   }
 
   .dpp-root .impact-card__eco-claim-icon {
-    color: var(--impact-card-eco-claim-icon-color, var(--link));
+    color: var(--impact-card-eco-claim-icon-color, var(--primary));
     width: var(--impact-card-eco-claim-icon-size, 17.5px);
     height: var(--impact-card-eco-claim-icon-size, 17.5px);
   }
@@ -403,35 +396,35 @@
     font-family: var(--impact-card-eco-claim-text-font-family, var(--type-body-sm-family));
     font-size: var(--impact-card-eco-claim-text-font-size, var(--type-body-sm-size));
     font-weight: var(--impact-card-eco-claim-text-font-weight, var(--type-body-sm-weight)); 
-    line-height: var(--impact-card-eco-claim-text-line-height, 1.25);
+    line-height: var(--impact-card-eco-claim-text-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--impact-card-eco-claim-text-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--impact-card-eco-claim-text-color, var(--primary));
+    color: var(--impact-card-eco-claim-text-color, var(--card-foreground));
     text-transform: var(--impact-card-eco-claim-text-text-transform, none);
     text-decoration: var(--impact-card-eco-claim-text-text-decoration, none);
   }
 
   /* Impact card icons - consolidated styling */
   .dpp-root .impact-card__icon {
-    color: var(--impact-card-icon-color, var(--secondary));
+    color: var(--impact-card-icon-color, var(--muted-foreground));
     width: var(--impact-card-icon-size, 28px);
     height: var(--impact-card-icon-size, 28px);
   }
 
   /* Individual icon color overrides (for backwards compatibility) */
   .dpp-root .impact-card__icon-leaf {
-    color: var(--impact-card-icon-color, #03A458);
+    color: var(--impact-card-icon-color, var(--success-foreground));
   }
 
   .dpp-root .impact-card__icon-drop {
-    color: var(--impact-card-icon-color, #0000FF);
+    color: var(--impact-card-icon-color, var(--primary));
   }
 
   .dpp-root .impact-card__icon-recycle {
-    color: var(--impact-card-icon-color, #0000FF);
+    color: var(--impact-card-icon-color, var(--primary));
   }
 
   .dpp-root .impact-card__icon-factory {
-    color: var(--impact-card-icon-color, #6B7280);
+    color: var(--impact-card-icon-color, var(--muted-foreground));
   }
 
   /* ==========================================================================
@@ -440,16 +433,16 @@
   .dpp-root .materials-card {
     border-color: var(--materials-card-border-color, var(--border));
     border-radius: var(--materials-card-border-radius, var(--radius-none));
-    background-color: var(--materials-card-background-color, var(--background));
+    background-color: var(--materials-card-background-color, var(--card));
   }
 
   .dpp-root .materials-card__title {
     font-family: var(--materials-card-title-font-family, var(--type-h6-family));
     font-size: var(--materials-card-title-font-size, var(--type-h6-size));
     font-weight: var(--materials-card-title-font-weight, var(--type-h6-weight));
-    line-height: var(--materials-card-title-line-height, 1);
+    line-height: var(--materials-card-title-line-height, var(--type-h6-line-height));
     letter-spacing: var(--materials-card-title-letter-spacing, var(--type-h6-letter-spacing));
-    color: var(--materials-card-title-color, var(--primary));
+    color: var(--materials-card-title-color, var(--foreground));
     text-transform: var(--materials-card-title-text-transform, uppercase);
     text-decoration: var(--materials-card-title-text-decoration, none);
   }
@@ -460,7 +453,7 @@
     font-weight: var(--materials-card-percentage-font-weight, var(--type-body-weight));
     line-height: var(--materials-card-percentage-line-height, var(--type-body-line-height));
     letter-spacing: var(--materials-card-percentage-letter-spacing, var(--type-body-letter-spacing));
-    color: var(--materials-card-percentage-color, var(--primary));
+    color: var(--materials-card-percentage-color, var(--card-foreground));
     text-transform: var(--materials-card-percentage-text-transform, none);
     text-decoration: var(--materials-card-percentage-text-decoration, none);
   }
@@ -471,7 +464,7 @@
     font-weight: var(--materials-card-type-font-weight, var(--type-body-weight));
     line-height: var(--materials-card-type-line-height, var(--type-body-line-height));
     letter-spacing: var(--materials-card-type-letter-spacing, var(--type-body-letter-spacing));
-    color: var(--materials-card-type-color, var(--primary));
+    color: var(--materials-card-type-color, var(--card-foreground));
     text-transform: var(--materials-card-type-text-transform, uppercase);
     text-decoration: var(--materials-card-type-text-decoration, none);
   }
@@ -491,7 +484,7 @@
   }
 
   .dpp-root .materials-card__certification-icon {
-    color: var(--materials-card-certification-icon-color, currentColor);
+    color: var(--materials-card-certification-icon-color, var(--success-foreground));
     width: var(--materials-card-certification-icon-size, 12px);
     height: var(--materials-card-certification-icon-size, 12px);
   }
@@ -502,7 +495,7 @@
     font-weight: var(--materials-card-origin-font-weight, var(--type-body-xs-weight));
     line-height: var(--materials-card-origin-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--materials-card-origin-letter-spacing, var(--type-body-xs-letter-spacing));
-    color: var(--materials-card-origin-color, var(--secondary));
+    color: var(--materials-card-origin-color, var(--muted-foreground));
     text-transform: var(--materials-card-origin-text-transform, none);
     text-decoration: var(--materials-card-origin-text-decoration, none);
   }
@@ -524,22 +517,22 @@
   .dpp-root .journey-card {
     border-color: var(--journey-card-border-color, var(--border));
     border-radius: var(--journey-card-border-radius, var(--radius-none));
-    background-color: var(--journey-card-background-color, var(--background));
+    background-color: var(--journey-card-background-color, var(--card));
   }
 
   .dpp-root .journey-card__title {
     font-family: var(--journey-card-title-font-family, var(--type-h6-family));
     font-size: var(--journey-card-title-font-size, var(--type-h6-size));
     font-weight: var(--journey-card-title-font-weight, var(--type-h6-weight));
-    line-height: var(--journey-card-title-line-height, 1);
+    line-height: var(--journey-card-title-line-height, var(--type-h6-line-height));
     letter-spacing: var(--journey-card-title-letter-spacing, var(--type-h6-letter-spacing));
-    color: var(--journey-card-title-color, var(--primary));
+    color: var(--journey-card-title-color, var(--foreground));
     text-transform: var(--journey-card-title-text-transform, uppercase);
     text-decoration: var(--journey-card-title-text-decoration, none);
   }
 
   .dpp-root .journey-card__line {
-    background-color: var(--journey-card-line-background-color, var(--secondary));
+    background-color: var(--journey-card-line-background-color, var(--muted-foreground));
   }
 
   .dpp-root .journey-card__type {
@@ -548,7 +541,7 @@
     font-weight: var(--journey-card-type-font-weight, var(--type-body-weight));
     line-height: var(--journey-card-type-line-height, var(--type-body-line-height));
     letter-spacing: var(--journey-card-type-letter-spacing, var(--type-body-letter-spacing));
-    color: var(--journey-card-type-color, var(--primary));
+    color: var(--journey-card-type-color, var(--card-foreground));
     text-transform: var(--journey-card-type-text-transform, uppercase);
     text-decoration: var(--journey-card-type-text-decoration, none);
   }
@@ -559,7 +552,7 @@
     font-weight: var(--journey-card-operator-font-weight, var(--type-body-xs-weight));
     line-height: var(--journey-card-operator-line-height, var(--type-body-xs-line-height));
     letter-spacing: var(--journey-card-operator-letter-spacing, var(--type-body-xs-letter-spacing));
-    color: var(--journey-card-operator-color, var(--secondary));
+    color: var(--journey-card-operator-color, var(--muted-foreground));
     text-transform: var(--journey-card-operator-text-transform, none);
     text-decoration: var(--journey-card-operator-text-decoration, none);
   }
@@ -571,17 +564,17 @@
     font-family: var(--carousel-title-font-family, var(--type-h6-family));
     font-size: var(--carousel-title-font-size, var(--type-h6-size));
     font-weight: var(--carousel-title-font-weight, var(--type-h6-weight));
-    line-height: var(--carousel-title-line-height, 1);
+    line-height: var(--carousel-title-line-height, var(--type-h6-line-height));
     letter-spacing: var(--carousel-title-letter-spacing, var(--type-h6-letter-spacing));
-    color: var(--carousel-title-color, var(--primary));
+    color: var(--carousel-title-color, var(--foreground));
     text-transform: var(--carousel-title-text-transform, uppercase);
     text-decoration: var(--carousel-title-text-decoration, none);
   }
 
   .dpp-root .carousel__nav-button {
-    border-color: var(--carousel-nav-button-border-color, var(--link));
+    border-color: var(--carousel-nav-button-border-color, var(--primary));
     background-color: var(--carousel-nav-button-background-color, transparent);
-    color: var(--carousel-nav-button-color, var(--link));
+    color: var(--carousel-nav-button-color, var(--primary));
     border-radius: var(--carousel-nav-button-border-radius, var(--radius-none));
   }
 
@@ -620,7 +613,7 @@
     font-weight: var(--carousel-product-price-font-weight, var(--type-body-weight));
     line-height: var(--carousel-product-price-line-height, var(--type-body-line-height));
     letter-spacing: var(--carousel-product-price-letter-spacing, var(--type-body-letter-spacing));
-    color: var(--carousel-product-price-color, var(--primary));
+    color: var(--carousel-product-price-color, var(--foreground));
     text-transform: var(--carousel-product-price-text-transform, none);
     text-decoration: var(--carousel-product-price-text-decoration, none);
     text-align: var(--carousel-product-price-text-align, left);
@@ -647,7 +640,7 @@
     font-weight: var(--banner-headline-font-weight, var(--type-h3-weight));
     line-height: var(--banner-headline-line-height, var(--type-h3-line-height));
     letter-spacing: var(--banner-headline-letter-spacing, var(--type-h3-letter-spacing));
-    color: var(--banner-headline-color, #FFFFFF);
+    color: var(--banner-headline-color, var(--primary-foreground));
     text-transform: var(--banner-headline-text-transform, none);
     text-decoration: var(--banner-headline-text-decoration, none);
   }
@@ -658,7 +651,7 @@
     font-weight: var(--banner-subline-font-weight, var(--type-h5-weight));
     line-height: var(--banner-subline-line-height, var(--type-h5-line-height));
     letter-spacing: var(--banner-subline-letter-spacing, var(--type-h5-letter-spacing));
-    color: var(--banner-subline-color, #FFFFFF);
+    color: var(--banner-subline-color, var(--primary-foreground));
     text-transform: var(--banner-subline-text-transform, none);
     text-decoration: var(--banner-subline-text-decoration, none);
   }
@@ -669,9 +662,9 @@
     font-weight: var(--banner-button-font-weight, var(--type-body-sm-weight));
     line-height: var(--banner-button-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--banner-button-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--banner-button-color, var(--highlight-foreground));
+    color: var(--banner-button-color, var(--primary-foreground));
     border-radius: var(--banner-button-border-radius, var(--radius-none));
-    background-color: var(--banner-button-background-color, var(--highlight));
+    background-color: var(--banner-button-background-color, var(--primary));
     border: var(--banner-button-border, none);
     border-color: var(--banner-button-border-color, var(--primary));
     min-width: var(--banner-button-min-width, 150px);
@@ -683,7 +676,7 @@
 /* Utility Classes - Custom component utilities */
 @layer utilities {
   .dpp-root .text-highlight {
-    color: var(--highlight);
+    color: var(--link);
   }
   
   /* Container */

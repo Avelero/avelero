@@ -53,12 +53,6 @@ export interface ThemeConfig {
     showCTABanner: boolean;
   };
 
-  // Image controls
-  images: {
-    carouselImageZoom: number;
-    carouselImagePosition: "top" | "center" | "bottom";
-  };
-
   // Materials section configuration
   materials: {
     showCertificationCheckIcon: boolean;

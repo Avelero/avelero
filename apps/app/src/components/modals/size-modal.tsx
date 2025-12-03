@@ -68,7 +68,9 @@ function TierTwoCategorySelect({
   const [mounted, setMounted] = React.useState(false);
   const { tierTwoCategoryHierarchy } = useBrandCatalog();
   const [open, setOpen] = React.useState(false);
-  const [selectedCategoryPath, setSelectedCategoryPath] = React.useState<string | null>(value);
+  const [selectedCategoryPath, setSelectedCategoryPath] = React.useState<
+    string | null
+  >(value);
   const [navigationPath, setNavigationPath] = React.useState<string[]>([]); // ["Men's"] or empty
 
   React.useEffect(() => {
@@ -87,7 +89,9 @@ function TierTwoCategorySelect({
     }
     // navigationPath.length === 1
     const tierOneKey = navigationPath[0];
-    const tierTwoFullPaths = tierOneKey ? (tierTwoCategoryHierarchy[tierOneKey] || []) : [];
+    const tierTwoFullPaths = tierOneKey
+      ? tierTwoCategoryHierarchy[tierOneKey] || []
+      : [];
     return { type: "tier-two" as const, categories: tierTwoFullPaths };
   }, [navigationPath, tierOneCategories, tierTwoCategoryHierarchy]);
 
@@ -140,12 +144,19 @@ function TierTwoCategorySelect({
             className="w-full justify-between h-9"
             icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
           >
-            <span className={cn(!selectedCategoryPath ? "text-tertiary" : "text-primary")}>
+            <span
+              className={cn(
+                !selectedCategoryPath ? "text-tertiary" : "text-primary",
+              )}
+            >
               {selectedCategoryPath || "Select category"}
             </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+        <PopoverContent
+          className="p-0 w-[--radix-popover-trigger-width]"
+          align="start"
+        >
           <div className="flex flex-col">
             {/* Navigation Bar for tier-two (page 2) */}
             {currentView.type === "tier-two" && navigationPath.length > 0 && (
@@ -287,7 +298,9 @@ export function SizeModal({
   const [category, setCategory] = React.useState<string | null>(null);
   const [rows, setRows] = React.useState<SizeRow[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
-  const [currentPrefillSize, setCurrentPrefillSize] = React.useState<string | null>(null);
+  const [currentPrefillSize, setCurrentPrefillSize] = React.useState<
+    string | null
+  >(null);
 
   // Set mounted flag to prevent SSR/hydration issues
   React.useEffect(() => {
@@ -306,27 +319,30 @@ export function SizeModal({
   );
 
   // Helper to find category ID from category path (e.g., "Men's / Tops")
-  const findCategoryIdFromPath = React.useCallback((categoryPath: string): string | null => {
-    if (!categoryPath) return null;
+  const findCategoryIdFromPath = React.useCallback(
+    (categoryPath: string): string | null => {
+      if (!categoryPath) return null;
 
-    const parts = categoryPath.split(" / ");
-    if (parts.length !== 2) return null;
+      const parts = categoryPath.split(" / ");
+      if (parts.length !== 2) return null;
 
-    const [tierOneName, tierTwoName] = parts;
+      const [tierOneName, tierTwoName] = parts;
 
-    // Find the tier-two category by matching both parent and child names
-    for (const cat of categories) {
-      if (cat.name === tierTwoName && cat.parent_id) {
-        // Check if parent matches
-        const parent = categories.find(c => c.id === cat.parent_id);
-        if (parent?.name === tierOneName) {
-          return cat.id;
+      // Find the tier-two category by matching both parent and child names
+      for (const cat of categories) {
+        if (cat.name === tierTwoName && cat.parent_id) {
+          // Check if parent matches
+          const parent = categories.find((c) => c.id === cat.parent_id);
+          if (parent?.name === tierOneName) {
+            return cat.id;
+          }
         }
       }
-    }
 
-    return null;
-  }, [categories]);
+      return null;
+    },
+    [categories],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -424,18 +440,19 @@ export function SizeModal({
     try {
       // Get original sizes from DB for comparison
       const originalSizes = sizeOptions
-        .filter(s => s.categoryPath === category && s.id)
+        .filter((s) => s.categoryPath === category && s.id)
         .reduce((acc, s) => {
           acc.set(s.id!, s);
           return acc;
-        }, new Map<string, typeof sizeOptions[0]>());
+        }, new Map<string, (typeof sizeOptions)[0]>());
 
       // Get valid DB IDs for safety checks
       const validDbIds = new Set(Array.from(originalSizes.keys()));
 
       // Determine what operations to perform
       const toCreate: Array<{ name: string; sortIndex: number }> = [];
-      const toUpdate: Array<{ id: string; name: string; sortIndex: number }> = [];
+      const toUpdate: Array<{ id: string; name: string; sortIndex: number }> =
+        [];
       const toDelete: string[] = [];
 
       // Check each current row
@@ -471,7 +488,11 @@ export function SizeModal({
       toDelete.push(...Array.from(originalSizes.keys()));
 
       // Execute operations with per-operation error handling
-      const operationResults: Array<{ type: string; success: boolean; error?: Error }> = [];
+      const operationResults: Array<{
+        type: string;
+        success: boolean;
+        error?: Error;
+      }> = [];
 
       // Helper to execute operation with error handling and response validation
       const executeOperation = async <T,>(
@@ -656,8 +677,8 @@ export function SizeModal({
     const categoryKey = getCategoryKey(category);
     const existingSizes = categoryKey
       ? sizeOptions
-        .filter(s => s.categoryPath === category)
-        .sort((a, b) => a.sortIndex - b.sortIndex)
+          .filter((s) => s.categoryPath === category)
+          .sort((a, b) => a.sortIndex - b.sortIndex)
       : [];
 
     // Add existing sizes first
@@ -675,7 +696,7 @@ export function SizeModal({
     // Only use prefillSize if it matches the current category context
     if (currentPrefillSize?.trim() && category === prefillCategory) {
       const alreadyExists = existingSizes.some(
-        s => s.name.toLowerCase() === currentPrefillSize.toLowerCase()
+        (s) => s.name.toLowerCase() === currentPrefillSize.toLowerCase(),
       );
 
       if (!alreadyExists) {
@@ -717,7 +738,9 @@ export function SizeModal({
           <div
             className={cn(
               "grid w-full transition-all duration-150 ease-in-out",
-              category ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              category
+                ? "grid-rows-[1fr] opacity-100"
+                : "grid-rows-[0fr] opacity-0",
             )}
           >
             <div className="overflow-hidden">
@@ -792,10 +815,18 @@ export function SizeModal({
         </div>
 
         <DialogFooter className="px-6 pb-6 pt-3">
-          <Button variant="outline" onClick={handleCancel} disabled={isCreating}>
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isCreating}
+          >
             Cancel
           </Button>
-          <Button variant="brand" onClick={handleSave} disabled={!category || rows.length === 0 || isCreating}>
+          <Button
+            variant="brand"
+            onClick={handleSave}
+            disabled={!category || rows.length === 0 || isCreating}
+          >
             Save
           </Button>
         </DialogFooter>

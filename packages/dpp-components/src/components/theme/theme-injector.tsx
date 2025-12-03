@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 interface Props {
-  cssVars: string;
+  cssVars?: string;
   googleFontsUrl?: string;
   fontFaceCSS?: string;
 }

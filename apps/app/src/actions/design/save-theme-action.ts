@@ -6,6 +6,7 @@ import {
   generateGoogleFontsUrlFromTypography,
   type ThemeStyles,
 } from "@v1/dpp-components";
+import type { Json } from "@v1/supabase/types";
 import { z } from "zod";
 
 const BUCKET_NAME = "dpp-themes";
@@ -57,7 +58,7 @@ export const saveThemeAction = authActionClient
     const { error: dbError } = await supabase
       .from("brand_theme")
       .update({
-        theme_styles: themeStyles,
+        theme_styles: themeStyles as unknown as Json,
         stylesheet_path: stylesheetPath,
         google_fonts_url: googleFontsUrl || null,
         updated_at: now,

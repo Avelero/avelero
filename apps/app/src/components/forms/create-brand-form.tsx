@@ -135,7 +135,9 @@ export function CreateBrandFormSkeleton() {
           <Skeleton className="h-[36px] w-full" />
         </div>
       </div>
-      <Button className="w-full" disabled>Create</Button>
+      <Button className="w-full" disabled>
+        Create
+      </Button>
     </div>
   );
 }

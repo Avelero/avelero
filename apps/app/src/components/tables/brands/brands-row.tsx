@@ -123,7 +123,8 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
   const reject = useRejectInviteMutation();
   const router = useRouter();
 
-  const isProcessing = accept.isPending || reject.isPending || setActiveBrand.isPending;
+  const isProcessing =
+    accept.isPending || reject.isPending || setActiveBrand.isPending;
 
   // Prefetch dashboard route for post-acceptance navigation
   useEffect(() => {

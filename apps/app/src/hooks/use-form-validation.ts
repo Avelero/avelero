@@ -1,20 +1,18 @@
 /**
  * Generic form validation utilities.
- * 
+ *
  * Provides type-safe validation functions that can be used with any form.
  * Validation rules are defined as functions that return error messages.
  */
 
-import {
-  isValidEmail,
-  isValidUrl,
-  validatePhone,
-} from "@/utils/validation";
+import { isValidEmail, isValidUrl, validatePhone } from "@/utils/validation";
 
 export type ValidationRule<TValue> = (value: TValue) => string | undefined;
 
 export type ValidationSchema<TFormData> = {
-  [K in keyof TFormData]?: ValidationRule<TFormData[K]> | ValidationRule<TFormData[K]>[];
+  [K in keyof TFormData]?:
+    | ValidationRule<TFormData[K]>
+    | ValidationRule<TFormData[K]>[];
 };
 
 export type ValidationErrors<TFormData> = {
@@ -23,12 +21,12 @@ export type ValidationErrors<TFormData> = {
 
 /**
  * Validates form data against a validation schema.
- * 
+ *
  * @template TFormData - The shape of your form data
  * @param data - Form data to validate
  * @param schema - Validation schema with rules for each field
  * @returns Object with validation errors (empty if valid)
- * 
+ *
  * @example
  * ```tsx
  * const schema: ValidationSchema<{ name: string; email: string }> = {
@@ -38,7 +36,7 @@ export type ValidationErrors<TFormData> = {
  *     (value) => !value.includes("@") ? "Invalid email" : undefined,
  *   ],
  * };
- * 
+ *
  * const errors = validateForm({ name: "", email: "test" }, schema);
  * // { name: "Name is required", email: "Invalid email" }
  * ```
@@ -79,7 +77,7 @@ export function isFormValid<TFormData>(
 
 /**
  * Gets the first invalid field name for focusing.
- * 
+ *
  * @param errors - Validation errors object
  * @param fieldOrder - Optional priority order for fields (first field in order takes precedence)
  * @returns First invalid field name, or null if form is valid
@@ -117,7 +115,10 @@ export const rules = {
     },
 
   maxLength:
-    (max: number, message = `Maximum ${max} characters`): ValidationRule<string> =>
+    (
+      max: number,
+      message = `Maximum ${max} characters`,
+    ): ValidationRule<string> =>
     (value) => {
       if (!value) {
         return undefined;
@@ -135,7 +136,9 @@ export const rules = {
     },
 
   positiveNumeric:
-    (message = "Value must be a valid positive number"): ValidationRule<string> =>
+    (
+      message = "Value must be a valid positive number",
+    ): ValidationRule<string> =>
     (value) => {
       if (!value?.trim()) {
         return undefined;
@@ -188,7 +191,10 @@ export const rules = {
     },
 
   uniqueCaseInsensitive:
-    (existingValues: string[], message = "This value already exists"): ValidationRule<string> =>
+    (
+      existingValues: string[],
+      message = "This value already exists",
+    ): ValidationRule<string> =>
     (value) => {
       if (!value?.trim()) {
         return undefined;
@@ -200,4 +206,3 @@ export const rules = {
       return exists ? message : undefined;
     },
 };
-

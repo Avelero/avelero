@@ -50,15 +50,69 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
     link: "#0000FF",
   },
   typography: {
-    h1: { fontFamily: "Geist", fontSize: 32, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.025em" },
-    h2: { fontFamily: "Geist", fontSize: 29, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.025em" },
-    h3: { fontFamily: "Geist", fontSize: 26, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.025em" },
-    h4: { fontFamily: "Geist", fontSize: 23, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.025em" },
-    h5: { fontFamily: "Geist", fontSize: 20, fontWeight: 500, lineHeight: 1.25, letterSpacing: "0em" },
-    h6: { fontFamily: "Geist", fontSize: 18, fontWeight: 500, lineHeight: 1.25, letterSpacing: "0em" },
-    body: { fontFamily: "Geist", fontSize: 16, fontWeight: 400, lineHeight: 1.25, letterSpacing: "0em" },
-    "body-sm": { fontFamily: "Geist", fontSize: 14, fontWeight: 400, lineHeight: 1.5, letterSpacing: "0em" },
-    "body-xs": { fontFamily: "Geist", fontSize: 12, fontWeight: 400, lineHeight: 1.5, letterSpacing: "0em" },
+    h1: {
+      fontFamily: "Geist",
+      fontSize: 48, // 3rem
+      fontWeight: 500,
+      lineHeight: 1,
+      letterSpacing: "-0.025em",
+    },
+    h2: {
+      fontFamily: "Geist",
+      fontSize: 40, // 2.5rem
+      fontWeight: 500,
+      lineHeight: 1,
+      letterSpacing: "-0.025em",
+    },
+    h3: {
+      fontFamily: "Geist",
+      fontSize: 33, // 2.0625rem
+      fontWeight: 500,
+      lineHeight: 1,
+      letterSpacing: "-0.025em",
+    },
+    h4: {
+      fontFamily: "Geist",
+      fontSize: 28, // 1.755rem
+      fontWeight: 500,
+      lineHeight: 1,
+      letterSpacing: "-0.025em",
+    },
+    h5: {
+      fontFamily: "Geist",
+      fontSize: 23, // 1.4375rem
+      fontWeight: 500,
+      lineHeight: 1.25,
+      letterSpacing: "0em",
+    },
+    h6: {
+      fontFamily: "Geist",
+      fontSize: 19, // 1.1875rem
+      fontWeight: 500,
+      lineHeight: 1.25,
+      letterSpacing: "0em",
+    },
+    body: {
+      fontFamily: "Geist",
+      fontSize: 16, // 1rem
+      fontWeight: 400,
+      lineHeight: 1.25,
+      letterSpacing: "0em",
+    },
+    "body-sm": {
+      fontFamily: "Geist",
+      fontSize: 14, // 0.875rem
+      fontWeight: 400,
+      lineHeight: 1.5,
+      letterSpacing: "0em",
+    },
+    "body-xs": {
+      fontFamily: "Geist",
+      fontSize: 12, // 0.75rem
+      fontWeight: 400,
+      lineHeight: 1.5,
+      letterSpacing: "0em",
+    },
   },
 
   // ===========================================================================
@@ -91,21 +145,21 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // ===========================================================================
   // PRODUCT
   // ===========================================================================
-  "product__image": {
+  product__image: {
     borderColor: "$border",
     borderRadius: 0,
   },
-  "product__title": {
+  product__title: {
     color: "$foreground",
     typescale: "h5",
     textTransform: "uppercase",
   },
-  "product__description": {
+  product__description: {
     color: "$mutedForeground",
     typescale: "body-sm",
     textTransform: "none",
   },
-  "product__brand": {
+  product__brand: {
     color: "$foreground",
     typescale: "body-sm",
     textTransform: "uppercase",
@@ -291,7 +345,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // ===========================================================================
   // CAROUSEL
   // ===========================================================================
-  "carousel__title": {
+  carousel__title: {
     color: "$foreground",
     typescale: "h6",
     textTransform: "uppercase",
@@ -399,10 +453,6 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
     showJourney: true,
     showSimilarProducts: false,
     showCTABanner: false,
-  },
-  images: {
-    carouselImageZoom: 100,
-    carouselImagePosition: "center",
   },
   materials: {
     showCertificationCheckIcon: true,

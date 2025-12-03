@@ -13,7 +13,7 @@ import {
 } from "../../registry/component-registry";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 
-/** 
+/**
  * Debounce delay for triggering live preview highlight when hovering layout tree items (ms).
  * The layout tree item's own CSS hover is instant, this only affects the preview.
  */
@@ -75,7 +75,7 @@ function LayoutTreeItem({
         <div
           className={cn(
             "relative flex items-center w-full h-7 group-hover:bg-accent",
-            isHighlighted && "bg-accent"
+            isHighlighted && "bg-accent",
           )}
           style={{ paddingLeft: `${indentPx}px` }}
         >
@@ -90,7 +90,7 @@ function LayoutTreeItem({
               <Icons.ChevronRight
                 className={cn(
                   "h-3 w-3 text-tertiary transition-transform duration-150",
-                  isExpanded && "rotate-90"
+                  isExpanded && "rotate-90",
                 )}
               />
             </button>
@@ -105,14 +105,16 @@ function LayoutTreeItem({
             className={cn(
               "flex flex-row items-center justify-between text-left h-7 flex-1 type-small text-primary",
               // Only show cursor-pointer for editable items
-              isEditable ? "cursor-pointer" : "cursor-default"
+              isEditable ? "cursor-pointer" : "cursor-default",
             )}
           >
             <div className="flex items-center truncate">
               <div className="flex items-center justify-center min-w-4 h-7">
                 <Icons.GalleryVertical className="h-3 w-3 text-tertiary" />
               </div>
-              <div className="flex items-center px-2 h-7">{item.displayName}</div>
+              <div className="flex items-center px-2 h-7">
+                {item.displayName}
+              </div>
             </div>
             {/* Navigation chevron - only show for editable items, shows on hover */}
             {isEditable && (
@@ -157,7 +159,7 @@ function LayoutTreeItem({
  */
 function findVisibleHighlightTarget(
   hoveredId: string | null,
-  expandedItems: Set<string>
+  expandedItems: Set<string>,
 ): string | null {
   if (!hoveredId) return null;
 
@@ -171,11 +173,11 @@ function findVisibleHighlightTarget(
   for (let i = 0; i < ancestry.length; i++) {
     const component = ancestry[i];
     if (!component) continue;
-    
+
     // Check if all parents up to this point are expanded
-    const parentsExpanded = ancestry.slice(0, i).every((parent) =>
-      expandedItems.has(parent.id)
-    );
+    const parentsExpanded = ancestry
+      .slice(0, i)
+      .every((parent) => expandedItems.has(parent.id));
 
     if (i === 0 || parentsExpanded) {
       lastVisible = component.id;
@@ -251,7 +253,7 @@ export function LayoutTree() {
         debounceTimerRef.current = null;
       }, PREVIEW_HIGHLIGHT_DEBOUNCE_MS);
     },
-    [hoveredComponentId, setHoveredComponentId]
+    [hoveredComponentId, setHoveredComponentId],
   );
 
   // Cleanup debounce timer on unmount
@@ -264,7 +266,10 @@ export function LayoutTree() {
   }, []);
 
   // Determine which item should be highlighted based on hover
-  const highlightedId = findVisibleHighlightTarget(hoveredComponentId, expandedItems);
+  const highlightedId = findVisibleHighlightTarget(
+    hoveredComponentId,
+    expandedItems,
+  );
 
   return (
     <div

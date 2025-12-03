@@ -34,7 +34,7 @@ export function ProductDetails({
                 {articleNumber}
               </a>
             ) : (
-              <span>{articleNumber}</span> 
+              <span>{articleNumber}</span>
             )}
           </div>
         </div>
@@ -64,9 +64,7 @@ export function ProductDetails({
         {/* Category Row */}
         <div className="product-details__row p-sm flex justify-between items-start border-b">
           <div className="product-details__label">CATEGORY</div>
-          <div className="product-details__value text-right">
-            {category}
-          </div>
+          <div className="product-details__value text-right">{category}</div>
         </div>
 
         {/* Size Row */}

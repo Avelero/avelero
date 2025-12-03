@@ -12,4 +12,3 @@ export const createBrandTagSchema = z.object({
 export const updateBrandTagSchema = updateFrom(createBrandTagSchema);
 
 export const deleteBrandTagSchema = byIdSchema;
-

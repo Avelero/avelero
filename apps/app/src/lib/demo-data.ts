@@ -139,4 +139,3 @@ export const DEMO_DPP_DATA: DppData = {
     },
   ],
 };
-

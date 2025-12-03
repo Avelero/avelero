@@ -108,7 +108,15 @@ export function FilterFieldInput({
 
     // For other multi-select fields, return options as-is
     return options;
-  }, [fieldConfig.inputType, fieldConfig.id, fieldConfig.options, dynamicOptions, colors, tags, seasons]);
+  }, [
+    fieldConfig.inputType,
+    fieldConfig.id,
+    fieldConfig.options,
+    dynamicOptions,
+    colors,
+    tags,
+    seasons,
+  ]);
 
   // Boolean fields: show True/False only (no operator)
   if (fieldConfig.inputType === "boolean") {
@@ -222,8 +230,9 @@ export function FilterFieldInput({
         }
 
         // Use enhanced options if available, otherwise fall back to regular options
-        const options = enhancedMultiSelectOptions ?? (fieldConfig.options ?? dynamicOptions);
-        
+        const options =
+          enhancedMultiSelectOptions ?? fieldConfig.options ?? dynamicOptions;
+
         return operatorNeedsNoValue ? null : (
           <Select
             multiple
@@ -514,41 +523,73 @@ function CategoryPopoverSelect({
 
           {/* Options */}
           <div className="max-h-48 overflow-y-auto scrollbar-hide">
-            {Object.entries(currentLevel).map(([categoryId, node]: [string, any]) => {
-              const hasChildren =
-                node.children && Object.keys(node.children).length > 0;
-              const isSelected = value.includes(categoryId);
+            {Object.entries(currentLevel).map(
+              ([categoryId, node]: [string, any]) => {
+                const hasChildren =
+                  node.children && Object.keys(node.children).length > 0;
+                const isSelected = value.includes(categoryId);
 
-              return (
-                <div key={categoryId} className="relative">
-                  {hasChildren ? (
-                    // Button-in-button layout for items with children
-                    <div
-                      className={cn(
-                        "flex transition-colors",
-                        hoveredRow === categoryId ? "bg-accent" : "",
-                      )}
-                      onMouseLeave={() => {
-                        setHoveredRow(null);
-                        setHoveredArea(null);
-                      }}
-                    >
-                      {/* Selection area */}
+                return (
+                  <div key={categoryId} className="relative">
+                    {hasChildren ? (
+                      // Button-in-button layout for items with children
+                      <div
+                        className={cn(
+                          "flex transition-colors",
+                          hoveredRow === categoryId ? "bg-accent" : "",
+                        )}
+                        onMouseLeave={() => {
+                          setHoveredRow(null);
+                          setHoveredArea(null);
+                        }}
+                      >
+                        {/* Selection area */}
+                        <button
+                          type="button"
+                          onClick={() => handleCategorySelect(categoryId)}
+                          onMouseEnter={() => {
+                            setHoveredRow(categoryId);
+                            setHoveredArea("selection");
+                          }}
+                          className={cn(
+                            "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                            isSelected
+                              ? "bg-accent-blue text-brand"
+                              : hoveredRow === categoryId &&
+                                  hoveredArea === "selection"
+                                ? "bg-accent-dark text-primary"
+                                : "text-primary",
+                          )}
+                        >
+                          <span>{node.label}</span>
+                          {isSelected && (
+                            <Icons.Check className="h-4 w-4 text-brand" />
+                          )}
+                        </button>
+
+                        {/* Navigation area */}
+                        <button
+                          type="button"
+                          onClick={() => handleCategoryNavigate(categoryId)}
+                          onMouseEnter={() => {
+                            setHoveredRow(categoryId);
+                            setHoveredArea("navigation");
+                          }}
+                          className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
+                        >
+                          <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
+                        </button>
+                      </div>
+                    ) : (
+                      // Full-width button for leaf items
                       <button
                         type="button"
                         onClick={() => handleCategorySelect(categoryId)}
-                        onMouseEnter={() => {
-                          setHoveredRow(categoryId);
-                          setHoveredArea("selection");
-                        }}
                         className={cn(
-                          "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                          "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
                           isSelected
                             ? "bg-accent-blue text-brand"
-                            : hoveredRow === categoryId &&
-                                hoveredArea === "selection"
-                              ? "bg-accent-dark text-primary"
-                              : "text-primary",
+                            : "hover:bg-accent text-primary",
                         )}
                       >
                         <span>{node.label}</span>
@@ -556,41 +597,11 @@ function CategoryPopoverSelect({
                           <Icons.Check className="h-4 w-4 text-brand" />
                         )}
                       </button>
-
-                      {/* Navigation area */}
-                      <button
-                        type="button"
-                        onClick={() => handleCategoryNavigate(categoryId)}
-                        onMouseEnter={() => {
-                          setHoveredRow(categoryId);
-                          setHoveredArea("navigation");
-                        }}
-                        className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
-                      >
-                        <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
-                      </button>
-                    </div>
-                  ) : (
-                    // Full-width button for leaf items
-                    <button
-                      type="button"
-                      onClick={() => handleCategorySelect(categoryId)}
-                      className={cn(
-                        "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
-                        isSelected
-                          ? "bg-accent-blue text-brand"
-                          : "hover:bg-accent text-primary",
-                      )}
-                    >
-                      <span>{node.label}</span>
-                      {isSelected && (
-                        <Icons.Check className="h-4 w-4 text-brand" />
-                      )}
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+                    )}
+                  </div>
+                );
+              },
+            )}
           </div>
         </div>
       </PopoverContent>
@@ -607,10 +618,7 @@ function SizePopoverSelect({
   onValueChange: (value: string[]) => void;
 }) {
   const [open, setOpen] = React.useState(false);
-  const {
-    tierTwoCategoryHierarchy,
-    sizeOptions,
-  } = useBrandCatalog();
+  const { tierTwoCategoryHierarchy, sizeOptions } = useBrandCatalog();
   const [navigationPath, setNavigationPath] = React.useState<string[]>([]);
   const [searchTerm, setSearchTerm] = React.useState("");
 
@@ -641,8 +649,12 @@ function SizePopoverSelect({
     }
     if (navigationPath.length === 1) {
       const tierOneKey = navigationPath[0];
-      const tierTwoPaths = tierOneKey ? (tierTwoCategoryHierarchy[tierOneKey] || []) : [];
-      const tierTwoNames = tierTwoPaths.map((path) => path.split(" / ")[1] || path);
+      const tierTwoPaths = tierOneKey
+        ? tierTwoCategoryHierarchy[tierOneKey] || []
+        : [];
+      const tierTwoNames = tierTwoPaths.map(
+        (path) => path.split(" / ")[1] || path,
+      );
       return { type: "tier-two" as const, categories: tierTwoNames };
     }
     const tierOneKey = navigationPath[0];
@@ -650,7 +662,12 @@ function SizePopoverSelect({
     const fullCategoryPath = `${tierOneKey} / ${tierTwoKey}`;
     const sizes = sizesByCategory.get(fullCategoryPath) || [];
     return { type: "sizes" as const, sizes };
-  }, [navigationPath, tierOneCategories, tierTwoCategoryHierarchy, sizesByCategory]);
+  }, [
+    navigationPath,
+    tierOneCategories,
+    tierTwoCategoryHierarchy,
+    sizesByCategory,
+  ]);
 
   // Filter sizes when searching on page 3
   const filteredSizes = React.useMemo(() => {
@@ -673,7 +690,7 @@ function SizePopoverSelect({
   }, []);
 
   const handleToggleSize = React.useCallback(
-    (size: typeof sizeOptions[0]) => {
+    (size: (typeof sizeOptions)[0]) => {
       const sizeId = size.id || `${size.categoryKey}-${size.name}`;
       const newValue = value.includes(sizeId)
         ? value.filter((v) => v !== sizeId)
@@ -734,7 +751,9 @@ function SizePopoverSelect({
           {/* Content Area */}
           <div
             className={cn(
-              currentView.type === "sizes" ? "" : "max-h-48 overflow-y-auto scrollbar-hide",
+              currentView.type === "sizes"
+                ? ""
+                : "max-h-48 overflow-y-auto scrollbar-hide",
             )}
           >
             {currentView.type === "tier-one" && (
@@ -792,7 +811,8 @@ function SizePopoverSelect({
                   <CommandGroup>
                     {filteredSizes.length > 0 ? (
                       filteredSizes.map((size) => {
-                        const sizeId = size.id || `${size.categoryKey}-${size.name}`;
+                        const sizeId =
+                          size.id || `${size.categoryKey}-${size.name}`;
                         const isSelected = value.includes(sizeId);
                         return (
                           <CommandItem
@@ -801,7 +821,9 @@ function SizePopoverSelect({
                             onSelect={() => handleToggleSize(size)}
                             className="justify-between"
                           >
-                            <span className="type-p text-primary">{size.name}</span>
+                            <span className="type-p text-primary">
+                              {size.name}
+                            </span>
                             {isSelected && <Icons.Check className="h-4 w-4" />}
                           </CommandItem>
                         );

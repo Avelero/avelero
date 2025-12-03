@@ -122,4 +122,3 @@ export const stagingProductsRelations = relations(
     stagingProductMaterials: many(stagingProductMaterials),
   }),
 );
-

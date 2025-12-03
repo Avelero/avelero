@@ -70,4 +70,3 @@ export const valueMappingsRelations = relations(valueMappings, ({ one }) => ({
     references: [brands.id],
   }),
 }));
-

@@ -106,7 +106,7 @@ export function SeasonSelect({
           className={cn("w-full justify-between h-9", className)}
           icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
-{value ? (
+          {value ? (
             <div className="flex items-center gap-2">
               <span className="type-p text-primary">{value.name}</span>
               {renderSeasonDateRange(value)}
@@ -116,7 +116,10 @@ export function SeasonSelect({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0"
+        align="start"
+      >
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search seasons..."
@@ -153,14 +156,10 @@ export function SeasonSelect({
                 </CommandItem>
               ) : !searchTerm ? (
                 onCreateNew ? (
-                  <CommandEmpty>
-                    Start typing to create...
-                  </CommandEmpty>
+                  <CommandEmpty>Start typing to create...</CommandEmpty>
                 ) : null
               ) : (
-                <CommandEmpty>
-                  No results found
-                </CommandEmpty>
+                <CommandEmpty>No results found</CommandEmpty>
               )}
             </CommandGroup>
           </CommandList>

@@ -4,13 +4,16 @@ import validator from "validator";
 export function normalizeUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return "";
-  
+
   // Check for http/https schemes case-insensitively
   const lowerTrimmed = trimmed.toLowerCase();
-  if (lowerTrimmed.startsWith("http://") || lowerTrimmed.startsWith("https://")) {
+  if (
+    lowerTrimmed.startsWith("http://") ||
+    lowerTrimmed.startsWith("https://")
+  ) {
     return validator.isURL(trimmed) ? trimmed : "";
   }
-  
+
   const withProtocol = `https://${trimmed}`;
   return validator.isURL(withProtocol) ? withProtocol : "";
 }
@@ -32,7 +35,7 @@ export function validatePhone(phone: string): {
 } {
   const trimmed = phone.trim();
   if (!trimmed) return { isValid: true };
-  
+
   try {
     const phoneNumber = parsePhoneNumberFromString(trimmed);
     if (phoneNumber?.isValid()) {
@@ -42,7 +45,8 @@ export function validatePhone(phone: string): {
   } catch {
     return {
       isValid: false,
-      error: "Please enter a valid phone number with country code (e.g., +1 234 567 8900)",
+      error:
+        "Please enter a valid phone number with country code (e.g., +1 234 567 8900)",
     };
   }
 }
@@ -50,4 +54,3 @@ export function validatePhone(phone: string): {
 export function formatPhone(phone: string): string {
   return validatePhone(phone).formatted || phone;
 }
-

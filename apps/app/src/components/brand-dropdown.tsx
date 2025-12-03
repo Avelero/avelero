@@ -150,7 +150,11 @@ function BrandDropdownContent({
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild className="cursor-pointer" disabled={isSwitching}>
+          <DropdownMenuItem
+            asChild
+            className="cursor-pointer"
+            disabled={isSwitching}
+          >
             <Link href="/create-brand" prefetch>
               <div className="flex items-center gap-2">
                 <span className="type-p">Create Brand</span>
@@ -175,7 +179,7 @@ function BrandDropdownSkeleton() {
 
 export function BrandDropdown(props: BrandDropdownProps) {
   return (
-    <Suspense fallback={<BrandDropdownSkeleton/>}>
+    <Suspense fallback={<BrandDropdownSkeleton />}>
       <BrandDropdownContent {...props} />
     </Suspense>
   );

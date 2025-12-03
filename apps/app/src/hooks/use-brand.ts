@@ -243,10 +243,7 @@ export function useLeaveBrandMutation() {
 
   return useMutation(
     trpc.workflow.members.update.mutationOptions({
-      onSuccess: async (
-        res: LeaveBrandResult,
-        _variables,
-      ) => {
+      onSuccess: async (res: LeaveBrandResult, _variables) => {
         await Promise.all([
           queryClient.invalidateQueries({
             queryKey: trpc.workflow.list.queryKey(),

@@ -13,9 +13,7 @@ export function randomBase36String(length = 16): string {
 }
 
 type IsTakenFn = (candidate: string) => Promise<boolean>;
-type FetchTakenSetFn = (
-  candidates: readonly string[],
-) => Promise<Set<string>>;
+type FetchTakenSetFn = (candidates: readonly string[]) => Promise<Set<string>>;
 
 export interface GenerateUniqueUpidOptions {
   length?: number;
@@ -71,9 +69,8 @@ export async function generateUniqueUpids({
       Math.max(remaining * 2, minBatchSize),
       maxBatchSize,
     );
-    const candidates = Array.from(
-      { length: batchSize },
-      () => randomBase36String(length),
+    const candidates = Array.from({ length: batchSize }, () =>
+      randomBase36String(length),
     );
 
     const taken = await fetchTakenSet(candidates);
@@ -108,4 +105,3 @@ export async function generateUniqueUpids({
 
   return Array.from(unique).slice(0, count);
 }
-

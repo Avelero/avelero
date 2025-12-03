@@ -5,10 +5,10 @@ import { Suspense } from "react";
 
 /**
  * Dashboard Layout - Auth Bootstrap
- * 
+ *
  * This layout handles authentication and cache seeding for ALL dashboard pages.
  * It does NOT include redirect logic - that's handled by (main)/layout.tsx
- * to avoid infinite redirect loops (since /setup, /create-brand, /invites 
+ * to avoid infinite redirect loops (since /setup, /create-brand, /invites
  * are also under this layout).
  */
 export default function DashboardLayout({
@@ -41,10 +41,7 @@ async function DashboardLayoutContent({
   const user = workflowInit.user;
 
   // Seed caches so child components don't refetch
-  queryClient.setQueryData(
-    trpc.user.get.queryOptions().queryKey,
-    user,
-  );
+  queryClient.setQueryData(trpc.user.get.queryOptions().queryKey, user);
 
   queryClient.setQueryData(
     trpc.workflow.list.queryOptions().queryKey,
@@ -56,9 +53,5 @@ async function DashboardLayoutContent({
     workflowInit.myInvites,
   );
 
-  return (
-    <HydrateClient>
-      {children}
-    </HydrateClient>
-  );
+  return <HydrateClient>{children}</HydrateClient>;
 }

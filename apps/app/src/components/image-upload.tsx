@@ -4,7 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { useImageUpload } from "@/hooks/use-image-upload";
-import { validateImageFile, type ImageValidationResult } from "@/utils/image-upload";
+import {
+  validateImageFile,
+  type ImageValidationResult,
+} from "@/utils/image-upload";
 import { toast } from "@v1/ui/sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 
@@ -188,11 +191,14 @@ export function ImageUploader({
   return (
     <div className={cn("space-y-1.5", className)}>
       {label && <span className="type-small text-secondary">{label}</span>}
-      <Popover open={popoverOpen} onOpenChange={(open) => {
-        // Only allow opening if there's an image
-        if (open && !previewUrl) return;
-        setPopoverOpen(open);
-      }}>
+      <Popover
+        open={popoverOpen}
+        onOpenChange={(open) => {
+          // Only allow opening if there's an image
+          if (open && !previewUrl) return;
+          setPopoverOpen(open);
+        }}
+      >
         <PopoverTrigger asChild>
           <div
             role="button"
@@ -295,7 +301,9 @@ export function ImageUploader({
         </PopoverContent>
       </Popover>
 
-      {helperText && <span className="type-small text-tertiary">{helperText}</span>}
+      {helperText && (
+        <span className="type-small text-tertiary">{helperText}</span>
+      )}
     </div>
   );
 }

@@ -57,7 +57,8 @@ async function createEntityForType(
 
       const startDate =
         payload.startDate != null ? new Date(payload.startDate) : null;
-      const endDate = payload.endDate != null ? new Date(payload.endDate) : null;
+      const endDate =
+        payload.endDate != null ? new Date(payload.endDate) : null;
 
       if (startDate !== null && Number.isNaN(startDate.getTime())) {
         throw badRequest("Invalid season start date");
@@ -99,12 +100,7 @@ async function createEntityForType(
       );
     }
     default:
-      return validateAndCreateEntity(
-        db,
-        brandId,
-        entityType,
-        entityData,
-      );
+      return validateAndCreateEntity(db, brandId, entityType, entityData);
   }
 }
 

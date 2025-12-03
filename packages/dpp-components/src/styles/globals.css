@@ -635,11 +635,11 @@
   }
   
   .dpp-root .banner__headline {
-    font-family: var(--banner-headline-font-family, var(--type-h1-family));
-    font-size: var(--banner-headline-font-size, var(--type-h1-size));
-    font-weight: var(--banner-headline-font-weight, var(--type-h1-weight));
-    line-height: var(--banner-headline-line-height, var(--type-h1-line-height));
-    letter-spacing: var(--banner-headline-letter-spacing, var(--type-h1-letter-spacing));
+    font-family: var(--banner-headline-font-family, var(--type-h2-family));
+    font-size: var(--banner-headline-font-size, var(--type-h2-size));
+    font-weight: var(--banner-headline-font-weight, var(--type-h2-weight));
+    line-height: var(--banner-headline-line-height, var(--type-h2-line-height));
+    letter-spacing: var(--banner-headline-letter-spacing, var(--type-h2-letter-spacing));
     color: var(--banner-headline-color, var(--primary-foreground));
     text-transform: var(--banner-headline-text-transform, capitalize);
     text-decoration: var(--banner-headline-text-decoration, none);

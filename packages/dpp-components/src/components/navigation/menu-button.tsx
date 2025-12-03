@@ -16,8 +16,12 @@ export function MenuButton({ label, url, variant = "primary" }: Props) {
   const isExternal = url.startsWith("http://") || url.startsWith("https://");
 
   // Use variant-specific CSS classes for independent styling
-  const buttonClass = variant === "secondary" ? "menu-secondary-button" : "menu-primary-button";
-  const iconClass = variant === "secondary" ? "menu-secondary-button__icon" : "menu-primary-button__icon";
+  const buttonClass =
+    variant === "secondary" ? "menu-secondary-button" : "menu-primary-button";
+  const iconClass =
+    variant === "secondary"
+      ? "menu-secondary-button__icon"
+      : "menu-primary-button__icon";
 
   return (
     <a

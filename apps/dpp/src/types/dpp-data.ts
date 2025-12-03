@@ -4,5 +4,4 @@ export type {
   JourneyStage,
   Material,
   SimilarProduct,
-} from '@v1/dpp-components';
-
+} from "@v1/dpp-components";

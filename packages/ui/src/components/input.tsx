@@ -33,10 +33,26 @@ export interface InputProps
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, allowEmpty, emptyDefault = 0, variant, value, onChange, onBlur, onFocus, min, max, ...props }, ref) => {
+  (
+    {
+      className,
+      type,
+      allowEmpty,
+      emptyDefault = 0,
+      variant,
+      value,
+      onChange,
+      onBlur,
+      onFocus,
+      min,
+      max,
+      ...props
+    },
+    ref,
+  ) => {
     // For numeric inputs with allowEmpty, track local string state
     const [localValue, setLocalValue] = React.useState<string>(
-      value !== undefined ? String(value) : ""
+      value !== undefined ? String(value) : "",
     );
     const [isFocused, setIsFocused] = React.useState(false);
 
@@ -81,7 +97,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         // Default to emptyDefault if empty on blur
         if (localValue === "" || localValue === "-") {
           const minVal = typeof min === "number" ? min : undefined;
-          const defaultVal = minVal !== undefined ? Math.max(minVal, emptyDefault) : emptyDefault;
+          const defaultVal =
+            minVal !== undefined
+              ? Math.max(minVal, emptyDefault)
+              : emptyDefault;
           setLocalValue(String(defaultVal));
           if (onChange) {
             const syntheticEvent = {

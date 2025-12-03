@@ -26,7 +26,8 @@ export function MenuFrame({
   if (menuItems.length === 0) return null;
 
   // Use variant-specific wrapper class for the menu container
-  const containerClass = variant === "secondary" ? "menu-secondary" : "menu-primary";
+  const containerClass =
+    variant === "secondary" ? "menu-secondary" : "menu-primary";
 
   return (
     <div className="w-full mt-2x @3xl:mx-0">

@@ -15,10 +15,15 @@ import { Select } from "@v1/ui/select";
 // EDITOR SECTION
 // =============================================================================
 
-function EditorSection({ title, children }: { title: string; children: React.ReactNode }) {
+function EditorSection({
+  title,
+  children,
+}: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-b border-border p-4">
-      <span className="type-small font-medium text-primary mb-3 block">{title}</span>
+      <span className="type-small font-medium text-primary mb-3 block">
+        {title}
+      </span>
       <div className="flex flex-col gap-3">{children}</div>
     </div>
   );
@@ -57,7 +62,8 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
 
   switch (field.type) {
     case "color": {
-      const displayValue = typeof value === "string" ? value.replace("#", "") : "";
+      const displayValue =
+        typeof value === "string" ? value.replace("#", "") : "";
       return (
         <ColorInput
           label={field.label}
@@ -83,22 +89,37 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
 
     case "radius": {
       // Handle both single value and object value (4 corners)
-      const defaultRadius = { topLeft: 0, topRight: 0, bottomLeft: 0, bottomRight: 0 };
+      const defaultRadius = {
+        topLeft: 0,
+        topRight: 0,
+        bottomLeft: 0,
+        bottomRight: 0,
+      };
       let radiusValues = defaultRadius;
-      
+
       if (typeof value === "number") {
         // Single value - apply to all corners
-        radiusValues = { topLeft: value, topRight: value, bottomLeft: value, bottomRight: value };
+        radiusValues = {
+          topLeft: value,
+          topRight: value,
+          bottomLeft: value,
+          bottomRight: value,
+        };
       } else if (value && typeof value === "object" && "topLeft" in value) {
-        const v = value as { topLeft: number; topRight: number; bottomLeft: number; bottomRight: number };
-        radiusValues = { 
-          topLeft: v.topLeft ?? 0, 
-          topRight: v.topRight ?? 0, 
-          bottomLeft: v.bottomLeft ?? 0, 
-          bottomRight: v.bottomRight ?? 0 
+        const v = value as {
+          topLeft: number;
+          topRight: number;
+          bottomLeft: number;
+          bottomRight: number;
+        };
+        radiusValues = {
+          topLeft: v.topLeft ?? 0,
+          topRight: v.topRight ?? 0,
+          bottomLeft: v.bottomLeft ?? 0,
+          bottomRight: v.bottomRight ?? 0,
         };
       }
-      
+
       return (
         <RadiusInput
           label={field.label}
@@ -148,7 +169,13 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
 // GROUP FIELDS BY CATEGORY
 // =============================================================================
 
-type FieldCategory = "background" | "stroke" | "typography" | "sizing" | "spacing" | "other";
+type FieldCategory =
+  | "background"
+  | "stroke"
+  | "typography"
+  | "sizing"
+  | "spacing"
+  | "other";
 
 interface GroupedFields {
   background: StyleField[];
@@ -270,7 +297,8 @@ export function ComponentSection({ componentId }: ComponentSectionProps) {
   }
 
   const styleFields = component.styleFields || [];
-  const { mainGroups, sectionGroups, sectionOrder } = organizeStyleFields(styleFields);
+  const { mainGroups, sectionGroups, sectionOrder } =
+    organizeStyleFields(styleFields);
 
   if (styleFields.length === 0) {
     return (
@@ -284,30 +312,30 @@ export function ComponentSection({ componentId }: ComponentSectionProps) {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hide">
-            {/* Main field groups with section borders */}
-            {mainGroups.background.length > 0 && (
-              <EditorSection title="Background">
-                {mainGroups.background.map((field) => (
-                  <StyleFieldRenderer key={field.path} field={field} />
-                ))}
-              </EditorSection>
-            )}
+      {/* Main field groups with section borders */}
+      {mainGroups.background.length > 0 && (
+        <EditorSection title="Background">
+          {mainGroups.background.map((field) => (
+            <StyleFieldRenderer key={field.path} field={field} />
+          ))}
+        </EditorSection>
+      )}
 
-            {mainGroups.stroke.length > 0 && (
-              <EditorSection title="Stroke">
-                {mainGroups.stroke.map((field) => (
-                  <StyleFieldRenderer key={field.path} field={field} />
-                ))}
-              </EditorSection>
-            )}
+      {mainGroups.stroke.length > 0 && (
+        <EditorSection title="Stroke">
+          {mainGroups.stroke.map((field) => (
+            <StyleFieldRenderer key={field.path} field={field} />
+          ))}
+        </EditorSection>
+      )}
 
-            {mainGroups.typography.length > 0 && (
-              <EditorSection title="Typography">
-                {mainGroups.typography.map((field) => (
-                  <StyleFieldRenderer key={field.path} field={field} />
-                ))}
-              </EditorSection>
-            )}
+      {mainGroups.typography.length > 0 && (
+        <EditorSection title="Typography">
+          {mainGroups.typography.map((field) => (
+            <StyleFieldRenderer key={field.path} field={field} />
+          ))}
+        </EditorSection>
+      )}
 
       {mainGroups.sizing.length > 0 && (
         <EditorSection title="Sizing">
@@ -317,34 +345,34 @@ export function ComponentSection({ componentId }: ComponentSectionProps) {
         </EditorSection>
       )}
 
-            {mainGroups.spacing.length > 0 && (
-              <EditorSection title="Spacing">
-                {mainGroups.spacing.map((field) => (
-                  <StyleFieldRenderer key={field.path} field={field} />
-                ))}
-              </EditorSection>
-            )}
+      {mainGroups.spacing.length > 0 && (
+        <EditorSection title="Spacing">
+          {mainGroups.spacing.map((field) => (
+            <StyleFieldRenderer key={field.path} field={field} />
+          ))}
+        </EditorSection>
+      )}
 
-            {mainGroups.other.length > 0 && (
-              <EditorSection title="Other">
-                {mainGroups.other.map((field) => (
-                  <StyleFieldRenderer key={field.path} field={field} />
-                ))}
-              </EditorSection>
-            )}
+      {mainGroups.other.length > 0 && (
+        <EditorSection title="Other">
+          {mainGroups.other.map((field) => (
+            <StyleFieldRenderer key={field.path} field={field} />
+          ))}
+        </EditorSection>
+      )}
 
-            {/* Named section groups */}
-            {sectionOrder.map((sectionName) => {
-              const fields = sectionGroups[sectionName];
-              if (!fields) return null;
-              return (
-                <EditorSection key={sectionName} title={sectionName}>
-                  {fields.map((field) => (
-                    <StyleFieldRenderer key={field.path} field={field} />
-                  ))}
-                </EditorSection>
-              );
-            })}
+      {/* Named section groups */}
+      {sectionOrder.map((sectionName) => {
+        const fields = sectionGroups[sectionName];
+        if (!fields) return null;
+        return (
+          <EditorSection key={sectionName} title={sectionName}>
+            {fields.map((field) => (
+              <StyleFieldRenderer key={field.path} field={field} />
+            ))}
+          </EditorSection>
+        );
+      })}
     </div>
   );
 }

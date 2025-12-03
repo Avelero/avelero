@@ -76,15 +76,18 @@ export function ShowcaseBrandSheet({
   const [zip, setZip] = React.useState("");
   const [countryCode, setCountryCode] = React.useState("");
 
-  const [fieldErrors, setFieldErrors] =
-    React.useState<ValidationErrors<ShowcaseBrandFormValues>>({});
+  const [fieldErrors, setFieldErrors] = React.useState<
+    ValidationErrors<ShowcaseBrandFormValues>
+  >({});
 
   // API mutation for creating showcase brand
   const createBrandMutation = useMutation(
     trpc.brand.showcaseBrands.create.mutationOptions(),
   );
 
-  const validationSchema = React.useMemo<ValidationSchema<ShowcaseBrandFormValues>>(
+  const validationSchema = React.useMemo<
+    ValidationSchema<ShowcaseBrandFormValues>
+  >(
     () => ({
       name: [
         rules.required("Brand name is required"),
@@ -295,11 +298,15 @@ export function ShowcaseBrandSheet({
       let errorMessage = "Failed to create brand. Please try again.";
 
       if (error instanceof Error) {
-        if (error.message.includes("unique constraint") ||
-          error.message.includes("duplicate")) {
+        if (
+          error.message.includes("unique constraint") ||
+          error.message.includes("duplicate")
+        ) {
           errorMessage = "A brand with this name already exists.";
-        } else if (error.message.includes("network") ||
-          error.message.includes("fetch")) {
+        } else if (
+          error.message.includes("network") ||
+          error.message.includes("fetch")
+        ) {
           errorMessage = "Network error. Please check your connection.";
         }
       }
@@ -462,7 +469,9 @@ export function ShowcaseBrandSheet({
                 maxLength={100}
               />
               {fieldErrors.website && (
-                <p className="text-xs text-destructive">{fieldErrors.website}</p>
+                <p className="text-xs text-destructive">
+                  {fieldErrors.website}
+                </p>
               )}
             </div>
 

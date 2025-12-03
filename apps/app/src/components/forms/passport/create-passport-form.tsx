@@ -78,7 +78,12 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     if (state.hasAttemptedSubmit && state.name && state.validationErrors.name) {
       clearValidationError("name");
     }
-  }, [state.name, state.hasAttemptedSubmit, state.validationErrors.name, clearValidationError]);
+  }, [
+    state.name,
+    state.hasAttemptedSubmit,
+    state.validationErrors.name,
+    clearValidationError,
+  ]);
 
   React.useEffect(() => {
     if (
@@ -245,7 +250,10 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
       const firstInvalidField = getFirstInvalidField(errors, fieldOrder);
       if (firstInvalidField === "name") {
         nameInputRef.current?.focus();
-        nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        nameInputRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       } else if (firstInvalidField === "productIdentifier") {
         productIdentifierInputRef.current?.focus();
         productIdentifierInputRef.current?.scrollIntoView({
@@ -296,7 +304,9 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               }}
               existingImageUrl={state.existingImageUrl}
               nameError={
-                state.hasAttemptedSubmit ? state.validationErrors.name : undefined
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.name
+                  : undefined
               }
               nameInputRef={nameInputRef}
             />
@@ -316,7 +326,9 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               selectedSizes={state.selectedSizes}
               setSelectedSizes={handleSelectedSizesChange}
               colorsError={
-                state.hasAttemptedSubmit ? state.validationErrors.colors : undefined
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.colors
+                  : undefined
               }
               sizesError={
                 state.hasAttemptedSubmit
@@ -346,7 +358,9 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               materials={state.materialData}
               setMaterials={(value) => setField("materialData", value)}
               materialsError={
-                state.hasAttemptedSubmit ? state.validationErrors.materials : undefined
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.materials
+                  : undefined
               }
               sectionRef={materialsSectionRef}
             />
@@ -364,7 +378,9 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
             />
             <IdentifiersSection
               productIdentifier={state.productIdentifier}
-              setProductIdentifier={(value) => setField("productIdentifier", value)}
+              setProductIdentifier={(value) =>
+                setField("productIdentifier", value)
+              }
               showcaseBrandId={state.showcaseBrandId}
               setShowcaseBrandId={(value) => setField("showcaseBrandId", value)}
               productIdentifierError={

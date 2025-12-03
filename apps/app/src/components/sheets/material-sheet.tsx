@@ -129,16 +129,19 @@ export function MaterialSheet({
 
   // Transform API certifications to CertificationData format
   const availableCertifications = React.useMemo<CertificationData[]>(() => {
-    return apiCertifications.map(cert => {
+    return apiCertifications.map((cert) => {
       // Find matching predefined certification for code
       const predefinedCert = allCertifications.find(
-        c => c.title.toLowerCase() === cert.title.toLowerCase()
+        (c) => c.title.toLowerCase() === cert.title.toLowerCase(),
       );
 
       return {
         id: cert.id,
         title: cert.title,
-        code: predefinedCert?.code || cert.certification_code || cert.title.substring(0, 4).toUpperCase(),
+        code:
+          predefinedCert?.code ||
+          cert.certification_code ||
+          cert.title.substring(0, 4).toUpperCase(),
         certificationNumber: cert.certification_code || "",
         instituteName: cert.institute_name || "",
         expiryDate: cert.expiry_date ? new Date(cert.expiry_date) : undefined,
@@ -242,108 +245,122 @@ export function MaterialSheet({
 
   const handleCertificationCreate = async () => {
     // Validate required fields and file upload
-    if (!certTitle.trim() || !certNumber.trim() || !certExpiry || !certLogo || isUploading) {
+    if (
+      !certTitle.trim() ||
+      !certNumber.trim() ||
+      !certExpiry ||
+      !certLogo ||
+      isUploading
+    ) {
       return;
     }
 
     // Show loading toast and execute mutation
-    await toast.loading(
-      "Creating certification...",
-      (async () => {
-        // Serialize expiry as date-only string (YYYY-MM-DD) using UTC
-        // to avoid timezone-shifting issues
-        // Use local date components to preserve the selected day, then construct UTC date
-        const expiryDateISO = new Date(
-          Date.UTC(
-            certExpiry.getFullYear(),
-            certExpiry.getMonth(),
-            certExpiry.getDate(),
-            0, 0, 0, 0
-          )
-        ).toISOString();
+    await toast
+      .loading(
+        "Creating certification...",
+        (async () => {
+          // Serialize expiry as date-only string (YYYY-MM-DD) using UTC
+          // to avoid timezone-shifting issues
+          // Use local date components to preserve the selected day, then construct UTC date
+          const expiryDateISO = new Date(
+            Date.UTC(
+              certExpiry.getFullYear(),
+              certExpiry.getMonth(),
+              certExpiry.getDate(),
+              0,
+              0,
+              0,
+              0,
+            ),
+          ).toISOString();
 
-        // Create certification via API
-        // certification_code comes from certCode (short code)
-        // Store certNumber in notes field since API doesn't have a separate certification_number field
-        const result = await createCertificationMutation.mutateAsync({
-          title: certTitle.trim(),
-          certification_code: certCode.trim() || certTitle.trim().substring(0, 4).toUpperCase(),
-          institute_name: certInstitute.trim() || undefined,
-          expiry_date: expiryDateISO,
-          file_asset_id: certLogo || undefined,
-          notes: certNumber.trim() || undefined,
-        });
+          // Create certification via API
+          // certification_code comes from certCode (short code)
+          // Store certNumber in notes field since API doesn't have a separate certification_number field
+          const result = await createCertificationMutation.mutateAsync({
+            title: certTitle.trim(),
+            certification_code:
+              certCode.trim() || certTitle.trim().substring(0, 4).toUpperCase(),
+            institute_name: certInstitute.trim() || undefined,
+            expiry_date: expiryDateISO,
+            file_asset_id: certLogo || undefined,
+            notes: certNumber.trim() || undefined,
+          });
 
-        // Validate response
-        const createdCertification = result?.data;
-        if (!createdCertification?.id) {
-          throw new Error("No valid response returned from API");
-        }
+          // Validate response
+          const createdCertification = result?.data;
+          if (!createdCertification?.id) {
+            throw new Error("No valid response returned from API");
+          }
 
-        const certificationId = createdCertification.id;
+          const certificationId = createdCertification.id;
 
-        // Optimistically update the cache immediately
-        // Use input data + response ID + current timestamp
-        const now = new Date().toISOString();
-        queryClient.setQueryData(
-          trpc.composite.brandCatalogContent.queryKey(),
-          (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              brandCatalog: {
-                ...old.brandCatalog,
-                certifications: [
-                  ...old.brandCatalog.certifications,
-                  {
-                    id: certificationId,
-                    title: certTitle.trim(),
-                    certification_code: certCode.trim() || certTitle.trim().substring(0, 4).toUpperCase(),
-                    institute_name: certInstitute.trim() || null,
-                    expiry_date: expiryDateISO,
-                    file_asset_id: certLogo || null,
-                    notes: certNumber.trim() || null,
-                    created_at: now,
-                    updated_at: now,
-                  },
-                ],
-              },
-            };
-          },
-        );
+          // Optimistically update the cache immediately
+          // Use input data + response ID + current timestamp
+          const now = new Date().toISOString();
+          queryClient.setQueryData(
+            trpc.composite.brandCatalogContent.queryKey(),
+            (old: any) => {
+              if (!old) return old;
+              return {
+                ...old,
+                brandCatalog: {
+                  ...old.brandCatalog,
+                  certifications: [
+                    ...old.brandCatalog.certifications,
+                    {
+                      id: certificationId,
+                      title: certTitle.trim(),
+                      certification_code:
+                        certCode.trim() ||
+                        certTitle.trim().substring(0, 4).toUpperCase(),
+                      institute_name: certInstitute.trim() || null,
+                      expiry_date: expiryDateISO,
+                      file_asset_id: certLogo || null,
+                      notes: certNumber.trim() || null,
+                      created_at: now,
+                      updated_at: now,
+                    },
+                  ],
+                },
+              };
+            },
+          );
 
-        // Invalidate to trigger background refetch
-        queryClient.invalidateQueries({
-          queryKey: trpc.composite.brandCatalogContent.queryKey(),
-        });
+          // Invalidate to trigger background refetch
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.brandCatalogContent.queryKey(),
+          });
 
-        // Create local certification data with real ID
-        const newCert: CertificationData = {
-          id: certificationId,
-          title: certTitle.trim(),
-          code: certCode.trim(),
-          certificationNumber: certNumber.trim(),
-          instituteName: certInstitute.trim(),
-          expiryDate: certExpiry,
-          logo: certLogo,
-        };
+          // Create local certification data with real ID
+          const newCert: CertificationData = {
+            id: certificationId,
+            title: certTitle.trim(),
+            code: certCode.trim(),
+            certificationNumber: certNumber.trim(),
+            instituteName: certInstitute.trim(),
+            expiryDate: certExpiry,
+            logo: certLogo,
+          };
 
-        // Set as selected certification (will be available in availableCertifications after refetch)
-        setSelectedCertificationId(certificationId);
+          // Set as selected certification (will be available in availableCertifications after refetch)
+          setSelectedCertificationId(certificationId);
 
-        // Navigate back to material page
-        handleBackToMaterial();
+          // Navigate back to material page
+          handleBackToMaterial();
 
-        return result;
-      })(),
-      {
-        delay: 500,
-        successMessage: "Certification created successfully",
-      },
-    ).catch((error) => {
-      // toast.loading already handles error toast, but we can log for debugging
-      console.error("Failed to create certification:", error);
-    });
+          return result;
+        })(),
+        {
+          delay: 500,
+          successMessage: "Certification created successfully",
+        },
+      )
+      .catch((error) => {
+        // toast.loading already handles error toast, but we can log for debugging
+        console.error("Failed to create certification:", error);
+      });
   };
 
   const handleMaterialCreate = async () => {
@@ -358,89 +375,91 @@ export function MaterialSheet({
     }
 
     // Show loading toast and execute mutation
-    await toast.loading(
-      "Creating material...",
-      (async () => {
-        // Create material via API
-        const result = await createMaterialMutation.mutateAsync({
-          name: name.trim(),
-          country_of_origin: countryOfOrigin || undefined,
-          recyclable,
-          certification_id: selectedCertificationId || undefined,
-        });
+    await toast
+      .loading(
+        "Creating material...",
+        (async () => {
+          // Create material via API
+          const result = await createMaterialMutation.mutateAsync({
+            name: name.trim(),
+            country_of_origin: countryOfOrigin || undefined,
+            recyclable,
+            certification_id: selectedCertificationId || undefined,
+          });
 
-        // Validate response
-        const createdMaterial = result?.data;
-        if (!createdMaterial?.id) {
-          throw new Error("No valid response returned from API");
-        }
+          // Validate response
+          const createdMaterial = result?.data;
+          if (!createdMaterial?.id) {
+            throw new Error("No valid response returned from API");
+          }
 
-        const materialId = createdMaterial.id;
+          const materialId = createdMaterial.id;
 
-        // Optimistically update the cache immediately
-        // Use input data + response ID + current timestamp
-        const now = new Date().toISOString();
-        queryClient.setQueryData(
-          trpc.composite.brandCatalogContent.queryKey(),
-          (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              brandCatalog: {
-                ...old.brandCatalog,
-                materials: [
-                  ...old.brandCatalog.materials,
-                  {
-                    id: materialId,
-                    name: name.trim(),
-                    country_of_origin: countryOfOrigin || null,
-                    recyclable: recyclable ?? null,
-                    certification_id: selectedCertificationId || null,
-                    created_at: now,
-                    updated_at: now,
-                  },
-                ],
-              },
-            };
-          },
-        );
+          // Optimistically update the cache immediately
+          // Use input data + response ID + current timestamp
+          const now = new Date().toISOString();
+          queryClient.setQueryData(
+            trpc.composite.brandCatalogContent.queryKey(),
+            (old: any) => {
+              if (!old) return old;
+              return {
+                ...old,
+                brandCatalog: {
+                  ...old.brandCatalog,
+                  materials: [
+                    ...old.brandCatalog.materials,
+                    {
+                      id: materialId,
+                      name: name.trim(),
+                      country_of_origin: countryOfOrigin || null,
+                      recyclable: recyclable ?? null,
+                      certification_id: selectedCertificationId || null,
+                      created_at: now,
+                      updated_at: now,
+                    },
+                  ],
+                },
+              };
+            },
+          );
 
-        // Invalidate to trigger background refetch
-        queryClient.invalidateQueries({
-          queryKey: trpc.composite.brandCatalogContent.queryKey(),
-        });
+          // Invalidate to trigger background refetch
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.brandCatalogContent.queryKey(),
+          });
 
-        // Find selected certification data if one is selected
-        const selectedCert = availableCertifications.find(
-          c => c.id === selectedCertificationId
-        );
+          // Find selected certification data if one is selected
+          const selectedCert = availableCertifications.find(
+            (c) => c.id === selectedCertificationId,
+          );
 
-        // Build material data with real ID for parent callback
-        const newMaterial: MaterialData = {
-          id: materialId,
-          name: name.trim(),
-          countryOfOrigin: countryOfOrigin || undefined,
-          recyclable,
-          certificationId: selectedCertificationId || undefined,
-          certification: selectedCert || undefined,
-        };
+          // Build material data with real ID for parent callback
+          const newMaterial: MaterialData = {
+            id: materialId,
+            name: name.trim(),
+            countryOfOrigin: countryOfOrigin || undefined,
+            recyclable,
+            certificationId: selectedCertificationId || undefined,
+            certification: selectedCert || undefined,
+          };
 
-        // Call parent callback with real data
-        onMaterialCreated(newMaterial);
+          // Call parent callback with real data
+          onMaterialCreated(newMaterial);
 
-        // Close sheet first
-        onOpenChange(false);
+          // Close sheet first
+          onOpenChange(false);
 
-        return result;
-      })(),
-      {
-        delay: 500,
-        successMessage: "Material created successfully",
-      },
-    ).catch((error) => {
-      // toast.loading already handles error toast, but we can log for debugging
-      console.error("Failed to create material:", error);
-    });
+          return result;
+        })(),
+        {
+          delay: 500,
+          successMessage: "Material created successfully",
+        },
+      )
+      .catch((error) => {
+        // toast.loading already handles error toast, but we can log for debugging
+        console.error("Failed to create material:", error);
+      });
   };
 
   const handleCancel = () => {
@@ -550,9 +569,7 @@ export function MaterialSheet({
 
   const isNameValid = name.trim().length > 0;
   const isMaterialValid =
-    isNameValid &&
-    (!certified || selectedCertificationId) &&
-    !isUploading;
+    isNameValid && (!certified || selectedCertificationId) && !isUploading;
 
   // Get certification options for the select on certification page
   const certificationOptions = allCertifications.map((cert: Certification) => ({
@@ -669,27 +686,25 @@ export function MaterialSheet({
                         // Filter certifications by search term
                         const filteredCerts = certSearchTerm
                           ? availableCertifications.filter(
-                            cert =>
-                              cert.title
-                                .toLowerCase()
-                                .includes(certSearchTerm.toLowerCase()) ||
-                              cert.certificationNumber
-                                .toLowerCase()
-                                .includes(certSearchTerm.toLowerCase())
-                          )
+                              (cert) =>
+                                cert.title
+                                  .toLowerCase()
+                                  .includes(certSearchTerm.toLowerCase()) ||
+                                cert.certificationNumber
+                                  .toLowerCase()
+                                  .includes(certSearchTerm.toLowerCase()),
+                            )
                           : availableCertifications;
 
                         // Check if search term doesn't match any existing certification
                         const showCreateOption =
                           certSearchTerm &&
                           !availableCertifications.some(
-                            cert =>
-                              cert.title
-                                .toLowerCase() ===
-                              certSearchTerm.toLowerCase() ||
-                              cert.certificationNumber
-                                .toLowerCase() ===
-                              certSearchTerm.toLowerCase()
+                            (cert) =>
+                              cert.title.toLowerCase() ===
+                                certSearchTerm.toLowerCase() ||
+                              cert.certificationNumber.toLowerCase() ===
+                                certSearchTerm.toLowerCase(),
                           );
 
                         return (
@@ -705,7 +720,7 @@ export function MaterialSheet({
                                   className={cn(
                                     "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border last:border-b-0",
                                     selectedCertificationId === cert.id &&
-                                    "bg-accent-blue",
+                                      "bg-accent-blue",
                                   )}
                                 >
                                   <div className="w-8 h-8 flex items-center justify-center shrink-0">
@@ -800,7 +815,7 @@ export function MaterialSheet({
                   value={
                     certTitle
                       ? allCertifications.find((c) => c.title === certTitle)
-                        ?.id || ""
+                          ?.id || ""
                       : ""
                   }
                   onValueChange={handleCertificationSelectChange}
@@ -958,7 +973,11 @@ export function MaterialSheet({
                 size="default"
                 onClick={handleCertificationCreate}
                 disabled={
-                  !certTitle.trim() || !certNumber.trim() || !certExpiry || !certLogo || isCreating
+                  !certTitle.trim() ||
+                  !certNumber.trim() ||
+                  !certExpiry ||
+                  !certLogo ||
+                  isCreating
                 }
                 className="w-[70px]"
               >

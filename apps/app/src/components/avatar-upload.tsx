@@ -49,7 +49,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
     const [avatar, setAvatar] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const prevUrlRef = useRef<string | null | undefined>(undefined);
-  const { uploadImage, isLoading } = useImageUpload();
+    const { uploadImage, isLoading } = useImageUpload();
 
     // If parent provided a storage path, use proxy URL for optimized delivery. If absolute URL, use as-is.
     useEffect(() => {
@@ -207,8 +207,8 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
         {(() => {
           const hasInitialPath = Boolean(
             initialUrl &&
-            !/^https?:\/\//i.test(initialUrl) &&
-            !initialUrl.startsWith("/"),
+              !/^https?:\/\//i.test(initialUrl) &&
+              !initialUrl.startsWith("/"),
           );
           const isAwaitingSignedUrl = hasInitialPath && !avatar;
           const effectiveLoading = Boolean(isLoading) || isAwaitingSignedUrl;

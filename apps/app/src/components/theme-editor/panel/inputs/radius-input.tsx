@@ -46,7 +46,9 @@ export function RadiusInput({
             type="number"
             allowEmpty
             value={values.topLeft}
-            onChange={(e) => handleChange("topLeft", Number.parseFloat(e.target.value))}
+            onChange={(e) =>
+              handleChange("topLeft", Number.parseFloat(e.target.value))
+            }
             min={0}
             className="h-8 text-sm pl-7"
           />
@@ -58,7 +60,9 @@ export function RadiusInput({
             type="number"
             allowEmpty
             value={values.topRight}
-            onChange={(e) => handleChange("topRight", Number.parseFloat(e.target.value))}
+            onChange={(e) =>
+              handleChange("topRight", Number.parseFloat(e.target.value))
+            }
             min={0}
             className="h-8 text-sm pl-7"
           />
@@ -70,7 +74,9 @@ export function RadiusInput({
             type="number"
             allowEmpty
             value={values.bottomLeft}
-            onChange={(e) => handleChange("bottomLeft", Number.parseFloat(e.target.value))}
+            onChange={(e) =>
+              handleChange("bottomLeft", Number.parseFloat(e.target.value))
+            }
             min={0}
             className="h-8 text-sm pl-7"
           />
@@ -82,7 +88,9 @@ export function RadiusInput({
             type="number"
             allowEmpty
             value={values.bottomRight}
-            onChange={(e) => handleChange("bottomRight", Number.parseFloat(e.target.value))}
+            onChange={(e) =>
+              handleChange("bottomRight", Number.parseFloat(e.target.value))
+            }
             min={0}
             className="h-8 text-sm pl-7"
           />
@@ -91,4 +99,3 @@ export function RadiusInput({
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 import { getFontFallback } from "@v1/selections/fonts";
 import type { ComponentStyleOverride, CustomFont, ThemeStyles } from "../types";
-import { isTokenReference, tokenToCssVar, camelToKebab } from "./token-utils";
+import { camelToKebab, isTokenReference, tokenToCssVar } from "./token-utils";
 
 /**
  * Properties that should receive 'px' units when numeric
@@ -64,7 +64,9 @@ function generateComponentCSS(
     vars.push(`--${prefix}-font-size: var(--type-${scale}-size)`);
     vars.push(`--${prefix}-font-weight: var(--type-${scale}-weight)`);
     vars.push(`--${prefix}-line-height: var(--type-${scale}-line-height)`);
-    vars.push(`--${prefix}-letter-spacing: var(--type-${scale}-letter-spacing)`);
+    vars.push(
+      `--${prefix}-letter-spacing: var(--type-${scale}-letter-spacing)`,
+    );
   }
 
   for (const [key, value] of Object.entries(styles)) {

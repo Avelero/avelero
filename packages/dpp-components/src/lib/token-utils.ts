@@ -85,7 +85,7 @@ export function tokenToCssVar(token: string): string {
  */
 export function resolveTokenValue(
   value: unknown,
-  colors: Record<string, string | undefined> | undefined
+  colors: Record<string, string | undefined> | undefined,
 ): string | undefined {
   if (!isTokenReference(value)) {
     return typeof value === "string" ? value : undefined;
@@ -94,4 +94,3 @@ export function resolveTokenValue(
   const tokenName = getTokenName(value);
   return colors?.[tokenName];
 }
-

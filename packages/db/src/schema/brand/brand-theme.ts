@@ -1,5 +1,13 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  jsonb,
+  pgPolicy,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { primaryKey } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
 

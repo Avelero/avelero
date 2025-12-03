@@ -1,18 +1,18 @@
-import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { demoThemeConfig } from '@/demo-data/config';
-import { 
-  ThemeInjector, 
-  Header, 
-  ContentFrame, 
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { demoThemeConfig } from "@/demo-data/config";
+import {
+  ThemeInjector,
+  Header,
+  ContentFrame,
   Footer,
   generateFontFaceCSS,
-  type DppData, 
-  type ThemeConfig, 
+  type DppData,
+  type ThemeConfig,
   type ThemeStyles,
-} from '@v1/dpp-components';
-import { createClient } from '@v1/supabase/server';
-import { getPublicUrl } from '@v1/supabase/utils/storage-urls';
+} from "@v1/dpp-components";
+import { createClient } from "@v1/supabase/server";
+import { getPublicUrl } from "@v1/supabase/utils/storage-urls";
 
 interface PageProps {
   params: Promise<{
@@ -21,45 +21,51 @@ interface PageProps {
   }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { upid } = await params;
   const supabase = await createClient();
 
   const { data: variant } = await supabase
-    .from('product_variants')
-    .select('product_id')
-    .eq('upid', upid)
+    .from("product_variants")
+    .select("product_id")
+    .eq("upid", upid)
     .maybeSingle();
 
   if (!variant) {
     return {
-      title: 'Digital Product Passport',
-      description: 'View product sustainability information and supply chain data',
+      title: "Digital Product Passport",
+      description:
+        "View product sustainability information and supply chain data",
     };
   }
 
   const { data: product } = await supabase
-    .from('products')
-    .select('name, description, brand_id')
-    .eq('id', variant.product_id)
+    .from("products")
+    .select("name, description, brand_id")
+    .eq("id", variant.product_id)
     .maybeSingle();
 
   if (!product) {
     return {
-      title: 'Digital Product Passport',
-      description: 'View product sustainability information and supply chain data',
+      title: "Digital Product Passport",
+      description:
+        "View product sustainability information and supply chain data",
     };
   }
 
   const { data: brand } = await supabase
-    .from('brands')
-    .select('name')
-    .eq('id', product.brand_id)
+    .from("brands")
+    .select("name")
+    .eq("id", product.brand_id)
     .maybeSingle();
 
   return {
-    title: `${brand?.name ?? 'Digital Product Passport'} | ${product.name ?? 'Product'}`,
-    description: product.description ?? 'View product sustainability information and supply chain data',
+    title: `${brand?.name ?? "Digital Product Passport"} | ${product.name ?? "Product"}`,
+    description:
+      product.description ??
+      "View product sustainability information and supply chain data",
   };
 }
 
@@ -69,9 +75,9 @@ export default async function DPPPage({ params }: PageProps) {
 
   // Lookup variant by UPID
   const { data: variant, error: variantError } = await supabase
-    .from('product_variants')
-    .select('id, product_id')
-    .eq('upid', upid)
+    .from("product_variants")
+    .select("id, product_id")
+    .eq("upid", upid)
     .maybeSingle();
 
   if (!variant || variantError) {
@@ -80,9 +86,11 @@ export default async function DPPPage({ params }: PageProps) {
 
   // Fetch product and brand
   const { data: product } = await supabase
-    .from('products')
-    .select('id, brand_id, name, description, primary_image_url, product_identifier')
-    .eq('id', variant.product_id)
+    .from("products")
+    .select(
+      "id, brand_id, name, description, primary_image_url, product_identifier",
+    )
+    .eq("id", variant.product_id)
     .maybeSingle();
 
   if (!product) {
@@ -90,35 +98,37 @@ export default async function DPPPage({ params }: PageProps) {
   }
 
   const { data: brandRow } = await supabase
-    .from('brands')
-    .select('id, name')
-    .eq('id', product.brand_id)
+    .from("brands")
+    .select("id, name")
+    .eq("id", product.brand_id)
     .maybeSingle();
 
-  const brandName = brandRow?.name ?? 'Brand';
+  const brandName = brandRow?.name ?? "Brand";
 
   // Fetch theme for the product's brand
   const { data: brandTheme } = await supabase
-    .from('brand_theme')
-    .select('theme_config, theme_styles, stylesheet_path, google_fonts_url')
-    .eq('brand_id', product.brand_id)
+    .from("brand_theme")
+    .select("theme_config, theme_styles, stylesheet_path, google_fonts_url")
+    .eq("brand_id", product.brand_id)
     .maybeSingle();
 
-  const themeConfig: ThemeConfig = (brandTheme?.theme_config as unknown as ThemeConfig) ?? demoThemeConfig;
-  const themeStyles: ThemeStyles | undefined = brandTheme?.theme_styles as unknown as ThemeStyles | undefined;
+  const themeConfig: ThemeConfig =
+    (brandTheme?.theme_config as unknown as ThemeConfig) ?? demoThemeConfig;
+  const themeStyles: ThemeStyles | undefined =
+    brandTheme?.theme_styles as unknown as ThemeStyles | undefined;
 
   // Build DPP data from DB (use empty strings/arrays for optional fields)
   const productData: DppData = {
-    title: product.name ?? 'Product',
+    title: product.name ?? "Product",
     brandName,
-    productImage: product.primary_image_url ?? '',
-    description: product.description ?? '',
-    size: '',
-    color: '',
-    category: '',
-    articleNumber: product.product_identifier ?? '',
-    manufacturer: '',
-    countryOfOrigin: '',
+    productImage: product.primary_image_url ?? "",
+    description: product.description ?? "",
+    size: "",
+    color: "",
+    category: "",
+    articleNumber: product.product_identifier ?? "",
+    manufacturer: "",
+    countryOfOrigin: "",
     materials: [],
     journey: [],
     impactMetrics: [],
@@ -127,36 +137,37 @@ export default async function DPPPage({ params }: PageProps) {
   };
 
   // Google Fonts URL from stored theme (pre-generated by theme editor)
-  const googleFontsUrl = brandTheme?.google_fonts_url ?? '';
+  const googleFontsUrl = brandTheme?.google_fonts_url ?? "";
 
   // Generate @font-face CSS from custom fonts when present
   const fontFaceCSS = generateFontFaceCSS(themeStyles?.customFonts);
 
   // Resolve Supabase public stylesheet URL if provided
   const publicStylesheetUrl =
-    brandTheme?.stylesheet_path && getPublicUrl(supabase, 'dpp-themes', brandTheme.stylesheet_path);
-  
+    brandTheme?.stylesheet_path &&
+    getPublicUrl(supabase, "dpp-themes", brandTheme.stylesheet_path);
+
   return (
     <>
       {/* Theme injection - Google Fonts and custom @font-face rules */}
-      <ThemeInjector 
+      <ThemeInjector
         googleFontsUrl={googleFontsUrl}
         fontFaceCSS={fontFaceCSS}
       />
-      
+
       {/* Supabase-hosted stylesheet overrides (if available) */}
       {publicStylesheetUrl && (
         <link rel="stylesheet" href={publicStylesheetUrl} />
       )}
-      
+
       <div className="dpp-root min-h-screen flex flex-col">
         {/* Header with spacer for fixed positioning */}
-        <div style={{ height: 'var(--header-height)' }} />
+        <div style={{ height: "var(--header-height)" }} />
         <Header themeConfig={themeConfig} brandName={productData.brandName} />
-        
+
         {/* Main content */}
         <ContentFrame data={productData} themeConfig={themeConfig} />
-        
+
         {/* Footer */}
         <Footer themeConfig={themeConfig} brandName={productData.brandName} />
       </div>

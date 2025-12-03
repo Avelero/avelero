@@ -13,9 +13,7 @@ const CARD_CONFIG = [
 
 export function DataSection() {
   const trpc = useTRPC();
-  const { data } = useSuspenseQuery(
-    trpc.summary.productStatus.queryOptions(),
-  );
+  const { data } = useSuspenseQuery(trpc.summary.productStatus.queryOptions());
 
   const counts = {
     published: data?.data?.published ?? 0,

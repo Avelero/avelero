@@ -45,9 +45,9 @@ const MaterialDropdown = ({
 }) => {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [pendingSelectedId, setPendingSelectedId] = React.useState<string | null>(
-    null,
-  );
+  const [pendingSelectedId, setPendingSelectedId] = React.useState<
+    string | null
+  >(null);
 
   // Filter out materials that are already added
   const filteredMaterials = React.useMemo(() => {
@@ -64,12 +64,14 @@ const MaterialDropdown = ({
   }, [availableMaterials, excludeMaterialIds, pendingSelectedId]);
 
   const materialNames = React.useMemo(
-    () => filteredMaterials.map(m => m.name),
-    [filteredMaterials]
+    () => filteredMaterials.map((m) => m.name),
+    [filteredMaterials],
   );
 
   const handleSelect = (selectedMaterial: string) => {
-    const selected = availableMaterials.find((m) => m.name === selectedMaterial);
+    const selected = availableMaterials.find(
+      (m) => m.name === selectedMaterial,
+    );
     if (selected?.id) {
       setPendingSelectedId(selected.id);
     }
@@ -118,7 +120,11 @@ const MaterialDropdown = ({
             </div>
           </button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]" align="start" sideOffset={4}>
+        <PopoverContent
+          className="p-0 w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]"
+          align="start"
+          sideOffset={4}
+        >
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search materials..."
@@ -157,9 +163,7 @@ const MaterialDropdown = ({
                     </div>
                   </CommandItem>
                 ) : (
-                  <CommandEmpty>
-                    Start typing to create...
-                  </CommandEmpty>
+                  <CommandEmpty>Start typing to create...</CommandEmpty>
                 )}
               </CommandGroup>
             </CommandList>
@@ -208,12 +212,12 @@ const PercentageCell = ({
 
   const handlePercentageChange = (value: string) => {
     // Coerce a single "." back to an empty string
-    if (value === '.') {
-      onPercentageChange('');
+    if (value === ".") {
+      onPercentageChange("");
       return;
     }
     // Allow empty, numbers, and decimal point
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+    if (value === "" || /^\d*\.?\d*$/.test(value)) {
       onPercentageChange(value);
     }
   };
@@ -274,7 +278,9 @@ const PercentageCell = ({
 
 interface MaterialsSectionProps {
   materials: Array<{ materialId: string; percentage: number }>;
-  setMaterials: (value: Array<{ materialId: string; percentage: number }>) => void;
+  setMaterials: (
+    value: Array<{ materialId: string; percentage: number }>,
+  ) => void;
   materialsError?: string;
   sectionRef?: React.Ref<HTMLDivElement>;
 }
@@ -287,7 +293,9 @@ export function MaterialsSection({
 }: MaterialsSectionProps) {
   const { materials: materialOptions } = useBrandCatalog();
   // Local display state (enriched with names and countries from materialOptions)
-  const [displayMaterials, setDisplayMaterials] = React.useState<Material[]>([]);
+  const [displayMaterials, setDisplayMaterials] = React.useState<Material[]>(
+    [],
+  );
   const [materialSheetOpen, setMaterialSheetOpen] = React.useState(false);
   const [materialSheetInitialName, setMaterialSheetInitialName] =
     React.useState("");
@@ -295,33 +303,37 @@ export function MaterialsSection({
     string | null
   >(null);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  
+
   // Sync parent materials with display materials
   // Preserve pending materials (temp IDs) and materials being created
   React.useEffect(() => {
     const enriched: Material[] = parentMaterials
-      .map(pm => {
-        const materialInfo = materialOptions.find(m => m.id === pm.materialId);
-        
+      .map((pm) => {
+        const materialInfo = materialOptions.find(
+          (m) => m.id === pm.materialId,
+        );
+
         // Skip materials not yet in materialOptions (waiting for refetch)
         if (!materialInfo) {
           return null;
         }
-        
+
         return {
           id: pm.materialId,
           name: materialInfo.name || "",
-          countries: materialInfo.country_of_origin ? [materialInfo.country_of_origin] : [],
+          countries: materialInfo.country_of_origin
+            ? [materialInfo.country_of_origin]
+            : [],
           percentage: pm.percentage === 0 ? "" : pm.percentage.toString(),
         };
       })
       .filter((m): m is Material => m !== null);
-    
+
     // Preserve pending materials (temp IDs) that aren't in parentMaterials yet
     // Use functional update to read current displayMaterials
-    setDisplayMaterials(prev => {
+    setDisplayMaterials((prev) => {
       const pendingMaterials = prev.filter(
-        m =>
+        (m) =>
           m.id.startsWith("temp-") &&
           !parentMaterials.some((pm) => pm.materialId === m.id),
       );
@@ -381,16 +393,18 @@ export function MaterialsSection({
           return {
             id: material.id,
             name: material.name,
-            countries: material.countryOfOrigin ? [material.countryOfOrigin] : [],
+            countries: material.countryOfOrigin
+              ? [material.countryOfOrigin]
+              : [],
             percentage: m.percentage, // Preserve existing percentage
           };
         }
         return m;
       });
-      
+
       // Update display state immediately
       setDisplayMaterials(updatedDisplay);
-      
+
       // Clear creating state
       setCreatingForMaterialId(null);
     }
@@ -429,7 +443,8 @@ export function MaterialsSection({
 
   // Calculate totals
   const materialCount = displayMaterials.length;
-  const countryCount = new Set(displayMaterials.flatMap((m) => m.countries)).size;
+  const countryCount = new Set(displayMaterials.flatMap((m) => m.countries))
+    .size;
   const totalPercentage = displayMaterials.reduce((sum, material) => {
     const percentage = Number.parseFloat(material.percentage) || 0;
     return sum + percentage;
@@ -491,12 +506,14 @@ export function MaterialsSection({
                   material={material.name}
                   availableMaterials={materialOptions}
                   excludeMaterialIds={displayMaterials
-                    .filter(m => m.id && !m.id.startsWith('temp-'))
-                    .map(m => m.id)}
+                    .filter((m) => m.id && !m.id.startsWith("temp-"))
+                    .map((m) => m.id)}
                   onMaterialChange={(value) => {
                     // Find the selected material to get its real ID
-                    const selectedMaterial = materialOptions.find(m => m.name === value);
-                    
+                    const selectedMaterial = materialOptions.find(
+                      (m) => m.name === value,
+                    );
+
                     if (selectedMaterial) {
                       // Replace the entire row with the selected material's data
                       setDisplayMaterials((prev) =>

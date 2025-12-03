@@ -2,7 +2,11 @@
  * Validation schemas for brand season operations.
  */
 import { z } from "zod";
-import { byIdSchema, updateWithNullable, voidSchema } from "../_shared/patterns.js";
+import {
+  byIdSchema,
+  updateWithNullable,
+  voidSchema,
+} from "../_shared/patterns.js";
 import { shortStringSchema } from "../_shared/primitives.js";
 
 /**

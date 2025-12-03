@@ -47,7 +47,9 @@ export function useImageUpload() {
     }: UploadImageOptions): Promise<UploadImageResult> => {
       setError(null);
       setLoading(true);
-      const validation = validateOverride ? validateOverride(file) : validate(file);
+      const validation = validateOverride
+        ? validateOverride(file)
+        : validate(file);
       if (!validation.valid) {
         setLoading(false);
         throw new Error(validation.error);

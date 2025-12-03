@@ -1,4 +1,7 @@
-import { DataSection, DataSectionSkeleton } from "@/components/passports/data-section";
+import {
+  DataSection,
+  DataSectionSkeleton,
+} from "@/components/passports/data-section";
 import { TableSection } from "@/components/passports/table-section";
 import { TableSectionSkeleton } from "@/components/tables/passports/table-skeleton";
 import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";

@@ -17,76 +17,75 @@ interface Brand {
 }
 
 export function SetCarousel() {
-
   const [productCount, setProductCount] = useState<string>("");
 
   return (
     <div className="border border-border bg-background p-4 flex flex-col gap-4">
-        <div className="flex flex-row justify-between items-center">
-            <p className="type-p !font-medium text-primary">Product carousel</p>
-            <Switch
-                checked={true}
-                onCheckedChange={() => {}}
-                className="max-w-[250px]"
-            />
-        </div>
+      <div className="flex flex-row justify-between items-center">
+        <p className="type-p !font-medium text-primary">Product carousel</p>
+        <Switch
+          checked={true}
+          onCheckedChange={() => {}}
+          className="max-w-[250px]"
+        />
+      </div>
 
-        {/* Divider */}
-        <div className="h-px w-full bg-border" />
+      {/* Divider */}
+      <div className="h-px w-full bg-border" />
 
-        {/* Products */}
-        <div className="flex flex-row justify-between items-center">
+      {/* Products */}
+      <div className="flex flex-row justify-between items-center">
         <Label>Products</Label>
         <Button
-            variant="ghost"
-            size="icon-sm"
-            iconPosition="right"
-            icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-          >
-            Manage products
-          </Button>
-        </div>
+          variant="ghost"
+          size="icon-sm"
+          iconPosition="right"
+          icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
+        >
+          Manage products
+        </Button>
+      </div>
 
-        {/* Divider */}
-        <div className="h-px w-full bg-border" />
+      {/* Divider */}
+      <div className="h-px w-full bg-border" />
 
-        {/* Product Count */}
-        <div className="flex flex-row justify-between items-center">
+      {/* Product Count */}
+      <div className="flex flex-row justify-between items-center">
         <Label>Product count</Label>
         <Input
-        placeholder="Product count"
-        value={productCount}
-        onChange={(e) => setProductCount(e.target.value)}
-        className="max-w-[250px]"
-        variant="small"
+          placeholder="Product count"
+          value={productCount}
+          onChange={(e) => setProductCount(e.target.value)}
+          className="max-w-[250px]"
+          variant="small"
         />
-        </div>
+      </div>
 
-        {/* Divider */}
-        <div className="h-px w-full bg-border" />
+      {/* Divider */}
+      <div className="h-px w-full bg-border" />
 
-        {/* Show Title */}
-        <div className="flex flex-row justify-between items-center">
+      {/* Show Title */}
+      <div className="flex flex-row justify-between items-center">
         <Label>Show title</Label>
         <Switch
-            checked={true}
-            onCheckedChange={() => {}}
-            className="max-w-[250px]"
+          checked={true}
+          onCheckedChange={() => {}}
+          className="max-w-[250px]"
         />
-        </div>
+      </div>
 
-        {/* Divider */}
-        <div className="h-px w-full bg-border" />
+      {/* Divider */}
+      <div className="h-px w-full bg-border" />
 
-        {/* Show Price */}
-        <div className="flex flex-row justify-between items-center">
+      {/* Show Price */}
+      <div className="flex flex-row justify-between items-center">
         <Label>Show price</Label>
         <Switch
-            checked={true}
-            onCheckedChange={() => {}}
-            className="max-w-[250px]"
+          checked={true}
+          onCheckedChange={() => {}}
+          className="max-w-[250px]"
         />
-        </div>
+      </div>
     </div>
   );
 }

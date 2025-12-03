@@ -22,11 +22,10 @@ export interface ColorOption {
 }
 
 const getColorKey = (color: ColorOption) =>
-  color.id && color.id.length > 0
-    ? color.id
-    : color.name.trim().toLowerCase();
+  color.id && color.id.length > 0 ? color.id : color.name.trim().toLowerCase();
 
-const normalizeHexInput = (hex: string) => hex.replace("#", "").trim().toUpperCase();
+const normalizeHexInput = (hex: string) =>
+  hex.replace("#", "").trim().toUpperCase();
 
 interface ColorSelectProps {
   value: ColorOption[];
@@ -158,9 +157,7 @@ export function ColorSelect({
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const showCreateOption =
     !!normalizedSearch &&
-    !catalogColors.some(
-      (c) => c.name.toLowerCase() === normalizedSearch,
-    ) &&
+    !catalogColors.some((c) => c.name.toLowerCase() === normalizedSearch) &&
     !value.some((c) => c.name.toLowerCase() === normalizedSearch);
 
   // Reset view when popover closes
@@ -212,7 +209,10 @@ export function ColorSelect({
           )}
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0"
+        align="start"
+      >
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput
@@ -258,9 +258,7 @@ export function ColorSelect({
                     </div>
                   </CommandItem>
                 ) : !searchTerm ? (
-                  <CommandEmpty>
-                    Start typing to create...
-                  </CommandEmpty>
+                  <CommandEmpty>Start typing to create...</CommandEmpty>
                 ) : null}
               </CommandGroup>
             </CommandList>

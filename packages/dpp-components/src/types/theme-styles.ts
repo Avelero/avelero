@@ -101,12 +101,15 @@ export interface ComponentStyleOverride {
   borderColor?: string;
   borderWidth?: string | number;
   borderStyle?: string;
-  borderRadius?: string | number | {
-    topLeft: number;
-    topRight: number;
-    bottomLeft: number;
-    bottomRight: number;
-  };
+  borderRadius?:
+    | string
+    | number
+    | {
+        topLeft: number;
+        topRight: number;
+        bottomLeft: number;
+        bottomRight: number;
+      };
 
   // Layout
   display?: string;
@@ -162,36 +165,36 @@ export interface ComponentStyleOverride {
  */
 export interface ThemeStyles extends DesignTokens {
   customFonts?: CustomFont[]; // Array of custom CDN fonts to load via @font-face
-  
+
   // Header
   header?: ComponentStyleOverride;
   "header__text-logo"?: ComponentStyleOverride;
-  
+
   // Footer
   footer?: ComponentStyleOverride;
   "footer__legal-name"?: ComponentStyleOverride;
   "footer__social-icons"?: ComponentStyleOverride;
-  
+
   // Product
   product__image?: ComponentStyleOverride;
   product__title?: ComponentStyleOverride;
   product__description?: ComponentStyleOverride;
   product__brand?: ComponentStyleOverride;
   "product__show-more"?: ComponentStyleOverride;
-  
+
   // Product Details (simplified - container border color inherited by rows)
   "product-details"?: ComponentStyleOverride;
   "product-details__label"?: ComponentStyleOverride;
   "product-details__value"?: ComponentStyleOverride;
-  
+
   // Primary Menu Button
   "menu-primary-button"?: ComponentStyleOverride;
   "menu-primary-button__icon"?: ComponentStyleOverride;
-  
+
   // Secondary Menu Button
   "menu-secondary-button"?: ComponentStyleOverride;
   "menu-secondary-button__icon"?: ComponentStyleOverride;
-  
+
   // Impact
   "impact-card"?: ComponentStyleOverride;
   "impact-card__title"?: ComponentStyleOverride;
@@ -202,7 +205,7 @@ export interface ThemeStyles extends DesignTokens {
   "impact-card__eco-claim"?: ComponentStyleOverride;
   "impact-card__eco-claim-icon"?: ComponentStyleOverride;
   "impact-card__eco-claim-text"?: ComponentStyleOverride;
-  
+
   // Materials
   "materials-card"?: ComponentStyleOverride;
   "materials-card__title"?: ComponentStyleOverride;
@@ -212,14 +215,14 @@ export interface ThemeStyles extends DesignTokens {
   "materials-card__certification-icon"?: ComponentStyleOverride;
   "materials-card__origin"?: ComponentStyleOverride;
   "materials-card__certification-text"?: ComponentStyleOverride;
-  
+
   // Journey
   "journey-card"?: ComponentStyleOverride;
   "journey-card__title"?: ComponentStyleOverride;
   "journey-card__line"?: ComponentStyleOverride;
   "journey-card__type"?: ComponentStyleOverride;
   "journey-card__operator"?: ComponentStyleOverride;
-  
+
   // Carousel
   carousel__title?: ComponentStyleOverride;
   "carousel__nav-button"?: ComponentStyleOverride;
@@ -228,7 +231,7 @@ export interface ThemeStyles extends DesignTokens {
   "carousel__product-details"?: ComponentStyleOverride;
   "carousel__product-name"?: ComponentStyleOverride;
   "carousel__product-price"?: ComponentStyleOverride;
-  
+
   // Banner
   banner?: ComponentStyleOverride;
   banner__container?: ComponentStyleOverride;

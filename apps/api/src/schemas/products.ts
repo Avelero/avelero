@@ -59,10 +59,12 @@ export type ProductField = (typeof PRODUCT_FIELDS)[number];
  */
 // Date range object - must be checked early in union to match correctly
 // Requires at least one of 'after' or 'before' to be present and non-empty
-const dateRangeValueSchema = z.object({
-  after: z.string().optional(), // ISO date string (empty string is valid)
-  before: z.string().optional(), // ISO date string (empty string is valid)
-}).passthrough() // Allow additional properties to pass through
+const dateRangeValueSchema = z
+  .object({
+    after: z.string().optional(), // ISO date string (empty string is valid)
+    before: z.string().optional(), // ISO date string (empty string is valid)
+  })
+  .passthrough() // Allow additional properties to pass through
   .refine(
     (val) => {
       // At least one of after or before must be present and non-empty
@@ -70,34 +72,38 @@ const dateRangeValueSchema = z.object({
       const hasBefore = val.before != null && val.before !== "";
       return hasAfter || hasBefore;
     },
-    { message: "Date range must have at least 'after' or 'before' with a value" }
+    {
+      message: "Date range must have at least 'after' or 'before' with a value",
+    },
   )
   .refine(
     (val) => {
       // Cannot have min/max properties (those belong to number range)
       return !("min" in val) && !("max" in val);
     },
-    { message: "Date range cannot have min/max properties" }
+    { message: "Date range cannot have min/max properties" },
   );
 
 // Number range object - requires at least one of min or max
-const numberRangeValueSchema = z.object({
-  min: z.number().optional(),
-  max: z.number().optional(),
-}).passthrough() // Allow additional properties to pass through
+const numberRangeValueSchema = z
+  .object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+  })
+  .passthrough() // Allow additional properties to pass through
   .refine(
     (val) => {
       // At least one of min or max must be present
       return val.min != null || val.max != null;
     },
-    { message: "Number range must have at least 'min' or 'max'" }
+    { message: "Number range must have at least 'min' or 'max'" },
   )
   .refine(
     (val) => {
       // Cannot have after/before properties (those belong to date range)
       return !("after" in val) && !("before" in val);
     },
-    { message: "Number range cannot have after/before properties" }
+    { message: "Number range cannot have after/before properties" },
   );
 
 const filterValueSchema: z.ZodType<any> = z.union([
@@ -142,7 +148,7 @@ const filterConditionSchema: z.ZodType<any> = z.lazy(() =>
     operator: z.string(), // All operators from FilterOperator type
     value: filterValueSchema,
     nestedConditions: z.array(filterConditionSchema).optional(),
-  })
+  }),
 );
 
 /**
@@ -164,7 +170,7 @@ const filterStateSchema = z.object({
 
 /**
  * Cursor-based listing parameters for product tables.
- * 
+ *
  * Updated to use FilterState for advanced filtering and search as top-level parameter.
  */
 export const listProductsSchema = z.object({

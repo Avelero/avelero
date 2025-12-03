@@ -160,7 +160,10 @@ export function useImportWebSocket({
         const shouldReconnect = enabled && jobId;
 
         // Attempt to reconnect if still enabled and not at max attempts
-        if (shouldReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        if (
+          shouldReconnect &&
+          reconnectAttemptsRef.current < maxReconnectAttempts
+        ) {
           reconnectAttemptsRef.current++;
           const delay = Math.min(
             1000 * 2 ** reconnectAttemptsRef.current,
@@ -188,7 +191,10 @@ export function useImportWebSocket({
       const shouldReconnect = enabled && jobId;
 
       // Attempt reconnect on error
-      if (shouldReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
+      if (
+        shouldReconnect &&
+        reconnectAttemptsRef.current < maxReconnectAttempts
+      ) {
         reconnectAttemptsRef.current++;
         const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 30000);
 

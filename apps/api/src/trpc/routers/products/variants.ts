@@ -29,14 +29,9 @@ const variantListProcedure = brandRequiredProcedure
   .input(listVariantsSchema)
   .query(async ({ ctx, input }) => {
     const { db, brandId } = ctx as BrandContext;
-    const variants = await fetchProductVariants(
-      db,
-      brandId,
-      input.product_id,
-      {
-        limit: input.limit,
-      },
-    );
+    const variants = await fetchProductVariants(db, brandId, input.product_id, {
+      limit: input.limit,
+    });
     return createListResponse(variants);
   });
 

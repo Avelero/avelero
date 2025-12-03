@@ -45,7 +45,9 @@ export function validateImageFile(
   return { valid: true };
 }
 
-export function buildObjectPath(parts: Array<string | undefined | null>): string[] {
+export function buildObjectPath(
+  parts: Array<string | undefined | null>,
+): string[] {
   return parts
     .filter(Boolean)
     .map((part) => part!.trim())
@@ -97,7 +99,9 @@ export function sanitizeFilename(name: string) {
  */
 export async function removeFolderContents(bucket: string, folderPath: string) {
   const supabase = createClient();
-  const { data: existingFiles } = await supabase.storage.from(bucket).list(folderPath);
+  const { data: existingFiles } = await supabase.storage
+    .from(bucket)
+    .list(folderPath);
   if (!existingFiles || existingFiles.length === 0) return;
   const filePaths = existingFiles.map((file) => `${folderPath}/${file.name}`);
   await supabase.storage.from(bucket).remove(filePaths);

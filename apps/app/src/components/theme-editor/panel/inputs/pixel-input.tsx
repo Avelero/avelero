@@ -30,7 +30,8 @@ export function PixelInput({
   placeholder = "0",
   className,
 }: PixelInputProps) {
-  const numericValue = typeof value === "string" ? Number.parseFloat(value) || 0 : value;
+  const numericValue =
+    typeof value === "string" ? Number.parseFloat(value) || 0 : value;
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -59,4 +60,3 @@ export function PixelInput({
     </div>
   );
 }
-

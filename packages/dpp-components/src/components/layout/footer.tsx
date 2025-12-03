@@ -47,7 +47,7 @@ export function Footer({ themeConfig, brandName }: Props) {
               rel="noopener noreferrer"
               aria-label={`Visit ${item.text} (opens in new tab)`}
             >
-                <span>{item.text}</span>
+              <span>{item.text}</span>
             </a>
           ))}
         </div>

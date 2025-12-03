@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 
 // Pre-sort all fonts alphabetically
 const ALL_FONTS_SORTED = [...fonts].sort((a, b) =>
-  a.family.localeCompare(b.family)
+  a.family.localeCompare(b.family),
 );
 
 // Track loaded fonts to avoid duplicate loads
@@ -20,7 +20,7 @@ const loadedFonts = new Set<string>();
 function loadFont(family: string) {
   if (loadedFonts.has(family)) return;
   loadedFonts.add(family);
-  
+
   const link = document.createElement("link");
   link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&display=swap`;
   link.rel = "stylesheet";
@@ -146,9 +146,7 @@ function VirtualizedFontList({
       return fonts;
     }
     const query = searchTerm.toLowerCase().trim();
-    return fonts.filter((font) =>
-      font.family.toLowerCase().includes(query)
-    );
+    return fonts.filter((font) => font.family.toLowerCase().includes(query));
   }, [fonts, searchTerm]);
 
   // Virtual list for fonts
@@ -179,10 +177,7 @@ function VirtualizedFontList({
   }
 
   return (
-    <div
-      ref={scrollRef}
-      style={{ height: 300, overflow: "auto" }}
-    >
+    <div ref={scrollRef} style={{ height: 300, overflow: "auto" }}>
       <div
         style={{
           height: virtualizer.getTotalSize(),
@@ -234,10 +229,12 @@ function FontItem({ font, isSelected, onSelect }: FontItemProps) {
       className={cn(
         "relative flex w-full cursor-pointer select-none items-center justify-between rounded-sm px-2 py-1.5 text-sm outline-none h-8",
         "hover:bg-accent hover:text-accent-foreground",
-        isSelected && "bg-accent"
+        isSelected && "bg-accent",
       )}
     >
-      <span style={{ fontFamily: `"${font.family}", sans-serif` }}>{font.family}</span>
+      <span style={{ fontFamily: `"${font.family}", sans-serif` }}>
+        {font.family}
+      </span>
       {isSelected && <Icons.Check className="h-4 w-4" />}
     </button>
   );

@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function ContentFrame({ data, themeConfig }: Props) {
-  const { sections, images } = themeConfig;
+  const { sections } = themeConfig;
 
   return (
     <main className="flex-grow flex flex-col pb-xl @3xl:py-lg w-full">
@@ -25,8 +25,6 @@ export function ContentFrame({ data, themeConfig }: Props) {
             <ProductCarousel
               products={data.similarProducts}
               themeConfig={themeConfig}
-              imageZoom={images.carouselImageZoom}
-              imagePosition={images.carouselImagePosition}
             />
           </div>
         )}

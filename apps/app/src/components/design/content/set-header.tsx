@@ -10,10 +10,10 @@ export function SetHeader() {
 
   return (
     <div className="border border-border bg-background p-4 flex flex-col gap-4">
-        <p className="type-p !font-medium text-primary">Header</p>
+      <p className="type-p !font-medium text-primary">Header</p>
 
-        {/* Logo */}
-        <div className="flex flex-row justify-between items-center">
+      {/* Logo */}
+      <div className="flex flex-row justify-between items-center">
         <Label>Logo</Label>
         <ImageUploader
           bucket="products"
@@ -35,8 +35,8 @@ export function SetHeader() {
           onChange={(url) => {
             setImagePreview(url);
           }}
-            />
-        </div>
+        />
+      </div>
     </div>
   );
 }

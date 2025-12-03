@@ -7,13 +7,13 @@ import { getQueryClient, trpc } from "@/trpc/server";
 
 /**
  * Sidebar Layout - Chrome Rendering
- * 
+ *
  * This layout renders the main application chrome (Header, Sidebar)
  * and import-related providers/dialogs.
- * 
+ *
  * Auth bootstrap is handled by (dashboard)/layout.tsx.
  * Redirect logic is handled by (main)/layout.tsx.
- * 
+ *
  * This layout also seeds the query cache for client components
  * (BrandDropdown, UserMenu, etc.) that need the user/brands data.
  */

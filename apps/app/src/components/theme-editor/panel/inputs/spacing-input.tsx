@@ -50,45 +50,61 @@ export function SpacingInput({
         <div className="grid grid-cols-2 gap-2">
           {/* Top */}
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">↑</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">
+              ↑
+            </span>
             <Input
               type="number"
               allowEmpty
               value={outerValues.top}
-              onChange={(e) => handleOuterChange("top", Number.parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleOuterChange("top", Number.parseFloat(e.target.value))
+              }
               className="h-8 text-sm pl-7"
             />
           </div>
           {/* Right */}
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">→</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">
+              →
+            </span>
             <Input
               type="number"
               allowEmpty
               value={outerValues.right}
-              onChange={(e) => handleOuterChange("right", Number.parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleOuterChange("right", Number.parseFloat(e.target.value))
+              }
               className="h-8 text-sm pl-7"
             />
           </div>
           {/* Bottom */}
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">↓</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">
+              ↓
+            </span>
             <Input
               type="number"
               allowEmpty
               value={outerValues.bottom}
-              onChange={(e) => handleOuterChange("bottom", Number.parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleOuterChange("bottom", Number.parseFloat(e.target.value))
+              }
               className="h-8 text-sm pl-7"
             />
           </div>
           {/* Left */}
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">←</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">
+              ←
+            </span>
             <Input
               type="number"
               allowEmpty
               value={outerValues.left}
-              onChange={(e) => handleOuterChange("left", Number.parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleOuterChange("left", Number.parseFloat(e.target.value))
+              }
               className="h-8 text-sm pl-7"
             />
           </div>
@@ -101,45 +117,61 @@ export function SpacingInput({
         <div className="grid grid-cols-2 gap-2">
           {/* Top */}
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">↑</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">
+              ↑
+            </span>
             <Input
               type="number"
               allowEmpty
               value={innerValues.top}
-              onChange={(e) => handleInnerChange("top", Number.parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleInnerChange("top", Number.parseFloat(e.target.value))
+              }
               className="h-8 text-sm pl-7"
             />
           </div>
           {/* Right */}
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">→</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">
+              →
+            </span>
             <Input
               type="number"
               allowEmpty
               value={innerValues.right}
-              onChange={(e) => handleInnerChange("right", Number.parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleInnerChange("right", Number.parseFloat(e.target.value))
+              }
               className="h-8 text-sm pl-7"
             />
           </div>
           {/* Bottom */}
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">↓</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">
+              ↓
+            </span>
             <Input
               type="number"
               allowEmpty
               value={innerValues.bottom}
-              onChange={(e) => handleInnerChange("bottom", Number.parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleInnerChange("bottom", Number.parseFloat(e.target.value))
+              }
               className="h-8 text-sm pl-7"
             />
           </div>
           {/* Left */}
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">←</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 type-small text-tertiary pointer-events-none">
+              ←
+            </span>
             <Input
               type="number"
               allowEmpty
               value={innerValues.left}
-              onChange={(e) => handleInnerChange("left", Number.parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleInnerChange("left", Number.parseFloat(e.target.value))
+              }
               className="h-8 text-sm pl-7"
             />
           </div>
@@ -148,4 +180,3 @@ export function SpacingInput({
     </div>
   );
 }
-

@@ -74,8 +74,9 @@ export function OperatorSheet({
   const [countryCode, setCountryCode] = React.useState("");
 
   // Validation error states
-  const [fieldErrors, setFieldErrors] =
-    React.useState<ValidationErrors<OperatorFormValues>>({});
+  const [fieldErrors, setFieldErrors] = React.useState<
+    ValidationErrors<OperatorFormValues>
+  >({});
 
   // Operators are facilities (production plants)
   const createOperatorMutation = useMutation(
@@ -289,11 +290,15 @@ export function OperatorSheet({
       let errorMessage = "Failed to create operator. Please try again.";
 
       if (error instanceof Error) {
-        if (error.message.includes("unique constraint") ||
-          error.message.includes("duplicate")) {
+        if (
+          error.message.includes("unique constraint") ||
+          error.message.includes("duplicate")
+        ) {
           errorMessage = "An operator with this name already exists.";
-        } else if (error.message.includes("network") ||
-          error.message.includes("fetch")) {
+        } else if (
+          error.message.includes("network") ||
+          error.message.includes("fetch")
+        ) {
           errorMessage = "Network error. Please check your connection.";
         }
       }

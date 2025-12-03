@@ -24,39 +24,49 @@ export function CategorySelect({
   const { categoryHierarchy, categoryMap } = useBrandCatalog();
   const [open, setOpen] = React.useState(false);
   const [categoryPath, setCategoryPath] = React.useState<string[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | null>(value);
+  const [selectedCategoryId, setSelectedCategoryId] = React.useState<
+    string | null
+  >(value);
   const [hoveredRow, setHoveredRow] = React.useState<string | null>(null);
   const [hoveredArea, setHoveredArea] = React.useState<
     "selection" | "navigation" | null
   >(null);
 
   // Helper function to get path (array of IDs) for a category
-  const getCategoryPath = React.useCallback((categoryId: string | null): string[] => {
-    if (!categoryId) return [];
-    
-    const path: string[] = [];
-    let currentId: string | null = categoryId;
-    
-    while (currentId) {
-      path.unshift(currentId);
-      const category = categoryMap.get(currentId);
-      currentId = category?.parentId || null;
-    }
-    
-    return path;
-  }, [categoryMap]);
+  const getCategoryPath = React.useCallback(
+    (categoryId: string | null): string[] => {
+      if (!categoryId) return [];
+
+      const path: string[] = [];
+      let currentId: string | null = categoryId;
+
+      while (currentId) {
+        path.unshift(currentId);
+        const category = categoryMap.get(currentId);
+        currentId = category?.parentId || null;
+      }
+
+      return path;
+    },
+    [categoryMap],
+  );
 
   // Helper function to get display string for a category
-  const getCategoryDisplayString = React.useCallback((categoryId: string | null): string => {
-    if (!categoryId) return "Select category";
-    
-    const path = getCategoryPath(categoryId);
-    const labels = path.map(id => categoryMap.get(id)?.name || "").filter(Boolean);
-    
-    if (labels.length === 0) return "Select category";
-    if (labels.length <= 3) return labels.join(" / ");
-    return `${labels[0]} / ... / ${labels[labels.length - 1]}`;
-  }, [categoryMap, getCategoryPath]);
+  const getCategoryDisplayString = React.useCallback(
+    (categoryId: string | null): string => {
+      if (!categoryId) return "Select category";
+
+      const path = getCategoryPath(categoryId);
+      const labels = path
+        .map((id) => categoryMap.get(id)?.name || "")
+        .filter(Boolean);
+
+      if (labels.length === 0) return "Select category";
+      if (labels.length <= 3) return labels.join(" / ");
+      return `${labels[0]} / ... / ${labels[labels.length - 1]}`;
+    },
+    [categoryMap, getCategoryPath],
+  );
 
   // Sync selected category when value prop changes
   React.useEffect(() => {

@@ -71,7 +71,7 @@ function AccordionItem({
         <Icons.ChevronDown
           className={cn(
             "h-4 w-4 text-secondary transition-transform duration-200",
-            isOpen && "rotate-180"
+            isOpen && "rotate-180",
           )}
         />
       </button>
@@ -89,7 +89,7 @@ interface TypographyScaleFormProps {
 function TypographyScaleForm({ value, onChange }: TypographyScaleFormProps) {
   const handleChange = <K extends keyof TypographyScale>(
     key: K,
-    newValue: TypographyScale[K]
+    newValue: TypographyScale[K],
   ) => {
     onChange({ ...value, [key]: newValue });
   };
@@ -124,7 +124,9 @@ function TypographyScaleForm({ value, onChange }: TypographyScaleFormProps) {
         <FieldWrapper label="Weight">
           <Select
             value={String(value.fontWeight || "400")}
-            onValueChange={(v) => handleChange("fontWeight", Number.parseInt(v, 10))}
+            onValueChange={(v) =>
+              handleChange("fontWeight", Number.parseInt(v, 10))
+            }
             options={FONT_WEIGHT_OPTIONS}
             placeholder="Select weight..."
             className="h-8 text-sm"
@@ -137,7 +139,9 @@ function TypographyScaleForm({ value, onChange }: TypographyScaleFormProps) {
         <FieldWrapper label="Line height">
           <Select
             value={String(value.lineHeight || "1.25")}
-            onValueChange={(v) => handleChange("lineHeight", Number.parseFloat(v))}
+            onValueChange={(v) =>
+              handleChange("lineHeight", Number.parseFloat(v))
+            }
             options={LINE_HEIGHT_OPTIONS}
             placeholder="Select..."
             className="h-8 text-sm"
@@ -187,4 +191,3 @@ export function TypographyEditor() {
     </div>
   );
 }
-

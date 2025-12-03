@@ -3,11 +3,11 @@ import { redirect } from "next/navigation";
 
 /**
  * Main App Layout - Redirect Logic
- * 
+ *
  * This layout enforces that users have completed onboarding before
  * accessing the main application pages. It redirects incomplete users
  * to the appropriate onboarding page.
- * 
+ *
  * Auth bootstrap is handled by the parent (dashboard)/layout.tsx.
  * Header/Sidebar rendering is handled by child (sidebar)/layout.tsx.
  */

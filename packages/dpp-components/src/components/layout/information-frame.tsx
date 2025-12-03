@@ -57,18 +57,12 @@ export function InformationFrame({ data, themeConfig }: Props) {
 
       {/* Materials Section */}
       {sections.showMaterials && data.materials.length > 0 && (
-        <MaterialsFrame
-          materials={data.materials}
-          themeConfig={themeConfig}
-        />
+        <MaterialsFrame materials={data.materials} themeConfig={themeConfig} />
       )}
 
       {/* Journey Section */}
       {sections.showJourney && data.journey.length > 0 && (
-        <JourneyFrame
-          journey={data.journey}
-          themeConfig={themeConfig}
-        />
+        <JourneyFrame journey={data.journey} themeConfig={themeConfig} />
       )}
 
       {/* Secondary Menu Section */}

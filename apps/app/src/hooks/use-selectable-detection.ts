@@ -2,7 +2,10 @@
 
 import { useCallback, useRef, useEffect } from "react";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { findComponentById, hasEditableContent } from "@/components/theme-editor/registry/component-registry";
+import {
+  findComponentById,
+  hasEditableContent,
+} from "@/components/theme-editor/registry/component-registry";
 
 /** Debounce delay in ms - hover is only shown after cursor stops for this duration */
 const HOVER_DEBOUNCE_MS = 25;
@@ -14,7 +17,7 @@ const HOVER_DEBOUNCE_MS = 25;
 function applySelectionAttribute(
   container: HTMLElement | null,
   componentId: string | null,
-  attributeKey: string
+  attributeKey: string,
 ) {
   if (!container || !componentId) return;
 
@@ -29,7 +32,7 @@ function applySelectionAttribute(
  */
 function removeSelectionAttribute(
   container: HTMLElement | null,
-  attributeKey: string
+  attributeKey: string,
 ) {
   if (!container) return;
 
@@ -53,7 +56,7 @@ function toKebabCase(str: string): string {
  * Includes debounce so hover only shows after cursor stops moving.
  */
 export function useSelectableDetection(
-  containerRef: React.RefObject<HTMLElement | null>
+  containerRef: React.RefObject<HTMLElement | null>,
 ) {
   const {
     hoveredComponentId,
@@ -94,7 +97,7 @@ export function useSelectableDetection(
 
       return null;
     },
-    []
+    [],
   );
 
   // Apply/remove hover attributes when hoveredComponentId changes
@@ -127,7 +130,11 @@ export function useSelectableDetection(
 
     // Apply new selected attribute
     if (selectedComponentId) {
-      applySelectionAttribute(container, selectedComponentId, "selectedSelection");
+      applySelectionAttribute(
+        container,
+        selectedComponentId,
+        "selectedSelection",
+      );
     }
 
     prevSelectedRef.current = selectedComponentId;
@@ -151,7 +158,7 @@ export function useSelectableDetection(
   /**
    * Handle mouse move - detect which component is under cursor.
    * Uses debounce so hover only shows after cursor STOPS moving.
-   * 
+   *
    * Behavior:
    * - When cursor is moving, keep the current hover (don't clear it)
    * - When cursor stops, update hover to whatever component is under cursor
@@ -179,7 +186,7 @@ export function useSelectableDetection(
         debounceTimerRef.current = null;
       }, HOVER_DEBOUNCE_MS);
     },
-    [findSelectableComponentId, hoveredComponentId, setHoveredComponentId]
+    [findSelectableComponentId, hoveredComponentId, setHoveredComponentId],
   );
 
   /**
@@ -221,7 +228,13 @@ export function useSelectableDetection(
         // If no component was selected, do nothing - keep current section active
       }
     },
-    [findSelectableComponentId, setSelectedComponentId, navigateToComponent, navigateBack, selectedComponentId]
+    [
+      findSelectableComponentId,
+      setSelectedComponentId,
+      navigateToComponent,
+      navigateBack,
+      selectedComponentId,
+    ],
   );
 
   return {

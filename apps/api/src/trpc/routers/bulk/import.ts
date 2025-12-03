@@ -266,9 +266,8 @@ export const importRouter = createTRPCRouter({
             summary: {
               totalRows: parseResult.rowCount,
               hasUpid: normalizedHeaders.includes("upid"),
-              hasProductIdentifier: normalizedHeaders.includes(
-                "product_identifier",
-              ),
+              hasProductIdentifier:
+                normalizedHeaders.includes("product_identifier"),
               recognizedColumns: normalizedHeaders,
               unrecognizedColumns: [],
             },

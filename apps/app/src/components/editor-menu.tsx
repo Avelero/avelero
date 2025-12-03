@@ -1,15 +1,19 @@
 "use client";
 
 import { SidebarButton } from "./sidebar-button";
-import { useDesignEditor, type NavigationSection } from "@/contexts/design-editor-provider";
+import {
+  useDesignEditor,
+  type NavigationSection,
+} from "@/contexts/design-editor-provider";
 import { Icons } from "@v1/ui/icons";
 import type { LucideIcon } from "lucide-react";
 
-const items: Array<{ id: NavigationSection; name: string; icon: LucideIcon }> = [
-  { id: "layout", name: "Layout", icon: Icons.GalleryVertical },
-  { id: "typography", name: "Typography", icon: Icons.Type },
-  { id: "colors", name: "Colors", icon: Icons.Palette },
-];
+const items: Array<{ id: NavigationSection; name: string; icon: LucideIcon }> =
+  [
+    { id: "layout", name: "Layout", icon: Icons.GalleryVertical },
+    { id: "typography", name: "Typography", icon: Icons.Type },
+    { id: "colors", name: "Colors", icon: Icons.Palette },
+  ];
 
 interface EditorMenuProps {
   isExpanded: boolean;

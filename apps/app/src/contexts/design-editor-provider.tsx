@@ -80,7 +80,7 @@ type DesignEditorContextValue = {
   // Helper setters for nested updates (ThemeStyles)
   updateTypographyScale: (
     scale: TypographyScaleKey,
-    value: TypographyScale
+    value: TypographyScale,
   ) => void;
   updateColor: (colorKey: string, value: string) => void;
   updateComponentStyle: (path: string, value: StyleValue) => void;
@@ -120,7 +120,7 @@ type DesignEditorContextValue = {
 };
 
 const DesignEditorContext = createContext<DesignEditorContextValue | null>(
-  null
+  null,
 );
 
 type ProviderProps = {
@@ -146,7 +146,8 @@ export function DesignEditorProvider({
   const [isSaving, setIsSaving] = useState(false);
 
   // Track the last saved state to properly detect unsaved changes
-  const [savedThemeStyles, setSavedThemeStyles] = useState<ThemeStyles>(initialThemeStyles);
+  const [savedThemeStyles, setSavedThemeStyles] =
+    useState<ThemeStyles>(initialThemeStyles);
 
   // ThemeConfig is read-only in the theme editor (edited in /design/content)
   const themeConfig = initialThemeConfig;
@@ -183,7 +184,7 @@ export function DesignEditorProvider({
         },
       }));
     },
-    []
+    [],
   );
 
   const updateColor = useCallback((colorKey: string, value: string) => {
@@ -221,7 +222,7 @@ export function DesignEditorProvider({
         };
       });
     },
-    []
+    [],
   );
 
   /**
@@ -240,7 +241,7 @@ export function DesignEditorProvider({
       ] as Record<string, unknown> | undefined;
       return component?.[propertyKey] as StyleValue | undefined;
     },
-    [themeStylesDraft]
+    [themeStylesDraft],
   );
 
   /**
@@ -258,13 +259,15 @@ export function DesignEditorProvider({
       // If it's a token reference, resolve to the actual color value
       if (isTokenReference(storedValue)) {
         const tokenName = getTokenName(storedValue) as ColorTokenKey;
-        const colors = themeStylesDraft.colors as Record<string, string> | undefined;
+        const colors = themeStylesDraft.colors as
+          | Record<string, string>
+          | undefined;
         return colors?.[tokenName];
       }
 
       return storedValue;
     },
-    [getRawComponentStyleValue, themeStylesDraft.colors]
+    [getRawComponentStyleValue, themeStylesDraft.colors],
   );
 
   /**
@@ -279,7 +282,7 @@ export function DesignEditorProvider({
       }
       return null;
     },
-    [getRawComponentStyleValue]
+    [getRawComponentStyleValue],
   );
 
   // ---------------------------------------------------------------------------
@@ -341,10 +344,10 @@ export function DesignEditorProvider({
   // Selection State (for preview interaction)
   // ---------------------------------------------------------------------------
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(
-    null
+    null,
   );
   const [hoveredComponentId, setHoveredComponentId] = useState<string | null>(
-    null
+    null,
   );
 
   // ---------------------------------------------------------------------------
@@ -409,7 +412,7 @@ export function DesignEditorProvider({
       toggleExpanded,
       selectedComponentId,
       hoveredComponentId,
-    ]
+    ],
   );
 
   return (

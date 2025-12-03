@@ -74,9 +74,7 @@ export function Sidebar({ variant = "default" }: SidebarProps) {
         </>
       )}
 
-      {variant === "editor" && (
-        <EditorMenu isExpanded={isExpanded} />
-      )}
+      {variant === "editor" && <EditorMenu isExpanded={isExpanded} />}
     </aside>
   );
 }

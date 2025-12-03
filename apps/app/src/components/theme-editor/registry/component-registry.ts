@@ -514,7 +514,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
             id: "impact-card__unit",
             displayName: "Unit",
             styleFields: [
-              { type: "color", path: "impact-card__unit.color", label: "Color" },
+              {
+                type: "color",
+                path: "impact-card__unit.color",
+                label: "Color",
+              },
               {
                 type: "typescale",
                 path: "impact-card__unit.typescale",
@@ -1291,7 +1295,7 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
  */
 export function findComponentById(
   id: string,
-  tree: ComponentDefinition[] = COMPONENT_TREE
+  tree: ComponentDefinition[] = COMPONENT_TREE,
 ): ComponentDefinition | null {
   for (const component of tree) {
     if (component.id === id) {
@@ -1311,7 +1315,7 @@ export function findComponentById(
 export function getComponentAncestry(
   id: string,
   tree: ComponentDefinition[] = COMPONENT_TREE,
-  path: ComponentDefinition[] = []
+  path: ComponentDefinition[] = [],
 ): ComponentDefinition[] | null {
   for (const component of tree) {
     if (component.id === id) {
@@ -1332,7 +1336,7 @@ export function getComponentAncestry(
  * Get all component IDs as a flat list
  */
 export function getAllComponentIds(
-  tree: ComponentDefinition[] = COMPONENT_TREE
+  tree: ComponentDefinition[] = COMPONENT_TREE,
 ): string[] {
   const ids: string[] = [];
   for (const component of tree) {

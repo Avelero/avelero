@@ -1,6 +1,9 @@
 "use client";
 
-import { useBrandCatalog, type BrandTagOption } from "@/hooks/use-brand-catalog";
+import {
+  useBrandCatalog,
+  type BrandTagOption,
+} from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { allColors } from "@v1/selections";
@@ -207,8 +210,7 @@ export function TagSelect({
           if (!old?.brandCatalog) return old;
           const existingTags = old.brandCatalog.tags ?? [];
           const alreadyExists = existingTags.some(
-            (tag: any) =>
-              tag.name?.toLowerCase() === trimmedName.toLowerCase(),
+            (tag: any) => tag.name?.toLowerCase() === trimmedName.toLowerCase(),
           );
           if (alreadyExists) {
             return old;
@@ -286,7 +288,10 @@ export function TagSelect({
           )}
         </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0"
+        align="start"
+      >
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput

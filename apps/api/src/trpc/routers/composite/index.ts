@@ -365,56 +365,53 @@ export const compositeRouter = createTRPCRouter({
    * Returns brand catalog entities and global categories in a single call to
    * minimize waterfall requests in the app.
    */
-  brandCatalogContent: brandRequiredProcedure.query(
-    async ({ ctx }) => {
-      const brandCtx = ctx as BrandContext;
-      const brandId = brandCtx.brandId;
+  brandCatalogContent: brandRequiredProcedure.query(async ({ ctx }) => {
+    const brandCtx = ctx as BrandContext;
+    const brandId = brandCtx.brandId;
 
-      try {
-        const [
-          categories,
+    try {
+      const [
+        categories,
+        colors,
+        sizes,
+        materials,
+        facilities,
+        showcaseBrands,
+        ecoClaims,
+        certifications,
+        tags,
+        seasons,
+      ] = await Promise.all([
+        listCategories(brandCtx.db),
+        listColors(brandCtx.db, brandId),
+        listSizes(brandCtx.db, brandId),
+        listMaterials(brandCtx.db, brandId),
+        listFacilities(brandCtx.db, brandId),
+        listShowcaseBrands(brandCtx.db, brandId),
+        listEcoClaims(brandCtx.db, brandId),
+        listCertifications(brandCtx.db, brandId),
+        listBrandTags(brandCtx.db, brandId),
+        listSeasonsForBrand(brandCtx.db, brandId),
+      ]);
+
+      return {
+        categories,
+        brandCatalog: {
           colors,
           sizes,
           materials,
-          facilities,
+          operators: facilities,
           showcaseBrands,
           ecoClaims,
           certifications,
           tags,
           seasons,
-        ] = await Promise.all([
-          listCategories(brandCtx.db),
-          listColors(brandCtx.db, brandId),
-          listSizes(brandCtx.db, brandId),
-          listMaterials(brandCtx.db, brandId),
-          listFacilities(brandCtx.db, brandId),
-          listShowcaseBrands(brandCtx.db, brandId),
-          listEcoClaims(brandCtx.db, brandId),
-          listCertifications(brandCtx.db, brandId),
-          listBrandTags(brandCtx.db, brandId),
-          listSeasonsForBrand(brandCtx.db, brandId),
-        ]);
-
-        return {
-          categories,
-          brandCatalog: {
-            colors,
-            sizes,
-            materials,
-            operators: facilities,
-            showcaseBrands,
-            ecoClaims,
-            certifications,
-            tags,
-            seasons,
-          },
-        };
-      } catch (error) {
-        throw wrapError(error, "Failed to load passport form references");
-      }
-    },
-  ),
-
+        },
+      };
+    } catch (error) {
+      throw wrapError(error, "Failed to load passport form references");
+    }
+  }),
 });
 
 export type CompositeRouter = typeof compositeRouter;

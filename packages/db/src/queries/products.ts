@@ -1,4 +1,14 @@
-import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../client";
 import { generateUniqueUpid } from "../utils/upid.js";
@@ -22,7 +32,7 @@ import {
 
 /**
  * Filter options for product list queries
- * 
+ *
  * Uses FilterState structure (groups with AND/OR logic).
  * Full FilterState → SQL conversion will be implemented in Phase 5.
  */
@@ -175,7 +185,12 @@ export interface ProductAttributesBundle {
   ecoClaims: ProductEcoClaimSummary[];
   environment: ProductEnvironmentSummary | null;
   journey: ProductJourneyStepSummary[];
-  tags: Array<{ id: string; tag_id: string; name: string | null; hex: string | null }>;
+  tags: Array<{
+    id: string;
+    tag_id: string;
+    name: string | null;
+    hex: string | null;
+  }>;
 }
 
 /**
@@ -435,18 +450,19 @@ async function loadAttributesForProducts(
       eq(brandFacilities.id, productJourneyStepFacilities.facilityId),
     )
     .where(inArray(productJourneySteps.productId, [...productIds]))
-    .orderBy(
-      asc(productJourneySteps.sortIndex),
-    );
+    .orderBy(asc(productJourneySteps.sortIndex));
 
   // Group facilities by journey step
-  const journeyStepsMap = new Map<string, {
-    id: string;
-    product_id: string;
-    sort_index: number;
-    step_type: string;
-    facilities: Array<{ id: string; name: string | null }>;
-  }>();
+  const journeyStepsMap = new Map<
+    string,
+    {
+      id: string;
+      product_id: string;
+      sort_index: number;
+      step_type: string;
+      facilities: Array<{ id: string; name: string | null }>;
+    }
+  >();
 
   for (const row of journeyRows) {
     const stepId = row.id;
@@ -476,8 +492,8 @@ async function loadAttributesForProducts(
       id: step.id,
       sort_index: step.sort_index,
       step_type: step.step_type,
-      facility_ids: step.facilities.map(f => f.id),
-      facility_names: step.facilities.map(f => f.name),
+      facility_ids: step.facilities.map((f) => f.id),
+      facility_names: step.facilities.map((f) => f.name),
     });
   }
 
@@ -676,8 +692,8 @@ export async function listProducts(
   const selectFields =
     opts.fields && opts.fields.length > 0
       ? Object.fromEntries(
-        opts.fields.map((field) => [field, PRODUCT_FIELD_MAP[field]]),
-      )
+          opts.fields.map((field) => [field, PRODUCT_FIELD_MAP[field]]),
+        )
       : PRODUCT_FIELD_MAP;
 
   // Add joined fields for category and season names
@@ -689,7 +705,15 @@ export async function listProducts(
 
   // Determine sort field and direction
   // Special handling for season and category sorting: empty records always appear last
-  let orderBy: ReturnType<typeof asc> | ReturnType<typeof desc> | ReturnType<typeof sql> | Array<ReturnType<typeof asc> | ReturnType<typeof desc> | ReturnType<typeof sql>>;
+  let orderBy:
+    | ReturnType<typeof asc>
+    | ReturnType<typeof desc>
+    | ReturnType<typeof sql>
+    | Array<
+        | ReturnType<typeof asc>
+        | ReturnType<typeof desc>
+        | ReturnType<typeof sql>
+      >;
   if (opts.sort?.field === "season") {
     if (opts.sort.direction === "asc") {
       // Ascending: oldest end dates first, ongoing seasons last (treated as most recent)
@@ -734,9 +758,10 @@ export async function listProducts(
       : products.createdAt;
 
     // Add product ID as a stable tie-breaker for deterministic pagination
-    orderBy = opts.sort?.direction === "asc"
-      ? [asc(sortField), asc(products.id)]
-      : [desc(sortField), desc(products.id)];
+    orderBy =
+      opts.sort?.direction === "asc"
+        ? [asc(sortField), asc(products.id)]
+        : [desc(sortField), desc(products.id)];
   }
 
   const rows = await db
@@ -826,7 +851,8 @@ export async function listProductsWithIncludes(
 
     // Enrich with category path (category_name is already set from join)
     if (product.category_id && !product.category_path) {
-      enriched.category_path = categoryPathsMap.get(product.category_id) ?? null;
+      enriched.category_path =
+        categoryPathsMap.get(product.category_id) ?? null;
     }
 
     // season_name is already set from the join in listProducts, no need to enrich
@@ -977,7 +1003,9 @@ export async function createProduct(
         const [row] = await tx
           .select({ id: products.id })
           .from(products)
-          .where(and(eq(products.upid, candidate), eq(products.brandId, brandId)))
+          .where(
+            and(eq(products.upid, candidate), eq(products.brandId, brandId)),
+          )
           .limit(1);
         return Boolean(row);
       },
@@ -1076,7 +1104,9 @@ export async function upsertProductMaterials(
 ) {
   let countInserted = 0;
   await db.transaction(async (tx) => {
-    await tx.delete(productMaterials).where(eq(productMaterials.productId, productId));
+    await tx
+      .delete(productMaterials)
+      .where(eq(productMaterials.productId, productId));
     if (!items.length) {
       countInserted = 0;
     } else {
@@ -1086,7 +1116,8 @@ export async function upsertProductMaterials(
           items.map((i) => ({
             productId,
             brandMaterialId: i.brandMaterialId,
-            percentage: i.percentage !== undefined ? String(i.percentage) : null,
+            percentage:
+              i.percentage !== undefined ? String(i.percentage) : null,
           })),
         )
         .returning({ id: productMaterials.id });
@@ -1234,7 +1265,9 @@ export async function setProductTags(
   tagIds: string[],
 ) {
   await db.transaction(async (tx) => {
-    await tx.delete(tagsOnProduct).where(eq(tagsOnProduct.productId, productId));
+    await tx
+      .delete(tagsOnProduct)
+      .where(eq(tagsOnProduct.productId, productId));
     if (tagIds.length === 0) {
       return;
     }

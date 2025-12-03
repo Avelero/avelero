@@ -58,4 +58,3 @@ export const brandSeasons = pgTable(
     }),
   ],
 );
-

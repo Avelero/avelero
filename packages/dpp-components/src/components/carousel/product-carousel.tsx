@@ -8,16 +8,9 @@ import { ProductCard } from "./product-card";
 interface Props {
   products: SimilarProduct[];
   themeConfig: ThemeConfig;
-  imageZoom?: number;
-  imagePosition?: "top" | "center" | "bottom";
 }
 
-export function ProductCarousel({
-  products,
-  themeConfig,
-  imageZoom = 100,
-  imagePosition = "top",
-}: Props) {
+export function ProductCarousel({ products, themeConfig }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const endSpacerRef = useRef<HTMLDivElement>(null);
@@ -118,7 +111,7 @@ export function ProductCarousel({
   const showNavButtons = products.length > 3;
 
   return (
-    <div className="carousel py-lg @3xl:pt-2x @3xl:pb-0 w-full">
+    <div className="carousel pt-2x @3xl:pt-2x @3xl:pb-0 w-full">
       {/* Header container - keeps the title aligned with the page content */}
       <div className="max-w-container mx-auto px-sm @3xl:px-lg">
         <h6 className="carousel__title">Similar Items</h6>
@@ -137,11 +130,7 @@ export function ProductCarousel({
             <div ref={contentRef} className="carousel__content flex gap-sm">
               {products.map((product, index) => (
                 <div key={`${product.name}-${index}`} className="product-item">
-                  <ProductCard
-                    product={product}
-                    imageZoom={imageZoom}
-                    imagePosition={imagePosition}
-                  />
+                  <ProductCard product={product} />
                 </div>
               ))}
               {/* End spacer to ensure the last card can be fully scrolled */}

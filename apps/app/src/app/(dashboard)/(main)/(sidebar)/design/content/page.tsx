@@ -24,10 +24,10 @@ export default async function DesignPage() {
             <SetHeader />
           </Suspense>
           <Suspense fallback={<Skeleton className="h-[187px] w-full" />}>
-            <SetMenu menuType="primary"/>
+            <SetMenu menuType="primary" />
           </Suspense>
           <Suspense fallback={<Skeleton className="h-[187px] w-full" />}>
-            <SetMenu menuType="secondary"/>
+            <SetMenu menuType="secondary" />
           </Suspense>
           <Suspense fallback={<Skeleton className="h-[187px] w-full" />}>
             <SetCarousel />

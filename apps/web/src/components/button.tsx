@@ -1,8 +1,8 @@
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@v1/ui/cn"
+import { cn } from "@v1/ui/cn";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-1 whitespace-nowrap transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none shrink-0 [&_svg]:shrink-0 [&>span]:px-1 [&>span]:text-button outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
@@ -10,8 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "button-3d-default text-card-foreground",
-        brand:
-          "button-3d-brand text-primary-foreground",
+        brand: "button-3d-brand text-primary-foreground",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
@@ -33,8 +32,8 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
-)
+  },
+);
 
 function Button({
   className,
@@ -45,17 +44,19 @@ function Button({
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
+    asChild?: boolean;
   }) {
-  const Comp = asChild ? Slot : "button"
+  const Comp = asChild ? Slot : "button";
 
-  const processedChildren = asChild 
-    ? children 
-    : React.Children.map(children, (child) => 
-        typeof child === "string" || typeof child === "number" 
-          ? <span>{child}</span> 
-          : child
-      )
+  const processedChildren = asChild
+    ? children
+    : React.Children.map(children, (child) =>
+        typeof child === "string" || typeof child === "number" ? (
+          <span>{child}</span>
+        ) : (
+          child
+        ),
+      );
 
   return (
     <Comp
@@ -65,7 +66,7 @@ function Button({
     >
       {processedChildren}
     </Comp>
-  )
+  );
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

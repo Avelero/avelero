@@ -1,4 +1,5 @@
 import type { ThemeConfig } from "@v1/dpp-components";
+import Image from "next/image";
 
 interface Props {
   themeConfig: ThemeConfig;
@@ -8,15 +9,20 @@ export function CTABanner({ themeConfig }: Props) {
   const { cta } = themeConfig;
 
   return (
-    <div className="mt-3x mb-2x">
-      <div
-        className="banner relative w-full flex flex-col items-center justify-center py-3x px-lg"
-        style={{
-          backgroundImage: `url(${cta?.bannerBackgroundImage})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
+    <div className="mt-3x mb-xl @3xl:mb-2x">
+      <div className="banner relative w-full flex flex-col items-center justify-center py-3x px-lg overflow-hidden">
+        {/* Background image using Next.js Image */}
+        {cta?.bannerBackgroundImage && (
+          <Image
+            src={cta.bannerBackgroundImage}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="100vw"
+            priority={false}
+          />
+        )}
+
         <div className="banner__container relative z-10 flex flex-col gap-xl w-full">
           <div className="flex flex-col gap-lg">
             {cta?.bannerHeadline && (

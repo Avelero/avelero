@@ -26,7 +26,12 @@ export function PassportFormProvider({
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
 
   const value = React.useMemo(
-    () => ({ isSubmitting, setIsSubmitting, hasUnsavedChanges, setHasUnsavedChanges }),
+    () => ({
+      isSubmitting,
+      setIsSubmitting,
+      hasUnsavedChanges,
+      setHasUnsavedChanges,
+    }),
     [isSubmitting, hasUnsavedChanges],
   );
 
@@ -50,4 +55,3 @@ export function usePassportFormContext() {
   }
   return context;
 }
-

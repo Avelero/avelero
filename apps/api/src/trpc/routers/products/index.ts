@@ -141,7 +141,12 @@ export const productsRouter = createTRPCRouter({
             const existing = await brandCtx.db
               .select({ id: products.id })
               .from(products)
-              .where(and(eq(products.brandId, brandId), eq(products.upid, candidate)))
+              .where(
+                and(
+                  eq(products.brandId, brandId),
+                  eq(products.upid, candidate),
+                ),
+              )
               .limit(1);
             return Boolean(existing[0]);
           },
@@ -358,7 +363,10 @@ async function replaceVariantsForProduct(
     const makeKey = (c: string | null, s: string | null) =>
       `${c ?? "null"}:${s ?? "null"}`;
 
-    const existingByKey = new Map<string, { id: string; upid: string | null }>();
+    const existingByKey = new Map<
+      string,
+      { id: string; upid: string | null }
+    >();
     for (const row of existing) {
       existingByKey.set(makeKey(row.color_id, row.size_id), {
         id: row.id,
@@ -366,14 +374,18 @@ async function replaceVariantsForProduct(
       });
     }
 
-    const desiredKeys = new Set(desired.map((v) => makeKey(v.colorId, v.sizeId)));
+    const desiredKeys = new Set(
+      desired.map((v) => makeKey(v.colorId, v.sizeId)),
+    );
 
     const idsToDelete = existing
       .filter((row) => !desiredKeys.has(makeKey(row.color_id, row.size_id)))
       .map((row) => row.id);
 
     if (idsToDelete.length) {
-      await tx.delete(productVariants).where(inArray(productVariants.id, idsToDelete));
+      await tx
+        .delete(productVariants)
+        .where(inArray(productVariants.id, idsToDelete));
     }
 
     const toInsert = desired.filter(

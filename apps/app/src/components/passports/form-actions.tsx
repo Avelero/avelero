@@ -45,9 +45,11 @@ export function PassportFormActions() {
         {isSubmitting ? "Saving..." : "Save"}
       </Button>
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
+        <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
           <DialogHeader>
-            <DialogTitle className="text-foreground">Discard changes?</DialogTitle>
+            <DialogTitle className="text-foreground">
+              Discard changes?
+            </DialogTitle>
             <DialogDescription className="text-secondary w-full whitespace-normal break-words">
               You have unsaved changes. If you leave now, your edits will be
               lost.

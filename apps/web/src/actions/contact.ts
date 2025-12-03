@@ -8,8 +8,8 @@ import ContactConfirmation from "@v1/email/emails/contact-confirmation";
 import ContactNotification from "@v1/email/emails/contact-notification";
 import { getLeadsTable } from "../lib/airtable";
 import { headers } from "next/headers";
-import validator from 'validator';
-import * as CompanyEmailValidator from 'company-email-validator';
+import validator from "validator";
+import * as CompanyEmailValidator from "company-email-validator";
 
 interface ContactFormData {
   email: string;
@@ -23,9 +23,11 @@ export async function submitContactForm(data: ContactFormData) {
     const headersList = await headers();
     const forwarded = headersList.get("x-forwarded-for");
     const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
-    
-    const { success, remaining } = await contactFormRateLimit.limit(`contact-form:${ip}`);
-    
+
+    const { success, remaining } = await contactFormRateLimit.limit(
+      `contact-form:${ip}`,
+    );
+
     if (!success) {
       return {
         success: false,
@@ -35,12 +37,12 @@ export async function submitContactForm(data: ContactFormData) {
 
     // Check 1: Valid email format
     if (!validator.isEmail(data.email)) {
-        return { success: false, error: "Please enter a valid email" };
+      return { success: false, error: "Please enter a valid email" };
     }
 
     // Check work email
     if (!CompanyEmailValidator.isCompanyEmail(data.email)) {
-        return { success: false, error: "Please enter a work email" };
+      return { success: false, error: "Please enter a work email" };
     }
 
     if (!data.name.trim() || !data.company.trim()) {
@@ -65,7 +67,7 @@ export async function submitContactForm(data: ContactFormData) {
       React.createElement(ContactConfirmation, {
         name: data.name,
         email: data.email,
-      })
+      }),
     );
 
     await resend.emails.send({
@@ -82,7 +84,7 @@ export async function submitContactForm(data: ContactFormData) {
         email: data.email,
         company: data.company,
         submittedAt: new Date().toLocaleString(),
-      })
+      }),
     );
 
     await resend.emails.send({

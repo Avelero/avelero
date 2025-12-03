@@ -11,7 +11,11 @@ interface HeaderProps {
   variant?: "default" | "editor";
 }
 
-export function Header({ hideUserMenu, disableLogoLink, variant = "default" }: HeaderProps) {
+export function Header({
+  hideUserMenu,
+  disableLogoLink,
+  variant = "default",
+}: HeaderProps) {
   const logoIsLink = !disableLogoLink;
   const isEditor = variant === "editor";
 
@@ -65,9 +69,7 @@ export function Header({ hideUserMenu, disableLogoLink, variant = "default" }: H
         <div className="flex min-w-0 flex-1 items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <NavigationLabel />
-            {isEditor ? (
-              <EditorHeaderStatus />
-            ) : null}
+            {isEditor ? <EditorHeaderStatus /> : null}
           </div>
           <div className="flex items-center gap-2">
             {!hideUserMenu && <UserMenu />}
@@ -83,7 +85,7 @@ function EditorHeaderStatus() {
     <div className="flex items-center gap-2">
       <div className="relative flex items-center justify-center px-2 h-6 rounded-full bg-success">
         <div className="flex items-center justify-center h-[12px] w-[12px]">
-          <div className="h-2.5 w-2.5 rounded-full bg-success-foreground"/>
+          <div className="h-2.5 w-2.5 rounded-full bg-success-foreground" />
         </div>
         <p className="type-small leading-none text-success-foreground ml-1.5">
           Live

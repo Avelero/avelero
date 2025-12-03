@@ -48,10 +48,9 @@ export const users = pgTable(
       sql`(avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360))`,
     ),
     // For filtering users by active brand (used in composite.workflowInit and brand deletion)
-    index("idx_users_brand_id").using(
-      "btree",
-      table.brandId.asc().nullsLast().op("uuid_ops"),
-    ).where(sql`(brand_id IS NOT NULL)`),
+    index("idx_users_brand_id")
+      .using("btree", table.brandId.asc().nullsLast().op("uuid_ops"))
+      .where(sql`(brand_id IS NOT NULL)`),
     // RLS policies
     pgPolicy("users_select_own_profile", {
       as: "permissive",

@@ -4,13 +4,31 @@ import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
-import { Suspense, useState, useMemo, useCallback, useEffect, useRef, useDeferredValue } from "react";
+import {
+  Suspense,
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  useDeferredValue,
+} from "react";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
-import type { PassportTableRow, SelectionState } from "../tables/passports/types";
+import type {
+  PassportTableRow,
+  SelectionState,
+} from "../tables/passports/types";
 import type { FilterState } from "./filter-types";
 import { PassportControls } from "./passport-controls";
 
-type SortField = "name" | "status" | "createdAt" | "updatedAt" | "category" | "season" | "productIdentifier";
+type SortField =
+  | "name"
+  | "status"
+  | "createdAt"
+  | "updatedAt"
+  | "category"
+  | "season"
+  | "productIdentifier";
 
 export function TableSection() {
   const [selectedCount, setSelectedCount] = useState(0);
@@ -69,7 +87,7 @@ export function TableSection() {
           const parsed = JSON.parse(val) as { visible?: string[] } | string[];
           if (Array.isArray(parsed)) return parsed;
           if (parsed && Array.isArray(parsed.visible)) return parsed.visible;
-        } catch { }
+        } catch {}
       }
     }
     return null;
@@ -317,7 +335,9 @@ function TableContent({
 
   // Track previous values to detect changes (including clearing)
   const prevSearchRef = useRef<string | undefined>(search);
-  const prevSortRef = useRef<{ field: SortField; direction: "asc" | "desc" } | undefined>(sort);
+  const prevSortRef = useRef<
+    { field: SortField; direction: "asc" | "desc" } | undefined
+  >(sort);
   const prevFiltersRef = useRef<string>(JSON.stringify(filterState.groups));
 
   // Reset to first page when search changes (including clearing)
@@ -335,7 +355,9 @@ function TableContent({
   // Reset to first page when sort changes (including clearing)
   useEffect(() => {
     const currentSort = sort ? `${sort.field}:${sort.direction}` : "";
-    const prevSort = prevSortRef.current ? `${prevSortRef.current.field}:${prevSortRef.current.direction}` : "";
+    const prevSort = prevSortRef.current
+      ? `${prevSortRef.current.field}:${prevSortRef.current.direction}`
+      : "";
 
     if (currentSort !== prevSort) {
       onCursorStackChange([]);
@@ -346,7 +368,10 @@ function TableContent({
 
   // Reset to first page when filters change (including clearing)
   // Serialize filterState to detect content changes, not just group count changes
-  const serializedFilters = useMemo(() => JSON.stringify(filterState.groups), [filterState.groups]);
+  const serializedFilters = useMemo(
+    () => JSON.stringify(filterState.groups),
+    [filterState.groups],
+  );
 
   useEffect(() => {
     const prevFilters = prevFiltersRef.current;
@@ -415,7 +440,13 @@ function TableContent({
     if (!meta?.cursor && !meta?.hasMore) return;
     onCursorStackChange((prev) => [...prev, cursor ?? ""]);
     onCursorChange(meta?.cursor ?? undefined);
-  }, [cursor, meta?.cursor, meta?.hasMore, onCursorChange, onCursorStackChange]);
+  }, [
+    cursor,
+    meta?.cursor,
+    meta?.hasMore,
+    onCursorChange,
+    onCursorStackChange,
+  ]);
 
   const handlePrevPage = useCallback(() => {
     onCursorStackChange((prev) => {
@@ -460,7 +491,16 @@ function TableContent({
         sort: sort,
       }),
     );
-  }, [queryClient, trpc, meta?.cursor, meta?.hasMore, pageSize, search, sort, filterState]);
+  }, [
+    queryClient,
+    trpc,
+    meta?.cursor,
+    meta?.hasMore,
+    pageSize,
+    search,
+    sort,
+    filterState,
+  ]);
 
   const handlePrefetchPrev = useCallback(() => {
     if (!cursorStack.length) return;
@@ -507,10 +547,21 @@ function TableContent({
         sort: sort,
       }),
     );
-  }, [queryClient, trpc, lastPageIndex, pageSize, handlePrefetchFirst, search, sort, filterState]);
+  }, [
+    queryClient,
+    trpc,
+    lastPageIndex,
+    pageSize,
+    handlePrefetchFirst,
+    search,
+    sort,
+    filterState,
+  ]);
 
   const pageStart =
-    totalRows === 0 ? 0 : cursorStack.length * pageSize + (tableRows.length ? 1 : 0);
+    totalRows === 0
+      ? 0
+      : cursorStack.length * pageSize + (tableRows.length ? 1 : 0);
   const pageEnd = cursorStack.length * pageSize + tableRows.length;
 
   // Track if there are truly no products (not filtered)

@@ -65,7 +65,7 @@ export function TableSectionSkeleton({
 
   return (
     <div className="relative w-full h-full">
-      <PassportControls disabled={true}/>
+      <PassportControls disabled={true} />
       <div className="relative w-full overflow-hidden border border-border">
         <div className="scrollbar-hide overflow-x-auto overflow-y-auto max-w-full w-full h-[calc(100vh_-_202px)]">
           <Table className="min-w-full">

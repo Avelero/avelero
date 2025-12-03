@@ -358,12 +358,7 @@ export const FIELD_CATEGORIES = {
   },
   metadata: {
     label: "Metadata",
-    fields: [
-      "status",
-      "tagId",
-      "createdAt",
-      "updatedAt",
-    ],
+    fields: ["status", "tagId", "createdAt", "updatedAt"],
   },
 } as const;
 
@@ -398,10 +393,13 @@ export function getFieldsByCategory(
  * Get field configuration by ID
  * For advanced filters, returns transformed version if applicable (e.g., categoryId as multi-select)
  */
-export function getFieldConfig(fieldId: string, forAdvancedFilters = false): FilterFieldConfig | undefined {
+export function getFieldConfig(
+  fieldId: string,
+  forAdvancedFilters = false,
+): FilterFieldConfig | undefined {
   const field = FILTER_FIELDS[fieldId];
   if (!field) return undefined;
-  
+
   // For advanced filters, transform categoryId from hierarchical to multi-select
   if (forAdvancedFilters && fieldId === "categoryId" && field.tier === 1) {
     return {
@@ -410,7 +408,7 @@ export function getFieldConfig(fieldId: string, forAdvancedFilters = false): Fil
       operators: [...OPERATORS.multiSelect] as FilterOperator[],
     };
   }
-  
+
   return field;
 }
 
@@ -465,7 +463,7 @@ export function getAdvancedFieldsByCategoryForUI(): Array<{
 }> {
   // Fields that should be available in advanced filters even though they're Tier 1
   const tier1FieldsInAdvanced = ["categoryId", "colorId", "sizeId", "season"];
-  
+
   return Object.entries(FIELD_CATEGORIES)
     .map(([category, config]) => ({
       category,

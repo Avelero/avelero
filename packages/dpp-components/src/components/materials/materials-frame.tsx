@@ -7,10 +7,7 @@ interface Props {
   themeConfig: ThemeConfig;
 }
 
-export function MaterialsFrame({
-  materials,
-  themeConfig,
-}: Props) {
+export function MaterialsFrame({ materials, themeConfig }: Props) {
   const showCheckIcon = themeConfig.materials.showCertificationCheckIcon;
 
   return (
@@ -21,7 +18,9 @@ export function MaterialsFrame({
         {materials.map((material, index) => (
           <Fragment key={`${material.type}-${material.percentage}-${index}`}>
             <div className="flex items-start p-md">
-              <span className="materials-card__percentage">{material.percentage}%</span>
+              <span className="materials-card__percentage">
+                {material.percentage}%
+              </span>
             </div>
             <div
               className="py-md pr-md flex flex-col gap-xs"
@@ -39,7 +38,9 @@ export function MaterialsFrame({
 
                 {material.certification && (
                   <span className="inline-flex items-center gap-micro py-micro px-xs materials-card__certification">
-                    {showCheckIcon && <Icons.Check className="materials-card__certification-icon" />}
+                    {showCheckIcon && (
+                      <Icons.Check className="materials-card__certification-icon" />
+                    )}
                     <span className="!leading-[100%]">Certified</span>
                   </span>
                 )}

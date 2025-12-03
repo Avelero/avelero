@@ -91,7 +91,6 @@ function DraggableMenuItem({
     <div ref={setNodeRef} style={style} className="group/item relative">
       <div className="transition-[margin-right] duration-200 ease-in-out group-hover/item:mr-11">
         <div className="flex items-start">
-
           {/* Content */}
           <div
             className="relative flex flex-row items-start w-full border border-border bg-background cursor-pointer group"
@@ -99,12 +98,12 @@ function DraggableMenuItem({
           >
             {/* Drag handle */}
             <div
-                {...attributes}
-                {...listeners}
-                onClick={(e) => e.stopPropagation()}
-                className="cursor-grab w-[34px] h-[34px] flex items-center justify-center bg-background active:cursor-grabbing text-tertiary hover:text-secondary transition-colors flex-shrink-0"
+              {...attributes}
+              {...listeners}
+              onClick={(e) => e.stopPropagation()}
+              className="cursor-grab w-[34px] h-[34px] flex items-center justify-center bg-background active:cursor-grabbing text-tertiary hover:text-secondary transition-colors flex-shrink-0"
             >
-                <Icons.GripVertical className="h-4 w-4" />
+              <Icons.GripVertical className="h-4 w-4" />
             </div>
             {isExpanded ? (
               <div className="flex flex-col pr-3 py-[7px] gap-2 w-full">
@@ -127,7 +126,12 @@ function DraggableMenuItem({
               </div>
             ) : (
               <div className="flex items-center pr-3 h-[34px] gap-2">
-                <span className={cn("type-p", item.label ? "text-primary" : "text-tertiary")}>
+                <span
+                  className={cn(
+                    "type-p",
+                    item.label ? "text-primary" : "text-tertiary",
+                  )}
+                >
                   {item.label || "Untitled"}
                 </span>
                 <Icons.Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100" />
@@ -147,7 +151,7 @@ function DraggableMenuItem({
             "h-9 w-9 flex-shrink-0",
             isExpanded
               ? "text-brand hover:text-brand"
-              : "text-tertiary hover:text-destructive"
+              : "text-tertiary hover:text-destructive",
           )}
         >
           {isExpanded ? (
@@ -253,13 +257,13 @@ export function SetMenu({ menuType }: SetMenuProps) {
   return (
     <div className="border border-border bg-background">
       <div className="p-4 flex flex-col gap-3">
-      <div className="flex flex-row justify-between items-center">
-            <p className="type-p !font-medium text-primary">{title}</p>
-            <Switch
-                checked={true}
-                onCheckedChange={() => {}}
-                className="max-w-[250px]"
-            />
+        <div className="flex flex-row justify-between items-center">
+          <p className="type-p !font-medium text-primary">{title}</p>
+          <Switch
+            checked={true}
+            onCheckedChange={() => {}}
+            className="max-w-[250px]"
+          />
         </div>
 
         {/* Menu items */}
@@ -298,7 +302,12 @@ export function SetMenu({ menuType }: SetMenuProps) {
                       <Icons.GripVertical className="h-4 w-4" />
                     </div>
                     <div className="flex items-center pr-3 h-[34px]">
-                      <span className={cn("type-p", activeItem.label ? "text-primary" : "text-tertiary")}>
+                      <span
+                        className={cn(
+                          "type-p",
+                          activeItem.label ? "text-primary" : "text-tertiary",
+                        )}
+                      >
                         {activeItem.label || "Untitled"}
                       </span>
                     </div>

@@ -1,5 +1,6 @@
 import type { ThemeConfig } from "@v1/dpp-components";
 import { AveleroLogo } from "@v1/ui/avelero-logo";
+import Image from "next/image";
 
 interface Props {
   themeConfig: ThemeConfig;
@@ -30,13 +31,18 @@ export function Header({ themeConfig, brandName, position = "fixed" }: Props) {
   const positionProps = getPositionProps();
 
   return (
-    <div className={`header ${positionProps.className}`} style={positionProps.style}>
+    <div
+      className={`header ${positionProps.className}`}
+      style={positionProps.style}
+    >
       {/* Brand section */}
       <div className="header__section flex items-center justify-center w-full py-sm border-b">
         {branding.headerLogoUrl ? (
-          <img
+          <Image
             src={branding.headerLogoUrl}
             alt={brandName}
+            height={logoHeight}
+            width={logoHeight * 4}
             className="object-contain"
             style={{ height: `${logoHeight}px`, width: "auto" }}
           />

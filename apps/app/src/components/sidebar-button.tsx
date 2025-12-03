@@ -77,9 +77,7 @@ export function SidebarButton({
         className={cn(
           "absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center pointer-events-none",
           "transition-colors duration-200 ease-out",
-          isActive
-            ? "text-primary"
-            : "text-secondary group-hover:text-primary",
+          isActive ? "text-primary" : "text-secondary group-hover:text-primary",
         )}
       >
         {Icon ? (

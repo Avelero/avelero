@@ -1,32 +1,12 @@
 import type { SimilarProduct } from "@v1/dpp-components";
+import Image from "next/image";
 import { formatPrice } from "../../utils/formatting";
 
 interface Props {
   product: SimilarProduct;
-  imageZoom?: number;
-  imagePosition?: "top" | "center" | "bottom";
 }
 
-export function ProductCard({
-  product,
-  imageZoom = 100,
-  imagePosition = "center",
-}: Props) {
-  // Convert zoom from percentage to scale value
-  const zoomScale = Math.max(1, imageZoom / 100);
-
-  // Determine positioning values
-  let objectPosition = "50% 50%"; // Default: center
-  let transformOrigin = "50% 50%"; // Default: center
-
-  if (imagePosition === "top") {
-    objectPosition = "50% 0%";
-    transformOrigin = "50% 0%";
-  } else if (imagePosition === "bottom") {
-    objectPosition = "50% 100%";
-    transformOrigin = "50% 100%";
-  }
-
+export function ProductCard({ product }: Props) {
   return (
     <a
       href={product.url}
@@ -38,16 +18,12 @@ export function ProductCard({
         className="relative w-full overflow-hidden border carousel__product-image"
         style={{ aspectRatio: "3/4" }}
       >
-        <img
+        <Image
           src={product.image}
           alt={product.name}
-          className="absolute top-0 left-0 w-full h-full object-cover transition-transform duration-300 ease-in-out"
-          style={{
-            objectPosition,
-            transform: `scale(${zoomScale})`,
-            transformOrigin,
-          }}
-          loading="lazy"
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 50vw, 200px"
         />
       </div>
       <div className="flex carousel__product-details gap-xs">

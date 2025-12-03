@@ -13,7 +13,7 @@ import type { NavigationSection } from "@/contexts/design-editor-provider";
 function getNavigationTitle(
   level: "root" | "section" | "component",
   section?: NavigationSection,
-  componentId?: string
+  componentId?: string,
 ): string {
   if (level === "section") {
     switch (section) {
@@ -43,7 +43,7 @@ export function DesignPanel() {
   const title = getNavigationTitle(
     navigation.level,
     effectiveSection,
-    navigation.componentId
+    navigation.componentId,
   );
 
   // Only show back button when viewing a component (to go back to layout tree)

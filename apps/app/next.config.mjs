@@ -12,6 +12,10 @@ const nextConfig = {
         hostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname,
         pathname: "/storage/**", // allow both public and sign URLs
       },
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
     ],
   },
 };

@@ -8,7 +8,6 @@ interface Props {
   size: string;
   color: string;
   themeConfig: ThemeConfig;
-  isLast?: boolean;
 }
 
 export function ProductDetails({
@@ -19,15 +18,12 @@ export function ProductDetails({
   size,
   color,
   themeConfig,
-  isLast = false,
 }: Props) {
   const articleNumberClickable = true;
   const manufacturerClickable = true;
 
   return (
-    <div
-      className={`w-full px-sm @3xl:px-0 pt-md pb-lg${isLast ? " pb-0" : ""}`}
-    >
+    <div className="w-full px-sm @3xl:px-0 mt-2x">
       <div className="product-details w-full border">
         {/* Article Number Row */}
         <div className="product-details__row p-sm flex justify-between items-start border-b">

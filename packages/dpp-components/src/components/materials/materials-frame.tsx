@@ -5,20 +5,16 @@ import { Fragment } from "react";
 interface Props {
   materials: Material[];
   themeConfig: ThemeConfig;
-  isLast?: boolean;
 }
 
 export function MaterialsFrame({
   materials,
   themeConfig,
-  isLast = false,
 }: Props) {
   const showCheckIcon = themeConfig.materials.showCertificationCheckIcon;
 
   return (
-    <div
-      className={`mx-sm @3xl:mx-0 mt-lg mb-lg flex flex-col gap-sm${isLast ? " mb-0" : ""}`}
-    >
+    <div className="mx-sm @3xl:mx-0 mt-2x flex flex-col gap-sm">
       <h6 className="materials-card__title">Materials</h6>
 
       <div className="materials-card border grid grid-cols-[max-content_1fr]">

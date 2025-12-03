@@ -23,7 +23,6 @@ export const demoThemeConfig: ThemeConfig = {
   cta: {
     bannerBackgroundImage: 'https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745934275/cta-banner-background_o3vjjw.jpg',
     bannerHeadline: 'Avelero Apparel',
-    bannerSubline: 'Discover our sustainable fashion collection',
     bannerCTAText: 'DISCOVER MORE',
     bannerCTAUrl: 'https://avelero.com',
   },

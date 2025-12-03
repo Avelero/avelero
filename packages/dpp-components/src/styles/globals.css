@@ -67,42 +67,42 @@
 
     /* Heading 1 */
     --type-h1-family: var(--font-primary);
-    --type-h1-size: 2rem;
+    --type-h1-size: 3rem;
     --type-h1-weight: 500;
     --type-h1-line-height: 1;
     --type-h1-letter-spacing: -0.025em;
     
     /* Heading 2 */
     --type-h2-family: var(--font-primary);
-    --type-h2-size: 1.8125rem;
+    --type-h2-size: 2.5rem;
     --type-h2-weight: 500;
     --type-h2-line-height: 1;
     --type-h2-letter-spacing: -0.025em;
     
     /* Heading 3 */
     --type-h3-family: var(--font-primary);
-    --type-h3-size: 1.625rem;
+    --type-h3-size: 2.0625rem;
     --type-h3-weight: 500;
     --type-h3-line-height: 1;
     --type-h3-letter-spacing: -0.025em;
     
     /* Heading 4 */
     --type-h4-family: var(--font-primary);
-    --type-h4-size: 1.4375rem;
+    --type-h4-size: 1.755rem;
     --type-h4-weight: 500;
     --type-h4-line-height: 1;
     --type-h4-letter-spacing: -0.025em;
     
     /* Heading 5 */
     --type-h5-family: var(--font-primary);
-    --type-h5-size: 1.25rem;
+    --type-h5-size: 1.4375rem;
     --type-h5-weight: 500;
     --type-h5-line-height: 1.25;
     --type-h5-letter-spacing: 0em;
     
     /* Heading 6 */
     --type-h6-family: var(--font-primary);
-    --type-h6-size: 1.125rem;
+    --type-h6-size: 1.1875rem;
     --type-h6-weight: 500;
     --type-h6-line-height: 1.25;
     --type-h6-letter-spacing: 0em;
@@ -235,7 +235,7 @@
   }
 
   .dpp-root .product__show-more {
-    font-family: var(--product-show-more-font-family, "Geist", sans-serif);
+    font-family: var(--product-show-more-font-family, var(--font-primary));
     font-weight: var(--product-show-more-font-weight, 400);
     letter-spacing: var(--product-show-more-letter-spacing, 0);
     color: var(--product-show-more-color, var(--link));
@@ -361,11 +361,11 @@
   }
 
   .dpp-root .impact-card__value {
-    font-family: var(--impact-card-value-font-family, var(--type-h1-family));
-    font-size: var(--impact-card-value-font-size, var(--type-h1-size));
-    font-weight: var(--impact-card-value-font-weight, var(--type-h1-weight));
-    line-height: var(--impact-card-value-line-height, var(--type-h1-line-height));
-    letter-spacing: var(--impact-card-value-letter-spacing, var(--type-h1-letter-spacing));
+    font-family: var(--impact-card-value-font-family, var(--type-h2-family));
+    font-size: var(--impact-card-value-font-size, var(--type-h2-size));
+    font-weight: var(--impact-card-value-font-weight, var(--type-h2-weight));
+    line-height: var(--impact-card-value-line-height, var(--type-h2-line-height));
+    letter-spacing: var(--impact-card-value-letter-spacing, var(--type-h2-letter-spacing));
     color: var(--impact-card-value-color, var(--card-foreground));
   }
 
@@ -635,22 +635,22 @@
   }
   
   .dpp-root .banner__headline {
-    font-family: var(--banner-headline-font-family, var(--type-h3-family));
-    font-size: var(--banner-headline-font-size, var(--type-h3-size));
-    font-weight: var(--banner-headline-font-weight, var(--type-h3-weight));
-    line-height: var(--banner-headline-line-height, var(--type-h3-line-height));
-    letter-spacing: var(--banner-headline-letter-spacing, var(--type-h3-letter-spacing));
+    font-family: var(--banner-headline-font-family, var(--type-h1-family));
+    font-size: var(--banner-headline-font-size, var(--type-h1-size));
+    font-weight: var(--banner-headline-font-weight, var(--type-h1-weight));
+    line-height: var(--banner-headline-line-height, var(--type-h1-line-height));
+    letter-spacing: var(--banner-headline-letter-spacing, var(--type-h1-letter-spacing));
     color: var(--banner-headline-color, var(--primary-foreground));
-    text-transform: var(--banner-headline-text-transform, none);
+    text-transform: var(--banner-headline-text-transform, capitalize);
     text-decoration: var(--banner-headline-text-decoration, none);
   }
 
   .dpp-root .banner__subline {
-    font-family: var(--banner-subline-font-family, var(--type-h5-family));
-    font-size: var(--banner-subline-font-size, var(--type-h5-size));
-    font-weight: var(--banner-subline-font-weight, var(--type-h5-weight));
-    line-height: var(--banner-subline-line-height, var(--type-h5-line-height));
-    letter-spacing: var(--banner-subline-letter-spacing, var(--type-h5-letter-spacing));
+    font-family: var(--banner-subline-font-family, var(--type-body-family));
+    font-size: var(--banner-subline-font-size, var(--type-body-size));
+    font-weight: var(--banner-subline-font-weight, var(--type-body-weight));
+    line-height: var(--banner-subline-line-height, var(--type-body-line-height));
+    letter-spacing: var(--banner-subline-letter-spacing, var(--type-body-letter-spacing));
     color: var(--banner-subline-color, var(--primary-foreground));
     text-transform: var(--banner-subline-text-transform, none);
     text-decoration: var(--banner-subline-text-decoration, none);

@@ -61,6 +61,20 @@ export interface DesignTokens {
   };
 }
 
+/**
+ * Style overrides for individual component classes.
+ *
+ * COLOR VALUES can be:
+ * - Hex strings: "#FF0000" (explicit override, not affected by design token changes)
+ * - Token references: "$foreground", "$primary", "$border" (cascades from design tokens)
+ *
+ * When CSS is generated:
+ * - "#FF0000" outputs: --component-color: #FF0000
+ * - "$foreground" outputs: --component-color: var(--foreground)
+ *
+ * This allows design token changes to cascade to all components using that token,
+ * while still allowing explicit overrides on specific components.
+ */
 export interface ComponentStyleOverride {
   // Typography
   fontSize?: string | number;
@@ -77,12 +91,12 @@ export interface ComponentStyleOverride {
   // When set, overrides individual typography properties
   typescale?: string;
 
-  // Colors
+  // Colors (can be hex like "#FF0000" or token ref like "$foreground")
   color?: string;
   backgroundColor?: string;
   backgroundImage?: string;
 
-  // Borders
+  // Borders (borderColor can be hex or token ref like "$border")
   border?: string;
   borderColor?: string;
   borderWidth?: string | number;

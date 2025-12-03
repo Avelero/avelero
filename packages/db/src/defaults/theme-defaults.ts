@@ -2,27 +2,30 @@ import type { ThemeStyles, ThemeConfig } from "@v1/dpp-components";
 
 /**
  * Default ThemeStyles for new brands.
- * 
- * IMPORTANT: These values MUST match the CSS defaults in globals.css.
- * When updating globals.css defaults, update this file as well.
- * 
- * Color references resolved:
- * - --background: #FFFFFF
- * - --foreground: #1E2040
- * - --muted: #F8F8F9
- * - --muted-foreground: #62637A
- * - --accent: #F8F8F9
- * - --accent-foreground: #1E2040
- * - --card: #FFFFFF
- * - --card-foreground: #1E2040
- * - --primary: #0000FF
- * - --primary-foreground: #FFFFFF
- * - --destructive: #EDCDCD
- * - --destructive-foreground: #A40303
- * - --success: #CEEDDF
- * - --success-foreground: #03A458
- * - --border: #E8E9EC
- * - --link: #0000FF
+ *
+ * COLOR VALUES USE TOKEN REFERENCES:
+ * - Colors that should cascade from the design system use "$tokenName" syntax
+ * - Example: "$foreground" references the "foreground" color from colors.foreground
+ * - When CSS is generated, "$foreground" becomes "var(--foreground)"
+ * - This allows design token changes to cascade to all components using that token
+ *
+ * EXPLICIT OVERRIDES:
+ * - When a user explicitly sets a component color, it becomes a hex value like "#FF0000"
+ * - Hex values are output directly and don't cascade from design tokens
+ *
+ * Design token references:
+ * - $background → colors.background
+ * - $foreground → colors.foreground
+ * - $muted → colors.muted
+ * - $mutedForeground → colors.mutedForeground
+ * - $card → colors.card
+ * - $cardForeground → colors.cardForeground
+ * - $primary → colors.primary
+ * - $primaryForeground → colors.primaryForeground
+ * - $success → colors.success
+ * - $successForeground → colors.successForeground
+ * - $border → colors.border
+ * - $link → colors.link
  */
 export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // ===========================================================================
@@ -60,26 +63,28 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
 
   // ===========================================================================
   // HEADER
+  // Fallbacks: backgroundColor → background, borderColor → border
   // ===========================================================================
   header: {
-    borderColor: "#E8E9EC",
-    backgroundColor: "#FFFFFF",
+    borderColor: "$border",
+    backgroundColor: "$background",
   },
 
   // ===========================================================================
   // FOOTER
+  // Fallbacks: backgroundColor → background, borderColor → border
   // ===========================================================================
   footer: {
-    borderColor: "#E8E9EC",
-    backgroundColor: "#FFFFFF",
+    borderColor: "$border",
+    backgroundColor: "$background",
   },
   "footer__legal-name": {
-    color: "#62637A",
+    color: "$mutedForeground",
     typescale: "body-sm",
     textTransform: "none",
   },
   "footer__social-icons": {
-    color: "#0000FF",
+    color: "$link",
     typescale: "body-sm",
   },
 
@@ -87,191 +92,198 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // PRODUCT
   // ===========================================================================
   "product__image": {
-    borderColor: "#E8E9EC",
+    borderColor: "$border",
     borderRadius: 0,
   },
   "product__title": {
-    color: "#1E2040",
+    color: "$foreground",
     typescale: "h5",
     textTransform: "uppercase",
   },
   "product__description": {
-    color: "#62637A",
+    color: "$mutedForeground",
     typescale: "body-sm",
     textTransform: "none",
   },
   "product__brand": {
-    color: "#1E2040",
+    color: "$foreground",
     typescale: "body-sm",
     textTransform: "uppercase",
   },
   "product__show-more": {
-    color: "#0000FF",
+    color: "$link",
   },
 
   // ===========================================================================
   // PRODUCT DETAILS
+  // Fallbacks: borderColor → border, backgroundColor → card
   // ===========================================================================
   "product-details": {
-    borderColor: "#E8E9EC",
+    borderColor: "$border",
     borderRadius: 0,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "$card",
   },
   "product-details__label": {
-    color: "#1E2040",
+    color: "$cardForeground",
     typescale: "body-sm",
     textTransform: "uppercase",
   },
   "product-details__value": {
-    color: "#62637A",
+    color: "$mutedForeground",
     typescale: "body-sm",
     textTransform: "none",
   },
 
   // ===========================================================================
   // PRIMARY MENU
+  // Fallbacks: borderColor → border, backgroundColor → background, color → foreground
   // ===========================================================================
   "menu-primary-button": {
-    borderColor: "#E8E9EC",
-    backgroundColor: "#FFFFFF",
-    color: "#1E2040",
+    borderColor: "$border",
+    backgroundColor: "$background",
+    color: "$foreground",
     typescale: "body",
     textTransform: "uppercase",
   },
   "menu-primary-button__icon": {
-    color: "#1E2040",
+    color: "$foreground",
     size: 20,
   },
 
   // ===========================================================================
   // SECONDARY MENU
+  // Fallbacks: borderColor → border, backgroundColor → background, color → foreground
   // ===========================================================================
   "menu-secondary-button": {
-    borderColor: "#E8E9EC",
-    backgroundColor: "#FFFFFF",
-    color: "#1E2040",
+    borderColor: "$border",
+    backgroundColor: "$background",
+    color: "$foreground",
     typescale: "body",
     textTransform: "uppercase",
   },
   "menu-secondary-button__icon": {
-    color: "#1E2040",
+    color: "$foreground",
     size: 20,
   },
 
   // ===========================================================================
   // IMPACT
+  // Fallbacks: borderColor → border, backgroundColor → card
   // ===========================================================================
   "impact-card": {
-    borderColor: "#E8E9EC",
+    borderColor: "$border",
     borderRadius: 0,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "$card",
   },
   "impact-card__title": {
-    color: "#1E2040",
+    color: "$foreground",
     typescale: "h6",
     textTransform: "uppercase",
   },
   "impact-card__type": {
-    color: "#62637A",
+    color: "$mutedForeground",
     typescale: "body-xs",
     textTransform: "uppercase",
   },
   "impact-card__value": {
-    color: "#1E2040",
+    color: "$cardForeground",
     typescale: "h1",
   },
   "impact-card__unit": {
-    color: "#62637A",
+    color: "$mutedForeground",
     typescale: "body-xs",
     textTransform: "none",
   },
   "impact-card__eco-claim": {
-    borderColor: "#E8E9EC",
+    borderColor: "$border",
     borderRadius: 0,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "$card",
   },
   "impact-card__eco-claim-icon": {
-    color: "#0000FF",
+    color: "$primary",
     size: 17.5,
   },
   "impact-card__eco-claim-text": {
-    color: "#1E2040",
+    color: "$cardForeground",
     typescale: "body-sm",
     textTransform: "none",
   },
   "impact-card__icon": {
-    color: "#62637A",
+    color: "$mutedForeground",
     size: 28,
   },
 
   // ===========================================================================
   // MATERIALS
+  // Fallbacks: borderColor → border, backgroundColor → card
   // ===========================================================================
   "materials-card": {
-    borderColor: "#E8E9EC",
+    borderColor: "$border",
     borderRadius: 0,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "$card",
   },
   "materials-card__title": {
-    color: "#1E2040",
+    color: "$foreground",
     typescale: "h6",
     textTransform: "uppercase",
   },
   "materials-card__percentage": {
-    color: "#1E2040",
+    color: "$cardForeground",
     typescale: "body",
     textTransform: "none",
   },
   "materials-card__type": {
-    color: "#1E2040",
+    color: "$cardForeground",
     typescale: "body",
     textTransform: "uppercase",
   },
   "materials-card__certification": {
-    color: "#03A458",
-    backgroundColor: "#CEEDDF",
+    color: "$successForeground",
+    backgroundColor: "$success",
     borderRadius: 4,
     borderColor: "transparent",
     typescale: "body-xs",
     textTransform: "none",
   },
   "materials-card__certification-icon": {
+    color: "$successForeground",
     size: 12,
   },
   "materials-card__origin": {
-    color: "#62637A",
+    color: "$mutedForeground",
     typescale: "body-xs",
     textTransform: "none",
   },
   "materials-card__certification-text": {
-    color: "#0000FF",
+    color: "$link",
     typescale: "body-xs",
     textTransform: "uppercase",
   },
 
   // ===========================================================================
   // JOURNEY
+  // Fallbacks: borderColor → border, backgroundColor → card
   // ===========================================================================
   "journey-card": {
-    borderColor: "#E8E9EC",
+    borderColor: "$border",
     borderRadius: 0,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "$card",
   },
   "journey-card__title": {
-    color: "#1E2040",
+    color: "$foreground",
     typescale: "h6",
     textTransform: "uppercase",
   },
   "journey-card__line": {
-    backgroundColor: "#62637A",
+    backgroundColor: "$mutedForeground",
   },
   "journey-card__type": {
-    color: "#1E2040",
+    color: "$cardForeground",
     typescale: "body",
     textTransform: "uppercase",
   },
   "journey-card__operator": {
-    color: "#62637A",
+    color: "$mutedForeground",
     typescale: "body-xs",
     textTransform: "none",
   },
@@ -280,21 +292,21 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   // CAROUSEL
   // ===========================================================================
   "carousel__title": {
-    color: "#1E2040",
+    color: "$foreground",
     typescale: "h6",
     textTransform: "uppercase",
   },
   "carousel__nav-button": {
-    borderColor: "#0000FF",
+    borderColor: "$primary",
     backgroundColor: "transparent",
-    color: "#0000FF",
+    color: "$primary",
     borderRadius: 0,
   },
   "carousel__nav-button-icon": {
     size: 16,
   },
   "carousel__product-image": {
-    borderColor: "#E8E9EC",
+    borderColor: "$border",
     borderRadius: 0,
   },
   "carousel__product-details": {
@@ -303,22 +315,23 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
     justifyContent: "flex-start",
   },
   "carousel__product-name": {
-    color: "#0000FF",
+    color: "$link",
     typescale: "body",
     textTransform: "uppercase",
   },
   "carousel__product-price": {
-    color: "#1E2040",
+    color: "$foreground",
     typescale: "body",
     textTransform: "none",
   },
 
   // ===========================================================================
   // BANNER
+  // Fallbacks: backgroundColor → background, borderColor → border
   // ===========================================================================
   banner: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E8E9EC",
+    backgroundColor: "$background",
+    borderColor: "$border",
     borderRadius: 0,
   },
   banner__container: {
@@ -326,19 +339,19 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
     justifyContent: "center",
   },
   banner__headline: {
-    color: "#FFFFFF",
+    color: "$primaryForeground",
     typescale: "h3",
     textTransform: "none",
   },
   banner__subline: {
-    color: "#FFFFFF",
+    color: "$primaryForeground",
     typescale: "h5",
     textTransform: "none",
   },
   banner__button: {
-    color: "#FFFFFF",
-    backgroundColor: "#0000FF",
-    borderColor: "#1E2040",
+    color: "$primaryForeground",
+    backgroundColor: "$primary",
+    borderColor: "$primary",
     borderRadius: 0,
     typescale: "body-sm",
     textTransform: "uppercase",

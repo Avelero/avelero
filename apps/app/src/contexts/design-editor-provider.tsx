@@ -7,6 +7,11 @@ import type {
   TypographyScale,
 } from "@v1/dpp-components";
 import {
+  isTokenReference,
+  getTokenName,
+  type ColorTokenKey,
+} from "@v1/dpp-components";
+import {
   createContext,
   useContext,
   useMemo,
@@ -79,7 +84,22 @@ type DesignEditorContextValue = {
   ) => void;
   updateColor: (colorKey: string, value: string) => void;
   updateComponentStyle: (path: string, value: StyleValue) => void;
+  /**
+   * Gets the resolved value for display in input fields.
+   * If the stored value is a token reference (e.g., "$foreground"),
+   * returns the actual color value from the design tokens.
+   */
   getComponentStyleValue: (path: string) => StyleValue | undefined;
+  /**
+   * Gets the raw stored value, including token references.
+   * Use this to check if a field is using a design token.
+   */
+  getRawComponentStyleValue: (path: string) => StyleValue | undefined;
+  /**
+   * Checks if a component style is using a design token reference.
+   * Returns the token name (without $) if true, null otherwise.
+   */
+  getComponentStyleTokenRef: (path: string) => string | null;
 
   // Navigation state
   navigation: NavigationState;
@@ -182,8 +202,11 @@ export function DesignEditorProvider({
    */
   const updateComponentStyle = useCallback(
     (path: string, value: StyleValue) => {
-      const [componentKey, ...propertyPath] = path.split(".");
-      const propertyKey = propertyPath.join(".");
+      const parts = path.split(".");
+      const componentKey = parts[0];
+      const propertyKey = parts.slice(1).join(".");
+
+      if (!componentKey || !propertyKey) return;
 
       setThemeStylesDraft((prev) => {
         const currentComponent = (prev as Record<string, unknown>)[
@@ -202,13 +225,15 @@ export function DesignEditorProvider({
   );
 
   /**
-   * Get a component style value using dot-notation path
-   * e.g., getComponentStyleValue("journey-card.borderColor")
+   * Get the raw stored value for a component style (including token references)
    */
-  const getComponentStyleValue = useCallback(
+  const getRawComponentStyleValue = useCallback(
     (path: string): StyleValue | undefined => {
-      const [componentKey, ...propertyPath] = path.split(".");
-      const propertyKey = propertyPath.join(".");
+      const parts = path.split(".");
+      const componentKey = parts[0];
+      const propertyKey = parts.slice(1).join(".");
+
+      if (!componentKey || !propertyKey) return undefined;
 
       const component = (themeStylesDraft as Record<string, unknown>)[
         componentKey
@@ -216,6 +241,45 @@ export function DesignEditorProvider({
       return component?.[propertyKey] as StyleValue | undefined;
     },
     [themeStylesDraft]
+  );
+
+  /**
+   * Get a component style value using dot-notation path
+   * e.g., getComponentStyleValue("journey-card.borderColor")
+   *
+   * If the stored value is a token reference (e.g., "$foreground"),
+   * it resolves to the actual color value from themeStylesDraft.colors
+   * for display in input fields.
+   */
+  const getComponentStyleValue = useCallback(
+    (path: string): StyleValue | undefined => {
+      const storedValue = getRawComponentStyleValue(path);
+
+      // If it's a token reference, resolve to the actual color value
+      if (isTokenReference(storedValue)) {
+        const tokenName = getTokenName(storedValue) as ColorTokenKey;
+        const colors = themeStylesDraft.colors as Record<string, string> | undefined;
+        return colors?.[tokenName];
+      }
+
+      return storedValue;
+    },
+    [getRawComponentStyleValue, themeStylesDraft.colors]
+  );
+
+  /**
+   * Check if a component style is using a design token reference
+   * Returns the token name (without $) if true, null otherwise
+   */
+  const getComponentStyleTokenRef = useCallback(
+    (path: string): string | null => {
+      const storedValue = getRawComponentStyleValue(path);
+      if (isTokenReference(storedValue)) {
+        return getTokenName(storedValue);
+      }
+      return null;
+    },
+    [getRawComponentStyleValue]
   );
 
   // ---------------------------------------------------------------------------
@@ -303,6 +367,8 @@ export function DesignEditorProvider({
       updateColor,
       updateComponentStyle,
       getComponentStyleValue,
+      getRawComponentStyleValue,
+      getComponentStyleTokenRef,
       // Navigation state
       navigation,
       navigateToSection,
@@ -332,6 +398,8 @@ export function DesignEditorProvider({
       updateColor,
       updateComponentStyle,
       getComponentStyleValue,
+      getRawComponentStyleValue,
+      getComponentStyleTokenRef,
       navigation,
       navigateToSection,
       navigateToComponent,

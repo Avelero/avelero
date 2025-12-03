@@ -1,5 +1,6 @@
 import { getFontFallback } from "@v1/selections/fonts";
 import type { ComponentStyleOverride, CustomFont, ThemeStyles } from "../types";
+import { isTokenReference, tokenToCssVar, camelToKebab } from "./token-utils";
 
 /**
  * Properties that should receive 'px' units when numeric
@@ -35,13 +36,6 @@ const PX_UNIT_PROPERTIES = new Set([
   "borderBottomRightRadius",
   "size",
 ]);
-
-/**
- * Converts camelCase property names to kebab-case CSS property names
- */
-function camelToKebab(str: string): string {
-  return str.replace(/([A-Z])/g, "-$1").toLowerCase();
-}
 
 /**
  * Converts component class name to CSS variable prefix
@@ -100,6 +94,11 @@ function generateComponentCSS(
         };
         // CSS shorthand: border-radius: TL TR BR BL
         cssValue = `${r.topLeft}px ${r.topRight}px ${r.bottomRight}px ${r.bottomLeft}px`;
+      }
+      // Handle design token references ($foreground, $primary, etc.)
+      // These are converted to CSS variable references: var(--foreground)
+      else if (isTokenReference(value)) {
+        cssValue = tokenToCssVar(value);
       }
       // Add font fallback for fontFamily
       else if (key === "fontFamily" && typeof value === "string") {

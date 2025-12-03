@@ -3,14 +3,11 @@ import type { JourneyStage, ThemeConfig } from "@v1/dpp-components";
 interface Props {
   journey: JourneyStage[];
   themeConfig: ThemeConfig;
-  isLast?: boolean;
 }
 
-export function JourneyFrame({ journey, themeConfig, isLast = false }: Props) {
+export function JourneyFrame({ journey, themeConfig }: Props) {
   return (
-    <div
-      className={`mx-sm @3xl:mx-0 mt-lg mb-lg flex flex-col gap-sm${isLast ? " mb-0" : ""}`}
-    >
+    <div className="mx-sm @3xl:mx-0 mt-2x flex flex-col gap-sm">
       <h6 className="journey-card__title">Journey</h6>
 
       <div className="flex flex-col py-md pl-md journey-card border">

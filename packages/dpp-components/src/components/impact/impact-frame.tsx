@@ -5,14 +5,11 @@ import { SmallImpactFrame } from "./small-impact-frame";
 interface Props {
   metrics: ImpactMetric[];
   claims: string[];
-  isLast?: boolean;
 }
 
-export function ImpactFrame({ metrics, claims, isLast = false }: Props) {
+export function ImpactFrame({ metrics, claims }: Props) {
   return (
-    <div
-      className={`px-sm @3xl:px-0 pt-lg pb-lg flex flex-col gap-sm${isLast ? " pb-0" : ""}`}
-    >
+    <div className="px-sm @3xl:px-0 mt-2x flex flex-col gap-sm">
       <h6 className="impact-card__title">Impact</h6>
 
       <div className="flex flex-col gap-sm">

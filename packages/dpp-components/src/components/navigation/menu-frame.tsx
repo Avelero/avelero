@@ -10,7 +10,6 @@ interface MenuItem {
 interface Props {
   menuItems: MenuItem[];
   themeConfig: ThemeConfig;
-  isLastMenu?: boolean;
   /**
    * Menu variant determines which CSS class is applied to buttons.
    * - "primary": uses .menu-primary-button class (default)
@@ -22,20 +21,15 @@ interface Props {
 export function MenuFrame({
   menuItems,
   themeConfig,
-  isLastMenu = false,
   variant = "primary",
 }: Props) {
-  const menuClasses = isLastMenu
-    ? "w-full mt-lg mb-lg @3xl:mb-0 @3xl:mx-0"
-    : "w-full mt-lg mb-lg @3xl:mx-0";
-
   if (menuItems.length === 0) return null;
 
   // Use variant-specific wrapper class for the menu container
   const containerClass = variant === "secondary" ? "menu-secondary" : "menu-primary";
 
   return (
-    <div className={menuClasses}>
+    <div className="w-full mt-2x @3xl:mx-0">
       <div className={`${containerClass} border-t`}>
         {menuItems.map((item) => (
           <MenuButton

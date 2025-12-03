@@ -9,7 +9,6 @@ interface Props {
   title: string;
   description: string;
   themeConfig: ThemeConfig;
-  isLast?: boolean;
 }
 
 export function ProductDescription({
@@ -17,7 +16,6 @@ export function ProductDescription({
   title,
   description,
   themeConfig,
-  isLast = false,
 }: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showButton, setShowButton] = useState(false);
@@ -79,9 +77,7 @@ export function ProductDescription({
   }, [description]);
 
   return (
-    <div
-      className={`pt-xl pb-md px-sm @3xl:px-0 @3xl:pt-0 flex flex-col gap-sm w-full${isLast ? " pb-0" : ""}`}
-    >
+    <div className="pt-xl px-sm @3xl:px-0 @3xl:pt-0 flex flex-col gap-sm w-full">
       <div className="product__brand">{brand}</div>
 
       <h1 className="product__title">{title}</h1>

@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 interface Props {
   image: string;
   alt: string;
@@ -12,9 +14,11 @@ export function ProductImage({ image, alt }: Props) {
       }}
     >
       {image ? (
-        <img
+        <Image
           src={image}
           alt={alt}
+          width={393}
+          height={539}
           className="absolute top-0 left-0 w-full h-full object-cover"
           loading="lazy"
         />

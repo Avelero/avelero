@@ -1,7 +1,11 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
-import { ColorInput } from "../inputs/color-input";
+import {
+  ColorInput,
+  parseHexWithAlpha,
+  combineHexWithAlpha,
+} from "../inputs/color-input";
 
 // Color tokens configuration - matches globals.css color system
 const COLOR_TOKENS = [
@@ -44,15 +48,26 @@ export function ColorsEditor() {
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide p-4">
       <div className="flex flex-col gap-4">
-        {COLOR_TOKENS.map(({ key, label }) => (
-          <ColorInput
-            key={key}
-            label={label}
-            value={getColorValue(key)}
-            onChange={(value) => updateColor(key, `#${value}`)}
-            showOpacity={false}
-          />
-        ))}
+        {COLOR_TOKENS.map(({ key, label }) => {
+          const hexValue = getColorValue(key);
+          const { rgb, opacity } = parseHexWithAlpha(hexValue);
+
+          return (
+            <ColorInput
+              key={key}
+              label={label}
+              value={rgb}
+              opacity={opacity}
+              onChange={(newRgb) => {
+                updateColor(key, combineHexWithAlpha(newRgb, opacity));
+              }}
+              onOpacityChange={(newOpacity) => {
+                updateColor(key, combineHexWithAlpha(rgb, newOpacity));
+              }}
+              showOpacity={true}
+            />
+          );
+        })}
       </div>
     </div>
   );

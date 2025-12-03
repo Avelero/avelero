@@ -29,7 +29,7 @@ export function Header({
         {isEditor ? (
           <Link
             href="/design"
-            className="flex shrink-0 items-center justify-center border-r border-b hover:bg-accent transition-colors focus-visible:outline-none"
+            className="flex shrink-0 items-center justify-center border-r border-b bg-background hover:bg-accent transition-colors focus-visible:outline-none"
             style={{ width: "56px", height: "56px" }}
             prefetch
           >

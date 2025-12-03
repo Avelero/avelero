@@ -49,9 +49,9 @@ export default async function SidebarLayout({
     <ImportProgressProvider>
       <div className="relative h-full">
         <Header />
-        <div className="flex flex-row justify-start h-[calc(100%-56px)]">
+        <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
           <Sidebar />
-          <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
+          <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
             {children}
           </div>
         </div>

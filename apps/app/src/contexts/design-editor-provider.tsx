@@ -17,6 +17,7 @@ import {
   useMemo,
   useState,
   useCallback,
+  useEffect,
 } from "react";
 import { saveThemeAction } from "@/actions/design/save-theme-action";
 
@@ -148,6 +149,12 @@ export function DesignEditorProvider({
   // Track the last saved state to properly detect unsaved changes
   const [savedThemeStyles, setSavedThemeStyles] =
     useState<ThemeStyles>(initialThemeStyles);
+
+  // Reset draft and saved states when initialThemeStyles changes (e.g., brand switch)
+  useEffect(() => {
+    setThemeStylesDraft(initialThemeStyles);
+    setSavedThemeStyles(initialThemeStyles);
+  }, [initialThemeStyles]);
 
   // ThemeConfig is read-only in the theme editor (edited in /design/content)
   const themeConfig = initialThemeConfig;

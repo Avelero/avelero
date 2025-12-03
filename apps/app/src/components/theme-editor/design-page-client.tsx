@@ -31,9 +31,9 @@ export function DesignPageClient({
     >
       <div className="relative h-full">
         <Header variant="editor" />
-        <div className="flex flex-row justify-start h-[calc(100%-56px)]">
+        <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
           <Sidebar variant="editor" />
-          <div className="relative w-[calc(100%-56px)] h-full ml-[56px]">
+          <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
             <div className="flex h-full w-full">
               <DesignPanel />
               <div className="flex h-full min-h-full flex-1 flex-col">

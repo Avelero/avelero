@@ -135,8 +135,12 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           maxBytes: MAX_SIZE,
           allowedMime: ACCEPTED_MIME,
         });
-        const msg = validation.valid ? null : validation.error;
-        if (msg) {
+        if (!validation.valid) {
+          toast.error(validation.error);
+          // Reset file input so user can try again
+          if (inputRef.current) {
+            inputRef.current.value = "";
+          }
           return;
         }
 

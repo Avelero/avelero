@@ -256,14 +256,16 @@ export function LayoutTree() {
     [hoveredComponentId, setHoveredComponentId],
   );
 
-  // Cleanup debounce timer on unmount
+  // Cleanup debounce timer and hover state on unmount
   React.useEffect(() => {
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
+      pendingHoverRef.current = null;
+      setHoveredComponentId(null);
     };
-  }, []);
+  }, [setHoveredComponentId]);
 
   // Determine which item should be highlighted based on hover
   const highlightedId = findVisibleHighlightTarget(

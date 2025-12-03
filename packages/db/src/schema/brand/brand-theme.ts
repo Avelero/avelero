@@ -48,6 +48,7 @@ export const brandTheme = pgTable(
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
+      withCheck: sql`is_brand_member(brand_id)`,
     }),
     pgPolicy("brand_theme_delete_by_brand_member", {
       as: "permissive",

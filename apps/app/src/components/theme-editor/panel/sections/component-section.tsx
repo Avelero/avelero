@@ -4,8 +4,13 @@ import { useDesignEditor } from "@/contexts/design-editor-provider";
 import {
   findComponentById,
   type StyleField,
+  TYPESCALE_OPTIONS,
 } from "../../registry/component-registry";
-import { ColorInput } from "../inputs/color-input";
+import {
+  ColorInput,
+  parseHexWithAlpha,
+  combineHexWithAlpha,
+} from "../inputs/color-input";
 import { PixelInput } from "../inputs/pixel-input";
 import { RadiusInput } from "../inputs/radius-input";
 import { FieldWrapper } from "../inputs/field-wrapper";
@@ -30,23 +35,6 @@ function EditorSection({
 }
 
 // =============================================================================
-// CONSTANTS
-// =============================================================================
-
-// Typescale options for style fields
-const TYPESCALE_OPTIONS = [
-  { value: "h1", label: "Heading 1" },
-  { value: "h2", label: "Heading 2" },
-  { value: "h3", label: "Heading 3" },
-  { value: "h4", label: "Heading 4" },
-  { value: "h5", label: "Heading 5" },
-  { value: "h6", label: "Heading 6" },
-  { value: "body", label: "Body" },
-  { value: "body-sm", label: "Small" },
-  { value: "body-xs", label: "Extra Small" },
-];
-
-// =============================================================================
 // STYLE FIELD RENDERER
 // =============================================================================
 
@@ -62,15 +50,25 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
 
   switch (field.type) {
     case "color": {
-      const displayValue =
-        typeof value === "string" ? value.replace("#", "") : "";
+      // Parse the stored value to extract RGB and opacity
+      // Supports 6-char (#RRGGBB) and 8-char (#RRGGBBAA) hex formats
+      const hexValue = typeof value === "string" ? value : "";
+      const { rgb, opacity } = parseHexWithAlpha(hexValue);
+
       return (
         <ColorInput
           label={field.label}
-          value={displayValue}
-          onChange={(hex) => updateComponentStyle(field.path, `#${hex}`)}
+          value={rgb}
+          opacity={opacity}
+          onChange={(newRgb) => {
+            // Combine new RGB with existing opacity
+            updateComponentStyle(field.path, combineHexWithAlpha(newRgb, opacity));
+          }}
+          onOpacityChange={(newOpacity) => {
+            // Combine existing RGB with new opacity
+            updateComponentStyle(field.path, combineHexWithAlpha(rgb, newOpacity));
+          }}
           showOpacity={true}
-          opacity={100}
         />
       );
     }

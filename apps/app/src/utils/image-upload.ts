@@ -7,7 +7,7 @@ export const DEFAULT_ALLOWED_MIME = [
   "image/png",
   "image/webp",
   "image/avif",
-  "image/svg",
+  "image/svg+xml",
 ] as const;
 
 export type ImageValidationResult =

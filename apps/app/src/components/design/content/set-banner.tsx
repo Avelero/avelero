@@ -38,7 +38,7 @@ export function SetBanner() {
 
       {/* Subheadline */}
       <div className="space-y-1.5">
-        <Label>Headline</Label>
+        <Label>Subheadline</Label>
         <Input
           value={subheadline}
           onChange={(e) => setSubheadline(e.target.value)}

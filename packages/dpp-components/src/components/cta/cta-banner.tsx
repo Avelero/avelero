@@ -10,7 +10,7 @@ export function CTABanner({ themeConfig }: Props) {
 
   return (
     <div className="mt-3x mb-xl @3xl:mb-2x">
-      <div className="banner relative w-full flex flex-col items-center justify-center py-3x px-lg overflow-hidden">
+      <div className="banner relative w-full flex flex-col items-center justify-center py-3x px-lg @3xl:px-3x overflow-hidden">
         {/* Background image using Next.js Image */}
         {cta?.bannerBackgroundImage && (
           <Image
@@ -26,13 +26,13 @@ export function CTABanner({ themeConfig }: Props) {
         <div className="banner__container relative z-10 flex flex-col gap-xl w-full">
           <div className="flex flex-col gap-lg">
             {cta?.bannerHeadline && (
-              <h2 className="banner__headline text-center max-w-[600px] px-md">
+              <h2 className="banner__headline text-center max-w-[600px]">
                 {cta.bannerHeadline}
               </h2>
             )}
 
             {cta?.bannerSubline && (
-              <p className="banner__subline text-center max-w-[600px] px-md">
+              <p className="banner__subline text-center max-w-[600px]">
                 {cta.bannerSubline}
               </p>
             )}

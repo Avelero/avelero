@@ -584,7 +584,8 @@
   }
 
   .dpp-root .carousel__product-image {
-    border: var(--carousel-product-image-border, none);
+    border-style: solid;
+    border-width: var(--carousel-product-image-border-width, 0px);
     border-color: var(--carousel-product-image-border-color, var(--border));
     border-radius: var(--carousel-product-image-border-radius, var(--radius-none));
   }
@@ -624,7 +625,8 @@
      ========================================================================== */
   .dpp-root .banner {
     background-color: var(--banner-background-color, var(--background));
-    border: var(--banner-border, none);
+    border-style: solid;
+    border-width: var(--banner-border-width, 0px);
     border-color: var(--banner-border-color, var(--border));
     border-radius: var(--banner-border-radius, var(--radius-none));
   }
@@ -643,6 +645,7 @@
     color: var(--banner-headline-color, var(--primary-foreground));
     text-transform: var(--banner-headline-text-transform, capitalize);
     text-decoration: var(--banner-headline-text-decoration, none);
+    text-align: var(--banner-headline-text-align, center);
   }
 
   .dpp-root .banner__subline {
@@ -654,6 +657,7 @@
     color: var(--banner-subline-color, var(--primary-foreground));
     text-transform: var(--banner-subline-text-transform, none);
     text-decoration: var(--banner-subline-text-decoration, none);
+    text-align: var(--banner-subline-text-align, center);
   }
   
   .dpp-root .banner__button {
@@ -665,7 +669,8 @@
     color: var(--banner-button-color, var(--primary-foreground));
     border-radius: var(--banner-button-border-radius, var(--radius-none));
     background-color: var(--banner-button-background-color, var(--primary));
-    border: var(--banner-button-border, none);
+    border-style: solid;
+    border-width: var(--banner-button-border-width, 0px);
     border-color: var(--banner-button-border-color, var(--primary));
     min-width: var(--banner-button-min-width, 150px);
     text-transform: var(--banner-button-text-transform, uppercase);

@@ -17,7 +17,7 @@ export default async function DesignContentPage() {
     <HydrateClient>
       <Suspense fallback={<ContentSkeleton />}>
         <ThemeContentForm />
-      </Suspense>
+          </Suspense>
     </HydrateClient>
   );
 }

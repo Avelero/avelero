@@ -13,6 +13,7 @@ import {
 } from "../inputs/color-input";
 import { PixelInput } from "../inputs/pixel-input";
 import { RadiusInput } from "../inputs/radius-input";
+import { BorderInput } from "../inputs/border-input";
 import { FieldWrapper } from "../inputs/field-wrapper";
 import { Select } from "@v1/ui/select";
 
@@ -127,6 +128,48 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
       );
     }
 
+    case "border": {
+      // Handle both single value and object value (4 sides)
+      const defaultBorder = {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+      };
+      let borderValues = defaultBorder;
+
+      if (typeof value === "number") {
+        // Single value - apply to all sides
+        borderValues = {
+          top: value,
+          right: value,
+          bottom: value,
+          left: value,
+        };
+      } else if (value && typeof value === "object" && "top" in value) {
+        const v = value as {
+          top: number;
+          right: number;
+          bottom: number;
+          left: number;
+        };
+        borderValues = {
+          top: v.top ?? 0,
+          right: v.right ?? 0,
+          bottom: v.bottom ?? 0,
+          left: v.left ?? 0,
+        };
+      }
+
+      return (
+        <BorderInput
+          label={field.label}
+          values={borderValues}
+          onChange={(newValues) => updateComponentStyle(field.path, newValues)}
+        />
+      );
+    }
+
     case "typescale": {
       return (
         <FieldWrapper label={field.label}>
@@ -194,6 +237,7 @@ function categorizeField(field: StyleField): FieldCategory {
 
   if (
     field.type === "radius" ||
+    field.type === "border" ||
     label.includes("border") ||
     label.includes("stroke") ||
     label.includes("radius") ||

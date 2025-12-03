@@ -99,7 +99,15 @@ export interface ComponentStyleOverride {
   // Borders (borderColor can be hex or token ref like "$border")
   border?: string;
   borderColor?: string;
-  borderWidth?: string | number;
+  borderWidth?:
+    | string
+    | number
+    | {
+        top: number;
+        right: number;
+        bottom: number;
+        left: number;
+      };
   borderStyle?: string;
   borderRadius?:
     | string

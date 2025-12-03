@@ -20,15 +20,15 @@ export function Footer({ themeConfig, brandName }: Props) {
     }
   };
 
-  // Build social media array with URL validation
+  // Build social media array - show if URL is valid (no separate toggle needed)
   const socialMedia = [
-    { show: social?.showInstagram, text: "IG", url: social?.instagramUrl },
-    { show: social?.showFacebook, text: "FB", url: social?.facebookUrl },
-    { show: social?.showTwitter, text: "X", url: social?.twitterUrl },
-    { show: social?.showPinterest, text: "PT", url: social?.pinterestUrl },
-    { show: social?.showTiktok, text: "TK", url: social?.tiktokUrl },
-    { show: social?.showLinkedin, text: "LK", url: social?.linkedinUrl },
-  ].filter((item) => item.show && isValidUrl(item.url));
+    { text: "IG", url: social?.instagramUrl },
+    { text: "FB", url: social?.facebookUrl },
+    { text: "X", url: social?.twitterUrl },
+    { text: "PT", url: social?.pinterestUrl },
+    { text: "TK", url: social?.tiktokUrl },
+    { text: "LK", url: social?.linkedinUrl },
+  ].filter((item) => isValidUrl(item.url ?? ""));
 
   return (
     <div className="w-full">

@@ -149,7 +149,9 @@ input:-webkit-autofill:focus-visible {
 .product__description[data-hover-selection="true"],
 .product__description[data-selected-selection="true"],
 .carousel__product-image[data-hover-selection="true"],
-.carousel__product-image[data-selected-selection="true"] {
+.carousel__product-image[data-selected-selection="true"],
+.banner[data-hover-selection="true"],
+.banner[data-selected-selection="true"] {
   outline: none;
   position: relative;
 }
@@ -159,7 +161,9 @@ input:-webkit-autofill:focus-visible {
 .product__description[data-hover-selection="true"]::after,
 .product__description[data-selected-selection="true"]::after,
 .carousel__product-image[data-hover-selection="true"]::after,
-.carousel__product-image[data-selected-selection="true"]::after {
+.carousel__product-image[data-selected-selection="true"]::after,
+.banner[data-hover-selection="true"]::after,
+.banner[data-selected-selection="true"]::after {
   content: '';
   position: absolute;
   inset: 0;

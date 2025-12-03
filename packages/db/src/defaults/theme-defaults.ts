@@ -361,6 +361,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   },
   "carousel__product-image": {
     borderColor: "$border",
+    borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
     borderRadius: 0,
   },
   "carousel__product-details": {
@@ -386,6 +387,7 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
   banner: {
     backgroundColor: "$background",
     borderColor: "$border",
+    borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
     borderRadius: 0,
   },
   banner__container: {
@@ -396,16 +398,19 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
     color: "$primaryForeground",
     typescale: "h3",
     textTransform: "none",
+    textAlign: "center",
   },
   banner__subline: {
     color: "$primaryForeground",
     typescale: "h5",
     textTransform: "none",
+    textAlign: "center",
   },
   banner__button: {
     color: "$primaryForeground",
     backgroundColor: "$primary",
     borderColor: "$primary",
+    borderWidth: { top: 0, right: 0, bottom: 0, left: 0 },
     borderRadius: 0,
     typescale: "body-sm",
     textTransform: "uppercase",

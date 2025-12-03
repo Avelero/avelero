@@ -97,6 +97,22 @@ function generateComponentCSS(
         // CSS shorthand: border-radius: TL TR BR BL
         cssValue = `${r.topLeft}px ${r.topRight}px ${r.bottomRight}px ${r.bottomLeft}px`;
       }
+      // Handle borderWidth object (4-side values)
+      else if (
+        key === "borderWidth" &&
+        typeof value === "object" &&
+        value !== null &&
+        "top" in value
+      ) {
+        const b = value as {
+          top: number;
+          right: number;
+          bottom: number;
+          left: number;
+        };
+        // CSS shorthand: border-width: top right bottom left
+        cssValue = `${b.top}px ${b.right}px ${b.bottom}px ${b.left}px`;
+      }
       // Handle design token references ($foreground, $primary, etc.)
       // These are converted to CSS variable references: var(--foreground)
       else if (isTokenReference(value)) {

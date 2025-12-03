@@ -35,6 +35,7 @@ export type StyleFieldType =
   | "color"
   | "number"
   | "radius" // 4-corner border-radius input
+  | "border" // 4-side border-width input
   | "select"
   | "typescale" // Dropdown to select from H1-H6, Body, Body-sm, Body-xs
   | "toggle";
@@ -139,6 +140,12 @@ export const JUSTIFY_CONTENT_OPTIONS = [
   { value: "flex-end", label: "End" },
   { value: "space-between", label: "Space Between" },
   { value: "space-around", label: "Space Around" },
+];
+
+export const TEXT_ALIGN_OPTIONS = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
 ];
 
 // =============================================================================
@@ -1008,6 +1015,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
                 label: "Border Color",
               },
               {
+                type: "border",
+                path: "carousel__product-image.borderWidth",
+                label: "Border Width",
+              },
+              {
                 type: "radius",
                 path: "carousel__product-image.borderRadius",
                 label: "Rounding",
@@ -1138,9 +1150,28 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         label: "Border Color",
       },
       {
+        type: "border",
+        path: "banner.borderWidth",
+        label: "Border Width",
+      },
+      {
         type: "radius",
         path: "banner.borderRadius",
         label: "Rounding",
+      },
+      {
+        type: "select",
+        path: "banner__container.alignItems",
+        label: "Align Items",
+        options: ALIGN_ITEMS_OPTIONS,
+        section: "Layout",
+      },
+      {
+        type: "select",
+        path: "banner__container.justifyContent",
+        label: "Justify Content",
+        options: JUSTIFY_CONTENT_OPTIONS,
+        section: "Layout",
       },
     ],
     children: [
@@ -1160,6 +1191,12 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
             label: "Capitalization",
             options: CAPITALIZATION_OPTIONS,
           },
+          {
+            type: "select",
+            path: "banner__headline.textAlign",
+            label: "Alignment",
+            options: TEXT_ALIGN_OPTIONS,
+          },
         ],
       },
       {
@@ -1178,6 +1215,12 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
             label: "Capitalization",
             options: CAPITALIZATION_OPTIONS,
           },
+          {
+            type: "select",
+            path: "banner__subline.textAlign",
+            label: "Alignment",
+            options: TEXT_ALIGN_OPTIONS,
+          },
         ],
       },
       {
@@ -1189,6 +1232,11 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
             type: "color",
             path: "banner__button.borderColor",
             label: "Border Color",
+          },
+          {
+            type: "border",
+            path: "banner__button.borderWidth",
+            label: "Border Width",
           },
           {
             type: "color",

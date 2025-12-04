@@ -4,7 +4,8 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Avelero - Product passports that engage",
     short_name: "Avelero",
-    description: "Launch EU-compliant product passports in days, not months. Built for fashion brands.",
+    description:
+      "Launch EU-compliant product passports in days, not months. Built for fashion brands.",
     start_url: "/",
     display: "standalone",
     background_color: "#FAFAFF",
@@ -29,4 +30,3 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
   };
 }
-

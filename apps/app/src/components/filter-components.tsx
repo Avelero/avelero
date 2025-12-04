@@ -187,11 +187,11 @@ export function FilterGroup({
         <React.Fragment key={condition.id}>
           {index > 0 && (
             <div className="flex items-center gap-3 py-1">
-              <div className="h-px flex-1 bg-border" />
+              <div className="h-px flex-1 bg-accent-dark" />
               <span className="type-small font-medium text-secondary uppercase tracking-wide">
                 or
               </span>
-              <div className="h-px flex-1 bg-border" />
+              <div className="h-px flex-1 bg-accent-dark" />
             </div>
           )}
           <FilterRow

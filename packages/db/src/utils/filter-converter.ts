@@ -1,9 +1,9 @@
 /**
  * FilterState to SQL WHERE Clause Converter
- * 
+ *
  * Converts FilterState structure (groups with AND/OR logic) into SQL WHERE clauses
  * for use in database queries.
- * 
+ *
  * Logic Structure:
  * - Groups: AND logic between groups
  * - Conditions within a group: OR logic within each group
@@ -134,12 +134,7 @@ export function convertFilterStateToWhereClauses(
 
     // Process each condition in the group (OR logic within group)
     for (const condition of group.conditions) {
-      const clause = buildConditionClause(
-        condition,
-        schemaRefs,
-        db,
-        brandId,
-      );
+      const clause = buildConditionClause(condition, schemaRefs, db, brandId);
       if (clause) {
         conditionClauses.push(clause);
       }
@@ -181,10 +176,24 @@ function buildConditionClause(
     // These are handled in their respective builders (buildMaterialsClause, buildFacilityClause)
     // which already process nestedConditions properly
     if (fieldId === "materials") {
-      return buildMaterialsClause(schema, operator, value, nestedConditions, db, brandId);
+      return buildMaterialsClause(
+        schema,
+        operator,
+        value,
+        nestedConditions,
+        db,
+        brandId,
+      );
     }
     if (fieldId === "operatorId") {
-      return buildFacilityClause(schema, operator, value, nestedConditions, db, brandId);
+      return buildFacilityClause(
+        schema,
+        operator,
+        value,
+        nestedConditions,
+        db,
+        brandId,
+      );
     }
     // If we somehow have nested conditions for an unsupported field, ignore them
     // and fall through to normal processing
@@ -264,7 +273,14 @@ function buildConditionClause(
 
     // Variant-level fields (require EXISTS subquery)
     case "colorId":
-      return buildVariantClause(schema, "colorId", operator, value, db, brandId);
+      return buildVariantClause(
+        schema,
+        "colorId",
+        operator,
+        value,
+        db,
+        brandId,
+      );
 
     case "sizeId":
       return buildVariantClause(schema, "sizeId", operator, value, db, brandId);
@@ -394,7 +410,10 @@ function buildDateClause(
   // Handle relative dates (either as operator or value type)
   if (
     operator === "relative" ||
-    (value != null && typeof value === "object" && "type" in value && value.type === "relative")
+    (value != null &&
+      typeof value === "object" &&
+      "type" in value &&
+      value.type === "relative")
   ) {
     const now = new Date();
     let startDate: Date;
@@ -474,9 +493,8 @@ function buildDateClause(
       (typeof afterValue === "string" || afterValue instanceof Date)
     ) {
       try {
-        const afterDate = typeof afterValue === "string"
-          ? new Date(afterValue)
-          : afterValue;
+        const afterDate =
+          typeof afterValue === "string" ? new Date(afterValue) : afterValue;
         if (!Number.isNaN(afterDate.getTime())) {
           // Extract UTC date components and set to start of day
           const year = afterDate.getUTCFullYear();
@@ -484,7 +502,9 @@ function buildDateClause(
           const day = afterDate.getUTCDate();
           const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
           // Use sql template with explicit timestamptz cast for proper comparison
-          conditions.push(sql`${column} >= ${startOfDay.toISOString()}::timestamptz`);
+          conditions.push(
+            sql`${column} >= ${startOfDay.toISOString()}::timestamptz`,
+          );
         }
       } catch {
         // Invalid date, skip
@@ -499,17 +519,20 @@ function buildDateClause(
       (typeof beforeValue === "string" || beforeValue instanceof Date)
     ) {
       try {
-        const beforeDate = typeof beforeValue === "string"
-          ? new Date(beforeValue)
-          : beforeValue;
+        const beforeDate =
+          typeof beforeValue === "string" ? new Date(beforeValue) : beforeValue;
         if (!Number.isNaN(beforeDate.getTime())) {
           // Extract UTC date components and set to end of day
           const year = beforeDate.getUTCFullYear();
           const month = beforeDate.getUTCMonth();
           const day = beforeDate.getUTCDate();
-          const endOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+          const endOfDay = new Date(
+            Date.UTC(year, month, day, 23, 59, 59, 999),
+          );
           // Use sql template with explicit timestamptz cast for proper comparison
-          conditions.push(sql`${column} <= ${endOfDay.toISOString()}::timestamptz`);
+          conditions.push(
+            sql`${column} <= ${endOfDay.toISOString()}::timestamptz`,
+          );
         }
       } catch {
         // Invalid date, skip
@@ -522,9 +545,7 @@ function buildDateClause(
     }
 
     // Combine conditions with AND
-    return conditions.length === 1
-      ? conditions[0]!
-      : and(...conditions)!;
+    return conditions.length === 1 ? conditions[0]! : and(...conditions)!;
   }
 
   // Handle single date (check after date range to avoid conflicts)
@@ -666,9 +687,8 @@ function buildEnvironmentClause(
       }
 
       // Combine conditions with AND
-      const whereClause = conditions.length === 1
-        ? conditions[0]!
-        : and(...conditions)!;
+      const whereClause =
+        conditions.length === 1 ? conditions[0]! : and(...conditions)!;
 
       return sql`EXISTS (
         SELECT 1 FROM ${schema.productEnvironment}
@@ -845,9 +865,7 @@ function buildMaterialsClause(
     }
   }
 
-  const allClauses = [baseClause, ...nestedClauses].filter(
-    Boolean,
-  ) as SQL[];
+  const allClauses = [baseClause, ...nestedClauses].filter(Boolean) as SQL[];
 
   if (allClauses.length === 0) return null;
 
@@ -1217,7 +1235,7 @@ function buildCategoryClause(
           INNER JOIN category_tree ct ON c.id = ct.parent_id
         )
         SELECT 1 FROM category_tree
-        WHERE ${or(...categoryIds.map(id => sql`category_tree.id = ${id}`))!}
+        WHERE ${or(...categoryIds.map((id) => sql`category_tree.id = ${id}`))!}
       )`;
     case "is empty":
       return isNull(schema.products.categoryId);
@@ -1257,4 +1275,3 @@ function buildSeasonClause(
       return null;
   }
 }
-

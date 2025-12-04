@@ -1,4 +1,7 @@
-import { CreateBrandForm, CreateBrandFormSkeleton } from "@/components/forms/create-brand-form";
+import {
+  CreateBrandForm,
+  CreateBrandFormSkeleton,
+} from "@/components/forms/create-brand-form";
 import { Header } from "@/components/header";
 import { getQueryClient, HydrateClient, trpc } from "@/trpc/server";
 import type { Metadata } from "next";

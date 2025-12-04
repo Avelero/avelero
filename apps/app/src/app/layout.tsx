@@ -105,12 +105,12 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-            <TRPCReactProvider>
-              <HydrateClient>
-                <div className="h-screen w-screen">{children}</div>
-                <Toaster />
-              </HydrateClient>
-            </TRPCReactProvider>
+          <TRPCReactProvider>
+            <HydrateClient>
+              <div className="h-screen w-screen">{children}</div>
+              <Toaster />
+            </HydrateClient>
+          </TRPCReactProvider>
         </ThemeProvider>
       </body>
     </html>

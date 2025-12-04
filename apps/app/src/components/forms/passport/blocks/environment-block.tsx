@@ -18,7 +18,9 @@ interface EnvironmentSectionProps {
   waterLiters: string;
   setWaterLiters: (value: string) => void;
   ecoClaims: EcoClaim[];
-  setEcoClaims: (value: EcoClaim[] | ((prev: EcoClaim[]) => EcoClaim[])) => void;
+  setEcoClaims: (
+    value: EcoClaim[] | ((prev: EcoClaim[]) => EcoClaim[]),
+  ) => void;
   carbonError?: string;
   waterError?: string;
 }
@@ -33,7 +35,6 @@ export function EnvironmentSection({
   carbonError,
   waterError,
 }: EnvironmentSectionProps) {
-
   // Normalize numeric input: handle commas, spaces, multiple decimals, and precision
   const normalizeNumericInput = (value: string): string => {
     if (!value || value.trim() === "") return "";
@@ -133,12 +134,15 @@ export function EnvironmentSection({
             <Input
               type="text"
               value={carbonKgCo2e}
-              onChange={(e) => handleNumericChange(e.target.value, setCarbonKgCo2e)}
+              onChange={(e) =>
+                handleNumericChange(e.target.value, setCarbonKgCo2e)
+              }
               onBlur={(e) => handleNumericBlur(e.target.value, setCarbonKgCo2e)}
               placeholder="Enter carbon value"
               className={cn(
                 "h-9 flex-1",
-                carbonError && "focus-visible:ring-destructive focus-visible:border-destructive"
+                carbonError &&
+                  "focus-visible:ring-destructive focus-visible:border-destructive",
               )}
             />
           </div>
@@ -157,12 +161,15 @@ export function EnvironmentSection({
             <Input
               type="text"
               value={waterLiters}
-              onChange={(e) => handleNumericChange(e.target.value, setWaterLiters)}
+              onChange={(e) =>
+                handleNumericChange(e.target.value, setWaterLiters)
+              }
               onBlur={(e) => handleNumericBlur(e.target.value, setWaterLiters)}
               placeholder="Enter water value"
               className={cn(
                 "h-9 flex-1",
-                waterError && "focus-visible:ring-destructive focus-visible:border-destructive"
+                waterError &&
+                  "focus-visible:ring-destructive focus-visible:border-destructive",
               )}
             />
           </div>

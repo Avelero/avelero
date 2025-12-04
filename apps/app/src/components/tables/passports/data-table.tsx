@@ -405,61 +405,61 @@ export function PassportDataTable({
               ))}
             </TableBody>
           </Table>
-    </div>
-  </div>
-  {(() => {
-    const start = pageInfo.start;
-    const end = pageInfo.end;
-    const canGoPrev = pageInfo.hasPrev;
-    const canGoNext = pageInfo.hasNext;
-    const canGoFirst = pageInfo.hasFirst;
-    const canGoLast = pageInfo.hasLast;
-    return (
-      <div className="flex items-center justify-end gap-4 py-3">
-        <div className="type-p text-secondary">
-          {start} - {end} of {totalProducts}
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="First page"
-            onClick={onFirstPage}
-            onMouseEnter={onPrefetchFirst}
-            disabled={!canGoFirst}
-            icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Previous page"
-            onClick={onPrevPage}
-            onMouseEnter={onPrefetchPrev}
-            disabled={!canGoPrev}
-            icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Next page"
-            onClick={onNextPage}
-            onMouseEnter={onPrefetchNext}
-            disabled={!canGoNext}
-            icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Last page"
-            onClick={onLastPage}
-            onMouseEnter={onPrefetchLast}
-            disabled={!canGoLast}
-            icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
-          />
         </div>
       </div>
-    );
-  })()}
-</div>
+      {(() => {
+        const start = pageInfo.start;
+        const end = pageInfo.end;
+        const canGoPrev = pageInfo.hasPrev;
+        const canGoNext = pageInfo.hasNext;
+        const canGoFirst = pageInfo.hasFirst;
+        const canGoLast = pageInfo.hasLast;
+        return (
+          <div className="flex items-center justify-end gap-4 py-3">
+            <div className="type-p text-secondary">
+              {start} - {end} of {totalProducts}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="First page"
+                onClick={onFirstPage}
+                onMouseEnter={onPrefetchFirst}
+                disabled={!canGoFirst}
+                icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="Previous page"
+                onClick={onPrevPage}
+                onMouseEnter={onPrefetchPrev}
+                disabled={!canGoPrev}
+                icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="Next page"
+                onClick={onNextPage}
+                onMouseEnter={onPrefetchNext}
+                disabled={!canGoNext}
+                icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="Last page"
+                onClick={onLastPage}
+                onMouseEnter={onPrefetchLast}
+                disabled={!canGoLast}
+                icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
+              />
+            </div>
+          </div>
+        );
+      })()}
+    </div>
   );
 }

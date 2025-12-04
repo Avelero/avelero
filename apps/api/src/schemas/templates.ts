@@ -99,4 +99,3 @@ export const passportTemplatesDeleteSchema = z.object({
 export type PassportTemplatesDeleteInput = z.infer<
   typeof passportTemplatesDeleteSchema
 >;
-

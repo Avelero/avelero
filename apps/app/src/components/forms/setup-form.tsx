@@ -62,7 +62,7 @@ export function SetupForm() {
         ]);
         const hasBrands = Array.isArray(brands) && brands.length > 0;
         const hasInvites = Array.isArray(invites) && invites.length > 0;
-        
+
         if (hasBrands) {
           router.push("/");
         } else if (hasInvites) {
@@ -158,13 +158,15 @@ export function SetupFormSkeleton() {
         <p className="text-secondary">Add your name and an optional avatar.</p>
       </div>
       <div className="flex flex-col items-center gap-6 w-full">
-        <SmartAvatar size={72} loading/>
+        <SmartAvatar size={72} loading />
         <div className="flex flex-col gap-1 w-full">
           <Label>Full name</Label>
           <Skeleton className="h-[38px] w-full" />
         </div>
       </div>
-      <Button className="w-full" disabled>Continue</Button>
+      <Button className="w-full" disabled>
+        Continue
+      </Button>
     </div>
   );
 }

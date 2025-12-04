@@ -174,9 +174,7 @@ const StepDropdown = ({
                     </div>
                   </CommandItem>
                 ) : (
-                  <CommandEmpty>
-                    Start typing to create...
-                  </CommandEmpty>
+                  <CommandEmpty>Start typing to create...</CommandEmpty>
                 )}
               </CommandGroup>
             </CommandList>
@@ -255,7 +253,9 @@ const OperatorCell = ({
   );
 
   const handleSelect = (selectedOperator: string) => {
-    const facility = availableOperators.find((f) => f.name === selectedOperator);
+    const facility = availableOperators.find(
+      (f) => f.name === selectedOperator,
+    );
     if (!facility) return;
 
     if (operators.includes(selectedOperator)) {
@@ -382,7 +382,11 @@ const OperatorCell = ({
           </div>
         </PopoverTrigger>
 
-        <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]" align="start" sideOffset={4}>
+        <PopoverContent
+          className="p-0 w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px]"
+          align="start"
+          sideOffset={4}
+        >
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search operators..."
@@ -394,24 +398,26 @@ const OperatorCell = ({
                 {operatorNames.filter((option) =>
                   option.toLowerCase().includes(searchQuery.toLowerCase()),
                 ).length > 0 ? (
-                  operatorNames.filter((option) =>
-                    option.toLowerCase().includes(searchQuery.toLowerCase()),
-                  ).map((option) => {
-                    const isSelected = operators.includes(option);
-                    return (
-                      <CommandItem
-                        key={option}
-                        value={option}
-                        onSelect={() => handleSelect(option)}
-                        className="justify-between"
-                      >
-                        <span className="type-p">{option}</span>
-                        {isSelected && (
-                          <Icons.Check className="h-4 w-4 text-brand" />
-                        )}
-                      </CommandItem>
-                    );
-                  })
+                  operatorNames
+                    .filter((option) =>
+                      option.toLowerCase().includes(searchQuery.toLowerCase()),
+                    )
+                    .map((option) => {
+                      const isSelected = operators.includes(option);
+                      return (
+                        <CommandItem
+                          key={option}
+                          value={option}
+                          onSelect={() => handleSelect(option)}
+                          className="justify-between"
+                        >
+                          <span className="type-p">{option}</span>
+                          {isSelected && (
+                            <Icons.Check className="h-4 w-4 text-brand" />
+                          )}
+                        </CommandItem>
+                      );
+                    })
                 ) : searchQuery.trim() &&
                   !operatorNames.includes(searchQuery.trim()) &&
                   !operators.includes(searchQuery.trim()) ? (
@@ -427,9 +433,7 @@ const OperatorCell = ({
                     </div>
                   </CommandItem>
                 ) : !searchQuery.trim() ? (
-                  <CommandEmpty>
-                    Start typing to create...
-                  </CommandEmpty>
+                  <CommandEmpty>Start typing to create...</CommandEmpty>
                 ) : null}
               </CommandGroup>
             </CommandList>
@@ -669,39 +673,42 @@ export function JourneySection({
     setActiveId(event.active.id as string);
   }, []);
 
-  const handleDragEnd = React.useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
+  const handleDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
 
-    // Guard against dropping outside droppable area
-    if (!over || active.id === over.id) {
+      // Guard against dropping outside droppable area
+      if (!over || active.id === over.id) {
+        setActiveId(null);
+        return;
+      }
+
+      const oldIndex = displaySteps.findIndex((i) => i.id === active.id);
+      const newIndex = displaySteps.findIndex((i) => i.id === over.id);
+
+      // If we can't find the indices, don't reorder
+      if (oldIndex === -1 || newIndex === -1) {
+        setActiveId(null);
+        return;
+      }
+
+      const next = [...displaySteps];
+      const [removed] = next.splice(oldIndex, 1);
+      if (removed) {
+        next.splice(newIndex, 0, removed);
+      }
+
+      const reordered = next.map((step, index) => ({
+        ...step,
+        position: index + 1,
+      }));
+
+      setDisplaySteps(reordered);
+      syncToParent(reordered);
       setActiveId(null);
-      return;
-    }
-
-    const oldIndex = displaySteps.findIndex((i) => i.id === active.id);
-    const newIndex = displaySteps.findIndex((i) => i.id === over.id);
-
-    // If we can't find the indices, don't reorder
-    if (oldIndex === -1 || newIndex === -1) {
-      setActiveId(null);
-      return;
-    }
-
-    const next = [...displaySteps];
-    const [removed] = next.splice(oldIndex, 1);
-    if (removed) {
-      next.splice(newIndex, 0, removed);
-    }
-
-    const reordered = next.map((step, index) => ({
-      ...step,
-      position: index + 1,
-    }));
-
-    setDisplaySteps(reordered);
-    syncToParent(reordered);
-    setActiveId(null);
-  }, [displaySteps, syncToParent]);
+    },
+    [displaySteps, syncToParent],
+  );
 
   return (
     <div className="relative flex flex-col border border-border bg-background">

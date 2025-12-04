@@ -54,10 +54,7 @@ export function extractQuickFiltersFromFilterState(
   for (const group of filterState.groups) {
     if (isQuickFilterGroup(group)) {
       const condition = group.conditions[0]!;
-      if (
-        Array.isArray(condition.value) &&
-        condition.value.length > 0
-      ) {
+      if (Array.isArray(condition.value) && condition.value.length > 0) {
         quickFilters[condition.fieldId] = condition.value as string[];
       }
     }
@@ -107,4 +104,3 @@ export function getAdvancedFilterGroups(
 ): FilterGroup[] {
   return filterState.groups.filter((group) => group.source === "advanced");
 }
-

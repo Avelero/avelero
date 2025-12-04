@@ -4,7 +4,8 @@ import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { Textarea } from "@v1/ui/textarea";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { ImageUploader } from "@/components/image-upload";
 
 interface BasicInfoSectionProps {
   name: string;
@@ -29,64 +30,22 @@ export function BasicInfoSection({
   nameError,
   nameInputRef,
 }: BasicInfoSectionProps) {
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Sync imagePreview from imageFile prop
-  useEffect(() => {
-    if (imageFile) {
-      const objectUrl = URL.createObjectURL(imageFile);
-      setImagePreview(objectUrl);
-      // Cleanup: revoke the URL when component unmounts or imageFile changes
-      return () => {
-        URL.revokeObjectURL(objectUrl);
-      };
-    }
-    setImagePreview(existingImageUrl ?? null);
-  }, [imageFile, existingImageUrl]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const file = e.dataTransfer.files[0];
-    if (file?.type.startsWith("image/")) {
-      setImageFile(file);
-    }
-  }, [setImageFile]);
-
-  const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file?.type.startsWith("image/")) {
-        setImageFile(file);
-      }
-      // Clear input value so same file can be selected again
-      e.target.value = "";
-    },
-    [setImageFile],
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    existingImageUrl ?? null,
   );
 
-  const handleClick = useCallback(() => {
-    inputRef.current?.click();
-  }, []);
+  // Keep preview in sync when editing existing products
+  useEffect(() => {
+    setImagePreview(existingImageUrl ?? null);
+  }, [existingImageUrl]);
 
   return (
     <div className="border border-border bg-background p-4 flex flex-col gap-3">
       {/* Name Input */}
       <div className="space-y-1.5">
-        <Label>Name <span className="text-destructive">*</span></Label>
+        <Label>
+          Name <span className="text-destructive">*</span>
+        </Label>
         <Input
           ref={nameInputRef}
           value={name}
@@ -95,7 +54,7 @@ export function BasicInfoSection({
           className={cn(
             "h-9",
             nameError &&
-              "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive"
+              "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
           )}
           aria-invalid={Boolean(nameError)}
         />
@@ -118,48 +77,27 @@ export function BasicInfoSection({
       {/* Image Upload */}
       <div className="space-y-1.5">
         <Label>Image</Label>
-        <div
-          onClick={handleClick}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={cn(
-            "relative w-[200px] aspect-square border border-dashed transition-colors duration-200 cursor-pointer",
-            isDragging
-              ? "border-brand bg-accent"
-              : "border-border hover:border-tertiary hover:bg-accent",
-          )}
-          role="button"
-          tabIndex={0}
-          aria-label="Upload image"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              handleClick();
+        <ImageUploader
+          bucket="products"
+          mode="public"
+          width={200}
+          height={200}
+          initialUrl={imagePreview ?? undefined}
+          buildPath={(file) => {
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            return ["products", safeName];
+          }}
+          uploadOnSelect={false}
+          onFileSelected={(file) => {
+            setImageFile(file);
+            if (!file) {
+              setImagePreview(null);
             }
           }}
-        >
-          {imagePreview ? (
-            <img
-              src={imagePreview}
-              alt="Product preview"
-              className="w-full h-full object-contain"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-tertiary">
-              <p className="type-small text-center px-4">
-                Drop image here or click to upload.
-              </p>
-            </div>
-          )}
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-        </div>
+          onChange={(url) => {
+            setImagePreview(url);
+          }}
+        />
       </div>
     </div>
   );

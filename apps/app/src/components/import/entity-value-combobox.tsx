@@ -677,8 +677,9 @@ export function EntityValueCombobox({
     });
 
     // State for the selected category id
-    const [categoryValue, setCategoryValue] =
-      React.useState<string | null>(null);
+    const [categoryValue, setCategoryValue] = React.useState<string | null>(
+      null,
+    );
 
     const categoryIndex = React.useMemo<CategoryIndexEntry[]>(() => {
       if (!categoriesData) return [];

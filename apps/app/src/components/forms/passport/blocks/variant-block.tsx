@@ -31,16 +31,14 @@ interface VariantSectionProps {
   setColorIds: (value: string[]) => void;
   setPendingColors: (value: PendingColorSelection[]) => void;
   selectedSizes: TierTwoSizeOption[];
-  setSelectedSizes: React.Dispatch<
-    React.SetStateAction<TierTwoSizeOption[]>
-  >;
+  setSelectedSizes: React.Dispatch<React.SetStateAction<TierTwoSizeOption[]>>;
   colorsError?: string;
   sizesError?: string;
 }
 
 const getSizeOptionKey = (
   option: Pick<TierTwoSizeOption, "categoryKey" | "name">,
-) => `${option.categoryKey}::${(option.name || '').toLowerCase()}`;
+) => `${option.categoryKey}::${(option.name || "").toLowerCase()}`;
 
 export function VariantSection({
   colorIds,
@@ -55,7 +53,9 @@ export function VariantSection({
   const { colors: availableColors, sizeOptions } = useBrandCatalog();
   const [sizeModalOpen, setSizeModalOpen] = React.useState(false);
   const [prefillSize, setPrefillSize] = React.useState<string | null>(null);
-  const [prefillCategory, setPrefillCategory] = React.useState<string | null>(null);
+  const [prefillCategory, setPrefillCategory] = React.useState<string | null>(
+    null,
+  );
 
   // Convert colorIds + pending colors to ColorOption objects for ColorSelect
   const selectedColors = React.useMemo<ColorOption[]>(() => {
@@ -83,16 +83,16 @@ export function VariantSection({
   // This ensures custom sizes created via SizeModal get their real DB IDs
   const normalizedSelectedSizes = React.useMemo(() => {
     if (sizeOptions.length === 0) {
-      return selectedSizes.filter(s => s.name && typeof s.name === 'string');
+      return selectedSizes.filter((s) => s.name && typeof s.name === "string");
     }
     const optionMap = new Map<string, TierTwoSizeOption>();
     for (const option of sizeOptions) {
-      if (option.name && typeof option.name === 'string' && option?.id) {
+      if (option.name && typeof option.name === "string" && option?.id) {
         optionMap.set(getSizeOptionKey(option), option);
       }
     }
     return selectedSizes
-      .filter(s => s.name && typeof s.name === 'string')
+      .filter((s) => s.name && typeof s.name === "string")
       .map((size) => {
         const key = getSizeOptionKey(size);
         const matchedOption = optionMap.get(key);
@@ -103,7 +103,7 @@ export function VariantSection({
         // If no match found, return the size as-is (will be filtered out during submission)
         return size;
       })
-      .filter(s => s.id); // Filter out sizes without IDs
+      .filter((s) => s.id); // Filter out sizes without IDs
   }, [sizeOptions, selectedSizes]);
 
   // Watch for newly created sizes to appear in sizeOptions after modal saves
@@ -112,11 +112,11 @@ export function VariantSection({
       // Modal just closed, look for the prefillSize in sizeOptions
       const matchLower = prefillSize.toLowerCase();
       const match = sizeOptions.find(
-        (option) => 
-          option.name && 
+        (option) =>
+          option.name &&
           option.name.toLowerCase() === matchLower &&
           option.categoryPath === prefillCategory &&
-          option.id // Only select if it has a real ID
+          option.id, // Only select if it has a real ID
       );
       if (match) {
         setSelectedSizes((current: TierTwoSizeOption[]) => {
@@ -133,7 +133,13 @@ export function VariantSection({
         setPrefillCategory(null);
       }
     }
-  }, [sizeModalOpen, prefillSize, prefillCategory, sizeOptions, setSelectedSizes]);
+  }, [
+    sizeModalOpen,
+    prefillSize,
+    prefillCategory,
+    sizeOptions,
+    setSelectedSizes,
+  ]);
 
   React.useEffect(() => {
     if (!sizeModalOpen) {
@@ -214,9 +220,9 @@ export function VariantSection({
               }}
               placeholder="Add size"
             />
-          {sizesError && (
-            <p className="type-small text-destructive">{sizesError}</p>
-          )}
+            {sizesError && (
+              <p className="type-small text-destructive">{sizesError}</p>
+            )}
           </div>
         </div>
       </div>
@@ -232,4 +238,3 @@ export function VariantSection({
     </>
   );
 }
-

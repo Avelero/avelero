@@ -5,13 +5,17 @@ import matter from "gray-matter";
 
 export const metadata = {
   title: "Terms and conditions",
-  description: "Terms and conditions for using Avelero's digital product passport platform",
+  description:
+    "Terms and conditions for using Avelero's digital product passport platform",
 };
 
 export default async function TermsAndConditionsPage() {
-  const contentPath = join(process.cwd(), "content/legal/terms-and-conditions.mdx");
+  const contentPath = join(
+    process.cwd(),
+    "content/legal/terms-and-conditions.mdx",
+  );
   const fileContent = await readFile(contentPath, "utf-8");
-  
+
   // Parse frontmatter and content
   const { content, data } = matter(fileContent);
 
@@ -23,4 +27,3 @@ export default async function TermsAndConditionsPage() {
     </main>
   );
 }
-

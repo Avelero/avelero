@@ -51,10 +51,9 @@ export const productVariants = pgTable(
       table.createdAt.asc().nullsLast().op("timestamptz_ops"),
     ),
     // For UPID uniqueness checks during variant creation
-    index("idx_product_variants_upid").using(
-      "btree",
-      table.upid.asc().nullsLast().op("text_ops"),
-    ).where(sql`(upid IS NOT NULL)`),
+    index("idx_product_variants_upid")
+      .using("btree", table.upid.asc().nullsLast().op("text_ops"))
+      .where(sql`(upid IS NOT NULL)`),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_variants_select_for_brand_members", {
       as: "permissive",

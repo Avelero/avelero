@@ -1,7 +1,7 @@
 import type { TierTwoSizeOption } from "@/components/select/size-select";
 import { useTRPC } from "@/trpc/client";
 import { useFormState } from "@/hooks/use-form-state";
-import { useUpload } from "@/hooks/use-upload";
+import { useImageUpload } from "@/hooks/use-image-upload";
 import {
   rules,
   validateForm,
@@ -119,11 +119,21 @@ const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
     rules.required("Product identifier is required"),
     rules.maxLength(100, "Product identifier must be 100 characters or less"),
   ],
-  description: [rules.maxLength(1000, "Description must be 1000 characters or less")],
-  colorIds: [rules.maxArrayLength(12, "You can select up to 12 colors per passport")],
-  selectedSizes: [rules.maxArrayLength(12, "You can select up to 12 sizes per passport")],
-  carbonKgCo2e: [rules.positiveNumeric("Carbon value must be a valid positive number")],
-  waterLiters: [rules.positiveNumeric("Water value must be a valid positive number")],
+  description: [
+    rules.maxLength(1000, "Description must be 1000 characters or less"),
+  ],
+  colorIds: [
+    rules.maxArrayLength(12, "You can select up to 12 colors per passport"),
+  ],
+  selectedSizes: [
+    rules.maxArrayLength(12, "You can select up to 12 sizes per passport"),
+  ],
+  carbonKgCo2e: [
+    rules.positiveNumeric("Carbon value must be a valid positive number"),
+  ],
+  waterLiters: [
+    rules.positiveNumeric("Water value must be a valid positive number"),
+  ],
   materialData: [
     (materials) => {
       if (!materials || materials.length === 0) {
@@ -161,7 +171,8 @@ function mapValidationErrors(
   if (errors.description) mapped.description = errors.description;
   if (errors.colorIds) mapped.colors = errors.colorIds;
   if (errors.selectedSizes) mapped.selectedSizes = errors.selectedSizes;
-  if ((errors as any).materialData) mapped.materials = (errors as any).materialData;
+  if ((errors as any).materialData)
+    mapped.materials = (errors as any).materialData;
   if (errors.carbonKgCo2e) mapped.carbonKgCo2e = errors.carbonKgCo2e;
   if (errors.waterLiters) mapped.waterLiters = errors.waterLiters;
 
@@ -204,7 +215,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const trpc = useTRPC();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { uploadFile } = useUpload();
+  const { uploadImage, buildPath } = useImageUpload();
 
   const {
     state: formValues,
@@ -337,7 +348,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const buildVariantSignature = React.useCallback(
     (colorIds?: readonly string[], sizeIds?: readonly string[]) => {
       const normalize = (ids?: readonly string[]) =>
-        Array.from(new Set((ids ?? []).filter(Boolean))).sort().join("|");
+        Array.from(new Set((ids ?? []).filter(Boolean)))
+          .sort()
+          .join("|");
       return `${normalize(colorIds)}::${normalize(sizeIds)}`;
     },
     [],
@@ -364,9 +377,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
     const payload = passportFormQuery.data as any;
 
-    const variants = Array.isArray(payload?.variants)
-      ? payload.variants
-      : [];
+    const variants = Array.isArray(payload?.variants) ? payload.variants : [];
     const colorIds: string[] = Array.from(
       new Set(
         variants
@@ -399,12 +410,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             : material.percentage,
       })) ?? [];
     const ecoClaims =
-      attributes.ecoClaims?.map(
-        (claim: any) => ({
-          id: claim.eco_claim_id ?? claim.ecoClaimId ?? claim.id,
-          value: claim.claim ?? "",
-        }),
-      ) ?? [];
+      attributes.ecoClaims?.map((claim: any) => ({
+        id: claim.eco_claim_id ?? claim.ecoClaimId ?? claim.id,
+        value: claim.claim ?? "",
+      })) ?? [];
     const journeySteps =
       attributes.journey?.map((step: any) => ({
         sortIndex: step.sort_index ?? step.sortIndex ?? 0,
@@ -412,8 +421,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         facilityIds: step.facility_ids ?? step.facilityIds ?? [], // Changed from facilityId to support multiple operators
       })) ?? [];
     const tagIds =
-      attributes.tags?.map((tag: any) => tag.tag_id ?? tag.tagId).filter(Boolean) ??
-      [];
+      attributes.tags
+        ?.map((tag: any) => tag.tag_id ?? tag.tagId)
+        .filter(Boolean) ?? [];
     const environment = attributes.environment ?? {};
 
     const nextValues: PassportFormValues = {
@@ -426,9 +436,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       description: payload.description ?? "",
       imageFile: null,
       existingImageUrl:
-        payload.primaryImageUrl ??
-        (payload as any).primary_image_url ??
-        null,
+        payload.primaryImageUrl ?? (payload as any).primary_image_url ?? null,
       categoryId: payload.categoryId ?? payload.category_id ?? null,
       seasonId: payload.seasonId ?? payload.season_id ?? null,
       showcaseBrandId:
@@ -441,13 +449,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       ecoClaims,
       journeySteps,
       carbonKgCo2e:
-        environment.carbonKgCo2e ??
-        environment.carbon_kg_co2e ??
-        "",
-      waterLiters:
-        environment.waterLiters ??
-        environment.water_liters ??
-        "",
+        environment.carbonKgCo2e ?? environment.carbon_kg_co2e ?? "",
+      waterLiters: environment.waterLiters ?? environment.water_liters ?? "",
       status: payload.status ?? "unpublished",
     };
     setFields(nextValues);
@@ -633,8 +636,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
 
     // Filter out eco-claims with empty values
-    const validClaims = formValues.ecoClaims.filter((claim) =>
-      claim.value.trim().length > 0
+    const validClaims = formValues.ecoClaims.filter(
+      (claim) => claim.value.trim().length > 0,
     );
 
     if (validClaims.length === 0) {
@@ -664,9 +667,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
       // First, check if the claim already has a valid ID in the form state
       // This happens when editing an existing product with eco-claims
-      if (claim.id && claim.id.length > 5) { // Assuming UUIDs are longer than timestamp strings
+      if (claim.id && claim.id.length > 5) {
+        // Assuming UUIDs are longer than timestamp strings
         // Verify the ID is still valid by checking if it exists in cache
-        const existsInCache = existingEcoClaims.some((ec: any) => ec.id === claim.id);
+        const existsInCache = existingEcoClaims.some(
+          (ec: any) => ec.id === claim.id,
+        );
         if (existsInCache) {
           resolvedIds.push(claim.id);
           updatedClaims.push({ id: claim.id, value: claim.value.trim() });
@@ -741,22 +747,20 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         let primaryImageUrl: string | undefined;
         if (formValues.imageFile) {
           try {
-            const timestamp = Date.now();
-            const sanitizedFileName = formValues.imageFile.name.replace(
-              /[^a-zA-Z0-9.-]/g,
-              "_",
-            );
             const sanitizedBrandId = brandId.trim();
-            const result = await uploadFile({
+            const path = buildPath([sanitizedBrandId], formValues.imageFile);
+            const result = await uploadImage({
               file: formValues.imageFile,
-              path: [sanitizedBrandId, `${timestamp}-${sanitizedFileName}`],
+              path,
               bucket: "products",
               metadata: { brand_id: sanitizedBrandId },
+              isPublic: true,
             });
-            primaryImageUrl = result.url;
+            primaryImageUrl = result.displayUrl;
           } catch (err) {
             throw new Error(
-              `Failed to upload image: ${err instanceof Error ? err.message : "Unknown error"
+              `Failed to upload image: ${
+                err instanceof Error ? err.message : "Unknown error"
               }`,
             );
           }
@@ -777,9 +781,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const materials =
           formValues.materialData.length > 0
             ? formValues.materialData.map((material) => ({
-              brand_material_id: material.materialId,
-              percentage: material.percentage,
-            }))
+                brand_material_id: material.materialId,
+                percentage: material.percentage,
+              }))
             : undefined;
         const tagIds =
           formValues.tagIds.length > 0 ? formValues.tagIds : undefined;
@@ -792,17 +796,17 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const journeySteps =
           formValues.journeySteps.length > 0
             ? formValues.journeySteps.map((step) => ({
-              sort_index: step.sortIndex,
-              step_type: step.stepType,
-              facility_ids: step.facilityIds, // Changed from facilityId to support multiple operators
-            }))
+                sort_index: step.sortIndex,
+                step_type: step.stepType,
+                facility_ids: step.facilityIds, // Changed from facilityId to support multiple operators
+              }))
             : undefined;
         const environmentPayload =
           formValues.carbonKgCo2e.trim() || formValues.waterLiters.trim()
             ? {
-              carbon_kg_co2e: formValues.carbonKgCo2e.trim() || undefined,
-              water_liters: formValues.waterLiters.trim() || undefined,
-            }
+                carbon_kg_co2e: formValues.carbonKgCo2e.trim() || undefined,
+                water_liters: formValues.waterLiters.trim() || undefined,
+              }
             : undefined;
 
         const basePayload = {
@@ -815,8 +819,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           showcase_brand_id: safeShowcaseBrandId,
           primary_image_url:
             primaryImageUrl ?? formValues.existingImageUrl ?? undefined,
-          status: (formValues.status ||
-            "unpublished") as
+          status: (formValues.status || "unpublished") as
             | "published"
             | "scheduled"
             | "unpublished"
@@ -971,7 +974,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       queryClient,
       router,
       trpc,
-      uploadFile,
+      uploadImage,
       validate,
       productUpid,
       resolvePendingColors,

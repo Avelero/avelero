@@ -20,4 +20,3 @@ export function MDXRenderer({ source, components = {} }: MDXRendererProps) {
     </div>
   );
 }
-

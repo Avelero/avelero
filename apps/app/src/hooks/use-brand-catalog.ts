@@ -50,27 +50,32 @@ export function getCategoryKey(categoryPath: string): string | null {
 /**
  * Transforms flat category list into hierarchical structure
  */
-function buildCategoryHierarchy(categories: Array<{ id: string; name: string; parent_id: string | null }>): Record<string, CategoryNode> {
+function buildCategoryHierarchy(
+  categories: Array<{ id: string; name: string; parent_id: string | null }>,
+): Record<string, CategoryNode> {
   const hierarchy: Record<string, CategoryNode> = {};
-  const categoryMap = new Map<string, { id: string; name: string; parent_id: string | null }>();
-  
+  const categoryMap = new Map<
+    string,
+    { id: string; name: string; parent_id: string | null }
+  >();
+
   // Build map for quick lookup
   for (const category of categories) {
     categoryMap.set(category.id, category);
   }
-  
+
   // Helper to build a node with its children recursively
   function buildNode(categoryId: string): CategoryNode | null {
     const category = categoryMap.get(categoryId);
     if (!category) return null;
-    
+
     const node: CategoryNode = {
       label: category.name,
       id: category.id,
     };
-    
+
     // Find children
-    const children = categories.filter(c => c.parent_id === categoryId);
+    const children = categories.filter((c) => c.parent_id === categoryId);
     if (children.length > 0) {
       node.children = {};
       for (const child of children) {
@@ -80,37 +85,37 @@ function buildCategoryHierarchy(categories: Array<{ id: string; name: string; pa
         }
       }
     }
-    
+
     return node;
   }
-  
+
   // Find root categories (those with no parent)
-  const rootCategories = categories.filter(c => !c.parent_id);
+  const rootCategories = categories.filter((c) => !c.parent_id);
   for (const root of rootCategories) {
     const node = buildNode(root.id);
     if (node) {
       hierarchy[root.id] = node;
     }
   }
-  
+
   return hierarchy;
 }
 
 /**
  * Hook to fetch and merge brand catalog reference data.
- * 
+ *
  * Consumes the prefetched `brandCatalogContent` query and merges
  * API data with client-side defaults from the selections package.
- * 
+ *
  * This hook provides brand-level catalog data (categories, colors, sizes,
  * materials, operators, etc.) that can be used across the application,
  * not just in passport forms.
- * 
+ *
  * @returns Merged dropdown options for brand catalog fields
  */
 export function useBrandCatalog() {
   const trpc = useTRPC();
-  
+
   // Access prefetched data from React Query cache
   const { data } = useSuspenseQuery(
     trpc.composite.brandCatalogContent.queryOptions(),
@@ -127,14 +132,18 @@ export function useBrandCatalog() {
     };
 
     // Create a map to avoid duplicates (API colors take precedence)
-    const colorMap = new Map<string, { id: string; name: string; hex: string }>();
+    const colorMap = new Map<
+      string,
+      { id: string; name: string; hex: string }
+    >();
 
     // Add API colors first (these have real IDs from DB)
     for (const color of apiColors) {
       const defaultColor = defaultColors.find(
         (c) => c.name.toLowerCase() === color.name.toLowerCase(),
       );
-      const normalizedHex = normalizeHex(color.hex) ?? defaultColor?.hex ?? "000000";
+      const normalizedHex =
+        normalizeHex(color.hex) ?? defaultColor?.hex ?? "000000";
       colorMap.set(color.name.toLowerCase(), {
         id: color.id,
         name: color.name,
@@ -158,10 +167,7 @@ export function useBrandCatalog() {
   }, [data?.brandCatalog.colors]);
 
   const categoryMap = React.useMemo(() => {
-    const map = new Map<
-      string,
-      { name: string; parentId: string | null }
-    >();
+    const map = new Map<string, { name: string; parentId: string | null }>();
     const rawCategories = data?.categories ?? [];
     for (const category of rawCategories) {
       map.set(category.id, {
@@ -247,7 +253,7 @@ export function useBrandCatalog() {
     const categorySet = new Set<string>();
     const categoryInfos: TierTwoCategoryInfo[] = [];
     const rawCategories = data?.categories || [];
-    
+
     // Find all tier-2 categories (categories that have a parent)
     for (const category of rawCategories) {
       if (category.parent_id) {
@@ -265,24 +271,28 @@ export function useBrandCatalog() {
         }
       }
     }
-    
-    return categoryInfos.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+    return categoryInfos.sort((a, b) =>
+      a.displayName.localeCompare(b.displayName),
+    );
   }, [data?.categories, resolveTierTwoCategoryPath]);
 
   // Build tier-two category hierarchy for size modal and size select (Men's -> Tops, Bottoms, etc.)
-  const tierTwoCategoryHierarchy = React.useMemo<Record<string, string[]>>(() => {
+  const tierTwoCategoryHierarchy = React.useMemo<
+    Record<string, string[]>
+  >(() => {
     const hierarchy: Record<string, string[]> = {};
-    
+
     for (const category of tierTwoCategories) {
       const [tierOne, tierTwo] = category.displayName.split(" / ");
       if (!tierOne || !tierTwo) continue;
-      
+
       if (!hierarchy[tierOne]) {
         hierarchy[tierOne] = [];
       }
       hierarchy[tierOne].push(category.displayName);
     }
-    
+
     return hierarchy;
   }, [tierTwoCategories]);
 
@@ -300,7 +310,7 @@ export function useBrandCatalog() {
     categories: data?.categories || [],
     categoryHierarchy,
     categoryMap,
-    
+
     // Brand catalog (API only, no defaults)
     materials: data?.brandCatalog.materials || [],
     operators: data?.brandCatalog.operators || [], // Facilities/production plants from brand_facilities table
@@ -313,12 +323,12 @@ export function useBrandCatalog() {
       endDate: s.endDate ? new Date(s.endDate) : undefined,
       isOngoing: s.ongoing,
     })),
-    
+
     // Merged with defaults
     colors,
     sizeOptions,
     tags,
-    
+
     // Size-related
     tierTwoCategories,
     tierTwoCategoryHierarchy,

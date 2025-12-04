@@ -1,0 +1,36 @@
+{
+  "name": "@v1/dpp-components",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false,
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@v1/selections": "workspace:*",
+    "@v1/ui": "workspace:*",
+    "next": "16.0.3",
+    "react": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.1",
+    "@types/react": "19.2.6",
+    "typescript": "^5.9.2"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts",
+    "./types/dpp-data": "./src/types/dpp-data.ts",
+    "./types/theme-config": "./src/types/theme-config.ts",
+    "./types/theme-styles": "./src/types/theme-styles.ts",
+    "./lib/css-generator": "./src/lib/css-generator.ts",
+    "./lib/google-fonts": "./src/lib/google-fonts.ts",
+    "./components": "./src/components/index.ts",
+    "./globals.css": "./src/styles/globals.css"
+  }
+}

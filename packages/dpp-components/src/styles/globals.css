@@ -1,0 +1,785 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base Styles */
+@layer base {
+  .dpp-root {
+    /* Base styling applied to the wrapper itself */
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-primary);
+    
+    /* Header height calculation: 
+       Section 1: py-sm (0.75rem * 2) + logo (18px) + border (1px)
+       Section 2: py-xs (0.5rem * 2) + logo (12px) + border (1px)
+       Total: 1.5rem + 18px + 1rem + 12px + 2px = 2.5rem + 32px */
+    --header-height: calc(2.5rem + 32px);
+    
+    /* Design Token Defaults - These can be overridden by theme system */
+    --background: #FFFFFF;
+    --foreground: #1E2040;
+    --muted: #F8F8F9;
+    --muted-foreground: #62637A;
+    --accent: #F8F8F9;
+    --accent-foreground: #1E2040;
+    --card: #FFFFFF;
+    --card-foreground: #1E2040;
+    --primary: #0000FF;
+    --primary-foreground: #FFFFFF;
+    --destructive: #EDCDCD;
+    --destructive-foreground: #A40303;
+    --success: #CEEDDF;
+    --success-foreground: #03A458;
+    --border: #E8E9EC;
+    --link: #0000FF;
+    
+    /* Spacing Tokens - Used by Tailwind utilities */
+    --spacing-micro: 0.25rem;
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 0.75rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2x: 3rem;
+    --spacing-3x: 4.5rem;
+    
+    /* Border Radius Tokens */
+    --radius-none: 0rem;
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 1rem;
+    --radius-full: 9999px;
+    
+    /* Container */
+    --container-max-width: 1100px;
+    
+    /* Font Family Tokens - Default fallback fonts */
+    --font-primary: var(--font-geist-sans, 'Inter', sans-serif);
+    --font-mono: var(--font-geist-mono, 'JetBrains Mono', monospace);
+    
+    /* Typography Tokens - These can be overridden by theme system */
+    /* Header */
+    --type-header-family: var(--font-primary);
+    --type-header-weight: 400;
+    --type-header-line-height: 1;
+    --type-header-letter-spacing: 0em;
+
+    /* Heading 1 */
+    --type-h1-family: var(--font-primary);
+    --type-h1-size: 3rem;
+    --type-h1-weight: 500;
+    --type-h1-line-height: 1;
+    --type-h1-letter-spacing: -0.025em;
+    
+    /* Heading 2 */
+    --type-h2-family: var(--font-primary);
+    --type-h2-size: 2.5rem;
+    --type-h2-weight: 500;
+    --type-h2-line-height: 1;
+    --type-h2-letter-spacing: -0.025em;
+    
+    /* Heading 3 */
+    --type-h3-family: var(--font-primary);
+    --type-h3-size: 2.0625rem;
+    --type-h3-weight: 500;
+    --type-h3-line-height: 1;
+    --type-h3-letter-spacing: -0.025em;
+    
+    /* Heading 4 */
+    --type-h4-family: var(--font-primary);
+    --type-h4-size: 1.755rem;
+    --type-h4-weight: 500;
+    --type-h4-line-height: 1;
+    --type-h4-letter-spacing: -0.025em;
+    
+    /* Heading 5 */
+    --type-h5-family: var(--font-primary);
+    --type-h5-size: 1.4375rem;
+    --type-h5-weight: 500;
+    --type-h5-line-height: 1.25;
+    --type-h5-letter-spacing: 0em;
+    
+    /* Heading 6 */
+    --type-h6-family: var(--font-primary);
+    --type-h6-size: 1.1875rem;
+    --type-h6-weight: 500;
+    --type-h6-line-height: 1.25;
+    --type-h6-letter-spacing: 0em;
+    
+    /* Body Text */
+    --type-body-family: var(--font-primary);
+    --type-body-size: 1rem;
+    --type-body-weight: 400;
+    --type-body-line-height: 1.25;
+    --type-body-letter-spacing: 0em;
+    
+    /* Body Small */
+    --type-body-sm-family: var(--font-primary);
+    --type-body-sm-size: 0.875rem;
+    --type-body-sm-weight: 400;
+    --type-body-sm-line-height: 1.5;
+    --type-body-sm-letter-spacing: 0em;
+    
+    /* Body Extra Small */
+    --type-body-xs-family: var(--font-primary);
+    --type-body-xs-size: 0.75rem;
+    --type-body-xs-weight: 400;
+    --type-body-xs-line-height: 1.5;
+    --type-body-xs-letter-spacing: 0em;
+  }
+  
+  /* Apply border color to all elements within .dpp-root */
+  .dpp-root * {
+    border-color: var(--border);
+  }
+
+  /* Global link styling within .dpp-root */
+  .dpp-root a {
+    color: var(--link);
+  }
+}
+
+/* Component Classes - Default styling for all components */
+@layer components {
+
+  /* ==========================================================================
+     HEADER - Single wrapper that controls border for all inner sections
+     ========================================================================== */
+  .dpp-root .header {
+    background-color: var(--header-background-color, var(--background));
+  }
+
+  /* Header sections inherit border color from header */
+  .dpp-root .header .header__section {
+    border-color: var(--header-border-color, var(--border));
+  }
+
+  .dpp-root .header__text-logo {
+    color: var(--header-text-logo-color, var(--foreground));
+    font-weight: var(--header-text-logo-font-weight, 400);
+    font-family: var(--header-text-logo-font-family, var(--font-primary));
+    letter-spacing: var(--header-text-logo-letter-spacing, 0em);
+    text-transform: var(--header-text-logo-text-transform, none);
+    text-decoration: var(--header-text-logo-text-decoration, none);
+  }
+  
+  /* ==========================================================================
+     FOOTER
+     ========================================================================== */
+  .dpp-root .footer {
+    background-color: var(--footer-background-color, var(--background));
+    border-color: var(--footer-border-color, var(--border));
+  }
+
+  .dpp-root .footer__legal-name {
+    font-family: var(--footer-legal-name-font-family, var(--type-body-sm-family));
+    font-size: var(--footer-legal-name-font-size, var(--type-body-sm-size));
+    font-weight: var(--footer-legal-name-font-weight, var(--type-body-sm-weight));
+    line-height: var(--footer-legal-name-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--footer-legal-name-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--footer-legal-name-color, var(--muted-foreground));
+    text-transform: var(--footer-legal-name-text-transform, none);
+    text-decoration: var(--footer-legal-name-text-decoration, none);
+  }
+
+  .dpp-root .footer__social-icons {
+    font-family: var(--footer-social-icons-font-family, var(--type-body-sm-family));
+    font-size: var(--footer-social-icons-font-size, var(--type-body-sm-size));
+    font-weight: var(--footer-social-icons-font-weight, var(--type-body-sm-weight));
+    line-height: var(--footer-social-icons-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--footer-social-icons-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--footer-social-icons-color, var(--link));
+    text-decoration: var(--footer-social-icons-text-decoration, none);
+  }
+
+  /* ==========================================================================
+     PRODUCT
+     ========================================================================== */
+  .dpp-root .product__image {
+    border-color: var(--product-image-border-color, var(--border));
+    border-radius: var(--product-image-border-radius, var(--radius-none));
+  }
+  
+  .dpp-root .product__title {
+    font-family: var(--product-title-font-family, var(--type-h5-family));
+    font-size: var(--product-title-font-size, var(--type-h5-size));
+    font-weight: var(--product-title-font-weight, var(--type-h5-weight));
+    line-height: var(--product-title-line-height, var(--type-h5-line-height));
+    letter-spacing: var(--product-title-letter-spacing, var(--type-h5-letter-spacing));
+    color: var(--product-title-color, var(--foreground));
+    text-transform: var(--product-title-text-transform, uppercase);
+    text-decoration: var(--product-title-text-decoration, none);
+  }
+
+  .dpp-root .product__description {
+    font-family: var(--product-description-font-family, var(--type-body-sm-family));
+    font-size: var(--product-description-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-description-font-weight, var(--type-body-sm-weight));
+    line-height: var(--product-description-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--product-description-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--product-description-color, var(--muted-foreground));
+    text-transform: var(--product-description-text-transform, none);
+    text-decoration: var(--product-description-text-decoration, none);
+  }
+
+  .dpp-root .product__brand {
+    font-family: var(--product-brand-font-family, var(--type-body-sm-family));
+    font-size: var(--product-brand-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-brand-font-weight, var(--type-body-sm-weight));
+    line-height: var(--product-brand-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--product-brand-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--product-brand-color, var(--foreground));
+    text-transform: var(--product-brand-text-transform, uppercase);
+    text-decoration: var(--product-brand-text-decoration, none);
+  }
+
+  .dpp-root .product__show-more {
+    font-family: var(--product-show-more-font-family, var(--font-primary));
+    font-weight: var(--product-show-more-font-weight, 400);
+    letter-spacing: var(--product-show-more-letter-spacing, 0);
+    color: var(--product-show-more-color, var(--link));
+    text-transform: var(--product-show-more-text-transform, uppercase);
+    text-decoration: var(--product-show-more-text-decoration, none);
+  }
+
+  /* ==========================================================================
+     PRODUCT DETAILS
+     Container border color is inherited by inner row borders
+     ========================================================================== */
+  .dpp-root .product-details {
+    border-color: var(--product-details-border-color, var(--border));
+    border-radius: var(--product-details-border-radius, var(--radius-none));
+    background-color: var(--product-details-background-color, var(--card));
+  }
+
+  /* Rows inherit border color from container */
+  .dpp-root .product-details__row {
+    border-color: var(--product-details-border-color, var(--border));
+  }
+
+  .dpp-root .product-details__label {
+    font-family: var(--product-details-label-font-family, var(--type-body-sm-family));
+    font-size: var(--product-details-label-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-details-label-font-weight, var(--type-body-sm-weight));
+    line-height: var(--product-details-label-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--product-details-label-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--product-details-label-color, var(--card-foreground));
+    text-transform: var(--product-details-label-text-transform, uppercase);
+    text-decoration: var(--product-details-label-text-decoration, none);
+  }
+
+  .dpp-root .product-details__value {
+    font-family: var(--product-details-value-font-family, var(--type-body-sm-family));
+    font-size: var(--product-details-value-font-size, var(--type-body-sm-size));
+    font-weight: var(--product-details-value-font-weight, var(--type-body-sm-weight));
+    line-height: var(--product-details-value-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--product-details-value-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--product-details-value-color, var(--muted-foreground));
+    text-transform: var(--product-details-value-text-transform, none);
+    text-decoration: var(--product-details-value-text-decoration, none);
+  }
+
+  /* Links inside product-details__value use the global link color */
+  .dpp-root .product-details__value a {
+    color: var(--link);
+  }
+
+  /* ==========================================================================
+     PRIMARY MENU BUTTON
+     ========================================================================== */
+  .dpp-root .menu-primary-button {
+    border-color: var(--menu-primary-button-border-color, var(--border));
+    background-color: var(--menu-primary-button-background-color, var(--background));
+    font-family: var(--menu-primary-button-font-family, var(--type-body-family));
+    font-size: var(--menu-primary-button-font-size, var(--type-body-size));
+    font-weight: var(--menu-primary-button-font-weight, var(--type-body-weight));
+    line-height: var(--menu-primary-button-line-height, var(--type-body-line-height));
+    letter-spacing: var(--menu-primary-button-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--menu-primary-button-color, var(--foreground));
+    text-transform: var(--menu-primary-button-text-transform, uppercase);
+    text-decoration: var(--menu-primary-button-text-decoration, none);
+  }
+
+  .dpp-root .menu-primary-button__icon {
+    color: var(--menu-primary-button-icon-color, var(--foreground));
+    width: var(--menu-primary-button-icon-size, 20px);
+    height: var(--menu-primary-button-icon-size, 20px);
+  }
+
+  /* ==========================================================================
+     SECONDARY MENU BUTTON
+     ========================================================================== */
+  .dpp-root .menu-secondary-button {
+    border-color: var(--menu-secondary-button-border-color, var(--border));
+    background-color: var(--menu-secondary-button-background-color, var(--background));
+    font-family: var(--menu-secondary-button-font-family, var(--type-body-family));
+    font-size: var(--menu-secondary-button-font-size, var(--type-body-size));
+    font-weight: var(--menu-secondary-button-font-weight, var(--type-body-weight));
+    line-height: var(--menu-secondary-button-line-height, var(--type-body-line-height));
+    letter-spacing: var(--menu-secondary-button-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--menu-secondary-button-color, var(--foreground));
+    text-transform: var(--menu-secondary-button-text-transform, uppercase);
+    text-decoration: var(--menu-secondary-button-text-decoration, none);
+  }
+
+  .dpp-root .menu-secondary-button__icon {
+    color: var(--menu-secondary-button-icon-color, var(--foreground));
+    width: var(--menu-secondary-button-icon-size, 20px);
+    height: var(--menu-secondary-button-icon-size, 20px);
+  }
+
+  /* ==========================================================================
+     IMPACT
+     ========================================================================== */
+  .dpp-root .impact-card {
+    border-color: var(--impact-card-border-color, var(--border));
+    border-radius: var(--impact-card-border-radius, var(--radius-none));
+    background-color: var(--impact-card-background-color, var(--card));
+  }
+
+  .dpp-root .impact-card__title {
+    font-family: var(--impact-card-title-font-family, var(--type-h6-family));
+    font-size: var(--impact-card-title-font-size, var(--type-h6-size));
+    font-weight: var(--impact-card-title-font-weight, var(--type-h6-weight));
+    line-height: var(--impact-card-title-line-height, var(--type-h6-line-height));
+    letter-spacing: var(--impact-card-title-letter-spacing, var(--type-h6-letter-spacing));
+    color: var(--impact-card-title-color, var(--foreground));
+    text-transform: var(--impact-card-title-text-transform, uppercase);
+    text-decoration: var(--impact-card-title-text-decoration, none);
+  }
+
+  .dpp-root .impact-card__type {
+    font-family: var(--impact-card-type-font-family, var(--type-body-xs-family));
+    font-size: var(--impact-card-type-font-size, var(--type-body-xs-size));
+    font-weight: var(--impact-card-type-font-weight, var(--type-body-xs-weight));
+    line-height: var(--impact-card-type-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--impact-card-type-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--impact-card-type-color, var(--muted-foreground));
+    text-transform: var(--impact-card-type-text-transform, uppercase);
+    text-decoration: var(--impact-card-type-text-decoration, none);
+  }
+
+  .dpp-root .impact-card__value {
+    font-family: var(--impact-card-value-font-family, var(--type-h2-family));
+    font-size: var(--impact-card-value-font-size, var(--type-h2-size));
+    font-weight: var(--impact-card-value-font-weight, var(--type-h2-weight));
+    line-height: var(--impact-card-value-line-height, var(--type-h2-line-height));
+    letter-spacing: var(--impact-card-value-letter-spacing, var(--type-h2-letter-spacing));
+    color: var(--impact-card-value-color, var(--card-foreground));
+  }
+
+  .dpp-root .impact-card__unit {
+    font-family: var(--impact-card-unit-font-family, var(--type-body-xs-family));
+    font-size: var(--impact-card-unit-font-size, var(--type-body-xs-size));
+    font-weight: var(--impact-card-unit-font-weight, var(--type-body-xs-weight));
+    line-height: var(--impact-card-unit-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--impact-card-unit-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--impact-card-unit-color, var(--muted-foreground));
+    text-transform: var(--impact-card-unit-text-transform, none);
+    text-decoration: var(--impact-card-unit-text-decoration, none);
+  }
+
+  .dpp-root .impact-card__eco-claim {
+    border-color: var(--impact-card-eco-claim-border-color, var(--border));
+    border-radius: var(--impact-card-eco-claim-border-radius, var(--radius-none));
+    background-color: var(--impact-card-eco-claim-background-color, var(--card));
+  }
+
+  .dpp-root .impact-card__eco-claim-icon {
+    color: var(--impact-card-eco-claim-icon-color, var(--primary));
+    width: var(--impact-card-eco-claim-icon-size, 17.5px);
+    height: var(--impact-card-eco-claim-icon-size, 17.5px);
+  }
+
+  .dpp-root .impact-card__eco-claim-text {
+    font-family: var(--impact-card-eco-claim-text-font-family, var(--type-body-sm-family));
+    font-size: var(--impact-card-eco-claim-text-font-size, var(--type-body-sm-size));
+    font-weight: var(--impact-card-eco-claim-text-font-weight, var(--type-body-sm-weight)); 
+    line-height: var(--impact-card-eco-claim-text-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--impact-card-eco-claim-text-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--impact-card-eco-claim-text-color, var(--card-foreground));
+    text-transform: var(--impact-card-eco-claim-text-text-transform, none);
+    text-decoration: var(--impact-card-eco-claim-text-text-decoration, none);
+  }
+
+  /* Impact card icons - consolidated styling */
+  .dpp-root .impact-card__icon {
+    color: var(--impact-card-icon-color, var(--muted-foreground));
+    width: var(--impact-card-icon-size, 28px);
+    height: var(--impact-card-icon-size, 28px);
+  }
+
+  /* Individual icon color overrides (for backwards compatibility) */
+  .dpp-root .impact-card__icon-leaf {
+    color: var(--impact-card-icon-color, var(--success-foreground));
+  }
+
+  .dpp-root .impact-card__icon-drop {
+    color: var(--impact-card-icon-color, var(--primary));
+  }
+
+  .dpp-root .impact-card__icon-recycle {
+    color: var(--impact-card-icon-color, var(--primary));
+  }
+
+  .dpp-root .impact-card__icon-factory {
+    color: var(--impact-card-icon-color, var(--muted-foreground));
+  }
+
+  /* ==========================================================================
+     MATERIALS
+     ========================================================================== */
+  .dpp-root .materials-card {
+    border-color: var(--materials-card-border-color, var(--border));
+    border-radius: var(--materials-card-border-radius, var(--radius-none));
+    background-color: var(--materials-card-background-color, var(--card));
+  }
+
+  .dpp-root .materials-card__title {
+    font-family: var(--materials-card-title-font-family, var(--type-h6-family));
+    font-size: var(--materials-card-title-font-size, var(--type-h6-size));
+    font-weight: var(--materials-card-title-font-weight, var(--type-h6-weight));
+    line-height: var(--materials-card-title-line-height, var(--type-h6-line-height));
+    letter-spacing: var(--materials-card-title-letter-spacing, var(--type-h6-letter-spacing));
+    color: var(--materials-card-title-color, var(--foreground));
+    text-transform: var(--materials-card-title-text-transform, uppercase);
+    text-decoration: var(--materials-card-title-text-decoration, none);
+  }
+
+  .dpp-root .materials-card__percentage {
+    font-family: var(--materials-card-percentage-font-family, var(--type-body-family));
+    font-size: var(--materials-card-percentage-font-size, var(--type-body-size));
+    font-weight: var(--materials-card-percentage-font-weight, var(--type-body-weight));
+    line-height: var(--materials-card-percentage-line-height, var(--type-body-line-height));
+    letter-spacing: var(--materials-card-percentage-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--materials-card-percentage-color, var(--card-foreground));
+    text-transform: var(--materials-card-percentage-text-transform, none);
+    text-decoration: var(--materials-card-percentage-text-decoration, none);
+  }
+
+  .dpp-root .materials-card__type {
+    font-family: var(--materials-card-type-font-family, var(--type-body-family));
+    font-size: var(--materials-card-type-font-size, var(--type-body-size));
+    font-weight: var(--materials-card-type-font-weight, var(--type-body-weight));
+    line-height: var(--materials-card-type-line-height, var(--type-body-line-height));
+    letter-spacing: var(--materials-card-type-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--materials-card-type-color, var(--card-foreground));
+    text-transform: var(--materials-card-type-text-transform, uppercase);
+    text-decoration: var(--materials-card-type-text-decoration, none);
+  }
+
+  .dpp-root .materials-card__certification {
+    font-family: var(--materials-card-certification-font-family, var(--type-body-xs-family));
+    font-size: var(--materials-card-certification-font-size, var(--type-body-xs-size));
+    font-weight: var(--materials-card-certification-font-weight, var(--type-body-xs-weight));
+    line-height: var(--materials-card-certification-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--materials-card-certification-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--materials-card-certification-color, var(--success-foreground));
+    background-color: var(--materials-card-certification-background-color, var(--success));
+    border-radius: var(--materials-card-certification-border-radius, var(--radius-sm));
+    border-style: solid;
+    border-width: var(--materials-card-certification-border-width, 1px);
+    border-color: var(--materials-card-certification-border-color, transparent);
+    text-transform: var(--materials-card-certification-text-transform, none);
+    text-decoration: var(--materials-card-certification-text-decoration, none);
+  }
+
+  .dpp-root .materials-card__certification-icon {
+    color: var(--materials-card-certification-icon-color, var(--success-foreground));
+    width: var(--materials-card-certification-icon-size, 12px);
+    height: var(--materials-card-certification-icon-size, 12px);
+  }
+
+  .dpp-root .materials-card__origin {
+    font-family: var(--materials-card-origin-font-family, var(--type-body-xs-family));
+    font-size: var(--materials-card-origin-font-size, var(--type-body-xs-size));
+    font-weight: var(--materials-card-origin-font-weight, var(--type-body-xs-weight));
+    line-height: var(--materials-card-origin-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--materials-card-origin-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--materials-card-origin-color, var(--muted-foreground));
+    text-transform: var(--materials-card-origin-text-transform, none);
+    text-decoration: var(--materials-card-origin-text-decoration, none);
+  }
+
+  .dpp-root .materials-card__certification-text {
+    color: var(--materials-card-certification-text-color, var(--link));
+    font-family: var(--materials-card-certification-text-font-family, var(--type-body-xs-family));
+    font-size: var(--materials-card-certification-text-font-size, var(--type-body-xs-size));
+    font-weight: var(--materials-card-certification-text-font-weight, var(--type-body-xs-weight));
+    line-height: var(--materials-card-certification-text-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--materials-card-certification-text-letter-spacing, var(--type-body-xs-letter-spacing));
+    text-transform: var(--materials-card-certification-text-text-transform, uppercase);
+    text-decoration: var(--materials-card-certification-text-text-decoration, none);
+  }
+
+  /* ==========================================================================
+     JOURNEY
+     ========================================================================== */
+  .dpp-root .journey-card {
+    border-color: var(--journey-card-border-color, var(--border));
+    border-radius: var(--journey-card-border-radius, var(--radius-none));
+    background-color: var(--journey-card-background-color, var(--card));
+  }
+
+  .dpp-root .journey-card__title {
+    font-family: var(--journey-card-title-font-family, var(--type-h6-family));
+    font-size: var(--journey-card-title-font-size, var(--type-h6-size));
+    font-weight: var(--journey-card-title-font-weight, var(--type-h6-weight));
+    line-height: var(--journey-card-title-line-height, var(--type-h6-line-height));
+    letter-spacing: var(--journey-card-title-letter-spacing, var(--type-h6-letter-spacing));
+    color: var(--journey-card-title-color, var(--foreground));
+    text-transform: var(--journey-card-title-text-transform, uppercase);
+    text-decoration: var(--journey-card-title-text-decoration, none);
+  }
+
+  .dpp-root .journey-card__line {
+    background-color: var(--journey-card-line-background-color, var(--muted-foreground));
+  }
+
+  .dpp-root .journey-card__type {
+    font-family: var(--journey-card-type-font-family, var(--type-body-family));
+    font-size: var(--journey-card-type-font-size, var(--type-body-size));
+    font-weight: var(--journey-card-type-font-weight, var(--type-body-weight));
+    line-height: var(--journey-card-type-line-height, var(--type-body-line-height));
+    letter-spacing: var(--journey-card-type-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--journey-card-type-color, var(--card-foreground));
+    text-transform: var(--journey-card-type-text-transform, uppercase);
+    text-decoration: var(--journey-card-type-text-decoration, none);
+  }
+
+  .dpp-root .journey-card__operator {
+    font-family: var(--journey-card-operator-font-family, var(--type-body-xs-family));
+    font-size: var(--journey-card-operator-font-size, var(--type-body-xs-size));
+    font-weight: var(--journey-card-operator-font-weight, var(--type-body-xs-weight));
+    line-height: var(--journey-card-operator-line-height, var(--type-body-xs-line-height));
+    letter-spacing: var(--journey-card-operator-letter-spacing, var(--type-body-xs-letter-spacing));
+    color: var(--journey-card-operator-color, var(--muted-foreground));
+    text-transform: var(--journey-card-operator-text-transform, none);
+    text-decoration: var(--journey-card-operator-text-decoration, none);
+  }
+
+  /* ==========================================================================
+     CAROUSEL
+     ========================================================================== */
+  .dpp-root .carousel__title {
+    font-family: var(--carousel-title-font-family, var(--type-h6-family));
+    font-size: var(--carousel-title-font-size, var(--type-h6-size));
+    font-weight: var(--carousel-title-font-weight, var(--type-h6-weight));
+    line-height: var(--carousel-title-line-height, var(--type-h6-line-height));
+    letter-spacing: var(--carousel-title-letter-spacing, var(--type-h6-letter-spacing));
+    color: var(--carousel-title-color, var(--foreground));
+    text-transform: var(--carousel-title-text-transform, uppercase);
+    text-decoration: var(--carousel-title-text-decoration, none);
+  }
+
+  .dpp-root .carousel__nav-button {
+    border-color: var(--carousel-nav-button-border-color, var(--primary));
+    background-color: var(--carousel-nav-button-background-color, transparent);
+    color: var(--carousel-nav-button-color, var(--primary));
+    border-radius: var(--carousel-nav-button-border-radius, var(--radius-none));
+  }
+
+  .dpp-root .carousel__nav-button-icon {
+    width: var(--carousel-nav-button-icon-size, 16px);
+    height: var(--carousel-nav-button-icon-size, 16px);
+  }
+
+  .dpp-root .carousel__product-image {
+    border-style: solid;
+    border-width: var(--carousel-product-image-border-width, 0px);
+    border-color: var(--carousel-product-image-border-color, var(--border));
+    border-radius: var(--carousel-product-image-border-radius, var(--radius-none));
+  }
+
+  .dpp-root .carousel__product-details {
+    flex-direction: var(--carousel-product-details-flex-direction, column);
+    align-items: var(--carousel-product-details-align-items, flex-start);
+    justify-content: var(--carousel-product-details-justify-content, flex-start);
+  }
+
+  .dpp-root .carousel__product-name {
+    font-family: var(--carousel-product-name-font-family, var(--type-body-family));
+    font-size: var(--carousel-product-name-font-size, var(--type-body-size));
+    font-weight: var(--carousel-product-name-font-weight, var(--type-body-weight));
+    line-height: var(--carousel-product-name-line-height, var(--type-body-line-height));
+    letter-spacing: var(--carousel-product-name-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--carousel-product-name-color, var(--link));
+    text-transform: var(--carousel-product-name-text-transform, uppercase);
+    text-decoration: var(--carousel-product-name-text-decoration, none);
+    text-align: var(--carousel-product-name-text-align, left);
+  }
+
+  .dpp-root .carousel__product-price {
+    font-family: var(--carousel-product-price-font-family, var(--font-mono));
+    font-size: var(--carousel-product-price-font-size, var(--type-body-size));
+    font-weight: var(--carousel-product-price-font-weight, var(--type-body-weight));
+    line-height: var(--carousel-product-price-line-height, var(--type-body-line-height));
+    letter-spacing: var(--carousel-product-price-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--carousel-product-price-color, var(--foreground));
+    text-transform: var(--carousel-product-price-text-transform, none);
+    text-decoration: var(--carousel-product-price-text-decoration, none);
+    text-align: var(--carousel-product-price-text-align, left);
+  }
+
+  /* ==========================================================================
+     BANNER
+     ========================================================================== */
+  .dpp-root .banner {
+    background-color: var(--banner-background-color, var(--background));
+    border-style: solid;
+    border-width: var(--banner-border-width, 0px);
+    border-color: var(--banner-border-color, var(--border));
+    border-radius: var(--banner-border-radius, var(--radius-none));
+  }
+  
+  .dpp-root .banner__container {
+    align-items: var(--banner-container-align-items, center);
+    justify-content: var(--banner-container-justify-content, center);
+  }
+  
+  .dpp-root .banner__headline {
+    font-family: var(--banner-headline-font-family, var(--type-h2-family));
+    font-size: var(--banner-headline-font-size, var(--type-h2-size));
+    font-weight: var(--banner-headline-font-weight, var(--type-h2-weight));
+    line-height: var(--banner-headline-line-height, var(--type-h2-line-height));
+    letter-spacing: var(--banner-headline-letter-spacing, var(--type-h2-letter-spacing));
+    color: var(--banner-headline-color, var(--primary-foreground));
+    text-transform: var(--banner-headline-text-transform, capitalize);
+    text-decoration: var(--banner-headline-text-decoration, none);
+    text-align: var(--banner-headline-text-align, center);
+  }
+
+  .dpp-root .banner__subline {
+    font-family: var(--banner-subline-font-family, var(--type-body-family));
+    font-size: var(--banner-subline-font-size, var(--type-body-size));
+    font-weight: var(--banner-subline-font-weight, var(--type-body-weight));
+    line-height: var(--banner-subline-line-height, var(--type-body-line-height));
+    letter-spacing: var(--banner-subline-letter-spacing, var(--type-body-letter-spacing));
+    color: var(--banner-subline-color, var(--primary-foreground));
+    text-transform: var(--banner-subline-text-transform, none);
+    text-decoration: var(--banner-subline-text-decoration, none);
+    text-align: var(--banner-subline-text-align, center);
+  }
+  
+  .dpp-root .banner__button {
+    font-family: var(--banner-button-font-family, var(--font-mono));
+    font-size: var(--banner-button-font-size, var(--type-body-sm-size));
+    font-weight: var(--banner-button-font-weight, var(--type-body-sm-weight));
+    line-height: var(--banner-button-line-height, var(--type-body-sm-line-height));
+    letter-spacing: var(--banner-button-letter-spacing, var(--type-body-sm-letter-spacing));
+    color: var(--banner-button-color, var(--primary-foreground));
+    border-radius: var(--banner-button-border-radius, var(--radius-none));
+    background-color: var(--banner-button-background-color, var(--primary));
+    border-style: solid;
+    border-width: var(--banner-button-border-width, 0px);
+    border-color: var(--banner-button-border-color, var(--primary));
+    min-width: var(--banner-button-min-width, 150px);
+    text-transform: var(--banner-button-text-transform, uppercase);
+    text-decoration: var(--banner-button-text-decoration, none);
+  }
+
+}
+/* Utility Classes - Custom component utilities */
+@layer utilities {
+  .dpp-root .text-highlight {
+    color: var(--link);
+  }
+  
+  /* Container */
+  .dpp-root .max-w-container {
+    max-width: var(--container-max-width);
+  }
+  
+  /* Product Carousel */
+  .dpp-root .product-item {
+    flex: 0 0 auto;
+    width: calc((100% - 24px) * 2/5); /* Mobile: show 2.5 cards (gap * 2 = 24px) */
+  }
+
+  .dpp-root .carousel {
+    --carousel-side-padding: max(0px, calc((100% - min(100%, var(--container-max-width))) / 2 + var(--spacing-sm)));
+  }
+
+  .dpp-root .carousel__content {
+    padding-inline: var(--carousel-side-padding);
+  }
+
+  .dpp-root .carousel__end-spacer {
+    min-height: 200px;
+  }
+
+  .dpp-root .carousel__nav-button--prev {
+    left: var(--carousel-side-padding);
+  }
+
+  .dpp-root .carousel__nav-button--next {
+    right: var(--carousel-side-padding);
+  }
+  
+  @container (min-width: 768px) {
+    .dpp-root .product-item {
+      width: calc((100% - 24px) / 3); /* Desktop: show 3 cards (gap * 2 = 24px) */
+    }
+
+    .dpp-root .carousel {
+      --carousel-side-padding: max(0px, calc((100% - min(100%, var(--container-max-width))) / 2 + var(--spacing-lg)));
+    }
+  }
+  
+  /* Scrollbar hiding utilities */
+  .dpp-root .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .dpp-root .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Navigation button fade effect */
+  .dpp-root .nav-button-fade {
+    transition: opacity 0.2s ease;
+  }
+  
+  .dpp-root .nav-button-fade.fading {
+    opacity: 0;
+  }
+  
+  /* Horizontal Scroll Container (for SmallImpactFrame) */
+  .dpp-root .horizontal-scroll-container {
+    position: relative;
+    width: calc(100% + var(--spacing-xl) * 2);
+    margin-left: calc(-1 * var(--spacing-xl));
+    overflow: hidden;
+  }
+  
+  .dpp-root .horizontal-scroll-area {
+    width: 100%;
+    padding-left: var(--spacing-xl);
+    padding-right: var(--spacing-xl);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .dpp-root .horizontal-scroll-area::-webkit-scrollbar {
+    display: none;
+  }
+  
+  @container (min-width: 768px) {
+    .dpp-root .horizontal-scroll-container {
+      width: 100%;
+      margin-left: 0;
+    }
+    
+    .dpp-root .horizontal-scroll-area {
+      flex-direction: column;
+      overflow-x: visible;
+      padding-left: 0;
+      padding-right: 0;
+      padding-bottom: 0;
+    }
+  }
+}

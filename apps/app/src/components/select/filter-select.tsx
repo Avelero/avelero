@@ -97,7 +97,6 @@ export function QuickFiltersPopover({
     return filters;
   }, [currentQuickFilters]);
 
-
   // Handle toggling a quick filter value
   const handleToggleValue = React.useCallback(
     (fieldId: string, optionValue: string) => {
@@ -130,7 +129,8 @@ export function QuickFiltersPopover({
       if (Object.keys(newQuickFilters).length === 0) {
         filterActions.setGroups([]);
       } else {
-        const newFilterState = convertQuickFiltersToFilterState(newQuickFilters);
+        const newFilterState =
+          convertQuickFiltersToFilterState(newQuickFilters);
         filterActions.setGroups(newFilterState.groups);
       }
     },
@@ -200,7 +200,7 @@ export function QuickFiltersPopover({
         disabled={disabled}
         onRemoveFilter={removeFilter}
       />
-      
+
       {/* Advanced filter tag */}
       {hasAdvancedFilters(filterState) && (
         <div className="group relative flex items-center h-9 px-2 rounded-none bg-accent type-p text-secondary">
@@ -247,7 +247,10 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
   selectedValues,
   onToggleValue,
 }: {
-  categoryHierarchy: Record<string, { label: string; id: string; children?: Record<string, any> }>;
+  categoryHierarchy: Record<
+    string,
+    { label: string; id: string; children?: Record<string, any> }
+  >;
   categoryMap: Map<string, { name: string; parentId: string | null }>;
   selectedValues: string[];
   onToggleValue: (categoryId: string) => void;
@@ -319,41 +322,73 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
 
       {/* Options */}
       <div className="max-h-48 overflow-y-auto scrollbar-hide">
-        {Object.entries(currentLevel).map(([categoryId, node]: [string, any]) => {
-          const hasChildren =
-            node.children && Object.keys(node.children).length > 0;
-          const isSelected = selectedValues.includes(categoryId);
+        {Object.entries(currentLevel).map(
+          ([categoryId, node]: [string, any]) => {
+            const hasChildren =
+              node.children && Object.keys(node.children).length > 0;
+            const isSelected = selectedValues.includes(categoryId);
 
-          return (
-            <div key={categoryId} className="relative">
-              {hasChildren ? (
-                // Button-in-button layout for items with children
-                <div
-                  className={cn(
-                    "flex transition-colors",
-                    hoveredRow === categoryId ? "bg-accent" : "",
-                  )}
-                  onMouseLeave={() => {
-                    setHoveredRow(null);
-                    setHoveredArea(null);
-                  }}
-                >
-                  {/* Selection area */}
+            return (
+              <div key={categoryId} className="relative">
+                {hasChildren ? (
+                  // Button-in-button layout for items with children
+                  <div
+                    className={cn(
+                      "flex transition-colors",
+                      hoveredRow === categoryId ? "bg-accent" : "",
+                    )}
+                    onMouseLeave={() => {
+                      setHoveredRow(null);
+                      setHoveredArea(null);
+                    }}
+                  >
+                    {/* Selection area */}
+                    <button
+                      type="button"
+                      onClick={() => handleCategorySelect(categoryId)}
+                      onMouseEnter={() => {
+                        setHoveredRow(categoryId);
+                        setHoveredArea("selection");
+                      }}
+                      className={cn(
+                        "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                        isSelected
+                          ? "bg-accent-blue text-brand"
+                          : hoveredRow === categoryId &&
+                              hoveredArea === "selection"
+                            ? "bg-accent-dark text-primary"
+                            : "text-primary",
+                      )}
+                    >
+                      <span>{node.label}</span>
+                      {isSelected && (
+                        <Icons.Check className="h-4 w-4 text-brand" />
+                      )}
+                    </button>
+
+                    {/* Navigation area */}
+                    <button
+                      type="button"
+                      onClick={() => handleCategoryNavigate(categoryId)}
+                      onMouseEnter={() => {
+                        setHoveredRow(categoryId);
+                        setHoveredArea("navigation");
+                      }}
+                      className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
+                    >
+                      <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
+                    </button>
+                  </div>
+                ) : (
+                  // Full-width button for leaf items
                   <button
                     type="button"
                     onClick={() => handleCategorySelect(categoryId)}
-                    onMouseEnter={() => {
-                      setHoveredRow(categoryId);
-                      setHoveredArea("selection");
-                    }}
                     className={cn(
-                      "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                      "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
                       isSelected
                         ? "bg-accent-blue text-brand"
-                        : hoveredRow === categoryId &&
-                            hoveredArea === "selection"
-                          ? "bg-border text-primary"
-                          : "text-primary",
+                        : "hover:bg-accent text-primary",
                     )}
                   >
                     <span>{node.label}</span>
@@ -361,41 +396,11 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
                       <Icons.Check className="h-4 w-4 text-brand" />
                     )}
                   </button>
-
-                  {/* Navigation area */}
-                  <button
-                    type="button"
-                    onClick={() => handleCategoryNavigate(categoryId)}
-                    onMouseEnter={() => {
-                      setHoveredRow(categoryId);
-                      setHoveredArea("navigation");
-                    }}
-                    className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
-                  >
-                    <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
-                  </button>
-                </div>
-              ) : (
-                // Full-width button for leaf items
-                <button
-                  type="button"
-                  onClick={() => handleCategorySelect(categoryId)}
-                  className={cn(
-                    "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
-                    isSelected
-                      ? "bg-accent-blue text-brand"
-                      : "hover:bg-accent text-primary",
-                  )}
-                >
-                  <span>{node.label}</span>
-                  {isSelected && (
-                    <Icons.Check className="h-4 w-4 text-brand" />
-                  )}
-                </button>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </div>
+            );
+          },
+        )}
       </div>
     </div>
   );
@@ -447,9 +452,13 @@ const SizePagedSubmenu = React.memo(function SizePagedSubmenu({
     if (navigationPath.length === 1) {
       const tierOneKey = navigationPath[0];
       // Get tier-two display names for this tier-one category
-      const tierTwoPaths = tierOneKey ? (tierTwoCategoryHierarchy[tierOneKey] || []) : [];
+      const tierTwoPaths = tierOneKey
+        ? tierTwoCategoryHierarchy[tierOneKey] || []
+        : [];
       // Extract just the tier-two names (e.g., "Tops" from "Men's / Tops")
-      const tierTwoNames = tierTwoPaths.map((path) => path.split(" / ")[1] || path);
+      const tierTwoNames = tierTwoPaths.map(
+        (path) => path.split(" / ")[1] || path,
+      );
       return { type: "tier-two" as const, categories: tierTwoNames };
     }
     // navigationPath.length === 2
@@ -459,7 +468,12 @@ const SizePagedSubmenu = React.memo(function SizePagedSubmenu({
     const fullCategoryPath = `${tierOneKey} / ${tierTwoKey}`;
     const sizes = sizesByCategory.get(fullCategoryPath) || [];
     return { type: "sizes" as const, sizes };
-  }, [navigationPath, tierOneCategories, tierTwoCategoryHierarchy, sizesByCategory]);
+  }, [
+    navigationPath,
+    tierOneCategories,
+    tierTwoCategoryHierarchy,
+    sizesByCategory,
+  ]);
 
   // Filter sizes when searching on page 3
   const filteredSizes = React.useMemo(() => {
@@ -482,7 +496,7 @@ const SizePagedSubmenu = React.memo(function SizePagedSubmenu({
   }, []);
 
   const handleToggleSize = React.useCallback(
-    (size: typeof sizeOptions[0]) => {
+    (size: (typeof sizeOptions)[0]) => {
       const sizeId = size.id || `${size.categoryKey}-${size.name}`;
       onToggleValue(sizeId);
       // Clear search term after selection
@@ -515,7 +529,9 @@ const SizePagedSubmenu = React.memo(function SizePagedSubmenu({
       {/* Content Area */}
       <div
         className={cn(
-          currentView.type === "sizes" ? "" : "max-h-48 overflow-y-auto scrollbar-hide",
+          currentView.type === "sizes"
+            ? ""
+            : "max-h-48 overflow-y-auto scrollbar-hide",
         )}
       >
         {currentView.type === "tier-one" && (
@@ -576,7 +592,8 @@ const SizePagedSubmenu = React.memo(function SizePagedSubmenu({
               <CommandGroup>
                 {filteredSizes.length > 0 ? (
                   filteredSizes.map((size) => {
-                    const sizeId = size.id || `${size.categoryKey}-${size.name}`;
+                    const sizeId =
+                      size.id || `${size.categoryKey}-${size.name}`;
                     const isSelected = selectedValues.includes(sizeId);
                     return (
                       <CommandItem
@@ -610,7 +627,11 @@ const ActiveFiltersDisplay = React.memo(function ActiveFiltersDisplay({
   disabled,
   onRemoveFilter,
 }: {
-  activeFilters: Array<{ fieldId: string; fieldLabel: string; value: string[] }>;
+  activeFilters: Array<{
+    fieldId: string;
+    fieldLabel: string;
+    value: string[];
+  }>;
   disabled: boolean;
   onRemoveFilter: (fieldId: string) => void;
 }) {
@@ -699,9 +720,17 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
 }) {
   // For season field, we need to use useBrandCatalog directly since it's not in useFieldOptions
   const isSeasonField = field.id === "season";
-  const { options: dynamicOptions, isLoading: isDynamicLoading } = useFieldOptions(field.id);
-  const { categoryHierarchy, categoryMap, colors, seasons, tierTwoCategoryHierarchy, sizeOptions } = useBrandCatalog();
-  
+  const { options: dynamicOptions, isLoading: isDynamicLoading } =
+    useFieldOptions(field.id);
+  const {
+    categoryHierarchy,
+    categoryMap,
+    colors,
+    seasons,
+    tierTwoCategoryHierarchy,
+    sizeOptions,
+  } = useBrandCatalog();
+
   // Compute tier one categories from tier two hierarchy
   const tierOneCategories = React.useMemo(() => {
     return Object.keys(tierTwoCategoryHierarchy).sort();
@@ -716,14 +745,11 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
     }));
   }, [isSeasonField, seasons]);
 
-  const options = React.useMemo(
-    () => {
-      if (isSeasonField) return seasonOptions;
-      return field.options ?? dynamicOptions;
-    },
-    [field.options, dynamicOptions, isSeasonField, seasonOptions],
-  );
-  
+  const options = React.useMemo(() => {
+    if (isSeasonField) return seasonOptions;
+    return field.options ?? dynamicOptions;
+  }, [field.options, dynamicOptions, isSeasonField, seasonOptions]);
+
   const isLoading = isSeasonField ? false : isDynamicLoading;
   const hideSearch = field.id === "status";
 
@@ -813,7 +839,7 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
               <CommandGroup>
                 {options.map((option: any) => {
                   const isSelected = selectedValues.includes(option.value);
-                  
+
                   // Get color hex for color field
                   let colorHex: string | undefined;
                   if (field.id === "colorId") {
@@ -822,7 +848,13 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
                   }
 
                   // Get season info for season field
-                  let seasonInfo: { startDate?: Date | null; endDate?: Date | null; isOngoing?: boolean } | undefined;
+                  let seasonInfo:
+                    | {
+                        startDate?: Date | null;
+                        endDate?: Date | null;
+                        isOngoing?: boolean;
+                      }
+                    | undefined;
                   if (field.id === "season") {
                     const season = seasons.find((s) => s.id === option.value);
                     if (season) {

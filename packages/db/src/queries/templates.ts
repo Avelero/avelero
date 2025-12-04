@@ -206,9 +206,9 @@ export async function updatePassportTemplate(
     }
 
     if (modules) {
-      await tx.delete(passportTemplateModules).where(
-        eq(passportTemplateModules.templateId, input.id),
-      );
+      await tx
+        .delete(passportTemplateModules)
+        .where(eq(passportTemplateModules.templateId, input.id));
 
       if (modules.length > 0) {
         await tx.insert(passportTemplateModules).values(

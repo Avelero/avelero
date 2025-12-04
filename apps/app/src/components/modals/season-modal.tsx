@@ -65,25 +65,29 @@ export function SeasonModal({
   const formatDate = React.useCallback((date: Date | null) => {
     if (!date) return undefined;
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }, []);
 
-  const parseDate = React.useCallback((dateValue: string | Date | null | undefined): Date | null => {
-    if (!dateValue) return null;
-    // If it's already a Date object, return it directly
-    if (dateValue instanceof Date) return dateValue;
-    // If it's a string, parse it
-    if (typeof dateValue === 'string') {
-      const parts = dateValue.split('-').map(Number);
-      if (parts.length !== 3) return null;
-      const [year, month, day] = parts;
-      if (year === undefined || month === undefined || day === undefined) return null;
-      return new Date(year, month - 1, day);
-    }
-    return null;
-  }, []);
+  const parseDate = React.useCallback(
+    (dateValue: string | Date | null | undefined): Date | null => {
+      if (!dateValue) return null;
+      // If it's already a Date object, return it directly
+      if (dateValue instanceof Date) return dateValue;
+      // If it's a string, parse it
+      if (typeof dateValue === "string") {
+        const parts = dateValue.split("-").map(Number);
+        if (parts.length !== 3) return null;
+        const [year, month, day] = parts;
+        if (year === undefined || month === undefined || day === undefined)
+          return null;
+        return new Date(year, month - 1, day);
+      }
+      return null;
+    },
+    [],
+  );
 
   // Prefill name when modal opens with provided initialName
   React.useEffect(() => {
@@ -102,7 +106,7 @@ export function SeasonModal({
     }
 
     const isDuplicate = existingSeasons.some(
-      (season) => season.name.toLowerCase() === trimmedName.toLowerCase()
+      (season) => season.name.toLowerCase() === trimmedName.toLowerCase(),
     );
 
     if (isDuplicate) {
@@ -170,75 +174,77 @@ export function SeasonModal({
 
     // Show loading toast and execute mutation - wrap entire operation in promise
     // toast.loading will automatically handle success/error toasts
-    await toast.loading(
-      "Creating season...",
-      (async () => {
-        const result = await createSeasonMutation.mutateAsync({
-          name: name.trim(),
-          start_date: formatDate(startDate),
-          end_date: formatDate(endDate),
-          ongoing: ongoing,
-        });
+    await toast
+      .loading(
+        "Creating season...",
+        (async () => {
+          const result = await createSeasonMutation.mutateAsync({
+            name: name.trim(),
+            start_date: formatDate(startDate),
+            end_date: formatDate(endDate),
+            ongoing: ongoing,
+          });
 
-        const createdSeason = result?.data;
-        if (!createdSeason?.id) {
-          throw new Error("No valid response returned from API");
-        }
+          const createdSeason = result?.data;
+          if (!createdSeason?.id) {
+            throw new Error("No valid response returned from API");
+          }
 
-        // Optimistically update the cache immediately
-        queryClient.setQueryData(
-          trpc.composite.brandCatalogContent.queryKey(),
-          (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              brandCatalog: {
-                ...old.brandCatalog,
-                seasons: [
-                  ...old.brandCatalog.seasons,
-                  {
-                    id: createdSeason.id,
-                    name: createdSeason.name,
-                    startDate: createdSeason.startDate,
-                    endDate: createdSeason.endDate,
-                    isOngoing: createdSeason.ongoing,
-                    createdAt: createdSeason.createdAt,
-                    updatedAt: createdSeason.updatedAt,
-                  },
-                ],
-              },
-            };
-          },
-        );
+          // Optimistically update the cache immediately
+          queryClient.setQueryData(
+            trpc.composite.brandCatalogContent.queryKey(),
+            (old: any) => {
+              if (!old) return old;
+              return {
+                ...old,
+                brandCatalog: {
+                  ...old.brandCatalog,
+                  seasons: [
+                    ...old.brandCatalog.seasons,
+                    {
+                      id: createdSeason.id,
+                      name: createdSeason.name,
+                      startDate: createdSeason.startDate,
+                      endDate: createdSeason.endDate,
+                      isOngoing: createdSeason.ongoing,
+                      createdAt: createdSeason.createdAt,
+                      updatedAt: createdSeason.updatedAt,
+                    },
+                  ],
+                },
+              };
+            },
+          );
 
-        // Invalidate to trigger background refetch
-        queryClient.invalidateQueries({
-          queryKey: trpc.composite.brandCatalogContent.queryKey(),
-        });
+          // Invalidate to trigger background refetch
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.brandCatalogContent.queryKey(),
+          });
 
-        // Close modal first
-        onOpenChange(false);
+          // Close modal first
+          onOpenChange(false);
 
-        // Call parent callback with transformed data
-        // API returns Date objects from database (or null), use them directly
-        onSave({
-          id: createdSeason.id,
-          name: createdSeason.name,
-          startDate: createdSeason.startDate || null,
-          endDate: createdSeason.endDate || null,
-          isOngoing: createdSeason.ongoing,
-        });
+          // Call parent callback with transformed data
+          // API returns Date objects from database (or null), use them directly
+          onSave({
+            id: createdSeason.id,
+            name: createdSeason.name,
+            startDate: createdSeason.startDate || null,
+            endDate: createdSeason.endDate || null,
+            isOngoing: createdSeason.ongoing,
+          });
 
-        return result;
-      })(),
-      {
-        delay: 500,
-        successMessage: "Season created successfully",
-      },
-    ).catch((error) => {
-      // toast.loading already handles error toast, but we can log for debugging
-      console.error("Failed to create season:", error);
-    });
+          return result;
+        })(),
+        {
+          delay: 500,
+          successMessage: "Season created successfully",
+        },
+      )
+      .catch((error) => {
+        // toast.loading already handles error toast, but we can log for debugging
+        console.error("Failed to create season:", error);
+      });
   };
 
   const handleCancel = () => {
@@ -322,7 +328,9 @@ export function SeasonModal({
                   aria-label="Ongoing"
                   className="block h-4 w-4 shrink-0 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand cursor-pointer outline-none focus:outline-none"
                   checked={ongoing}
-                  onChange={(event) => handleOngoingChange(event.target.checked)}
+                  onChange={(event) =>
+                    handleOngoingChange(event.target.checked)
+                  }
                 />
                 {ongoing && (
                   <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -338,10 +346,18 @@ export function SeasonModal({
         </div>
 
         <DialogFooter className="px-6 pb-6 pt-3">
-          <Button variant="outline" onClick={handleCancel} disabled={isCreating}>
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isCreating}
+          >
             Cancel
           </Button>
-          <Button variant="brand" onClick={handleSave} disabled={!name.trim() || isCreating}>
+          <Button
+            variant="brand"
+            onClick={handleSave}
+            disabled={!name.trim() || isCreating}
+          >
             Create
           </Button>
         </DialogFooter>

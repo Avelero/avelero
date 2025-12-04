@@ -19,4 +19,3 @@ export const env = createEnv({
     AIRTABLE_TABLE_NAME: process.env.AIRTABLE_TABLE_NAME,
   },
 });
-

@@ -69,29 +69,37 @@ export function useFilterOptions() {
         ) ?? [],
 
       facilities:
-        formData?.brandCatalog?.operators?.map((f: { id: string; display_name: string }) => ({
-          value: f.id,
-          label: f.display_name,
-        })) ?? [],
-      
+        formData?.brandCatalog?.operators?.map(
+          (f: { id: string; display_name: string }) => ({
+            value: f.id,
+            label: f.display_name,
+          }),
+        ) ?? [],
+
       operators:
-        formData?.brandCatalog?.showcaseBrands?.map((b: { id: string; name: string }) => ({
-          value: b.id,
-          label: b.name,
-        })) ?? [],
+        formData?.brandCatalog?.showcaseBrands?.map(
+          (b: { id: string; name: string }) => ({
+            value: b.id,
+            label: b.name,
+          }),
+        ) ?? [],
 
       seasons:
-        formData?.brandCatalog?.seasons?.map((s: { id: string; name: string }) => ({
-          value: s.id,
-          label: s.name,
-        })) ?? [],
+        formData?.brandCatalog?.seasons?.map(
+          (s: { id: string; name: string }) => ({
+            value: s.id,
+            label: s.name,
+          }),
+        ) ?? [],
 
       // From composite.brandCatalogContent
       ecoClaims:
-        formData?.brandCatalog?.ecoClaims?.map((c: { id: string; claim: string }) => ({
-          value: c.id,
-          label: c.claim,
-        })) ?? [],
+        formData?.brandCatalog?.ecoClaims?.map(
+          (c: { id: string; claim: string }) => ({
+            value: c.id,
+            label: c.claim,
+          }),
+        ) ?? [],
 
       tags:
         tagsData?.data?.map((t: { id: string; name: string }) => ({
@@ -109,8 +117,7 @@ export function useFilterOptions() {
     };
   }, [formData, tagsData, templatesData]);
 
-  const isLoading =
-    isFormDataLoading || isTagsLoading || isTemplatesLoading;
+  const isLoading = isFormDataLoading || isTagsLoading || isTemplatesLoading;
 
   return {
     options,

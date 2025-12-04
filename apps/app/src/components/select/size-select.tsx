@@ -86,18 +86,18 @@ export function SizeSelect({
   // Group sizes by full category path for efficient lookup
   const sizesByCategory = React.useMemo(() => {
     const map = new Map<string, TierTwoSizeOption[]>();
-    
+
     for (const option of sizeOptions) {
       const existing = map.get(option.categoryPath) || [];
       existing.push(option);
       map.set(option.categoryPath, existing);
     }
-    
+
     // Sort sizes within each category by sortIndex
     for (const [key, sizes] of map.entries()) {
       sizes.sort((a, b) => a.sortIndex - b.sortIndex);
     }
-    
+
     return map;
   }, [sizeOptions]);
 
@@ -114,9 +114,13 @@ export function SizeSelect({
     if (navigationPath.length === 1) {
       const tierOneKey = navigationPath[0];
       // Get tier-two display names for this tier-one category
-      const tierTwoPaths = tierOneKey ? (tierTwoCategoryHierarchy[tierOneKey] || []) : [];
+      const tierTwoPaths = tierOneKey
+        ? tierTwoCategoryHierarchy[tierOneKey] || []
+        : [];
       // Extract just the tier-two names (e.g., "Tops" from "Men's / Tops")
-      const tierTwoNames = tierTwoPaths.map(path => path.split(" / ")[1] || path);
+      const tierTwoNames = tierTwoPaths.map(
+        (path) => path.split(" / ")[1] || path,
+      );
       return { type: "tier-two" as const, categories: tierTwoNames };
     }
     // navigationPath.length === 2
@@ -126,11 +130,17 @@ export function SizeSelect({
     const fullCategoryPath = `${tierOneKey} / ${tierTwoKey}`;
     const sizes = sizesByCategory.get(fullCategoryPath) || [];
     return { type: "sizes" as const, sizes };
-  }, [navigationPath, tierOneCategories, tierTwoCategoryHierarchy, sizesByCategory]);
+  }, [
+    navigationPath,
+    tierOneCategories,
+    tierTwoCategoryHierarchy,
+    sizesByCategory,
+  ]);
 
   // Filter sizes when searching on page 3
   const filteredSizes = React.useMemo(() => {
-    if (currentView.type !== "sizes" || !searchTerm) return currentView.type === "sizes" ? currentView.sizes : [];
+    if (currentView.type !== "sizes" || !searchTerm)
+      return currentView.type === "sizes" ? currentView.sizes : [];
     return currentView.sizes.filter((s: TierTwoSizeOption) =>
       s.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
@@ -181,10 +191,11 @@ export function SizeSelect({
   const handleCreateClick = () => {
     if (searchTerm && onCreateNew) {
       // Reconstruct the category path from navigation (e.g., "Men's / Tops")
-      const categoryPath = navigationPath.length === 2 
-        ? `${navigationPath[0]} / ${navigationPath[1]}`
-        : undefined;
-      
+      const categoryPath =
+        navigationPath.length === 2
+          ? `${navigationPath[0]} / ${navigationPath[1]}`
+          : undefined;
+
       onCreateNew(searchTerm, categoryPath);
       setOpen(false);
       setSearchTerm("");
@@ -194,7 +205,10 @@ export function SizeSelect({
   const showCreateOption =
     currentView.type === "sizes" &&
     searchTerm &&
-    !filteredSizes.some((s: TierTwoSizeOption) => s.name.toLowerCase() === searchTerm.toLowerCase());
+    !filteredSizes.some(
+      (s: TierTwoSizeOption) =>
+        s.name.toLowerCase() === searchTerm.toLowerCase(),
+    );
 
   const handleOpenChange = (newOpen: boolean) => {
     if (disabled) return;
@@ -259,7 +273,10 @@ export function SizeSelect({
             )}
           </div>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
+        <PopoverContent
+          className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0"
+          align="start"
+        >
           <div className="flex flex-col">
             {/* Navigation Bar for tier-two (page 2) */}
             {currentView.type === "tier-two" && navigationPath.length > 0 && (
@@ -276,9 +293,13 @@ export function SizeSelect({
             )}
 
             {/* Content Area */}
-            <div className={cn(
-              currentView.type === "sizes" ? "" : "max-h-48 overflow-y-auto scrollbar-hide"
-            )}>
+            <div
+              className={cn(
+                currentView.type === "sizes"
+                  ? ""
+                  : "max-h-48 overflow-y-auto scrollbar-hide",
+              )}
+            >
               {currentView.type === "tier-one" && (
                 // Page 1: Tier-one categories
                 <>
@@ -352,12 +373,17 @@ export function SizeSelect({
                               <span className="type-p text-primary">
                                 {size.name}
                               </span>
-                              {isSelected && <Icons.Check className="h-4 w-4" />}
+                              {isSelected && (
+                                <Icons.Check className="h-4 w-4" />
+                              )}
                             </CommandItem>
                           );
                         })
                       ) : searchTerm && showCreateOption && onCreateNew ? (
-                        <CommandItem value={searchTerm} onSelect={handleCreateClick}>
+                        <CommandItem
+                          value={searchTerm}
+                          onSelect={handleCreateClick}
+                        >
                           <div className="flex items-center gap-2">
                             <Icons.Plus className="h-3.5 w-3.5" />
                             <span className="type-p text-primary">
@@ -366,13 +392,9 @@ export function SizeSelect({
                           </div>
                         </CommandItem>
                       ) : !searchTerm && onCreateNew ? (
-                        <CommandEmpty>
-                          Start typing to create...
-                        </CommandEmpty>
+                        <CommandEmpty>Start typing to create...</CommandEmpty>
                       ) : searchTerm ? (
-                        <CommandEmpty>
-                          No results found
-                        </CommandEmpty>
+                        <CommandEmpty>No results found</CommandEmpty>
                       ) : null}
                     </CommandGroup>
                   </CommandList>

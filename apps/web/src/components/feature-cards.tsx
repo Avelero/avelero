@@ -14,22 +14,22 @@ export function FeatureCard({
 }: FeatureCardProps) {
   return (
     <div className="flex flex-col gap-6 w-[282.66px] flex-shrink-0 lg:w-full justify-between">
-        <div className="flex flex-col w-full">
-          <h5 className="text-h6 text-foreground mb-2">{title}</h5>
-          <p className="text-small text-foreground/50">{description}</p>
-        </div>
+      <div className="flex flex-col w-full">
+        <h5 className="text-h6 text-foreground mb-2">{title}</h5>
+        <p className="text-small text-foreground/50">{description}</p>
+      </div>
 
-        <div className="relative aspect-square w-full overflow-hidden">
-            <Image
-                src={backgroundImage}
-                alt="Blue canvas background image"
-                fill
-                loading="lazy"
-                sizes="(max-width: 1024px) 70vw,(max-width: 1280px) 30vw, 370px"
-                className="object-cover"
-                quality={85}
-            />
-        </div>
+      <div className="relative aspect-square w-full overflow-hidden">
+        <Image
+          src={backgroundImage}
+          alt="Blue canvas background image"
+          fill
+          loading="lazy"
+          sizes="(max-width: 1024px) 70vw,(max-width: 1280px) 30vw, 370px"
+          className="object-cover"
+          quality={85}
+        />
+      </div>
     </div>
   );
 }

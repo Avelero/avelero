@@ -18,10 +18,12 @@
     "./client": "./src/client.ts",
     "./schema": "./src/schema/index.ts",
     "./queries": "./src/queries/index.ts",
+    "./defaults": "./src/defaults/index.ts",
     "./index": "./src/index.ts",
     "./utils": "./src/utils/index.ts"
   },
   "dependencies": {
+    "@v1/dpp-components": "workspace:*",
     "drizzle-orm": "^0.44.7",
     "nanoid": "^5.1.6",
     "postgres": "^3.4.7"

@@ -64,6 +64,8 @@
         "@trpc/tanstack-react-query": "^11.4.3",
         "@v1/analytics": "workspace:*",
         "@v1/api": "workspace:*",
+        "@v1/dpp": "workspace:*",
+        "@v1/dpp-components": "workspace:*",
         "@v1/kv": "workspace:*",
         "@v1/logger": "workspace:*",
         "@v1/selections": "workspace:*",
@@ -107,7 +109,9 @@
       "name": "@v1/dpp",
       "version": "0.1.0",
       "dependencies": {
+        "@v1/dpp-components": "workspace:*",
         "@v1/selections": "workspace:*",
+        "@v1/supabase": "workspace:*",
         "@v1/ui": "workspace:*",
         "clsx": "^2.1.1",
         "geist": "^1.5.1",
@@ -188,6 +192,7 @@
       "name": "@v1/db",
       "version": "0.1.0",
       "dependencies": {
+        "@v1/dpp-components": "workspace:*",
         "drizzle-orm": "^0.44.7",
         "nanoid": "^5.1.6",
         "postgres": "^3.4.7",
@@ -196,6 +201,21 @@
         "@types/node": "^24.0.1",
         "dotenv": "^17.2.3",
         "drizzle-kit": "^0.31.7",
+        "typescript": "^5.9.2",
+      },
+    },
+    "packages/dpp-components": {
+      "name": "@v1/dpp-components",
+      "version": "0.1.0",
+      "dependencies": {
+        "@v1/selections": "workspace:*",
+        "@v1/ui": "workspace:*",
+        "next": "16.0.3",
+        "react": "19.2.0",
+      },
+      "devDependencies": {
+        "@types/node": "^24.0.1",
+        "@types/react": "19.2.6",
         "typescript": "^5.9.2",
       },
     },
@@ -341,6 +361,7 @@
         "tailwindcss-animate": "^1.0.7",
       },
       "devDependencies": {
+        "@tailwindcss/container-queries": "^0.1.1",
         "@types/color": "^4.2.0",
         "@types/react": "19.2.6",
         "@types/react-dom": "19.2.3",
@@ -1190,6 +1211,8 @@
     "@v1/db": ["@v1/db@workspace:packages/db"],
 
     "@v1/dpp": ["@v1/dpp@workspace:apps/dpp"],
+
+    "@v1/dpp-components": ["@v1/dpp-components@workspace:packages/dpp-components"],
 
     "@v1/email": ["@v1/email@workspace:packages/email"],
 

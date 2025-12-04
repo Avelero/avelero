@@ -36,7 +36,7 @@ export function OrganizationSection({
 
   // Field values (local state for complex objects, IDs are in parent)
   const [seasonObject, setSeasonObject] = React.useState<Season | null>(null);
-  
+
   // Sync season object with parent's season string
   React.useEffect(() => {
     if (seasonId) {
@@ -98,15 +98,15 @@ export function OrganizationSection({
                 <div className="transition-[margin-right] duration-200 ease-in-out group-hover/field:mr-11">
                   <SeasonSelect
                     value={seasonObject}
-                  onValueChange={(newSeason) => {
-                    setSeasonObject(newSeason);
-                    setSeasonId(newSeason?.id ?? null);
-                  }}
-                  onCreateNew={(name: string) => {
-                    setPendingSeasonName(name);
-                    setSeasonModalOpen(true);
-                  }}
-                  placeholder="Select season"
+                    onValueChange={(newSeason) => {
+                      setSeasonObject(newSeason);
+                      setSeasonId(newSeason?.id ?? null);
+                    }}
+                    onCreateNew={(name: string) => {
+                      setPendingSeasonName(name);
+                      setSeasonModalOpen(true);
+                    }}
+                    placeholder="Select season"
                   />
                 </div>
                 <div className="absolute right-0 top-0 w-0 group-hover/field:w-9 overflow-hidden transition-[width] duration-200 ease-in-out">
@@ -155,7 +155,6 @@ export function OrganizationSection({
               </div>
             </div>
           )}
-
         </div>
 
         {/* Footer with Add Buttons (render after mount to avoid SSR/client mismatches) */}

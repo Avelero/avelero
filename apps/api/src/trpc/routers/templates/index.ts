@@ -151,4 +151,3 @@ export const templatesRouter = createTRPCRouter({
 });
 
 export type TemplatesRouter = typeof templatesRouter;
-

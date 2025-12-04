@@ -14,7 +14,10 @@ export function getDatabaseErrorMeta(error: unknown): DatabaseErrorMeta {
     if ("detail" in error && typeof (error as any).detail === "string") {
       meta.detail = (error as any).detail;
     }
-    if ("constraint" in error && typeof (error as any).constraint === "string") {
+    if (
+      "constraint" in error &&
+      typeof (error as any).constraint === "string"
+    ) {
       meta.constraint = (error as any).constraint;
     }
     if (error instanceof Error) {
@@ -31,13 +34,3 @@ export function buildDatabaseErrorMessage(
 ) {
   return meta.detail ?? meta.message ?? fallback;
 }
-
-
-
-
-
-
-
-
-
-

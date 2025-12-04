@@ -29,12 +29,14 @@ export function IdentifiersSection({
   productIdentifierInputRef,
 }: IdentifiersSectionProps) {
   const { showcaseBrands: apiBrandOptions } = useBrandCatalog();
-  
+
   // Convert brandOptions from API format to Select format
-  const selectBrandOptions = apiBrandOptions.map((brand: { id: string; name: string }) => ({
-    value: brand.id,
-    label: brand.name,
-  }));
+  const selectBrandOptions = apiBrandOptions.map(
+    (brand: { id: string; name: string }) => ({
+      value: brand.id,
+      label: brand.name,
+    }),
+  );
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -58,7 +60,9 @@ export function IdentifiersSection({
 
         {/* Product Identifier */}
         <div className="space-y-1.5">
-          <Label>Product identifier <span className="text-destructive">*</span></Label>
+          <Label>
+            Product identifier <span className="text-destructive">*</span>
+          </Label>
           <Input
             ref={productIdentifierInputRef}
             value={productIdentifier}
@@ -67,7 +71,7 @@ export function IdentifiersSection({
             className={cn(
               "h-9",
               productIdentifierError &&
-                "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive"
+                "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
             )}
             aria-invalid={Boolean(productIdentifierError)}
           />

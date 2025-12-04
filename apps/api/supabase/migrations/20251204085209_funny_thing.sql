@@ -1,0 +1,1 @@
+ALTER POLICY "brand_theme_update_by_brand_member" ON "brand_theme" TO authenticated,service_role USING (is_brand_member(brand_id)) WITH CHECK (is_brand_member(brand_id));

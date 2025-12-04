@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Input } from "@v1/ui/input";
 import { cn } from "@v1/ui/cn";
 import { Label } from "@v1/ui/label";
@@ -79,13 +80,16 @@ export function parseHexWithAlpha(hex: string): { rgb: string; opacity: number }
 }
 
 /**
- * Combines 6-char RGB hex and opacity (0-100) into 8-char RGBA hex
+ * Combines RGB hex and opacity (0-100) into 8-char RGBA hex
+ * Always pads RGB to 6 characters to ensure proper parsing later
  * Returns: "#RRGGBBAA"
  */
 export function combineHexWithAlpha(rgb: string, opacity: number): string {
   const cleanRgb = rgb.replace(/^#/, "").toUpperCase().slice(0, 6);
+  // Always pad to 6 chars so parsing can correctly separate RGB from alpha
+  const paddedRgb = cleanRgb.padEnd(6, "0");
   const alpha = opacityToHexAlpha(opacity);
-  return `#${cleanRgb}${alpha}`;
+  return `#${paddedRgb}${alpha}`;
 }
 
 export function ColorInput({
@@ -97,11 +101,43 @@ export function ColorInput({
   onOpacityChange,
   className,
 }: ColorInputProps) {
-  const displayValue = normalizeHex(value);
+  // Local state to prevent alpha channel corruption during typing
+  // The parent combines RGB with opacity (e.g., "0" + "FF" = "#0FF"),
+  // which would corrupt the display on every keystroke. We only commit on blur.
+  const [inputValue, setInputValue] = useState(() => normalizeHex(value));
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Sync from prop when not focused (handles external changes like undo/reset)
+  useEffect(() => {
+    if (!isFocused) {
+      setInputValue(normalizeHex(value));
+    }
+  }, [value, isFocused]);
+
+  // Show local value during editing, prop value otherwise
+  const displayValue = isFocused ? inputValue : normalizeHex(value);
   const isValid = isValidHex(displayValue);
   const rgbColor = isValid ? `#${displayValue}` : "#FFFFFF";
   // Convert opacity percentage to CSS alpha (0-1)
   const alphaValue = Math.max(0, Math.min(100, opacity)) / 100;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Allow empty or partial hex values during typing
+    const normalized = normalizeHex(e.target.value);
+    setInputValue(normalized);
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    // Only commit on blur - this is when alpha will be combined
+    if (inputValue !== normalizeHex(value)) {
+      onChange(inputValue);
+    }
+  };
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -140,10 +176,9 @@ export function ColorInput({
           </div>
           <Input
             value={displayValue}
-            onChange={(e) => {
-              const normalized = normalizeHex(e.target.value);
-              onChange(normalized);
-            }}
+            onChange={handleChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             placeholder="FFFFFF"
             className="h-8 pl-9 font-mono text-sm"
           />

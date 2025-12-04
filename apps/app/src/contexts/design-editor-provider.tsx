@@ -20,6 +20,7 @@ import {
   useEffect,
 } from "react";
 import { saveThemeAction } from "@/actions/design/save-theme-action";
+import { toast } from "@v1/ui/sonner";
 
 // =============================================================================
 // TYPES
@@ -37,7 +38,7 @@ type TypographyScaleKey =
   | "body-xs";
 
 /**
- * Style value types - supports primitives and radius objects
+ * Style value types - supports primitives, radius objects, and border objects
  */
 type RadiusValue = {
   topLeft: number;
@@ -46,7 +47,14 @@ type RadiusValue = {
   bottomRight: number;
 };
 
-type StyleValue = string | number | RadiusValue;
+type BorderValue = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+};
+
+type StyleValue = string | number | RadiusValue | BorderValue;
 
 /**
  * Navigation section types for the left panel
@@ -170,12 +178,21 @@ export function DesignEditorProvider({
     if (!brandId) return;
     setIsSaving(true);
     try {
-      await saveThemeAction({
+      const result = await saveThemeAction({
         brandId,
         themeStyles: themeStylesDraft,
       });
+      
+      if (result?.serverError) {
+        toast.error(result.serverError || "Failed to save theme");
+        return;
+      }
+      
       // Update saved state to match current drafts after successful save
       setSavedThemeStyles(themeStylesDraft);
+      toast.success("Changes saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save theme");
     } finally {
       setIsSaving(false);
     }

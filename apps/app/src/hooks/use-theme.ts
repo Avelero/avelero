@@ -41,12 +41,3 @@ export function useThemeQuery() {
     } satisfies BrandTheme,
   };
 }
-
-/**
- * Returns the query options for theme data.
- * Use this for prefetching in server components.
- */
-export function useThemeQueryOptions() {
-  const trpc = useTRPC();
-  return trpc.workflow.getTheme.queryOptions();
-}

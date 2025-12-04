@@ -478,6 +478,8 @@
     color: var(--materials-card-certification-color, var(--success-foreground));
     background-color: var(--materials-card-certification-background-color, var(--success));
     border-radius: var(--materials-card-certification-border-radius, var(--radius-sm));
+    border-style: solid;
+    border-width: var(--materials-card-certification-border-width, 1px);
     border-color: var(--materials-card-certification-border-color, transparent);
     text-transform: var(--materials-card-certification-text-transform, none);
     text-decoration: var(--materials-card-certification-text-decoration, none);

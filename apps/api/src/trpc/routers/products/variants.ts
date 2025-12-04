@@ -6,6 +6,7 @@
  */
 import { and, eq, inArray } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
+import { generateUniqueUpids } from "@v1/db/utils";
 import {
   getVariantsSchema,
   listVariantsSchema,
@@ -185,19 +186,53 @@ async function replaceProductVariants(
         .where(inArray(productVariants.id, idsToDelete));
     }
 
-    const toInsert = desired
-      .filter(
-        (variant) =>
-          !existingByKey.has(makeVariantKey(variant.colorId, variant.sizeId)),
-      )
-      .map((variant) => ({
+    // Only insert NEW variants (ones that don't already exist)
+    // Existing variants keep their UPIDs - we never touch them
+    const variantsToInsert = desired.filter(
+      (variant) =>
+        !existingByKey.has(makeVariantKey(variant.colorId, variant.sizeId)),
+    );
+
+    if (variantsToInsert.length > 0) {
+      // Generate unique UPIDs for new variants only (brand-unique)
+      const upids = await generateUniqueUpids({
+        count: variantsToInsert.length,
+        isTaken: async (candidate) => {
+          const [row] = await tx
+            .select({ id: productVariants.id })
+            .from(productVariants)
+            .innerJoin(products, eq(products.id, productVariants.productId))
+            .where(
+              and(
+                eq(productVariants.upid, candidate),
+                eq(products.brandId, brandId),
+              ),
+            )
+            .limit(1);
+          return Boolean(row);
+        },
+        fetchTakenSet: async (candidates) => {
+          const rows = await tx
+            .select({ upid: productVariants.upid })
+            .from(productVariants)
+            .innerJoin(products, eq(products.id, productVariants.productId))
+            .where(
+              and(
+                inArray(productVariants.upid, candidates as string[]),
+                eq(products.brandId, brandId),
+              ),
+            );
+          return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
+        },
+      });
+
+      const toInsert = variantsToInsert.map((variant, index) => ({
         productId,
         colorId: variant.colorId,
         sizeId: variant.sizeId,
-        upid: null,
+        upid: upids[index],
       }));
 
-    if (toInsert.length > 0) {
       await tx.insert(productVariants).values(toInsert);
     }
   });

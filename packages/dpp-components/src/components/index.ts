@@ -24,5 +24,3 @@ export * from "./carousel/product-carousel";
 export * from "./carousel/product-card";
 
 export * from "./cta/cta-banner";
-
-export * from "./theme/theme-injector";

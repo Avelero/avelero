@@ -15,6 +15,7 @@ export function ThemeEditorLoader() {
     <DesignPageClient
       initialThemeConfig={theme.themeConfig}
       initialThemeStyles={theme.themeStyles}
+      initialGoogleFontsUrl={theme.googleFontsUrl}
       previewData={DEMO_DPP_DATA}
     />
   );

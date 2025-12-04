@@ -18,6 +18,7 @@ import {
   getProductWithIncludesByUpid,
   setProductTags,
 } from "@v1/db/queries";
+import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { productVariants, products } from "@v1/db/schema";
 import { and, eq, inArray } from "@v1/db/queries";
 import { generateUniqueUpid, generateUniqueUpids } from "@v1/db/utils";
@@ -241,6 +242,19 @@ export const productsRouter = createTRPCRouter({
             input.color_ids,
             input.size_ids,
           );
+        }
+
+        // Revalidate DPP cache for this product (fire-and-forget)
+        if (product?.id) {
+          // Get the product's UPID for cache revalidation
+          const [productWithUpid] = await brandCtx.db
+            .select({ upid: products.upid })
+            .from(products)
+            .where(and(eq(products.id, product.id), eq(products.brandId, brandId)))
+            .limit(1);
+          if (productWithUpid?.upid) {
+            revalidateProduct(productWithUpid.upid).catch(() => {});
+          }
         }
 
         return createEntityResponse(product);

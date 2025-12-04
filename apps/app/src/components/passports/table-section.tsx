@@ -1,5 +1,6 @@
 "use client";
 
+import { useUserBrandsQuerySuspense } from "@/hooks/use-brand";
 import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
@@ -333,6 +334,18 @@ function TableContent({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
+  // Get active brand's slug for DPP URLs
+  const { data: userResult } = useUserQuerySuspense();
+  const { data: brandsResult } = useUserBrandsQuerySuspense();
+  const brandSlug = useMemo(() => {
+    const activeBrandId = (userResult as any)?.brand_id;
+    if (!activeBrandId || !brandsResult) return null;
+    const activeBrand = (brandsResult as any[]).find(
+      (b: any) => b.id === activeBrandId,
+    );
+    return activeBrand?.slug ?? null;
+  }, [userResult, brandsResult]);
+
   // Track previous values to detect changes (including clearing)
   const prevSearchRef = useRef<string | undefined>(search);
   const prevSortRef = useRef<
@@ -608,6 +621,7 @@ function TableContent({
       onPrefetchLast={handlePrefetchLast}
       hasActiveFilters={hasActiveFilters}
       onClearFilters={onClearFilters}
+      brandSlug={brandSlug}
     />
   );
 }

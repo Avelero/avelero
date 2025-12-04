@@ -3,6 +3,7 @@ import { SetCountry } from "@/components/settings/set-country";
 import { SetEmail } from "@/components/settings/set-email";
 import { SetLogo } from "@/components/settings/set-logo";
 import { SetName } from "@/components/settings/set-name";
+import { SetSlug } from "@/components/settings/set-slug";
 import { batchPrefetch, HydrateClient, trpc } from "@/trpc/server";
 import { Skeleton } from "@v1/ui/skeleton";
 import { Suspense } from "react";
@@ -25,6 +26,9 @@ export default async function SettingsPage() {
           </Suspense>
           <Suspense fallback={<Skeleton className="h-[187px] w-full" />}>
             <SetName />
+          </Suspense>
+          <Suspense fallback={<Skeleton className="h-[187px] w-full" />}>
+            <SetSlug />
           </Suspense>
           <Suspense fallback={<Skeleton className="h-[207px] w-full" />}>
             <SetEmail />

@@ -136,6 +136,7 @@ type ProviderProps = {
   children: React.ReactNode;
   initialThemeConfig: ThemeConfig;
   initialThemeStyles: ThemeStyles;
+  initialGoogleFontsUrl: string | null;
   previewData: DppData;
   brandId?: string;
 };
@@ -144,6 +145,7 @@ export function DesignEditorProvider({
   children,
   initialThemeConfig,
   initialThemeStyles,
+  initialGoogleFontsUrl,
   previewData,
   brandId,
 }: ProviderProps) {
@@ -163,6 +165,45 @@ export function DesignEditorProvider({
     setThemeStylesDraft(initialThemeStyles);
     setSavedThemeStyles(initialThemeStyles);
   }, [initialThemeStyles]);
+
+  // Load saved Google Fonts on mount to display typography correctly
+  useEffect(() => {
+    if (!initialGoogleFontsUrl) return;
+
+    // Check if this font link already exists
+    const existingLink = document.querySelector(
+      `link[href="${initialGoogleFontsUrl}"]`,
+    );
+    if (existingLink) return;
+
+    // Add preconnect for faster font loading
+    const preconnect1 = document.createElement("link");
+    preconnect1.rel = "preconnect";
+    preconnect1.href = "https://fonts.googleapis.com";
+    document.head.appendChild(preconnect1);
+
+    const preconnect2 = document.createElement("link");
+    preconnect2.rel = "preconnect";
+    preconnect2.href = "https://fonts.gstatic.com";
+    preconnect2.crossOrigin = "anonymous";
+    document.head.appendChild(preconnect2);
+
+    // Add the font stylesheet
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = initialGoogleFontsUrl;
+    document.head.appendChild(link);
+
+    return () => {
+      // Cleanup on unmount or URL change
+      link.remove();
+      // Only remove preconnects if no other font links exist
+      if (!document.querySelector('link[href*="fonts.googleapis.com/css"]')) {
+        preconnect1.remove();
+        preconnect2.remove();
+      }
+    };
+  }, [initialGoogleFontsUrl]);
 
   // ThemeConfig is read-only in the theme editor (edited in /design/content)
   const themeConfig = initialThemeConfig;

@@ -647,11 +647,11 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     const resolvedIds: string[] = [];
     const updatedClaims: Array<{ id: string; value: string }> = [];
 
-    // Get existing eco-claims to check for duplicates
-    const existingEcoClaimsQuery = queryClient.getQueryData(
-      trpc.brand.ecoClaims.list.queryKey(),
+    // Get existing eco-claims from the brandCatalogContent cache (where they're actually stored)
+    const brandCatalogQuery = queryClient.getQueryData(
+      trpc.composite.brandCatalogContent.queryKey(),
     ) as any;
-    const existingEcoClaims = existingEcoClaimsQuery?.data ?? [];
+    const existingEcoClaims = brandCatalogQuery?.brandCatalog?.ecoClaims ?? [];
 
     const ecoClaimByText = new Map<string, { id?: string; claim: string }>();
     for (const ecoClaim of existingEcoClaims) {
@@ -711,6 +711,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     void queryClient.invalidateQueries({
       queryKey: trpc.brand.ecoClaims.list.queryKey(),
     });
+    // Also invalidate the composite cache where eco-claims are stored
+    void queryClient.invalidateQueries({
+      queryKey: trpc.composite.brandCatalogContent.queryKey(),
+    });
 
     return resolvedIds;
   }, [
@@ -719,6 +723,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     queryClient,
     setFields,
     trpc.brand.ecoClaims.list,
+    trpc.composite.brandCatalogContent,
   ]);
 
   const submit = React.useCallback(

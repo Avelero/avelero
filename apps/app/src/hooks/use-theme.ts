@@ -10,6 +10,7 @@ import type { ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 export interface BrandTheme {
   themeStyles: ThemeStyles;
   themeConfig: ThemeConfig;
+  googleFontsUrl: string | null;
   updatedAt: string | null;
 }
 
@@ -24,12 +25,12 @@ export interface BrandTheme {
  * @example
  * ```tsx
  * const { data: theme } = useThemeQuery();
- * const { themeStyles, themeConfig } = theme;
+ * const { themeStyles, themeConfig, googleFontsUrl } = theme;
  * ```
  */
 export function useThemeQuery() {
   const trpc = useTRPC();
-  const query = useSuspenseQuery(trpc.workflow.getTheme.queryOptions());
+  const query = useSuspenseQuery(trpc.workflow.theme.get.queryOptions());
 
   // Cast the JSONB data to proper types
   return {
@@ -37,6 +38,7 @@ export function useThemeQuery() {
     data: {
       themeStyles: (query.data.themeStyles ?? {}) as ThemeStyles,
       themeConfig: (query.data.themeConfig ?? {}) as ThemeConfig,
+      googleFontsUrl: query.data.googleFontsUrl ?? null,
       updatedAt: query.data.updatedAt,
     } satisfies BrandTheme,
   };

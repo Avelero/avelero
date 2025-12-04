@@ -264,28 +264,61 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       headerClassName: cn("w-[1%]"),
       cellClassName: cn("w-[1%] whitespace-nowrap"),
     },
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       const product = row.original;
       const upid = product.productUpid || product.id;
       const editHref = upid ? `/passports/edit/${upid}` : undefined;
 
+      // Get brandSlug from table meta for DPP URL
+      const meta = table.options.meta as
+        | { brandSlug?: string | null }
+        | undefined;
+      const brandSlug = meta?.brandSlug;
+
+      // Build public DPP URL (opens in new tab, no prefetch)
+      const dppBaseUrl =
+        process.env.NEXT_PUBLIC_DPP_URL || "https://passport.avelero.com";
+      const dppUrl =
+        brandSlug && upid ? `${dppBaseUrl}/${brandSlug}/${upid}` : undefined;
+
+      // Only show passport button if product is published and has a valid DPP URL
+      const canViewPassport =
+        product.status === "published" && dppUrl !== undefined;
+
       return (
         <div className="flex items-center justify-end gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Open passport"
-            disabled={!editHref}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!editHref) return;
-              window.open(editHref, "_blank");
-            }}
-            icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-            iconPosition="right"
-          >
-            Passport
-          </Button>
+          <TooltipProvider delayDuration={120}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label="View public passport"
+                    disabled={!canViewPassport}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!dppUrl) return;
+                      window.open(dppUrl, "_blank", "noopener,noreferrer");
+                    }}
+                    icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
+                    iconPosition="right"
+                  >
+                    Passport
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!canViewPassport && (
+                <TooltipContent>
+                  {product.status !== "published"
+                    ? "Passport must be published to view"
+                    : !brandSlug
+                      ? "Brand slug not configured"
+                      : "Passport URL not available"}
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

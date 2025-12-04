@@ -6,12 +6,14 @@
  */
 import { and, eq, inArray } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
+import { generateUniqueUpids } from "@v1/db/utils";
 import {
   getVariantsSchema,
   listVariantsSchema,
   productVariantsDeleteSchema,
   productVariantsUpsertSchema,
 } from "../../../schemas/products.js";
+import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
   createEntityResponse,
@@ -61,6 +63,13 @@ const variantUpsertProcedure = brandRequiredProcedure
         brandId,
         input.product_id,
       );
+
+      // Revalidate parent product's DPP cache (fire-and-forget)
+      const productUpid = await getProductUpid(db, brandId, input.product_id);
+      if (productUpid) {
+        revalidateProduct(productUpid).catch(() => {});
+      }
+
       return createListResponse(variants);
     } catch (error) {
       throw wrapError(error, "Failed to upsert product variants");
@@ -72,7 +81,20 @@ const variantDeleteProcedure = brandRequiredProcedure
   .mutation(async ({ ctx, input }) => {
     const { db, brandId } = ctx as BrandContext;
     try {
+      // Get product UPID before deletion for cache revalidation
+      // Handle union type: input is either { product_id: string } or { variant_id: string }
+      const productId = 'product_id' in input 
+        ? input.product_id 
+        : await getProductIdFromVariant(db, brandId, input.variant_id);
+      const productUpid = productId ? await getProductUpid(db, brandId, productId) : null;
+
       const deleted = await deleteProductVariants(db, brandId, input);
+
+      // Revalidate parent product's DPP cache (fire-and-forget)
+      if (productUpid) {
+        revalidateProduct(productUpid).catch(() => {});
+      }
+
       return createEntityResponse({ deleted });
     } catch (error) {
       throw wrapError(error, "Failed to delete product variants");
@@ -185,19 +207,53 @@ async function replaceProductVariants(
         .where(inArray(productVariants.id, idsToDelete));
     }
 
-    const toInsert = desired
-      .filter(
-        (variant) =>
-          !existingByKey.has(makeVariantKey(variant.colorId, variant.sizeId)),
-      )
-      .map((variant) => ({
+    // Only insert NEW variants (ones that don't already exist)
+    // Existing variants keep their UPIDs - we never touch them
+    const variantsToInsert = desired.filter(
+      (variant) =>
+        !existingByKey.has(makeVariantKey(variant.colorId, variant.sizeId)),
+    );
+
+    if (variantsToInsert.length > 0) {
+      // Generate unique UPIDs for new variants only (brand-unique)
+      const upids = await generateUniqueUpids({
+        count: variantsToInsert.length,
+        isTaken: async (candidate) => {
+          const [row] = await tx
+            .select({ id: productVariants.id })
+            .from(productVariants)
+            .innerJoin(products, eq(products.id, productVariants.productId))
+            .where(
+              and(
+                eq(productVariants.upid, candidate),
+                eq(products.brandId, brandId),
+              ),
+            )
+            .limit(1);
+          return Boolean(row);
+        },
+        fetchTakenSet: async (candidates) => {
+          const rows = await tx
+            .select({ upid: productVariants.upid })
+            .from(productVariants)
+            .innerJoin(products, eq(products.id, productVariants.productId))
+            .where(
+              and(
+                inArray(productVariants.upid, candidates as string[]),
+                eq(products.brandId, brandId),
+              ),
+            );
+          return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
+        },
+      });
+
+      const toInsert = variantsToInsert.map((variant, index) => ({
         productId,
         colorId: variant.colorId,
         sizeId: variant.sizeId,
-        upid: null,
+        upid: upids[index],
       }));
 
-    if (toInsert.length > 0) {
       await tx.insert(productVariants).values(toInsert);
     }
   });
@@ -261,6 +317,42 @@ async function assertProductForBrand(
   if (!owned[0]) {
     throw badRequest("Product not found for the active brand");
   }
+}
+
+/**
+ * Get a product's UPID for DPP cache revalidation.
+ */
+async function getProductUpid(
+  db: BrandDb,
+  brandId: string,
+  productId: string,
+): Promise<string | null> {
+  const [product] = await db
+    .select({ upid: products.upid })
+    .from(products)
+    .where(and(eq(products.id, productId), eq(products.brandId, brandId)))
+    .limit(1);
+  return product?.upid ?? null;
+}
+
+/**
+ * Get a product ID from a variant ID for DPP cache revalidation.
+ */
+async function getProductIdFromVariant(
+  db: BrandDb,
+  brandId: string,
+  variantId?: string,
+): Promise<string | null> {
+  if (!variantId) return null;
+  const [variant] = await db
+    .select({ productId: productVariants.productId })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(
+      and(eq(productVariants.id, variantId), eq(products.brandId, brandId)),
+    )
+    .limit(1);
+  return variant?.productId ?? null;
 }
 
 export const productVariantsRouter = createTRPCRouter({

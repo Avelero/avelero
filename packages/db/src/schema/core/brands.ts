@@ -1,12 +1,13 @@
 import { sql } from "drizzle-orm";
 import { pgTable, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { check, index, pgPolicy } from "drizzle-orm/pg-core";
+import { check, index, pgPolicy, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const brands = pgTable(
   "brands",
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     name: text("name").notNull(),
+    slug: text("slug"),
     email: text("email"),
     countryCode: text("country_code"),
     logoPath: text("logo_path"),
@@ -19,6 +20,10 @@ export const brands = pgTable(
       .notNull(),
   },
   (table) => [
+    // Unique index for slug (used in public DPP URLs)
+    uniqueIndex("idx_brands_slug")
+      .on(table.slug)
+      .where(sql`(slug IS NOT NULL)`),
     index("idx_brands_email").using(
       "btree",
       table.email.asc().nullsLast().op("text_ops"),

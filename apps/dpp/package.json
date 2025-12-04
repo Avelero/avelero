@@ -17,13 +17,12 @@
   "dependencies": {
     "@v1/dpp-components": "workspace:*",
     "@v1/selections": "workspace:*",
-    "@v1/supabase": "workspace:*",
     "@v1/ui": "workspace:*",
     "clsx": "^2.1.1",
-    "geist": "^1.5.1",
     "next": "16.0.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "superjson": "^2.2.1",
     "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {

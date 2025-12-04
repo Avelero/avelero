@@ -8,8 +8,11 @@
 import {
   getBrandTheme,
   updateBrandThemeConfig,
+  eq,
 } from "@v1/db/queries";
+import { brands } from "@v1/db/schema";
 import { z } from "zod";
+import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import { wrapError } from "../../../utils/errors.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
@@ -24,12 +27,14 @@ const getThemeProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
       return {
         themeStyles: {},
         themeConfig: {},
+        googleFontsUrl: null,
         updatedAt: null,
       };
     }
     return {
       themeStyles: theme.themeStyles,
       themeConfig: theme.themeConfig,
+      googleFontsUrl: theme.googleFontsUrl,
       updatedAt: theme.updatedAt,
     };
   } catch (error) {
@@ -53,6 +58,22 @@ const updateConfigProcedure = brandRequiredProcedure
     const { db, brandId } = ctx;
     try {
       const result = await updateBrandThemeConfig(db, brandId, input.config);
+
+      // Revalidate all DPP pages for this brand (fire-and-forget)
+      // Wrapped in try-catch so revalidation failures don't affect the response
+      try {
+        const [brand] = await db
+          .select({ slug: brands.slug })
+          .from(brands)
+          .where(eq(brands.id, brandId))
+          .limit(1);
+        if (brand?.slug) {
+          revalidateBrand(brand.slug).catch(() => {});
+        }
+      } catch {
+        // Silently ignore revalidation errors - the config update already succeeded
+      }
+
       return result;
     } catch (error) {
       throw wrapError(error, "Failed to update theme config");

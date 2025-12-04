@@ -11,12 +11,14 @@ import { Sidebar } from "@/components/sidebar";
 interface Props {
   initialThemeConfig: ThemeConfig;
   initialThemeStyles: ThemeStyles;
+  initialGoogleFontsUrl: string | null;
   previewData: DppData;
 }
 
 export function DesignPageClient({
   initialThemeConfig,
   initialThemeStyles,
+  initialGoogleFontsUrl,
   previewData,
 }: Props) {
   const { data: user } = useUserQuery();
@@ -26,6 +28,7 @@ export function DesignPageClient({
     <DesignEditorProvider
       initialThemeConfig={initialThemeConfig}
       initialThemeStyles={initialThemeStyles}
+      initialGoogleFontsUrl={initialGoogleFontsUrl}
       previewData={previewData}
       brandId={brandId}
     >

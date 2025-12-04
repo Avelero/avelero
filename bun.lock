@@ -109,6 +109,7 @@
       "name": "@v1/dpp",
       "version": "0.1.0",
       "dependencies": {
+        "@v1/db": "workspace:*",
         "@v1/dpp-components": "workspace:*",
         "@v1/selections": "workspace:*",
         "@v1/supabase": "workspace:*",

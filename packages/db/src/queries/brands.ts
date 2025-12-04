@@ -12,12 +12,122 @@ type DatabaseLike = Pick<Database, "select">;
 export type BrandMembershipListItem = {
   id: string;
   name: string;
+  slug: string | null;
   email: string | null;
   logo_path: string | null;
   avatar_hue: number | null;
   country_code: string | null;
   role: "owner" | "member";
 };
+
+// =============================================================================
+// SLUG UTILITIES
+// =============================================================================
+
+/**
+ * Generates a URL-friendly slug from a brand name.
+ * - Converts to lowercase
+ * - Removes special characters (keeps alphanumeric and spaces)
+ * - Replaces spaces with dashes
+ * - Collapses multiple dashes
+ * - Trims leading/trailing dashes
+ *
+ * @param name - The brand name to slugify
+ * @returns URL-friendly slug
+ */
+export function generateSlugFromName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special chars
+    .replace(/\s+/g, "-") // Spaces to dashes
+    .replace(/-+/g, "-") // Collapse multiple dashes
+    .replace(/^-|-$/g, ""); // Trim leading/trailing dashes
+}
+
+/**
+ * Checks if a slug is already taken by another brand.
+ *
+ * @param db - Database instance
+ * @param slug - The slug to check
+ * @param excludeBrandId - Optional brand ID to exclude (for updates)
+ * @returns true if slug is taken, false otherwise
+ */
+export async function isSlugTaken(
+  db: Database,
+  slug: string,
+  excludeBrandId?: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: brands.id })
+    .from(brands)
+    .where(
+      excludeBrandId
+        ? and(eq(brands.slug, slug), ne(brands.id, excludeBrandId))
+        : eq(brands.slug, slug),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Generates a unique slug by appending a counter if needed.
+ *
+ * @param db - Database instance
+ * @param baseName - The brand name to generate slug from
+ * @param excludeBrandId - Optional brand ID to exclude (for updates)
+ * @returns A unique slug
+ */
+export async function generateUniqueSlug(
+  db: Database,
+  baseName: string,
+  excludeBrandId?: string,
+): Promise<string> {
+  const baseSlug = generateSlugFromName(baseName);
+  if (!baseSlug) {
+    // Fallback for names that result in empty slugs
+    return `brand-${Date.now()}`;
+  }
+
+  let slug = baseSlug;
+  let counter = 1;
+
+  while (await isSlugTaken(db, slug, excludeBrandId)) {
+    slug = `${baseSlug}-${counter}`;
+    counter++;
+    // Safety limit to prevent infinite loops
+    if (counter > 100) {
+      slug = `${baseSlug}-${Date.now()}`;
+      break;
+    }
+  }
+
+  return slug;
+}
+
+/**
+ * Fetches a brand by its slug.
+ *
+ * @param db - Database instance
+ * @param slug - The brand slug
+ * @returns Brand data or null if not found
+ */
+export async function getBrandBySlug(
+  db: Database,
+  slug: string,
+): Promise<{ id: string; name: string; slug: string } | null> {
+  const [row] = await db
+    .select({
+      id: brands.id,
+      name: brands.name,
+      slug: brands.slug,
+    })
+    .from(brands)
+    .where(eq(brands.slug, slug))
+    .limit(1);
+
+  if (!row || !row.slug) return null;
+  return { id: row.id, name: row.name, slug: row.slug };
+}
 
 // Compute the next active brand for a user, excluding a specific brand if provided.
 // Strategy: first alphabetical brand by name among memberships, excluding `excludeBrandId`.
@@ -49,6 +159,7 @@ export async function computeNextBrandIdForUser(
 const BRAND_FIELD_MAP = {
   id: brands.id,
   name: brands.name,
+  slug: brands.slug,
   email: brands.email,
   logo_path: brands.logoPath,
   avatar_hue: brands.avatarHue,
@@ -119,6 +230,7 @@ export async function getBrandsByUserId(
     .select({
       id: brands.id,
       name: brands.name,
+      slug: brands.slug,
       email: brands.email,
       logo_path: brands.logoPath,
       avatar_hue: brands.avatarHue,
@@ -140,6 +252,7 @@ export async function getBrandsByUserId(
       ({
         id: row.id,
         name: row.name,
+        slug: row.slug,
         email: row.email,
         logo_path: row.logo_path,
         avatar_hue: row.avatar_hue,
@@ -154,22 +267,27 @@ export async function createBrand(
   userId: string,
   input: {
     name: string;
+    slug?: string | null;
     email?: string | null;
     country_code?: string | null;
     logo_path?: string | null;
     avatar_hue?: number | null;
   },
 ) {
+  // Generate unique slug from name if not provided
+  const slug = input.slug || (await generateUniqueSlug(db, input.name));
+
   const [brand] = await db
     .insert(brands)
     .values({
       name: input.name,
+      slug,
       email: input.email ?? null,
       countryCode: input.country_code ?? null,
       logoPath: input.logo_path ?? null,
       avatarHue: input.avatar_hue ?? null,
     })
-    .returning({ id: brands.id });
+    .returning({ id: brands.id, slug: brands.slug });
   if (!brand) throw new Error("Failed to create brand");
 
   // Seed default theme configuration for the new brand
@@ -185,7 +303,7 @@ export async function createBrand(
 
   await db.update(users).set({ brandId: brand.id }).where(eq(users.id, userId));
 
-  return { id: brand.id } as const;
+  return { id: brand.id, slug: brand.slug } as const;
 }
 
 export async function updateBrand(
@@ -193,6 +311,7 @@ export async function updateBrand(
   userId: string,
   input: { id: string } & Partial<{
     name: string;
+    slug: string | null;
     email: string | null;
     country_code: string | null;
     logo_path: string | null;
@@ -213,6 +332,7 @@ export async function updateBrand(
   // Build update object with only defined fields to avoid clearing unmodified data
   const updateData: Partial<{
     name: string;
+    slug: string | null;
     email: string | null;
     countryCode: string | null;
     logoPath: string | null;
@@ -220,6 +340,7 @@ export async function updateBrand(
   }> = {};
 
   if (payload.name !== undefined) updateData.name = payload.name;
+  if (payload.slug !== undefined) updateData.slug = payload.slug;
   if (payload.email !== undefined) updateData.email = payload.email;
   if (payload.country_code !== undefined)
     updateData.countryCode = payload.country_code;
@@ -231,8 +352,8 @@ export async function updateBrand(
     .update(brands)
     .set(updateData)
     .where(eq(brands.id, id))
-    .returning({ id: brands.id });
-  return row ? { success: true as const } : { success: true as const };
+    .returning({ id: brands.id, slug: brands.slug });
+  return row ? { success: true as const, slug: row.slug } : { success: true as const };
 }
 
 /**

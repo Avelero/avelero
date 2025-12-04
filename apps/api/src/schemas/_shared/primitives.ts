@@ -34,6 +34,21 @@ export const nonEmptyStringSchema = z.string().min(1);
 export const shortStringSchema = z.string().min(1).max(100);
 
 /**
+ * Validates URL-friendly slugs.
+ * Only lowercase letters, numbers, and dashes allowed.
+ * Must be 2-50 characters.
+ * @example "my-brand", "acme-inc", "brand123"
+ */
+export const slugSchema = z
+  .string()
+  .min(2, "Slug must be at least 2 characters")
+  .max(50, "Slug must be at most 50 characters")
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "Slug must contain only lowercase letters, numbers, and dashes (no leading/trailing dashes)",
+  );
+
+/**
  * Validates 6-character hexadecimal color values (accepts optional #).
  * Normalizes to uppercase without the # prefix.
  * @example "#FFAA00", "1F2937"

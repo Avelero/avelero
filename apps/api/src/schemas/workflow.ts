@@ -13,6 +13,7 @@ import {
   countryCodeSchema,
   emailSchema,
   shortStringSchema,
+  slugSchema,
   uuidSchema,
 } from "./_shared/primitives.js";
 
@@ -21,9 +22,11 @@ import {
  *
  * Accepts the same optional metadata as the legacy brand create mutation but
  * renames `logo_path` to the API-facing `logo_url` to reflect the proxied URL.
+ * If slug is not provided, it will be auto-generated from the name.
  */
 export const workflowCreateSchema = z.object({
   name: shortStringSchema,
+  slug: slugSchema.optional().nullable(),
   email: emailSchema.optional().nullable(),
   country_code: countryCodeSchema.optional().nullable(),
   logo_url: shortStringSchema.optional().nullable(),

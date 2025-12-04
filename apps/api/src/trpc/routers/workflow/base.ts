@@ -6,6 +6,7 @@ import {
   getBrandsByUserId,
   getBrandTheme,
   getOwnerCountsByBrandIds,
+  isSlugTaken,
   setActiveBrand,
   updateBrand as updateBrandRecord,
 } from "@v1/db/queries";
@@ -85,6 +86,7 @@ export const workflowListProcedure = protectedProcedure.query(
       return {
         id: membership.id,
         name: membership.name,
+        slug: membership.slug ?? null,
         email: membership.email ?? null,
         country_code: membership.country_code ?? null,
         avatar_hue: membership.avatar_hue ?? null,
@@ -100,8 +102,18 @@ export const workflowCreateProcedure = protectedProcedure
   .input(workflowCreateSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, user } = ctx;
+
+    // Validate slug uniqueness if provided
+    if (input.slug) {
+      const taken = await isSlugTaken(db, input.slug);
+      if (taken) {
+        throw badRequest("This slug is already taken");
+      }
+    }
+
     const payload = {
       name: input.name,
+      slug: input.slug ?? null,
       email: input.email ?? user.email ?? null,
       country_code: input.country_code ?? null,
       logo_path: extractStoragePath(input.logo_url),
@@ -126,12 +138,23 @@ export const workflowUpdateProcedure = brandRequiredProcedure
       );
     }
 
+    // Validate slug uniqueness if being updated
+    if (input.slug !== undefined && input.slug !== null) {
+      const taken = await isSlugTaken(db, input.slug, input.id);
+      if (taken) {
+        throw badRequest("This slug is already taken");
+      }
+    }
+
     const updatePayload: Parameters<typeof updateBrandRecord>[2] = {
       id: input.id,
     };
 
     if (input.name !== undefined) {
       updatePayload.name = input.name;
+    }
+    if (input.slug !== undefined) {
+      updatePayload.slug = input.slug;
     }
     if (input.email !== undefined) {
       updatePayload.email = input.email;
@@ -147,8 +170,8 @@ export const workflowUpdateProcedure = brandRequiredProcedure
     }
 
     try {
-      await updateBrandRecord(db, user.id, updatePayload);
-      return createSuccessResponse();
+      const result = await updateBrandRecord(db, user.id, updatePayload);
+      return { success: true, slug: result.slug ?? null };
     } catch (error) {
       throw wrapError(error, "Failed to update workflow");
     }

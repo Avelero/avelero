@@ -5,8 +5,8 @@
  * They are designed to be called server-side with serviceDb (bypasses RLS).
  *
  * URL Structure:
- * - Product-level: /:brandId/:productUpid
- * - Variant-level: /:brandId/:productUpid/:variantUpid
+ * - Product-level: /:brandSlug/:productUpid
+ * - Variant-level: /:brandSlug/:productUpid/:variantUpid
  */
 
 import { and, asc, eq, inArray } from "drizzle-orm";
@@ -164,6 +164,7 @@ interface CoreDataResult {
   sizeName: string | null;
   brandId: string;
   brandName: string;
+  brandSlug: string | null;
   categoryId: string | null;
   categoryName: string | null;
   manufacturerName: string | null;
@@ -188,10 +189,11 @@ interface ProductAttributes {
 /**
  * Stage 1: Fetch core product/variant data with essential JOINs.
  * Includes published status check.
+ * Looks up brand by slug instead of UUID.
  */
 async function fetchCoreData(
   db: Database,
-  brandId: string,
+  brandSlug: string,
   productUpid: string,
   variantUpid?: string,
 ): Promise<CoreDataResult | null> {
@@ -215,6 +217,7 @@ async function fetchCoreData(
         // Brand
         brandId: brands.id,
         brandName: brands.name,
+        brandSlug: brands.slug,
         // Category
         categoryId: products.categoryId,
         categoryName: categories.name,
@@ -237,7 +240,7 @@ async function fetchCoreData(
       .leftJoin(showcaseBrands, eq(showcaseBrands.id, products.showcaseBrandId))
       .where(
         and(
-          eq(products.brandId, brandId),
+          eq(brands.slug, brandSlug),
           eq(products.upid, productUpid),
           eq(productVariants.upid, variantUpid),
           eq(products.status, "published"),
@@ -260,6 +263,7 @@ async function fetchCoreData(
       productStatus: products.status,
       brandId: brands.id,
       brandName: brands.name,
+      brandSlug: brands.slug,
       categoryId: products.categoryId,
       categoryName: categories.name,
       manufacturerName: showcaseBrands.name,
@@ -276,7 +280,7 @@ async function fetchCoreData(
     .leftJoin(showcaseBrands, eq(showcaseBrands.id, products.showcaseBrandId))
     .where(
       and(
-        eq(products.brandId, brandId),
+        eq(brands.slug, brandSlug),
         eq(products.upid, productUpid),
         eq(products.status, "published"),
       ),
@@ -481,17 +485,17 @@ async function buildCategoryPath(
  * Fetch complete DPP data for a product-level passport.
  *
  * @param db - Database instance (use serviceDb for bypassing RLS)
- * @param brandId - Brand UUID
+ * @param brandSlug - Brand slug (URL-friendly identifier)
  * @param productUpid - Product UPID (16-char alphanumeric)
  * @returns DppPublicData or null if not found/not published
  */
 export async function getDppByProductUpid(
   db: Database,
-  brandId: string,
+  brandSlug: string,
   productUpid: string,
 ): Promise<DppPublicData | null> {
   // Stage 1: Core data
-  const core = await fetchCoreData(db, brandId, productUpid);
+  const core = await fetchCoreData(db, brandSlug, productUpid);
   if (!core) return null;
 
   // Stage 2: Attributes
@@ -535,19 +539,19 @@ export async function getDppByProductUpid(
  * Fetch complete DPP data for a variant-level passport.
  *
  * @param db - Database instance (use serviceDb for bypassing RLS)
- * @param brandId - Brand UUID
+ * @param brandSlug - Brand slug (URL-friendly identifier)
  * @param productUpid - Product UPID (16-char alphanumeric)
  * @param variantUpid - Variant UPID (16-char alphanumeric)
  * @returns DppPublicData or null if not found/not published
  */
 export async function getDppByVariantUpid(
   db: Database,
-  brandId: string,
+  brandSlug: string,
   productUpid: string,
   variantUpid: string,
 ): Promise<DppPublicData | null> {
   // Stage 1: Core data (includes variant info)
-  const core = await fetchCoreData(db, brandId, productUpid, variantUpid);
+  const core = await fetchCoreData(db, brandSlug, productUpid, variantUpid);
   if (!core) return null;
 
   // Stage 2: Attributes (same as product-level)

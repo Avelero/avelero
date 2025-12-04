@@ -41,6 +41,7 @@ export function PassportDataTable({
   onPrefetchLast,
   hasActiveFilters,
   onClearFilters,
+  brandSlug,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
@@ -68,6 +69,7 @@ export function PassportDataTable({
   onPrefetchLast?: () => void;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
+  brandSlug?: string | null;
 }) {
   const pageSize = 50;
   const page =
@@ -263,6 +265,7 @@ export function PassportDataTable({
     },
     meta: {
       handleRangeSelection,
+      brandSlug,
     },
   });
 

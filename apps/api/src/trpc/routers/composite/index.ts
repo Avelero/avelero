@@ -199,6 +199,7 @@ async function mapWorkflowBrands(
     return {
       id: membership.id,
       name: membership.name,
+      slug: membership.slug ?? null,
       email: membership.email ?? null,
       country_code: membership.country_code ?? null,
       avatar_hue: membership.avatar_hue ?? null,

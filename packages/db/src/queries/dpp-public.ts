@@ -10,6 +10,7 @@
  */
 
 import { and, asc, eq, inArray } from "drizzle-orm";
+import { countries, type CountryCode } from "@v1/selections";
 import type { Database } from "../client";
 import {
   products,
@@ -438,44 +439,6 @@ async function fetchProductAttributes(
   };
 }
 
-/**
- * Build hierarchical category path from leaf to root.
- * Returns array like ['Clothing', 'Outerwear', 'Jackets'] for leaf 'Jackets'.
- */
-async function buildCategoryPath(
-  db: Database,
-  categoryId: string | null,
-): Promise<string[] | null> {
-  if (!categoryId) return null;
-
-  // Load all categories (typically small table, efficient to cache in memory)
-  const allCategories = await db
-    .select({
-      id: categories.id,
-      name: categories.name,
-      parentId: categories.parentId,
-    })
-    .from(categories);
-
-  // Build in-memory lookup map
-  const categoryMap = new Map(
-    allCategories.map((c) => [c.id, { name: c.name, parentId: c.parentId }]),
-  );
-
-  // Traverse from leaf to root
-  const path: string[] = [];
-  let currentId: string | null = categoryId;
-
-  while (currentId) {
-    const category = categoryMap.get(currentId);
-    if (!category) break;
-
-    path.unshift(category.name); // Add to front
-    currentId = category.parentId;
-  }
-
-  return path.length > 0 ? path : null;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public Query Functions
@@ -501,9 +464,6 @@ export async function getDppByProductUpid(
   // Stage 2: Attributes
   const attributes = await fetchProductAttributes(db, core.productId);
 
-  // Stage 3: Category path
-  const categoryPath = await buildCategoryPath(db, core.categoryId);
-
   return {
     sourceType: "product",
     productId: core.productId,
@@ -521,7 +481,7 @@ export async function getDppByProductUpid(
     brandName: core.brandName,
     categoryId: core.categoryId,
     categoryName: core.categoryName,
-    categoryPath,
+    categoryPath: null, // Deprecated - use categoryName directly
     manufacturerName: core.manufacturerName,
     manufacturerCountryCode: core.manufacturerCountryCode,
     materials: attributes.materials,
@@ -557,9 +517,6 @@ export async function getDppByVariantUpid(
   // Stage 2: Attributes (same as product-level)
   const attributes = await fetchProductAttributes(db, core.productId);
 
-  // Stage 3: Category path
-  const categoryPath = await buildCategoryPath(db, core.categoryId);
-
   return {
     sourceType: "variant",
     productId: core.productId,
@@ -577,7 +534,7 @@ export async function getDppByVariantUpid(
     brandName: core.brandName,
     categoryId: core.categoryId,
     categoryName: core.categoryName,
-    categoryPath,
+    categoryPath: null, // Deprecated - use categoryName directly
     manufacturerName: core.manufacturerName,
     manufacturerCountryCode: core.manufacturerCountryCode,
     materials: attributes.materials,
@@ -594,6 +551,27 @@ export async function getDppByVariantUpid(
 // ─────────────────────────────────────────────────────────────────────────────
 // Transform Utilities
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Convert a country code to its full name.
+ * Returns the code if no match is found.
+ */
+function getCountryName(code: string | null): string {
+  if (!code) return "";
+  const upperCode = code.toUpperCase() as CountryCode;
+  return countries[upperCode]?.name ?? code;
+}
+
+/**
+ * Format a numeric string by removing trailing zeros.
+ * Example: "88.4500" → "88.45", "100.0000" → "100"
+ */
+function formatNumber(value: string): string {
+  const num = Number.parseFloat(value);
+  if (Number.isNaN(num)) return value;
+  // Use toLocaleString for nice formatting, or just remove trailing zeros
+  return num.toString();
+}
 
 /**
  * Impact metric for DppData format
@@ -674,16 +652,16 @@ function buildImpactMetrics(env: DppEnvironment | null): ImpactMetric[] {
   if (env?.carbonKgCo2e) {
     metrics.push({
       type: "Carbon Footprint",
-      value: env.carbonKgCo2e,
+      value: formatNumber(env.carbonKgCo2e),
       unit: "kg CO₂e",
-      icon: "factory",
+      icon: "leaf", // Use leaf for carbon/environmental metrics
     });
   }
 
   if (env?.waterLiters) {
     metrics.push({
       type: "Water Usage",
-      value: env.waterLiters,
+      value: formatNumber(env.waterLiters),
       unit: "liters",
       icon: "drop",
     });
@@ -709,15 +687,14 @@ export function transformToDppData(data: DppPublicData): DppData {
     description: data.productDescription ?? "",
     size: data.sizeName ?? "",
     color: data.colorName ?? "",
-    category:
-      data.categoryPath?.join(" > ") ?? data.categoryName ?? "",
+    category: data.categoryName ?? "", // Just use the assigned category name
     articleNumber: data.productIdentifier,
     manufacturer: data.manufacturerName ?? "",
-    countryOfOrigin: data.manufacturerCountryCode ?? "",
+    countryOfOrigin: getCountryName(data.manufacturerCountryCode), // Full country name
     materials: data.materials.map((m) => ({
       percentage: m.percentage,
       type: m.materialName,
-      origin: m.countryOfOrigin ?? "",
+      origin: getCountryName(m.countryOfOrigin), // Full country name
       certification: m.certificationTitle ?? undefined,
       certificationUrl: m.certificationUrl ?? undefined,
     })),
@@ -725,7 +702,7 @@ export function transformToDppData(data: DppPublicData): DppData {
       name: formatStepType(step.stepType),
       companies: step.facilities.map((f) => ({
         name: f.displayName,
-        location: [f.city, f.countryCode].filter(Boolean).join(", "),
+        location: [f.city, getCountryName(f.countryCode)].filter(Boolean).join(", "), // Full country name
       })),
     })),
     impactMetrics: buildImpactMetrics(data.environment),

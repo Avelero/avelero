@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@v1/dpp-components": "workspace:*",
+    "@v1/selections": "workspace:*",
     "drizzle-orm": "^0.44.7",
     "nanoid": "^5.1.6",
     "postgres": "^3.4.7"

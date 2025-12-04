@@ -17,6 +17,7 @@ import { productsRouter } from "./products/index.js";
 import { summaryRouter } from "./summary/index.js";
 import { userRouter } from "./user/index.js";
 import { workflowRouter } from "./workflow/index.js";
+import { dppPublicRouter } from "./dpp-public/index.js";
 
 /**
  * Main tRPC router containing every API module exposed to clients.
@@ -31,6 +32,7 @@ import { workflowRouter } from "./workflow/index.js";
  * - composite: Performance-optimized composite endpoints
  * - summary: Aggregated stats endpoints
  * - internal: Internal server-to-server endpoints (protected by API key)
+ * - dppPublic: Public DPP (Digital Product Passport) endpoints (no auth required)
  */
 export const appRouter = createTRPCRouter({
   user: userRouter,
@@ -42,6 +44,7 @@ export const appRouter = createTRPCRouter({
   composite: compositeRouter,
   summary: summaryRouter,
   internal: internalRouter,
+  dppPublic: dppPublicRouter,
 });
 
 /** Convenience alias for the root router's runtime shape. */

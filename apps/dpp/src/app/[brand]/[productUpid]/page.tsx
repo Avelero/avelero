@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { demoThemeConfig } from "@/demo-data/config";
 import { validateProductParams } from "@/lib/validation";
+import { fetchProductDpp } from "@/lib/api";
 import {
   ThemeInjector,
   Header,
@@ -11,13 +12,6 @@ import {
   type ThemeConfig,
   type ThemeStyles,
 } from "@v1/dpp-components";
-import { serviceDb } from "@v1/db/client";
-import {
-  getDppByProductUpid,
-  transformToDppData,
-} from "@v1/db/queries";
-import { getPublicUrl } from "@v1/supabase/utils/storage-urls";
-import { createClient } from "@v1/supabase/server";
 
 interface PageProps {
   params: Promise<{
@@ -40,7 +34,7 @@ export async function generateMetadata({
     };
   }
 
-  const data = await getDppByProductUpid(serviceDb, brand, productUpid);
+  const data = await fetchProductDpp(brand, productUpid);
 
   if (!data) {
     return {
@@ -51,9 +45,9 @@ export async function generateMetadata({
   }
 
   return {
-    title: `${data.brandName} | ${data.productName}`,
+    title: `${data.dppData.brandName} | ${data.dppData.title}`,
     description:
-      data.productDescription ??
+      data.dppData.description ||
       "View product sustainability information and supply chain data",
   };
 }
@@ -66,15 +60,15 @@ export default async function ProductDPPPage({ params }: PageProps) {
     notFound();
   }
 
-  // Fetch all DPP data in optimized queries
-  const data = await getDppByProductUpid(serviceDb, brand, productUpid);
+  // Fetch DPP data from API (all data resolution happens server-side)
+  const data = await fetchProductDpp(brand, productUpid);
 
   if (!data) {
     notFound();
   }
 
-  // Transform to component format
-  const productData = transformToDppData(data);
+  // Extract data from API response
+  const productData = data.dppData;
 
   // Extract theme configuration
   const themeConfig: ThemeConfig =
@@ -88,13 +82,8 @@ export default async function ProductDPPPage({ params }: PageProps) {
   // Generate @font-face CSS from custom fonts when present
   const fontFaceCSS = generateFontFaceCSS(themeStyles?.customFonts);
 
-  // Resolve Supabase public stylesheet URL if provided
-  let publicStylesheetUrl: string | undefined;
-  if (data.stylesheetPath) {
-    const supabase = await createClient();
-    publicStylesheetUrl =
-      getPublicUrl(supabase, "dpp-themes", data.stylesheetPath) ?? undefined;
-  }
+  // Stylesheet URL is already resolved by the API
+  const stylesheetUrl = data.stylesheetUrl ?? undefined;
 
   return (
     <>
@@ -105,11 +94,9 @@ export default async function ProductDPPPage({ params }: PageProps) {
       />
 
       {/* Supabase-hosted stylesheet overrides (if available) */}
-      {publicStylesheetUrl && (
-        <link rel="stylesheet" href={publicStylesheetUrl} />
-      )}
+      {stylesheetUrl && <link rel="stylesheet" href={stylesheetUrl} />}
 
-      <div className="dpp-root min-h-screen flex flex-col">
+      <div className="dpp-root min-h-screen flex flex-col @container">
         {/* Header with spacer for fixed positioning */}
         <div style={{ height: "var(--header-height)" }} />
         <Header themeConfig={themeConfig} brandName={productData.brandName} />

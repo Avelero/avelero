@@ -72,14 +72,14 @@ function SetSlug() {
           initialSlugRef.current = trimmed;
           setSlug(trimmed);
           setError("");
-          toast.success("Passport URL slug updated successfully");
+          toast.success("Changes saved successfully");
         },
         onError: (err) => {
           const message = err?.message ?? "";
           if (message.includes("slug is already taken")) {
             setError("This slug is already taken by another brand");
           } else {
-            toast.error("Action failed, please try again");
+            toast.error("Failed to save");
           }
         },
       },
@@ -90,24 +90,15 @@ function SetSlug() {
     <div className="relative">
       <div className="flex flex-row p-6 border justify-between items-center">
         <div className="flex flex-col gap-2">
-          <h6 className="text-foreground">Passport URL</h6>
-          <p className="text-secondary">
-            Your public passport URL slug. Used in URLs like{" "}
-            <span className="font-mono text-xs">
-              passport.avelero.com/<strong>{trimmed || "your-brand"}</strong>
-              /...
-            </span>
-          </p>
+          <h6 className="text-foreground">Slug</h6>
+          <p className="text-secondary">Enter your product passport URL slug on the right.</p>
         </div>
-        <div className="flex flex-col gap-1">
-          <Input
-            placeholder="your-brand-slug"
-            value={slug}
-            onChange={(e) => handleSlugChange(e.target.value)}
-            className="max-w-[250px]"
-          />
-          {error && <p className="text-xs text-destructive">{error}</p>}
-        </div>
+        <Input
+          placeholder="your-brand-slug"
+          value={slug}
+          onChange={(e) => handleSlugChange(e.target.value)}
+          className="max-w-[250px]"
+        />
       </div>
       <div className="flex flex-row justify-end border-x border-b p-6">
         <Button
@@ -123,4 +114,3 @@ function SetSlug() {
 }
 
 export { SetSlug };
-

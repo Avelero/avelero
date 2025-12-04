@@ -19,7 +19,8 @@ import {
   upsertProductEnvironment,
   upsertProductMaterials,
 } from "@v1/db/queries";
-import { productVariants } from "@v1/db/schema";
+import { brands, productVariants } from "@v1/db/schema";
+import { revalidateBrand } from "../lib/dpp-revalidation";
 import { ProgressEmitter } from "./progress-emitter";
 
 /**
@@ -352,6 +353,28 @@ export const commitToProduction = task({
       //   percentage: 100,
       //   message: "Import completed successfully",
       // });
+
+      // Revalidate DPP cache for the brand (fire-and-forget)
+      // This ensures all DPP pages reflect the imported data
+      try {
+        const [brand] = await db
+          .select({ slug: brands.slug })
+          .from(brands)
+          .where(eq(brands.id, brandId))
+          .limit(1);
+        if (brand?.slug) {
+          await revalidateBrand(brand.slug);
+          logger.info("DPP cache revalidated", { brandSlug: brand.slug });
+        }
+      } catch (revalidateError) {
+        // Don't fail the job if revalidation fails
+        logger.warn("DPP cache revalidation failed (non-fatal)", {
+          error:
+            revalidateError instanceof Error
+              ? revalidateError.message
+              : String(revalidateError),
+        });
+      }
 
       logger.info("Production commit completed successfully", {
         jobId,

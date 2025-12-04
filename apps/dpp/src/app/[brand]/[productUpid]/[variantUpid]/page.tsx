@@ -4,7 +4,6 @@ import { demoThemeConfig } from "@/demo-data/config";
 import { validateVariantParams } from "@/lib/validation";
 import { fetchVariantDpp } from "@/lib/api";
 import {
-  ThemeInjector,
   Header,
   ContentFrame,
   Footer,
@@ -96,11 +95,18 @@ export default async function VariantDPPPage({ params }: PageProps) {
 
   return (
     <>
-      {/* Theme injection - Google Fonts and custom @font-face rules */}
-      <ThemeInjector
-        googleFontsUrl={googleFontsUrl}
-        fontFaceCSS={fontFaceCSS}
+      {/* Server-side font preloading - eliminates FOUT (Flash of Unstyled Text) */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossOrigin="anonymous"
       />
+      {googleFontsUrl && <link rel="stylesheet" href={googleFontsUrl} />}
+
+      {/* Custom @font-face CSS for CDN-hosted fonts */}
+      {/* biome-ignore lint/security/noDangerouslySetInnerHtml: CSS is generated server-side from trusted theme configuration */}
+      {fontFaceCSS && <style dangerouslySetInnerHTML={{ __html: fontFaceCSS }} />}
 
       {/* Supabase-hosted stylesheet overrides (if available) */}
       {stylesheetUrl && <link rel="stylesheet" href={stylesheetUrl} />}

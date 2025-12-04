@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default async function ThemeEditorPage() {
   await connection();
 
-  prefetch(trpc.workflow.getTheme.queryOptions());
+  prefetch(trpc.workflow.theme.get.queryOptions());
 
   return (
     <HydrateClient>

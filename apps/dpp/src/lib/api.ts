@@ -55,13 +55,19 @@ interface TrpcBatchResponse {
 /**
  * Make a tRPC query request using the HTTP batch link protocol.
  *
+ * Uses Next.js cache tags for on-demand revalidation instead of no-store,
+ * enabling request deduplication during SSR while maintaining fresh data
+ * when products are updated.
+ *
  * @param path - The procedure path (e.g., "dppPublic.getByProductUpid")
  * @param input - The input object for the procedure
+ * @param tags - Cache tags for on-demand revalidation
  * @returns The parsed response data or null
  */
 async function trpcQuery<T>(
   path: string,
   input: Record<string, unknown>,
+  tags: string[] = [],
 ): Promise<T | null> {
   // Serialize input with superjson
   const serialized = superjson.serialize(input);
@@ -80,8 +86,10 @@ async function trpcQuery<T>(
       headers: {
         "Content-Type": "application/json",
       },
-      // Use no-store to ensure fresh data for each request
-      cache: "no-store",
+      // Use cache tags for on-demand revalidation
+      // This enables request deduplication during SSR while allowing
+      // cache invalidation when data changes via revalidateTag()
+      next: { tags },
     });
 
     if (!response.ok) {
@@ -115,6 +123,10 @@ async function trpcQuery<T>(
 /**
  * Fetch DPP data for a product-level passport.
  *
+ * Cache tags used for on-demand revalidation:
+ * - `dpp-product-{productUpid}` - Invalidated when product is updated
+ * - `dpp-brand-{brandSlug}` - Invalidated when brand theme/config changes
+ *
  * @param brandSlug - URL-friendly brand identifier
  * @param productUpid - 16-character product UPID
  * @returns DppApiResponse or null if not found/not published
@@ -123,14 +135,20 @@ export async function fetchProductDpp(
   brandSlug: string,
   productUpid: string,
 ): Promise<DppApiResponse | null> {
-  return trpcQuery<DppApiResponse>("dppPublic.getByProductUpid", {
-    brandSlug,
-    productUpid,
-  });
+  return trpcQuery<DppApiResponse>(
+    "dppPublic.getByProductUpid",
+    { brandSlug, productUpid },
+    [`dpp-product-${productUpid}`, `dpp-brand-${brandSlug}`],
+  );
 }
 
 /**
  * Fetch DPP data for a variant-level passport.
+ *
+ * Cache tags used for on-demand revalidation:
+ * - `dpp-variant-{variantUpid}` - Invalidated when variant is updated
+ * - `dpp-product-{productUpid}` - Invalidated when parent product is updated
+ * - `dpp-brand-{brandSlug}` - Invalidated when brand theme/config changes
  *
  * @param brandSlug - URL-friendly brand identifier
  * @param productUpid - 16-character product UPID
@@ -142,10 +160,14 @@ export async function fetchVariantDpp(
   productUpid: string,
   variantUpid: string,
 ): Promise<DppApiResponse | null> {
-  return trpcQuery<DppApiResponse>("dppPublic.getByVariantUpid", {
-    brandSlug,
-    productUpid,
-    variantUpid,
-  });
+  return trpcQuery<DppApiResponse>(
+    "dppPublic.getByVariantUpid",
+    { brandSlug, productUpid, variantUpid },
+    [
+      `dpp-variant-${variantUpid}`,
+      `dpp-product-${productUpid}`,
+      `dpp-brand-${brandSlug}`,
+    ],
+  );
 }
 

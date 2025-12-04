@@ -1,15 +1,14 @@
 import {
-  and,
   createBrand as createBrandRecord,
   deleteBrand as deleteBrandRecord,
   eq,
   getBrandsByUserId,
-  getBrandTheme,
   getOwnerCountsByBrandIds,
   isSlugTaken,
   setActiveBrand,
   updateBrand as updateBrandRecord,
 } from "@v1/db/queries";
+import { brands } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
 /**
  * Workflow brand operations implementation.
@@ -20,6 +19,7 @@ import { getAppUrl } from "@v1/utils/envs";
  * - workflow.delete
  */
 import { ROLES } from "../../../config/roles.js";
+import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import {
   workflowBrandIdSchema,
   workflowCreateSchema,
@@ -146,6 +146,14 @@ export const workflowUpdateProcedure = brandRequiredProcedure
       }
     }
 
+    // Get old slug before update for DPP cache revalidation
+    const [oldBrand] = await db
+      .select({ slug: brands.slug })
+      .from(brands)
+      .where(eq(brands.id, input.id))
+      .limit(1);
+    const oldSlug = oldBrand?.slug;
+
     const updatePayload: Parameters<typeof updateBrandRecord>[2] = {
       id: input.id,
     };
@@ -171,6 +179,16 @@ export const workflowUpdateProcedure = brandRequiredProcedure
 
     try {
       const result = await updateBrandRecord(db, user.id, updatePayload);
+
+      // Revalidate DPP cache when slug changes (fire-and-forget)
+      // Both old and new slugs need to be revalidated
+      if (input.slug !== undefined && oldSlug && oldSlug !== input.slug) {
+        revalidateBrand(oldSlug).catch(() => {});
+      }
+      if (result.slug) {
+        revalidateBrand(result.slug).catch(() => {});
+      }
+
       return { success: true, slug: result.slug ?? null };
     } catch (error) {
       throw wrapError(error, "Failed to update workflow");
@@ -218,40 +236,12 @@ export const workflowDeleteProcedure = protectedProcedure
     }
   });
 
-/**
- * Fetches the theme configuration for the active brand.
- * Returns theme styles and config for the theme editor.
- */
-export const workflowGetThemeProcedure = brandRequiredProcedure.query(
-  async ({ ctx }) => {
-    const { db, brandId } = ctx;
-    try {
-      const theme = await getBrandTheme(db, brandId);
-      if (!theme) {
-        return {
-          themeStyles: {},
-          themeConfig: {},
-          updatedAt: null,
-        };
-      }
-      return {
-        themeStyles: theme.themeStyles,
-        themeConfig: theme.themeConfig,
-        updatedAt: theme.updatedAt,
-      };
-    } catch (error) {
-      throw wrapError(error, "Failed to fetch theme");
-    }
-  },
-);
-
 export const workflowBaseRouter = createTRPCRouter({
   list: workflowListProcedure,
   create: workflowCreateProcedure,
   update: workflowUpdateProcedure,
   setActive: workflowSetActiveProcedure,
   delete: workflowDeleteProcedure,
-  getTheme: workflowGetThemeProcedure,
 });
 
 export type WorkflowBaseRouter = typeof workflowBaseRouter;

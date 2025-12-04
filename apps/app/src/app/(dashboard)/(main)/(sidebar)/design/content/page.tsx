@@ -8,7 +8,7 @@ export default async function DesignContentPage() {
   await connection();
 
   batchPrefetch([
-    trpc.workflow.getTheme.queryOptions(),
+    trpc.workflow.theme.get.queryOptions(),
     trpc.workflow.list.queryOptions(),
     trpc.user.invites.list.queryOptions(),
   ]);

@@ -8,7 +8,7 @@ on:
     paths:
       - apps/web/**
       - packages/**
-  
+
   # Deploy preview only on PR to main
   pull_request:
     types: [opened, reopened, synchronize, closed]
@@ -63,23 +63,23 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
-      
+
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-      
+
       - name: 🏗 Build Project Artifacts
         run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
-      
+
       - name: 📤 Pull Environment Variables
         run: bunx vercel env pull .env --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-      
+
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
           DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
-      
-      - name: Comment Preview URL
+
+      - name: 💬 Comment Preview URL
         uses: actions/github-script@v6
         with:
           script: |
@@ -93,5 +93,3 @@ jobs:
               
               Preview environment will auto-delete when PR closes.`
             })
-
-

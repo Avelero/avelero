@@ -1,4 +1,4 @@
-name: Preview DPP Deploy
+name: Preview Jobs Deploy
 on:
   # Run tests on every push to feature branches
   push:
@@ -6,8 +6,11 @@ on:
       - 'feature/**'
       - 'feat/**'
     paths:
-      - apps/dpp/**
-      - packages/**
+      - packages/jobs/**
+      - packages/db/**
+      - packages/supabase/**
+      - packages/email/**
+      - packages/utils/**
 
   # Deploy preview only on PR to main
   pull_request:
@@ -15,18 +18,15 @@ on:
     branches:
       - main
     paths:
-      - apps/dpp/**
-      - packages/**
+      - packages/jobs/**
+      - packages/db/**
+      - packages/supabase/**
+      - packages/email/**
+      - packages/utils/**
 
 permissions:
   contents: read
   pull-requests: write
-
-env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DPP }}
-  TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
 
 jobs:
   # Always run tests (on push and PR)
@@ -42,10 +42,10 @@ jobs:
         run: bun install
       - name: 🔦 Run linter
         run: bun run lint
-        working-directory: ./apps/dpp
+        working-directory: ./packages/jobs
       - name: 🪐 Check TypeScript
         run: bun run typecheck
-        working-directory: ./apps/dpp
+        working-directory: ./packages/jobs
 
   # Only deploy on PR (not on push)
   preview:
@@ -54,7 +54,7 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
-      group: pr-${{ github.event.number }}-dpp
+      group: pr-${{ github.event.number }}-jobs
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -94,22 +94,17 @@ jobs:
           echo "❌ API did not become ready after $((MAX_RETRIES * RETRY_DELAY_SECONDS)) seconds"
           exit 1
 
-      - name: 📤 Pull Vercel Environment Information
-        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: 🏗 Build Project Artifacts
-        run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🚀 Deploy to Trigger.dev Preview
+        run: bunx trigger.dev@4.0.6 deploy --env preview
+        working-directory: ./packages/jobs
         env:
-          NEXT_PUBLIC_API_URL: ${{ steps.api-url.outputs.url }}
-
-      - name: 📤 Pull Environment Variables
-        run: bunx vercel env pull .env --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: 🚀 Deploy to Vercel
-        id: deploy
-        run: |
-          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+          API_URL: ${{ steps.api-url.outputs.url }}
+          INTERNAL_API_KEY: ${{ secrets.PREVIEW_INTERNAL_API_KEY }}
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
 
       - name: 💬 Comment Preview URL
         uses: actions/github-script@v6
@@ -119,10 +114,12 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🚀 DPP Preview Deployment Ready!
+              body: `## 🚀 Jobs Preview Deployment Ready!
               
-              **Digital Product Passport:** ${{ steps.deploy.outputs.url }}
+              **Environment:** Preview
               **API:** ${{ steps.api-url.outputs.url }}
+              **Trigger.dev:** https://cloud.trigger.dev/projects/v3/proj_mqxiyipljbptdmfeivig/runs?environment=preview
               
               Preview environment will auto-delete when PR closes.`
             })
+

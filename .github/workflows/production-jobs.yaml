@@ -1,8 +1,4 @@
 name: Production Jobs Deploy
-
-permissions:
-  contents: read
-
 on:
   push:
     branches:
@@ -13,68 +9,36 @@ on:
       - packages/supabase/**
       - packages/email/**
       - packages/utils/**
-      - .github/workflows/production-jobs.yaml
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
-    name: 🚀 Deploy Trigger.dev Jobs to Production
+    name: 🚀 Deploy to Production
     runs-on: ubuntu-latest
-    concurrency: trigger-production
-    # Only run on main branch - double protection
-    if: github.ref == 'refs/heads/main'
-
+    concurrency: production-jobs
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-      
-      - name: 🔒 Verify main branch deployment
-        run: |
-          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
-            echo "❌ ERROR: Production deployment attempted from non-main branch!"
-            echo "Current ref: ${{ github.ref }}"
-            echo "Production deployments are ONLY allowed from the main branch."
-            exit 1
-          fi
-          echo "✅ Verified: Deploying from main branch"
-
-      - name: 🥟 Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
-
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: bun install
-
       - name: 🔦 Run linter
         run: bun run lint
         working-directory: ./packages/jobs
-
       - name: 🪐 Check TypeScript
         run: bun run typecheck
         working-directory: ./packages/jobs
-
       - name: 🚀 Deploy to Trigger.dev Production
         run: bunx trigger.dev@4.0.6 deploy --env prod
         working-directory: ./packages/jobs
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
-          # Production environment variables - synced via syncEnvVars extension
-          API_URL: ${{ secrets.API_URL }}
+          API_URL: https://api.avelero.com
           INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
-          # Database and service credentials
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-      
-      - name: 📝 Log production deployment
-        run: |
-          echo "✅ Successfully deployed to PRODUCTION environment"
-          echo ""
-          echo "⚠️  PRODUCTION DEPLOYMENT"
-          echo "  Environment: prod"
-          echo "  Branch: main"
-          echo "  API URL: ${{ secrets.API_URL }}"
-          echo ""
-          echo "🔗 View in Trigger.dev:"
-          echo "  https://cloud.trigger.dev/projects/v3/proj_mqxiyipljbptdmfeivig/runs?environment=prod"

@@ -1,9 +1,4 @@
-name: Production Deployment - App
-env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_APP }}
-  TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+name: Production App Deploy
 on:
   push:
     branches:
@@ -11,9 +6,21 @@ on:
     paths:
       - apps/app/**
       - packages/**
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_APP }}
+  TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+
 jobs:
-  deploy-production:
+  deploy:
+    name: 🚀 Deploy to Production
     runs-on: ubuntu-latest
+    concurrency: production-app
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -27,23 +34,12 @@ jobs:
       - name: 🪐 Check TypeScript
         run: NODE_OPTIONS="--max-old-space-size=8192" bun run typecheck
         working-directory: ./apps/app
-      # - name: 🧪 Run unit tests
-      #   run: bun run test
-      #   working-directory: ./apps/app
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       - name: 🏗 Build Project Artifacts
         run: bunx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
       - name: 📤 Pull Environment Variables to .env
         run: bunx vercel env pull .env --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-      - name: 🔄 Deploy Background Jobs
-        env:
-          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
-          API_URL: https://api.avelero.com
-          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
-        run: |
-          bunx trigger.dev@4.0.6 deploy
-        working-directory: packages/jobs
       - name: 🚀 Deploy to Vercel
         run: |
           bunx vercel deploy --prebuilt --prod --archive=tgz --token=${{ secrets.VERCEL_TOKEN }} > domain.txt

@@ -60,13 +60,18 @@ const updateConfigProcedure = brandRequiredProcedure
       const result = await updateBrandThemeConfig(db, brandId, input.config);
 
       // Revalidate all DPP pages for this brand (fire-and-forget)
-      const [brand] = await db
-        .select({ slug: brands.slug })
-        .from(brands)
-        .where(eq(brands.id, brandId))
-        .limit(1);
-      if (brand?.slug) {
-        revalidateBrand(brand.slug).catch(() => {});
+      // Wrapped in try-catch so revalidation failures don't affect the response
+      try {
+        const [brand] = await db
+          .select({ slug: brands.slug })
+          .from(brands)
+          .where(eq(brands.id, brandId))
+          .limit(1);
+        if (brand?.slug) {
+          revalidateBrand(brand.slug).catch(() => {});
+        }
+      } catch {
+        // Silently ignore revalidation errors - the config update already succeeded
       }
 
       return result;

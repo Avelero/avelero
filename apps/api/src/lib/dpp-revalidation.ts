@@ -11,6 +11,8 @@
 
 const DPP_URL = process.env.DPP_URL || process.env.NEXT_PUBLIC_DPP_URL;
 const REVALIDATION_SECRET = process.env.DPP_REVALIDATION_SECRET;
+const DEFAULT_TIMEOUT_MS =
+  Number.parseInt(process.env.DPP_REVALIDATION_TIMEOUT_MS || "5000", 10) || 5000;
 
 /**
  * Revalidate DPP cache for specific tags.
@@ -19,8 +21,12 @@ const REVALIDATION_SECRET = process.env.DPP_REVALIDATION_SECRET;
  * as cache invalidation failure shouldn't break the main operation.
  *
  * @param tags - Array of cache tags to invalidate
+ * @param timeoutMs - Request timeout in milliseconds (default: 5000ms)
  */
-export async function revalidateDppCache(tags: string[]): Promise<void> {
+export async function revalidateDppCache(
+  tags: string[],
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+): Promise<void> {
   if (!DPP_URL) {
     console.warn(
       "[DPP Revalidation] DPP_URL not configured, skipping revalidation",
@@ -39,6 +45,11 @@ export async function revalidateDppCache(tags: string[]): Promise<void> {
     return;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
   try {
     const response = await fetch(`${DPP_URL}/api/revalidate`, {
       method: "POST",
@@ -47,7 +58,10 @@ export async function revalidateDppCache(tags: string[]): Promise<void> {
         "x-revalidation-secret": REVALIDATION_SECRET,
       },
       body: JSON.stringify({ tags }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
@@ -61,7 +75,18 @@ export async function revalidateDppCache(tags: string[]): Promise<void> {
     const result = await response.json();
     console.log("[DPP Revalidation] Cache invalidated:", result);
   } catch (error) {
+    clearTimeout(timeoutId);
+
+    // Handle abort errors specifically - these are expected when timeout occurs
+    if (error instanceof Error && error.name === "AbortError") {
+      console.warn(
+        `[DPP Revalidation] Request timed out after ${timeoutMs}ms`,
+      );
+      return;
+    }
+
     // Don't throw - revalidation failure shouldn't break the main operation
+    // Only log non-abort errors
     console.error("[DPP Revalidation] Failed:", error);
   }
 }

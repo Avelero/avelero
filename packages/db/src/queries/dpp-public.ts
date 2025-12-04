@@ -11,6 +11,7 @@
 
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { countries, type CountryCode } from "@v1/selections";
+import type { ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 import type { Database } from "../client";
 import {
   products,
@@ -141,8 +142,8 @@ export interface DppPublicData {
   // ─────────────────────────────────────────────────────────────
   // Theme Configuration (for rendering)
   // ─────────────────────────────────────────────────────────────
-  themeConfig: unknown | null;
-  themeStyles: unknown | null;
+  themeConfig: ThemeConfig | null;
+  themeStyles: ThemeStyles | null;
   stylesheetPath: string | null;
   googleFontsUrl: string | null;
 }
@@ -488,8 +489,8 @@ export async function getDppByProductUpid(
     journey: attributes.journey,
     environment: attributes.environment,
     ecoClaims: attributes.ecoClaims,
-    themeConfig: core.themeConfig,
-    themeStyles: core.themeStyles,
+    themeConfig: (core.themeConfig as ThemeConfig | null) ?? null,
+    themeStyles: (core.themeStyles as ThemeStyles | null) ?? null,
     stylesheetPath: core.stylesheetPath,
     googleFontsUrl: core.googleFontsUrl,
   };
@@ -541,8 +542,8 @@ export async function getDppByVariantUpid(
     journey: attributes.journey,
     environment: attributes.environment,
     ecoClaims: attributes.ecoClaims,
-    themeConfig: core.themeConfig,
-    themeStyles: core.themeStyles,
+    themeConfig: (core.themeConfig as ThemeConfig | null) ?? null,
+    themeStyles: (core.themeStyles as ThemeStyles | null) ?? null,
     stylesheetPath: core.stylesheetPath,
     googleFontsUrl: core.googleFontsUrl,
   };

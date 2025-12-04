@@ -36,7 +36,7 @@ jobs:
         working-directory: ./packages/jobs
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
-          API_URL: https://api.avelero.com
+          API_URL: ${{ secrets.API_URL }}
           INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

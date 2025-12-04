@@ -6,7 +6,11 @@
  */
 import superjson from "superjson";
 import type { SuperJSONResult } from "superjson";
-import type { DppData } from "@v1/dpp-components";
+import type {
+  DppData,
+  ThemeConfig,
+  ThemeStyles,
+} from "@v1/dpp-components";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Configuration
@@ -33,8 +37,8 @@ if (!API_URL) {
  */
 export interface DppApiResponse {
   dppData: DppData;
-  themeConfig: unknown | null;
-  themeStyles: unknown | null;
+  themeConfig: ThemeConfig | null;
+  themeStyles: ThemeStyles | null;
   stylesheetUrl: string | null;
   googleFontsUrl: string | null;
 }

@@ -36,7 +36,6 @@ function SetSlug() {
 
   const initialSlugRef = useRef<string>("");
   const [slug, setSlug] = useState<string>("");
-  const [error, setError] = useState<string>("");
 
   useEffect(() => {
     const initial = activeBrand?.slug ?? "";
@@ -45,7 +44,7 @@ function SetSlug() {
   }, [activeBrand?.slug]);
 
   const trimmed = slug.trim().toLowerCase();
-  const isDirty = trimmed !== (initialSlugRef.current ?? "").trim();
+  const isDirty = trimmed !== (initialSlugRef.current ?? "").trim().toLowerCase();
   const isEmpty = trimmed.length === 0;
   const isValid = isEmpty || isValidSlug(trimmed);
   const isSaving = updateBrand.status === "pending";
@@ -54,14 +53,13 @@ function SetSlug() {
     // Auto-format: lowercase, replace spaces with dashes
     const formatted = value.toLowerCase().replace(/\s+/g, "-");
     setSlug(formatted);
-    setError("");
   }
 
   function handleSave() {
     if (!isDirty || isSaving || !activeBrand) return;
 
     if (!isEmpty && !isValidSlug(trimmed)) {
-      setError("Slug can only contain lowercase letters, numbers, and dashes");
+      toast.error("Slug can only contain lowercase letters, numbers, and dashes");
       return;
     }
 
@@ -71,15 +69,22 @@ function SetSlug() {
         onSuccess: () => {
           initialSlugRef.current = trimmed;
           setSlug(trimmed);
-          setError("");
           toast.success("Changes saved successfully");
         },
         onError: (err) => {
+          // Check for structured error code first (if available)
+          const errorCode = (err as { code?: string } | null)?.code;
+          if (errorCode === "SLUG_TAKEN") {
+            toast.error("This slug is already taken by another brand");
+            return;
+          }
+          
+          // Fallback to message checking if no code is available
           const message = err?.message ?? "";
-          if (message.includes("slug is already taken")) {
-            setError("This slug is already taken by another brand");
+          if (message.includes("slug is already taken") || message.includes("already taken")) {
+            toast.error("This slug is already taken by another brand");
           } else {
-            toast.error("Failed to save");
+            toast.error(message || "Failed to save");
           }
         },
       },

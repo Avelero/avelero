@@ -12,6 +12,9 @@
 const DPP_URL = process.env.DPP_URL || process.env.NEXT_PUBLIC_DPP_URL;
 const REVALIDATION_SECRET = process.env.DPP_REVALIDATION_SECRET;
 
+// Timeout for revalidation requests (5 seconds)
+const REVALIDATION_TIMEOUT_MS = 5_000;
+
 /**
  * Revalidate DPP cache for specific tags.
  *
@@ -39,6 +42,11 @@ export async function revalidateDppCache(tags: string[]): Promise<void> {
     return;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, REVALIDATION_TIMEOUT_MS);
+
   try {
     const response = await fetch(`${DPP_URL}/api/revalidate`, {
       method: "POST",
@@ -47,7 +55,10 @@ export async function revalidateDppCache(tags: string[]): Promise<void> {
         "x-revalidation-secret": REVALIDATION_SECRET,
       },
       body: JSON.stringify({ tags }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
@@ -61,8 +72,16 @@ export async function revalidateDppCache(tags: string[]): Promise<void> {
     const result = await response.json();
     console.log("[DPP Revalidation] Cache invalidated:", result);
   } catch (error) {
+    clearTimeout(timeoutId);
+
     // Don't throw - revalidation failure shouldn't break the main operation
-    console.error("[DPP Revalidation] Failed:", error);
+    if (error instanceof Error && error.name === "AbortError") {
+      console.error(
+        `[DPP Revalidation] Request timed out after ${REVALIDATION_TIMEOUT_MS}ms`,
+      );
+    } else {
+      console.error("[DPP Revalidation] Failed:", error);
+    }
   }
 }
 

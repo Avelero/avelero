@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Font CSS Variables - Set at root level for global access */
+:root {
+  --font-geist-sans: 'Geist', sans-serif;
+  --font-geist-mono: 'Geist Mono', monospace;
+}
+
 /* Base Styles */
 @layer base {
   .dpp-root {

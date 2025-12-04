@@ -80,9 +80,9 @@ export default async function VariantDPPPage({ params }: PageProps) {
 
   // Extract theme configuration
   const themeConfig: ThemeConfig =
-    (data.themeConfig as unknown as ThemeConfig) ?? demoThemeConfig;
+    data.themeConfig ?? demoThemeConfig;
   const themeStyles: ThemeStyles | undefined =
-    data.themeStyles as unknown as ThemeStyles | undefined;
+    data.themeStyles ?? undefined;
 
   // Google Fonts URL from stored theme
   const googleFontsUrl = data.googleFontsUrl ?? "";
@@ -96,13 +96,17 @@ export default async function VariantDPPPage({ params }: PageProps) {
   return (
     <>
       {/* Server-side font preloading - eliminates FOUT (Flash of Unstyled Text) */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link
-        rel="preconnect"
-        href="https://fonts.gstatic.com"
-        crossOrigin="anonymous"
-      />
-      {googleFontsUrl && <link rel="stylesheet" href={googleFontsUrl} />}
+      {googleFontsUrl && (
+        <>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com"
+            crossOrigin="anonymous"
+          />
+          <link rel="stylesheet" href={googleFontsUrl} />
+        </>
+      )}
 
       {/* Custom @font-face CSS for CDN-hosted fonts */}
       {/* biome-ignore lint/security/noDangerouslySetInnerHtml: CSS is generated server-side from trusted theme configuration */}

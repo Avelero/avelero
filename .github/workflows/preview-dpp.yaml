@@ -81,7 +81,7 @@ jobs:
           RETRY_COUNT=0
 
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl --fail --silent --show-error "${API_URL}/health" > /dev/null 2>&1; then
+            if curl --fail --silent --show-error --connect-timeout 3 --max-time 5 "${API_URL}/health" > /dev/null 2>&1; then
               echo "✅ API is ready!"
               exit 0
             fi

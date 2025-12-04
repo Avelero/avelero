@@ -274,8 +274,18 @@ export async function createBrand(
     avatar_hue?: number | null;
   },
 ) {
-  // Generate unique slug from name if not provided
-  const slug = input.slug || (await generateUniqueSlug(db, input.name));
+  // Validate slug uniqueness if provided
+  let slug: string;
+  if (input.slug) {
+    const taken = await isSlugTaken(db, input.slug);
+    if (taken) {
+      throw new Error("This slug is already taken");
+    }
+    slug = input.slug;
+  } else {
+    // Generate unique slug from name if not provided
+    slug = await generateUniqueSlug(db, input.name);
+  }
 
   const [brand] = await db
     .insert(brands)
@@ -317,7 +327,7 @@ export async function updateBrand(
     logo_path: string | null;
     avatar_hue: number | null;
   }>,
-) {
+): Promise<{ success: true; slug: string | null }> {
   const membership = await db
     .select({ id: brandMembers.id })
     .from(brandMembers)
@@ -340,7 +350,16 @@ export async function updateBrand(
   }> = {};
 
   if (payload.name !== undefined) updateData.name = payload.name;
-  if (payload.slug !== undefined) updateData.slug = payload.slug;
+  if (payload.slug !== undefined) {
+    // Validate slug uniqueness if provided (non-null)
+    if (payload.slug !== null) {
+      const taken = await isSlugTaken(db, payload.slug, id);
+      if (taken) {
+        throw new Error("This slug is already taken");
+      }
+    }
+    updateData.slug = payload.slug;
+  }
   if (payload.email !== undefined) updateData.email = payload.email;
   if (payload.country_code !== undefined)
     updateData.countryCode = payload.country_code;
@@ -353,7 +372,7 @@ export async function updateBrand(
     .set(updateData)
     .where(eq(brands.id, id))
     .returning({ id: brands.id, slug: brands.slug });
-  return row ? { success: true as const, slug: row.slug } : { success: true as const };
+  return row ? { success: true as const, slug: row.slug } : { success: true as const, slug: null };
 }
 
 /**

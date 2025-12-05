@@ -320,14 +320,14 @@ function organizeStyleFields(fields: StyleField[]): {
 }
 
 // =============================================================================
-// COMPONENT SECTION (MAIN EXPORT)
+// STYLES SECTION (MAIN EXPORT)
 // =============================================================================
 
-interface ComponentSectionProps {
+interface StylesSectionProps {
   componentId: string;
 }
 
-export function ComponentSection({ componentId }: ComponentSectionProps) {
+export function StylesSection({ componentId }: StylesSectionProps) {
   const component = findComponentById(componentId);
 
   if (!component) {

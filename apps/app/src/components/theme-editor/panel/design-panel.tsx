@@ -1,12 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { PanelHeader } from "./panel-header";
 import { TypographyEditor } from "./sections/typography-editor";
 import { ColorsEditor } from "./sections/colors-editor";
-import { ComponentSection } from "./sections/component-section";
+import { StylesSection } from "./sections/styles-section";
+import { ContentSection } from "./sections/content-section";
+import { StyleContentTabs, type TabType } from "./sections/style-content-tabs";
 import { LayoutTree } from "./sections/layout-tree";
-import { findComponentById } from "../registry/component-registry";
+import {
+  findComponentById,
+  hasEditableContent,
+  hasConfigContent,
+} from "../registry/component-registry";
 import type { NavigationSection } from "@/contexts/design-editor-provider";
 
 // Get display title for navigation state
@@ -37,6 +44,9 @@ function getNavigationTitle(
 export function DesignPanel() {
   const { navigation, navigateBack } = useDesignEditor();
 
+  // Tab state for component view (Styles vs Content)
+  const [activeTab, setActiveTab] = useState<TabType>("styles");
+
   // Default to layout section if at root (shouldn't happen with new default)
   const effectiveSection = navigation.section ?? "layout";
 
@@ -53,7 +63,54 @@ export function DesignPanel() {
   const renderContent = () => {
     // Component editor view
     if (navigation.level === "component" && navigation.componentId) {
-      return <ComponentSection componentId={navigation.componentId} />;
+      const component = findComponentById(navigation.componentId);
+      if (!component) {
+        return (
+          <div className="p-4 text-center">
+            <p className="type-small text-secondary">Component not found</p>
+          </div>
+        );
+      }
+
+      const hasStyles = hasEditableContent(component);
+      const hasConfig = hasConfigContent(component);
+
+      // Both styles and content available - show tabs
+      if (hasStyles && hasConfig) {
+        return (
+          <>
+            <StyleContentTabs
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              showContentTab={true}
+            />
+            {activeTab === "styles" ? (
+              <StylesSection componentId={navigation.componentId} />
+            ) : (
+              <ContentSection componentId={navigation.componentId} />
+            )}
+          </>
+        );
+      }
+
+      // Only styles available - no tabs needed
+      if (hasStyles) {
+        return <StylesSection componentId={navigation.componentId} />;
+      }
+
+      // Only content available - no tabs needed
+      if (hasConfig) {
+        return <ContentSection componentId={navigation.componentId} />;
+      }
+
+      // Neither - shouldn't happen but handle gracefully
+      return (
+        <div className="p-4 text-center">
+          <p className="type-small text-secondary">
+            No editable properties for this component
+          </p>
+        </div>
+      );
     }
 
     // Section view - controlled by sidebar

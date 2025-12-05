@@ -1,4 +1,6 @@
 export { LayoutTree } from "./layout-tree";
 export { TypographyEditor } from "./typography-editor";
 export { ColorsEditor } from "./colors-editor";
-export { ComponentSection } from "./component-section";
+export { StylesSection } from "./styles-section";
+export { ContentSection } from "./content-section";
+export { StyleContentTabs, type TabType } from "./style-content-tabs";

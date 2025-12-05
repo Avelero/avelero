@@ -9,15 +9,56 @@ import {
   type ComponentDefinition,
   getComponentAncestry,
   hasEditableContent,
+  hasConfigContent,
   findComponentById,
 } from "../../registry/component-registry";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 
 /**
  * Debounce delay for triggering live preview highlight when hovering layout tree items (ms).
- * The layout tree item's own CSS hover is instant, this only affects the preview.
+ * Hover shows after cursor has been on an item for this duration.
  */
-const PREVIEW_HIGHLIGHT_DEBOUNCE_MS = 100;
+const PREVIEW_HIGHLIGHT_DEBOUNCE_MS = 20;
+
+// =============================================================================
+// VISIBILITY TOGGLE BUTTON
+// =============================================================================
+
+interface VisibilityToggleProps {
+  visibilityKey: NonNullable<ComponentDefinition["visibilityKey"]>;
+}
+
+function VisibilityToggle({ visibilityKey }: VisibilityToggleProps) {
+  const { themeConfigDraft, toggleSectionVisibility } = useDesignEditor();
+
+  const isVisible = themeConfigDraft.sections[visibilityKey];
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Prevent the click from bubbling to the parent button (which navigates)
+    e.stopPropagation();
+    toggleSectionVisibility(visibilityKey);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={cn(
+        "flex items-center justify-center min-w-7 h-7 transition-colors duration-100 hover:bg-accent-dark",
+        // Show on hover UNLESS hidden (then always show so user remembers)
+        isVisible ? "opacity-0 group-hover:opacity-100" : "opacity-100",
+      )}
+      aria-label={isVisible ? "Hide section" : "Show section"}
+      title={isVisible ? "Hide section" : "Show section"}
+    >
+      {isVisible ? (
+        <Icons.Eye className="h-3.5 w-3.5 text-tertiary" />
+      ) : (
+        <Icons.EyeOff className="h-3.5 w-3.5 text-tertiary" />
+      )}
+    </button>
+  );
+}
 
 // =============================================================================
 // LAYOUT TREE ITEM
@@ -45,7 +86,8 @@ function LayoutTreeItem({
   const isHighlighted = item.id === highlightedId;
   const hasChildren = item.children && item.children.length > 0;
   const isExpanded = expandedItems.has(item.id);
-  const isEditable = hasEditableContent(item);
+  // A component is editable if it has EITHER style fields OR config fields
+  const isEditable = hasEditableContent(item) || hasConfigContent(item);
 
   // Calculate indentation - 24px per level
   const indentPx = level * 24;
@@ -116,12 +158,21 @@ function LayoutTreeItem({
                 {item.displayName}
               </div>
             </div>
-            {/* Navigation chevron - only show for editable items, shows on hover */}
-            {isEditable && (
-              <div className="flex items-center justify-center min-w-7 h-7 opacity-0 group-hover:opacity-100">
-                <Icons.ChevronRight className="h-3.5 w-3.5 text-primary" />
-              </div>
-            )}
+            <div className="flex items-center">
+              {/* Visibility eye toggle - shows on hover, always visible if section is hidden */}
+              {item.visibilityKey && (
+                <VisibilityToggle visibilityKey={item.visibilityKey} />
+              )}
+              {/* Navigation chevron - only show for editable items, shows on hover */}
+              {isEditable ? (
+                <div className="flex items-center justify-center min-w-7 h-7 opacity-0 group-hover:opacity-100">
+                  <Icons.ChevronRight className="h-3.5 w-3.5 text-primary" />
+                </div>
+              ) : (
+                /* Spacer to maintain alignment when no chevron */
+                item.visibilityKey && <div className="min-w-7 h-7" />
+              )}
+            </div>
           </button>
         </div>
       </div>
@@ -213,47 +264,47 @@ export function LayoutTree() {
 
   /**
    * Handle hover on layout tree items.
-   * Uses debounce so highlight only shows after cursor stops.
+   * Uses a short debounce so highlight shows after cursor has been on an item for a moment.
    * Only triggers preview highlight for editable components (not grouping items).
    */
   const handleItemHover = useCallback(
     (id: string | null) => {
-      // Clear any pending timer first
+      // If same as what we're already tracking, do nothing
+      if (id === pendingHoverRef.current) {
+        return;
+      }
+
+      // Clear any pending timer
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = null;
       }
 
-      // If leaving (id is null), clear immediately
-      if (id === null) {
-        pendingHoverRef.current = null;
-        setHoveredComponentId(null);
-        return;
-      }
-
-      // Only trigger preview highlight for components with editable content
-      const component = findComponentById(id);
-      if (!component || !hasEditableContent(component)) {
-        // Clear hover when hovering non-editable items
-        pendingHoverRef.current = null;
-        setHoveredComponentId(null);
-        return;
-      }
-
-      // If same as pending, do nothing
-      if (id === pendingHoverRef.current) return;
-
       pendingHoverRef.current = id;
 
-      // Start new debounce timer
+      // If leaving (id is null), clear immediately
+      if (id === null) {
+        setHoveredComponentId(null);
+        return;
+      }
+
+      // Only trigger preview highlight for components with editable content or config content
+      const component = findComponentById(id);
+      if (!component || (!hasEditableContent(component) && !hasConfigContent(component))) {
+        // Clear hover when hovering non-editable items
+        setHoveredComponentId(null);
+        return;
+      }
+
+      // Start debounce timer - will fire if cursor stays on this item
       debounceTimerRef.current = setTimeout(() => {
-        if (pendingHoverRef.current !== hoveredComponentId) {
-          setHoveredComponentId(pendingHoverRef.current);
+        if (pendingHoverRef.current === id) {
+          setHoveredComponentId(id);
         }
         debounceTimerRef.current = null;
       }, PREVIEW_HIGHLIGHT_DEBOUNCE_MS);
     },
-    [hoveredComponentId, setHoveredComponentId],
+    [setHoveredComponentId],
   );
 
   // Cleanup debounce timer and hover state on unmount

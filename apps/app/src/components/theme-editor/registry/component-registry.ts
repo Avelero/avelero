@@ -58,6 +58,63 @@ export interface StyleField {
   section?: string;
 }
 
+// =============================================================================
+// CONTENT FIELD TYPE DEFINITIONS (for ThemeConfig editing)
+// =============================================================================
+
+export type ContentFieldType =
+  | "text" // Simple text input
+  | "textarea" // Multi-line text
+  | "url" // URL input
+  | "image" // Image uploader
+  | "toggle" // Boolean toggle
+  | "number" // Numeric input
+  | "modal"; // Opens modal (deferred to Phase 7)
+
+export interface ContentField {
+  type: ContentFieldType;
+  /**
+   * Path into ThemeConfig object, e.g. "cta.bannerHeadline"
+   */
+  path: string;
+  label: string;
+  placeholder?: string;
+  /**
+   * Optional section name to group fields under a header in the editor.
+   * Fields without a section appear at the top ungrouped.
+   * Example sections: "Visibility", "Headline", "Social Links"
+   */
+  section?: string;
+  /**
+   * For modal fields - which modal to open (deferred to Phase 7)
+   */
+  modalType?: "menu-primary" | "menu-secondary" | "carousel-products";
+  /**
+   * For number fields - minimum value
+   */
+  min?: number;
+  /**
+   * For number fields - maximum value
+   */
+  max?: number;
+}
+
+// =============================================================================
+// SECTION VISIBILITY KEYS (for eye icon toggles)
+// =============================================================================
+
+/**
+ * Valid keys for section visibility toggles.
+ * These map to ThemeConfig.sections properties.
+ * Note: Only menus, carousel, and banner can be hidden via eye icons.
+ * Other sections (product details, impact, materials, journey) are always visible.
+ */
+export type SectionVisibilityKey =
+  | "showPrimaryMenu"
+  | "showSecondaryMenu"
+  | "showSimilarProducts"
+  | "showCTABanner";
+
 export interface ComponentDefinition {
   /**
    * Unique identifier - matches the CSS class name in globals.css
@@ -76,18 +133,21 @@ export interface ComponentDefinition {
   children?: ComponentDefinition[];
 
   /**
-   * If true, shows an eye icon to toggle visibility
-   * Only for top-level sections that have corresponding sections.show* flags
+   * Key for section visibility toggle (shows eye icon in layout tree).
+   * Maps to ThemeConfig.sections[key].
+   * Only for top-level sections that have corresponding sections.show* flags.
    */
-
-  /**
-   * The ThemeConfig path to toggle visibility, e.g. "sections.showCTABanner"
-   */
+  visibilityKey?: SectionVisibilityKey;
 
   /**
    * Design token fields from ThemeStyles
    */
   styleFields?: StyleField[];
+
+  /**
+   * Content fields from ThemeConfig (for the Content tab)
+   */
+  configFields?: ContentField[];
 
   /**
    * If true, this component only serves to group children in the tree.
@@ -169,6 +229,13 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         type: "color",
         path: "header.backgroundColor",
         label: "Background",
+      },
+    ],
+    configFields: [
+      {
+        type: "image",
+        path: "branding.headerLogoUrl",
+        label: "Logo",
       },
     ],
   },
@@ -359,6 +426,7 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   {
     id: "menu-primary",
     displayName: "First Menu",
+    visibilityKey: "showPrimaryMenu",
     styleFields: [
       // Border & Background
       {
@@ -404,6 +472,14 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         label: "Size",
         section: "Icon",
         unit: "px",
+      },
+    ],
+    configFields: [
+      {
+        type: "modal",
+        path: "menus.primary",
+        label: "Configure Buttons",
+        modalType: "menu-primary",
       },
     ],
   },
@@ -925,6 +1001,7 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   {
     id: "menu-secondary",
     displayName: "Second Menu",
+    visibilityKey: "showSecondaryMenu",
     styleFields: [
       // Border & Background
       {
@@ -972,6 +1049,14 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         unit: "px",
       },
     ],
+    configFields: [
+      {
+        type: "modal",
+        path: "menus.secondary",
+        label: "Configure Buttons",
+        modalType: "menu-secondary",
+      },
+    ],
   },
 
   // -------------------------------------------------------------------------
@@ -981,6 +1066,36 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
     id: "carousel",
     displayName: "Product Carousel",
     isGrouping: true,
+    visibilityKey: "showSimilarProducts",
+    configFields: [
+      {
+        type: "number",
+        path: "carousel.productCount",
+        label: "Product Count",
+        section: "Display",
+        min: 1,
+        max: 12,
+      },
+      {
+        type: "toggle",
+        path: "carousel.showTitle",
+        label: "Show Title",
+        section: "Display",
+      },
+      {
+        type: "toggle",
+        path: "carousel.showPrice",
+        label: "Show Price",
+        section: "Display",
+      },
+      {
+        type: "modal",
+        path: "carousel",
+        label: "Configure Products",
+        section: "Products",
+        modalType: "carousel-products",
+      },
+    ],
     children: [
       {
         id: "carousel__title",
@@ -1143,6 +1258,7 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   {
     id: "banner",
     displayName: "Banner",
+    visibilityKey: "showCTABanner",
     styleFields: [
       {
         type: "color",
@@ -1172,6 +1288,65 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         label: "Justify Content",
         options: JUSTIFY_CONTENT_OPTIONS,
         section: "Layout",
+      },
+    ],
+    configFields: [
+      // Visibility section
+      {
+        type: "toggle",
+        path: "cta.showHeadline",
+        label: "Show Headline",
+        section: "Visibility",
+      },
+      {
+        type: "toggle",
+        path: "cta.showSubline",
+        label: "Show Subheadline",
+        section: "Visibility",
+      },
+      {
+        type: "toggle",
+        path: "cta.showButton",
+        label: "Show Button",
+        section: "Visibility",
+      },
+      // Headline section
+      {
+        type: "text",
+        path: "cta.bannerHeadline",
+        label: "Text",
+        placeholder: "Enter headline...",
+        section: "Headline",
+      },
+      // Subheadline section
+      {
+        type: "text",
+        path: "cta.bannerSubline",
+        label: "Text",
+        placeholder: "Enter subheadline...",
+        section: "Subheadline",
+      },
+      // Button section
+      {
+        type: "text",
+        path: "cta.bannerCTAText",
+        label: "Label",
+        placeholder: "Button text...",
+        section: "Button",
+      },
+      {
+        type: "url",
+        path: "cta.bannerCTAUrl",
+        label: "URL",
+        placeholder: "https://...",
+        section: "Button",
+      },
+      // Background section
+      {
+        type: "image",
+        path: "cta.bannerBackgroundImage",
+        label: "Image",
+        section: "Background",
       },
     ],
     children: [
@@ -1289,6 +1464,50 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
         type: "color",
         path: "footer.backgroundColor",
         label: "Background",
+      },
+    ],
+    configFields: [
+      {
+        type: "url",
+        path: "social.instagramUrl",
+        label: "Instagram",
+        placeholder: "https://instagram.com/...",
+        section: "Social Links",
+      },
+      {
+        type: "url",
+        path: "social.facebookUrl",
+        label: "Facebook",
+        placeholder: "https://facebook.com/...",
+        section: "Social Links",
+      },
+      {
+        type: "url",
+        path: "social.pinterestUrl",
+        label: "Pinterest",
+        placeholder: "https://pinterest.com/...",
+        section: "Social Links",
+      },
+      {
+        type: "url",
+        path: "social.twitterUrl",
+        label: "X (Twitter)",
+        placeholder: "https://x.com/...",
+        section: "Social Links",
+      },
+      {
+        type: "url",
+        path: "social.tiktokUrl",
+        label: "TikTok",
+        placeholder: "https://tiktok.com/@...",
+        section: "Social Links",
+      },
+      {
+        type: "url",
+        path: "social.linkedinUrl",
+        label: "LinkedIn",
+        placeholder: "https://linkedin.com/company/...",
+        section: "Social Links",
       },
     ],
     children: [
@@ -1418,4 +1637,20 @@ export function isSelectableComponent(className: string): boolean {
   // Groupings are not selectable in the preview
   if (component.isGrouping) return false;
   return true;
+}
+
+/**
+ * Check if a component has editable config fields (for the Content tab).
+ * Used to determine if the Content tab should be shown.
+ */
+export function hasConfigContent(component: ComponentDefinition): boolean {
+  return (component.configFields?.length ?? 0) > 0;
+}
+
+/**
+ * Check if a component has a visibility toggle (for eye icon in layout tree).
+ * Used to determine if an eye icon should be shown next to the component.
+ */
+export function hasVisibilityToggle(component: ComponentDefinition): boolean {
+  return component.visibilityKey !== undefined;
 }

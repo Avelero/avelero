@@ -21,6 +21,8 @@ import {
 } from "react";
 import { saveThemeAction } from "@/actions/design/save-theme-action";
 import { toast } from "@v1/ui/sonner";
+import { useTRPC } from "@/trpc/client";
+import { useMutation } from "@tanstack/react-query";
 
 // =============================================================================
 // TYPES
@@ -74,14 +76,16 @@ export type NavigationState = {
 };
 
 type DesignEditorContextValue = {
-  // Theme state (styles are editable, config is read-only for preview)
+  // Theme state
   themeStylesDraft: ThemeStyles;
-  themeConfig: ThemeConfig; // Read-only, used for preview rendering
+  themeConfigDraft: ThemeConfig;
   initialThemeStyles: ThemeStyles;
+  initialThemeConfig: ThemeConfig;
   brandId?: string;
   hasUnsavedChanges: boolean;
   isSaving: boolean;
   setThemeStylesDraft: (next: ThemeStyles) => void;
+  setThemeConfigDraft: (next: ThemeConfig) => void;
   resetDrafts: () => void;
   saveDrafts: () => Promise<void>;
   previewData: DppData;
@@ -109,6 +113,23 @@ type DesignEditorContextValue = {
    * Returns the token name (without $) if true, null otherwise.
    */
   getComponentStyleTokenRef: (path: string) => string | null;
+
+  // Helper setters for nested updates (ThemeConfig)
+  /**
+   * Update a config value using dot-notation path
+   * e.g., updateConfigValue("cta.bannerHeadline", "Welcome!")
+   */
+  updateConfigValue: (path: string, value: unknown) => void;
+  /**
+   * Get a config value using dot-notation path
+   * e.g., getConfigValue("cta.bannerHeadline")
+   */
+  getConfigValue: (path: string) => unknown;
+  /**
+   * Toggle a section visibility flag
+   * e.g., toggleSectionVisibility("showCTABanner")
+   */
+  toggleSectionVisibility: (key: keyof ThemeConfig["sections"]) => void;
 
   // Navigation state
   navigation: NavigationState;
@@ -150,21 +171,42 @@ export function DesignEditorProvider({
   brandId,
 }: ProviderProps) {
   // ---------------------------------------------------------------------------
-  // Theme State
+  // Theme Styles State
   // ---------------------------------------------------------------------------
   const [themeStylesDraft, setThemeStylesDraft] =
     useState<ThemeStyles>(initialThemeStyles);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Track the last saved state to properly detect unsaved changes
   const [savedThemeStyles, setSavedThemeStyles] =
     useState<ThemeStyles>(initialThemeStyles);
 
-  // Reset draft and saved states when initialThemeStyles changes (e.g., brand switch)
+  // ---------------------------------------------------------------------------
+  // Theme Config State
+  // ---------------------------------------------------------------------------
+  const [themeConfigDraft, setThemeConfigDraft] =
+    useState<ThemeConfig>(initialThemeConfig);
+  const [savedThemeConfig, setSavedThemeConfig] =
+    useState<ThemeConfig>(initialThemeConfig);
+
+  // ---------------------------------------------------------------------------
+  // Saving State
+  // ---------------------------------------------------------------------------
+  const [isSaving, setIsSaving] = useState(false);
+
+  // tRPC client for config updates
+  const trpc = useTRPC();
+  const updateConfigMutation = useMutation(
+    trpc.workflow.theme.updateConfig.mutationOptions(),
+  );
+
+  // Reset draft and saved states when initial values change (e.g., brand switch)
   useEffect(() => {
     setThemeStylesDraft(initialThemeStyles);
     setSavedThemeStyles(initialThemeStyles);
   }, [initialThemeStyles]);
+
+  useEffect(() => {
+    setThemeConfigDraft(initialThemeConfig);
+    setSavedThemeConfig(initialThemeConfig);
+  }, [initialThemeConfig]);
 
   // Load saved Google Fonts on mount to display typography correctly
   useEffect(() => {
@@ -205,39 +247,71 @@ export function DesignEditorProvider({
     };
   }, [initialGoogleFontsUrl]);
 
-  // ThemeConfig is read-only in the theme editor (edited in /design/content)
-  const themeConfig = initialThemeConfig;
-
-  const hasUnsavedChanges =
+  // ---------------------------------------------------------------------------
+  // Unsaved Changes Detection
+  // ---------------------------------------------------------------------------
+  const hasUnsavedStyleChanges =
     JSON.stringify(themeStylesDraft) !== JSON.stringify(savedThemeStyles);
+  const hasUnsavedConfigChanges =
+    JSON.stringify(themeConfigDraft) !== JSON.stringify(savedThemeConfig);
+  const hasUnsavedChanges = hasUnsavedStyleChanges || hasUnsavedConfigChanges;
 
+  // ---------------------------------------------------------------------------
+  // Reset & Save
+  // ---------------------------------------------------------------------------
   const resetDrafts = useCallback(() => {
     setThemeStylesDraft(savedThemeStyles);
-  }, [savedThemeStyles]);
+    setThemeConfigDraft(savedThemeConfig);
+  }, [savedThemeStyles, savedThemeConfig]);
 
   const saveDrafts = useCallback(async () => {
     if (!brandId) return;
     setIsSaving(true);
+    
     try {
-      const result = await saveThemeAction({
-        brandId,
-        themeStyles: themeStylesDraft,
-      });
+      const promises: Promise<unknown>[] = [];
       
-      if (result?.serverError) {
-        toast.error(result.serverError || "Failed to save theme");
-        return;
+      // Save styles if changed
+      if (hasUnsavedStyleChanges) {
+        promises.push(
+          saveThemeAction({
+            brandId,
+            themeStyles: themeStylesDraft,
+          }).then((result) => {
+            if (result?.serverError) {
+              throw new Error(result.serverError || "Failed to save theme styles");
+            }
+            setSavedThemeStyles(themeStylesDraft);
+          }),
+        );
       }
       
-      // Update saved state to match current drafts after successful save
-      setSavedThemeStyles(themeStylesDraft);
+      // Save config if changed
+      if (hasUnsavedConfigChanges) {
+        promises.push(
+          updateConfigMutation.mutateAsync({
+            config: themeConfigDraft as unknown as Record<string, unknown>,
+          }).then(() => {
+            setSavedThemeConfig(themeConfigDraft);
+          }),
+        );
+      }
+      
+      await Promise.all(promises);
       toast.success("Changes saved");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save theme");
     } finally {
       setIsSaving(false);
     }
-  }, [brandId, themeStylesDraft]);
+  }, [
+    brandId,
+    themeStylesDraft,
+    themeConfigDraft,
+    hasUnsavedStyleChanges,
+    hasUnsavedConfigChanges,
+    updateConfigMutation,
+  ]);
 
   const updateTypographyScale = useCallback(
     (scale: TypographyScaleKey, value: TypographyScale) => {
@@ -351,6 +425,84 @@ export function DesignEditorProvider({
   );
 
   // ---------------------------------------------------------------------------
+  // Theme Config Helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Update a config value using dot-notation path
+   * e.g., updateConfigValue("cta.bannerHeadline", "Welcome!")
+   */
+  const updateConfigValue = useCallback((path: string, value: unknown) => {
+    const parts = path.split(".");
+    
+    setThemeConfigDraft((prev) => {
+      // Deep clone to avoid mutations
+      const next = JSON.parse(JSON.stringify(prev)) as ThemeConfig;
+      
+      // Navigate to the parent and set the value
+      let current: Record<string, unknown> = next as unknown as Record<string, unknown>;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const key = parts[i];
+        if (key && current[key] !== undefined) {
+          current = current[key] as Record<string, unknown>;
+        } else {
+          // Path doesn't exist, create it
+          if (key) {
+            current[key] = {};
+            current = current[key] as Record<string, unknown>;
+          }
+        }
+      }
+      
+      const lastKey = parts[parts.length - 1];
+      if (lastKey) {
+        current[lastKey] = value;
+      }
+      
+      return next;
+    });
+  }, []);
+
+  /**
+   * Get a config value using dot-notation path
+   * e.g., getConfigValue("cta.bannerHeadline")
+   */
+  const getConfigValue = useCallback(
+    (path: string): unknown => {
+      const parts = path.split(".");
+      let current: unknown = themeConfigDraft;
+      
+      for (const key of parts) {
+        if (current && typeof current === "object" && key in current) {
+          current = (current as Record<string, unknown>)[key];
+        } else {
+          return undefined;
+        }
+      }
+      
+      return current;
+    },
+    [themeConfigDraft],
+  );
+
+  /**
+   * Toggle a section visibility flag
+   * e.g., toggleSectionVisibility("showCTABanner")
+   */
+  const toggleSectionVisibility = useCallback(
+    (key: keyof ThemeConfig["sections"]) => {
+      setThemeConfigDraft((prev) => ({
+        ...prev,
+        sections: {
+          ...prev.sections,
+          [key]: !prev.sections[key],
+        },
+      }));
+    },
+    [],
+  );
+
+  // ---------------------------------------------------------------------------
   // Navigation State
   // ---------------------------------------------------------------------------
   const [navigation, setNavigation] = useState<NavigationState>({
@@ -422,21 +574,28 @@ export function DesignEditorProvider({
     () => ({
       // Theme state
       themeStylesDraft,
-      themeConfig,
+      themeConfigDraft,
       initialThemeStyles,
+      initialThemeConfig,
       brandId,
       hasUnsavedChanges,
       isSaving,
       setThemeStylesDraft,
+      setThemeConfigDraft,
       resetDrafts,
       saveDrafts,
       previewData,
+      // Style helpers
       updateTypographyScale,
       updateColor,
       updateComponentStyle,
       getComponentStyleValue,
       getRawComponentStyleValue,
       getComponentStyleTokenRef,
+      // Config helpers
+      updateConfigValue,
+      getConfigValue,
+      toggleSectionVisibility,
       // Navigation state
       navigation,
       navigateToSection,
@@ -454,8 +613,9 @@ export function DesignEditorProvider({
     }),
     [
       themeStylesDraft,
-      themeConfig,
+      themeConfigDraft,
       initialThemeStyles,
+      initialThemeConfig,
       brandId,
       hasUnsavedChanges,
       isSaving,
@@ -468,6 +628,9 @@ export function DesignEditorProvider({
       getComponentStyleValue,
       getRawComponentStyleValue,
       getComponentStyleTokenRef,
+      updateConfigValue,
+      getConfigValue,
+      toggleSectionVisibility,
       navigation,
       navigateToSection,
       navigateToComponent,

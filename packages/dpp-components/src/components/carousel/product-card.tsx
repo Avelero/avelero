@@ -8,7 +8,11 @@ interface Props {
   showPrice?: boolean;
 }
 
-export function ProductCard({ product, showTitle = true, showPrice = true }: Props) {
+export function ProductCard({
+  product,
+  showTitle = true,
+  showPrice = true,
+}: Props) {
   return (
     <a
       href={product.url}

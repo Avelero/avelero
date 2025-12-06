@@ -269,16 +269,17 @@ export function MenuInput({ menuType, configPath }: MenuInputProps) {
     };
 
     const handleAddUrlSubmit = async (url: string) => {
+        let processedUrl = url;
         // Validate URL
         try {
-            new URL(url);
+            new URL(processedUrl);
         } catch {
             // If no protocol, try adding https://
-            if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                url = `https://${url}`;
+            if (!processedUrl.startsWith("http://") && !processedUrl.startsWith("https://")) {
+                processedUrl = `https://${processedUrl}`;
             }
             try {
-                new URL(url);
+                new URL(processedUrl);
             } catch {
                 // Invalid URL, just use it as-is
                 setViewState({ type: "list" });
@@ -286,18 +287,18 @@ export function MenuInput({ menuType, configPath }: MenuInputProps) {
             }
         }
 
-        setViewState({ type: "loading", url });
+        setViewState({ type: "loading", url: processedUrl });
 
         try {
-            const result = await scrapeUrlTitle({ url });
+            const result = await scrapeUrlTitle({ url: processedUrl });
             const title = result?.data?.title ?? "Link";
 
             // Add new item to config
-            const newItems = [...items, { label: title, url }];
+            const newItems = [...items, { label: title, url: processedUrl }];
             updateConfigValue(configPath, newItems);
         } catch {
             // Fallback title
-            const newItems = [...items, { label: "Link", url }];
+            const newItems = [...items, { label: "Link", url: processedUrl }];
             updateConfigValue(configPath, newItems);
         }
 

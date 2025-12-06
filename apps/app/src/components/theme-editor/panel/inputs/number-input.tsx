@@ -28,7 +28,7 @@ export function NumberInput({ field, value, onChange }: NumberInputProps) {
                 onChange={(e) => setLocalValue(e.target.value)}
                 onBlur={() => {
                     const parsed = Number(localValue);
-                    if (!isNaN(parsed)) {
+                    if (!Number.isNaN(parsed)) {
                         onChange(parsed);
                     } else {
                         // Reset to current value if invalid

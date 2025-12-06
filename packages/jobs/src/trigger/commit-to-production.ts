@@ -582,7 +582,7 @@ async function commitStagingRow(
               categoryId: stagingProduct.categoryId || undefined,
               seasonId: stagingProduct.seasonId ?? undefined,
               showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
-              primaryImageUrl: stagingProduct.primaryImageUrl ?? undefined,
+              primaryImagePath: stagingProduct.primaryImagePath ?? undefined,
               status: stagingProduct.status ?? undefined,
             },
           );
@@ -610,7 +610,7 @@ async function commitStagingRow(
             categoryId: stagingProduct.categoryId ?? undefined,
             seasonId: stagingProduct.seasonId ?? undefined,
             showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
-            primaryImageUrl: stagingProduct.primaryImageUrl ?? undefined,
+            primaryImagePath: stagingProduct.primaryImagePath ?? undefined,
             status: stagingProduct.status ?? undefined,
           },
         );

@@ -33,7 +33,7 @@ interface StagingDataRow {
     description: string | null;
     categoryId: string | null;
     seasonId: string | null;
-    primaryImageUrl: string | null;
+    primaryImagePath: string | null;
   };
   variant: {
     upid: string;

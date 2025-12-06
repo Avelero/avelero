@@ -436,7 +436,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       description: payload.description ?? "",
       imageFile: null,
       existingImageUrl:
-        payload.primaryImageUrl ?? (payload as any).primary_image_url ?? null,
+        payload.primaryImagePath ?? (payload as any).primary_image_path ?? null,
       categoryId: payload.categoryId ?? payload.category_id ?? null,
       seasonId: payload.seasonId ?? payload.season_id ?? null,
       showcaseBrandId:
@@ -749,7 +749,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           throw new Error("Product identifier is required");
         }
 
-        let primaryImageUrl: string | undefined;
+        // Upload image and store the PATH (not URL) in database
+        let primaryImagePath: string | undefined;
         if (formValues.imageFile) {
           try {
             const sanitizedBrandId = brandId.trim();
@@ -760,8 +761,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               bucket: "products",
               metadata: { brand_id: sanitizedBrandId },
               isPublic: true,
+              validation: {
+                maxBytes: 10 * 1024 * 1024, // 10MB
+                allowedMime: ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"],
+              },
             });
-            primaryImageUrl = result.displayUrl;
+            // Store the storage path, not the full URL
+            primaryImagePath = result.storageUrl;
           } catch (err) {
             throw new Error(
               `Failed to upload image: ${
@@ -822,8 +828,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           category_id: formValues.categoryId ?? undefined,
           season_id: safeSeasonId,
           showcase_brand_id: safeShowcaseBrandId,
-          primary_image_url:
-            primaryImageUrl ?? formValues.existingImageUrl ?? undefined,
+          // Store path only, not full URL
+          primary_image_path:
+            primaryImagePath ?? formValues.existingImageUrl ?? undefined,
           status: (formValues.status || "unpublished") as
             | "published"
             | "scheduled"
@@ -865,8 +872,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             showcaseBrandId: safeShowcaseBrandId ?? null,
             tagIds: formValues.tagIds,
             imageFile: null,
+            // Store the path (or keep existing)
             existingImageUrl:
-              primaryImageUrl ?? formValues.existingImageUrl ?? null,
+              primaryImagePath ?? formValues.existingImageUrl ?? null,
             colorIds: colorIds ?? [],
             pendingColors: [],
             selectedSizes: formValues.selectedSizes,

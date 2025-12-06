@@ -39,7 +39,7 @@ export interface ProductPassportRow {
   categoryPath?: string[] | null;
   season?: string | null;
   showcaseBrand?: string | null;
-  primaryImageUrl?: string | null;
+  primaryImagePath?: string | null;
   colors?: string[]; // distinct color names/hexes for variants
   sizes?: string[]; // distinct size names
   variantCount?: number;

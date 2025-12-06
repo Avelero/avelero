@@ -68,7 +68,7 @@ const PRODUCT_FIELD_MAP = {
   category_id: products.categoryId,
   season_id: products.seasonId,
   showcase_brand_id: products.showcaseBrandId,
-  primary_image_url: products.primaryImageUrl,
+  primary_image_path: products.primaryImagePath,
   product_identifier: products.productIdentifier,
   upid: products.upid,
   template_id: products.templateId,
@@ -112,7 +112,7 @@ export interface ProductRecord {
   category_id?: string | null;
   season_id?: string | null; // FK to brand_seasons.id
   showcase_brand_id?: string | null;
-  primary_image_url?: string | null;
+  primary_image_path?: string | null;
   product_identifier?: string | null;
   upid?: string | null;
   template_id?: string | null;
@@ -235,9 +235,9 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
   if ("template_id" in row)
     product.template_id = (row.template_id as string | null) ?? null;
   if ("status" in row) product.status = (row.status as string | null) ?? null;
-  if ("primary_image_url" in row)
-    product.primary_image_url =
-      (row.primary_image_url as string | null) ?? null;
+  if ("primary_image_path" in row)
+    product.primary_image_path =
+      (row.primary_image_path as string | null) ?? null;
   if ("created_at" in row)
     product.created_at = (row.created_at as string | null) ?? undefined;
   if ("updated_at" in row)
@@ -934,7 +934,7 @@ export async function getProduct(db: Database, brandId: string, id: string) {
       category_id: products.categoryId,
       season_id: products.seasonId,
       showcase_brand_id: products.showcaseBrandId,
-      primary_image_url: products.primaryImageUrl,
+      primary_image_path: products.primaryImagePath,
       product_identifier: products.productIdentifier,
       upid: products.upid,
       template_id: products.templateId,
@@ -961,7 +961,7 @@ export async function getProductByUpid(
       category_id: products.categoryId,
       season_id: products.seasonId,
       showcase_brand_id: products.showcaseBrandId,
-      primary_image_url: products.primaryImageUrl,
+      primary_image_path: products.primaryImagePath,
       product_identifier: products.productIdentifier,
       upid: products.upid,
       template_id: products.templateId,
@@ -986,7 +986,7 @@ export async function createProduct(
     seasonId?: string;
     templateId?: string | null;
     showcaseBrandId?: string;
-    primaryImageUrl?: string;
+    primaryImagePath?: string;
     status?: string;
   },
 ) {
@@ -1023,7 +1023,7 @@ export async function createProduct(
         seasonId: input.seasonId ?? null,
         templateId: input.templateId ?? null,
         showcaseBrandId: input.showcaseBrandId ?? null,
-        primaryImageUrl: input.primaryImageUrl ?? null,
+        primaryImagePath: input.primaryImagePath ?? null,
         status: input.status ?? "unpublished",
       })
       .returning({ id: products.id, upid: products.upid });
@@ -1049,7 +1049,7 @@ export async function updateProduct(
     seasonId?: string | null;
     templateId?: string | null;
     showcaseBrandId?: string | null;
-    primaryImageUrl?: string | null;
+    primaryImagePath?: string | null;
     status?: string | null;
   },
 ) {
@@ -1063,7 +1063,7 @@ export async function updateProduct(
       productIdentifier: input.productIdentifier ?? null,
       templateId: input.templateId ?? null,
       showcaseBrandId: input.showcaseBrandId ?? null,
-      primaryImageUrl: input.primaryImageUrl ?? null,
+      primaryImagePath: input.primaryImagePath ?? null,
     };
 
     // Only update status if provided (status cannot be null)
@@ -1296,7 +1296,7 @@ export interface CarouselProductRow {
   id: string;
   name: string;
   productIdentifier: string;
-  primaryImageUrl: string | null;
+  primaryImagePath: string | null;
   categoryName: string | null;
   seasonName: string | null;
 }
@@ -1428,7 +1428,7 @@ export async function listProductsForCarouselSelection(
       id: products.id,
       name: products.name,
       productIdentifier: products.productIdentifier,
-      primaryImageUrl: products.primaryImageUrl,
+      primaryImagePath: products.primaryImagePath,
       categoryName: categories.name,
       seasonName: brandSeasons.name,
     })
@@ -1455,7 +1455,7 @@ export async function listProductsForCarouselSelection(
       id: row.id,
       name: row.name,
       productIdentifier: row.productIdentifier,
-      primaryImageUrl: row.primaryImageUrl,
+      primaryImagePath: row.primaryImagePath,
       categoryName: row.categoryName,
       seasonName: row.seasonName,
     })),

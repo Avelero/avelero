@@ -16,7 +16,7 @@ import {
   getDppByVariantUpid,
   transformToDppData,
 } from "@v1/db/queries";
-import { getPublicUrl } from "@v1/supabase/utils/storage-urls";
+import { getPublicUrl } from "@v1/supabase/storage";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
 
 /**
@@ -67,14 +67,23 @@ export const dppPublicRouter = createTRPCRouter({
       // Transform to component-ready format
       const dppData = transformToDppData(rawData);
 
-      // Resolve stylesheet URL server-side (DPP app doesn't need Supabase credentials)
+      // Resolve URLs server-side (DPP app doesn't need Supabase credentials)
       const stylesheetUrl = rawData.stylesheetPath
         ? getPublicUrl(ctx.supabase, "dpp-themes", rawData.stylesheetPath)
         : null;
 
+      // Resolve product image path to public URL
+      const productImageUrl = rawData.productImage
+        ? getPublicUrl(ctx.supabase, "products", rawData.productImage)
+        : null;
+
       // Return all data needed for rendering
       return {
-        dppData,
+        dppData: {
+          ...dppData,
+          // Override productImage with resolved URL
+          productImage: productImageUrl,
+        },
         themeConfig: rawData.themeConfig,
         themeStyles: rawData.themeStyles,
         stylesheetUrl,
@@ -110,14 +119,23 @@ export const dppPublicRouter = createTRPCRouter({
       // Transform to component-ready format
       const dppData = transformToDppData(rawData);
 
-      // Resolve stylesheet URL server-side (DPP app doesn't need Supabase credentials)
+      // Resolve URLs server-side (DPP app doesn't need Supabase credentials)
       const stylesheetUrl = rawData.stylesheetPath
         ? getPublicUrl(ctx.supabase, "dpp-themes", rawData.stylesheetPath)
         : null;
 
+      // Resolve product image path to public URL
+      const productImageUrl = rawData.productImage
+        ? getPublicUrl(ctx.supabase, "products", rawData.productImage)
+        : null;
+
       // Return all data needed for rendering
       return {
-        dppData,
+        dppData: {
+          ...dppData,
+          // Override productImage with resolved URL
+          productImage: productImageUrl,
+        },
         themeConfig: rawData.themeConfig,
         themeStyles: rawData.themeStyles,
         stylesheetUrl,

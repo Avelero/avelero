@@ -5,26 +5,13 @@ import { createClient } from "@v1/supabase/client";
 import { ImageUploader } from "@/components/image-upload";
 import { FieldWrapper } from "./field-wrapper";
 import type { ContentField } from "../../registry/types";
+import { BUCKETS, extractPathFromUrl, UPLOAD_CONFIGS } from "@/utils/storage-config";
 
 interface ImageInputProps {
     field: ContentField;
     value: string;
     onChange: (url: string | null) => void;
     brandId?: string;
-}
-
-/**
- * Extract the storage path from a public Supabase URL.
- * Example: https://xxx.supabase.co/storage/v1/object/public/dpp-assets/brand-123/header-logo/logo.png
- * Returns: brand-123/header-logo/logo.png
- */
-function extractPathFromUrl(url: string): string | null {
-    try {
-        const match = url.match(/\/dpp-assets\/(.+)$/);
-        return match?.[1] ?? null;
-    } catch {
-        return null;
-    }
 }
 
 /**
@@ -41,9 +28,9 @@ export function ImageInput({ field, value, onChange, brandId }: ImageInputProps)
             if (previousUrlRef.current && previousUrlRef.current !== url) {
                 try {
                     const supabase = createClient();
-                    const oldPath = extractPathFromUrl(previousUrlRef.current);
+                    const oldPath = extractPathFromUrl(previousUrlRef.current, BUCKETS.DPP_ASSETS);
                     if (oldPath) {
-                        await supabase.storage.from("dpp-assets").remove([oldPath]);
+                        await supabase.storage.from(BUCKETS.DPP_ASSETS).remove([oldPath]);
                     }
                 } catch (error) {
                     console.error("Failed to delete old image:", error);
@@ -83,10 +70,13 @@ export function ImageInput({ field, value, onChange, brandId }: ImageInputProps)
     const folder = getStorageFolder(field.path);
     const dimensions = getDimensions(field.path);
 
+    // Use appropriate validation based on folder type
+    const validation = folder === "header-logo" ? UPLOAD_CONFIGS.logo : UPLOAD_CONFIGS.banner;
+
     return (
         <FieldWrapper label={field.label}>
             <ImageUploader
-                bucket="dpp-assets"
+                bucket={BUCKETS.DPP_ASSETS}
                 mode="public"
                 width={dimensions.width}
                 height={dimensions.height}
@@ -98,6 +88,7 @@ export function ImageInput({ field, value, onChange, brandId }: ImageInputProps)
                 }}
                 uploadOnSelect={true}
                 onChange={handleImageChange}
+                validation={validation}
             />
         </FieldWrapper>
     );

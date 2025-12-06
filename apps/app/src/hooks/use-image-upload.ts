@@ -10,6 +10,7 @@ import {
   sanitizeFilename,
   validateImageFile,
   type ImageValidationResult,
+  type ImageValidationConfig,
 } from "@/utils/image-upload";
 
 interface UploadImageOptions {
@@ -18,7 +19,8 @@ interface UploadImageOptions {
   path: string[];
   isPublic?: boolean;
   metadata?: Record<string, string>;
-  validate?: (file: File) => ImageValidationResult;
+  /** Validation config from UPLOAD_CONFIGS, or custom validate function */
+  validation: ImageValidationConfig | ((file: File) => ImageValidationResult);
 }
 
 interface UploadImageResult {
@@ -31,11 +33,6 @@ export function useImageUpload() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(false);
 
-  const validate = useCallback(
-    (file: File): ImageValidationResult => validateImageFile(file),
-    [],
-  );
-
   const uploadImage = useCallback(
     async ({
       file,
@@ -43,16 +40,20 @@ export function useImageUpload() {
       path,
       isPublic = true,
       metadata,
-      validate: validateOverride,
+      validation,
     }: UploadImageOptions): Promise<UploadImageResult> => {
       setError(null);
       setLoading(true);
-      const validation = validateOverride
-        ? validateOverride(file)
-        : validate(file);
-      if (!validation.valid) {
+
+      // Support both config object and custom function
+      const validationResult =
+        typeof validation === "function"
+          ? validation(file)
+          : validateImageFile(file, validation);
+
+      if (!validationResult.valid) {
         setLoading(false);
-        throw new Error(validation.error);
+        throw new Error(validationResult.error);
       }
 
       try {
@@ -68,14 +69,15 @@ export function useImageUpload() {
 
         return {
           path: buildObjectPath(path),
-          storageUrl: result.path.join("/"),
+          // result.path is already a string from upload()
+          storageUrl: result.path,
           displayUrl,
         };
       } finally {
         setLoading(false);
       }
     },
-    [validate],
+    [],
   );
 
   const buildPath = useCallback(
@@ -84,5 +86,5 @@ export function useImageUpload() {
     [],
   );
 
-  return { uploadImage, buildPath, validate, error, isLoading, setError };
+  return { uploadImage, buildPath, error, isLoading, setError };
 }

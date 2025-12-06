@@ -514,7 +514,7 @@ export function MaterialSheet({
         path,
         bucket: "certifications",
         isPublic: true,
-        validate: (f) => {
+        validation: (f) => {
           if (!allowedTypes.includes(f.type)) {
             return {
               valid: false,

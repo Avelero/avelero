@@ -44,7 +44,7 @@ export const products = pgTable(
         onUpdate: "cascade",
       },
     ),
-    primaryImageUrl: text("primary_image_url"),
+    primaryImagePath: text("primary_image_path"),
     webshopUrl: text("webshop_url"),
     price: numeric("price", { precision: 10, scale: 2 }),
     currency: text("currency"),

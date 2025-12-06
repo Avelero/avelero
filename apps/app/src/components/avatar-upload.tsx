@@ -175,6 +175,10 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
             path: [folderId, filename],
             file: f,
             isPublic: false,
+            validation: {
+              maxBytes: MAX_SIZE,
+              allowedMime: ACCEPTED_MIME,
+            },
           });
 
           const objectPath = [folderId, filename].join("/");

@@ -83,7 +83,7 @@ export const stagingRouter = createTRPCRouter({
                 description: p.description,
                 categoryId: p.categoryId,
                 seasonId: p.seasonId,
-                primaryImageUrl: p.primaryImageUrl,
+                primaryImagePath: p.primaryImagePath,
               },
               variant: p.variant
                 ? {
@@ -185,7 +185,7 @@ export const stagingRouter = createTRPCRouter({
               description: p.description,
               categoryId: p.categoryId,
               seasonId: p.seasonId,
-              primaryImageUrl: p.primaryImageUrl,
+              primaryImagePath: p.primaryImagePath,
             },
             variant: p.variant
               ? {

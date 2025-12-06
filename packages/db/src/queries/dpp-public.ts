@@ -208,7 +208,7 @@ async function fetchCoreData(
         productUpid: products.upid,
         productName: products.name,
         productDescription: products.description,
-        productImage: products.primaryImageUrl,
+        productImage: products.primaryImagePath,
         productIdentifier: products.productIdentifier,
         productStatus: products.status,
         // Variant
@@ -260,7 +260,7 @@ async function fetchCoreData(
       productUpid: products.upid,
       productName: products.name,
       productDescription: products.description,
-      productImage: products.primaryImageUrl,
+      productImage: products.primaryImagePath,
       productIdentifier: products.productIdentifier,
       productStatus: products.status,
       brandId: brands.id,

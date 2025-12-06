@@ -1,44 +1,56 @@
 import { createClient } from "@v1/supabase/client";
 
-export const DEFAULT_MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
-export const DEFAULT_ALLOWED_MIME = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-  "image/avif",
-  "image/svg+xml",
-] as const;
+// Re-export URL utilities from storage-urls.ts for backward compatibility
+export {
+  encodePath,
+  buildPublicUrl,
+  buildProxyUrl,
+  buildStorageUrl,
+  isFullUrl,
+  normalizeToDisplayUrl,
+  getSupabaseUrl,
+} from "./storage-urls";
+
+// Import for internal use
+import {
+  encodePath,
+  buildPublicUrl,
+  buildProxyUrl,
+  getSupabaseUrl,
+} from "./storage-urls";
 
 export type ImageValidationResult =
   | { valid: true }
   | { valid: false; error: string };
 
+export type ImageValidationConfig = {
+  maxBytes: number;
+  allowedMime: readonly string[];
+};
+
+/**
+ * Validate an image file against a config.
+ * Use UPLOAD_CONFIGS from storage-config.ts to get the right config for each use case.
+ */
 export function validateImageFile(
   file: File,
-  opts?: {
-    maxBytes?: number;
-    allowedMime?: readonly string[];
-  },
+  config: ImageValidationConfig,
 ): ImageValidationResult {
-  const maxBytes = opts?.maxBytes ?? DEFAULT_MAX_IMAGE_BYTES;
-  const allowedMime = opts?.allowedMime ?? DEFAULT_ALLOWED_MIME;
-
   if (!file.type.startsWith("image/")) {
     return { valid: false, error: "Please upload an image file." };
   }
 
-  if (!allowedMime.includes(file.type)) {
+  if (!config.allowedMime.includes(file.type)) {
     return {
       valid: false,
-      error: `Invalid image type. Allowed: ${allowedMime.join(", ")}`,
+      error: `Invalid image type. Allowed: ${config.allowedMime.join(", ")}`,
     };
   }
 
-  if (file.size > maxBytes) {
+  if (file.size > config.maxBytes) {
     return {
       valid: false,
-      error: `Image is too large (max ${(maxBytes / 1024 / 1024).toFixed(0)}MB).`,
+      error: `Image is too large (max ${(config.maxBytes / 1024 / 1024).toFixed(0)}MB).`,
     };
   }
 
@@ -54,36 +66,24 @@ export function buildObjectPath(
     .filter((part) => part.length > 0);
 }
 
-export function encodePath(path: string | string[]): string {
-  const joined = Array.isArray(path) ? path.join("/") : path;
-  return joined
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-}
-
+/**
+ * Build a display URL for a storage path.
+ * @deprecated Use buildPublicUrl or buildProxyUrl from storage-urls.ts instead
+ */
 export function buildDisplayUrl(params: {
   bucket: string;
   path: string | string[];
   isPublic?: boolean;
   supabaseUrl?: string | null;
 }) {
-  const { bucket, path, isPublic = true, supabaseUrl } = params;
-  const encodedPath = encodePath(path);
+  const { bucket, path, isPublic = true } = params;
+  const joinedPath = Array.isArray(path) ? path.join("/") : path;
 
   if (isPublic) {
-    if (supabaseUrl) {
-      return `${supabaseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`;
-    }
-    return `/storage/v1/object/public/${bucket}/${encodedPath}`;
+    return buildPublicUrl(bucket, joinedPath) ?? "";
   }
 
-  return `/api/storage/${bucket}/${encodedPath}`;
-}
-
-export function getSupabaseUrl(): string | null {
-  if (typeof window === "undefined") return null;
-  return process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
+  return buildProxyUrl(bucket, joinedPath) ?? "";
 }
 
 export function sanitizeFilename(name: string) {

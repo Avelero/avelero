@@ -1049,7 +1049,7 @@ export type Database = {
           id: string;
           name: string;
           price: number | null;
-          primary_image_url: string | null;
+          primary_image_path: string | null;
           product_identifier: string;
           sales_status: string | null;
           season_id: string | null;
@@ -1069,7 +1069,7 @@ export type Database = {
           id?: string;
           name: string;
           price?: number | null;
-          primary_image_url?: string | null;
+          primary_image_path?: string | null;
           product_identifier: string;
           sales_status?: string | null;
           season_id?: string | null;
@@ -1089,7 +1089,7 @@ export type Database = {
           id?: string;
           name?: string;
           price?: number | null;
-          primary_image_url?: string | null;
+          primary_image_path?: string | null;
           product_identifier?: string;
           sales_status?: string | null;
           season_id?: string | null;
@@ -1467,7 +1467,7 @@ export type Database = {
           id: string;
           job_id: string;
           name: string;
-          primary_image_url: string | null;
+          primary_image_path: string | null;
           product_identifier: string | null;
           product_upid: string | null;
           row_number: number;
@@ -1486,7 +1486,7 @@ export type Database = {
           id: string;
           job_id: string;
           name: string;
-          primary_image_url?: string | null;
+          primary_image_path?: string | null;
           product_identifier?: string | null;
           product_upid?: string | null;
           row_number: number;
@@ -1505,7 +1505,7 @@ export type Database = {
           id?: string;
           job_id?: string;
           name?: string;
-          primary_image_url?: string | null;
+          primary_image_path?: string | null;
           product_identifier?: string | null;
           product_upid?: string | null;
           row_number?: number;

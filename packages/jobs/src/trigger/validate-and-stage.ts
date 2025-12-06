@@ -227,7 +227,7 @@ interface ExistingVariant {
   description: string | null;
   categoryId: string | null;
   seasonId: string | null;
-  primaryImageUrl: string | null;
+  primaryImagePath: string | null;
   showcaseBrandId: string | null;
   status: string | null;
   // Variant fields
@@ -647,7 +647,7 @@ export const validateAndStage = task({
                 description: products.description,
                 categoryId: products.categoryId,
                 seasonId: products.seasonId,
-                primaryImageUrl: products.primaryImageUrl,
+                primaryImagePath: products.primaryImagePath,
                 showcaseBrandId: products.showcaseBrandId,
                 status: products.status,
                 upid: productVariants.upid,
@@ -671,7 +671,7 @@ export const validateAndStage = task({
                 description: v.description,
                 categoryId: v.categoryId,
                 seasonId: v.seasonId,
-                primaryImageUrl: v.primaryImageUrl,
+                primaryImagePath: v.primaryImagePath,
                 showcaseBrandId: v.showcaseBrandId,
                 status: v.status,
                 variant_id: v.variantId,
@@ -1348,7 +1348,7 @@ function detectChanges(
     description: string | null;
     categoryId: string | null;
     seasonId: string | null;
-    primaryImageUrl: string | null;
+    primaryImagePath: string | null;
     showcaseBrandId: string | null;
     status: string | null;
     // Variant fields
@@ -1381,8 +1381,8 @@ function detectChanges(
     changedFields.push("categoryId");
   if (isDifferent(newProduct.seasonId, existing.seasonId))
     changedFields.push("seasonId");
-  if (isDifferent(newProduct.primaryImageUrl, existing.primaryImageUrl))
-    changedFields.push("primaryImageUrl");
+  if (isDifferent(newProduct.primaryImagePath, existing.primaryImagePath))
+    changedFields.push("primaryImagePath");
   if (isDifferent(newProduct.showcaseBrandId, existing.showcaseBrandId))
     changedFields.push("showcaseBrandId");
   if (isDifferent(newProduct.status, existing.status))
@@ -1824,7 +1824,8 @@ async function validateRow(
     description: row.description?.trim() || null,
     categoryId,
     seasonId,
-    primaryImageUrl: row.primary_image_url?.trim() || null,
+    // CSV column is primary_image_url, but we store as primaryImagePath
+    primaryImagePath: row.primary_image_url?.trim() || null,
     status: productStatus,
     showcaseBrandId,
   };

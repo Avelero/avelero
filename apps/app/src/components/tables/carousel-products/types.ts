@@ -10,7 +10,7 @@ export interface CarouselProductRow {
     id: string;
     name: string;
     productIdentifier: string;
-    primaryImageUrl: string | null;
+    primaryImagePath: string | null;
     categoryName: string | null;
     seasonName: string | null;
 }

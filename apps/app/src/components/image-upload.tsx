@@ -7,6 +7,7 @@ import { useImageUpload } from "@/hooks/use-image-upload";
 import {
   validateImageFile,
   type ImageValidationResult,
+  type ImageValidationConfig,
 } from "@/utils/image-upload";
 import { toast } from "@v1/ui/sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
@@ -26,9 +27,15 @@ export interface ImageUploaderProps {
   mode?: UploaderMode;
   width?: number | string;
   height?: number | string;
-  validate?: (file: File) => ImageValidationResult;
+  /** Validation config from UPLOAD_CONFIGS or custom validation function */
+  validation?: ImageValidationConfig | ((file: File) => ImageValidationResult);
   uploadOnSelect?: boolean;
 }
+
+const DEFAULT_VALIDATION: ImageValidationConfig = {
+  maxBytes: 10 * 1024 * 1024, // 10MB
+  allowedMime: ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"],
+};
 
 export function ImageUploader({
   bucket,
@@ -42,7 +49,7 @@ export function ImageUploader({
   mode = "public",
   width = 200,
   height = 200,
-  validate,
+  validation = DEFAULT_VALIDATION,
   uploadOnSelect = true,
   onFileSelected,
 }: ImageUploaderProps) {
@@ -77,11 +84,12 @@ export function ImageUploader({
 
   const handleFile = useCallback(
     async (file: File) => {
-      const validation = validate
-        ? validate(file)
-        : validateImageFile(file, { maxBytes: 10 * 1024 * 1024 });
-      if (!validation.valid) {
-        setError(validation.error);
+      const validationResult =
+        typeof validation === "function"
+          ? validation(file)
+          : validateImageFile(file, validation);
+      if (!validationResult.valid) {
+        setError(validationResult.error);
         return;
       }
       setError(null);
@@ -105,7 +113,7 @@ export function ImageUploader({
           bucket,
           path,
           isPublic: mode === "public",
-          validate,
+          validation,
         });
         setPreviewUrl(displayUrl);
         onFileSelected?.(null);
@@ -124,7 +132,7 @@ export function ImageUploader({
       onFileSelected,
       uploadImage,
       uploadOnSelect,
-      validate,
+      validation,
     ],
   );
 

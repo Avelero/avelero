@@ -36,7 +36,7 @@ export const PRODUCT_FIELDS = [
   "category_id",
   "season_id",
   "showcase_brand_id",
-  "primary_image_url",
+  "primary_image_path",
   "product_identifier",
   "upid",
   "template_id",
@@ -216,7 +216,8 @@ export const createProductSchema = z.object({
   category_id: uuidSchema.optional(),
   season_id: uuidSchema.optional(), // FK to brand_seasons.id
   showcase_brand_id: uuidSchema.optional(),
-  primary_image_url: urlSchema.optional(),
+  /** Storage path for the product image (not full URL) */
+  primary_image_path: z.string().max(500).optional(),
   template_id: uuidSchema.optional(),
   status: shortStringSchema.optional(),
   color_ids: uuidArraySchema.max(12).optional(),
@@ -256,7 +257,7 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
   "category_id",
   "season_id",
   "showcase_brand_id",
-  "primary_image_url",
+  "primary_image_path",
   "template_id",
   "status",
   "product_identifier",

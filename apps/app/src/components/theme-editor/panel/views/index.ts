@@ -5,4 +5,3 @@ export { StylesSection } from "./styles-section";
 export { ContentSection } from "./content-section";
 export { StyleContentTabs, type TabType } from "./style-content-tabs";
 export { MenuItemEditor } from "./menu-item-editor";
-

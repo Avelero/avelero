@@ -6,8 +6,7 @@ import { cn } from "@v1/ui/cn";
 import { Select } from "@v1/ui/select";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { FontSelect } from "@/components/select/font-select";
-import { PixelInput } from "../inputs/pixel-input";
-import { FieldWrapper } from "../inputs/field-wrapper";
+import { PixelInput, FieldWrapper } from "../inputs";
 import type { TypographyScale } from "@v1/dpp-components";
 
 // Typography scale configuration

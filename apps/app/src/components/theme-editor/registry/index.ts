@@ -1,8 +1,33 @@
+// Types
+export type {
+  StyleFieldType,
+  StyleField,
+  ContentFieldType,
+  ContentField,
+  SectionVisibilityKey,
+  ComponentDefinition,
+} from "./types";
+
+// Constants
 export {
-  COMPONENT_TREE,
+  TYPESCALE_OPTIONS,
+  CAPITALIZATION_OPTIONS,
+  FLEX_DIRECTION_OPTIONS,
+  ALIGN_ITEMS_OPTIONS,
+  JUSTIFY_CONTENT_OPTIONS,
+  TEXT_ALIGN_OPTIONS,
+} from "./constants";
+
+// Component tree
+export { COMPONENT_TREE } from "./component-tree";
+
+// Utility functions
+export {
   findComponentById,
   getComponentAncestry,
+  getAllComponentIds,
   hasEditableContent,
-  type ComponentDefinition,
-  type StyleField,
-} from "./component-registry";
+  isSelectableComponent,
+  hasConfigContent,
+  hasVisibilityToggle,
+} from "./utils";

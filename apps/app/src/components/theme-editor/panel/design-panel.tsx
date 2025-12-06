@@ -3,18 +3,18 @@
 import { useState } from "react";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { PanelHeader } from "./panel-header";
-import { TypographyEditor } from "./sections/typography-editor";
-import { ColorsEditor } from "./sections/colors-editor";
-import { StylesSection } from "./sections/styles-section";
-import { ContentSection } from "./sections/content-section";
-import { StyleContentTabs, type TabType } from "./sections/style-content-tabs";
-import { LayoutTree } from "./sections/layout-tree";
-import { MenuItemEditor } from "./sections/menu-item-editor";
+import { TypographyEditor } from "./views/typography-editor";
+import { ColorsEditor } from "./views/colors-editor";
+import { StylesSection } from "./views/styles-section";
+import { ContentSection } from "./views/content-section";
+import { StyleContentTabs, type TabType } from "./views/style-content-tabs";
+import { LayoutTree } from "./views/layout-tree";
+import { MenuItemEditor } from "./views/menu-item-editor";
 import {
   findComponentById,
   hasEditableContent,
   hasConfigContent,
-} from "../registry/component-registry";
+} from "../registry";
 import type { NavigationSection } from "@/contexts/design-editor-provider";
 
 // Get display title for navigation state

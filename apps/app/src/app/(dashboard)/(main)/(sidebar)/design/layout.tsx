@@ -17,15 +17,6 @@ export default function AccountLayout({
 }) {
   return (
     <div className="flex flex-col h-full">
-      <ControlBar>
-        <ControlBarLeft>
-          <ControlBarNavButton href="/design">Design</ControlBarNavButton>
-          <ControlBarNavButton href="/design/content">
-            Content
-          </ControlBarNavButton>
-        </ControlBarLeft>
-        <ControlBarRight />
-      </ControlBar>
       <div className="flex w-full h-full justify-center items-start p-8 overflow-y-auto scrollbar-hide">
         {children}
       </div>

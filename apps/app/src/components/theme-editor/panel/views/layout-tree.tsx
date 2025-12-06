@@ -11,7 +11,7 @@ import {
   hasEditableContent,
   hasConfigContent,
   findComponentById,
-} from "../../registry/component-registry";
+} from "../../registry";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 
 /**

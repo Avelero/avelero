@@ -5,35 +5,18 @@ import {
   findComponentById,
   type StyleField,
   TYPESCALE_OPTIONS,
-} from "../../registry/component-registry";
+} from "../../registry";
 import {
   ColorInput,
   parseHexWithAlpha,
   combineHexWithAlpha,
-} from "../inputs/color-input";
-import { PixelInput } from "../inputs/pixel-input";
-import { RadiusInput } from "../inputs/radius-input";
-import { BorderInput } from "../inputs/border-input";
-import { FieldWrapper } from "../inputs/field-wrapper";
+  PixelInput,
+  RadiusInput,
+  BorderInput,
+  FieldWrapper,
+  EditorSection,
+} from "../inputs";
 import { Select } from "@v1/ui/select";
-
-// =============================================================================
-// EDITOR SECTION
-// =============================================================================
-
-function EditorSection({
-  title,
-  children,
-}: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="border-b border-border p-4">
-      <span className="type-small font-medium text-primary mb-3 block">
-        {title}
-      </span>
-      <div className="flex flex-col gap-3">{children}</div>
-    </div>
-  );
-}
 
 // =============================================================================
 // STYLE FIELD RENDERER

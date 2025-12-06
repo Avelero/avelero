@@ -5,7 +5,7 @@ import {
   ColorInput,
   parseHexWithAlpha,
   combineHexWithAlpha,
-} from "../inputs/color-input";
+} from "../inputs";
 
 // Color tokens configuration - matches globals.css color system
 const COLOR_TOKENS = [

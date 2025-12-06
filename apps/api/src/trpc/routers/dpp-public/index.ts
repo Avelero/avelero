@@ -15,6 +15,8 @@ import {
   getDppByProductUpid,
   getDppByVariantUpid,
   transformToDppData,
+  getBrandBySlug,
+  getBrandTheme,
 } from "@v1/db/queries";
 import { getPublicUrl } from "@v1/supabase/storage";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
@@ -42,6 +44,13 @@ const getByVariantUpidSchema = z.object({
   brandSlug: slugSchema,
   productUpid: upidSchema,
   variantUpid: upidSchema,
+});
+
+/**
+ * Input schema for theme preview fetch (screenshot generation)
+ */
+const getThemePreviewSchema = z.object({
+  brandSlug: slugSchema,
 });
 
 export const dppPublicRouter = createTRPCRouter({
@@ -140,6 +149,44 @@ export const dppPublicRouter = createTRPCRouter({
         themeStyles: rawData.themeStyles,
         stylesheetUrl,
         googleFontsUrl: rawData.googleFontsUrl,
+      };
+    }),
+
+  /**
+   * Fetch theme data for screenshot preview.
+   *
+   * Used by the /ahw_preview_jja/ route to render a brand's theme with demo data
+   * for screenshot generation. Does not require any products to exist.
+   *
+   * @param brandSlug - URL-friendly brand identifier
+   * @returns Theme data for rendering, or null if brand not found
+   */
+  getThemePreview: publicProcedure
+    .input(getThemePreviewSchema)
+    .query(async ({ ctx, input }) => {
+      const { brandSlug } = input;
+
+      // Get brand by slug
+      const brand = await getBrandBySlug(ctx.db, brandSlug);
+
+      if (!brand) {
+        return null;
+      }
+
+      // Fetch brand theme
+      const theme = await getBrandTheme(ctx.db, brand.id);
+
+      // Resolve stylesheet URL if present
+      const stylesheetUrl = theme?.stylesheetPath
+        ? getPublicUrl(ctx.supabase, "dpp-themes", theme.stylesheetPath)
+        : null;
+
+      return {
+        brandName: brand.name,
+        themeConfig: theme?.themeConfig ?? null,
+        themeStyles: theme?.themeStyles ?? null,
+        stylesheetUrl,
+        googleFontsUrl: theme?.googleFontsUrl ?? null,
       };
     }),
 });

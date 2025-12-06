@@ -28,7 +28,15 @@ type UploadParams = {
 
 export async function upload(
   client: StorageClient,
-  { file, path, bucket, contentType, cacheControl = "3600", upsert = true, metadata }: UploadParams,
+  {
+    file,
+    path,
+    bucket,
+    contentType,
+    cacheControl = "3600",
+    upsert = true,
+    metadata,
+  }: UploadParams,
 ): Promise<{ bucket: string; path: string }> {
   const storage = client.storage.from(bucket);
   const objectPath = Array.isArray(path) ? path.join("/") : path;

@@ -44,6 +44,17 @@ export interface DppApiResponse {
 }
 
 /**
+ * Theme preview response for screenshot generation
+ */
+export interface ThemePreviewResponse {
+  brandName: string;
+  themeConfig: ThemeConfig | null;
+  themeStyles: ThemeStyles | null;
+  stylesheetUrl: string | null;
+  googleFontsUrl: string | null;
+}
+
+/**
  * tRPC batch response format (superjson-encoded)
  */
 interface TrpcBatchResponse {
@@ -172,6 +183,28 @@ export async function fetchVariantDpp(
       `dpp-product-${productUpid}`,
       `dpp-brand-${brandSlug}`,
     ],
+  );
+}
+
+/**
+ * Fetch theme data for screenshot preview.
+ *
+ * Used by the /ahw_preview_jja/ route to render a brand's theme with demo data
+ * for screenshot generation. Does not require any products to exist.
+ *
+ * Cache tags used for on-demand revalidation:
+ * - `dpp-brand-{brandSlug}` - Invalidated when brand theme/config changes
+ *
+ * @param brandSlug - URL-friendly brand identifier
+ * @returns ThemePreviewResponse or null if brand not found
+ */
+export async function fetchThemePreview(
+  brandSlug: string,
+): Promise<ThemePreviewResponse | null> {
+  return trpcQuery<ThemePreviewResponse>(
+    "dppPublic.getThemePreview",
+    { brandSlug },
+    [`dpp-brand-${brandSlug}`],
   );
 }
 

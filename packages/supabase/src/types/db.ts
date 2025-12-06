@@ -503,6 +503,8 @@ export type Database = {
           brand_id: string;
           created_at: string;
           google_fonts_url: string | null;
+          screenshot_desktop_path: string | null;
+          screenshot_mobile_path: string | null;
           stylesheet_path: string | null;
           theme_config: Json;
           theme_styles: Json;
@@ -512,6 +514,8 @@ export type Database = {
           brand_id: string;
           created_at?: string;
           google_fonts_url?: string | null;
+          screenshot_desktop_path?: string | null;
+          screenshot_mobile_path?: string | null;
           stylesheet_path?: string | null;
           theme_config?: Json;
           theme_styles?: Json;
@@ -521,6 +525,8 @@ export type Database = {
           brand_id?: string;
           created_at?: string;
           google_fonts_url?: string | null;
+          screenshot_desktop_path?: string | null;
+          screenshot_mobile_path?: string | null;
           stylesheet_path?: string | null;
           theme_config?: Json;
           theme_styles?: Json;

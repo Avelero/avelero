@@ -142,7 +142,7 @@ export function EnvironmentSection({
               className={cn(
                 "h-9 flex-1",
                 carbonError &&
-                  "focus-visible:ring-destructive focus-visible:border-destructive",
+                "focus-visible:ring-destructive focus-visible:border-destructive",
               )}
             />
           </div>
@@ -169,7 +169,7 @@ export function EnvironmentSection({
               className={cn(
                 "h-9 flex-1",
                 waterError &&
-                  "focus-visible:ring-destructive focus-visible:border-destructive",
+                "focus-visible:ring-destructive focus-visible:border-destructive",
               )}
             />
           </div>
@@ -218,10 +218,9 @@ export function EnvironmentSection({
             variant="outline"
             size="sm"
             onClick={addEcoClaim}
-            icon={<Icons.Plus className="h-4 w-4" />}
-            iconPosition="left"
           >
-            Add eco-claim
+            <Icons.Plus className="h-4 w-4" />
+            <span className="px-1">Add eco-claim</span>
           </Button>
         </div>
       )}

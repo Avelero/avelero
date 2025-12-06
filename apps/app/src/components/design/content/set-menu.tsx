@@ -221,9 +221,9 @@ export function SetMenu({
 
   const handleDragEnd = React.useCallback(
     (event: DragEndEvent) => {
-    const { active, over } = event;
+      const { active, over } = event;
 
-    if (over && active.id !== over.id) {
+      if (over && active.id !== over.id) {
         const oldIndex = menuItemsWithIds.findIndex((i) => i.id === active.id);
         const newIndex = menuItemsWithIds.findIndex((i) => i.id === over.id);
 
@@ -235,8 +235,8 @@ export function SetMenu({
 
         // Convert back to external format and notify parent
         onItemsChange(next.map(({ label, url }) => ({ label, url })));
-    }
-    setActiveId(null);
+      }
+      setActiveId(null);
     },
     [menuItemsWithIds, onItemsChange],
   );
@@ -360,10 +360,9 @@ export function SetMenu({
             variant="outline"
             size="sm"
             onClick={addMenuItem}
-            icon={<Icons.Plus className="h-4 w-4" />}
-            iconPosition="left"
           >
-            Add menu item
+            <Icons.Plus className="h-4 w-4" />
+            <span className="px-1">Add menu item</span>
           </Button>
         </div>
       )}

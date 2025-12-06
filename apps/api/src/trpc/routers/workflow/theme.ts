@@ -4,10 +4,12 @@
  * Handles theme configuration (content) and theme styles operations.
  * - workflow.theme.get - Get full theme (styles + config)
  * - workflow.theme.updateConfig - Update theme config (menus, banner, social, etc.)
+ * - workflow.theme.listCarouselProducts - List products for carousel selection modal
  */
 import {
   getBrandTheme,
   updateBrandThemeConfig,
+  listProductsForCarouselSelection,
   eq,
 } from "@v1/db/queries";
 import { brands } from "@v1/db/schema";
@@ -15,6 +17,38 @@ import { z } from "zod";
 import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import { wrapError } from "../../../utils/errors.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
+
+// =============================================================================
+// FilterState Schema (subset for carousel selection)
+// =============================================================================
+
+/**
+ * Filter condition schema for carousel product selection.
+ * Simplified version that supports the most common filter types.
+ */
+const filterConditionSchema: z.ZodType<any> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    fieldId: z.string(),
+    operator: z.string(),
+    value: z.any(),
+    nestedConditions: z.array(filterConditionSchema).optional(),
+  }),
+);
+
+const filterGroupSchema = z.object({
+  id: z.string(),
+  conditions: z.array(filterConditionSchema),
+  asGroup: z.boolean().optional(),
+});
+
+const filterStateSchema = z.object({
+  groups: z.array(filterGroupSchema),
+});
+
+// =============================================================================
+// Procedures
+// =============================================================================
 
 /**
  * Get theme data (styles and config) for the active brand.
@@ -68,7 +102,7 @@ const updateConfigProcedure = brandRequiredProcedure
           .where(eq(brands.id, brandId))
           .limit(1);
         if (brand?.slug) {
-          revalidateBrand(brand.slug).catch(() => {});
+          revalidateBrand(brand.slug).catch(() => { });
         }
       } catch {
         // Silently ignore revalidation errors - the config update already succeeded
@@ -80,10 +114,48 @@ const updateConfigProcedure = brandRequiredProcedure
     }
   });
 
+/**
+ * List products for carousel selection modal.
+ * Returns a simplified product list with only fields needed for selection UI.
+ */
+const listCarouselProductsProcedure = brandRequiredProcedure
+  .input(
+    z.object({
+      search: z.string().optional(),
+      filterState: filterStateSchema.optional(),
+      sort: z
+        .object({
+          field: z.enum(["name", "category", "season", "createdAt"]),
+          direction: z.enum(["asc", "desc"]).default("asc"),
+        })
+        .optional(),
+      cursor: z.string().optional(),
+      limit: z.number().min(1).max(100).default(50),
+    }),
+  )
+  .query(async ({ ctx, input }) => {
+    const { db, brandId } = ctx;
+    try {
+      const result = await listProductsForCarouselSelection(db, brandId, {
+        search: input.search,
+        filterState: input.filterState,
+        sort: input.sort,
+        cursor: input.cursor,
+        limit: input.limit,
+      });
+
+      return result;
+    } catch (error) {
+      throw wrapError(error, "Failed to list products for carousel");
+    }
+  });
+
 export const workflowThemeRouter = createTRPCRouter({
   get: getThemeProcedure,
   updateConfig: updateConfigProcedure,
+  listCarouselProducts: listCarouselProductsProcedure,
 });
 
 export type WorkflowThemeRouter = typeof workflowThemeRouter;
+
 

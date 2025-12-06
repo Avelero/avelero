@@ -86,12 +86,12 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       const product = row.original;
       const meta = table.options.meta as
         | {
-            handleRangeSelection?: (
-              index: number,
-              shift: boolean,
-              id: string,
-            ) => void;
-          }
+          handleRangeSelection?: (
+            index: number,
+            shift: boolean,
+            id: string,
+          ) => void;
+        }
         | undefined;
 
       return (
@@ -301,10 +301,9 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                       if (!dppUrl) return;
                       window.open(dppUrl, "_blank", "noopener,noreferrer");
                     }}
-                    icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-                    iconPosition="right"
                   >
-                    Passport
+                    <span className="px-1">Passport</span>
+                    <Icons.ChevronRight className="h-[14px] w-[14px]" />
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -327,9 +326,9 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                 aria-label="Open actions menu"
                 disabled={!editHref}
                 onClick={(e) => e.stopPropagation()}
-                icon={<Icons.EllipsisVertical className="h-[14px] w-[14px]" />}
-                iconPosition="right"
-              />
+              >
+                <Icons.EllipsisVertical className="h-[14px] w-[14px]" />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"

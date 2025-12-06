@@ -39,10 +39,9 @@ export function SetCarousel({ enabled, onEnabledChange }: SetCarouselProps) {
         <Button
           variant="ghost"
           size="icon-sm"
-          iconPosition="right"
-          icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
         >
-          Manage products
+          <span className="px-1">Manage products</span>
+          <Icons.ChevronRight className="h-[14px] w-[14px]" />
         </Button>
       </div>
 

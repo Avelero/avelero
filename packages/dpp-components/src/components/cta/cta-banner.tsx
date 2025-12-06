@@ -8,6 +8,11 @@ interface Props {
 export function CTABanner({ themeConfig }: Props) {
   const { cta } = themeConfig;
 
+  // Visibility toggles - default to true if not set
+  const showHeadline = cta?.showHeadline ?? true;
+  const showSubline = cta?.showSubline ?? true;
+  const showButton = cta?.showButton ?? true;
+
   return (
     <div className="mt-3x mb-xl @3xl:mb-2x">
       <div className="banner relative w-full flex flex-col items-center justify-center py-3x px-lg @3xl:px-3x overflow-hidden">
@@ -25,20 +30,20 @@ export function CTABanner({ themeConfig }: Props) {
 
         <div className="banner__container relative z-10 flex flex-col gap-xl w-full">
           <div className="flex flex-col gap-lg">
-            {cta?.bannerHeadline && (
+            {showHeadline && cta?.bannerHeadline && (
               <h2 className="banner__headline text-center max-w-[600px]">
                 {cta.bannerHeadline}
               </h2>
             )}
 
-            {cta?.bannerSubline && (
+            {showSubline && cta?.bannerSubline && (
               <p className="banner__subline text-center max-w-[600px]">
                 {cta.bannerSubline}
               </p>
             )}
           </div>
 
-          {cta?.bannerCTAUrl && cta?.bannerCTAText && (
+          {showButton && cta?.bannerCTAUrl && cta?.bannerCTAText && (
             <a
               href={cta.bannerCTAUrl}
               target="_blank"

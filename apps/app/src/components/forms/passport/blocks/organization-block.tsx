@@ -166,10 +166,9 @@ export function OrganizationSection({
                 variant="outline"
                 size="sm"
                 onClick={() => setShowSeason(true)}
-                icon={<Icons.Plus className="h-4 w-4" />}
-                iconPosition="left"
               >
-                Season
+                <Icons.Plus className="h-4 w-4" />
+                <span className="px-1">Season</span>
               </Button>
             )}
             {!showTags && (
@@ -178,10 +177,9 @@ export function OrganizationSection({
                 variant="outline"
                 size="sm"
                 onClick={() => setShowTags(true)}
-                icon={<Icons.Plus className="h-4 w-4" />}
-                iconPosition="left"
               >
-                Tags
+                <Icons.Plus className="h-4 w-4" />
+                <span className="px-1">Tags</span>
               </Button>
             )}
           </div>

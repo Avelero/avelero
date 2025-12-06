@@ -75,6 +75,15 @@ export type NavigationState = {
   componentId?: string;
 };
 
+/**
+ * State for editing a menu item (navigates to a sub-editor view)
+ */
+export type MenuItemEditState = {
+  menuType: "primary" | "secondary";
+  configPath: string;
+  itemIndex: number;
+} | null;
+
 type DesignEditorContextValue = {
   // Theme state
   themeStylesDraft: ThemeStyles;
@@ -137,6 +146,11 @@ type DesignEditorContextValue = {
   navigateToComponent: (componentId: string) => void;
   navigateBack: () => void;
   navigateToRoot: () => void;
+
+  // Menu item editing state
+  menuItemEdit: MenuItemEditState;
+  navigateToMenuItemEdit: (menuType: "primary" | "secondary", configPath: string, itemIndex: number) => void;
+  clearMenuItemEdit: () => void;
 
   // Layout tree expand/collapse state
   expandedItems: Set<string>;
@@ -267,10 +281,10 @@ export function DesignEditorProvider({
   const saveDrafts = useCallback(async () => {
     if (!brandId) return;
     setIsSaving(true);
-    
+
     try {
       const promises: Promise<unknown>[] = [];
-      
+
       // Save styles if changed
       if (hasUnsavedStyleChanges) {
         promises.push(
@@ -285,7 +299,7 @@ export function DesignEditorProvider({
           }),
         );
       }
-      
+
       // Save config if changed
       if (hasUnsavedConfigChanges) {
         promises.push(
@@ -296,7 +310,7 @@ export function DesignEditorProvider({
           }),
         );
       }
-      
+
       await Promise.all(promises);
       toast.success("Changes saved");
     } catch (error) {
@@ -434,11 +448,11 @@ export function DesignEditorProvider({
    */
   const updateConfigValue = useCallback((path: string, value: unknown) => {
     const parts = path.split(".");
-    
+
     setThemeConfigDraft((prev) => {
       // Deep clone to avoid mutations
       const next = JSON.parse(JSON.stringify(prev)) as ThemeConfig;
-      
+
       // Navigate to the parent and set the value
       let current: Record<string, unknown> = next as unknown as Record<string, unknown>;
       for (let i = 0; i < parts.length - 1; i++) {
@@ -453,12 +467,12 @@ export function DesignEditorProvider({
           }
         }
       }
-      
+
       const lastKey = parts[parts.length - 1];
       if (lastKey) {
         current[lastKey] = value;
       }
-      
+
       return next;
     });
   }, []);
@@ -471,7 +485,7 @@ export function DesignEditorProvider({
     (path: string): unknown => {
       const parts = path.split(".");
       let current: unknown = themeConfigDraft;
-      
+
       for (const key of parts) {
         if (current && typeof current === "object" && key in current) {
           current = (current as Record<string, unknown>)[key];
@@ -479,7 +493,7 @@ export function DesignEditorProvider({
           return undefined;
         }
       }
-      
+
       return current;
     },
     [themeConfigDraft],
@@ -538,6 +552,22 @@ export function DesignEditorProvider({
 
   const navigateToRoot = useCallback(() => {
     setNavigation({ level: "root" });
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Menu Item Edit State
+  // ---------------------------------------------------------------------------
+  const [menuItemEdit, setMenuItemEdit] = useState<MenuItemEditState>(null);
+
+  const navigateToMenuItemEdit = useCallback(
+    (menuType: "primary" | "secondary", configPath: string, itemIndex: number) => {
+      setMenuItemEdit({ menuType, configPath, itemIndex });
+    },
+    [],
+  );
+
+  const clearMenuItemEdit = useCallback(() => {
+    setMenuItemEdit(null);
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -602,6 +632,10 @@ export function DesignEditorProvider({
       navigateToComponent,
       navigateBack,
       navigateToRoot,
+      // Menu item editing
+      menuItemEdit,
+      navigateToMenuItemEdit,
+      clearMenuItemEdit,
       // Expand/collapse
       expandedItems,
       toggleExpanded,
@@ -636,6 +670,9 @@ export function DesignEditorProvider({
       navigateToComponent,
       navigateBack,
       navigateToRoot,
+      menuItemEdit,
+      navigateToMenuItemEdit,
+      clearMenuItemEdit,
       expandedItems,
       toggleExpanded,
       selectedComponentId,

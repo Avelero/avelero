@@ -144,7 +144,6 @@ export function Select(props: SelectProps) {
           size="default"
           disabled={disabled}
           className={cn("w-full justify-between", className)}
-          icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
           <div className="flex items-center gap-2 truncate">
             {selectedOption?.icon && (
@@ -152,7 +151,8 @@ export function Select(props: SelectProps) {
                 {selectedOption.icon}
               </div>
             )}
-            <span className="truncate">{displayText}</span>
+            <span className="truncate px-1">{displayText}</span>
+            <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </div>
         </Button>
       </PopoverTrigger>

@@ -142,15 +142,15 @@ function TierTwoCategorySelect({
           <Button
             variant="outline"
             className="w-full justify-between h-9"
-            icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
           >
             <span
               className={cn(
-                !selectedCategoryPath ? "text-tertiary" : "text-primary",
+                !selectedCategoryPath ? "text-tertiary px-1" : "text-primary px-1",
               )}
             >
               {selectedCategoryPath || "Select category"}
             </span>
+            <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -677,8 +677,8 @@ export function SizeModal({
     const categoryKey = getCategoryKey(category);
     const existingSizes = categoryKey
       ? sizeOptions
-          .filter((s) => s.categoryPath === category)
-          .sort((a, b) => a.sortIndex - b.sortIndex)
+        .filter((s) => s.categoryPath === category)
+        .sort((a, b) => a.sortIndex - b.sortIndex)
       : [];
 
     // Add existing sizes first
@@ -804,10 +804,9 @@ export function SizeModal({
                   variant="ghost"
                   size="sm"
                   onClick={addRow}
-                  icon={<Icons.Plus className="h-4 w-4" />}
-                  iconPosition="left"
                 >
-                  Add size
+                  <Icons.Plus className="h-4 w-4" />
+                  <span className="px-1">Add size</span>
                 </Button>
               </div>
             </div>

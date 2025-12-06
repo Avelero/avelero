@@ -140,12 +140,12 @@ function LayoutTreeItem({
             <div className="min-w-4" />
           )}
 
-          {/* Item label + chevron - main clickable area */}
+          {/* Item label - main clickable area */}
           <button
             type="button"
             onClick={handleMainClick}
             className={cn(
-              "flex flex-row items-center justify-between text-left h-7 flex-1 type-small text-primary",
+              "flex flex-row items-center text-left h-7 flex-1 type-small text-primary",
               // Only show cursor-pointer for editable items
               isEditable ? "cursor-pointer" : "cursor-default",
             )}
@@ -158,22 +158,24 @@ function LayoutTreeItem({
                 {item.displayName}
               </div>
             </div>
-            <div className="flex items-center">
-              {/* Visibility eye toggle - shows on hover, always visible if section is hidden */}
-              {item.visibilityKey && (
-                <VisibilityToggle visibilityKey={item.visibilityKey} />
-              )}
-              {/* Navigation chevron - only show for editable items, shows on hover */}
-              {isEditable ? (
-                <div className="flex items-center justify-center min-w-7 h-7 opacity-0 group-hover:opacity-100">
-                  <Icons.ChevronRight className="h-3.5 w-3.5 text-primary" />
-                </div>
-              ) : (
-                /* Spacer to maintain alignment when no chevron */
-                item.visibilityKey && <div className="min-w-7 h-7" />
-              )}
-            </div>
           </button>
+
+          {/* Right side controls - outside the main button to avoid nesting */}
+          <div className="flex items-center">
+            {/* Visibility eye toggle - shows on hover, always visible if section is hidden */}
+            {item.visibilityKey && (
+              <VisibilityToggle visibilityKey={item.visibilityKey} />
+            )}
+            {/* Navigation chevron - only show for editable items, shows on hover */}
+            {isEditable ? (
+              <div className="flex items-center justify-center min-w-7 h-7 opacity-0 group-hover:opacity-100">
+                <Icons.ChevronRight className="h-3.5 w-3.5 text-primary" />
+              </div>
+            ) : (
+              /* Spacer to maintain alignment when no chevron */
+              item.visibilityKey && <div className="min-w-7 h-7" />
+            )}
+          </div>
         </div>
       </div>
 

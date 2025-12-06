@@ -389,11 +389,11 @@ export function FilterFieldInput({
                 "justify-between",
                 operatorNeedsNoValue ? "w-full" : "w-fit",
               )}
-              icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
             >
-              <span className="truncate">
+              <span className="px-1 truncate">
                 {operator || "Select operator..."}
               </span>
+              <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[220px]" inline>
@@ -500,9 +500,9 @@ function CategoryPopoverSelect({
           variant="outline"
           size="default"
           className="w-full justify-between"
-          icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
-          <span className="truncate">{displayText}</span>
+          <span className="truncate px-1">{displayText}</span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="start" inline>
@@ -516,7 +516,7 @@ function CategoryPopoverSelect({
                 className="w-full py-2 px-3 type-p text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
               >
                 <Icons.ChevronLeft className="h-4 w-4 mr-2 text-secondary" />
-                <span className="text-primary">{getBreadcrumbString()}</span>
+                <span className="px-1 text-primary">{getBreadcrumbString()}</span>
               </button>
             </div>
           )}
@@ -556,7 +556,7 @@ function CategoryPopoverSelect({
                             isSelected
                               ? "bg-accent-blue text-brand"
                               : hoveredRow === categoryId &&
-                                  hoveredArea === "selection"
+                                hoveredArea === "selection"
                                 ? "bg-accent-dark text-primary"
                                 : "text-primary",
                           )}
@@ -592,7 +592,7 @@ function CategoryPopoverSelect({
                             : "hover:bg-accent text-primary",
                         )}
                       >
-                        <span>{node.label}</span>
+                        <span className="px-1">{node.label}</span>
                         {isSelected && (
                           <Icons.Check className="h-4 w-4 text-brand" />
                         )}
@@ -727,9 +727,9 @@ function SizePopoverSelect({
           variant="outline"
           size="default"
           className="w-full justify-between"
-          icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
-          <span className="truncate">{displayText}</span>
+          <span className="px-1 truncate">{displayText}</span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="start" inline>
@@ -743,7 +743,7 @@ function SizePopoverSelect({
                 className="w-full py-2 px-3 type-p text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
               >
                 <Icons.ChevronLeft className="h-4 w-4 mr-2 text-secondary" />
-                <span className="text-primary">{getBreadcrumbString()}</span>
+                <span className="px-1 text-primary">{getBreadcrumbString()}</span>
               </button>
             </div>
           )}
@@ -765,7 +765,7 @@ function SizePopoverSelect({
                     onClick={() => handleNavigateForward(category)}
                     className="w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between hover:bg-accent text-primary"
                   >
-                    <span>{category}</span>
+                    <span className="px-1">{category}</span>
                     <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
                   </button>
                 ))}
@@ -781,7 +781,7 @@ function SizePopoverSelect({
                     onClick={() => handleNavigateForward(category)}
                     className="w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between hover:bg-accent text-primary"
                   >
-                    <span>{category}</span>
+                    <span className="px-1">{category}</span>
                     <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
                   </button>
                 ))}
@@ -925,9 +925,9 @@ function SeasonPopoverSelect({
           variant="outline"
           size="default"
           className="w-full justify-between"
-          icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
-          <span className="truncate">{displayText}</span>
+          <span className="px-1 truncate">{displayText}</span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0" align="start" inline>
@@ -945,10 +945,10 @@ function SeasonPopoverSelect({
                   const season = seasons.find((s) => s.id === option.value);
                   const seasonInfo = season
                     ? {
-                        startDate: season.startDate,
-                        endDate: season.endDate,
-                        isOngoing: season.isOngoing,
-                      }
+                      startDate: season.startDate,
+                      endDate: season.endDate,
+                      isOngoing: season.isOngoing,
+                    }
                     : null;
 
                   return (

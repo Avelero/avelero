@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import {
     findComponentById,
@@ -12,7 +12,11 @@ import { Label } from "@v1/ui/label";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { ImageUploader } from "@/components/image-upload";
+import { CarouselProductsModal } from "@/components/modals/carousel-products-modal";
+import type { FilterState } from "@/components/tables/carousel-products";
 import { createClient } from "@v1/supabase/client";
+import { Link } from "lucide-react";
+import { MenuInput } from "../inputs/menu-input";
 
 // =============================================================================
 // EDITOR SECTION (reused from styles-section pattern)
@@ -150,6 +154,237 @@ function ImageField({ field, value, onChange, brandId }: ImageFieldProps) {
 }
 
 // =============================================================================
+// CAROUSEL PRODUCTS FIELD
+// =============================================================================
+
+interface CarouselProductsFieldProps {
+    field: ContentField;
+}
+
+/**
+ * Field component for carousel product selection.
+ * Opens modal and saves selection to themeConfig.carousel.
+ */
+function CarouselProductsField({ field }: CarouselProductsFieldProps) {
+    const [modalOpen, setModalOpen] = useState(false);
+    const { getConfigValue, updateConfigValue } = useDesignEditor();
+
+    // Get current carousel config
+    const carouselConfig = getConfigValue("carousel") as {
+        includeIds?: string[];
+        excludeIds?: string[];
+        filter?: Record<string, unknown>;
+    } | undefined;
+
+    // Calculate selected count for display
+    const selectedCount = carouselConfig?.includeIds?.length ?? 0;
+    const hasSelection = selectedCount > 0 || (carouselConfig?.excludeIds?.length ?? 0) > 0;
+
+    const handleSave = (selection: {
+        filter: FilterState | null;
+        includeIds: string[];
+        excludeIds: string[];
+    }) => {
+        // Update carousel config with selection
+        // We preserve existing carousel settings and merge in the selection
+        const currentConfig = getConfigValue("carousel") as Record<string, unknown> | undefined;
+
+        updateConfigValue("carousel", {
+            ...currentConfig,
+            filter: selection.filter ?? undefined,
+            includeIds: selection.includeIds.length > 0 ? selection.includeIds : undefined,
+            excludeIds: selection.excludeIds.length > 0 ? selection.excludeIds : undefined,
+        });
+    };
+
+    return (
+        <FieldWrapper label={field.label}>
+            <Button
+                variant="outline"
+                className="w-full justify-between"
+                onClick={() => setModalOpen(true)}
+            >
+                <span className="px-1">
+                    {hasSelection
+                        ? selectedCount > 0
+                            ? `${selectedCount} product${selectedCount !== 1 ? "s" : ""} selected`
+                            : "All products (with exclusions)"
+                        : "Configure"}
+                </span>
+                <Icons.ChevronRight className="h-4 w-4" />
+            </Button>
+            <CarouselProductsModal
+                open={modalOpen}
+                onOpenChange={setModalOpen}
+                initialSelection={{
+                    filter: carouselConfig?.filter as any,
+                    includeIds: carouselConfig?.includeIds ?? [],
+                    excludeIds: carouselConfig?.excludeIds ?? [],
+                }}
+                onSave={handleSave}
+            />
+        </FieldWrapper>
+    );
+}
+
+// =============================================================================
+// NUMBER FIELD COMPONENT
+// =============================================================================
+
+interface NumberFieldProps {
+    field: ContentField;
+    value: unknown;
+    onChange: (value: number) => void;
+}
+
+function NumberField({ field, value, onChange }: NumberFieldProps) {
+    const [localValue, setLocalValue] = useState<string>(() => {
+        const numValue = typeof value === "number" ? value : 0;
+        return String(numValue);
+    });
+
+    return (
+        <FieldWrapper label={field.label}>
+            <Input
+                type="number"
+                value={localValue}
+                onChange={(e) => setLocalValue(e.target.value)}
+                onBlur={() => {
+                    const parsed = Number(localValue);
+                    if (!isNaN(parsed)) {
+                        onChange(parsed);
+                    } else {
+                        // Reset to current value if invalid
+                        const numValue = typeof value === "number" ? value : 0;
+                        setLocalValue(String(numValue));
+                    }
+                }}
+                min={field.min}
+                max={field.max}
+                className="h-8 text-sm w-24"
+            />
+        </FieldWrapper>
+    );
+}
+
+// =============================================================================
+// TEXT FIELD COMPONENT
+// =============================================================================
+
+interface TextFieldProps {
+    field: ContentField;
+    value: unknown;
+    onChange: (value: string) => void;
+}
+
+function TextField({ field, value, onChange }: TextFieldProps) {
+    return (
+        <FieldWrapper label={field.label}>
+            <Input
+                value={typeof value === "string" ? value : ""}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={field.placeholder}
+                className="h-8 text-sm"
+            />
+        </FieldWrapper>
+    );
+}
+
+// =============================================================================
+// TEXTAREA FIELD COMPONENT
+// =============================================================================
+
+interface TextareaFieldProps {
+    field: ContentField;
+    value: unknown;
+    onChange: (value: string) => void;
+}
+
+function TextareaField({ field, value, onChange }: TextareaFieldProps) {
+    return (
+        <FieldWrapper label={field.label}>
+            <textarea
+                value={typeof value === "string" ? value : ""}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={field.placeholder}
+                className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            />
+        </FieldWrapper>
+    );
+}
+
+// =============================================================================
+// URL FIELD COMPONENT
+// =============================================================================
+
+interface UrlFieldProps {
+    field: ContentField;
+    value: unknown;
+    onChange: (value: string) => void;
+}
+
+function UrlField({ field, value, onChange }: UrlFieldProps) {
+    return (
+        <FieldWrapper label={field.label}>
+            <Input
+                type="url"
+                value={typeof value === "string" ? value : ""}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={field.placeholder || "https://..."}
+                className="h-8 text-sm"
+            />
+        </FieldWrapper>
+    );
+}
+
+// =============================================================================
+// TOGGLE FIELD COMPONENT
+// =============================================================================
+
+interface ToggleFieldProps {
+    field: ContentField;
+    value: unknown;
+    onChange: (value: boolean) => void;
+}
+
+function ToggleField({ field, value, onChange }: ToggleFieldProps) {
+    const checked = typeof value === "boolean" ? value : false;
+    return (
+        <div className="flex items-center justify-between">
+            <Label variant="small">{field.label}</Label>
+            <Switch
+                checked={checked}
+                onCheckedChange={(newChecked) => onChange(newChecked)}
+            />
+        </div>
+    );
+}
+
+// =============================================================================
+// MODAL FIELD COMPONENT
+// =============================================================================
+
+interface ModalFieldProps {
+    field: ContentField;
+}
+
+function ModalField({ field }: ModalFieldProps) {
+    // Handle different modal types
+    if (field.modalType === "carousel-products") {
+        return <CarouselProductsField field={field} />;
+    }
+
+    // Handle menu modals (primary and secondary)
+    if (field.modalType === "menu-primary" || field.modalType === "menu-secondary") {
+        const menuType = field.modalType === "menu-primary" ? "primary" : "secondary";
+        return <MenuInput menuType={menuType} configPath={field.path} />;
+    }
+
+    // Unknown modal type
+    return null;
+}
+
+// =============================================================================
 // CONTENT FIELD RENDERER
 // =============================================================================
 
@@ -164,45 +399,32 @@ function ContentFieldRenderer({ field, brandId }: ContentFieldRendererProps) {
     const value = getConfigValue(field.path);
 
     switch (field.type) {
-        case "text": {
+        case "text":
             return (
-                <FieldWrapper label={field.label}>
-                    <Input
-                        value={typeof value === "string" ? value : ""}
-                        onChange={(e) => updateConfigValue(field.path, e.target.value)}
-                        placeholder={field.placeholder}
-                        className="h-8 text-sm"
-                    />
-                </FieldWrapper>
+                <TextField
+                    field={field}
+                    value={value}
+                    onChange={(v) => updateConfigValue(field.path, v)}
+                />
             );
-        }
 
-        case "textarea": {
+        case "textarea":
             return (
-                <FieldWrapper label={field.label}>
-                    <textarea
-                        value={typeof value === "string" ? value : ""}
-                        onChange={(e) => updateConfigValue(field.path, e.target.value)}
-                        placeholder={field.placeholder}
-                        className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                </FieldWrapper>
+                <TextareaField
+                    field={field}
+                    value={value}
+                    onChange={(v) => updateConfigValue(field.path, v)}
+                />
             );
-        }
 
-        case "url": {
+        case "url":
             return (
-                <FieldWrapper label={field.label}>
-                    <Input
-                        type="url"
-                        value={typeof value === "string" ? value : ""}
-                        onChange={(e) => updateConfigValue(field.path, e.target.value)}
-                        placeholder={field.placeholder || "https://..."}
-                        className="h-8 text-sm"
-                    />
-                </FieldWrapper>
+                <UrlField
+                    field={field}
+                    value={value}
+                    onChange={(v) => updateConfigValue(field.path, v)}
+                />
             );
-        }
 
         case "image": {
             const imageUrl = typeof value === "string" ? value : "";
@@ -216,55 +438,26 @@ function ContentFieldRenderer({ field, brandId }: ContentFieldRendererProps) {
             );
         }
 
-        case "toggle": {
-            const checked = typeof value === "boolean" ? value : false;
+        case "toggle":
             return (
-                <div className="flex items-center justify-between">
-                    <Label variant="small">{field.label}</Label>
-                    <Switch
-                        checked={checked}
-                        onCheckedChange={(newChecked) =>
-                            updateConfigValue(field.path, newChecked)
-                        }
-                    />
-                </div>
+                <ToggleField
+                    field={field}
+                    value={value}
+                    onChange={(v) => updateConfigValue(field.path, v)}
+                />
             );
-        }
 
-        case "number": {
-            const numValue = typeof value === "number" ? value : 0;
+        case "number":
             return (
-                <FieldWrapper label={field.label}>
-                    <Input
-                        type="number"
-                        value={numValue}
-                        onChange={(e) =>
-                            updateConfigValue(field.path, Number(e.target.value))
-                        }
-                        min={field.min}
-                        max={field.max}
-                        className="h-8 text-sm w-24"
-                    />
-                </FieldWrapper>
+                <NumberField
+                    field={field}
+                    value={value}
+                    onChange={(v) => updateConfigValue(field.path, v)}
+                />
             );
-        }
 
-        case "modal": {
-            // Modal placeholder - shows button that will open modal in Phase 7
-            return (
-                <FieldWrapper label={field.label}>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-between"
-                        disabled // Disabled until Phase 7
-                    >
-                        <span>Configure...</span>
-                        <Icons.ChevronRight className="h-4 w-4" />
-                    </Button>
-                </FieldWrapper>
-            );
-        }
+        case "modal":
+            return <ModalField field={field} />;
 
         default:
             return null;

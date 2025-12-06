@@ -1064,14 +1064,14 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
   // -------------------------------------------------------------------------
   {
     id: "carousel",
-    displayName: "Product Carousel",
+    displayName: "Product carousel",
     isGrouping: true,
     visibilityKey: "showSimilarProducts",
     configFields: [
       {
         type: "number",
         path: "carousel.productCount",
-        label: "Product Count",
+        label: "Product count",
         section: "Display",
         min: 1,
         max: 12,
@@ -1079,19 +1079,19 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
       {
         type: "toggle",
         path: "carousel.showTitle",
-        label: "Show Title",
+        label: "Show title",
         section: "Display",
       },
       {
         type: "toggle",
         path: "carousel.showPrice",
-        label: "Show Price",
+        label: "Show price",
         section: "Display",
       },
       {
         type: "modal",
         path: "carousel",
-        label: "Configure Products",
+        label: "Configure products",
         section: "Products",
         modalType: "carousel-products",
       },

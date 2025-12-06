@@ -19,6 +19,14 @@ export function ProductCarousel({ products, themeConfig }: Props) {
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeoutRef = useRef<number | undefined>(undefined);
 
+  // Get carousel config values with defaults
+  const showTitle = themeConfig.carousel?.showTitle ?? true;
+  const showPrice = themeConfig.carousel?.showPrice ?? true;
+  const productCount = themeConfig.carousel?.productCount ?? 6;
+
+  // Limit products to the configured count
+  const displayProducts = products.slice(0, productCount);
+
   // Update end spacer width based on content padding
   const updateEndSpacer = useCallback(() => {
     if (!contentRef.current || !endSpacerRef.current) return;
@@ -106,9 +114,9 @@ export function ProductCarousel({ products, themeConfig }: Props) {
     };
   }, [handleScroll, updateButtonVisibility, updateEndSpacer]);
 
-  if (!products || products.length === 0) return null;
+  if (!displayProducts || displayProducts.length === 0) return null;
 
-  const showNavButtons = products.length > 3;
+  const showNavButtons = displayProducts.length > 3;
 
   return (
     <div className="carousel pt-2x @3xl:pt-2x @3xl:pb-0 w-full">
@@ -128,9 +136,13 @@ export function ProductCarousel({ products, themeConfig }: Props) {
             }}
           >
             <div ref={contentRef} className="carousel__content flex gap-sm">
-              {products.map((product, index) => (
+              {displayProducts.map((product, index) => (
                 <div key={`${product.name}-${index}`} className="product-item">
-                  <ProductCard product={product} />
+                  <ProductCard
+                    product={product}
+                    showTitle={showTitle}
+                    showPrice={showPrice}
+                  />
                 </div>
               ))}
               {/* End spacer to ensure the last card can be fully scrolled */}

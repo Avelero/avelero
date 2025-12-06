@@ -737,10 +737,9 @@ export function JourneySection({
               variant="outline"
               size="sm"
               onClick={addJourneyStep}
-              icon={<Icons.Plus className="h-4 w-4" />}
-              iconPosition="left"
             >
-              Add step
+              <Icons.Plus className="h-4 w-4" />
+              <span className="px-1">Add step</span>
             </Button>
           </div>
         ) : (
@@ -827,10 +826,9 @@ export function JourneySection({
             variant="outline"
             size="sm"
             onClick={addJourneyStep}
-            icon={<Icons.Plus className="h-4 w-4" />}
-            iconPosition="left"
           >
-            Add step
+            <Icons.Plus className="h-4 w-4" />
+            <span className="px-1">Add step</span>
           </Button>
         </div>
       )}

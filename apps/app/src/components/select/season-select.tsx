@@ -104,16 +104,16 @@ export function SeasonSelect({
           size="default"
           disabled={disabled}
           className={cn("w-full justify-between h-9", className)}
-          icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
           {value ? (
             <div className="flex items-center gap-2">
-              <span className="type-p text-primary">{value.name}</span>
+              <span className="type-p text-primary px-1">{value.name}</span>
               {renderSeasonDateRange(value)}
             </div>
           ) : (
-            <span className="text-tertiary">{placeholder}</span>
+            <span className="text-tertiary px-1">{placeholder}</span>
           )}
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>
       <PopoverContent

@@ -9,6 +9,7 @@ import { StylesSection } from "./sections/styles-section";
 import { ContentSection } from "./sections/content-section";
 import { StyleContentTabs, type TabType } from "./sections/style-content-tabs";
 import { LayoutTree } from "./sections/layout-tree";
+import { MenuItemEditor } from "./sections/menu-item-editor";
 import {
   findComponentById,
   hasEditableContent,
@@ -42,13 +43,39 @@ function getNavigationTitle(
 }
 
 export function DesignPanel() {
-  const { navigation, navigateBack } = useDesignEditor();
+  const { navigation, navigateBack, menuItemEdit, clearMenuItemEdit, getConfigValue } = useDesignEditor();
 
   // Tab state for component view (Styles vs Content)
   const [activeTab, setActiveTab] = useState<TabType>("styles");
 
   // Default to layout section if at root (shouldn't happen with new default)
   const effectiveSection = navigation.section ?? "layout";
+
+  // Check if we're editing a menu item
+  if (menuItemEdit) {
+    // Get the menu item label for the header
+    const items = (getConfigValue(menuItemEdit.configPath) as Array<{ label: string; url: string }> | undefined) ?? [];
+    const item = items[menuItemEdit.itemIndex];
+    const headerTitle = item?.label || "Edit Button";
+
+    return (
+      <div className="flex h-full w-[300px] flex-col border-r bg-background">
+        <PanelHeader
+          title={headerTitle}
+          showBackButton={true}
+          onBack={clearMenuItemEdit}
+        />
+        <div className="flex-1 flex flex-col min-h-0">
+          <MenuItemEditor
+            menuType={menuItemEdit.menuType}
+            configPath={menuItemEdit.configPath}
+            itemIndex={menuItemEdit.itemIndex}
+            onBack={clearMenuItemEdit}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const title = getNavigationTitle(
     navigation.level,
@@ -137,3 +164,4 @@ export function DesignPanel() {
     </div>
   );
 }
+

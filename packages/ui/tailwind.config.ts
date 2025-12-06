@@ -57,6 +57,10 @@ export default {
         success: {
           DEFAULT: "var(--success)",
           foreground: "var(--success-foreground)",
+          brand: {
+            DEFAULT: "var(--brand-success)",
+            foreground: "var(--brand-success-foreground)",
+          },
         },
         muted: {
           DEFAULT: "var(--muted)",

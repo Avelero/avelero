@@ -8,10 +8,8 @@ function Skeleton({
   return (
     <div
       className={cn(
-        "relative overflow-hidden",
-        "bg-gradient-to-r from-transparent via-primary/10 to-transparent dark:via-primary/10",
-        "bg-[length:200%_100%]",
-        "animate-shimmer rounded-none",
+        "relative overflow-hidden rounded-none",
+        "bg-accent animate-pulse",
         className,
       )}
       {...props}

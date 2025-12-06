@@ -32,9 +32,9 @@ export function MenuFrame({
   return (
     <div className="w-full mt-2x @3xl:mx-0">
       <div className={`${containerClass} border-t`}>
-        {menuItems.map((item) => (
+        {menuItems.map((item, index) => (
           <MenuButton
-            key={item.id || `${item.url}-${item.label}`}
+            key={item.id || `menu-item-${index}`}
             label={item.label}
             url={item.url}
             variant={variant}

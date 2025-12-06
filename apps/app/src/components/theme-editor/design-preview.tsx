@@ -15,7 +15,7 @@ export function DesignPreview() {
     useSelectableDetection(containerRef);
 
   return (
-    <div className="w-full h-full bg-accent p-3 flex flex-col gap-3 items-center">
+    <div className="relative w-full h-full bg-accent p-3 flex flex-col gap-3 items-center">
       <div
         ref={containerRef}
         className="relative w-full h-full bg-white border border-border overflow-auto scrollbar-hide cursor-default [&_*]:!cursor-default"

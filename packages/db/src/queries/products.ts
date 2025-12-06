@@ -692,8 +692,8 @@ export async function listProducts(
   const selectFields =
     opts.fields && opts.fields.length > 0
       ? Object.fromEntries(
-          opts.fields.map((field) => [field, PRODUCT_FIELD_MAP[field]]),
-        )
+        opts.fields.map((field) => [field, PRODUCT_FIELD_MAP[field]]),
+      )
       : PRODUCT_FIELD_MAP;
 
   // Add joined fields for category and season names
@@ -710,10 +710,10 @@ export async function listProducts(
     | ReturnType<typeof desc>
     | ReturnType<typeof sql>
     | Array<
-        | ReturnType<typeof asc>
-        | ReturnType<typeof desc>
-        | ReturnType<typeof sql>
-      >;
+      | ReturnType<typeof asc>
+      | ReturnType<typeof desc>
+      | ReturnType<typeof sql>
+    >;
   if (opts.sort?.field === "season") {
     if (opts.sort.direction === "asc") {
       // Ascending: oldest end dates first, ongoing seasons last (treated as most recent)
@@ -1282,4 +1282,187 @@ export async function setProductTags(
       .returning({ id: tagsOnProduct.id });
   });
   return { count: tagIds.length } as const;
+}
+
+// =============================================================================
+// Carousel Product Selection
+// =============================================================================
+
+/**
+ * Product row for carousel selection modal.
+ * Contains only the fields needed for display in the selection UI.
+ */
+export interface CarouselProductRow {
+  id: string;
+  name: string;
+  productIdentifier: string;
+  primaryImageUrl: string | null;
+  categoryName: string | null;
+  seasonName: string | null;
+}
+
+/**
+ * List products for carousel selection modal.
+ *
+ * A simplified version of listProducts that only fetches fields needed
+ * for the selection UI. Supports search, filtering, sorting, and pagination.
+ *
+ * @param db - Database instance
+ * @param brandId - Brand identifier for scoping
+ * @param options - Query options
+ * @returns Paginated list of products for selection
+ */
+export async function listProductsForCarouselSelection(
+  db: Database,
+  brandId: string,
+  options: {
+    search?: string;
+    filterState?: ListFilters["filterState"];
+    sort?: { field: string; direction: "asc" | "desc" };
+    cursor?: string;
+    limit?: number;
+  } = {},
+): Promise<{
+  data: CarouselProductRow[];
+  meta: { total: number; cursor: string | null; hasMore: boolean };
+}> {
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
+  const offset = Number.isFinite(Number(options.cursor))
+    ? Math.max(0, Number(options.cursor))
+    : 0;
+
+  // Build WHERE clauses
+  const whereClauses = [eq(products.brandId, brandId)];
+
+  // Apply FilterState if provided
+  if (options.filterState) {
+    const filterClauses = convertFilterStateToWhereClauses(
+      options.filterState,
+      db,
+      brandId,
+    );
+    whereClauses.push(...filterClauses);
+  }
+
+  // Apply search across name and productIdentifier
+  if (options.search) {
+    const term = `%${options.search}%`;
+    whereClauses.push(
+      or(
+        ilike(products.name, term),
+        ilike(products.productIdentifier, term),
+        // Also search category and season names
+        sql`EXISTS (
+          SELECT 1 FROM ${brandSeasons}
+          WHERE ${brandSeasons.id} = ${products.seasonId}
+          AND ${brandSeasons.name} ILIKE ${term}
+        )`,
+        sql`EXISTS (
+          SELECT 1 FROM ${categories}
+          WHERE ${categories.id} = ${products.categoryId}
+          AND ${categories.name} ILIKE ${term}
+        )`,
+      )!,
+    );
+  }
+
+  // Determine sort order
+  let orderBy:
+    | ReturnType<typeof asc>
+    | ReturnType<typeof desc>
+    | ReturnType<typeof sql>
+    | Array<
+      | ReturnType<typeof asc>
+      | ReturnType<typeof desc>
+      | ReturnType<typeof sql>
+    >;
+
+  const sortField = options.sort?.field ?? "createdAt";
+  const sortDir = options.sort?.direction ?? "desc";
+
+  if (sortField === "category") {
+    orderBy =
+      sortDir === "asc"
+        ? [sql`${categories.name} ASC NULLS LAST`, asc(products.id)]
+        : [sql`${categories.name} DESC NULLS LAST`, desc(products.id)];
+  } else if (sortField === "season") {
+    // Sort by season end date (ongoing = most recent, null = last)
+    if (sortDir === "asc") {
+      orderBy = [
+        sql`CASE 
+          WHEN ${products.seasonId} IS NULL THEN NULL
+          WHEN ${brandSeasons.ongoing} = true THEN '9999-12-31'::date 
+          WHEN ${brandSeasons.endDate} IS NULL THEN '9999-12-31'::date
+          ELSE ${brandSeasons.endDate} 
+        END ASC NULLS LAST`,
+        asc(products.id),
+      ];
+    } else {
+      orderBy = [
+        sql`CASE 
+          WHEN ${products.seasonId} IS NULL THEN NULL
+          WHEN ${brandSeasons.ongoing} = true THEN '9999-12-31'::date 
+          WHEN ${brandSeasons.endDate} IS NULL THEN '9999-12-31'::date
+          ELSE ${brandSeasons.endDate} 
+        END DESC NULLS LAST`,
+        desc(products.id),
+      ];
+    }
+  } else if (sortField === "createdAt") {
+    // Sort by created date
+    orderBy =
+      sortDir === "asc"
+        ? [asc(products.createdAt), asc(products.id)]
+        : [desc(products.createdAt), desc(products.id)];
+  } else {
+    // Default: sort by name
+    orderBy =
+      sortDir === "asc"
+        ? [asc(products.name), asc(products.id)]
+        : [desc(products.name), desc(products.id)];
+  }
+
+  // Execute query with only needed fields
+  const rows = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      productIdentifier: products.productIdentifier,
+      primaryImageUrl: products.primaryImageUrl,
+      categoryName: categories.name,
+      seasonName: brandSeasons.name,
+    })
+    .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(brandSeasons, eq(products.seasonId, brandSeasons.id))
+    .where(and(...whereClauses))
+    .orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy]))
+    .limit(limit)
+    .offset(offset);
+
+  // Get total count
+  const [countResult] = await db
+    .select({ value: count(products.id) })
+    .from(products)
+    .where(and(...whereClauses));
+
+  const total = countResult?.value ?? 0;
+  const nextOffset = offset + rows.length;
+  const hasMore = total > nextOffset;
+
+  return {
+    data: rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      productIdentifier: row.productIdentifier,
+      primaryImageUrl: row.primaryImageUrl,
+      categoryName: row.categoryName,
+      seasonName: row.seasonName,
+    })),
+    meta: {
+      total,
+      cursor: hasMore ? String(nextOffset) : null,
+      hasMore,
+    },
+  };
 }

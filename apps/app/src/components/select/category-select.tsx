@@ -160,16 +160,16 @@ export function CategorySelect({
           <Button
             variant="outline"
             className="w-full justify-between h-9"
-            icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
           >
             <span
               className={cn(
-                "truncate",
+                "truncate px-1",
                 !value ? "text-tertiary" : "text-primary",
               )}
             >
               {getCategoryDisplayString(value)}
             </span>
+            <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -227,7 +227,7 @@ export function CategorySelect({
                               isSelected
                                 ? "bg-accent-blue text-brand"
                                 : hoveredRow === key &&
-                                    hoveredArea === "selection"
+                                  hoveredArea === "selection"
                                   ? "bg-accent-dark text-primary"
                                   : "text-primary",
                             )}

@@ -42,8 +42,13 @@ import type { FilterActions, FilterState } from "../passports/filter-types";
 interface QuickFiltersPopoverProps {
   filterState: FilterState;
   filterActions: FilterActions;
-  onOpenAdvanced: () => void;
+  onOpenAdvanced?: () => void;
   disabled?: boolean;
+  /**
+   * Whether to show the "Advanced filters" option.
+   * Defaults to true. Set to false to hide the option and disable the keyboard shortcut.
+   */
+  showAdvancedFilters?: boolean;
 }
 
 const QUICK_FIELDS = getQuickFilterFields();
@@ -65,6 +70,7 @@ export function QuickFiltersPopover({
   filterActions,
   onOpenAdvanced,
   disabled = false,
+  showAdvancedFilters = true,
 }: QuickFiltersPopoverProps) {
   const [open, setOpen] = React.useState(false);
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
@@ -138,15 +144,17 @@ export function QuickFiltersPopover({
   );
 
   const handleAdvancedClick = React.useCallback(() => {
+    if (!showAdvancedFilters || !onOpenAdvanced) return;
     setOpen(false);
     onOpenAdvanced();
-  }, [onOpenAdvanced]);
+  }, [onOpenAdvanced, showAdvancedFilters]);
 
-  // Keyboard shortcut: Shift + Cmd/Ctrl + F
+  // Keyboard shortcut: Shift + Cmd/Ctrl + F (only when advanced filters are enabled)
   useHotkeys("shift+mod+f", (event) => {
+    if (!showAdvancedFilters) return;
     event.preventDefault();
     handleAdvancedClick();
-  });
+  }, { enabled: showAdvancedFilters });
 
   return (
     <>
@@ -156,10 +164,9 @@ export function QuickFiltersPopover({
             variant="subtle"
             size="default"
             disabled={disabled}
-            iconPosition="left"
-            icon={<Icons.Filter className="h-[14px] w-[14px]" />}
           >
-            Filter
+            <Icons.Filter className="h-[14px] w-[14px]" />
+            <span className="px-1">Filter</span>
             {activeFilters.length > 0 && (
               <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 ml-1 rounded-sm bg-brand text-[12px] leading-[12px] text-background">
                 {activeFilters.length}
@@ -187,11 +194,15 @@ export function QuickFiltersPopover({
               })}
             </div>
           </div>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleAdvancedClick}>
-            Advanced filters
-            <DropdownMenuShortcut>⇧⌘F</DropdownMenuShortcut>
-          </DropdownMenuItem>
+          {showAdvancedFilters && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleAdvancedClick}>
+                Advanced filters
+                <DropdownMenuShortcut>⇧⌘F</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -355,7 +366,7 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
                         isSelected
                           ? "bg-accent-blue text-brand"
                           : hoveredRow === categoryId &&
-                              hoveredArea === "selection"
+                            hoveredArea === "selection"
                             ? "bg-accent-dark text-primary"
                             : "text-primary",
                       )}
@@ -850,10 +861,10 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
                   // Get season info for season field
                   let seasonInfo:
                     | {
-                        startDate?: Date | null;
-                        endDate?: Date | null;
-                        isOngoing?: boolean;
-                      }
+                      startDate?: Date | null;
+                      endDate?: Date | null;
+                      isOngoing?: boolean;
+                    }
                     | undefined;
                   if (field.id === "season") {
                     const season = seasons.find((s) => s.id === option.value);

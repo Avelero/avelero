@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   index,
+  numeric,
   pgPolicy,
   pgTable,
   text,
@@ -44,6 +45,10 @@ export const products = pgTable(
       },
     ),
     primaryImageUrl: text("primary_image_url"),
+    webshopUrl: text("webshop_url"),
+    price: numeric("price", { precision: 10, scale: 2 }),
+    currency: text("currency"),
+    salesStatus: text("sales_status"),
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
       onUpdate: "cascade",

@@ -39,10 +39,10 @@ export function StyleContentTabs({
                 type="button"
                 onClick={() => onTabChange("styles")}
                 className={cn(
-                    "flex-1 h-9 type-small font-medium transition-colors",
+                    "flex-1 h-10 type-small font-medium transition-colors",
                     activeTab === "styles"
                         ? "text-primary border-b-2 border-primary"
-                        : "text-secondary hover:text-primary",
+                        : "text-secondary border-b-2 border-transparent hover:text-primary",
                 )}
             >
                 Styles
@@ -51,10 +51,10 @@ export function StyleContentTabs({
                 type="button"
                 onClick={() => onTabChange("content")}
                 className={cn(
-                    "flex-1 h-9 type-small font-medium transition-colors",
+                    "flex-1 h-10 type-small font-medium transition-colors",
                     activeTab === "content"
                         ? "text-primary border-b-2 border-primary"
-                        : "text-secondary hover:text-primary",
+                        : "text-secondary border-b-2 border-transparent hover:text-primary",
                 )}
             >
                 Content

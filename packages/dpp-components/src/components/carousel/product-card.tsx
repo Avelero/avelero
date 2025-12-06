@@ -1,12 +1,14 @@
-import type { SimilarProduct } from "@v1/dpp-components";
+import type { SimilarProduct, ThemeConfig } from "@v1/dpp-components";
 import Image from "next/image";
 import { formatPrice } from "../../utils/formatting";
 
 interface Props {
   product: SimilarProduct;
+  showTitle?: boolean;
+  showPrice?: boolean;
 }
 
-export function ProductCard({ product }: Props) {
+export function ProductCard({ product, showTitle = true, showPrice = true }: Props) {
   return (
     <a
       href={product.url}
@@ -26,14 +28,20 @@ export function ProductCard({ product }: Props) {
           sizes="(max-width: 768px) 50vw, 200px"
         />
       </div>
-      <div className="flex carousel__product-details gap-xs">
-        <div className="carousel__product-name line-clamp-2 min-w-0">
-          {product.name}
+      {(showTitle || showPrice) && (
+        <div className="flex carousel__product-details gap-xs">
+          {showTitle && (
+            <div className="carousel__product-name line-clamp-2 min-w-0">
+              {product.name}
+            </div>
+          )}
+          {showPrice && (
+            <div className="carousel__product-price flex-shrink-0">
+              {formatPrice(product.price, product.currency)}
+            </div>
+          )}
         </div>
-        <div className="carousel__product-price flex-shrink-0">
-          {formatPrice(product.price, product.currency)}
-        </div>
-      </div>
+      )}
     </a>
   );
 }

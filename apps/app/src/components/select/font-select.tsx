@@ -75,14 +75,14 @@ export function FontSelect({
           variant="outline"
           size="default"
           className={cn("w-full justify-between", className)}
-          icon={<Icons.ChevronDown className="h-4 w-4 text-tertiary" />}
         >
           <span
-            className={cn("truncate", isPlaceholder && "text-tertiary")}
+            className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
             style={value ? { fontFamily: `"${value}", sans-serif` } : undefined}
           >
             {displayValue}
           </span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>
       <PopoverContent

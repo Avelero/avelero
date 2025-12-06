@@ -337,9 +337,9 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
                     </TableHead>
                   )),
                 )}
@@ -381,32 +381,36 @@ export function StagingPreviewTable({ jobId }: StagingPreviewTableProps) {
             aria-label="First page"
             onClick={() => setPage(0)}
             disabled={!canGoPrev}
-            icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronsLeft className="h-[14px] w-[14px]" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
             aria-label="Previous page"
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={!canGoPrev}
-            icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronLeft className="h-[14px] w-[14px]" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
             aria-label="Next page"
             onClick={() => setPage((p) => p + 1)}
             disabled={!canGoNext}
-            icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronRight className="h-[14px] w-[14px]" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
             aria-label="Last page"
             onClick={() => setPage(lastPage)}
             disabled={!canGoNext}
-            icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronsRight className="h-[14px] w-[14px]" />
+          </Button>
         </div>
       </div>
     </div>

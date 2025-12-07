@@ -1,6 +1,7 @@
 "use client";
 
 import type { HeaderContext, Table as ReactTable } from "@tanstack/react-table";
+import { flexRender } from "@tanstack/react-table";
 import { cn } from "@v1/ui/cn";
 import { TableHead, TableHeader, TableRow } from "@v1/ui/table";
 import * as React from "react";
@@ -131,7 +132,7 @@ export function CarouselTableHeader({
                                     </div>
                                 ) : header.isPlaceholder ? null : (
                                     <span className="whitespace-nowrap">
-                                        {String(header.column.columnDef.header ?? header.column.id)}
+                                        {flexRender(header.column.columnDef.header, header.getContext())}
                                     </span>
                                 )}
                             </TableHead>

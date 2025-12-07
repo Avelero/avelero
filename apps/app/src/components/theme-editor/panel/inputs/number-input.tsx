@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@v1/ui/input";
 import { FieldWrapper } from "./field-wrapper";
 import type { ContentField } from "../../registry/types";
@@ -19,6 +19,12 @@ export function NumberInput({ field, value, onChange }: NumberInputProps) {
         const numValue = typeof value === "number" ? value : 0;
         return String(numValue);
     });
+
+    // Sync localValue when value prop changes (e.g., from undo/redo)
+    useEffect(() => {
+        const numValue = typeof value === "number" ? value : 0;
+        setLocalValue(String(numValue));
+    }, [value]);
 
     return (
         <FieldWrapper label={field.label}>

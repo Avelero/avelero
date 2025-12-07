@@ -150,11 +150,16 @@ export function QuickFiltersPopover({
   }, [onOpenAdvanced, showAdvancedFilters]);
 
   // Keyboard shortcut: Shift + Cmd/Ctrl + F (only when advanced filters are enabled)
-  useHotkeys("shift+mod+f", (event) => {
-    if (!showAdvancedFilters) return;
-    event.preventDefault();
-    handleAdvancedClick();
-  }, { enabled: showAdvancedFilters });
+  useHotkeys(
+    "shift+mod+f",
+    (event) => {
+      if (!showAdvancedFilters) return;
+      event.preventDefault();
+      handleAdvancedClick();
+    },
+    { enabled: showAdvancedFilters },
+    [handleAdvancedClick, showAdvancedFilters],
+  );
 
   return (
     <>

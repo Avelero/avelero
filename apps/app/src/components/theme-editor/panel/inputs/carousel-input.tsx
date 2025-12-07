@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { FieldWrapper } from "./field-wrapper";
@@ -26,28 +26,49 @@ export function CarouselInput({ field }: CarouselInputProps) {
         includeIds?: string[];
         excludeIds?: string[];
         filter?: Record<string, unknown>;
+        selectedCount?: number; // Stored count for display
     } | undefined;
 
-    // Calculate selected count for display
-    const selectedCount = carouselConfig?.includeIds?.length ?? 0;
-    const hasSelection = selectedCount > 0 || (carouselConfig?.excludeIds?.length ?? 0) > 0;
+    // Get selected count for display
+    // We store the actual count when saving so we don't need to re-fetch
+    const selectedCount = carouselConfig?.selectedCount ?? carouselConfig?.includeIds?.length ?? 0;
+    const hasSelection = selectedCount > 0;
 
-    const handleSave = (selection: {
+    // Memoize initialSelection to prevent unnecessary re-renders and stale closures
+    // IMPORTANT: Pass undefined (not empty array) for excludeIds when not set,
+    // so the modal can distinguish between "all mode" and "explicit mode"
+    const initialSelection = useMemo(() => ({
+        filter: carouselConfig?.filter as FilterState | undefined,
+        includeIds: carouselConfig?.includeIds ?? [],
+        excludeIds: carouselConfig?.excludeIds, // Keep undefined if not set!
+    }), [carouselConfig?.filter, carouselConfig?.includeIds, carouselConfig?.excludeIds]);
+
+    // Memoize handleSave callback
+    const handleSave = useCallback((selection: {
         filter: FilterState | null;
         includeIds: string[];
         excludeIds: string[];
+        selectedCount: number;
     }) => {
         // Update carousel config with selection
         // We preserve existing carousel settings and merge in the selection
         const currentConfig = getConfigValue("carousel") as Record<string, unknown> | undefined;
 
+        // Determine mode: if includeIds is empty, we're in "all" mode (excludeIds applies)
+        // If includeIds has values, we're in "explicit" mode
+        const isAllMode = selection.includeIds.length === 0;
+        
         updateConfigValue("carousel", {
             ...currentConfig,
             filter: selection.filter ?? undefined,
-            includeIds: selection.includeIds.length > 0 ? selection.includeIds : undefined,
-            excludeIds: selection.excludeIds.length > 0 ? selection.excludeIds : undefined,
+            // In explicit mode: save includeIds, clear excludeIds
+            // In all mode: save excludeIds (even if empty to indicate "all"), clear includeIds
+            includeIds: !isAllMode ? selection.includeIds : undefined,
+            excludeIds: isAllMode ? selection.excludeIds : undefined,
+            // Store the actual count for display
+            selectedCount: selection.selectedCount,
         });
-    };
+    }, [getConfigValue, updateConfigValue]);
 
     return (
         <FieldWrapper label={field.label}>
@@ -58,9 +79,7 @@ export function CarouselInput({ field }: CarouselInputProps) {
             >
                 <span className="px-1">
                     {hasSelection
-                        ? selectedCount > 0
-                            ? `${selectedCount} product${selectedCount !== 1 ? "s" : ""} selected`
-                            : "All products (with exclusions)"
+                        ? `${selectedCount} product${selectedCount !== 1 ? "s" : ""} selected`
                         : "Configure"}
                 </span>
                 <Icons.ChevronRight className="h-4 w-4" />
@@ -68,11 +87,7 @@ export function CarouselInput({ field }: CarouselInputProps) {
             <CarouselProductsModal
                 open={modalOpen}
                 onOpenChange={setModalOpen}
-                initialSelection={{
-                    filter: carouselConfig?.filter as FilterState | undefined,
-                    includeIds: carouselConfig?.includeIds ?? [],
-                    excludeIds: carouselConfig?.excludeIds ?? [],
-                }}
+                initialSelection={initialSelection}
                 onSave={handleSave}
             />
         </FieldWrapper>

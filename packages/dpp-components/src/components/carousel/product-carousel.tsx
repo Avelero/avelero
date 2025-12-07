@@ -22,6 +22,7 @@ export function ProductCarousel({ products, themeConfig }: Props) {
   // Get carousel config values with defaults
   const showTitle = themeConfig.carousel?.showTitle ?? true;
   const showPrice = themeConfig.carousel?.showPrice ?? true;
+  const roundPrice = themeConfig.carousel?.roundPrice ?? true;
   const productCount = themeConfig.carousel?.productCount ?? 6;
 
   // Limit products to the configured count
@@ -142,6 +143,7 @@ export function ProductCarousel({ products, themeConfig }: Props) {
                     product={product}
                     showTitle={showTitle}
                     showPrice={showPrice}
+                    roundPrice={roundPrice}
                   />
                 </div>
               ))}

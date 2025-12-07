@@ -4,8 +4,10 @@ import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { Textarea } from "@v1/ui/textarea";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ImageUploader } from "@/components/image-upload";
+import { normalizeToDisplayUrl } from "@/utils/storage-urls";
+import { BUCKETS } from "@/utils/storage-config";
 
 interface BasicInfoSectionProps {
   name: string;
@@ -31,12 +33,18 @@ export function BasicInfoSection({
   nameInputRef,
 }: BasicInfoSectionProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(
-    existingImageUrl ?? null,
+    normalizeToDisplayUrl(BUCKETS.PRODUCTS, existingImageUrl),
   );
+  // Track when we've just set imagePreview from user file selection
+  const pendingUserSelection = useRef(false);
 
-  // Keep preview in sync when editing existing products
+  // Keep preview in sync when editing existing products (but not when user just selected a file)
   useEffect(() => {
-    setImagePreview(existingImageUrl ?? null);
+    if (pendingUserSelection.current) {
+      pendingUserSelection.current = false;
+      return;
+    }
+    setImagePreview(normalizeToDisplayUrl(BUCKETS.PRODUCTS, existingImageUrl));
   }, [existingImageUrl]);
 
   return (
@@ -95,6 +103,10 @@ export function BasicInfoSection({
             }
           }}
           onChange={(url) => {
+            // Mark that we're setting preview from user selection
+            if (url) {
+              pendingUserSelection.current = true;
+            }
             setImagePreview(url);
           }}
         />

@@ -67,5 +67,6 @@ export const screenshotThemeConfig: ThemeConfig = {
     productCount: 6,
     showPrice: true,
     showTitle: true,
+    roundPrice: true,
   },
 };

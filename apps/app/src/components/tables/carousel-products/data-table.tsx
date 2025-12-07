@@ -73,12 +73,9 @@ export function CarouselProductsDataTable({
     const [optimisticRowSelection, setOptimisticRowSelection] = React.useState<
         Record<string, boolean>
     >({});
-    const [isPending, startTransition] = React.useTransition();
 
     // Compute row selection state from selection prop
     React.useEffect(() => {
-        if (isPending) return;
-
         if (!rows.length) {
             setOptimisticRowSelection({});
             return;
@@ -99,7 +96,7 @@ export function CarouselProductsDataTable({
         }
 
         setOptimisticRowSelection(result);
-    }, [rows, selection, isPending]);
+    }, [rows, selection]);
 
     const table = useReactTable({
         data: rows,
@@ -115,54 +112,52 @@ export function CarouselProductsDataTable({
             const next = typeof updater === "function" ? updater(prev) : updater;
             setOptimisticRowSelection(next);
 
-            // Defer parent sync
-            startTransition(() => {
-                if (selection.mode === "all") {
-                    // In "all" mode: unchecking adds to excludeIds
-                    const exclude = new Set(selection.excludeIds);
-                    for (const row of rows) {
-                        const isChecked = !!next[row.id];
-                        if (isChecked) {
-                            exclude.delete(row.id); // Re-selecting removes from exclusions
-                        } else {
-                            exclude.add(row.id); // Deselecting adds to exclusions
-                        }
-                    }
-                    const nextExcludeIds = Array.from(exclude);
-                    if (
-                        nextExcludeIds.length !== selection.excludeIds.length ||
-                        !nextExcludeIds.every((id) => selection.excludeIds.includes(id))
-                    ) {
-                        onSelectionChange({
-                            mode: "all",
-                            includeIds: [],
-                            excludeIds: nextExcludeIds,
-                        });
-                    }
-                } else {
-                    // In "explicit" mode: checking adds to includeIds
-                    const include = new Set(selection.includeIds);
-                    for (const row of rows) {
-                        const isChecked = !!next[row.id];
-                        if (isChecked) {
-                            include.add(row.id);
-                        } else {
-                            include.delete(row.id);
-                        }
-                    }
-                    const nextIncludeIds = Array.from(include);
-                    if (
-                        nextIncludeIds.length !== selection.includeIds.length ||
-                        !nextIncludeIds.every((id) => selection.includeIds.includes(id))
-                    ) {
-                        onSelectionChange({
-                            mode: "explicit",
-                            includeIds: nextIncludeIds,
-                            excludeIds: [],
-                        });
+            // Sync parent state immediately (no startTransition to avoid stale closures)
+            if (selection.mode === "all") {
+                // In "all" mode: unchecking adds to excludeIds
+                const exclude = new Set(selection.excludeIds);
+                for (const row of rows) {
+                    const isChecked = !!next[row.id];
+                    if (isChecked) {
+                        exclude.delete(row.id); // Re-selecting removes from exclusions
+                    } else {
+                        exclude.add(row.id); // Deselecting adds to exclusions
                     }
                 }
-            });
+                const nextExcludeIds = Array.from(exclude);
+                if (
+                    nextExcludeIds.length !== selection.excludeIds.length ||
+                    !nextExcludeIds.every((id) => selection.excludeIds.includes(id))
+                ) {
+                    onSelectionChange({
+                        mode: "all",
+                        includeIds: [],
+                        excludeIds: nextExcludeIds,
+                    });
+                }
+            } else {
+                // In "explicit" mode: checking adds to includeIds
+                const include = new Set(selection.includeIds);
+                for (const row of rows) {
+                    const isChecked = !!next[row.id];
+                    if (isChecked) {
+                        include.add(row.id);
+                    } else {
+                        include.delete(row.id);
+                    }
+                }
+                const nextIncludeIds = Array.from(include);
+                if (
+                    nextIncludeIds.length !== selection.includeIds.length ||
+                    !nextIncludeIds.every((id) => selection.includeIds.includes(id))
+                ) {
+                    onSelectionChange({
+                        mode: "explicit",
+                        includeIds: nextIncludeIds,
+                        excludeIds: [],
+                    });
+                }
+            }
         },
     });
 
@@ -182,12 +177,10 @@ export function CarouselProductsDataTable({
         for (const row of rows) next[row.id] = true;
         setOptimisticRowSelection(next);
 
-        startTransition(() => {
-            onSelectionChange({
-                mode: "all",
-                includeIds: [],
-                excludeIds: [],
-            });
+        onSelectionChange({
+            mode: "all",
+            includeIds: [],
+            excludeIds: [],
         });
     }, [rows, onSelectionChange]);
 
@@ -195,12 +188,10 @@ export function CarouselProductsDataTable({
     const handleClearSelection = React.useCallback(() => {
         setOptimisticRowSelection({});
 
-        startTransition(() => {
-            onSelectionChange({
-                mode: "explicit",
-                includeIds: [],
-                excludeIds: [],
-            });
+        onSelectionChange({
+            mode: "explicit",
+            includeIds: [],
+            excludeIds: [],
         });
     }, [onSelectionChange]);
 

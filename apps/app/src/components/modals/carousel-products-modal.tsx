@@ -35,11 +35,14 @@ interface CarouselProductsModalProps {
     onOpenChange: (open: boolean) => void;
     /**
      * Initial selection state from ThemeConfig
+     * Note: excludeIds being undefined vs empty array is significant:
+     * - undefined = explicit mode (use includeIds)
+     * - [] or [...] = all mode (all products minus excludeIds)
      */
     initialSelection: {
         filter?: FilterState;
         includeIds?: string[];
-        excludeIds?: string[];
+        excludeIds?: string[]; // undefined = explicit mode, array = all mode
     };
     /**
      * Callback when the user saves their selection
@@ -48,6 +51,7 @@ interface CarouselProductsModalProps {
         filter: FilterState | null;
         includeIds: string[];
         excludeIds: string[];
+        selectedCount: number; // Actual number of selected products
     }) => void;
 }
 
@@ -101,22 +105,38 @@ export function CarouselProductsModal({
             setDebouncedSearch("");
             setCursor(undefined);
             setSortState(null);
-            filterActions.clearAll();
+            
+            // Restore filter from saved config (or clear if none)
+            if (initialSelection.filter && initialSelection.filter.groups?.length > 0) {
+                filterActions.setGroups(initialSelection.filter.groups);
+            } else {
+                filterActions.clearAll();
+            }
 
             // Reset selection state
-            const hasExclusions = initialSelection.excludeIds && initialSelection.excludeIds.length > 0;
+            // IMPORTANT: excludeIds being undefined vs array distinguishes modes:
+            // - excludeIds is an array (even empty) = "all" mode
+            // - excludeIds is undefined = "explicit" mode (use includeIds)
+            const isAllMode = Array.isArray(initialSelection.excludeIds);
             const hasInclusions = initialSelection.includeIds && initialSelection.includeIds.length > 0;
 
-            if (hasExclusions) {
+            if (isAllMode) {
                 setSelection({
                     mode: "all",
                     includeIds: [],
-                    excludeIds: initialSelection.excludeIds ?? [],
+                    excludeIds: initialSelection.excludeIds!,
                 });
-            } else {
+            } else if (hasInclusions) {
                 setSelection({
                     mode: "explicit",
-                    includeIds: hasInclusions ? initialSelection.includeIds! : [],
+                    includeIds: initialSelection.includeIds!,
+                    excludeIds: [],
+                });
+            } else {
+                // No selection - start fresh in explicit mode
+                setSelection({
+                    mode: "explicit",
+                    includeIds: [],
                     excludeIds: [],
                 });
             }
@@ -125,7 +145,7 @@ export function CarouselProductsModal({
             hasInitialized.current = false;
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, initialSelection.excludeIds, initialSelection.includeIds]);
+    }, [open, initialSelection.excludeIds, initialSelection.includeIds, initialSelection.filter]);
 
     // Debounce search input
     useEffect(() => {
@@ -179,6 +199,7 @@ export function CarouselProductsModal({
             filter: filterState.groups.length > 0 ? filterState : null,
             includeIds: selection.mode === "explicit" ? selection.includeIds : [],
             excludeIds: selection.mode === "all" ? selection.excludeIds : [],
+            selectedCount,
         });
         onOpenChange(false);
     };

@@ -65,5 +65,6 @@ export const demoThemeConfig: ThemeConfig = {
     productCount: 6,
     showPrice: true,
     showTitle: true,
+    roundPrice: true,
   },
 };

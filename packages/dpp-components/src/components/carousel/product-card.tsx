@@ -6,12 +6,14 @@ interface Props {
   product: SimilarProduct;
   showTitle?: boolean;
   showPrice?: boolean;
+  roundPrice?: boolean;
 }
 
 export function ProductCard({
   product,
   showTitle = true,
   showPrice = true,
+  roundPrice = true,
 }: Props) {
   return (
     <a
@@ -41,7 +43,7 @@ export function ProductCard({
           )}
           {showPrice && (
             <div className="carousel__product-price flex-shrink-0">
-              {formatPrice(product.price, product.currency)}
+              {formatPrice(product.price, product.currency, roundPrice)}
             </div>
           )}
         </div>

@@ -62,8 +62,15 @@ export function ImageUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, isLoading } = useImageUpload();
   const lastObjectUrl = useRef<string | null>(null);
+  // Track when we've just set previewUrl from user selection to avoid useEffect overwriting it
+  const pendingUserSelection = useRef(false);
 
   useEffect(() => {
+    // Skip sync if we just set this value ourselves via user file selection
+    if (pendingUserSelection.current) {
+      pendingUserSelection.current = false;
+      return;
+    }
     setPreviewUrl(initialUrl?.trim() || null);
   }, [initialUrl]);
 
@@ -100,6 +107,8 @@ export function ImageUploader({
         }
         const objectUrl = URL.createObjectURL(file);
         lastObjectUrl.current = objectUrl;
+        // Mark that we're setting preview from user selection to prevent useEffect from overwriting
+        pendingUserSelection.current = true;
         setPreviewUrl(objectUrl);
         onFileSelected?.(file);
         onChange(objectUrl, null);
@@ -115,6 +124,8 @@ export function ImageUploader({
           isPublic: mode === "public",
           validation,
         });
+        // Mark that we're setting preview from user selection to prevent useEffect from overwriting
+        pendingUserSelection.current = true;
         setPreviewUrl(displayUrl);
         onFileSelected?.(null);
         onChange(displayUrl, storagePath);
@@ -188,7 +199,11 @@ export function ImageUploader({
 
   const handleChangeImage = () => {
     setPopoverOpen(false);
-    inputRef.current?.click();
+    // Delay file input click to ensure popover has fully closed
+    // This prevents Radix Popover's focus management from interfering with the file picker
+    requestAnimationFrame(() => {
+      inputRef.current?.click();
+    });
   };
 
   const handleDeleteImage = () => {
@@ -286,6 +301,7 @@ export function ImageUploader({
               accept="image/*"
               className="hidden"
               onChange={handleFileSelect}
+              onClick={(e) => e.stopPropagation()}
             />
           </div>
         </PopoverTrigger>

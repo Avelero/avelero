@@ -469,5 +469,6 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
     productCount: 4,
     showPrice: true,
     showTitle: true,
+    roundPrice: true,
   },
 };

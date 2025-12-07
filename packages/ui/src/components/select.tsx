@@ -145,13 +145,15 @@ export function Select(props: SelectProps) {
           disabled={disabled}
           className={cn("w-full justify-between", className)}
         >
-          <div className="flex items-center gap-2 truncate">
-            {selectedOption?.icon && (
-              <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
-                {selectedOption.icon}
-              </div>
-            )}
-            <span className="truncate px-1">{displayText}</span>
+          <div className="flex items-center justify-between w-full gap-2">
+            <div className="flex items-center gap-2">
+              {selectedOption?.icon && (
+                <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
+                  {selectedOption.icon}
+                </div>
+              )}
+              <span className="truncate px-1">{displayText}</span>
+            </div>
             <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </div>
         </Button>

@@ -67,6 +67,7 @@ export interface ThemeConfig {
     productCount: number;
     showPrice: boolean;
     showTitle: boolean;
+    roundPrice: boolean;
     // Product selection (used when fetching DPP to determine which products to show)
     filter?: Record<string, unknown>;
     includeIds?: string[];

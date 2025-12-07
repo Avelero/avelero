@@ -17,9 +17,39 @@ import {
   transformToDppData,
   getBrandBySlug,
   getBrandTheme,
+  fetchCarouselProducts,
+  type CarouselProduct,
 } from "@v1/db/queries";
 import { getPublicUrl } from "@v1/supabase/storage";
+import type { StorageClient } from "@v1/supabase/storage";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
+
+/**
+ * Minimum number of products required to show the carousel.
+ * If fewer products are available, the carousel is hidden.
+ */
+const MIN_CAROUSEL_PRODUCTS = 3;
+
+/**
+ * Minimal carousel config type (only what we need from ThemeConfig.carousel)
+ */
+interface CarouselConfig {
+  productCount?: number;
+  filter?: Record<string, unknown>;
+  includeIds?: string[];
+  excludeIds?: string[];
+}
+
+/**
+ * Similar product for carousel display (matches DppData.similarProducts)
+ */
+interface SimilarProduct {
+  image: string;
+  name: string;
+  price: number;
+  currency?: string;
+  url?: string;
+}
 
 /**
  * UPID schema: 16-character alphanumeric identifier
@@ -52,6 +82,25 @@ const getByVariantUpidSchema = z.object({
 const getThemePreviewSchema = z.object({
   brandSlug: slugSchema,
 });
+
+/**
+ * Transform carousel products from database format to SimilarProduct format.
+ * Resolves image paths to public URLs.
+ */
+function transformCarouselProducts(
+  products: CarouselProduct[],
+  supabase: StorageClient,
+): SimilarProduct[] {
+  return products.map((product) => ({
+    name: product.name,
+    image: product.primaryImagePath
+      ? (getPublicUrl(supabase, "products", product.primaryImagePath) ?? "")
+      : "",
+    price: Number(product.price),
+    currency: product.currency,
+    url: product.webshopUrl,
+  }));
+}
 
 export const dppPublicRouter = createTRPCRouter({
   /**
@@ -86,12 +135,36 @@ export const dppPublicRouter = createTRPCRouter({
         ? getPublicUrl(ctx.supabase, "products", rawData.productImage)
         : null;
 
+      // Fetch similar products for carousel
+      const carouselConfig = (rawData.themeConfig as { carousel?: CarouselConfig } | null)
+        ?.carousel;
+      let similarProducts: SimilarProduct[] = [];
+
+      if (carouselConfig) {
+        const carouselProducts = await fetchCarouselProducts(ctx.db, {
+          brandId: rawData.brandId,
+          currentProductId: rawData.productId,
+          currentCategoryId: rawData.categoryId,
+          carouselConfig,
+        });
+
+        // Only include products if we have minimum required
+        if (carouselProducts.length >= MIN_CAROUSEL_PRODUCTS) {
+          similarProducts = transformCarouselProducts(
+            carouselProducts,
+            ctx.supabase,
+          );
+        }
+      }
+
       // Return all data needed for rendering
       return {
         dppData: {
           ...dppData,
           // Override productImage with resolved URL
           productImage: productImageUrl,
+          // Include similar products for carousel
+          similarProducts,
         },
         themeConfig: rawData.themeConfig,
         themeStyles: rawData.themeStyles,
@@ -138,12 +211,37 @@ export const dppPublicRouter = createTRPCRouter({
         ? getPublicUrl(ctx.supabase, "products", rawData.productImage)
         : null;
 
+      // Fetch similar products for carousel
+      // For variant-level DPP, exclude the parent product from carousel
+      const carouselConfig = (rawData.themeConfig as { carousel?: CarouselConfig } | null)
+        ?.carousel;
+      let similarProducts: SimilarProduct[] = [];
+
+      if (carouselConfig) {
+        const carouselProducts = await fetchCarouselProducts(ctx.db, {
+          brandId: rawData.brandId,
+          currentProductId: rawData.productId, // Exclude the parent product
+          currentCategoryId: rawData.categoryId,
+          carouselConfig,
+        });
+
+        // Only include products if we have minimum required
+        if (carouselProducts.length >= MIN_CAROUSEL_PRODUCTS) {
+          similarProducts = transformCarouselProducts(
+            carouselProducts,
+            ctx.supabase,
+          );
+        }
+      }
+
       // Return all data needed for rendering
       return {
         dppData: {
           ...dppData,
           // Override productImage with resolved URL
           productImage: productImageUrl,
+          // Include similar products for carousel
+          similarProducts,
         },
         themeConfig: rawData.themeConfig,
         themeStyles: rawData.themeStyles,

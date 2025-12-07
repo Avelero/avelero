@@ -917,6 +917,12 @@ export const COMPONENT_TREE: ComponentDefinition[] = [
                 section: "Display",
             },
             {
+                type: "toggle",
+                path: "carousel.roundPrice",
+                label: "Round prices",
+                section: "Display",
+            },
+            {
                 type: "modal",
                 path: "carousel",
                 label: "Configure products",

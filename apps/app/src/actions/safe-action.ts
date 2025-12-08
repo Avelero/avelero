@@ -66,46 +66,77 @@ export const authActionClient = actionClientWithMeta
   .use(async ({ next, metadata }) => {
     const ip = (await headers()).get("x-forwarded-for");
 
-    const { success, remaining } = await ratelimit.limit(
-      `${ip}-${metadata.name}`,
-    );
-
-    if (!success) {
-      throw new Error("Too many requests");
-    }
-
-    return next({
-      ctx: {
-        ratelimit: {
-          remaining,
-        },
-      },
+    logger.info("[auth-middleware] Starting ratelimit check", {
+      ip,
+      action: metadata.name,
     });
-  })
-  .use(async ({ next, metadata }) => {
-    const {
-      data: { user },
-    } = await getUser();
-    const supabase = await createClient();
 
-    if (!user) {
-      throw new Error("Unauthorized");
-    }
+    try {
+      const { success, remaining } = await ratelimit.limit(
+        `${ip}-${metadata.name}`,
+      );
 
-    if (metadata) {
-      const analytics = await setupAnalytics({
-        userId: user.id,
+      logger.info("[auth-middleware] Ratelimit check completed", {
+        success,
+        remaining,
       });
 
-      if (metadata.track) {
-        analytics.track(metadata.track);
+      if (!success) {
+        throw new Error("Too many requests");
       }
-    }
 
-    return next({
-      ctx: {
-        supabase,
-        user,
-      },
-    });
+      return next({
+        ctx: {
+          ratelimit: {
+            remaining,
+          },
+        },
+      });
+    } catch (error) {
+      logger.error("[auth-middleware] Ratelimit check failed", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
+    }
+  })
+  .use(async ({ next, metadata }) => {
+    logger.info("[auth-middleware] Getting user");
+
+    try {
+      const {
+        data: { user },
+      } = await getUser();
+
+      logger.info("[auth-middleware] Got user", { userId: user?.id });
+
+      const supabase = await createClient();
+
+      if (!user) {
+        throw new Error("Unauthorized");
+      }
+
+      if (metadata) {
+        const analytics = await setupAnalytics({
+          userId: user.id,
+        });
+
+        if (metadata.track) {
+          analytics.track(metadata.track);
+        }
+      }
+
+      return next({
+        ctx: {
+          supabase,
+          user,
+        },
+      });
+    } catch (error) {
+      logger.error("[auth-middleware] Auth check failed", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
+    }
   });

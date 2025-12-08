@@ -503,6 +503,8 @@ export type Database = {
           brand_id: string;
           created_at: string;
           google_fonts_url: string | null;
+          screenshot_desktop_path: string | null;
+          screenshot_mobile_path: string | null;
           stylesheet_path: string | null;
           theme_config: Json;
           theme_styles: Json;
@@ -512,6 +514,8 @@ export type Database = {
           brand_id: string;
           created_at?: string;
           google_fonts_url?: string | null;
+          screenshot_desktop_path?: string | null;
+          screenshot_mobile_path?: string | null;
           stylesheet_path?: string | null;
           theme_config?: Json;
           theme_styles?: Json;
@@ -521,6 +525,8 @@ export type Database = {
           brand_id?: string;
           created_at?: string;
           google_fonts_url?: string | null;
+          screenshot_desktop_path?: string | null;
+          screenshot_mobile_path?: string | null;
           stylesheet_path?: string | null;
           theme_config?: Json;
           theme_styles?: Json;
@@ -1044,49 +1050,61 @@ export type Database = {
           brand_id: string;
           category_id: string | null;
           created_at: string;
+          currency: string | null;
           description: string | null;
           id: string;
           name: string;
-          primary_image_url: string | null;
+          price: number | null;
+          primary_image_path: string | null;
           product_identifier: string;
+          sales_status: string | null;
           season_id: string | null;
           showcase_brand_id: string | null;
           status: string;
           template_id: string | null;
           updated_at: string;
           upid: string | null;
+          webshop_url: string | null;
         };
         Insert: {
           brand_id: string;
           category_id?: string | null;
           created_at?: string;
+          currency?: string | null;
           description?: string | null;
           id?: string;
           name: string;
-          primary_image_url?: string | null;
+          price?: number | null;
+          primary_image_path?: string | null;
           product_identifier: string;
+          sales_status?: string | null;
           season_id?: string | null;
           showcase_brand_id?: string | null;
           status?: string;
           template_id?: string | null;
           updated_at?: string;
           upid?: string | null;
+          webshop_url?: string | null;
         };
         Update: {
           brand_id?: string;
           category_id?: string | null;
           created_at?: string;
+          currency?: string | null;
           description?: string | null;
           id?: string;
           name?: string;
-          primary_image_url?: string | null;
+          price?: number | null;
+          primary_image_path?: string | null;
           product_identifier?: string;
+          sales_status?: string | null;
           season_id?: string | null;
           showcase_brand_id?: string | null;
           status?: string;
           template_id?: string | null;
           updated_at?: string;
           upid?: string | null;
+          webshop_url?: string | null;
         };
         Relationships: [
           {
@@ -1455,7 +1473,7 @@ export type Database = {
           id: string;
           job_id: string;
           name: string;
-          primary_image_url: string | null;
+          primary_image_path: string | null;
           product_identifier: string | null;
           product_upid: string | null;
           row_number: number;
@@ -1474,7 +1492,7 @@ export type Database = {
           id: string;
           job_id: string;
           name: string;
-          primary_image_url?: string | null;
+          primary_image_path?: string | null;
           product_identifier?: string | null;
           product_upid?: string | null;
           row_number: number;
@@ -1493,7 +1511,7 @@ export type Database = {
           id?: string;
           job_id?: string;
           name?: string;
-          primary_image_url?: string | null;
+          primary_image_path?: string | null;
           product_identifier?: string | null;
           product_upid?: string | null;
           row_number?: number;

@@ -1,3 +1,7 @@
+import { DropIcon } from "@phosphor-icons/react/dist/ssr/Drop";
+import { FactoryIcon } from "@phosphor-icons/react/dist/ssr/Factory";
+import { LeafIcon } from "@phosphor-icons/react/dist/ssr/Leaf";
+import { RecycleIcon } from "@phosphor-icons/react/dist/ssr/Recycle";
 import type { ImpactMetric } from "@v1/dpp-components";
 import { Icons } from "@v1/ui/icons";
 
@@ -7,13 +11,13 @@ interface Props {
 
 export function LargeImpactCard({ metric }: Props) {
   const iconMap = {
-    leaf: Icons.Leaf,
-    drop: Icons.Droplets,
-    recycle: Icons.Recycle,
-    factory: Icons.Factory,
+    leaf: LeafIcon,
+    drop: DropIcon,
+    recycle: RecycleIcon,
+    factory: FactoryIcon,
   };
 
-  const IconComponent = iconMap[metric.icon] ?? Icons.Leaf; // Safe fallback
+  const IconComponent = iconMap[metric.icon] ?? LeafIcon; // Safe fallback
 
   return (
     <div className="p-md impact-card border flex justify-between items-center">

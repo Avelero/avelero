@@ -15,9 +15,41 @@ import {
   getDppByProductUpid,
   getDppByVariantUpid,
   transformToDppData,
+  getBrandBySlug,
+  getBrandTheme,
+  fetchCarouselProducts,
+  type CarouselProduct,
 } from "@v1/db/queries";
-import { getPublicUrl } from "@v1/supabase/utils/storage-urls";
+import { getPublicUrl } from "@v1/supabase/storage";
+import type { StorageClient } from "@v1/supabase/storage";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
+
+/**
+ * Minimum number of products required to show the carousel.
+ * If fewer products are available, the carousel is hidden.
+ */
+const MIN_CAROUSEL_PRODUCTS = 3;
+
+/**
+ * Minimal carousel config type (only what we need from ThemeConfig.carousel)
+ */
+interface CarouselConfig {
+  productCount?: number;
+  filter?: Record<string, unknown>;
+  includeIds?: string[];
+  excludeIds?: string[];
+}
+
+/**
+ * Similar product for carousel display (matches DppData.similarProducts)
+ */
+interface SimilarProduct {
+  image: string;
+  name: string;
+  price: number;
+  currency?: string;
+  url?: string;
+}
 
 /**
  * UPID schema: 16-character alphanumeric identifier
@@ -44,6 +76,32 @@ const getByVariantUpidSchema = z.object({
   variantUpid: upidSchema,
 });
 
+/**
+ * Input schema for theme preview fetch (screenshot generation)
+ */
+const getThemePreviewSchema = z.object({
+  brandSlug: slugSchema,
+});
+
+/**
+ * Transform carousel products from database format to SimilarProduct format.
+ * Resolves image paths to public URLs.
+ */
+function transformCarouselProducts(
+  products: CarouselProduct[],
+  supabase: StorageClient,
+): SimilarProduct[] {
+  return products.map((product) => ({
+    name: product.name,
+    image: product.primaryImagePath
+      ? (getPublicUrl(supabase, "products", product.primaryImagePath) ?? "")
+      : "",
+    price: Number(product.price),
+    currency: product.currency,
+    url: product.webshopUrl,
+  }));
+}
+
 export const dppPublicRouter = createTRPCRouter({
   /**
    * Fetch DPP data for a product-level passport.
@@ -67,14 +125,47 @@ export const dppPublicRouter = createTRPCRouter({
       // Transform to component-ready format
       const dppData = transformToDppData(rawData);
 
-      // Resolve stylesheet URL server-side (DPP app doesn't need Supabase credentials)
+      // Resolve URLs server-side (DPP app doesn't need Supabase credentials)
       const stylesheetUrl = rawData.stylesheetPath
         ? getPublicUrl(ctx.supabase, "dpp-themes", rawData.stylesheetPath)
         : null;
 
+      // Resolve product image path to public URL
+      const productImageUrl = rawData.productImage
+        ? getPublicUrl(ctx.supabase, "products", rawData.productImage)
+        : null;
+
+      // Fetch similar products for carousel
+      const carouselConfig = (rawData.themeConfig as { carousel?: CarouselConfig } | null)
+        ?.carousel;
+      let similarProducts: SimilarProduct[] = [];
+
+      if (carouselConfig) {
+        const carouselProducts = await fetchCarouselProducts(ctx.db, {
+          brandId: rawData.brandId,
+          currentProductId: rawData.productId,
+          currentCategoryId: rawData.categoryId,
+          carouselConfig,
+        });
+
+        // Only include products if we have minimum required
+        if (carouselProducts.length >= MIN_CAROUSEL_PRODUCTS) {
+          similarProducts = transformCarouselProducts(
+            carouselProducts,
+            ctx.supabase,
+          );
+        }
+      }
+
       // Return all data needed for rendering
       return {
-        dppData,
+        dppData: {
+          ...dppData,
+          // Override productImage with resolved URL
+          productImage: productImageUrl,
+          // Include similar products for carousel
+          similarProducts,
+        },
         themeConfig: rawData.themeConfig,
         themeStyles: rawData.themeStyles,
         stylesheetUrl,
@@ -110,18 +201,90 @@ export const dppPublicRouter = createTRPCRouter({
       // Transform to component-ready format
       const dppData = transformToDppData(rawData);
 
-      // Resolve stylesheet URL server-side (DPP app doesn't need Supabase credentials)
+      // Resolve URLs server-side (DPP app doesn't need Supabase credentials)
       const stylesheetUrl = rawData.stylesheetPath
         ? getPublicUrl(ctx.supabase, "dpp-themes", rawData.stylesheetPath)
         : null;
 
+      // Resolve product image path to public URL
+      const productImageUrl = rawData.productImage
+        ? getPublicUrl(ctx.supabase, "products", rawData.productImage)
+        : null;
+
+      // Fetch similar products for carousel
+      // For variant-level DPP, exclude the parent product from carousel
+      const carouselConfig = (rawData.themeConfig as { carousel?: CarouselConfig } | null)
+        ?.carousel;
+      let similarProducts: SimilarProduct[] = [];
+
+      if (carouselConfig) {
+        const carouselProducts = await fetchCarouselProducts(ctx.db, {
+          brandId: rawData.brandId,
+          currentProductId: rawData.productId, // Exclude the parent product
+          currentCategoryId: rawData.categoryId,
+          carouselConfig,
+        });
+
+        // Only include products if we have minimum required
+        if (carouselProducts.length >= MIN_CAROUSEL_PRODUCTS) {
+          similarProducts = transformCarouselProducts(
+            carouselProducts,
+            ctx.supabase,
+          );
+        }
+      }
+
       // Return all data needed for rendering
       return {
-        dppData,
+        dppData: {
+          ...dppData,
+          // Override productImage with resolved URL
+          productImage: productImageUrl,
+          // Include similar products for carousel
+          similarProducts,
+        },
         themeConfig: rawData.themeConfig,
         themeStyles: rawData.themeStyles,
         stylesheetUrl,
         googleFontsUrl: rawData.googleFontsUrl,
+      };
+    }),
+
+  /**
+   * Fetch theme data for screenshot preview.
+   *
+   * Used by the /ahw_preview_jja/ route to render a brand's theme with demo data
+   * for screenshot generation. Does not require any products to exist.
+   *
+   * @param brandSlug - URL-friendly brand identifier
+   * @returns Theme data for rendering, or null if brand not found
+   */
+  getThemePreview: publicProcedure
+    .input(getThemePreviewSchema)
+    .query(async ({ ctx, input }) => {
+      const { brandSlug } = input;
+
+      // Get brand by slug
+      const brand = await getBrandBySlug(ctx.db, brandSlug);
+
+      if (!brand) {
+        return null;
+      }
+
+      // Fetch brand theme
+      const theme = await getBrandTheme(ctx.db, brand.id);
+
+      // Resolve stylesheet URL if present
+      const stylesheetUrl = theme?.stylesheetPath
+        ? getPublicUrl(ctx.supabase, "dpp-themes", theme.stylesheetPath)
+        : null;
+
+      return {
+        brandName: brand.name,
+        themeConfig: theme?.themeConfig ?? null,
+        themeStyles: theme?.themeStyles ?? null,
+        stylesheetUrl,
+        googleFontsUrl: theme?.googleFontsUrl ?? null,
       };
     }),
 });

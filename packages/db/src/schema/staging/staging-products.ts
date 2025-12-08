@@ -31,7 +31,7 @@ export const stagingProducts = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     showcaseBrandId: uuid("showcase_brand_id"),
-    primaryImageUrl: text("primary_image_url"),
+    primaryImagePath: text("primary_image_path"),
     categoryId: uuid("category_id"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()

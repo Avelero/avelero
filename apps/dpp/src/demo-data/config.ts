@@ -26,6 +26,9 @@ export const demoThemeConfig: ThemeConfig = {
     bannerSubline: "",
     bannerCTAText: "DISCOVER MORE",
     bannerCTAUrl: "https://avelero.com",
+    showHeadline: true,
+    showSubline: true,
+    showButton: true,
   },
 
   social: {
@@ -56,5 +59,12 @@ export const demoThemeConfig: ThemeConfig = {
 
   materials: {
     showCertificationCheckIcon: true,
+  },
+
+  carousel: {
+    productCount: 6,
+    showPrice: true,
+    showTitle: true,
+    roundPrice: true,
   },
 };

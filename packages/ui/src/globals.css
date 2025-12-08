@@ -35,6 +35,9 @@
     --success: oklch(0.935 0.094 162);
     --success-foreground: oklch(0.45 0.083 177);
 
+    --brand-success: oklch(0.86 0.070 250);
+    --brand-success-foreground: oklch(0.45 0.3132 264);
+
     --destructive: oklch(0.43 0.17 29);
     --destructive-foreground: oklch(0.9975 0 264);
 
@@ -50,6 +53,7 @@
   * {
     @apply border-border;
   }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
@@ -61,23 +65,23 @@
   h1 {
     @apply text-[42px] font-semibold leading-[50px] tracking-normal;
   }
-  
+
   h2 {
     @apply text-[34px] font-semibold leading-[44px] tracking-normal;
   }
-  
+
   h3 {
     @apply text-[28px] font-semibold leading-[36px] tracking-normal;
   }
-  
+
   h4 {
     @apply text-[24px] font-medium leading-[34px] tracking-normal;
   }
-  
+
   h5 {
     @apply text-[20px] font-medium leading-[28px] tracking-normal;
   }
-  
+
   h6 {
     @apply text-[16px] font-normal leading-[24px] tracking-wide;
   }
@@ -88,6 +92,10 @@
 
   small {
     @apply text-[13px] font-normal leading-[18px] tracking-wide;
+  }
+
+  xsmall {
+    @apply text-[11px] font-normal leading-[16px] tracking-wide;
   }
 }
 
@@ -176,7 +184,7 @@ input:-webkit-autofill:focus-visible {
   .type-h1 {
     @apply text-[42px] font-semibold leading-[50px] tracking-normal;
   }
-  
+
   .type-h2 {
     @apply text-[34px] font-semibold leading-[44px] tracking-normal;
   }
@@ -184,24 +192,28 @@ input:-webkit-autofill:focus-visible {
   .type-h3 {
     @apply text-[28px] font-semibold leading-[36px] tracking-normal;
   }
-  
+
   .type-h4 {
     @apply text-[24px] font-medium leading-[34px] tracking-normal;
   }
-  
+
   .type-h5 {
     @apply text-[20px] font-medium leading-[28px] tracking-normal;
   }
-  
+
   .type-h6 {
     @apply text-[16px] font-medium leading-[24px] tracking-wide;
   }
-  
+
   .type-p {
     @apply text-[14px] font-normal leading-[20px] tracking-wide;
   }
-  
+
   .type-small {
     @apply text-[13px] font-normal leading-[18px] tracking-wide;
+  }
+
+  .type-xsmall {
+    @apply text-[11px] font-normal leading-[16px] tracking-wide;
   }
 }

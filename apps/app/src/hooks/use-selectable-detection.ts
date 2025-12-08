@@ -5,10 +5,10 @@ import { useDesignEditor } from "@/contexts/design-editor-provider";
 import {
   findComponentById,
   hasEditableContent,
-} from "@/components/theme-editor/registry/component-registry";
+} from "@/components/theme-editor/registry";
 
-/** Debounce delay in ms - hover is only shown after cursor stops for this duration */
-const HOVER_DEBOUNCE_MS = 25;
+/** Debounce delay in ms - hover shows after cursor has been on an item for this duration */
+const HOVER_DEBOUNCE_MS = 20;
 
 /**
  * Apply selection data attribute to all elements with a given class within a container.
@@ -53,7 +53,7 @@ function toKebabCase(str: string): string {
 /**
  * Hook for detecting selectable components in the DPP preview.
  * Uses CSS-driven styling via data attributes for GPU-accelerated rendering.
- * Includes debounce so hover only shows after cursor stops moving.
+ * Includes a short debounce so hover only shows after cursor is on an item for a moment.
  */
 export function useSelectableDetection(
   containerRef: React.RefObject<HTMLElement | null>,
@@ -157,31 +157,39 @@ export function useSelectableDetection(
 
   /**
    * Handle mouse move - detect which component is under cursor.
-   * Uses debounce so hover only shows after cursor STOPS moving.
-   *
-   * Behavior:
-   * - When cursor is moving, keep the current hover (don't clear it)
-   * - When cursor stops, update hover to whatever component is under cursor
-   * - This means hover persists while moving, only changes when cursor stops
+   * Uses a short debounce so hover shows after cursor has been on an item for a moment.
+   * This prevents flicker during fast movement while still feeling responsive.
    */
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
       const componentId = findSelectableComponentId(event.target);
 
-      // Always update the pending component (what's currently under cursor)
+      // If we're still on the same component, no need to do anything
+      if (componentId === pendingComponentRef.current) {
+        return;
+      }
+
+      // Moving to a different component (or null)
       pendingComponentRef.current = componentId;
 
-      // Clear any existing debounce timer (cursor moved, so reset)
+      // Clear any existing debounce timer
       if (debounceTimerRef.current !== null) {
         clearTimeout(debounceTimerRef.current);
       }
 
-      // Start a new debounce timer - will fire when cursor stops moving
+      // If moving to null (no component), clear immediately
+      if (componentId === null) {
+        debounceTimerRef.current = null;
+        if (hoveredComponentId !== null) {
+          setHoveredComponentId(null);
+        }
+        return;
+      }
+
+      // Start debounce timer - will fire if cursor stays on this component
       debounceTimerRef.current = setTimeout(() => {
-        // Cursor has stopped - update hover to whatever component is under cursor
-        // This could be a different component, the same component, or null (no component)
-        if (pendingComponentRef.current !== hoveredComponentId) {
-          setHoveredComponentId(pendingComponentRef.current);
+        if (pendingComponentRef.current === componentId) {
+          setHoveredComponentId(componentId);
         }
         debounceTimerRef.current = null;
       }, HOVER_DEBOUNCE_MS);

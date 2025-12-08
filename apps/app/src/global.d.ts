@@ -64,3 +64,20 @@ declare module "public/marketing/*.webp" {
   const content: string;
   export default content;
 }
+
+// opentype.js type declarations
+declare namespace opentype {
+  interface Font {
+    names: {
+      fontFamily?: Record<string, string>;
+      preferredFamily?: Record<string, string>;
+    };
+    tables: Record<string, unknown>;
+  }
+
+  function parse(buffer: ArrayBuffer | Buffer): Font;
+}
+
+declare module "opentype.js" {
+  export = opentype;
+}

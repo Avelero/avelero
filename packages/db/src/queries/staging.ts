@@ -27,7 +27,7 @@ export interface InsertStagingProductParams {
   name: string;
   description?: string | null;
   showcaseBrandId?: string | null;
-  primaryImageUrl?: string | null;
+  primaryImagePath?: string | null;
   categoryId?: string | null;
   seasonId?: string | null; // FK to brand_seasons.id
   status?: string | null; // Product publication status
@@ -107,7 +107,7 @@ export interface StagingProductPreview {
   name: string;
   description: string | null;
   showcaseBrandId: string | null;
-  primaryImageUrl: string | null;
+  primaryImagePath: string | null;
   categoryId: string | null;
   seasonId: string | null; // FK to brand_seasons.id
   status: string | null; // Product publication status
@@ -211,7 +211,7 @@ export async function insertStagingProduct(
       name: params.name,
       description: params.description ?? null,
       showcaseBrandId: params.showcaseBrandId ?? null,
-      primaryImageUrl: params.primaryImageUrl ?? null,
+      primaryImagePath: params.primaryImagePath ?? null,
       categoryId: params.categoryId ?? null,
       seasonId: params.seasonId ?? null,
       status: params.status ?? null,
@@ -256,7 +256,7 @@ export async function batchInsertStagingProducts(
     name: p.name,
     description: p.description ?? null,
     showcaseBrandId: p.showcaseBrandId ?? null,
-    primaryImageUrl: p.primaryImageUrl ?? null,
+    primaryImagePath: p.primaryImagePath ?? null,
     categoryId: p.categoryId ?? null,
     seasonId: p.seasonId ?? null,
     status: p.status ?? null,
@@ -584,7 +584,7 @@ export async function bulkCreateProductsFromStaging(
     categoryId: row.categoryId ?? null,
     seasonId: row.seasonId ?? null,
     showcaseBrandId: row.showcaseBrandId ?? null,
-    primaryImageUrl: row.primaryImageUrl ?? null,
+    primaryImagePath: row.primaryImagePath ?? null,
     status: row.status ?? undefined,
   }));
 
@@ -833,7 +833,7 @@ async function hydrateStagingProductPreviews(
     name: p.name,
     description: p.description,
     showcaseBrandId: p.showcaseBrandId,
-    primaryImageUrl: p.primaryImageUrl,
+    primaryImagePath: p.primaryImagePath,
     categoryId: p.categoryId,
     seasonId: p.seasonId,
     status: p.status,
@@ -983,7 +983,7 @@ export async function batchInsertStagingWithStatus(
     name: p.name,
     description: p.description ?? null,
     showcaseBrandId: p.showcaseBrandId ?? null,
-    primaryImageUrl: p.primaryImageUrl ?? null,
+    primaryImagePath: p.primaryImagePath ?? null,
     categoryId: p.categoryId ?? null,
     seasonId: p.seasonId ?? null,
     status: p.status ?? null,

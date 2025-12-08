@@ -393,8 +393,8 @@ export function PassportDataTable({
                         "border-r px-4 align-middle",
                         (
                           cell.column.columnDef.meta as
-                            | { cellClassName?: string }
-                            | undefined
+                          | { cellClassName?: string }
+                          | undefined
                         )?.cellClassName,
                       )}
                     >
@@ -430,8 +430,9 @@ export function PassportDataTable({
                 onClick={onFirstPage}
                 onMouseEnter={onPrefetchFirst}
                 disabled={!canGoFirst}
-                icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
-              />
+              >
+                <Icons.ChevronsLeft className="h-[14px] w-[14px]" />
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -439,8 +440,9 @@ export function PassportDataTable({
                 onClick={onPrevPage}
                 onMouseEnter={onPrefetchPrev}
                 disabled={!canGoPrev}
-                icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
-              />
+              >
+                <Icons.ChevronLeft className="h-[14px] w-[14px]" />
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -448,8 +450,9 @@ export function PassportDataTable({
                 onClick={onNextPage}
                 onMouseEnter={onPrefetchNext}
                 disabled={!canGoNext}
-                icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-              />
+              >
+                <Icons.ChevronRight className="h-[14px] w-[14px]" />
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -457,8 +460,9 @@ export function PassportDataTable({
                 onClick={onLastPage}
                 onMouseEnter={onPrefetchLast}
                 disabled={!canGoLast}
-                icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
-              />
+              >
+                <Icons.ChevronsRight className="h-[14px] w-[14px]" />
+              </Button>
             </div>
           </div>
         );

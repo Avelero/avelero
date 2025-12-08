@@ -113,18 +113,17 @@ export function SortPopover({
             variant="subtle"
             size="default"
             disabled={disabled}
-            iconPosition="left"
-            icon={<ActiveIcon className="h-[14px] w-[14px]" />}
             className="group-hover:bg-accent transition-none"
           >
-            {optimisticSort && activeField ? (
+            <ActiveIcon className="h-[14px] w-[14px]" />
+            <span className="px-1">{optimisticSort && activeField ? (
               <>
                 Sorted by{" "}
                 <span className="font-medium pl-2">{activeField.label}</span>
               </>
             ) : (
               "Sort"
-            )}
+            )}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[220px]">

@@ -354,15 +354,9 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
           size="sm"
           onClick={handleExport}
           disabled={isExporting}
-          icon={
-            isExporting ? (
-              <Icons.Spinner className="h-4 w-4 animate-spin" />
-            ) : (
-              <Icons.Download className="h-4 w-4" />
-            )
-          }
         >
-          {isExporting ? "Exporting..." : "Export Failed Rows"}
+          <span className="px-1">{isExporting ? "Exporting..." : "Export Failed Rows"}</span>
+          {isExporting ? <Icons.Spinner className="h-4 w-4 animate-spin" /> : <Icons.Download className="h-4 w-4" />}
         </Button>
       </div>
 
@@ -382,9 +376,9 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
                     </TableHead>
                   )),
                 )}
@@ -427,32 +421,36 @@ export function ErrorListSection({ jobId }: ErrorListSectionProps) {
               aria-label="First page"
               onClick={() => setPage(0)}
               disabled={!canGoPrev}
-              icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
-            />
+            >
+              <Icons.ChevronsLeft className="h-[14px] w-[14px]" />
+            </Button>
             <Button
               variant="outline"
               size="sm"
               aria-label="Previous page"
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={!canGoPrev}
-              icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
-            />
+            >
+              <Icons.ChevronLeft className="h-[14px] w-[14px]" />
+            </Button>
             <Button
               variant="outline"
               size="sm"
               aria-label="Next page"
               onClick={() => setPage((p) => p + 1)}
               disabled={!canGoNext}
-              icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-            />
+            >
+              <Icons.ChevronRight className="h-[14px] w-[14px]" />
+            </Button>
             <Button
               variant="outline"
               size="sm"
               aria-label="Last page"
               onClick={() => setPage(lastPage)}
               disabled={!canGoNext}
-              icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
-            />
+            >
+              <Icons.ChevronsRight className="h-[14px] w-[14px]" />
+            </Button>
           </div>
         </div>
       )}

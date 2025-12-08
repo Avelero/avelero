@@ -83,11 +83,11 @@ export function Header({
 function EditorHeaderStatus() {
   return (
     <div className="flex items-center gap-2">
-      <div className="relative flex items-center justify-center px-2 h-6 rounded-full bg-success">
+      <div className="relative flex items-center justify-center px-2 h-6 rounded-full bg-success-brand">
         <div className="flex items-center justify-center h-[12px] w-[12px]">
-          <div className="h-2.5 w-2.5 rounded-full bg-success-foreground" />
+          <div className="h-2.5 w-2.5 rounded-full bg-success-brand-foreground" />
         </div>
-        <p className="type-small leading-none text-success-foreground ml-1.5">
+        <p className="type-small leading-none text-success-brand-foreground ml-1.5">
           Live
         </p>
       </div>

@@ -126,10 +126,9 @@ export function PassportControls({
             variant="subtle"
             size="default"
             disabled={disabled}
-            iconPosition="left"
-            icon={<Icons.ArrowDownUp className="h-[14px] w-[14px]" />}
           >
-            Sort
+            <Icons.ArrowDownUp className="h-[14px] w-[14px]" />
+            <span className="px-1">Sort</span>
           </Button>
         )}
 
@@ -154,10 +153,9 @@ export function PassportControls({
             variant="subtle"
             size="default"
             disabled={disabled}
-            iconPosition="left"
-            icon={<Icons.Filter className="h-[14px] w-[14px]" />}
           >
-            Filter
+            <Icons.Filter className="h-[14px] w-[14px]" />
+            <span className="px-1">Filter</span>
           </Button>
         )}
 
@@ -170,10 +168,9 @@ export function PassportControls({
               variant="subtle"
               size="default"
               disabled
-              iconPosition="left"
-              icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}
             >
-              Display
+              <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
+              <span className="px-1">Display</span>
             </Button>
           ) : (
             <DisplayPopover
@@ -181,12 +178,9 @@ export function PassportControls({
                 <Button
                   variant="subtle"
                   size="default"
-                  iconPosition="left"
-                  icon={
-                    <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
-                  }
                 >
-                  Display
+                  <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
+                  <span className="px-1">Display</span>
                 </Button>
               }
               productLabel={displayProps.productLabel}
@@ -200,10 +194,9 @@ export function PassportControls({
             variant="subtle"
             size="default"
             disabled={disabled}
-            iconPosition="left"
-            icon={<Icons.SlidersHorizontal className="h-[14px] w-[14px]" />}
           >
-            Display
+            <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
+            <span className="px-1">Display</span>
           </Button>
         )}
 
@@ -214,10 +207,9 @@ export function PassportControls({
               variant="brand"
               size="default"
               disabled={disabled || !hasSelection}
-              iconPosition="left"
-              icon={<Icons.Globe className="h-[14px] w-[14px]" />}
             >
-              <span>Actions</span>
+              <Icons.Globe className="h-[14px] w-[14px]" />
+              <span className="px-1">Actions</span>
               {hasSelection && (
                 <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 ml-1 rounded-sm bg-background text-[12px] leading-[12px] text-brand">
                   {selectedCount}

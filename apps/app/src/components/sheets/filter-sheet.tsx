@@ -137,18 +137,18 @@ export function AdvancedFilterPanel({
           groups: prev.groups.map((g) =>
             g.id === groupId
               ? {
-                  ...g,
-                  conditions: [
-                    ...g.conditions,
-                    {
-                      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                      fieldId: "",
-                      operator: "is" as any,
-                      value: null,
-                      ...(initial ?? {}),
-                    },
-                  ],
-                }
+                ...g,
+                conditions: [
+                  ...g.conditions,
+                  {
+                    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    fieldId: "",
+                    operator: "is" as any,
+                    value: null,
+                    ...(initial ?? {}),
+                  },
+                ],
+              }
               : g,
           ),
         }));
@@ -159,11 +159,11 @@ export function AdvancedFilterPanel({
           groups: prev.groups.map((g) =>
             g.id === groupId
               ? {
-                  ...g,
-                  conditions: g.conditions.map((c) =>
-                    c.id === conditionId ? { ...c, ...updates } : c,
-                  ),
-                }
+                ...g,
+                conditions: g.conditions.map((c) =>
+                  c.id === conditionId ? { ...c, ...updates } : c,
+                ),
+              }
               : g,
           ),
         }));
@@ -238,10 +238,9 @@ export function AdvancedFilterPanel({
                   variant="brand"
                   size="sm"
                   onClick={() => localActions.addGroup()}
-                  iconPosition="left"
-                  icon={<Icons.Plus className="h-4 w-4" />}
                 >
-                  Add Filter
+                  <Icons.Plus className="h-4 w-4" />
+                  <span className="px-1">Add Filter</span>
                 </Button>
               </div>
             ) : (

@@ -586,6 +586,8 @@ export type BrandThemeRow = {
   themeConfig: unknown;
   stylesheetPath: string | null;
   googleFontsUrl: string | null;
+  screenshotDesktopPath: string | null;
+  screenshotMobilePath: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -605,6 +607,8 @@ export async function getBrandTheme(
       themeConfig: brandTheme.themeConfig,
       stylesheetPath: brandTheme.stylesheetPath,
       googleFontsUrl: brandTheme.googleFontsUrl,
+      screenshotDesktopPath: brandTheme.screenshotDesktopPath,
+      screenshotMobilePath: brandTheme.screenshotMobilePath,
       createdAt: brandTheme.createdAt,
       updatedAt: brandTheme.updatedAt,
     })
@@ -630,6 +634,32 @@ export async function updateBrandThemeConfig(
     .update(brandTheme)
     .set({
       themeConfig,
+      updatedAt: now,
+    })
+    .where(eq(brandTheme.brandId, brandId));
+
+  return { success: true, updatedAt: now };
+}
+
+/**
+ * Updates the screenshot paths for a brand's theme.
+ * Called after the background job captures new screenshots.
+ */
+export async function updateBrandThemeScreenshots(
+  db: Database,
+  brandId: string,
+  paths: {
+    screenshotDesktopPath: string;
+    screenshotMobilePath: string;
+  },
+): Promise<{ success: true; updatedAt: string }> {
+  const now = new Date().toISOString();
+
+  await db
+    .update(brandTheme)
+    .set({
+      screenshotDesktopPath: paths.screenshotDesktopPath,
+      screenshotMobilePath: paths.screenshotMobilePath,
       updatedAt: now,
     })
     .where(eq(brandTheme.brandId, brandId));

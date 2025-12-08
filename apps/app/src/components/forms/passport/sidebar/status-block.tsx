@@ -42,6 +42,6 @@ export function StatusSection({ status, setStatus }: StatusSectionProps) {
         placeholder="Select status"
         width="w-full min-w-[200px] max-w-[320px]"
       />
-    </div>
+    </div> 
   );
 }

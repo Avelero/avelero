@@ -6,6 +6,7 @@ import {
   generateGoogleFontsUrlFromTypography,
   type ThemeStyles,
 } from "@v1/dpp-components";
+import { tasks } from "@trigger.dev/sdk/v3";
 import type { Json } from "@v1/supabase/types";
 import { z } from "zod";
 
@@ -69,6 +70,15 @@ export const saveThemeAction = authActionClient
       throw new Error(
         dbError.message || "Unable to save theme styles for brand",
       );
+    }
+
+    // Trigger screenshot capture in background (fire-and-forget)
+    // Wrapped in try-catch so screenshot failures don't affect the save
+    try {
+      await tasks.trigger("capture-theme-screenshot", { brandId });
+    } catch (error) {
+      console.error("Failed to trigger screenshot capture:", error);
+      // Don't throw - screenshot is optional enhancement
     }
 
     return {

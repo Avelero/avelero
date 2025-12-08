@@ -1,12 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { PanelHeader } from "./panel-header";
-import { TypographyEditor } from "./sections/typography-editor";
-import { ColorsEditor } from "./sections/colors-editor";
-import { ComponentSection } from "./sections/component-section";
-import { LayoutTree } from "./sections/layout-tree";
-import { findComponentById } from "../registry/component-registry";
+import { TypographyEditor } from "./views/typography-editor";
+import { ColorsEditor } from "./views/colors-editor";
+import { StylesSection } from "./views/styles-section";
+import { ContentSection } from "./views/content-section";
+import { StyleContentTabs, type TabType } from "./views/style-content-tabs";
+import { LayoutTree } from "./views/layout-tree";
+import { MenuItemEditor } from "./views/menu-item-editor";
+import {
+  findComponentById,
+  hasEditableContent,
+  hasConfigContent,
+} from "../registry";
 import type { NavigationSection } from "@/contexts/design-editor-provider";
 
 // Get display title for navigation state
@@ -35,10 +43,39 @@ function getNavigationTitle(
 }
 
 export function DesignPanel() {
-  const { navigation, navigateBack } = useDesignEditor();
+  const { navigation, navigateBack, menuItemEdit, clearMenuItemEdit, getConfigValue } = useDesignEditor();
+
+  // Tab state for component view (Styles vs Content)
+  const [activeTab, setActiveTab] = useState<TabType>("styles");
 
   // Default to layout section if at root (shouldn't happen with new default)
   const effectiveSection = navigation.section ?? "layout";
+
+  // Check if we're editing a menu item
+  if (menuItemEdit) {
+    // Get the menu item label for the header
+    const items = (getConfigValue(menuItemEdit.configPath) as Array<{ label: string; url: string }> | undefined) ?? [];
+    const item = items[menuItemEdit.itemIndex];
+    const headerTitle = item?.label || "Edit Button";
+
+    return (
+      <div className="flex h-full w-[300px] flex-col border-r bg-background">
+        <PanelHeader
+          title={headerTitle}
+          showBackButton={true}
+          onBack={clearMenuItemEdit}
+        />
+        <div className="flex-1 flex flex-col min-h-0">
+          <MenuItemEditor
+            menuType={menuItemEdit.menuType}
+            configPath={menuItemEdit.configPath}
+            itemIndex={menuItemEdit.itemIndex}
+            onBack={clearMenuItemEdit}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const title = getNavigationTitle(
     navigation.level,
@@ -53,7 +90,54 @@ export function DesignPanel() {
   const renderContent = () => {
     // Component editor view
     if (navigation.level === "component" && navigation.componentId) {
-      return <ComponentSection componentId={navigation.componentId} />;
+      const component = findComponentById(navigation.componentId);
+      if (!component) {
+        return (
+          <div className="p-4 text-center">
+            <p className="type-small text-secondary">Component not found</p>
+          </div>
+        );
+      }
+
+      const hasStyles = hasEditableContent(component);
+      const hasConfig = hasConfigContent(component);
+
+      // Both styles and content available - show tabs
+      if (hasStyles && hasConfig) {
+        return (
+          <>
+            <StyleContentTabs
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              showContentTab={true}
+            />
+            {activeTab === "styles" ? (
+              <StylesSection componentId={navigation.componentId} />
+            ) : (
+              <ContentSection componentId={navigation.componentId} />
+            )}
+          </>
+        );
+      }
+
+      // Only styles available - no tabs needed
+      if (hasStyles) {
+        return <StylesSection componentId={navigation.componentId} />;
+      }
+
+      // Only content available - no tabs needed
+      if (hasConfig) {
+        return <ContentSection componentId={navigation.componentId} />;
+      }
+
+      // Neither - shouldn't happen but handle gracefully
+      return (
+        <div className="p-4 text-center">
+          <p className="type-small text-secondary">
+            No editable properties for this component
+          </p>
+        </div>
+      );
     }
 
     // Section view - controlled by sidebar
@@ -80,3 +164,4 @@ export function DesignPanel() {
     </div>
   );
 }
+

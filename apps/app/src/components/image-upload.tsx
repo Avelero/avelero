@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import { useImageUpload } from "@/hooks/use-image-upload";
+import { useImageUpload } from "@/hooks/use-upload";
 import {
   validateImageFile,
-  type ImageValidationResult,
-} from "@/utils/image-upload";
+  type ValidationResult,
+  type ValidationConfig,
+} from "@/utils/upload";
 import { toast } from "@v1/ui/sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 
@@ -26,9 +27,15 @@ export interface ImageUploaderProps {
   mode?: UploaderMode;
   width?: number | string;
   height?: number | string;
-  validate?: (file: File) => ImageValidationResult;
+  /** Validation config from UPLOAD_CONFIGS or custom validation function */
+  validation?: ValidationConfig | ((file: File) => ValidationResult);
   uploadOnSelect?: boolean;
 }
+
+const DEFAULT_VALIDATION: ValidationConfig = {
+  maxBytes: 10 * 1024 * 1024, // 10MB
+  allowedMime: ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"],
+};
 
 export function ImageUploader({
   bucket,
@@ -42,7 +49,7 @@ export function ImageUploader({
   mode = "public",
   width = 200,
   height = 200,
-  validate,
+  validation = DEFAULT_VALIDATION,
   uploadOnSelect = true,
   onFileSelected,
 }: ImageUploaderProps) {
@@ -55,8 +62,15 @@ export function ImageUploader({
   const inputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, isLoading } = useImageUpload();
   const lastObjectUrl = useRef<string | null>(null);
+  // Track when we've just set previewUrl from user selection to avoid useEffect overwriting it
+  const pendingUserSelection = useRef(false);
 
   useEffect(() => {
+    // Skip sync if we just set this value ourselves via user file selection
+    if (pendingUserSelection.current) {
+      pendingUserSelection.current = false;
+      return;
+    }
     setPreviewUrl(initialUrl?.trim() || null);
   }, [initialUrl]);
 
@@ -77,11 +91,12 @@ export function ImageUploader({
 
   const handleFile = useCallback(
     async (file: File) => {
-      const validation = validate
-        ? validate(file)
-        : validateImageFile(file, { maxBytes: 10 * 1024 * 1024 });
-      if (!validation.valid) {
-        setError(validation.error);
+      const validationResult =
+        typeof validation === "function"
+          ? validation(file)
+          : validateImageFile(file, validation);
+      if (!validationResult.valid) {
+        setError(validationResult.error);
         return;
       }
       setError(null);
@@ -92,6 +107,8 @@ export function ImageUploader({
         }
         const objectUrl = URL.createObjectURL(file);
         lastObjectUrl.current = objectUrl;
+        // Mark that we're setting preview from user selection to prevent useEffect from overwriting
+        pendingUserSelection.current = true;
         setPreviewUrl(objectUrl);
         onFileSelected?.(file);
         onChange(objectUrl, null);
@@ -105,8 +122,10 @@ export function ImageUploader({
           bucket,
           path,
           isPublic: mode === "public",
-          validate,
+          validation,
         });
+        // Mark that we're setting preview from user selection to prevent useEffect from overwriting
+        pendingUserSelection.current = true;
         setPreviewUrl(displayUrl);
         onFileSelected?.(null);
         onChange(displayUrl, storagePath);
@@ -124,7 +143,7 @@ export function ImageUploader({
       onFileSelected,
       uploadImage,
       uploadOnSelect,
-      validate,
+      validation,
     ],
   );
 
@@ -180,7 +199,11 @@ export function ImageUploader({
 
   const handleChangeImage = () => {
     setPopoverOpen(false);
-    inputRef.current?.click();
+    // Delay file input click to ensure popover has fully closed
+    // This prevents Radix Popover's focus management from interfering with the file picker
+    requestAnimationFrame(() => {
+      inputRef.current?.click();
+    });
   };
 
   const handleDeleteImage = () => {
@@ -278,6 +301,7 @@ export function ImageUploader({
               accept="image/*"
               className="hidden"
               onChange={handleFileSelect}
+              onClick={(e) => e.stopPropagation()}
             />
           </div>
         </PopoverTrigger>
@@ -288,7 +312,7 @@ export function ImageUploader({
             className="w-full flex items-center gap-2 px-3 py-2 type-p text-primary hover:bg-accent transition-colors"
           >
             <Icons.Upload className="h-4 w-4" />
-            Change
+            <span className="px-1">Change</span>
           </button>
           <button
             type="button"
@@ -296,7 +320,7 @@ export function ImageUploader({
             className="w-full flex items-center gap-2 px-3 py-2 type-p text-destructive hover:bg-accent transition-colors"
           >
             <Icons.Trash2 className="h-4 w-4" />
-            Delete
+            <span className="px-1">Delete</span>
           </button>
         </PopoverContent>
       </Popover>

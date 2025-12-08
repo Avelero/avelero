@@ -2,7 +2,7 @@
 
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useImageUpload } from "@/hooks/use-image-upload";
+import { useImageUpload } from "@/hooks/use-upload";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import type { Certification } from "@v1/selections/certifications";
 import { allCertifications } from "@v1/selections/certifications";
@@ -514,7 +514,7 @@ export function MaterialSheet({
         path,
         bucket: "certifications",
         isPublic: true,
-        validate: (f) => {
+        validation: (f) => {
           if (!allowedTypes.includes(f.type)) {
             return {
               valid: false,
@@ -686,14 +686,14 @@ export function MaterialSheet({
                         // Filter certifications by search term
                         const filteredCerts = certSearchTerm
                           ? availableCertifications.filter(
-                              (cert) =>
-                                cert.title
-                                  .toLowerCase()
-                                  .includes(certSearchTerm.toLowerCase()) ||
-                                cert.certificationNumber
-                                  .toLowerCase()
-                                  .includes(certSearchTerm.toLowerCase()),
-                            )
+                            (cert) =>
+                              cert.title
+                                .toLowerCase()
+                                .includes(certSearchTerm.toLowerCase()) ||
+                              cert.certificationNumber
+                                .toLowerCase()
+                                .includes(certSearchTerm.toLowerCase()),
+                          )
                           : availableCertifications;
 
                         // Check if search term doesn't match any existing certification
@@ -702,9 +702,9 @@ export function MaterialSheet({
                           !availableCertifications.some(
                             (cert) =>
                               cert.title.toLowerCase() ===
-                                certSearchTerm.toLowerCase() ||
+                              certSearchTerm.toLowerCase() ||
                               cert.certificationNumber.toLowerCase() ===
-                                certSearchTerm.toLowerCase(),
+                              certSearchTerm.toLowerCase(),
                           );
 
                         return (
@@ -720,7 +720,7 @@ export function MaterialSheet({
                                   className={cn(
                                     "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border last:border-b-0",
                                     selectedCertificationId === cert.id &&
-                                      "bg-accent-blue",
+                                    "bg-accent-blue",
                                   )}
                                 >
                                   <div className="w-8 h-8 flex items-center justify-center shrink-0">
@@ -771,10 +771,9 @@ export function MaterialSheet({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleCreateCertification()}
-                                  icon={<Icons.Plus />}
-                                  iconPosition="left"
                                 >
-                                  Create certification
+                                  <Icons.Plus className="h-4 w-4" />
+                                  <span className="px-1">Create certification</span>
                                 </Button>
                               </div>
                             ) : null}
@@ -815,7 +814,7 @@ export function MaterialSheet({
                   value={
                     certTitle
                       ? allCertifications.find((c) => c.title === certTitle)
-                          ?.id || ""
+                        ?.id || ""
                       : ""
                   }
                   onValueChange={handleCertificationSelectChange}

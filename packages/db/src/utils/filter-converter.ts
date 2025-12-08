@@ -214,14 +214,14 @@ function buildConditionClause(
     case "hasImage":
       if (operator === "is true") {
         return and(
-          isNotNull(schema.products.primaryImageUrl),
-          ne(schema.products.primaryImageUrl, ""),
+          isNotNull(schema.products.primaryImagePath),
+          ne(schema.products.primaryImagePath, ""),
         )!;
       }
       if (operator === "is false") {
         return or(
-          isNull(schema.products.primaryImageUrl),
-          eq(schema.products.primaryImageUrl, ""),
+          isNull(schema.products.primaryImagePath),
+          eq(schema.products.primaryImagePath, ""),
         )!;
       }
       return null;

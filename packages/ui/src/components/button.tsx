@@ -40,34 +40,11 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
-  icon?: React.ReactNode;
-  iconPosition?: "left" | "right";
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      className,
-      variant,
-      size,
-      asChild = false,
-      icon,
-      iconPosition = "right",
-      children,
-      ...props
-    },
-    ref,
-  ) => {
+  ({ className, variant, size, asChild = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-
-    // Auto-detect icon-only button
-    const isIconOnly = icon && !children;
-
-    // Determine icon size based on the size prop
-    // size="sm" or size="icon-sm" uses 14x14 icons
-    // everything else (including size="icon") uses 16x16 icons
-    const useSmallIcon = size === "sm" || size === "icon-sm";
-    const iconSizeClass = useSmallIcon ? "h-[14px] w-[14px]" : "h-4 w-4";
 
     return (
       <Comp
@@ -75,25 +52,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         {...props}
       >
-        {asChild ? (
-          children
-        ) : (
-          <>
-            {icon && iconPosition === "left" && (
-              <span className={cn("inline-flex items-center", iconSizeClass)}>
-                {icon}
-              </span>
-            )}
-            {children && (
-              <span className="inline-flex items-center px-1">{children}</span>
-            )}
-            {icon && iconPosition === "right" && (
-              <span className={cn("inline-flex items-center", iconSizeClass)}>
-                {icon}
-              </span>
-            )}
-          </>
-        )}
+        {children}
       </Comp>
     );
   },

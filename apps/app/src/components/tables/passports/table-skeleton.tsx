@@ -89,29 +89,33 @@ export function TableSectionSkeleton({
             size="sm"
             aria-label="First page"
             disabled
-            icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronsLeft className="h-[14px] w-[14px]" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
             aria-label="Previous page"
             disabled
-            icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronLeft className="h-[14px] w-[14px]" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
             aria-label="Next page"
             disabled
-            icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronRight className="h-[14px] w-[14px]" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
             aria-label="Last page"
             disabled
-            icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronsRight className="h-[14px] w-[14px]" />
+          </Button>
         </div>
       </div>
     </div>
@@ -184,29 +188,33 @@ export function PassportTableSkeleton({
             size="sm"
             aria-label="First page"
             disabled
-            icon={<Icons.ChevronsLeft className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronsLeft className="h-[14px] w-[14px]" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
             aria-label="Previous page"
             disabled
-            icon={<Icons.ChevronLeft className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronLeft className="h-[14px] w-[14px]" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
             aria-label="Next page"
             disabled
-            icon={<Icons.ChevronRight className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronRight className="h-[14px] w-[14px]" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
             aria-label="Last page"
             disabled
-            icon={<Icons.ChevronsRight className="h-[14px] w-[14px]" />}
-          />
+          >
+            <Icons.ChevronsRight className="h-[14px] w-[14px]" />
+          </Button>
         </div>
       </div>
     </div>

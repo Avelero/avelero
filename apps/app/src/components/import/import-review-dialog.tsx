@@ -309,12 +309,12 @@ function ImportReviewDialogContent({
 
   const summary = statusData?.summary as
     | {
-        total?: number;
-        valid?: number;
-        invalid?: number;
-        will_create?: number;
-        will_update?: number;
-      }
+      total?: number;
+      valid?: number;
+      invalid?: number;
+      will_create?: number;
+      will_update?: number;
+    }
     | undefined;
 
   const willCreate = summary?.will_create ?? 0;
@@ -569,15 +569,9 @@ function ImportReviewDialogContent({
           size="default"
           onClick={handleCancel}
           disabled={isCancelling || isApproving}
-          icon={
-            isCancelling ? (
-              <Icons.Spinner className="h-4 w-4 animate-spin" />
-            ) : (
-              <Icons.X className="h-4 w-4" />
-            )
-          }
         >
-          Cancel Import
+          <span className="px-1">Cancel Import</span>
+          {isCancelling ? <Icons.Spinner className="h-4 w-4 animate-spin" /> : <Icons.X className="h-4 w-4" />}
         </Button>
 
         <Button
@@ -585,15 +579,9 @@ function ImportReviewDialogContent({
           size="default"
           onClick={handleApprove}
           disabled={!canApprove || isApproving || isCancelling}
-          icon={
-            isApproving ? (
-              <Icons.Spinner className="h-4 w-4 animate-spin" />
-            ) : (
-              <Icons.CheckCircle2 className="h-4 w-4" />
-            )
-          }
         >
-          {isApproving ? "Approving..." : "Approve & Import"}
+          <span className="px-1">{isApproving ? "Approving..." : "Approve & Import"}</span>
+          {isApproving ? <Icons.Spinner className="h-4 w-4 animate-spin" /> : <Icons.CheckCircle2 className="h-4 w-4" />}
         </Button>
       </SheetFooter>
     </SheetContent>

@@ -23,6 +23,10 @@ export interface ThemeConfig {
     bannerSubline: string;
     bannerCTAText: string;
     bannerCTAUrl: string;
+    // Visibility toggles for banner children
+    showHeadline: boolean;
+    showSubline: boolean;
+    showButton: boolean;
   };
 
   // Social footer configuration (brand name comes from DppData.brandName)
@@ -56,5 +60,17 @@ export interface ThemeConfig {
   // Materials section configuration
   materials: {
     showCertificationCheckIcon: boolean;
+  };
+
+  // Product carousel configuration
+  carousel: {
+    productCount: number;
+    showPrice: boolean;
+    showTitle: boolean;
+    roundPrice: boolean;
+    // Product selection (used when fetching DPP to determine which products to show)
+    filter?: Record<string, unknown>;
+    includeIds?: string[];
+    excludeIds?: string[];
   };
 }

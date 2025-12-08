@@ -68,7 +68,7 @@ const PRODUCT_FIELD_MAP = {
   category_id: products.categoryId,
   season_id: products.seasonId,
   showcase_brand_id: products.showcaseBrandId,
-  primary_image_url: products.primaryImageUrl,
+  primary_image_path: products.primaryImagePath,
   product_identifier: products.productIdentifier,
   upid: products.upid,
   template_id: products.templateId,
@@ -112,7 +112,7 @@ export interface ProductRecord {
   category_id?: string | null;
   season_id?: string | null; // FK to brand_seasons.id
   showcase_brand_id?: string | null;
-  primary_image_url?: string | null;
+  primary_image_path?: string | null;
   product_identifier?: string | null;
   upid?: string | null;
   template_id?: string | null;
@@ -235,9 +235,9 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
   if ("template_id" in row)
     product.template_id = (row.template_id as string | null) ?? null;
   if ("status" in row) product.status = (row.status as string | null) ?? null;
-  if ("primary_image_url" in row)
-    product.primary_image_url =
-      (row.primary_image_url as string | null) ?? null;
+  if ("primary_image_path" in row)
+    product.primary_image_path =
+      (row.primary_image_path as string | null) ?? null;
   if ("created_at" in row)
     product.created_at = (row.created_at as string | null) ?? undefined;
   if ("updated_at" in row)
@@ -692,8 +692,8 @@ export async function listProducts(
   const selectFields =
     opts.fields && opts.fields.length > 0
       ? Object.fromEntries(
-          opts.fields.map((field) => [field, PRODUCT_FIELD_MAP[field]]),
-        )
+        opts.fields.map((field) => [field, PRODUCT_FIELD_MAP[field]]),
+      )
       : PRODUCT_FIELD_MAP;
 
   // Add joined fields for category and season names
@@ -710,10 +710,10 @@ export async function listProducts(
     | ReturnType<typeof desc>
     | ReturnType<typeof sql>
     | Array<
-        | ReturnType<typeof asc>
-        | ReturnType<typeof desc>
-        | ReturnType<typeof sql>
-      >;
+      | ReturnType<typeof asc>
+      | ReturnType<typeof desc>
+      | ReturnType<typeof sql>
+    >;
   if (opts.sort?.field === "season") {
     if (opts.sort.direction === "asc") {
       // Ascending: oldest end dates first, ongoing seasons last (treated as most recent)
@@ -934,7 +934,7 @@ export async function getProduct(db: Database, brandId: string, id: string) {
       category_id: products.categoryId,
       season_id: products.seasonId,
       showcase_brand_id: products.showcaseBrandId,
-      primary_image_url: products.primaryImageUrl,
+      primary_image_path: products.primaryImagePath,
       product_identifier: products.productIdentifier,
       upid: products.upid,
       template_id: products.templateId,
@@ -961,7 +961,7 @@ export async function getProductByUpid(
       category_id: products.categoryId,
       season_id: products.seasonId,
       showcase_brand_id: products.showcaseBrandId,
-      primary_image_url: products.primaryImageUrl,
+      primary_image_path: products.primaryImagePath,
       product_identifier: products.productIdentifier,
       upid: products.upid,
       template_id: products.templateId,
@@ -986,7 +986,7 @@ export async function createProduct(
     seasonId?: string;
     templateId?: string | null;
     showcaseBrandId?: string;
-    primaryImageUrl?: string;
+    primaryImagePath?: string;
     status?: string;
   },
 ) {
@@ -1023,7 +1023,7 @@ export async function createProduct(
         seasonId: input.seasonId ?? null,
         templateId: input.templateId ?? null,
         showcaseBrandId: input.showcaseBrandId ?? null,
-        primaryImageUrl: input.primaryImageUrl ?? null,
+        primaryImagePath: input.primaryImagePath ?? null,
         status: input.status ?? "unpublished",
       })
       .returning({ id: products.id, upid: products.upid });
@@ -1049,7 +1049,7 @@ export async function updateProduct(
     seasonId?: string | null;
     templateId?: string | null;
     showcaseBrandId?: string | null;
-    primaryImageUrl?: string | null;
+    primaryImagePath?: string | null;
     status?: string | null;
   },
 ) {
@@ -1063,7 +1063,7 @@ export async function updateProduct(
       productIdentifier: input.productIdentifier ?? null,
       templateId: input.templateId ?? null,
       showcaseBrandId: input.showcaseBrandId ?? null,
-      primaryImageUrl: input.primaryImageUrl ?? null,
+      primaryImagePath: input.primaryImagePath ?? null,
     };
 
     // Only update status if provided (status cannot be null)
@@ -1282,4 +1282,187 @@ export async function setProductTags(
       .returning({ id: tagsOnProduct.id });
   });
   return { count: tagIds.length } as const;
+}
+
+// =============================================================================
+// Carousel Product Selection
+// =============================================================================
+
+/**
+ * Product row for carousel selection modal.
+ * Contains only the fields needed for display in the selection UI.
+ */
+export interface CarouselProductRow {
+  id: string;
+  name: string;
+  productIdentifier: string;
+  primaryImagePath: string | null;
+  categoryName: string | null;
+  seasonName: string | null;
+}
+
+/**
+ * List products for carousel selection modal.
+ *
+ * A simplified version of listProducts that only fetches fields needed
+ * for the selection UI. Supports search, filtering, sorting, and pagination.
+ *
+ * @param db - Database instance
+ * @param brandId - Brand identifier for scoping
+ * @param options - Query options
+ * @returns Paginated list of products for selection
+ */
+export async function listProductsForCarouselSelection(
+  db: Database,
+  brandId: string,
+  options: {
+    search?: string;
+    filterState?: ListFilters["filterState"];
+    sort?: { field: string; direction: "asc" | "desc" };
+    cursor?: string;
+    limit?: number;
+  } = {},
+): Promise<{
+  data: CarouselProductRow[];
+  meta: { total: number; cursor: string | null; hasMore: boolean };
+}> {
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
+  const offset = Number.isFinite(Number(options.cursor))
+    ? Math.max(0, Number(options.cursor))
+    : 0;
+
+  // Build WHERE clauses
+  const whereClauses = [eq(products.brandId, brandId)];
+
+  // Apply FilterState if provided
+  if (options.filterState) {
+    const filterClauses = convertFilterStateToWhereClauses(
+      options.filterState,
+      db,
+      brandId,
+    );
+    whereClauses.push(...filterClauses);
+  }
+
+  // Apply search across name and productIdentifier
+  if (options.search) {
+    const term = `%${options.search}%`;
+    whereClauses.push(
+      or(
+        ilike(products.name, term),
+        ilike(products.productIdentifier, term),
+        // Also search category and season names
+        sql`EXISTS (
+          SELECT 1 FROM ${brandSeasons}
+          WHERE ${brandSeasons.id} = ${products.seasonId}
+          AND ${brandSeasons.name} ILIKE ${term}
+        )`,
+        sql`EXISTS (
+          SELECT 1 FROM ${categories}
+          WHERE ${categories.id} = ${products.categoryId}
+          AND ${categories.name} ILIKE ${term}
+        )`,
+      )!,
+    );
+  }
+
+  // Determine sort order
+  let orderBy:
+    | ReturnType<typeof asc>
+    | ReturnType<typeof desc>
+    | ReturnType<typeof sql>
+    | Array<
+      | ReturnType<typeof asc>
+      | ReturnType<typeof desc>
+      | ReturnType<typeof sql>
+    >;
+
+  const sortField = options.sort?.field ?? "createdAt";
+  const sortDir = options.sort?.direction ?? "desc";
+
+  if (sortField === "category") {
+    orderBy =
+      sortDir === "asc"
+        ? [sql`${categories.name} ASC NULLS LAST`, asc(products.id)]
+        : [sql`${categories.name} DESC NULLS LAST`, desc(products.id)];
+  } else if (sortField === "season") {
+    // Sort by season end date (ongoing = most recent, null = last)
+    if (sortDir === "asc") {
+      orderBy = [
+        sql`CASE 
+          WHEN ${products.seasonId} IS NULL THEN NULL
+          WHEN ${brandSeasons.ongoing} = true THEN '9999-12-31'::date 
+          WHEN ${brandSeasons.endDate} IS NULL THEN '9999-12-31'::date
+          ELSE ${brandSeasons.endDate} 
+        END ASC NULLS LAST`,
+        asc(products.id),
+      ];
+    } else {
+      orderBy = [
+        sql`CASE 
+          WHEN ${products.seasonId} IS NULL THEN NULL
+          WHEN ${brandSeasons.ongoing} = true THEN '9999-12-31'::date 
+          WHEN ${brandSeasons.endDate} IS NULL THEN '9999-12-31'::date
+          ELSE ${brandSeasons.endDate} 
+        END DESC NULLS LAST`,
+        desc(products.id),
+      ];
+    }
+  } else if (sortField === "createdAt") {
+    // Sort by created date
+    orderBy =
+      sortDir === "asc"
+        ? [asc(products.createdAt), asc(products.id)]
+        : [desc(products.createdAt), desc(products.id)];
+  } else {
+    // Default: sort by name
+    orderBy =
+      sortDir === "asc"
+        ? [asc(products.name), asc(products.id)]
+        : [desc(products.name), desc(products.id)];
+  }
+
+  // Execute query with only needed fields
+  const rows = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      productIdentifier: products.productIdentifier,
+      primaryImagePath: products.primaryImagePath,
+      categoryName: categories.name,
+      seasonName: brandSeasons.name,
+    })
+    .from(products)
+    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(brandSeasons, eq(products.seasonId, brandSeasons.id))
+    .where(and(...whereClauses))
+    .orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy]))
+    .limit(limit)
+    .offset(offset);
+
+  // Get total count
+  const [countResult] = await db
+    .select({ value: count(products.id) })
+    .from(products)
+    .where(and(...whereClauses));
+
+  const total = countResult?.value ?? 0;
+  const nextOffset = offset + rows.length;
+  const hasMore = total > nextOffset;
+
+  return {
+    data: rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      productIdentifier: row.productIdentifier,
+      primaryImagePath: row.primaryImagePath,
+      categoryName: row.categoryName,
+      seasonName: row.seasonName,
+    })),
+    meta: {
+      total,
+      cursor: hasMore ? String(nextOffset) : null,
+      hasMore,
+    },
+  };
 }

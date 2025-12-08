@@ -1,14 +1,14 @@
 "use client";
 
 import { useBrandUpdateMutation } from "@/hooks/use-brand";
-import { useImageUpload } from "@/hooks/use-image-upload";
+import { useImageUpload } from "@/hooks/use-upload";
 import { useUserMutation } from "@/hooks/use-user";
 import { createClient } from "@v1/supabase/client";
 import { SmartAvatar as Avatar } from "@v1/ui/avatar";
 import { cn } from "@v1/ui/cn";
 import { toast } from "@v1/ui/sonner";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
-import { removeFolderContents, validateImageFile } from "@/utils/image-upload";
+import { removeFolderContents, validateImageFile } from "@/utils/upload";
 
 type Entity = "user" | "brand";
 
@@ -175,6 +175,10 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
             path: [folderId, filename],
             file: f,
             isPublic: false,
+            validation: {
+              maxBytes: MAX_SIZE,
+              allowedMime: ACCEPTED_MIME,
+            },
           });
 
           const objectPath = [folderId, filename].join("/");

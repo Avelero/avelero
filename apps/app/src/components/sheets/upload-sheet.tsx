@@ -222,11 +222,10 @@ export function PassportsUploadSheet() {
         <Button
           variant="outline"
           size="default"
-          iconPosition="left"
-          icon={<Icons.Upload />}
           className="min-w-[100px]"
         >
-          Upload
+          <Icons.Upload className="h-4 w-4" />
+          <span className="px-1">Upload</span>
         </Button>
       </SheetTrigger>
       <SheetContent

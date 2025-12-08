@@ -405,11 +405,11 @@ export function EntityValueCombobox({
                 size="default"
                 disabled={disabled || isMappingValue}
                 className="w-full justify-between h-9"
-                icon={buttonIcon}
               >
-                <span className="type-p truncate text-secondary">
+                <span className="type-p truncate text-secondary px-1">
                   {buttonLabel}
                 </span>
+                {buttonIcon}
               </Button>
             </PopoverTrigger>
             <PopoverContent
@@ -590,11 +590,11 @@ export function EntityValueCombobox({
                   size="default"
                   disabled={disabled}
                   className="w-full justify-between h-9"
-                  icon={buttonIcon}
                 >
-                  <span className="type-p truncate text-secondary">
+                  <span className="type-p truncate text-secondary px-1">
                     {buttonLabel}
                   </span>
+                  {buttonIcon}
                 </Button>
               </PopoverTrigger>
               <PopoverContent

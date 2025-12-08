@@ -63,7 +63,7 @@ export function hexAlphaToOpacity(hexAlpha: string): number {
 export function parseHexWithAlpha(hex: string): { rgb: string; opacity: number } {
   // Remove # prefix if present
   const cleaned = hex.replace(/^#/, "").toUpperCase();
-  
+
   if (cleaned.length === 8) {
     // 8-char hex: RRGGBBAA
     return {
@@ -71,7 +71,7 @@ export function parseHexWithAlpha(hex: string): { rgb: string; opacity: number }
       opacity: hexAlphaToOpacity(cleaned.slice(6, 8)),
     };
   }
-  
+
   // 6-char hex or other: treat as full opacity
   return {
     rgb: cleaned.slice(0, 6),
@@ -80,14 +80,20 @@ export function parseHexWithAlpha(hex: string): { rgb: string; opacity: number }
 }
 
 /**
- * Combines RGB hex and opacity (0-100) into 8-char RGBA hex
- * Always pads RGB to 6 characters to ensure proper parsing later
- * Returns: "#RRGGBBAA"
+ * Combines RGB hex and opacity (0-100) into hex format
+ * Returns "#RRGGBB" for 100% opacity, "#RRGGBBAA" otherwise
+ * This ensures reverting to 100% opacity produces the original value format
  */
 export function combineHexWithAlpha(rgb: string, opacity: number): string {
   const cleanRgb = rgb.replace(/^#/, "").toUpperCase().slice(0, 6);
   // Always pad to 6 chars so parsing can correctly separate RGB from alpha
   const paddedRgb = cleanRgb.padEnd(6, "0");
+
+  // Return 6-char format for full opacity to match original stored values
+  if (opacity >= 100) {
+    return `#${paddedRgb}`;
+  }
+
   const alpha = opacityToHexAlpha(opacity);
   return `#${paddedRgb}${alpha}`;
 }

@@ -6,3 +6,4 @@ import "./configure-trigger";
 export { cleanupExpiredInvites } from "./cleanup-expired-invites";
 export { validateAndStage } from "./validate-and-stage";
 export { commitToProduction } from "./commit-to-production";
+export { captureThemeScreenshot } from "./capture-theme-screenshot";

@@ -146,10 +146,9 @@ export function PassportTableHeader({
                             e.preventDefault();
                             onScrollLeftAction?.();
                           }}
-                          icon={
-                            <Icons.ChevronLeft className="h-[14px] w-[14px]" />
-                          }
-                        />
+                        >
+                          <Icons.ChevronLeft className="h-[14px] w-[14px]" />
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -158,10 +157,9 @@ export function PassportTableHeader({
                             e.preventDefault();
                             onScrollRightAction?.();
                           }}
-                          icon={
-                            <Icons.ChevronRight className="h-[14px] w-[14px]" />
-                          }
-                        />
+                        >
+                          <Icons.ChevronRight className="h-[14px] w-[14px]" />
+                        </Button>
                       </div>
                     )}
                   </div>

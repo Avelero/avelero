@@ -456,7 +456,7 @@ export function MaterialsSection({
       className={cn(
         "relative flex flex-col border border-border bg-background focus:outline-none",
         materialsError &&
-          "border-destructive focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-destructive",
+        "border-destructive focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-destructive",
       )}
       tabIndex={-1}
     >
@@ -491,10 +491,9 @@ export function MaterialsSection({
               variant="outline"
               size="sm"
               onClick={addMaterial}
-              icon={<Icons.Plus className="h-4 w-4" />}
-              iconPosition="left"
             >
-              Add material
+              <Icons.Plus className="h-4 w-4" />
+              <span className="px-1">Add material</span>
             </Button>
           </div>
         ) : (
@@ -520,13 +519,13 @@ export function MaterialsSection({
                         prev.map((m) =>
                           m.id === material.id
                             ? {
-                                ...m,
-                                id: selectedMaterial.id, // Update to real ID
-                                name: selectedMaterial.name,
-                                countries: selectedMaterial.country_of_origin
-                                  ? [selectedMaterial.country_of_origin]
-                                  : [],
-                              }
+                              ...m,
+                              id: selectedMaterial.id, // Update to real ID
+                              name: selectedMaterial.name,
+                              countries: selectedMaterial.country_of_origin
+                                ? [selectedMaterial.country_of_origin]
+                                : [],
+                            }
                             : m,
                         ),
                       );
@@ -589,10 +588,9 @@ export function MaterialsSection({
             variant="outline"
             size="sm"
             onClick={addMaterial}
-            icon={<Icons.Plus className="h-4 w-4" />}
-            iconPosition="left"
           >
-            Add material
+            <Icons.Plus className="h-4 w-4" />
+            <span className="px-1">Add material</span>
           </Button>
         </div>
       )}

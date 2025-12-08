@@ -10,6 +10,7 @@ export * from "./bulk-import.js";
 export * from "./staging.js";
 export * from "./value-mappings.js";
 export * from "./dpp-public.js";
+export * from "./carousel-products.js";
 
 // Re-export drizzle-orm utilities for consumers
 export {

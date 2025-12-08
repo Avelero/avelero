@@ -434,6 +434,9 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
     bannerSubline: "",
     bannerCTAText: "",
     bannerCTAUrl: "",
+    showHeadline: true,
+    showSubline: true,
+    showButton: true,
   },
   social: {
     showInstagram: false,
@@ -461,5 +464,11 @@ export const DEFAULT_THEME_CONFIG: ThemeConfig = {
   },
   materials: {
     showCertificationCheckIcon: true,
+  },
+  carousel: {
+    productCount: 4,
+    showPrice: true,
+    showTitle: true,
+    roundPrice: true,
   },
 };

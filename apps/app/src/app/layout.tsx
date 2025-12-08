@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   description:
     "Create engaging digital product passports for your fashion brand. Upload any data format and launch your DPPs in minutes, not days.",
   icons: {
-    // Root fallback so legacy agents and default requests succeed.
+    // Root fallback so legacy agents and default requests succeed
     icon: [
       { url: "/favicon.ico" },
 

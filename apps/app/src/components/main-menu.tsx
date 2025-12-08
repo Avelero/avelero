@@ -12,14 +12,14 @@ import settingsAnimation from "@/animations/system-regular-63-settings-cog-hover
 const animations = {
   "/": dashboardAnimation,
   "/passports": passportsAnimation,
-  "/design": designAnimation,
+  "/theme": designAnimation,
   "/settings": settingsAnimation,
 } as const;
 
 const items = [
   { path: "/", name: "Dashboard" },
   { path: "/passports", name: "Passports" },
-  { path: "/design", name: "Design" },
+  { path: "/theme", name: "Theme" },
   { path: "/settings", name: "Settings" },
 ] as const;
 

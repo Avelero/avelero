@@ -147,10 +147,9 @@ export function extractPath(
 
 /**
  * Get the Supabase URL from environment.
- * Returns null on server-side or if env var is missing.
+ * NEXT_PUBLIC_ env vars are available on both client and server.
  */
 export function getSupabaseUrl(): string | null {
-  if (typeof window === "undefined") return null;
   return process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
 }
 

@@ -25,7 +25,7 @@ export const saveThemeAction = authActionClient
     const { brandId, themeStyles } = parsedInput;
     const supabase = ctx.supabase;
 
-    logger.info("[save-theme] Starting save", { brandId });
+    logger.info({ brandId }, "[save-theme] Starting save");
 
     // Generate Google Fonts URL from typography settings
     const googleFontsUrl = generateGoogleFontsUrlFromTypography(
@@ -43,10 +43,10 @@ export const saveThemeAction = authActionClient
 
     // Upload CSS to Supabase storage
     if (stylesheetContent) {
-      logger.info("[save-theme] Uploading stylesheet to storage", {
-        stylesheetPath,
-        contentLength: stylesheetContent.length,
-      });
+      logger.info(
+        { stylesheetPath, contentLength: stylesheetContent.length },
+        "[save-theme] Uploading stylesheet to storage",
+      );
 
       try {
         const file = new Blob([stylesheetContent], { type: "text/css" });
@@ -58,9 +58,10 @@ export const saveThemeAction = authActionClient
           });
 
         if (uploadError) {
-          logger.error("[save-theme] Storage upload returned error", {
-            error: uploadError.message,
-          });
+          logger.error(
+            { error: uploadError.message },
+            "[save-theme] Storage upload returned error",
+          );
           throw new Error(
             `Failed to upload theme stylesheet: ${uploadError.message}`,
           );
@@ -68,10 +69,13 @@ export const saveThemeAction = authActionClient
 
         logger.info("[save-theme] Storage upload successful");
       } catch (error) {
-        logger.error("[save-theme] Storage upload threw exception", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
+        logger.error(
+          {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+          },
+          "[save-theme] Storage upload threw exception",
+        );
         throw error;
       }
     }
@@ -91,9 +95,10 @@ export const saveThemeAction = authActionClient
         .eq("brand_id", brandId);
 
       if (dbError) {
-        logger.error("[save-theme] Database update returned error", {
-          error: dbError.message,
-        });
+        logger.error(
+          { error: dbError.message },
+          "[save-theme] Database update returned error",
+        );
         throw new Error(
           dbError.message || "Unable to save theme styles for brand",
         );
@@ -101,10 +106,13 @@ export const saveThemeAction = authActionClient
 
       logger.info("[save-theme] Database update successful");
     } catch (error) {
-      logger.error("[save-theme] Database update threw exception", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      logger.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        },
+        "[save-theme] Database update threw exception",
+      );
       throw error;
     }
 
@@ -115,9 +123,10 @@ export const saveThemeAction = authActionClient
       await tasks.trigger("capture-theme-screenshot", { brandId });
       logger.info("[save-theme] Screenshot trigger successful");
     } catch (error) {
-      logger.warn("[save-theme] Failed to trigger screenshot capture", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        "[save-theme] Failed to trigger screenshot capture",
+      );
       // Don't throw - screenshot is optional enhancement
     }
 

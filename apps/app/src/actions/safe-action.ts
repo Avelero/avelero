@@ -66,20 +66,20 @@ export const authActionClient = actionClientWithMeta
   .use(async ({ next, metadata }) => {
     const ip = (await headers()).get("x-forwarded-for");
 
-    logger.info("[auth-middleware] Starting ratelimit check", {
-      ip,
-      action: metadata.name,
-    });
+    logger.info(
+      { ip, action: metadata.name },
+      "[auth-middleware] Starting ratelimit check",
+    );
 
     try {
       const { success, remaining } = await ratelimit.limit(
         `${ip}-${metadata.name}`,
       );
 
-      logger.info("[auth-middleware] Ratelimit check completed", {
-        success,
-        remaining,
-      });
+      logger.info(
+        { success, remaining },
+        "[auth-middleware] Ratelimit check completed",
+      );
 
       if (!success) {
         throw new Error("Too many requests");
@@ -93,10 +93,13 @@ export const authActionClient = actionClientWithMeta
         },
       });
     } catch (error) {
-      logger.error("[auth-middleware] Ratelimit check failed", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      logger.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        },
+        "[auth-middleware] Ratelimit check failed",
+      );
       throw error;
     }
   })
@@ -108,7 +111,7 @@ export const authActionClient = actionClientWithMeta
         data: { user },
       } = await getUser();
 
-      logger.info("[auth-middleware] Got user", { userId: user?.id });
+      logger.info({ userId: user?.id }, "[auth-middleware] Got user");
 
       const supabase = await createClient();
 
@@ -133,10 +136,13 @@ export const authActionClient = actionClientWithMeta
         },
       });
     } catch (error) {
-      logger.error("[auth-middleware] Auth check failed", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      logger.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        },
+        "[auth-middleware] Auth check failed",
+      );
       throw error;
     }
   });

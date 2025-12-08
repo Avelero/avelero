@@ -43,7 +43,7 @@ const TOP_LEVEL_ROUTES = new Set([
   "/",
   "/passports",
   "/settings",
-  "/analytics",
+  "/theme",
   "/account",
   "/setup",
   "/create-brand",

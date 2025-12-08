@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@v1/dpp-components": "workspace:*",
     "@v1/selections": "workspace:*",
     "@v1/ui": "workspace:*",

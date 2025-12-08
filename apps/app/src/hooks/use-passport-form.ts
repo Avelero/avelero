@@ -1,7 +1,7 @@
 import type { TierTwoSizeOption } from "@/components/select/size-select";
 import { useTRPC } from "@/trpc/client";
 import { useFormState } from "@/hooks/use-form-state";
-import { useImageUpload } from "@/hooks/use-image-upload";
+import { useImageUpload } from "@/hooks/use-upload";
 import {
   rules,
   validateForm,

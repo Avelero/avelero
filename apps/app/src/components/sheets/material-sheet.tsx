@@ -2,7 +2,7 @@
 
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useImageUpload } from "@/hooks/use-image-upload";
+import { useImageUpload } from "@/hooks/use-upload";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import type { Certification } from "@v1/selections/certifications";
 import { allCertifications } from "@v1/selections/certifications";

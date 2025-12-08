@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import { useImageUpload } from "@/hooks/use-image-upload";
+import { useImageUpload } from "@/hooks/use-upload";
 import {
   validateImageFile,
-  type ImageValidationResult,
-  type ImageValidationConfig,
-} from "@/utils/image-upload";
+  type ValidationResult,
+  type ValidationConfig,
+} from "@/utils/upload";
 import { toast } from "@v1/ui/sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 
@@ -28,11 +28,11 @@ export interface ImageUploaderProps {
   width?: number | string;
   height?: number | string;
   /** Validation config from UPLOAD_CONFIGS or custom validation function */
-  validation?: ImageValidationConfig | ((file: File) => ImageValidationResult);
+  validation?: ValidationConfig | ((file: File) => ValidationResult);
   uploadOnSelect?: boolean;
 }
 
-const DEFAULT_VALIDATION: ImageValidationConfig = {
+const DEFAULT_VALIDATION: ValidationConfig = {
   maxBytes: 10 * 1024 * 1024, // 10MB
   allowedMime: ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"],
 };

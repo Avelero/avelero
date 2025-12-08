@@ -6,8 +6,9 @@ import { cn } from "@v1/ui/cn";
 import { Select } from "@v1/ui/select";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { FontSelect } from "@/components/select/font-select";
+import { CustomFontsModal } from "@/components/modals/custom-fonts-modal";
 import { PixelInput, FieldWrapper } from "../inputs";
-import type { TypographyScale } from "@v1/dpp-components";
+import type { TypographyScale, CustomFont } from "@v1/dpp-components";
 
 // Typography scale configuration
 const TYPOGRAPHY_SCALES = [
@@ -83,9 +84,16 @@ function AccordionItem({
 interface TypographyScaleFormProps {
   value: TypographyScale;
   onChange: (value: TypographyScale) => void;
+  customFonts: CustomFont[];
+  onManageCustomFonts: () => void;
 }
 
-function TypographyScaleForm({ value, onChange }: TypographyScaleFormProps) {
+function TypographyScaleForm({
+  value,
+  onChange,
+  customFonts,
+  onManageCustomFonts,
+}: TypographyScaleFormProps) {
   const handleChange = <K extends keyof TypographyScale>(
     key: K,
     newValue: TypographyScale[K],
@@ -107,6 +115,8 @@ function TypographyScaleForm({ value, onChange }: TypographyScaleFormProps) {
           onValueChange={(v) => handleChange("fontFamily", v)}
           placeholder="Select font..."
           className="h-8 text-sm"
+          customFonts={customFonts}
+          onManageCustomFonts={onManageCustomFonts}
         />
       </FieldWrapper>
 
@@ -161,8 +171,10 @@ function TypographyScaleForm({ value, onChange }: TypographyScaleFormProps) {
 }
 
 export function TypographyEditor() {
-  const { themeStylesDraft, updateTypographyScale } = useDesignEditor();
+  const { themeStylesDraft, setThemeStylesDraft, updateTypographyScale, brandId } =
+    useDesignEditor();
   const [openItem, setOpenItem] = React.useState<string | null>(null);
+  const [customFontsModalOpen, setCustomFontsModalOpen] = React.useState(false);
 
   const toggleItem = (key: string) => {
     setOpenItem((prev) => (prev === key ? null : key));
@@ -172,21 +184,54 @@ export function TypographyEditor() {
     return themeStylesDraft.typography?.[scale] || {};
   };
 
+  // Get custom fonts from theme styles
+  const customFonts = themeStylesDraft.customFonts ?? [];
+
+  // Update custom fonts in theme styles
+  const handleCustomFontsChange = React.useCallback(
+    (fonts: CustomFont[]) => {
+      setThemeStylesDraft({
+        ...themeStylesDraft,
+        customFonts: fonts,
+      });
+    },
+    [themeStylesDraft, setThemeStylesDraft],
+  );
+
+  const handleManageCustomFonts = React.useCallback(() => {
+    setCustomFontsModalOpen(true);
+  }, []);
+
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-hide">
-      {TYPOGRAPHY_SCALES.map(({ key, label }) => (
-        <AccordionItem
-          key={key}
-          label={label}
-          isOpen={openItem === key}
-          onToggle={() => toggleItem(key)}
-        >
-          <TypographyScaleForm
-            value={getTypographyValue(key)}
-            onChange={(value) => updateTypographyScale(key, value)}
-          />
-        </AccordionItem>
-      ))}
-    </div>
+    <>
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
+        {TYPOGRAPHY_SCALES.map(({ key, label }) => (
+          <AccordionItem
+            key={key}
+            label={label}
+            isOpen={openItem === key}
+            onToggle={() => toggleItem(key)}
+          >
+            <TypographyScaleForm
+              value={getTypographyValue(key)}
+              onChange={(value) => updateTypographyScale(key, value)}
+              customFonts={customFonts}
+              onManageCustomFonts={handleManageCustomFonts}
+            />
+          </AccordionItem>
+        ))}
+      </div>
+
+      {/* Custom Fonts Modal */}
+      {brandId && (
+        <CustomFontsModal
+          open={customFontsModalOpen}
+          onOpenChange={setCustomFontsModalOpen}
+          brandId={brandId}
+          customFonts={customFonts}
+          onFontsChange={handleCustomFontsChange}
+        />
+      )}
+    </>
   );
 }

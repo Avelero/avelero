@@ -38,6 +38,19 @@ const IMAGE_MIME = [
 
 const LOGO_MIME = [...IMAGE_MIME, "image/svg+xml"] as const;
 
+// Font MIME types are inconsistent across browsers, so we include multiple variants
+const FONT_MIME = [
+  "font/woff2",
+  "font/woff",
+  "font/ttf",
+  "font/otf",
+  "application/font-woff2",
+  "application/font-woff",
+  "application/x-font-ttf",
+  "application/x-font-opentype",
+  "application/octet-stream", // Some browsers report this for fonts
+] as const;
+
 // ============================================================================
 // Upload Configs
 // ============================================================================
@@ -79,6 +92,12 @@ export const UPLOAD_CONFIGS = {
     allowedMime: ["image/webp"] as const,
     isPublic: true,
   },
+  font: {
+    bucket: BUCKETS.DPP_ASSETS,
+    maxBytes: 10 * 1024 * 1024, // 10MB
+    allowedMime: FONT_MIME,
+    isPublic: true,
+  },
 } as const;
 
 export type UploadConfigKey = keyof typeof UPLOAD_CONFIGS;
@@ -106,6 +125,8 @@ export const buildStoragePath = {
   avatar: (userId: string, filename: string) => `${userId}/${filename}`,
 
   brandAvatar: (brandId: string, filename: string) => `${brandId}/${filename}`,
+
+  font: (brandId: string, filename: string) => `${brandId}/fonts/${filename}`,
 };
 
 // ============================================================================
@@ -127,6 +148,7 @@ export function extractPathFromUrl(url: string, bucket: string): string | null {
     return null;
   }
 }
+
 
 
 

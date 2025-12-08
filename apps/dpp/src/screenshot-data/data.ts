@@ -10,7 +10,7 @@ export const screenshotProductData: DppData = {
   title: "Sustainable Wool-Blend Jacket",
   brandName: "Avelero Apparel",
   productImage:
-    "https://res.cloudinary.com/dcdam15xy/image/upload/f_auto,q_auto/v1745937619/ChatGPT_Image_29_apr_2025_16_40_03_trhpro.webp",
+    "https://ebshgnuavsacpplatsqt.supabase.co/storage/v1/object/public/products/theme-preview/theme-preview-image.webp",
   description:
     "Jacket crafted with a blend of virgin wool and recycled polyester. Detailed with an Avelero Apparel logo embroidery at the back. Cut to a loose and comfortable fit, perfect for any occasion.",
   size: "S",

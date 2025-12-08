@@ -22,7 +22,7 @@ app.use(
   "*",
   cors({
     origin: (origin, c) => {
-      if (!origin) return origin; // Allow requests with no origin.
+      if (!origin) return origin; // Allow requests with no origin
 
       const allowedOrigins =
         process.env.ALLOWED_API_ORIGINS?.split(",")

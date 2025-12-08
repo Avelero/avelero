@@ -15,7 +15,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/": "Dashboard",
   "/passports": "Passports",
   "/settings": "Settings",
-  "/analytics": "Analytics",
+  "/theme": "Theme",
   "/account": "Account",
 
   // Special pages (no parents)
@@ -27,11 +27,6 @@ const ROUTE_LABELS: Record<string, string> = {
   // Passports children
   "/passports/create": "Create",
   "/passports/edit": "Edit",
-
-  // Design children
-  "/design": "Design",
-  "/design/content": "Content",
-  "/design/content/products": "Products",
 
   // Account children
   "/account/brands": "Brands",
@@ -48,7 +43,7 @@ const TOP_LEVEL_ROUTES = new Set([
   "/",
   "/passports",
   "/settings",
-  "/analytics",
+  "/theme",
   "/account",
   "/setup",
   "/create-brand",

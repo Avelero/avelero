@@ -31,31 +31,32 @@ export function SetTheme({
 
   return (
     <div className="border border-border bg-background flex flex-col overflow-hidden w-full">
-      {/* Preview Block - aspect-[10/3] makes height 30% of width */}
-      <div className="bg-accent p-8 flex items-center justify-center aspect-[10/3]">
+      {/* Preview Block - negative margin bottom makes images flow below border */}
+      <div className="pt-4 px-8 pb-0 flex justify-center aspect-[10/4] relative overflow-hidden -mb-4 bg-[url('/assets/theme-background.webp')] bg-cover bg-center">
         {hasScreenshots ? (
-          <div className="flex items-end gap-4">
-            {/* Desktop frame */}
-            <div className="w-[280px] rounded-lg border border-border/40 shadow-lg overflow-hidden bg-white">
-              <img
+          <>
+            {/* Desktop frame - takes most width, pushed left */}
+            <div className="w-[calc(100%-5rem)] mr-5 h-full overflow-hidden bg-[#FAFAFF]/50 p-1">
+              <Image
                 src={screenshotDesktopUrl}
                 alt="Desktop theme preview"
                 className="w-full h-auto"
-                loading="lazy"
+                width={1440}
+                height={1024}
               />
             </div>
 
-            {/* Mobile frame */}
-            <div className="w-[90px] border border-border/40 overflow-hidden bg-white">
+            {/* Mobile frame - absolutely positioned, overlapping on top-right */}
+            <div className="absolute top-10 right-8 w-[28%] aspect-[402/874] overflow-hidden bg-[#FAFAFF]/50 p-1">
               <Image
                 src={screenshotMobileUrl}
                 alt="Mobile theme preview"
                 className="w-full h-auto"
-                width={90}
-                height={64}
+                width={393}
+                height={852}
               />
             </div>
-          </div>
+          </>
         ) : (
           /* Placeholder when no screenshots */
           <div className="flex items-center justify-center text-muted type-small">
@@ -65,7 +66,7 @@ export function SetTheme({
       </div>
 
       {/* Info + Button Row */}
-      <div className="p-4 flex flex-row border-t border-border justify-between items-center gap-3">
+      <div className="pt-8 pb-4 px-4 flex flex-row border-t border-border justify-between items-center gap-3">
         {/* Left: Thumbnail + Text */}
         <div className="flex flex-row items-center gap-3">
           {/* Thumbnail */}
@@ -87,7 +88,7 @@ export function SetTheme({
 
           {/* Text */}
           <div className="space-y-1">
-            <p className="type-p font-medium text-foreground">Theme</p>
+            <p className="type-p !font-medium text-foreground">Theme</p>
             <p className="type-small text-muted">
               Last edited on {formatDate(updatedAt)}
             </p>
@@ -97,7 +98,7 @@ export function SetTheme({
         {/* Right: Button */}
         <Button asChild variant="outline">
           <Link href="/theme-editor" prefetch>
-            <span className="px-1">Open</span>
+            <span className="px-1">Edit theme</span>
             <Icons.ChevronRight className="h-4 w-4" />
           </Link>
         </Button>

@@ -13,7 +13,7 @@ export const PERMISSIONS = {
     "member:invite",
     "member:remove",
     "member:change_role",
-    "content:manage_all", // Can manage all content within the brand
+    "content:manage_all", // Can manage all content within the brand.
   ],
   member: [
     "brand:read",

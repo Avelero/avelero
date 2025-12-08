@@ -1,10 +1,9 @@
+import { DropIcon } from "@phosphor-icons/react/dist/ssr/Drop";
+import { FactoryIcon } from "@phosphor-icons/react/dist/ssr/Factory";
+import { LeafIcon } from "@phosphor-icons/react/dist/ssr/Leaf";
+import { RecycleIcon } from "@phosphor-icons/react/dist/ssr/Recycle";
 import type { ImpactMetric } from "@v1/dpp-components";
 import { Icons } from "@v1/ui/icons";
-import { LeafIcon } from "@phosphor-icons/react/dist/ssr/Leaf";
-import { DropIcon } from "@phosphor-icons/react/dist/ssr/Drop";
-import { RecycleIcon } from "@phosphor-icons/react/dist/ssr/Recycle";
-import { FactoryIcon } from "@phosphor-icons/react/dist/ssr/Factory";
-
 
 interface Props {
   metric: ImpactMetric;

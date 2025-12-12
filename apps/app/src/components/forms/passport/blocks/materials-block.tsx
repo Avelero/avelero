@@ -1,6 +1,7 @@
 "use client";
 
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { countries as countryData } from "@v1/selections/countries";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -177,14 +178,21 @@ const MaterialDropdown = ({
 const CountryTags = ({ countries }: { countries: string[] }) => {
   return (
     <div className="flex flex-wrap gap-1.5">
-      {countries.map((country) => (
-        <span
-          key={country}
-          className="px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary"
-        >
-          {country}
-        </span>
-      ))}
+      {countries.map((countryCode) => {
+        // Look up the full country name from the country code
+        const country =
+          countryData[countryCode as keyof typeof countryData];
+        const displayName = country?.name || countryCode;
+
+        return (
+          <span
+            key={countryCode}
+            className="px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary"
+          >
+            {displayName}
+          </span>
+        );
+      })}
     </div>
   );
 };
@@ -302,6 +310,13 @@ export function MaterialsSection({
   const [creatingForMaterialId, setCreatingForMaterialId] = React.useState<
     string | null
   >(null);
+  // Track materials that were just created to preserve them during sync
+  const [justCreatedMaterial, setJustCreatedMaterial] = React.useState<{
+    id: string;
+    name: string;
+    countries: string[];
+    forTempId: string;
+  } | null>(null);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Sync parent materials with display materials
@@ -337,9 +352,40 @@ export function MaterialsSection({
           m.id.startsWith("temp-") &&
           !parentMaterials.some((pm) => pm.materialId === m.id),
       );
+
+      // Check if we have a just-created material that needs to be preserved
+      // This handles the race condition where materialOptions updates before parent sync
+      if (justCreatedMaterial) {
+        const alreadyInEnriched = enriched.some(
+          (m) => m.id === justCreatedMaterial.id,
+        );
+        const alreadyInPending = pendingMaterials.some(
+          (m) => m.id === justCreatedMaterial.id,
+        );
+
+        if (!alreadyInEnriched && !alreadyInPending) {
+          // Find the percentage from the temp row if it still exists
+          const tempRow = prev.find(
+            (m) => m.id === justCreatedMaterial.forTempId,
+          );
+          const percentage = tempRow?.percentage || "";
+
+          return [
+            ...enriched,
+            ...pendingMaterials,
+            {
+              id: justCreatedMaterial.id,
+              name: justCreatedMaterial.name,
+              countries: justCreatedMaterial.countries,
+              percentage,
+            },
+          ];
+        }
+      }
+
       return [...enriched, ...pendingMaterials];
     });
-  }, [parentMaterials, materialOptions]);
+  }, [parentMaterials, materialOptions, justCreatedMaterial]);
 
   // Helper to sync display materials back to parent
   const syncToParent = React.useCallback(
@@ -385,18 +431,33 @@ export function MaterialsSection({
 
   const handleMaterialCreated = (material: any) => {
     if (creatingForMaterialId) {
+      const countries = material.countryOfOrigin
+        ? [material.countryOfOrigin]
+        : [];
+
+      // Track the just-created material to preserve it during sync race conditions
+      setJustCreatedMaterial({
+        id: material.id,
+        name: material.name,
+        countries,
+        forTempId: creatingForMaterialId,
+      });
+
+      // Find the percentage from the temp row
+      const tempRow = displayMaterials.find(
+        (m) => m.id === creatingForMaterialId,
+      );
+      const percentage = tempRow?.percentage || "";
+
       // Directly update displayMaterials with the real material data
-      // This avoids complex state sync and timing dependencies
       const updatedDisplay = displayMaterials.map((m) => {
         if (m.id === creatingForMaterialId) {
           // Replace temp material with real material data
           return {
             id: material.id,
             name: material.name,
-            countries: material.countryOfOrigin
-              ? [material.countryOfOrigin]
-              : [],
-            percentage: m.percentage, // Preserve existing percentage
+            countries,
+            percentage, // Preserve existing percentage
           };
         }
         return m;
@@ -405,8 +466,25 @@ export function MaterialsSection({
       // Update display state immediately
       setDisplayMaterials(updatedDisplay);
 
+      // Immediately sync to parent (bypass debounce) to prevent race condition
+      const parentMats = updatedDisplay
+        .filter((m) => m.id && m.name && !m.id.startsWith("temp-"))
+        .map((m) => {
+          const percentageValue = m.percentage.trim();
+          if (!percentageValue || percentageValue === ".") {
+            return { materialId: m.id, percentage: 0 };
+          }
+          const parsed = Number.parseFloat(percentageValue);
+          const safePercentage = Number.isFinite(parsed) ? parsed : 0;
+          return { materialId: m.id, percentage: safePercentage };
+        });
+      setParentMaterials(parentMats);
+
       // Clear creating state
       setCreatingForMaterialId(null);
+
+      // Clear justCreatedMaterial after a delay (once sync is stable)
+      setTimeout(() => setJustCreatedMaterial(null), 500);
     }
   };
 

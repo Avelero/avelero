@@ -375,7 +375,7 @@ async function fetchProductAttributes(
           countryOfOrigin: brandMaterials.countryOfOrigin,
           recyclable: brandMaterials.recyclable,
           certificationTitle: brandCertifications.title,
-          certificationUrl: brandCertifications.externalUrl,
+          certificationUrl: brandCertifications.instituteWebsite,
         })
         .from(productMaterials)
         .innerJoin(

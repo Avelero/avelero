@@ -457,13 +457,17 @@ export async function listCertifications(db: Database, brandId: string) {
       title: brandCertifications.title,
       certification_code: brandCertifications.certificationCode,
       institute_name: brandCertifications.instituteName,
-      institute_address: brandCertifications.instituteAddress,
-      institute_contact: brandCertifications.instituteContact,
+      institute_email: brandCertifications.instituteEmail,
+      institute_website: brandCertifications.instituteWebsite,
+      institute_address_line_1: brandCertifications.instituteAddressLine1,
+      institute_address_line_2: brandCertifications.instituteAddressLine2,
+      institute_city: brandCertifications.instituteCity,
+      institute_state: brandCertifications.instituteState,
+      institute_zip: brandCertifications.instituteZip,
+      institute_country_code: brandCertifications.instituteCountryCode,
       issue_date: brandCertifications.issueDate,
       expiry_date: brandCertifications.expiryDate,
-      file_asset_id: brandCertifications.fileAssetId,
-      external_url: brandCertifications.externalUrl,
-      notes: brandCertifications.notes,
+      file_path: brandCertifications.filePath,
       created_at: brandCertifications.createdAt,
       updated_at: brandCertifications.updatedAt,
     })
@@ -479,13 +483,17 @@ export async function createCertification(
     title: string;
     certificationCode?: string;
     instituteName?: string;
-    instituteAddress?: string;
-    instituteContact?: string;
+    instituteEmail?: string;
+    instituteWebsite?: string;
+    instituteAddressLine1?: string;
+    instituteAddressLine2?: string;
+    instituteCity?: string;
+    instituteState?: string;
+    instituteZip?: string;
+    instituteCountryCode?: string;
     issueDate?: string;
     expiryDate?: string;
-    fileAssetId?: string;
-    externalUrl?: string;
-    notes?: string;
+    filePath?: string;
   },
 ) {
   const [row] = await db
@@ -495,13 +503,17 @@ export async function createCertification(
       title: input.title,
       certificationCode: input.certificationCode ?? null,
       instituteName: input.instituteName ?? null,
-      instituteAddress: input.instituteAddress ?? null,
-      instituteContact: input.instituteContact ?? null,
+      instituteEmail: input.instituteEmail ?? null,
+      instituteWebsite: input.instituteWebsite ?? null,
+      instituteAddressLine1: input.instituteAddressLine1 ?? null,
+      instituteAddressLine2: input.instituteAddressLine2 ?? null,
+      instituteCity: input.instituteCity ?? null,
+      instituteState: input.instituteState ?? null,
+      instituteZip: input.instituteZip ?? null,
+      instituteCountryCode: input.instituteCountryCode ?? null,
       issueDate: input.issueDate ?? null,
       expiryDate: input.expiryDate ?? null,
-      fileAssetId: input.fileAssetId ?? null,
-      externalUrl: input.externalUrl ?? null,
-      notes: input.notes ?? null,
+      filePath: input.filePath ?? null,
     })
     .returning({ id: brandCertifications.id });
   return row;
@@ -515,13 +527,17 @@ export async function updateCertification(
     title: string;
     certificationCode: string | null;
     instituteName: string | null;
-    instituteAddress: string | null;
-    instituteContact: string | null;
+    instituteEmail: string | null;
+    instituteWebsite: string | null;
+    instituteAddressLine1: string | null;
+    instituteAddressLine2: string | null;
+    instituteCity: string | null;
+    instituteState: string | null;
+    instituteZip: string | null;
+    instituteCountryCode: string | null;
     issueDate: string | null;
     expiryDate: string | null;
-    fileAssetId: string | null;
-    externalUrl: string | null;
-    notes: string | null;
+    filePath: string | null;
   }>,
 ) {
   const [row] = await db
@@ -530,13 +546,17 @@ export async function updateCertification(
       title: input.title,
       certificationCode: input.certificationCode ?? null,
       instituteName: input.instituteName ?? null,
-      instituteAddress: input.instituteAddress ?? null,
-      instituteContact: input.instituteContact ?? null,
+      instituteEmail: input.instituteEmail ?? null,
+      instituteWebsite: input.instituteWebsite ?? null,
+      instituteAddressLine1: input.instituteAddressLine1 ?? null,
+      instituteAddressLine2: input.instituteAddressLine2 ?? null,
+      instituteCity: input.instituteCity ?? null,
+      instituteState: input.instituteState ?? null,
+      instituteZip: input.instituteZip ?? null,
+      instituteCountryCode: input.instituteCountryCode ?? null,
       issueDate: input.issueDate ?? null,
       expiryDate: input.expiryDate ?? null,
-      fileAssetId: input.fileAssetId ?? null,
-      externalUrl: input.externalUrl ?? null,
-      notes: input.notes ?? null,
+      filePath: input.filePath ?? null,
     })
     .where(
       and(
@@ -1170,13 +1190,17 @@ export function validateCertificationInput(input: {
   title: string;
   certificationCode?: string;
   instituteName?: string;
-  instituteAddress?: string;
-  instituteContact?: string;
+  instituteEmail?: string;
+  instituteWebsite?: string;
+  instituteAddressLine1?: string;
+  instituteAddressLine2?: string;
+  instituteCity?: string;
+  instituteState?: string;
+  instituteZip?: string;
+  instituteCountryCode?: string;
   issueDate?: string;
   expiryDate?: string;
-  fileAssetId?: string;
-  externalUrl?: string;
-  notes?: string;
+  filePath?: string;
 }): ValidationResult {
   const errors: ValidationError[] = [];
   if (!input.title || input.title.trim().length === 0) {
@@ -1184,6 +1208,37 @@ export function validateCertificationInput(input: {
       field: "title",
       message: "Certification title is required",
       code: "REQUIRED",
+    });
+  }
+
+  if (input.instituteEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.instituteEmail)) {
+    errors.push({
+      field: "instituteEmail",
+      message: "Invalid email format",
+      code: "INVALID_FORMAT",
+    });
+  }
+
+  if (input.instituteWebsite) {
+    try {
+      new URL(input.instituteWebsite);
+    } catch {
+      errors.push({
+        field: "instituteWebsite",
+        message: "Invalid website URL",
+        code: "INVALID_FORMAT",
+      });
+    }
+  }
+
+  if (
+    input.instituteCountryCode &&
+    !/^[A-Z]{2}$/.test(input.instituteCountryCode.toUpperCase())
+  ) {
+    errors.push({
+      field: "instituteCountryCode",
+      message: "Country code must be 2 letters",
+      code: "INVALID_FORMAT",
     });
   }
 
@@ -1214,18 +1269,6 @@ export function validateCertificationInput(input: {
           code: "INVALID_VALUE",
         });
       }
-    }
-  }
-
-  if (input.externalUrl) {
-    try {
-      new URL(input.externalUrl);
-    } catch {
-      errors.push({
-        field: "externalUrl",
-        message: "Invalid external URL",
-        code: "INVALID_FORMAT",
-      });
     }
   }
 
@@ -1309,13 +1352,17 @@ export async function validateAndCreateEntity(
           title: string;
           certificationCode?: string;
           instituteName?: string;
-          instituteAddress?: string;
-          instituteContact?: string;
+          instituteEmail?: string;
+          instituteWebsite?: string;
+          instituteAddressLine1?: string;
+          instituteAddressLine2?: string;
+          instituteCity?: string;
+          instituteState?: string;
+          instituteZip?: string;
+          instituteCountryCode?: string;
           issueDate?: string;
           expiryDate?: string;
-          fileAssetId?: string;
-          externalUrl?: string;
-          notes?: string;
+          filePath?: string;
         },
       );
       name = (input as { title: string }).title;

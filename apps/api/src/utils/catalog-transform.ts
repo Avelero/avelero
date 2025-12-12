@@ -98,11 +98,29 @@ export function transformCertificationInput<T extends Record<string, any>>(
       case "institute_name":
         result.instituteName = value;
         break;
-      case "institute_address":
-        result.instituteAddress = value;
+      case "institute_email":
+        result.instituteEmail = value;
         break;
-      case "institute_contact":
-        result.instituteContact = value;
+      case "institute_website":
+        result.instituteWebsite = value;
+        break;
+      case "institute_address_line_1":
+        result.instituteAddressLine1 = value;
+        break;
+      case "institute_address_line_2":
+        result.instituteAddressLine2 = value;
+        break;
+      case "institute_city":
+        result.instituteCity = value;
+        break;
+      case "institute_state":
+        result.instituteState = value;
+        break;
+      case "institute_zip":
+        result.instituteZip = value;
+        break;
+      case "institute_country_code":
+        result.instituteCountryCode = value;
         break;
       case "issue_date":
         result.issueDate = value;
@@ -110,11 +128,8 @@ export function transformCertificationInput<T extends Record<string, any>>(
       case "expiry_date":
         result.expiryDate = value;
         break;
-      case "file_asset_id":
-        result.fileAssetId = value;
-        break;
-      case "external_url":
-        result.externalUrl = value;
+      case "file_path":
+        result.filePath = value;
         break;
       default:
         result[key] = value;

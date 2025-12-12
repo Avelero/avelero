@@ -265,12 +265,20 @@ const defineCertificationDataSchema = z.object({
   title: z.string().min(1).max(200),
   certificationCode: z.string().optional(),
   instituteName: z.string().optional(),
-  instituteAddress: z.string().optional(),
-  instituteContact: z.string().optional(),
+  instituteEmail: z.string().email().optional(),
+  instituteWebsite: z.string().url().optional(),
+  instituteAddressLine1: z.string().optional(),
+  instituteAddressLine2: z.string().optional(),
+  instituteCity: z.string().optional(),
+  instituteState: z.string().optional(),
+  instituteZip: z.string().optional(),
+  instituteCountryCode: z
+    .string()
+    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
+    .optional(),
   issueDate: z.string().datetime().optional(),
   expiryDate: z.string().datetime().optional(),
-  externalUrl: z.string().url().optional(),
-  notes: z.string().optional(),
+  filePath: z.string().optional(),
 });
 
 const defineSeasonDataSchema = z.object({

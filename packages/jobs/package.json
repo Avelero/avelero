@@ -39,6 +39,7 @@
     "./trigger": "./src/trigger/index.ts",
     "./trigger/validate-and-stage": "./src/trigger/validate-and-stage.ts",
     "./trigger/commit-to-production": "./src/trigger/commit-to-production.ts",
-    "./trigger/capture-theme-screenshot": "./src/trigger/capture-theme-screenshot.ts"
+    "./trigger/capture-theme-screenshot": "./src/trigger/capture-theme-screenshot.ts",
+    "./trigger/delete-brand": "./src/trigger/delete-brand.ts"
   }
 }

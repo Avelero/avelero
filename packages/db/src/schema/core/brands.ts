@@ -18,8 +18,11 @@ export const brands = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "string" }),
   },
   (table) => [
+    // Index for filtering active (non-deleted) brands
+    index("idx_brands_active").on(table.id).where(sql`(deleted_at IS NULL)`),
     // Unique index for slug (used in public DPP URLs)
     uniqueIndex("idx_brands_slug")
       .on(table.slug)

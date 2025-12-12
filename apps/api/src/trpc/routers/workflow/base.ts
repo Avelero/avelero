@@ -9,6 +9,7 @@ import {
   updateBrand as updateBrandRecord,
 } from "@v1/db/queries";
 import { brands } from "@v1/db/schema";
+import { tasks } from "@trigger.dev/sdk/v3";
 import { getAppUrl } from "@v1/utils/envs";
 /**
  * Workflow brand operations implementation.
@@ -211,25 +212,32 @@ export const workflowDeleteProcedure = protectedProcedure
   .use(hasRole([ROLES.OWNER]))
   .input(workflowBrandIdSchema)
   .mutation(async ({ ctx, input }) => {
-    const { db, supabaseAdmin, user } = ctx;
+    const { db, user } = ctx;
     const brandId = input.brand_id;
     if (!brandId) {
       throw badRequest("Brand id is required");
     }
 
-    if (supabaseAdmin) {
-      const { data: files } = await supabaseAdmin.storage
-        .from("brand-avatars")
-        .list(brandId);
-
-      if (files && files.length > 0) {
-        const filePaths = files.map((file) => `${brandId}/${file.name}`);
-        await supabaseAdmin.storage.from("brand-avatars").remove(filePaths);
-      }
-    }
-
     try {
+      // Soft-delete the brand (sets deleted_at, updates affected users' active brand)
+      // This is fast and returns immediately
       const result = await deleteBrandRecord(db, brandId, user.id);
+
+      // Trigger background job to handle the heavy lifting:
+      // - Delete products in batches
+      // - Clean up storage files (avatars, product images, etc.)
+      // - Hard-delete the brand row
+      try {
+        await tasks.trigger("delete-brand", {
+          brandId,
+          userId: user.id,
+        });
+      } catch (triggerError) {
+        // Log but don't fail - the brand is already soft-deleted
+        // The background job can be manually re-triggered if needed
+        console.error("Failed to trigger delete-brand job:", triggerError);
+      }
+
       return result;
     } catch (error) {
       throw wrapError(error, "Failed to delete workflow");

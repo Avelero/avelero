@@ -85,6 +85,13 @@
       "when": 1765569873223,
       "tag": "20251212200433_silent_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1765575996479,
+      "tag": "20251212214636_last_starfox",
+      "breakpoints": true
     }
   ]
 }

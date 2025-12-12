@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { brandMembers, brands, users, brandTheme, products } from "../schema";
+import { brandMembers, brands, users, brandTheme } from "../schema";
 import {
   DEFAULT_THEME_CONFIG,
   DEFAULT_THEME_STYLES,
@@ -130,24 +130,23 @@ export async function getBrandBySlug(
 }
 
 // Compute the next active brand for a user, excluding a specific brand if provided.
-// Strategy: first alphabetical brand by name among memberships, excluding `excludeBrandId`.
+// Strategy: first alphabetical brand by name among memberships, excluding `excludeBrandId`
+// and any soft-deleted brands.
 export async function computeNextBrandIdForUser(
   db: DatabaseLike,
   userId: string,
   excludeBrandId?: string | null,
 ): Promise<string | null> {
+  const conditions = [eq(brandMembers.userId, userId), isNull(brands.deletedAt)];
+  if (excludeBrandId) {
+    conditions.push(ne(brandMembers.brandId, excludeBrandId));
+  }
+
   const rows = await db
     .select({ brandId: brandMembers.brandId, name: brands.name })
     .from(brandMembers)
     .innerJoin(brands, eq(brandMembers.brandId, brands.id))
-    .where(
-      excludeBrandId
-        ? and(
-            eq(brandMembers.userId, userId),
-            ne(brandMembers.brandId, excludeBrandId),
-          )
-        : eq(brandMembers.userId, userId),
-    )
+    .where(and(...conditions))
     .orderBy(asc(brands.name))
     .limit(1);
   return rows[0]?.brandId ?? null;
@@ -239,7 +238,7 @@ export async function getBrandsByUserId(
     })
     .from(brandMembers)
     .leftJoin(brands, eq(brandMembers.brandId, brands.id))
-    .where(eq(brandMembers.userId, userId))
+    .where(and(eq(brandMembers.userId, userId), isNull(brands.deletedAt)))
     .orderBy(asc(brands.name));
 
   const sanitized = rows.filter(
@@ -376,7 +375,11 @@ export async function updateBrand(
 }
 
 /**
- * Deletes a brand and updates all affected users' active brand.
+ * Soft-deletes a brand and updates all affected users' active brand.
+ *
+ * This function performs a fast soft-delete (sets deleted_at) so the user
+ * gets immediate feedback. The actual deletion of products and related data
+ * happens asynchronously via the "delete-brand" background job.
  *
  * Uses batched queries to compute next brands for multiple users efficiently,
  * preventing N+1 query problems when many users have the brand active.
@@ -427,6 +430,7 @@ export async function deleteBrand(
       const affectedUserIds = affectedUsers.map((u) => u.id);
 
       // Fetch all brand memberships for affected users in a single query
+      // Exclude soft-deleted brands from consideration
       const allMemberships = await tx
         .select({
           userId: brandMembers.userId,
@@ -435,7 +439,12 @@ export async function deleteBrand(
         })
         .from(brandMembers)
         .innerJoin(brands, eq(brandMembers.brandId, brands.id))
-        .where(inArray(brandMembers.userId, affectedUserIds))
+        .where(
+          and(
+            inArray(brandMembers.userId, affectedUserIds),
+            isNull(brands.deletedAt),
+          ),
+        )
         .orderBy(asc(brands.name));
 
       // Group memberships by user and compute next brand
@@ -471,17 +480,17 @@ export async function deleteBrand(
       }
     }
 
-    // Delete products first to satisfy RESTRICT FK constraints
-    // (product_eco_claims -> brand_eco_claims, product_materials -> brand_materials, etc.)
-    // This ensures all product-related data is removed before brand catalog data is cascade-deleted
-    await tx.delete(products).where(eq(products.brandId, brandId));
-
-    // Delete the brand (cascades will handle brandMembers, brandInvites, and brand catalog data)
+    // Soft-delete the brand by setting deleted_at
+    // The background job "delete-brand" will handle:
+    // - Deleting products in batches
+    // - Cleaning up storage files
+    // - Hard-deleting the brand row
     const [row] = await tx
-      .delete(brands)
+      .update(brands)
+      .set({ deletedAt: new Date().toISOString() })
       .where(eq(brands.id, brandId))
       .returning({ id: brands.id });
-    if (!row) throw new Error("Failed to delete brand");
+    if (!row) throw new Error("Failed to soft-delete brand");
   });
 
   return { success: true, nextBrandId: actingUserNextBrandId };

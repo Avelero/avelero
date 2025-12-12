@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Database } from "../client";
-import { brandMembers, brands, users, brandTheme } from "../schema";
+import { brandMembers, brands, users, brandTheme, products } from "../schema";
 import {
   DEFAULT_THEME_CONFIG,
   DEFAULT_THEME_STYLES,
@@ -471,7 +471,12 @@ export async function deleteBrand(
       }
     }
 
-    // Delete the brand (cascades will handle brandMembers and brandInvites)
+    // Delete products first to satisfy RESTRICT FK constraints
+    // (product_eco_claims -> brand_eco_claims, product_materials -> brand_materials, etc.)
+    // This ensures all product-related data is removed before brand catalog data is cascade-deleted
+    await tx.delete(products).where(eq(products.brandId, brandId));
+
+    // Delete the brand (cascades will handle brandMembers, brandInvites, and brand catalog data)
     const [row] = await tx
       .delete(brands)
       .where(eq(brands.id, brandId))

@@ -226,9 +226,9 @@ function buildConditionClause(
       }
       return null;
 
-    case "showcaseBrandId":
+    case "manufacturerId":
       return buildOperatorClause(
-        schema.products.showcaseBrandId,
+        schema.products.manufacturerId,
         operator,
         value,
       );

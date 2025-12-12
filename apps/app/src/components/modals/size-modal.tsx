@@ -569,7 +569,7 @@ export function SizeModal({
               }),
             `create-${size.name}`,
             (result: any) => {
-              // Validate response has expected structure (similar to showcase-brand-sheet)
+              // Validate response has expected structure (similar to manufacturer-sheet)
               return result?.data?.id !== undefined;
             },
           ),

@@ -3,7 +3,7 @@ import type { Database } from "@v1/db/client";
  * Brand catalog router implementation.
  *
  * Implements the reorganized `brand.*` namespace covering all brand-owned
- * catalog resources (colors, sizes, materials, facilities, showcaseBrands,
+ * catalog resources (colors, sizes, materials, facilities, manufacturers,
  * ecoClaims, certifications).
  *
  * All 28 endpoints follow a consistent CRUD pattern using shared helper
@@ -17,7 +17,7 @@ import {
   createFacility,
   createMaterial,
   createSeason,
-  createShowcaseBrand,
+  createBrandManufacturer,
   createSize,
   deleteBrandTag,
   deleteCertification,
@@ -26,7 +26,7 @@ import {
   deleteFacility,
   deleteMaterial,
   deleteSeason,
-  deleteShowcaseBrand,
+  deleteBrandManufacturer,
   deleteSize,
   listBrandTags,
   listCertifications,
@@ -35,7 +35,7 @@ import {
   listFacilities,
   listMaterials,
   listSeasonsForBrand,
-  listShowcaseBrands,
+  listBrandManufacturers,
   listSizes,
   updateBrandTag,
   updateCertification,
@@ -44,7 +44,7 @@ import {
   updateFacility,
   updateMaterial,
   updateSeason,
-  updateShowcaseBrand,
+  updateBrandManufacturer,
   updateSize,
 } from "@v1/db/queries";
 import {
@@ -55,7 +55,7 @@ import {
   createFacilitySchema,
   createMaterialSchema,
   createSeasonSchema,
-  createShowcaseBrandSchema,
+  createManufacturerSchema,
   createSizeSchema,
   deleteBrandTagSchema,
   deleteCertificationSchema,
@@ -64,7 +64,7 @@ import {
   deleteFacilitySchema,
   deleteMaterialSchema,
   deleteSeasonSchema,
-  deleteShowcaseBrandSchema,
+  deleteManufacturerSchema,
   deleteSizeSchema,
   listBrandTagsSchema,
   listCertificationsSchema,
@@ -73,7 +73,7 @@ import {
   listFacilitiesSchema,
   listMaterialsSchema,
   listSeasonsSchema,
-  listShowcaseBrandsSchema,
+  listManufacturersSchema,
   listSizesSchema,
   updateBrandTagSchema,
   updateCertificationSchema,
@@ -82,7 +82,7 @@ import {
   updateFacilitySchema,
   updateMaterialSchema,
   updateSeasonSchema,
-  updateShowcaseBrandSchema,
+  updateManufacturerSchema,
   updateSizeSchema,
 } from "../../../schemas/brand-catalog/index.js";
 import {
@@ -90,7 +90,7 @@ import {
   transformFacilityInput,
   transformMaterialInput,
   transformSeasonInput,
-  transformShowcaseBrandInput,
+  transformManufacturerInput,
   transformSizeInput,
 } from "../../../utils/catalog-transform.js";
 import { notFound, wrapError } from "../../../utils/errors.js";
@@ -273,7 +273,7 @@ function createDeleteProcedure<TInput extends { id: string }>(
  * formatting. All endpoints enforce brand-level permissions.
  *
  * This pattern is used for colors, sizes, materials, facilities, certifications,
- * eco claims, and showcase brands - eliminating ~200 lines of duplication.
+ * eco claims, and manufacturers - eliminating ~200 lines of duplication.
  *
  * @template T - Resource entity type
  * @param resourceName - Human-readable name for error messages (e.g., "color", "size")
@@ -351,7 +351,7 @@ function createCatalogResourceRouter<T>(
  * - brand.seasons.* (list/create/update/delete)
  * - brand.seasons.* (list/create/update/delete)
  * - brand.facilities.* (list/create/update/delete)
- * - brand.showcaseBrands.* (list/create/update/delete)
+ * - brand.manufacturers.* (list/create/update/delete)
  * - brand.ecoClaims.* (list/create/update/delete)
  * - brand.certifications.* (list/create/update/delete)
  * - brand.tags.* (list/create/update/delete)
@@ -491,26 +491,26 @@ export const brandRouter = createTRPCRouter({
   ),
 
   /**
-   * Showcase brands catalog endpoints.
+   * Manufacturers catalog endpoints.
    *
    * Enables multi-brand products (e.g., Nike product manufactured by Avelero).
-   * Products link via products.showcase_brand_id → showcase_brands.id.
+   * Products link via products.manufacturer_id → manufacturers.id.
    */
-  showcaseBrands: createCatalogResourceRouter(
-    "showcase brand",
+  manufacturers: createCatalogResourceRouter(
+    "manufacturer",
     {
-      list: listShowcaseBrandsSchema,
-      create: createShowcaseBrandSchema,
-      update: updateShowcaseBrandSchema,
-      delete: deleteShowcaseBrandSchema,
+      list: listManufacturersSchema,
+      create: createManufacturerSchema,
+      update: updateManufacturerSchema,
+      delete: deleteManufacturerSchema,
     },
     {
-      list: listShowcaseBrands,
-      create: createShowcaseBrand,
-      update: updateShowcaseBrand,
-      delete: deleteShowcaseBrand,
+      list: listBrandManufacturers,
+      create: createBrandManufacturer,
+      update: updateBrandManufacturer,
+      delete: deleteBrandManufacturer,
     },
-    transformShowcaseBrandInput,
+    transformManufacturerInput,
   ),
 
   /**

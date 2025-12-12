@@ -3,8 +3,8 @@ import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
 
-export const showcaseBrands = pgTable(
-  "showcase_brands",
+export const brandManufacturers = pgTable(
+  "brand_manufacturers",
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     brandId: uuid("brand_id")
@@ -29,27 +29,27 @@ export const showcaseBrands = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("showcase_brands_brand_name_unq").on(table.brandId, table.name),
+    uniqueIndex("brand_manufacturers_brand_name_unq").on(table.brandId, table.name),
     // RLS policies
-    pgPolicy("showcase_brands_select_for_brand_members", {
+    pgPolicy("brand_manufacturers_select_for_brand_members", {
       as: "permissive",
       for: "select",
       to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("showcase_brands_insert_by_brand_member", {
+    pgPolicy("brand_manufacturers_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
       to: ["authenticated", "service_role"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("showcase_brands_update_by_brand_member", {
+    pgPolicy("brand_manufacturers_update_by_brand_member", {
       as: "permissive",
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("showcase_brands_delete_by_brand_member", {
+    pgPolicy("brand_manufacturers_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
       to: ["authenticated", "service_role"],

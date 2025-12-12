@@ -12,7 +12,7 @@ export function JourneyFrame({ journey, themeConfig }: Props) {
 
       <div className="flex flex-col py-md pl-md journey-card border">
         {journey.map((stage, stageIndex) => (
-          <div key={stage.name} className="relative flex w-full">
+          <div key={stage.id} className="relative flex w-full">
             {/* Timeline connector (vertical line) */}
             {stageIndex < journey.length - 1 && (
               <div

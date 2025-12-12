@@ -67,11 +67,10 @@ const PRODUCT_FIELD_MAP = {
   description: products.description,
   category_id: products.categoryId,
   season_id: products.seasonId,
-  showcase_brand_id: products.showcaseBrandId,
+  manufacturer_id: products.manufacturerId,
   primary_image_path: products.primaryImagePath,
   product_identifier: products.productIdentifier,
   upid: products.upid,
-  template_id: products.templateId,
   status: products.status,
   created_at: products.createdAt,
   updated_at: products.updatedAt,
@@ -111,11 +110,10 @@ export interface ProductRecord {
   description?: string | null;
   category_id?: string | null;
   season_id?: string | null; // FK to brand_seasons.id
-  showcase_brand_id?: string | null;
+  manufacturer_id?: string | null;
   primary_image_path?: string | null;
   product_identifier?: string | null;
   upid?: string | null;
-  template_id?: string | null;
   status?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -225,15 +223,13 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
     product.category_id = (row.category_id as string | null) ?? null;
   if ("season_id" in row)
     product.season_id = (row.season_id as string | null) ?? null;
-  if ("showcase_brand_id" in row)
-    product.showcase_brand_id =
-      (row.showcase_brand_id as string | null) ?? null;
+  if ("manufacturer_id" in row)
+    product.manufacturer_id =
+      (row.manufacturer_id as string | null) ?? null;
   if ("product_identifier" in row)
     product.product_identifier =
       (row.product_identifier as string | null) ?? null;
   if ("upid" in row) product.upid = (row.upid as string | null) ?? null;
-  if ("template_id" in row)
-    product.template_id = (row.template_id as string | null) ?? null;
   if ("status" in row) product.status = (row.status as string | null) ?? null;
   if ("primary_image_path" in row)
     product.primary_image_path =
@@ -933,11 +929,10 @@ export async function getProduct(db: Database, brandId: string, id: string) {
       description: products.description,
       category_id: products.categoryId,
       season_id: products.seasonId,
-      showcase_brand_id: products.showcaseBrandId,
+      manufacturer_id: products.manufacturerId,
       primary_image_path: products.primaryImagePath,
       product_identifier: products.productIdentifier,
       upid: products.upid,
-      template_id: products.templateId,
       status: products.status,
       created_at: products.createdAt,
       updated_at: products.updatedAt,
@@ -960,11 +955,10 @@ export async function getProductByUpid(
       description: products.description,
       category_id: products.categoryId,
       season_id: products.seasonId,
-      showcase_brand_id: products.showcaseBrandId,
+      manufacturer_id: products.manufacturerId,
       primary_image_path: products.primaryImagePath,
       product_identifier: products.productIdentifier,
       upid: products.upid,
-      template_id: products.templateId,
       status: products.status,
       created_at: products.createdAt,
       updated_at: products.updatedAt,
@@ -984,8 +978,7 @@ export async function createProduct(
     description?: string;
     categoryId?: string;
     seasonId?: string;
-    templateId?: string | null;
-    showcaseBrandId?: string;
+    manufacturerId?: string;
     primaryImagePath?: string;
     status?: string;
   },
@@ -1021,8 +1014,7 @@ export async function createProduct(
         description: input.description ?? null,
         categoryId: input.categoryId ?? null,
         seasonId: input.seasonId ?? null,
-        templateId: input.templateId ?? null,
-        showcaseBrandId: input.showcaseBrandId ?? null,
+        manufacturerId: input.manufacturerId ?? null,
         primaryImagePath: input.primaryImagePath ?? null,
         status: input.status ?? "unpublished",
       })
@@ -1047,8 +1039,7 @@ export async function updateProduct(
     description?: string | null;
     categoryId?: string | null;
     seasonId?: string | null;
-    templateId?: string | null;
-    showcaseBrandId?: string | null;
+    manufacturerId?: string | null;
     primaryImagePath?: string | null;
     status?: string | null;
   },
@@ -1061,8 +1052,7 @@ export async function updateProduct(
       categoryId: input.categoryId ?? null,
       seasonId: input.seasonId ?? null,
       productIdentifier: input.productIdentifier ?? null,
-      templateId: input.templateId ?? null,
-      showcaseBrandId: input.showcaseBrandId ?? null,
+      manufacturerId: input.manufacturerId ?? null,
       primaryImagePath: input.primaryImagePath ?? null,
     };
 

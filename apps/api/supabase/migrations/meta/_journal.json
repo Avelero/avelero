@@ -78,6 +78,13 @@
       "when": 1765058227977,
       "tag": "20251206215707_cloudy_glorian",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1765569873223,
+      "tag": "20251212200433_silent_serpent_society",
+      "breakpoints": true
     }
   ]
 }

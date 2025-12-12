@@ -173,9 +173,9 @@ export function transformFacilityInput<T extends Record<string, any>>(
 }
 
 /**
- * Transforms showcase brand input from snake_case schema to camelCase DB format.
+ * Transforms manufacturer input from snake_case schema to camelCase DB format.
  */
-export function transformShowcaseBrandInput<T extends Record<string, any>>(
+export function transformManufacturerInput<T extends Record<string, any>>(
   input: T,
 ): any {
   const result: any = {};

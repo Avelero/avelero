@@ -161,9 +161,13 @@ export const dppPublicRouter = createTRPCRouter({
       return {
         dppData: {
           ...dppData,
-          // Override productImage with resolved URL
-          productImage: productImageUrl,
-          // Include similar products for carousel
+          // Override productIdentifiers.productImage with resolved URL
+          productIdentifiers: {
+            ...dppData.productIdentifiers,
+            productImage: productImageUrl ?? "",
+          },
+        },
+        dppContent: {
           similarProducts,
         },
         themeConfig: rawData.themeConfig,
@@ -238,9 +242,13 @@ export const dppPublicRouter = createTRPCRouter({
       return {
         dppData: {
           ...dppData,
-          // Override productImage with resolved URL
-          productImage: productImageUrl,
-          // Include similar products for carousel
+          // Override productIdentifiers.productImage with resolved URL
+          productIdentifiers: {
+            ...dppData.productIdentifiers,
+            productImage: productImageUrl ?? "",
+          },
+        },
+        dppContent: {
           similarProducts,
         },
         themeConfig: rawData.themeConfig,

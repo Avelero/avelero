@@ -1,5 +1,5 @@
 /**
- * Validation schemas for showcase brand operations.
+ * Validation schemas for manufacturer operations.
  */
 import { z } from "zod";
 import {
@@ -16,14 +16,14 @@ import {
 } from "../_shared/primitives.js";
 
 /**
- * Empty payload for listing showcase brands.
+ * Empty payload for listing manufacturers.
  */
-export const listShowcaseBrandsSchema = voidSchema;
+export const listManufacturersSchema = voidSchema;
 
 /**
- * Payload for creating a showcase brand.
+ * Payload for creating a manufacturer.
  */
-export const createShowcaseBrandSchema = z.object({
+export const createManufacturerSchema = z.object({
   name: shortStringSchema,
   legal_name: shortStringSchema.optional(),
   email: emailSchema.optional(),
@@ -38,10 +38,10 @@ export const createShowcaseBrandSchema = z.object({
 });
 
 /**
- * Payload for updating a showcase brand.
+ * Payload for updating a manufacturer.
  */
-export const updateShowcaseBrandSchema = updateWithNullable(
-  createShowcaseBrandSchema,
+export const updateManufacturerSchema = updateWithNullable(
+  createManufacturerSchema,
   [
     "legal_name",
     "email",
@@ -57,6 +57,6 @@ export const updateShowcaseBrandSchema = updateWithNullable(
 );
 
 /**
- * Payload for deleting a showcase brand.
+ * Payload for deleting a manufacturer.
  */
-export const deleteShowcaseBrandSchema = byIdSchema;
+export const deleteManufacturerSchema = byIdSchema;

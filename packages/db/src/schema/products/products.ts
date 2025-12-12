@@ -9,10 +9,9 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { passportTemplates } from "../passports/passport-templates";
 import { brandSeasons } from "../brands/brand-seasons";
 import { categories } from "../brands/categories";
-import { showcaseBrands } from "../brands/showcase-brands";
+import { brandManufacturers } from "../brands/brand-manufacturers";
 import { brands } from "../core/brands";
 
 export const products = pgTable(
@@ -23,28 +22,21 @@ export const products = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     name: text("name").notNull(),
-    /**
-     * Unique product identifier within the brand.
-     * This is the primary identifier for products, used for matching and tracking.
-     * Replaces SKU as the main product identifier.
-     */
     productIdentifier: text("product_identifier").notNull(),
-    /**
-     * Product-level UPID (Unique Product Identifier).
-     * 16-character lowercase alphanumeric string for product passport URLs.
-     * Used in routes like /passport/edit/{upid}.
-     * Must be unique within a brand.
-     */
+    ean: text("ean"),
+    gtin: text("gtin"),
     upid: text("upid"),
     description: text("description"),
-    showcaseBrandId: uuid("showcase_brand_id").references(
-      () => showcaseBrands.id,
+    manufacturerId: uuid("manufacturer_id").references(
+      () => brandManufacturers.id,
       {
         onDelete: "set null",
         onUpdate: "cascade",
       },
     ),
     primaryImagePath: text("primary_image_path"),
+    weight: numeric("weight", { precision: 10, scale: 2 }),
+    weightUnit: text("weight_unit"),
     webshopUrl: text("webshop_url"),
     price: numeric("price", { precision: 10, scale: 2 }),
     currency: text("currency"),
@@ -55,10 +47,6 @@ export const products = pgTable(
     }),
     seasonId: uuid("season_id").references(() => brandSeasons.id, {
       onDelete: "set null",
-      onUpdate: "cascade",
-    }),
-    templateId: uuid("template_id").references(() => passportTemplates.id, {
-      onDelete: "cascade",
       onUpdate: "cascade",
     }),
     status: text("status").notNull().default("unpublished"),

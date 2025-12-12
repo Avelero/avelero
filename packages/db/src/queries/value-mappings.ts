@@ -12,7 +12,7 @@ export type ValueMappingTarget =
   | "CATEGORY"
   | "ECO_CLAIM"
   | "FACILITY"
-  | "SHOWCASE_BRAND"
+  | "MANUFACTURER"
   | "CERTIFICATION"
   | "SEASON"
   | "TAG";

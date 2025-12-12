@@ -160,9 +160,8 @@ export const productsRouter = createTRPCRouter({
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
           seasonId: input.season_id ?? null,
-          showcaseBrandId: input.showcase_brand_id ?? null,
+          manufacturerId: input.manufacturer_id ?? null,
           primaryImagePath: input.primary_image_path ?? null,
-          templateId: input.template_id ?? null,
           status: input.status ?? undefined,
         };
 
@@ -216,9 +215,8 @@ export const productsRouter = createTRPCRouter({
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
           seasonId: input.season_id ?? null,
-          showcaseBrandId: input.showcase_brand_id ?? null,
+          manufacturerId: input.manufacturer_id ?? null,
           primaryImagePath: input.primary_image_path ?? null,
-          templateId: input.template_id ?? null,
           status: input.status ?? undefined,
         };
 

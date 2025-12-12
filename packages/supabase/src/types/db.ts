@@ -291,6 +291,68 @@ export type Database = {
           },
         ];
       };
+      brand_manufacturers: {
+        Row: {
+          address_line_1: string | null;
+          address_line_2: string | null;
+          brand_id: string;
+          city: string | null;
+          country_code: string | null;
+          created_at: string;
+          email: string | null;
+          id: string;
+          legal_name: string | null;
+          name: string;
+          phone: string | null;
+          state: string | null;
+          updated_at: string;
+          website: string | null;
+          zip: string | null;
+        };
+        Insert: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          brand_id: string;
+          city?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          email?: string | null;
+          id?: string;
+          legal_name?: string | null;
+          name: string;
+          phone?: string | null;
+          state?: string | null;
+          updated_at?: string;
+          website?: string | null;
+          zip?: string | null;
+        };
+        Update: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          brand_id?: string;
+          city?: string | null;
+          country_code?: string | null;
+          created_at?: string;
+          email?: string | null;
+          id?: string;
+          legal_name?: string | null;
+          name?: string;
+          phone?: string | null;
+          state?: string | null;
+          updated_at?: string;
+          website?: string | null;
+          zip?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_manufacturers_brand_id_brands_id_fk";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       brand_materials: {
         Row: {
           brand_id: string;
@@ -733,79 +795,6 @@ export type Database = {
           },
         ];
       };
-      passport_template_modules: {
-        Row: {
-          created_at: string;
-          enabled: boolean;
-          id: string;
-          module_key: string;
-          sort_index: number;
-          template_id: string;
-          updated_at: string;
-        };
-        Insert: {
-          created_at?: string;
-          enabled?: boolean;
-          id?: string;
-          module_key: string;
-          sort_index: number;
-          template_id: string;
-          updated_at?: string;
-        };
-        Update: {
-          created_at?: string;
-          enabled?: boolean;
-          id?: string;
-          module_key?: string;
-          sort_index?: number;
-          template_id?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "passport_template_modules_template_id_passport_templates_id_fk";
-            columns: ["template_id"];
-            isOneToOne: false;
-            referencedRelation: "passport_templates";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      passport_templates: {
-        Row: {
-          brand_id: string;
-          created_at: string;
-          id: string;
-          name: string;
-          theme: Json;
-          updated_at: string;
-        };
-        Insert: {
-          brand_id: string;
-          created_at?: string;
-          id?: string;
-          name: string;
-          theme?: Json;
-          updated_at?: string;
-        };
-        Update: {
-          brand_id?: string;
-          created_at?: string;
-          id?: string;
-          name?: string;
-          theme?: Json;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "passport_templates_brand_id_brands_id_fk";
-            columns: ["brand_id"];
-            isOneToOne: false;
-            referencedRelation: "brands";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       product_eco_claims: {
         Row: {
           created_at: string;
@@ -1052,19 +1041,22 @@ export type Database = {
           created_at: string;
           currency: string | null;
           description: string | null;
+          ean: string | null;
+          gtin: string | null;
           id: string;
+          manufacturer_id: string | null;
           name: string;
           price: number | null;
           primary_image_path: string | null;
           product_identifier: string;
           sales_status: string | null;
           season_id: string | null;
-          showcase_brand_id: string | null;
           status: string;
-          template_id: string | null;
           updated_at: string;
           upid: string | null;
           webshop_url: string | null;
+          weight: number | null;
+          weight_unit: string | null;
         };
         Insert: {
           brand_id: string;
@@ -1072,19 +1064,22 @@ export type Database = {
           created_at?: string;
           currency?: string | null;
           description?: string | null;
+          ean?: string | null;
+          gtin?: string | null;
           id?: string;
+          manufacturer_id?: string | null;
           name: string;
           price?: number | null;
           primary_image_path?: string | null;
           product_identifier: string;
           sales_status?: string | null;
           season_id?: string | null;
-          showcase_brand_id?: string | null;
           status?: string;
-          template_id?: string | null;
           updated_at?: string;
           upid?: string | null;
           webshop_url?: string | null;
+          weight?: number | null;
+          weight_unit?: string | null;
         };
         Update: {
           brand_id?: string;
@@ -1092,19 +1087,22 @@ export type Database = {
           created_at?: string;
           currency?: string | null;
           description?: string | null;
+          ean?: string | null;
+          gtin?: string | null;
           id?: string;
+          manufacturer_id?: string | null;
           name?: string;
           price?: number | null;
           primary_image_path?: string | null;
           product_identifier?: string;
           sales_status?: string | null;
           season_id?: string | null;
-          showcase_brand_id?: string | null;
           status?: string;
-          template_id?: string | null;
           updated_at?: string;
           upid?: string | null;
           webshop_url?: string | null;
+          weight?: number | null;
+          weight_unit?: string | null;
         };
         Relationships: [
           {
@@ -1122,86 +1120,17 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "products_manufacturer_id_brand_manufacturers_id_fk";
+            columns: ["manufacturer_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_manufacturers";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "products_season_id_brand_seasons_id_fk";
             columns: ["season_id"];
             isOneToOne: false;
             referencedRelation: "brand_seasons";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "products_showcase_brand_id_showcase_brands_id_fk";
-            columns: ["showcase_brand_id"];
-            isOneToOne: false;
-            referencedRelation: "showcase_brands";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "products_template_id_passport_templates_id_fk";
-            columns: ["template_id"];
-            isOneToOne: false;
-            referencedRelation: "passport_templates";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      showcase_brands: {
-        Row: {
-          address_line_1: string | null;
-          address_line_2: string | null;
-          brand_id: string;
-          city: string | null;
-          country_code: string | null;
-          created_at: string;
-          email: string | null;
-          id: string;
-          legal_name: string | null;
-          name: string;
-          phone: string | null;
-          state: string | null;
-          updated_at: string;
-          website: string | null;
-          zip: string | null;
-        };
-        Insert: {
-          address_line_1?: string | null;
-          address_line_2?: string | null;
-          brand_id: string;
-          city?: string | null;
-          country_code?: string | null;
-          created_at?: string;
-          email?: string | null;
-          id?: string;
-          legal_name?: string | null;
-          name: string;
-          phone?: string | null;
-          state?: string | null;
-          updated_at?: string;
-          website?: string | null;
-          zip?: string | null;
-        };
-        Update: {
-          address_line_1?: string | null;
-          address_line_2?: string | null;
-          brand_id?: string;
-          city?: string | null;
-          country_code?: string | null;
-          created_at?: string;
-          email?: string | null;
-          id?: string;
-          legal_name?: string | null;
-          name?: string;
-          phone?: string | null;
-          state?: string | null;
-          updated_at?: string;
-          website?: string | null;
-          zip?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "showcase_brands_brand_id_brands_id_fk";
-            columns: ["brand_id"];
-            isOneToOne: false;
-            referencedRelation: "brands";
             referencedColumns: ["id"];
           },
         ];
@@ -1395,6 +1324,52 @@ export type Database = {
           },
         ];
       };
+      staging_product_tags: {
+        Row: {
+          created_at: string;
+          job_id: string;
+          staging_id: string;
+          staging_product_id: string;
+          tag_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          job_id: string;
+          staging_id?: string;
+          staging_product_id: string;
+          tag_id: string;
+        };
+        Update: {
+          created_at?: string;
+          job_id?: string;
+          staging_id?: string;
+          staging_product_id?: string;
+          tag_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "staging_product_tags_job_id_import_jobs_id_fk";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "import_jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "staging_product_tags_staging_product_id_staging_products_fk";
+            columns: ["staging_product_id"];
+            isOneToOne: false;
+            referencedRelation: "staging_products";
+            referencedColumns: ["staging_id"];
+          },
+          {
+            foreignKeyName: "staging_product_tags_tag_id_brand_tags_id_fk";
+            columns: ["tag_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_tags";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       staging_product_variants: {
         Row: {
           action: string;
@@ -1472,13 +1447,13 @@ export type Database = {
           existing_product_id: string | null;
           id: string;
           job_id: string;
+          manufacturer_id: string | null;
           name: string;
           primary_image_path: string | null;
           product_identifier: string | null;
           product_upid: string | null;
           row_number: number;
           season_id: string | null;
-          showcase_brand_id: string | null;
           staging_id: string;
           status: string | null;
         };
@@ -1491,13 +1466,13 @@ export type Database = {
           existing_product_id?: string | null;
           id: string;
           job_id: string;
+          manufacturer_id?: string | null;
           name: string;
           primary_image_path?: string | null;
           product_identifier?: string | null;
           product_upid?: string | null;
           row_number: number;
           season_id?: string | null;
-          showcase_brand_id?: string | null;
           staging_id?: string;
           status?: string | null;
         };
@@ -1510,13 +1485,13 @@ export type Database = {
           existing_product_id?: string | null;
           id?: string;
           job_id?: string;
+          manufacturer_id?: string | null;
           name?: string;
           primary_image_path?: string | null;
           product_identifier?: string | null;
           product_upid?: string | null;
           row_number?: number;
           season_id?: string | null;
-          showcase_brand_id?: string | null;
           staging_id?: string;
           status?: string | null;
         };

@@ -27,7 +27,7 @@ export interface PassportFormValues {
   // Organization
   categoryId: string | null;
   seasonId: string | null;
-  showcaseBrandId: string | null;
+  manufacturerId: string | null;
   tagIds: string[];
 
   // Variant
@@ -74,7 +74,7 @@ const initialFormValues: PassportFormValues = {
   existingImageUrl: null,
   categoryId: null,
   seasonId: null,
-  showcaseBrandId: null,
+  manufacturerId: null,
   tagIds: [],
   colorIds: [],
   pendingColors: [],
@@ -315,7 +315,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       description: values.description,
       categoryId: values.categoryId,
       seasonId: values.seasonId,
-      showcaseBrandId: values.showcaseBrandId,
+      manufacturerId: values.manufacturerId,
       tagIds: values.tagIds,
       colorIds: values.colorIds,
       pendingColors: values.pendingColors.map(
@@ -439,8 +439,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         payload.primaryImagePath ?? (payload as any).primary_image_path ?? null,
       categoryId: payload.categoryId ?? payload.category_id ?? null,
       seasonId: payload.seasonId ?? payload.season_id ?? null,
-      showcaseBrandId:
-        payload.showcaseBrandId ?? payload.showcase_brand_id ?? null,
+      manufacturerId:
+        payload.manufacturerId ?? payload.manufacturer_id ?? null,
       tagIds,
       colorIds,
       pendingColors: [],
@@ -779,7 +779,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
         const safeDescription = formValues.description.trim() || undefined;
         const safeSeasonId = formValues.seasonId || undefined;
-        const safeShowcaseBrandId = formValues.showcaseBrandId || undefined;
+        const safeManufacturerId = formValues.manufacturerId || undefined;
         const resolvedColorIds = await resolvePendingColors();
         const colorIds =
           resolvedColorIds.length > 0 ? resolvedColorIds : undefined;
@@ -827,7 +827,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           description: safeDescription,
           category_id: formValues.categoryId ?? undefined,
           season_id: safeSeasonId,
-          showcase_brand_id: safeShowcaseBrandId,
+          manufacturer_id: safeManufacturerId,
           // Store path only, not full URL
           primary_image_path:
             primaryImagePath ?? formValues.existingImageUrl ?? undefined,
@@ -869,7 +869,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             productIdentifier,
             description: safeDescription ?? "",
             seasonId: safeSeasonId ?? null,
-            showcaseBrandId: safeShowcaseBrandId ?? null,
+            manufacturerId: safeManufacturerId ?? null,
             tagIds: formValues.tagIds,
             imageFile: null,
             // Store the path (or keep existing)

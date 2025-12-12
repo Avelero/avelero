@@ -43,10 +43,14 @@ export async function generateMetadata({
     };
   }
 
+  const brandName = data.dppData.productAttributes.brand;
+  const productName = data.dppData.productIdentifiers.productName;
+  const description = data.dppData.productAttributes.description;
+
   return {
-    title: `${data.dppData.brandName} | ${data.dppData.title}`,
+    title: `${brandName} | ${productName}`,
     description:
-      data.dppData.description ||
+      description ||
       "View product sustainability information and supply chain data",
   };
 }
@@ -68,6 +72,7 @@ export default async function ProductDPPPage({ params }: PageProps) {
 
   // Extract data from API response
   const productData = data.dppData;
+  const brandName = productData.productAttributes.brand;
 
   // Extract theme configuration
   const themeConfig: ThemeConfig =
@@ -109,13 +114,17 @@ export default async function ProductDPPPage({ params }: PageProps) {
       <div className="dpp-root min-h-screen flex flex-col @container">
         {/* Header with spacer for fixed positioning */}
         <div style={{ height: "var(--header-height)" }} />
-        <Header themeConfig={themeConfig} brandName={productData.brandName} />
+        <Header themeConfig={themeConfig} brandName={brandName} />
 
         {/* Main content */}
-        <ContentFrame data={productData} themeConfig={themeConfig} />
+        <ContentFrame
+          data={productData}
+          content={data.dppContent}
+          themeConfig={themeConfig}
+        />
 
         {/* Footer */}
-        <Footer themeConfig={themeConfig} brandName={productData.brandName} />
+        <Footer themeConfig={themeConfig} brandName={brandName} />
       </div>
     </>
   );

@@ -8,14 +8,16 @@ interface Props {
 }
 
 export function ImageAndInfo({ data, themeConfig }: Props) {
+  const { productIdentifiers, productAttributes } = data;
+
   return (
     <div className="grid grid-cols-1 @3xl:grid-cols-2 @3xl:gap-lg w-full">
       {/* Product Image Section */}
       <div className="w-full">
         <div className="@3xl:sticky @3xl:top-[96px]">
           <ProductImage
-            image={data.productImage}
-            alt={`${data.brandName} ${data.title}`}
+            image={productIdentifiers.productImage}
+            alt={`${productAttributes.brand} ${productIdentifiers.productName}`}
           />
         </div>
       </div>

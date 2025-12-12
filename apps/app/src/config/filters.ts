@@ -292,9 +292,9 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     description: "Filter products with or without images",
   },
 
-  showcaseBrandId: {
-    id: "showcaseBrandId",
-    label: "Showcase brand",
+  manufacturerId: {
+    id: "manufacturerId",
+    label: "Manufacturer",
     tier: 3,
     category: "product",
     inputType: "select",
@@ -305,7 +305,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
       "is empty",
       "is not empty",
     ] as FilterOperator[],
-    description: "Filter by showcase brand (for multi-brand products)",
+    description: "Filter by manufacturer (for multi-brand products)",
   },
 
   description: {
@@ -335,7 +335,7 @@ export const FIELD_CATEGORIES = {
       "colorId",
       "sizeId",
       "hasImage",
-      "showcaseBrandId",
+      "manufacturerId",
     ],
   },
   sustainability: {

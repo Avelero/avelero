@@ -173,7 +173,7 @@ export const valuesRouter = createTRPCRouter({
           materials,
           sizes,
           facilities,
-          showcaseBrands,
+          manufacturers,
           categories,
           certifications,
           seasons,
@@ -199,10 +199,10 @@ export const valuesRouter = createTRPCRouter({
             columns: { id: true, displayName: true },
             orderBy: (facilities, { asc }) => [asc(facilities.displayName)],
           }),
-          brandCtx.db.query.showcaseBrands.findMany({
-            where: (brands, { eq }) => eq(brands.brandId, brandId),
+          brandCtx.db.query.brandManufacturers.findMany({
+            where: (manufacturers, { eq }) => eq(manufacturers.brandId, brandId),
             columns: { id: true, name: true },
-            orderBy: (brands, { asc }) => [asc(brands.name)],
+            orderBy: (manufacturers, { asc }) => [asc(manufacturers.name)],
           }),
           brandCtx.db.query.categories.findMany({
             columns: { id: true, name: true },
@@ -233,9 +233,9 @@ export const valuesRouter = createTRPCRouter({
             id: f.id,
             name: f.displayName,
           })),
-          showcaseBrands: showcaseBrands.map((b) => ({
-            id: b.id,
-            name: b.name,
+          manufacturers: manufacturers.map((m) => ({
+            id: m.id,
+            name: m.name,
           })),
           categories: categories.map((c) => ({ id: c.id, name: c.name })),
           certifications: certifications.map((c) => ({

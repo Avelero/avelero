@@ -298,7 +298,7 @@ export function useBrandCatalog() {
 
   const tags = React.useMemo<BrandTagOption[]>(() => {
     const apiTags = data?.brandCatalog.tags ?? [];
-    return apiTags.map((tag) => ({
+    return apiTags.map((tag: any) => ({
       id: tag.id,
       name: tag.name,
       hex: (tag.hex ?? "000000").toUpperCase(),
@@ -315,9 +315,9 @@ export function useBrandCatalog() {
     materials: data?.brandCatalog.materials || [],
     operators: data?.brandCatalog.operators || [], // Facilities/production plants from brand_facilities table
     certifications: data?.brandCatalog.certifications || [],
-    showcaseBrands: data?.brandCatalog.showcaseBrands || [], // Display brands from showcase_brands table
-    seasons: (data?.brandCatalog.seasons || []).map((s) => ({
-      id: (s as any).id ?? "",
+    manufacturers: data?.brandCatalog.manufacturers || [], // Manufacturers from brand_manufacturers table
+    seasons: (data?.brandCatalog.seasons || []).map((s: any) => ({
+      id: s.id ?? "",
       name: s.name,
       startDate: s.startDate ? new Date(s.startDate) : undefined,
       endDate: s.endDate ? new Date(s.endDate) : undefined,

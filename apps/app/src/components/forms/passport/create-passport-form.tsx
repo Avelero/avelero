@@ -381,8 +381,8 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               setProductIdentifier={(value) =>
                 setField("productIdentifier", value)
               }
-              showcaseBrandId={state.showcaseBrandId}
-              setShowcaseBrandId={(value) => setField("showcaseBrandId", value)}
+              manufacturerId={state.manufacturerId}
+              setManufacturerId={(value) => setField("manufacturerId", value)}
               productIdentifierError={
                 state.hasAttemptedSubmit
                   ? state.validationErrors.productIdentifier

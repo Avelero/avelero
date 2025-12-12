@@ -5,7 +5,6 @@ export * from "./brand-invites.js";
 export * from "./catalog.js";
 export * from "./brand-catalog.js";
 export * from "./products.js";
-export * from "./templates.js";
 export * from "./bulk-import.js";
 export * from "./staging.js";
 export * from "./value-mappings.js";

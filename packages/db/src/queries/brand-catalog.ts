@@ -9,7 +9,7 @@ import {
   brandTags,
   brandSeasons,
   brandCertifications,
-  showcaseBrands,
+  brandManufacturers,
 } from "../schema";
 
 export type CatalogEntityType =
@@ -18,7 +18,7 @@ export type CatalogEntityType =
   | "MATERIAL"
   | "ECO_CLAIM"
   | "FACILITY"
-  | "SHOWCASE_BRAND"
+  | "MANUFACTURER"
   | "CERTIFICATION";
 
 export interface ValidationError {
@@ -732,31 +732,31 @@ export async function deleteFacility(
   return row;
 }
 
-// Showcase brands
-export async function listShowcaseBrands(db: Database, brandId: string) {
+// Manufacturers
+export async function listBrandManufacturers(db: Database, brandId: string) {
   return db
     .select({
-      id: showcaseBrands.id,
-      name: showcaseBrands.name,
-      legal_name: showcaseBrands.legalName,
-      email: showcaseBrands.email,
-      phone: showcaseBrands.phone,
-      website: showcaseBrands.website,
-      address_line_1: showcaseBrands.addressLine1,
-      address_line_2: showcaseBrands.addressLine2,
-      city: showcaseBrands.city,
-      state: showcaseBrands.state,
-      zip: showcaseBrands.zip,
-      country_code: showcaseBrands.countryCode,
-      created_at: showcaseBrands.createdAt,
-      updated_at: showcaseBrands.updatedAt,
+      id: brandManufacturers.id,
+      name: brandManufacturers.name,
+      legal_name: brandManufacturers.legalName,
+      email: brandManufacturers.email,
+      phone: brandManufacturers.phone,
+      website: brandManufacturers.website,
+      address_line_1: brandManufacturers.addressLine1,
+      address_line_2: brandManufacturers.addressLine2,
+      city: brandManufacturers.city,
+      state: brandManufacturers.state,
+      zip: brandManufacturers.zip,
+      country_code: brandManufacturers.countryCode,
+      created_at: brandManufacturers.createdAt,
+      updated_at: brandManufacturers.updatedAt,
     })
-    .from(showcaseBrands)
-    .where(eq(showcaseBrands.brandId, brandId))
-    .orderBy(asc(showcaseBrands.name));
+    .from(brandManufacturers)
+    .where(eq(brandManufacturers.brandId, brandId))
+    .orderBy(asc(brandManufacturers.name));
 }
 
-export async function createShowcaseBrand(
+export async function createBrandManufacturer(
   db: Database,
   brandId: string,
   input: {
@@ -774,7 +774,7 @@ export async function createShowcaseBrand(
   },
 ) {
   const [row] = await db
-    .insert(showcaseBrands)
+    .insert(brandManufacturers)
     .values({
       brandId,
       name: input.name,
@@ -789,11 +789,11 @@ export async function createShowcaseBrand(
       zip: input.zip ?? null,
       countryCode: input.countryCode ?? null,
     })
-    .returning({ id: showcaseBrands.id });
+    .returning({ id: brandManufacturers.id });
   return row;
 }
 
-export async function updateShowcaseBrand(
+export async function updateBrandManufacturer(
   db: Database,
   brandId: string,
   id: string,
@@ -812,7 +812,7 @@ export async function updateShowcaseBrand(
   }>,
 ) {
   const [row] = await db
-    .update(showcaseBrands)
+    .update(brandManufacturers)
     .set({
       name: input.name,
       legalName: input.legalName ?? null,
@@ -826,20 +826,20 @@ export async function updateShowcaseBrand(
       zip: input.zip ?? null,
       countryCode: input.countryCode ?? null,
     })
-    .where(and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)))
-    .returning({ id: showcaseBrands.id });
+    .where(and(eq(brandManufacturers.id, id), eq(brandManufacturers.brandId, brandId)))
+    .returning({ id: brandManufacturers.id });
   return row;
 }
 
-export async function deleteShowcaseBrand(
+export async function deleteBrandManufacturer(
   db: Database,
   brandId: string,
   id: string,
 ) {
   const [row] = await db
-    .delete(showcaseBrands)
-    .where(and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)))
-    .returning({ id: showcaseBrands.id });
+    .delete(brandManufacturers)
+    .where(and(eq(brandManufacturers.id, id), eq(brandManufacturers.brandId, brandId)))
+    .returning({ id: brandManufacturers.id });
   return row;
 }
 
@@ -919,14 +919,14 @@ export async function checkDuplicateName(
         );
       return (result?.count ?? 0) > 0;
     }
-    case "SHOWCASE_BRAND": {
+    case "MANUFACTURER": {
       const [result] = await db
         .select({ count: sql<number>`count(*)::int` })
-        .from(showcaseBrands)
+        .from(brandManufacturers)
         .where(
           and(
-            eq(showcaseBrands.brandId, brandId),
-            sql`LOWER(${showcaseBrands.name}) = LOWER(${name})`,
+            eq(brandManufacturers.brandId, brandId),
+            sql`LOWER(${brandManufacturers.name}) = LOWER(${name})`,
           ),
         );
       return (result?.count ?? 0) > 0;
@@ -1114,7 +1114,7 @@ export function validateFacilityInput(input: {
   return { valid: errors.length === 0, errors };
 }
 
-export function validateShowcaseBrandInput(input: {
+export function validateBrandManufacturerInput(input: {
   name: string;
   legalName?: string | null;
   email?: string | null;
@@ -1131,7 +1131,7 @@ export function validateShowcaseBrandInput(input: {
   if (!input.name || input.name.trim().length === 0) {
     errors.push({
       field: "name",
-      message: "Showcase brand name is required",
+      message: "Brand manufacturer name is required",
       code: "REQUIRED",
     });
   }
@@ -1285,8 +1285,8 @@ export async function validateAndCreateEntity(
       );
       name = (input as { displayName: string }).displayName;
       break;
-    case "SHOWCASE_BRAND":
-      validation = validateShowcaseBrandInput(
+    case "MANUFACTURER":
+      validation = validateBrandManufacturerInput(
         input as {
           name: string;
           legalName?: string | null;
@@ -1398,9 +1398,9 @@ export async function validateAndCreateEntity(
           },
         )) ?? { id: "" }
       );
-    case "SHOWCASE_BRAND":
+    case "MANUFACTURER":
       return (
-        (await createShowcaseBrand(db, brandId, input as { name: string })) ?? {
+        (await createBrandManufacturer(db, brandId, input as { name: string })) ?? {
           id: "",
         }
       );

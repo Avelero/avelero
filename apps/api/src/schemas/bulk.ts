@@ -244,7 +244,7 @@ const defineFacilityDataSchema = z.object({
   vatNumber: z.string().optional(),
 });
 
-const defineShowcaseBrandDataSchema = z.object({
+const defineManufacturerDataSchema = z.object({
   name: z.string().min(1).max(200),
   legalName: z.string().max(200).optional(),
   email: z.string().email().optional(),
@@ -303,7 +303,7 @@ export const entityTypeSchema = z.enum([
   "SIZE",
   "ECO_CLAIM",
   "FACILITY",
-  "SHOWCASE_BRAND",
+  "MANUFACTURER",
   "CERTIFICATION",
   "SEASON",
   "CATEGORY",
@@ -327,7 +327,7 @@ export const defineValueSchema = z.object({
     defineMaterialDataSchema,
     defineEcoClaimDataSchema,
     defineFacilityDataSchema,
-    defineShowcaseBrandDataSchema,
+    defineManufacturerDataSchema,
     defineCertificationDataSchema,
     defineSeasonDataSchema,
     defineCategoryDataSchema,
@@ -355,7 +355,7 @@ export const batchDefineValuesSchema = z.object({
           defineMaterialDataSchema,
           defineEcoClaimDataSchema,
           defineFacilityDataSchema,
-          defineShowcaseBrandDataSchema,
+          defineManufacturerDataSchema,
           defineCertificationDataSchema,
           defineSeasonDataSchema,
           defineCategoryDataSchema,

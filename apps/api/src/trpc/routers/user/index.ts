@@ -695,8 +695,13 @@ function extractStoragePath(url: string | null | undefined): string | null {
     }
   }
   const match = url.match(/brand-avatars\/(.+)$/);
-  if (match) {
-    return match[1] ?? null;
+  if (match?.[1]) {
+    // Decode each segment to handle URL encoding (e.g., %20 for spaces)
+    // This matches the pattern in extractAvatarPath for consistent path handling
+    return match[1]
+      .split("/")
+      .map((segment) => decodeURIComponent(segment))
+      .join("/");
   }
   return url;
 }

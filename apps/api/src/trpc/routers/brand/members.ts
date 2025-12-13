@@ -112,6 +112,9 @@ export const brandMembersRouter = createTRPCRouter({
         );
         return { success: true as const };
       } catch (error) {
+        if (error instanceof BrandMemberSoleOwnerError) {
+          throw soleOwnerError();
+        }
         throw wrapError(error, "Failed to update member role");
       }
     }),

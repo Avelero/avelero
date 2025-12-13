@@ -79,18 +79,19 @@ export function VariantSection({
       return selectedSizes.filter((s) => s.name && typeof s.name === "string");
     }
 
-    const optionMap = new Map<string, SizeOption>();
+    // Use sortIndex as the unique identifier (not name) to prevent incorrect matches
+    // when the same size name exists in different groups (e.g., "8" in US Numeric vs US Shoe)
+    const optionMap = new Map<number, SizeOption>();
     for (const option of sizeOptions) {
-      if (option.name && typeof option.name === "string") {
-        optionMap.set(option.name.toLowerCase(), option);
+      if (option.sortIndex !== undefined) {
+        optionMap.set(option.sortIndex, option);
       }
     }
 
     return selectedSizes
       .filter((s) => s.name && typeof s.name === "string")
       .map((size) => {
-        const key = size.name.toLowerCase();
-        const matchedOption = optionMap.get(key);
+        const matchedOption = size.sortIndex !== undefined ? optionMap.get(size.sortIndex) : undefined;
         // If we find a match with a real ID, use it
         if (matchedOption?.id) {
           return matchedOption;

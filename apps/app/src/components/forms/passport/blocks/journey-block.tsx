@@ -473,6 +473,7 @@ export function JourneySection({
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const stepIdMapRef = React.useRef<Map<string, string>>(new Map());
+  const justCreatedTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Track operators that were just created to preserve them during sync
   const [justCreatedOperator, setJustCreatedOperator] = React.useState<{
@@ -590,6 +591,9 @@ export function JourneySection({
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
+      if (justCreatedTimeoutRef.current) {
+        clearTimeout(justCreatedTimeoutRef.current);
+      }
     };
   }, [displaySteps, syncToParent]);
 
@@ -649,7 +653,10 @@ export function JourneySection({
     });
 
     // Clear after a delay (once sync is stable)
-    setTimeout(() => setJustCreatedOperator(null), 500);
+    if (justCreatedTimeoutRef.current) {
+      clearTimeout(justCreatedTimeoutRef.current);
+    }
+    justCreatedTimeoutRef.current = setTimeout(() => setJustCreatedOperator(null), 500);
   };
 
   const deleteJourneyStep = (id: string) => {

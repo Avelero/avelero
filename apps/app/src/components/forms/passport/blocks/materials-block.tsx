@@ -318,6 +318,7 @@ export function MaterialsSection({
     forTempId: string;
   } | null>(null);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const justCreatedTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Sync parent materials with display materials
   // Preserve pending materials (temp IDs) and materials being created
@@ -426,6 +427,9 @@ export function MaterialsSection({
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
+      if (justCreatedTimeoutRef.current) {
+        clearTimeout(justCreatedTimeoutRef.current);
+      }
     };
   }, [displayMaterials, syncToParent]);
 
@@ -484,7 +488,10 @@ export function MaterialsSection({
       setCreatingForMaterialId(null);
 
       // Clear justCreatedMaterial after a delay (once sync is stable)
-      setTimeout(() => setJustCreatedMaterial(null), 500);
+      if (justCreatedTimeoutRef.current) {
+        clearTimeout(justCreatedTimeoutRef.current);
+      }
+      justCreatedTimeoutRef.current = setTimeout(() => setJustCreatedMaterial(null), 500);
     }
   };
 

@@ -129,6 +129,7 @@ export function CustomSizeModal({
         {
           delay: 500,
           successMessage: `Size "${sizeName.trim()}" created`,
+          errorMessage: `Failed to create size "${sizeName.trim()}"`,
         },
       );
 
@@ -174,6 +175,7 @@ export function CustomSizeModal({
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to create size:", error);
+      // Error toast is already shown by toast.loading errorMessage option
     }
   };
 
@@ -197,7 +199,11 @@ export function CustomSizeModal({
                 value={sizeName}
                 onChange={(e) => setSizeName(e.target.value)}
                 placeholder="Enter size"
+                className={nameError ? "border-destructive" : ""}
               />
+              {nameError && (
+                <p className="type-small text-destructive">{nameError}</p>
+              )}
             </div>
 
             {/* Reference size selector (required) */}

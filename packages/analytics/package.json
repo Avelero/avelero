@@ -14,7 +14,7 @@
     "@openpanel/nextjs": "^1.0.0",
     "@v1/logger": "workspace:*",
     "@vercel/functions": "^1.4.1",
-    "react": "19.2.0"
+    "react": "19.2.1"
   },
   "devDependencies": {
     "@types/react": "19.2.6",

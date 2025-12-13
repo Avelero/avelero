@@ -467,7 +467,9 @@ const SizeFlatSubmenu = React.memo(function SizeFlatSubmenu({
 
   const handleToggleSize = React.useCallback(
     (size: SizeOption) => {
-      const sizeId = size.id || `custom-${size.name}`;
+      // Use sortIndex as fallback since it's documented as the unique identifier
+      // This prevents ID collisions for sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
+      const sizeId = size.id || `custom-${size.sortIndex}`;
       onToggleValue(sizeId);
       setSearchTerm("");
     },
@@ -501,11 +503,12 @@ const SizeFlatSubmenu = React.memo(function SizeFlatSubmenu({
           return (
             <CommandGroup key={groupName} heading={groupName}>
               {sizes.map((size) => {
-                const sizeId = size.id || `custom-${size.name}`;
+                // Use sortIndex as fallback since it's documented as the unique identifier
+                const sizeId = size.id || `custom-${size.sortIndex}`;
                 const isSelected = selectedValues.includes(sizeId);
                 return (
                   <CommandItem
-                    key={size.name}
+                    key={size.sortIndex}
                     value={size.name}
                     onSelect={() => handleToggleSize(size)}
                     className="justify-between"

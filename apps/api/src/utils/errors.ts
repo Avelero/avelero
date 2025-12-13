@@ -505,6 +505,8 @@ export function wrapError(error: unknown, context: string): TRPCError {
     return badRequest(constraintMessage);
   }
 
-  // For all other errors, use the generic context message
-  return badRequest(context);
+  // For all other unknown errors, return internal server error (HTTP 500)
+  // Log the original error on the server for debugging, but don't expose it to the client
+  console.error("Unexpected error:", error);
+  return internalServerError(context, error);
 }

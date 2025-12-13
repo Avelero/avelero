@@ -48,7 +48,9 @@ export function JourneyFrame({ journey, themeConfig }: Props) {
                       className="flex items-center gap-xs journey-card__operator"
                     >
                       <span>
-                        {company.name} • {company.location}
+                        {company.name}
+                        {company.name && company.location && " • "}
+                        {company.location}
                       </span>
                     </div>
                   ))}

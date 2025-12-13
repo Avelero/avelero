@@ -11,7 +11,7 @@ import { BrandsRow } from "./brands-row";
 type TabKey = "brands" | "invites";
 
 type RouterOutputs = inferRouterOutputs<AppRouter>;
-type BrandList = RouterOutputs["workflow"]["list"];
+type BrandList = RouterOutputs["user"]["brands"]["list"];
 type MyInvites = RouterOutputs["user"]["invites"]["list"];
 type Membership = BrandList[number];
 type Invite = MyInvites[number];
@@ -76,6 +76,7 @@ export function BrandsTable() {
           role: i.role as "owner" | "member",
           brand_name: i.brand_name as string,
           brand_logo: i.brand_logo ?? null,
+          brand_avatar_hue: i.brand_avatar_hue ?? null,
         })),
     [invites],
   );

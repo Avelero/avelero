@@ -86,7 +86,7 @@ const ColorLabel = ({
 export function ColorSelect({
   value,
   onValueChange,
-  placeholder = "Add color",
+  placeholder = "Add colors",
   disabled = false,
   className,
 }: ColorSelectProps) {
@@ -98,11 +98,19 @@ export function ColorSelect({
   const [view, setView] = React.useState<"main" | "picker">("main");
   const [pendingColorName, setPendingColorName] = React.useState("");
 
-  // API mutation for creating color
+  // API mutation for creating color - ONLY used in handleColorPick for manual creation
   const createColorMutation = useMutation(
-    trpc.brand.colors.create.mutationOptions(),
+    trpc.catalog.colors.create.mutationOptions(),
   );
 
+  /**
+   * Toggle color selection - NO API calls here!
+   *
+   * This handles selecting colors from the main list (both brand colors and default colors).
+   * - Brand colors (with id) are already in the database
+   * - Default colors (without id) are stored in local state only; they will be created
+   *   when the product is saved, NOT when selected
+   */
   const handleToggleColor = (color: ColorOption) => {
     const targetKey = getColorKey(color);
     const isSelected = value.some((c) => getColorKey(c) === targetKey);
@@ -118,6 +126,11 @@ export function ColorSelect({
     onValueChange(value.filter((c) => getColorKey(c) !== targetKey));
   };
 
+  /**
+   * Opens the color picker for MANUAL color creation.
+   * This is triggered when a user types a color name that doesn't exist
+   * and clicks "Create".
+   */
   const handleCreateClick = () => {
     const trimmed = searchTerm.trim();
     if (trimmed) {
@@ -127,6 +140,21 @@ export function ColorSelect({
     }
   };
 
+  /**
+   * Creates a color immediately via API.
+   *
+   * This is ONLY called when a user MANUALLY creates a custom color by:
+   * 1. Typing a color name that doesn't exist
+   * 2. Clicking "Create"
+   * 3. Picking a hex from the color palette
+   *
+   * This creates the color immediately because the user has shown explicit
+   * intent to create a new color. The color persists even if they cancel
+   * the product creation.
+   *
+   * This is DIFFERENT from selecting a default color, which does NOT
+   * trigger immediate creation.
+   */
   const handleColorPick = async (hex: string) => {
     const colorName = pendingColorName.trim();
     if (!colorName || createColorMutation.isPending) {
@@ -161,7 +189,7 @@ export function ColorSelect({
 
       // Optimistically update the cache immediately
       queryClient.setQueryData(
-        trpc.composite.brandCatalogContent.queryKey(),
+        trpc.composite.catalogContent.queryKey(),
         (old: any) => {
           if (!old?.brandCatalog) return old;
           const existingColors = old.brandCatalog.colors ?? [];
@@ -181,7 +209,7 @@ export function ColorSelect({
 
       // Invalidate to trigger background refetch
       queryClient.invalidateQueries({
-        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+        queryKey: trpc.composite.catalogContent.queryKey(),
       });
 
       // Add to selection with real ID

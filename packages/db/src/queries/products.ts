@@ -830,13 +830,32 @@ export async function listProductsWithIncludes(
   };
 }
 
+/**
+ * Identifier for product lookup - accepts either UUID or UPID.
+ */
+export type ProductIdentifier = { id: string } | { upid: string };
+
+/**
+ * Retrieves a product with optional variants and attributes.
+ * Accepts either a product ID (UUID) or UPID (16-char alphanumeric).
+ *
+ * @param db - Database instance
+ * @param brandId - Brand identifier for scoping
+ * @param identifier - Either { id: string } or { upid: string }
+ * @param opts - Optional include flags for variants and attributes
+ * @returns Product with requested relations or null if not found
+ */
 export async function getProductWithIncludes(
   db: Database,
   brandId: string,
-  productId: string,
+  identifier: ProductIdentifier,
   opts: { includeVariants?: boolean; includeAttributes?: boolean } = {},
 ): Promise<ProductWithRelations | null> {
-  const base = await getProduct(db, brandId, productId);
+  // Determine which lookup to use based on identifier type
+  const base = 'id' in identifier
+    ? await getProduct(db, brandId, identifier.id)
+    : await getProductByUpid(db, brandId, identifier.upid);
+  
   if (!base) return null;
 
   const product: ProductWithRelations = { ...base };
@@ -856,30 +875,98 @@ export async function getProductWithIncludes(
   return product;
 }
 
+/**
+ * @deprecated Use getProductWithIncludes with { id } identifier instead.
+ * This function is kept for backward compatibility during migration.
+ */
+export async function getProductWithIncludesById(
+  db: Database,
+  brandId: string,
+  productId: string,
+  opts: { includeVariants?: boolean; includeAttributes?: boolean } = {},
+): Promise<ProductWithRelations | null> {
+  return getProductWithIncludes(db, brandId, { id: productId }, opts);
+}
+
+/**
+ * @deprecated Use getProductWithIncludes with { upid } identifier instead.
+ * This function is kept for backward compatibility during migration.
+ */
 export async function getProductWithIncludesByUpid(
   db: Database,
   brandId: string,
   productUpid: string,
   opts: { includeVariants?: boolean; includeAttributes?: boolean } = {},
 ): Promise<ProductWithRelations | null> {
-  const base = await getProductByUpid(db, brandId, productUpid);
-  if (!base) return null;
+  return getProductWithIncludes(db, brandId, { upid: productUpid }, opts);
+}
 
-  const product: ProductWithRelations = { ...base };
-  const productIds = [product.id];
+/**
+ * Identifier for variant listing - accepts either product UUID or UPID.
+ */
+export type VariantProductIdentifier = { product_id: string } | { product_upid: string };
 
-  if (opts.includeVariants) {
-    const variantsMap = await loadVariantsForProducts(db, productIds);
-    product.variants = variantsMap.get(product.id) ?? [];
+/**
+ * Lists variants for a product.
+ * Accepts either a product ID (UUID) or product UPID (16-char alphanumeric).
+ *
+ * @param db - Database instance
+ * @param brandId - Brand identifier for scoping
+ * @param identifier - Either { product_id: string } or { product_upid: string }
+ * @param opts - Optional pagination options
+ * @returns Array of variants for the product
+ */
+export async function listVariantsForProduct(
+  db: Database,
+  brandId: string,
+  identifier: VariantProductIdentifier,
+  opts: { cursor?: string; limit?: number } = {},
+): Promise<ProductVariantSummary[]> {
+  // Resolve product ID from identifier
+  let productId: string;
+  
+  if ('product_id' in identifier) {
+    // Direct product ID - verify it belongs to brand
+    const product = await getProduct(db, brandId, identifier.product_id);
+    if (!product) return [];
+    productId = product.id;
+  } else {
+    // UPID - look up product first
+    const product = await getProductByUpid(db, brandId, identifier.product_upid);
+    if (!product) return [];
+    productId = product.id;
   }
 
-  if (opts.includeAttributes) {
-    const attributesMap = await loadAttributesForProducts(db, productIds);
-    product.attributes =
-      attributesMap.get(product.id) ?? createEmptyAttributes();
-  }
+  const limit = Math.min(Math.max(opts.limit ?? 100, 1), 100);
+  const offset = Number.isFinite(Number(opts.cursor))
+    ? Math.max(0, Number(opts.cursor))
+    : 0;
 
-  return product;
+  const rows = await db
+    .select({
+      id: productVariants.id,
+      product_id: productVariants.productId,
+      color_id: productVariants.colorId,
+      size_id: productVariants.sizeId,
+      upid: productVariants.upid,
+      created_at: productVariants.createdAt,
+      updated_at: productVariants.updatedAt,
+    })
+    .from(productVariants)
+    .where(eq(productVariants.productId, productId))
+    .orderBy(asc(productVariants.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  return rows.map((row) => ({
+    id: row.id,
+    product_id: row.product_id,
+    color_id: row.color_id ?? null,
+    size_id: row.size_id ?? null,
+    upid: row.upid ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }));
 }
 
 export async function getProduct(db: Database, brandId: string, id: string) {

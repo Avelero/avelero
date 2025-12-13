@@ -4,27 +4,30 @@
  * Each domain-specific router is composed into this root router so the client
  * and server can share a single set of type-safe endpoints.
  *
- * This uses the reorganized v2 API structure as defined in docs/NEW_API_ENDPOINTS.txt.
+ * Phase 4 changes:
+ * - Renamed `workflow` → `brand` (brand lifecycle)
+ * - Renamed `brand` → `catalog` (catalog entities)
+ * - Added collections to brand router
  */
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { createTRPCRouter } from "../init.js";
 import { brandRouter } from "./brand/index.js";
 import { bulkRouter } from "./bulk/index.js";
+import { catalogRouter } from "./catalog/index.js";
 import { compositeRouter } from "./composite/index.js";
+import { dppPublicRouter } from "./dpp-public/index.js";
 import { internalRouter } from "./internal/index.js";
 import { productsRouter } from "./products/index.js";
 import { summaryRouter } from "./summary/index.js";
 import { userRouter } from "./user/index.js";
-import { workflowRouter } from "./workflow/index.js";
-import { dppPublicRouter } from "./dpp-public/index.js";
 
 /**
  * Main tRPC router containing every API module exposed to clients.
  *
- * Structure (v2 reorganized API):
- * - user: User profile and invites
- * - workflow: Brand lifecycle, members, and invites (renamed from "brand")
- * - brand: Brand catalog (colors, sizes, materials, etc.) (renamed from "brandCatalog")
+ * Structure (reorganized API - Phase 4):
+ * - user: User profile, invites (accept/reject), and brand management (list/create/leave)
+ * - brand: Brand lifecycle (update/delete), members, invites (send/revoke), theme, collections
+ * - catalog: Brand catalog entities (colors, sizes, materials, etc.)
  * - products: Products, variants, and attributes
  * - bulk: Centralized bulk operations
  * - composite: Performance-optimized composite endpoints
@@ -34,8 +37,8 @@ import { dppPublicRouter } from "./dpp-public/index.js";
  */
 export const appRouter = createTRPCRouter({
   user: userRouter,
-  workflow: workflowRouter,
   brand: brandRouter,
+  catalog: catalogRouter,
   products: productsRouter,
   bulk: bulkRouter,
   composite: compositeRouter,

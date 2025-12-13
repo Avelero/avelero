@@ -257,7 +257,7 @@ export function EntityValueCombobox({
 
   // Fetch entity data (cached by parent component)
   const { data: colorsData } = useQuery({
-    ...trpc.brand.colors.list.queryOptions(undefined),
+    ...trpc.catalog.colors.list.queryOptions(undefined),
     enabled: entityType === "COLOR",
   });
 

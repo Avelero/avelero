@@ -39,9 +39,16 @@ export function VariantSection({
   const [customSizeModalOpen, setCustomSizeModalOpen] = React.useState(false);
   const [pendingCustomSizeName, setPendingCustomSizeName] = React.useState("");
 
-  // Convert colorIds + pending colors to ColorOption objects for ColorSelect
+  /**
+   * Convert colorIds + pending colors to ColorOption objects for ColorSelect.
+   *
+   * - colorIds: UUIDs of colors already in brand's database
+   * - pendingColors: Colors selected but not yet in database (default colors or pending creation)
+   */
   const selectedColors = React.useMemo<ColorOption[]>(() => {
     const mapped: ColorOption[] = [];
+
+    // Map existing brand colors (have real UUIDs)
     for (const id of colorIds) {
       const color = availableColors.find((c) => c.id === id);
       if (color) {
@@ -52,12 +59,17 @@ export function VariantSection({
         });
       }
     }
+
+    // Map pending colors (default colors or manually created colors waiting for product save)
+    // These have no id - they'll be created when the product is saved
     for (const pending of pendingColors) {
       mapped.push({
+        id: undefined, // Explicitly undefined - will be created on product save
         name: pending.name,
         hex: pending.hex,
       });
     }
+
     return mapped;
   }, [colorIds, pendingColors, availableColors]);
 
@@ -133,11 +145,16 @@ export function VariantSection({
                 const pendingMap = new Map<string, PendingColorSelection>();
 
                 for (const color of newColors) {
-                  if (color.id) {
+                  // Colors with id are already in the brand's database
+                  // Colors without id are:
+                  //   - Default colors (selected but not yet created)
+                  //   - Custom colors that will be created on product save
+                  if (color.id && color.id.length > 0) {
                     nextIds.add(color.id);
                   } else {
+                    // No id = pending color (will be created when product is saved)
                     const key = color.name.trim().toLowerCase();
-                    if (!key) return;
+                    if (!key) continue; // Skip empty names, don't return
                     pendingMap.set(key, {
                       name: color.name.trim(),
                       hex: color.hex.replace("#", "").trim().toUpperCase(),
@@ -148,7 +165,7 @@ export function VariantSection({
                 setColorIds(Array.from(nextIds));
                 setPendingColors(Array.from(pendingMap.values()));
               }}
-              placeholder="Add color"
+              placeholder="Add colors"
             />
             {colorsError && (
               <p className="type-small text-destructive">{colorsError}</p>
@@ -162,7 +179,7 @@ export function VariantSection({
               value={normalizedSelectedSizes}
               onValueChange={handleSizeSelectionChange}
               onCreateNew={handleCreateNewSize}
-              placeholder="Add size"
+              placeholder="Add sizes"
             />
             {sizesError && (
               <p className="type-small text-destructive">{sizesError}</p>

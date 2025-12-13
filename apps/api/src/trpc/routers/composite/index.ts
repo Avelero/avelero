@@ -27,13 +27,16 @@ import { getAppUrl } from "@v1/utils/envs";
 /**
  * Composite endpoints router implementation.
  *
+ * Performance-optimized batch queries that stitch multiple domain reads
+ * together for dashboard and form initialization.
+ *
  * Targets:
- * - composite.workflowInit
+ * - composite.initDashboard (renamed from workflowInit in Phase 6)
  * - composite.membersWithInvites
- * - composite.brandCatalogContent
+ * - composite.catalogContent (renamed from brandCatalogContent in Phase 6)
  */
 import { ROLES } from "../../../config/roles.js";
-import { workflowBrandIdOptionalSchema } from "../../../schemas/workflow.js";
+import { brandIdOptionalSchema } from "../../../schemas/brand.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
 import { createEntityResponse } from "../../../utils/response.js";
 import {
@@ -304,12 +307,14 @@ type WorkflowInviteList = Awaited<ReturnType<typeof fetchWorkflowInvites>>;
  */
 export const compositeRouter = createTRPCRouter({
   /**
-   * Fetches user profile, workflow memberships, and personal invites in one call.
+   * Fetches user profile, brand memberships, and personal invites in one call.
    *
    * Replaces three individual network requests made during dashboard layout
    * hydration to reduce paint time.
+   *
+   * Renamed from `workflowInit` in Phase 6.
    */
-  workflowInit: protectedProcedure.query(async ({ ctx }) => {
+  initDashboard: protectedProcedure.query(async ({ ctx }) => {
     const { db, user } = ctx;
     const email = user.email ?? null;
 
@@ -340,7 +345,7 @@ export const compositeRouter = createTRPCRouter({
    * Combines workflow members and pending invites for the selected brand.
    */
   membersWithInvites: brandRequiredProcedure
-    .input(workflowBrandIdOptionalSchema)
+    .input(brandIdOptionalSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId, role } = ctx;
       if (input.brand_id !== undefined && brandId !== input.brand_id) {
@@ -365,8 +370,10 @@ export const compositeRouter = createTRPCRouter({
    *
    * Returns brand catalog entities and global categories in a single call to
    * minimize waterfall requests in the app.
+   *
+   * Renamed from `brandCatalogContent` in Phase 6.
    */
-  brandCatalogContent: brandRequiredProcedure.query(async ({ ctx }) => {
+  catalogContent: brandRequiredProcedure.query(async ({ ctx }) => {
     const brandCtx = ctx as BrandContext;
     const brandId = brandCtx.brandId;
 

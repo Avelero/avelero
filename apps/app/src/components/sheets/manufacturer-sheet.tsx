@@ -82,7 +82,7 @@ export function ManufacturerSheet({
 
   // API mutation for creating manufacturer
   const createManufacturerMutation = useMutation(
-    trpc.brand.manufacturers.create.mutationOptions(),
+    trpc.catalog.manufacturers.create.mutationOptions(),
   );
 
   const validationSchema = React.useMemo<
@@ -233,7 +233,7 @@ export function ManufacturerSheet({
 
       // Optimistically update the cache immediately
       queryClient.setQueryData(
-        trpc.composite.brandCatalogContent.queryKey(),
+        trpc.composite.catalogContent.queryKey(),
         (old: any) => {
           if (!old) return old;
           return {
@@ -266,7 +266,7 @@ export function ManufacturerSheet({
 
       // Invalidate to trigger background refetch
       queryClient.invalidateQueries({
-        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+        queryKey: trpc.composite.catalogContent.queryKey(),
       });
 
       // Transform API response to component format

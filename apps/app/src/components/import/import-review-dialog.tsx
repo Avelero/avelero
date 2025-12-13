@@ -151,19 +151,19 @@ function ImportReviewDialogContent({
 
   // Individual entity creation mutations
   const createMaterialMutation = useMutation(
-    trpc.brand.materials.create.mutationOptions(),
+    trpc.catalog.materials.create.mutationOptions(),
   );
   const createSizeMutation = useMutation(
-    trpc.brand.sizes.create.mutationOptions(),
+    trpc.catalog.sizes.create.mutationOptions(),
   );
   const createSeasonMutation = useMutation(
-    trpc.brand.seasons.create.mutationOptions(),
+    trpc.catalog.seasons.create.mutationOptions(),
   );
   const createFacilityMutation = useMutation(
-    trpc.brand.facilities.create.mutationOptions(),
+    trpc.catalog.facilities.create.mutationOptions(),
   );
   const createManufacturerMutation = useMutation(
-    trpc.brand.manufacturers.create.mutationOptions(),
+    trpc.catalog.manufacturers.create.mutationOptions(),
   );
   const mapToExistingMutation = useMutation(
     trpc.bulk.values.mapToExisting.mutationOptions(),

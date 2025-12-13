@@ -197,10 +197,10 @@ export function MaterialSheet({
 
   // API mutations
   const createMaterialMutation = useMutation(
-    trpc.brand.materials.create.mutationOptions(),
+    trpc.catalog.materials.create.mutationOptions(),
   );
   const createCertificationMutation = useMutation(
-    trpc.brand.certifications.create.mutationOptions(),
+    trpc.catalog.certifications.create.mutationOptions(),
   );
 
   // Compute loading state from mutations and uploads
@@ -341,7 +341,7 @@ export function MaterialSheet({
       // Optimistically update the cache immediately
       const now = new Date().toISOString();
       queryClient.setQueryData(
-        trpc.composite.brandCatalogContent.queryKey(),
+        trpc.composite.catalogContent.queryKey(),
         (old: any) => {
           if (!old) return old;
           return {
@@ -379,7 +379,7 @@ export function MaterialSheet({
 
       // Invalidate to trigger background refetch
       queryClient.invalidateQueries({
-        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+        queryKey: trpc.composite.catalogContent.queryKey(),
       });
 
       // Set as selected certification
@@ -428,7 +428,7 @@ export function MaterialSheet({
           // Optimistically update the cache immediately
           const now = new Date().toISOString();
           queryClient.setQueryData(
-            trpc.composite.brandCatalogContent.queryKey(),
+            trpc.composite.catalogContent.queryKey(),
             (old: any) => {
               if (!old) return old;
               return {
@@ -454,7 +454,7 @@ export function MaterialSheet({
 
           // Invalidate to trigger background refetch
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.brandCatalogContent.queryKey(),
+            queryKey: trpc.composite.catalogContent.queryKey(),
           });
 
           // Find selected certification data if one is selected

@@ -5,25 +5,28 @@
  * @example
  * ```typescript
  * // Before:
- * import { createBrandSchema } from "../../schemas/brand.js";
+ * import { brandCreateSchema } from "../../schemas/brand.js";
  * import { createProductSchema } from "../../schemas/products.js";
  *
  * // After:
- * import { createBrandSchema, createProductSchema } from "../../schemas/index.js";
+ * import { brandCreateSchema, createProductSchema } from "../../schemas/index.js";
  * ```
  *
- * Brand catalog schemas are namespaced to avoid conflicts:
+ * Catalog schemas are namespaced to avoid conflicts:
  * @example
  * ```typescript
- * import { brandCatalog } from "../../schemas/index.js";
- * const colorSchema = brandCatalog.createColorSchema;
+ * import { catalog } from "../../schemas/index.js";
+ * const colorSchema = catalog.createColorSchema;
  * ```
  */
-export * from "./brand.js";
-export * from "./catalog.js";
 export * from "./products.js";
 export * from "./bulk.js";
 export * from "./user.js";
-export * from "./workflow.js";
-export * as brandCatalog from "./brand-catalog/index.js";
+export * from "./brand.js";
+export * from "./brand-theme.js";
+export * from "./brand-collections.js";
+export * from "./dpp-public.js";
+export * as catalog from "./catalog/index.js";
+// Legacy alias for backward compatibility during migration
+export * as brandCatalog from "./catalog/index.js";
 export { byIdSchema as idParamSchema } from "./_shared/patterns.js";

@@ -34,6 +34,12 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
   } = usePassportFormContext();
   const isEditMode = mode === "edit";
 
+  // Filter out colors without IDs (default colors not yet in DB)
+  const availableColors = React.useMemo(
+    () => brandColors.filter((c): c is { id: string; name: string; hex: string } => c.id !== undefined),
+    [brandColors]
+  );
+
   // Consolidated form hook (state + validation + submission)
   const {
     state,
@@ -44,7 +50,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     submit,
     isSubmitting,
     hasUnsavedChanges,
-  } = usePassportForm({ mode, productUpid, sizeOptions, colors: brandColors });
+  } = usePassportForm({ mode, productUpid, sizeOptions, colors: availableColors });
 
   const handleSelectedSizesChange = React.useCallback<
     React.Dispatch<React.SetStateAction<SizeOption[]>>
@@ -404,7 +410,7 @@ export function CreatePassportForm() {
 export function EditPassportForm({ productUpid }: { productUpid: string }) {
   const trpc = useTRPC();
   useSuspenseQuery(
-    trpc.products.getByUpid.queryOptions({
+    trpc.products.get.queryOptions({
       upid: productUpid,
       includeVariants: true,
       includeAttributes: true,

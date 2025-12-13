@@ -25,7 +25,7 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const trpc = useTRPC();
   const router = useRouter();
-  const deleteMutation = useMutation(trpc.workflow.delete.mutationOptions());
+  const deleteMutation = useMutation(trpc.brand.delete.mutationOptions());
 
   // Prefetch possible navigation routes for post-deletion
   useEffect(() => {

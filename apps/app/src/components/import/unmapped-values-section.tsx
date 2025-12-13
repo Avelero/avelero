@@ -149,35 +149,35 @@ export function UnmappedValuesSection({
 
     // Populate colors cache
     if (catalogData.colors.length > 0) {
-      queryClient.setQueryData(trpc.brand.colors.list.queryKey(undefined), {
+      queryClient.setQueryData(trpc.catalog.colors.list.queryKey(undefined), {
         data: catalogData.colors,
       });
     }
 
     // Populate materials cache
     if (catalogData.materials.length > 0) {
-      queryClient.setQueryData(trpc.brand.materials.list.queryKey({}), {
+      queryClient.setQueryData(trpc.catalog.materials.list.queryKey({}), {
         data: catalogData.materials,
       });
     }
 
     // Populate sizes cache
     if (catalogData.sizes.length > 0) {
-      queryClient.setQueryData(trpc.brand.sizes.list.queryKey({}), {
+      queryClient.setQueryData(trpc.catalog.sizes.list.queryKey({}), {
         data: catalogData.sizes,
       });
     }
 
     // Populate facilities cache
     if (catalogData.facilities.length > 0) {
-      queryClient.setQueryData(trpc.brand.facilities.list.queryKey({}), {
+      queryClient.setQueryData(trpc.catalog.facilities.list.queryKey({}), {
         data: catalogData.facilities,
       });
     }
 
     // Populate manufacturers cache
     if (catalogData.manufacturers.length > 0) {
-      queryClient.setQueryData(trpc.brand.manufacturers.list.queryKey({}), {
+      queryClient.setQueryData(trpc.catalog.manufacturers.list.queryKey({}), {
         data: catalogData.manufacturers,
       });
     }

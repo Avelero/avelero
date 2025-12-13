@@ -14,18 +14,18 @@ export function useFilterOptions() {
 
   // Fetch the main passport form references using proper tRPC query
   const { data: formData, isLoading: isFormDataLoading } = useQuery(
-    trpc.composite.brandCatalogContent.queryOptions(),
+    trpc.composite.catalogContent.queryOptions(),
   );
 
   // Fetch additional endpoints that aren't in the composite
   const { data: tagsData, isLoading: isTagsLoading } = useQuery(
-    trpc.brand.tags.list.queryOptions(undefined),
+    trpc.catalog.tags.list.queryOptions(undefined),
   );
 
   // Transform and memoize all options
   const options = React.useMemo(() => {
     return {
-      // From composite.brandCatalogContent
+      // From composite.catalogContent
       categories:
         formData?.categories?.map((c: { id: string; name: string }) => ({
           value: c.id,
@@ -88,7 +88,7 @@ export function useFilterOptions() {
           }),
         ) ?? [],
 
-      // From composite.brandCatalogContent
+      // From composite.catalogContent
       ecoClaims:
         formData?.brandCatalog?.ecoClaims?.map(
           (c: { id: string; claim: string }) => ({

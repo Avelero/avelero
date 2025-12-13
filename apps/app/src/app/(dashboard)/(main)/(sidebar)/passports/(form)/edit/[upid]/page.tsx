@@ -19,12 +19,12 @@ export default async function EditPassportPage({
   const { upid } = await params;
 
   batchPrefetch([
-    trpc.products.getByUpid.queryOptions({
+    trpc.products.get.queryOptions({
       upid,
       includeVariants: true,
       includeAttributes: true,
     }),
-    trpc.composite.brandCatalogContent.queryOptions(),
+    trpc.composite.catalogContent.queryOptions(),
   ]);
 
   return (

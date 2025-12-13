@@ -575,6 +575,99 @@ function formatNumber(value: string): string {
 
 // DppData type is now imported from @v1/dpp-components
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Public Carousel Query
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Carousel product for public DPP display.
+ */
+export interface PublicCarouselProduct {
+  id: string;
+  name: string;
+  primaryImagePath: string | null;
+  price: string;
+  currency: string;
+  webshopUrl: string;
+}
+
+/**
+ * Fetch carousel products for public DPP display.
+ * Resolves brand by slug and product by UPID, then fetches carousel
+ * based on theme config settings.
+ *
+ * @param db - Database instance (use serviceDb for bypassing RLS)
+ * @param brandSlug - Brand slug (URL-friendly identifier)
+ * @param currentProductUpid - Current product UPID to exclude from carousel
+ * @param limit - Maximum number of products (default 8, max 20)
+ * @returns Array of carousel products or empty array if brand/product not found
+ */
+export async function getCarouselProductsForDpp(
+  db: Database,
+  brandSlug: string,
+  currentProductUpid: string,
+  limit: number = 8,
+): Promise<PublicCarouselProduct[]> {
+  // First, resolve the brand and product
+  const brandRows = await db
+    .select({
+      brandId: brands.id,
+      themeConfig: brandTheme.themeConfig,
+    })
+    .from(brands)
+    .leftJoin(brandTheme, eq(brandTheme.brandId, brands.id))
+    .where(eq(brands.slug, brandSlug))
+    .limit(1);
+
+  const brand = brandRows[0];
+  if (!brand) return [];
+
+  // Get the current product to exclude and get its category
+  const productRows = await db
+    .select({
+      id: products.id,
+      categoryId: products.categoryId,
+    })
+    .from(products)
+    .where(
+      and(
+        eq(products.brandId, brand.brandId),
+        eq(products.upid, currentProductUpid),
+        eq(products.status, "published"),
+      ),
+    )
+    .limit(1);
+
+  const currentProduct = productRows[0];
+  if (!currentProduct) return [];
+
+  // Extract carousel config from theme
+  const themeConfig = brand.themeConfig as Record<string, unknown> | null;
+  const carouselConfig = themeConfig?.carousel as {
+    productCount?: number;
+    filter?: Record<string, unknown>;
+    includeIds?: string[];
+    excludeIds?: string[];
+  } | null;
+
+  // Use the existing fetchCarouselProducts function
+  const { fetchCarouselProducts } = await import("./carousel-products.js");
+
+  const carouselProducts = await fetchCarouselProducts(db, {
+    brandId: brand.brandId,
+    currentProductId: currentProduct.id,
+    currentCategoryId: currentProduct.categoryId,
+    carouselConfig: carouselConfig
+      ? {
+          ...carouselConfig,
+          productCount: Math.min(limit, carouselConfig.productCount ?? limit, 20),
+        }
+      : { productCount: Math.min(limit, 20) },
+  });
+
+  return carouselProducts;
+}
+
 /**
  * Transform DppPublicData (database format) to DppData (component format).
  *

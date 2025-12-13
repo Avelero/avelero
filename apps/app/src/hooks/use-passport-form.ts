@@ -42,7 +42,7 @@ export interface PassportFormValues {
   // Journey
   journeySteps: Array<{
     stepType: string;
-    facilityIds: string[]; // Changed from facilityId to support multiple operators
+    facilityId: string; // 1:1 relationship with facility
     sortIndex: number;
   }>;
 
@@ -205,6 +205,17 @@ function getPassportValidationErrors(
   return mapped;
 }
 
+// Strip trailing zeros from numeric strings (e.g., "85.3400" -> "85.34")
+function stripTrailingZeros(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "";
+  const str = String(value);
+  // If it has a decimal point, remove trailing zeros after the decimal
+  if (str.includes(".")) {
+    return str.replace(/\.?0+$/, "");
+  }
+  return str;
+}
+
 export function usePassportForm(options?: UsePassportFormOptions) {
   const mode = options?.mode ?? "create";
   const productUpid = options?.productUpid ?? null;
@@ -252,15 +263,15 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   );
 
   const createBrandColorMutation = useMutation(
-    trpc.brand.colors.create.mutationOptions(),
+    trpc.catalog.colors.create.mutationOptions(),
   );
 
   const createBrandSizeMutation = useMutation(
-    trpc.brand.sizes.create.mutationOptions(),
+    trpc.catalog.sizes.create.mutationOptions(),
   );
 
   const passportFormQuery = useQuery({
-    ...trpc.products.getByUpid.queryOptions({
+    ...trpc.products.get.queryOptions({
       upid: productUpid ?? "",
       includeVariants: true,
       includeAttributes: true,
@@ -336,7 +347,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       journeySteps: values.journeySteps.map((step) => ({
         sortIndex: step.sortIndex,
         stepType: step.stepType,
-        facilityIds: step.facilityIds,
+        facilityId: step.facilityId,
       })),
       carbonKgCo2e: values.carbonKgCo2e,
       waterLiters: values.waterLiters,
@@ -422,7 +433,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       attributes.journey?.map((step: any) => ({
         sortIndex: step.sort_index ?? step.sortIndex ?? 0,
         stepType: step.step_type ?? step.stepType ?? "",
-        facilityIds: step.facility_ids ?? step.facilityIds ?? [], // Changed from facilityId to support multiple operators
+        facilityId: step.facility_id ?? step.facilityId ?? "", // 1:1 relationship with facility
       })) ?? [];
     const tagIds =
       attributes.tags
@@ -452,9 +463,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       materialData: materials,
       ecoClaims,
       journeySteps,
-      carbonKgCo2e:
+      carbonKgCo2e: stripTrailingZeros(
         environment.carbonKgCo2e ?? environment.carbon_kg_co2e ?? "",
-      waterLiters: environment.waterLiters ?? environment.water_liters ?? "",
+      ),
+      waterLiters: stripTrailingZeros(
+        environment.waterLiters ?? environment.water_liters ?? "",
+      ),
       status: payload.status ?? "unpublished",
     };
     setFields(nextValues);
@@ -585,7 +599,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
     if (createdColorMetadata.length > 0) {
       queryClient.setQueryData(
-        trpc.brand.colors.list.queryKey(),
+        trpc.catalog.colors.list.queryKey(),
         (old: any) => {
           if (!old?.data) {
             return old;
@@ -606,10 +620,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         },
       );
       void queryClient.invalidateQueries({
-        queryKey: trpc.brand.colors.list.queryKey(),
+        queryKey: trpc.catalog.colors.list.queryKey(),
       });
       void queryClient.invalidateQueries({
-        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+        queryKey: trpc.composite.catalogContent.queryKey(),
       });
     }
 
@@ -627,7 +641,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     formValues.pendingColors,
     queryClient,
     setFields,
-    trpc.composite.brandCatalogContent,
+    trpc.composite.catalogContent,
   ]);
 
   const resolvePendingSizes = React.useCallback(async () => {
@@ -635,7 +649,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
     // Get existing sizes from the brandCatalogContent cache
     const brandCatalogQuery = queryClient.getQueryData(
-      trpc.composite.brandCatalogContent.queryKey(),
+      trpc.composite.catalogContent.queryKey(),
     ) as any;
     const existingSizes = brandCatalogQuery?.brandCatalog?.sizes ?? [];
 
@@ -674,10 +688,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
     // Invalidate cache
     void queryClient.invalidateQueries({
-      queryKey: trpc.brand.sizes.list.queryKey(),
+      queryKey: trpc.catalog.sizes.list.queryKey(),
     });
     void queryClient.invalidateQueries({
-      queryKey: trpc.composite.brandCatalogContent.queryKey(),
+      queryKey: trpc.composite.catalogContent.queryKey(),
     });
 
     return resolvedIds;
@@ -685,12 +699,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     formValues.selectedSizes,
     createBrandSizeMutation,
     queryClient,
-    trpc.brand.sizes.list,
-    trpc.composite.brandCatalogContent,
+    trpc.catalog.sizes.list,
+    trpc.composite.catalogContent,
   ]);
 
   const createEcoClaimMutation = useMutation(
-    trpc.brand.ecoClaims.create.mutationOptions(),
+    trpc.catalog.ecoClaims.create.mutationOptions(),
   );
 
   const resolveEcoClaims = React.useCallback(async () => {
@@ -712,7 +726,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
     // Get existing eco-claims from the brandCatalogContent cache (where they're actually stored)
     const brandCatalogQuery = queryClient.getQueryData(
-      trpc.composite.brandCatalogContent.queryKey(),
+      trpc.composite.catalogContent.queryKey(),
     ) as any;
     const existingEcoClaims = brandCatalogQuery?.brandCatalog?.ecoClaims ?? [];
 
@@ -772,11 +786,11 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
     // Invalidate eco-claims cache so the list is fresh
     void queryClient.invalidateQueries({
-      queryKey: trpc.brand.ecoClaims.list.queryKey(),
+      queryKey: trpc.catalog.ecoClaims.list.queryKey(),
     });
     // Also invalidate the composite cache where eco-claims are stored
     void queryClient.invalidateQueries({
-      queryKey: trpc.composite.brandCatalogContent.queryKey(),
+      queryKey: trpc.composite.catalogContent.queryKey(),
     });
 
     return resolvedIds;
@@ -785,8 +799,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     createEcoClaimMutation,
     queryClient,
     setFields,
-    trpc.brand.ecoClaims.list,
-    trpc.composite.brandCatalogContent,
+    trpc.catalog.ecoClaims.list,
+    trpc.composite.catalogContent,
   ]);
 
   const submit = React.useCallback(
@@ -870,7 +884,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             ? formValues.journeySteps.map((step) => ({
                 sort_index: step.sortIndex,
                 step_type: step.stepType,
-                facility_ids: step.facilityIds, // Changed from facilityId to support multiple operators
+                facility_id: step.facilityId, // 1:1 relationship with facility
               }))
             : undefined;
         const environmentPayload =
@@ -959,7 +973,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           initialVariantSignatureRef.current = variantSignature;
           if (effectiveProductUpid) {
             void queryClient.invalidateQueries({
-              queryKey: trpc.products.getByUpid.queryKey({
+              queryKey: trpc.products.get.queryKey({
                 upid: effectiveProductUpid,
               }),
             });
@@ -1006,10 +1020,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             queryKey: trpc.products.list.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.brand.colors.list.queryKey(),
+            queryKey: trpc.catalog.colors.list.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.brandCatalogContent.queryKey(),
+            queryKey: trpc.composite.catalogContent.queryKey(),
           }),
           queryClient.invalidateQueries({
             queryKey: trpc.products.get.queryKey({ id: productId }),

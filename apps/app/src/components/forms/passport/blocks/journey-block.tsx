@@ -451,13 +451,13 @@ function DraggableJourneyRow({
 interface JourneySectionProps {
   journeySteps: Array<{
     stepType: string;
-    facilityIds: string[];
+    facilityId: string; // 1:1 relationship with facility
     sortIndex: number;
   }>;
   setJourneySteps: (
     value: Array<{
       stepType: string;
-      facilityIds: string[];
+      facilityId: string; // 1:1 relationship with facility
       sortIndex: number;
     }>,
   ) => void;
@@ -495,8 +495,8 @@ export function JourneySection({
   React.useEffect(() => {
     const enriched = parentSteps
       .map((ps) => {
-        // Find the operator for the first facility ID (single operator per step)
-        const facilityId = ps.facilityIds[0] || "";
+        // Find the operator for this step's facility
+        const facilityId = ps.facilityId || "";
         const operatorData = availableOperators.find(
           (op) => op.id === facilityId,
         );
@@ -569,7 +569,7 @@ export function JourneySection({
         .filter((s) => s.step && s.facilityId) // Only include complete steps
         .map((s, index) => ({
           stepType: s.step,
-          facilityIds: [s.facilityId], // Convert single to array for parent interface
+          facilityId: s.facilityId, // 1:1 relationship with facility
           sortIndex: index,
         }));
       setParentSteps(parentSteps);
@@ -630,7 +630,7 @@ export function JourneySection({
       .filter((s) => s.step && s.facilityId)
       .map((s, index) => ({
         stepType: s.step,
-        facilityIds: [s.facilityId],
+        facilityId: s.facilityId, // 1:1 relationship with facility
         sortIndex: index,
       }));
     setParentSteps(parentSteps);

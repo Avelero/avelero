@@ -51,13 +51,13 @@ export function SetupForm() {
           queryKey: trpc.user.get.queryKey(),
         });
         await queryClient.invalidateQueries({
-          queryKey: trpc.workflow.list.queryKey(),
+          queryKey: trpc.user.brands.list.queryKey(),
         });
         await queryClient.invalidateQueries({
-          queryKey: trpc.composite.workflowInit.queryKey(),
+          queryKey: trpc.composite.initDashboard.queryKey(),
         });
         const [brands, invites] = await Promise.all([
-          queryClient.fetchQuery(trpc.workflow.list.queryOptions()),
+          queryClient.fetchQuery(trpc.user.brands.list.queryOptions()),
           queryClient.fetchQuery(trpc.user.invites.list.queryOptions()),
         ]);
         const hasBrands = Array.isArray(brands) && brands.length > 0;

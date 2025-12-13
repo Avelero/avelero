@@ -8,6 +8,9 @@
  * - Uses service-level database access (bypasses RLS)
  * - Only returns published products
  * - Input validation on all parameters
+ *
+ * Phase 6 changes:
+ * - Added `carousel.list` endpoint for explicit carousel fetching
  */
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../../init.js";
@@ -18,8 +21,10 @@ import {
   getBrandBySlug,
   getBrandTheme,
   fetchCarouselProducts,
+  getProductByUpid,
   type CarouselProduct,
 } from "@v1/db/queries";
+import { dppCarouselListSchema } from "../../../schemas/dpp-public.js";
 import { getPublicUrl } from "@v1/supabase/storage";
 import type { StorageClient } from "@v1/supabase/storage";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
@@ -295,6 +300,57 @@ export const dppPublicRouter = createTRPCRouter({
         googleFontsUrl: theme?.googleFontsUrl ?? null,
       };
     }),
+
+  /**
+   * Carousel sub-router for explicit carousel product fetching.
+   * Added in Phase 6.
+   */
+  carousel: createTRPCRouter({
+    /**
+     * Fetch carousel products for public DPP display.
+     *
+     * This is an explicit endpoint for fetching carousel products,
+     * providing more control than the embedded carousel data in
+     * getByProductUpid/getByVariantUpid responses.
+     *
+     * @param brandSlug - URL-friendly brand identifier
+     * @param productUpid - Current product's UPID (to exclude from carousel)
+     * @param limit - Maximum number of products to return (1-20, default 8)
+     * @returns Array of carousel products, or empty array if insufficient products
+     */
+    list: publicProcedure
+      .input(dppCarouselListSchema)
+      .query(async ({ ctx, input }) => {
+        const { brandSlug, productUpid, limit } = input;
+
+        // Get brand by slug
+        const brand = await getBrandBySlug(ctx.db, brandSlug);
+        if (!brand) return [];
+
+        // Get theme config for carousel settings
+        const theme = await getBrandTheme(ctx.db, brand.id);
+        const carouselConfig = (theme?.themeConfig as { carousel?: CarouselConfig } | null)?.carousel;
+
+        if (!carouselConfig) return [];
+
+        // Get product by UPID to exclude from carousel and get category
+        const product = await getProductByUpid(ctx.db, brand.id, productUpid);
+        if (!product) return [];
+
+        // Fetch carousel products with limit override
+        const products = await fetchCarouselProducts(ctx.db, {
+          brandId: brand.id,
+          currentProductId: product.id,
+          currentCategoryId: product.category_id,
+          carouselConfig: { ...carouselConfig, productCount: limit },
+        });
+
+        // Only return products if we have minimum required
+        if (products.length < MIN_CAROUSEL_PRODUCTS) return [];
+
+        return transformCarouselProducts(products, ctx.supabase);
+      }),
+  }),
 });
 
 export type DppPublicRouter = typeof dppPublicRouter;

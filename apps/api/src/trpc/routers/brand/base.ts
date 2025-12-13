@@ -1,50 +1,36 @@
 import {
-  createBrand as createBrandRecord,
   deleteBrand as deleteBrandRecord,
   eq,
-  getBrandsByUserId,
-  getOwnerCountsByBrandIds,
   isSlugTaken,
-  setActiveBrand,
   updateBrand as updateBrandRecord,
 } from "@v1/db/queries";
 import { brands } from "@v1/db/schema";
 import { tasks } from "@trigger.dev/sdk/v3";
 import { getAppUrl } from "@v1/utils/envs";
 /**
- * Workflow brand operations implementation.
+ * Brand lifecycle operations implementation.
+ *
+ * Phase 4 changes:
+ * - Renamed from workflow to brand
+ * - Removed list, create, setActive (moved to user.brands.*)
+ * - Kept update, delete only
  *
  * Targets:
- * - workflow.list
- * - workflow.create
- * - workflow.delete
+ * - brand.update
+ * - brand.delete
  */
 import { ROLES } from "../../../config/roles.js";
 import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import {
-  workflowBrandIdSchema,
-  workflowCreateSchema,
-  workflowUpdateSchema,
-} from "../../../schemas/workflow.js";
+  brandIdSchema,
+  brandUpdateSchema,
+} from "../../../schemas/brand.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
-import { createSuccessResponse } from "../../../utils/response.js";
 import {
   brandRequiredProcedure,
-  createTRPCRouter,
   protectedProcedure,
 } from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
-
-type BrandRole = "owner" | "member";
-
-function buildBrandLogoUrl(path: string | null): string | null {
-  if (!path) return null;
-  const encoded = path
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-  return `${getAppUrl()}/api/storage/brand-avatars/${encoded}`;
-}
 
 function extractStoragePath(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -64,78 +50,18 @@ function extractStoragePath(url: string | null | undefined): string | null {
   return url;
 }
 
-function canLeaveFromRole(role: BrandRole, ownerCount: number): boolean {
-  if (role !== "owner") return true;
-  return ownerCount > 1;
-}
-
-export const workflowListProcedure = protectedProcedure.query(
-  async ({ ctx }) => {
-    const { db, user } = ctx;
-    const memberships = await getBrandsByUserId(db, user.id);
-    if (memberships.length === 0) return [];
-
-    const ownerBrandIds = memberships
-      .filter((brand) => brand.role === "owner")
-      .map((brand) => brand.id);
-
-    // Use standardized query function to get owner counts
-    const ownerCounts = await getOwnerCountsByBrandIds(db, ownerBrandIds);
-
-    return memberships.map((membership) => {
-      const ownerCount = ownerCounts.get(membership.id) ?? 1;
-      return {
-        id: membership.id,
-        name: membership.name,
-        slug: membership.slug ?? null,
-        email: membership.email ?? null,
-        country_code: membership.country_code ?? null,
-        avatar_hue: membership.avatar_hue ?? null,
-        logo_url: buildBrandLogoUrl(membership.logo_path ?? null),
-        role: membership.role,
-        canLeave: canLeaveFromRole(membership.role, ownerCount),
-      };
-    });
-  },
-);
-
-export const workflowCreateProcedure = protectedProcedure
-  .input(workflowCreateSchema)
-  .mutation(async ({ ctx, input }) => {
-    const { db, user } = ctx;
-
-    // Validate slug uniqueness if provided
-    if (input.slug) {
-      const taken = await isSlugTaken(db, input.slug);
-      if (taken) {
-        throw badRequest("This slug is already taken");
-      }
-    }
-
-    const payload = {
-      name: input.name,
-      slug: input.slug ?? null,
-      email: input.email ?? user.email ?? null,
-      country_code: input.country_code ?? null,
-      logo_path: extractStoragePath(input.logo_url),
-      avatar_hue: input.avatar_hue ?? null,
-    };
-
-    try {
-      return await createBrandRecord(db, user.id, payload);
-    } catch (error) {
-      throw wrapError(error, "Failed to create workflow");
-    }
-  });
-
-export const workflowUpdateProcedure = brandRequiredProcedure
+/**
+ * Updates brand details.
+ * Only accessible by brand owners.
+ */
+export const brandUpdateProcedure = brandRequiredProcedure
   .use(hasRole([ROLES.OWNER]))
-  .input(workflowUpdateSchema)
+  .input(brandUpdateSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, user, brandId } = ctx;
     if (brandId && brandId !== input.id) {
       throw badRequest(
-        "Active brand does not match the workflow being updated",
+        "Active brand does not match the brand being updated",
       );
     }
 
@@ -192,25 +118,18 @@ export const workflowUpdateProcedure = brandRequiredProcedure
 
       return { success: true, slug: result.slug ?? null };
     } catch (error) {
-      throw wrapError(error, "Failed to update workflow");
+      throw wrapError(error, "Failed to update brand");
     }
   });
 
-export const workflowSetActiveProcedure = protectedProcedure
-  .input(workflowBrandIdSchema)
-  .mutation(async ({ ctx, input }) => {
-    const { db, user } = ctx;
-    try {
-      await setActiveBrand(db, user.id, input.brand_id);
-      return createSuccessResponse();
-    } catch (error) {
-      throw wrapError(error, "Failed to set active workflow");
-    }
-  });
-
-export const workflowDeleteProcedure = protectedProcedure
+/**
+ * Deletes a brand (soft-delete).
+ * Only accessible by brand owners.
+ * Triggers background job for cleanup.
+ */
+export const brandDeleteProcedure = protectedProcedure
   .use(hasRole([ROLES.OWNER]))
-  .input(workflowBrandIdSchema)
+  .input(brandIdSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, user } = ctx;
     const brandId = input.brand_id;
@@ -240,16 +159,6 @@ export const workflowDeleteProcedure = protectedProcedure
 
       return result;
     } catch (error) {
-      throw wrapError(error, "Failed to delete workflow");
+      throw wrapError(error, "Failed to delete brand");
     }
   });
-
-export const workflowBaseRouter = createTRPCRouter({
-  list: workflowListProcedure,
-  create: workflowCreateProcedure,
-  update: workflowUpdateProcedure,
-  setActive: workflowSetActiveProcedure,
-  delete: workflowDeleteProcedure,
-});
-
-export type WorkflowBaseRouter = typeof workflowBaseRouter;

@@ -4,25 +4,46 @@ import { TRPCError } from "@trpc/server";
  *
  * Implements the `user.*` namespace described in
  * `docs/NEW_API_ENDPOINTS.txt`, covering profile reads/updates, account
- * deletion, and invite inbox retrieval.
+ * deletion, invite inbox retrieval, and brand management.
+ *
+ * Phase 3 additions:
+ * - user.invites.accept/reject - Accept or reject brand invites
+ * - user.brands.list/create/leave/setActive - Manage user's brand memberships
  */
 import {
+  acceptBrandInvite,
+  createBrand,
+  declineBrandInvite,
   deleteUser,
+  getBrandsByUserId,
+  getOwnerCountsByBrandIds,
   getUserById,
   isEmailTaken,
+  isSlugTaken,
+  leaveBrand,
   listPendingInvitesForEmail,
+  setActiveBrand,
   updateUser,
 } from "@v1/db/queries";
 import type { UserInviteSummaryRow } from "@v1/db/queries";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
-import { userDomainUpdateSchema } from "../../../schemas/user.js";
+import {
+  brandLeaveSchema,
+  brandSetActiveSchema,
+  inviteAcceptSchema,
+  inviteRejectSchema,
+  userDomainUpdateSchema,
+} from "../../../schemas/user.js";
+import { brandCreateSchema } from "../../../schemas/brand.js";
 import {
   badRequest,
   internalServerError,
+  soleOwnerError,
   unauthorized,
   wrapError,
 } from "../../../utils/errors.js";
+import { createSuccessResponse } from "../../../utils/response.js";
 import { createTRPCRouter, protectedProcedure } from "../../init.js";
 
 interface MinimalUserRecord {
@@ -443,7 +464,241 @@ export const userRouter = createTRPCRouter({
       const invites = await listPendingInvitesForEmail(db, email);
       return invites.map(mapInvite);
     }),
+
+    /**
+     * Accepts an invite to join a brand.
+     * Moved from workflow.invites.respond(action="accept").
+     */
+    accept: protectedProcedure
+      .input(inviteAcceptSchema)
+      .mutation(async ({ ctx, input }) => {
+        const { db, user } = ctx;
+        try {
+          const res = await acceptBrandInvite(db, {
+            id: input.invite_id,
+            userId: user.id,
+          });
+          logger.info(
+            {
+              userId: user.id,
+              inviteId: input.invite_id,
+              brandId: res.brandId,
+            },
+            "Brand invite accepted",
+          );
+          return { success: true as const, brandId: res.brandId };
+        } catch (error) {
+          throw wrapError(error, "Failed to accept brand invite");
+        }
+      }),
+
+    /**
+     * Rejects an invite to join a brand.
+     * Moved from workflow.invites.respond(action="decline").
+     */
+    reject: protectedProcedure
+      .input(inviteRejectSchema)
+      .mutation(async ({ ctx, input }) => {
+        const { db, user } = ctx;
+        const email = user.email;
+        if (!email) {
+          throw internalServerError(
+            "Authenticated user record is missing an email address",
+          );
+        }
+        try {
+          await declineBrandInvite(db, { id: input.invite_id, email });
+          logger.info(
+            {
+              userId: user.id,
+              inviteId: input.invite_id,
+            },
+            "Brand invite rejected",
+          );
+          return { success: true as const };
+        } catch (error) {
+          throw wrapError(error, "Failed to reject brand invite");
+        }
+      }),
+  }),
+
+  /**
+   * Brand management for the current user.
+   * Moved from workflow.list, workflow.create, workflow.members.update (leave case).
+   */
+  brands: createTRPCRouter({
+    /**
+     * Lists the user's brand memberships.
+     * Moved from workflow.list.
+     */
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const { db, user } = ctx;
+      const memberships = await getBrandsByUserId(db, user.id);
+      if (memberships.length === 0) return [];
+
+      const ownerBrandIds = memberships
+        .filter((brand) => brand.role === "owner")
+        .map((brand) => brand.id);
+
+      // Use standardized query function to get owner counts
+      const ownerCounts = await getOwnerCountsByBrandIds(db, ownerBrandIds);
+
+      return memberships.map((membership) => {
+        const ownerCount = ownerCounts.get(membership.id) ?? 1;
+        return {
+          id: membership.id,
+          name: membership.name,
+          slug: membership.slug ?? null,
+          email: membership.email ?? null,
+          country_code: membership.country_code ?? null,
+          avatar_hue: membership.avatar_hue ?? null,
+          logo_url: buildBrandLogoUrl(membership.logo_path ?? null),
+          role: membership.role,
+          canLeave: canLeaveFromRole(membership.role, ownerCount),
+        };
+      });
+    }),
+
+    /**
+     * Creates a new brand with the current user as owner.
+     * Moved from workflow.create.
+     */
+    create: protectedProcedure
+      .input(brandCreateSchema)
+      .mutation(async ({ ctx, input }) => {
+        const { db, user } = ctx;
+
+        // Validate slug uniqueness if provided
+        if (input.slug) {
+          const taken = await isSlugTaken(db, input.slug);
+          if (taken) {
+            throw badRequest("This slug is already taken");
+          }
+        }
+
+        const payload = {
+          name: input.name,
+          slug: input.slug ?? null,
+          email: input.email ?? user.email ?? null,
+          country_code: input.country_code ?? null,
+          logo_path: extractStoragePath(input.logo_url),
+          avatar_hue: input.avatar_hue ?? null,
+        };
+
+        try {
+          const result = await createBrand(db, user.id, payload);
+          logger.info(
+            {
+              userId: user.id,
+              brandId: result.id,
+              brandSlug: result.slug,
+            },
+            "Brand created successfully",
+          );
+          return result;
+        } catch (error) {
+          throw wrapError(error, "Failed to create brand");
+        }
+      }),
+
+    /**
+     * Leaves a brand the user is a member of.
+     * Moved from workflow.members.update (no user_id case).
+     */
+    leave: protectedProcedure
+      .input(brandLeaveSchema)
+      .mutation(async ({ ctx, input }) => {
+        const { db, user, brandId: activeBrandId } = ctx;
+        const brandIdToLeave = input.brand_id ?? activeBrandId;
+
+        if (!brandIdToLeave) {
+          throw badRequest(
+            "No brand specified and no active brand to leave",
+          );
+        }
+
+        const result = await leaveBrand(db, user.id, brandIdToLeave);
+        if (!result.ok && result.code === "SOLE_OWNER") {
+          throw soleOwnerError();
+        }
+        if (!result.ok) {
+          throw badRequest("Unable to leave brand");
+        }
+
+        logger.info(
+          {
+            userId: user.id,
+            brandId: brandIdToLeave,
+            nextBrandId: result.nextBrandId,
+          },
+          "User left brand",
+        );
+
+        return {
+          success: true as const,
+          nextBrandId: result.nextBrandId ?? null,
+        };
+      }),
+
+    /**
+     * Sets the user's active brand.
+     * Moved from workflow.setActive.
+     */
+    setActive: protectedProcedure
+      .input(brandSetActiveSchema)
+      .mutation(async ({ ctx, input }) => {
+        const { db, user } = ctx;
+
+        try {
+          await setActiveBrand(db, user.id, input.brand_id);
+          logger.info(
+            {
+              userId: user.id,
+              brandId: input.brand_id,
+            },
+            "Active brand set successfully",
+          );
+          return createSuccessResponse();
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message === "Not a member of this brand"
+          ) {
+            throw badRequest("You are not a member of this brand");
+          }
+          throw wrapError(error, "Failed to set active brand");
+        }
+      }),
   }),
 });
+
+/**
+ * Helper to determine if a user can leave a brand based on their role.
+ */
+function canLeaveFromRole(role: "owner" | "member", ownerCount: number): boolean {
+  if (role !== "owner") return true;
+  return ownerCount > 1;
+}
+
+/**
+ * Extracts storage path from a URL or returns the input if already a path.
+ */
+function extractStoragePath(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const knownPrefixes = [
+    "/api/storage/brand-avatars/",
+    `${getAppUrl()}/api/storage/brand-avatars/`,
+  ];
+  for (const prefix of knownPrefixes) {
+    if (url.startsWith(prefix)) {
+      return url.slice(prefix.length);
+    }
+  }
+  const match = url.match(/brand-avatars\/(.+)$/);
+  if (match) {
+    return match[1] ?? null;
+  }
+  return url;
+}
 
 export type UserRouter = typeof userRouter;

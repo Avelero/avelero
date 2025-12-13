@@ -41,7 +41,7 @@ export function CustomSizeModal({
 
   // API mutation for creating size
   const createSizeMutation = useMutation(
-    trpc.brand.sizes.create.mutationOptions(),
+    trpc.catalog.sizes.create.mutationOptions(),
   );
 
   // Convert sizeGroups to SelectOptionGroup format
@@ -98,6 +98,14 @@ export function CustomSizeModal({
     return true;
   };
 
+  /**
+   * Creates the custom size immediately via API.
+   *
+   * This is INTENTIONAL - when a user manually creates a custom size,
+   * it should be persisted immediately because they've shown explicit intent.
+   * This is different from selecting a default size, which is stored locally
+   * and only created when the product is saved.
+   */
   const handleSave = async () => {
     if (!sizeName.trim() || !referenceSize) return;
 
@@ -111,6 +119,7 @@ export function CustomSizeModal({
     const sortIndex = calculateCustomSortIndex(referenceSize.sortIndex);
 
     try {
+      // Create size immediately via API - this persists even if product creation is cancelled
       const result = await toast.loading(
         "Creating size...",
         createSizeMutation.mutateAsync({
@@ -130,7 +139,7 @@ export function CustomSizeModal({
 
       // Optimistically update the cache immediately
       queryClient.setQueryData(
-        trpc.composite.brandCatalogContent.queryKey(),
+        trpc.composite.catalogContent.queryKey(),
         (old: any) => {
           if (!old) return old;
           return {
@@ -152,7 +161,7 @@ export function CustomSizeModal({
 
       // Invalidate to trigger background refetch
       queryClient.invalidateQueries({
-        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+        queryKey: trpc.composite.catalogContent.queryKey(),
       });
 
       // Call parent callback with created size

@@ -97,7 +97,7 @@ export function useBrandCatalog() {
 
   // Access prefetched data from React Query cache
   const { data } = useSuspenseQuery(
-    trpc.composite.brandCatalogContent.queryOptions(),
+    trpc.composite.catalogContent.queryOptions(),
   );
 
   // Merge colors: API colors + default colors from selections
@@ -111,9 +111,10 @@ export function useBrandCatalog() {
     };
 
     // Create a map to avoid duplicates (API colors take precedence)
+    // id is undefined for default colors (not yet in brand's DB), or a real UUID for brand colors
     const colorMap = new Map<
       string,
-      { id: string; name: string; hex: string }
+      { id: string | undefined; name: string; hex: string }
     >();
 
     // Add API colors first (these have real IDs from DB)
@@ -130,12 +131,14 @@ export function useBrandCatalog() {
       });
     }
 
-    // Add default colors that aren't already in API colors (these need to be created when used)
+    // Add default colors that aren't already in API colors
+    // Default colors have id: undefined to indicate they need to be created when the product is saved
+    // (NOT when selected - selection just stores them in local state as "pending")
     for (const color of defaultColors) {
       const key = color.name.toLowerCase();
       if (!colorMap.has(key)) {
         colorMap.set(key, {
-          id: "",
+          id: undefined, // Undefined = default color not yet in brand's DB
           name: color.name,
           hex: normalizeHex(color.hex) ?? "000000",
         });

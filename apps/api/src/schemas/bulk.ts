@@ -96,20 +96,6 @@ export const bulkUpdateSchema = z.discriminatedUnion("domain", [
 ]);
 
 /**
- * Schema for validating import files before processing
- *
- * Used in bulk.validateImport mutation to perform quick pre-validation
- * checks on uploaded CSV/XLSX files.
- */
-export const validateImportSchema = z.object({
-  fileId: z.string().min(1, "File ID is required"),
-  filename: z
-    .string()
-    .min(1, "Filename is required")
-    .regex(/\.(csv|xlsx|xls)$/i, "File must be CSV or Excel format"),
-});
-
-/**
  * Schema for starting an import job
  *
  * Used in bulk.startImport mutation to trigger Phase 1 validation
@@ -421,7 +407,6 @@ export const cancelImportSchema = z.object({
 export type BulkSelectionInput = z.infer<typeof bulkSelectionSchema>;
 export type BulkImportInput = z.infer<typeof bulkImportSchema>;
 export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
-export type ValidateImportInput = z.infer<typeof validateImportSchema>;
 export type StartImportInput = z.infer<typeof startImportSchema>;
 export type GetImportStatusInput = z.infer<typeof getImportStatusSchema>;
 export type GetImportErrorsInput = z.infer<typeof getImportErrorsSchema>;

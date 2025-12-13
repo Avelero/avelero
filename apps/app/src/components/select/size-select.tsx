@@ -68,7 +68,7 @@ export function SizeSelect({
   value,
   onValueChange,
   onCreateNew,
-  placeholder = "Add size",
+  placeholder = "Add sizes",
   disabled = false,
   className,
 }: SizeSelectProps) {
@@ -127,8 +127,18 @@ export function SizeSelect({
     return groups;
   }, [filteredSizes]);
 
+  /**
+   * Toggle size selection - NO API calls here!
+   *
+   * This handles selecting sizes from the list (both brand sizes and default sizes).
+   * - Brand sizes (with id) are already in the database
+   * - Default sizes (without id) are stored in local state only; they will be created
+   *   when the product is saved, NOT when selected
+   *
+   * Uses sortIndex for comparison since same name can exist in different groups
+   * (e.g., "8" in US Numeric vs "8" in US Shoe)
+   */
   const handleToggleSize = (size: SizeOption) => {
-    // Use sortIndex for comparison since same name can exist in different groups
     const isSelected = value.some((s) => s.sortIndex === size.sortIndex);
 
     if (isSelected) {
@@ -148,6 +158,16 @@ export function SizeSelect({
     searchTerm &&
     !sizeOptions.some((s) => s.name.toLowerCase() === searchTerm.toLowerCase());
 
+  /**
+   * Opens the custom size modal for MANUAL size creation.
+   *
+   * This is triggered when a user types a size name that doesn't exist
+   * and clicks "Create". The modal will create the size immediately via API
+   * because the user has shown explicit intent to create a new custom size.
+   *
+   * This is DIFFERENT from selecting a default size, which does NOT
+   * trigger immediate creation.
+   */
   const handleCreateClick = () => {
     if (onCreateNew && searchTerm.trim()) {
       onCreateNew(searchTerm.trim());

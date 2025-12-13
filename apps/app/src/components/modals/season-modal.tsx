@@ -58,7 +58,7 @@ export function SeasonModal({
 
   // API mutation for creating season
   const createSeasonMutation = useMutation(
-    trpc.brand.seasons.create.mutationOptions(),
+    trpc.catalog.seasons.create.mutationOptions(),
   );
 
   // Date formatting and parsing functions (memoized)
@@ -192,7 +192,7 @@ export function SeasonModal({
 
           // Optimistically update the cache immediately
           queryClient.setQueryData(
-            trpc.composite.brandCatalogContent.queryKey(),
+            trpc.composite.catalogContent.queryKey(),
             (old: any) => {
               if (!old) return old;
               return {
@@ -218,7 +218,7 @@ export function SeasonModal({
 
           // Invalidate to trigger background refetch
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.brandCatalogContent.queryKey(),
+            queryKey: trpc.composite.catalogContent.queryKey(),
           });
 
           // Close modal first

@@ -11,3 +11,4 @@ export * from "./certifications";
 export * from "./colors";
 export * from "./countries";
 export * from "./production-steps";
+export * from "./sizes";

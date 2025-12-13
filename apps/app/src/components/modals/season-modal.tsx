@@ -270,12 +270,13 @@ export function SeasonModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-[500px]">
-        <DialogHeader className="px-6 pt-6 pb-3">
-          <DialogTitle>Add season</DialogTitle>
+      <DialogContent className="max-w-[520px] p-0 gap-0 border border-border overflow-visible">
+        <DialogHeader className="px-6 py-4 border-b border-border">
+          <DialogTitle className="text-foreground">Add season</DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 flex flex-col gap-3">
+        {/* Main content */}
+        <div className="px-6 py-4 min-h-[160px] space-y-4">
           {/* Season Name */}
           <div className="space-y-1.5">
             <Label htmlFor="season-name">
@@ -290,7 +291,6 @@ export function SeasonModal({
               }}
               onBlur={() => validateName(name)}
               placeholder="Enter season name"
-              className="h-9"
               maxLength={100}
               aria-required="true"
               required
@@ -345,7 +345,8 @@ export function SeasonModal({
           </div>
         </div>
 
-        <DialogFooter className="px-6 pb-6 pt-3">
+        {/* Footer */}
+        <DialogFooter className="px-6 py-4 border-t border-border bg-background">
           <Button
             variant="outline"
             onClick={handleCancel}
@@ -354,7 +355,6 @@ export function SeasonModal({
             Cancel
           </Button>
           <Button
-            variant="brand"
             onClick={handleSave}
             disabled={!name.trim() || isCreating}
           >

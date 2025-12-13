@@ -296,30 +296,18 @@ export async function deleteBrandTag(
 }
 
 // Sizes
-export async function listSizes(
-  db: Database,
-  brandId: string,
-  opts?: { categoryId?: string },
-) {
-  const where = opts?.categoryId
-    ? and(
-        eq(brandSizes.brandId, brandId),
-        eq(brandSizes.categoryId, opts.categoryId),
-      )
-    : eq(brandSizes.brandId, brandId);
-
+export async function listSizes(db: Database, brandId: string) {
   return db
     .select({
       id: brandSizes.id,
       name: brandSizes.name,
-      category_id: brandSizes.categoryId,
       sort_index: brandSizes.sortIndex,
       created_at: brandSizes.createdAt,
       updated_at: brandSizes.updatedAt,
     })
     .from(brandSizes)
-    .where(where)
-    .orderBy(asc(brandSizes.name), asc(brandSizes.sortIndex));
+    .where(eq(brandSizes.brandId, brandId))
+    .orderBy(asc(brandSizes.sortIndex), asc(brandSizes.name));
 }
 
 export async function createSize(
@@ -327,7 +315,6 @@ export async function createSize(
   brandId: string,
   input: {
     name: string;
-    categoryId?: string;
     sortIndex?: number;
   },
 ) {
@@ -336,10 +323,13 @@ export async function createSize(
     .values({
       brandId,
       name: input.name,
-      categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
-    .returning({ id: brandSizes.id });
+    .returning({
+      id: brandSizes.id,
+      name: brandSizes.name,
+      sort_index: brandSizes.sortIndex,
+    });
   return row;
 }
 
@@ -349,7 +339,6 @@ export async function updateSize(
   id: string,
   input: {
     name?: string;
-    categoryId?: string | null;
     sortIndex?: number | null;
   },
 ) {
@@ -357,11 +346,14 @@ export async function updateSize(
     .update(brandSizes)
     .set({
       name: input.name,
-      categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
     .where(and(eq(brandSizes.id, id), eq(brandSizes.brandId, brandId)))
-    .returning({ id: brandSizes.id });
+    .returning({
+      id: brandSizes.id,
+      name: brandSizes.name,
+      sort_index: brandSizes.sortIndex,
+    });
   return row;
 }
 
@@ -872,7 +864,6 @@ export async function checkDuplicateName(
   brandId: string,
   entityType: CatalogEntityType,
   name: string,
-  options?: { categoryId?: string },
 ): Promise<boolean> {
   switch (entityType) {
     case "COLOR": {
@@ -888,19 +879,15 @@ export async function checkDuplicateName(
       return (result?.count ?? 0) > 0;
     }
     case "SIZE": {
-      const conditions = [
-        eq(brandSizes.brandId, brandId),
-        sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
-      ];
-      if (options?.categoryId) {
-        conditions.push(eq(brandSizes.categoryId, options.categoryId));
-      } else {
-        conditions.push(sql`${brandSizes.categoryId} IS NULL`);
-      }
       const [result] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(brandSizes)
-        .where(and(...conditions));
+        .where(
+          and(
+            eq(brandSizes.brandId, brandId),
+            sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
+          ),
+        );
       return (result?.count ?? 0) > 0;
     }
     case "MATERIAL": {
@@ -1000,7 +987,6 @@ export function validateColorInput(input: {
 
 export function validateSizeInput(input: {
   name: string;
-  categoryId?: string;
   sortIndex?: number;
 }): ValidationResult {
   const errors: ValidationError[] = [];
@@ -1291,7 +1277,7 @@ export async function validateAndCreateEntity(
       break;
     case "SIZE":
       validation = validateSizeInput(
-        input as { name: string; categoryId?: string; sortIndex?: number },
+        input as { name: string; sortIndex?: number },
       );
       name = (input as { name: string }).name;
       break;
@@ -1380,9 +1366,7 @@ export async function validateAndCreateEntity(
     throw new Error(`Validation failed: ${errorMsg}`);
   }
 
-  const duplicate = await checkDuplicateName(db, brandId, entityType, name, {
-    categoryId: (input as { categoryId?: string }).categoryId,
-  });
+  const duplicate = await checkDuplicateName(db, brandId, entityType, name);
   if (duplicate) {
     throw new Error(
       `${entityType} with name "${name}" already exists for this brand`,
@@ -1403,7 +1387,7 @@ export async function validateAndCreateEntity(
         (await createSize(
           db,
           brandId,
-          input as { name: string; categoryId?: string; sortIndex?: number },
+          input as { name: string; sortIndex?: number },
         )) ?? { id: "" }
       );
     case "MATERIAL":

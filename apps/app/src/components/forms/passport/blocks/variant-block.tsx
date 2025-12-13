@@ -1,27 +1,14 @@
 "use client";
 
-import type { SizeSystemDefinition } from "@/components/modals/size-modal";
+import { CustomSizeModal } from "@/components/modals/custom-size-modal";
 import {
   type ColorOption,
   ColorSelect,
 } from "@/components/select/color-select";
-import {
-  SizeSelect,
-  type TierTwoSizeOption,
-} from "@/components/select/size-select";
+import { SizeSelect, type SizeOption } from "@/components/select/size-select";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Label } from "@v1/ui/label";
-import dynamic from "next/dynamic";
 import * as React from "react";
-
-// Lazy-load SizeModal to avoid SSR issues with QueryClient
-const SizeModal = dynamic(
-  () =>
-    import("@/components/modals/size-modal").then((mod) => ({
-      default: mod.SizeModal,
-    })),
-  { ssr: false },
-);
 
 type PendingColorSelection = { name: string; hex: string };
 
@@ -30,15 +17,11 @@ interface VariantSectionProps {
   pendingColors: PendingColorSelection[];
   setColorIds: (value: string[]) => void;
   setPendingColors: (value: PendingColorSelection[]) => void;
-  selectedSizes: TierTwoSizeOption[];
-  setSelectedSizes: React.Dispatch<React.SetStateAction<TierTwoSizeOption[]>>;
+  selectedSizes: SizeOption[];
+  setSelectedSizes: React.Dispatch<React.SetStateAction<SizeOption[]>>;
   colorsError?: string;
   sizesError?: string;
 }
-
-const getSizeOptionKey = (
-  option: Pick<TierTwoSizeOption, "categoryKey" | "name">,
-) => `${option.categoryKey}::${(option.name || "").toLowerCase()}`;
 
 export function VariantSection({
   colorIds,
@@ -51,11 +34,10 @@ export function VariantSection({
   sizesError,
 }: VariantSectionProps) {
   const { colors: availableColors, sizeOptions } = useBrandCatalog();
-  const [sizeModalOpen, setSizeModalOpen] = React.useState(false);
-  const [prefillSize, setPrefillSize] = React.useState<string | null>(null);
-  const [prefillCategory, setPrefillCategory] = React.useState<string | null>(
-    null,
-  );
+
+  // Custom size modal state
+  const [customSizeModalOpen, setCustomSizeModalOpen] = React.useState(false);
+  const [pendingCustomSizeName, setPendingCustomSizeName] = React.useState("");
 
   // Convert colorIds + pending colors to ColorOption objects for ColorSelect
   const selectedColors = React.useMemo<ColorOption[]>(() => {
@@ -79,91 +61,57 @@ export function VariantSection({
     return mapped;
   }, [colorIds, pendingColors, availableColors]);
 
-  // Normalize selected sizes to use real IDs from sizeOptions
-  // This ensures custom sizes created via SizeModal get their real DB IDs
+  // Normalize selected sizes to use real IDs from sizeOptions when available
   const normalizedSelectedSizes = React.useMemo(() => {
     if (sizeOptions.length === 0) {
       return selectedSizes.filter((s) => s.name && typeof s.name === "string");
     }
-    const optionMap = new Map<string, TierTwoSizeOption>();
+
+    const optionMap = new Map<string, SizeOption>();
     for (const option of sizeOptions) {
-      if (option.name && typeof option.name === "string" && option?.id) {
-        optionMap.set(getSizeOptionKey(option), option);
+      if (option.name && typeof option.name === "string") {
+        optionMap.set(option.name.toLowerCase(), option);
       }
     }
+
     return selectedSizes
       .filter((s) => s.name && typeof s.name === "string")
       .map((size) => {
-        const key = getSizeOptionKey(size);
+        const key = size.name.toLowerCase();
         const matchedOption = optionMap.get(key);
-        // Only return sizes with real IDs from the API
+        // If we find a match with a real ID, use it
         if (matchedOption?.id) {
           return matchedOption;
         }
-        // If no match found, return the size as-is (will be filtered out during submission)
+        // Otherwise return the size as-is (custom size without ID yet)
         return size;
-      })
-      .filter((s) => s.id); // Filter out sizes without IDs
+      });
   }, [sizeOptions, selectedSizes]);
 
-  // Watch for newly created sizes to appear in sizeOptions after modal saves
-  React.useEffect(() => {
-    if (!sizeModalOpen && prefillSize && prefillCategory) {
-      // Modal just closed, look for the prefillSize in sizeOptions
-      const matchLower = prefillSize.toLowerCase();
-      const match = sizeOptions.find(
-        (option) =>
-          option.name &&
-          option.name.toLowerCase() === matchLower &&
-          option.categoryPath === prefillCategory &&
-          option.id, // Only select if it has a real ID
-      );
-      if (match) {
-        setSelectedSizes((current: TierTwoSizeOption[]) => {
-          const exists = current.some(
-            (option) => getSizeOptionKey(option) === getSizeOptionKey(match),
-          );
-          if (exists || current.length >= 12) {
-            return current;
-          }
-          return [...current, match];
-        });
-        // Clear prefill after successful selection
-        setPrefillSize(null);
-        setPrefillCategory(null);
-      }
-    }
-  }, [
-    sizeModalOpen,
-    prefillSize,
-    prefillCategory,
-    sizeOptions,
-    setSelectedSizes,
-  ]);
+  // Handle "Create new" from SizeSelect
+  const handleCreateNewSize = (sizeName: string) => {
+    setPendingCustomSizeName(sizeName);
+    setCustomSizeModalOpen(true);
+  };
 
-  React.useEffect(() => {
-    if (!sizeModalOpen) {
-      // Clear prefill when modal closes (if not already cleared by selection)
-      setPrefillSize(null);
-      setPrefillCategory(null);
-    }
-  }, [sizeModalOpen]);
+  // Handle save from CustomSizeModal (size is already persisted with an ID)
+  const handleCustomSizeSave = (size: { id: string; name: string; sortIndex: number }) => {
+    // Add to selection with the real ID from the API
+    // Use sortIndex for comparison since same name can exist in different groups
+    setSelectedSizes((current) => {
+      if (current.length >= 12) return current;
+      if (current.some((s) => s.sortIndex === size.sortIndex)) {
+        return current;
+      }
+      return [...current, size];
+    });
+  };
 
   const handleSizeSelectionChange = React.useCallback(
-    (next: TierTwoSizeOption[]) => {
+    (next: SizeOption[]) => {
       setSelectedSizes(next);
     },
     [setSelectedSizes],
-  );
-
-  const handleSizeSystemSave = React.useCallback(
-    (_definition: SizeSystemDefinition) => {
-      // SizeModal already creates sizes in DB and invalidates queries
-      // The useEffect above will watch for the new sizes to appear in sizeOptions
-      // and automatically select the prefillSize when it becomes available
-      // No need to do anything here - just let the refetch happen
-    },
-    [],
   );
 
   return (
@@ -213,11 +161,7 @@ export function VariantSection({
             <SizeSelect
               value={normalizedSelectedSizes}
               onValueChange={handleSizeSelectionChange}
-              onCreateNew={(initial, categoryPath) => {
-                setPrefillSize(initial);
-                setPrefillCategory(categoryPath || null);
-                setSizeModalOpen(true);
-              }}
+              onCreateNew={handleCreateNewSize}
               placeholder="Add size"
             />
             {sizesError && (
@@ -227,13 +171,12 @@ export function VariantSection({
         </div>
       </div>
 
-      {/* Modals */}
-      <SizeModal
-        open={sizeModalOpen}
-        onOpenChange={setSizeModalOpen}
-        prefillSize={prefillSize}
-        prefillCategory={prefillCategory}
-        onSave={handleSizeSystemSave}
+      {/* Custom Size Modal */}
+      <CustomSizeModal
+        open={customSizeModalOpen}
+        onOpenChange={setCustomSizeModalOpen}
+        initialSizeName={pendingCustomSizeName}
+        onSave={handleCustomSizeSave}
       />
     </>
   );

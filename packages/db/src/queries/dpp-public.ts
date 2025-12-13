@@ -18,7 +18,6 @@ import {
   productVariants,
   productMaterials,
   productJourneySteps,
-  productJourneyStepFacilities,
   productEnvironment,
   productEcoClaims,
   brands,
@@ -326,17 +325,17 @@ async function fetchJourneyWithFacilities(
   const stepIds = steps.map((s) => s.id);
   const facilityRows = await db
     .select({
-      journeyStepId: productJourneyStepFacilities.journeyStepId,
+      journeyStepId: productJourneySteps.id,
       displayName: brandFacilities.displayName,
       city: brandFacilities.city,
       countryCode: brandFacilities.countryCode,
     })
-    .from(productJourneyStepFacilities)
+    .from(productJourneySteps)
     .innerJoin(
       brandFacilities,
-      eq(brandFacilities.id, productJourneyStepFacilities.facilityId),
+      eq(brandFacilities.id, productJourneySteps.facilityId),
     )
-    .where(inArray(productJourneyStepFacilities.journeyStepId, stepIds));
+    .where(inArray(productJourneySteps.id, stepIds));
 
   // Group facilities by step
   const facilitiesByStep = new Map<string, DppFacility[]>();

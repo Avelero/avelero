@@ -40,18 +40,10 @@ export function transformSizeInput<T extends Record<string, any>>(
   const result: any = {};
 
   for (const [key, value] of Object.entries(input)) {
-    switch (key) {
-      case "category_group":
-        result.categoryGroup = value;
-        break;
-      case "category_id":
-        result.categoryId = value;
-        break;
-      case "sort_index":
-        result.sortIndex = value;
-        break;
-      default:
-        result[key] = value;
+    if (key === "sort_index") {
+      result.sortIndex = value;
+    } else {
+      result[key] = value;
     }
   }
 

@@ -2,7 +2,8 @@
 
 import { getQuickFilterFields } from "@/config/filters";
 import { useFieldOptions } from "@/hooks/use-filter-options";
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { useBrandCatalog, type SizeOption } from "@/hooks/use-brand-catalog";
+import { sizeGroups } from "@v1/selections";
 import {
   convertQuickFiltersToFilterState,
   extractQuickFiltersFromFilterState,
@@ -422,218 +423,106 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
   );
 });
 
-// Paged size navigation component (similar to size-select.tsx)
-const SizePagedSubmenu = React.memo(function SizePagedSubmenu({
-  tierOneCategories,
-  tierTwoCategoryHierarchy,
+// Flat size selection component (with groups)
+const SizeFlatSubmenu = React.memo(function SizeFlatSubmenu({
   sizeOptions,
   selectedValues,
   onToggleValue,
 }: {
-  tierOneCategories: string[];
-  tierTwoCategoryHierarchy: Record<string, string[]>;
-  sizeOptions: Array<{
-    id?: string;
-    name: string;
-    categoryKey: string;
-    categoryPath: string;
-    sortIndex: number;
-  }>;
+  sizeOptions: SizeOption[];
   selectedValues: string[];
   onToggleValue: (sizeId: string) => void;
 }) {
-  const [navigationPath, setNavigationPath] = React.useState<string[]>([]);
   const [searchTerm, setSearchTerm] = React.useState("");
 
-  // Group sizes by category path
-  const sizesByCategory = React.useMemo(() => {
-    const map = new Map<string, typeof sizeOptions>();
-    for (const size of sizeOptions) {
-      const existing = map.get(size.categoryPath) || [];
-      existing.push(size);
-      map.set(size.categoryPath, existing);
-    }
-    // Sort sizes within each category
-    for (const [key, sizes] of map.entries()) {
-      sizes.sort((a, b) => a.sortIndex - b.sortIndex);
-    }
-    return map;
-  }, [sizeOptions]);
-
-  // Get current view based on navigation path
-  const currentView = React.useMemo(() => {
-    if (navigationPath.length === 0) {
-      return { type: "tier-one" as const, categories: tierOneCategories };
-    }
-    if (navigationPath.length === 1) {
-      const tierOneKey = navigationPath[0];
-      // Get tier-two display names for this tier-one category
-      const tierTwoPaths = tierOneKey
-        ? tierTwoCategoryHierarchy[tierOneKey] || []
-        : [];
-      // Extract just the tier-two names (e.g., "Tops" from "Men's / Tops")
-      const tierTwoNames = tierTwoPaths.map(
-        (path) => path.split(" / ")[1] || path,
-      );
-      return { type: "tier-two" as const, categories: tierTwoNames };
-    }
-    // navigationPath.length === 2
-    const tierOneKey = navigationPath[0];
-    const tierTwoKey = navigationPath[1];
-    // Reconstruct the full category path
-    const fullCategoryPath = `${tierOneKey} / ${tierTwoKey}`;
-    const sizes = sizesByCategory.get(fullCategoryPath) || [];
-    return { type: "sizes" as const, sizes };
-  }, [
-    navigationPath,
-    tierOneCategories,
-    tierTwoCategoryHierarchy,
-    sizesByCategory,
-  ]);
-
-  // Filter sizes when searching on page 3
+  // Filter sizes by search term
   const filteredSizes = React.useMemo(() => {
-    if (currentView.type !== "sizes" || !searchTerm) {
-      return currentView.type === "sizes" ? currentView.sizes : [];
+    if (!searchTerm) return sizeOptions;
+    const lower = searchTerm.toLowerCase();
+    return sizeOptions.filter((s) => s.name.toLowerCase().includes(lower));
+  }, [sizeOptions, searchTerm]);
+
+  // Group filtered sizes for display
+  const groupedSizes = React.useMemo(() => {
+    const groups: Record<string, SizeOption[]> = {};
+
+    for (const size of filteredSizes) {
+      let groupName = "Other";
+
+      // Find which group this size belongs to using sortIndex (unique identifier)
+      // This correctly handles sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
+      for (const [name, sizes] of Object.entries(sizeGroups)) {
+        if (sizes.some((s) => s.sortIndex === size.sortIndex)) {
+          groupName = name;
+          break;
+        }
+      }
+
+      if (!groups[groupName]) groups[groupName] = [];
+      groups[groupName]!.push(size);
     }
-    return currentView.sizes.filter((s) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }, [currentView, searchTerm]);
 
-  const handleNavigateForward = React.useCallback((category: string) => {
-    setNavigationPath((prev) => [...prev, category]);
-    setSearchTerm("");
-  }, []);
-
-  const handleNavigateBack = React.useCallback(() => {
-    setNavigationPath((prev) => prev.slice(0, -1));
-    setSearchTerm("");
-  }, []);
+    return groups;
+  }, [filteredSizes]);
 
   const handleToggleSize = React.useCallback(
-    (size: (typeof sizeOptions)[0]) => {
-      const sizeId = size.id || `${size.categoryKey}-${size.name}`;
+    (size: SizeOption) => {
+      const sizeId = size.id || `custom-${size.name}`;
       onToggleValue(sizeId);
-      // Clear search term after selection
       setSearchTerm("");
     },
     [onToggleValue],
   );
 
-  // Get breadcrumb string for navigation bar
-  const getBreadcrumbString = React.useCallback(() => {
-    return navigationPath.join(" / ");
-  }, [navigationPath]);
+  // Define group order for consistent display
+  const groupOrder = [
+    "Letter",
+    "US Numeric",
+    "Waist",
+    "US Shoe",
+    "EU Shoe",
+    "UK Shoe",
+    "One Size",
+    "Other",
+  ];
 
   return (
-    <div className="flex flex-col">
-      {/* Navigation Bar for tier-two (page 2) */}
-      {currentView.type === "tier-two" && navigationPath.length > 0 && (
-        <div className="border-b border-border bg-background">
-          <button
-            type="button"
-            onClick={handleNavigateBack}
-            className="w-full py-2 px-3 type-p text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
-          >
-            <Icons.ChevronLeft className="h-4 w-4 mr-2 text-secondary" />
-            <span className="text-primary">{getBreadcrumbString()}</span>
-          </button>
-        </div>
-      )}
+    <Command shouldFilter={false}>
+      <CommandInput
+        placeholder="Search sizes..."
+        value={searchTerm}
+        onValueChange={setSearchTerm}
+      />
+      <CommandList className="max-h-64">
+        {groupOrder.map((groupName) => {
+          const sizes = groupedSizes[groupName];
+          if (!sizes || sizes.length === 0) return null;
 
-      {/* Content Area */}
-      <div
-        className={cn(
-          currentView.type === "sizes"
-            ? ""
-            : "max-h-48 overflow-y-auto scrollbar-hide",
+          return (
+            <CommandGroup key={groupName} heading={groupName}>
+              {sizes.map((size) => {
+                const sizeId = size.id || `custom-${size.name}`;
+                const isSelected = selectedValues.includes(sizeId);
+                return (
+                  <CommandItem
+                    key={size.name}
+                    value={size.name}
+                    onSelect={() => handleToggleSize(size)}
+                    className="justify-between"
+                  >
+                    <span className="type-p text-primary">{size.name}</span>
+                    {isSelected && <Icons.Check className="h-4 w-4" />}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          );
+        })}
+        {filteredSizes.length === 0 && (
+          <CommandEmpty>No sizes found</CommandEmpty>
         )}
-      >
-        {currentView.type === "tier-one" && (
-          // Page 1: Tier-one categories
-          <>
-            {tierOneCategories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => handleNavigateForward(category)}
-                className="w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between hover:bg-accent text-primary"
-              >
-                <span>{category}</span>
-                <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
-              </button>
-            ))}
-          </>
-        )}
-
-        {currentView.type === "tier-two" && (
-          // Page 2: Tier-two categories
-          <>
-            {currentView.categories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => handleNavigateForward(category)}
-                className="w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between hover:bg-accent text-primary"
-              >
-                <span>{category}</span>
-                <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
-              </button>
-            ))}
-          </>
-        )}
-
-        {currentView.type === "sizes" && (
-          // Page 3: Sizes with multi-select and keyboard navigation
-          <Command shouldFilter={false}>
-            <div className="flex items-center">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleNavigateBack}
-                className="h-[37px] w-[37px] flex-shrink-0 rounded-none border-0 border-b border-r text-tertiary hover:text-secondary"
-              >
-                <Icons.ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <CommandInput
-                  placeholder="Search sizes..."
-                  value={searchTerm}
-                  onValueChange={setSearchTerm}
-                />
-              </div>
-            </div>
-            <CommandList className="max-h-48">
-              <CommandGroup>
-                {filteredSizes.length > 0 ? (
-                  filteredSizes.map((size) => {
-                    const sizeId =
-                      size.id || `${size.categoryKey}-${size.name}`;
-                    const isSelected = selectedValues.includes(sizeId);
-                    return (
-                      <CommandItem
-                        key={sizeId}
-                        value={size.name}
-                        onSelect={() => handleToggleSize(size)}
-                        className="justify-between"
-                      >
-                        <span className="type-p text-primary">{size.name}</span>
-                        {isSelected && <Icons.Check className="h-4 w-4" />}
-                      </CommandItem>
-                    );
-                  })
-                ) : searchTerm ? (
-                  <CommandEmpty>No results found</CommandEmpty>
-                ) : (
-                  <CommandEmpty>No sizes available</CommandEmpty>
-                )}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        )}
-      </div>
-    </div>
+      </CommandList>
+    </Command>
   );
 });
 
@@ -743,14 +632,8 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
     categoryMap,
     colors,
     seasons,
-    tierTwoCategoryHierarchy,
     sizeOptions,
   } = useBrandCatalog();
-
-  // Compute tier one categories from tier two hierarchy
-  const tierOneCategories = React.useMemo(() => {
-    return Object.keys(tierTwoCategoryHierarchy).sort();
-  }, [tierTwoCategoryHierarchy]);
 
   // For season, convert seasons to options format
   const seasonOptions = React.useMemo(() => {
@@ -802,7 +685,7 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
     );
   }
 
-  // Special handling for size (paged)
+  // Special handling for size (flat list with groups)
   if (field.id === "sizeId") {
     return (
       <DropdownMenuSub
@@ -816,9 +699,7 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
         </DropdownMenuSubTrigger>
         <DropdownMenuPortal>
           <DropdownMenuSubContent>
-            <SizePagedSubmenu
-              tierOneCategories={tierOneCategories}
-              tierTwoCategoryHierarchy={tierTwoCategoryHierarchy}
+            <SizeFlatSubmenu
               sizeOptions={sizeOptions}
               selectedValues={selectedValues}
               onToggleValue={toggleValue}

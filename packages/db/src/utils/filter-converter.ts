@@ -36,7 +36,6 @@ import {
   categories,
   productEcoClaims,
   productEnvironment,
-  productJourneyStepFacilities,
   productJourneySteps,
   productMaterials,
   productVariants,
@@ -80,7 +79,6 @@ type SchemaRefs = {
   productVariants: typeof productVariants;
   productMaterials: typeof productMaterials;
   productJourneySteps: typeof productJourneySteps;
-  productJourneyStepFacilities: typeof productJourneyStepFacilities;
   productEnvironment: typeof productEnvironment;
   productEcoClaims: typeof productEcoClaims;
   tagsOnProduct: typeof tagsOnProduct;
@@ -114,7 +112,6 @@ export function convertFilterStateToWhereClauses(
     productVariants,
     productMaterials,
     productJourneySteps,
-    productJourneyStepFacilities,
     productEnvironment,
     productEcoClaims,
     tagsOnProduct,
@@ -948,15 +945,13 @@ function buildFacilityClause(
     case "is any of": {
       if (facilityIds.length === 0) return null;
       const anyClauses: SQL[] = [
-        inArray(schema.productJourneyStepFacilities.facilityId, facilityIds),
+        inArray(schema.productJourneySteps.facilityId, facilityIds),
       ];
       anyClauses.push(...nestedClauses);
       return sql`EXISTS (
         SELECT 1 FROM ${schema.productJourneySteps}
-        INNER JOIN ${schema.productJourneyStepFacilities}
-          ON ${schema.productJourneySteps.id} = ${schema.productJourneyStepFacilities.journeyStepId}
         INNER JOIN ${schema.brandFacilities}
-          ON ${schema.productJourneyStepFacilities.facilityId} = ${schema.brandFacilities.id}
+          ON ${schema.productJourneySteps.facilityId} = ${schema.brandFacilities.id}
         WHERE ${schema.productJourneySteps.productId} = ${schema.products.id}
           ${anyClauses.length > 0 ? sql`AND ${and(...anyClauses)}` : sql``}
       )`;
@@ -965,15 +960,13 @@ function buildFacilityClause(
     case "is none of": {
       if (facilityIds.length === 0) return null;
       const noneClauses: SQL[] = [
-        inArray(schema.productJourneyStepFacilities.facilityId, facilityIds),
+        inArray(schema.productJourneySteps.facilityId, facilityIds),
       ];
       noneClauses.push(...nestedClauses);
       return sql`NOT EXISTS (
         SELECT 1 FROM ${schema.productJourneySteps}
-        INNER JOIN ${schema.productJourneyStepFacilities}
-          ON ${schema.productJourneySteps.id} = ${schema.productJourneyStepFacilities.journeyStepId}
         INNER JOIN ${schema.brandFacilities}
-          ON ${schema.productJourneyStepFacilities.facilityId} = ${schema.brandFacilities.id}
+          ON ${schema.productJourneySteps.facilityId} = ${schema.brandFacilities.id}
         WHERE ${schema.productJourneySteps.productId} = ${schema.products.id}
           ${noneClauses.length > 0 ? sql`AND ${and(...noneClauses)}` : sql``}
       )`;
@@ -982,16 +975,12 @@ function buildFacilityClause(
     case "is empty":
       return sql`NOT EXISTS (
         SELECT 1 FROM ${schema.productJourneySteps}
-        INNER JOIN ${schema.productJourneyStepFacilities}
-          ON ${schema.productJourneySteps.id} = ${schema.productJourneyStepFacilities.journeyStepId}
         WHERE ${schema.productJourneySteps.productId} = ${schema.products.id}
       )`;
 
     case "is not empty":
       return sql`EXISTS (
         SELECT 1 FROM ${schema.productJourneySteps}
-        INNER JOIN ${schema.productJourneyStepFacilities}
-          ON ${schema.productJourneySteps.id} = ${schema.productJourneyStepFacilities.journeyStepId}
         WHERE ${schema.productJourneySteps.productId} = ${schema.products.id}
       )`;
 
@@ -1047,10 +1036,8 @@ function buildFacilityCountryClause(
 
   return sql`EXISTS (
     SELECT 1 FROM ${schema.productJourneySteps}
-    INNER JOIN ${schema.productJourneyStepFacilities}
-      ON ${schema.productJourneySteps.id} = ${schema.productJourneyStepFacilities.journeyStepId}
     INNER JOIN ${schema.brandFacilities}
-      ON ${schema.productJourneyStepFacilities.facilityId} = ${schema.brandFacilities.id}
+      ON ${schema.productJourneySteps.facilityId} = ${schema.brandFacilities.id}
     WHERE ${schema.productJourneySteps.productId} = ${schema.products.id}
       AND ${inArray(schema.brandFacilities.countryCode, countryCodes)}
   )`;

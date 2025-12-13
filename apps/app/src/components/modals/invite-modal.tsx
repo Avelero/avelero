@@ -13,6 +13,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -41,7 +42,7 @@ function RoleSelector({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          className="h-[39px] w-[110px] justify-between items-center flex-shrink-0"
+          className="h-9 w-[110px] justify-between items-center flex-shrink-0"
           variant="outline"
         >
           {value === "owner" ? "Owner" : "Member"}
@@ -135,11 +136,13 @@ export function InviteModal({ brandId }: { brandId: string }) {
       <DialogTrigger asChild>
         <Button variant="default">Invite members</Button>
       </DialogTrigger>
-      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none w-[468px]">
-        <DialogHeader>
+      <DialogContent className="max-w-[520px] p-0 gap-0 border border-border overflow-visible">
+        <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">Invite members</DialogTitle>
         </DialogHeader>
-        <div className="space-y-6">
+
+        {/* Main content */}
+        <div className="px-6 py-4 min-h-[160px] space-y-4">
           <div className="flex flex-col gap-2">
             {invitees.map((inv, i) => (
               <div key={inv.id} className="flex items-center gap-2">
@@ -166,7 +169,7 @@ export function InviteModal({ brandId }: { brandId: string }) {
                 />
                 {invitees.length > 1 && (
                   <Button
-                    className="w-[39px] h-[39px] flex-shrink-0"
+                    className="w-9 h-9 flex-shrink-0"
                     variant="outline"
                     size="icon"
                     onClick={() =>
@@ -203,29 +206,26 @@ export function InviteModal({ brandId }: { brandId: string }) {
             )}
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
-          <div className="w-full flex gap-2 mt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isSubmitting}
-              className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="default"
-              onClick={onSend}
-              disabled={isSubmitting}
-              className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-            >
-              {isSubmitting
-                ? "Sending..."
-                : `Send invite${invitees.length > 1 ? "s" : ""}`}
-            </Button>
-          </div>
         </div>
+
+        {/* Footer */}
+        <DialogFooter className="px-6 py-4 border-t border-border bg-background">
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={onSend}
+            disabled={isSubmitting}
+          >
+            {isSubmitting
+              ? "Sending..."
+              : `Send invite${invitees.length > 1 ? "s" : ""}`}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

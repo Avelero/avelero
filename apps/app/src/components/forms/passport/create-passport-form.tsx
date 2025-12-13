@@ -9,9 +9,8 @@ import { VariantSection } from "@/components/forms/passport/blocks/variant-block
 import { PassportFormScaffold } from "@/components/forms/passport/scaffold/passport-form-scaffold";
 import { IdentifiersSection } from "@/components/forms/passport/sidebar/identifiers-block";
 import { StatusSection } from "@/components/forms/passport/sidebar/status-block";
-import type { TierTwoSizeOption } from "@/components/select/size-select";
 import { usePassportFormContext } from "@/contexts/passport-form-context";
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { useBrandCatalog, type SizeOption } from "@/hooks/use-brand-catalog";
 import { usePassportForm } from "@/hooks/use-passport-form";
 import { getFirstInvalidField, isFormValid } from "@/hooks/use-form-validation";
 import type { PassportFormValidationErrors } from "@/hooks/use-passport-form";
@@ -48,7 +47,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
   } = usePassportForm({ mode, productUpid, sizeOptions, colors: brandColors });
 
   const handleSelectedSizesChange = React.useCallback<
-    React.Dispatch<React.SetStateAction<TierTwoSizeOption[]>>
+    React.Dispatch<React.SetStateAction<SizeOption[]>>
   >(
     (value) => {
       if (typeof value === "function") {

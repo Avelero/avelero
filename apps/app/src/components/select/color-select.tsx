@@ -1,6 +1,8 @@
 "use client";
 
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { useTRPC } from "@/trpc/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SHADE_LABELS, colorFamilies } from "@v1/selections";
 import { cn } from "@v1/ui/cn";
 import {
@@ -13,6 +15,7 @@ import {
 } from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
 export interface ColorOption {
@@ -87,11 +90,18 @@ export function ColorSelect({
   disabled = false,
   className,
 }: ColorSelectProps) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const { colors: catalogColors } = useBrandCatalog();
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [view, setView] = React.useState<"main" | "picker">("main");
   const [pendingColorName, setPendingColorName] = React.useState("");
+
+  // API mutation for creating color
+  const createColorMutation = useMutation(
+    trpc.brand.colors.create.mutationOptions(),
+  );
 
   const handleToggleColor = (color: ColorOption) => {
     const targetKey = getColorKey(color);
@@ -117,27 +127,77 @@ export function ColorSelect({
     }
   };
 
-  const handleColorPick = (hex: string) => {
+  const handleColorPick = async (hex: string) => {
     const colorName = pendingColorName.trim();
-    if (!colorName) {
+    if (!colorName || createColorMutation.isPending) {
       return;
     }
 
     const normalizedHex = normalizeHexInput(hex);
-    const newColor: ColorOption = {
-      name: colorName,
-      hex: normalizedHex,
-    };
 
-    const targetKey = getColorKey(newColor);
-    const exists = value.some((c) => getColorKey(c) === targetKey);
-    if (!exists) {
-      onValueChange([...value, newColor]);
+    try {
+      const result = await toast.loading(
+        "Creating color...",
+        createColorMutation.mutateAsync({
+          name: colorName,
+          hex: normalizedHex,
+        }),
+        {
+          delay: 200,
+          successMessage: `Color "${colorName}" created`,
+        },
+      );
+
+      const createdColor = result?.data;
+      if (!createdColor?.id) {
+        throw new Error("No valid response returned from API");
+      }
+
+      const newColor: ColorOption = {
+        id: createdColor.id,
+        name: createdColor.name,
+        hex: (createdColor.hex ?? normalizedHex).replace("#", "").toUpperCase(),
+      };
+
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(
+        trpc.composite.brandCatalogContent.queryKey(),
+        (old: any) => {
+          if (!old?.brandCatalog) return old;
+          const existingColors = old.brandCatalog.colors ?? [];
+          const alreadyExists = existingColors.some(
+            (c: any) => c.name?.toLowerCase() === colorName.toLowerCase(),
+          );
+          if (alreadyExists) return old;
+          return {
+            ...old,
+            brandCatalog: {
+              ...old.brandCatalog,
+              colors: [...existingColors, newColor],
+            },
+          };
+        },
+      );
+
+      // Invalidate to trigger background refetch
+      queryClient.invalidateQueries({
+        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+      });
+
+      // Add to selection with real ID
+      const targetKey = getColorKey(newColor);
+      const exists = value.some((c) => getColorKey(c) === targetKey);
+      if (!exists) {
+        onValueChange([...value, newColor]);
+      }
+
+      setView("main");
+      setPendingColorName("");
+      setOpen(false);
+    } catch (error) {
+      console.error("Failed to create color:", error);
+      toast.error("Failed to create color. Please try again.");
     }
-
-    setView("main");
-    setPendingColorName("");
-    setOpen(false);
   };
 
   const filteredColors = React.useMemo(() => {
@@ -278,6 +338,7 @@ export function ColorSelect({
                       key={`${colorFamily.name}-${SHADE_LABELS[index]}`}
                       value={`${colorFamily.name} ${SHADE_LABELS[index]}`}
                       onSelect={() => handleColorPick(hex)}
+                      disabled={createColorMutation.isPending}
                     >
                       <div className="flex items-center gap-2">
                         <div

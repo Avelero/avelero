@@ -37,6 +37,7 @@ export const products = pgTable(
     primaryImagePath: text("primary_image_path"),
     weight: numeric("weight", { precision: 10, scale: 2 }),
     weightUnit: text("weight_unit"),
+    gender: text("gender"),
     webshopUrl: text("webshop_url"),
     price: numeric("price", { precision: 10, scale: 2 }),
     currency: text("currency"),

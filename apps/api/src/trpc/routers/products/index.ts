@@ -327,11 +327,13 @@ async function applyProductAttributes(
     await setProductJourneySteps(
       ctx.db,
       productId,
-      input.journey_steps.map((step) => ({
-        sortIndex: step.sort_index,
-        stepType: step.step_type,
-        facilityIds: step.facility_ids, // Changed from facilityId to support multiple operators
-      })),
+      input.journey_steps
+        .filter((step) => step.facility_ids.length > 0)
+        .map((step) => ({
+          sortIndex: step.sort_index,
+          stepType: step.step_type,
+          facilityId: step.facility_ids[0]!, // TODO: Update to support multiple operators
+        })),
     );
   }
 

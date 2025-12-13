@@ -447,48 +447,9 @@ export type Database = {
           },
         ];
       };
-      brand_services: {
-        Row: {
-          brand_id: string;
-          created_at: string;
-          description: string | null;
-          id: string;
-          name: string;
-          service_url: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          brand_id: string;
-          created_at?: string;
-          description?: string | null;
-          id?: string;
-          name: string;
-          service_url?: string | null;
-          updated_at?: string;
-        };
-        Update: {
-          brand_id?: string;
-          created_at?: string;
-          description?: string | null;
-          id?: string;
-          name?: string;
-          service_url?: string | null;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "brand_services_brand_id_brands_id_fk";
-            columns: ["brand_id"];
-            isOneToOne: false;
-            referencedRelation: "brands";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       brand_sizes: {
         Row: {
           brand_id: string;
-          category_id: string | null;
           created_at: string;
           id: string;
           name: string;
@@ -497,7 +458,6 @@ export type Database = {
         };
         Insert: {
           brand_id: string;
-          category_id?: string | null;
           created_at?: string;
           id?: string;
           name: string;
@@ -506,7 +466,6 @@ export type Database = {
         };
         Update: {
           brand_id?: string;
-          category_id?: string | null;
           created_at?: string;
           id?: string;
           name?: string;
@@ -519,13 +478,6 @@ export type Database = {
             columns: ["brand_id"];
             isOneToOne: false;
             referencedRelation: "brands";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "brand_sizes_category_id_categories_id_fk";
-            columns: ["category_id"];
-            isOneToOne: false;
-            referencedRelation: "categories";
             referencedColumns: ["id"];
           },
         ];
@@ -874,64 +826,28 @@ export type Database = {
           },
         ];
       };
-      product_journey_step_facilities: {
+      product_journey_steps: {
         Row: {
           created_at: string;
           facility_id: string;
           id: string;
-          journey_step_id: string;
+          product_id: string;
+          sort_index: number;
+          step_type: string;
           updated_at: string;
         };
         Insert: {
           created_at?: string;
           facility_id: string;
           id?: string;
-          journey_step_id: string;
+          product_id: string;
+          sort_index: number;
+          step_type: string;
           updated_at?: string;
         };
         Update: {
           created_at?: string;
           facility_id?: string;
-          id?: string;
-          journey_step_id?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "product_journey_step_facilities_facility_id_brand_facilities_id";
-            columns: ["facility_id"];
-            isOneToOne: false;
-            referencedRelation: "brand_facilities";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "product_journey_step_facilities_journey_step_id_product_journey";
-            columns: ["journey_step_id"];
-            isOneToOne: false;
-            referencedRelation: "product_journey_steps";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      product_journey_steps: {
-        Row: {
-          created_at: string;
-          id: string;
-          product_id: string;
-          sort_index: number;
-          step_type: string;
-          updated_at: string;
-        };
-        Insert: {
-          created_at?: string;
-          id?: string;
-          product_id: string;
-          sort_index: number;
-          step_type: string;
-          updated_at?: string;
-        };
-        Update: {
-          created_at?: string;
           id?: string;
           product_id?: string;
           sort_index?: number;
@@ -939,6 +855,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "product_journey_steps_facility_id_brand_facilities_id_fk";
+            columns: ["facility_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_facilities";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "product_journey_steps_product_id_products_id_fk";
             columns: ["product_id"];
@@ -1050,6 +973,7 @@ export type Database = {
           currency: string | null;
           description: string | null;
           ean: string | null;
+          gender: string | null;
           gtin: string | null;
           id: string;
           manufacturer_id: string | null;
@@ -1073,6 +997,7 @@ export type Database = {
           currency?: string | null;
           description?: string | null;
           ean?: string | null;
+          gender?: string | null;
           gtin?: string | null;
           id?: string;
           manufacturer_id?: string | null;
@@ -1096,6 +1021,7 @@ export type Database = {
           currency?: string | null;
           description?: string | null;
           ean?: string | null;
+          gender?: string | null;
           gtin?: string | null;
           id?: string;
           manufacturer_id?: string | null;

@@ -22,7 +22,6 @@ import {
   categories,
   productEcoClaims,
   productEnvironment,
-  productJourneyStepFacilities,
   productJourneySteps,
   productMaterials,
   productVariants,
@@ -162,8 +161,8 @@ export interface ProductJourneyStepSummary {
   id: string;
   sort_index: number;
   step_type: string;
-  facility_ids: string[]; // Changed from facility_id to support multiple operators
-  facility_names: (string | null)[]; // Changed from facility_name to support multiple operators
+  facility_id: string;
+  facility_name: string | null;
 }
 
 /**
@@ -425,71 +424,33 @@ async function loadAttributesForProducts(
     };
   }
 
-  // Load journey steps with all their facilities via junction table
-  // We need to aggregate facilities for each step since there's a many-to-many relationship
+  // Load journey steps with their facility (one facility per step)
   const journeyRows = await db
     .select({
       id: productJourneySteps.id,
       product_id: productJourneySteps.productId,
       sort_index: productJourneySteps.sortIndex,
       step_type: productJourneySteps.stepType,
-      facility_id: productJourneyStepFacilities.facilityId,
+      facility_id: productJourneySteps.facilityId,
       facility_name: brandFacilities.displayName,
     })
     .from(productJourneySteps)
     .leftJoin(
-      productJourneyStepFacilities,
-      eq(productJourneySteps.id, productJourneyStepFacilities.journeyStepId),
-    )
-    .leftJoin(
       brandFacilities,
-      eq(brandFacilities.id, productJourneyStepFacilities.facilityId),
+      eq(brandFacilities.id, productJourneySteps.facilityId),
     )
     .where(inArray(productJourneySteps.productId, [...productIds]))
     .orderBy(asc(productJourneySteps.sortIndex));
 
-  // Group facilities by journey step
-  const journeyStepsMap = new Map<
-    string,
-    {
-      id: string;
-      product_id: string;
-      sort_index: number;
-      step_type: string;
-      facilities: Array<{ id: string; name: string | null }>;
-    }
-  >();
-
+  // Add journey steps to bundles
   for (const row of journeyRows) {
-    const stepId = row.id;
-    if (!journeyStepsMap.has(stepId)) {
-      journeyStepsMap.set(stepId, {
-        id: row.id,
-        product_id: row.product_id,
-        sort_index: row.sort_index,
-        step_type: row.step_type,
-        facilities: [],
-      });
-    }
-
-    const step = journeyStepsMap.get(stepId)!;
-    if (row.facility_id) {
-      step.facilities.push({
-        id: row.facility_id,
-        name: row.facility_name ?? null,
-      });
-    }
-  }
-
-  // Add aggregated journey steps to bundles
-  for (const step of journeyStepsMap.values()) {
-    const bundle = ensureBundle(step.product_id);
+    const bundle = ensureBundle(row.product_id);
     bundle.journey.push({
-      id: step.id,
-      sort_index: step.sort_index,
-      step_type: step.step_type,
-      facility_ids: step.facilities.map((f) => f.id),
-      facility_names: step.facilities.map((f) => f.name),
+      id: row.id,
+      sort_index: row.sort_index,
+      step_type: row.step_type,
+      facility_id: row.facility_id,
+      facility_name: row.facility_name ?? null,
     });
   }
 
@@ -1188,11 +1149,11 @@ export async function upsertProductEnvironment(
 export async function setProductJourneySteps(
   db: Database,
   productId: string,
-  steps: { sortIndex: number; stepType: string; facilityIds: string[] }[],
+  steps: { sortIndex: number; stepType: string; facilityId: string }[],
 ) {
   let countInserted = 0;
   await db.transaction(async (tx) => {
-    // Delete existing journey steps (cascade will delete junction table entries)
+    // Delete existing journey steps
     await tx
       .delete(productJourneySteps)
       .where(eq(productJourneySteps.productId, productId));
@@ -1200,7 +1161,7 @@ export async function setProductJourneySteps(
     if (!steps.length) {
       countInserted = 0;
     } else {
-      // Insert journey steps first
+      // Insert journey steps with their facility
       const rows = await tx
         .insert(productJourneySteps)
         .values(
@@ -1208,36 +1169,12 @@ export async function setProductJourneySteps(
             productId,
             sortIndex: s.sortIndex,
             stepType: s.stepType,
+            facilityId: s.facilityId,
           })),
         )
         .returning({ id: productJourneySteps.id });
 
       countInserted = rows.length;
-
-      // Insert facility associations in junction table
-      const facilityAssociations: Array<{
-        journeyStepId: string;
-        facilityId: string;
-      }> = [];
-
-      for (let i = 0; i < steps.length; i++) {
-        const step = steps[i];
-        const stepRow = rows[i];
-        if (!stepRow || !step) continue;
-
-        for (let j = 0; j < step.facilityIds.length; j++) {
-          facilityAssociations.push({
-            journeyStepId: stepRow.id,
-            facilityId: step.facilityIds[j]!,
-          });
-        }
-      }
-
-      if (facilityAssociations.length > 0) {
-        await tx
-          .insert(productJourneyStepFacilities)
-          .values(facilityAssociations);
-      }
     }
 
     const [{ brandId } = { brandId: undefined } as any] = await tx

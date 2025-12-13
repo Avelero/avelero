@@ -51,7 +51,10 @@ export function EnvironmentSection({
       const decimalPart = normalized.substring(firstDecimalIndex + 1);
 
       // Remove all non-digits from decimal part and limit to 4 digits
-      const cleanDecimal = decimalPart.replace(/[^\d]/g, "").substring(0, 4);
+      let cleanDecimal = decimalPart.replace(/[^\d]/g, "").substring(0, 4);
+
+      // Remove trailing zeros from decimal part (85.3400 -> 85.34)
+      cleanDecimal = cleanDecimal.replace(/0+$/, "");
 
       // Remove non-digits from integer part
       const cleanInteger = integerPart.replace(/[^\d]/g, "");
@@ -59,7 +62,7 @@ export function EnvironmentSection({
       // Remove leading zeros but keep "0" if that's the only digit
       const trimmedInteger = cleanInteger.replace(/^0+/, "") || "0";
 
-      // Combine, only add decimal if there's a decimal part
+      // Combine, only add decimal if there's a non-empty decimal part
       normalized = cleanDecimal
         ? `${trimmedInteger}.${cleanDecimal}`
         : trimmedInteger;

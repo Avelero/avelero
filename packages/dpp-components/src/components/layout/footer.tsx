@@ -2,7 +2,7 @@ import type { ThemeConfig } from "@v1/dpp-components";
 
 interface Props {
   themeConfig: ThemeConfig;
-  /** Brand name to display in footer - comes from product data (showcase brand) */
+  /** Brand name to display in footer - comes from product data (manufacturer) */
   brandName: string;
 }
 
@@ -33,7 +33,7 @@ export function Footer({ themeConfig, brandName }: Props) {
   return (
     <div className="w-full">
       <div className="footer flex justify-between items-center p-sm border-t">
-        {/* Brand name on the left - comes from product data (showcase brand) */}
+        {/* Brand name on the left - comes from product data (manufacturer) */}
         <div className="footer__legal-name">{brandName}</div>
 
         {/* Social media on the right */}

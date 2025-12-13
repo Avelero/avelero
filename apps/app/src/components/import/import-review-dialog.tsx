@@ -151,19 +151,19 @@ function ImportReviewDialogContent({
 
   // Individual entity creation mutations
   const createMaterialMutation = useMutation(
-    trpc.brand.materials.create.mutationOptions(),
+    trpc.catalog.materials.create.mutationOptions(),
   );
   const createSizeMutation = useMutation(
-    trpc.brand.sizes.create.mutationOptions(),
+    trpc.catalog.sizes.create.mutationOptions(),
   );
   const createSeasonMutation = useMutation(
-    trpc.brand.seasons.create.mutationOptions(),
+    trpc.catalog.seasons.create.mutationOptions(),
   );
   const createFacilityMutation = useMutation(
-    trpc.brand.facilities.create.mutationOptions(),
+    trpc.catalog.facilities.create.mutationOptions(),
   );
-  const createShowcaseBrandMutation = useMutation(
-    trpc.brand.showcaseBrands.create.mutationOptions(),
+  const createManufacturerMutation = useMutation(
+    trpc.catalog.manufacturers.create.mutationOptions(),
   );
   const mapToExistingMutation = useMutation(
     trpc.bulk.values.mapToExisting.mutationOptions(),
@@ -184,8 +184,8 @@ function ImportReviewDialogContent({
         SIZE: pending.filter((p) => p.entityType === "SIZE"),
         SEASON: pending.filter((p) => p.entityType === "SEASON"),
         FACILITY: pending.filter((p) => p.entityType === "FACILITY"),
-        SHOWCASE_BRAND: pending.filter(
-          (p) => p.entityType === "SHOWCASE_BRAND",
+        MANUFACTURER: pending.filter(
+          (p) => p.entityType === "MANUFACTURER",
         ),
       };
 
@@ -260,14 +260,14 @@ function ImportReviewDialogContent({
         }
       };
 
-      const createShowcaseBrand = async (p: any) => {
+      const createManufacturer = async (p: any) => {
         try {
-          const result = await createShowcaseBrandMutation.mutateAsync(
+          const result = await createManufacturerMutation.mutateAsync(
             p.entityData,
           );
           const brand = result?.data;
           if (!brand?.id) {
-            throw new Error("Showcase brand created without identifier");
+            throw new Error("Manufacturer created without identifier");
           }
           created.push({ entity: brand, pending: p });
         } catch (err) {
@@ -284,7 +284,7 @@ function ImportReviewDialogContent({
         ...grouped.SIZE.map(createSize),
         ...grouped.SEASON.map(createSeason),
         ...grouped.FACILITY.map(createFacility),
-        ...grouped.SHOWCASE_BRAND.map(createShowcaseBrand),
+        ...grouped.MANUFACTURER.map(createManufacturer),
       ]);
 
       // Now map all created entities to CSV values

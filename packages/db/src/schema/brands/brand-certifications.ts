@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
-import { fileAssets } from "../data/file-assets";
 
 export const brandCertifications = pgTable(
   "brand_certifications",
@@ -13,19 +12,20 @@ export const brandCertifications = pgTable(
     title: text("title").notNull(),
     certificationCode: text("certification_code"),
     instituteName: text("institute_name"),
-    instituteAddress: text("institute_address"),
-    instituteContact: text("institute_contact"),
+    instituteEmail: text("institute_email"),
+    instituteWebsite: text("institute_website"),
+    instituteAddressLine1: text("institute_address_line_1"),
+    instituteAddressLine2: text("institute_address_line_2"),
+    instituteCity: text("institute_city"),
+    instituteState: text("institute_state"),
+    instituteZip: text("institute_zip"),
+    instituteCountryCode: text("institute_country_code"),
     issueDate: timestamp("issue_date", { withTimezone: false, mode: "string" }),
     expiryDate: timestamp("expiry_date", {
       withTimezone: false,
       mode: "string",
     }),
-    fileAssetId: uuid("file_asset_id").references(() => fileAssets.id, {
-      onDelete: "set null",
-      onUpdate: "cascade",
-    }),
-    externalUrl: text("external_url"),
-    notes: text("notes"),
+    filePath: text("file_path"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

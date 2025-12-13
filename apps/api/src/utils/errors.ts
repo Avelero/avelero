@@ -419,26 +419,94 @@ export function isTRPCError(error: unknown): error is TRPCError {
 }
 
 /**
- * Wraps unknown errors as TRPCError with INTERNAL_SERVER_ERROR.
+ * Map of known database constraint names to user-friendly messages.
+ */
+const CONSTRAINT_MESSAGES: Record<string, string> = {
+  products_brand_id_product_identifier_unq:
+    "A product with this identifier already exists",
+  brand_colors_brand_id_name_unq: "A color with this name already exists",
+  brand_materials_brand_id_name_unq:
+    "A material with this name already exists",
+  brand_seasons_brand_id_name_unq: "A season with this name already exists",
+  brand_tags_brand_id_name_unq: "A tag with this name already exists",
+  brand_facilities_brand_id_display_name_unq:
+    "A facility with this name already exists",
+  brand_manufacturers_brand_id_name_unq:
+    "A manufacturer with this name already exists",
+  brand_eco_claims_brand_id_claim_unq:
+    "An eco-claim with this text already exists",
+  categories_brand_id_name_parent_id_unq:
+    "A category with this name already exists at this level",
+};
+
+/**
+ * Extracts constraint name from an error by checking the error and its cause chain.
+ */
+function findConstraintName(error: unknown): string | null {
+  if (!error) return null;
+
+  // Check if error object has constraint property directly (PostgreSQL/Drizzle)
+  if (typeof error === "object") {
+    const obj = error as Record<string, unknown>;
+
+    // Direct constraint property
+    if (typeof obj.constraint === "string") {
+      return obj.constraint;
+    }
+
+    // Check in cause chain
+    if (obj.cause) {
+      const fromCause = findConstraintName(obj.cause);
+      if (fromCause) return fromCause;
+    }
+
+    // Check error message for constraint name
+    const message = obj.message;
+    if (typeof message === "string") {
+      const match = message.match(/constraint "([^"]+)"/i);
+      if (match?.[1]) return match[1];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Gets user-friendly message for known constraint violations.
+ * Returns null for unknown constraints.
+ */
+function getConstraintMessage(error: unknown): string | null {
+  const constraintName = findConstraintName(error);
+  if (constraintName && CONSTRAINT_MESSAGES[constraintName]) {
+    return CONSTRAINT_MESSAGES[constraintName];
+  }
+  return null;
+}
+
+/**
+ * Wraps unknown errors as TRPCError with appropriate error code.
  *
- * Use in catch blocks to ensure consistent error format.
+ * Maps known database constraint errors to user-friendly messages.
+ * For unknown errors, uses the provided context message.
  *
  * @param error - Caught error
- * @param context - Optional context description
- * @returns TRPCError instance
- *
- * @example
- * ```ts
- * try {
- *   await riskyOperation();
- * } catch (error) {
- *   throw wrapError(error, "Failed to process payment");
- * }
- * ```
+ * @param context - User-friendly fallback message (e.g., "Failed to create product")
+ * @returns TRPCError instance with user-friendly message
  */
-export function wrapError(error: unknown, context?: string): TRPCError {
-  if (isTRPCError(error)) return error;
+export function wrapError(error: unknown, context: string): TRPCError {
+  // If already a TRPCError, return it as-is (it should already have a safe message)
+  if (isTRPCError(error)) {
+    return error;
+  }
 
-  const message = context || "An unexpected error occurred";
-  return internalServerError(message, error);
+  // Check for known constraint violations
+  const constraintMessage = getConstraintMessage(error);
+  if (constraintMessage) {
+    return badRequest(constraintMessage);
+  }
+
+  // For all other unknown errors, return internal server error (HTTP 500)
+  // Log the original error on the server for debugging, but don't expose it to the client
+  console.error("Unexpected error:", error);
+  return internalServerError(context, error);
 }

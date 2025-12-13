@@ -92,7 +92,7 @@ export function TagSelect({
   const [pendingTagName, setPendingTagName] = React.useState("");
 
   const createTagMutation = useMutation(
-    trpc.brand.tags.create.mutationOptions(),
+    trpc.catalog.tags.create.mutationOptions(),
   );
 
   const mergedTags = React.useMemo(() => {
@@ -205,7 +205,7 @@ export function TagSelect({
       ]);
 
       queryClient.setQueryData(
-        trpc.composite.brandCatalogContent.queryKey(),
+        trpc.composite.catalogContent.queryKey(),
         (old: any) => {
           if (!old?.brandCatalog) return old;
           const existingTags = old.brandCatalog.tags ?? [];
@@ -226,7 +226,7 @@ export function TagSelect({
       );
 
       queryClient.invalidateQueries({
-        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+        queryKey: trpc.composite.catalogContent.queryKey(),
       });
 
       onValueChange([...new Set([...value, optimisticTag.id])]);

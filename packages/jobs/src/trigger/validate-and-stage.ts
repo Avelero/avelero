@@ -142,7 +142,7 @@ interface CSVRow {
   // ============================================================================
   description?: string; // Max 2000 characters
   status?: string; // draft|published|archived (default: draft)
-  brand?: string; // Showcase brand name
+  manufacturer?: string; // Manufacturer name
 
   // ============================================================================
   // ORGANIZATION
@@ -211,7 +211,7 @@ interface ValidationWarning {
     | "ECO_CLAIM"
     | "FACILITY"
     | "OPERATOR" // Journey operators
-    | "SHOWCASE_BRAND"
+    | "MANUFACTURER"
     | "CERTIFICATION"
     | "PRODUCT_VARIANT"; // For ambiguous match warnings
 }
@@ -228,7 +228,7 @@ interface ExistingVariant {
   categoryId: string | null;
   seasonId: string | null;
   primaryImagePath: string | null;
-  showcaseBrandId: string | null;
+  manufacturerId: string | null;
   status: string | null;
   // Variant fields
   variant_id: string;
@@ -648,7 +648,7 @@ export const validateAndStage = task({
                 categoryId: products.categoryId,
                 seasonId: products.seasonId,
                 primaryImagePath: products.primaryImagePath,
-                showcaseBrandId: products.showcaseBrandId,
+                manufacturerId: products.manufacturerId,
                 status: products.status,
                 upid: productVariants.upid,
                 colorId: productVariants.colorId,
@@ -672,7 +672,7 @@ export const validateAndStage = task({
                 categoryId: v.categoryId,
                 seasonId: v.seasonId,
                 primaryImagePath: v.primaryImagePath,
-                showcaseBrandId: v.showcaseBrandId,
+                manufacturerId: v.manufacturerId,
                 status: v.status,
                 variant_id: v.variantId,
                 upid: v.upid,
@@ -1349,7 +1349,7 @@ function detectChanges(
     categoryId: string | null;
     seasonId: string | null;
     primaryImagePath: string | null;
-    showcaseBrandId: string | null;
+    manufacturerId: string | null;
     status: string | null;
     // Variant fields
     upid: string | null;
@@ -1383,8 +1383,8 @@ function detectChanges(
     changedFields.push("seasonId");
   if (isDifferent(newProduct.primaryImagePath, existing.primaryImagePath))
     changedFields.push("primaryImagePath");
-  if (isDifferent(newProduct.showcaseBrandId, existing.showcaseBrandId))
-    changedFields.push("showcaseBrandId");
+  if (isDifferent(newProduct.manufacturerId, existing.manufacturerId))
+    changedFields.push("manufacturerId");
   if (isDifferent(newProduct.status, existing.status))
     changedFields.push("status");
 
@@ -1650,27 +1650,27 @@ async function validateRow(
   // ========================================================================
 
   // ========================================================================
-  // BRAND VALIDATION (showcase_brand)
+  // MANUFACTURER VALIDATION
   // ========================================================================
-  const showcaseBrandId: string | null = null;
-  if (row.brand?.trim()) {
-    // Check if brand exists in catalog - brands are global, not brand-specific
-    // TODO: Implement lookupShowcaseBrandId function
+  const manufacturerId: string | null = null;
+  if (row.manufacturer?.trim()) {
+    // Check if manufacturer exists in catalog
+    // TODO: Implement lookupManufacturerId function
     // For now, track as unmapped if provided
     trackUnmappedValue(
       unmappedValues,
       unmappedValueDetails,
-      "SHOWCASE_BRAND",
-      row.brand.trim(),
-      "brand",
+      "MANUFACTURER",
+      row.manufacturer.trim(),
+      "manufacturer",
     );
     warnings.push({
       type: "NEEDS_DEFINITION",
-      subtype: "MISSING_BRAND",
-      field: "brand",
-      message: `Brand "${row.brand}" needs to be mapped or created`,
+      subtype: "MISSING_MANUFACTURER",
+      field: "manufacturer",
+      message: `Manufacturer "${row.manufacturer}" needs to be mapped or created`,
       severity: "warning",
-      entityType: "SHOWCASE_BRAND",
+      entityType: "MANUFACTURER",
     });
   }
 
@@ -1827,7 +1827,7 @@ async function validateRow(
     // CSV column is primary_image_url, but we store as primaryImagePath
     primaryImagePath: row.primary_image_url?.trim() || null,
     status: productStatus,
-    showcaseBrandId,
+    manufacturerId,
   };
 
   const tempVariant: InsertStagingVariantParams = {

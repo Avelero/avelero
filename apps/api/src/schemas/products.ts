@@ -21,6 +21,19 @@ import {
   uuidSchema,
 } from "./_shared/primitives.js";
 
+// ============================================================================
+// UPID Schema
+// ============================================================================
+
+/**
+ * UPID (Unique Product Identifier) schema.
+ * 16-character alphanumeric string used for URL-friendly product identification.
+ */
+export const upidSchema = z
+  .string()
+  .length(16, "UPID must be 16 characters")
+  .regex(/^[a-zA-Z0-9]+$/, "UPID must be alphanumeric");
+
 // Products core
 /**
  * Available fields for product queries.
@@ -35,11 +48,10 @@ export const PRODUCT_FIELDS = [
   "brand_id",
   "category_id",
   "season_id",
-  "showcase_brand_id",
+  "manufacturer_id",
   "primary_image_path",
   "product_identifier",
   "upid",
-  "template_id",
   "status",
   "created_at",
   "updated_at",
@@ -215,10 +227,9 @@ export const createProductSchema = z.object({
   description: longStringSchema.optional(),
   category_id: uuidSchema.optional(),
   season_id: uuidSchema.optional(), // FK to brand_seasons.id
-  showcase_brand_id: uuidSchema.optional(),
+  manufacturer_id: uuidSchema.optional(),
   /** Storage path for the product image (not full URL) */
   primary_image_path: z.string().max(500).optional(),
-  template_id: uuidSchema.optional(),
   status: shortStringSchema.optional(),
   color_ids: uuidArraySchema.max(12).optional(),
   size_ids: uuidArraySchema.max(12).optional(),
@@ -237,7 +248,7 @@ export const createProductSchema = z.object({
       z.object({
         sort_index: nonNegativeIntSchema,
         step_type: shortStringSchema,
-        facility_ids: uuidArraySchema, // Changed from facility_id to support multiple operators
+        facility_id: uuidSchema, // 1:1 relationship with facility
       }),
     )
     .optional(),
@@ -256,9 +267,8 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
   "description",
   "category_id",
   "season_id",
-  "showcase_brand_id",
+  "manufacturer_id",
   "primary_image_path",
-  "template_id",
   "status",
   "product_identifier",
 ]);
@@ -409,6 +419,44 @@ export type ProductVariantsUpsertInput = z.infer<
 export type ProductVariantsDeleteInput = z.infer<
   typeof productVariantsDeleteSchema
 >;
+
+// ============================================================================
+// Unified Schemas (API Redesign)
+// ============================================================================
+
+/**
+ * Unified product get schema accepting either ID or UPID.
+ * Replaces separate `productsDomainGetSchema` and `productsDomainGetByUpidSchema`.
+ */
+export const productUnifiedGetSchema = z.intersection(
+  z.union([
+    z.object({ id: uuidSchema }),
+    z.object({ upid: upidSchema }),
+  ]),
+  z.object({
+    includeVariants: z.boolean().optional().default(false),
+    includeAttributes: z.boolean().optional().default(false),
+  }),
+);
+
+export type ProductUnifiedGetInput = z.infer<typeof productUnifiedGetSchema>;
+
+/**
+ * Unified variant list schema accepting either product_id or product_upid.
+ * Supports listing variants by product ID or UPID.
+ */
+export const variantUnifiedListSchema = z.intersection(
+  z.union([
+    z.object({ product_id: uuidSchema }),
+    z.object({ product_upid: upidSchema }),
+  ]),
+  z.object({
+    cursor: z.string().optional(),
+    limit: paginationLimitSchema.optional(),
+  }),
+);
+
+export type VariantUnifiedListInput = z.infer<typeof variantUnifiedListSchema>;
 
 // ============================================================================
 // FilterState Type Exports

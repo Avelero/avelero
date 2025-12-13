@@ -1,18 +1,13 @@
-import type { TierTwoSizeOption } from "@/components/select/size-select";
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { allColors } from "@v1/selections/colors";
+import { allDefaultSizes, type DefaultSize } from "@v1/selections";
 import * as React from "react";
 
 export interface CategoryNode {
   label: string;
   id: string;
   children?: Record<string, CategoryNode>;
-}
-
-export interface TierTwoCategoryInfo {
-  key: string;
-  displayName: string;
 }
 
 export interface BrandTagOption {
@@ -22,29 +17,13 @@ export interface BrandTagOption {
 }
 
 /**
- * Helper: Extract level 2 category key from full category path
- * Examples:
- *   "Men's / Tops / Jerseys" -> "mens-tops"
- *   "Women's / Bottoms" -> "womens-bottoms"
- *   "Men's" -> null (not level 2)
+ * SizeOption - flat size representation (no category coupling)
  */
-export function getCategoryKey(categoryPath: string): string | null {
-  if (!categoryPath || categoryPath === "Select category") {
-    return null;
-  }
-
-  const parts = categoryPath.split(" / ").map((p) => p.trim());
-
-  // Need at least 2 levels
-  if (parts.length < 2 || !parts[0] || !parts[1]) {
-    return null;
-  }
-
-  // Convert to kebab-case key (e.g., "Men's" -> "mens", "Tops" -> "tops")
-  const level1 = parts[0].toLowerCase().replace(/[']/g, "");
-  const level2 = parts[1].toLowerCase().replace(/[']/g, "");
-
-  return `${level1}-${level2}`;
+export interface SizeOption {
+  id?: string; // DB ID (undefined = not yet in brand's DB)
+  name: string; // Display name (e.g., "XL", "42", "XII")
+  sortIndex: number; // For ordering - UNIQUE identifier, differentiates sizes with same name in different groups
+  group?: string; // Size group (e.g., "Letter", "US Numeric", "US Shoe") for UI grouping
 }
 
 /**
@@ -118,7 +97,7 @@ export function useBrandCatalog() {
 
   // Access prefetched data from React Query cache
   const { data } = useSuspenseQuery(
-    trpc.composite.brandCatalogContent.queryOptions(),
+    trpc.composite.catalogContent.queryOptions(),
   );
 
   // Merge colors: API colors + default colors from selections
@@ -132,9 +111,10 @@ export function useBrandCatalog() {
     };
 
     // Create a map to avoid duplicates (API colors take precedence)
+    // id is undefined for default colors (not yet in brand's DB), or a real UUID for brand colors
     const colorMap = new Map<
       string,
-      { id: string; name: string; hex: string }
+      { id: string | undefined; name: string; hex: string }
     >();
 
     // Add API colors first (these have real IDs from DB)
@@ -151,12 +131,14 @@ export function useBrandCatalog() {
       });
     }
 
-    // Add default colors that aren't already in API colors (these need to be created when used)
+    // Add default colors that aren't already in API colors
+    // Default colors have id: undefined to indicate they need to be created when the product is saved
+    // (NOT when selected - selection just stores them in local state as "pending")
     for (const color of defaultColors) {
       const key = color.name.toLowerCase();
       if (!colorMap.has(key)) {
         colorMap.set(key, {
-          id: "",
+          id: undefined, // Undefined = default color not yet in brand's DB
           name: color.name,
           hex: normalizeHex(color.hex) ?? "000000",
         });
@@ -178,127 +160,59 @@ export function useBrandCatalog() {
     return map;
   }, [data?.categories]);
 
-  const resolveTierTwoCategoryPath = React.useCallback(
-    (categoryId: string | null | undefined): string | null => {
-      if (!categoryId) {
-        return null;
-      }
-
-      const segments: string[] = [];
-      let currentId: string | null | undefined = categoryId;
-      let guard = 0;
-
-      while (currentId && guard < 10) {
-        const node = categoryMap.get(currentId);
-        if (!node) {
-          break;
-        }
-        segments.push(node.name);
-        currentId = node.parentId;
-        guard += 1;
-      }
-
-      if (segments.length < 2) {
-        return null;
-      }
-
-      const topLevel = segments[segments.length - 1];
-      const secondLevel = segments[segments.length - 2];
-      return `${topLevel} / ${secondLevel}`;
-    },
-    [categoryMap],
-  );
-
-  const sizeOptions = React.useMemo<TierTwoSizeOption[]>(() => {
+  // Flat size options: merge brand's existing sizes with default sizes
+  const sizeOptions = React.useMemo<SizeOption[]>(() => {
     const apiSizes = data?.brandCatalog.sizes ?? [];
-    const options: TierTwoSizeOption[] = [];
+    // Use sortIndex as unique key since same name can exist in different groups
+    // (e.g., "8" in US Numeric vs "8" in US Shoe)
+    const sizeMap = new Map<number, SizeOption>();
 
-    // Only use API sizes (no defaults)
+    // Helper to find the group for a given sortIndex
+    const findGroupForSortIndex = (sortIndex: number): string | undefined => {
+      const defaultSize = allDefaultSizes.find(s => s.sortIndex === sortIndex);
+      return defaultSize?.group;
+    };
+
+    // Add brand's existing sizes first (have real DB IDs)
     for (const size of apiSizes) {
-      const categoryPath = resolveTierTwoCategoryPath(size.category_id);
-      if (!categoryPath) {
-        continue;
-      }
-
-      const categoryKey = getCategoryKey(categoryPath);
-      if (!categoryKey) {
-        continue;
-      }
-
-      const option: TierTwoSizeOption = {
+      const sortIndex = size.sort_index ?? 0;
+      sizeMap.set(sortIndex, {
         id: size.id,
         name: size.name,
-        categoryKey,
-        categoryPath,
-        sortIndex:
-          typeof size.sort_index === "number"
-            ? size.sort_index
-            : Number.MAX_SAFE_INTEGER,
-        source: "brand",
-      };
-      options.push(option);
+        sortIndex,
+        group: findGroupForSortIndex(sortIndex),
+      });
     }
 
-    return options;
-  }, [data?.brandCatalog.sizes, resolveTierTwoCategoryPath]);
+    // Add default sizes that aren't already in brand's catalog
+    for (const size of allDefaultSizes) {
+      if (!sizeMap.has(size.sortIndex)) {
+        sizeMap.set(size.sortIndex, {
+          id: undefined, // Not in DB yet
+          name: size.name,
+          sortIndex: size.sortIndex,
+          group: size.group,
+        });
+      }
+    }
+
+    // Sort by sortIndex, then by name
+    return Array.from(sizeMap.values()).sort((a, b) => {
+      if (a.sortIndex !== b.sortIndex) {
+        return a.sortIndex - b.sortIndex;
+      }
+      return a.name.localeCompare(b.name, undefined, { numeric: true });
+    });
+  }, [data?.brandCatalog.sizes]);
 
   // Build category hierarchy for CategorySelect component
   const categoryHierarchy = React.useMemo(() => {
     return buildCategoryHierarchy(data?.categories || []);
   }, [data?.categories]);
 
-  // Build tier-two category list for size-related components
-  // Extract all tier-2 categories from the category hierarchy
-  const tierTwoCategories = React.useMemo<TierTwoCategoryInfo[]>(() => {
-    const categorySet = new Set<string>();
-    const categoryInfos: TierTwoCategoryInfo[] = [];
-    const rawCategories = data?.categories || [];
-
-    // Find all tier-2 categories (categories that have a parent)
-    for (const category of rawCategories) {
-      if (category.parent_id) {
-        // This is at least a tier-2 category
-        const categoryPath = resolveTierTwoCategoryPath(category.id);
-        if (categoryPath) {
-          const categoryKey = getCategoryKey(categoryPath);
-          if (categoryKey && !categorySet.has(categoryKey)) {
-            categorySet.add(categoryKey);
-            categoryInfos.push({
-              key: categoryKey,
-              displayName: categoryPath,
-            });
-          }
-        }
-      }
-    }
-
-    return categoryInfos.sort((a, b) =>
-      a.displayName.localeCompare(b.displayName),
-    );
-  }, [data?.categories, resolveTierTwoCategoryPath]);
-
-  // Build tier-two category hierarchy for size modal and size select (Men's -> Tops, Bottoms, etc.)
-  const tierTwoCategoryHierarchy = React.useMemo<
-    Record<string, string[]>
-  >(() => {
-    const hierarchy: Record<string, string[]> = {};
-
-    for (const category of tierTwoCategories) {
-      const [tierOne, tierTwo] = category.displayName.split(" / ");
-      if (!tierOne || !tierTwo) continue;
-
-      if (!hierarchy[tierOne]) {
-        hierarchy[tierOne] = [];
-      }
-      hierarchy[tierOne].push(category.displayName);
-    }
-
-    return hierarchy;
-  }, [tierTwoCategories]);
-
   const tags = React.useMemo<BrandTagOption[]>(() => {
     const apiTags = data?.brandCatalog.tags ?? [];
-    return apiTags.map((tag) => ({
+    return apiTags.map((tag: any) => ({
       id: tag.id,
       name: tag.name,
       hex: (tag.hex ?? "000000").toUpperCase(),
@@ -315,9 +229,9 @@ export function useBrandCatalog() {
     materials: data?.brandCatalog.materials || [],
     operators: data?.brandCatalog.operators || [], // Facilities/production plants from brand_facilities table
     certifications: data?.brandCatalog.certifications || [],
-    showcaseBrands: data?.brandCatalog.showcaseBrands || [], // Display brands from showcase_brands table
-    seasons: (data?.brandCatalog.seasons || []).map((s) => ({
-      id: (s as any).id ?? "",
+    manufacturers: data?.brandCatalog.manufacturers || [], // Manufacturers from brand_manufacturers table
+    seasons: (data?.brandCatalog.seasons || []).map((s: any) => ({
+      id: s.id ?? "",
       name: s.name,
       startDate: s.startDate ? new Date(s.startDate) : undefined,
       endDate: s.endDate ? new Date(s.endDate) : undefined,
@@ -328,10 +242,6 @@ export function useBrandCatalog() {
     colors,
     sizeOptions,
     tags,
-
-    // Size-related
-    tierTwoCategories,
-    tierTwoCategoryHierarchy,
   };
 }
 

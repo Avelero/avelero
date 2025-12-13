@@ -7,15 +7,15 @@ import { Label } from "@v1/ui/label";
 import { Select } from "@v1/ui/select";
 import { useState } from "react";
 import {
-  type ShowcaseBrandData,
-  ShowcaseBrandSheet,
-} from "../../../sheets/showcase-brand-sheet";
+  type ManufacturerData,
+  ManufacturerSheet,
+} from "../../../sheets/manufacturer-sheet";
 
 interface IdentifiersSectionProps {
   productIdentifier: string;
   setProductIdentifier: (value: string) => void;
-  showcaseBrandId: string | null;
-  setShowcaseBrandId: (value: string | null) => void;
+  manufacturerId: string | null;
+  setManufacturerId: (value: string | null) => void;
   productIdentifierError?: string;
   productIdentifierInputRef?: React.RefObject<HTMLInputElement | null>;
 }
@@ -23,12 +23,12 @@ interface IdentifiersSectionProps {
 export function IdentifiersSection({
   productIdentifier,
   setProductIdentifier,
-  showcaseBrandId,
-  setShowcaseBrandId,
+  manufacturerId,
+  setManufacturerId,
   productIdentifierError,
   productIdentifierInputRef,
 }: IdentifiersSectionProps) {
-  const { showcaseBrands: apiBrandOptions } = useBrandCatalog();
+  const { manufacturers: apiBrandOptions } = useBrandCatalog();
 
   // Convert brandOptions from API format to Select format
   const selectBrandOptions = apiBrandOptions.map(
@@ -40,17 +40,17 @@ export function IdentifiersSection({
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [pendingBrandName, setPendingBrandName] = useState("");
+  const [pendingManufacturerName, setPendingManufacturerName] = useState("");
 
-  const handleCreateNewBrand = (searchTerm: string) => {
-    setPendingBrandName(searchTerm);
+  const handleCreateNewManufacturer = (searchTerm: string) => {
+    setPendingManufacturerName(searchTerm);
     setSheetOpen(true);
   };
 
-  const handleBrandCreated = (brandData: ShowcaseBrandData) => {
-    // Auto-select the newly created brand
-    // The brand will be available in the dropdown after the immediate mutation updates the query
-    setShowcaseBrandId(brandData.id);
+  const handleManufacturerCreated = (manufacturerData: ManufacturerData) => {
+    // Auto-select the newly created manufacturer
+    // The manufacturer will be available in the dropdown after the immediate mutation updates the query
+    setManufacturerId(manufacturerData.id);
   };
 
   return (
@@ -82,30 +82,30 @@ export function IdentifiersSection({
           )}
         </div>
 
-        {/* Brand Select */}
+        {/* Manufacturer Select */}
         <div className="space-y-1.5">
-          <Label>Brand</Label>
+          <Label>Manufacturer</Label>
           <Select
             options={selectBrandOptions}
-            value={showcaseBrandId || ""}
-            onValueChange={setShowcaseBrandId}
-            placeholder="Select brand"
+            value={manufacturerId || ""}
+            onValueChange={setManufacturerId}
+            placeholder="Select manufacturer"
             searchable
-            searchPlaceholder="Search brand..."
+            searchPlaceholder="Search manufacturer..."
             hasCreateOption
-            onCreateNew={handleCreateNewBrand}
+            onCreateNew={handleCreateNewManufacturer}
             createLabel="Create"
             inline
           />
         </div>
       </div>
 
-      {/* Showcase Brand Sheet */}
-      <ShowcaseBrandSheet
+      {/* Manufacturer Sheet */}
+      <ManufacturerSheet
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        initialName={pendingBrandName}
-        onBrandCreated={handleBrandCreated}
+        initialName={pendingManufacturerName}
+        onManufacturerCreated={handleManufacturerCreated}
       />
     </>
   );

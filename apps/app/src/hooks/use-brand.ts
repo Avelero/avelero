@@ -15,14 +15,14 @@ import { useEffect, useMemo } from "react";
 /** tRPC router output types for type-safe hooks */
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
-/** Brand membership data returned from workflow queries */
-type WorkflowMembership = RouterOutputs["workflow"]["list"][number];
+/** Brand membership data returned from user.brands queries */
+type BrandMembership = RouterOutputs["user"]["brands"]["list"][number];
 
 /** User profile data shape */
 type UserProfile = RouterOutputs["user"]["get"];
 
 /** Result from leaving a brand, includes next brand ID if available */
-type LeaveBrandResult = RouterOutputs["workflow"]["members"]["update"];
+type LeaveBrandResult = RouterOutputs["user"]["brands"]["leave"];
 
 /**
  * Fetches all brands the current user belongs to.
@@ -39,7 +39,7 @@ type LeaveBrandResult = RouterOutputs["workflow"]["members"]["update"];
  */
 export function useUserBrandsQuery() {
   const trpc = useTRPC();
-  const opts = trpc.workflow.list.queryOptions();
+  const opts = trpc.user.brands.list.queryOptions();
   return useQuery({
     ...opts,
     enabled: typeof window !== "undefined",
@@ -62,7 +62,7 @@ export function useUserBrandsQuery() {
  */
 export function useUserBrandsQuerySuspense() {
   const trpc = useTRPC();
-  const opts = trpc.workflow.list.queryOptions();
+  const opts = trpc.user.brands.list.queryOptions();
   return useSuspenseQuery({
     ...opts,
   });
@@ -99,7 +99,7 @@ export function useSetActiveBrandMutation() {
   const trpc = useTRPC();
 
   return useMutation(
-    trpc.workflow.setActive.mutationOptions({
+    trpc.user.brands.setActive.mutationOptions({
       onSuccess: async () => {
         // Force a hard refresh to ensure all server-side context is regenerated
         // This guarantees:
@@ -139,17 +139,17 @@ export function useCreateBrandMutation() {
   const queryClient = useQueryClient();
 
   return useMutation(
-    trpc.workflow.create.mutationOptions({
+    trpc.user.brands.create.mutationOptions({
       onSuccess: async () => {
         // Invalidate brands list and user data to show new brand
         await queryClient.invalidateQueries({
-          queryKey: trpc.workflow.list.queryKey(),
+          queryKey: trpc.user.brands.list.queryKey(),
         });
         await queryClient.invalidateQueries({
           queryKey: trpc.user.get.queryKey(),
         });
         await queryClient.invalidateQueries({
-          queryKey: trpc.composite.workflowInit.queryKey(),
+          queryKey: trpc.composite.initDashboard.queryKey(),
         });
       },
     }),
@@ -182,7 +182,7 @@ export function useBrandUpdateMutation() {
   const queryClient = useQueryClient();
 
   return useMutation(
-    trpc.workflow.update.mutationOptions({
+    trpc.brand.update.mutationOptions({
       onMutate: async (variables) => {
         await queryClient.cancelQueries();
         const prevUser = queryClient.getQueryData(trpc.user.get.queryKey());
@@ -196,13 +196,13 @@ export function useBrandUpdateMutation() {
       onSettled: async () => {
         await Promise.all([
           queryClient.invalidateQueries({
-            queryKey: trpc.workflow.list.queryKey(),
+            queryKey: trpc.user.brands.list.queryKey(),
           }),
           queryClient.invalidateQueries({
             queryKey: trpc.user.get.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.workflowInit.queryKey(),
+            queryKey: trpc.composite.initDashboard.queryKey(),
           }),
         ]);
       },
@@ -242,17 +242,17 @@ export function useLeaveBrandMutation() {
   }, [router]);
 
   return useMutation(
-    trpc.workflow.members.update.mutationOptions({
+    trpc.user.brands.leave.mutationOptions({
       onSuccess: async (res: LeaveBrandResult, _variables) => {
         await Promise.all([
           queryClient.invalidateQueries({
-            queryKey: trpc.workflow.list.queryKey(),
+            queryKey: trpc.user.brands.list.queryKey(),
           }),
           queryClient.invalidateQueries({
             queryKey: trpc.user.get.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.workflowInit.queryKey(),
+            queryKey: trpc.composite.initDashboard.queryKey(),
           }),
           queryClient.invalidateQueries({
             queryKey: trpc.composite.membersWithInvites.queryKey({}),
@@ -291,7 +291,7 @@ export function useWorkflowBrandById(brandId: string | null | undefined) {
   const { data } = useUserBrandsQuery();
   return useMemo(() => {
     if (!brandId) return null;
-    const memberships = (data ?? []) as WorkflowMembership[];
+    const memberships = (data ?? []) as BrandMembership[];
     return memberships.find((brand) => brand.id === brandId) ?? null;
   }, [data, brandId]);
 }

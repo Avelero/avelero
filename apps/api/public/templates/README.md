@@ -63,7 +63,7 @@ At minimum, your CSV must include:
 
 #### brand (Optional)
 - **Type**: Text
-- **Description**: Showcase brand name
+- **Description**: Manufacturer brand name
 - **Example**: "EcoWear", "GreenThreads"
 - **Note**: Brand must exist in system or will need approval
 

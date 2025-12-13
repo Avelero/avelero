@@ -9,9 +9,8 @@ import { VariantSection } from "@/components/forms/passport/blocks/variant-block
 import { PassportFormScaffold } from "@/components/forms/passport/scaffold/passport-form-scaffold";
 import { IdentifiersSection } from "@/components/forms/passport/sidebar/identifiers-block";
 import { StatusSection } from "@/components/forms/passport/sidebar/status-block";
-import type { TierTwoSizeOption } from "@/components/select/size-select";
 import { usePassportFormContext } from "@/contexts/passport-form-context";
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { useBrandCatalog, type SizeOption } from "@/hooks/use-brand-catalog";
 import { usePassportForm } from "@/hooks/use-passport-form";
 import { getFirstInvalidField, isFormValid } from "@/hooks/use-form-validation";
 import type { PassportFormValidationErrors } from "@/hooks/use-passport-form";
@@ -35,6 +34,12 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
   } = usePassportFormContext();
   const isEditMode = mode === "edit";
 
+  // Filter out colors without IDs (default colors not yet in DB)
+  const availableColors = React.useMemo(
+    () => brandColors.filter((c): c is { id: string; name: string; hex: string } => c.id !== undefined),
+    [brandColors]
+  );
+
   // Consolidated form hook (state + validation + submission)
   const {
     state,
@@ -45,10 +50,10 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     submit,
     isSubmitting,
     hasUnsavedChanges,
-  } = usePassportForm({ mode, productUpid, sizeOptions, colors: brandColors });
+  } = usePassportForm({ mode, productUpid, sizeOptions, colors: availableColors });
 
   const handleSelectedSizesChange = React.useCallback<
-    React.Dispatch<React.SetStateAction<TierTwoSizeOption[]>>
+    React.Dispatch<React.SetStateAction<SizeOption[]>>
   >(
     (value) => {
       if (typeof value === "function") {
@@ -381,8 +386,8 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               setProductIdentifier={(value) =>
                 setField("productIdentifier", value)
               }
-              showcaseBrandId={state.showcaseBrandId}
-              setShowcaseBrandId={(value) => setField("showcaseBrandId", value)}
+              manufacturerId={state.manufacturerId}
+              setManufacturerId={(value) => setField("manufacturerId", value)}
               productIdentifierError={
                 state.hasAttemptedSubmit
                   ? state.validationErrors.productIdentifier
@@ -405,7 +410,7 @@ export function CreatePassportForm() {
 export function EditPassportForm({ productUpid }: { productUpid: string }) {
   const trpc = useTRPC();
   useSuspenseQuery(
-    trpc.products.getByUpid.queryOptions({
+    trpc.products.get.queryOptions({
       upid: productUpid,
       includeVariants: true,
       includeAttributes: true,

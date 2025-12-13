@@ -7,6 +7,7 @@
 import superjson from "superjson";
 import type { SuperJSONResult } from "superjson";
 import type {
+  DppContent,
   DppData,
   ThemeConfig,
   ThemeStyles,
@@ -33,10 +34,11 @@ if (!API_URL) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Theme configuration from the API response
+ * DPP API response containing all data needed for rendering
  */
 export interface DppApiResponse {
   dppData: DppData;
+  dppContent: DppContent;
   themeConfig: ThemeConfig | null;
   themeStyles: ThemeStyles | null;
   stylesheetUrl: string | null;

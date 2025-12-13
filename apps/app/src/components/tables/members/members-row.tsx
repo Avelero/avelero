@@ -120,7 +120,7 @@ function MembershipRow({
   const isSelf = currentUserId != null && membership.user_id === currentUserId;
 
   const updateMemberMutation = useMutation(
-    trpc.workflow.members.update.mutationOptions({
+    trpc.brand.members.update.mutationOptions({
       onMutate: async (variables) => {
         await queryClient.cancelQueries({ queryKey });
         const previous = queryClient.getQueryData(queryKey) as
@@ -151,10 +151,10 @@ function MembershipRow({
         await Promise.all([
           queryClient.invalidateQueries({ queryKey }),
           queryClient.invalidateQueries({
-            queryKey: trpc.workflow.list.queryKey(),
+            queryKey: trpc.user.brands.list.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.workflowInit.queryKey(),
+            queryKey: trpc.composite.initDashboard.queryKey(),
           }),
         ]);
       },
@@ -162,7 +162,7 @@ function MembershipRow({
   );
 
   const deleteMemberMutation = useMutation(
-    trpc.workflow.members.update.mutationOptions({
+    trpc.brand.members.remove.mutationOptions({
       onMutate: async (variables) => {
         await queryClient.cancelQueries({ queryKey });
         const previous = queryClient.getQueryData(queryKey) as
@@ -180,20 +180,23 @@ function MembershipRow({
 
         return { previous } as const;
       },
+      onSuccess: () => {
+        toast.success(`${email} removed`);
+      },
       onError: (_err, _vars, ctx) => {
         if (ctx?.previous) {
           queryClient.setQueryData(queryKey, ctx.previous);
         }
-        toast.error("Action failed, please try again");
+        toast.error(`Failed to remove ${email}`);
       },
       onSettled: async () => {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey }),
           queryClient.invalidateQueries({
-            queryKey: trpc.workflow.list.queryKey(),
+            queryKey: trpc.user.brands.list.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.workflowInit.queryKey(),
+            queryKey: trpc.composite.initDashboard.queryKey(),
           }),
         ]);
       },
@@ -258,7 +261,6 @@ function MembershipRow({
               onClick={() =>
                 deleteMemberMutation.mutate({
                   user_id: membership.user_id ?? undefined,
-                  role: null,
                 })
               }
             >
@@ -333,7 +335,7 @@ function InviteRowComp({
   const queryKey = trpc.composite.membersWithInvites.queryKey({});
 
   const revokeInviteMutation = useMutation(
-    trpc.workflow.invites.respond.mutationOptions({
+    trpc.brand.invites.revoke.mutationOptions({
       onMutate: async () => {
         await queryClient.cancelQueries({ queryKey });
         const previous = queryClient.getQueryData(queryKey) as
@@ -359,7 +361,7 @@ function InviteRowComp({
         await Promise.all([
           queryClient.invalidateQueries({ queryKey }),
           queryClient.invalidateQueries({
-            queryKey: trpc.workflow.invites.list.queryKey({}),
+            queryKey: trpc.brand.invites.list.queryKey({}),
           }),
           queryClient.invalidateQueries({
             queryKey: trpc.composite.membersWithInvites.queryKey({}),
@@ -372,7 +374,6 @@ function InviteRowComp({
   async function onWithdraw() {
     await revokeInviteMutation.mutateAsync({
       invite_id: invite.id,
-      action: "revoke",
     });
   }
 

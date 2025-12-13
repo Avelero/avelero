@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { screenshotProductData } from "@/screenshot-data/data";
+import { screenshotProductData, screenshotContentData } from "@/screenshot-data/data";
 import { screenshotThemeConfig } from "@/screenshot-data/config";
 import { fetchThemePreview } from "@/lib/api";
 import {
@@ -48,8 +48,14 @@ export default async function ThemePreviewPage({ params }: PageProps) {
   // Use screenshot demo data with the actual brand name
   const productData = {
     ...screenshotProductData,
-    brandName: themeData.brandName,
+    productAttributes: {
+      ...screenshotProductData.productAttributes,
+      brand: themeData.brandName,
+    },
   };
+
+  // Extract the brand name for header/footer
+  const brandName = productData.productAttributes.brand;
 
   // Extract theme configuration (fallback to screenshot demo config)
   const themeConfig: ThemeConfig =
@@ -91,15 +97,18 @@ export default async function ThemePreviewPage({ params }: PageProps) {
       <div className="dpp-root min-h-screen flex flex-col @container">
         {/* Header with spacer for fixed positioning */}
         <div style={{ height: "var(--header-height)" }} />
-        <Header themeConfig={themeConfig} brandName={productData.brandName} />
+        <Header themeConfig={themeConfig} brandName={brandName} />
 
         {/* Main content */}
-        <ContentFrame data={productData} themeConfig={themeConfig} />
+        <ContentFrame
+          data={productData}
+          content={screenshotContentData}
+          themeConfig={themeConfig}
+        />
 
         {/* Footer */}
-        <Footer themeConfig={themeConfig} brandName={productData.brandName} />
+        <Footer themeConfig={themeConfig} brandName={brandName} />
       </div>
     </>
   );
 }
-

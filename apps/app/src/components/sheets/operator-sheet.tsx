@@ -80,7 +80,7 @@ export function OperatorSheet({
 
   // Operators are facilities (production plants)
   const createOperatorMutation = useMutation(
-    trpc.brand.facilities.create.mutationOptions(),
+    trpc.catalog.facilities.create.mutationOptions(),
   );
 
   const validationSchema = React.useMemo<ValidationSchema<OperatorFormValues>>(
@@ -222,7 +222,7 @@ export function OperatorSheet({
 
           // Optimistically update the cache immediately
           queryClient.setQueryData(
-            trpc.composite.brandCatalogContent.queryKey(),
+            trpc.composite.catalogContent.queryKey(),
             (old: any) => {
               if (!old) return old;
               return {
@@ -251,7 +251,7 @@ export function OperatorSheet({
 
           // Invalidate to trigger background refetch
           queryClient.invalidateQueries({
-            queryKey: trpc.composite.brandCatalogContent.queryKey(),
+            queryKey: trpc.composite.catalogContent.queryKey(),
           });
 
           // Build operator data with real ID for parent callback

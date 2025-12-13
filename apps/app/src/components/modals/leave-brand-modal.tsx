@@ -46,7 +46,7 @@ export function LeaveBrandModal({
   const leaveMutation = useLeaveBrandMutation();
 
   type RouterOutputs = inferRouterOutputs<AppRouter>;
-  type LeaveBrandResult = RouterOutputs["workflow"]["members"]["update"];
+  type LeaveBrandResult = RouterOutputs["user"]["brands"]["leave"];
 
   const membershipRole = membership?.role ?? role;
   const canLeave =

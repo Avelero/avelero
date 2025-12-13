@@ -23,7 +23,7 @@ type EntityType =
   | "TAG"
   | "ECO_CLAIM"
   | "FACILITY"
-  | "SHOWCASE_BRAND"
+  | "MANUFACTURER"
   | "CERTIFICATION"
   | "CATEGORY";
 
@@ -66,7 +66,7 @@ function getEntityTypeName(entityType: EntityType): string {
     TAG: "Tags",
     ECO_CLAIM: "Eco Claims",
     FACILITY: "Facilities",
-    SHOWCASE_BRAND: "Showcase Brands",
+    MANUFACTURER: "Manufacturers",
     CERTIFICATION: "Certifications",
     CATEGORY: "Categories",
   };
@@ -85,7 +85,7 @@ function getEntityIcon(entityType: EntityType) {
     TAG: <Icons.Plus className="h-4 w-4" />,
     ECO_CLAIM: <Icons.Leaf className="h-4 w-4" />,
     FACILITY: <Icons.Building className="h-4 w-4" />,
-    SHOWCASE_BRAND: <Icons.Store className="h-4 w-4" />,
+    MANUFACTURER: <Icons.Store className="h-4 w-4" />,
     CERTIFICATION: <Icons.Award className="h-4 w-4" />,
     CATEGORY: <Icons.Package className="h-4 w-4" />,
   };
@@ -149,36 +149,36 @@ export function UnmappedValuesSection({
 
     // Populate colors cache
     if (catalogData.colors.length > 0) {
-      queryClient.setQueryData(trpc.brand.colors.list.queryKey(undefined), {
+      queryClient.setQueryData(trpc.catalog.colors.list.queryKey(undefined), {
         data: catalogData.colors,
       });
     }
 
     // Populate materials cache
     if (catalogData.materials.length > 0) {
-      queryClient.setQueryData(trpc.brand.materials.list.queryKey({}), {
+      queryClient.setQueryData(trpc.catalog.materials.list.queryKey({}), {
         data: catalogData.materials,
       });
     }
 
     // Populate sizes cache
     if (catalogData.sizes.length > 0) {
-      queryClient.setQueryData(trpc.brand.sizes.list.queryKey({}), {
+      queryClient.setQueryData(trpc.catalog.sizes.list.queryKey({}), {
         data: catalogData.sizes,
       });
     }
 
     // Populate facilities cache
     if (catalogData.facilities.length > 0) {
-      queryClient.setQueryData(trpc.brand.facilities.list.queryKey({}), {
+      queryClient.setQueryData(trpc.catalog.facilities.list.queryKey({}), {
         data: catalogData.facilities,
       });
     }
 
-    // Populate showcase brands cache
-    if (catalogData.showcaseBrands.length > 0) {
-      queryClient.setQueryData(trpc.brand.showcaseBrands.list.queryKey({}), {
-        data: catalogData.showcaseBrands,
+    // Populate manufacturers cache
+    if (catalogData.manufacturers.length > 0) {
+      queryClient.setQueryData(trpc.catalog.manufacturers.list.queryKey({}), {
+        data: catalogData.manufacturers,
       });
     }
   }, [catalogData, queryClient, trpc]);

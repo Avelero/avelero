@@ -13,7 +13,7 @@ export default async function SettingsPage() {
   await connection();
 
   batchPrefetch([
-    trpc.workflow.list.queryOptions(),
+    trpc.user.brands.list.queryOptions(),
     trpc.composite.membersWithInvites.queryOptions({}),
   ]);
 

@@ -102,7 +102,7 @@ const SheetFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "h-14 px-6 flex items-center justify-end gap-3 bg-[#F7F7FF] border-t border-border",
+      "h-14 px-6 flex items-center justify-end gap-3 bg-accent-light border-t border-border",
       className,
     )}
     {...props}

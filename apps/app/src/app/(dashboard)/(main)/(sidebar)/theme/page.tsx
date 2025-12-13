@@ -10,7 +10,7 @@ async function SetThemeWithData() {
 
   // Fetch theme data (includes screenshot paths and updatedAt)
   const theme = await queryClient.fetchQuery(
-    trpc.workflow.theme.get.queryOptions(),
+    trpc.brand.theme.get.queryOptions(),
   );
 
   // Build public URLs for screenshots

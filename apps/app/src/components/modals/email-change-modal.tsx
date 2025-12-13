@@ -8,7 +8,7 @@ import { Button } from "@v1/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@v1/ui/dialog";
@@ -177,72 +177,67 @@ export function EmailChangeModal({
   const title =
     step === "otp_old" ? "Verify current email" : "Verify new email";
 
-  const descriptionNode =
-    step === "otp_old" ? (
-      <>
-        Enter the 6-digit code sent to{" "}
-        <span className="type-p !font-medium text-foreground">
-          {currentEmail}
-        </span>
-      </>
-    ) : step === "otp_new" ? (
-      <>
-        Enter the 6-digit code sent to{" "}
-        <span className="type-p !font-medium text-foreground">{newEmail}</span>
-      </>
-    ) : null;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none w-auto max-w-fit">
-        <DialogHeader>
+      <DialogContent className="w-auto p-0 gap-0 border border-border overflow-hidden">
+        <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-foreground">{title}</DialogTitle>
-          <DialogDescription className="text-secondary w-full whitespace-normal break-words">
-            {descriptionNode}
-          </DialogDescription>
         </DialogHeader>
 
         {step === "otp_old" && (
-          <div className="space-y-2">
-            <div className="w-full">
-              <InputOTP
-                maxLength={6}
-                value={codeOld}
-                onChange={setCodeOld}
-                className="!mt-0 !mb-0 !m-0"
-                render={({ slots }) => (
-                  <InputOTPGroup className="gap-2">
-                    {slots.map((slot, idx) => (
-                      <InputOTPSlot
-                        key={`old-${slotKeys[idx]}`}
-                        char={slot.char}
-                        hasFakeCaret={slot.hasFakeCaret}
-                        isActive={slot.isActive}
-                        placeholderChar={slot.placeholderChar}
-                        className="h-10 w-14"
-                      />
-                    ))}
-                  </InputOTPGroup>
-                )}
-              />
+          <>
+            {/* Main content */}
+            <div className="px-6 py-4 min-h-[160px] flex flex-col justify-center space-y-4">
+              <p className="type-p text-secondary">
+                Enter the 6-digit code sent to{" "}
+                <span className="font-medium text-foreground">{currentEmail}</span>
+              </p>
+              <div className="flex flex-col items-center space-y-2">
+                <InputOTP
+                  maxLength={6}
+                  value={codeOld}
+                  onChange={setCodeOld}
+                  className="!mt-0 !mb-0 !m-0"
+                  render={({ slots }) => (
+                    <InputOTPGroup className="gap-2">
+                      {slots.map((slot, idx) => (
+                        <InputOTPSlot
+                          key={`old-${slotKeys[idx]}`}
+                          char={slot.char}
+                          hasFakeCaret={slot.hasFakeCaret}
+                          isActive={slot.isActive}
+                          placeholderChar={slot.placeholderChar}
+                          className="h-10 w-14"
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  )}
+                />
+                {error ? <p className="text-sm text-red-500 text-center">{error}</p> : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={sendOtpOld}
+                  disabled={isBusy || cooldownOld > 0}
+                  className="text-secondary hover:bg-accent"
+                >
+                  {cooldownOld > 0 ? `Resend in ${cooldownOld}s` : "Resend code"}
+                </Button>
+              </div>
             </div>
-            {error ? <p className="text-sm text-red-500">{error}</p> : null}
-            <div className="w-full flex gap-2 mt-2">
+
+            {/* Footer */}
+            <DialogFooter className="px-6 py-4 border-t border-border bg-background">
               <Button
-                type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isBusy}
-                className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
               >
                 Cancel
               </Button>
               <Button
-                type="button"
-                variant="default"
                 onClick={verifyOtpOldThenRequestChange}
                 disabled={isBusy || codeOld.length !== 6}
-                className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
               >
                 {isBusy && !sentOldOnce
                   ? "Sending..."
@@ -250,80 +245,71 @@ export function EmailChangeModal({
                     ? "Verifying..."
                     : "Continue"}
               </Button>
-            </div>
-            <div className="w-full mt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={sendOtpOld}
-                disabled={isBusy || cooldownOld > 0}
-                className="w-full h-10 text-secondary hover:bg-accent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-              >
-                {cooldownOld > 0 ? `Resend in ${cooldownOld}s` : "Resend code"}
-              </Button>
-            </div>
-          </div>
+            </DialogFooter>
+          </>
         )}
 
         {step === "otp_new" && (
-          <div className="space-y-2">
-            <div className="w-full">
-              <InputOTP
-                maxLength={6}
-                value={codeNew}
-                onChange={setCodeNew}
-                className="!mt-0 !mb-0 !m-0"
-                render={({ slots }) => (
-                  <InputOTPGroup className="gap-2">
-                    {slots.map((slot, idx) => (
-                      <InputOTPSlot
-                        key={`new-${slotKeys[idx]}`}
-                        char={slot.char}
-                        hasFakeCaret={slot.hasFakeCaret}
-                        isActive={slot.isActive}
-                        placeholderChar={slot.placeholderChar}
-                        className="h-10 w-14"
-                      />
-                    ))}
-                  </InputOTPGroup>
-                )}
-              />
+          <>
+            {/* Main content */}
+            <div className="px-6 py-4 min-h-[160px] flex flex-col justify-center space-y-4">
+              <p className="type-p text-secondary">
+                Enter the 6-digit code sent to{" "}
+                <span className="font-medium text-foreground">{newEmail}</span>
+              </p>
+              <div className="flex flex-col items-center space-y-2">
+                <InputOTP
+                  maxLength={6}
+                  value={codeNew}
+                  onChange={setCodeNew}
+                  className="!mt-0 !mb-0 !m-0"
+                  render={({ slots }) => (
+                    <InputOTPGroup className="gap-2">
+                      {slots.map((slot, idx) => (
+                        <InputOTPSlot
+                          key={`new-${slotKeys[idx]}`}
+                          char={slot.char}
+                          hasFakeCaret={slot.hasFakeCaret}
+                          isActive={slot.isActive}
+                          placeholderChar={slot.placeholderChar}
+                          className="h-10 w-14"
+                        />
+                      ))}
+                    </InputOTPGroup>
+                  )}
+                />
+                {error ? <p className="text-sm text-red-500 text-center">{error}</p> : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={resendOtpNew}
+                  disabled={isBusy || cooldownNew > 0}
+                  className="text-secondary hover:bg-accent"
+                >
+                  {cooldownNew > 0 ? `Resend in ${cooldownNew}s` : "Resend code"}
+                </Button>
+              </div>
             </div>
-            {error ? <p className="text-sm text-red-500">{error}</p> : null}
-            <div className="w-full flex gap-2 mt-2">
+
+            {/* Footer */}
+            <DialogFooter className="px-6 py-4 border-t border-border bg-background">
               <Button
-                type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={isBusy}
-                className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
               >
                 Cancel
               </Button>
               <Button
-                type="button"
-                variant="default"
                 onClick={verifyOtpNew}
                 disabled={isBusy || codeNew.length !== 6}
-                className="w-full focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
               >
                 {codeNew.length === 6 && isBusy
                   ? "Verifying..."
                   : "Update email"}
               </Button>
-            </div>
-            <div className="w-full mt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={resendOtpNew}
-                disabled={isBusy || cooldownNew > 0}
-                className="w-full h-10 text-secondary hover:bg-accent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
-              >
-                {cooldownNew > 0 ? `Resend in ${cooldownNew}s` : "Resend code"}
-              </Button>
-            </div>
-          </div>
+            </DialogFooter>
+          </>
         )}
       </DialogContent>
     </Dialog>

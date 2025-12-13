@@ -8,12 +8,12 @@ import {
   voidSchema,
 } from "../_shared/patterns.js";
 import {
+  countryCodeSchema,
   datetimeSchema,
-  longStringSchema,
+  emailSchema,
   mediumStringSchema,
   shortStringSchema,
   urlSchema,
-  uuidSchema,
 } from "../_shared/primitives.js";
 
 /**
@@ -28,13 +28,17 @@ export const createCertificationSchema = z.object({
   title: shortStringSchema,
   certification_code: shortStringSchema.optional(),
   institute_name: shortStringSchema.optional(),
-  institute_address: mediumStringSchema.optional(),
-  institute_contact: shortStringSchema.optional(),
+  institute_email: emailSchema.optional(),
+  institute_website: urlSchema.optional(),
+  institute_address_line_1: mediumStringSchema.optional(),
+  institute_address_line_2: mediumStringSchema.optional(),
+  institute_city: shortStringSchema.optional(),
+  institute_state: shortStringSchema.optional(),
+  institute_zip: shortStringSchema.optional(),
+  institute_country_code: countryCodeSchema.optional(),
   issue_date: datetimeSchema.optional(),
   expiry_date: datetimeSchema.optional(),
-  file_asset_id: uuidSchema.optional(),
-  external_url: urlSchema.optional(),
-  notes: longStringSchema.optional(),
+  file_path: mediumStringSchema.optional(),
 });
 
 /**
@@ -45,13 +49,17 @@ export const updateCertificationSchema = updateWithNullable(
   [
     "certification_code",
     "institute_name",
-    "institute_address",
-    "institute_contact",
+    "institute_email",
+    "institute_website",
+    "institute_address_line_1",
+    "institute_address_line_2",
+    "institute_city",
+    "institute_state",
+    "institute_zip",
+    "institute_country_code",
     "issue_date",
     "expiry_date",
-    "file_asset_id",
-    "external_url",
-    "notes",
+    "file_path",
   ],
 );
 

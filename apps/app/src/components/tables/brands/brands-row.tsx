@@ -154,7 +154,7 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
           size="icon"
           disabled={isProcessing}
           onClick={() =>
-            reject.mutate({ invite_id: invite.id, action: "decline" })
+            reject.mutate({ invite_id: invite.id })
           }
           aria-label="Reject"
         >
@@ -165,7 +165,7 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
           size="icon"
           disabled={isProcessing}
           onClick={() =>
-            accept.mutate({ invite_id: invite.id, action: "accept" })
+            accept.mutate({ invite_id: invite.id })
           }
           aria-label="Accept"
         >

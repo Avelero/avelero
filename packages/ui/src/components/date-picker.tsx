@@ -31,6 +31,7 @@ export function DatePicker({
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState("");
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   // Format date to DD/MM/YYYY
   const formatDate = (date: Date | null) => {
@@ -86,55 +87,62 @@ export function DatePicker({
     }
   };
 
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      // Validate and commit on Enter
+      handleInputBlur();
+    } else if (e.key === "ArrowDown" && !open) {
+      // Open calendar on ArrowDown
+      e.preventDefault();
+      setOpen(true);
+    } else if (e.key === "Escape" && open) {
+      // Close calendar on Escape
+      setOpen(false);
+    }
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <div className={cn("relative flex w-full", className)}>
-          <Input
-            type="text"
-            value={inputValue}
-            onChange={handleInputChange}
-            onBlur={handleInputBlur}
-            placeholder={placeholder}
-            disabled={disabled}
-            className={cn("h-9 pr-10", disabled && "cursor-default")}
-            style={disabled ? { cursor: "default" } : undefined}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                setOpen(true);
-              }
-            }}
-          />
+      <div ref={containerRef} className={cn("relative flex w-full", className)}>
+        <Input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          onKeyDown={handleInputKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          className={cn("h-9 pr-10", disabled && "cursor-default")}
+          style={disabled ? { cursor: "default" } : undefined}
+        />
+        <PopoverTrigger asChild>
           <Button
+            type="button"
             variant="ghost"
             disabled={disabled}
             className="absolute top-1/2 right-2 size-6 -translate-y-1/2 p-0"
-            onClick={(e) => {
-              e.preventDefault();
-              setOpen(!open);
-            }}
           >
             <Icons.Calendar className="h-3.5 w-3.5 text-secondary" />
             <span className="sr-only">Select date</span>
           </Button>
-        </div>
-      </PopoverTrigger>
+        </PopoverTrigger>
+      </div>
       <PopoverContent
         className="w-fit p-0"
-        align="start"
+        align="end"
         side="bottom"
         sideOffset={4}
         alignOffset={0}
         inline={inline}
       >
         <Calendar
+          key={open ? "open" : "closed"}
           mode="single"
           selected={value ?? undefined}
-          captionLayout="dropdown"
           onSelect={(date) => {
             onChange(date ?? null);
             setInputValue(formatDate(date ?? null));
+            setOpen(false);
           }}
           fromDate={minDate}
           toDate={maxDate}

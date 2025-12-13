@@ -30,7 +30,7 @@ export interface BrandTheme {
  */
 export function useThemeQuery() {
   const trpc = useTRPC();
-  const query = useSuspenseQuery(trpc.workflow.theme.get.queryOptions());
+  const query = useSuspenseQuery(trpc.brand.theme.get.queryOptions());
 
   // Cast the JSONB data to proper types
   return {

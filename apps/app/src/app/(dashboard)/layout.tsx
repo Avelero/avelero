@@ -35,7 +35,7 @@ async function DashboardLayoutContent({
 
   // Single bootstrap fetch - handles authentication
   const workflowInit = await queryClient.fetchQuery(
-    trpc.composite.workflowInit.queryOptions(),
+    trpc.composite.initDashboard.queryOptions(),
   );
 
   const user = workflowInit.user;
@@ -44,7 +44,7 @@ async function DashboardLayoutContent({
   queryClient.setQueryData(trpc.user.get.queryOptions().queryKey, user);
 
   queryClient.setQueryData(
-    trpc.workflow.list.queryOptions().queryKey,
+    trpc.user.brands.list.queryOptions().queryKey,
     workflowInit.brands,
   );
 

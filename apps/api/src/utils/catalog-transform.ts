@@ -40,18 +40,10 @@ export function transformSizeInput<T extends Record<string, any>>(
   const result: any = {};
 
   for (const [key, value] of Object.entries(input)) {
-    switch (key) {
-      case "category_group":
-        result.categoryGroup = value;
-        break;
-      case "category_id":
-        result.categoryId = value;
-        break;
-      case "sort_index":
-        result.sortIndex = value;
-        break;
-      default:
-        result[key] = value;
+    if (key === "sort_index") {
+      result.sortIndex = value;
+    } else {
+      result[key] = value;
     }
   }
 
@@ -98,11 +90,29 @@ export function transformCertificationInput<T extends Record<string, any>>(
       case "institute_name":
         result.instituteName = value;
         break;
-      case "institute_address":
-        result.instituteAddress = value;
+      case "institute_email":
+        result.instituteEmail = value;
         break;
-      case "institute_contact":
-        result.instituteContact = value;
+      case "institute_website":
+        result.instituteWebsite = value;
+        break;
+      case "institute_address_line_1":
+        result.instituteAddressLine1 = value;
+        break;
+      case "institute_address_line_2":
+        result.instituteAddressLine2 = value;
+        break;
+      case "institute_city":
+        result.instituteCity = value;
+        break;
+      case "institute_state":
+        result.instituteState = value;
+        break;
+      case "institute_zip":
+        result.instituteZip = value;
+        break;
+      case "institute_country_code":
+        result.instituteCountryCode = value;
         break;
       case "issue_date":
         result.issueDate = value;
@@ -110,11 +120,8 @@ export function transformCertificationInput<T extends Record<string, any>>(
       case "expiry_date":
         result.expiryDate = value;
         break;
-      case "file_asset_id":
-        result.fileAssetId = value;
-        break;
-      case "external_url":
-        result.externalUrl = value;
+      case "file_path":
+        result.filePath = value;
         break;
       default:
         result[key] = value;
@@ -173,9 +180,9 @@ export function transformFacilityInput<T extends Record<string, any>>(
 }
 
 /**
- * Transforms showcase brand input from snake_case schema to camelCase DB format.
+ * Transforms manufacturer input from snake_case schema to camelCase DB format.
  */
-export function transformShowcaseBrandInput<T extends Record<string, any>>(
+export function transformManufacturerInput<T extends Record<string, any>>(
   input: T,
 ): any {
   const result: any = {};

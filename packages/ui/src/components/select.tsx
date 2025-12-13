@@ -21,8 +21,14 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-interface BaseSelectProps {
+export interface SelectOptionGroup {
+  label: string;
   options: SelectOption[];
+}
+
+interface BaseSelectProps {
+  options?: SelectOption[];
+  groups?: SelectOptionGroup[]; // For grouped options display
   placeholder?: string;
   searchPlaceholder?: string;
   searchable?: boolean;
@@ -53,7 +59,8 @@ type SelectProps = SingleSelectProps | MultiSelectProps;
 
 export function Select(props: SelectProps) {
   const {
-    options,
+    options = [],
+    groups,
     placeholder = "Select...",
     searchPlaceholder = "Search...",
     searchable = false,
@@ -78,13 +85,42 @@ export function Select(props: SelectProps) {
       ? [props.value]
       : [];
 
-  // Filter options based on search term
+  // Flatten all options (from both flat options and groups) for lookups
+  const allOptions = React.useMemo(() => {
+    if (groups) {
+      return groups.flatMap((g) => g.options);
+    }
+    return options;
+  }, [options, groups]);
+
+  // Filter options based on search term (for flat options mode)
   const filteredOptions = React.useMemo(() => {
     if (!searchTerm) return options;
     return options.filter((option) =>
       option.label.toLowerCase().includes(searchTerm.trim().toLowerCase()),
     );
   }, [options, searchTerm]);
+
+  // Filter groups based on search term (for grouped options mode)
+  const filteredGroups = React.useMemo(() => {
+    if (!groups) return undefined;
+    if (!searchTerm) return groups;
+
+    const lowerSearch = searchTerm.trim().toLowerCase();
+    return groups
+      .map((group) => ({
+        ...group,
+        options: group.options.filter((option) =>
+          option.label.toLowerCase().includes(lowerSearch),
+        ),
+      }))
+      .filter((group) => group.options.length > 0);
+  }, [groups, searchTerm]);
+
+  // Check if we have any filtered results
+  const hasFilteredResults = groups
+    ? (filteredGroups?.length ?? 0) > 0
+    : filteredOptions.length > 0;
 
   // Display text for trigger button
   const displayText = React.useMemo(() => {
@@ -93,7 +129,7 @@ export function Select(props: SelectProps) {
     if (isMultiple) {
       if (selectedValues.length === 1) {
         return (
-          options.find((o) => o.value === selectedValues[0])?.label ??
+          allOptions.find((o) => o.value === selectedValues[0])?.label ??
           placeholder
         );
       }
@@ -101,17 +137,18 @@ export function Select(props: SelectProps) {
     }
 
     return (
-      options.find((o) => o.value === selectedValues[0])?.label ?? placeholder
+      allOptions.find((o) => o.value === selectedValues[0])?.label ??
+      placeholder
     );
-  }, [selectedValues, options, placeholder, isMultiple]);
+  }, [selectedValues, allOptions, placeholder, isMultiple]);
 
   // Get selected option for displaying icon
   const selectedOption = React.useMemo(() => {
     if (selectedValues.length === 1) {
-      return options.find((o) => o.value === selectedValues[0]);
+      return allOptions.find((o) => o.value === selectedValues[0]);
     }
     return undefined;
-  }, [selectedValues, options]);
+  }, [selectedValues, allOptions]);
 
   // Handle selection
   const handleSelect = (value: string) => {
@@ -152,7 +189,14 @@ export function Select(props: SelectProps) {
                   {selectedOption.icon}
                 </div>
               )}
-              <span className="truncate px-1">{displayText}</span>
+              <span
+                className={cn(
+                  "truncate px-1",
+                  selectedValues.length === 0 && "text-tertiary",
+                )}
+              >
+                {displayText}
+              </span>
             </div>
             <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </div>
@@ -178,41 +222,79 @@ export function Select(props: SelectProps) {
             {!hasCreateOption && (
               <CommandEmpty>{loading ? "Loading..." : emptyText}</CommandEmpty>
             )}
-            {hasCreateOption &&
-              filteredOptions.length === 0 &&
-              !searchTerm.trim() && (
-                <CommandEmpty>Start typing to create...</CommandEmpty>
-              )}
-            <CommandGroup>
-              {filteredOptions.length > 0 ? (
-                filteredOptions.map((option) => {
-                  const isSelected = selectedValues.includes(option.value);
-                  return (
-                    <CommandItem
-                      key={option.value}
-                      value={option.value}
-                      disabled={option.disabled}
-                      onSelect={() => handleSelect(option.value)}
-                      className="justify-between"
-                    >
-                      <div className="flex items-center gap-2">
-                        {option.icon && (
-                          <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
-                            {option.icon}
+            {hasCreateOption && !hasFilteredResults && !searchTerm.trim() && (
+              <CommandEmpty>Start typing to create...</CommandEmpty>
+            )}
+
+            {/* Grouped options mode */}
+            {filteredGroups
+              ? filteredGroups.map((group) => (
+                  <CommandGroup key={group.label} heading={group.label}>
+                    {group.options.map((option) => {
+                      const isSelected = selectedValues.includes(option.value);
+                      return (
+                        <CommandItem
+                          key={option.value}
+                          value={option.value}
+                          disabled={option.disabled}
+                          onSelect={() => handleSelect(option.value)}
+                          className="justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            {option.icon && (
+                              <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
+                                {option.icon}
+                              </div>
+                            )}
+                            <span>{option.label}</span>
                           </div>
-                        )}
-                        <span>{option.label}</span>
-                      </div>
-                      <Icons.Check
-                        className={cn(
-                          "h-4 w-4",
-                          isSelected ? "opacity-100" : "opacity-0",
-                        )}
-                      />
-                    </CommandItem>
-                  );
-                })
-              ) : hasCreateOption && searchTerm.trim() ? (
+                          <Icons.Check
+                            className={cn(
+                              "h-4 w-4",
+                              isSelected ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                ))
+              : /* Flat options mode */
+                filteredOptions.length > 0 && (
+                  <CommandGroup>
+                    {filteredOptions.map((option) => {
+                      const isSelected = selectedValues.includes(option.value);
+                      return (
+                        <CommandItem
+                          key={option.value}
+                          value={option.value}
+                          disabled={option.disabled}
+                          onSelect={() => handleSelect(option.value)}
+                          className="justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            {option.icon && (
+                              <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
+                                {option.icon}
+                              </div>
+                            )}
+                            <span>{option.label}</span>
+                          </div>
+                          <Icons.Check
+                            className={cn(
+                              "h-4 w-4",
+                              isSelected ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                )}
+
+            {/* Create new option */}
+            {hasCreateOption && !hasFilteredResults && searchTerm.trim() && (
+              <CommandGroup>
                 <CommandItem value={searchTerm.trim()} onSelect={handleCreate}>
                   <div className="flex items-center gap-2">
                     <Icons.Plus className="h-3.5 w-3.5" />
@@ -221,8 +303,8 @@ export function Select(props: SelectProps) {
                     </span>
                   </div>
                 </CommandItem>
-              ) : null}
-            </CommandGroup>
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

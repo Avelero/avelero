@@ -105,7 +105,6 @@ docs/
 claude.md
 AGENTS.md
 mcp.json
-api-redesign/
 
 #prompts
 .prompts

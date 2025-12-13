@@ -25,7 +25,7 @@
     "jschardet": "^3.1.4",
     "p-map": "^7.0.2",
     "papaparse": "^5.5.3",
-    "react": "19.2.0",
+    "react": "19.2.1",
     "resend": "^6.4.2",
     "xlsx": "^0.18.5"
   },
@@ -39,6 +39,7 @@
     "./trigger": "./src/trigger/index.ts",
     "./trigger/validate-and-stage": "./src/trigger/validate-and-stage.ts",
     "./trigger/commit-to-production": "./src/trigger/commit-to-production.ts",
-    "./trigger/capture-theme-screenshot": "./src/trigger/capture-theme-screenshot.ts"
+    "./trigger/capture-theme-screenshot": "./src/trigger/capture-theme-screenshot.ts",
+    "./trigger/delete-brand": "./src/trigger/delete-brand.ts"
   }
 }

@@ -96,20 +96,6 @@ export const bulkUpdateSchema = z.discriminatedUnion("domain", [
 ]);
 
 /**
- * Schema for validating import files before processing
- *
- * Used in bulk.validateImport mutation to perform quick pre-validation
- * checks on uploaded CSV/XLSX files.
- */
-export const validateImportSchema = z.object({
-  fileId: z.string().min(1, "File ID is required"),
-  filename: z
-    .string()
-    .min(1, "Filename is required")
-    .regex(/\.(csv|xlsx|xls)$/i, "File must be CSV or Excel format"),
-});
-
-/**
  * Schema for starting an import job
  *
  * Used in bulk.startImport mutation to trigger Phase 1 validation
@@ -244,7 +230,7 @@ const defineFacilityDataSchema = z.object({
   vatNumber: z.string().optional(),
 });
 
-const defineShowcaseBrandDataSchema = z.object({
+const defineManufacturerDataSchema = z.object({
   name: z.string().min(1).max(200),
   legalName: z.string().max(200).optional(),
   email: z.string().email().optional(),
@@ -265,12 +251,20 @@ const defineCertificationDataSchema = z.object({
   title: z.string().min(1).max(200),
   certificationCode: z.string().optional(),
   instituteName: z.string().optional(),
-  instituteAddress: z.string().optional(),
-  instituteContact: z.string().optional(),
+  instituteEmail: z.string().email().optional(),
+  instituteWebsite: z.string().url().optional(),
+  instituteAddressLine1: z.string().optional(),
+  instituteAddressLine2: z.string().optional(),
+  instituteCity: z.string().optional(),
+  instituteState: z.string().optional(),
+  instituteZip: z.string().optional(),
+  instituteCountryCode: z
+    .string()
+    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
+    .optional(),
   issueDate: z.string().datetime().optional(),
   expiryDate: z.string().datetime().optional(),
-  externalUrl: z.string().url().optional(),
-  notes: z.string().optional(),
+  filePath: z.string().optional(),
 });
 
 const defineSeasonDataSchema = z.object({
@@ -303,7 +297,7 @@ export const entityTypeSchema = z.enum([
   "SIZE",
   "ECO_CLAIM",
   "FACILITY",
-  "SHOWCASE_BRAND",
+  "MANUFACTURER",
   "CERTIFICATION",
   "SEASON",
   "CATEGORY",
@@ -327,7 +321,7 @@ export const defineValueSchema = z.object({
     defineMaterialDataSchema,
     defineEcoClaimDataSchema,
     defineFacilityDataSchema,
-    defineShowcaseBrandDataSchema,
+    defineManufacturerDataSchema,
     defineCertificationDataSchema,
     defineSeasonDataSchema,
     defineCategoryDataSchema,
@@ -355,7 +349,7 @@ export const batchDefineValuesSchema = z.object({
           defineMaterialDataSchema,
           defineEcoClaimDataSchema,
           defineFacilityDataSchema,
-          defineShowcaseBrandDataSchema,
+          defineManufacturerDataSchema,
           defineCertificationDataSchema,
           defineSeasonDataSchema,
           defineCategoryDataSchema,
@@ -413,7 +407,6 @@ export const cancelImportSchema = z.object({
 export type BulkSelectionInput = z.infer<typeof bulkSelectionSchema>;
 export type BulkImportInput = z.infer<typeof bulkImportSchema>;
 export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
-export type ValidateImportInput = z.infer<typeof validateImportSchema>;
 export type StartImportInput = z.infer<typeof startImportSchema>;
 export type GetImportStatusInput = z.infer<typeof getImportStatusSchema>;
 export type GetImportErrorsInput = z.infer<typeof getImportErrorsSchema>;

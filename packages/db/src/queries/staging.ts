@@ -22,8 +22,10 @@ export interface InsertStagingProductParams {
   existingProductId?: string | null;
   id: string;
   brandId: string;
-  productIdentifier: string;
-  productUpid?: string | null; // Product-level UPID for passport URLs
+  /** URL-friendly product handle for DPP URLs */
+  productHandle: string;
+  /** Internal 16-character UPID (legacy, still stored in products table) */
+  productUpid?: string | null;
   name: string;
   description?: string | null;
   manufacturerId?: string | null;
@@ -101,7 +103,7 @@ export interface StagingProductPreview {
   id: string;
   brandId: string;
   /** Product identifier for the product (brand-scoped) */
-  productIdentifier: string;
+  productHandle: string;
   /** Product-level UPID for passport URLs */
   productUpid?: string | null;
   name: string;
@@ -206,7 +208,7 @@ export async function insertStagingProduct(
       existingProductId: params.existingProductId ?? null,
       id: params.id,
       brandId: params.brandId,
-      productIdentifier: params.productIdentifier,
+      productHandle: params.productHandle,
       productUpid: params.productUpid ?? null,
       name: params.name,
       description: params.description ?? null,
@@ -251,7 +253,7 @@ export async function batchInsertStagingProducts(
     existingProductId: p.existingProductId ?? null,
     id: p.id,
     brandId: p.brandId,
-    productIdentifier: p.productIdentifier as string,
+    productHandle: p.productHandle as string,
     productUpid: p.productUpid ?? null,
     name: p.name,
     description: p.description ?? null,
@@ -578,7 +580,7 @@ export async function bulkCreateProductsFromStaging(
     id: row.id,
     brandId: row.brandId ?? brandId,
     name: row.name,
-    productIdentifier: row.productIdentifier,
+    productHandle: row.productHandle,
     upid: row.productUpid ?? null,
     description: row.description ?? null,
     categoryId: row.categoryId ?? null,
@@ -813,10 +815,10 @@ async function hydrateStagingProductPreviews(
   }
 
   for (const p of products) {
-    if (!p.productIdentifier) {
+    if (!p.productHandle) {
       throw new Error(
-        `Staging product ${p.stagingId} is missing productIdentifier`,
-      );
+        `Staging product ${p.stagingId} is missing productHandle`,
+      );  
     }
   }
 
@@ -828,7 +830,7 @@ async function hydrateStagingProductPreviews(
     existingProductId: p.existingProductId,
     id: p.id,
     brandId: p.brandId,
-    productIdentifier: p.productIdentifier as string,
+    productHandle: p.productHandle as string,
     productUpid: p.productUpid,
     name: p.name,
     description: p.description,
@@ -978,7 +980,7 @@ export async function batchInsertStagingWithStatus(
     existingProductId: p.existingProductId ?? null,
     id: p.id,
     brandId: p.brandId,
-    productIdentifier: p.productIdentifier,
+    productHandle: p.productHandle,
     productUpid: p.productUpid ?? null,
     name: p.name,
     description: p.description ?? null,

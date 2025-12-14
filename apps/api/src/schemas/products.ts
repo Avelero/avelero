@@ -15,6 +15,7 @@ import {
   longStringSchema,
   nonNegativeIntSchema,
   paginationLimitSchema,
+  productHandleSchema,
   shortStringSchema,
   urlSchema,
   uuidArraySchema,
@@ -50,7 +51,7 @@ export const PRODUCT_FIELDS = [
   "season_id",
   "manufacturer_id",
   "primary_image_path",
-  "product_identifier",
+  "product_handle",
   "upid",
   "status",
   "created_at",
@@ -202,7 +203,7 @@ export const listProductsSchema = z.object({
         "updatedAt",
         "category",
         "season",
-        "productIdentifier",
+        "productHandle",
       ]),
       direction: z.enum(["asc", "desc"]).default("desc"),
     })
@@ -220,10 +221,12 @@ export const getProductSchema = byIdSchema;
 export const createProductSchema = z.object({
   name: shortStringSchema,
   /**
-   * Human-friendly article number that uniquely identifies the product within
-   * a brand. Required alongside the product name when creating products.
+   * URL-friendly identifier that uniquely identifies the product within a brand.
+   * Used in DPP URLs: /[brandSlug]/[productHandle]/
+   * Must be lowercase letters, numbers, and dashes only.
+   * If not provided, will be auto-generated from the product name.
    */
-  product_identifier: shortStringSchema,
+  product_handle: productHandleSchema.optional(),
   description: longStringSchema.optional(),
   category_id: uuidSchema.optional(),
   season_id: uuidSchema.optional(), // FK to brand_seasons.id
@@ -270,7 +273,7 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
   "manufacturer_id",
   "primary_image_path",
   "status",
-  "product_identifier",
+  "product_handle",
 ]);
 
 /**
@@ -281,10 +284,9 @@ export const deleteProductSchema = byIdSchema;
 /**
  * Upsert payload used for product-level identifiers.
  */
-export const upsertProductIdentifierSchema = z.object({
+export const upsertProductHandleSchema = z.object({
   product_id: uuidSchema,
-  id_type: shortStringSchema,
-  value: shortStringSchema,
+  handle: productHandleSchema,
 });
 
 // Variants (consolidated under products)
@@ -425,13 +427,13 @@ export type ProductVariantsDeleteInput = z.infer<
 // ============================================================================
 
 /**
- * Unified product get schema accepting either ID or UPID.
+ * Unified product get schema accepting either ID or handle.
  * Replaces separate `productsDomainGetSchema` and `productsDomainGetByUpidSchema`.
  */
 export const productUnifiedGetSchema = z.intersection(
   z.union([
     z.object({ id: uuidSchema }),
-    z.object({ upid: upidSchema }),
+    z.object({ handle: shortStringSchema }),
   ]),
   z.object({
     includeVariants: z.boolean().optional().default(false),
@@ -442,13 +444,13 @@ export const productUnifiedGetSchema = z.intersection(
 export type ProductUnifiedGetInput = z.infer<typeof productUnifiedGetSchema>;
 
 /**
- * Unified variant list schema accepting either product_id or product_upid.
- * Supports listing variants by product ID or UPID.
+ * Unified variant list schema accepting either product_id or product_handle.
+ * Supports listing variants by product ID or handle.
  */
 export const variantUnifiedListSchema = z.intersection(
   z.union([
     z.object({ product_id: uuidSchema }),
-    z.object({ product_upid: upidSchema }),
+    z.object({ product_handle: shortStringSchema }),
   ]),
   z.object({
     cursor: z.string().optional(),

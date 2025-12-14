@@ -29,7 +29,7 @@ type SortField =
   | "updatedAt"
   | "category"
   | "season"
-  | "productIdentifier";
+  | "productHandle";
 
 export function TableSection() {
   const [selectedCount, setSelectedCount] = useState(0);
@@ -214,7 +214,7 @@ export function TableSection() {
   const mapSortField = useCallback((uiField: string): SortField => {
     const fieldMap: Record<string, SortField> = {
       title: "name",
-      productIdentifier: "productIdentifier",
+      productHandle: "productHandle",
       status: "status",
       category: "category",
       season: "season",
@@ -422,9 +422,8 @@ function TableContent({
       return {
         id: p.id,
         passportIds: [p.id],
-        productUpid: p.upid ?? "",
         name: p.name ?? "",
-        productIdentifier: p.product_identifier ?? p.productIdentifier ?? "",
+        productHandle: p.product_handle ?? p.productHandle ?? "",
         status: (p.status ?? "unpublished") as any,
         category: (p as any).category_name ?? null,
         categoryPath: (p as any).category_path ?? null,

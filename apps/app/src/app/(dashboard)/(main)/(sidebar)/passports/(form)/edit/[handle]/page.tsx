@@ -12,15 +12,15 @@ export const metadata: Metadata = {
 export default async function EditPassportPage({
   params,
 }: {
-  params: Promise<{ upid: string }>;
+  params: Promise<{ handle: string }>;
 }) {
   await connection();
 
-  const { upid } = await params;
+  const { handle } = await params;
 
   batchPrefetch([
     trpc.products.get.queryOptions({
-      upid,
+      handle,
       includeVariants: true,
       includeAttributes: true,
     }),
@@ -30,7 +30,7 @@ export default async function EditPassportPage({
   return (
     <HydrateClient>
       <Suspense fallback={<PassportSkeleton title="Edit passport" />}>
-        <EditPassportForm productUpid={upid} />
+        <EditPassportForm productHandle={handle} />
       </Suspense>
     </HydrateClient>
   );

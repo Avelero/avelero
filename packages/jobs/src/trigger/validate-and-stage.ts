@@ -134,7 +134,7 @@ interface CSVRow {
   // REQUIRED FIELDS
   // ============================================================================
   product_name: string; // Max 100 characters
-  product_identifier: string; // Required - Unique product identifier (brand-scoped, shared across variants)
+  product_handle: string; // Required - Unique product identifier (brand-scoped, shared across variants)
   upid?: string; // Optional - Unique variant identifier (auto-generated if not provided)
 
   // ============================================================================
@@ -222,7 +222,7 @@ interface ValidationWarning {
 interface ExistingVariant {
   // Product fields
   id: string;
-  productIdentifier: string | null;
+  productHandle: string | null;
   name: string;
   description: string | null;
   categoryId: string | null;
@@ -274,7 +274,7 @@ function resolveParallelBatches(): number {
  * This background job:
  * 1. Downloads and parses the uploaded CSV/XLSX file
  * 2. Validates each row comprehensively
- * 3. Determines CREATE vs UPDATE action based on UPID matching (product_identifier for product grouping)
+ * 3. Determines CREATE vs UPDATE action based on UPID matching (product_handle for product grouping)
  * 4. Auto-creates simple entities (colors, eco-claims) when needed
  * 5. Populates staging tables with validated data
  * 6. Tracks unmapped values that need user approval
@@ -434,7 +434,7 @@ export const validateAndStage = task({
       // ========================================================================
       // DUPLICATE DETECTION - Two-level approach for data integrity:
       // 1. Check for duplicate UPIDs (when provided)
-      // 2. Check for duplicate composite keys (product_identifier + colors + size)
+      // 2. Check for duplicate composite keys (product_handle + colors + size)
       // ========================================================================
       console.log("[validate-and-stage] Checking for duplicates...");
 
@@ -444,7 +444,7 @@ export const validateAndStage = task({
       // Check for duplicate composite keys (true variant duplicates)
       // This catches duplicates even when UPID is not provided
       const compositeDuplicates = findCompositeDuplicates(parseResult.data, [
-        "product_identifier",
+        "product_handle",
         "colors",
         "size",
       ]);
@@ -642,7 +642,7 @@ export const validateAndStage = task({
               .select({
                 variantId: productVariants.id,
                 productId: productVariants.productId,
-                productIdentifier: products.productIdentifier,
+                productHandle: products.productHandle,
                 name: products.name,
                 description: products.description,
                 categoryId: products.categoryId,
@@ -666,7 +666,7 @@ export const validateAndStage = task({
             for (const v of existingVariants) {
               const variant: ExistingVariant = {
                 id: v.productId,
-                productIdentifier: v.productIdentifier,
+                productHandle: v.productHandle,
                 name: v.name,
                 description: v.description,
                 categoryId: v.categoryId,
@@ -1462,7 +1462,7 @@ async function validateRow(
         errors.push({
           type: "HARD_ERROR",
           subtype: "DUPLICATE_VALUE",
-          field: "product_identifier+colors+size",
+          field: "product_handle+colors+size",
           message:
             "Duplicate variant: This combination of product, color, and size appears multiple times in the file",
           severity: "error",
@@ -1482,13 +1482,13 @@ async function validateRow(
     });
   }
 
-  // HARD ERROR: product_identifier is required (product-level identification)
-  if (!row.product_identifier || row.product_identifier.trim() === "") {
+  // HARD ERROR: product_handle is required (product-level identification)
+  if (!row.product_handle || row.product_handle.trim() === "") {
     errors.push({
       type: "HARD_ERROR",
       subtype: "REQUIRED_FIELD_EMPTY",
-      field: "product_identifier",
-      message: "Product identifier is required",
+      field: "product_handle",
+      message: "Product handle is required",
       severity: "error",
     });
   }
@@ -1811,7 +1811,7 @@ async function validateRow(
   const variantId = existingVariant?.variant_id || randomUUID();
 
   // Build temporary product and variant objects for change detection
-  const productIdentifier = row.product_identifier.trim();
+  const productHandle = row.product_handle.trim();
   const tempProduct: InsertStagingProductParams = {
     jobId,
     rowNumber,
@@ -1819,7 +1819,7 @@ async function validateRow(
     existingProductId: existingVariant?.id || null,
     id: productId,
     brandId,
-    productIdentifier,
+    productHandle,
     name: row.product_name?.trim() || "",
     description: row.description?.trim() || null,
     categoryId,

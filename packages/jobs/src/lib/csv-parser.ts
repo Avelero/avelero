@@ -899,7 +899,7 @@ export function findDuplicates<T extends Record<string, unknown>>(
  * Find duplicates based on composite key (multiple columns combined)
  *
  * Detects duplicate variants by checking if the combination of columns
- * (e.g., product_identifier + colors + size) appears multiple times.
+ * (e.g., product_handle + colors + size) appears multiple times.
  * This catches true business duplicates where the same variant is entered twice.
  *
  * @param data - Array of parsed rows
@@ -910,7 +910,7 @@ export function findDuplicates<T extends Record<string, unknown>>(
  * ```typescript
  * // Detect duplicate variants (same product + color + size)
  * const duplicates = findCompositeDuplicates(data,
- *   ["product_identifier", "colors", "size"]
+ *   ["product_handle", "colors", "size"]
  * );
  * // Returns: [{ rows: [3, 7], compositeKey: "TSHIRT-001|Blue|M" }]
  * ```

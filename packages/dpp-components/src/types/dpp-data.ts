@@ -46,15 +46,26 @@ export interface TestingInstitute {
 
 /**
  * Core product identification data
+ *
+ * Article number is derived from variant identifiers using precedence:
+ * barcode > GTIN > EAN > SKU
+ *
+ * At product-level DPP (no variant), articleNumber will be empty since
+ * identifiers are tracked at the variant level.
  */
 export interface ProductIdentifiers {
   productId: number;
   productName: string;
   productImage: string;
+  /**
+   * Article number displayed on DPP.
+   * Derived from variant: barcode > GTIN > EAN > SKU precedence.
+   * Empty string at product-level (no variant selected).
+   */
   articleNumber: string;
-  /** European Article Number (barcode) */
+  /** European Article Number (barcode) - variant-level */
   ean?: string;
-  /** Global Trade Item Number */
+  /** Global Trade Item Number - variant-level */
   gtin?: string;
 }
 
@@ -244,42 +255,4 @@ export interface DppData {
 
   // Manufacturing & supply chain traceability
   manufacturing?: Manufacturing;
-}
-
-// =============================================================================
-// LEGACY EXPORTS (for backward compatibility during migration)
-// =============================================================================
-
-/**
- * @deprecated Use MaterialComposition instead
- */
-export interface Material {
-  percentage: number;
-  type: string;
-  origin: string;
-  certification?: string;
-  certificationUrl?: string;
-}
-
-/**
- * @deprecated Use SupplyChainStep instead
- */
-export interface JourneyStage {
-  id: string;
-  name: string;
-  companies: Array<{
-    name: string;
-    location: string;
-  }>;
-}
-
-/**
- * @deprecated Impact metrics are now part of Environmental
- */
-export interface ImpactMetric {
-  type: string;
-  value: string;
-  unit: string;
-  icon: "leaf" | "drop" | "recycle" | "factory";
-  iconColor?: string;
 }

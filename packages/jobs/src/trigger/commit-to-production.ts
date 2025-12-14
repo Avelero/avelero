@@ -577,7 +577,7 @@ async function commitStagingRow(
             brandId,
             {
               name: stagingProduct.name,
-              productIdentifier: stagingProduct.productIdentifier ?? undefined,
+              productHandle: stagingProduct.productHandle ?? undefined,
               description: stagingProduct.description || undefined,
               categoryId: stagingProduct.categoryId || undefined,
               seasonId: stagingProduct.seasonId ?? undefined,
@@ -605,7 +605,7 @@ async function commitStagingRow(
           {
             id: stagingProduct.existingProductId,
             name: stagingProduct.name,
-            productIdentifier: stagingProduct.productIdentifier ?? undefined,
+            productHandle: stagingProduct.productHandle ?? undefined,
             description: stagingProduct.description ?? undefined,
             categoryId: stagingProduct.categoryId ?? undefined,
             seasonId: stagingProduct.seasonId ?? undefined,

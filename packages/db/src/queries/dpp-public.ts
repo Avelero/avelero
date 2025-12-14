@@ -5,8 +5,8 @@
  * They are designed to be called server-side with serviceDb (bypasses RLS).
  *
  * URL Structure:
- * - Product-level: /:brandSlug/:productUpid
- * - Variant-level: /:brandSlug/:productUpid/:variantUpid
+ * - Product-level: /:brandSlug/:productHandle
+ * - Variant-level: /:brandSlug/:productHandle/:variantUpid
  */
 
 import { and, asc, eq, inArray } from "drizzle-orm";
@@ -88,11 +88,10 @@ export interface DppPublicData {
   // Product Core Data (always present)
   // ─────────────────────────────────────────────────────────────
   productId: string;
-  productUpid: string;
   productName: string;
   productDescription: string | null;
   productImage: string | null;
-  productIdentifier: string;
+  productHandle: string;
   productStatus: string;
 
   // ─────────────────────────────────────────────────────────────
@@ -102,6 +101,14 @@ export interface DppPublicData {
   variantUpid: string | null;
   colorName: string | null;
   sizeName: string | null;
+  /** Stock Keeping Unit (variant-level) */
+  variantSku: string | null;
+  /** Global Trade Item Number (variant-level) */
+  variantGtin: string | null;
+  /** European Article Number (variant-level) */
+  variantEan: string | null;
+  /** Barcode (variant-level) */
+  variantBarcode: string | null;
 
   // ─────────────────────────────────────────────────────────────
   // Brand Data
@@ -153,16 +160,19 @@ export interface DppPublicData {
 
 interface CoreDataResult {
   productId: string;
-  productUpid: string | null;
   productName: string;
   productDescription: string | null;
   productImage: string | null;
-  productIdentifier: string;
+  productHandle: string;
   productStatus: string;
   variantId: string | null;
   variantUpid: string | null;
   colorName: string | null;
   sizeName: string | null;
+  variantSku: string | null;
+  variantGtin: string | null;
+  variantEan: string | null;
+  variantBarcode: string | null;
   brandId: string;
   brandName: string;
   brandSlug: string | null;
@@ -190,12 +200,14 @@ interface ProductAttributes {
 /**
  * Stage 1: Fetch core product/variant data with essential JOINs.
  * Includes published status check.
- * Looks up brand by slug instead of UUID.
+ * Looks up brand by slug and product by handle.
+ * 
+ * URL structure: /[brandSlug]/[productHandle]/[variantUpid]
  */
 async function fetchCoreData(
   db: Database,
   brandSlug: string,
-  productUpid: string,
+  productHandle: string,
   variantUpid?: string,
 ): Promise<CoreDataResult | null> {
   if (variantUpid) {
@@ -204,17 +216,21 @@ async function fetchCoreData(
       .select({
         // Product
         productId: products.id,
-        productUpid: products.upid,
         productName: products.name,
         productDescription: products.description,
         productImage: products.primaryImagePath,
-        productIdentifier: products.productIdentifier,
+        productHandle: products.productHandle,
         productStatus: products.status,
         // Variant
         variantId: productVariants.id,
         variantUpid: productVariants.upid,
         colorName: brandColors.name,
         sizeName: brandSizes.name,
+        // Variant identifiers for article number
+        variantSku: productVariants.sku,
+        variantGtin: productVariants.gtin,
+        variantEan: productVariants.ean,
+        variantBarcode: productVariants.barcode,
         // Brand
         brandId: brands.id,
         brandName: brands.name,
@@ -242,7 +258,7 @@ async function fetchCoreData(
       .where(
         and(
           eq(brands.slug, brandSlug),
-          eq(products.upid, productUpid),
+          eq(products.productHandle, productHandle),
           eq(productVariants.upid, variantUpid),
           eq(products.status, "published"),
         ),
@@ -252,15 +268,14 @@ async function fetchCoreData(
     return rows[0] ?? null;
   }
 
-  // Product-level query
+  // Product-level query (no variant identifiers - article number not shown)
   const rows = await db
     .select({
       productId: products.id,
-      productUpid: products.upid,
       productName: products.name,
       productDescription: products.description,
       productImage: products.primaryImagePath,
-      productIdentifier: products.productIdentifier,
+      productHandle: products.productHandle,
       productStatus: products.status,
       brandId: brands.id,
       brandName: brands.name,
@@ -282,7 +297,7 @@ async function fetchCoreData(
     .where(
       and(
         eq(brands.slug, brandSlug),
-        eq(products.upid, productUpid),
+        eq(products.productHandle, productHandle),
         eq(products.status, "published"),
       ),
     )
@@ -297,6 +312,10 @@ async function fetchCoreData(
     variantUpid: null,
     colorName: null,
     sizeName: null,
+    variantSku: null,
+    variantGtin: null,
+    variantEan: null,
+    variantBarcode: null,
   };
 }
 
@@ -446,19 +465,20 @@ async function fetchProductAttributes(
 
 /**
  * Fetch complete DPP data for a product-level passport.
+ * URL structure: /[brandSlug]/[productHandle]/
  *
  * @param db - Database instance (use serviceDb for bypassing RLS)
  * @param brandSlug - Brand slug (URL-friendly identifier)
- * @param productUpid - Product UPID (16-char alphanumeric)
+ * @param productHandle - Product handle (brand-defined identifier used in URL)
  * @returns DppPublicData or null if not found/not published
  */
-export async function getDppByProductUpid(
+export async function getDppByProductHandle(
   db: Database,
   brandSlug: string,
-  productUpid: string,
+  productHandle: string,
 ): Promise<DppPublicData | null> {
   // Stage 1: Core data
-  const core = await fetchCoreData(db, brandSlug, productUpid);
+  const core = await fetchCoreData(db, brandSlug, productHandle);
   if (!core) return null;
 
   // Stage 2: Attributes
@@ -467,16 +487,20 @@ export async function getDppByProductUpid(
   return {
     sourceType: "product",
     productId: core.productId,
-    productUpid: core.productUpid!,
     productName: core.productName,
     productDescription: core.productDescription,
     productImage: core.productImage,
-    productIdentifier: core.productIdentifier,
+    productHandle: core.productHandle,
     productStatus: core.productStatus,
     variantId: null,
     variantUpid: null,
     colorName: null,
     sizeName: null,
+    // No article number at product level - only shown for variants
+    variantSku: null,
+    variantGtin: null,
+    variantEan: null,
+    variantBarcode: null,
     brandId: core.brandId,
     brandName: core.brandName,
     categoryId: core.categoryId,
@@ -497,21 +521,22 @@ export async function getDppByProductUpid(
 
 /**
  * Fetch complete DPP data for a variant-level passport.
+ * URL structure: /[brandSlug]/[productHandle]/[variantUpid]/
  *
  * @param db - Database instance (use serviceDb for bypassing RLS)
  * @param brandSlug - Brand slug (URL-friendly identifier)
- * @param productUpid - Product UPID (16-char alphanumeric)
+ * @param productHandle - Product handle (brand-defined identifier used in URL)
  * @param variantUpid - Variant UPID (16-char alphanumeric)
  * @returns DppPublicData or null if not found/not published
  */
 export async function getDppByVariantUpid(
   db: Database,
   brandSlug: string,
-  productUpid: string,
+  productHandle: string,
   variantUpid: string,
 ): Promise<DppPublicData | null> {
   // Stage 1: Core data (includes variant info)
-  const core = await fetchCoreData(db, brandSlug, productUpid, variantUpid);
+  const core = await fetchCoreData(db, brandSlug, productHandle, variantUpid);
   if (!core) return null;
 
   // Stage 2: Attributes (same as product-level)
@@ -520,16 +545,20 @@ export async function getDppByVariantUpid(
   return {
     sourceType: "variant",
     productId: core.productId,
-    productUpid: core.productUpid!,
     productName: core.productName,
     productDescription: core.productDescription,
     productImage: core.productImage,
-    productIdentifier: core.productIdentifier,
+    productHandle: core.productHandle,
     productStatus: core.productStatus,
     variantId: core.variantId,
     variantUpid: core.variantUpid,
     colorName: core.colorName,
     sizeName: core.sizeName,
+    // Variant identifiers for article number (barcode > GTIN > EAN > SKU precedence)
+    variantSku: core.variantSku,
+    variantGtin: core.variantGtin,
+    variantEan: core.variantEan,
+    variantBarcode: core.variantBarcode,
     brandId: core.brandId,
     brandName: core.brandName,
     categoryId: core.categoryId,
@@ -593,20 +622,20 @@ export interface PublicCarouselProduct {
 
 /**
  * Fetch carousel products for public DPP display.
- * Resolves brand by slug and product by UPID, then fetches carousel
+ * Resolves brand by slug and product by handle, then fetches carousel
  * based on theme config settings.
  *
  * @param db - Database instance (use serviceDb for bypassing RLS)
  * @param brandSlug - Brand slug (URL-friendly identifier)
- * @param currentProductUpid - Current product UPID to exclude from carousel
+ * @param currentProductHandle - Current product handle to exclude from carousel
  * @param limit - Maximum number of products (default 8, max 20)
  * @returns Array of carousel products or empty array if brand/product not found
  */
 export async function getCarouselProductsForDpp(
   db: Database,
   brandSlug: string,
-  currentProductUpid: string,
-  limit: number = 8,
+  currentProductHandle: string,
+  limit = 8,
 ): Promise<PublicCarouselProduct[]> {
   // First, resolve the brand and product
   const brandRows = await db
@@ -632,7 +661,7 @@ export async function getCarouselProductsForDpp(
     .where(
       and(
         eq(products.brandId, brand.brandId),
-        eq(products.upid, currentProductUpid),
+        eq(products.productHandle, currentProductHandle),
         eq(products.status, "published"),
       ),
     )
@@ -669,12 +698,30 @@ export async function getCarouselProductsForDpp(
 }
 
 /**
+ * Get article number from variant identifiers using precedence:
+ * barcode > GTIN > EAN > SKU
+ * Returns empty string if no identifier is available.
+ */
+function getArticleNumber(data: DppPublicData): string {
+  // Precedence: barcode > GTIN > EAN > SKU
+  if (data.variantBarcode) return data.variantBarcode;
+  if (data.variantGtin) return data.variantGtin;
+  if (data.variantEan) return data.variantEan;
+  if (data.variantSku) return data.variantSku;
+  return "";
+}
+
+/**
  * Transform DppPublicData (database format) to DppData (component format).
  *
  * Use this function to convert the query result to the format expected
  * by @v1/dpp-components.
  *
- * @param data - DppPublicData from getDppByProductUpid or getDppByVariantUpid
+ * Article number logic:
+ * - Only shown for variant-level DPPs (not product-level)
+ * - Uses precedence: barcode > GTIN > EAN > SKU
+ *
+ * @param data - DppPublicData from getDppByProductHandle or getDppByVariantUpid
  * @returns DppData for frontend components
  */
 export function transformToDppData(data: DppPublicData): DppData {
@@ -683,7 +730,9 @@ export function transformToDppData(data: DppPublicData): DppData {
       productId: Number(data.productId) || 0,
       productName: data.productName,
       productImage: data.productImage ?? "",
-      articleNumber: data.productIdentifier,
+      // Article number only shown for variant-level DPPs
+      // Uses precedence: barcode > GTIN > EAN > SKU
+      articleNumber: getArticleNumber(data),
     },
     productAttributes: {
       description: data.productDescription ?? undefined,

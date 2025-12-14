@@ -37,7 +37,9 @@ export const stagingProducts = pgTable(
       .defaultNow()
       .notNull(),
     seasonId: uuid("season_id"),
-    productIdentifier: text("product_identifier"),
+    /** URL-friendly product handle for DPP URLs */
+    productHandle: text("product_handle"),
+    /** Internal 16-character UPID (legacy, still stored in products table) */
     productUpid: text("product_upid"),
     status: text("status"),
   },

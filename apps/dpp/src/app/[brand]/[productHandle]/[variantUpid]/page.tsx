@@ -15,7 +15,7 @@ import {
 interface PageProps {
   params: Promise<{
     brand: string;
-    productUpid: string;
+    productHandle: string;
     variantUpid: string;
   }>;
 }
@@ -23,10 +23,10 @@ interface PageProps {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { brand, productUpid, variantUpid } = await params;
+  const { brand, productHandle, variantUpid } = await params;
 
   // Validate params before querying
-  if (!validateVariantParams(brand, productUpid, variantUpid)) {
+  if (!validateVariantParams(brand, productHandle, variantUpid)) {
     return {
       title: "Digital Product Passport",
       description:
@@ -34,7 +34,7 @@ export async function generateMetadata({
     };
   }
 
-  const data = await fetchVariantDpp(brand, productUpid, variantUpid);
+  const data = await fetchVariantDpp(brand, productHandle, variantUpid);
 
   if (!data) {
     return {
@@ -63,15 +63,15 @@ export async function generateMetadata({
 }
 
 export default async function VariantDPPPage({ params }: PageProps) {
-  const { brand, productUpid, variantUpid } = await params;
+  const { brand, productHandle, variantUpid } = await params;
 
   // Validate params before querying
-  if (!validateVariantParams(brand, productUpid, variantUpid)) {
+  if (!validateVariantParams(brand, productHandle, variantUpid)) {
     notFound();
   }
 
   // Fetch DPP data from API (all data resolution happens server-side)
-  const data = await fetchVariantDpp(brand, productUpid, variantUpid);
+  const data = await fetchVariantDpp(brand, productHandle, variantUpid);
 
   if (!data) {
     notFound();

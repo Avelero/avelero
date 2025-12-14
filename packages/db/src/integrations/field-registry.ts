@@ -138,7 +138,7 @@ export const entities: Record<string, EntityDefinition> = {
     table: "products",
     label: "Product",
     description: "Core product information",
-    identifiedBy: "productIdentifier",
+    identifiedBy: "productHandle",
     brandScoped: true,
   },
 
@@ -270,15 +270,15 @@ export const fieldRegistry: Record<string, FieldDefinition> = {
 
   // --- Identifiers ---
 
-  "product.productIdentifier": {
+  "product.productHandle": {
     table: "products",
-    column: "product_identifier",
+    column: "product_handle",
     type: "string",
     required: true,
     maxLength: 100,
-    label: "Product Identifier",
+    label: "Product Handle",
     description:
-      "Internal article number or SKU used by the brand. Must be unique within a brand.",
+      "Internal product handle used by the brand. Must be unique within a brand.",
     category: "identifiers",
   },
 

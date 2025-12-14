@@ -19,7 +19,7 @@ export type PendingColorSelection = { name: string; hex: string };
 export interface PassportFormValues {
   // Basic info
   name: string;
-  productIdentifier: string;
+  productHandle: string;
   description: string;
   imageFile: File | null;
   existingImageUrl: string | null;
@@ -61,14 +61,15 @@ export interface PassportFormState extends PassportFormValues {
 
 interface UsePassportFormOptions {
   mode?: "create" | "edit";
-  productUpid?: string;
+  /** Product handle (URL-friendly identifier) for edit mode */
+  productHandle?: string;
   sizeOptions?: SizeOption[];
   colors?: Array<{ id: string; name: string; hex: string }>;
 }
 
 const initialFormValues: PassportFormValues = {
   name: "",
-  productIdentifier: "",
+  productHandle: "",
   description: "",
   imageFile: null,
   existingImageUrl: null,
@@ -89,7 +90,7 @@ const initialFormValues: PassportFormValues = {
 
 export interface PassportFormValidationErrors {
   name?: string;
-  productIdentifier?: string;
+  productHandle?: string;
   description?: string;
   colors?: string;
   selectedSizes?: string;
@@ -101,7 +102,7 @@ export interface PassportFormValidationErrors {
 type PassportFormValidationFields = Pick<
   PassportFormValues,
   | "name"
-  | "productIdentifier"
+  | "productHandle"
   | "description"
   | "colorIds"
   | "selectedSizes"
@@ -115,9 +116,16 @@ const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
     rules.required("Name is required"),
     rules.maxLength(100, "Name must be 100 characters or less"),
   ],
-  productIdentifier: [
-    rules.required("Product identifier is required"),
-    rules.maxLength(100, "Product identifier must be 100 characters or less"),
+  productHandle: [
+    // Product handle is optional - will be auto-generated from name if not provided
+    rules.maxLength(100, "Product handle must be 100 characters or less"),
+    // Validate format if provided
+    (value) => {
+      if (value && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) {
+        return "Product handle must contain only lowercase letters, numbers, and dashes";
+      }
+      return undefined;
+    },
   ],
   description: [
     rules.maxLength(1000, "Description must be 1000 characters or less"),
@@ -166,8 +174,8 @@ function mapValidationErrors(
   const mapped: PassportFormValidationErrors = {};
 
   if (errors.name) mapped.name = errors.name;
-  if (errors.productIdentifier)
-    mapped.productIdentifier = errors.productIdentifier;
+  if (errors.productHandle)
+    mapped.productHandle = errors.productHandle;
   if (errors.description) mapped.description = errors.description;
   if (errors.colorIds) mapped.colors = errors.colorIds;
   if (errors.selectedSizes) mapped.selectedSizes = errors.selectedSizes;
@@ -184,7 +192,7 @@ function getPassportValidationErrors(
 ): PassportFormValidationErrors {
   const fields: PassportFormValidationFields = {
     name: values.name,
-    productIdentifier: values.productIdentifier,
+    productHandle: values.productHandle,
     description: values.description,
     colorIds: values.colorIds,
     selectedSizes: values.selectedSizes,
@@ -218,7 +226,7 @@ function stripTrailingZeros(value: string | number | null | undefined): string {
 
 export function usePassportForm(options?: UsePassportFormOptions) {
   const mode = options?.mode ?? "create";
-  const productUpid = options?.productUpid ?? null;
+  const productHandle = options?.productHandle ?? null;
   const sizeOptions = options?.sizeOptions ?? [];
   const brandColors = options?.colors ?? [];
   const isEditMode = mode === "edit";
@@ -247,7 +255,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const metadataRef = React.useRef<{
     productId?: string;
     passportUpid?: string;
-    productUpid?: string;
+    productHandle?: string;
   }>({});
   const hasHydratedRef = React.useRef(false);
   const initialVariantSignatureRef = React.useRef<string | null>(null);
@@ -272,11 +280,11 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
   const passportFormQuery = useQuery({
     ...trpc.products.get.queryOptions({
-      upid: productUpid ?? "",
+      handle: productHandle ?? "",
       includeVariants: true,
       includeAttributes: true,
     }),
-    enabled: isEditMode && !!productUpid,
+    enabled: isEditMode && !!productHandle,
   });
 
   const state: PassportFormState = React.useMemo(
@@ -326,7 +334,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const computeComparableState = React.useCallback(
     (values: PassportFormValues) => ({
       name: values.name,
-      productIdentifier: values.productIdentifier,
+      productHandle: values.productHandle,
       description: values.description,
       categoryId: values.categoryId,
       seasonId: values.seasonId,
@@ -444,9 +452,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     const nextValues: PassportFormValues = {
       ...initialFormValues,
       name: payload.name ?? "",
-      productIdentifier:
-        (payload as any).productIdentifier ??
-        (payload as any).product_identifier ??
+      productHandle:
+        (payload as any).productHandle ??
+        (payload as any).product_handle ??
         "",
       description: payload.description ?? "",
       imageFile: null,
@@ -474,7 +482,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     setFields(nextValues);
     metadataRef.current = {
       productId: payload.id,
-      productUpid: payload.upid ?? productUpid ?? undefined,
+      productHandle: payload.product_handle ?? productHandle ?? undefined,
     };
     const hydratedSizeIds: string[] = selectedSizes
       .map((size) => size.id)
@@ -821,10 +829,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           throw new Error("Name is required");
         }
 
-        const productIdentifier = formValues.productIdentifier.trim();
-        if (!productIdentifier) {
-          throw new Error("Product identifier is required");
-        }
+        // Product handle is optional - server will auto-generate from name if not provided
+        const productHandle = formValues.productHandle.trim() || undefined;
 
         // Upload image and store the PATH (not URL) in database
         let primaryImagePath: string | undefined;
@@ -898,7 +904,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const basePayload = {
           brand_id: brandId,
           name,
-          product_identifier: productIdentifier,
+          product_handle: productHandle,
           description: safeDescription,
           category_id: formValues.categoryId ?? undefined,
           season_id: safeSeasonId,
@@ -919,9 +925,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         };
 
         if (isEditMode) {
-          const effectiveProductUpid =
-            productUpid ?? metadataRef.current.productUpid ?? null;
-          if (!metadataRef.current.productId || !effectiveProductUpid) {
+          const effectiveProductHandle =
+            productHandle ?? metadataRef.current.productHandle ?? null;
+          if (!metadataRef.current.productId || !effectiveProductHandle) {
             throw new Error("Unable to update passport: missing context");
           }
 
@@ -941,7 +947,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
           const nextValues: Partial<PassportFormValues> = {
             name,
-            productIdentifier,
+            productHandle,
             description: safeDescription ?? "",
             seasonId: safeSeasonId ?? null,
             manufacturerId: safeManufacturerId ?? null,
@@ -971,10 +977,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           );
           setInitialSnapshot(snapshot);
           initialVariantSignatureRef.current = variantSignature;
-          if (effectiveProductUpid) {
+          if (effectiveProductHandle) {
             void queryClient.invalidateQueries({
               queryKey: trpc.products.get.queryKey({
-                upid: effectiveProductUpid,
+                handle: effectiveProductHandle,
               }),
             });
           }
@@ -999,8 +1005,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         });
 
         const productId = created?.data?.id;
-        const targetProductUpid =
-          (created as any)?.data?.upid ?? productUpid ?? null;
+        const targetProductHandle =
+          (created as any)?.data?.product_handle ?? productHandle ?? null;
         if (!productId) {
           throw new Error("Product was not created");
         }
@@ -1034,8 +1040,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         ]);
 
         toast.success("Passports created successfully");
-        if (targetProductUpid) {
-          router.push(`/passports/edit/${targetProductUpid}`);
+        if (targetProductHandle) {
+          router.push(`/passports/edit/${targetProductHandle}`);
         } else {
           router.push("/passports");
         }
@@ -1064,7 +1070,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       trpc,
       uploadImage,
       validate,
-      productUpid,
+      productHandle,
       resolvePendingColors,
       resolvePendingSizes,
       resolveEcoClaims,

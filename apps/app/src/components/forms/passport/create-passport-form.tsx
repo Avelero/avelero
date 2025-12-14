@@ -22,10 +22,11 @@ import * as React from "react";
 
 interface PassportFormProps {
   mode: "create" | "edit";
-  productUpid?: string;
+  /** Product handle (URL-friendly identifier) for edit mode */
+  productHandle?: string;
 }
 
-export function PassportForm({ mode, productUpid }: PassportFormProps) {
+export function PassportForm({ mode, productHandle }: PassportFormProps) {
   const { data: user } = useUserQuery();
   const { sizeOptions, colors: brandColors } = useBrandCatalog();
   const {
@@ -50,7 +51,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     submit,
     isSubmitting,
     hasUnsavedChanges,
-  } = usePassportForm({ mode, productUpid, sizeOptions, colors: availableColors });
+  } = usePassportForm({ mode, productHandle, sizeOptions, colors: availableColors });
 
   const handleSelectedSizesChange = React.useCallback<
     React.Dispatch<React.SetStateAction<SizeOption[]>>
@@ -93,15 +94,15 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
   React.useEffect(() => {
     if (
       state.hasAttemptedSubmit &&
-      state.productIdentifier &&
-      state.validationErrors.productIdentifier
+      state.productHandle &&
+      state.validationErrors.productHandle
     ) {
-      clearValidationError("productIdentifier");
+      clearValidationError("productHandle");
     }
   }, [
-    state.productIdentifier,
+    state.productHandle,
     state.hasAttemptedSubmit,
-    state.validationErrors.productIdentifier,
+    state.validationErrors.productHandle,
     clearValidationError,
   ]);
 
@@ -216,7 +217,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
 
   // Refs for focusing invalid fields
   const nameInputRef = React.useRef<HTMLInputElement>(null);
-  const productIdentifierInputRef = React.useRef<HTMLInputElement>(null);
+  const productHandleInputRef = React.useRef<HTMLInputElement>(null);
   const materialsSectionRef = React.useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -229,7 +230,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     // Validate form
     const errors = validate();
     const missingRequired =
-      !state.name.trim() || !state.productIdentifier.trim();
+      !state.name.trim() || !state.productHandle.trim();
     const materialsErrorMessage = errors.materials;
 
     // If form is invalid, show toast and focus first invalid field
@@ -245,7 +246,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
       // Focus on first invalid field
       const fieldOrder: Array<keyof PassportFormValidationErrors> = [
         "name",
-        "productIdentifier",
+        "productHandle",
         "colors",
         "selectedSizes",
         "materials",
@@ -259,9 +260,9 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
           behavior: "smooth",
           block: "center",
         });
-      } else if (firstInvalidField === "productIdentifier") {
-        productIdentifierInputRef.current?.focus();
-        productIdentifierInputRef.current?.scrollIntoView({
+      } else if (firstInvalidField === "productHandle") {
+        productHandleInputRef.current?.focus();
+        productHandleInputRef.current?.scrollIntoView({
           behavior: "smooth",
           block: "center",
         });
@@ -314,6 +315,8 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
                   : undefined
               }
               nameInputRef={nameInputRef}
+              productHandle={state.productHandle}
+              setProductHandle={(value) => setField("productHandle", value)}
             />
             <OrganizationSection
               categoryId={state.categoryId}
@@ -382,18 +385,18 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               setStatus={(value) => setField("status", value)}
             />
             <IdentifiersSection
-              productIdentifier={state.productIdentifier}
-              setProductIdentifier={(value) =>
-                setField("productIdentifier", value)
+              productHandle={state.productHandle}
+              setProductHandle={(value) =>
+                setField("productHandle", value)
               }
               manufacturerId={state.manufacturerId}
               setManufacturerId={(value) => setField("manufacturerId", value)}
-              productIdentifierError={
+              productHandleError={
                 state.hasAttemptedSubmit
-                  ? state.validationErrors.productIdentifier
+                  ? state.validationErrors.productHandle
                   : undefined
               }
-              productIdentifierInputRef={productIdentifierInputRef}
+              productHandleInputRef={productHandleInputRef}
             />
           </>
         }
@@ -407,14 +410,14 @@ export function CreatePassportForm() {
   return <PassportForm mode="create" />;
 }
 
-export function EditPassportForm({ productUpid }: { productUpid: string }) {
+export function EditPassportForm({ productHandle }: { productHandle: string }) {
   const trpc = useTRPC();
   useSuspenseQuery(
     trpc.products.get.queryOptions({
-      upid: productUpid,
+      handle: productHandle,
       includeVariants: true,
       includeAttributes: true,
     }),
   );
-  return <PassportForm mode="edit" productUpid={productUpid} />;
+  return <PassportForm mode="edit" productHandle={productHandle} />;
 }

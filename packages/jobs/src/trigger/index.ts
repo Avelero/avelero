@@ -8,3 +8,7 @@ export { validateAndStage } from "./validate-and-stage";
 export { commitToProduction } from "./commit-to-production";
 export { captureThemeScreenshot } from "./capture-theme-screenshot";
 export { deleteBrand } from "./delete-brand";
+
+// Integration sync tasks
+export { syncIntegration } from "./integration-sync";
+export { integrationSyncScheduler } from "./integration-sync-scheduler";

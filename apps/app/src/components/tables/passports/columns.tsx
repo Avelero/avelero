@@ -136,17 +136,15 @@ export const columns: ColumnDef<PassportTableRow>[] = [
           </label>
           <div className="min-w-0 max-w-[680px] space-y-1">
             <EditPassportLink
-              href={`/passports/edit/${product.productUpid}`}
+              href={`/passports/edit/${product.productHandle}`}
               className="block max-w-full truncate type-p text-primary hover:text-brand cursor-pointer"
               onClick={(event) => event.stopPropagation()}
             >
               {product.name}
             </EditPassportLink>
-            {product.productIdentifier ? (
-              <span className="block max-w-full truncate type-small text-secondary">
-                {product.productIdentifier}
-              </span>
-            ) : null}
+            <span className="block max-w-full truncate type-small text-secondary">
+              {product.productHandle}
+            </span>
           </div>
         </div>
       );
@@ -266,8 +264,8 @@ export const columns: ColumnDef<PassportTableRow>[] = [
     },
     cell: ({ row, table }) => {
       const product = row.original;
-      const upid = product.productUpid || product.id;
-      const editHref = upid ? `/passports/edit/${upid}` : undefined;
+      const handle = product.productHandle || product.id;
+      const editHref = handle ? `/passports/edit/${handle}` : undefined;
 
       // Get brandSlug from table meta for DPP URL
       const meta = table.options.meta as
@@ -279,7 +277,7 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       const dppBaseUrl =
         process.env.NEXT_PUBLIC_DPP_URL || "https://passport.avelero.com";
       const dppUrl =
-        brandSlug && upid ? `${dppBaseUrl}/${brandSlug}/${upid}` : undefined;
+        brandSlug && handle ? `${dppBaseUrl}/${brandSlug}/${handle}` : undefined;
 
       // Only show passport button if product is published and has a valid DPP URL
       const canViewPassport =

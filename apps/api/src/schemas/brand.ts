@@ -98,25 +98,3 @@ export type MemberUpdateInput = z.infer<typeof memberUpdateSchema>;
 // Legacy aliases for backward compatibility during migration
 // These can be removed after Phase 8 client updates are complete
 // ============================================================================
-
-/** @deprecated Use brandCreateSchema instead */
-export const workflowCreateSchema = brandCreateSchema;
-
-/** @deprecated Use brandUpdateSchema instead */
-export const workflowUpdateSchema = brandUpdateSchema;
-
-/** @deprecated Use BrandUpdateInput instead */
-export type WorkflowUpdateInput = BrandUpdateInput;
-
-/** @deprecated Use brandIdSchema instead */
-export const workflowBrandIdSchema = brandIdSchema;
-
-/** @deprecated Use brandIdOptionalSchema instead */
-export const workflowBrandIdOptionalSchema = brandIdOptionalSchema;
-
-/** @deprecated Use inviteSendSchema instead */
-export const workflowInvitesSendSchema = inviteSendSchema;
-
-/** @deprecated Use invitesListSchema instead */
-export const workflowInvitesListSchema = invitesListSchema;
-

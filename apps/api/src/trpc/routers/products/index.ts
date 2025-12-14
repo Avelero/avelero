@@ -31,6 +31,7 @@ import {
   productsDomainUpdateSchema,
   productUnifiedGetSchema,
 } from "../../../schemas/products.js";
+import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
   createEntityResponse,
@@ -110,8 +111,8 @@ export const productsRouter = createTRPCRouter({
     }),
 
   /**
-   * Get a single product by ID or UPID.
-   * Unified endpoint that accepts discriminated union: { id } | { upid }
+   * Get a single product by ID or handle.
+   * Unified endpoint that accepts discriminated union: { id } | { handle }
    */
   get: brandRequiredProcedure
     .input(productUnifiedGetSchema)
@@ -119,10 +120,10 @@ export const productsRouter = createTRPCRouter({
       const brandCtx = ctx as BrandContext;
       const brandId = ensureBrandScope(brandCtx);
       
-      // Handle discriminated union: { id } or { upid }
+      // Handle discriminated union: { id } or { handle }
       const identifier = 'id' in input 
         ? { id: input.id } 
-        : { upid: input.upid };
+        : { handle: input.handle };
       
       return getProductWithIncludes(brandCtx.db, brandId, identifier, {
         includeVariants: input.includeVariants,
@@ -145,7 +146,7 @@ export const productsRouter = createTRPCRouter({
               .where(
                 and(
                   eq(products.brandId, brandId),
-                  eq(products.upid, candidate),
+                  eq(products.productHandle, candidate),
                 ),
               )
               .limit(1);
@@ -153,10 +154,13 @@ export const productsRouter = createTRPCRouter({
           },
         });
 
+        // Auto-generate product handle from name if not provided
+        const productHandle = input.product_handle || generateProductHandle(input.name);
+
         const payload: Record<string, unknown> = {
           name: input.name,
           upid,
-          productIdentifier: input.product_identifier,
+          productHandle,
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
           seasonId: input.season_id ?? null,
@@ -210,7 +214,7 @@ export const productsRouter = createTRPCRouter({
         // Update basic product fields
         const payload: Record<string, unknown> = {
           id: input.id,
-          productIdentifier: input.product_identifier,
+          productHandle: input.product_handle,
           name: input.name,
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
@@ -244,14 +248,14 @@ export const productsRouter = createTRPCRouter({
 
         // Revalidate DPP cache for this product (fire-and-forget)
         if (product?.id) {
-          // Get the product's UPID for cache revalidation
-          const [productWithUpid] = await brandCtx.db
-            .select({ upid: products.upid })
+          // Get the product's handle for cache revalidation
+          const [productWithHandle] = await brandCtx.db
+            .select({ productHandle: products.productHandle })
             .from(products)
             .where(and(eq(products.id, product.id), eq(products.brandId, brandId)))
             .limit(1);
-          if (productWithUpid?.upid) {
-            revalidateProduct(productWithUpid.upid).catch(() => {});
+          if (productWithHandle?.productHandle) {
+            revalidateProduct(productWithHandle.productHandle).catch(() => {});
           }
         }
 

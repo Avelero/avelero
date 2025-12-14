@@ -1303,6 +1303,11 @@ export type Database = {
           status: string;
           trigger_type: string;
           updated_at: string;
+          variants_created: number;
+          variants_failed: number;
+          variants_processed: number;
+          variants_skipped: number;
+          variants_updated: number;
         };
         Insert: {
           brand_integration_id: string;
@@ -1321,6 +1326,11 @@ export type Database = {
           status?: string;
           trigger_type?: string;
           updated_at?: string;
+          variants_created?: number;
+          variants_failed?: number;
+          variants_processed?: number;
+          variants_skipped?: number;
+          variants_updated?: number;
         };
         Update: {
           brand_integration_id?: string;
@@ -1339,6 +1349,11 @@ export type Database = {
           status?: string;
           trigger_type?: string;
           updated_at?: string;
+          variants_created?: number;
+          variants_failed?: number;
+          variants_processed?: number;
+          variants_skipped?: number;
+          variants_updated?: number;
         };
         Relationships: [
           {
@@ -1394,6 +1409,63 @@ export type Database = {
             columns: ["tag_id"];
             isOneToOne: false;
             referencedRelation: "brand_tags";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      integration_variant_links: {
+        Row: {
+          brand_integration_id: string;
+          created_at: string;
+          external_barcode: string | null;
+          external_id: string;
+          external_product_id: string | null;
+          external_sku: string | null;
+          id: string;
+          last_synced_at: string | null;
+          last_synced_hash: string | null;
+          updated_at: string;
+          variant_id: string;
+        };
+        Insert: {
+          brand_integration_id: string;
+          created_at?: string;
+          external_barcode?: string | null;
+          external_id: string;
+          external_product_id?: string | null;
+          external_sku?: string | null;
+          id?: string;
+          last_synced_at?: string | null;
+          last_synced_hash?: string | null;
+          updated_at?: string;
+          variant_id: string;
+        };
+        Update: {
+          brand_integration_id?: string;
+          created_at?: string;
+          external_barcode?: string | null;
+          external_id?: string;
+          external_product_id?: string | null;
+          external_sku?: string | null;
+          id?: string;
+          last_synced_at?: string | null;
+          last_synced_hash?: string | null;
+          updated_at?: string;
+          variant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "integration_variant_links_brand_integration_id_brand_integratio";
+            columns: ["brand_integration_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_integrations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "integration_variant_links_variant_id_product_variants_id_fk";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
             referencedColumns: ["id"];
           },
         ];
@@ -1632,29 +1704,44 @@ export type Database = {
       };
       product_variants: {
         Row: {
+          barcode: string | null;
           color_id: string | null;
           created_at: string;
+          ean: string | null;
+          gender: string | null;
+          gtin: string | null;
           id: string;
           product_id: string;
           size_id: string | null;
+          sku: string | null;
           updated_at: string;
           upid: string | null;
         };
         Insert: {
+          barcode?: string | null;
           color_id?: string | null;
           created_at?: string;
+          ean?: string | null;
+          gender?: string | null;
+          gtin?: string | null;
           id?: string;
           product_id: string;
           size_id?: string | null;
+          sku?: string | null;
           updated_at?: string;
           upid?: string | null;
         };
         Update: {
+          barcode?: string | null;
           color_id?: string | null;
           created_at?: string;
+          ean?: string | null;
+          gender?: string | null;
+          gtin?: string | null;
           id?: string;
           product_id?: string;
           size_id?: string | null;
+          sku?: string | null;
           updated_at?: string;
           upid?: string | null;
         };
@@ -1689,15 +1776,12 @@ export type Database = {
           created_at: string;
           currency: string | null;
           description: string | null;
-          ean: string | null;
-          gender: string | null;
-          gtin: string | null;
           id: string;
           manufacturer_id: string | null;
           name: string;
           price: number | null;
           primary_image_path: string | null;
-          product_identifier: string;
+          product_handle: string;
           sales_status: string | null;
           season_id: string | null;
           status: string;
@@ -1713,15 +1797,12 @@ export type Database = {
           created_at?: string;
           currency?: string | null;
           description?: string | null;
-          ean?: string | null;
-          gender?: string | null;
-          gtin?: string | null;
           id?: string;
           manufacturer_id?: string | null;
           name: string;
           price?: number | null;
           primary_image_path?: string | null;
-          product_identifier: string;
+          product_handle: string;
           sales_status?: string | null;
           season_id?: string | null;
           status?: string;
@@ -1737,15 +1818,12 @@ export type Database = {
           created_at?: string;
           currency?: string | null;
           description?: string | null;
-          ean?: string | null;
-          gender?: string | null;
-          gtin?: string | null;
           id?: string;
           manufacturer_id?: string | null;
           name?: string;
           price?: number | null;
           primary_image_path?: string | null;
-          product_identifier?: string;
+          product_handle?: string;
           sales_status?: string | null;
           season_id?: string | null;
           status?: string;
@@ -2101,7 +2179,7 @@ export type Database = {
           manufacturer_id: string | null;
           name: string;
           primary_image_path: string | null;
-          product_identifier: string | null;
+          product_handle: string | null;
           product_upid: string | null;
           row_number: number;
           season_id: string | null;
@@ -2120,7 +2198,7 @@ export type Database = {
           manufacturer_id?: string | null;
           name: string;
           primary_image_path?: string | null;
-          product_identifier?: string | null;
+          product_handle?: string | null;
           product_upid?: string | null;
           row_number: number;
           season_id?: string | null;
@@ -2139,7 +2217,7 @@ export type Database = {
           manufacturer_id?: string | null;
           name?: string;
           primary_image_path?: string | null;
-          product_identifier?: string | null;
+          product_handle?: string | null;
           product_upid?: string | null;
           row_number?: number;
           season_id?: string | null;

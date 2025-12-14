@@ -79,9 +79,9 @@ export const columns: ColumnDef<CarouselProductRow>[] = [
                         <span className="block max-w-full truncate type-p text-primary">
                             {product.name}
                         </span>
-                        {product.productIdentifier && (
+                        {product.productHandle && (
                             <span className="block max-w-full truncate type-small text-secondary">
-                                {product.productIdentifier}
+                                {product.productHandle}
                             </span>
                         )}
                     </div>

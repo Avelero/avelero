@@ -38,6 +38,22 @@ export const integrationSyncJobs = pgTable(
       withTimezone: true,
       mode: "string",
     }),
+    // ===================
+    // VARIANT-LEVEL STATS (primary sync target)
+    // ===================
+    /** Number of variants processed */
+    variantsProcessed: integer("variants_processed").notNull().default(0),
+    /** Number of variants created */
+    variantsCreated: integer("variants_created").notNull().default(0),
+    /** Number of variants updated */
+    variantsUpdated: integer("variants_updated").notNull().default(0),
+    /** Number of variants that failed to process */
+    variantsFailed: integer("variants_failed").notNull().default(0),
+    /** Number of variants skipped (no changes) */
+    variantsSkipped: integer("variants_skipped").notNull().default(0),
+    // ===================
+    // PRODUCT-LEVEL STATS (created/updated through variants)
+    // ===================
     /** Number of products processed */
     productsProcessed: integer("products_processed").notNull().default(0),
     /** Number of products created */

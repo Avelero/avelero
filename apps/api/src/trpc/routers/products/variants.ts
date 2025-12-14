@@ -33,17 +33,17 @@ const MAX_VARIANT_DIMENSION = 12;
 
 /**
  * List variants for a product.
- * Accepts discriminated union: { product_id } OR { product_upid }
+ * Accepts discriminated union: { product_id } OR { product_handle }
  */
 const variantListProcedure = brandRequiredProcedure
   .input(variantUnifiedListSchema)
   .query(async ({ ctx, input }) => {
     const { db, brandId } = ctx as BrandContext;
     
-    // Handle discriminated union: { product_id } or { product_upid }
+    // Handle discriminated union: { product_id } or { product_handle }
     const identifier = 'product_id' in input 
       ? { product_id: input.product_id } 
-      : { product_upid: input.product_upid };
+      : { product_handle: input.product_handle };
     
     const variants = await listVariantsForProduct(db, brandId, identifier, {
       limit: input.limit,
@@ -71,9 +71,9 @@ const variantUpsertProcedure = brandRequiredProcedure
       );
 
       // Revalidate parent product's DPP cache (fire-and-forget)
-      const productUpid = await getProductUpid(db, brandId, input.product_id);
-      if (productUpid) {
-        revalidateProduct(productUpid).catch(() => {});
+      const productHandle = await getProductHandle(db, brandId, input.product_id);
+      if (productHandle) {
+        revalidateProduct(productHandle).catch(() => {});
       }
 
       return createListResponse(variants);
@@ -87,18 +87,18 @@ const variantDeleteProcedure = brandRequiredProcedure
   .mutation(async ({ ctx, input }) => {
     const { db, brandId } = ctx as BrandContext;
     try {
-      // Get product UPID before deletion for cache revalidation
+      // Get product handle before deletion for cache revalidation
       // Handle union type: input is either { product_id: string } or { variant_id: string }
       const productId = 'product_id' in input 
         ? input.product_id 
         : await getProductIdFromVariant(db, brandId, input.variant_id);
-      const productUpid = productId ? await getProductUpid(db, brandId, productId) : null;
+      const productHandle = productId ? await getProductHandle(db, brandId, productId) : null;
 
       const deleted = await deleteProductVariants(db, brandId, input);
 
       // Revalidate parent product's DPP cache (fire-and-forget)
-      if (productUpid) {
-        revalidateProduct(productUpid).catch(() => {});
+      if (productHandle) {
+        revalidateProduct(productHandle).catch(() => {});
       }
 
       return createEntityResponse({ deleted });
@@ -326,19 +326,19 @@ async function assertProductForBrand(
 }
 
 /**
- * Get a product's UPID for DPP cache revalidation.
+ * Get a product's handle for DPP cache revalidation.
  */
-async function getProductUpid(
+async function getProductHandle(
   db: BrandDb,
   brandId: string,
   productId: string,
 ): Promise<string | null> {
   const [product] = await db
-    .select({ upid: products.upid })
+    .select({ productHandle: products.productHandle })
     .from(products)
     .where(and(eq(products.id, productId), eq(products.brandId, brandId)))
     .limit(1);
-  return product?.upid ?? null;
+  return product?.productHandle ?? null;
 }
 
 /**

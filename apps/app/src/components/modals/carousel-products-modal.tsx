@@ -164,7 +164,7 @@ export function CarouselProductsModal({
         // Map sort field IDs to API field names
         const fieldMap: Record<string, SortField> = {
             title: "name",
-            productIdentifier: "name", // fallback
+            productHandle: "name", // fallback
             category: "category",
             season: "season",
             createdAt: "createdAt",
@@ -348,7 +348,7 @@ function CarouselTableSection({
         return products.map((product): CarouselProductRow => ({
             id: product.id,
             name: product.name ?? "",
-            productIdentifier: product.product_identifier ?? "",
+            productHandle: product.product_handle ?? "",
             primaryImagePath: product.primary_image_path ?? null,
             categoryName: product.category_name ?? null,
             seasonName: product.season_name ?? null,

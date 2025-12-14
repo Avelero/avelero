@@ -16,6 +16,7 @@ import { bulkRouter } from "./bulk/index.js";
 import { catalogRouter } from "./catalog/index.js";
 import { compositeRouter } from "./composite/index.js";
 import { dppPublicRouter } from "./dpp-public/index.js";
+import { integrationsRouter } from "./integrations/index.js";
 import { internalRouter } from "./internal/index.js";
 import { productsRouter } from "./products/index.js";
 import { summaryRouter } from "./summary/index.js";
@@ -32,6 +33,7 @@ import { userRouter } from "./user/index.js";
  * - bulk: Centralized bulk operations
  * - composite: Performance-optimized composite endpoints
  * - summary: Aggregated stats endpoints
+ * - integrations: Integration management (connect, sync, mappings)
  * - internal: Internal server-to-server endpoints (protected by API key)
  * - dppPublic: Public DPP (Digital Product Passport) endpoints (no auth required)
  */
@@ -43,6 +45,7 @@ export const appRouter = createTRPCRouter({
   bulk: bulkRouter,
   composite: compositeRouter,
   summary: summaryRouter,
+  integrations: integrationsRouter,
   internal: internalRouter,
   dppPublic: dppPublicRouter,
 });

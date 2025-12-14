@@ -15,13 +15,13 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../../init.js";
 import {
-  getDppByProductUpid,
+  getDppByProductHandle,
   getDppByVariantUpid,
   transformToDppData,
   getBrandBySlug,
   getBrandTheme,
   fetchCarouselProducts,
-  getProductByUpid,
+  getProductByHandle,
   type CarouselProduct,
 } from "@v1/db/queries";
 import { dppCarouselListSchema } from "../../../schemas/dpp-public.js";
@@ -65,19 +65,29 @@ const upidSchema = z
   .regex(/^[a-zA-Z0-9]+$/, "UPID must be alphanumeric");
 
 /**
- * Input schema for product-level DPP fetch
+ * Product handle schema: brand-defined identifier used in URL
  */
-const getByProductUpidSchema = z.object({
+const productHandleSchema = z
+  .string()
+  .min(1, "Product handle is required")
+  .max(255, "Product handle too long");
+
+/**
+ * Input schema for product-level DPP fetch
+ * URL: /[brandSlug]/[productHandle]/
+ */
+const getByProductHandleSchema = z.object({
   brandSlug: slugSchema,
-  productUpid: upidSchema,
+  productHandle: productHandleSchema,
 });
 
 /**
  * Input schema for variant-level DPP fetch
+ * URL: /[brandSlug]/[productHandle]/[variantUpid]/
  */
 const getByVariantUpidSchema = z.object({
   brandSlug: slugSchema,
-  productUpid: upidSchema,
+  productHandle: productHandleSchema,
   variantUpid: upidSchema,
 });
 
@@ -110,18 +120,19 @@ function transformCarouselProducts(
 export const dppPublicRouter = createTRPCRouter({
   /**
    * Fetch DPP data for a product-level passport.
+   * URL: /[brandSlug]/[productHandle]/
    *
    * @param brandSlug - URL-friendly brand identifier
-   * @param productUpid - 16-character product UPID
+   * @param productHandle - Brand-defined product identifier (used in URL)
    * @returns DppData for rendering, or null if not found/not published
    */
-  getByProductUpid: publicProcedure
-    .input(getByProductUpidSchema)
+  getByProductHandle: publicProcedure
+    .input(getByProductHandleSchema)
     .query(async ({ ctx, input }) => {
-      const { brandSlug, productUpid } = input;
+      const { brandSlug, productHandle } = input;
 
       // Fetch using service-level database (bypasses RLS)
-      const rawData = await getDppByProductUpid(ctx.db, brandSlug, productUpid);
+      const rawData = await getDppByProductHandle(ctx.db, brandSlug, productHandle);
 
       if (!rawData) {
         return null;
@@ -184,22 +195,23 @@ export const dppPublicRouter = createTRPCRouter({
 
   /**
    * Fetch DPP data for a variant-level passport.
+   * URL: /[brandSlug]/[productHandle]/[variantUpid]/
    *
    * @param brandSlug - URL-friendly brand identifier
-   * @param productUpid - 16-character product UPID
+   * @param productHandle - Brand-defined product identifier (used in URL)
    * @param variantUpid - 16-character variant UPID
    * @returns DppData for rendering, or null if not found/not published
    */
   getByVariantUpid: publicProcedure
     .input(getByVariantUpidSchema)
     .query(async ({ ctx, input }) => {
-      const { brandSlug, productUpid, variantUpid } = input;
+      const { brandSlug, productHandle, variantUpid } = input;
 
       // Fetch using service-level database (bypasses RLS)
       const rawData = await getDppByVariantUpid(
         ctx.db,
         brandSlug,
-        productUpid,
+        productHandle,
         variantUpid,
       );
 
@@ -311,17 +323,17 @@ export const dppPublicRouter = createTRPCRouter({
      *
      * This is an explicit endpoint for fetching carousel products,
      * providing more control than the embedded carousel data in
-     * getByProductUpid/getByVariantUpid responses.
+     * getByProductHandle/getByVariantUpid responses.
      *
      * @param brandSlug - URL-friendly brand identifier
-     * @param productUpid - Current product's UPID (to exclude from carousel)
+     * @param productHandle - Current product's handle (to exclude from carousel)
      * @param limit - Maximum number of products to return (1-20, default 8)
      * @returns Array of carousel products, or empty array if insufficient products
      */
     list: publicProcedure
       .input(dppCarouselListSchema)
       .query(async ({ ctx, input }) => {
-        const { brandSlug, productUpid, limit } = input;
+        const { brandSlug, productHandle, limit } = input;
 
         // Get brand by slug
         const brand = await getBrandBySlug(ctx.db, brandSlug);
@@ -333,8 +345,8 @@ export const dppPublicRouter = createTRPCRouter({
 
         if (!carouselConfig) return [];
 
-        // Get product by UPID to exclude from carousel and get category
-        const product = await getProductByUpid(ctx.db, brand.id, productUpid);
+        // Get product by handle to exclude from carousel and get category
+        const product = await getProductByHandle(ctx.db, brand.id, productHandle);
         if (!product) return [];
 
         // Fetch carousel products with limit override

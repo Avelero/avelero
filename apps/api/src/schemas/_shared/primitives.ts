@@ -20,13 +20,6 @@ import { z } from "zod";
 export const uuidSchema = z.string().uuid();
 
 /**
- * Validates non-empty strings (min length 1).
- * Used for required text fields like names, titles, etc.
- * @deprecated Use shortStringSchema, mediumStringSchema, or longStringSchema instead
- */
-export const nonEmptyStringSchema = z.string().min(1);
-
-/**
  * Validates short strings (1-100 characters).
  * Use for names, titles, labels, SKUs, and other identifiers.
  * @example "Product Name", "Brand Title", "SKU-12345"
@@ -47,6 +40,38 @@ export const slugSchema = z
     /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
     "Slug must contain only lowercase letters, numbers, and dashes (no leading/trailing dashes)",
   );
+
+/**
+ * Validates product handles (URL-friendly identifiers).
+ * Used as the product slug in DPP URLs: /[brandSlug]/[productHandle]/
+ * Only lowercase letters, numbers, and dashes allowed.
+ * Must be 1-100 characters.
+ * @example "special-pants", "organic-cotton-tee-2024", "summer-collection-hoodie"
+ */
+export const productHandleSchema = z
+  .string()
+  .min(1, "Product handle is required")
+  .max(100, "Product handle must be at most 100 characters")
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "Product handle must contain only lowercase letters, numbers, and dashes (no leading/trailing dashes)",
+  );
+
+/**
+ * Generates a URL-friendly handle from a product name.
+ * Converts to lowercase, replaces spaces with dashes, and removes special characters.
+ * @example "Special Pants" → "special-pants"
+ * @example "Organic Cotton T-Shirt (2024)" → "organic-cotton-t-shirt-2024"
+ */
+export function generateProductHandle(productName: string): string {
+  return productName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special characters except spaces and dashes
+    .replace(/\s+/g, "-") // Replace spaces with dashes
+    .replace(/-+/g, "-") // Replace multiple dashes with single dash
+    .replace(/^-|-$/g, ""); // Remove leading/trailing dashes
+}
 
 /**
  * Validates 6-character hexadecimal color values (accepts optional #).

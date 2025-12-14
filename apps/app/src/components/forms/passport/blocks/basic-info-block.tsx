@@ -8,6 +8,7 @@ import { useEffect, useState, useRef } from "react";
 import { ImageUploader } from "@/components/image-upload";
 import { normalizeToDisplayUrl } from "@/utils/storage-urls";
 import { BUCKETS } from "@/utils/storage-config";
+import { generateProductHandle } from "@/utils/product-handle";
 
 interface BasicInfoSectionProps {
   name: string;
@@ -19,6 +20,8 @@ interface BasicInfoSectionProps {
   existingImageUrl?: string | null;
   nameError?: string;
   nameInputRef?: React.RefObject<HTMLInputElement | null>;
+  productHandle?: string;
+  setProductHandle?: (value: string) => void;
 }
 
 export function BasicInfoSection({
@@ -31,12 +34,24 @@ export function BasicInfoSection({
   existingImageUrl = null,
   nameError,
   nameInputRef,
+  productHandle,
+  setProductHandle,
 }: BasicInfoSectionProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(
     normalizeToDisplayUrl(BUCKETS.PRODUCTS, existingImageUrl),
   );
   // Track when we've just set imagePreview from user file selection
   const pendingUserSelection = useRef(false);
+  
+  // Track if user has ever defocused the name field (to stop syncing after first blur)
+  const nameHasBeenBlurred = useRef(false);
+
+  // Reset the blur tracking when form is reset (both name and handle are empty)
+  useEffect(() => {
+    if (!name && !productHandle) {
+      nameHasBeenBlurred.current = false;
+    }
+  }, [name, productHandle]);
 
   // Keep preview in sync when editing existing products (but not when user just selected a file)
   useEffect(() => {
@@ -46,6 +61,22 @@ export function BasicInfoSection({
     }
     setImagePreview(normalizeToDisplayUrl(BUCKETS.PRODUCTS, existingImageUrl));
   }, [existingImageUrl]);
+
+  // Handle name change with real-time handle sync (until first blur)
+  const handleNameChange = (value: string) => {
+    setName(value);
+    
+    // Real-time sync: update handle from name if user hasn't blurred yet
+    if (setProductHandle && productHandle !== undefined && !nameHasBeenBlurred.current && value.trim()) {
+      const normalizedHandle = generateProductHandle(value);
+      setProductHandle(normalizedHandle);
+    }
+  };
+
+  // Stop syncing after user defocuses the name field
+  const handleNameBlur = () => {
+    nameHasBeenBlurred.current = true;
+  };
 
   return (
     <div className="border border-border bg-background p-4 flex flex-col gap-3">
@@ -57,7 +88,8 @@ export function BasicInfoSection({
         <Input
           ref={nameInputRef}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => handleNameChange(e.target.value)}
+          onBlur={handleNameBlur}
           placeholder="Enter product name"
           className={cn(
             "h-9",

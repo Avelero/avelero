@@ -11,7 +11,6 @@ import {
 } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Database } from "../client";
-import { generateUniqueUpid } from "../utils/upid.js";
 import { convertFilterStateToWhereClauses } from "../utils/filter-converter.js";
 import {
   brandEcoClaims,
@@ -68,8 +67,7 @@ const PRODUCT_FIELD_MAP = {
   season_id: products.seasonId,
   manufacturer_id: products.manufacturerId,
   primary_image_path: products.primaryImagePath,
-  product_identifier: products.productIdentifier,
-  upid: products.upid,
+  product_handle: products.productHandle,
   status: products.status,
   created_at: products.createdAt,
   updated_at: products.updatedAt,
@@ -97,7 +95,7 @@ const SORT_FIELD_MAP: Record<string, any> = {
   updatedAt: products.updatedAt,
   category: categories.name, // Requires join
   season: null, // Special handling required - see buildSeasonOrderBy
-  productIdentifier: products.productIdentifier,
+  productHandle: products.productHandle,
 } as const;
 
 /**
@@ -111,7 +109,7 @@ export interface ProductRecord {
   season_id?: string | null; // FK to brand_seasons.id
   manufacturer_id?: string | null;
   primary_image_path?: string | null;
-  product_identifier?: string | null;
+  product_handle?: string | null;
   upid?: string | null;
   status?: string | null;
   created_at?: string;
@@ -225,9 +223,9 @@ function mapProductRow(row: Record<string, unknown>): ProductRecord {
   if ("manufacturer_id" in row)
     product.manufacturer_id =
       (row.manufacturer_id as string | null) ?? null;
-  if ("product_identifier" in row)
-    product.product_identifier =
-      (row.product_identifier as string | null) ?? null;
+  if ("product_handle" in row)
+    product.product_handle =
+      (row.product_handle as string | null) ?? null;
   if ("upid" in row) product.upid = (row.upid as string | null) ?? null;
   if ("status" in row) product.status = (row.status as string | null) ?? null;
   if ("primary_image_path" in row)
@@ -596,10 +594,10 @@ export async function listProducts(
 
   if (filters.search) {
     const term = `%${filters.search}%`;
-    // Search across: name, productIdentifier, season name, category name, status, and tags
+    // Search across: name, productHandle, season name, category name, status, and tags
     const searchConditions = [
       ilike(products.name, term),
-      ilike(products.productIdentifier, term),
+      ilike(products.productHandle, term),
       // Status search (exact match or contains)
       ilike(products.status, term),
     ];
@@ -831,30 +829,30 @@ export async function listProductsWithIncludes(
 }
 
 /**
- * Identifier for product lookup - accepts either UUID or UPID.
+ * Identifier for product lookup - accepts either UUID or handle.
  */
-export type ProductIdentifier = { id: string } | { upid: string };
+export type ProductHandle = { id: string } | { handle: string };
 
 /**
  * Retrieves a product with optional variants and attributes.
- * Accepts either a product ID (UUID) or UPID (16-char alphanumeric).
+ * Accepts either a product ID (UUID) or handle (brand-defined identifier).
  *
  * @param db - Database instance
  * @param brandId - Brand identifier for scoping
- * @param identifier - Either { id: string } or { upid: string }
+ * @param identifier - Either { id: string } or { handle: string }
  * @param opts - Optional include flags for variants and attributes
  * @returns Product with requested relations or null if not found
  */
 export async function getProductWithIncludes(
   db: Database,
   brandId: string,
-  identifier: ProductIdentifier,
+  identifier: ProductHandle,
   opts: { includeVariants?: boolean; includeAttributes?: boolean } = {},
 ): Promise<ProductWithRelations | null> {
   // Determine which lookup to use based on identifier type
   const base = 'id' in identifier
     ? await getProduct(db, brandId, identifier.id)
-    : await getProductByUpid(db, brandId, identifier.upid);
+    : await getProductByHandle(db, brandId, identifier.handle);
   
   if (!base) return null;
 
@@ -876,43 +874,17 @@ export async function getProductWithIncludes(
 }
 
 /**
- * @deprecated Use getProductWithIncludes with { id } identifier instead.
- * This function is kept for backward compatibility during migration.
+ * Identifier for variant listing - accepts either product UUID or handle.
  */
-export async function getProductWithIncludesById(
-  db: Database,
-  brandId: string,
-  productId: string,
-  opts: { includeVariants?: boolean; includeAttributes?: boolean } = {},
-): Promise<ProductWithRelations | null> {
-  return getProductWithIncludes(db, brandId, { id: productId }, opts);
-}
-
-/**
- * @deprecated Use getProductWithIncludes with { upid } identifier instead.
- * This function is kept for backward compatibility during migration.
- */
-export async function getProductWithIncludesByUpid(
-  db: Database,
-  brandId: string,
-  productUpid: string,
-  opts: { includeVariants?: boolean; includeAttributes?: boolean } = {},
-): Promise<ProductWithRelations | null> {
-  return getProductWithIncludes(db, brandId, { upid: productUpid }, opts);
-}
-
-/**
- * Identifier for variant listing - accepts either product UUID or UPID.
- */
-export type VariantProductIdentifier = { product_id: string } | { product_upid: string };
+export type VariantProductIdentifier = { product_id: string } | { product_handle: string };
 
 /**
  * Lists variants for a product.
- * Accepts either a product ID (UUID) or product UPID (16-char alphanumeric).
+ * Accepts either a product ID (UUID) or product handle.
  *
  * @param db - Database instance
  * @param brandId - Brand identifier for scoping
- * @param identifier - Either { product_id: string } or { product_upid: string }
+ * @param identifier - Either { product_id: string } or { product_handle: string }
  * @param opts - Optional pagination options
  * @returns Array of variants for the product
  */
@@ -931,8 +903,8 @@ export async function listVariantsForProduct(
     if (!product) return [];
     productId = product.id;
   } else {
-    // UPID - look up product first
-    const product = await getProductByUpid(db, brandId, identifier.product_upid);
+    // handle - look up product first
+    const product = await getProductByHandle(db, brandId, identifier.product_handle);
     if (!product) return [];
     productId = product.id;
   }
@@ -979,8 +951,7 @@ export async function getProduct(db: Database, brandId: string, id: string) {
       season_id: products.seasonId,
       manufacturer_id: products.manufacturerId,
       primary_image_path: products.primaryImagePath,
-      product_identifier: products.productIdentifier,
-      upid: products.upid,
+      product_handle: products.productHandle,
       status: products.status,
       created_at: products.createdAt,
       updated_at: products.updatedAt,
@@ -991,10 +962,10 @@ export async function getProduct(db: Database, brandId: string, id: string) {
   return rows[0] ?? null;
 }
 
-export async function getProductByUpid(
+export async function getProductByHandle(
   db: Database,
   brandId: string,
-  upid: string,
+  handle: string,
 ) {
   const rows = await db
     .select({
@@ -1005,14 +976,13 @@ export async function getProductByUpid(
       season_id: products.seasonId,
       manufacturer_id: products.manufacturerId,
       primary_image_path: products.primaryImagePath,
-      product_identifier: products.productIdentifier,
-      upid: products.upid,
+      product_handle: products.productHandle,
       status: products.status,
       created_at: products.createdAt,
       updated_at: products.updatedAt,
     })
     .from(products)
-    .where(and(eq(products.upid, upid), eq(products.brandId, brandId)))
+    .where(and(eq(products.productHandle, handle), eq(products.brandId, brandId)))
     .limit(1);
   return rows[0] ?? null;
 }
@@ -1022,7 +992,7 @@ export async function createProduct(
   brandId: string,
   input: {
     name: string;
-    productIdentifier?: string;
+    productHandle?: string;
     description?: string;
     categoryId?: string;
     seasonId?: string;
@@ -1032,33 +1002,19 @@ export async function createProduct(
   },
 ) {
   let created:
-    | { id: string; upid: string | null; variantIds?: readonly string[] }
+    | { id: string; productHandle: string; variantIds?: readonly string[] }
     | undefined;
   await db.transaction(async (tx) => {
-    const productIdentifierValue =
-      input.productIdentifier ??
-      `PROD-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
-
-    const upid = await generateUniqueUpid({
-      isTaken: async (candidate) => {
-        const [row] = await tx
-          .select({ id: products.id })
-          .from(products)
-          .where(
-            and(eq(products.upid, candidate), eq(products.brandId, brandId)),
-          )
-          .limit(1);
-        return Boolean(row);
-      },
-    });
+    const productHandleValue =
+      input.productHandle ??
+      `prod-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
 
     const [row] = await tx
       .insert(products)
       .values({
         brandId,
         name: input.name,
-        productIdentifier: productIdentifierValue,
-        upid,
+        productHandle: productHandleValue,
         description: input.description ?? null,
         categoryId: input.categoryId ?? null,
         seasonId: input.seasonId ?? null,
@@ -1066,13 +1022,13 @@ export async function createProduct(
         primaryImagePath: input.primaryImagePath ?? null,
         status: input.status ?? "unpublished",
       })
-      .returning({ id: products.id, upid: products.upid });
+      .returning({ id: products.id, productHandle: products.productHandle });
 
     if (!row?.id) {
       return;
     }
 
-    created = { id: row.id, upid: row.upid ?? null };
+    created = { id: row.id, productHandle: row.productHandle };
   });
   return created;
 }
@@ -1083,7 +1039,7 @@ export async function updateProduct(
   input: {
     id: string;
     name?: string;
-    productIdentifier?: string | null;
+    productHandle?: string | null;
     description?: string | null;
     categoryId?: string | null;
     seasonId?: string | null;
@@ -1099,7 +1055,7 @@ export async function updateProduct(
       description: input.description ?? null,
       categoryId: input.categoryId ?? null,
       seasonId: input.seasonId ?? null,
-      productIdentifier: input.productIdentifier ?? null,
+      productHandle: input.productHandle ?? null,
       manufacturerId: input.manufacturerId ?? null,
       primaryImagePath: input.primaryImagePath ?? null,
     };
@@ -1309,7 +1265,7 @@ export async function setProductTags(
 export interface CarouselProductRow {
   id: string;
   name: string;
-  productIdentifier: string;
+  productHandle: string;
   primaryImagePath: string | null;
   categoryName: string | null;
   seasonName: string | null;
@@ -1358,13 +1314,13 @@ export async function listProductsForCarouselSelection(
     whereClauses.push(...filterClauses);
   }
 
-  // Apply search across name and productIdentifier
+  // Apply search across name and productHandle
   if (options.search) {
     const term = `%${options.search}%`;
     whereClauses.push(
       or(
         ilike(products.name, term),
-        ilike(products.productIdentifier, term),
+        ilike(products.productHandle, term),
         // Also search category and season names
         sql`EXISTS (
           SELECT 1 FROM ${brandSeasons}
@@ -1441,7 +1397,7 @@ export async function listProductsForCarouselSelection(
     .select({
       id: products.id,
       name: products.name,
-      productIdentifier: products.productIdentifier,
+      productHandle: products.productHandle,
       primaryImagePath: products.primaryImagePath,
       categoryName: categories.name,
       seasonName: brandSeasons.name,
@@ -1468,7 +1424,7 @@ export async function listProductsForCarouselSelection(
     data: rows.map((row) => ({
       id: row.id,
       name: row.name,
-      productIdentifier: row.productIdentifier,
+      productHandle: row.productHandle,
       primaryImagePath: row.primaryImagePath,
       categoryName: row.categoryName,
       seasonName: row.seasonName,

@@ -25,9 +25,9 @@ export const PASSPORT_STATUS_LABELS: Record<PassportStatus, string> = {
 
 export interface ProductPassportRow {
   id: string; // product id
-  productUpid: string;
+  /** URL-friendly identifier for product (used in navigation) */
+  productHandle: string;
   name: string;
-  productIdentifier?: string;
   status: PassportStatus;
   category?: string | null;
   categoryPath?: string[] | null;

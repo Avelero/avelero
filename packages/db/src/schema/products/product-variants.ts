@@ -29,6 +29,11 @@ export const productVariants = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
+    gender: text("gender"),
+    ean: text("ean"),
+    gtin: text("gtin"),
+    barcode: text("barcode"),
+    sku: text("sku"),
     upid: text("upid"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()

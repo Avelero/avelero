@@ -5,6 +5,7 @@ import {
     CarouselProductsDataTable,
     CarouselTableSkeleton,
     type CarouselSelectionState,
+    type CarouselProductRow,
 } from "@/components/tables/carousel-products";
 import { QuickFiltersPopover } from "@/components/select/filter-select";
 import { SortPopover } from "@/components/select/sort-select";
@@ -327,9 +328,9 @@ function CarouselTableSection({
 
     // Use useSuspenseQuery - this will trigger the Suspense fallback
     const { data, isFetching } = useSuspenseQuery(
-        trpc.workflow.theme.listCarouselProducts.queryOptions({
+        trpc.products.list.queryOptions({
             search: debouncedSearch || undefined,
-            filterState: filterState.groups.length > 0 ? filterState : undefined,
+            filters: filterState.groups.length > 0 ? filterState : undefined,
             sort: apiSort,
             cursor,
             limit: 50,
@@ -341,8 +342,17 @@ function CarouselTableSection({
         onTotalChange(data?.meta.total ?? 0);
     }, [data?.meta.total, onTotalChange]);
 
+    // Transform ProductWithRelations to CarouselProductRow
     const displayProducts = useMemo(() => {
-        return data?.data ?? [];
+        const products = data?.data ?? [];
+        return products.map((product): CarouselProductRow => ({
+            id: product.id,
+            name: product.name ?? "",
+            productIdentifier: product.product_identifier ?? "",
+            primaryImagePath: product.primary_image_path ?? null,
+            categoryName: product.category_name ?? null,
+            seasonName: product.season_name ?? null,
+        }));
     }, [data?.data]);
 
     const handleLoadMore = useCallback(() => {

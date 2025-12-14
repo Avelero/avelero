@@ -84,7 +84,7 @@ export function useAcceptInviteMutation(opts?: {
   type RouterOutputs = inferRouterOutputs<AppRouter>;
   type MyInvites = RouterOutputs["user"]["invites"]["list"];
   return useMutation(
-    trpc.workflow.invites.respond.mutationOptions({
+    trpc.user.invites.accept.mutationOptions({
       onMutate: async (variables) => {
         await queryClient.cancelQueries({
           queryKey: trpc.user.invites.list.queryKey(),
@@ -131,7 +131,7 @@ export function useAcceptInviteMutation(opts?: {
 
         // Invalidate brand-specific queries (uses active brand from context)
         void queryClient.invalidateQueries({
-          queryKey: trpc.workflow.members.list.queryKey({}),
+          queryKey: trpc.brand.members.list.queryKey({}),
         });
         void queryClient.invalidateQueries({
           queryKey: trpc.composite.membersWithInvites.queryKey({}),
@@ -143,13 +143,13 @@ export function useAcceptInviteMutation(opts?: {
           queryKey: trpc.user.invites.list.queryKey(),
         });
         await queryClient.invalidateQueries({
-          queryKey: trpc.workflow.list.queryKey(),
+          queryKey: trpc.user.brands.list.queryKey(),
         });
         await queryClient.invalidateQueries({
           queryKey: trpc.user.get.queryKey(),
         });
         await queryClient.invalidateQueries({
-          queryKey: trpc.composite.workflowInit.queryKey(),
+          queryKey: trpc.composite.initDashboard.queryKey(),
         });
       },
     }),
@@ -183,7 +183,7 @@ export function useRejectInviteMutation() {
   type RouterOutputs = inferRouterOutputs<AppRouter>;
   type MyInvites = RouterOutputs["user"]["invites"]["list"];
   return useMutation(
-    trpc.workflow.invites.respond.mutationOptions({
+    trpc.user.invites.reject.mutationOptions({
       onMutate: async (variables) => {
         await queryClient.cancelQueries({
           queryKey: trpc.user.invites.list.queryKey(),
@@ -211,7 +211,7 @@ export function useRejectInviteMutation() {
           queryKey: trpc.user.invites.list.queryKey(),
         });
         await queryClient.invalidateQueries({
-          queryKey: trpc.composite.workflowInit.queryKey(),
+          queryKey: trpc.composite.initDashboard.queryKey(),
         });
       },
     }),

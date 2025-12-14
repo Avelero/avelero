@@ -581,7 +581,7 @@ async function commitStagingRow(
               description: stagingProduct.description || undefined,
               categoryId: stagingProduct.categoryId || undefined,
               seasonId: stagingProduct.seasonId ?? undefined,
-              showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
+              manufacturerId: stagingProduct.manufacturerId ?? undefined,
               primaryImagePath: stagingProduct.primaryImagePath ?? undefined,
               status: stagingProduct.status ?? undefined,
             },
@@ -609,7 +609,7 @@ async function commitStagingRow(
             description: stagingProduct.description ?? undefined,
             categoryId: stagingProduct.categoryId ?? undefined,
             seasonId: stagingProduct.seasonId ?? undefined,
-            showcaseBrandId: stagingProduct.showcaseBrandId ?? undefined,
+            manufacturerId: stagingProduct.manufacturerId ?? undefined,
             primaryImagePath: stagingProduct.primaryImagePath ?? undefined,
             status: stagingProduct.status ?? undefined,
           },
@@ -698,7 +698,7 @@ async function commitStagingRow(
           stagingJourneySteps.map((s) => ({
             sortIndex: s.sortIndex,
             stepType: s.stepType,
-            facilityIds: [s.facilityId],
+            facilityId: s.facilityId,
           })),
         );
       }

@@ -9,7 +9,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
-import { categories } from "./categories";
 
 export const brandSizes = pgTable(
   "brand_sizes",
@@ -20,14 +19,6 @@ export const brandSizes = pgTable(
       .notNull(),
     name: text("name").notNull(),
     sortIndex: integer("sort_index"),
-    /**
-     * @deprecated Legacy category reference. Kept for backward compatibility.
-     * New implementations should use categoryGroup instead.
-     */
-    categoryId: uuid("category_id").references(() => categories.id, {
-      onDelete: "set null",
-      onUpdate: "cascade",
-    }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -36,11 +27,7 @@ export const brandSizes = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("brand_sizes_brand_name_unq").on(
-      table.brandId,
-      table.name,
-      table.categoryId,
-    ),
+    uniqueIndex("brand_sizes_brand_name_unq").on(table.brandId, table.name),
     // RLS policies
     pgPolicy("brand_sizes_select_for_brand_members", {
       as: "permissive",

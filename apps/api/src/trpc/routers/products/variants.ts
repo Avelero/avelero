@@ -3,16 +3,20 @@
  *
  * Covers the nested `products.variants.*` namespace responsible for variant
  * listings, batch upserts, and explicit delete operations.
+ *
+ * Phase 5 changes:
+ * - Updated `list` to support discriminated union (product_id OR product_upid)
+ * - Removed redundant `get` endpoint (use `list` instead)
  */
 import { and, eq, inArray } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
 import { generateUniqueUpids } from "@v1/db/utils";
 import {
-  getVariantsSchema,
-  listVariantsSchema,
   productVariantsDeleteSchema,
   productVariantsUpsertSchema,
+  variantUnifiedListSchema,
 } from "../../../schemas/products.js";
+import { listVariantsForProduct } from "@v1/db/queries";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
@@ -27,21 +31,23 @@ type BrandDb = BrandContext["db"];
 
 const MAX_VARIANT_DIMENSION = 12;
 
+/**
+ * List variants for a product.
+ * Accepts discriminated union: { product_id } OR { product_upid }
+ */
 const variantListProcedure = brandRequiredProcedure
-  .input(listVariantsSchema)
+  .input(variantUnifiedListSchema)
   .query(async ({ ctx, input }) => {
     const { db, brandId } = ctx as BrandContext;
-    const variants = await fetchProductVariants(db, brandId, input.product_id, {
+    
+    // Handle discriminated union: { product_id } or { product_upid }
+    const identifier = 'product_id' in input 
+      ? { product_id: input.product_id } 
+      : { product_upid: input.product_upid };
+    
+    const variants = await listVariantsForProduct(db, brandId, identifier, {
       limit: input.limit,
     });
-    return createListResponse(variants);
-  });
-
-const variantGetProcedure = brandRequiredProcedure
-  .input(getVariantsSchema)
-  .query(async ({ ctx, input }) => {
-    const { db, brandId } = ctx as BrandContext;
-    const variants = await fetchProductVariants(db, brandId, input.product_id);
     return createListResponse(variants);
   });
 
@@ -357,7 +363,6 @@ async function getProductIdFromVariant(
 
 export const productVariantsRouter = createTRPCRouter({
   list: variantListProcedure,
-  get: variantGetProcedure,
   upsert: variantUpsertProcedure,
   delete: variantDeleteProcedure,
 });

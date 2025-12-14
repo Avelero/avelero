@@ -11,14 +11,13 @@
 
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { countries, type CountryCode } from "@v1/selections";
-import type { ThemeConfig, ThemeStyles } from "@v1/dpp-components";
+import type { DppData, ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 import type { Database } from "../client";
 import {
   products,
   productVariants,
   productMaterials,
   productJourneySteps,
-  productJourneyStepFacilities,
   productEnvironment,
   productEcoClaims,
   brands,
@@ -30,7 +29,7 @@ import {
   brandFacilities,
   brandEcoClaims,
   categories,
-  showcaseBrands,
+  brandManufacturers,
 } from "../schema";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,7 +117,7 @@ export interface DppPublicData {
   categoryPath: string[] | null;
 
   // ─────────────────────────────────────────────────────────────
-  // Manufacturer (Showcase Brand)
+  // Manufacturer
   // ─────────────────────────────────────────────────────────────
   manufacturerName: string | null;
   manufacturerCountryCode: string | null;
@@ -223,9 +222,9 @@ async function fetchCoreData(
         // Category
         categoryId: products.categoryId,
         categoryName: categories.name,
-        // Manufacturer (Showcase Brand)
-        manufacturerName: showcaseBrands.name,
-        manufacturerCountryCode: showcaseBrands.countryCode,
+        // Manufacturer
+        manufacturerName: brandManufacturers.name,
+        manufacturerCountryCode: brandManufacturers.countryCode,
         // Theme
         themeConfig: brandTheme.themeConfig,
         themeStyles: brandTheme.themeStyles,
@@ -239,7 +238,7 @@ async function fetchCoreData(
       .leftJoin(brandColors, eq(brandColors.id, productVariants.colorId))
       .leftJoin(brandSizes, eq(brandSizes.id, productVariants.sizeId))
       .leftJoin(categories, eq(categories.id, products.categoryId))
-      .leftJoin(showcaseBrands, eq(showcaseBrands.id, products.showcaseBrandId))
+      .leftJoin(brandManufacturers, eq(brandManufacturers.id, products.manufacturerId))
       .where(
         and(
           eq(brands.slug, brandSlug),
@@ -268,8 +267,8 @@ async function fetchCoreData(
       brandSlug: brands.slug,
       categoryId: products.categoryId,
       categoryName: categories.name,
-      manufacturerName: showcaseBrands.name,
-      manufacturerCountryCode: showcaseBrands.countryCode,
+      manufacturerName: brandManufacturers.name,
+      manufacturerCountryCode: brandManufacturers.countryCode,
       themeConfig: brandTheme.themeConfig,
       themeStyles: brandTheme.themeStyles,
       stylesheetPath: brandTheme.stylesheetPath,
@@ -279,7 +278,7 @@ async function fetchCoreData(
     .innerJoin(brands, eq(brands.id, products.brandId))
     .leftJoin(brandTheme, eq(brandTheme.brandId, products.brandId))
     .leftJoin(categories, eq(categories.id, products.categoryId))
-    .leftJoin(showcaseBrands, eq(showcaseBrands.id, products.showcaseBrandId))
+    .leftJoin(brandManufacturers, eq(brandManufacturers.id, products.manufacturerId))
     .where(
       and(
         eq(brands.slug, brandSlug),
@@ -326,17 +325,17 @@ async function fetchJourneyWithFacilities(
   const stepIds = steps.map((s) => s.id);
   const facilityRows = await db
     .select({
-      journeyStepId: productJourneyStepFacilities.journeyStepId,
+      journeyStepId: productJourneySteps.id,
       displayName: brandFacilities.displayName,
       city: brandFacilities.city,
       countryCode: brandFacilities.countryCode,
     })
-    .from(productJourneyStepFacilities)
+    .from(productJourneySteps)
     .innerJoin(
       brandFacilities,
-      eq(brandFacilities.id, productJourneyStepFacilities.facilityId),
+      eq(brandFacilities.id, productJourneySteps.facilityId),
     )
-    .where(inArray(productJourneyStepFacilities.journeyStepId, stepIds));
+    .where(inArray(productJourneySteps.id, stepIds));
 
   // Group facilities by step
   const facilitiesByStep = new Map<string, DppFacility[]>();
@@ -375,7 +374,7 @@ async function fetchProductAttributes(
           countryOfOrigin: brandMaterials.countryOfOrigin,
           recyclable: brandMaterials.recyclable,
           certificationTitle: brandCertifications.title,
-          certificationUrl: brandCertifications.externalUrl,
+          certificationUrl: brandCertifications.instituteWebsite,
         })
         .from(productMaterials)
         .innerJoin(
@@ -574,101 +573,99 @@ function formatNumber(value: string): string {
   return num.toString();
 }
 
-/**
- * Impact metric for DppData format
- */
-interface ImpactMetric {
-  type: string;
-  value: string;
-  unit: string;
-  icon: "leaf" | "drop" | "recycle" | "factory";
-}
+// DppData type is now imported from @v1/dpp-components
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public Carousel Query
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Journey stage for DppData format
+ * Carousel product for public DPP display.
  */
-interface JourneyStage {
+export interface PublicCarouselProduct {
+  id: string;
   name: string;
-  companies: Array<{
-    name: string;
-    location: string;
-  }>;
+  primaryImagePath: string | null;
+  price: string;
+  currency: string;
+  webshopUrl: string;
 }
 
 /**
- * Material for DppData format
+ * Fetch carousel products for public DPP display.
+ * Resolves brand by slug and product by UPID, then fetches carousel
+ * based on theme config settings.
+ *
+ * @param db - Database instance (use serviceDb for bypassing RLS)
+ * @param brandSlug - Brand slug (URL-friendly identifier)
+ * @param currentProductUpid - Current product UPID to exclude from carousel
+ * @param limit - Maximum number of products (default 8, max 20)
+ * @returns Array of carousel products or empty array if brand/product not found
  */
-interface MaterialDisplay {
-  percentage: number;
-  type: string;
-  origin: string;
-  certification?: string;
-  certificationUrl?: string;
-}
+export async function getCarouselProductsForDpp(
+  db: Database,
+  brandSlug: string,
+  currentProductUpid: string,
+  limit: number = 8,
+): Promise<PublicCarouselProduct[]> {
+  // First, resolve the brand and product
+  const brandRows = await db
+    .select({
+      brandId: brands.id,
+      themeConfig: brandTheme.themeConfig,
+    })
+    .from(brands)
+    .leftJoin(brandTheme, eq(brandTheme.brandId, brands.id))
+    .where(eq(brands.slug, brandSlug))
+    .limit(1);
 
-/**
- * DppData interface (matches @v1/dpp-components)
- */
-export interface DppData {
-  title: string;
-  brandName: string;
-  productImage: string;
-  description: string;
-  size: string;
-  color: string;
-  category: string;
-  articleNumber: string;
-  manufacturer: string;
-  countryOfOrigin: string;
-  materials: MaterialDisplay[];
-  journey: JourneyStage[];
-  impactMetrics: ImpactMetric[];
-  impactClaims: string[];
-  similarProducts: Array<{
-    image: string;
-    name: string;
-    price: number;
-    currency?: string;
-    url?: string;
-  }>;
-}
+  const brand = brandRows[0];
+  if (!brand) return [];
 
-/**
- * Format step type from snake_case to Title Case.
- * Example: "raw_material" → "Raw Material"
- */
-function formatStepType(stepType: string): string {
-  return stepType
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
+  // Get the current product to exclude and get its category
+  const productRows = await db
+    .select({
+      id: products.id,
+      categoryId: products.categoryId,
+    })
+    .from(products)
+    .where(
+      and(
+        eq(products.brandId, brand.brandId),
+        eq(products.upid, currentProductUpid),
+        eq(products.status, "published"),
+      ),
+    )
+    .limit(1);
 
-/**
- * Build impact metrics array from environment data.
- */
-function buildImpactMetrics(env: DppEnvironment | null): ImpactMetric[] {
-  const metrics: ImpactMetric[] = [];
+  const currentProduct = productRows[0];
+  if (!currentProduct) return [];
 
-  if (env?.carbonKgCo2e) {
-    metrics.push({
-      type: "Carbon Footprint",
-      value: formatNumber(env.carbonKgCo2e),
-      unit: "kg CO₂e",
-      icon: "leaf", // Use leaf for carbon/environmental metrics
-    });
-  }
+  // Extract carousel config from theme
+  const themeConfig = brand.themeConfig as Record<string, unknown> | null;
+  const carouselConfig = themeConfig?.carousel as {
+    productCount?: number;
+    filter?: Record<string, unknown>;
+    includeIds?: string[];
+    excludeIds?: string[];
+  } | null;
 
-  if (env?.waterLiters) {
-    metrics.push({
-      type: "Water Usage",
-      value: formatNumber(env.waterLiters),
-      unit: "liters",
-      icon: "drop",
-    });
-  }
+  // Use the existing fetchCarouselProducts function
+  const { fetchCarouselProducts } = await import("./carousel-products.js");
 
-  return metrics;
+  const carouselProducts = await fetchCarouselProducts(db, {
+    brandId: brand.brandId,
+    currentProductId: currentProduct.id,
+    currentCategoryId: currentProduct.categoryId,
+    carouselConfig: carouselConfig
+      ? {
+          ...carouselConfig,
+          productCount: Math.min(limit, carouselConfig.productCount ?? limit, 20),
+        }
+      : { productCount: Math.min(limit, 20) },
+  });
+
+  return carouselProducts;
 }
 
 /**
@@ -682,33 +679,68 @@ function buildImpactMetrics(env: DppEnvironment | null): ImpactMetric[] {
  */
 export function transformToDppData(data: DppPublicData): DppData {
   return {
-    title: data.productName,
-    brandName: data.brandName,
-    productImage: data.productImage ?? "",
-    description: data.productDescription ?? "",
-    size: data.sizeName ?? "",
-    color: data.colorName ?? "",
-    category: data.categoryName ?? "", // Just use the assigned category name
-    articleNumber: data.productIdentifier,
-    manufacturer: data.manufacturerName ?? "",
-    countryOfOrigin: getCountryName(data.manufacturerCountryCode), // Full country name
-    materials: data.materials.map((m) => ({
-      percentage: m.percentage,
-      type: m.materialName,
-      origin: getCountryName(m.countryOfOrigin), // Full country name
-      certification: m.certificationTitle ?? undefined,
-      certificationUrl: m.certificationUrl ?? undefined,
-    })),
-    journey: data.journey.map((step) => ({
-      name: formatStepType(step.stepType),
-      companies: step.facilities.map((f) => ({
-        name: f.displayName,
-        location: [f.city, getCountryName(f.countryCode)].filter(Boolean).join(", "), // Full country name
+    productIdentifiers: {
+      productId: Number(data.productId) || 0,
+      productName: data.productName,
+      productImage: data.productImage ?? "",
+      articleNumber: data.productIdentifier,
+    },
+    productAttributes: {
+      description: data.productDescription ?? undefined,
+      brand: data.brandName,
+      category: data.categoryId
+        ? { categoryId: Number(data.categoryId) || 0, category: data.categoryName ?? "" }
+        : undefined,
+      size: data.sizeName ? { sizeId: 0, size: data.sizeName } : undefined,
+      color: data.colorName ? { colorId: 0, color: data.colorName } : undefined,
+    },
+    environmental: {
+      carbonEmissions: data.environment?.carbonKgCo2e
+        ? { value: Number(data.environment.carbonKgCo2e), unit: "kgCO2e" }
+        : undefined,
+      waterUsage: data.environment?.waterLiters
+        ? { value: Number(data.environment.waterLiters), unit: "liters" }
+        : undefined,
+      ecoClaims: data.ecoClaims.map((claim, index) => ({
+        ecoClaimId: index,
+        ecoClaim: claim,
       })),
-    })),
-    impactMetrics: buildImpactMetrics(data.environment),
-    impactClaims: data.ecoClaims,
-    similarProducts: [], // Future: from brand_carousel_products table
+    },
+    materials: {
+      composition: data.materials.map((m, index) => ({
+        materialId: index,
+        material: m.materialName,
+        percentage: m.percentage,
+        recyclable: m.recyclable ?? undefined,
+        countryOfOrigin: getCountryName(m.countryOfOrigin),
+        certification: m.certificationTitle
+          ? { type: m.certificationTitle, code: "" }
+          : undefined,
+      })),
+    },
+    manufacturing: {
+      manufacturer: data.manufacturerName
+        ? {
+            manufacturerId: 0,
+            name: data.manufacturerName,
+            countryCode: data.manufacturerCountryCode ?? undefined,
+          }
+        : undefined,
+      supplyChain: data.journey.flatMap((step) =>
+        step.facilities.map((f, index) => ({
+          processStep: step.stepType
+            .split("_")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" "),
+          operator: {
+            operatorId: index,
+            legalName: f.displayName,
+            city: f.city ?? undefined,
+            countryCode: f.countryCode ?? undefined,
+          },
+        })),
+      ),
+    },
   };
 }
 

@@ -1,16 +1,19 @@
 /**
- * Workflow invites router implementation.
+ * Brand invites router implementation.
+ *
+ * Phase 4 changes:
+ * - Renamed from workflowInvitesRouter to brandInvitesRouter
+ * - Removed respond procedure (accept/decline moved to user.invites.*)
+ * - Added revoke as separate endpoint
  *
  * Targets:
- * - workflow.invites.list
- * - workflow.invites.send
- * - workflow.invites.respond
+ * - brand.invites.list
+ * - brand.invites.send
+ * - brand.invites.revoke
  */
 import { tasks } from "@trigger.dev/sdk/v3";
 import {
-  acceptBrandInvite,
   createBrandInvites,
-  declineBrandInvite,
   desc,
   eq,
   revokeBrandInviteByOwner,
@@ -18,22 +21,21 @@ import {
 import { brandInvites, users } from "@v1/db/schema";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
+import { z } from "zod";
 import { ROLES } from "../../../config/roles.js";
+import { uuidSchema } from "../../../schemas/_shared/primitives.js";
 import {
-  workflowInvitesListSchema,
-  workflowInvitesRespondSchema,
-  workflowInvitesSendSchema,
-} from "../../../schemas/workflow.js";
+  invitesListSchema,
+  inviteSendSchema,
+} from "../../../schemas/brand.js";
 import {
   badRequest,
   forbidden,
-  internalServerError,
   wrapError,
 } from "../../../utils/errors.js";
 import {
   brandRequiredProcedure,
   createTRPCRouter,
-  protectedProcedure,
 } from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
@@ -53,17 +55,23 @@ type InviteResultRow = {
   isExistingUser: boolean;
 };
 
-export const workflowInvitesRouter = createTRPCRouter({
+// Schema for revoking an invite
+const inviteRevokeSchema = z.object({
+  invite_id: uuidSchema,
+});
+
+export const brandInvitesRouter = createTRPCRouter({
   /**
-   * Lists pending invites for the active workflow with inviter metadata.
+   * Lists pending invites for the brand with inviter metadata.
+   * Only accessible by brand owners.
    */
   list: brandRequiredProcedure
     .use(hasRole([ROLES.OWNER]))
-    .input(workflowInvitesListSchema)
+    .input(invitesListSchema)
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx;
       if (input.brand_id !== undefined && brandId !== input.brand_id) {
-        throw badRequest("Active brand does not match the requested workflow");
+        throw badRequest("Active brand does not match the requested brand");
       }
 
       const rows = await db
@@ -93,16 +101,17 @@ export const workflowInvitesRouter = createTRPCRouter({
     }),
 
   /**
-   * Sends an invite to a prospective workflow member and dispatches the email
-   * workflow when a record is created.
+   * Sends an invite to a prospective brand member and dispatches the email
+   * notification when a record is created.
+   * Only accessible by brand owners.
    */
   send: brandRequiredProcedure
     .use(hasRole([ROLES.OWNER]))
-    .input(workflowInvitesSendSchema)
+    .input(inviteSendSchema)
     .mutation(async ({ ctx, input }) => {
       const { db, user, brandId } = ctx;
       if (input.brand_id !== undefined && brandId !== input.brand_id) {
-        throw badRequest("Active brand does not match the requested workflow");
+        throw badRequest("Active brand does not match the requested brand");
       }
 
       const result = await createBrandInvites(db, {
@@ -144,7 +153,7 @@ export const workflowInvitesRouter = createTRPCRouter({
               err: error instanceof Error ? error : undefined,
               invites: payload.map((invite) => invite.recipientEmail),
             },
-            "Failed to enqueue workflow invite emails",
+            "Failed to enqueue brand invite emails",
           );
         }
       }
@@ -153,44 +162,14 @@ export const workflowInvitesRouter = createTRPCRouter({
     }),
 
   /**
-   * Unified responder supporting invite acceptance, decline, and revocation.
+   * Revokes a pending invite.
+   * Only accessible by brand owners.
    */
-  respond: protectedProcedure
-    .input(workflowInvitesRespondSchema)
+  revoke: brandRequiredProcedure
+    .use(hasRole([ROLES.OWNER]))
+    .input(inviteRevokeSchema)
     .mutation(async ({ ctx, input }) => {
-      const { db, role, user } = ctx;
-      const action = input.action;
-
-      if (action === "accept") {
-        try {
-          const res = await acceptBrandInvite(db, {
-            id: input.invite_id,
-            userId: user.id,
-          });
-          return { success: true as const, brandId: res.brandId };
-        } catch (error) {
-          throw wrapError(error, "Failed to accept workflow invite");
-        }
-      }
-
-      if (action === "decline") {
-        const email = user.email;
-        if (!email) {
-          throw internalServerError(
-            "Authenticated user record is missing an email address",
-          );
-        }
-        try {
-          await declineBrandInvite(db, { id: input.invite_id, email });
-          return { success: true as const };
-        } catch (error) {
-          throw wrapError(error, "Failed to decline workflow invite");
-        }
-      }
-
-      if (role !== ROLES.OWNER) {
-        throw forbidden("Only workflow owners can revoke invites");
-      }
+      const { db, user } = ctx;
 
       try {
         await revokeBrandInviteByOwner(db, user.id, input.invite_id);
@@ -198,12 +177,12 @@ export const workflowInvitesRouter = createTRPCRouter({
       } catch (error) {
         if (error instanceof Error && error.message === "FORBIDDEN") {
           throw forbidden(
-            "You do not have permission to revoke this workflow invite",
+            "You do not have permission to revoke this invite",
           );
         }
-        throw wrapError(error, "Failed to revoke workflow invite");
+        throw wrapError(error, "Failed to revoke invite");
       }
     }),
 });
 
-export type WorkflowInvitesRouter = typeof workflowInvitesRouter;
+export type BrandInvitesRouter = typeof brandInvitesRouter;

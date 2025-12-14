@@ -208,7 +208,7 @@ export function DesignEditorProvider({
   // tRPC client for config updates
   const trpc = useTRPC();
   const updateConfigMutation = useMutation(
-    trpc.workflow.theme.updateConfig.mutationOptions(),
+    trpc.brand.theme.update.mutationOptions(),
   );
 
   // Reset draft and saved states when initial values change (e.g., brand switch)

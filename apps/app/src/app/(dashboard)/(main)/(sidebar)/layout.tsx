@@ -26,7 +26,7 @@ export default async function SidebarLayout({
 
   // Fetch data (will use cached result from parent layouts)
   const workflowInit = await queryClient.fetchQuery(
-    trpc.composite.workflowInit.queryOptions(),
+    trpc.composite.initDashboard.queryOptions(),
   );
 
   // Seed caches for client components (Header, Sidebar, BrandDropdown, etc.)
@@ -36,7 +36,7 @@ export default async function SidebarLayout({
   );
 
   queryClient.setQueryData(
-    trpc.workflow.list.queryOptions().queryKey,
+    trpc.user.brands.list.queryOptions().queryKey,
     workflowInit.brands,
   );
 

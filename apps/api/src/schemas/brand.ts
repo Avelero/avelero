@@ -1,84 +1,86 @@
 /**
- * Validation schemas for brand management operations.
+ * Validation schemas for the brand domain (brands, members, invites).
  *
- * These shared schemas are consumed by both the API router and front-end forms
- * to ensure consistent validation rules across invites, membership changes,
- * and brand profile updates.
+ * Renamed from workflow.ts in Phase 7 to align with the router rename.
+ * These schemas back the tRPC procedures that manage brand lifecycle inside
+ * `apps/api/src/trpc/routers/brand/`.
  */
 import { z } from "zod";
 import { roleSchema } from "./_shared/domain.js";
-import {
-  byIdSchema,
-  byParentId,
-  createFieldSelection,
-  updateWithNullable,
-} from "./_shared/patterns.js";
+import { updateWithNullable } from "./_shared/patterns.js";
 import {
   avatarHueSchema,
   countryCodeSchema,
   emailSchema,
   shortStringSchema,
+  slugSchema,
   uuidSchema,
 } from "./_shared/primitives.js";
 
 /**
- * Available fields for brand queries.
+ * Payload for creating a brand record.
  *
- * Defines which brand fields can be selectively queried by clients.
+ * Accepts the same optional metadata as the legacy brand create mutation but
+ * renames `logo_path` to the API-facing `logo_url` to reflect the proxied URL.
+ * If slug is not provided, it will be auto-generated from the name.
  */
-export const BRAND_FIELDS = [
-  "id",
-  "name",
-  "email",
-  "logo_path",
-  "avatar_hue",
-  "country_code",
-  "role",
-] as const;
-
-/**
- * Type representing all available brand field names.
- */
-export type BrandField = (typeof BRAND_FIELDS)[number];
-
-/**
- * Schema for listing brands with optional field selection.
- */
-export const listBrandsSchema = z.object({
-  fields: createFieldSelection(BRAND_FIELDS),
-});
-
-/**
- * Payload for creating a new brand.
- */
-export const createBrandSchema = z.object({
+export const brandCreateSchema = z.object({
   name: shortStringSchema,
+  slug: slugSchema.optional().nullable(),
   email: emailSchema.optional().nullable(),
   country_code: countryCodeSchema.optional().nullable(),
-  logo_path: shortStringSchema.optional().nullable(),
+  logo_url: shortStringSchema.optional().nullable(),
   avatar_hue: avatarHueSchema.optional(),
 });
 
-/**
- * Payload for updating an existing brand.
- */
-export const updateBrandSchema = updateWithNullable(createBrandSchema, [
+export const brandUpdateSchema = updateWithNullable(brandCreateSchema, [
   "email",
   "country_code",
-  "logo_path",
+  "logo_url",
   "avatar_hue",
 ]);
 
-/**
- * Convenience schema for endpoints that take a brand identifier.
- */
-export const brandIdParamSchema = byIdSchema;
+export type BrandUpdateInput = z.infer<typeof brandUpdateSchema>;
 
 /**
- * Payload for sending an invite to join a brand.
+ * Shared schema for endpoints that require a brand identifier.
  */
-export const sendInviteSchema = z.object({
+export const brandIdSchema = z.object({
   brand_id: uuidSchema,
+});
+
+/**
+ * Optional schema for endpoints that use brandRequiredProcedure.
+ * These endpoints automatically use the active brand from context, so
+ * brand_id is optional and only used for validation if provided.
+ */
+export const brandIdOptionalSchema = z.object({
+  brand_id: uuidSchema.optional(),
+});
+
+/**
+ * Payload for the multi-purpose members mutation supporting removal
+ * and role updates.
+ */
+export const memberUpdateSchema = z.object({
+  user_id: uuidSchema,
+  role: roleSchema,
+});
+
+export const memberRemoveSchema = z.object({
+  user_id: uuidSchema,
+});
+
+/**
+ * Payload for listing pending invites for a brand.
+ */
+export const invitesListSchema = brandIdOptionalSchema;
+
+/**
+ * Payload for sending a brand invite.
+ */
+export const inviteSendSchema = z.object({
+  brand_id: uuidSchema.optional(),
   email: emailSchema,
   role: roleSchema.default("member"),
 });
@@ -86,31 +88,35 @@ export const sendInviteSchema = z.object({
 /**
  * Payload for revoking a pending invite.
  */
-export const revokeInviteSchema = byParentId("invite_id");
-
-/**
- * Payload for listing invites issued by a brand.
- */
-export const listInvitesSchema = byParentId("brand_id");
-
-/**
- * Payload for accepting an invite using its id.
- */
-export const acceptInviteSchema = byIdSchema;
-/**
- * Payload for rejecting an invite.
- */
-export const rejectInviteSchema = byIdSchema;
-
-/**
- * Payload for changing a member's role.
- */
-export const updateMemberSchema = z.object({
-  user_id: uuidSchema,
-  role: roleSchema,
+export const inviteRevokeSchema = z.object({
+  invite_id: uuidSchema,
 });
 
-/**
- * Payload for removing a member from the brand.
- */
-export const deleteMemberSchema = byParentId("user_id");
+export type MemberUpdateInput = z.infer<typeof memberUpdateSchema>;
+
+// ============================================================================
+// Legacy aliases for backward compatibility during migration
+// These can be removed after Phase 8 client updates are complete
+// ============================================================================
+
+/** @deprecated Use brandCreateSchema instead */
+export const workflowCreateSchema = brandCreateSchema;
+
+/** @deprecated Use brandUpdateSchema instead */
+export const workflowUpdateSchema = brandUpdateSchema;
+
+/** @deprecated Use BrandUpdateInput instead */
+export type WorkflowUpdateInput = BrandUpdateInput;
+
+/** @deprecated Use brandIdSchema instead */
+export const workflowBrandIdSchema = brandIdSchema;
+
+/** @deprecated Use brandIdOptionalSchema instead */
+export const workflowBrandIdOptionalSchema = brandIdOptionalSchema;
+
+/** @deprecated Use inviteSendSchema instead */
+export const workflowInvitesSendSchema = inviteSendSchema;
+
+/** @deprecated Use invitesListSchema instead */
+export const workflowInvitesListSchema = invitesListSchema;
+

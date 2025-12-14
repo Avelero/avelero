@@ -26,7 +26,7 @@ import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { MaterialSheet } from "../sheets/material-sheet";
 import { OperatorSheet } from "../sheets/operator-sheet";
-import { ShowcaseBrandSheet } from "../sheets/showcase-brand-sheet";
+import { ManufacturerSheet } from "../sheets/manufacturer-sheet";
 
 type BulkValuesRouter = inferRouterOutputs<AppRouter>["bulk"]["values"];
 type UnmappedValuesQueryData = BulkValuesRouter["unmapped"];
@@ -42,7 +42,7 @@ type EntityType =
   | "SEASON"
   | "TAG"
   | "FACILITY"
-  | "SHOWCASE_BRAND"
+  | "MANUFACTURER"
   | "ECO_CLAIM"
   | "CERTIFICATION";
 
@@ -131,7 +131,7 @@ function normalizeEntityType(type: string): EntityType | null {
     normalized === "SEASON" ||
     normalized === "TAG" ||
     normalized === "FACILITY" ||
-    normalized === "SHOWCASE_BRAND" ||
+    normalized === "MANUFACTURER" ||
     normalized === "ECO_CLAIM" ||
     normalized === "CERTIFICATION"
   ) {
@@ -257,11 +257,11 @@ export function EntityValueCombobox({
 
   // Fetch entity data (cached by parent component)
   const { data: colorsData } = useQuery({
-    ...trpc.brand.colors.list.queryOptions(undefined),
+    ...trpc.catalog.colors.list.queryOptions(undefined),
     enabled: entityType === "COLOR",
   });
 
-  // No longer need to fetch material/facility/showcase/season data since we're using direct creation
+  // No longer need to fetch material/facility/manufacturer/season data since we're using direct creation
 
   // Map to existing entity mutation
   const mapToExistingMutation = useMutation(
@@ -868,12 +868,12 @@ export function EntityValueCombobox({
     );
   }
 
-  // For MATERIAL, SEASON, FACILITY, SHOWCASE_BRAND - define button (stores data for batch creation)
+  // For MATERIAL, SEASON, FACILITY, MANUFACTURER - define button (stores data for batch creation)
   if (
     entityType === "MATERIAL" ||
     entityType === "SEASON" ||
     entityType === "FACILITY" ||
-    entityType === "SHOWCASE_BRAND"
+    entityType === "MANUFACTURER"
   ) {
     const handleDefineClick = () => {
       if (entityType === "SEASON") {
@@ -975,29 +975,29 @@ export function EntityValueCombobox({
             }}
           />
         )}
-        {entityType === "SHOWCASE_BRAND" && (
-          <ShowcaseBrandSheet
+        {entityType === "MANUFACTURER" && (
+          <ManufacturerSheet
             open={sheetOpen}
             onOpenChange={setSheetOpen}
             initialName={rawValue}
-            onBrandCreated={(brandData) => {
-              // Store showcase brand data for batch creation
+            onManufacturerCreated={(manufacturerData: any) => {
+              // Store manufacturer data for batch creation
               setPendingEntity({
                 key,
-                entityType: "SHOWCASE_BRAND",
+                entityType: "MANUFACTURER",
                 rawValue,
                 sourceColumn,
                 jobId,
                 entityData: {
-                  name: brandData.name || rawValue,
-                  // Add other brand fields
+                  name: manufacturerData.name || rawValue,
+                  // Add other manufacturer fields
                 },
               });
 
               markValueAsDefined();
 
               setSheetOpen(false);
-              toast.success(`Showcase brand "${rawValue}" defined`);
+              toast.success(`Manufacturer "${rawValue}" defined`);
               onMapped?.();
             }}
           />

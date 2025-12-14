@@ -10,6 +10,7 @@ import { useSelectableDetection } from "@/hooks/use-selectable-detection";
 export function DesignPreview() {
   const { previewData, themeConfigDraft, themeStylesDraft } = useDesignEditor();
   const containerRef = useRef<HTMLDivElement>(null);
+  const brandName = previewData.productAttributes.brand;
 
   const { handleMouseMove, handleMouseLeave, handleClick } =
     useSelectableDetection(containerRef);
@@ -27,11 +28,11 @@ export function DesignPreview() {
         <div className="dpp-root min-h-full flex flex-col @container">
           <Header
             themeConfig={themeConfigDraft}
-            brandName={previewData.brandName}
+            brandName={brandName}
             position="sticky"
           />
           <ContentFrame data={previewData} themeConfig={themeConfigDraft} />
-          <Footer themeConfig={themeConfigDraft} brandName={previewData.brandName} />
+          <Footer themeConfig={themeConfigDraft} brandName={brandName} />
         </div>
       </div>
       <SaveBar />

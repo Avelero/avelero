@@ -7,8 +7,8 @@ const inputVariants = cva(
   {
     variants: {
       variant: {
-        default: "py-2 !type-p",
-        small: "py-1.5 !type-small",
+        default: "h-9 !type-p",
+        small: "h-[30px] !type-small",
       },
     },
     defaultVariants: {

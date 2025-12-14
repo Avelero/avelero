@@ -6,22 +6,19 @@ import { byIdSchema, updateWithNullable } from "../_shared/patterns.js";
 import {
   intSchema,
   shortStringSchema,
-  uuidSchema,
 } from "../_shared/primitives.js";
 
 /**
  * Optional filters when listing sizes.
+ * No filters needed - sizes are now a flat list per brand.
  */
-export const listSizesSchema = z.object({
-  category_id: uuidSchema.optional(),
-});
+export const listSizesSchema = z.object({});
 
 /**
  * Payload for creating a size entry.
  */
 export const createSizeSchema = z.object({
   name: shortStringSchema,
-  category_id: uuidSchema.optional(),
   sort_index: intSchema.optional(),
 });
 
@@ -29,7 +26,6 @@ export const createSizeSchema = z.object({
  * Payload for updating a size entry.
  */
 export const updateSizeSchema = updateWithNullable(createSizeSchema, [
-  "category_id",
   "sort_index",
 ]);
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
-import { Button } from "@v1/ui/button";
+import { useBrandCatalog, type SizeOption } from "@/hooks/use-brand-catalog";
+import { sizeGroups } from "@v1/selections";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
@@ -15,19 +15,13 @@ import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import * as React from "react";
 
-export interface TierTwoSizeOption {
-  id?: string; // Optional: ID from database (undefined if custom/unsaved)
-  name: string; // Size name (e.g., "M", "32", "10.5")
-  categoryKey: string; // Level 2 category key (e.g., "mens-tops", "womens-bottoms")
-  categoryPath: string; // Level 2 category display (e.g., "Men's / Tops", "Women's / Bottoms")
-  sortIndex: number; // Sort order (lower = earlier)
-  source: "brand" | "custom"; // Where this size came from
-}
+// Re-export SizeOption type for convenience
+export type { SizeOption } from "@/hooks/use-brand-catalog";
 
 interface SizeSelectProps {
-  value: TierTwoSizeOption[];
-  onValueChange: (value: TierTwoSizeOption[]) => void;
-  onCreateNew?: (initialValue: string, categoryPath?: string) => void; // Callback to open size modal with prefilled category
+  value: SizeOption[];
+  onValueChange: (value: SizeOption[]) => void;
+  onCreateNew?: (sizeName: string) => void; // Opens custom size modal
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -38,7 +32,7 @@ const SizeLabel = ({
   onRemove,
   disabled = false,
 }: {
-  size: TierTwoSizeOption;
+  size: SizeOption;
   onRemove: () => void;
   disabled?: boolean;
 }) => {
@@ -74,168 +68,140 @@ export function SizeSelect({
   value,
   onValueChange,
   onCreateNew,
-  placeholder = "Add size",
+  placeholder = "Add sizes",
   disabled = false,
   className,
 }: SizeSelectProps) {
-  const { sizeOptions, tierTwoCategoryHierarchy } = useBrandCatalog();
+  const { sizeOptions } = useBrandCatalog();
   const [open, setOpen] = React.useState(false);
-  const [navigationPath, setNavigationPath] = React.useState<string[]>([]); // ["Men's"] or ["Men's", "Tops"]
   const [searchTerm, setSearchTerm] = React.useState("");
 
-  // Group sizes by full category path for efficient lookup
-  const sizesByCategory = React.useMemo(() => {
-    const map = new Map<string, TierTwoSizeOption[]>();
-
-    for (const option of sizeOptions) {
-      const existing = map.get(option.categoryPath) || [];
-      existing.push(option);
-      map.set(option.categoryPath, existing);
+  // Merge sizeOptions with selected custom sizes (those without IDs that aren't in sizeOptions)
+  // Use sortIndex as unique key since same name can exist in different groups
+  const allAvailableSizes = React.useMemo(() => {
+    const sizeMap = new Map<number, SizeOption>();
+    
+    // Add all sizes from catalog
+    for (const size of sizeOptions) {
+      sizeMap.set(size.sortIndex, size);
     }
-
-    // Sort sizes within each category by sortIndex
-    for (const [key, sizes] of map.entries()) {
-      sizes.sort((a, b) => a.sortIndex - b.sortIndex);
+    
+    // Add selected custom sizes that aren't in catalog yet
+    for (const size of value) {
+      if (!sizeMap.has(size.sortIndex)) {
+        sizeMap.set(size.sortIndex, size);
+      }
     }
+    
+    return Array.from(sizeMap.values());
+  }, [sizeOptions, value]);
 
-    return map;
-  }, [sizeOptions]);
-
-  // Get tier-one categories (Men's, Women's)
-  const tierOneCategories = React.useMemo(() => {
-    return Object.keys(tierTwoCategoryHierarchy).sort();
-  }, [tierTwoCategoryHierarchy]);
-
-  // Get current view based on navigation path
-  const currentView = React.useMemo(() => {
-    if (navigationPath.length === 0) {
-      return { type: "tier-one" as const, categories: tierOneCategories };
-    }
-    if (navigationPath.length === 1) {
-      const tierOneKey = navigationPath[0];
-      // Get tier-two display names for this tier-one category
-      const tierTwoPaths = tierOneKey
-        ? tierTwoCategoryHierarchy[tierOneKey] || []
-        : [];
-      // Extract just the tier-two names (e.g., "Tops" from "Men's / Tops")
-      const tierTwoNames = tierTwoPaths.map(
-        (path) => path.split(" / ")[1] || path,
-      );
-      return { type: "tier-two" as const, categories: tierTwoNames };
-    }
-    // navigationPath.length === 2
-    const tierOneKey = navigationPath[0];
-    const tierTwoKey = navigationPath[1];
-    // Reconstruct the full category path
-    const fullCategoryPath = `${tierOneKey} / ${tierTwoKey}`;
-    const sizes = sizesByCategory.get(fullCategoryPath) || [];
-    return { type: "sizes" as const, sizes };
-  }, [
-    navigationPath,
-    tierOneCategories,
-    tierTwoCategoryHierarchy,
-    sizesByCategory,
-  ]);
-
-  // Filter sizes when searching on page 3
+  // Filter sizes by search term
   const filteredSizes = React.useMemo(() => {
-    if (currentView.type !== "sizes" || !searchTerm)
-      return currentView.type === "sizes" ? currentView.sizes : [];
-    return currentView.sizes.filter((s: TierTwoSizeOption) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }, [currentView, searchTerm]);
+    if (!searchTerm) return allAvailableSizes;
+    const lower = searchTerm.toLowerCase();
+    return allAvailableSizes.filter((s) => s.name.toLowerCase().includes(lower));
+  }, [allAvailableSizes, searchTerm]);
 
-  const handleNavigateForward = (category: string) => {
-    setNavigationPath([...navigationPath, category]);
-    setSearchTerm("");
-  };
+  // Group filtered sizes for display
+  const groupedSizes = React.useMemo(() => {
+    const groups: Record<string, SizeOption[]> = {};
 
-  const handleNavigateBack = () => {
-    if (navigationPath.length > 0) {
-      setNavigationPath(navigationPath.slice(0, -1));
-      setSearchTerm("");
+    // First pass: assign sizes to their known groups
+    for (const size of filteredSizes) {
+      let groupName = "Custom"; // Default to Custom for sizes not in standard groups
+
+      // Find which group this size belongs to using sortIndex (unique identifier)
+      // This correctly handles sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
+      for (const [name, sizes] of Object.entries(sizeGroups)) {
+        if (sizes.some((s) => s.sortIndex === size.sortIndex)) {
+          groupName = name;
+          break;
+        }
+      }
+
+      if (!groups[groupName]) groups[groupName] = [];
+      groups[groupName]!.push(size);
     }
-  };
 
-  const handleToggleSize = (size: TierTwoSizeOption) => {
-    const isSelected = value.some(
-      (s) => s.categoryKey === size.categoryKey && s.name === size.name,
-    );
+    return groups;
+  }, [filteredSizes]);
+
+  /**
+   * Toggle size selection - NO API calls here!
+   *
+   * This handles selecting sizes from the list (both brand sizes and default sizes).
+   * - Brand sizes (with id) are already in the database
+   * - Default sizes (without id) are stored in local state only; they will be created
+   *   when the product is saved, NOT when selected
+   *
+   * Uses sortIndex for comparison since same name can exist in different groups
+   * (e.g., "8" in US Numeric vs "8" in US Shoe)
+   */
+  const handleToggleSize = (size: SizeOption) => {
+    const isSelected = value.some((s) => s.sortIndex === size.sortIndex);
 
     if (isSelected) {
-      onValueChange(
-        value.filter(
-          (s) => !(s.categoryKey === size.categoryKey && s.name === size.name),
-        ),
-      );
-    } else {
-      // Limit to 12 sizes
-      if (value.length >= 12) {
-        return;
-      }
+      onValueChange(value.filter((s) => s.sortIndex !== size.sortIndex));
+    } else if (value.length < 12) {
       onValueChange([...value, size]);
-      // Clear search term after selection
       setSearchTerm("");
     }
   };
 
-  const handleRemoveSize = (size: TierTwoSizeOption) => {
-    onValueChange(
-      value.filter(
-        (s) => !(s.categoryKey === size.categoryKey && s.name === size.name),
-      ),
-    );
+  const handleRemoveSize = (size: SizeOption) => {
+    onValueChange(value.filter((s) => s.sortIndex !== size.sortIndex));
   };
 
-  const handleCreateClick = () => {
-    if (searchTerm && onCreateNew) {
-      // Reconstruct the category path from navigation (e.g., "Men's / Tops")
-      const categoryPath =
-        navigationPath.length === 2
-          ? `${navigationPath[0]} / ${navigationPath[1]}`
-          : undefined;
+  // Show "create" option if search doesn't match any existing size
+  const showCreateOption =
+    searchTerm &&
+    !sizeOptions.some((s) => s.name.toLowerCase() === searchTerm.toLowerCase());
 
-      onCreateNew(searchTerm, categoryPath);
+  /**
+   * Opens the custom size modal for MANUAL size creation.
+   *
+   * This is triggered when a user types a size name that doesn't exist
+   * and clicks "Create". The modal will create the size immediately via API
+   * because the user has shown explicit intent to create a new custom size.
+   *
+   * This is DIFFERENT from selecting a default size, which does NOT
+   * trigger immediate creation.
+   */
+  const handleCreateClick = () => {
+    if (onCreateNew && searchTerm.trim()) {
+      onCreateNew(searchTerm.trim());
       setOpen(false);
       setSearchTerm("");
     }
   };
-
-  const showCreateOption =
-    currentView.type === "sizes" &&
-    searchTerm &&
-    !filteredSizes.some(
-      (s: TierTwoSizeOption) =>
-        s.name.toLowerCase() === searchTerm.toLowerCase(),
-    );
 
   const handleOpenChange = (newOpen: boolean) => {
     if (disabled) return;
     setOpen(newOpen);
   };
 
-  // Reset navigation and search when popover closes (with cleanup)
+  // Reset search when popover closes
   React.useEffect(() => {
     if (!open) {
       const timer = setTimeout(() => {
-        setNavigationPath([]);
         setSearchTerm("");
-      }, 200); // Match popover animation duration
+      }, 200);
       return () => clearTimeout(timer);
     }
   }, [open]);
 
-  // Check if sizes are from multiple systems
-  const uniqueCategories = React.useMemo(() => {
-    const categories = new Set(value.map((s) => s.categoryKey));
-    return categories.size;
-  }, [value]);
-
-  // Get breadcrumb string for navigation bar
-  const getBreadcrumbString = () => {
-    return navigationPath.join(" / ");
-  };
+  // Define group order for consistent display (Custom first)
+  const groupOrder = [
+    "Custom",
+    "Letter",
+    "US Numeric",
+    "Waist",
+    "US Shoe",
+    "EU Shoe",
+    "UK Shoe",
+    "One Size",
+  ];
 
   return (
     <div className="space-y-1.5">
@@ -253,7 +219,7 @@ export function SizeSelect({
           >
             {value.map((size, index) => (
               <SizeLabel
-                key={`${size.categoryKey}-${size.name}-${index}`}
+                key={`${size.name}-${index}`}
                 size={size}
                 onRemove={() => handleRemoveSize(size)}
                 disabled={disabled}
@@ -277,139 +243,58 @@ export function SizeSelect({
           className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0"
           align="start"
         >
-          <div className="flex flex-col">
-            {/* Navigation Bar for tier-two (page 2) */}
-            {currentView.type === "tier-two" && navigationPath.length > 0 && (
-              <div className="border-b border-border bg-background">
-                <button
-                  type="button"
-                  onClick={handleNavigateBack}
-                  className="w-full py-2 px-3 type-p text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
-                >
-                  <Icons.ChevronLeft className="h-4 w-4 mr-2 text-secondary" />
-                  <span className="text-primary">{getBreadcrumbString()}</span>
-                </button>
-              </div>
-            )}
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder="Search sizes..."
+              value={searchTerm}
+              onValueChange={setSearchTerm}
+            />
+            <CommandList className="max-h-64">
+              {groupOrder.map((groupName) => {
+                const sizes = groupedSizes[groupName];
+                if (!sizes || sizes.length === 0) return null;
 
-            {/* Content Area */}
-            <div
-              className={cn(
-                currentView.type === "sizes"
-                  ? ""
-                  : "max-h-48 overflow-y-auto scrollbar-hide",
-              )}
-            >
-              {currentView.type === "tier-one" && (
-                // Page 1: Tier-one categories
-                <>
-                  {tierOneCategories.map((category) => (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => handleNavigateForward(category)}
-                      className="w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between hover:bg-accent text-primary"
-                    >
-                      <span>{category}</span>
-                      <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
-                    </button>
-                  ))}
-                </>
-              )}
-
-              {currentView.type === "tier-two" && (
-                // Page 2: Tier-two categories
-                <>
-                  {currentView.categories.map((category) => (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => handleNavigateForward(category)}
-                      className="w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between hover:bg-accent text-primary"
-                    >
-                      <span>{category}</span>
-                      <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
-                    </button>
-                  ))}
-                </>
-              )}
-
-              {currentView.type === "sizes" && (
-                // Page 3: Sizes with multi-select and keyboard navigation
-                <Command shouldFilter={false}>
-                  <div className="flex items-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleNavigateBack}
-                      className="h-[37px] w-[37px] flex-shrink-0 rounded-none border-0 border-b border-r text-tertiary hover:text-secondary"
-                    >
-                      <Icons.ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <div className="flex-1">
-                      <CommandInput
-                        placeholder="Search sizes..."
-                        value={searchTerm}
-                        onValueChange={setSearchTerm}
-                      />
-                    </div>
-                  </div>
-                  <CommandList className="max-h-48">
-                    <CommandGroup>
-                      {filteredSizes.length > 0 ? (
-                        filteredSizes.map((size: TierTwoSizeOption) => {
-                          const isSelected = value.some(
-                            (s) =>
-                              s.categoryKey === size.categoryKey &&
-                              s.name === size.name,
-                          );
-                          return (
-                            <CommandItem
-                              key={`${size.categoryKey}-${size.name}`}
-                              value={size.name}
-                              onSelect={() => handleToggleSize(size)}
-                              className="justify-between"
-                            >
-                              <span className="type-p text-primary">
-                                {size.name}
-                              </span>
-                              {isSelected && (
-                                <Icons.Check className="h-4 w-4" />
-                              )}
-                            </CommandItem>
-                          );
-                        })
-                      ) : searchTerm && showCreateOption && onCreateNew ? (
+                return (
+                  <CommandGroup key={groupName} heading={groupName}>
+                    {sizes.map((size) => {
+                      // Use sortIndex for comparison since same name can exist in different groups
+                      const isSelected = value.some(
+                        (s) => s.sortIndex === size.sortIndex,
+                      );
+                      return (
                         <CommandItem
-                          value={searchTerm}
-                          onSelect={handleCreateClick}
+                          key={size.name}
+                          value={size.name}
+                          onSelect={() => handleToggleSize(size)}
+                          className="justify-between"
                         >
-                          <div className="flex items-center gap-2">
-                            <Icons.Plus className="h-3.5 w-3.5" />
-                            <span className="type-p text-primary">
-                              Create &quot;{searchTerm}&quot;
-                            </span>
-                          </div>
+                          <span className="type-p text-primary">
+                            {size.name}
+                          </span>
+                          {isSelected && <Icons.Check className="h-4 w-4" />}
                         </CommandItem>
-                      ) : !searchTerm && onCreateNew ? (
-                        <CommandEmpty>Start typing to create...</CommandEmpty>
-                      ) : searchTerm ? (
-                        <CommandEmpty>No results found</CommandEmpty>
-                      ) : null}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
+                      );
+                    })}
+                  </CommandGroup>
+                );
+              })}
+              {showCreateOption && onCreateNew && (
+                <CommandGroup>
+                  <CommandItem onSelect={handleCreateClick}>
+                    <div className="flex items-center">
+                      <Icons.Plus className="h-4 w-4" />
+                      <span className="px-1">Create &quot;{searchTerm}&quot;</span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
               )}
-            </div>
-          </div>
+              {filteredSizes.length === 0 && !showCreateOption && (
+                <CommandEmpty>No sizes found</CommandEmpty>
+              )}
+            </CommandList>
+          </Command>
         </PopoverContent>
       </Popover>
-      {uniqueCategories > 1 && (
-        <p className="type-small text-destructive">
-          Warning: You've selected sizes from {uniqueCategories} different size
-          systems
-        </p>
-      )}
     </div>
   );
 }

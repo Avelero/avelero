@@ -23,12 +23,6 @@ export const PASSPORT_STATUS_LABELS: Record<PassportStatus, string> = {
   archived: "Archived",
 };
 
-export interface PassportTemplate {
-  id: string;
-  name: string;
-  color: string; // hex color string (e.g., #3B82F6)
-}
-
 export interface ProductPassportRow {
   id: string; // product id
   productUpid: string;
@@ -38,7 +32,7 @@ export interface ProductPassportRow {
   category?: string | null;
   categoryPath?: string[] | null;
   season?: string | null;
-  showcaseBrand?: string | null;
+  manufacturer?: string | null;
   primaryImagePath?: string | null;
   colors?: string[]; // distinct color names/hexes for variants
   sizes?: string[]; // distinct size names

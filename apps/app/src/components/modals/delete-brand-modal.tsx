@@ -1,7 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import {
   Dialog,
@@ -25,8 +25,7 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
   const [error, setError] = useState<string | null>(null);
   const trpc = useTRPC();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const deleteMutation = useMutation(trpc.workflow.delete.mutationOptions());
+  const deleteMutation = useMutation(trpc.brand.delete.mutationOptions());
 
   // Prefetch possible navigation routes for post-deletion
   useEffect(() => {
@@ -39,26 +38,24 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
     setError(null);
 
     try {
-      // Delete brand via API
+      // Delete brand via API (soft-delete + triggers background job)
       const result = await deleteMutation.mutateAsync({ brand_id: brandId });
 
       // Close modal before redirect
       onOpenChange(false);
 
       // Smart redirection based on remaining brands
+      // Force a TRUE hard refresh by using a cache-busting timestamp
+      // This ensures:
+      // 1. All server-side context is regenerated with new active brand
+      // 2. All Server Components are re-rendered with fresh data
+      // 3. Client-side cache is completely cleared
+      // 4. No stale data from the deleted brand
       const payload = result as { nextBrandId?: string | null };
-      if (payload.nextBrandId) {
-        // User has other brands, redirect to dashboard
-        router.push("/");
-        router.refresh();
-      } else {
-        // User has no brands left, redirect to brand creation
-        router.push("/create-brand");
-        router.refresh();
-      }
-
-      // Clear cache after navigation starts to avoid Suspense query refetch errors
-      setTimeout(() => queryClient.clear(), 0);
+      const destination = payload.nextBrandId ? "/" : "/create-brand";
+      
+      // Navigate with cache-busting param to force fresh server request
+      window.location.href = `${destination}?_t=${Date.now()}`;
     } catch (e: unknown) {
       const error =
         e instanceof Error ? e : new Error("Failed to delete brand");

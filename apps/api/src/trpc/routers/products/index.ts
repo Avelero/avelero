@@ -4,6 +4,9 @@
  * Exposes product CRUD operations along with nested routers for variants and
  * attribute writers. Supports include flags that collapse N+1 queries into
  * batched lookups handled by the database layer.
+ *
+ * Phase 5 changes:
+ * - Merged `get` and `getByUpid` into single `get` endpoint with discriminated union
  */
 import {
   createProduct,
@@ -15,7 +18,6 @@ import {
   setProductJourneySteps,
   upsertProductEnvironment,
   upsertProductMaterials,
-  getProductWithIncludesByUpid,
   setProductTags,
 } from "@v1/db/queries";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
@@ -25,10 +27,9 @@ import { generateUniqueUpid, generateUniqueUpids } from "@v1/db/utils";
 import {
   productsDomainCreateSchema,
   productsDomainDeleteSchema,
-  productsDomainGetSchema,
   productsDomainListSchema,
-  productsDomainGetByUpidSchema,
   productsDomainUpdateSchema,
+  productUnifiedGetSchema,
 } from "../../../schemas/products.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
@@ -64,7 +65,7 @@ type AttributeInput = {
   journey_steps?: {
     sort_index: number;
     step_type: string;
-    facility_ids: string[]; // Changed from facility_id to support multiple operators
+    facility_id: string; // 1:1 relationship with facility
   }[];
   environment?: {
     carbon_kg_co2e?: string | number;
@@ -108,23 +109,22 @@ export const productsRouter = createTRPCRouter({
       });
     }),
 
+  /**
+   * Get a single product by ID or UPID.
+   * Unified endpoint that accepts discriminated union: { id } | { upid }
+   */
   get: brandRequiredProcedure
-    .input(productsDomainGetSchema)
+    .input(productUnifiedGetSchema)
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = ensureBrandScope(brandCtx);
-      return getProductWithIncludes(brandCtx.db, brandId, input.id, {
-        includeVariants: input.includeVariants,
-        includeAttributes: input.includeAttributes,
-      });
-    }),
-
-  getByUpid: brandRequiredProcedure
-    .input(productsDomainGetByUpidSchema)
-    .query(async ({ ctx, input }) => {
-      const brandCtx = ctx as BrandContext;
-      const brandId = ensureBrandScope(brandCtx);
-      return getProductWithIncludesByUpid(brandCtx.db, brandId, input.upid, {
+      
+      // Handle discriminated union: { id } or { upid }
+      const identifier = 'id' in input 
+        ? { id: input.id } 
+        : { upid: input.upid };
+      
+      return getProductWithIncludes(brandCtx.db, brandId, identifier, {
         includeVariants: input.includeVariants,
         includeAttributes: input.includeAttributes,
       });
@@ -160,9 +160,8 @@ export const productsRouter = createTRPCRouter({
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
           seasonId: input.season_id ?? null,
-          showcaseBrandId: input.showcase_brand_id ?? null,
+          manufacturerId: input.manufacturer_id ?? null,
           primaryImagePath: input.primary_image_path ?? null,
-          templateId: input.template_id ?? null,
           status: input.status ?? undefined,
         };
 
@@ -216,9 +215,8 @@ export const productsRouter = createTRPCRouter({
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
           seasonId: input.season_id ?? null,
-          showcaseBrandId: input.showcase_brand_id ?? null,
+          manufacturerId: input.manufacturer_id ?? null,
           primaryImagePath: input.primary_image_path ?? null,
-          templateId: input.template_id ?? null,
           status: input.status ?? undefined,
         };
 
@@ -329,11 +327,13 @@ async function applyProductAttributes(
     await setProductJourneySteps(
       ctx.db,
       productId,
-      input.journey_steps.map((step) => ({
-        sortIndex: step.sort_index,
-        stepType: step.step_type,
-        facilityIds: step.facility_ids, // Changed from facilityId to support multiple operators
-      })),
+      input.journey_steps
+        .filter((step) => step.facility_id) // Filter out steps without a facility
+        .map((step) => ({
+          sortIndex: step.sort_index,
+          stepType: step.step_type,
+          facilityId: step.facility_id,
+        })),
     );
   }
 

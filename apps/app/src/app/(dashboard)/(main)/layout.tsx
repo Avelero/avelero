@@ -20,7 +20,7 @@ export default async function MainLayout({
 
   // Fetch data (will use cached result from parent layout's bootstrap)
   const workflowInit = await queryClient.fetchQuery(
-    trpc.composite.workflowInit.queryOptions(),
+    trpc.composite.initDashboard.queryOptions(),
   );
 
   const user = workflowInit.user;

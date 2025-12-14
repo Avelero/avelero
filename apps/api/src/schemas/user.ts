@@ -9,6 +9,7 @@ import {
   avatarHueSchema,
   emailSchema,
   urlSchema,
+  uuidSchema,
 } from "./_shared/primitives.js";
 
 /**
@@ -29,6 +30,7 @@ export const updateUserSchema = z.object({
  *
  * Only permits updating the display name and avatar URL/path while allowing
  * callers to explicitly clear fields by passing `null`.
+ * Note: Use `user.brands.setActive` to change the active brand.
  */
 export const userDomainUpdateSchema = z.object({
   email: emailSchema.optional(),
@@ -58,3 +60,40 @@ export const userDomainUpdateSchema = z.object({
     .nullable()
     .optional(),
 });
+
+/**
+ * Payload for accepting an invite to join a brand.
+ * Moved from workflow.invites.respond to user.invites.accept.
+ */
+export const inviteAcceptSchema = z.object({
+  invite_id: uuidSchema,
+});
+
+/**
+ * Payload for rejecting an invite to join a brand.
+ * Moved from workflow.invites.respond to user.invites.reject.
+ */
+export const inviteRejectSchema = z.object({
+  invite_id: uuidSchema,
+});
+
+/**
+ * Payload for leaving a brand.
+ * Moved from workflow.members.update (no user_id case) to user.brands.leave.
+ */
+export const brandLeaveSchema = z.object({
+  brand_id: uuidSchema.optional(), // Optional, uses active brand if not provided
+});
+
+/**
+ * Payload for setting the user's active brand.
+ * Moved from workflow.setActive to user.brands.setActive.
+ */
+export const brandSetActiveSchema = z.object({
+  brand_id: uuidSchema,
+});
+
+export type InviteAcceptInput = z.infer<typeof inviteAcceptSchema>;
+export type InviteRejectInput = z.infer<typeof inviteRejectSchema>;
+export type BrandLeaveInput = z.infer<typeof brandLeaveSchema>;
+export type BrandSetActiveInput = z.infer<typeof brandSetActiveSchema>;

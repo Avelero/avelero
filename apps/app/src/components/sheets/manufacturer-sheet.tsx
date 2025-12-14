@@ -25,7 +25,7 @@ import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { CountrySelect } from "../select/country-select";
 
-export interface ShowcaseBrandData {
+export interface ManufacturerData {
   id: string;
   name: string;
   legalName?: string;
@@ -40,29 +40,29 @@ export interface ShowcaseBrandData {
   countryCode?: string;
 }
 
-interface ShowcaseBrandFormValues {
+interface ManufacturerFormValues {
   name: string;
   email: string;
   phone: string;
   website: string;
 }
 
-interface ShowcaseBrandSheetProps {
+interface ManufacturerSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialName?: string;
-  onBrandCreated: (brand: ShowcaseBrandData) => void;
+  onManufacturerCreated: (manufacturer: ManufacturerData) => void;
 }
 
-export function ShowcaseBrandSheet({
+export function ManufacturerSheet({
   open,
   onOpenChange,
   initialName = "",
-  onBrandCreated,
-}: ShowcaseBrandSheetProps) {
+  onManufacturerCreated,
+}: ManufacturerSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { showcaseBrands: existingBrands } = useBrandCatalog();
+  const { manufacturers: existingManufacturers } = useBrandCatalog();
 
   const [name, setName] = React.useState(initialName);
   const [legalName, setLegalName] = React.useState("");
@@ -77,24 +77,24 @@ export function ShowcaseBrandSheet({
   const [countryCode, setCountryCode] = React.useState("");
 
   const [fieldErrors, setFieldErrors] = React.useState<
-    ValidationErrors<ShowcaseBrandFormValues>
+    ValidationErrors<ManufacturerFormValues>
   >({});
 
-  // API mutation for creating showcase brand
-  const createBrandMutation = useMutation(
-    trpc.brand.showcaseBrands.create.mutationOptions(),
+  // API mutation for creating manufacturer
+  const createManufacturerMutation = useMutation(
+    trpc.catalog.manufacturers.create.mutationOptions(),
   );
 
   const validationSchema = React.useMemo<
-    ValidationSchema<ShowcaseBrandFormValues>
+    ValidationSchema<ManufacturerFormValues>
   >(
     () => ({
       name: [
-        rules.required("Brand name is required"),
+        rules.required("Manufacturer name is required"),
         rules.maxLength(100, "Name must be 100 characters or less"),
         rules.uniqueCaseInsensitive(
-          existingBrands.map((brand) => brand.name),
-          "A brand with this name already exists",
+          existingManufacturers.map((manufacturer: { name: string }) => manufacturer.name),
+          "A manufacturer with this name already exists",
         ),
       ],
       email: [
@@ -110,11 +110,11 @@ export function ShowcaseBrandSheet({
         rules.url(),
       ],
     }),
-    [existingBrands],
+    [existingManufacturers],
   );
 
   const clearFieldError = React.useCallback(
-    (field: keyof ShowcaseBrandFormValues) => {
+    (field: keyof ManufacturerFormValues) => {
       setFieldErrors((prev) => {
         if (!prev[field]) {
           return prev;
@@ -128,8 +128,8 @@ export function ShowcaseBrandSheet({
   );
 
   const validateSingleField = React.useCallback(
-    (field: keyof ShowcaseBrandFormValues, value: string) => {
-      const values: ShowcaseBrandFormValues = {
+    (field: keyof ManufacturerFormValues, value: string) => {
+      const values: ManufacturerFormValues = {
         name,
         email,
         phone,
@@ -171,7 +171,7 @@ export function ShowcaseBrandSheet({
   }, [open]);
 
   const handleCreate = async () => {
-    const formValues: ShowcaseBrandFormValues = {
+    const formValues: ManufacturerFormValues = {
       name,
       email,
       phone,
@@ -188,13 +188,13 @@ export function ShowcaseBrandSheet({
         "website",
       ]);
       if (firstInvalidField === "name") {
-        document.getElementById("brand-name")?.focus();
+        document.getElementById("manufacturer-name")?.focus();
       } else if (firstInvalidField === "email") {
-        document.getElementById("brand-email")?.focus();
+        document.getElementById("manufacturer-email")?.focus();
       } else if (firstInvalidField === "phone") {
-        document.getElementById("brand-phone")?.focus();
+        document.getElementById("manufacturer-phone")?.focus();
       } else if (firstInvalidField === "website") {
-        document.getElementById("brand-website")?.focus();
+        document.getElementById("manufacturer-website")?.focus();
       }
       return;
     }
@@ -205,8 +205,8 @@ export function ShowcaseBrandSheet({
     try {
       // Execute mutation with toast.loading to handle loading/success/error states
       const mutationResult = await toast.loading(
-        "Creating brand...",
-        createBrandMutation.mutateAsync({
+        "Creating manufacturer...",
+        createManufacturerMutation.mutateAsync({
           name: name.trim(),
           legal_name: legalName.trim() || undefined,
           email: email.trim() || undefined,
@@ -221,42 +221,42 @@ export function ShowcaseBrandSheet({
         }),
         {
           delay: 500,
-          successMessage: "Brand created successfully",
+          successMessage: "Manufacturer created successfully",
         },
       );
 
-      const createdBrand = mutationResult?.data;
+      const createdManufacturer = mutationResult?.data;
 
-      if (!createdBrand?.id) {
+      if (!createdManufacturer?.id) {
         throw new Error("No valid response returned from API");
       }
 
       // Optimistically update the cache immediately
       queryClient.setQueryData(
-        trpc.composite.brandCatalogContent.queryKey(),
+        trpc.composite.catalogContent.queryKey(),
         (old: any) => {
           if (!old) return old;
           return {
             ...old,
             brandCatalog: {
               ...old.brandCatalog,
-              showcaseBrands: [
-                ...old.brandCatalog.showcaseBrands,
+              manufacturers: [
+                ...old.brandCatalog.manufacturers,
                 {
-                  id: createdBrand.id,
-                  name: createdBrand.name,
-                  legal_name: createdBrand.legal_name,
-                  email: createdBrand.email,
-                  phone: createdBrand.phone,
-                  website: createdBrand.website,
-                  address_line_1: createdBrand.address_line_1,
-                  address_line_2: createdBrand.address_line_2,
-                  city: createdBrand.city,
-                  state: createdBrand.state,
-                  zip: createdBrand.zip,
-                  country_code: createdBrand.country_code,
-                  created_at: createdBrand.created_at,
-                  updated_at: createdBrand.updated_at,
+                  id: createdManufacturer.id,
+                  name: createdManufacturer.name,
+                  legal_name: createdManufacturer.legal_name,
+                  email: createdManufacturer.email,
+                  phone: createdManufacturer.phone,
+                  website: createdManufacturer.website,
+                  address_line_1: createdManufacturer.address_line_1,
+                  address_line_2: createdManufacturer.address_line_2,
+                  city: createdManufacturer.city,
+                  state: createdManufacturer.state,
+                  zip: createdManufacturer.zip,
+                  country_code: createdManufacturer.country_code,
+                  created_at: createdManufacturer.created_at,
+                  updated_at: createdManufacturer.updated_at,
                 },
               ],
             },
@@ -266,43 +266,44 @@ export function ShowcaseBrandSheet({
 
       // Invalidate to trigger background refetch
       queryClient.invalidateQueries({
-        queryKey: trpc.composite.brandCatalogContent.queryKey(),
+        queryKey: trpc.composite.catalogContent.queryKey(),
       });
 
       // Transform API response to component format
-      const brandData: ShowcaseBrandData = {
-        id: createdBrand.id,
-        name: createdBrand.name,
-        legalName: createdBrand.legal_name || undefined,
-        email: createdBrand.email || undefined,
-        phone: createdBrand.phone || undefined,
-        website: createdBrand.website || undefined,
-        addressLine1: createdBrand.address_line_1 || undefined,
-        addressLine2: createdBrand.address_line_2 || undefined,
-        city: createdBrand.city || undefined,
-        state: createdBrand.state || undefined,
-        zip: createdBrand.zip || undefined,
-        countryCode: createdBrand.country_code || undefined,
+      const manufacturerData: ManufacturerData = {
+        id: createdManufacturer.id,
+        name: createdManufacturer.name,
+        legalName: createdManufacturer.legal_name || undefined,
+        email: createdManufacturer.email || undefined,
+        phone: createdManufacturer.phone || undefined,
+        website: createdManufacturer.website || undefined,
+        addressLine1: createdManufacturer.address_line_1 || undefined,
+        addressLine2: createdManufacturer.address_line_2 || undefined,
+        city: createdManufacturer.city || undefined,
+        state: createdManufacturer.state || undefined,
+        zip: createdManufacturer.zip || undefined,
+        countryCode: createdManufacturer.country_code || undefined,
+        
       };
 
       // Call parent callback with real data
       setFieldErrors({});
-      onBrandCreated(brandData);
+      onManufacturerCreated(manufacturerData);
 
       // Close sheet first
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to create brand:", error);
+      console.error("Failed to create manufacturer:", error);
 
       // Parse error for specific messages
-      let errorMessage = "Failed to create brand. Please try again.";
+      let errorMessage = "Failed to create manufacturer. Please try again.";
 
       if (error instanceof Error) {
         if (
           error.message.includes("unique constraint") ||
           error.message.includes("duplicate")
         ) {
-          errorMessage = "A brand with this name already exists.";
+          errorMessage = "A manufacturer with this name already exists.";
         } else if (
           error.message.includes("network") ||
           error.message.includes("fetch")
@@ -320,7 +321,7 @@ export function ShowcaseBrandSheet({
   };
 
   const isNameValid = name.trim().length > 0 && !fieldErrors.name;
-  const isCreating = createBrandMutation.isPending;
+  const isCreating = createManufacturerMutation.isPending;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -331,7 +332,7 @@ export function ShowcaseBrandSheet({
       >
         {/* Header */}
         <SheetBreadcrumbHeader
-          pages={["Create brand"]}
+          pages={["Create manufacturer"]}
           currentPageIndex={0}
           onClose={() => onOpenChange(false)}
         />
@@ -342,11 +343,11 @@ export function ShowcaseBrandSheet({
             {/* Name & Legal name (2 columns) */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="brand-name">
+                <Label htmlFor="manufacturer-name">
                   Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  id="brand-name"
+                  id="manufacturer-name"
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
@@ -364,12 +365,12 @@ export function ShowcaseBrandSheet({
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="brand-legal-name">Legal name</Label>
+                <Label htmlFor="manufacturer-legal-name">Legal name</Label>
                 <Input
-                  id="brand-legal-name"
+                  id="manufacturer-legal-name"
                   value={legalName}
                   onChange={(e) => setLegalName(e.target.value)}
-                  placeholder="Brand Name Inc."
+                  placeholder="Manufacturer Name Inc."
                   className="h-9"
                   maxLength={100}
                 />
@@ -378,9 +379,9 @@ export function ShowcaseBrandSheet({
 
             {/* Public email */}
             <div className="space-y-1.5">
-              <Label htmlFor="brand-email">Public email</Label>
+              <Label htmlFor="manufacturer-email">Public email</Label>
               <Input
-                id="brand-email"
+                id="manufacturer-email"
                 type="email"
                 value={email}
                 onChange={(e) => {
@@ -407,9 +408,9 @@ export function ShowcaseBrandSheet({
 
             {/* Public phone */}
             <div className="space-y-1.5">
-              <Label htmlFor="brand-phone">Public phone</Label>
+              <Label htmlFor="manufacturer-phone">Public phone</Label>
               <Input
-                id="brand-phone"
+                id="manufacturer-phone"
                 type="tel"
                 value={phone}
                 onChange={(e) => {
@@ -437,9 +438,9 @@ export function ShowcaseBrandSheet({
 
             {/* Website */}
             <div className="space-y-1.5">
-              <Label htmlFor="brand-website">Website</Label>
+              <Label htmlFor="manufacturer-website">Website</Label>
               <Input
-                id="brand-website"
+                id="manufacturer-website"
                 type="text"
                 value={website}
                 onChange={(e) => {
@@ -480,9 +481,9 @@ export function ShowcaseBrandSheet({
 
             {/* Address line 1 */}
             <div className="space-y-1.5">
-              <Label htmlFor="brand-address-1">Address line 1</Label>
+              <Label htmlFor="manufacturer-address-1">Address line 1</Label>
               <Input
-                id="brand-address-1"
+                id="manufacturer-address-1"
                 value={addressLine1}
                 onChange={(e) => setAddressLine1(e.target.value)}
                 placeholder="Funenpark"
@@ -493,9 +494,9 @@ export function ShowcaseBrandSheet({
 
             {/* Address line 2 */}
             <div className="space-y-1.5">
-              <Label htmlFor="brand-address-2">Address line 2</Label>
+              <Label htmlFor="manufacturer-address-2">Address line 2</Label>
               <Input
-                id="brand-address-2"
+                id="manufacturer-address-2"
                 value={addressLine2}
                 onChange={(e) => setAddressLine2(e.target.value)}
                 placeholder="Building A"
@@ -507,16 +508,16 @@ export function ShowcaseBrandSheet({
             {/* Country & City (2 columns) */}
             <div className="grid grid-cols-2 gap-3">
               <CountrySelect
-                id="brand-country"
+                id="manufacturer-country"
                 label="Country"
                 placeholder="Select country"
                 value={countryCode}
                 onChange={(code) => setCountryCode(code)}
               />
               <div className="space-y-1.5">
-                <Label htmlFor="brand-city">City</Label>
+                <Label htmlFor="manufacturer-city">City</Label>
                 <Input
-                  id="brand-city"
+                  id="manufacturer-city"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="Amsterdam"
@@ -529,9 +530,9 @@ export function ShowcaseBrandSheet({
             {/* Province/state & Postal code (2 columns) */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="brand-state">Province / state</Label>
+                <Label htmlFor="manufacturer-state">Province / state</Label>
                 <Input
-                  id="brand-state"
+                  id="manufacturer-state"
                   value={state}
                   onChange={(e) => setState(e.target.value)}
                   placeholder="North-Holland"
@@ -540,9 +541,9 @@ export function ShowcaseBrandSheet({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="brand-zip">Postal code / ZIP code</Label>
+                <Label htmlFor="manufacturer-zip">Postal code / ZIP code</Label>
                 <Input
-                  id="brand-zip"
+                  id="manufacturer-zip"
                   value={zip}
                   onChange={(e) => setZip(e.target.value)}
                   placeholder="1012AA"

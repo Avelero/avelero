@@ -9,7 +9,7 @@ import {
   brandTags,
   brandSeasons,
   brandCertifications,
-  showcaseBrands,
+  brandManufacturers,
 } from "../schema";
 
 export type CatalogEntityType =
@@ -18,7 +18,7 @@ export type CatalogEntityType =
   | "MATERIAL"
   | "ECO_CLAIM"
   | "FACILITY"
-  | "SHOWCASE_BRAND"
+  | "MANUFACTURER"
   | "CERTIFICATION";
 
 export interface ValidationError {
@@ -296,30 +296,18 @@ export async function deleteBrandTag(
 }
 
 // Sizes
-export async function listSizes(
-  db: Database,
-  brandId: string,
-  opts?: { categoryId?: string },
-) {
-  const where = opts?.categoryId
-    ? and(
-        eq(brandSizes.brandId, brandId),
-        eq(brandSizes.categoryId, opts.categoryId),
-      )
-    : eq(brandSizes.brandId, brandId);
-
+export async function listSizes(db: Database, brandId: string) {
   return db
     .select({
       id: brandSizes.id,
       name: brandSizes.name,
-      category_id: brandSizes.categoryId,
       sort_index: brandSizes.sortIndex,
       created_at: brandSizes.createdAt,
       updated_at: brandSizes.updatedAt,
     })
     .from(brandSizes)
-    .where(where)
-    .orderBy(asc(brandSizes.name), asc(brandSizes.sortIndex));
+    .where(eq(brandSizes.brandId, brandId))
+    .orderBy(asc(brandSizes.sortIndex), asc(brandSizes.name));
 }
 
 export async function createSize(
@@ -327,7 +315,6 @@ export async function createSize(
   brandId: string,
   input: {
     name: string;
-    categoryId?: string;
     sortIndex?: number;
   },
 ) {
@@ -336,10 +323,13 @@ export async function createSize(
     .values({
       brandId,
       name: input.name,
-      categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
-    .returning({ id: brandSizes.id });
+    .returning({
+      id: brandSizes.id,
+      name: brandSizes.name,
+      sort_index: brandSizes.sortIndex,
+    });
   return row;
 }
 
@@ -349,7 +339,6 @@ export async function updateSize(
   id: string,
   input: {
     name?: string;
-    categoryId?: string | null;
     sortIndex?: number | null;
   },
 ) {
@@ -357,11 +346,14 @@ export async function updateSize(
     .update(brandSizes)
     .set({
       name: input.name,
-      categoryId: input.categoryId ?? null,
       sortIndex: input.sortIndex ?? null,
     })
     .where(and(eq(brandSizes.id, id), eq(brandSizes.brandId, brandId)))
-    .returning({ id: brandSizes.id });
+    .returning({
+      id: brandSizes.id,
+      name: brandSizes.name,
+      sort_index: brandSizes.sortIndex,
+    });
   return row;
 }
 
@@ -457,13 +449,17 @@ export async function listCertifications(db: Database, brandId: string) {
       title: brandCertifications.title,
       certification_code: brandCertifications.certificationCode,
       institute_name: brandCertifications.instituteName,
-      institute_address: brandCertifications.instituteAddress,
-      institute_contact: brandCertifications.instituteContact,
+      institute_email: brandCertifications.instituteEmail,
+      institute_website: brandCertifications.instituteWebsite,
+      institute_address_line_1: brandCertifications.instituteAddressLine1,
+      institute_address_line_2: brandCertifications.instituteAddressLine2,
+      institute_city: brandCertifications.instituteCity,
+      institute_state: brandCertifications.instituteState,
+      institute_zip: brandCertifications.instituteZip,
+      institute_country_code: brandCertifications.instituteCountryCode,
       issue_date: brandCertifications.issueDate,
       expiry_date: brandCertifications.expiryDate,
-      file_asset_id: brandCertifications.fileAssetId,
-      external_url: brandCertifications.externalUrl,
-      notes: brandCertifications.notes,
+      file_path: brandCertifications.filePath,
       created_at: brandCertifications.createdAt,
       updated_at: brandCertifications.updatedAt,
     })
@@ -479,13 +475,17 @@ export async function createCertification(
     title: string;
     certificationCode?: string;
     instituteName?: string;
-    instituteAddress?: string;
-    instituteContact?: string;
+    instituteEmail?: string;
+    instituteWebsite?: string;
+    instituteAddressLine1?: string;
+    instituteAddressLine2?: string;
+    instituteCity?: string;
+    instituteState?: string;
+    instituteZip?: string;
+    instituteCountryCode?: string;
     issueDate?: string;
     expiryDate?: string;
-    fileAssetId?: string;
-    externalUrl?: string;
-    notes?: string;
+    filePath?: string;
   },
 ) {
   const [row] = await db
@@ -495,13 +495,17 @@ export async function createCertification(
       title: input.title,
       certificationCode: input.certificationCode ?? null,
       instituteName: input.instituteName ?? null,
-      instituteAddress: input.instituteAddress ?? null,
-      instituteContact: input.instituteContact ?? null,
+      instituteEmail: input.instituteEmail ?? null,
+      instituteWebsite: input.instituteWebsite ?? null,
+      instituteAddressLine1: input.instituteAddressLine1 ?? null,
+      instituteAddressLine2: input.instituteAddressLine2 ?? null,
+      instituteCity: input.instituteCity ?? null,
+      instituteState: input.instituteState ?? null,
+      instituteZip: input.instituteZip ?? null,
+      instituteCountryCode: input.instituteCountryCode ?? null,
       issueDate: input.issueDate ?? null,
       expiryDate: input.expiryDate ?? null,
-      fileAssetId: input.fileAssetId ?? null,
-      externalUrl: input.externalUrl ?? null,
-      notes: input.notes ?? null,
+      filePath: input.filePath ?? null,
     })
     .returning({ id: brandCertifications.id });
   return row;
@@ -515,13 +519,17 @@ export async function updateCertification(
     title: string;
     certificationCode: string | null;
     instituteName: string | null;
-    instituteAddress: string | null;
-    instituteContact: string | null;
+    instituteEmail: string | null;
+    instituteWebsite: string | null;
+    instituteAddressLine1: string | null;
+    instituteAddressLine2: string | null;
+    instituteCity: string | null;
+    instituteState: string | null;
+    instituteZip: string | null;
+    instituteCountryCode: string | null;
     issueDate: string | null;
     expiryDate: string | null;
-    fileAssetId: string | null;
-    externalUrl: string | null;
-    notes: string | null;
+    filePath: string | null;
   }>,
 ) {
   const [row] = await db
@@ -530,13 +538,17 @@ export async function updateCertification(
       title: input.title,
       certificationCode: input.certificationCode ?? null,
       instituteName: input.instituteName ?? null,
-      instituteAddress: input.instituteAddress ?? null,
-      instituteContact: input.instituteContact ?? null,
+      instituteEmail: input.instituteEmail ?? null,
+      instituteWebsite: input.instituteWebsite ?? null,
+      instituteAddressLine1: input.instituteAddressLine1 ?? null,
+      instituteAddressLine2: input.instituteAddressLine2 ?? null,
+      instituteCity: input.instituteCity ?? null,
+      instituteState: input.instituteState ?? null,
+      instituteZip: input.instituteZip ?? null,
+      instituteCountryCode: input.instituteCountryCode ?? null,
       issueDate: input.issueDate ?? null,
       expiryDate: input.expiryDate ?? null,
-      fileAssetId: input.fileAssetId ?? null,
-      externalUrl: input.externalUrl ?? null,
-      notes: input.notes ?? null,
+      filePath: input.filePath ?? null,
     })
     .where(
       and(
@@ -732,31 +744,31 @@ export async function deleteFacility(
   return row;
 }
 
-// Showcase brands
-export async function listShowcaseBrands(db: Database, brandId: string) {
+// Manufacturers
+export async function listBrandManufacturers(db: Database, brandId: string) {
   return db
     .select({
-      id: showcaseBrands.id,
-      name: showcaseBrands.name,
-      legal_name: showcaseBrands.legalName,
-      email: showcaseBrands.email,
-      phone: showcaseBrands.phone,
-      website: showcaseBrands.website,
-      address_line_1: showcaseBrands.addressLine1,
-      address_line_2: showcaseBrands.addressLine2,
-      city: showcaseBrands.city,
-      state: showcaseBrands.state,
-      zip: showcaseBrands.zip,
-      country_code: showcaseBrands.countryCode,
-      created_at: showcaseBrands.createdAt,
-      updated_at: showcaseBrands.updatedAt,
+      id: brandManufacturers.id,
+      name: brandManufacturers.name,
+      legal_name: brandManufacturers.legalName,
+      email: brandManufacturers.email,
+      phone: brandManufacturers.phone,
+      website: brandManufacturers.website,
+      address_line_1: brandManufacturers.addressLine1,
+      address_line_2: brandManufacturers.addressLine2,
+      city: brandManufacturers.city,
+      state: brandManufacturers.state,
+      zip: brandManufacturers.zip,
+      country_code: brandManufacturers.countryCode,
+      created_at: brandManufacturers.createdAt,
+      updated_at: brandManufacturers.updatedAt,
     })
-    .from(showcaseBrands)
-    .where(eq(showcaseBrands.brandId, brandId))
-    .orderBy(asc(showcaseBrands.name));
+    .from(brandManufacturers)
+    .where(eq(brandManufacturers.brandId, brandId))
+    .orderBy(asc(brandManufacturers.name));
 }
 
-export async function createShowcaseBrand(
+export async function createBrandManufacturer(
   db: Database,
   brandId: string,
   input: {
@@ -774,7 +786,7 @@ export async function createShowcaseBrand(
   },
 ) {
   const [row] = await db
-    .insert(showcaseBrands)
+    .insert(brandManufacturers)
     .values({
       brandId,
       name: input.name,
@@ -789,11 +801,11 @@ export async function createShowcaseBrand(
       zip: input.zip ?? null,
       countryCode: input.countryCode ?? null,
     })
-    .returning({ id: showcaseBrands.id });
+    .returning({ id: brandManufacturers.id });
   return row;
 }
 
-export async function updateShowcaseBrand(
+export async function updateBrandManufacturer(
   db: Database,
   brandId: string,
   id: string,
@@ -812,7 +824,7 @@ export async function updateShowcaseBrand(
   }>,
 ) {
   const [row] = await db
-    .update(showcaseBrands)
+    .update(brandManufacturers)
     .set({
       name: input.name,
       legalName: input.legalName ?? null,
@@ -826,20 +838,20 @@ export async function updateShowcaseBrand(
       zip: input.zip ?? null,
       countryCode: input.countryCode ?? null,
     })
-    .where(and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)))
-    .returning({ id: showcaseBrands.id });
+    .where(and(eq(brandManufacturers.id, id), eq(brandManufacturers.brandId, brandId)))
+    .returning({ id: brandManufacturers.id });
   return row;
 }
 
-export async function deleteShowcaseBrand(
+export async function deleteBrandManufacturer(
   db: Database,
   brandId: string,
   id: string,
 ) {
   const [row] = await db
-    .delete(showcaseBrands)
-    .where(and(eq(showcaseBrands.id, id), eq(showcaseBrands.brandId, brandId)))
-    .returning({ id: showcaseBrands.id });
+    .delete(brandManufacturers)
+    .where(and(eq(brandManufacturers.id, id), eq(brandManufacturers.brandId, brandId)))
+    .returning({ id: brandManufacturers.id });
   return row;
 }
 
@@ -852,7 +864,6 @@ export async function checkDuplicateName(
   brandId: string,
   entityType: CatalogEntityType,
   name: string,
-  options?: { categoryId?: string },
 ): Promise<boolean> {
   switch (entityType) {
     case "COLOR": {
@@ -868,19 +879,15 @@ export async function checkDuplicateName(
       return (result?.count ?? 0) > 0;
     }
     case "SIZE": {
-      const conditions = [
-        eq(brandSizes.brandId, brandId),
-        sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
-      ];
-      if (options?.categoryId) {
-        conditions.push(eq(brandSizes.categoryId, options.categoryId));
-      } else {
-        conditions.push(sql`${brandSizes.categoryId} IS NULL`);
-      }
       const [result] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(brandSizes)
-        .where(and(...conditions));
+        .where(
+          and(
+            eq(brandSizes.brandId, brandId),
+            sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
+          ),
+        );
       return (result?.count ?? 0) > 0;
     }
     case "MATERIAL": {
@@ -919,14 +926,14 @@ export async function checkDuplicateName(
         );
       return (result?.count ?? 0) > 0;
     }
-    case "SHOWCASE_BRAND": {
+    case "MANUFACTURER": {
       const [result] = await db
         .select({ count: sql<number>`count(*)::int` })
-        .from(showcaseBrands)
+        .from(brandManufacturers)
         .where(
           and(
-            eq(showcaseBrands.brandId, brandId),
-            sql`LOWER(${showcaseBrands.name}) = LOWER(${name})`,
+            eq(brandManufacturers.brandId, brandId),
+            sql`LOWER(${brandManufacturers.name}) = LOWER(${name})`,
           ),
         );
       return (result?.count ?? 0) > 0;
@@ -980,7 +987,6 @@ export function validateColorInput(input: {
 
 export function validateSizeInput(input: {
   name: string;
-  categoryId?: string;
   sortIndex?: number;
 }): ValidationResult {
   const errors: ValidationError[] = [];
@@ -1114,7 +1120,7 @@ export function validateFacilityInput(input: {
   return { valid: errors.length === 0, errors };
 }
 
-export function validateShowcaseBrandInput(input: {
+export function validateBrandManufacturerInput(input: {
   name: string;
   legalName?: string | null;
   email?: string | null;
@@ -1131,7 +1137,7 @@ export function validateShowcaseBrandInput(input: {
   if (!input.name || input.name.trim().length === 0) {
     errors.push({
       field: "name",
-      message: "Showcase brand name is required",
+      message: "Brand manufacturer name is required",
       code: "REQUIRED",
     });
   }
@@ -1170,13 +1176,17 @@ export function validateCertificationInput(input: {
   title: string;
   certificationCode?: string;
   instituteName?: string;
-  instituteAddress?: string;
-  instituteContact?: string;
+  instituteEmail?: string;
+  instituteWebsite?: string;
+  instituteAddressLine1?: string;
+  instituteAddressLine2?: string;
+  instituteCity?: string;
+  instituteState?: string;
+  instituteZip?: string;
+  instituteCountryCode?: string;
   issueDate?: string;
   expiryDate?: string;
-  fileAssetId?: string;
-  externalUrl?: string;
-  notes?: string;
+  filePath?: string;
 }): ValidationResult {
   const errors: ValidationError[] = [];
   if (!input.title || input.title.trim().length === 0) {
@@ -1184,6 +1194,37 @@ export function validateCertificationInput(input: {
       field: "title",
       message: "Certification title is required",
       code: "REQUIRED",
+    });
+  }
+
+  if (input.instituteEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.instituteEmail)) {
+    errors.push({
+      field: "instituteEmail",
+      message: "Invalid email format",
+      code: "INVALID_FORMAT",
+    });
+  }
+
+  if (input.instituteWebsite) {
+    try {
+      new URL(input.instituteWebsite);
+    } catch {
+      errors.push({
+        field: "instituteWebsite",
+        message: "Invalid website URL",
+        code: "INVALID_FORMAT",
+      });
+    }
+  }
+
+  if (
+    input.instituteCountryCode &&
+    !/^[A-Z]{2}$/.test(input.instituteCountryCode.toUpperCase())
+  ) {
+    errors.push({
+      field: "instituteCountryCode",
+      message: "Country code must be 2 letters",
+      code: "INVALID_FORMAT",
     });
   }
 
@@ -1217,18 +1258,6 @@ export function validateCertificationInput(input: {
     }
   }
 
-  if (input.externalUrl) {
-    try {
-      new URL(input.externalUrl);
-    } catch {
-      errors.push({
-        field: "externalUrl",
-        message: "Invalid external URL",
-        code: "INVALID_FORMAT",
-      });
-    }
-  }
-
   return { valid: errors.length === 0, errors };
 }
 
@@ -1248,7 +1277,7 @@ export async function validateAndCreateEntity(
       break;
     case "SIZE":
       validation = validateSizeInput(
-        input as { name: string; categoryId?: string; sortIndex?: number },
+        input as { name: string; sortIndex?: number },
       );
       name = (input as { name: string }).name;
       break;
@@ -1285,8 +1314,8 @@ export async function validateAndCreateEntity(
       );
       name = (input as { displayName: string }).displayName;
       break;
-    case "SHOWCASE_BRAND":
-      validation = validateShowcaseBrandInput(
+    case "MANUFACTURER":
+      validation = validateBrandManufacturerInput(
         input as {
           name: string;
           legalName?: string | null;
@@ -1309,13 +1338,17 @@ export async function validateAndCreateEntity(
           title: string;
           certificationCode?: string;
           instituteName?: string;
-          instituteAddress?: string;
-          instituteContact?: string;
+          instituteEmail?: string;
+          instituteWebsite?: string;
+          instituteAddressLine1?: string;
+          instituteAddressLine2?: string;
+          instituteCity?: string;
+          instituteState?: string;
+          instituteZip?: string;
+          instituteCountryCode?: string;
           issueDate?: string;
           expiryDate?: string;
-          fileAssetId?: string;
-          externalUrl?: string;
-          notes?: string;
+          filePath?: string;
         },
       );
       name = (input as { title: string }).title;
@@ -1333,9 +1366,7 @@ export async function validateAndCreateEntity(
     throw new Error(`Validation failed: ${errorMsg}`);
   }
 
-  const duplicate = await checkDuplicateName(db, brandId, entityType, name, {
-    categoryId: (input as { categoryId?: string }).categoryId,
-  });
+  const duplicate = await checkDuplicateName(db, brandId, entityType, name);
   if (duplicate) {
     throw new Error(
       `${entityType} with name "${name}" already exists for this brand`,
@@ -1356,7 +1387,7 @@ export async function validateAndCreateEntity(
         (await createSize(
           db,
           brandId,
-          input as { name: string; categoryId?: string; sortIndex?: number },
+          input as { name: string; sortIndex?: number },
         )) ?? { id: "" }
       );
     case "MATERIAL":
@@ -1398,9 +1429,9 @@ export async function validateAndCreateEntity(
           },
         )) ?? { id: "" }
       );
-    case "SHOWCASE_BRAND":
+    case "MANUFACTURER":
       return (
-        (await createShowcaseBrand(db, brandId, input as { name: string })) ?? {
+        (await createBrandManufacturer(db, brandId, input as { name: string })) ?? {
           id: "",
         }
       );

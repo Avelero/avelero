@@ -14,22 +14,18 @@ export function useFilterOptions() {
 
   // Fetch the main passport form references using proper tRPC query
   const { data: formData, isLoading: isFormDataLoading } = useQuery(
-    trpc.composite.brandCatalogContent.queryOptions(),
+    trpc.composite.catalogContent.queryOptions(),
   );
 
   // Fetch additional endpoints that aren't in the composite
   const { data: tagsData, isLoading: isTagsLoading } = useQuery(
-    trpc.brand.tags.list.queryOptions(undefined),
-  );
-
-  const { data: templatesData, isLoading: isTemplatesLoading } = useQuery(
-    trpc.templates.list.queryOptions(undefined),
+    trpc.catalog.tags.list.queryOptions(undefined),
   );
 
   // Transform and memoize all options
   const options = React.useMemo(() => {
     return {
-      // From composite.brandCatalogContent
+      // From composite.catalogContent
       categories:
         formData?.categories?.map((c: { id: string; name: string }) => ({
           value: c.id,
@@ -77,10 +73,10 @@ export function useFilterOptions() {
         ) ?? [],
 
       operators:
-        formData?.brandCatalog?.showcaseBrands?.map(
-          (b: { id: string; name: string }) => ({
-            value: b.id,
-            label: b.name,
+        formData?.brandCatalog?.manufacturers?.map(
+          (m: { id: string; name: string }) => ({
+            value: m.id,
+            label: m.name,
           }),
         ) ?? [],
 
@@ -92,7 +88,7 @@ export function useFilterOptions() {
           }),
         ) ?? [],
 
-      // From composite.brandCatalogContent
+      // From composite.catalogContent
       ecoClaims:
         formData?.brandCatalog?.ecoClaims?.map(
           (c: { id: string; claim: string }) => ({
@@ -107,17 +103,10 @@ export function useFilterOptions() {
           label: t.name,
         })) ?? [],
 
-      templates:
-        (templatesData as any)?.data?.map(
-          (t: { id: string; name: string }) => ({
-            value: t.id,
-            label: t.name,
-          }),
-        ) ?? [],
     };
-  }, [formData, tagsData, templatesData]);
+  }, [formData, tagsData]);
 
-  const isLoading = isFormDataLoading || isTagsLoading || isTemplatesLoading;
+  const isLoading = isFormDataLoading || isTagsLoading;
 
   return {
     options,
@@ -143,7 +132,7 @@ export function useFieldOptions(fieldId: string): {
       materials: options.materials,
       brandCertificationId: options.certifications,
       operatorId: options.facilities,
-      showcaseBrandId: options.operators,
+      manufacturerId: options.operators,
       ecoClaimId: options.ecoClaims,
       tagId: options.tags,
       season: options.seasons ?? [],

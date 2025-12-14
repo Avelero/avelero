@@ -47,8 +47,8 @@ import {
 interface JourneyStep {
   id: string;
   step: string;
-  operators: string[];
-  facilityIds: string[]; // Store the real facility IDs to prevent loss during sync
+  operator: string; // Single operator name
+  facilityId: string; // Single facility ID
   position: number;
 }
 
@@ -185,60 +185,20 @@ const StepDropdown = ({
   );
 };
 
-const OperatorTags = ({
-  operators,
-  onRemoveOperator,
-}: {
-  operators: string[];
-  onRemoveOperator: (operator: string) => void;
-}) => {
-  const [hoveredOperator, setHoveredOperator] = React.useState<string | null>(
-    null,
-  );
-
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {operators.map((operator) => (
-        <div
-          key={operator}
-          className="relative px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[132px]"
-          onMouseEnter={() => setHoveredOperator(operator)}
-          onMouseLeave={() => setHoveredOperator(null)}
-        >
-          <span className="truncate">{operator}</span>
-          {hoveredOperator === operator && (
-            <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center">
-              <div className="w-3 h-3 bg-gradient-to-r from-transparent to-background" />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemoveOperator(operator);
-                }}
-                className="w-4 h-4 flex rounded-r-full rounded-l-md items-center justify-center bg-background text-tertiary hover:text-destructive transition-colors"
-              >
-                <Icons.X className="h-3 w-3" />
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-};
-
 const OperatorCell = ({
-  operators,
-  facilityIds,
-  onOperatorsChange,
+  operator,
+  facilityId,
+  onOperatorChange,
   onDelete,
   availableOperators,
+  onOperatorJustCreated,
 }: {
-  operators: string[];
-  facilityIds: string[];
-  onOperatorsChange: (operators: string[], facilityIds: string[]) => void;
+  operator: string;
+  facilityId: string;
+  onOperatorChange: (operator: string, facilityId: string) => void;
   onDelete: () => void;
   availableOperators: Array<{ id: string; name: string }>;
+  onOperatorJustCreated?: (operatorId: string, operatorName: string) => void;
 }) => {
   const [isHovered, setIsHovered] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -258,28 +218,15 @@ const OperatorCell = ({
     );
     if (!facility) return;
 
-    if (operators.includes(selectedOperator)) {
-      // Deselect
-      const newOperators = operators.filter((op) => op !== selectedOperator);
-      const newFacilityIds = facilityIds.filter((id) => id !== facility.id);
-      onOperatorsChange(newOperators, newFacilityIds);
-    } else {
-      // Select
-      onOperatorsChange(
-        [...operators, selectedOperator],
-        [...facilityIds, facility.id],
-      );
-    }
+    // Single select - just set the operator
+    onOperatorChange(selectedOperator, facility.id);
     setSearchQuery("");
+    setDropdownOpen(false);
   };
 
   const handleCreate = () => {
     const trimmedQuery = searchQuery.trim();
-    if (
-      trimmedQuery &&
-      !operatorNames.includes(trimmedQuery) &&
-      !operators.includes(trimmedQuery)
-    ) {
+    if (trimmedQuery && !operatorNames.includes(trimmedQuery)) {
       // Open operator sheet with the searched name
       setNewOperatorName(trimmedQuery);
       setOperatorSheetOpen(true);
@@ -288,33 +235,19 @@ const OperatorCell = ({
     }
   };
 
-  const handleOperatorCreated = (operator: OperatorData) => {
-    // Add the newly created operator to the list
-    onOperatorsChange(
-      [...operators, operator.name],
-      [...facilityIds, operator.id],
-    );
+  const handleOperatorCreated = (createdOperator: OperatorData) => {
+    // Notify parent about the just-created operator (for race condition handling)
+    onOperatorJustCreated?.(createdOperator.id, createdOperator.name);
+    // Set the newly created operator
+    onOperatorChange(createdOperator.name, createdOperator.id);
     setNewOperatorName("");
   };
 
   const handleOperatorSheetClose = (open: boolean) => {
     setOperatorSheetOpen(open);
-    // If sheet closes without creating operator (and it's not in the list), reset the name state
-    if (!open && !operators.includes(newOperatorName)) {
+    if (!open) {
       setNewOperatorName("");
     }
-  };
-
-  const handleRemoveOperator = (operatorToRemove: string) => {
-    const facilityToRemove = availableOperators.find(
-      (f) => f.name === operatorToRemove,
-    );
-    const newOperators = operators.filter((op) => op !== operatorToRemove);
-    const newFacilityIds = facilityToRemove
-      ? facilityIds.filter((id) => id !== facilityToRemove.id)
-      : facilityIds;
-
-    onOperatorsChange(newOperators, newFacilityIds);
   };
 
   const handleMenuClick = (e: React.MouseEvent) => {
@@ -326,23 +259,24 @@ const OperatorCell = ({
       <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
         <PopoverTrigger asChild>
           <div
-            className="group flex items-start justify-between w-full h-full px-2 py-2"
+            className="group flex items-start justify-between w-full h-full px-4 py-[9.5px]"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             role="button"
             tabIndex={0}
             onClick={() => setDropdownOpen(!dropdownOpen)}
           >
-            <div className="flex flex-1 flex-wrap items-center gap-1.5">
-              {operators.length > 0 && (
-                <OperatorTags
-                  operators={operators}
-                  onRemoveOperator={handleRemoveOperator}
-                />
-              )}
-              <span className="border-b border-border type-p ml-2 text-tertiary group-hover:text-secondary group-hover:border-secondary transition-colors">
-                Add operator
-              </span>
+            <div className="flex flex-1 items-center">
+              <div
+                className={cn(
+                  "border-b border-border type-p transition-colors",
+                  operator
+                    ? "text-primary group-hover:text-secondary group-hover:border-secondary"
+                    : "text-tertiary group-hover:text-secondary group-hover:border-secondary",
+                )}
+              >
+                {operator || "Select operator"}
+              </div>
             </div>
 
             <div
@@ -403,7 +337,7 @@ const OperatorCell = ({
                       option.toLowerCase().includes(searchQuery.toLowerCase()),
                     )
                     .map((option) => {
-                      const isSelected = operators.includes(option);
+                      const isSelected = operator === option;
                       return (
                         <CommandItem
                           key={option}
@@ -419,8 +353,7 @@ const OperatorCell = ({
                       );
                     })
                 ) : searchQuery.trim() &&
-                  !operatorNames.includes(searchQuery.trim()) &&
-                  !operators.includes(searchQuery.trim()) ? (
+                  !operatorNames.includes(searchQuery.trim()) ? (
                   <CommandItem
                     value={searchQuery.trim()}
                     onSelect={handleCreate}
@@ -454,15 +387,17 @@ const OperatorCell = ({
 function DraggableJourneyRow({
   journeyStep,
   onStepChange,
-  onOperatorsChange,
+  onOperatorChange,
   onDelete,
   availableOperators,
+  onOperatorJustCreated,
 }: {
   journeyStep: JourneyStep;
   onStepChange: (step: string) => void;
-  onOperatorsChange: (operators: string[], facilityIds: string[]) => void;
+  onOperatorChange: (operator: string, facilityId: string) => void;
   onDelete: () => void;
   availableOperators: Array<{ id: string; name: string }>;
+  onOperatorJustCreated?: (operatorId: string, operatorName: string) => void;
 }) {
   const {
     attributes,
@@ -501,11 +436,12 @@ function DraggableJourneyRow({
       {/* Operator Column */}
       <div className="border-b border-border">
         <OperatorCell
-          operators={journeyStep.operators}
-          facilityIds={journeyStep.facilityIds}
-          onOperatorsChange={onOperatorsChange}
+          operator={journeyStep.operator}
+          facilityId={journeyStep.facilityId}
+          onOperatorChange={onOperatorChange}
           onDelete={onDelete}
           availableOperators={availableOperators}
+          onOperatorJustCreated={onOperatorJustCreated}
         />
       </div>
     </div>
@@ -515,13 +451,13 @@ function DraggableJourneyRow({
 interface JourneySectionProps {
   journeySteps: Array<{
     stepType: string;
-    facilityIds: string[];
+    facilityId: string; // 1:1 relationship with facility
     sortIndex: number;
   }>;
   setJourneySteps: (
     value: Array<{
       stepType: string;
-      facilityIds: string[];
+      facilityId: string; // 1:1 relationship with facility
       sortIndex: number;
     }>,
   ) => void;
@@ -532,11 +468,19 @@ export function JourneySection({
   setJourneySteps: setParentSteps,
 }: JourneySectionProps) {
   const { operators } = useBrandCatalog();
-  // Local display state for drag-and-drop (with operators as array)
+  // Local display state for drag-and-drop (with single operator)
   const [displaySteps, setDisplaySteps] = React.useState<JourneyStep[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const stepIdMapRef = React.useRef<Map<string, string>>(new Map());
+  const justCreatedTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Track operators that were just created to preserve them during sync
+  const [justCreatedOperator, setJustCreatedOperator] = React.useState<{
+    id: string;
+    name: string;
+    forStepId: string;
+  } | null>(null);
 
   // Map operators (facilities) to the format expected by dropdowns
   const availableOperators = React.useMemo(
@@ -552,15 +496,14 @@ export function JourneySection({
   React.useEffect(() => {
     const enriched = parentSteps
       .map((ps) => {
-        // Find all operator names for the facility IDs
-        const stepOperators = ps.facilityIds
-          .map((fid) => availableOperators.find((op) => op.id === fid))
-          .filter((op): op is { id: string; name: string } => !!op);
-
-        const operatorNames = stepOperators.map((op) => op.name);
+        // Find the operator for this step's facility
+        const facilityId = ps.facilityId || "";
+        const operatorData = availableOperators.find(
+          (op) => op.id === facilityId,
+        );
 
         // Stable ID based on facility + step type; generate once
-        const key = `${ps.facilityIds.join(",")}|${ps.stepType ?? "unknown"}`;
+        const key = `${facilityId}|${ps.stepType ?? "unknown"}`;
         if (!stepIdMapRef.current.has(key)) {
           const generatedId =
             typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -573,8 +516,8 @@ export function JourneySection({
         return {
           id: stableId,
           step: ps.stepType,
-          operators: operatorNames,
-          facilityIds: ps.facilityIds, // Store the real facility IDs
+          operator: operatorData?.name || "",
+          facilityId: facilityId,
           position: ps.sortIndex,
         };
       })
@@ -583,25 +526,51 @@ export function JourneySection({
     // Preserve any incomplete local steps (steps that don't have both step type and operator)
     setDisplaySteps((prev) => {
       const incompleteSteps = prev.filter(
-        (localStep) =>
-          !localStep.step ||
-          localStep.facilityIds.length === 0 ||
-          localStep.operators.length === 0,
+        (localStep) => !localStep.step || !localStep.facilityId,
       );
+
+      // Check if we have a just-created operator that needs to be preserved
+      if (justCreatedOperator) {
+        const alreadyInEnriched = enriched.some(
+          (s) => s.facilityId === justCreatedOperator.id,
+        );
+        const alreadyInIncomplete = incompleteSteps.some(
+          (s) => s.facilityId === justCreatedOperator.id,
+        );
+
+        if (!alreadyInEnriched && !alreadyInIncomplete) {
+          // Find the step this operator was created for
+          const targetStep = prev.find(
+            (s) => s.id === justCreatedOperator.forStepId,
+          );
+          if (targetStep) {
+            // Update the target step with the new operator
+            const updatedStep = {
+              ...targetStep,
+              operator: justCreatedOperator.name,
+              facilityId: justCreatedOperator.id,
+            };
+            // Remove the old step from incomplete and add the updated one
+            const filteredIncomplete = incompleteSteps.filter(
+              (s) => s.id !== justCreatedOperator.forStepId,
+            );
+            return [...enriched, ...filteredIncomplete, updatedStep];
+          }
+        }
+      }
+
       return [...enriched, ...incompleteSteps];
     });
-  }, [parentSteps, availableOperators]);
+  }, [parentSteps, availableOperators, justCreatedOperator]);
 
   // Helper to sync display steps back to parent
   const syncToParent = React.useCallback(
     (steps: JourneyStep[]) => {
       const parentSteps = steps
-        .filter(
-          (s) => s.step && s.operators.length > 0 && s.facilityIds.length > 0,
-        ) // Only include complete steps
+        .filter((s) => s.step && s.facilityId) // Only include complete steps
         .map((s, index) => ({
           stepType: s.step,
-          facilityIds: s.facilityIds, // Use the stored facility IDs
+          facilityId: s.facilityId, // 1:1 relationship with facility
           sortIndex: index,
         }));
       setParentSteps(parentSteps);
@@ -621,6 +590,9 @@ export function JourneySection({
     return () => {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
+      }
+      if (justCreatedTimeoutRef.current) {
+        clearTimeout(justCreatedTimeoutRef.current);
       }
     };
   }, [displaySteps, syncToParent]);
@@ -647,6 +619,46 @@ export function JourneySection({
     );
   };
 
+  const handleOperatorChange = (
+    stepId: string,
+    operator: string,
+    facilityId: string,
+  ) => {
+    const updatedSteps = displaySteps.map((step) =>
+      step.id === stepId ? { ...step, operator, facilityId } : step,
+    );
+    setDisplaySteps(updatedSteps);
+
+    // Immediately sync to parent to prevent race condition
+    const parentSteps = updatedSteps
+      .filter((s) => s.step && s.facilityId)
+      .map((s, index) => ({
+        stepType: s.step,
+        facilityId: s.facilityId, // 1:1 relationship with facility
+        sortIndex: index,
+      }));
+    setParentSteps(parentSteps);
+  };
+
+  const handleOperatorJustCreated = (
+    stepId: string,
+    operatorId: string,
+    operatorName: string,
+  ) => {
+    // Track the just-created operator to preserve it during sync race conditions
+    setJustCreatedOperator({
+      id: operatorId,
+      name: operatorName,
+      forStepId: stepId,
+    });
+
+    // Clear after a delay (once sync is stable)
+    if (justCreatedTimeoutRef.current) {
+      clearTimeout(justCreatedTimeoutRef.current);
+    }
+    justCreatedTimeoutRef.current = setTimeout(() => setJustCreatedOperator(null), 500);
+  };
+
   const deleteJourneyStep = (id: string) => {
     setDisplaySteps((prev) => {
       const filteredSteps = prev.filter((step) => step.id !== id);
@@ -661,8 +673,8 @@ export function JourneySection({
     const newStep: JourneyStep = {
       id: `step-${Date.now()}`,
       step: "",
-      operators: [],
-      facilityIds: [],
+      operator: "",
+      facilityId: "",
       position: displaySteps.length + 1,
     };
     setDisplaySteps((prev) => [...prev, newStep]);
@@ -761,11 +773,14 @@ export function JourneySection({
                     onStepChange={(value) =>
                       updateJourneyStep(step.id, { step: value })
                     }
-                    onOperatorsChange={(operators, facilityIds) =>
-                      updateJourneyStep(step.id, { operators, facilityIds })
+                    onOperatorChange={(operator, facilityId) =>
+                      handleOperatorChange(step.id, operator, facilityId)
                     }
                     onDelete={() => deleteJourneyStep(step.id)}
                     availableOperators={availableOperators}
+                    onOperatorJustCreated={(operatorId, operatorName) =>
+                      handleOperatorJustCreated(step.id, operatorId, operatorName)
+                    }
                   />
                 ))}
               </SortableContext>
@@ -789,24 +804,17 @@ export function JourneySection({
                             </span>
                           </div>
                         </div>
-                        <div className="px-2 py-2 flex items-start justify-between">
-                          <div className="flex flex-wrap items-center flex-1 gap-1.5">
-                            {activeStep.operators.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {activeStep.operators.map((operator) => (
-                                  <div
-                                    key={operator}
-                                    className="px-2 h-6 flex items-center justify-center border border-border rounded-full bg-background type-small text-primary max-w-[140px]"
-                                  >
-                                    <span className="truncate">{operator}</span>
-                                  </div>
-                                ))}
-                              </div>
+                        <div className="px-4 py-[9.5px] flex items-center">
+                          <span
+                            className={cn(
+                              "border-b border-border type-p",
+                              activeStep.operator
+                                ? "text-primary"
+                                : "text-tertiary",
                             )}
-                            <span className="type-p text-tertiary ml-2">
-                              Add operator
-                            </span>
-                          </div>
+                          >
+                            {activeStep.operator || "Select operator"}
+                          </span>
                         </div>
                       </div>
                     ) : null}

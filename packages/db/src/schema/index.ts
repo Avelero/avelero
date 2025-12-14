@@ -41,3 +41,6 @@ export * from "./staging/staging-product-journey-steps";
 export * from "./staging/staging-product-environment";
 export * from "./staging/staging-eco-claims";
 export * from "./staging/value-mappings";
+
+// Integration schemas
+export * from "./integrations";

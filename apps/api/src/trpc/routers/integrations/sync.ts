@@ -8,12 +8,13 @@
  *
  * @module trpc/routers/integrations/sync
  */
+import { tasks } from "@trigger.dev/sdk/v3";
 import {
-  createSyncJob,
   getBrandIntegration,
   getLatestSyncJob,
   getSyncJob,
   listSyncJobs,
+  updateSyncJob,
 } from "@v1/db/queries";
 import {
   getSyncJobSchema,
@@ -79,34 +80,39 @@ export const syncRouter = createTRPCRouter({
           brandCtx.db,
           input.brand_integration_id,
         );
+        
         if (latestJob && (latestJob.status === "pending" || latestJob.status === "running")) {
-          throw badRequest(
-            "A sync is already in progress. Please wait for it to complete.",
-          );
+          // Check if the job is stale (older than 10 minutes)
+          // This handles cases where Trigger.dev tasks timed out but DB wasn't updated
+          const jobAge = Date.now() - new Date(latestJob.createdAt).getTime();
+          const staleThresholdMs = 10 * 60 * 1000; // 10 minutes
+          
+          if (jobAge > staleThresholdMs) {
+            // Mark the stale job as failed
+            await updateSyncJob(brandCtx.db, latestJob.id, {
+              status: "failed",
+              finishedAt: new Date().toISOString(),
+              errorSummary: "Job timed out or was interrupted",
+            });
+          } else {
+            throw badRequest(
+              "A sync is already in progress. Please wait for it to complete.",
+            );
+          }
         }
 
-        // Create a new sync job
-        const syncJob = await createSyncJob(brandCtx.db, {
+        // Trigger the background sync task
+        // The task will create its own sync job record
+        const handle = await tasks.trigger("sync-integration", {
           brandIntegrationId: input.brand_integration_id,
+          brandId: brandCtx.brandId,
           triggerType: "manual",
-          status: "pending",
         });
 
-        if (!syncJob) {
-          throw badRequest("Failed to create sync job");
-        }
-
-        // TODO: Phase 4 - Trigger the background sync task
-        // import { tasks } from "@trigger.dev/sdk/v3";
-        // await tasks.trigger("sync-integration", {
-        //   syncJobId: syncJob.id,
-        //   brandIntegrationId: input.brand_integration_id,
-        // });
-
         return createEntityResponse({
-          id: syncJob.id,
-          status: syncJob.status,
-          message: "Sync job created. Background sync will be available after Phase 4 implementation.",
+          id: handle.id,
+          status: "triggered",
+          message: "Sync job triggered successfully",
         });
       } catch (error) {
         throw wrapError(error, "Failed to trigger sync");

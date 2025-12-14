@@ -25,8 +25,8 @@ import {
 import { encryptCredentials } from "@v1/db/utils";
 
 // Shopify OAuth configuration
-const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY ?? "";
-const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET ?? "";
+const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID ?? "";
+const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET ?? "";
 const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES ?? "read_products";
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
@@ -76,8 +76,8 @@ shopifyOAuthRouter.get("/install", async (c) => {
     }
 
     // Validate Shopify credentials are configured
-    if (!SHOPIFY_API_KEY || !SHOPIFY_API_SECRET) {
-      console.error("Shopify OAuth: Missing API credentials");
+    if (!SHOPIFY_CLIENT_ID || !SHOPIFY_CLIENT_SECRET) {
+      console.error("Shopify OAuth: Missing client credentials");
       return c.json(
         { error: "Shopify integration is not configured" },
         500,
@@ -100,7 +100,7 @@ shopifyOAuthRouter.get("/install", async (c) => {
     // Build Shopify OAuth URL
     const redirectUri = `${API_URL}/api/integrations/shopify/callback`;
     const installUrl = new URL(`https://${shop}/admin/oauth/authorize`);
-    installUrl.searchParams.set("client_id", SHOPIFY_API_KEY);
+    installUrl.searchParams.set("client_id", SHOPIFY_CLIENT_ID);
     installUrl.searchParams.set("scope", SHOPIFY_SCOPES);
     installUrl.searchParams.set("redirect_uri", redirectUri);
     installUrl.searchParams.set("state", state);
@@ -227,10 +227,8 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     // Clean up OAuth state
     await deleteOAuthState(db, oauthState.id);
 
-    // Redirect to success page
-    return c.redirect(
-      `${APP_URL}/settings/integrations/shopify?connected=true`,
-    );
+    // Redirect to integration detail page (status comes from database, not URL)
+    return c.redirect(`${APP_URL}/settings/integrations/shopify`);
   } catch (error) {
     console.error("Shopify OAuth callback error:", error);
     return c.redirect(
@@ -259,7 +257,7 @@ function validateShopifyHmac(
     .join("&");
 
   // Calculate expected HMAC
-  const expectedHmac = createHmac("sha256", SHOPIFY_API_SECRET)
+  const expectedHmac = createHmac("sha256", SHOPIFY_CLIENT_SECRET)
     .update(sortedParams)
     .digest("hex");
 
@@ -296,8 +294,8 @@ async function exchangeCodeForToken(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        client_id: SHOPIFY_API_KEY,
-        client_secret: SHOPIFY_API_SECRET,
+        client_id: SHOPIFY_CLIENT_ID,
+        client_secret: SHOPIFY_CLIENT_SECRET,
         code,
       }),
     });

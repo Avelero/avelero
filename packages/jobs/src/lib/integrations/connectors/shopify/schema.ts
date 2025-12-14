@@ -139,10 +139,13 @@ export const shopifySchema: ConnectorSchema = {
      * Shopify stores identifiers (SKU, barcode) at the variant level.
      * We use the `productVariants` GraphQL query to fetch data.
      * Each variant includes its parent product data.
+     *
+     * NOTE: Only SKU and barcode are used for matching - Shopify doesn't
+     * provide separate EAN/GTIN fields.
      */
     variant: {
       table: "product_variants",
-      identifiedBy: ["sku", "barcode", "gtin", "ean"],
+      identifiedBy: ["sku", "barcode"],
       primaryIdentifier: "sku",
     },
 
@@ -196,17 +199,9 @@ export const shopifySchema: ConnectorSchema = {
       syncMode: "upsert-on-reference",
     },
 
-    /**
-     * REFERENCE ENTITY: Category
-     *
-     * Extracted from product productType field.
-     * Categories are global (not brand-scoped), so we only match, never create.
-     */
-    category: {
-      table: "categories",
-      identifiedBy: "name",
-      syncMode: "upsert-on-reference",
-    },
+    // NOTE: Category sync is not yet implemented.
+    // Categories are system-level (not brand-scoped) and require manual mapping.
+    // This will be added in a future update with a category mapping feature.
   },
 
   // ===========================================================================
@@ -261,58 +256,9 @@ export const shopifySchema: ConnectorSchema = {
       transform: (v) => truncate(v, 255),
     },
 
-    /**
-     * EAN - European Article Number
-     * Shopify doesn't have a separate EAN field, but barcode often contains EAN.
-     *
-     * Note: We map barcode to EAN as well since many stores use barcode for EAN.
-     * Users can choose to disable this if they use a different barcode format.
-     */
-    "variant.ean": {
-      targetField: "variant.ean",
-      entity: "variant",
-      description:
-        "European Article Number - often stored in barcode field in Shopify",
-      sourceOptions: [
-        {
-          key: "barcode_as_ean",
-          label: "Barcode (as EAN)",
-          path: "barcode",
-          transform: (v) => {
-            // Only use if it looks like an EAN (13 digits)
-            const str = String(v || "").trim();
-            return /^\d{13}$/.test(str) ? str : null;
-          },
-        },
-      ],
-      defaultSource: "barcode_as_ean",
-    },
-
-    /**
-     * GTIN - Global Trade Item Number
-     * Shopify doesn't have a separate GTIN field.
-     *
-     * Note: Barcode field might contain GTIN-14.
-     */
-    "variant.gtin": {
-      targetField: "variant.gtin",
-      entity: "variant",
-      description:
-        "Global Trade Item Number - sometimes stored in barcode field",
-      sourceOptions: [
-        {
-          key: "barcode_as_gtin",
-          label: "Barcode (as GTIN)",
-          path: "barcode",
-          transform: (v) => {
-            // Only use if it looks like a GTIN (8, 12, 13, or 14 digits)
-            const str = String(v || "").trim();
-            return /^\d{8}$|^\d{12,14}$/.test(str) ? str : null;
-          },
-        },
-      ],
-      defaultSource: "barcode_as_gtin",
-    },
+    // NOTE: EAN and GTIN are NOT synced from Shopify.
+    // Shopify only provides SKU and barcode as variant identifiers.
+    // EAN/GTIN should be managed separately if needed.
 
     /**
      * Color
@@ -396,27 +342,10 @@ export const shopifySchema: ConnectorSchema = {
       transform: (v) => truncate(v, 255),
     },
 
-    /**
-     * Product Identifier
-     *
-     * Used to match/create products in Avelero.
-     * Default: Shopify handle (URL slug, unique per store)
-     * Alternative: Shopify numeric product ID
-     */
-    "product.productHandle": {
-      targetField: "product.productHandle",
-      entity: "product",
-      description: "Unique product handle - used to match existing products",
-      sourceOptions: [
-        {
-          key: "handle",
-          label: "Product Handle (URL slug)",
-          path: "product.handle",
-        },
-      ],
-      defaultSource: "handle",
-      transform: (v) => truncate(v, 255),
-    },
+    // NOTE: productHandle is NOT synced from Shopify.
+    // The handle is auto-generated from the product title (with uniqueness)
+    // and used for DPP QR codes, so it must remain stable.
+    // Products are matched via variant identifiers (SKU, barcode), not handle.
 
     /**
      * Description
@@ -568,41 +497,10 @@ export const shopifySchema: ConnectorSchema = {
       defaultSource: "from_status",
     },
 
-    /**
-     * Category
-     *
-     * Shopify has a `category` field that uses Shopify's Standard Product Taxonomy.
-     * This is different from `productType` which is a free-form string.
-     *
-     * We use the category name to match against our global categories table.
-     * If the category doesn't exist in Avelero, it won't be linked (categories are global).
-     *
-     * @see https://shopify.dev/docs/api/admin-graphql/latest/objects/TaxonomyCategory
-     */
-    "product.categoryId": {
-      targetField: "product.categoryId",
-      entity: "product",
-      description: "Product category from Shopify Standard Product Taxonomy",
-      referenceEntity: "category",
-      sourceOptions: [
-        {
-          key: "category_name",
-          label: "Category Name",
-          path: "product.category.name",
-        },
-        {
-          key: "category_full_name",
-          label: "Category Full Name (with ancestors)",
-          path: "product.category.fullName",
-        },
-        {
-          key: "product_type",
-          label: "Product Type (legacy free-form field)",
-          path: "product.productType",
-        },
-      ],
-      defaultSource: "category_name",
-    },
+    // NOTE: product.categoryId is not yet implemented.
+    // Categories are system-level (not brand-scoped) and require a mapping feature.
+    // Shopify categories (from Standard Product Taxonomy) don't map 1:1 to Avelero categories.
+    // This will be added in a future update.
 
     // =========================================================================
     // RELATION FIELDS

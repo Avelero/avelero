@@ -23,6 +23,9 @@ export default function AccountLayout({
           <ControlBarNavButton href="/settings/members">
             Members
           </ControlBarNavButton>
+          <ControlBarNavButton href="/settings/integrations">
+            Integrations
+          </ControlBarNavButton>
         </ControlBarLeft>
         <ControlBarRight />
       </ControlBar>

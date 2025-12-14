@@ -20,7 +20,8 @@
     "./queries": "./src/queries/index.ts",
     "./defaults": "./src/defaults/index.ts",
     "./index": "./src/index.ts",
-    "./utils": "./src/utils/index.ts"
+    "./utils": "./src/utils/index.ts",
+    "./integrations": "./src/integrations/index.ts"
   },
   "dependencies": {
     "@v1/dpp-components": "workspace:*",

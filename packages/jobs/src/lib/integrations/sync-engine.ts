@@ -163,19 +163,25 @@ function extractValues(
     const entityType = fieldKey.slice(0, dotIndex);
     const fieldName = fieldKey.slice(dotIndex + 1);
 
-    if (entityType === "product") {
-      result.product[fieldName] = value;
-    } else if (entityType === "variant") {
-      // Handle reference entities
+    // Handle reference entities (can be on product or variant level)
+    if (definition.referenceEntity) {
       if (definition.referenceEntity === "color") {
         result.referenceEntities.colorName = String(value);
       } else if (definition.referenceEntity === "size") {
         result.referenceEntities.sizeName = String(value);
       } else if (definition.referenceEntity === "category") {
+        // Store category name for potential future lookup
+        // Categories are system-level, so we skip them for now
         result.referenceEntities.categoryName = String(value);
-      } else {
-        result.variant[fieldName] = value;
       }
+      // Don't put reference entity values directly in product/variant objects
+      continue;
+    }
+
+    if (entityType === "product") {
+      result.product[fieldName] = value;
+    } else if (entityType === "variant") {
+      result.variant[fieldName] = value;
     }
 
     // Handle relations (tags)
@@ -329,6 +335,8 @@ async function findOrCreateProduct(
   }
 
   // Create new product
+  // Note: categoryId is not set during sync - categories are system-level
+  // and require manual mapping. Can be enhanced later with category lookup.
   const insertedRows = await db
     .insert(products)
     .values({
@@ -336,7 +344,6 @@ async function findOrCreateProduct(
       name: (productData.name as string) || productHandle,
       productHandle,
       description: (productData.description as string) ?? null,
-      categoryId: (productData.categoryId as string) ?? null,
       primaryImagePath: (productData.primaryImagePath as string) ?? null,
       status: "unpublished", // New products start unpublished
     })

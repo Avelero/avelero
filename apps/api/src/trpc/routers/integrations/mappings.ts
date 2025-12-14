@@ -6,14 +6,16 @@
  * - Update field ownership settings
  * - List all owned fields across integrations (for conflict detection)
  *
+ * NOTE: Uses Supabase client (not Drizzle) for mutations because:
+ * - Drizzle doesn't pass the user's auth context to PostgreSQL
+ * - RLS policies require the authenticated user context
+ * - ctx.supabase has the auth token and works with RLS
+ *
  * @module trpc/routers/integrations/mappings
  */
-import {
-  getBrandIntegration,
-  listAllOwnedFields,
-  listFieldConfigs,
-  upsertFieldConfig,
-} from "@v1/db/queries";
+// NOTE: All queries use ctx.supabase instead of Drizzle queries
+// because RLS policies require the authenticated user context.
+// Drizzle doesn't pass the JWT to PostgreSQL, so auth.uid() returns NULL.
 import {
   listAllOwnershipsSchema,
   listFieldMappingsSchema,
@@ -53,20 +55,41 @@ export const mappingsRouter = createTRPCRouter({
       const brandCtx = ctx as BrandContext;
       try {
         // Verify the brand integration exists and belongs to this brand
-        const integration = await getBrandIntegration(
-          brandCtx.db,
-          brandCtx.brandId,
-          input.brand_integration_id,
-        );
-        if (!integration) {
+        // Use Supabase client for RLS-protected queries
+        const { data: integration, error: intError } = await brandCtx.supabase
+          .from("brand_integrations")
+          .select("id, brand_id")
+          .eq("id", input.brand_integration_id)
+          .eq("brand_id", brandCtx.brandId)
+          .single();
+
+        if (intError || !integration) {
           throw notFound("Integration", input.brand_integration_id);
         }
 
-        const configs = await listFieldConfigs(
-          brandCtx.db,
-          input.brand_integration_id,
-        );
-        return createListResponse(configs);
+        // Fetch field configs using Supabase client (for RLS)
+        const { data: configs, error } = await brandCtx.supabase
+          .from("integration_field_configs")
+          .select("id, brand_integration_id, field_key, ownership_enabled, source_option_key, created_at, updated_at")
+          .eq("brand_integration_id", input.brand_integration_id)
+          .order("field_key");
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        // Transform snake_case to camelCase for consistency
+        const transformedConfigs = (configs ?? []).map((c) => ({
+          id: c.id,
+          brandIntegrationId: c.brand_integration_id,
+          fieldKey: c.field_key,
+          ownershipEnabled: c.ownership_enabled,
+          sourceOptionKey: c.source_option_key,
+          createdAt: c.created_at,
+          updatedAt: c.updated_at,
+        }));
+
+        return createListResponse(transformedConfigs);
       } catch (error) {
         throw wrapError(error, "Failed to list field mappings");
       }
@@ -86,24 +109,38 @@ export const mappingsRouter = createTRPCRouter({
       const brandCtx = ctx as BrandContext;
       try {
         // Verify the brand integration exists and belongs to this brand
-        const integration = await getBrandIntegration(
-          brandCtx.db,
-          brandCtx.brandId,
-          input.brand_integration_id,
-        );
-        if (!integration) {
+        const { data: integration, error: intError } = await brandCtx.supabase
+          .from("brand_integrations")
+          .select("id")
+          .eq("id", input.brand_integration_id)
+          .eq("brand_id", brandCtx.brandId)
+          .single();
+
+        if (intError || !integration) {
           throw notFound("Integration", input.brand_integration_id);
         }
 
-        const result = await upsertFieldConfig(
-          brandCtx.db,
-          input.brand_integration_id,
-          input.field_key,
-          {
-            ownershipEnabled: input.ownership_enabled,
-            sourceOptionKey: input.source_option_key,
-          },
-        );
+        // Use Supabase client for upsert (RLS requires auth context)
+        const { data: result, error } = await brandCtx.supabase
+          .from("integration_field_configs")
+          .upsert(
+            {
+              brand_integration_id: input.brand_integration_id,
+              field_key: input.field_key,
+              ownership_enabled: input.ownership_enabled ?? true,
+              source_option_key: input.source_option_key ?? null,
+              updated_at: new Date().toISOString(),
+            },
+            {
+              onConflict: "brand_integration_id,field_key",
+            },
+          )
+          .select()
+          .single();
+
+        if (error) {
+          throw new Error(error.message);
+        }
 
         return createEntityResponse(result);
       } catch (error) {
@@ -122,31 +159,38 @@ export const mappingsRouter = createTRPCRouter({
       const brandCtx = ctx as BrandContext;
       try {
         // Verify the brand integration exists and belongs to this brand
-        const integration = await getBrandIntegration(
-          brandCtx.db,
-          brandCtx.brandId,
-          input.brand_integration_id,
-        );
-        if (!integration) {
+        const { data: integration, error: intError } = await brandCtx.supabase
+          .from("brand_integrations")
+          .select("id")
+          .eq("id", input.brand_integration_id)
+          .eq("brand_id", brandCtx.brandId)
+          .single();
+
+        if (intError || !integration) {
           throw notFound("Integration", input.brand_integration_id);
         }
 
-        // Process each field config update
-        const results = await Promise.all(
-          input.fields.map((field) =>
-            upsertFieldConfig(
-              brandCtx.db,
-              input.brand_integration_id,
-              field.field_key,
-              {
-                ownershipEnabled: field.ownership_enabled,
-                sourceOptionKey: field.source_option_key,
-              },
-            ),
-          ),
-        );
+        // Use Supabase client for upsert (RLS requires auth context)
+        const records = input.fields.map((field) => ({
+          brand_integration_id: input.brand_integration_id,
+          field_key: field.field_key,
+          ownership_enabled: field.ownership_enabled ?? true,
+          source_option_key: field.source_option_key ?? null,
+          updated_at: new Date().toISOString(),
+        }));
 
-        return createListResponse(results);
+        const { data: results, error } = await brandCtx.supabase
+          .from("integration_field_configs")
+          .upsert(records, {
+            onConflict: "brand_integration_id,field_key",
+          })
+          .select();
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        return createListResponse(results ?? []);
       } catch (error) {
         throw wrapError(error, "Failed to update field mappings");
       }
@@ -164,7 +208,29 @@ export const mappingsRouter = createTRPCRouter({
     .query(async ({ ctx }) => {
       const brandCtx = ctx as BrandContext;
       try {
-        const ownedFields = await listAllOwnedFields(brandCtx.db, brandCtx.brandId);
+        // Fetch owned fields using Supabase client (for RLS)
+        // Join with brand_integrations and integrations to get integration info
+        const { data: ownedFields, error } = await brandCtx.supabase
+          .from("integration_field_configs")
+          .select(`
+            field_key,
+            source_option_key,
+            brand_integration_id,
+            brand_integrations!inner (
+              id,
+              brand_id,
+              integrations!inner (
+                slug,
+                name
+              )
+            )
+          `)
+          .eq("ownership_enabled", true)
+          .eq("brand_integrations.brand_id", brandCtx.brandId);
+
+        if (error) {
+          throw new Error(error.message);
+        }
 
         // Group by field key for easy conflict detection
         const fieldMap = new Map<
@@ -177,15 +243,16 @@ export const mappingsRouter = createTRPCRouter({
           }>
         >();
 
-        for (const field of ownedFields) {
-          const existing = fieldMap.get(field.fieldKey) ?? [];
+        for (const field of ownedFields ?? []) {
+          const bi = field.brand_integrations as { id: string; integrations: { slug: string; name: string } };
+          const existing = fieldMap.get(field.field_key) ?? [];
           existing.push({
-            brandIntegrationId: field.brandIntegrationId,
-            integrationSlug: field.integrationSlug,
-            integrationName: field.integrationName,
-            sourceOptionKey: field.sourceOptionKey,
+            brandIntegrationId: bi.id,
+            integrationSlug: bi.integrations.slug,
+            integrationName: bi.integrations.name,
+            sourceOptionKey: field.source_option_key,
           });
-          fieldMap.set(field.fieldKey, existing);
+          fieldMap.set(field.field_key, existing);
         }
 
         // Convert to array with conflict flag

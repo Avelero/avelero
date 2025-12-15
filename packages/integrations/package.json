@@ -1,0 +1,42 @@
+{
+  "name": "@v1/integrations",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./registry": {
+      "types": "./src/registry/index.ts",
+      "default": "./src/registry/index.ts"
+    },
+    "./connectors": {
+      "types": "./src/connectors/index.ts",
+      "default": "./src/connectors/index.ts"
+    },
+    "./sync": {
+      "types": "./src/sync/index.ts",
+      "default": "./src/sync/index.ts"
+    },
+    "./ui": {
+      "types": "./src/ui/index.ts",
+      "default": "./src/ui/index.ts"
+    }
+  },
+  "scripts": {
+    "lint": "biome lint ./src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@v1/db": "workspace:*",
+    "@v1/selections": "workspace:*",
+    "@v1/supabase": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.1",
+    "@v1/tsconfig": "workspace:*",
+    "typescript": "^5.9.2"
+  }
+}
+

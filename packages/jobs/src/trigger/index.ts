@@ -4,11 +4,10 @@ import "./configure-trigger";
 // NOTE: Invite tasks temporarily disabled due to email template .tsx loading issues
 // export { inviteBrandMembers } from "./invite";
 export { cleanupExpiredInvites } from "./cleanup-expired-invites";
-export { validateAndStage } from "./validate-and-stage";
-export { commitToProduction } from "./commit-to-production";
+export { validateAndStage } from "./bulk/validate-and-stage";
+export { commitToProduction } from "./bulk/commit-to-production";
 export { captureThemeScreenshot } from "./capture-theme-screenshot";
 export { deleteBrand } from "./delete-brand";
 
 // Integration sync tasks
-export { syncIntegration } from "./integration-sync";
-export { integrationSyncScheduler } from "./integration-sync-scheduler";
+export { syncIntegration, integrationSyncScheduler } from "./integrations";

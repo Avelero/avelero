@@ -282,6 +282,15 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
 export const deleteProductSchema = byIdSchema;
 
 /**
+ * Payload for bulk deleting products.
+ * Accepts an array of product IDs to delete.
+ */
+export const bulkDeleteProductsSchema = z.object({
+  ids: uuidArraySchema.min(1, "At least one product ID is required"),
+  brand_id: uuidSchema.optional(),
+});
+
+/**
  * Upsert payload used for product-level identifiers.
  */
 export const upsertProductHandleSchema = z.object({
@@ -404,6 +413,11 @@ export const productsDomainDeleteSchema = deleteProductSchema.extend({
 export type ProductsDomainDeleteInput = z.infer<
   typeof productsDomainDeleteSchema
 >;
+
+/**
+ * Input payload for bulk product deletion.
+ */
+export type BulkDeleteProductsInput = z.infer<typeof bulkDeleteProductsSchema>;
 
 /**
  * Input payload for `products.variants.upsert`.

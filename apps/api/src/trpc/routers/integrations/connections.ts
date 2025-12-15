@@ -21,6 +21,7 @@ import {
   updateBrandIntegration,
 } from "@v1/db/queries";
 import { encryptCredentials, decryptCredentials } from "@v1/db/utils";
+import { testIntegrationConnection } from "@v1/integrations/sync";
 import {
   connectApiKeySchema,
   disconnectSchema,
@@ -286,9 +287,6 @@ export const connectionsRouter = createTRPCRouter({
    *
    * Decrypts stored credentials and attempts to connect to the integration's API.
    * Returns success/failure status.
-   *
-   * NOTE: Actual test logic will be implemented in Phase 4 when connectors are built.
-   * For now, this returns a placeholder response.
    */
   testConnection: brandRequiredProcedure
     .input(testConnectionSchema)
@@ -315,14 +313,26 @@ export const connectionsRouter = createTRPCRouter({
           integration.credentialsIv,
         );
 
-        // TODO: Phase 4 - Call the connector's testConnection function
-        // const connector = getConnector(integration.integration.slug);
-        // const testResult = await connector.testConnection(credentials);
+        // Add shop domain to credentials for Shopify
+        if (integration.integration?.slug === "shopify" && integration.shopDomain) {
+          credentials.shopDomain = integration.shopDomain;
+        }
 
-        // For now, return success if we could decrypt credentials
+        // Test connection using the integration's connector
+        const integrationSlug = integration.integration?.slug;
+        if (!integrationSlug) {
+          throw badRequest("Integration type not found");
+        }
+
+        const testResult = await testIntegrationConnection(
+          integrationSlug,
+          credentials
+        );
+
         return createEntityResponse({
-          success: true,
-          message: "Credentials decrypted successfully. Connection test will be available after sync engine implementation.",
+          success: testResult.success,
+          message: testResult.message,
+          data: testResult.data,
         });
       } catch (error) {
         // If decryption failed, it's likely a credentials issue

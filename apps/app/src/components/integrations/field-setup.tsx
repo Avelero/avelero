@@ -8,7 +8,7 @@ import {
   getConnectorFields,
   FIELD_CATEGORY_LABELS,
   type ConnectorFieldMeta,
-} from "@db/integrations";
+} from "@v1/integrations/ui";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { Switch } from "@v1/ui/switch";
@@ -264,3 +264,5 @@ function FieldSetupRow({
     </div>
   );
 }
+
+

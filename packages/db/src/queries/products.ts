@@ -1050,19 +1050,30 @@ export async function updateProduct(
 ) {
   let updated: { id: string; variantIds?: readonly string[] } | undefined;
   await db.transaction(async (tx) => {
-    const updateData: Record<string, unknown> = {
-      name: input.name,
-      description: input.description ?? null,
-      categoryId: input.categoryId ?? null,
-      seasonId: input.seasonId ?? null,
-      productHandle: input.productHandle ?? null,
-      manufacturerId: input.manufacturerId ?? null,
-      primaryImagePath: input.primaryImagePath ?? null,
-    };
+    // Only include fields that are explicitly provided (not undefined)
+    // This prevents accidentally nullifying fields that weren't meant to be updated
+    const updateData: Record<string, unknown> = {};
+    
+    if (input.name !== undefined) updateData.name = input.name;
+    if (input.description !== undefined) updateData.description = input.description;
+    if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
+    if (input.seasonId !== undefined) updateData.seasonId = input.seasonId;
+    if (input.productHandle !== undefined) updateData.productHandle = input.productHandle;
+    if (input.manufacturerId !== undefined) updateData.manufacturerId = input.manufacturerId;
+    if (input.primaryImagePath !== undefined) updateData.primaryImagePath = input.primaryImagePath;
+    if (input.status !== undefined) updateData.status = input.status;
 
-    // Only update status if provided (status cannot be null)
-    if (input.status !== undefined && input.status !== null) {
-      updateData.status = input.status;
+    // If no fields to update, return early
+    if (Object.keys(updateData).length === 0) {
+      const [existing] = await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
+        .limit(1);
+      if (existing) {
+        updated = { id: existing.id };
+      }
+      return;
     }
 
     const [row] = await tx

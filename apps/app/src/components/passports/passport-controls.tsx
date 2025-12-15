@@ -1,7 +1,5 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -15,7 +13,6 @@ import {
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
-import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { QuickFiltersPopover } from "../select/filter-select";
 import { SortPopover } from "../select/sort-select";
@@ -34,6 +31,8 @@ interface PassportControlsProps {
   selection?: SelectionState;
   onClearSelectionAction?: () => void;
   onRequestBulkUpdate?: (changes: BulkChanges) => void; // optional external handler
+  onDeleteSelectedAction?: () => void; // trigger delete modal for selected items
+  onStatusChangeAction?: (status: string) => void; // trigger bulk status change
   displayProps?: {
     productLabel?: string;
     allColumns: { id: string; label: string }[];
@@ -55,6 +54,8 @@ export function PassportControls({
   disabled = false,
   selection,
   onClearSelectionAction,
+  onDeleteSelectedAction,
+  onStatusChangeAction,
   displayProps,
   filterState,
   filterActions,
@@ -67,15 +68,11 @@ export function PassportControls({
   const [advancedFilterOpen, setAdvancedFilterOpen] = React.useState(false);
 
   const hasSelection = selectedCount > 0;
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
 
-  async function handleBulkStatusChange(
+  function handleBulkStatusChange(
     status: "published" | "scheduled" | "unpublished" | "archived",
   ) {
-    // Bulk update API not available in this router yet; gracefully notify.
-    toast.error("Bulk update is not available right now.");
-    onClearSelectionAction?.();
+    onStatusChangeAction?.(status);
   }
 
   return (
@@ -269,6 +266,17 @@ export function PassportControls({
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            <DropdownMenuItem
+              className="h-9 py-3 text-destructive focus:text-destructive"
+              onSelect={() => {
+                onDeleteSelectedAction?.();
+              }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Icons.Trash2 size={14} />
+                <span>Delete</span>
+              </span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

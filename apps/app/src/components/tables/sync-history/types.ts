@@ -40,3 +40,5 @@ export interface SyncJobRow {
   createdAt: string;
   updatedAt: string;
 }
+
+

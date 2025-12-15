@@ -8,7 +8,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import {
@@ -267,11 +269,17 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       const handle = product.productHandle || product.id;
       const editHref = handle ? `/passports/edit/${handle}` : undefined;
 
-      // Get brandSlug from table meta for DPP URL
+      // Get callbacks from table meta
       const meta = table.options.meta as
-        | { brandSlug?: string | null }
+        | { 
+            brandSlug?: string | null;
+            onDeleteProduct?: (productId: string) => void;
+            onChangeStatus?: (productId: string, status: string) => void;
+          }
         | undefined;
       const brandSlug = meta?.brandSlug;
+      const onDeleteProduct = meta?.onDeleteProduct;
+      const onChangeStatus = meta?.onChangeStatus;
 
       // Build public DPP URL (opens in new tab, no prefetch)
       const dppBaseUrl =
@@ -333,15 +341,67 @@ export const columns: ColumnDef<PassportTableRow>[] = [
               className="w-[220px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-                <Link href={editHref ?? ""}>Open Edit Passport</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="h-9 py-3">
+                  Change status
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-[220px]">
+                  <DropdownMenuItem
+                    className="h-9 py-3"
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "published");
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icons.StatusPublished width={12} height={12} />
+                      <span>Published</span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="h-9 py-3"
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "scheduled");
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icons.StatusScheduled width={12} height={12} />
+                      <span>Scheduled</span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="h-9 py-3"
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "unpublished");
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icons.StatusUnpublished width={12} height={12} />
+                      <span>Unpublished</span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="h-9 py-3"
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "archived");
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icons.StatusArchived width={12} height={12} />
+                      <span>Archived</span>
+                    </span>
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuItem
-                className="text-destructive"
-                onSelect={(e) => e.preventDefault()}
+                className="h-9 py-3 text-destructive focus:text-destructive"
+                onSelect={() => {
+                  onDeleteProduct?.(product.id);
+                }}
               >
-                Delete Product
+                <span className="inline-flex items-center gap-2">
+                  <Icons.Trash2 size={14} />
+                  <span>Delete</span>
+                </span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

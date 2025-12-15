@@ -30,6 +30,7 @@ import {
   productsDomainListSchema,
   productsDomainUpdateSchema,
   productUnifiedGetSchema,
+  bulkDeleteProductsSchema,
 } from "../../../schemas/products.js";
 import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -211,18 +212,18 @@ export const productsRouter = createTRPCRouter({
       );
 
       try {
-        // Update basic product fields
-        const payload: Record<string, unknown> = {
-          id: input.id,
-          productHandle: input.product_handle,
-          name: input.name,
-          description: input.description ?? null,
-          categoryId: input.category_id ?? null,
-          seasonId: input.season_id ?? null,
-          manufacturerId: input.manufacturer_id ?? null,
-          primaryImagePath: input.primary_image_path ?? null,
-          status: input.status ?? undefined,
-        };
+        // Update basic product fields - only include fields that are explicitly provided
+        const payload: Record<string, unknown> = { id: input.id };
+        
+        // Only add fields to payload if they were explicitly provided in input
+        if (input.product_handle !== undefined) payload.productHandle = input.product_handle;
+        if (input.name !== undefined) payload.name = input.name;
+        if (input.description !== undefined) payload.description = input.description;
+        if (input.category_id !== undefined) payload.categoryId = input.category_id;
+        if (input.season_id !== undefined) payload.seasonId = input.season_id;
+        if (input.manufacturer_id !== undefined) payload.manufacturerId = input.manufacturer_id;
+        if (input.primary_image_path !== undefined) payload.primaryImagePath = input.primary_image_path;
+        if (input.status !== undefined) payload.status = input.status;
 
         const product = await updateProduct(
           brandCtx.db,
@@ -275,10 +276,99 @@ export const productsRouter = createTRPCRouter({
       );
 
       try {
+        // Get the product's image path before deletion for cleanup
+        const [productRow] = await brandCtx.db
+          .select({ primaryImagePath: products.primaryImagePath })
+          .from(products)
+          .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
+          .limit(1);
+
         const deleted = await deleteProduct(brandCtx.db, brandId, input.id);
+
+        // Clean up product image from storage after successful deletion
+        if (deleted && productRow?.primaryImagePath && ctx.supabase) {
+          try {
+            await ctx.supabase.storage
+              .from("products")
+              .remove([productRow.primaryImagePath]);
+          } catch {
+            // Silently ignore storage cleanup errors - product is already deleted
+          }
+        }
+
         return createEntityResponse(deleted);
       } catch (error) {
         throw wrapError(error, "Failed to delete product");
+      }
+    }),
+
+  bulkDelete: brandRequiredProcedure
+    .input(bulkDeleteProductsSchema)
+    .mutation(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = ensureBrandScope(
+        brandCtx,
+        normalizeBrandId(input.brand_id),
+      );
+
+      try {
+        // Get all product image paths before deletion for cleanup
+        const productRows = await brandCtx.db
+          .select({ id: products.id, primaryImagePath: products.primaryImagePath })
+          .from(products)
+          .where(
+            and(
+              inArray(products.id, input.ids),
+              eq(products.brandId, brandId),
+            ),
+          );
+
+        // Create a map of product ID to image path for cleanup
+        const imagePathMap = new Map<string, string | null>();
+        for (const row of productRows) {
+          imagePathMap.set(row.id, row.primaryImagePath);
+        }
+
+        const results: { id: string; success: boolean; error?: string }[] = [];
+        const imagesToDelete: string[] = [];
+        
+        // Delete products sequentially to handle errors gracefully
+        for (const id of input.ids) {
+          try {
+            await deleteProduct(brandCtx.db, brandId, id);
+            results.push({ id, success: true });
+            
+            // Track image for cleanup if deletion succeeded
+            const imagePath = imagePathMap.get(id);
+            if (imagePath) {
+              imagesToDelete.push(imagePath);
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown error";
+            results.push({ id, success: false, error: message });
+          }
+        }
+
+        // Clean up product images from storage after successful deletions
+        if (imagesToDelete.length > 0 && ctx.supabase) {
+          try {
+            await ctx.supabase.storage.from("products").remove(imagesToDelete);
+          } catch {
+            // Silently ignore storage cleanup errors - products are already deleted
+          }
+        }
+        
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.filter(r => !r.success).length;
+        
+        return {
+          success: failCount === 0,
+          deleted: successCount,
+          failed: failCount,
+          results,
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to bulk delete products");
       }
     }),
 

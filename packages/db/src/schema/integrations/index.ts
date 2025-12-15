@@ -1,9 +1,9 @@
 // Integration schemas
 export * from "./integrations";
 export * from "./brand-integrations";
-export * from "./integration-field-configs";
-export * from "./integration-sync-jobs";
-export * from "./integration-product-links";
-export * from "./integration-variant-links";
-export * from "./integration-entity-links";
+export * from "./field-configs";
+export * from "./sync-jobs";
 export * from "./oauth-states";
+
+// Link tables (grouped)
+export * from "./links";

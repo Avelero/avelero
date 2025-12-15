@@ -67,3 +67,5 @@ function IntegrationDetailSkeleton() {
     </div>
   );
 }
+
+

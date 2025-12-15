@@ -4,7 +4,8 @@ import { useUserBrandsQuerySuspense } from "@/hooks/use-brand";
 import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { toast } from "@v1/ui/sonner";
 import {
   Suspense,
   useState,
@@ -14,6 +15,7 @@ import {
   useRef,
   useDeferredValue,
 } from "react";
+import { DeleteProductsModal } from "../modals/delete-products-modal";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type {
   PassportTableRow,
@@ -39,6 +41,27 @@ export function TableSection() {
     excludeIds: [],
   });
   const [hasAnyPassports, setHasAnyPassports] = useState(false);
+  
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteProductIds, setDeleteProductIds] = useState<string[]>([]);
+  
+  // Track visible product IDs for bulk operations in "all" mode
+  const [visibleProductIds, setVisibleProductIds] = useState<string[]>([]);
+  
+  // Status update mutation
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const updateStatusMutation = useMutation(
+    trpc.products.update.mutationOptions({
+      onSuccess: () => {
+        // Invalidate products list to refresh table
+        void queryClient.invalidateQueries({ queryKey: [["products", "list"]] });
+        void queryClient.invalidateQueries({ queryKey: [["summary"]] });
+      },
+    })
+  );
+  
   // Filter state management
   const [filterState, filterActions] = useFilterState();
 
@@ -210,6 +233,82 @@ export function TableSection() {
     filterActions.clearAll();
   }, [filterActions]);
 
+  // Handle delete from row action (single product)
+  const handleDeleteProduct = useCallback((productId: string) => {
+    setDeleteProductIds([productId]);
+    setDeleteModalOpen(true);
+  }, []);
+
+  // Helper to resolve selected product IDs based on selection mode
+  const getSelectedProductIds = useCallback((): string[] => {
+    if (selection.mode === "explicit") {
+      return selection.includeIds;
+    }
+    // "all" mode: use visible products minus any excludes
+    const excludeSet = new Set(selection.excludeIds);
+    return visibleProductIds.filter(id => !excludeSet.has(id));
+  }, [selection, visibleProductIds]);
+
+  // Handle bulk delete from Actions button
+  const handleDeleteSelected = useCallback(() => {
+    const productIds = getSelectedProductIds();
+    if (productIds.length > 0) {
+      setDeleteProductIds(productIds);
+      setDeleteModalOpen(true);
+    }
+  }, [getSelectedProductIds]);
+
+  // Clear selection after successful delete
+  const handleDeleteSuccess = useCallback(() => {
+    setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+    setDeleteProductIds([]);
+  }, []);
+
+  // Handle status change from row action (single product)
+  const handleChangeStatus = useCallback((productId: string, status: string) => {
+    updateStatusMutation.mutate(
+      { id: productId, status },
+      {
+        onSuccess: () => {
+          toast.success(`Status updated to ${status}`);
+        },
+        onError: (error) => {
+          toast.error(error.message || "Failed to update status");
+        },
+      }
+    );
+  }, [updateStatusMutation]);
+
+  // Handle bulk status change from Actions menu
+  const handleBulkStatusChange = useCallback((status: string) => {
+    const productIds = getSelectedProductIds();
+    if (productIds.length === 0) {
+      toast.error("No products selected");
+      return;
+    }
+    
+    let successCount = 0;
+    let errorCount = 0;
+    
+    // Update each product's status
+    Promise.all(
+      productIds.map((id) =>
+        updateStatusMutation.mutateAsync({ id, status }).then(
+          () => { successCount++; },
+          () => { errorCount++; }
+        )
+      )
+    ).then(() => {
+      if (errorCount === 0) {
+        toast.success(`Updated ${successCount} ${successCount === 1 ? "product" : "products"} to ${status}`);
+      } else {
+        toast.error(`Updated ${successCount}, failed ${errorCount}`);
+      }
+      // Clear selection after bulk update
+      setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+    });
+  }, [getSelectedProductIds, updateStatusMutation]);
+
   // Map UI field names to API field names
   const mapSortField = useCallback((uiField: string): SortField => {
     const fieldMap: Record<string, SortField> = {
@@ -251,6 +350,9 @@ export function TableSection() {
       filterState={filterState}
       hasActiveFilters={hasActiveFilters}
       onClearFilters={handleClearFilters}
+      onDeleteProduct={handleDeleteProduct}
+      onChangeStatus={handleChangeStatus}
+      onVisibleProductIdsChange={setVisibleProductIds}
     />
   );
 
@@ -263,6 +365,8 @@ export function TableSection() {
         onClearSelectionAction={() => {
           setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
         }}
+        onDeleteSelectedAction={handleDeleteSelected}
+        onStatusChangeAction={handleBulkStatusChange}
         displayProps={{
           productLabel: "Product",
           allColumns: allCustomizable,
@@ -290,6 +394,14 @@ export function TableSection() {
       ) : (
         tableContent
       )}
+      
+      {/* Delete Products Modal */}
+      <DeleteProductsModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        productIds={deleteProductIds}
+        onSuccess={handleDeleteSuccess}
+      />
     </div>
   );
 }
@@ -311,6 +423,9 @@ interface TableContentProps {
   filterState: FilterState;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
+  onDeleteProduct?: (productId: string) => void;
+  onChangeStatus?: (productId: string, status: string) => void;
+  onVisibleProductIdsChange?: (ids: string[]) => void;
 }
 
 function TableContent({
@@ -330,6 +445,9 @@ function TableContent({
   filterState,
   hasActiveFilters = false,
   onClearFilters,
+  onDeleteProduct,
+  onChangeStatus,
+  onVisibleProductIdsChange,
 }: TableContentProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -435,6 +553,14 @@ function TableContent({
       } satisfies PassportTableRow;
     });
   }, [productsResponse]);
+
+  // Report visible product IDs to parent for bulk operations
+  useEffect(() => {
+    if (onVisibleProductIdsChange) {
+      const ids = tableRows.map(row => row.id);
+      onVisibleProductIdsChange(ids);
+    }
+  }, [tableRows, onVisibleProductIdsChange]);
 
   const meta = (productsResponse as any)?.meta ?? {};
   const totalRows =
@@ -621,6 +747,8 @@ function TableContent({
       hasActiveFilters={hasActiveFilters}
       onClearFilters={onClearFilters}
       brandSlug={brandSlug}
+      onDeleteProduct={onDeleteProduct}
+      onChangeStatus={onChangeStatus}
     />
   );
 }

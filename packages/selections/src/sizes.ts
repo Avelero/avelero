@@ -28,7 +28,7 @@ export const letterSizes: DefaultSize[] = [
   { name: "M", sortIndex: 1040, group: "Letter" },
   { name: "L", sortIndex: 1050, group: "Letter" },
   { name: "XL", sortIndex: 1060, group: "Letter" },
-  { name: "XXL", sortIndex: 1070, group: "Letter" },
+  { name: "2XL", sortIndex: 1070, group: "Letter" },
   { name: "3XL", sortIndex: 1080, group: "Letter" },
   { name: "4XL", sortIndex: 1090, group: "Letter" },
   { name: "5XL", sortIndex: 1100, group: "Letter" },

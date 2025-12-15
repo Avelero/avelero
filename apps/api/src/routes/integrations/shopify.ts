@@ -10,7 +10,7 @@
  *
  * @module routes/integrations/shopify
  */
-import { createHmac, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { Hono } from "hono";
 import { db } from "@v1/db/client";
 import {
@@ -23,6 +23,11 @@ import {
   updateBrandIntegration,
 } from "@v1/db/queries";
 import { encryptCredentials } from "@v1/db/utils";
+import {
+  buildAuthorizationUrl,
+  exchangeCodeForToken,
+  validateShopifyHmac,
+} from "@v1/integrations";
 
 // Shopify OAuth configuration
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID ?? "";
@@ -97,16 +102,18 @@ shopifyOAuthRouter.get("/install", async (c) => {
       expiresAt,
     });
 
-    // Build Shopify OAuth URL
+    // Build Shopify OAuth URL using shared utility
     const redirectUri = `${API_URL}/api/integrations/shopify/callback`;
-    const installUrl = new URL(`https://${shop}/admin/oauth/authorize`);
-    installUrl.searchParams.set("client_id", SHOPIFY_CLIENT_ID);
-    installUrl.searchParams.set("scope", SHOPIFY_SCOPES);
-    installUrl.searchParams.set("redirect_uri", redirectUri);
-    installUrl.searchParams.set("state", state);
+    const installUrl = buildAuthorizationUrl(
+      shop,
+      SHOPIFY_CLIENT_ID,
+      SHOPIFY_SCOPES,
+      redirectUri,
+      state
+    );
 
     // Redirect to Shopify
-    return c.redirect(installUrl.toString());
+    return c.redirect(installUrl);
   } catch (error) {
     console.error("Shopify OAuth install error:", error);
     return c.json({ error: "Failed to initiate OAuth flow" }, 500);
@@ -144,8 +151,12 @@ shopifyOAuthRouter.get("/callback", async (c) => {
       );
     }
 
-    // Validate HMAC signature
-    const isValidHmac = validateShopifyHmac(c.req.query() as Record<string, string>, hmac);
+    // Validate HMAC signature using shared utility
+    const isValidHmac = validateShopifyHmac(
+      c.req.query() as Record<string, string>,
+      hmac,
+      SHOPIFY_CLIENT_SECRET
+    );
     if (!isValidHmac) {
       console.error("Shopify OAuth: Invalid HMAC signature");
       return c.redirect(
@@ -171,8 +182,13 @@ shopifyOAuthRouter.get("/callback", async (c) => {
       );
     }
 
-    // Exchange code for access token
-    const accessToken = await exchangeCodeForToken(shop, code);
+    // Exchange code for access token using shared utility
+    const accessToken = await exchangeCodeForToken(
+      shop,
+      code,
+      SHOPIFY_CLIENT_ID,
+      SHOPIFY_CLIENT_SECRET
+    );
     if (!accessToken) {
       await deleteOAuthState(db, oauthState.id);
       return c.redirect(
@@ -236,82 +252,5 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     );
   }
 });
-
-/**
- * Validates the HMAC signature from Shopify.
- *
- * Shopify signs the callback parameters with the API secret.
- * We need to verify this to ensure the request is legitimate.
- */
-function validateShopifyHmac(
-  params: Record<string, string>,
-  hmac: string,
-): boolean {
-  // Remove hmac from params for verification
-  const { hmac: _, ...rest } = params;
-
-  // Sort and encode parameters
-  const sortedParams = Object.keys(rest)
-    .sort()
-    .map((key) => `${key}=${rest[key]}`)
-    .join("&");
-
-  // Calculate expected HMAC
-  const expectedHmac = createHmac("sha256", SHOPIFY_CLIENT_SECRET)
-    .update(sortedParams)
-    .digest("hex");
-
-  // Compare in constant time to prevent timing attacks
-  return timingSafeEqual(hmac, expectedHmac);
-}
-
-/**
- * Constant-time string comparison to prevent timing attacks.
- */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
-}
-
-/**
- * Exchange the authorization code for an access token.
- */
-async function exchangeCodeForToken(
-  shop: string,
-  code: string,
-): Promise<string | null> {
-  try {
-    const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        client_id: SHOPIFY_CLIENT_ID,
-        client_secret: SHOPIFY_CLIENT_SECRET,
-        code,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Shopify token exchange failed:", response.status, errorText);
-      return null;
-    }
-
-    const data = (await response.json()) as { access_token?: string };
-    return data.access_token ?? null;
-  } catch (error) {
-    console.error("Shopify token exchange error:", error);
-    return null;
-  }
-}
 
 export type ShopifyOAuthRouter = typeof shopifyOAuthRouter;

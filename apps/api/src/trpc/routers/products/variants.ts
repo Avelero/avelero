@@ -16,7 +16,7 @@ import {
   productVariantsUpsertSchema,
   variantUnifiedListSchema,
 } from "../../../schemas/products.js";
-import { listVariantsForProduct } from "@v1/db/queries";
+import { listVariantsForProduct } from "@v1/db/queries/products";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
@@ -62,6 +62,7 @@ const variantUpsertProcedure = brandRequiredProcedure
         input.product_id,
         input.color_ids ?? [],
         input.size_ids ?? [],
+        input.variant_data,
       );
 
       const variants = await fetchProductVariants(
@@ -150,6 +151,8 @@ async function fetchProductVariants(
       product_id: productVariants.productId,
       color_id: productVariants.colorId,
       size_id: productVariants.sizeId,
+      sku: productVariants.sku,
+      barcode: productVariants.barcode,
       upid: productVariants.upid,
       created_at: productVariants.createdAt,
       updated_at: productVariants.updatedAt,
@@ -168,6 +171,12 @@ async function replaceProductVariants(
   productId: string,
   colorIds: string[],
   sizeIds: string[],
+  variantData?: Array<{
+    color_id?: string | null;
+    size_id?: string | null;
+    sku?: string;
+    barcode?: string;
+  }>,
 ) {
   const uniqueColors = Array.from(new Set(colorIds));
   const uniqueSizes = Array.from(new Set(sizeIds));
@@ -181,10 +190,90 @@ async function replaceProductVariants(
 
   await assertProductForBrand(db, brandId, productId);
 
+  // Validate SKU/barcode uniqueness within brand (excluding current product's variants)
+  if (variantData && variantData.length > 0) {
+    const skusToCheck = variantData
+      .map((v) => v.sku)
+      .filter((sku): sku is string => Boolean(sku?.trim()));
+    const barcodesToCheck = variantData
+      .map((v) => v.barcode)
+      .filter((barcode): barcode is string => Boolean(barcode?.trim()));
+
+    // Check for duplicates within the submitted data itself
+    const skuSet = new Set<string>();
+    for (const sku of skusToCheck) {
+      if (skuSet.has(sku.toLowerCase())) {
+        throw badRequest(`Duplicate SKU in request: "${sku}"`);
+      }
+      skuSet.add(sku.toLowerCase());
+    }
+
+    const barcodeSet = new Set<string>();
+    for (const barcode of barcodesToCheck) {
+      if (barcodeSet.has(barcode.toLowerCase())) {
+        throw badRequest(`Duplicate barcode in request: "${barcode}"`);
+      }
+      barcodeSet.add(barcode.toLowerCase());
+    }
+
+    // Check for conflicts with other products in the brand
+    if (skusToCheck.length > 0) {
+      const existingSkus = await db
+        .select({ sku: productVariants.sku, productId: productVariants.productId })
+        .from(productVariants)
+        .innerJoin(products, eq(products.id, productVariants.productId))
+        .where(
+          and(
+            eq(products.brandId, brandId),
+            inArray(productVariants.sku, skusToCheck),
+          ),
+        );
+
+      const conflictingSku = existingSkus.find(
+        (row) => row.productId !== productId && row.sku,
+      );
+      if (conflictingSku) {
+        throw badRequest(`SKU "${conflictingSku.sku}" is already in use by another product`);
+      }
+    }
+
+    if (barcodesToCheck.length > 0) {
+      const existingBarcodes = await db
+        .select({ barcode: productVariants.barcode, productId: productVariants.productId })
+        .from(productVariants)
+        .innerJoin(products, eq(products.id, productVariants.productId))
+        .where(
+          and(
+            eq(products.brandId, brandId),
+            inArray(productVariants.barcode, barcodesToCheck),
+          ),
+        );
+
+      const conflictingBarcode = existingBarcodes.find(
+        (row) => row.productId !== productId && row.barcode,
+      );
+      if (conflictingBarcode) {
+        throw badRequest(`Barcode "${conflictingBarcode.barcode}" is already in use by another product`);
+      }
+    }
+  }
+
   const desired = buildDesiredVariants(uniqueColors, uniqueSizes);
   const desiredKeys = new Set(
     desired.map((variant) => makeVariantKey(variant.colorId, variant.sizeId)),
   );
+
+  // Build a lookup map for variant metadata (SKU/barcode) by variant key
+  const variantDataMap = new Map<string, { sku?: string; barcode?: string }>();
+  if (variantData) {
+    for (const data of variantData) {
+      const key = makeVariantKey(data.color_id ?? null, data.size_id ?? null);
+      variantDataMap.set(key, {
+        sku: data.sku,
+        barcode: data.barcode,
+      });
+    }
+  }
 
   await db.transaction(async (tx) => {
     const existing = await tx
@@ -192,13 +281,19 @@ async function replaceProductVariants(
         id: productVariants.id,
         color_id: productVariants.colorId,
         size_id: productVariants.sizeId,
+        sku: productVariants.sku,
+        barcode: productVariants.barcode,
       })
       .from(productVariants)
       .where(eq(productVariants.productId, productId));
 
-    const existingByKey = new Map<string, string>();
+    const existingByKey = new Map<string, { id: string; sku: string | null; barcode: string | null }>();
     for (const row of existing) {
-      existingByKey.set(makeVariantKey(row.color_id, row.size_id), row.id);
+      existingByKey.set(makeVariantKey(row.color_id, row.size_id), {
+        id: row.id,
+        sku: row.sku,
+        barcode: row.barcode,
+      });
     }
 
     const idsToDelete = existing
@@ -211,6 +306,32 @@ async function replaceProductVariants(
       await tx
         .delete(productVariants)
         .where(inArray(productVariants.id, idsToDelete));
+    }
+
+    // Update existing variants with new SKU/barcode data if provided
+    if (variantDataMap.size > 0) {
+      for (const variant of desired) {
+        const key = makeVariantKey(variant.colorId, variant.sizeId);
+        const existingVariant = existingByKey.get(key);
+        const metadata = variantDataMap.get(key);
+
+        if (existingVariant && metadata) {
+          // Update SKU/barcode if they differ from current values
+          const needsUpdate =
+            existingVariant.sku !== metadata.sku ||
+            existingVariant.barcode !== metadata.barcode;
+
+          if (needsUpdate) {
+            await tx
+              .update(productVariants)
+              .set({
+                sku: metadata.sku ?? null,
+                barcode: metadata.barcode ?? null,
+              })
+              .where(eq(productVariants.id, existingVariant.id));
+          }
+        }
+      }
     }
 
     // Only insert NEW variants (ones that don't already exist)
@@ -253,12 +374,18 @@ async function replaceProductVariants(
         },
       });
 
-      const toInsert = variantsToInsert.map((variant, index) => ({
-        productId,
-        colorId: variant.colorId,
-        sizeId: variant.sizeId,
-        upid: upids[index],
-      }));
+      const toInsert = variantsToInsert.map((variant, index) => {
+        const key = makeVariantKey(variant.colorId, variant.sizeId);
+        const metadata = variantDataMap.get(key);
+        return {
+          productId,
+          colorId: variant.colorId,
+          sizeId: variant.sizeId,
+          upid: upids[index],
+          sku: metadata?.sku ?? null,
+          barcode: metadata?.barcode ?? null,
+        };
+      });
 
       await tx.insert(productVariants).values(toInsert);
     }

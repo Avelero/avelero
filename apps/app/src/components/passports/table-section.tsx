@@ -41,13 +41,18 @@ export function TableSection() {
     excludeIds: [],
   });
   const [hasAnyPassports, setHasAnyPassports] = useState(false);
+  const [visibleProductIds, setVisibleProductIds] = useState<string[]>([]);
   
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteProductIds, setDeleteProductIds] = useState<string[]>([]);
-  
-  // Track visible product IDs for bulk operations in "all" mode
-  const [visibleProductIds, setVisibleProductIds] = useState<string[]>([]);
+  // Selection state used specifically for the delete modal (can be the main selection or a single product)
+  const [deleteSelection, setDeleteSelection] = useState<SelectionState>({
+    mode: "explicit",
+    includeIds: [],
+    excludeIds: [],
+  });
+  // Count for delete modal (resolved from selection or passed directly for single delete)
+  const [deleteCount, setDeleteCount] = useState(0);
   
   // Status update mutation
   const trpc = useTRPC();
@@ -235,33 +240,31 @@ export function TableSection() {
 
   // Handle delete from row action (single product)
   const handleDeleteProduct = useCallback((productId: string) => {
-    setDeleteProductIds([productId]);
+    // Create a temporary explicit selection with just this product
+    setDeleteSelection({
+      mode: "explicit",
+      includeIds: [productId],
+      excludeIds: [],
+    });
+    setDeleteCount(1);
     setDeleteModalOpen(true);
   }, []);
 
-  // Helper to resolve selected product IDs based on selection mode
-  const getSelectedProductIds = useCallback((): string[] => {
-    if (selection.mode === "explicit") {
-      return selection.includeIds;
-    }
-    // "all" mode: use visible products minus any excludes
-    const excludeSet = new Set(selection.excludeIds);
-    return visibleProductIds.filter(id => !excludeSet.has(id));
-  }, [selection, visibleProductIds]);
-
   // Handle bulk delete from Actions button
   const handleDeleteSelected = useCallback(() => {
-    const productIds = getSelectedProductIds();
-    if (productIds.length > 0) {
-      setDeleteProductIds(productIds);
+    if (selectedCount > 0) {
+      // Pass the current selection state directly to the modal
+      setDeleteSelection(selection);
+      setDeleteCount(selectedCount);
       setDeleteModalOpen(true);
     }
-  }, [getSelectedProductIds]);
+  }, [selection, selectedCount]);
 
   // Clear selection after successful delete
   const handleDeleteSuccess = useCallback(() => {
     setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
-    setDeleteProductIds([]);
+    setDeleteSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+    setDeleteCount(0);
   }, []);
 
   // Handle status change from row action (single product)
@@ -280,34 +283,44 @@ export function TableSection() {
   }, [updateStatusMutation]);
 
   // Handle bulk status change from Actions menu
+  // Uses the unified update endpoint which supports both single and bulk operations
   const handleBulkStatusChange = useCallback((status: string) => {
-    const productIds = getSelectedProductIds();
-    if (productIds.length === 0) {
+    if (selectedCount === 0) {
       toast.error("No products selected");
       return;
     }
-    
-    let successCount = 0;
-    let errorCount = 0;
-    
-    // Update each product's status
-    Promise.all(
-      productIds.map((id) =>
-        updateStatusMutation.mutateAsync({ id, status }).then(
-          () => { successCount++; },
-          () => { errorCount++; }
-        )
-      )
-    ).then(() => {
-      if (errorCount === 0) {
-        toast.success(`Updated ${successCount} ${successCount === 1 ? "product" : "products"} to ${status}`);
-      } else {
-        toast.error(`Updated ${successCount}, failed ${errorCount}`);
-      }
-      // Clear selection after bulk update
-      setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+
+    // Build the update payload based on selection mode
+    const updatePayload = selection.mode === "all"
+      ? {
+          selection: {
+            mode: "all" as const,
+            filters: filterState.groups.length > 0 ? filterState : undefined,
+            search: deferredSearch?.trim() || undefined,
+            excludeIds: selection.excludeIds.length > 0 ? selection.excludeIds : undefined,
+          },
+          status,
+        }
+      : {
+          selection: {
+            mode: "explicit" as const,
+            ids: selection.includeIds,
+          },
+          status,
+        };
+
+    updateStatusMutation.mutate(updatePayload, {
+      onSuccess: (result) => {
+        const updated = 'updated' in result ? result.updated : 1;
+        toast.success(`Updated ${updated} ${updated === 1 ? "product" : "products"} to ${status}`);
+        // Clear selection after bulk update
+        setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to update products");
+      },
     });
-  }, [getSelectedProductIds, updateStatusMutation]);
+  }, [selection, selectedCount, filterState, deferredSearch, updateStatusMutation]);
 
   // Map UI field names to API field names
   const mapSortField = useCallback((uiField: string): SortField => {
@@ -399,7 +412,10 @@ export function TableSection() {
       <DeleteProductsModal
         open={deleteModalOpen}
         onOpenChange={setDeleteModalOpen}
-        productIds={deleteProductIds}
+        selection={deleteSelection}
+        filterState={filterState}
+        search={deferredSearch}
+        totalCount={deleteCount}
         onSuccess={handleDeleteSuccess}
       />
     </div>

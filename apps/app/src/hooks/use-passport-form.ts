@@ -16,6 +16,13 @@ import * as React from "react";
 
 export type PendingColorSelection = { name: string; hex: string };
 
+export interface VariantData {
+  colorId: string | null;
+  sizeId: string | null;
+  sku: string;
+  barcode: string;
+}
+
 export interface PassportFormValues {
   // Basic info
   name: string;
@@ -34,6 +41,7 @@ export interface PassportFormValues {
   colorIds: string[];
   pendingColors: PendingColorSelection[];
   selectedSizes: SizeOption[];
+  variantData: VariantData[];
 
   // Materials
   materialData: Array<{ materialId: string; percentage: number }>;
@@ -64,7 +72,7 @@ interface UsePassportFormOptions {
   /** Product handle (URL-friendly identifier) for edit mode */
   productHandle?: string;
   sizeOptions?: SizeOption[];
-  colors?: Array<{ id: string; name: string; hex: string }>;
+  colors?: Array<{ id: string; name: string; hex: string | null }>;
 }
 
 const initialFormValues: PassportFormValues = {
@@ -80,6 +88,7 @@ const initialFormValues: PassportFormValues = {
   colorIds: [],
   pendingColors: [],
   selectedSizes: [],
+  variantData: [],
   materialData: [],
   ecoClaims: [],
   journeySteps: [],
@@ -258,7 +267,16 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     productHandle?: string;
   }>({});
   const hasHydratedRef = React.useRef(false);
+  const lastHydratedHandleRef = React.useRef<string | null>(null);
   const initialVariantSignatureRef = React.useRef<string | null>(null);
+
+  // Reset hydration state when product handle changes (e.g., navigating from create to edit)
+  React.useEffect(() => {
+    if (productHandle !== lastHydratedHandleRef.current) {
+      hasHydratedRef.current = false;
+      lastHydratedHandleRef.current = productHandle;
+    }
+  }, [productHandle]);
 
   const createProductMutation = useMutation(
     trpc.products.create.mutationOptions(),
@@ -347,6 +365,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       selectedSizes: values.selectedSizes.map(
         (size) => size.id ?? `custom:${size.name}`,
       ),
+      variantData: (Array.isArray(values.variantData) ? values.variantData : []).map((variant) => ({
+        colorId: variant.colorId,
+        sizeId: variant.sizeId,
+        sku: variant.sku,
+        barcode: variant.barcode,
+      })),
       materialData: values.materialData.map((material) => ({
         materialId: material.materialId,
         percentage: material.percentage,
@@ -375,6 +399,21 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           .sort()
           .join("|");
       return `${normalize(colorIds)}::${normalize(sizeIds)}`;
+    },
+    [],
+  );
+
+  // Helper to build variant_data array for API from form variantData
+  const buildVariantDataForAPI = React.useCallback(
+    (variantData: VariantData[]) => {
+      return variantData
+        .filter((v) => v.sku.trim() || v.barcode.trim()) // Only include variants with at least one identifier
+        .map((v) => ({
+          color_id: v.colorId || null,
+          size_id: v.sizeId || null,
+          sku: v.sku.trim() || undefined,
+          barcode: v.barcode.trim() || undefined,
+        }));
     },
     [],
   );
@@ -419,6 +458,14 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       return;
     }
     const selectedSizes = mapSizeIdsToOptions(sizeIds);
+
+    // Extract variant data (SKU and barcode) from loaded variants
+    const variantData: VariantData[] = variants.map((v: any) => ({
+      colorId: v.color_id ?? v.colorId ?? null,
+      sizeId: v.size_id ?? v.sizeId ?? null,
+      sku: v.sku ?? "",
+      barcode: v.barcode ?? "",
+    }));
 
     const attributes = payload.attributes ?? {};
     const materials =
@@ -468,6 +515,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       colorIds,
       pendingColors: [],
       selectedSizes,
+      variantData,
       materialData: materials,
       ecoClaims,
       journeySteps,
@@ -561,7 +609,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }> = [];
     const colorByName = new Map<
       string,
-      { id?: string; name: string; hex: string }
+      { id?: string; name: string; hex: string | null }
     >();
 
     for (const color of brandColors) {
@@ -685,7 +733,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       // Create new size
       const result = await createBrandSizeMutation.mutateAsync({
         name: size.name,
-        sort_index: size.sortIndex,
       });
 
       if (result?.data?.id) {
@@ -938,11 +985,24 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           });
 
           if (variantsChanged) {
+            const variantDataForAPI = buildVariantDataForAPI(formValues.variantData);
             await upsertVariantsMutation.mutateAsync({
               product_id: metadataRef.current.productId,
               color_ids: colorIds,
               size_ids: sizeIds,
+              variant_data: variantDataForAPI.length > 0 ? variantDataForAPI : undefined,
             });
+          } else {
+            // Even if variants didn't change, we might have updated SKU/barcode
+            const variantDataForAPI = buildVariantDataForAPI(formValues.variantData);
+            if (variantDataForAPI.length > 0) {
+              await upsertVariantsMutation.mutateAsync({
+                product_id: metadataRef.current.productId,
+                color_ids: colorIds,
+                size_ids: sizeIds,
+                variant_data: variantDataForAPI,
+              });
+            }
           }
 
           const nextValues: Partial<PassportFormValues> = {
@@ -959,6 +1019,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             colorIds: colorIds ?? [],
             pendingColors: [],
             selectedSizes: formValues.selectedSizes,
+            variantData: formValues.variantData,
             materialData: formValues.materialData,
             ecoClaims: formValues.ecoClaims,
             journeySteps: formValues.journeySteps,
@@ -1014,10 +1075,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const shouldUpsertVariants =
           (colorIds?.length ?? 0) > 0 || sizeIds.length > 0;
         if (shouldUpsertVariants) {
+          const variantDataForAPI = buildVariantDataForAPI(formValues.variantData);
           await upsertVariantsMutation.mutateAsync({
             product_id: productId,
             color_ids: colorIds,
             size_ids: sizeIds,
+            variant_data: variantDataForAPI.length > 0 ? variantDataForAPI : undefined,
           });
         }
 
@@ -1034,6 +1097,11 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           queryClient.invalidateQueries({
             queryKey: trpc.products.get.queryKey({ id: productId }),
           }),
+          // Also invalidate by handle for the edit page redirect
+          targetProductHandle &&
+            queryClient.invalidateQueries({
+              queryKey: trpc.products.get.queryKey({ handle: targetProductHandle }),
+            }),
           queryClient.invalidateQueries({
             queryKey: trpc.summary.productStatus.queryKey(),
           }),
@@ -1077,6 +1145,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       createProductMutation,
       updateProductMutation,
       upsertVariantsMutation,
+      buildVariantDataForAPI,
     ],
   );
 

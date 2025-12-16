@@ -225,12 +225,12 @@ export const shopifySchema: ConnectorSchema = {
     /**
      * Size
      * Extracted from variant selectedOptions array.
-     * Now includes shopifyIndex from product.options[].optionValues[] array position.
+     * Ordering is handled at product level via sizeOrder array.
      */
     "variant.sizeId": {
       targetField: "variant.sizeId",
       entity: "variant",
-      description: "Size extracted from Shopify variant options (includes order from optionValues)",
+      description: "Size extracted from Shopify variant options",
       referenceEntity: "size",
       sourceOptions: [
         {

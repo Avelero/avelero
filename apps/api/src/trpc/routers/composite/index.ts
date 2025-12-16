@@ -1,17 +1,18 @@
 import type { Database } from "@v1/db/client";
 import {
   type BrandMembershipListItem,
-  type UserInviteSummaryRow,
-  and,
-  asc,
-  desc,
-  eq,
   getBrandsByUserId,
   getOwnerCountsByBrandIds,
-  getUserById,
-  inArray,
   listPendingInvitesForEmail,
+  type UserInviteSummaryRow,
+} from "@v1/db/queries/brand";
+import {
+  getUserById,
+} from "@v1/db/queries/user";
+import {
   listCategories,
+} from "@v1/db/queries/taxonomy";
+import {
   listColors,
   listSizes,
   listMaterials,
@@ -21,7 +22,8 @@ import {
   listCertifications,
   listBrandTags,
   listSeasonsForBrand,
-} from "@v1/db/queries";
+} from "@v1/db/queries/catalog";
+import { and, asc, desc, eq, inArray } from "@v1/db/queries";
 import { brandInvites, brandMembers, users } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
 /**

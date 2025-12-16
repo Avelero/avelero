@@ -1,7 +1,6 @@
 "use client";
 
 import { useBrandCatalog, type SizeOption } from "@/hooks/use-brand-catalog";
-import { sizeGroups } from "@v1/selections";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
@@ -77,19 +76,20 @@ export function SizeSelect({
   const [searchTerm, setSearchTerm] = React.useState("");
 
   // Merge sizeOptions with selected custom sizes (those without IDs that aren't in sizeOptions)
-  // Use sortIndex as unique key since same name can exist in different groups
+  // Use name as unique key (case-insensitive)
   const allAvailableSizes = React.useMemo(() => {
-    const sizeMap = new Map<number, SizeOption>();
+    const sizeMap = new Map<string, SizeOption>();
     
     // Add all sizes from catalog
     for (const size of sizeOptions) {
-      sizeMap.set(size.sortIndex, size);
+      sizeMap.set(size.name.toLowerCase(), size);
     }
     
     // Add selected custom sizes that aren't in catalog yet
     for (const size of value) {
-      if (!sizeMap.has(size.sortIndex)) {
-        sizeMap.set(size.sortIndex, size);
+      const key = size.name.toLowerCase();
+      if (!sizeMap.has(key)) {
+        sizeMap.set(key, size);
       }
     }
     
@@ -103,29 +103,16 @@ export function SizeSelect({
     return allAvailableSizes.filter((s) => s.name.toLowerCase().includes(lower));
   }, [allAvailableSizes, searchTerm]);
 
-  // Group filtered sizes for display
-  const groupedSizes = React.useMemo(() => {
-    const groups: Record<string, SizeOption[]> = {};
-
-    // First pass: assign sizes to their known groups
-    for (const size of filteredSizes) {
-      let groupName = "Custom"; // Default to Custom for sizes not in standard groups
-
-      // Find which group this size belongs to using sortIndex (unique identifier)
-      // This correctly handles sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
-      for (const [name, sizes] of Object.entries(sizeGroups)) {
-        if (sizes.some((s) => s.sortIndex === size.sortIndex)) {
-          groupName = name;
-          break;
-        }
-      }
-
-      if (!groups[groupName]) groups[groupName] = [];
-      groups[groupName]!.push(size);
-    }
-
-    return groups;
+  // Group filtered sizes into Default vs Custom
+  const { defaultSizes, customSizes } = React.useMemo(() => {
+    return {
+      defaultSizes: filteredSizes.filter((s) => s.isDefault),
+      customSizes: filteredSizes.filter((s) => !s.isDefault),
+    };
   }, [filteredSizes]);
+
+  // Only show group headers if custom sizes exist
+  const showGroupHeaders = customSizes.length > 0;
 
   /**
    * Toggle size selection - NO API calls here!
@@ -135,14 +122,19 @@ export function SizeSelect({
    * - Default sizes (without id) are stored in local state only; they will be created
    *   when the product is saved, NOT when selected
    *
-   * Uses sortIndex for comparison since same name can exist in different groups
-   * (e.g., "8" in US Numeric vs "8" in US Shoe)
+   * Uses name for comparison (case-insensitive)
    */
   const handleToggleSize = (size: SizeOption) => {
-    const isSelected = value.some((s) => s.sortIndex === size.sortIndex);
+    const isSelected = value.some(
+      (s) => s.name.toLowerCase() === size.name.toLowerCase()
+    );
 
     if (isSelected) {
-      onValueChange(value.filter((s) => s.sortIndex !== size.sortIndex));
+      onValueChange(
+        value.filter(
+          (s) => s.name.toLowerCase() !== size.name.toLowerCase()
+        )
+      );
     } else if (value.length < 12) {
       onValueChange([...value, size]);
       setSearchTerm("");
@@ -150,7 +142,9 @@ export function SizeSelect({
   };
 
   const handleRemoveSize = (size: SizeOption) => {
-    onValueChange(value.filter((s) => s.sortIndex !== size.sortIndex));
+    onValueChange(
+      value.filter((s) => s.name.toLowerCase() !== size.name.toLowerCase())
+    );
   };
 
   // Show "create" option if search doesn't match any existing size
@@ -190,18 +184,6 @@ export function SizeSelect({
       return () => clearTimeout(timer);
     }
   }, [open]);
-
-  // Define group order for consistent display (Custom first)
-  const groupOrder = [
-    "Custom",
-    "Letter",
-    "US Numeric",
-    "Waist",
-    "US Shoe",
-    "EU Shoe",
-    "UK Shoe",
-    "One Size",
-  ];
 
   return (
     <div className="space-y-1.5">
@@ -250,34 +232,47 @@ export function SizeSelect({
               onValueChange={setSearchTerm}
             />
             <CommandList className="max-h-64">
-              {groupOrder.map((groupName) => {
-                const sizes = groupedSizes[groupName];
-                if (!sizes || sizes.length === 0) return null;
+              {/* Default sizes */}
+              <CommandGroup heading={showGroupHeaders ? "Sizes" : undefined}>
+                {defaultSizes.map((size) => {
+                  const isSelected = value.some(
+                    (s) => s.name.toLowerCase() === size.name.toLowerCase()
+                  );
+                  return (
+                    <CommandItem
+                      key={size.name}
+                      value={size.name}
+                      onSelect={() => handleToggleSize(size)}
+                      className="justify-between"
+                    >
+                      <span className="type-p text-primary">{size.name}</span>
+                      {isSelected && <Icons.Check className="h-4 w-4" />}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
 
-                return (
-                  <CommandGroup key={groupName} heading={groupName}>
-                    {sizes.map((size) => {
-                      // Use sortIndex for comparison since same name can exist in different groups
-                      const isSelected = value.some(
-                        (s) => s.sortIndex === size.sortIndex,
-                      );
-                      return (
-                        <CommandItem
-                          key={size.name}
-                          value={size.name}
-                          onSelect={() => handleToggleSize(size)}
-                          className="justify-between"
-                        >
-                          <span className="type-p text-primary">
-                            {size.name}
-                          </span>
-                          {isSelected && <Icons.Check className="h-4 w-4" />}
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                );
-              })}
+              {/* Custom sizes (only if any exist) */}
+              {customSizes.length > 0 && (
+                <CommandGroup heading="Custom">
+                  {customSizes.map((size) => {
+                    const isSelected = value.some(
+                      (s) => s.name.toLowerCase() === size.name.toLowerCase()
+                    );
+                    return (
+                      <CommandItem
+                        key={size.name}
+                        value={size.name}
+                        onSelect={() => handleToggleSize(size)}
+                        className="justify-between"
+                      >
+                        <span className="type-p text-primary">{size.name}</span>
+                        {isSelected && <Icons.Check className="h-4 w-4" />}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              )}
               {showCreateOption && onCreateNew && (
                 <CommandGroup>
                   <CommandItem onSelect={handleCreateClick}>

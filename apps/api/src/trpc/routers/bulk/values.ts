@@ -9,20 +9,21 @@ import { serviceDb } from "@v1/db/client";
  */
 import { categories } from "@v1/db/schema";
 import {
-  and,
-  eq,
-  isNull,
   createValueMapping,
   getImportJobStatus,
   getUnmappedValuesForJob,
   getValueMapping,
   updateImportJobProgress,
   updateValueMapping,
+} from "@v1/db/queries/bulk";
+import {
   validateAndCreateEntity,
   createSeason,
   createBrandTag,
-} from "@v1/db/queries";
-import type { SQL, ValueMappingTarget } from "@v1/db/queries";
+} from "@v1/db/queries/catalog";
+import { and, eq, isNull, sql } from "@v1/db/queries";
+import type { SQL } from "@v1/db/queries";
+import type { ValueMappingTarget } from "@v1/db/queries/bulk";
 import { z } from "zod";
 import {
   batchDefineValuesSchema,

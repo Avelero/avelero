@@ -1,7 +1,7 @@
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { allColors } from "@v1/selections/colors";
-import { allDefaultSizes, type DefaultSize } from "@v1/selections";
+import { allDefaultSizes, isDefaultSize, type DefaultSize } from "@v1/selections";
 import * as React from "react";
 
 export interface CategoryNode {
@@ -17,13 +17,13 @@ export interface BrandTagOption {
 }
 
 /**
- * SizeOption - flat size representation (no category coupling)
+ * SizeOption - flat size representation
  */
 export interface SizeOption {
   id?: string; // DB ID (undefined = not yet in brand's DB)
   name: string; // Display name (e.g., "XL", "42", "XII")
-  sortIndex: number; // For ordering - UNIQUE identifier, differentiates sizes with same name in different groups
-  group?: string; // Size group (e.g., "Letter", "US Numeric", "US Shoe") for UI grouping
+  displayHint: number; // For ordering in popover (from default sizes or 1000+ for custom)
+  isDefault: boolean; // Whether this is a default size or custom
 }
 
 /**
@@ -114,7 +114,7 @@ export function useBrandCatalog() {
     // id is undefined for default colors (not yet in brand's DB), or a real UUID for brand colors
     const colorMap = new Map<
       string,
-      { id: string | undefined; name: string; hex: string }
+      { id: string | undefined; name: string; hex: string | null }
     >();
 
     // Add API colors first (these have real IDs from DB)
@@ -122,12 +122,13 @@ export function useBrandCatalog() {
       const defaultColor = defaultColors.find(
         (c) => c.name.toLowerCase() === color.name.toLowerCase(),
       );
+      // Priority: API hex > default color hex > null (not grey!)
       const normalizedHex =
-        normalizeHex(color.hex) ?? defaultColor?.hex ?? "000000";
+        normalizeHex(color.hex) ?? normalizeHex(defaultColor?.hex) ?? null;
       colorMap.set(color.name.toLowerCase(), {
         id: color.id,
         name: color.name,
-        hex: normalizedHex.toUpperCase(),
+        hex: normalizedHex,
       });
     }
 
@@ -140,7 +141,7 @@ export function useBrandCatalog() {
         colorMap.set(key, {
           id: undefined, // Undefined = default color not yet in brand's DB
           name: color.name,
-          hex: normalizeHex(color.hex) ?? "000000",
+          hex: normalizeHex(color.hex) ?? null, // null if no hex, not grey
         });
       }
     }
@@ -161,45 +162,47 @@ export function useBrandCatalog() {
   }, [data?.categories]);
 
   // Flat size options: merge brand's existing sizes with default sizes
+  // Match by NAME (not sortIndex) - brand sizes replace defaults with same name
   const sizeOptions = React.useMemo<SizeOption[]>(() => {
     const apiSizes = data?.brandCatalog.sizes ?? [];
-    // Use sortIndex as unique key since same name can exist in different groups
-    // (e.g., "8" in US Numeric vs "8" in US Shoe)
-    const sizeMap = new Map<number, SizeOption>();
-
-    // Helper to find the group for a given sortIndex
-    const findGroupForSortIndex = (sortIndex: number): string | undefined => {
-      const defaultSize = allDefaultSizes.find(s => s.sortIndex === sortIndex);
-      return defaultSize?.group;
-    };
-
-    // Add brand's existing sizes first (have real DB IDs)
-    for (const size of apiSizes) {
-      const sortIndex = size.sort_index ?? 0;
-      sizeMap.set(sortIndex, {
-        id: size.id,
-        name: size.name,
-        sortIndex,
-        group: findGroupForSortIndex(sortIndex),
+    
+    // Map brand sizes by lowercase name for matching
+    const brandSizesByName = new Map(
+      apiSizes.map(s => [s.name.toLowerCase(), { id: s.id, name: s.name }])
+    );
+    
+    // Build merged list: defaults first, then custom
+    const result: SizeOption[] = [];
+    
+    // Add defaults (replaced by brand size if name matches)
+    for (const defaultSize of allDefaultSizes) {
+      const brandMatch = brandSizesByName.get(defaultSize.name.toLowerCase());
+      result.push({
+        id: brandMatch?.id, // undefined if not in brand DB
+        name: brandMatch?.name ?? defaultSize.name,
+        displayHint: defaultSize.displayHint,
+        isDefault: true,
       });
-    }
-
-    // Add default sizes that aren't already in brand's catalog
-    for (const size of allDefaultSizes) {
-      if (!sizeMap.has(size.sortIndex)) {
-        sizeMap.set(size.sortIndex, {
-          id: undefined, // Not in DB yet
-          name: size.name,
-          sortIndex: size.sortIndex,
-          group: size.group,
-        });
+      // Remove from map so we know it's been matched
+      if (brandMatch) {
+        brandSizesByName.delete(defaultSize.name.toLowerCase());
       }
     }
-
-    // Sort by sortIndex, then by name
-    return Array.from(sizeMap.values()).sort((a, b) => {
-      if (a.sortIndex !== b.sortIndex) {
-        return a.sortIndex - b.sortIndex;
+    
+    // Add remaining brand sizes as custom (didn't match any default)
+    for (const [, brandSize] of brandSizesByName) {
+      result.push({
+        id: brandSize.id,
+        name: brandSize.name,
+        displayHint: 1000, // Custom sizes sort after defaults
+        isDefault: false,
+      });
+    }
+    
+    // Sort by displayHint, then by name
+    return result.sort((a, b) => {
+      if (a.displayHint !== b.displayHint) {
+        return a.displayHint - b.displayHint;
       }
       return a.name.localeCompare(b.name, undefined, { numeric: true });
     });

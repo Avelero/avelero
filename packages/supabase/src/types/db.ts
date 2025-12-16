@@ -513,7 +513,6 @@ export type Database = {
           created_at: string;
           id: string;
           name: string;
-          sort_index: number | null;
           updated_at: string;
         };
         Insert: {
@@ -521,7 +520,6 @@ export type Database = {
           created_at?: string;
           id?: string;
           name: string;
-          sort_index?: number | null;
           updated_at?: string;
         };
         Update: {
@@ -529,7 +527,6 @@ export type Database = {
           created_at?: string;
           id?: string;
           name?: string;
-          sort_index?: number | null;
           updated_at?: string;
         };
         Relationships: [
@@ -1773,6 +1770,7 @@ export type Database = {
         Row: {
           brand_id: string;
           category_id: string | null;
+          color_order: string[] | null;
           created_at: string;
           currency: string | null;
           description: string | null;
@@ -1784,9 +1782,9 @@ export type Database = {
           product_handle: string;
           sales_status: string | null;
           season_id: string | null;
+          size_order: string[] | null;
           status: string;
           updated_at: string;
-          upid: string | null;
           webshop_url: string | null;
           weight: number | null;
           weight_unit: string | null;
@@ -1794,6 +1792,7 @@ export type Database = {
         Insert: {
           brand_id: string;
           category_id?: string | null;
+          color_order?: string[] | null;
           created_at?: string;
           currency?: string | null;
           description?: string | null;
@@ -1805,9 +1804,9 @@ export type Database = {
           product_handle: string;
           sales_status?: string | null;
           season_id?: string | null;
+          size_order?: string[] | null;
           status?: string;
           updated_at?: string;
-          upid?: string | null;
           webshop_url?: string | null;
           weight?: number | null;
           weight_unit?: string | null;
@@ -1815,6 +1814,7 @@ export type Database = {
         Update: {
           brand_id?: string;
           category_id?: string | null;
+          color_order?: string[] | null;
           created_at?: string;
           currency?: string | null;
           description?: string | null;
@@ -1826,9 +1826,9 @@ export type Database = {
           product_handle?: string;
           sales_status?: string | null;
           season_id?: string | null;
+          size_order?: string[] | null;
           status?: string;
           updated_at?: string;
-          upid?: string | null;
           webshop_url?: string | null;
           weight?: number | null;
           weight_unit?: string | null;

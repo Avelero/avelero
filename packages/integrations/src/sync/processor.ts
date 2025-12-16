@@ -10,8 +10,10 @@ import {
   createVariantLink,
   findVariantLink,
   updateVariantLink,
+} from "@v1/db/queries/integrations";
+import {
   setProductTags,
-} from "@v1/db/queries";
+} from "@v1/db/queries/products";
 import { productVariants, products } from "@v1/db/schema";
 import type { EffectiveFieldMapping } from "./extractor";
 import { extractValues, computeHash } from "./extractor";
@@ -21,10 +23,17 @@ import {
   findOrCreateTag,
   findOrCreateProduct,
   findVariantByIdentifiers,
+  findVariantByIdentifiersInBrand,
   generateVariantUpid,
   processImageUrl,
 } from "./matcher";
 import type { FetchedVariant, SyncContext } from "./types";
+import type { ShopifyProductOption } from "../connectors/shopify/types";
+import {
+  extractProductColorOrder,
+  extractProductSizeOrder,
+  getColorHexFromProductOptions,
+} from "../connectors/shopify/mappings";
 
 // =============================================================================
 // TYPES
@@ -133,7 +142,6 @@ export async function processVariant(
 
     if (extracted.referenceEntities.sizeName) {
       const sizeName = extracted.referenceEntities.sizeName;
-      const sizeShopifyIndex = extracted.referenceEntities.sizeShopifyIndex;
       
       // Check cache first
       const cachedSize = caches.sizes.get(sizeName);
@@ -141,8 +149,7 @@ export async function processVariant(
         sizeId = cachedSize.id;
       } else {
         // Not in cache, fetch from DB
-        // Pass Shopify index if available (preserves merchant's order)
-        const size = await findOrCreateSize(db, ctx.brandId, sizeName, sizeShopifyIndex);
+        const size = await findOrCreateSize(db, ctx.brandId, sizeName);
         caches.sizes.set(sizeName, size);
         sizeId = size.id;
         // Only count as created if it was actually created (first time we see this size)
@@ -157,10 +164,75 @@ export async function processVariant(
     // Get category UUID from reference entities (resolved from Shopify taxonomy)
     const categoryId = extracted.referenceEntities.categoryId ?? null;
 
+    // Extract product-level option ordering (for sizeOrder/colorOrder arrays)
+    // Access product.options from the variant data structure
+    const variantData = externalVariant.data as {
+      product?: { options?: ShopifyProductOption[] | null };
+    };
+    const productOptions = variantData.product?.options ?? null;
+
+    // Build sizeOrder array: convert size names to IDs (maintains Shopify's order)
+    const sizeOrderNames = extractProductSizeOrder(productOptions);
+    const sizeOrder: string[] = [];
+    for (const sizeName of sizeOrderNames) {
+      // Ensure size exists in cache (may have been created above)
+      let size = caches.sizes.get(sizeName);
+      if (!size) {
+        size = await findOrCreateSize(db, ctx.brandId, sizeName);
+        caches.sizes.set(sizeName, size);
+        if (size.created) entitiesCreated++;
+      }
+      sizeOrder.push(size.id);
+    }
+
+    // Build colorOrder array: convert color names to IDs (maintains Shopify's order)
+    const colorOrderNames = extractProductColorOrder(productOptions);
+    const colorOrder: string[] = [];
+    for (const colorName of colorOrderNames) {
+      // Ensure color exists in cache (may have been created above)
+      let color = caches.colors.get(colorName);
+      if (!color) {
+        // Get hex from product options for this color (null if no swatch)
+        const colorHex = getColorHexFromProductOptions(productOptions, colorName);
+        color = await findOrCreateColor(db, ctx.brandId, colorName, colorHex);
+        caches.colors.set(colorName, color);
+        if (color.created) entitiesCreated++;
+      }
+      colorOrder.push(color.id);
+    }
+
     // Check product cache first (keyed by external product ID)
     let product = caches.products.get(externalVariant.externalProductId);
+    
+    // CRITICAL FIX: Before creating a new product, search for existing variants
+    // across the entire brand by SKU/barcode. This prevents duplicate products
+    // when importing products that already exist with matching identifiers.
+    let existingVariantMatch: { variantId: string; productId: string; productHandle: string } | null = null;
+    
+    if (!product && !existingLink) {
+      // Only search if we don't already have a product cached AND no existing link
+      existingVariantMatch = await findVariantByIdentifiersInBrand(db, ctx.brandId, {
+        sku: extracted.variant.sku as string | undefined,
+        ean: extracted.variant.ean as string | undefined,
+        gtin: extracted.variant.gtin as string | undefined,
+        barcode: extracted.variant.barcode as string | undefined,
+      });
+      
+      if (existingVariantMatch) {
+        // Found an existing variant with matching identifiers!
+        // Use its parent product instead of creating a new one.
+        product = {
+          id: existingVariantMatch.productId,
+          productHandle: existingVariantMatch.productHandle,
+          created: false,
+        };
+        // Cache this product for future variants from the same external product
+        caches.products.set(externalVariant.externalProductId, product);
+      }
+    }
+    
     if (!product) {
-      // Not in cache, fetch/create from DB
+      // Not in cache and no existing variant match, fetch/create from DB
       product = await findOrCreateProduct(
         db,
         ctx.storageClient,
@@ -169,7 +241,9 @@ export async function processVariant(
         extracted.product,
         externalVariant.externalProductId,
         ctx.brandIntegrationId,
-        categoryId
+        categoryId,
+        sizeOrder,
+        colorOrder
       );
       caches.products.set(externalVariant.externalProductId, product);
     }
@@ -211,6 +285,14 @@ export async function processVariant(
       // Update category if we have a mapping
       if (categoryId !== null) {
         updateData.categoryId = categoryId;
+      }
+      // Update sizeOrder/colorOrder if we have product options and arrays are not empty
+      // Only update if arrays are non-empty (preserves user's manual ordering if set)
+      if (sizeOrder.length > 0) {
+        updateData.sizeOrder = sizeOrder;
+      }
+      if (colorOrder.length > 0) {
+        updateData.colorOrder = colorOrder;
       }
 
       if (Object.keys(updateData).length > 0) {
@@ -254,13 +336,20 @@ export async function processVariant(
         lastSyncedHash: hash,
       });
     } else {
-      // Try to find existing variant by identifiers
-      const existingVariant = await findVariantByIdentifiers(db, product.id, {
-        sku: extracted.variant.sku as string | undefined,
-        ean: extracted.variant.ean as string | undefined,
-        gtin: extracted.variant.gtin as string | undefined,
-        barcode: extracted.variant.barcode as string | undefined,
-      });
+      // Check if we already found an existing variant via brand-wide search
+      let existingVariant: { id: string } | null = existingVariantMatch 
+        ? { id: existingVariantMatch.variantId } 
+        : null;
+      
+      // If not found via brand-wide search, try to find within the product
+      if (!existingVariant) {
+        existingVariant = await findVariantByIdentifiers(db, product.id, {
+          sku: extracted.variant.sku as string | undefined,
+          ean: extracted.variant.ean as string | undefined,
+          gtin: extracted.variant.gtin as string | undefined,
+          barcode: extracted.variant.barcode as string | undefined,
+        });
+      }
 
       if (existingVariant) {
         // Update existing variant found by identifiers

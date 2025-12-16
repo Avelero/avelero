@@ -46,6 +46,8 @@ export const products = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
+    sizeOrder: uuid("size_order").array().default(sql`'{}'::uuid[]`),
+    colorOrder: uuid("color_order").array().default(sql`'{}'::uuid[]`),
     status: text("status").notNull().default("unpublished"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()

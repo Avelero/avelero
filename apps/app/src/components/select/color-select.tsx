@@ -21,7 +21,7 @@ import * as React from "react";
 export interface ColorOption {
   id?: string;
   name: string;
-  hex: string; // Without the # prefix
+  hex: string | null; // Without the # prefix, null if no swatch available
 }
 
 const getColorKey = (color: ColorOption) =>
@@ -55,13 +55,15 @@ const ColorLabel = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex items-center justify-center h-[12px] w-[12px]">
-        <div
-          className="h-2.5     w-2.5 rounded-full border-[0.5px] border-border "
-          style={{ backgroundColor: `#${color.hex}` }}
-        />
-      </div>
-      <p className="type-small leading-none text-primary ml-1.5">
+      {color.hex && (
+        <div className="flex items-center justify-center h-[12px] w-[12px]">
+          <div
+            className="h-2.5 w-2.5 rounded-full border-[0.5px] border-border"
+            style={{ backgroundColor: `#${color.hex}` }}
+          />
+        </div>
+      )}
+      <p className={`type-small leading-none text-primary ${color.hex ? "ml-1.5" : ""}`}>
         {color.name}
       </p>
       {isHovered && !disabled && (

@@ -49,7 +49,7 @@ import {
   updateSeason,
   updateBrandManufacturer,
   updateSize,
-} from "@v1/db/queries";
+} from "@v1/db/queries/catalog";
 import {
   createBrandTagSchema,
   createCertificationSchema,

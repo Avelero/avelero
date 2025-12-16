@@ -636,10 +636,10 @@ function SizePopoverSelect({
     for (const size of filteredSizes) {
       let groupName = "Other";
 
-      // Find which group this size belongs to using sortIndex (unique identifier)
+      // Find which group this size belongs to using displayHint (unique identifier)
       // This correctly handles sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
       for (const [name, sizes] of Object.entries(sizeGroups)) {
-        if (sizes.some((s) => s.sortIndex === size.sortIndex)) {
+        if (sizes.some((s) => s.displayHint === size.displayHint)) {
           groupName = name;
           break;
         }

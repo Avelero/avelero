@@ -333,6 +333,8 @@ export function PassportForm({ mode, productHandle }: PassportFormProps) {
               setPendingColors={(value) => setField("pendingColors", value)}
               selectedSizes={state.selectedSizes}
               setSelectedSizes={handleSelectedSizesChange}
+              variantData={state.variantData}
+              updateVariantData={(updater) => updateField("variantData", updater)}
               colorsError={
                 state.hasAttemptedSubmit
                   ? state.validationErrors.colors

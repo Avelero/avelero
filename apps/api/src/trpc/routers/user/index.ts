@@ -14,18 +14,20 @@ import {
   acceptBrandInvite,
   createBrand,
   declineBrandInvite,
-  deleteUser,
   getBrandsByUserId,
   getOwnerCountsByBrandIds,
-  getUserById,
-  isEmailTaken,
   isSlugTaken,
   leaveBrand,
   listPendingInvitesForEmail,
   setActiveBrand,
+} from "@v1/db/queries/brand";
+import {
+  deleteUser,
+  getUserById,
+  isEmailTaken,
   updateUser,
-} from "@v1/db/queries";
-import type { UserInviteSummaryRow } from "@v1/db/queries";
+} from "@v1/db/queries/user";
+import type { UserInviteSummaryRow } from "@v1/db/queries/brand";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
 import {

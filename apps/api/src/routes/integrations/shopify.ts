@@ -15,13 +15,15 @@ import { Hono } from "hono";
 import { db } from "@v1/db/client";
 import {
   createBrandIntegration,
-  createOAuthState,
-  deleteOAuthState,
-  findOAuthState,
   getBrandIntegrationBySlug,
   getIntegrationBySlug,
   updateBrandIntegration,
-} from "@v1/db/queries";
+} from "@v1/db/queries/integrations";
+import {
+  createOAuthState,
+  deleteOAuthState,
+  findOAuthState,
+} from "@v1/db/queries/integrations";
 import { encryptCredentials } from "@v1/db/utils";
 import {
   buildAuthorizationUrl,

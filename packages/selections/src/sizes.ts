@@ -1,130 +1,120 @@
 /**
- * Predefined size database.
- * Sort indexes use range-based system to prevent conflicts between size systems.
- *
- * Range allocation:
- * - Custom sizes: 0-999
- * - Letter sizes: 1000-1099
- * - US Numeric apparel: 2000-2099
- * - Waist sizes: 3000-3099
- * - US Shoe sizes: 4000-4199
- * - EU Shoe sizes: 5000-5199
- * - UK Shoe sizes: 6000-6199
- * - One Size options: 9000-9099
+ * Default size options.
+ * Array order determines display order in popover.
+ * displayHint is optional - used for stable sorting when mixing with brand sizes.
  */
 
 export interface DefaultSize {
   name: string;
-  sortIndex: number;
-  group: string; // For UI grouping in the popover
+  displayHint: number; // 1-999, determines sort position in popover
 }
 
-// Letter sizes (1000-1100)
+// Letter sizes
 export const letterSizes: DefaultSize[] = [
-  { name: "3XS", sortIndex: 1000, group: "Letter" },
-  { name: "XXS", sortIndex: 1010, group: "Letter" },
-  { name: "XS", sortIndex: 1020, group: "Letter" },
-  { name: "S", sortIndex: 1030, group: "Letter" },
-  { name: "M", sortIndex: 1040, group: "Letter" },
-  { name: "L", sortIndex: 1050, group: "Letter" },
-  { name: "XL", sortIndex: 1060, group: "Letter" },
-  { name: "2XL", sortIndex: 1070, group: "Letter" },
-  { name: "3XL", sortIndex: 1080, group: "Letter" },
-  { name: "4XL", sortIndex: 1090, group: "Letter" },
-  { name: "5XL", sortIndex: 1100, group: "Letter" },
+  { name: "3XS", displayHint: 10 },
+  { name: "XXS", displayHint: 20 },
+  { name: "XS", displayHint: 30 },
+  { name: "S", displayHint: 40 },
+  { name: "M", displayHint: 50 },
+  { name: "L", displayHint: 60 },
+  { name: "XL", displayHint: 70 },
+  { name: "2XL", displayHint: 80 },
+  { name: "3XL", displayHint: 90 },
+  { name: "4XL", displayHint: 100 },
+  { name: "5XL", displayHint: 110 },
 ];
 
-// US Women's numeric (2000-2099)
+// US Women's numeric
 export const numericApparelSizes: DefaultSize[] = [
-  { name: "00", sortIndex: 2000, group: "US Numeric" },
-  { name: "0", sortIndex: 2010, group: "US Numeric" },
-  { name: "2", sortIndex: 2020, group: "US Numeric" },
-  { name: "4", sortIndex: 2030, group: "US Numeric" },
-  { name: "6", sortIndex: 2040, group: "US Numeric" },
-  { name: "8", sortIndex: 2050, group: "US Numeric" },
-  { name: "10", sortIndex: 2060, group: "US Numeric" },
-  { name: "12", sortIndex: 2070, group: "US Numeric" },
-  { name: "14", sortIndex: 2080, group: "US Numeric" },
-  { name: "16", sortIndex: 2090, group: "US Numeric" },
+  { name: "00", displayHint: 200 },
+  { name: "0", displayHint: 210 },
+  { name: "2", displayHint: 220 },
+  { name: "4", displayHint: 230 },
+  { name: "6", displayHint: 240 },
+  { name: "8", displayHint: 250 },
+  { name: "10", displayHint: 260 },
+  { name: "12", displayHint: 270 },
+  { name: "14", displayHint: 280 },
+  { name: "16", displayHint: 290 },
 ];
 
-// Waist sizes (3000-3099)
+// Waist sizes
 export const waistSizes: DefaultSize[] = [
-  { name: "28", sortIndex: 3000, group: "Waist" },
-  { name: "29", sortIndex: 3010, group: "Waist" },
-  { name: "30", sortIndex: 3020, group: "Waist" },
-  { name: "31", sortIndex: 3030, group: "Waist" },
-  { name: "32", sortIndex: 3040, group: "Waist" },
-  { name: "33", sortIndex: 3050, group: "Waist" },
-  { name: "34", sortIndex: 3060, group: "Waist" },
-  { name: "36", sortIndex: 3070, group: "Waist" },
-  { name: "38", sortIndex: 3080, group: "Waist" },
-  { name: "40", sortIndex: 3090, group: "Waist" },
-  { name: "42", sortIndex: 3095, group: "Waist" },
-  { name: "44", sortIndex: 3098, group: "Waist" },
+  { name: "28", displayHint: 300 },
+  { name: "29", displayHint: 310 },
+  { name: "30", displayHint: 320 },
+  { name: "31", displayHint: 330 },
+  { name: "32", displayHint: 340 },
+  { name: "33", displayHint: 350 },
+  { name: "34", displayHint: 360 },
+  { name: "36", displayHint: 370 },
+  { name: "38", displayHint: 380 },
+  { name: "40", displayHint: 390 },
+  { name: "42", displayHint: 395 },
+  { name: "44", displayHint: 398 },
 ];
 
-// US Shoe sizes (4000-4199)
+// US Shoe sizes
 export const usShoesSizes: DefaultSize[] = [
-  { name: "5", sortIndex: 4000, group: "US Shoe" },
-  { name: "5.5", sortIndex: 4010, group: "US Shoe" },
-  { name: "6", sortIndex: 4020, group: "US Shoe" },
-  { name: "6.5", sortIndex: 4030, group: "US Shoe" },
-  { name: "7", sortIndex: 4040, group: "US Shoe" },
-  { name: "7.5", sortIndex: 4050, group: "US Shoe" },
-  { name: "8", sortIndex: 4060, group: "US Shoe" },
-  { name: "8.5", sortIndex: 4070, group: "US Shoe" },
-  { name: "9", sortIndex: 4080, group: "US Shoe" },
-  { name: "9.5", sortIndex: 4090, group: "US Shoe" },
-  { name: "10", sortIndex: 4100, group: "US Shoe" },
-  { name: "10.5", sortIndex: 4110, group: "US Shoe" },
-  { name: "11", sortIndex: 4120, group: "US Shoe" },
-  { name: "11.5", sortIndex: 4130, group: "US Shoe" },
-  { name: "12", sortIndex: 4140, group: "US Shoe" },
-  { name: "13", sortIndex: 4160, group: "US Shoe" },
-  { name: "14", sortIndex: 4180, group: "US Shoe" },
-  { name: "15", sortIndex: 4199, group: "US Shoe" },
+  { name: "5", displayHint: 400 },
+  { name: "5.5", displayHint: 410 },
+  { name: "6", displayHint: 420 },
+  { name: "6.5", displayHint: 430 },
+  { name: "7", displayHint: 440 },
+  { name: "7.5", displayHint: 450 },
+  { name: "8", displayHint: 460 },
+  { name: "8.5", displayHint: 470 },
+  { name: "9", displayHint: 480 },
+  { name: "9.5", displayHint: 490 },
+  { name: "10", displayHint: 500 },
+  { name: "10.5", displayHint: 510 },
+  { name: "11", displayHint: 520 },
+  { name: "11.5", displayHint: 530 },
+  { name: "12", displayHint: 540 },
+  { name: "13", displayHint: 560 },
+  { name: "14", displayHint: 580 },
+  { name: "15", displayHint: 599 },
 ];
 
-// EU Shoe sizes (5000-5199)
+// EU Shoe sizes
 export const euShoeSizes: DefaultSize[] = [
-  { name: "35", sortIndex: 5000, group: "EU Shoe" },
-  { name: "36", sortIndex: 5010, group: "EU Shoe" },
-  { name: "37", sortIndex: 5020, group: "EU Shoe" },
-  { name: "38", sortIndex: 5030, group: "EU Shoe" },
-  { name: "39", sortIndex: 5040, group: "EU Shoe" },
-  { name: "40", sortIndex: 5050, group: "EU Shoe" },
-  { name: "41", sortIndex: 5060, group: "EU Shoe" },
-  { name: "42", sortIndex: 5070, group: "EU Shoe" },
-  { name: "43", sortIndex: 5080, group: "EU Shoe" },
-  { name: "44", sortIndex: 5090, group: "EU Shoe" },
-  { name: "45", sortIndex: 5100, group: "EU Shoe" },
-  { name: "46", sortIndex: 5110, group: "EU Shoe" },
-  { name: "47", sortIndex: 5120, group: "EU Shoe" },
-  { name: "48", sortIndex: 5130, group: "EU Shoe" },
+  { name: "35", displayHint: 600 },
+  { name: "36", displayHint: 610 },
+  { name: "37", displayHint: 620 },
+  { name: "38", displayHint: 630 },
+  { name: "39", displayHint: 640 },
+  { name: "40", displayHint: 650 },
+  { name: "41", displayHint: 660 },
+  { name: "42", displayHint: 670 },
+  { name: "43", displayHint: 680 },
+  { name: "44", displayHint: 690 },
+  { name: "45", displayHint: 700 },
+  { name: "46", displayHint: 710 },
+  { name: "47", displayHint: 720 },
+  { name: "48", displayHint: 730 },
 ];
 
-// UK Shoe sizes (6000-6199)
+// UK Shoe sizes
 export const ukShoeSizes: DefaultSize[] = [
-  { name: "UK 3", sortIndex: 6000, group: "UK Shoe" },
-  { name: "UK 3.5", sortIndex: 6010, group: "UK Shoe" },
-  { name: "UK 4", sortIndex: 6020, group: "UK Shoe" },
-  { name: "UK 4.5", sortIndex: 6030, group: "UK Shoe" },
-  { name: "UK 5", sortIndex: 6040, group: "UK Shoe" },
-  { name: "UK 5.5", sortIndex: 6050, group: "UK Shoe" },
-  { name: "UK 6", sortIndex: 6060, group: "UK Shoe" },
-  { name: "UK 6.5", sortIndex: 6070, group: "UK Shoe" },
-  { name: "UK 7", sortIndex: 6080, group: "UK Shoe" },
-  { name: "UK 7.5", sortIndex: 6090, group: "UK Shoe" },
-  { name: "UK 8", sortIndex: 6100, group: "UK Shoe" },
-  { name: "UK 8.5", sortIndex: 6110, group: "UK Shoe" },
-  { name: "UK 9", sortIndex: 6120, group: "UK Shoe" },
-  { name: "UK 10", sortIndex: 6140, group: "UK Shoe" },
-  { name: "UK 11", sortIndex: 6160, group: "UK Shoe" },
-  { name: "UK 12", sortIndex: 6180, group: "UK Shoe" },
+  { name: "UK 3", displayHint: 800 },
+  { name: "UK 3.5", displayHint: 810 },
+  { name: "UK 4", displayHint: 820 },
+  { name: "UK 4.5", displayHint: 830 },
+  { name: "UK 5", displayHint: 840 },
+  { name: "UK 5.5", displayHint: 850 },
+  { name: "UK 6", displayHint: 860 },
+  { name: "UK 6.5", displayHint: 870 },
+  { name: "UK 7", displayHint: 880 },
+  { name: "UK 7.5", displayHint: 890 },
+  { name: "UK 8", displayHint: 900 },
+  { name: "UK 8.5", displayHint: 910 },
+  { name: "UK 9", displayHint: 920 },
+  { name: "UK 10", displayHint: 940 },
+  { name: "UK 11", displayHint: 960 },
+  { name: "UK 12", displayHint: 980 },
 ];
 
-// Combined exports
+// All defaults combined (ordered by displayHint)
 export const allDefaultSizes: DefaultSize[] = [
   ...letterSizes,
   ...numericApparelSizes,
@@ -132,9 +122,33 @@ export const allDefaultSizes: DefaultSize[] = [
   ...usShoesSizes,
   ...euShoeSizes,
   ...ukShoeSizes,
-];
+].sort((a, b) => a.displayHint - b.displayHint);
 
-// Grouped for UI display
+// Set of default size names for quick lookup
+export const defaultSizeNames = new Set(
+  allDefaultSizes.map((s) => s.name.toLowerCase()),
+);
+
+// Helper to check if a size name is a default
+export function isDefaultSize(name: string): boolean {
+  return defaultSizeNames.has(name.toLowerCase());
+}
+
+// Helper to find default size by name
+export function findDefaultSize(name: string): DefaultSize | undefined {
+  return allDefaultSizes.find(
+    (s) => s.name.toLowerCase() === name.toLowerCase(),
+  );
+}
+
+// ============================================================================
+// DEPRECATED: Backward compatibility exports (will be removed in Phase 3)
+// ============================================================================
+
+/**
+ * @deprecated Use allDefaultSizes instead. Will be removed in Phase 3.
+ * Grouped sizes for backward compatibility during migration.
+ */
 export const sizeGroups = {
   Letter: letterSizes,
   "US Numeric": numericApparelSizes,
@@ -144,15 +158,12 @@ export const sizeGroups = {
   "UK Shoe": ukShoeSizes,
 } as const;
 
-// Helper to find a default size by name
-export function findDefaultSize(name: string): DefaultSize | undefined {
-  return allDefaultSizes.find(
-    (s) => s.name.toLowerCase() === name.toLowerCase(),
-  );
-}
-
-// Helper to calculate custom size sortIndex from a reference size
-export function calculateCustomSortIndex(referenceSortIndex: number): number {
-  // Extract relative position (0-999 range) to group custom sizes together
-  return referenceSortIndex % 1000;
+/**
+ * @deprecated No longer needed - sizes don't use sortIndex anymore.
+ * Will be removed in Phase 3.
+ */
+export function calculateCustomSortIndex(_referenceSortIndex: number): number {
+  // This function is deprecated and will be removed
+  // Custom sizes no longer need sortIndex
+  return 0;
 }

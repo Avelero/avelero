@@ -17,7 +17,7 @@ import {
   getIntegrationById,
   listFieldConfigs,
   updateSyncJob,
-} from "@v1/db/queries";
+} from "@v1/db/queries/integrations";
 import { decryptCredentials } from "@v1/db/utils";
 import { syncVariants } from "@v1/integrations/sync";
 import type {

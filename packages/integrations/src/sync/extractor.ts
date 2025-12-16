@@ -136,11 +136,8 @@ export function extractValues(
       } else if (definition.referenceEntity === "size") {
         // Handle both string (legacy) and object (new) format
         if (typeof value === "object" && value !== null && "name" in value) {
-          const sizeData = value as { name: string; shopifyIndex?: number | null };
+          const sizeData = value as { name: string };
           result.referenceEntities.sizeName = sizeData.name;
-          if (sizeData.shopifyIndex !== null && sizeData.shopifyIndex !== undefined) {
-            result.referenceEntities.sizeShopifyIndex = sizeData.shopifyIndex;
-          }
         } else {
           result.referenceEntities.sizeName = String(value);
         }

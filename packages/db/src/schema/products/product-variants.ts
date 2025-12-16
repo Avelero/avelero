@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { brandColors } from "../brands/brand-colors";
@@ -59,6 +60,21 @@ export const productVariants = pgTable(
     index("idx_product_variants_upid")
       .using("btree", table.upid.asc().nullsLast().op("text_ops"))
       .where(sql`(upid IS NOT NULL)`),
+    // Unique constraint: SKU must be unique within a brand
+    // Uses get_product_brand_id function to resolve brand from product
+    uniqueIndex("idx_unique_sku_per_brand")
+      .on(table.sku, sql`get_product_brand_id(product_id)`)
+      .where(sql`sku IS NOT NULL AND sku != ''`),
+    // Unique constraint: barcode must be unique within a brand
+    // Uses get_product_brand_id function to resolve brand from product
+    uniqueIndex("idx_unique_barcode_per_brand")
+      .on(table.barcode, sql`get_product_brand_id(product_id)`)
+      .where(sql`barcode IS NOT NULL AND barcode != ''`),
+    // Unique constraint: UPID must be unique within a brand
+    // Uses get_product_brand_id function to resolve brand from product
+    uniqueIndex("idx_unique_upid_per_brand")
+      .on(table.upid, sql`get_product_brand_id(product_id)`)
+      .where(sql`upid IS NOT NULL AND upid != ''`),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_variants_select_for_brand_members", {
       as: "permissive",

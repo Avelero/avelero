@@ -15,7 +15,7 @@ import {
   deleteStagingDataForJob,
   getImportJobStatus,
   updateImportJobStatus,
-} from "@v1/db/queries";
+} from "@v1/db/queries/bulk";
 import { downloadImportFile } from "@v1/supabase/utils/product-imports";
 import {
   normalizeHeader,

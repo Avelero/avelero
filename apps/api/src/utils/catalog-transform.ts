@@ -37,17 +37,8 @@ export function transformSeasonInput<T extends Record<string, any>>(
 export function transformSizeInput<T extends Record<string, any>>(
   input: T,
 ): any {
-  const result: any = {};
-
-  for (const [key, value] of Object.entries(input)) {
-    if (key === "sort_index") {
-      result.sortIndex = value;
-    } else {
-      result[key] = value;
-    }
-  }
-
-  return result;
+  // No transformation needed - just pass through
+  return input;
 }
 
 /**

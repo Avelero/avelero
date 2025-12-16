@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import {
-  integer,
   pgPolicy,
   pgTable,
   text,
@@ -18,7 +17,6 @@ export const brandSizes = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     name: text("name").notNull(),
-    sortIndex: integer("sort_index"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

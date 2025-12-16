@@ -2,87 +2,24 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import { integrations, brandIntegrations } from "../../schema";
 
+// Re-export provider functions
+export {
+  listAvailableIntegrations,
+  getIntegrationBySlug,
+  getIntegrationById,
+  type IntegrationStatus,
+} from "./providers.js";
+
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export type IntegrationStatus = "active" | "beta" | "deprecated" | "disabled";
 export type BrandIntegrationStatus =
   | "pending"
   | "active"
   | "error"
   | "paused"
   | "disconnected";
-
-// =============================================================================
-// INTEGRATIONS (System-level integration types)
-// =============================================================================
-
-/**
- * List all available integration types.
- * These are the integration providers (Shopify, It's Perfect, etc.)
- */
-export async function listAvailableIntegrations(db: Database) {
-  return db
-    .select({
-      id: integrations.id,
-      slug: integrations.slug,
-      name: integrations.name,
-      description: integrations.description,
-      authType: integrations.authType,
-      iconPath: integrations.iconPath,
-      status: integrations.status,
-      createdAt: integrations.createdAt,
-      updatedAt: integrations.updatedAt,
-    })
-    .from(integrations)
-    .where(eq(integrations.status, "active"))
-    .orderBy(asc(integrations.name));
-}
-
-/**
- * Get an integration by its slug.
- */
-export async function getIntegrationBySlug(db: Database, slug: string) {
-  const [row] = await db
-    .select({
-      id: integrations.id,
-      slug: integrations.slug,
-      name: integrations.name,
-      description: integrations.description,
-      authType: integrations.authType,
-      iconPath: integrations.iconPath,
-      status: integrations.status,
-      createdAt: integrations.createdAt,
-      updatedAt: integrations.updatedAt,
-    })
-    .from(integrations)
-    .where(eq(integrations.slug, slug))
-    .limit(1);
-  return row;
-}
-
-/**
- * Get an integration by its ID.
- */
-export async function getIntegrationById(db: Database, id: string) {
-  const [row] = await db
-    .select({
-      id: integrations.id,
-      slug: integrations.slug,
-      name: integrations.name,
-      description: integrations.description,
-      authType: integrations.authType,
-      iconPath: integrations.iconPath,
-      status: integrations.status,
-      createdAt: integrations.createdAt,
-      updatedAt: integrations.updatedAt,
-    })
-    .from(integrations)
-    .where(eq(integrations.id, id))
-    .limit(1);
-  return row;
-}
 
 // =============================================================================
 // BRAND INTEGRATIONS (Brand's connected integrations)

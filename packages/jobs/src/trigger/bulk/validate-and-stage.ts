@@ -2,27 +2,25 @@ import "../configure-trigger";
 import { randomUUID } from "node:crypto";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
+import { and, eq, inArray } from "@v1/db/queries";
 import {
   type CreateImportRowParams,
-  type UpdateImportRowStatusParams,
-  batchUpdateImportRowStatus,
-  createImportRows,
-  getImportJobStatus,
-  updateImportJobProgress,
-  updateImportJobStatus,
-} from "@v1/db/queries";
-import {
   type InsertStagingProductParams,
   type InsertStagingVariantParams,
+  type UpdateImportRowStatusParams,
   batchInsertStagingProducts,
   batchInsertStagingVariants,
   batchInsertStagingWithStatus,
+  batchUpdateImportRowStatus,
   countStagingProductsByAction,
+  createImportRows,
   deleteStagingDataForJob,
+  getImportJobStatus,
   insertStagingProduct,
   insertStagingVariant,
-} from "@v1/db/queries";
-import { and, eq, inArray } from "@v1/db/queries";
+  updateImportJobProgress,
+  updateImportJobStatus,
+} from "@v1/db/queries/bulk";
 import { productVariants, products } from "@v1/db/schema";
 import * as schema from "@v1/db/schema";
 import { generateUniqueUpid } from "@v1/db/utils";

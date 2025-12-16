@@ -18,12 +18,16 @@ import {
   getDppByProductHandle,
   getDppByVariantUpid,
   transformToDppData,
+  fetchCarouselProducts,
+  type CarouselProduct,
+} from "@v1/db/queries/dpp";
+import {
   getBrandBySlug,
   getBrandTheme,
-  fetchCarouselProducts,
+} from "@v1/db/queries/brand";
+import {
   getProductByHandle,
-  type CarouselProduct,
-} from "@v1/db/queries";
+} from "@v1/db/queries/products";
 import { dppCarouselListSchema } from "../../../schemas/dpp-public.js";
 import { getPublicUrl } from "@v1/supabase/storage";
 import type { StorageClient } from "@v1/supabase/storage";

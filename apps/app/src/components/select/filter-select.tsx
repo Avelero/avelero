@@ -449,10 +449,10 @@ const SizeFlatSubmenu = React.memo(function SizeFlatSubmenu({
     for (const size of filteredSizes) {
       let groupName = "Other";
 
-      // Find which group this size belongs to using sortIndex (unique identifier)
+      // Find which group this size belongs to using displayHint (unique identifier)
       // This correctly handles sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
       for (const [name, sizes] of Object.entries(sizeGroups)) {
-        if (sizes.some((s) => s.sortIndex === size.sortIndex)) {
+        if (sizes.some((s) => s.displayHint === size.displayHint)) {
           groupName = name;
           break;
         }
@@ -467,9 +467,9 @@ const SizeFlatSubmenu = React.memo(function SizeFlatSubmenu({
 
   const handleToggleSize = React.useCallback(
     (size: SizeOption) => {
-      // Use sortIndex as fallback since it's documented as the unique identifier
+      // Use displayHint as fallback since it's the unique identifier
       // This prevents ID collisions for sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
-      const sizeId = size.id || `custom-${size.sortIndex}`;
+      const sizeId = size.id || `custom-${size.displayHint}`;
       onToggleValue(sizeId);
       setSearchTerm("");
     },
@@ -503,12 +503,12 @@ const SizeFlatSubmenu = React.memo(function SizeFlatSubmenu({
           return (
             <CommandGroup key={groupName} heading={groupName}>
               {sizes.map((size) => {
-                // Use sortIndex as fallback since it's documented as the unique identifier
-                const sizeId = size.id || `custom-${size.sortIndex}`;
+                // Use displayHint as fallback since it's the unique identifier
+                const sizeId = size.id || `custom-${size.displayHint}`;
                 const isSelected = selectedValues.includes(sizeId);
                 return (
                   <CommandItem
-                    key={size.sortIndex}
+                    key={size.displayHint}
                     value={size.name}
                     onSelect={() => handleToggleSize(size)}
                     className="justify-between"
@@ -744,7 +744,7 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
                   let colorHex: string | undefined;
                   if (field.id === "colorId") {
                     const color = colors.find((c) => c.id === option.value);
-                    colorHex = color?.hex;
+                    colorHex = color?.hex ?? undefined;
                   }
 
                   // Get season info for season field

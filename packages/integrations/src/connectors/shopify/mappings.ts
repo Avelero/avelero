@@ -174,26 +174,18 @@ export function extractColorFromOptions(
 // =============================================================================
 
 /**
- * Extracted size data including Shopify index for sort order.
- */
-export interface ExtractedSizeData {
-  name: string;
-  /** Index in Shopify's optionValues array (preserves merchant's order) */
-  shopifyIndex: number | null;
-}
-
-/**
- * Extract size data from variant's selectedOptions, enriched with index from product options.
+ * Extract size name from variant's selectedOptions.
  *
  * Strategy:
  * 1. Find the size option in product.options using linkedMetafield.key or name matching
  * 2. Get the variant's size value from selectedOptions
- * 3. Find the index in optionValues array (merchant's chosen order)
+ *
+ * Note: Ordering is handled at product level via sizeOrder array, not per-size.
  */
 export function extractSizeFromOptions(
   selectedOptions: ShopifySelectedOption[] | undefined,
   productOptions?: ShopifyProductOption[] | null
-): ExtractedSizeData | null {
+): string | null {
   if (!selectedOptions || !Array.isArray(selectedOptions)) return null;
 
   // Find which option is the size option
@@ -217,16 +209,7 @@ export function extractSizeFromOptions(
     sizeValue = selectedSize?.value ?? null;
   }
 
-  if (!sizeValue) return null;
-
-  // Find index in optionValues array (merchant's order)
-  let shopifyIndex: number | null = null;
-  if (sizeOption?.optionValues) {
-    const index = sizeOption.optionValues.findIndex((v) => v.name === sizeValue);
-    shopifyIndex = index >= 0 ? index : null;
-  }
-
-  return { name: sizeValue, shopifyIndex };
+  return sizeValue;
 }
 
 /**
@@ -319,5 +302,54 @@ export function transformTags(tags: unknown): string[] {
   }
   
   return [];
+}
+
+// =============================================================================
+// PRODUCT-LEVEL OPTION EXTRACTION (for sizeOrder/colorOrder arrays)
+// =============================================================================
+
+/**
+ * Extract all color names in order from product options.
+ * Returns array of color names in Shopify's optionValues order.
+ */
+export function extractProductColorOrder(
+  productOptions: ShopifyProductOption[] | null | undefined
+): string[] {
+  const colorOption = findColorOption(productOptions);
+  if (!colorOption?.optionValues) return [];
+  
+  // optionValues array is already in Shopify's position order
+  return colorOption.optionValues.map((v) => v.name);
+}
+
+/**
+ * Get hex value for a specific color name from product options.
+ * Returns null if color not found or no swatch available.
+ */
+export function getColorHexFromProductOptions(
+  productOptions: ShopifyProductOption[] | null | undefined,
+  colorName: string
+): string | null {
+  const colorOption = findColorOption(productOptions);
+  if (!colorOption?.optionValues) return null;
+  
+  const optionValue = colorOption.optionValues.find(
+    (v) => v.name === colorName
+  );
+  return optionValue?.swatch?.color ?? null;
+}
+
+/**
+ * Extract all size names in order from product options.
+ * Returns array of size names in Shopify's optionValues order.
+ */
+export function extractProductSizeOrder(
+  productOptions: ShopifyProductOption[] | null | undefined
+): string[] {
+  const sizeOption = findSizeOption(productOptions);
+  if (!sizeOption?.optionValues) return [];
+  
+  // optionValues array is already in Shopify's position order
+  return sizeOption.optionValues.map((v) => v.name);
 }
 

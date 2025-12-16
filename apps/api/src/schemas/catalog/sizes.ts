@@ -19,15 +19,12 @@ export const listSizesSchema = z.object({});
  */
 export const createSizeSchema = z.object({
   name: shortStringSchema,
-  sort_index: intSchema.optional(),
 });
 
 /**
  * Payload for updating a size entry.
  */
-export const updateSizeSchema = updateWithNullable(createSizeSchema, [
-  "sort_index",
-]);
+export const updateSizeSchema = updateWithNullable(createSizeSchema, []);
 
 /**
  * Payload for deleting a size entry.

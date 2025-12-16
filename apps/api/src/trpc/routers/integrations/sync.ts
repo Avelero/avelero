@@ -15,7 +15,7 @@ import {
   getSyncJob,
   listSyncJobs,
   updateSyncJob,
-} from "@v1/db/queries";
+} from "@v1/db/queries/integrations";
 import {
   getSyncJobSchema,
   getSyncStatusSchema,

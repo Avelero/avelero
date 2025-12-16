@@ -188,8 +188,6 @@ export interface ExtractedReferenceEntities {
   colorHex?: string;
   /** Size name to match or create */
   sizeName?: string;
-  /** Size index from Shopify optionValues array (preserves merchant's order) */
-  sizeShopifyIndex?: number;
   /** Category UUID (resolved from Shopify taxonomy mapping) */
   categoryId?: string;
 }

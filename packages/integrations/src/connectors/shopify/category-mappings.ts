@@ -8,17 +8,7 @@
  * 2. BRANCH_DEFAULTS - Fallback for entire Shopify branches
  * 3. Walk up hierarchy until a match is found
  *
- * Shopify Taxonomy Reference: https://shopify.github.io/product-taxonomy/
- *
- * Coverage:
- * - aa-1: Clothing
- * - aa-2: Clothing Accessories
- * - aa-3: Costumes & Accessories
- * - aa-4: Handbag & Wallet Accessories
- * - aa-5: Handbags, Wallets & Cases
- * - aa-6: Jewelry
- * - aa-7: Shoe Accessories
- * - aa-8: Shoes
+ * Shopify Taxonomy Reference: aa_apparel_accessories.yml
  */
 
 // =============================================================================
@@ -237,83 +227,76 @@ type CategoryUuid = (typeof CATEGORY_UUIDS)[keyof typeof CATEGORY_UUIDS];
 // Provides 100% coverage - every category falls into at least one branch.
 // null = skip this category (e.g., Baby & Toddler items)
 
-// biome-ignore lint/complexity/useLiteralKeys: Using bracket notation for consistency with keys that contain spaces/special characters
 const BRANCH_DEFAULTS: Record<string, CategoryUuid | null> = {
   // ─────────────────────────────────────────────────────────────────────────────
   // CLOTHING (aa-1)
   // ─────────────────────────────────────────────────────────────────────────────
+  "aa-1": CATEGORY_UUIDS["T-shirts & Polos"], // Generic Clothing fallback to generic top
+  
+  // Activewear
+  "aa-1-1": CATEGORY_UUIDS["Tracksuits & Joggers"], // Activewear Generic
+  "aa-1-1-1": CATEGORY_UUIDS["Tracksuits & Joggers"], // Activewear Pants
+  "aa-1-1-2": CATEGORY_UUIDS["T-shirts & Polos"], // Activewear Tops
 
-  // Activewear - default to Sports T-shirts, with specific overrides below
-  "aa-1-1": CATEGORY_UUIDS["Sports T-shirts"],
-  "aa-1-1-1": CATEGORY_UUIDS["Joggers_Trousers"], // Activewear Pants
-  "aa-1-1-2": CATEGORY_UUIDS["Sports T-shirts"], // Activewear Tops
-  "aa-1-1-7": CATEGORY_UUIDS["Hoodies"], // Activewear Sweatshirts & Hoodies
-  "aa-1-1-8": CATEGORY_UUIDS["Lightweight jackets"], // Activewear Vests & Jackets
-
-  // Baby & Toddler - skip (most brands don't want these mixed)
+  // Baby & Toddler - skip
   "aa-1-2": null,
 
   // Boys' Underwear
-  "aa-1-3": CATEGORY_UUIDS["Underpants"],
+  "aa-1-3": CATEGORY_UUIDS.Underpants,
 
   // Dresses
-  "aa-1-4": CATEGORY_UUIDS["Casual Dresses"],
+  "aa-1-4": CATEGORY_UUIDS.Dresses,
 
   // Girls' Underwear
-  "aa-1-5": CATEGORY_UUIDS["Underpants"],
+  "aa-1-5": CATEGORY_UUIDS.Underpants,
 
   // Lingerie
-  "aa-1-6": CATEGORY_UUIDS["Bras"],
-  "aa-1-6-10": CATEGORY_UUIDS["Shapewear"], // Shapewear
-  "aa-1-6-11": CATEGORY_UUIDS["Underpants"], // Women's Underpants
+  "aa-1-6": CATEGORY_UUIDS.Underwear,
 
-  // Maternity - skip or use general clothing
+  // Maternity - skip or use generic
   "aa-1-7": null,
 
   // Men's Undergarments
-  "aa-1-8": CATEGORY_UUIDS["Boxers"],
-  "aa-1-8-2": CATEGORY_UUIDS["Undershirts"], // Men's Undershirts
-  "aa-1-8-3": CATEGORY_UUIDS["Boxers"], // Men's Underwear
+  "aa-1-8": CATEGORY_UUIDS.Underwear,
 
   // One-Pieces (jumpsuits, rompers)
   "aa-1-9": CATEGORY_UUIDS["Jumpsuits & Overalls"],
 
-  // Outerwear - split between Jackets and Coats
-  "aa-1-10": CATEGORY_UUIDS["Lightweight jackets"],
-  "aa-1-10-2": CATEGORY_UUIDS["Lightweight jackets"], // Coats & Jackets
+  // Outerwear
+  "aa-1-10": CATEGORY_UUIDS.Jackets,
+  "aa-1-10-2": CATEGORY_UUIDS.Jackets, // Coats & Jackets
 
   // Outfit Sets - skip
   "aa-1-11": null,
 
   // Pants
-  "aa-1-12": CATEGORY_UUIDS["Chinos"],
+  "aa-1-12": CATEGORY_UUIDS.Trousers,
 
   // Clothing Tops
-  "aa-1-13": CATEGORY_UUIDS["Basic T-shirts"],
+  "aa-1-13": CATEGORY_UUIDS["T-shirts & Polos"],
 
   // Shorts
-  "aa-1-14": CATEGORY_UUIDS["Casual Shorts"],
+  "aa-1-14": CATEGORY_UUIDS.Shorts,
 
   // Skirts
-  "aa-1-15": CATEGORY_UUIDS["A-line Skirts"],
+  "aa-1-15": CATEGORY_UUIDS.Skirts,
 
   // Skorts
-  "aa-1-16": CATEGORY_UUIDS["A-line Skirts"],
+  "aa-1-16": CATEGORY_UUIDS.Skirts,
 
   // Sleepwear & Loungewear
-  "aa-1-17": CATEGORY_UUIDS["Pyjamas"],
-  "aa-1-17-2": CATEGORY_UUIDS["Trousers_Loungewear"], // Loungewear
+  "aa-1-17": CATEGORY_UUIDS["Loungewear & Sleepwear"],
 
   // Socks
-  "aa-1-18": CATEGORY_UUIDS["Socks"],
+  "aa-1-18": CATEGORY_UUIDS["Socks & Tights"],
 
   // Suits
-  "aa-1-19": CATEGORY_UUIDS["Suits"],
+  "aa-1-19": CATEGORY_UUIDS.Suits,
 
   // Swimwear
-  "aa-1-20": CATEGORY_UUIDS["Swimsuits"],
+  "aa-1-20": CATEGORY_UUIDS.Swimwear,
 
-  // Wedding & Bridal
+  // Wedding & Bridal (Dresses)
   "aa-1-22": CATEGORY_UUIDS["Evening Dresses"],
 
   // Traditional & Ceremonial
@@ -325,33 +308,17 @@ const BRANCH_DEFAULTS: Record<string, CategoryUuid | null> = {
   // ─────────────────────────────────────────────────────────────────────────────
   // CLOTHING ACCESSORIES (aa-2)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-2": CATEGORY_UUIDS["Miscellaneous"], // Default for all accessories
-  "aa-2-2": null, // Baby & Toddler Accessories - skip
-  "aa-2-3": CATEGORY_UUIDS["Hats & caps"], // Balaclavas
-  "aa-2-4": CATEGORY_UUIDS["Scarves"], // Bandanas & Headties
-  "aa-2-5": CATEGORY_UUIDS["Belts"], // Belt Buckles
-  "aa-2-6": CATEGORY_UUIDS["Belts"], // Belts
-  "aa-2-12": CATEGORY_UUIDS["Hats & caps"], // Earmuffs
-  "aa-2-13": CATEGORY_UUIDS["Gloves"], // Gloves & Mittens
-  "aa-2-14": CATEGORY_UUIDS["Miscellaneous"], // Hair Accessories
-  "aa-2-17": CATEGORY_UUIDS["Hats & caps"], // Hats
-  "aa-2-18": CATEGORY_UUIDS["Hats & caps"], // Headwear
-  "aa-2-19": CATEGORY_UUIDS["Socks"], // Leg Warmers
-  "aa-2-22": CATEGORY_UUIDS["Scarves"], // Neck Gaiters
-  "aa-2-23": CATEGORY_UUIDS["Ties & accessories"], // Neckties
-  "aa-2-26": CATEGORY_UUIDS["Scarves"], // Scarves & Shawls
-  "aa-2-27": CATEGORY_UUIDS["Sunglasses"], // Sunglasses
-  "aa-2-28": CATEGORY_UUIDS["Belts"], // Suspenders
-
+  "aa-2": CATEGORY_UUIDS.Accessories,
+  
   // ─────────────────────────────────────────────────────────────────────────────
   // COSTUMES & ACCESSORIES (aa-3)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-3": null, // Skip costumes by default
+  "aa-3": null, // Skip costumes
 
   // ─────────────────────────────────────────────────────────────────────────────
   // HANDBAG & WALLET ACCESSORIES (aa-4)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-4": CATEGORY_UUIDS["Miscellaneous"], // Keychains, lanyards, etc.
+  "aa-4": CATEGORY_UUIDS.Miscellaneous,
 
   // ─────────────────────────────────────────────────────────────────────────────
   // HANDBAGS, WALLETS & CASES (aa-5)
@@ -363,26 +330,26 @@ const BRANCH_DEFAULTS: Record<string, CategoryUuid | null> = {
   // ─────────────────────────────────────────────────────────────────────────────
   // JEWELRY (aa-6)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-6": CATEGORY_UUIDS["Jewellery"],
-  "aa-6-10": CATEGORY_UUIDS["Watches"], // Watch Accessories
-  "aa-6-11": CATEGORY_UUIDS["Watches"], // Watches
-  "aa-6-12": CATEGORY_UUIDS["Watches"], // Smart Watches
+  "aa-6": CATEGORY_UUIDS.Jewellery,
+  "aa-6-10": CATEGORY_UUIDS.Watches, // Watch Accessories
+  "aa-6-11": CATEGORY_UUIDS.Watches, // Watches
+  "aa-6-12": CATEGORY_UUIDS.Watches, // Smart Watches
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SHOE ACCESSORIES (aa-7)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-7": CATEGORY_UUIDS["Miscellaneous"], // Shoelaces, insoles, etc.
+  "aa-7": CATEGORY_UUIDS.Miscellaneous,
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SHOES (aa-8)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-8": CATEGORY_UUIDS["Sneakers"], // Default footwear
+  "aa-8": CATEGORY_UUIDS.Footwear,
   "aa-8-1": CATEGORY_UUIDS["Sports shoes"], // Athletic Shoes
   "aa-8-2": null, // Baby & Toddler Shoes - skip
-  "aa-8-3": CATEGORY_UUIDS["Boots"], // Boots
-  "aa-8-6": CATEGORY_UUIDS["Sandals"], // Sandals
-  "aa-8-7": CATEGORY_UUIDS["Slippers"], // Slippers
-  "aa-8-8": CATEGORY_UUIDS["Sneakers"], // Sneakers
+  "aa-8-3": CATEGORY_UUIDS.Boots, // Boots
+  "aa-8-6": CATEGORY_UUIDS.Sandals, // Sandals
+  "aa-8-7": CATEGORY_UUIDS.Slippers, // Slippers
+  "aa-8-8": CATEGORY_UUIDS.Sneakers, // Sneakers
   "aa-8-9": CATEGORY_UUIDS["Flat shoes"], // Flats
   "aa-8-10": CATEGORY_UUIDS["High heels"], // Heels
 };
@@ -397,156 +364,163 @@ const SPECIFIC_MAPPINGS: Record<string, CategoryUuid | null> = {
   // ─────────────────────────────────────────────────────────────────────────────
   // ACTIVEWEAR (aa-1-1)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-1-1-1": CATEGORY_UUIDS["Joggers_Trousers"], // Activewear Joggers
-  "aa-1-1-1-2": CATEGORY_UUIDS["Leggings_Trousers"], // Activewear Leggings
-  "aa-1-1-1-3": CATEGORY_UUIDS["Sport Shorts"], // Activewear Shorts
-  "aa-1-1-1-4": CATEGORY_UUIDS["Joggers_Trousers"], // Activewear Sweatpants
-  "aa-1-1-1-5": CATEGORY_UUIDS["Tights"], // Tights
-  "aa-1-1-1-6": CATEGORY_UUIDS["Joggers_Trousers"], // Track Pants
-  "aa-1-1-1-7": CATEGORY_UUIDS["Joggers_Trousers"], // Training Pants
-  "aa-1-1-2-1": CATEGORY_UUIDS["Tops"], // Crop Tops
-  "aa-1-1-2-2": CATEGORY_UUIDS["Sports T-shirts"], // Activewear T-Shirts
-  "aa-1-1-2-3": CATEGORY_UUIDS["Tank Tops"], // Activewear Tank Tops
+  "aa-1-1-1-1": CATEGORY_UUIDS.Joggers_Trousers, // Joggers
+  "aa-1-1-1-2": CATEGORY_UUIDS.Leggings_Trousers, // Leggings
+  "aa-1-1-1-3": CATEGORY_UUIDS["Sport Shorts"], // Shorts
+  "aa-1-1-1-4": CATEGORY_UUIDS.Joggers_Trousers, // Sweatpants
+  "aa-1-1-1-5": CATEGORY_UUIDS.Tights, // Tights
+  "aa-1-1-1-6": CATEGORY_UUIDS.Tracksuits, // Track Pants
+  "aa-1-1-1-7": CATEGORY_UUIDS.Tracksuits, // Training Pants
+  
+  "aa-1-1-2-1": CATEGORY_UUIDS.Tops, // Crop Tops
+  "aa-1-1-2-2": CATEGORY_UUIDS["Sports T-shirts"], // T-Shirts
+  "aa-1-1-2-3": CATEGORY_UUIDS["Tank Tops"], // Tank Tops
+  
   "aa-1-1-4": CATEGORY_UUIDS["Sport Shorts"], // Boxing Shorts
-  "aa-1-1-6": CATEGORY_UUIDS["Bras"], // Sports Bras
-  "aa-1-1-7-2": CATEGORY_UUIDS["Hoodies"], // Activewear Hoodies
-  "aa-1-1-7-4": CATEGORY_UUIDS["Sweatshirts"], // Activewear Sweatshirts
-  "aa-1-1-7-5": CATEGORY_UUIDS["Training Jackets"], // Track Jackets
-  "aa-1-1-8-1": CATEGORY_UUIDS["Gilet"], // Activewear Vests
-  "aa-1-1-8-2": CATEGORY_UUIDS["Training Jackets"], // Activewear Jackets
-  "aa-1-1-9": CATEGORY_UUIDS["Bodysuits & Sets"], // Leotards & Unitards
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // DRESSES (aa-1-4)
-  // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-4": CATEGORY_UUIDS["Casual Dresses"], // General Dresses
+  "aa-1-1-6": CATEGORY_UUIDS.Bras, // Sports Bras
+  "aa-1-1-7": CATEGORY_UUIDS["Sweatshirts & Hoodies"],
+  "aa-1-1-7-2": CATEGORY_UUIDS.Hoodies, // Hoodies
+  "aa-1-1-7-4": CATEGORY_UUIDS.Sweatshirts, // Sweatshirts
+  "aa-1-1-7-5": CATEGORY_UUIDS["Tracksuit Jackets"], // Track Jackets
+  
+  "aa-1-1-8-1": CATEGORY_UUIDS.Gilet, // Vests
+  "aa-1-1-8-2": CATEGORY_UUIDS["Training Jackets"], // Jackets
+  "aa-1-1-9": CATEGORY_UUIDS["Bodysuits & Sets"], // Leotards
 
   // ─────────────────────────────────────────────────────────────────────────────
   // LINGERIE (aa-1-6)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-6-1": CATEGORY_UUIDS["Bodysuits & Sets"], // Lingerie Bodysuits
-  "aa-1-6-3": CATEGORY_UUIDS["Bras"], // Bras
-  "aa-1-6-4": CATEGORY_UUIDS["Undershirts"], // Camisoles
-  "aa-1-6-6": CATEGORY_UUIDS["Tights"], // Hosiery
-  "aa-1-6-8-3": CATEGORY_UUIDS["Tights"], // Pantyhose
-  "aa-1-6-10-1": CATEGORY_UUIDS["Shapewear"], // Shapewear Bodysuits
-  "aa-1-6-11-1": CATEGORY_UUIDS["Underpants"], // Bikinis (underwear)
-  "aa-1-6-11-2": CATEGORY_UUIDS["Underpants"], // Boyshorts
-  "aa-1-6-11-3": CATEGORY_UUIDS["Underpants"], // Briefs
-  "aa-1-6-11-6": CATEGORY_UUIDS["Underpants"], // Thongs
-  "aa-1-6-12": CATEGORY_UUIDS["Undershirts"], // Women's Undershirts
+  "aa-1-6-1": CATEGORY_UUIDS["Bodysuits & Sets"], // Bodysuits
+  "aa-1-6-3": CATEGORY_UUIDS.Bras, // Bras
+  "aa-1-6-4": CATEGORY_UUIDS.Undershirts, // Camisoles
+  "aa-1-6-6": CATEGORY_UUIDS.Tights, // Hosiery
+  
+  "aa-1-6-8-1": CATEGORY_UUIDS.Underwear, // Garter Belts
+  "aa-1-6-8-3": CATEGORY_UUIDS.Tights, // Pantyhose
+  
+  "aa-1-6-10": CATEGORY_UUIDS.Shapewear,
+  "aa-1-6-10-1": CATEGORY_UUIDS.Shapewear, // Bodysuits (Shapewear)
+  "aa-1-6-10-3": CATEGORY_UUIDS.Underpants, // High Waisted Briefs
+  "aa-1-6-10-5": CATEGORY_UUIDS.Shapewear, // Waist Cinchers
+  
+  "aa-1-6-11": CATEGORY_UUIDS.Underpants, // Women's Underpants
+  "aa-1-6-11-1": CATEGORY_UUIDS.Underpants, // Bikinis
+  "aa-1-6-11-2": CATEGORY_UUIDS.Underpants, // Boyshorts
+  "aa-1-6-11-3": CATEGORY_UUIDS.Underpants, // Briefs
+  "aa-1-6-11-4": CATEGORY_UUIDS.Underpants, // G-Strings
+  "aa-1-6-11-6": CATEGORY_UUIDS.Underpants, // Thongs
+  "aa-1-6-12": CATEGORY_UUIDS.Undershirts, // Women's Undershirts
 
   // ─────────────────────────────────────────────────────────────────────────────
   // MEN'S UNDERGARMENTS (aa-1-8)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-8-3-2": CATEGORY_UUIDS["Boxers"], // Boxer Briefs
-  "aa-1-8-3-3": CATEGORY_UUIDS["Boxers"], // Boxer Shorts
-  "aa-1-8-3-4": CATEGORY_UUIDS["Underpants"], // Briefs
-  "aa-1-8-3-8": CATEGORY_UUIDS["Boxers"], // Trunks
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // ONE-PIECES (aa-1-9)
-  // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-9": CATEGORY_UUIDS["Jumpsuits & Overalls"], // One-Pieces (jumpsuits, rompers)
+  "aa-1-8-2": CATEGORY_UUIDS.Undershirts, // Men's Undershirts
+  "aa-1-8-3": CATEGORY_UUIDS.Underwear,
+  "aa-1-8-3-2": CATEGORY_UUIDS.Boxers, // Boxer Briefs
+  "aa-1-8-3-3": CATEGORY_UUIDS.Boxers, // Boxer Shorts
+  "aa-1-8-3-4": CATEGORY_UUIDS.Underpants, // Briefs
+  "aa-1-8-3-6": CATEGORY_UUIDS.Underpants, // Midway Briefs
+  "aa-1-8-3-7": CATEGORY_UUIDS.Underpants, // Thongs
+  "aa-1-8-3-8": CATEGORY_UUIDS.Boxers, // Trunks
 
   // ─────────────────────────────────────────────────────────────────────────────
   // OUTERWEAR (aa-1-10)
   // ─────────────────────────────────────────────────────────────────────────────
   "aa-1-10-2-1": CATEGORY_UUIDS["Lightweight jackets"], // Bolero Jackets
   "aa-1-10-2-2": CATEGORY_UUIDS["Bomber Jackets"], // Bomber Jackets
-  "aa-1-10-2-3": CATEGORY_UUIDS["Capes"], // Capes
+  "aa-1-10-2-3": CATEGORY_UUIDS.Capes, // Capes
   "aa-1-10-2-5": CATEGORY_UUIDS["Winter coats"], // Overcoats
-  "aa-1-10-2-6": CATEGORY_UUIDS["Parkas"], // Parkas
+  "aa-1-10-2-6": CATEGORY_UUIDS.Parkas, // Parkas
   "aa-1-10-2-7": CATEGORY_UUIDS["Wool coats"], // Pea Coats
-  "aa-1-10-2-8": CATEGORY_UUIDS["Capes"], // Ponchos
+  "aa-1-10-2-8": CATEGORY_UUIDS.Capes, // Poncho
   "aa-1-10-2-9": CATEGORY_UUIDS["Down Jackets"], // Puffer Jackets
   "aa-1-10-2-10": CATEGORY_UUIDS["Waterproof Jackets"], // Rain Coats
   "aa-1-10-2-11": CATEGORY_UUIDS["Training Jackets"], // Sport Jackets
-  "aa-1-10-2-12": CATEGORY_UUIDS["Training Jackets"], // Track Jackets
+  "aa-1-10-2-12": CATEGORY_UUIDS["Tracksuit Jackets"], // Track Jackets
   "aa-1-10-2-13": CATEGORY_UUIDS["Trench coats"], // Trench Coats
   "aa-1-10-2-14": CATEGORY_UUIDS["Denim Jackets"], // Trucker Jackets
   "aa-1-10-2-15": CATEGORY_UUIDS["Bomber Jackets"], // Varsity Jackets
   "aa-1-10-2-16": CATEGORY_UUIDS["Waterproof Jackets"], // Windbreakers
   "aa-1-10-2-17": CATEGORY_UUIDS["Wool coats"], // Wrap Coats
+  
   "aa-1-10-3": CATEGORY_UUIDS["Waterproof Jackets"], // Rain Pants
   "aa-1-10-4": CATEGORY_UUIDS["Waterproof Jackets"], // Rain Suits
   "aa-1-10-5": CATEGORY_UUIDS["Winter Jackets"], // Snow Pants & Suits
-  "aa-1-10-6": CATEGORY_UUIDS["Gilet"], // Vests
+  "aa-1-10-6": CATEGORY_UUIDS.Gilet, // Vests
   "aa-1-10-7": CATEGORY_UUIDS["Leather Jackets"], // Motorcycle Outerwear
 
   // ─────────────────────────────────────────────────────────────────────────────
   // PANTS (aa-1-12)
   // ─────────────────────────────────────────────────────────────────────────────
   "aa-1-12-2": CATEGORY_UUIDS["Cargo Trousers"], // Cargo Pants
-  "aa-1-12-3": CATEGORY_UUIDS["Chinos"], // Chinos
-  "aa-1-12-4": CATEGORY_UUIDS["Straight"], // Jeans
-  "aa-1-12-5": CATEGORY_UUIDS["Skinny"], // Jeggings
-  "aa-1-12-7": CATEGORY_UUIDS["Joggers_Trousers"], // Joggers
-  "aa-1-12-8": CATEGORY_UUIDS["Leggings_Trousers"], // Leggings
+  "aa-1-12-3": CATEGORY_UUIDS.Chinos, // Chinos
+  "aa-1-12-4": CATEGORY_UUIDS.Jeans, // Jeans (Explicitly Tier 1 for Generic Jeans)
+  "aa-1-12-5": CATEGORY_UUIDS.Skinny, // Jeggings (Map to Skinny Jeans)
+  "aa-1-12-7": CATEGORY_UUIDS.Joggers_Trousers, // Joggers
+  "aa-1-12-8": CATEGORY_UUIDS.Leggings_Trousers, // Leggings
   "aa-1-12-11": CATEGORY_UUIDS["Smart Trousers"], // Trousers
 
   // ─────────────────────────────────────────────────────────────────────────────
   // CLOTHING TOPS (aa-1-13)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-13-1": CATEGORY_UUIDS["Blouses"], // Blouses
+  "aa-1-13-1": CATEGORY_UUIDS.Blouses, // Blouses
   "aa-1-13-2": CATEGORY_UUIDS["Bodysuits & Sets"], // Bodysuits
-  "aa-1-13-3": CATEGORY_UUIDS["Cardigans"], // Cardigans
+  "aa-1-13-3": CATEGORY_UUIDS.Cardigans, // Cardigans
   "aa-1-13-5": CATEGORY_UUIDS["Casual Shirts"], // Overshirts
   "aa-1-13-6": CATEGORY_UUIDS["Polo Shirts"], // Polos
   "aa-1-13-7": CATEGORY_UUIDS["Casual Shirts"], // Shirts
   "aa-1-13-8": CATEGORY_UUIDS["Basic T-shirts"], // T-Shirts
   "aa-1-13-9": CATEGORY_UUIDS["Tank Tops"], // Tank Tops
-  "aa-1-13-11": CATEGORY_UUIDS["Tunics"], // Tunics
+  "aa-1-13-11": CATEGORY_UUIDS.Tunics, // Tunics
   "aa-1-13-12": CATEGORY_UUIDS["Knitted jumper"], // Sweaters
-  "aa-1-13-13": CATEGORY_UUIDS["Hoodies"], // Hoodies
-  "aa-1-13-14": CATEGORY_UUIDS["Sweatshirts"], // Sweatshirts
+  "aa-1-13-13": CATEGORY_UUIDS.Hoodies, // Hoodies
+  "aa-1-13-14": CATEGORY_UUIDS.Sweatshirts, // Sweatshirts
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SHORTS (aa-1-14)
   // ─────────────────────────────────────────────────────────────────────────────
   "aa-1-14-1": CATEGORY_UUIDS["Casual Shorts"], // Bermudas
-  "aa-1-14-2": CATEGORY_UUIDS["Cargo Trousers"], // Cargo Shorts (map to Cargo category)
+  "aa-1-14-2": CATEGORY_UUIDS["Cargo Trousers"], // Cargo Shorts (Map to Cargo)
   "aa-1-14-3": CATEGORY_UUIDS["Casual Shorts"], // Chino Shorts
-  "aa-1-14-4": CATEGORY_UUIDS["Smart Trousers"], // Short Trousers
+  "aa-1-14-4": CATEGORY_UUIDS["Smart Trousers"], // Short Trousers (or Smart)
   "aa-1-14-5": CATEGORY_UUIDS["Denim shorts_Shorts"], // Denim Shorts
-  "aa-1-14-6": CATEGORY_UUIDS["Skinny"], // Jegging Shorts
-  "aa-1-14-7": CATEGORY_UUIDS["Joggers_Trousers"], // Jogger Shorts
-  "aa-1-14-8": CATEGORY_UUIDS["Leggings_Trousers"], // Legging Shorts
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SKIRTS (aa-1-15)
-  // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-15": CATEGORY_UUIDS["A-line Skirts"], // General Skirts
+  "aa-1-14-6": CATEGORY_UUIDS.Skinny, // Jegging Shorts
+  "aa-1-14-7": CATEGORY_UUIDS.Joggers_Trousers, // Jogger Shorts
+  "aa-1-14-8": CATEGORY_UUIDS.Leggings_Trousers, // Legging Shorts
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SLEEPWEAR & LOUNGEWEAR (aa-1-17)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-17-1": CATEGORY_UUIDS["Pyjamas"], // Long Johns
-  "aa-1-17-2-1": CATEGORY_UUIDS["Trousers_Loungewear"], // Loungewear Bottoms
-  "aa-1-17-2-1-1": CATEGORY_UUIDS["Boxers"], // Loungewear Boxers
-  "aa-1-17-2-1-2": CATEGORY_UUIDS["Joggers_Trousers"], // Loungewear Joggers
-  "aa-1-17-2-1-3": CATEGORY_UUIDS["Leggings_Trousers"], // Loungewear Leggings
+  "aa-1-17-1": CATEGORY_UUIDS.Pyjamas, // Long Johns
+  "aa-1-17-2": CATEGORY_UUIDS["Loungewear & Sleepwear"], // Loungewear
+  "aa-1-17-2-1": CATEGORY_UUIDS.Trousers_Loungewear, // Loungewear Bottoms
+  "aa-1-17-2-1-1": CATEGORY_UUIDS.Boxers, // Loungewear Boxers
+  "aa-1-17-2-1-2": CATEGORY_UUIDS.Joggers_Trousers, // Loungewear Joggers
+  "aa-1-17-2-1-3": CATEGORY_UUIDS.Leggings_Trousers, // Loungewear Leggings
   "aa-1-17-2-1-4": CATEGORY_UUIDS["Casual Shorts"], // Loungewear Shorts
-  "aa-1-17-2-2": CATEGORY_UUIDS["Shirts_Loungewear"], // Loungewear Tops
+  "aa-1-17-2-2": CATEGORY_UUIDS.Shirts_Loungewear, // Loungewear Tops
   "aa-1-17-3": CATEGORY_UUIDS["Night shirts"], // Nightgowns
-  "aa-1-17-4": CATEGORY_UUIDS["Pyjamas"], // Pajamas
-  "aa-1-17-5": CATEGORY_UUIDS["Bathrobes"], // Robes
-  "aa-1-17-6": CATEGORY_UUIDS["Pyjamas"], // Onesies
+  "aa-1-17-4": CATEGORY_UUIDS.Pyjamas, // Pajamas
+  "aa-1-17-5": CATEGORY_UUIDS.Bathrobes, // Robes
+  "aa-1-17-6": CATEGORY_UUIDS.Pyjamas, // Onesies
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SOCKS (aa-1-18)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-18-1": CATEGORY_UUIDS["Socks"], // Ankle Socks
+  "aa-1-18-1": CATEGORY_UUIDS.Socks, // Ankle Socks
   "aa-1-18-2": CATEGORY_UUIDS["Sports socks"], // Athletic Socks
-  "aa-1-18-3": CATEGORY_UUIDS["Socks"], // Crew Socks
+  "aa-1-18-3": CATEGORY_UUIDS.Socks, // Crew Socks
+  "aa-1-18-4": CATEGORY_UUIDS.Socks, // Dance Socks
+  "aa-1-18-5": CATEGORY_UUIDS.Socks, // Footie Socks
   "aa-1-18-8": CATEGORY_UUIDS["Knee high socks"], // Knee Socks
+  "aa-1-18-10": CATEGORY_UUIDS["Sports socks"], // Sneaker Socks
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SUITS (aa-1-19)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-1-19-1": CATEGORY_UUIDS["Suits"], // Pant Suits
-  "aa-1-19-2": CATEGORY_UUIDS["Suits"], // Skirt Suits
-  "aa-1-19-3": CATEGORY_UUIDS["Suits"], // Tuxedos
+  "aa-1-19-1": CATEGORY_UUIDS.Suits, // Pant Suits
+  "aa-1-19-2": CATEGORY_UUIDS.Suits, // Skirt Suits
+  "aa-1-19-3": CATEGORY_UUIDS.Suits, // Tuxedos
 
   // ─────────────────────────────────────────────────────────────────────────────
   // SWIMWEAR (aa-1-20)
@@ -554,14 +528,14 @@ const SPECIFIC_MAPPINGS: Record<string, CategoryUuid | null> = {
   "aa-1-20-2": CATEGORY_UUIDS["Swim trunks"], // Boardshorts
   "aa-1-20-3": CATEGORY_UUIDS["Swim trunks"], // Swim Boxers
   "aa-1-20-4": CATEGORY_UUIDS["Swim trunks"], // Swim Briefs
-  "aa-1-20-5": CATEGORY_UUIDS["Swimsuits"], // Burkinis
-  "aa-1-20-6": CATEGORY_UUIDS["Bikinis"], // Classic Bikinis
+  "aa-1-20-5": CATEGORY_UUIDS.Swimsuits, // Burkinis
+  "aa-1-20-6": CATEGORY_UUIDS.Bikinis, // Classic Bikinis
   "aa-1-20-7": CATEGORY_UUIDS["Beach accessories"], // Cover Ups
-  "aa-1-20-12": CATEGORY_UUIDS["Swimsuits"], // Rash Guards
-  "aa-1-20-17": CATEGORY_UUIDS["Swimsuits"], // Swim Dresses
-  "aa-1-20-22": CATEGORY_UUIDS["Swimsuits"], // One-Piece Swimsuits
-  "aa-1-20-23": CATEGORY_UUIDS["Swimsuits"], // Surf Tops
-  "aa-1-20-24": CATEGORY_UUIDS["Bikinis"], // Swimwear Tops
+  "aa-1-20-12": CATEGORY_UUIDS.Swimsuits, // Rash Guards
+  "aa-1-20-17": CATEGORY_UUIDS.Swimsuits, // Swim Dresses
+  "aa-1-20-22": CATEGORY_UUIDS.Swimsuits, // One-Piece Swimsuits
+  "aa-1-20-23": CATEGORY_UUIDS.Swimsuits, // Surf Tops
+  "aa-1-20-24": CATEGORY_UUIDS.Bikinis, // Swimwear Tops
 
   // ─────────────────────────────────────────────────────────────────────────────
   // WEDDING & BRIDAL (aa-1-22)
@@ -570,71 +544,31 @@ const SPECIFIC_MAPPINGS: Record<string, CategoryUuid | null> = {
   "aa-1-22-2": CATEGORY_UUIDS["Occasion Dresses"], // Wedding Dresses
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // HATS (aa-2-17)
+  // ACCESSORIES (aa-2)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-2-17-1": CATEGORY_UUIDS["Hats & caps"], // Baseball Caps
-  "aa-2-17-2": CATEGORY_UUIDS["Hats & caps"], // Beanies
-  "aa-2-17-3": CATEGORY_UUIDS["Hats & caps"], // Berets
-  "aa-2-17-5": CATEGORY_UUIDS["Hats & caps"], // Bucket Hats
-  "aa-2-17-6": CATEGORY_UUIDS["Hats & caps"], // Cowboy Hats
-  "aa-2-17-7": CATEGORY_UUIDS["Hats & caps"], // Fedoras
-  "aa-2-17-10": CATEGORY_UUIDS["Hats & caps"], // Snapback Caps
-  "aa-2-17-11": CATEGORY_UUIDS["Hats & caps"], // Sun Hats
-  "aa-2-17-14": CATEGORY_UUIDS["Hats & caps"], // Trucker Hats
-  "aa-2-17-15": CATEGORY_UUIDS["Hats & caps"], // Visors
-  "aa-2-17-16": CATEGORY_UUIDS["Hats & caps"], // Winter Hats
+  "aa-2-3": CATEGORY_UUIDS["Hats & caps"], // Balaclavas
+  "aa-2-4": CATEGORY_UUIDS.Scarves, // Bandanas & Headties
+  "aa-2-5": CATEGORY_UUIDS.Belts, // Belt Buckles
+  "aa-2-6": CATEGORY_UUIDS.Belts, // Belts
+  "aa-2-12": CATEGORY_UUIDS["Hats & caps"], // Earmuffs
+  "aa-2-13": CATEGORY_UUIDS.Gloves, // Gloves & Mittens
+  "aa-2-14": CATEGORY_UUIDS.Miscellaneous, // Hair Accessories
+  "aa-2-17": CATEGORY_UUIDS["Hats & caps"], // Hats
+  "aa-2-18": CATEGORY_UUIDS["Hats & caps"], // Headwear
+  "aa-2-19": CATEGORY_UUIDS.Socks, // Leg Warmers
+  "aa-2-22": CATEGORY_UUIDS.Scarves, // Neck Gaiters
+  "aa-2-23": CATEGORY_UUIDS["Ties & accessories"], // Neckties
+  "aa-2-26": CATEGORY_UUIDS.Scarves, // Scarves & Shawls
+  "aa-2-27": CATEGORY_UUIDS.Sunglasses, // Sunglasses
+  "aa-2-28": CATEGORY_UUIDS.Belts, // Suspenders
+  "aa-2-29": CATEGORY_UUIDS["Ties & accessories"], // Tie Clips
+  "aa-2-32": CATEGORY_UUIDS.Miscellaneous, // Fashion Face Masks
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // HANDBAGS (aa-5-4)
+  // HANDBAGS & WALLETS (aa-5)
   // ─────────────────────────────────────────────────────────────────────────────
-  "aa-5-4-1": CATEGORY_UUIDS["Bags & cases"], // Baguette Handbags
-  "aa-5-4-2": CATEGORY_UUIDS["Bags & cases"], // Barrel Bags
-  "aa-5-4-3": CATEGORY_UUIDS["Bags & cases"], // Beach Bags
-  "aa-5-4-4": CATEGORY_UUIDS["Bags & cases"], // Bucket Bags
-  "aa-5-4-5": CATEGORY_UUIDS["Bags & cases"], // Clutch Bags
-  "aa-5-4-7": CATEGORY_UUIDS["Bags & cases"], // Cross Body Bags
-  "aa-5-4-12": CATEGORY_UUIDS["Bags & cases"], // Hobo Bags
-  "aa-5-4-15": CATEGORY_UUIDS["Bags & cases"], // Saddle Bags
-  "aa-5-4-16": CATEGORY_UUIDS["Bags & cases"], // Satchel Bags
-  "aa-5-4-17": CATEGORY_UUIDS["Bags & cases"], // School Bags
-  "aa-5-4-18": CATEGORY_UUIDS["Bags & cases"], // Shopper Bags
-  "aa-5-4-19": CATEGORY_UUIDS["Bags & cases"], // Shoulder Bags
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // WALLETS (aa-5-5)
-  // ─────────────────────────────────────────────────────────────────────────────
-  "aa-5-5-2": CATEGORY_UUIDS["Wallets & card holders"], // Card Cases
-  "aa-5-5-3": CATEGORY_UUIDS["Wallets & card holders"], // Coin Purses
-  "aa-5-5-4": CATEGORY_UUIDS["Wallets & card holders"], // Key Cases
-  "aa-5-5-6": CATEGORY_UUIDS["Wallets & card holders"], // Travel Wallets
-  "aa-5-5-7": CATEGORY_UUIDS["Wallets & card holders"], // Wallets
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // JEWELRY (aa-6)
-  // ─────────────────────────────────────────────────────────────────────────────
-  "aa-6-1": CATEGORY_UUIDS["Jewellery"], // Anklets
-  "aa-6-2": CATEGORY_UUIDS["Jewellery"], // Body Jewelry
-  "aa-6-3": CATEGORY_UUIDS["Jewellery"], // Bracelets
-  "aa-6-4": CATEGORY_UUIDS["Jewellery"], // Brooches & Lapel Pins
-  "aa-6-5": CATEGORY_UUIDS["Jewellery"], // Charms & Pendants
-  "aa-6-6": CATEGORY_UUIDS["Jewellery"], // Earrings
-  "aa-6-7": CATEGORY_UUIDS["Jewellery"], // Jewelry Sets
-  "aa-6-8": CATEGORY_UUIDS["Jewellery"], // Necklaces
-  "aa-6-9": CATEGORY_UUIDS["Jewellery"], // Rings
-  "aa-6-10-1": CATEGORY_UUIDS["Watches"], // Watch Bands
-  "aa-6-11": CATEGORY_UUIDS["Watches"], // Watches
-  "aa-6-12": CATEGORY_UUIDS["Watches"], // Smart Watches
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SHOES (aa-8)
-  // ─────────────────────────────────────────────────────────────────────────────
-  "aa-8-1": CATEGORY_UUIDS["Sports shoes"], // Athletic Shoes
-  "aa-8-3": CATEGORY_UUIDS["Boots"], // Boots
-  "aa-8-6": CATEGORY_UUIDS["Sandals"], // Sandals
-  "aa-8-7": CATEGORY_UUIDS["Slippers"], // Slippers
-  "aa-8-8": CATEGORY_UUIDS["Sneakers"], // Sneakers
-  "aa-8-9": CATEGORY_UUIDS["Flat shoes"], // Flats
-  "aa-8-10": CATEGORY_UUIDS["High heels"], // Heels
+  "aa-5-4": CATEGORY_UUIDS["Bags & cases"], // Handbags (Generic)
+  "aa-5-5": CATEGORY_UUIDS["Wallets & card holders"], // Wallets (Generic)
 };
 
 // =============================================================================
@@ -657,8 +591,8 @@ function extractShortId(shopifyCategoryId: string): string {
  *
  * Resolution order:
  * 1. Exact match in SPECIFIC_MAPPINGS
- * 2. Walk up hierarchy looking for matches in both maps
- * 3. Return null if no mapping found (product will have no category)
+ * 2. Walk up hierarchy looking for branch defaults (or specific overrides at parent)
+ * 3. Return null if no mapping found (category will be skipped)
  *
  * @param shopifyCategory - The category object from Shopify GraphQL response
  * @returns Avelero category UUID (string), or null to skip
@@ -681,7 +615,8 @@ export function resolveShopifyCategoryId(
   while (parts.length > 0) {
     const prefix = parts.join("-");
 
-    // Check specific mappings at this level
+    // Check specific mappings at this level (treating parent as specific override)
+    // This allows a leaf to fall back to a specific parent mapping if defined
     const specificAtLevel = SPECIFIC_MAPPINGS[prefix];
     if (specificAtLevel !== undefined) {
       return specificAtLevel;

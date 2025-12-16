@@ -277,18 +277,125 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
 ]);
 
 /**
- * Payload for deleting a product.
+ * Payload for deleting a product (single).
  */
 export const deleteProductSchema = byIdSchema;
 
+// ============================================================================
+// Unified Selection Schema for Bulk Operations
+// ============================================================================
+
 /**
- * Payload for bulk deleting products.
- * Accepts an array of product IDs to delete.
+ * Selection schema for bulk operations.
+ * Supports two modes:
+ * - 'explicit': Operate on specific products by ID (manual selection)
+ * - 'all': Operate on all products matching filters, optionally excluding some IDs
  */
-export const bulkDeleteProductsSchema = z.object({
-  ids: uuidArraySchema.min(1, "At least one product ID is required"),
-  brand_id: uuidSchema.optional(),
+export const bulkSelectionSchema = z.discriminatedUnion("mode", [
+  // Explicit mode: specific IDs (manual selection)
+  z.object({
+    mode: z.literal("explicit"),
+    ids: uuidArraySchema.min(1, "At least one product ID is required"),
+  }),
+  // All mode: all matching filters except excluded IDs
+  z.object({
+    mode: z.literal("all"),
+    filters: filterStateSchema.optional(),
+    search: shortStringSchema.optional(),
+    excludeIds: uuidArraySchema.optional(),
+  }),
+]);
+
+export type BulkSelection = z.infer<typeof bulkSelectionSchema>;
+
+/**
+ * Unified delete schema supporting both single and bulk operations.
+ * 
+ * Single mode: { id: string }
+ * Bulk mode: { selection: BulkSelection }
+ */
+export const unifiedDeleteSchema = z.union([
+  // Single product delete
+  z.object({
+    id: uuidSchema,
+    brand_id: uuidSchema.optional(),
+  }),
+  // Bulk delete
+  z.object({
+    selection: bulkSelectionSchema,
+    brand_id: uuidSchema.optional(),
+  }),
+]);
+
+export type UnifiedDeleteInput = z.infer<typeof unifiedDeleteSchema>;
+
+/**
+ * Fields that can be bulk updated across multiple products.
+ * Limited to fields where mass updates make sense (e.g., status, category).
+ */
+export const bulkUpdateFieldsSchema = z.object({
+  status: shortStringSchema.optional(),
+  category_id: uuidSchema.nullable().optional(),
+  season_id: uuidSchema.nullable().optional(),
 });
+
+export type BulkUpdateFields = z.infer<typeof bulkUpdateFieldsSchema>;
+
+/**
+ * Unified update schema supporting both single and bulk operations.
+ * 
+ * Single mode: { id: string, ...allUpdateFields }
+ * Bulk mode: { selection: BulkSelection, ...bulkUpdateFields }
+ */
+export const unifiedUpdateSchema = z.union([
+  // Single product update (all fields available)
+  updateProductSchema.extend({
+    brand_id: uuidSchema.optional(),
+  }),
+  // Bulk update (limited fields)
+  z.object({
+    selection: bulkSelectionSchema,
+    brand_id: uuidSchema.optional(),
+  }).merge(bulkUpdateFieldsSchema),
+]);
+
+export type UnifiedUpdateInput = z.infer<typeof unifiedUpdateSchema>;
+
+/**
+ * @deprecated Use unifiedDeleteSchema instead
+ * Payload for bulk deleting products (legacy).
+ */
+export const bulkDeleteProductsSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("explicit"),
+    ids: uuidArraySchema.min(1, "At least one product ID is required"),
+    brand_id: uuidSchema.optional(),
+  }),
+  z.object({
+    mode: z.literal("all"),
+    filters: filterStateSchema.optional(),
+    search: shortStringSchema.optional(),
+    exclude_ids: uuidArraySchema.optional(),
+    brand_id: uuidSchema.optional(),
+  }),
+]);
+
+/**
+ * Payload for fetching all product IDs matching filters.
+ * Used for bulk operations when "select all" is active.
+ * Returns all matching IDs without pagination.
+ */
+export const listProductIdsSchema = z.object({
+  brand_id: uuidSchema.optional(),
+  // Advanced filters using FilterState structure
+  filters: filterStateSchema.optional(),
+  // Search term
+  search: shortStringSchema.optional(),
+  // Optional list of IDs to exclude from results
+  excludeIds: uuidArraySchema.optional(),
+});
+
+export type ListProductIdsInput = z.infer<typeof listProductIdsSchema>;
 
 /**
  * Upsert payload used for product-level identifiers.
@@ -314,12 +421,24 @@ export const listVariantsSchema = z.object({
 export const getVariantsSchema = byParentId("product_id");
 
 /**
+ * Schema for individual variant metadata (SKU and barcode).
+ */
+export const variantMetadataSchema = z.object({
+  color_id: uuidSchema.nullable().optional(),
+  size_id: uuidSchema.nullable().optional(),
+  sku: z.string().max(100).optional(),
+  barcode: z.string().max(100).optional(),
+});
+
+/**
  * Upsert/replace variants for a product by providing colors and sizes.
+ * Optionally includes per-variant metadata (SKU and barcode).
  */
 export const productVariantsUpsertSchema = z.object({
   product_id: uuidSchema,
   color_ids: uuidArraySchema.max(12).optional(),
   size_ids: uuidArraySchema.max(12).optional(),
+  variant_data: z.array(variantMetadataSchema).optional(),
 });
 
 /**

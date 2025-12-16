@@ -13,8 +13,9 @@ export const SHOPIFY_API_VERSION = "2024-10";
 /**
  * Default batch size for fetching variants.
  * Shopify allows up to 250 per request.
+ * Using max for better performance - reduces API calls by 60%.
  */
-export const SHOPIFY_BATCH_SIZE = 100;
+export const SHOPIFY_BATCH_SIZE = 250;
 
 /**
  * Shopify OAuth scopes required for sync.

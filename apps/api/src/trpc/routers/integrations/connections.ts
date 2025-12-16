@@ -19,7 +19,7 @@ import {
   listAvailableIntegrations,
   listBrandIntegrations,
   updateBrandIntegration,
-} from "@v1/db/queries";
+} from "@v1/db/queries/integrations";
 import { encryptCredentials, decryptCredentials } from "@v1/db/utils";
 import { testIntegrationConnection } from "@v1/integrations/sync";
 import {

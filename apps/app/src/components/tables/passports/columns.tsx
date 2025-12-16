@@ -19,9 +19,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@v1/ui/tooltip";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { PassportTableRow } from "./types";
+import { buildPublicUrl } from "@/utils/storage-urls";
 
 const MAX_COLUMN_WIDTH = 320;
 const CELL_PADDING_X = "px-4";
@@ -136,6 +138,24 @@ export const columns: ColumnDef<PassportTableRow>[] = [
               </div>
             )}
           </label>
+
+          {/* Image */}
+          <div className="w-10 h-10 bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
+            {product.primaryImagePath ? (
+              <Image
+                src={buildPublicUrl("products", product.primaryImagePath) ?? ""}
+                alt={product.name}
+                width={40}
+                height={40}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full bg-accent">
+                <Icons.Image className="h-[14px] w-[14px] text-muted" />
+              </div>
+            )}
+          </div>
+
           <div className="min-w-0 max-w-[680px] space-y-1">
             <EditPassportLink
               href={`/passports/edit/${product.productHandle}`}

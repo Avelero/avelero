@@ -19,18 +19,21 @@ import {
   upsertProductEnvironment,
   upsertProductMaterials,
   setProductTags,
-} from "@v1/db/queries";
+  bulkDeleteProductsByFilter,
+  bulkDeleteProductsByIds,
+  bulkUpdateProductsByFilter,
+  bulkUpdateProductsByIds,
+} from "@v1/db/queries/products";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { productVariants, products } from "@v1/db/schema";
 import { and, eq, inArray } from "@v1/db/queries";
 import { generateUniqueUpid, generateUniqueUpids } from "@v1/db/utils";
 import {
   productsDomainCreateSchema,
-  productsDomainDeleteSchema,
   productsDomainListSchema,
-  productsDomainUpdateSchema,
   productUnifiedGetSchema,
-  bulkDeleteProductsSchema,
+  unifiedUpdateSchema,
+  unifiedDeleteSchema,
 } from "../../../schemas/products.js";
 import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -202,8 +205,16 @@ export const productsRouter = createTRPCRouter({
       }
     }),
 
+  /**
+   * Update products - supports both single and bulk operations.
+   * 
+   * Single mode: { id: string, ...updateFields }
+   * Bulk mode: { selection: BulkSelection, ...bulkUpdateFields }
+   * 
+   * For bulk operations, only certain fields are supported (status, category_id, season_id).
+   */
   update: brandRequiredProcedure
-    .input(productsDomainUpdateSchema)
+    .input(unifiedUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = ensureBrandScope(
@@ -212,7 +223,43 @@ export const productsRouter = createTRPCRouter({
       );
 
       try {
-        // Update basic product fields - only include fields that are explicitly provided
+        // Check if this is a bulk operation (has selection property)
+        if ("selection" in input) {
+          const selection = input.selection;
+          const bulkUpdates = {
+            status: input.status ?? undefined,
+            categoryId: input.category_id ?? undefined,
+            seasonId: input.season_id ?? undefined,
+          };
+
+          // Bulk update based on selection mode
+          let result: { updated: number };
+          if (selection.mode === "all") {
+            result = await bulkUpdateProductsByFilter(brandCtx.db, brandId, bulkUpdates, {
+              filterState: selection.filters,
+              search: selection.search,
+              excludeIds: selection.excludeIds,
+            });
+          } else {
+            result = await bulkUpdateProductsByIds(
+              brandCtx.db,
+              brandId,
+              selection.ids,
+              bulkUpdates,
+            );
+          }
+
+          // Invalidate DPP cache for bulk updates (fire-and-forget)
+          // Note: For large bulk updates, we don't revalidate individual products
+          // The cache will naturally expire or can be manually refreshed
+
+          return {
+            success: true,
+            updated: result.updated,
+          };
+        }
+
+        // Single product update
         const payload: Record<string, unknown> = { id: input.id };
         
         // Only add fields to payload if they were explicitly provided in input
@@ -249,7 +296,6 @@ export const productsRouter = createTRPCRouter({
 
         // Revalidate DPP cache for this product (fire-and-forget)
         if (product?.id) {
-          // Get the product's handle for cache revalidation
           const [productWithHandle] = await brandCtx.db
             .select({ productHandle: products.productHandle })
             .from(products)
@@ -266,8 +312,18 @@ export const productsRouter = createTRPCRouter({
       }
     }),
 
+  /**
+   * Delete products - supports both single and bulk operations.
+   * 
+   * Single mode: { id: string }
+   * Bulk mode: { selection: BulkSelection }
+   * 
+   * Bulk selection supports:
+   * - 'explicit': Delete specific products by ID
+   * - 'all': Delete all products matching filters, optionally excluding some IDs
+   */
   delete: brandRequiredProcedure
-    .input(productsDomainDeleteSchema)
+    .input(unifiedDeleteSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = ensureBrandScope(
@@ -276,7 +332,40 @@ export const productsRouter = createTRPCRouter({
       );
 
       try {
-        // Get the product's image path before deletion for cleanup
+        // Check if this is a bulk operation (has selection property)
+        if ("selection" in input) {
+          const selection = input.selection;
+
+          let result: { deleted: number; imagePaths: string[] };
+          if (selection.mode === "all") {
+            // Bulk delete by filter
+            result = await bulkDeleteProductsByFilter(brandCtx.db, brandId, {
+              filterState: selection.filters,
+              search: selection.search,
+              excludeIds: selection.excludeIds,
+            });
+          } else {
+            // Bulk delete by explicit IDs
+            result = await bulkDeleteProductsByIds(brandCtx.db, brandId, selection.ids);
+          }
+
+          // Clean up product images from storage after deletion
+          if (result.imagePaths.length > 0 && ctx.supabase) {
+            try {
+              await ctx.supabase.storage.from("products").remove(result.imagePaths);
+            } catch {
+              // Silently ignore storage cleanup errors - products are already deleted
+            }
+          }
+
+          return {
+            success: true,
+            deleted: result.deleted,
+            failed: 0,
+          };
+        }
+
+        // Single product delete
         const [productRow] = await brandCtx.db
           .select({ primaryImagePath: products.primaryImagePath })
           .from(products)
@@ -299,76 +388,6 @@ export const productsRouter = createTRPCRouter({
         return createEntityResponse(deleted);
       } catch (error) {
         throw wrapError(error, "Failed to delete product");
-      }
-    }),
-
-  bulkDelete: brandRequiredProcedure
-    .input(bulkDeleteProductsSchema)
-    .mutation(async ({ ctx, input }) => {
-      const brandCtx = ctx as BrandContext;
-      const brandId = ensureBrandScope(
-        brandCtx,
-        normalizeBrandId(input.brand_id),
-      );
-
-      try {
-        // Get all product image paths before deletion for cleanup
-        const productRows = await brandCtx.db
-          .select({ id: products.id, primaryImagePath: products.primaryImagePath })
-          .from(products)
-          .where(
-            and(
-              inArray(products.id, input.ids),
-              eq(products.brandId, brandId),
-            ),
-          );
-
-        // Create a map of product ID to image path for cleanup
-        const imagePathMap = new Map<string, string | null>();
-        for (const row of productRows) {
-          imagePathMap.set(row.id, row.primaryImagePath);
-        }
-
-        const results: { id: string; success: boolean; error?: string }[] = [];
-        const imagesToDelete: string[] = [];
-        
-        // Delete products sequentially to handle errors gracefully
-        for (const id of input.ids) {
-          try {
-            await deleteProduct(brandCtx.db, brandId, id);
-            results.push({ id, success: true });
-            
-            // Track image for cleanup if deletion succeeded
-            const imagePath = imagePathMap.get(id);
-            if (imagePath) {
-              imagesToDelete.push(imagePath);
-            }
-          } catch (error) {
-            const message = error instanceof Error ? error.message : "Unknown error";
-            results.push({ id, success: false, error: message });
-          }
-        }
-
-        // Clean up product images from storage after successful deletions
-        if (imagesToDelete.length > 0 && ctx.supabase) {
-          try {
-            await ctx.supabase.storage.from("products").remove(imagesToDelete);
-          } catch {
-            // Silently ignore storage cleanup errors - products are already deleted
-          }
-        }
-        
-        const successCount = results.filter(r => r.success).length;
-        const failCount = results.filter(r => !r.success).length;
-        
-        return {
-          success: failCount === 0,
-          deleted: successCount,
-          failed: failCount,
-          results,
-        };
-      } catch (error) {
-        throw wrapError(error, "Failed to bulk delete products");
       }
     }),
 

@@ -7,18 +7,20 @@ import {
   type StagingProductPreview,
   batchUpdateImportRowStatus,
   bulkCreateProductsFromStaging,
-  createProduct,
   deleteStagingDataForJob,
   getImportJobStatus,
   getStagingProductsForCommit,
-  setProductEcoClaims,
-  setProductJourneySteps,
   updateImportJobProgress,
   updateImportJobStatus,
+} from "@v1/db/queries/bulk";
+import {
+  createProduct,
+  setProductEcoClaims,
+  setProductJourneySteps,
   updateProduct,
   upsertProductEnvironment,
   upsertProductMaterials,
-} from "@v1/db/queries";
+} from "@v1/db/queries/products";
 import { brands, productVariants } from "@v1/db/schema";
 import { revalidateBrand } from "../../lib/dpp-revalidation";
 import { ProgressEmitter } from "./progress-emitter";

@@ -12,7 +12,7 @@ import {
   getImportErrors,
   getImportJobStatus,
   getStagingPreview,
-} from "@v1/db/queries";
+} from "@v1/db/queries/bulk";
 import { generateCSV } from "../../../lib/csv-parser.js";
 import {
   exportFailedRowsSchema,

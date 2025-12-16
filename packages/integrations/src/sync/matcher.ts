@@ -11,18 +11,19 @@ import {
   createBrandTag,
   createColor,
   createSize,
+} from "@v1/db/queries/catalog";
+import {
   findColorByName,
   findSizeByName,
   findTagByName,
-} from "@v1/db/queries";
+} from "@v1/db/queries/integrations";
 import {
-  brandSizes,
   integrationVariantLinks,
   productVariants,
   products,
 } from "@v1/db/schema";
 import { generateUniqueUpid, generateUniqueProductHandle } from "@v1/db/utils";
-import { allColors, allDefaultSizes } from "@v1/selections";
+import { allColors } from "@v1/selections";
 import {
   downloadAndUploadImage,
   isExternalImageUrl,
@@ -53,56 +54,6 @@ function getRandomColorHex(): string {
   return allColors[randomIndex]?.hex ?? "808080";
 }
 
-/**
- * Find a default size's sortIndex by name.
- * Case-insensitive matching.
- * Returns undefined if not found in default sizes.
- */
-function findDefaultSizeSortIndex(name: string): number | undefined {
-  const normalized = name.toLowerCase().trim();
-  const size = allDefaultSizes.find(
-    (s: { name: string; sortIndex: number }) =>
-      s.name.toLowerCase() === normalized
-  );
-  return size?.sortIndex;
-}
-
-/**
- * Generate a unique custom sortIndex for sizes not in the default list.
- * Custom sizes use the 0-999 range to avoid conflicts with standard size ranges.
- *
- * Range allocation in @v1/selections:
- * - Custom sizes: 0-999
- * - Letter sizes: 1000-1099
- * - US Numeric apparel: 2000-2099
- * - Waist sizes: 3000-3099
- * - US Shoe sizes: 4000-4199
- * - EU Shoe sizes: 5000-5199
- * - UK Shoe sizes: 6000-6199
- * - One Size options: 9000-9099
- */
-async function generateCustomSortIndex(
-  db: Database,
-  brandId: string
-): Promise<number> {
-  // Get all existing sizes for this brand to find max sortIndex in custom range
-  const existingSizes = await db
-    .select({ sortIndex: brandSizes.sortIndex })
-    .from(brandSizes)
-    .where(eq(brandSizes.brandId, brandId));
-
-  // Find the max sortIndex in the custom range (0-999)
-  let maxCustomIndex = -1;
-  for (const size of existingSizes) {
-    const idx = size.sortIndex ?? 0;
-    if (idx >= 0 && idx < 1000 && idx > maxCustomIndex) {
-      maxCustomIndex = idx;
-    }
-  }
-
-  // Return next available index in custom range
-  return maxCustomIndex + 1;
-}
 
 // =============================================================================
 // REFERENCE ENTITY MATCHING
@@ -113,7 +64,7 @@ async function generateCustomSortIndex(
  * Hex value priority:
  * 1. Shopify swatch hex (from integration)
  * 2. Default color palette match
- * 3. Gray fallback
+ * 3. null (UI handles missing hex gracefully)
  *
  * @param shopifyHex - Optional hex value from Shopify's swatch.color (e.g., "#FF8A00")
  */
@@ -128,10 +79,10 @@ export async function findOrCreateColor(
     return { id: existing.id, created: false };
   }
 
-  // Hex priority: Shopify swatch > default palette > gray fallback
+  // Hex priority: Shopify swatch > default palette > empty string
   // Strip # prefix if present from Shopify hex
   const normalizedShopifyHex = shopifyHex?.replace(/^#/, "") ?? null;
-  const hex = normalizedShopifyHex ?? findDefaultColorHex(name) ?? "808080";
+  const hex = normalizedShopifyHex ?? findDefaultColorHex(name) ?? "";
 
   const created = await createColor(db, brandId, { name, hex });
   if (!created) {
@@ -142,43 +93,19 @@ export async function findOrCreateColor(
 
 /**
  * Find or create a size by name.
- * Sort index priority:
- * 1. Default size palette match (uses standard ranges 1000-9099)
- * 2. Shopify optionValues index (uses 10000+ range, preserves merchant's order)
- * 3. Generated custom index (uses 0-999 range)
- *
- * Range allocation:
- * - Custom sizes (manual): 0-999
- * - Standard sizes: 1000-9099
- * - Shopify-synced custom sizes: 10000+ (preserves merchant order)
- *
- * @param shopifyIndex - Optional index from Shopify's optionValues array (0-based)
+ * No sortIndex needed - ordering is stored at product level via sizeOrder array.
  */
 export async function findOrCreateSize(
   db: Database,
   brandId: string,
-  name: string,
-  shopifyIndex?: number | null
+  name: string
 ): Promise<{ id: string; created: boolean }> {
   const existing = await findSizeByName(db, brandId, name);
   if (existing) {
     return { id: existing.id, created: false };
   }
 
-  // Sort index priority: default palette > Shopify index > generated custom
-  let sortIndex = findDefaultSizeSortIndex(name);
-
-  if (sortIndex === undefined && shopifyIndex !== null && shopifyIndex !== undefined) {
-    // Use Shopify's order in a dedicated range (10000+)
-    // Multiply by 10 to leave gaps for manual reordering if needed
-    sortIndex = 10000 + shopifyIndex * 10;
-  }
-
-  if (sortIndex === undefined) {
-    sortIndex = await generateCustomSortIndex(db, brandId);
-  }
-
-  const created = await createSize(db, brandId, { name, sortIndex });
+  const created = await createSize(db, brandId, { name });
   if (!created) {
     throw new Error(`Failed to create size: ${name}`);
   }
@@ -214,7 +141,7 @@ export async function findOrCreateTag(
 // =============================================================================
 
 /**
- * Find a variant by any of its identifiers.
+ * Find a variant by any of its identifiers within a specific product.
  */
 export async function findVariantByIdentifiers(
   db: Database,
@@ -257,6 +184,73 @@ export async function findVariantByIdentifiers(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+/**
+ * Find a variant by SKU or barcode across the entire brand.
+ * This is used BEFORE creating a product to check if any existing product
+ * in the brand already has a variant with matching identifiers.
+ * 
+ * Returns the variant ID and its parent product info if found.
+ */
+export async function findVariantByIdentifiersInBrand(
+  db: Database,
+  brandId: string,
+  identifiers: {
+    sku?: string;
+    ean?: string;
+    gtin?: string;
+    barcode?: string;
+  }
+): Promise<{ 
+  variantId: string; 
+  productId: string; 
+  productHandle: string;
+} | null> {
+  // Build conditions array - we only want to match on non-empty identifiers
+  const identifierConditions = [];
+
+  if (identifiers.sku?.trim()) {
+    identifierConditions.push(eq(productVariants.sku, identifiers.sku.trim()));
+  }
+  if (identifiers.ean?.trim()) {
+    identifierConditions.push(eq(productVariants.ean, identifiers.ean.trim()));
+  }
+  if (identifiers.gtin?.trim()) {
+    identifierConditions.push(eq(productVariants.gtin, identifiers.gtin.trim()));
+  }
+  if (identifiers.barcode?.trim()) {
+    identifierConditions.push(eq(productVariants.barcode, identifiers.barcode.trim()));
+  }
+
+  // No identifiers to search by
+  if (identifierConditions.length === 0) return null;
+
+  // Search across all variants in the brand
+  const rows = await db
+    .select({
+      variantId: productVariants.id,
+      productId: productVariants.productId,
+      productHandle: products.productHandle,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(
+      and(
+        eq(products.brandId, brandId),
+        or(...identifierConditions)
+      )
+    )
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    variantId: row.variantId,
+    productId: row.productId,
+    productHandle: row.productHandle,
+  };
 }
 
 // =============================================================================
@@ -305,6 +299,8 @@ export async function processImageUrl(
  * - New products get clean, readable handles based on their names
  *
  * @param categoryId - Optional category UUID resolved from external taxonomy mapping
+ * @param sizeOrder - Ordered array of size IDs (preserves merchant's order from source)
+ * @param colorOrder - Ordered array of color IDs (preserves merchant's order from source)
  */
 export async function findOrCreateProduct(
   db: Database,
@@ -314,7 +310,9 @@ export async function findOrCreateProduct(
   productData: ExtractedValues["product"],
   externalProductId: string,
   brandIntegrationId: string,
-  categoryId?: string | null
+  categoryId?: string | null,
+  sizeOrder?: string[],
+  colorOrder?: string[]
 ): Promise<{ id: string; productHandle: string; created: boolean }> {
   // First, try to find an existing product that was previously synced
   // from the same external product ID by checking variant links.
@@ -383,6 +381,8 @@ export async function findOrCreateProduct(
       currency: (productData.currency as string) ?? null,
       salesStatus: (productData.salesStatus as string) ?? null,
       categoryId: categoryId ?? null,
+      sizeOrder: sizeOrder ?? [],
+      colorOrder: colorOrder ?? [],
     })
     .returning({ id: products.id });
 

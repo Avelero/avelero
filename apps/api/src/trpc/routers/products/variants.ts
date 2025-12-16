@@ -316,17 +316,19 @@ async function replaceProductVariants(
         const metadata = variantDataMap.get(key);
 
         if (existingVariant && metadata) {
+          const sku = metadata.sku ?? null;
+          const barcode = metadata.barcode ?? null;
+
           // Update SKU/barcode if they differ from current values
           const needsUpdate =
-            existingVariant.sku !== metadata.sku ||
-            existingVariant.barcode !== metadata.barcode;
+            existingVariant.sku !== sku || existingVariant.barcode !== barcode;
 
           if (needsUpdate) {
             await tx
               .update(productVariants)
               .set({
-                sku: metadata.sku ?? null,
-                barcode: metadata.barcode ?? null,
+                sku,
+                barcode,
               })
               .where(eq(productVariants.id, existingVariant.id));
           }
@@ -375,8 +377,9 @@ async function replaceProductVariants(
       });
 
       const toInsert = variantsToInsert.map((variant, index) => {
-        const key = makeVariantKey(variant.colorId, variant.sizeId);
-        const metadata = variantDataMap.get(key);
+        const metadata = variantDataMap.get(
+          makeVariantKey(variant.colorId, variant.sizeId),
+        );
         return {
           productId,
           colorId: variant.colorId,

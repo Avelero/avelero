@@ -33,6 +33,7 @@ export function useFormState<TState extends Record<string, any>>(
 
   type FormAction<T extends FieldName> =
     | { type: "SET_FIELD"; field: T; value: FieldValue<T> }
+    | { type: "UPDATE_FIELD"; field: T; updater: (prev: FieldValue<T>) => FieldValue<T> }
     | { type: "SET_FIELDS"; fields: Partial<TState> }
     | { type: "RESET_FORM" };
 
@@ -40,6 +41,9 @@ export function useFormState<TState extends Record<string, any>>(
     switch (action.type) {
       case "SET_FIELD":
         return { ...state, [action.field]: action.value };
+      case "UPDATE_FIELD":
+        // Use current state inside reducer to avoid stale closure issues
+        return { ...state, [action.field]: action.updater(state[action.field]) };
       case "SET_FIELDS":
         return { ...state, ...action.fields };
       case "RESET_FORM":
@@ -60,14 +64,16 @@ export function useFormState<TState extends Record<string, any>>(
   );
 
   // Update field using callback (helpful for arrays/objects)
+  // Uses UPDATE_FIELD action to avoid stale closure issues - the updater
+  // runs inside the reducer with current state, not captured closure state
   const updateField = React.useCallback(
     <T extends FieldName>(
       field: T,
       updater: (prev: FieldValue<T>) => FieldValue<T>,
     ) => {
-      dispatch({ type: "SET_FIELD", field, value: updater(state[field]) });
+      dispatch({ type: "UPDATE_FIELD", field, updater });
     },
-    [state],
+    [],
   );
 
   // Create setter for multiple fields at once

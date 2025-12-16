@@ -366,3 +366,4 @@ export async function loadCategoryPathsForProducts(
   return map;
 }
 
+

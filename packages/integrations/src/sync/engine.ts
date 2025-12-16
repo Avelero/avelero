@@ -1,51 +1,21 @@
 /**
  * Integration Sync Engine
  *
- * Core sync logic for processing data from external systems.
- * Handles variant-level syncing with automatic product creation.
- *
- * Sync Flow:
- * 1. Pre-fetch all brand data (colors, sizes, tags, variant links)
- * 2. Fetch variants from external system (via connector)
- * 3. For each variant:
- *    a. Extract values using field mappings
- *    b. Find/create reference entities (colors, sizes, tags) - uses cache
- *    c. Find/create parent product
- *    d. Find/create or update variant
- *    e. Update variant link
- *
- * Performance Optimizations:
- * - Pre-fetches all brand data to warm caches
- * - Reduces DB queries by 80%+ during sync
- *
- * @see plan-integration.md Section 6.4 for architecture details
+ * Product-centric sync: products are fetched with nested variants.
  */
 
 import type { Database } from "@v1/db/client";
-import {
-  listColors,
-  listSizes,
-  listBrandTags,
-} from "@v1/db/queries/catalog";
-import {
-  listVariantLinks,
-} from "@v1/db/queries/integrations";
+import { batchFindProductLinks, batchFindVariantLinks } from "@v1/db/queries/integrations";
 import { getConnector } from "../connectors/registry";
 import { buildEffectiveFieldMappings } from "./extractor";
-import { processVariant, type SyncCaches } from "./processor";
-import type { SyncContext, SyncResult } from "./types";
+import { initializeCaches, type SyncCaches } from "./caches";
+import { createMissingEntities, extractUniqueEntitiesFromBatch } from "./batch-operations";
+import { processProduct } from "./processor";
+import type { FetchedProductBatch, SyncContext, SyncResult } from "./types";
 
-// =============================================================================
-// PUBLIC API
-// =============================================================================
+const PRODUCT_CONCURRENCY = 10;
 
-/**
- * Sync variants from an external system.
- *
- * @param ctx - Sync context with credentials and configuration
- * @returns Sync result with stats and errors
- */
-export async function syncVariants(ctx: SyncContext): Promise<SyncResult> {
+export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
   const result: SyncResult = {
     success: false,
     variantsProcessed: 0,
@@ -60,104 +30,30 @@ export async function syncVariants(ctx: SyncContext): Promise<SyncResult> {
   };
 
   try {
-    // Get connector
     const connector = getConnector(ctx.integrationSlug);
     if (!connector) {
       throw new Error(`Unknown integration: ${ctx.integrationSlug}`);
     }
 
-    // Build field mappings
-    const mappings = buildEffectiveFieldMappings(
-      connector.schema,
-      ctx.fieldConfigs
-    );
-
-    // Initialize in-memory caches to avoid redundant database lookups
-    // These are shared across all variant processing in this sync session
-    const caches: SyncCaches = {
-      colors: new Map(),
-      sizes: new Map(),
-      products: new Map(),
-      tags: new Map(),
-      updatedProductIds: new Set(),
-    };
-
+    const mappings = buildEffectiveFieldMappings(connector.schema, ctx.fieldConfigs);
     const db = ctx.db as Database;
+    const caches = await initializeCaches(db, ctx.brandId);
 
-    // ==========================================================================
-    // PERFORMANCE OPTIMIZATION: Pre-fetch all brand data to warm caches
-    // This reduces DB queries by 80%+ during sync by eliminating
-    // individual "find or create" lookups for colors, sizes, and tags.
-    // ==========================================================================
-    const [existingColors, existingSizes, existingTags] = await Promise.all([
-      listColors(db, ctx.brandId),
-      listSizes(db, ctx.brandId),
-      listBrandTags(db, ctx.brandId),
-    ]);
+    for await (const batch of connector.fetchProducts(ctx.credentials)) {
+      const batchResult = await processBatch(db, ctx, batch, mappings, caches);
 
-    // Pre-populate color cache (keyed by name for lookup)
-    for (const color of existingColors) {
-      caches.colors.set(color.name, { id: color.id, created: false });
+      result.variantsProcessed += batchResult.variantsProcessed;
+      result.variantsCreated += batchResult.variantsCreated;
+      result.variantsUpdated += batchResult.variantsUpdated;
+      result.variantsSkipped += batchResult.variantsSkipped;
+      result.variantsFailed += batchResult.variantsFailed;
+      result.productsCreated += batchResult.productsCreated;
+      result.productsUpdated += batchResult.productsUpdated;
+      result.entitiesCreated += batchResult.entitiesCreated;
+      result.errors.push(...batchResult.errors);
     }
 
-    // Pre-populate size cache (keyed by name for lookup)
-    for (const size of existingSizes) {
-      caches.sizes.set(size.name, { id: size.id, created: false });
-    }
-
-    // Pre-populate tag cache (keyed by name for lookup)
-    for (const tag of existingTags) {
-      caches.tags.set(tag.name, { id: tag.id, created: false });
-    }
-
-    // Track unique product IDs for accurate counting
-    // (productCreated/productUpdated should count unique products, not variants)
-    const createdProductIds = new Set<string>();
-    const updatedProductIds = new Set<string>();
-
-    // Fetch and process variants
-    const variantGenerator = connector.fetchVariants(ctx.credentials);
-
-    for await (const batch of variantGenerator) {
-      for (const variant of batch) {
-        result.variantsProcessed++;
-
-        const processed = await processVariant(db, ctx, variant, mappings, caches);
-
-        if (processed.success) {
-          if (processed.variantCreated) {
-            result.variantsCreated++;
-          } else if (processed.variantUpdated) {
-            result.variantsUpdated++;
-          } else {
-            result.variantsSkipped++;
-          }
-
-          // Track unique products created/updated
-          if (processed.productId) {
-            if (processed.productCreated && !createdProductIds.has(processed.productId)) {
-              createdProductIds.add(processed.productId);
-            } else if (processed.productUpdated && !updatedProductIds.has(processed.productId)) {
-              updatedProductIds.add(processed.productId);
-            }
-          }
-
-          result.entitiesCreated += processed.entitiesCreated;
-        } else {
-          result.variantsFailed++;
-          result.errors.push({
-            externalId: variant.externalId,
-            message: processed.error || "Unknown error",
-          });
-        }
-      }
-    }
-
-    // Set final counts from unique product sets
-    result.productsCreated = createdProductIds.size;
-    result.productsUpdated = updatedProductIds.size;
-
-    result.success = result.variantsFailed === 0;
+    result.success = result.variantsFailed === 0 && result.errors.length === 0;
   } catch (error) {
     result.errors.push({
       externalId: "SYSTEM",
@@ -168,32 +64,115 @@ export async function syncVariants(ctx: SyncContext): Promise<SyncResult> {
   return result;
 }
 
-/**
- * Test a connection to an external system.
- *
- * @param integrationSlug - The integration type (e.g., "shopify")
- * @param credentials - The decrypted credentials
- * @returns Connection test result
- */
 export async function testIntegrationConnection(
   integrationSlug: string,
   credentials: SyncContext["credentials"]
 ): Promise<{ success: boolean; message: string; data?: unknown }> {
   const connector = getConnector(integrationSlug);
   if (!connector) {
-    return {
-      success: false,
-      message: `Unknown integration: ${integrationSlug}`,
-    };
+    return { success: false, message: `Unknown integration: ${integrationSlug}` };
   }
 
   try {
     const result = await connector.testConnection(credentials);
     return { success: true, message: "Connection successful", data: result };
   } catch (error) {
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : String(error),
-    };
+    return { success: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+interface BatchResult {
+  variantsProcessed: number;
+  variantsCreated: number;
+  variantsUpdated: number;
+  variantsSkipped: number;
+  variantsFailed: number;
+  productsCreated: number;
+  productsUpdated: number;
+  entitiesCreated: number;
+  errors: Array<{ externalId: string; message: string }>;
+}
+
+async function processBatch(
+  db: Database,
+  ctx: SyncContext,
+  batch: FetchedProductBatch,
+  mappings: ReturnType<typeof buildEffectiveFieldMappings>,
+  caches: SyncCaches
+): Promise<BatchResult> {
+  const result: BatchResult = {
+    variantsProcessed: 0,
+    variantsCreated: 0,
+    variantsUpdated: 0,
+    variantsSkipped: 0,
+    variantsFailed: 0,
+    productsCreated: 0,
+    productsUpdated: 0,
+    entitiesCreated: 0,
+    errors: [],
+  };
+
+  // Extract and create missing entities
+  const extracted = extractUniqueEntitiesFromBatch(batch, mappings);
+  const creationStats = await createMissingEntities(db, ctx.brandId, extracted, caches);
+  result.entitiesCreated += creationStats.colorsCreated + creationStats.sizesCreated + creationStats.tagsCreated;
+
+  // Pre-fetch links
+  const [productLinks, variantLinks] = await Promise.all([
+    batchFindProductLinks(db, ctx.brandIntegrationId, Array.from(extracted.productIds)),
+    batchFindVariantLinks(db, ctx.brandIntegrationId, Array.from(extracted.variantIds)),
+  ]);
+
+  const preFetched = { productLinks, variantLinks };
+
+  // Process products with concurrency limit
+  const semaphore = new Semaphore(PRODUCT_CONCURRENCY);
+
+  await Promise.all(
+    batch.map(async (product) => {
+      await semaphore.acquire();
+      try {
+        const processed = await processProduct(db, ctx, product, mappings, caches, preFetched);
+        result.variantsProcessed += product.variants.length;
+
+        if (processed.success) {
+          result.variantsCreated += processed.variantsCreated;
+          result.variantsUpdated += processed.variantsUpdated;
+          result.variantsSkipped += processed.variantsSkipped;
+          if (processed.productCreated) result.productsCreated++;
+          else if (processed.productUpdated) result.productsUpdated++;
+        } else {
+          result.variantsFailed += product.variants.length;
+          result.errors.push({ externalId: product.externalId, message: processed.error || "Unknown error" });
+        }
+      } finally {
+        semaphore.release();
+      }
+    })
+  );
+
+  return result;
+}
+
+class Semaphore {
+  private permits: number;
+  private waiting: Array<() => void> = [];
+
+  constructor(permits: number) {
+    this.permits = permits;
+  }
+
+  async acquire(): Promise<void> {
+    if (this.permits > 0) {
+      this.permits--;
+      return;
+    }
+    return new Promise<void>((resolve) => this.waiting.push(resolve));
+  }
+
+  release(): void {
+    const next = this.waiting.shift();
+    if (next) next();
+    else this.permits++;
   }
 }

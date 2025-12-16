@@ -19,7 +19,7 @@ import {
   updateSyncJob,
 } from "@v1/db/queries/integrations";
 import { decryptCredentials } from "@v1/db/utils";
-import { syncVariants } from "@v1/integrations/sync";
+import { syncProducts } from "@v1/integrations/sync";
 import type {
   FieldConfig,
   IntegrationCredentials,
@@ -150,8 +150,8 @@ export const syncIntegration = task({
       };
 
       // Run sync
-      logger.info("Starting variant sync");
-      const result = await syncVariants(ctx);
+      logger.info("Starting product sync");
+      const result = await syncProducts(ctx);
 
       logger.info("Sync completed", {
         success: result.success,

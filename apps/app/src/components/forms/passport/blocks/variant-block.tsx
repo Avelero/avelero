@@ -16,6 +16,23 @@ import * as React from "react";
 
 type PendingColorSelection = { name: string; hex: string };
 
+const PENDING_COLOR_PREFIX = "pending-color:";
+const PENDING_SIZE_PREFIX = "pending-size:";
+
+const normalizeKeyPart = (value: string) => value.trim().toLowerCase();
+
+const pendingColorKey = (name: string) =>
+  `${PENDING_COLOR_PREFIX}${normalizeKeyPart(name)}`;
+
+const pendingSizeKey = (name: string) =>
+  `${PENDING_SIZE_PREFIX}${normalizeKeyPart(name)}`;
+
+const toColorKey = (color: { id?: string; name: string }) =>
+  color.id && color.id.length > 0 ? color.id : pendingColorKey(color.name);
+
+const toSizeKey = (size: { id?: string; name: string }) =>
+  size.id && size.id.length > 0 ? size.id : pendingSizeKey(size.name);
+
 interface VariantSectionProps {
   colorIds: string[];
   pendingColors: PendingColorSelection[];
@@ -233,52 +250,60 @@ export function VariantSection({
           colorId: null,
           colorName: null,
           hex: null,
-          variants: sizes.map((size) => ({
-            key: getVariantKey(null, size.id ?? null),
-            sizeId: size.id ?? null,
-            sizeName: size.name,
-            sku: getVariantField(null, size.id ?? null, "sku"),
-            barcode: getVariantField(null, size.id ?? null, "barcode"),
-          })),
+          variants: sizes.map((size) => {
+            const sizeKey = toSizeKey(size);
+            return {
+              key: getVariantKey(null, sizeKey),
+              sizeId: sizeKey,
+              sizeName: size.name,
+              sku: getVariantField(null, sizeKey, "sku"),
+              barcode: getVariantField(null, sizeKey, "barcode"),
+            };
+          }),
         },
       ];
     }
 
     // Case 2: Only colors, no sizes
     if (sizes.length === 0) {
-      return colors.map((color) => ({
-        colorId: color.id ?? null,
-        colorName: color.name,
-        hex: color.hex ?? null,
-        variants: [
-          {
-            key: getVariantKey(color.id ?? null, null),
-            sizeId: null,
-            sizeName: null,
-            sku: getVariantField(color.id ?? null, null, "sku"),
-            barcode: getVariantField(color.id ?? null, null, "barcode"),
-          },
-        ],
-      }));
+      return colors.map((color) => {
+        const colorKey = toColorKey(color);
+        return {
+          colorId: colorKey,
+          colorName: color.name,
+          hex: color.hex ?? null,
+          variants: [
+            {
+              key: getVariantKey(colorKey, null),
+              sizeId: null,
+              sizeName: null,
+              sku: getVariantField(colorKey, null, "sku"),
+              barcode: getVariantField(colorKey, null, "barcode"),
+            },
+          ],
+        };
+      });
     }
 
     // Case 3: Both colors and sizes
-    return colors.map((color) => ({
-      colorId: color.id ?? null,
-      colorName: color.name,
-      hex: color.hex ?? null,
-      variants: sizes.map((size) => ({
-        key: getVariantKey(color.id ?? null, size.id ?? null),
-        sizeId: size.id ?? null,
-        sizeName: size.name,
-        sku: getVariantField(color.id ?? null, size.id ?? null, "sku"),
-        barcode: getVariantField(
-          color.id ?? null,
-          size.id ?? null,
-          "barcode",
-        ),
-      })),
-    }));
+    return colors.map((color) => {
+      const colorKey = toColorKey(color);
+      return {
+        colorId: colorKey,
+        colorName: color.name,
+        hex: color.hex ?? null,
+        variants: sizes.map((size) => {
+          const sizeKey = toSizeKey(size);
+          return {
+            key: getVariantKey(colorKey, sizeKey),
+            sizeId: sizeKey,
+            sizeName: size.name,
+            sku: getVariantField(colorKey, sizeKey, "sku"),
+            barcode: getVariantField(colorKey, sizeKey, "barcode"),
+          };
+        }),
+      };
+    });
   }, [
     selectedColors,
     normalizedSelectedSizes,
@@ -302,58 +327,6 @@ export function VariantSection({
     },
     [],
   );
-
-  // Stable string representations of color/size IDs for dependency tracking
-  const colorIdsKey = React.useMemo(
-    () => selectedColors.map((c) => c.id ?? `pending:${c.name}`).sort().join(","),
-    [selectedColors],
-  );
-  const sizeIdsKey = React.useMemo(
-    () => normalizedSelectedSizes.map((s) => s.id ?? `pending:${s.name}`).sort().join(","),
-    [normalizedSelectedSizes],
-  );
-
-  // Clean up variant data when colors/sizes are removed
-  // Using stable keys to prevent infinite loops
-  React.useEffect(() => {
-    // Build set of valid variant keys based on current color/size selections
-    const validKeys = new Set<string>();
-    const colors = selectedColors;
-    const sizes = normalizedSelectedSizes;
-
-    if (colors.length === 0 && sizes.length === 0) {
-      // No variants - clear all
-    } else if (colors.length === 0) {
-      // Only sizes
-      for (const size of sizes) {
-        validKeys.add(getVariantKey(null, size.id ?? null));
-      }
-    } else if (sizes.length === 0) {
-      // Only colors
-      for (const color of colors) {
-        validKeys.add(getVariantKey(color.id ?? null, null));
-      }
-    } else {
-      // Both colors and sizes
-      for (const color of colors) {
-        for (const size of sizes) {
-          validKeys.add(getVariantKey(color.id ?? null, size.id ?? null));
-        }
-      }
-    }
-
-    updateVariantData((prev) => {
-      const filtered = prev.filter((v) =>
-        validKeys.has(getVariantKey(v.colorId, v.sizeId)),
-      );
-      // Only update if something was actually removed
-      if (filtered.length === prev.length) {
-        return prev;
-      }
-      return filtered;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [colorIdsKey, sizeIdsKey]);
 
   const hasVariants = variantGroups.length > 0;
   // Check if we have both dimensions (colors AND sizes) - only then show accordion

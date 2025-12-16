@@ -16,6 +16,41 @@ import * as React from "react";
 
 export type PendingColorSelection = { name: string; hex: string };
 
+const PENDING_COLOR_PREFIX = "pending-color:";
+const PENDING_SIZE_PREFIX = "pending-size:";
+
+const normalizeKeyPart = (value: string) => value.trim().toLowerCase();
+
+const pendingColorKey = (name: string) =>
+  `${PENDING_COLOR_PREFIX}${normalizeKeyPart(name)}`;
+
+const pendingSizeKey = (name: string) =>
+  `${PENDING_SIZE_PREFIX}${normalizeKeyPart(name)}`;
+
+function resolveKeyForApi(
+  value: string | null,
+  prefix: string,
+  map: Map<string, string>,
+): string | null {
+  if (value === null) return null;
+  if (!value.startsWith(prefix)) return value;
+  return map.get(value) ?? null;
+}
+
+function resolveKeyForState(
+  value: string | null,
+  prefix: string,
+  map: Map<string, string>,
+): string | null {
+  if (value === null) return null;
+  if (!value.startsWith(prefix)) return value;
+  return map.get(value) ?? value;
+}
+
+function makeVariantKey(colorId: string | null, sizeId: string | null) {
+  return `${colorId ?? "null"}:${sizeId ?? "null"}`;
+}
+
 export interface VariantData {
   colorId: string | null;
   sizeId: string | null;
@@ -73,6 +108,8 @@ interface UsePassportFormOptions {
   productHandle?: string;
   sizeOptions?: SizeOption[];
   colors?: Array<{ id: string; name: string; hex: string | null }>;
+  /** Pre-fetched product data (eliminates need for separate query in edit mode) */
+  initialData?: unknown;
 }
 
 const initialFormValues: PassportFormValues = {
@@ -238,6 +275,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   const productHandle = options?.productHandle ?? null;
   const sizeOptions = options?.sizeOptions ?? [];
   const brandColors = options?.colors ?? [];
+  const initialData = options?.initialData;
   const isEditMode = mode === "edit";
 
   const trpc = useTRPC();
@@ -268,7 +306,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   }>({});
   const hasHydratedRef = React.useRef(false);
   const lastHydratedHandleRef = React.useRef<string | null>(null);
-  const initialVariantSignatureRef = React.useRef<string | null>(null);
 
   // Reset hydration state when product handle changes (e.g., navigating from create to edit)
   React.useEffect(() => {
@@ -296,13 +333,16 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     trpc.catalog.sizes.create.mutationOptions(),
   );
 
+  // Use initialData if provided (passed directly from parent), otherwise query
+  // This eliminates cache synchronization issues on client navigation
   const passportFormQuery = useQuery({
     ...trpc.products.get.queryOptions({
       handle: productHandle ?? "",
       includeVariants: true,
       includeAttributes: true,
     }),
-    enabled: isEditMode && !!productHandle,
+    enabled: isEditMode && !!productHandle && !initialData,
+    initialData: initialData as any,
   });
 
   const state: PassportFormState = React.useMemo(
@@ -392,28 +432,90 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     [],
   );
 
-  const buildVariantSignature = React.useCallback(
-    (colorIds?: readonly string[], sizeIds?: readonly string[]) => {
-      const normalize = (ids?: readonly string[]) =>
-        Array.from(new Set((ids ?? []).filter(Boolean)))
-          .sort()
-          .join("|");
-      return `${normalize(colorIds)}::${normalize(sizeIds)}`;
-    },
-    [],
-  );
-
   // Helper to build variant_data array for API from form variantData
   const buildVariantDataForAPI = React.useCallback(
-    (variantData: VariantData[]) => {
-      return variantData
-        .filter((v) => v.sku.trim() || v.barcode.trim()) // Only include variants with at least one identifier
-        .map((v) => ({
-          color_id: v.colorId || null,
-          size_id: v.sizeId || null,
-          sku: v.sku.trim() || undefined,
-          barcode: v.barcode.trim() || undefined,
-        }));
+    (
+      variantData: VariantData[],
+      opts: {
+        colorIds: string[];
+        sizeIds: string[];
+        colorKeyToId: Map<string, string>;
+        sizeKeyToId: Map<string, string>;
+      },
+    ) => {
+      const metaByResolvedKey = new Map<
+        string,
+        { sku: string; barcode: string }
+      >();
+
+      for (const v of Array.isArray(variantData) ? variantData : []) {
+        const colorId = resolveKeyForApi(
+          v.colorId,
+          PENDING_COLOR_PREFIX,
+          opts.colorKeyToId,
+        );
+        const sizeId = resolveKeyForApi(
+          v.sizeId,
+          PENDING_SIZE_PREFIX,
+          opts.sizeKeyToId,
+        );
+
+        if (v.colorId?.startsWith(PENDING_COLOR_PREFIX) && !colorId) continue;
+        if (v.sizeId?.startsWith(PENDING_SIZE_PREFIX) && !sizeId) continue;
+
+        metaByResolvedKey.set(makeVariantKey(colorId, sizeId), {
+          sku: v.sku ?? "",
+          barcode: v.barcode ?? "",
+        });
+      }
+
+      const uniqueColors = Array.from(new Set(opts.colorIds.filter(Boolean)));
+      const uniqueSizes = Array.from(new Set(opts.sizeIds.filter(Boolean)));
+
+      const desired: Array<{ colorId: string | null; sizeId: string | null }> =
+        [];
+
+      if (uniqueColors.length === 0 && uniqueSizes.length === 0) {
+        return [];
+      }
+      if (uniqueColors.length === 0) {
+        for (const sizeId of uniqueSizes) desired.push({ colorId: null, sizeId });
+      } else if (uniqueSizes.length === 0) {
+        for (const colorId of uniqueColors) desired.push({ colorId, sizeId: null });
+      } else {
+        for (const colorId of uniqueColors) {
+          for (const sizeId of uniqueSizes) desired.push({ colorId, sizeId });
+        }
+      }
+
+      const payload: Array<{
+        color_id?: string | null;
+        size_id?: string | null;
+        sku?: string;
+        barcode?: string;
+      }> = [];
+
+      for (const v of desired) {
+        const meta = metaByResolvedKey.get(makeVariantKey(v.colorId, v.sizeId));
+        if (!meta) continue;
+
+        const sku = meta.sku.trim();
+        const barcode = meta.barcode.trim();
+
+        const entry: {
+          color_id?: string | null;
+          size_id?: string | null;
+          sku?: string;
+          barcode?: string;
+        } = { color_id: v.colorId, size_id: v.sizeId };
+
+        if (sku) entry.sku = sku;
+        if (barcode) entry.barcode = barcode;
+
+        payload.push(entry);
+      }
+
+      return payload;
     },
     [],
   );
@@ -532,19 +634,11 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       productId: payload.id,
       productHandle: payload.product_handle ?? productHandle ?? undefined,
     };
-    const hydratedSizeIds: string[] = selectedSizes
-      .map((size) => size.id)
-      .filter((id): id is string => Boolean(id));
-    initialVariantSignatureRef.current = buildVariantSignature(
-      colorIds,
-      hydratedSizeIds,
-    );
     const snapshot = JSON.stringify(computeComparableState(nextValues));
     setInitialSnapshot(snapshot);
     setHasAttemptedSubmit(false);
     hasHydratedRef.current = true;
   }, [
-    buildVariantSignature,
     computeComparableState,
     isEditMode,
     mapSizeIdsToOptions,
@@ -562,15 +656,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
     const snapshot = JSON.stringify(computeComparableState(formValues));
     setInitialSnapshot(snapshot);
-    const initialSizeIds: string[] = formValues.selectedSizes
-      .map((size) => size.id)
-      .filter((id): id is string => Boolean(id));
-    initialVariantSignatureRef.current = buildVariantSignature(
-      formValues.colorIds,
-      initialSizeIds,
-    );
   }, [
-    buildVariantSignature,
     computeComparableState,
     formValues,
     initialSnapshot,
@@ -595,101 +681,84 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   }, [formValues]);
 
   const resolvePendingColors = React.useCallback(async () => {
+    const colorKeyToId = new Map<string, string>();
+
     if (!formValues.pendingColors.length) {
-      return formValues.colorIds;
+      return { colorIds: formValues.colorIds, colorKeyToId };
     }
 
     const resolvedIds = new Set(formValues.colorIds);
-    const createdColorMetadata: Array<{
-      id: string;
-      name: string;
-      hex: string;
-      created_at?: string;
-      updated_at?: string;
-    }> = [];
-    const colorByName = new Map<
-      string,
-      { id?: string; name: string; hex: string | null }
-    >();
 
+    const colorByName = new Map<string, { id?: string }>();
     for (const color of brandColors) {
-      colorByName.set(color.name.toLowerCase(), {
-        id: color.id,
-        name: color.name,
-        hex: color.hex,
-      });
+      colorByName.set(color.name.toLowerCase(), { id: color.id });
     }
 
     for (const pending of formValues.pendingColors) {
-      const key = pending.name.trim().toLowerCase();
-      if (!key) continue;
-      const existing = colorByName.get(key);
+      const name = pending.name.trim();
+      if (!name) continue;
+
+      const key = pendingColorKey(name);
+      const existing = colorByName.get(name.toLowerCase());
       if (existing?.id) {
         resolvedIds.add(existing.id);
+        colorKeyToId.set(key, existing.id);
         continue;
       }
 
       const result = await createBrandColorMutation.mutateAsync({
-        name: pending.name,
+        name,
         hex: pending.hex,
       });
       const created = result?.data;
       if (!created?.id) {
         throw new Error("Failed to create color");
       }
-      const normalizedHex = (created.hex ?? pending.hex)
-        .replace("#", "")
-        .trim()
-        .toUpperCase();
-      resolvedIds.add(created.id);
-      const metadata = {
-        id: created.id,
-        name: created.name ?? pending.name,
-        hex: normalizedHex,
-        created_at: created.created_at ?? new Date().toISOString(),
-        updated_at: created.updated_at ?? new Date().toISOString(),
-      };
-      createdColorMetadata.push(metadata);
-      colorByName.set(key, metadata);
-    }
 
-    if (createdColorMetadata.length > 0) {
+      resolvedIds.add(created.id);
+      colorKeyToId.set(key, created.id);
+      colorByName.set(name.toLowerCase(), { id: created.id });
+
+      // Keep composite cache usable immediately
       queryClient.setQueryData(
-        trpc.catalog.colors.list.queryKey(),
+        trpc.composite.catalogContent.queryKey(),
         (old: any) => {
-          if (!old?.data) {
-            return old;
-          }
-          const existingNames = new Set(
-            old.data.map((color: any) => color.name.toLowerCase()),
+          if (!old?.brandCatalog) return old;
+          const colors = old.brandCatalog.colors ?? [];
+          const already = colors.some(
+            (c: any) =>
+              String(c?.name ?? "").toLowerCase() === name.toLowerCase(),
           );
-          const appended = createdColorMetadata.filter(
-            (color) => !existingNames.has(color.name.toLowerCase()),
-          );
-          if (appended.length === 0) {
-            return old;
-          }
+          if (already) return old;
           return {
             ...old,
-            data: [...old.data, ...appended],
+            brandCatalog: {
+              ...old.brandCatalog,
+              colors: [
+                ...colors,
+                {
+                  id: created.id,
+                  name: created.name ?? name,
+                  hex: created.hex ?? pending.hex,
+                },
+              ],
+            },
           };
         },
       );
-      void queryClient.invalidateQueries({
-        queryKey: trpc.catalog.colors.list.queryKey(),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: trpc.composite.catalogContent.queryKey(),
-      });
     }
 
-    const resolvedIdsArray = Array.from(resolvedIds);
-    setFields({
-      colorIds: resolvedIdsArray,
-      pendingColors: [],
+    const colorIds = Array.from(resolvedIds);
+    setFields({ colorIds, pendingColors: [] });
+
+    void queryClient.invalidateQueries({
+      queryKey: trpc.composite.catalogContent.queryKey(),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: trpc.catalog.colors.list.queryKey(),
     });
 
-    return resolvedIdsArray;
+    return { colorIds, colorKeyToId };
   }, [
     brandColors,
     createBrandColorMutation,
@@ -697,59 +766,96 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     formValues.pendingColors,
     queryClient,
     setFields,
+    trpc.catalog.colors.list,
     trpc.composite.catalogContent,
   ]);
 
   const resolvePendingSizes = React.useCallback(async () => {
-    const resolvedIds: string[] = [];
+    const sizeKeyToId = new Map<string, string>();
 
-    // Get existing sizes from the brandCatalogContent cache
+    if (!formValues.selectedSizes.length) {
+      return {
+        sizeIds: [] as string[],
+        sizeKeyToId,
+        selectedSizes: [] as SizeOption[],
+      };
+    }
+
     const brandCatalogQuery = queryClient.getQueryData(
       trpc.composite.catalogContent.queryKey(),
     ) as any;
     const existingSizes = brandCatalogQuery?.brandCatalog?.sizes ?? [];
 
-    const sizeByName = new Map<string, { id: string }>();
+    const idByName = new Map<string, string>();
     for (const size of existingSizes) {
-      sizeByName.set(size.name.toLowerCase(), { id: size.id });
+      if (size?.id && size?.name) {
+        idByName.set(String(size.name).toLowerCase(), String(size.id));
+      }
     }
+
+    const sizeIds: string[] = [];
+    const selectedSizes: SizeOption[] = [];
 
     for (const size of formValues.selectedSizes) {
-      const key = size.name.toLowerCase();
+      const name = size.name.trim();
+      if (!name) continue;
 
-      // If already has ID, use it
       if (size.id) {
-        resolvedIds.push(size.id);
+        sizeIds.push(size.id);
+        selectedSizes.push(size);
         continue;
       }
 
-      // Check if exists in DB by name
-      const existing = sizeByName.get(key);
-      if (existing) {
-        resolvedIds.push(existing.id);
+      const key = pendingSizeKey(name);
+      const existingId = idByName.get(name.toLowerCase());
+      if (existingId) {
+        sizeKeyToId.set(key, existingId);
+        sizeIds.push(existingId);
+        selectedSizes.push({ ...size, id: existingId });
         continue;
       }
 
-      // Create new size
-      const result = await createBrandSizeMutation.mutateAsync({
-        name: size.name,
-      });
-
-      if (result?.data?.id) {
-        resolvedIds.push(result.data.id);
-        sizeByName.set(key, { id: result.data.id });
+      const result = await createBrandSizeMutation.mutateAsync({ name });
+      const createdId = result?.data?.id;
+      if (!createdId) {
+        throw new Error("Failed to create size");
       }
+
+      sizeKeyToId.set(key, createdId);
+      idByName.set(name.toLowerCase(), createdId);
+      sizeIds.push(createdId);
+      selectedSizes.push({ ...size, id: createdId });
+
+      // Keep composite cache usable immediately
+      queryClient.setQueryData(
+        trpc.composite.catalogContent.queryKey(),
+        (old: any) => {
+          if (!old?.brandCatalog) return old;
+          const sizes = old.brandCatalog.sizes ?? [];
+          const already = sizes.some(
+            (s: any) =>
+              String(s?.name ?? "").toLowerCase() === name.toLowerCase(),
+          );
+          if (already) return old;
+          return {
+            ...old,
+            brandCatalog: {
+              ...old.brandCatalog,
+              sizes: [...sizes, { id: createdId, name }],
+            },
+          };
+        },
+      );
     }
 
-    // Invalidate cache
-    void queryClient.invalidateQueries({
-      queryKey: trpc.catalog.sizes.list.queryKey(),
-    });
     void queryClient.invalidateQueries({
       queryKey: trpc.composite.catalogContent.queryKey(),
     });
+    void queryClient.invalidateQueries({
+      queryKey: trpc.catalog.sizes.list.queryKey(),
+    });
 
-    return resolvedIds;
+    return { sizeIds, sizeKeyToId, selectedSizes };
   }, [
     formValues.selectedSizes,
     createBrandSizeMutation,
@@ -910,13 +1016,28 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const safeDescription = formValues.description.trim() || undefined;
         const safeSeasonId = formValues.seasonId || undefined;
         const safeManufacturerId = formValues.manufacturerId || undefined;
-        const resolvedColorIds = await resolvePendingColors();
+        const { colorIds: resolvedColorIds, colorKeyToId } =
+          await resolvePendingColors();
+        const { sizeIds, sizeKeyToId, selectedSizes: resolvedSelectedSizes } =
+          await resolvePendingSizes();
         const colorIds =
           resolvedColorIds.length > 0 ? resolvedColorIds : undefined;
-        const sizeIds = await resolvePendingSizes();
-        const variantSignature = buildVariantSignature(colorIds, sizeIds);
-        const variantsChanged =
-          initialVariantSignatureRef.current !== variantSignature;
+
+        const variantDataForAPI = buildVariantDataForAPI(formValues.variantData, {
+          colorIds: resolvedColorIds,
+          sizeIds,
+          colorKeyToId,
+          sizeKeyToId,
+        });
+
+        const normalizedVariantData: VariantData[] = (
+          Array.isArray(formValues.variantData) ? formValues.variantData : []
+        ).map((v) => ({
+          colorId: resolveKeyForState(v.colorId, PENDING_COLOR_PREFIX, colorKeyToId),
+          sizeId: resolveKeyForState(v.sizeId, PENDING_SIZE_PREFIX, sizeKeyToId),
+          sku: v.sku,
+          barcode: v.barcode,
+        }));
         const materials =
           formValues.materialData.length > 0
             ? formValues.materialData.map((material) => ({
@@ -984,26 +1105,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             brand_id: brandId,
           });
 
-          if (variantsChanged) {
-            const variantDataForAPI = buildVariantDataForAPI(formValues.variantData);
-            await upsertVariantsMutation.mutateAsync({
-              product_id: metadataRef.current.productId,
-              color_ids: colorIds,
-              size_ids: sizeIds,
-              variant_data: variantDataForAPI.length > 0 ? variantDataForAPI : undefined,
-            });
-          } else {
-            // Even if variants didn't change, we might have updated SKU/barcode
-            const variantDataForAPI = buildVariantDataForAPI(formValues.variantData);
-            if (variantDataForAPI.length > 0) {
-              await upsertVariantsMutation.mutateAsync({
-                product_id: metadataRef.current.productId,
-                color_ids: colorIds,
-                size_ids: sizeIds,
-                variant_data: variantDataForAPI,
-              });
-            }
-          }
+          await upsertVariantsMutation.mutateAsync({
+            product_id: metadataRef.current.productId,
+            color_ids: colorIds,
+            size_ids: sizeIds,
+            variant_data:
+              variantDataForAPI.length > 0 ? variantDataForAPI : undefined,
+          });
 
           const nextValues: Partial<PassportFormValues> = {
             name,
@@ -1016,10 +1124,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             // Store the path (or keep existing)
             existingImageUrl:
               primaryImagePath ?? formValues.existingImageUrl ?? null,
-            colorIds: colorIds ?? [],
+            colorIds: resolvedColorIds,
             pendingColors: [],
-            selectedSizes: formValues.selectedSizes,
-            variantData: formValues.variantData,
+            selectedSizes: resolvedSelectedSizes,
+            variantData: normalizedVariantData,
             materialData: formValues.materialData,
             ecoClaims: formValues.ecoClaims,
             journeySteps: formValues.journeySteps,
@@ -1037,7 +1145,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             } as PassportFormValues),
           );
           setInitialSnapshot(snapshot);
-          initialVariantSignatureRef.current = variantSignature;
           if (effectiveProductHandle) {
             void queryClient.invalidateQueries({
               queryKey: trpc.products.get.queryKey({
@@ -1075,12 +1182,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const shouldUpsertVariants =
           (colorIds?.length ?? 0) > 0 || sizeIds.length > 0;
         if (shouldUpsertVariants) {
-          const variantDataForAPI = buildVariantDataForAPI(formValues.variantData);
           await upsertVariantsMutation.mutateAsync({
             product_id: productId,
             color_ids: colorIds,
             size_ids: sizeIds,
-            variant_data: variantDataForAPI.length > 0 ? variantDataForAPI : undefined,
+            variant_data:
+              variantDataForAPI.length > 0 ? variantDataForAPI : undefined,
           });
         }
 
@@ -1128,7 +1235,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       }
     },
     [
-      buildVariantSignature,
       computeComparableState,
       formValues,
       isEditMode,

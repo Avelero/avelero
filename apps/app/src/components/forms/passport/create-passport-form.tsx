@@ -24,9 +24,11 @@ interface PassportFormProps {
   mode: "create" | "edit";
   /** Product handle (URL-friendly identifier) for edit mode */
   productHandle?: string;
+  /** Pre-fetched product data for edit mode (avoids cache sync issues) */
+  initialData?: unknown;
 }
 
-export function PassportForm({ mode, productHandle }: PassportFormProps) {
+export function PassportForm({ mode, productHandle, initialData }: PassportFormProps) {
   const { data: user } = useUserQuery();
   const { sizeOptions, colors: brandColors } = useBrandCatalog();
   const {
@@ -51,7 +53,7 @@ export function PassportForm({ mode, productHandle }: PassportFormProps) {
     submit,
     isSubmitting,
     hasUnsavedChanges,
-  } = usePassportForm({ mode, productHandle, sizeOptions, colors: availableColors });
+  } = usePassportForm({ mode, productHandle, sizeOptions, colors: availableColors, initialData });
 
   const handleSelectedSizesChange = React.useCallback<
     React.Dispatch<React.SetStateAction<SizeOption[]>>
@@ -414,12 +416,13 @@ export function CreatePassportForm() {
 
 export function EditPassportForm({ productHandle }: { productHandle: string }) {
   const trpc = useTRPC();
-  useSuspenseQuery(
+  // Fetch and pass data directly - eliminates cache sync issues on client navigation
+  const { data } = useSuspenseQuery(
     trpc.products.get.queryOptions({
       handle: productHandle,
       includeVariants: true,
       includeAttributes: true,
     }),
   );
-  return <PassportForm mode="edit" productHandle={productHandle} />;
+  return <PassportForm mode="edit" productHandle={productHandle} initialData={data} />;
 }

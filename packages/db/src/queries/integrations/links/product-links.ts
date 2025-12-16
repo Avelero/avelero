@@ -4,7 +4,7 @@
  * Handles mapping external products to internal products.
  */
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../../client";
 import { integrationProductLinks, products } from "../../../schema";
 
@@ -172,6 +172,104 @@ export async function findProductByHandle(
       ),
     )
     .limit(1);
+  return row;
+}
+
+// =============================================================================
+// BATCH OPERATIONS
+// =============================================================================
+
+export interface ProductLinkData {
+  id: string;
+  brandIntegrationId: string;
+  productId: string;
+  externalId: string;
+  externalName: string | null;
+  lastSyncedAt: string | null;
+}
+
+/**
+ * Batch find product links by external IDs.
+ * Returns a Map for O(1) lookup.
+ */
+export async function batchFindProductLinks(
+  db: Database,
+  brandIntegrationId: string,
+  externalIds: string[],
+): Promise<Map<string, ProductLinkData>> {
+  if (externalIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({
+      id: integrationProductLinks.id,
+      brandIntegrationId: integrationProductLinks.brandIntegrationId,
+      productId: integrationProductLinks.productId,
+      externalId: integrationProductLinks.externalId,
+      externalName: integrationProductLinks.externalName,
+      lastSyncedAt: integrationProductLinks.lastSyncedAt,
+    })
+    .from(integrationProductLinks)
+    .where(
+      and(
+        eq(integrationProductLinks.brandIntegrationId, brandIntegrationId),
+        inArray(integrationProductLinks.externalId, externalIds),
+      ),
+    );
+
+  const map = new Map<string, ProductLinkData>();
+  for (const row of rows) {
+    map.set(row.externalId, row);
+  }
+  return map;
+}
+
+/**
+ * Upsert a product link.
+ * Creates if not exists, updates if exists.
+ */
+export async function upsertProductLink(
+  db: Database,
+  input: {
+    brandIntegrationId: string;
+    productId: string;
+    externalId: string;
+    externalName?: string | null;
+  },
+): Promise<ProductLinkData> {
+  const [row] = await db
+    .insert(integrationProductLinks)
+    .values({
+      brandIntegrationId: input.brandIntegrationId,
+      productId: input.productId,
+      externalId: input.externalId,
+      externalName: input.externalName ?? null,
+      lastSyncedAt: new Date().toISOString(),
+    })
+    .onConflictDoUpdate({
+      target: [
+        integrationProductLinks.brandIntegrationId,
+        integrationProductLinks.externalId,
+      ],
+      set: {
+        externalName: input.externalName ?? null,
+        lastSyncedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    })
+    .returning({
+      id: integrationProductLinks.id,
+      brandIntegrationId: integrationProductLinks.brandIntegrationId,
+      productId: integrationProductLinks.productId,
+      externalId: integrationProductLinks.externalId,
+      externalName: integrationProductLinks.externalName,
+      lastSyncedAt: integrationProductLinks.lastSyncedAt,
+    });
+
+  if (!row) {
+    throw new Error("Failed to upsert product link");
+  }
   return row;
 }
 

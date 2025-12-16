@@ -634,6 +634,3 @@ export function resolveShopifyCategoryId(
   // 3. No mapping found - return null (category will be skipped)
   return null;
 }
-
-// Legacy export for backwards compatibility
-export const resolveShopifyCategoryName = resolveShopifyCategoryId;

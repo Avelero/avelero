@@ -58,10 +58,23 @@ export interface FetchedVariant {
 }
 
 /**
- * A batch of fetched variants.
+ * A product fetched from an external system with all its variants.
+ * This is the PRIMARY sync entity in the product-centric flow.
+ */
+export interface FetchedProduct {
+  /** External product ID (e.g., "gid://shopify/Product/123") */
+  externalId: string;
+  /** Raw product data from the external system */
+  data: Record<string, unknown>;
+  /** All variants belonging to this product */
+  variants: FetchedVariant[];
+}
+
+/**
+ * A batch of fetched products.
  * Connectors return async generators yielding batches for memory efficiency.
  */
-export type FetchedVariantBatch = FetchedVariant[];
+export type FetchedProductBatch = FetchedProduct[];
 
 // =============================================================================
 // SYNC CONTEXT & RESULTS

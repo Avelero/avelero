@@ -1,454 +1,374 @@
 /**
- * Variant Processor
+ * Product Processor
  *
- * Handles processing a single variant from external data.
+ * Processes a single product with all its variants.
  */
 
 import type { Database } from "@v1/db/client";
-import { eq } from "@v1/db/index";
+import { eq, and } from "@v1/db/queries";
 import {
-  createVariantLink,
-  findVariantLink,
-  updateVariantLink,
+  upsertProductLink,
+  type ProductLinkData,
+  batchUpsertVariantLinks,
+  findProductByVariantIdentifiers,
+  type VariantLinkData,
 } from "@v1/db/queries/integrations";
-import {
-  setProductTags,
-} from "@v1/db/queries/products";
+import { setProductTags } from "@v1/db/queries/products";
 import { productVariants, products } from "@v1/db/schema";
+import { generateUniqueUpid, generateUniqueProductHandle } from "@v1/db/utils";
 import type { EffectiveFieldMapping } from "./extractor";
 import { extractValues, computeHash } from "./extractor";
 import {
-  findOrCreateColor,
-  findOrCreateSize,
-  findOrCreateTag,
-  findOrCreateProduct,
-  findVariantByIdentifiers,
-  findVariantByIdentifiersInBrand,
-  generateVariantUpid,
-  processImageUrl,
-} from "./matcher";
-import type { FetchedVariant, SyncContext } from "./types";
-import type { ShopifyProductOption } from "../connectors/shopify/types";
-import {
-  extractProductColorOrder,
-  extractProductSizeOrder,
-  getColorHexFromProductOptions,
-} from "../connectors/shopify/mappings";
+  type SyncCaches,
+  getCachedColor,
+  getCachedSize,
+  getCachedTag,
+  getCachedProduct,
+  cacheProduct,
+  markProductUpdated,
+  isProductUpdated,
+} from "./caches";
+import { processImageUrl } from "./matcher";
+import type { FetchedProduct, SyncContext } from "./types";
 
-// =============================================================================
-// TYPES
-// =============================================================================
-
-export interface ProcessedVariantResult {
+export interface ProcessedProductResult {
   success: boolean;
-  variantCreated: boolean;
-  variantUpdated: boolean;
   productCreated: boolean;
   productUpdated: boolean;
+  variantsCreated: number;
+  variantsUpdated: number;
+  variantsSkipped: number;
   productId?: string;
-  entitiesCreated: number;
   error?: string;
 }
 
-/**
- * In-memory caches to avoid redundant database lookups during a sync session.
- * These are passed from the engine and shared across all variant processing.
- */
-export interface SyncCaches {
-  /** Cache of color name -> { id, created } */
-  colors: Map<string, { id: string; created: boolean }>;
-  /** Cache of size name -> { id, created } */
-  sizes: Map<string, { id: string; created: boolean }>;
-  /** Cache of external product ID -> { id, productHandle, created } */
-  products: Map<string, { id: string; productHandle: string; created: boolean }>;
-  /** Cache of tag name -> { id, created } */
-  tags: Map<string, { id: string; created: boolean }>;
-  /** Set of product IDs that have already been updated this sync session */
-  updatedProductIds: Set<string>;
+export interface PreFetchedData {
+  productLinks: Map<string, ProductLinkData>;
+  variantLinks: Map<string, VariantLinkData>;
 }
 
-// =============================================================================
-// PROCESSOR
-// =============================================================================
-
-/**
- * Process a single variant from external data.
- * 
- * @param db - Database connection
- * @param ctx - Sync context with credentials and configuration
- * @param externalVariant - The variant data from the external system
- * @param mappings - Field mappings to apply
- * @param caches - In-memory caches to avoid redundant lookups
- */
-export async function processVariant(
+export async function processProduct(
   db: Database,
   ctx: SyncContext,
-  externalVariant: FetchedVariant,
+  externalProduct: FetchedProduct,
   mappings: EffectiveFieldMapping[],
-  caches: SyncCaches
-): Promise<ProcessedVariantResult> {
-  let entitiesCreated = 0;
-  let variantCreated = false;
-  let variantUpdated = false;
+  caches: SyncCaches,
+  preFetched: PreFetchedData
+): Promise<ProcessedProductResult> {
   let productCreated = false;
   let productUpdated = false;
 
   try {
-    // Extract values using field mappings
-    const extracted = extractValues(externalVariant.data, mappings);
-    const hash = computeHash(extracted);
+    // Extract product-level values directly from product data
+    const productExtracted = extractValues(externalProduct.data, mappings);
+    const productName = (productExtracted.product.name as string) || "Unnamed Product";
 
-    // Check for existing variant link
-    const existingLink = await findVariantLink(
-      db,
-      ctx.brandIntegrationId,
-      externalVariant.externalId
-    );
+    // STEP 1: Find or create product
+    let productId: string;
+    let productHandle: string;
 
-    // If link exists and hash unchanged, skip
-    if (existingLink?.lastSyncedHash === hash) {
-      return {
-        success: true,
-        variantCreated: false,
-        variantUpdated: false,
-        productCreated: false,
-        productUpdated: false,
-        entitiesCreated: 0,
-      };
-    }
-
-    // Handle reference entities with caching
-    let colorId: string | null = null;
-    let sizeId: string | null = null;
-
-    if (extracted.referenceEntities.colorName) {
-      const colorName = extracted.referenceEntities.colorName;
-      const colorHex = extracted.referenceEntities.colorHex;
-      
-      // Check cache first
-      const cachedColor = caches.colors.get(colorName);
-      if (cachedColor) {
-        colorId = cachedColor.id;
-      } else {
-        // Not in cache, fetch from DB
-        // Pass Shopify hex value if available (from swatch.color)
-        const color = await findOrCreateColor(db, ctx.brandId, colorName, colorHex);
-        caches.colors.set(colorName, color);
-        colorId = color.id;
-        // Only count as created if it was actually created (first time we see this color)
-        if (color.created) entitiesCreated++;
-      }
-    }
-
-    if (extracted.referenceEntities.sizeName) {
-      const sizeName = extracted.referenceEntities.sizeName;
-      
-      // Check cache first
-      const cachedSize = caches.sizes.get(sizeName);
-      if (cachedSize) {
-        sizeId = cachedSize.id;
-      } else {
-        // Not in cache, fetch from DB
-        const size = await findOrCreateSize(db, ctx.brandId, sizeName);
-        caches.sizes.set(sizeName, size);
-        sizeId = size.id;
-        // Only count as created if it was actually created (first time we see this size)
-        if (size.created) entitiesCreated++;
-      }
-    }
-
-    // Find or create product using the product name to generate a clean handle
-    const productName =
-      (extracted.product.name as string) || "Unnamed Product";
-
-    // Get category UUID from reference entities (resolved from Shopify taxonomy)
-    const categoryId = extracted.referenceEntities.categoryId ?? null;
-
-    // Extract product-level option ordering (for sizeOrder/colorOrder arrays)
-    // Access product.options from the variant data structure
-    const variantData = externalVariant.data as {
-      product?: { options?: ShopifyProductOption[] | null };
-    };
-    const productOptions = variantData.product?.options ?? null;
-
-    // Build sizeOrder array: convert size names to IDs (maintains Shopify's order)
-    const sizeOrderNames = extractProductSizeOrder(productOptions);
-    const sizeOrder: string[] = [];
-    for (const sizeName of sizeOrderNames) {
-      // Ensure size exists in cache (may have been created above)
-      let size = caches.sizes.get(sizeName);
-      if (!size) {
-        size = await findOrCreateSize(db, ctx.brandId, sizeName);
-        caches.sizes.set(sizeName, size);
-        if (size.created) entitiesCreated++;
-      }
-      sizeOrder.push(size.id);
-    }
-
-    // Build colorOrder array: convert color names to IDs (maintains Shopify's order)
-    const colorOrderNames = extractProductColorOrder(productOptions);
-    const colorOrder: string[] = [];
-    for (const colorName of colorOrderNames) {
-      // Ensure color exists in cache (may have been created above)
-      let color = caches.colors.get(colorName);
-      if (!color) {
-        // Get hex from product options for this color (null if no swatch)
-        const colorHex = getColorHexFromProductOptions(productOptions, colorName);
-        color = await findOrCreateColor(db, ctx.brandId, colorName, colorHex);
-        caches.colors.set(colorName, color);
-        if (color.created) entitiesCreated++;
-      }
-      colorOrder.push(color.id);
-    }
-
-    // Check product cache first (keyed by external product ID)
-    let product = caches.products.get(externalVariant.externalProductId);
-    
-    // CRITICAL FIX: Before creating a new product, search for existing variants
-    // across the entire brand by SKU/barcode. This prevents duplicate products
-    // when importing products that already exist with matching identifiers.
-    let existingVariantMatch: { variantId: string; productId: string; productHandle: string } | null = null;
-    
-    if (!product && !existingLink) {
-      // Only search if we don't already have a product cached AND no existing link
-      existingVariantMatch = await findVariantByIdentifiersInBrand(db, ctx.brandId, {
-        sku: extracted.variant.sku as string | undefined,
-        ean: extracted.variant.ean as string | undefined,
-        gtin: extracted.variant.gtin as string | undefined,
-        barcode: extracted.variant.barcode as string | undefined,
-      });
-      
-      if (existingVariantMatch) {
-        // Found an existing variant with matching identifiers!
-        // Use its parent product instead of creating a new one.
-        product = {
-          id: existingVariantMatch.productId,
-          productHandle: existingVariantMatch.productHandle,
-          created: false,
-        };
-        // Cache this product for future variants from the same external product
-        caches.products.set(externalVariant.externalProductId, product);
-      }
-    }
-    
-    if (!product) {
-      // Not in cache and no existing variant match, fetch/create from DB
-      product = await findOrCreateProduct(
-        db,
-        ctx.storageClient,
-        ctx.brandId,
-        productName,
-        extracted.product,
-        externalVariant.externalProductId,
-        ctx.brandIntegrationId,
-        categoryId,
-        sizeOrder,
-        colorOrder
-      );
-      caches.products.set(externalVariant.externalProductId, product);
-    }
-    productCreated = product.created;
-
-    // Update product if it already existed AND hasn't been updated this sync session
-    // This prevents redundant updates (especially image downloads) for each variant
-    if (!product.created && !caches.updatedProductIds.has(product.id)) {
-      const updateData: Record<string, unknown> = {};
-
-      if (extracted.product.name) {
-        updateData.name = extracted.product.name;
-      }
-      if (extracted.product.description !== undefined) {
-        updateData.description = extracted.product.description;
-      }
-      // Process image URL only once per product (not for every variant)
-      if (extracted.product.primaryImagePath !== undefined) {
-        const imagePath = await processImageUrl(
-          ctx.storageClient,
-          ctx.brandId,
-          product.id,
-          extracted.product.primaryImagePath as string | undefined
-        );
-        updateData.primaryImagePath = imagePath;
-      }
-      if (extracted.product.webshopUrl !== undefined) {
-        updateData.webshopUrl = extracted.product.webshopUrl;
-      }
-      if (extracted.product.price !== undefined) {
-        updateData.price = extracted.product.price;
-      }
-      if (extracted.product.currency !== undefined) {
-        updateData.currency = extracted.product.currency;
-      }
-      if (extracted.product.salesStatus !== undefined) {
-        updateData.salesStatus = extracted.product.salesStatus;
-      }
-      // Update category if we have a mapping
-      if (categoryId !== null) {
-        updateData.categoryId = categoryId;
-      }
-      // Update sizeOrder/colorOrder if we have product options and arrays are not empty
-      // Only update if arrays are non-empty (preserves user's manual ordering if set)
-      if (sizeOrder.length > 0) {
-        updateData.sizeOrder = sizeOrder;
-      }
-      if (colorOrder.length > 0) {
-        updateData.colorOrder = colorOrder;
-      }
-
-      if (Object.keys(updateData).length > 0) {
-        await db
-          .update(products)
-          .set(updateData)
-          .where(eq(products.id, product.id));
-        productUpdated = true;
-        // Mark this product as updated so we don't update it again for other variants
-        caches.updatedProductIds.add(product.id);
-      }
-    }
-
-    // Find or create variant
-    let variantId: string | null = null;
-
+    const existingLink = preFetched.productLinks.get(externalProduct.externalId);
     if (existingLink) {
-      // Update existing variant
-      variantId = existingLink.variantId;
-
-      const variantUpdateData: Record<string, unknown> = {
-        sku: (extracted.variant.sku as string) ?? null,
-        ean: (extracted.variant.ean as string) ?? null,
-        gtin: (extracted.variant.gtin as string) ?? null,
-        barcode: (extracted.variant.barcode as string) ?? null,
-        colorId,
-        sizeId,
-      };
-
-      await db
-        .update(productVariants)
-        .set(variantUpdateData)
-        .where(eq(productVariants.id, variantId));
-
-      variantUpdated = true;
-
-      // Update link
-      await updateVariantLink(db, existingLink.id, {
-        externalSku: (extracted.variant.sku as string) ?? null,
-        externalBarcode: (extracted.variant.barcode as string) ?? null,
-        lastSyncedHash: hash,
-      });
+      productId = existingLink.productId;
+      productHandle = (await getProductHandle(db, productId)) ?? "";
     } else {
-      // Check if we already found an existing variant via brand-wide search
-      let existingVariant: { id: string } | null = existingVariantMatch 
-        ? { id: existingVariantMatch.variantId } 
-        : null;
-      
-      // If not found via brand-wide search, try to find within the product
-      if (!existingVariant) {
-        existingVariant = await findVariantByIdentifiers(db, product.id, {
-          sku: extracted.variant.sku as string | undefined,
-          ean: extracted.variant.ean as string | undefined,
-          gtin: extracted.variant.gtin as string | undefined,
-          barcode: extracted.variant.barcode as string | undefined,
-        });
-      }
-
-      if (existingVariant) {
-        // Update existing variant found by identifiers
-        variantId = existingVariant.id;
-
-        const variantUpdateData: Record<string, unknown> = {
-          sku: (extracted.variant.sku as string) ?? null,
-          ean: (extracted.variant.ean as string) ?? null,
-          gtin: (extracted.variant.gtin as string) ?? null,
-          barcode: (extracted.variant.barcode as string) ?? null,
-          colorId,
-          sizeId,
-        };
-
-        await db
-          .update(productVariants)
-          .set(variantUpdateData)
-          .where(eq(productVariants.id, variantId));
-
-        variantUpdated = true;
+      const cached = getCachedProduct(caches, externalProduct.externalId);
+      if (cached) {
+        productId = cached.id;
+        productHandle = cached.productHandle;
+        productCreated = cached.created;
       } else {
-        // Create new variant
-        const variantUpid = await generateVariantUpid(db);
+        // Check SKU/barcode matches
+        const identifiers = externalProduct.variants.map((v) => {
+          const variantData = { ...v.data, product: externalProduct.data };
+          const extracted = extractValues(variantData, mappings);
+          return {
+            sku: extracted.variant.sku as string | undefined,
+            barcode: extracted.variant.barcode as string | undefined,
+          };
+        });
 
-        const insertedRows = await db
-          .insert(productVariants)
-          .values({
-            productId: product.id,
-            sku: (extracted.variant.sku as string) ?? null,
-            ean: (extracted.variant.ean as string) ?? null,
-            gtin: (extracted.variant.gtin as string) ?? null,
-            barcode: (extracted.variant.barcode as string) ?? null,
-            colorId,
-            sizeId,
-            upid: variantUpid,
-          })
-          .returning({ id: productVariants.id });
-
-        const created = insertedRows[0];
-        if (!created) {
-          throw new Error("Failed to create variant");
+        const matched = await findProductByVariantIdentifiers(db, ctx.brandId, identifiers);
+        if (matched) {
+          productId = matched.productId;
+          productHandle = matched.productHandle;
+        } else {
+          // Create new product
+          const newProduct = await createProduct(db, ctx, productName, productExtracted, externalProduct, mappings, caches);
+          productId = newProduct.id;
+          productHandle = newProduct.productHandle;
+          productCreated = true;
         }
 
-        variantId = created.id;
-        variantCreated = true;
-      }
+        // Create link
+        await upsertProductLink(db, {
+          brandIntegrationId: ctx.brandIntegrationId,
+          productId,
+          externalId: externalProduct.externalId,
+          externalName: productName,
+        });
 
-      // Create variant link
-      await createVariantLink(db, {
-        brandIntegrationId: ctx.brandIntegrationId,
-        variantId,
-        externalId: externalVariant.externalId,
-        externalProductId: externalVariant.externalProductId,
-        externalSku: (extracted.variant.sku as string) ?? null,
-        externalBarcode: (extracted.variant.barcode as string) ?? null,
-        lastSyncedHash: hash,
-      });
+        cacheProduct(caches, externalProduct.externalId, productId, productHandle, productCreated);
+      }
     }
 
-    // Handle tags (if present) with caching
-    if (extracted.relations.tags && extracted.relations.tags.length > 0) {
-      const tagIds: string[] = [];
-      
-      for (const tagName of extracted.relations.tags) {
-        // Check cache first
-        let tag = caches.tags.get(tagName);
-        if (!tag) {
-          // Not in cache, fetch from DB
-          tag = await findOrCreateTag(db, ctx.brandId, tagName);
-          caches.tags.set(tagName, tag);
-          // Only count as created if it was actually created
-          if (tag.created) entitiesCreated++;
-        }
-        tagIds.push(tag.id);
-      }
-      
-      // Set tags on product (replaces all existing tags)
-      await setProductTags(db, product.id, tagIds);
+    // STEP 2: Update product if needed
+    if (!productCreated && !isProductUpdated(caches, productId)) {
+      productUpdated = await updateProduct(db, ctx, productId, productExtracted, externalProduct, mappings, caches);
+      markProductUpdated(caches, productId);
     }
+
+    // STEP 3: Set tags
+    if (productExtracted.relations.tags?.length) {
+      const tagIds = productExtracted.relations.tags
+        .map((name) => getCachedTag(caches, name)?.id)
+        .filter((id): id is string => !!id);
+      if (tagIds.length) await setProductTags(db, productId, tagIds);
+    }
+
+    // STEP 4: Process variants
+    const variantResult = await processVariants(db, ctx, productId, externalProduct, mappings, caches, preFetched);
 
     return {
       success: true,
-      variantCreated,
-      variantUpdated,
       productCreated,
       productUpdated,
-      productId: product.id,
-      entitiesCreated,
+      ...variantResult,
+      productId,
     };
   } catch (error) {
     return {
       success: false,
-      variantCreated: false,
-      variantUpdated: false,
       productCreated: false,
       productUpdated: false,
-      entitiesCreated: 0,
+      variantsCreated: 0,
+      variantsUpdated: 0,
+      variantsSkipped: 0,
       error: error instanceof Error ? error.message : String(error),
     };
   }
 }
 
+async function getProductHandle(db: Database, productId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ productHandle: products.productHandle })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1);
+  return row?.productHandle ?? null;
+}
+
+async function createProduct(
+  db: Database,
+  ctx: SyncContext,
+  name: string,
+  extracted: ReturnType<typeof extractValues>,
+  externalProduct: FetchedProduct,
+  mappings: EffectiveFieldMapping[],
+  caches: SyncCaches
+): Promise<{ id: string; productHandle: string }> {
+  const productHandle = await generateUniqueProductHandle({
+    name,
+    isTaken: async (candidate) => {
+      const [row] = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.brandId, ctx.brandId), eq(products.productHandle, candidate)))
+        .limit(1);
+      return Boolean(row);
+    },
+  });
+
+  const { sizeOrder, colorOrder } = buildOrderArrays(externalProduct, mappings, caches);
+
+  const [created] = await db
+    .insert(products)
+    .values({
+      brandId: ctx.brandId,
+      name,
+      productHandle,
+      description: (extracted.product.description as string) ?? null,
+      primaryImagePath: null,
+      status: "unpublished",
+      webshopUrl: (extracted.product.webshopUrl as string) ?? null,
+      price: extracted.product.price?.toString() ?? null,
+      currency: (extracted.product.currency as string) ?? null,
+      salesStatus: (extracted.product.salesStatus as string) ?? null,
+      categoryId: extracted.referenceEntities.categoryId ?? null,
+      sizeOrder,
+      colorOrder,
+    })
+    .returning({ id: products.id });
+
+  if (!created) throw new Error(`Failed to create product: ${productHandle}`);
+
+  // Upload image
+  const imagePath = await processImageUrl(
+    ctx.storageClient,
+    ctx.brandId,
+    created.id,
+    extracted.product.primaryImagePath as string | undefined
+  );
+  if (imagePath) {
+    await db.update(products).set({ primaryImagePath: imagePath }).where(eq(products.id, created.id));
+  }
+
+  return { id: created.id, productHandle };
+}
+
+async function updateProduct(
+  db: Database,
+  ctx: SyncContext,
+  productId: string,
+  extracted: ReturnType<typeof extractValues>,
+  externalProduct: FetchedProduct,
+  mappings: EffectiveFieldMapping[],
+  caches: SyncCaches
+): Promise<boolean> {
+  const updateData: Record<string, unknown> = {};
+
+  if (extracted.product.name) updateData.name = extracted.product.name;
+  if (extracted.product.description !== undefined) updateData.description = extracted.product.description;
+  if (extracted.product.webshopUrl !== undefined) updateData.webshopUrl = extracted.product.webshopUrl;
+  if (extracted.product.price !== undefined) updateData.price = extracted.product.price?.toString();
+  if (extracted.product.currency !== undefined) updateData.currency = extracted.product.currency;
+  if (extracted.product.salesStatus !== undefined) updateData.salesStatus = extracted.product.salesStatus;
+  if (extracted.referenceEntities.categoryId) updateData.categoryId = extracted.referenceEntities.categoryId;
+
+  if (extracted.product.primaryImagePath !== undefined) {
+    updateData.primaryImagePath = await processImageUrl(
+      ctx.storageClient,
+      ctx.brandId,
+      productId,
+      extracted.product.primaryImagePath as string | undefined
+    );
+  }
+
+  const { sizeOrder, colorOrder } = buildOrderArrays(externalProduct, mappings, caches);
+  if (sizeOrder.length) updateData.sizeOrder = sizeOrder;
+  if (colorOrder.length) updateData.colorOrder = colorOrder;
+
+  if (Object.keys(updateData).length) {
+    await db.update(products).set(updateData).where(eq(products.id, productId));
+    return true;
+  }
+  return false;
+}
+
+function buildOrderArrays(
+  externalProduct: FetchedProduct,
+  mappings: EffectiveFieldMapping[],
+  caches: SyncCaches
+): { sizeOrder: string[]; colorOrder: string[] } {
+  const sizeOrder: string[] = [];
+  const colorOrder: string[] = [];
+  const seenSizes = new Set<string>();
+  const seenColors = new Set<string>();
+
+  for (const variant of externalProduct.variants) {
+    // Merge variant data with product for extraction (needed for product.options access)
+    const variantData = { ...variant.data, product: externalProduct.data };
+    const extracted = extractValues(variantData, mappings);
+
+    if (extracted.referenceEntities.sizeName) {
+      const name = extracted.referenceEntities.sizeName;
+      if (!seenSizes.has(name.toLowerCase())) {
+        seenSizes.add(name.toLowerCase());
+        const cached = getCachedSize(caches, name);
+        if (cached) sizeOrder.push(cached.id);
+      }
+    }
+
+    if (extracted.referenceEntities.colorName) {
+      const name = extracted.referenceEntities.colorName;
+      if (!seenColors.has(name.toLowerCase())) {
+        seenColors.add(name.toLowerCase());
+        const cached = getCachedColor(caches, name);
+        if (cached) colorOrder.push(cached.id);
+      }
+    }
+  }
+
+  return { sizeOrder, colorOrder };
+}
+
+async function processVariants(
+  db: Database,
+  ctx: SyncContext,
+  productId: string,
+  externalProduct: FetchedProduct,
+  mappings: EffectiveFieldMapping[],
+  caches: SyncCaches,
+  preFetched: PreFetchedData
+): Promise<{ variantsCreated: number; variantsUpdated: number; variantsSkipped: number }> {
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  const existingVariants = await db
+    .select({ id: productVariants.id, colorId: productVariants.colorId, sizeId: productVariants.sizeId, sku: productVariants.sku, barcode: productVariants.barcode })
+    .from(productVariants)
+    .where(eq(productVariants.productId, productId));
+
+  const existingByKey = new Map(existingVariants.map((v) => [makeKey(v.colorId, v.sizeId), v]));
+  const linksToUpsert: Array<{
+    brandIntegrationId: string;
+    variantId: string;
+    externalId: string;
+    externalProductId: string;
+    externalSku: string | null;
+    externalBarcode: string | null;
+    lastSyncedHash: string | null;
+  }> = [];
+
+  for (const externalVariant of externalProduct.variants) {
+    const variantData = { ...externalVariant.data, product: externalProduct.data };
+    const extracted = extractValues(variantData, mappings);
+    const hash = computeHash(extracted);
+
+    // Skip if unchanged
+    const existingLink = preFetched.variantLinks.get(externalVariant.externalId);
+    if (existingLink?.lastSyncedHash === hash) {
+      skipped++;
+      continue;
+    }
+
+    const colorId = extracted.referenceEntities.colorName ? getCachedColor(caches, extracted.referenceEntities.colorName)?.id ?? null : null;
+    const sizeId = extracted.referenceEntities.sizeName ? getCachedSize(caches, extracted.referenceEntities.sizeName)?.id ?? null : null;
+    const sku = (extracted.variant.sku as string) ?? null;
+    const barcode = (extracted.variant.barcode as string) ?? null;
+    const key = makeKey(colorId, sizeId);
+
+    const existing = existingByKey.get(key);
+    if (existing) {
+      if (existing.sku !== sku || existing.barcode !== barcode) {
+        await db.update(productVariants).set({ sku, barcode }).where(eq(productVariants.id, existing.id));
+        updated++;
+      } else {
+        skipped++;
+      }
+      linksToUpsert.push({ brandIntegrationId: ctx.brandIntegrationId, variantId: existing.id, externalId: externalVariant.externalId, externalProductId: externalProduct.externalId, externalSku: sku, externalBarcode: barcode, lastSyncedHash: hash });
+    } else {
+      const upid = await generateUniqueUpid({
+        isTaken: async (candidate) => {
+          const [row] = await db.select({ id: productVariants.id }).from(productVariants).where(eq(productVariants.upid, candidate)).limit(1);
+          return Boolean(row);
+        },
+      });
+
+      const [newVariant] = await db.insert(productVariants).values({ productId, colorId, sizeId, sku, barcode, upid }).returning({ id: productVariants.id });
+      if (newVariant) {
+        created++;
+        linksToUpsert.push({ brandIntegrationId: ctx.brandIntegrationId, variantId: newVariant.id, externalId: externalVariant.externalId, externalProductId: externalProduct.externalId, externalSku: sku, externalBarcode: barcode, lastSyncedHash: hash });
+      }
+    }
+  }
+
+  if (linksToUpsert.length) await batchUpsertVariantLinks(db, linksToUpsert);
+
+  return { variantsCreated: created, variantsUpdated: updated, variantsSkipped: skipped };
+}
+
+function makeKey(colorId: string | null, sizeId: string | null): string {
+  return `${colorId ?? "null"}:${sizeId ?? "null"}`;
+}

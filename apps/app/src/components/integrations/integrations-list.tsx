@@ -3,46 +3,31 @@
 import { ConnectIntegrationModal } from "@/components/modals/connect-integration-modal";
 import { ConnectShopifyModal } from "@/components/modals/connect-shopify-modal";
 import {
-  useAvailableIntegrationsQuerySuspense,
-  useConnectedIntegrationsQuerySuspense,
-  type AvailableIntegration,
+  useIntegrationsQuerySuspense,
+  type Integration,
 } from "@/hooks/use-integrations";
-import { useMemo, useState } from "react";
-import {
-  AvailableIntegrationCard,
-  ConnectedIntegrationCard,
-  EmptyIntegrationsState,
-} from "./integration-card";
+import { useState } from "react";
+import { IntegrationCard } from "./integration-card";
 
 /**
  * Main integrations list component.
  *
- * Shows:
- * - Connected integrations (if any)
- * - Available integrations grid
+ * Shows a unified list of all integrations with their connection status.
  */
 export function IntegrationsList() {
-  const { data: availableData } = useAvailableIntegrationsQuerySuspense();
-  const { data: connectedData } = useConnectedIntegrationsQuerySuspense();
+  const { data } = useIntegrationsQuerySuspense();
 
   // API key integration modal state
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [selectedIntegration, setSelectedIntegration] =
-    useState<AvailableIntegration | null>(null);
+    useState<Integration | null>(null);
 
   // Shopify OAuth modal state
   const [shopifyModalOpen, setShopifyModalOpen] = useState(false);
 
-  const available = availableData?.data ?? [];
-  const connected = connectedData?.data ?? [];
+  const integrations = data?.data ?? [];
 
-  // Build set of connected integration slugs for quick lookup
-  const connectedSlugs = useMemo(
-    () => new Set(connected.map((c) => c.integration?.slug).filter(Boolean)),
-    [connected],
-  );
-
-  function handleConnect(integration: AvailableIntegration) {
+  function handleConnect(integration: Integration) {
     // For Shopify (OAuth), open the Shopify-specific modal
     if (integration.slug === "shopify") {
       setShopifyModalOpen(true);
@@ -56,37 +41,21 @@ export function IntegrationsList() {
 
   return (
     <div className="space-y-8">
-      {/* Connected Integrations */}
+      {/* Integrations */}
       <section className="space-y-4">
-        <h5 className="text-foreground font-medium">Connected Integrations</h5>
+        <h5 className="type-h5 text-foreground">Integrations</h5>
 
-        {connected.length > 0 ? (
+        {integrations.length > 0 ? (
           <div className="space-y-2">
-            {connected.map((integration) => (
-              <ConnectedIntegrationCard key={integration.id} integration={integration} />
+            {integrations.map((integration) => (
+              <IntegrationCard
+                key={integration.id}
+                integration={integration}
+                onConnect={() => handleConnect(integration)}
+              />
             ))}
           </div>
         ) : (
-          <EmptyIntegrationsState />
-        )}
-      </section>
-
-      {/* Available Integrations */}
-      <section className="space-y-4">
-        <h5 className="text-foreground font-medium">Available Integrations</h5>
-
-        <div className="space-y-2">
-          {available.map((integration) => (
-            <AvailableIntegrationCard
-              key={integration.id}
-              integration={integration}
-              isConnected={connectedSlugs.has(integration.slug)}
-              onConnect={() => handleConnect(integration)}
-            />
-          ))}
-        </div>
-
-        {available.length === 0 && (
           <div className="border border-dashed border-border p-8 text-center">
             <p className="text-secondary text-sm">
               No integrations available at this time.

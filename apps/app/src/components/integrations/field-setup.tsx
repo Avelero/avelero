@@ -5,13 +5,20 @@ import {
   useUpdateFieldMappingsBatchMutation,
 } from "@/hooks/use-integrations";
 import {
-  getConnectorFields,
-  FIELD_CATEGORY_LABELS,
-  type ConnectorFieldMeta,
-} from "@v1/integrations/ui";
+  FieldSection,
+  type FieldRowData,
+} from "@/components/integrations/field-section";
+import {
+  FIELD_GROUP_LABELS,
+  FIELD_GROUP_ORDER,
+  HIDDEN_FIELDS,
+  getFieldGroup,
+  getFieldUIInfo,
+  type FieldGroup,
+} from "@/components/integrations/field-config";
+import { getConnectorFields } from "@v1/integrations/ui";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
-import { Switch } from "@v1/ui/switch";
 import { toast } from "@v1/ui/sonner";
 import { useMemo, useState } from "react";
 
@@ -19,6 +26,7 @@ interface FieldSetupProps {
   brandIntegrationId: string;
   connectorSlug: string;
   integrationName: string;
+  onCancel: () => void;
   onSetupComplete: () => void;
 }
 
@@ -30,6 +38,7 @@ export function FieldSetup({
   brandIntegrationId,
   connectorSlug,
   integrationName,
+  onCancel,
   onSetupComplete,
 }: FieldSetupProps) {
   // Get available fields from the connector schema
@@ -53,44 +62,49 @@ export function FieldSetup({
   const { refetch: refetchFieldMappings } = useFieldMappingsQuery(brandIntegrationId);
   const isSaving = batchMutation.status === "pending";
 
-  function toggleField(fieldKey: string) {
+  function handleToggle(fieldKey: string, enabled: boolean) {
     // Don't allow toggling required fields
     if (requiredFieldKeys.has(fieldKey)) return;
 
     setEnabledFields((prev) => {
       const next = new Set(prev);
-      if (next.has(fieldKey)) {
-        next.delete(fieldKey);
-      } else {
+      if (enabled) {
         next.add(fieldKey);
+        // If turning on price, also turn on currency
+        if (fieldKey === "product.price") {
+          next.add("product.currency");
+        }
+      } else {
+        next.delete(fieldKey);
+        // If turning off price, also turn off currency
+        if (fieldKey === "product.price") {
+          next.delete("product.currency");
+        }
       }
       return next;
     });
   }
 
-  function enableAll() {
-    setEnabledFields(new Set(availableFields.map((f) => f.fieldKey)));
-  }
-
-  function disableAll() {
-    // Keep required fields enabled
-    setEnabledFields(new Set(requiredFieldKeys));
-  }
-
   async function handleSave() {
     try {
+      // Build final field states:
+      // - salesStatus is always enabled (hidden from UI)
+      // - currency follows price state (handled by handleToggle)
+      const finalEnabledFields = new Set(enabledFields);
+      finalEnabledFields.add("product.salesStatus"); // Always on
+
       // Save all field configs - both enabled and disabled
       await batchMutation.mutateAsync({
         brand_integration_id: brandIntegrationId,
         fields: availableFields.map((field) => ({
           field_key: field.fieldKey,
-          ownership_enabled: enabledFields.has(field.fieldKey),
+          ownership_enabled: finalEnabledFields.has(field.fieldKey),
         })),
       });
-      
+
       // Refetch to ensure the data is in cache before transitioning
       await refetchFieldMappings();
-      
+
       toast.success("Field configuration saved");
       onSetupComplete();
     } catch (error) {
@@ -98,171 +112,76 @@ export function FieldSetup({
     }
   }
 
-  // Filter out required fields (they sync automatically, no need to show)
-  // and group remaining fields by entity
-  const optionalFields = availableFields.filter((f) => !f.required);
-  const productFields = optionalFields.filter((f) => f.entity === "product");
-  const variantFields = optionalFields.filter((f) => f.entity === "variant");
+  // Build grouped fields for display
+  const groupedFields = useMemo(() => {
+    const groups: Record<FieldGroup, FieldRowData[]> = {
+      product: [],
+      organization: [],
+      sales: [],
+    };
 
-  // Count only optional fields for display
-  const enabledOptionalCount = optionalFields.filter((f) => enabledFields.has(f.fieldKey)).length;
-  const totalOptionalCount = optionalFields.length;
+    const visibleFields = availableFields.filter((f) => !HIDDEN_FIELDS.has(f.fieldKey));
+
+    for (const field of visibleFields) {
+      const group = getFieldGroup(field.fieldKey);
+      const uiInfo = getFieldUIInfo(field);
+
+      groups[group].push({
+        fieldKey: field.fieldKey,
+        label: uiInfo.label,
+        description: uiInfo.description,
+        enabled: enabledFields.has(field.fieldKey),
+        required: requiredFieldKeys.has(field.fieldKey),
+      });
+    }
+
+    return groups;
+  }, [availableFields, enabledFields, requiredFieldKeys]);
 
   return (
     <div className="space-y-6">
-      {/* Intro section */}
-      <div className="border border-border">
-        <div className="p-6 border-b border-border bg-accent/30">
-          <div className="flex items-start gap-4">
-            <div className="p-2 bg-brand/10 text-brand">
-              <Icons.Settings className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <h5 className="text-foreground font-medium">Configure Field Ownership</h5>
-              <p className="text-secondary text-sm mt-1">
-                Select which fields {integrationName} should manage. When a field is enabled,
-                {integrationName} will update it during each sync. Disabled fields will preserve
-                your manual changes.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-secondary">
-              {enabledOptionalCount} of {totalOptionalCount} fields enabled
-            </span>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={enableAll}
-                className="text-secondary hover:text-foreground transition-colors"
-              >
-                Enable all
-              </button>
-              <span className="text-tertiary">·</span>
-              <button
-                type="button"
-                onClick={disableAll}
-                className="text-secondary hover:text-foreground transition-colors"
-              >
-                Disable all
-              </button>
-            </div>
-          </div>
+      {/* Configure fields header */}
+      <div className="border border-border p-4">
+        <div className="flex flex-col gap-2">
+          <h6 className="text-base font-medium text-foreground">Configure fields</h6>
+          <p className="text-sm text-secondary">
+            Select which fields you would like {integrationName} to populate. If a field is already
+            owned by another integration, ownership will be transferred to {integrationName}.
+          </p>
         </div>
       </div>
 
-      {/* Product fields */}
-      <div className="border border-border">
-        <div className="px-4 py-3 bg-accent/30 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Icons.Package className="h-4 w-4 text-secondary" />
-            <span className="text-foreground font-medium text-sm">
-              {FIELD_CATEGORY_LABELS.product}
-            </span>
-            <span className="text-secondary text-xs">
-              ({productFields.filter((f) => enabledFields.has(f.fieldKey)).length}/
-              {productFields.length} enabled)
-            </span>
-          </div>
-        </div>
-        <div>
-          {productFields.map((field) => (
-            <FieldSetupRow
-              key={field.fieldKey}
-              label={field.label}
-              description={field.description}
-              enabled={enabledFields.has(field.fieldKey)}
-              onToggle={() => toggleField(field.fieldKey)}
-            />
-          ))}
-        </div>
-      </div>
+      {/* Field groups */}
+      {FIELD_GROUP_ORDER.map((groupKey) => {
+        const fields = groupedFields[groupKey];
+        if (fields.length === 0) return null;
 
-      {/* Variant fields */}
-      <div className="border border-border">
-        <div className="px-4 py-3 bg-accent/30 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Icons.Layers className="h-4 w-4 text-secondary" />
-            <span className="text-foreground font-medium text-sm">
-              {FIELD_CATEGORY_LABELS.variant}
-            </span>
-            <span className="text-secondary text-xs">
-              ({variantFields.filter((f) => enabledFields.has(f.fieldKey)).length}/
-              {variantFields.length} enabled)
-            </span>
-          </div>
-        </div>
-        <div>
-          {variantFields.map((field) => (
-            <FieldSetupRow
-              key={field.fieldKey}
-              label={field.label}
-              description={field.description}
-              enabled={enabledFields.has(field.fieldKey)}
-              onToggle={() => toggleField(field.fieldKey)}
-            />
-          ))}
-        </div>
-      </div>
+        return (
+          <FieldSection
+            key={groupKey}
+            title={FIELD_GROUP_LABELS[groupKey]}
+            fields={fields}
+            onToggle={handleToggle}
+          />
+        );
+      })}
 
-      {/* Warning notice */}
-      <div className="border border-amber-200 bg-amber-50 p-4">
-        <div className="flex items-start gap-3">
-          <Icons.AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-amber-800 text-sm font-medium">Important</p>
-            <p className="text-amber-700 text-sm mt-1">
-              Enabled fields will be overwritten by {integrationName} data during each sync.
-              If you have existing product data you want to preserve (like descriptions),
-              disable those fields.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Save button */}
+      {/* Action buttons */}
       <div className="flex justify-end gap-3">
-        <Button variant="default" onClick={handleSave} disabled={isSaving}>
+        <Button variant="outline" onClick={onCancel} disabled={isSaving}>
+          Cancel
+        </Button>
+        <Button variant="brand" onClick={handleSave} disabled={isSaving}>
           {isSaving ? (
             <>
               <Icons.Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving...
+              Connecting...
             </>
           ) : (
-            "Save & Continue"
+            "Connect"
           )}
         </Button>
       </div>
     </div>
   );
 }
-
-/**
- * Single field row in the setup wizard.
- */
-function FieldSetupRow({
-  label,
-  description,
-  enabled,
-  onToggle,
-}: {
-  label: string;
-  description: string;
-  enabled: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="px-4 py-3 flex items-center gap-4 border-b border-border last:border-b-0">
-      <Switch checked={enabled} onCheckedChange={onToggle} />
-      <div className="flex-1 min-w-0">
-        <span className="text-foreground text-sm">{label}</span>
-        <p className="text-tertiary text-xs mt-0.5">{description}</p>
-      </div>
-    </div>
-  );
-}
-
-

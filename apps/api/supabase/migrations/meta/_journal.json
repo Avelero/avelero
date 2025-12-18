@@ -141,6 +141,20 @@
       "when": 1765895099820,
       "tag": "20251216142459_pale_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1766077742051,
+      "tag": "20251218170902_nappy_shotgun",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1766078240767,
+      "tag": "20251218171720_loose_mother_askani",
+      "breakpoints": true
     }
   ]
 }

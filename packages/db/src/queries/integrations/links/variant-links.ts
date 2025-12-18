@@ -387,28 +387,35 @@ export async function findVariantsBySKUorBarcode(
 
 /**
  * Find a single product by any of its variant identifiers.
- * Returns the first matching product if any variant matches.
+ * Prioritizes barcode matches (standardized) over SKU matches (system-specific).
  */
 export async function findProductByVariantIdentifiers(
   db: Database,
   brandId: string,
   identifiers: { sku?: string; barcode?: string }[]
 ): Promise<{ productId: string; productHandle: string } | null> {
-  const skus = identifiers
-    .map((i) => i.sku)
-    .filter((s): s is string => Boolean(s?.trim()));
   const barcodes = identifiers
     .map((i) => i.barcode)
     .filter((b): b is string => Boolean(b?.trim()));
+  const skus = identifiers
+    .map((i) => i.sku)
+    .filter((s): s is string => Boolean(s?.trim()));
 
-  const matches = await findVariantsBySKUorBarcode(db, brandId, skus, barcodes);
+  // Priority 1: Match by barcode (standardized, reliable)
+  if (barcodes.length > 0) {
+    const barcodeMatches = await findVariantsBySKUorBarcode(db, brandId, [], barcodes);
+    if (barcodeMatches[0]) {
+      return { productId: barcodeMatches[0].productId, productHandle: barcodeMatches[0].productHandle };
+    }
+  }
 
-  const firstMatch = matches[0];
-  if (!firstMatch) return null;
+  // Priority 2: Fall back to SKU (less reliable across systems)
+  if (skus.length > 0) {
+    const skuMatches = await findVariantsBySKUorBarcode(db, brandId, skus, []);
+    if (skuMatches[0]) {
+      return { productId: skuMatches[0].productId, productHandle: skuMatches[0].productHandle };
+    }
+  }
 
-  // Return the first match (all variants of the same external product should match the same Avelero product)
-  return {
-    productId: firstMatch.productId,
-    productHandle: firstMatch.productHandle,
-  };
+  return null;
 }

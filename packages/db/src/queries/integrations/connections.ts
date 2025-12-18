@@ -160,7 +160,7 @@ export async function createBrandIntegration(
       credentials: input.credentials ?? null,
       credentialsIv: input.credentialsIv ?? null,
       shopDomain: input.shopDomain ?? null,
-      syncInterval: input.syncInterval ?? 21600, // Default 6 hours
+      syncInterval: input.syncInterval ?? 86400, // Default 24 hours
       status: input.status ?? "pending",
     })
     .returning({
@@ -239,6 +239,43 @@ export async function deleteBrandIntegration(
     )
     .returning({ id: brandIntegrations.id });
   return row;
+}
+
+/**
+ * List all integrations with their connection status for a brand.
+ * Returns all available integrations, with connection info if connected.
+ */
+export async function listIntegrationsWithStatus(db: Database, brandId: string) {
+  return db
+    .select({
+      // Integration details
+      id: integrations.id,
+      slug: integrations.slug,
+      name: integrations.name,
+      description: integrations.description,
+      authType: integrations.authType,
+      iconPath: integrations.iconPath,
+      status: integrations.status,
+      createdAt: integrations.createdAt,
+      updatedAt: integrations.updatedAt,
+      // Connection details (null if not connected)
+      brandIntegrationId: brandIntegrations.id,
+      shopDomain: brandIntegrations.shopDomain,
+      syncInterval: brandIntegrations.syncInterval,
+      lastSyncAt: brandIntegrations.lastSyncAt,
+      connectionStatus: brandIntegrations.status,
+      errorMessage: brandIntegrations.errorMessage,
+    })
+    .from(integrations)
+    .leftJoin(
+      brandIntegrations,
+      and(
+        eq(brandIntegrations.integrationId, integrations.id),
+        eq(brandIntegrations.brandId, brandId),
+      ),
+    )
+    .where(eq(integrations.status, "active"))
+    .orderBy(asc(integrations.name));
 }
 
 /**

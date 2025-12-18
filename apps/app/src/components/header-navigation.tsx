@@ -1,0 +1,106 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { useMemo } from "react";
+import { NavigationLabel, type BreadcrumbItem } from "./navigation-label";
+
+/**
+ * Get breadcrumbs for the header based on the current URL.
+ */
+function getHeaderBreadcrumbs(pathname: string): BreadcrumbItem[] {
+  // Normalize pathname
+  const normalized = pathname.replace(/\/$/, "") || "/";
+  const segments = normalized.split("/").filter(Boolean);
+
+  // Root
+  if (normalized === "/") {
+    return [{ label: "Dashboard" }];
+  }
+
+  // Settings routes
+  if (segments[0] === "settings") {
+    if (segments.length === 1) {
+      return [{ label: "Settings" }];
+    }
+    if (segments[1] === "members") {
+      return [{ label: "Members" }];
+    }
+    if (segments[1] === "integrations") {
+      if (segments.length === 2) {
+        return [{ label: "Integrations" }];
+      }
+      // /settings/integrations/[integration]
+      const integrationName = segments[2];
+      const displayName = integrationName.charAt(0).toUpperCase() + integrationName.slice(1);
+      return [
+        { label: "Integrations", href: "/settings/integrations" },
+        { label: displayName },
+      ];
+    }
+    return [{ label: "Settings" }];
+  }
+
+  // Account routes
+  if (segments[0] === "account") {
+    if (segments.length === 1) {
+      return [{ label: "Account" }];
+    }
+    if (segments[1] === "brands") {
+      return [{ label: "Brands" }];
+    }
+    return [{ label: "Account" }];
+  }
+
+  // Passports routes
+  if (segments[0] === "passports") {
+    if (segments.length === 1) {
+      return [{ label: "Passports" }];
+    }
+    if (segments[1] === "create") {
+      return [
+        { label: "Passports", href: "/passports" },
+        { label: "Create" },
+      ];
+    }
+    if (segments[1] === "edit") {
+      return [
+        { label: "Passports", href: "/passports" },
+        { label: "Edit" },
+      ];
+    }
+    return [{ label: "Passports" }];
+  }
+
+  // Theme routes
+  if (segments[0] === "theme") {
+    return [{ label: "Theme" }];
+  }
+
+  if (segments[0] === "theme-editor") {
+    return [{ label: "Theme editor" }];
+  }
+
+  // Other routes
+  const routeLabels: Record<string, string> = {
+    setup: "Setup",
+    "create-brand": "Create brand",
+    invites: "Invites",
+  };
+
+  if (segments[0] && routeLabels[segments[0]]) {
+    return [{ label: routeLabels[segments[0]] }];
+  }
+
+  return [];
+}
+
+/**
+ * Header navigation that reads from URL and shows breadcrumbs.
+ * Used in the main header component.
+ */
+export function HeaderNavigation() {
+  const pathname = usePathname();
+  const items = useMemo(() => getHeaderBreadcrumbs(pathname), [pathname]);
+
+  return <NavigationLabel items={items} />;
+}

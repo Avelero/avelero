@@ -1,122 +1,97 @@
 "use client";
 
 import { FieldSetup } from "@/components/integrations/field-setup";
+import {
+  FieldSection,
+  type FieldRowData,
+} from "@/components/integrations/field-section";
+import {
+  FIELD_GROUP_LABELS,
+  FIELD_GROUP_ORDER,
+  HIDDEN_FIELDS,
+  getFieldGroup,
+  getFieldUIInfo,
+  type FieldGroup,
+} from "@/components/integrations/field-config";
+import { IntegrationLogo } from "@/components/integrations/integration-logo";
+import {
+  IntegrationInfoRow,
+  SyncProgressBlock,
+  type IntegrationStatus,
+  type SyncJobStatus,
+} from "@/components/integrations/integration-status";
 import { ConnectShopifyModal } from "@/components/modals/connect-shopify-modal";
-import { FieldMappingTable } from "@/components/tables/field-mappings";
+import { DisconnectIntegrationModal } from "@/components/modals/disconnect-integration-modal";
 import {
-  IntegrationStatusBadge,
-  SyncHistoryTable,
-  SyncStats,
-  formatSyncTime,
-  type SyncJobRow,
-} from "@/components/tables/sync-history";
-import {
-  useAvailableIntegrationBySlug,
-  useDisconnectIntegrationMutation,
   useFieldMappingsQuery,
   useIntegrationBySlugQuerySuspense,
-  useSyncHistoryQuery,
+  useSyncStatusQuery,
   useTriggerSyncMutation,
+  useUpdateFieldMappingMutation,
 } from "@/hooks/use-integrations";
+import { getConnectorFields } from "@v1/integrations/ui";
 import { Button } from "@v1/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@v1/ui/dialog";
-import { Icons } from "@v1/ui/icons";
+import { Skeleton } from "@v1/ui/skeleton";
 import { toast } from "@v1/ui/sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { ShopifyLogo } from "../logos/shopify-logo";
+import { useEffect, useMemo, useState } from "react";
 
 interface IntegrationDetailProps {
   slug: string;
 }
 
 /**
- * Integration logo component.
+ * Get a description for the integration based on its slug
  */
-function IntegrationLogo({ slug, className }: { slug: string; className?: string }) {
-  return (
-    <div className={`flex items-center justify-center bg-accent text-secondary ${className}`}>
-      {slug === "shopify" ? (
-        <ShopifyLogo className="h-6 w-6" />
-      ) : (
-        <Icons.Link className="h-6 w-6" />
-      )}
-    </div>
-  );
+function getIntegrationDescription(slug: string): string {
+  const descriptions: Record<string, string> = {
+    shopify: "Synchronize product data from your Shopify store to Avelero",
+  };
+  return descriptions[slug] ?? "Synchronize product data from this integration";
 }
 
 /**
- * Disconnect confirmation modal.
+ * Skeleton for the integration detail page.
+ * Used by both Suspense fallback and loading states.
  */
-function DisconnectModal({
-  open,
-  onOpenChange,
-  integrationName,
-  integrationId,
-  onDisconnected,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  integrationName: string;
-  integrationId: string;
-  onDisconnected: () => void;
-}) {
-  const disconnectMutation = useDisconnectIntegrationMutation();
-  const isDisconnecting = disconnectMutation.status === "pending";
-
-  async function handleDisconnect() {
-    try {
-      await disconnectMutation.mutateAsync({ id: integrationId });
-      toast.success(`Disconnected from ${integrationName}`);
-      onOpenChange(false);
-      onDisconnected();
-    } catch (error) {
-      toast.error("Failed to disconnect integration");
-    }
-  }
-
+export function IntegrationDetailSkeleton() {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[420px] p-0 gap-0 border border-border">
-        <DialogHeader className="px-6 py-4 border-b border-border">
-          <DialogTitle className="text-foreground">Disconnect {integrationName}</DialogTitle>
-        </DialogHeader>
-
-        <div className="px-6 py-4">
-          <p className="text-secondary text-sm">
-            Are you sure you want to disconnect this integration? This will:
-          </p>
-          <ul className="mt-3 space-y-1 text-secondary text-sm list-disc list-inside">
-            <li>Stop automatic syncing</li>
-            <li>Remove all field mappings</li>
-            <li>Delete sync history</li>
-          </ul>
-          <p className="mt-3 text-secondary text-sm">
-            Your product data will <strong>not</strong> be deleted.
-          </p>
+      <div className="space-y-6">
+      {/* Header */}
+      <div className="space-y-3 mx-4">
+      <Skeleton className="h-8 w-8" />
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <Skeleton className="h-[28px] w-[80px]" />
+            <Skeleton className="h-[18px] w-[96px]" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-[36px] w-[80px]" />
+            <Skeleton className="h-[36px] w-[80px]" />
+          </div>
         </div>
+      </div>
 
-        <DialogFooter className="px-6 py-4 border-t border-border bg-background">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isDisconnecting}
-          >
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={handleDisconnect} disabled={isDisconnecting}>
-            {isDisconnecting ? "Disconnecting..." : "Disconnect"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <div className="flex flex-row items-start gap-4 mx-4">
+      <div className="flex flex-col items-start gap-2">
+        <Skeleton className="h-[24px] w-[60px]" />
+        <Skeleton className="h-[24px] w-[60px]" />
+        <Skeleton className="h-[24px] w-[60px]" />
+      </div>
+      <div className="flex flex-col items-start gap-2">
+        <Skeleton className="h-[24px] w-[200px]" />
+        <Skeleton className="h-[24px] w-[200px]" />
+        <Skeleton className="h-[24px] w-[76px]" />
+      </div>
+    </div>
+
+    <Skeleton className="h-[98px] w-full" />
+
+    <Skeleton className="h-[385px] w-full" />
+    <Skeleton className="h-[251px] w-full" />
+    <Skeleton className="h-[184px] w-full" />
+    </div>
   );
 }
 
@@ -126,12 +101,14 @@ function DisconnectModal({
 export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const router = useRouter();
   const { data: connectionData } = useIntegrationBySlugQuerySuspense(slug);
-  const availableIntegration = useAvailableIntegrationBySlug(slug);
 
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
   const [shopifyModalOpen, setShopifyModalOpen] = useState(false);
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
   
+  // Optimistic sync state - shows "In progress" immediately when user clicks sync
+  const [optimisticSyncStarted, setOptimisticSyncStarted] = useState<Date | null>(null);
+
   // Track mount state to prevent hydration mismatch
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => {
@@ -139,40 +116,47 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   }, []);
 
   const connection = connectionData?.data;
-  const integrationInfo = connection?.integration ?? availableIntegration;
+  const integrationInfo = connection?.integration;
 
-  // Field configs to determine if setup is needed
+  // Field configs to determine if setup is needed (only runs on client)
   const { data: fieldConfigsData, isLoading: fieldConfigsLoading } = useFieldMappingsQuery(
     connection?.id ?? null,
   );
 
+  // Sync status with polling
+  const { data: syncStatusData } = useSyncStatusQuery(connection?.id ?? null);
+
+  // Get connector fields
+  const availableFields = useMemo(
+    () => getConnectorFields(slug),
+    [slug],
+  );
+
   // Determine if setup is needed based on field configs
-  // Setup is needed if there are no field configs in the database
-  // Once setupCompleted is true (either from DB or user action), don't reset it
   useEffect(() => {
     if (!connection?.id) {
       setSetupCompleted(null);
       return;
     }
-    // Don't override if user just completed setup
     if (setupCompleted === true) return;
     if (fieldConfigsLoading) return;
-    
+
     const hasFieldConfigs = (fieldConfigsData?.data?.length ?? 0) > 0;
     setSetupCompleted(hasFieldConfigs);
   }, [connection?.id, fieldConfigsData, fieldConfigsLoading, setupCompleted]);
 
-  // Sync hooks
+  // Mutations
   const triggerSyncMutation = useTriggerSyncMutation();
-  const { data: historyData, isLoading: historyLoading } = useSyncHistoryQuery(
-    connection?.id ?? null,
-  );
+  const updateFieldMutation = useUpdateFieldMappingMutation();
 
-  const syncHistory = (historyData?.data ?? []) as SyncJobRow[];
-  const isSyncing = triggerSyncMutation.status === "pending";
+  const isSyncing = triggerSyncMutation.status === "pending" ||
+    syncStatusData?.data?.isSyncing;
 
   async function handleTriggerSync() {
     if (!connection?.id) return;
+
+    // Optimistically show sync started immediately
+    setOptimisticSyncStarted(new Date());
 
     try {
       await triggerSyncMutation.mutateAsync({
@@ -180,31 +164,84 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       });
       toast.success("Sync started");
     } catch (error) {
+      // Clear optimistic state on error
+      setOptimisticSyncStarted(null);
       toast.error("Failed to start sync");
     }
   }
+  
+  // Clear optimistic state when real sync status is available
+  useEffect(() => {
+    if (syncStatusData?.data?.isSyncing) {
+      setOptimisticSyncStarted(null);
+    }
+  }, [syncStatusData?.data?.isSyncing]);
 
   function handleDisconnected() {
     router.push("/settings/integrations");
+  }
+
+  // Build field sections for display
+  const fieldMappings = fieldConfigsData?.data ?? [];
+  const fieldMappingMap = useMemo(() => {
+    const map = new Map<string, { enabled: boolean; id: string }>();
+    for (const mapping of fieldMappings) {
+      map.set(mapping.fieldKey, {
+        enabled: mapping.ownershipEnabled,
+        id: mapping.id,
+      });
+    }
+    return map;
+  }, [fieldMappings]);
+
+  const groupedFields = useMemo(() => {
+    const groups: Record<FieldGroup, FieldRowData[]> = {
+      product: [],
+      organization: [],
+      sales: [],
+    };
+
+    const visibleFields = availableFields.filter((f) => !HIDDEN_FIELDS.has(f.fieldKey));
+
+    for (const field of visibleFields) {
+      const group = getFieldGroup(field.fieldKey);
+      const uiInfo = getFieldUIInfo(field);
+      const mapping = fieldMappingMap.get(field.fieldKey);
+
+      groups[group].push({
+        fieldKey: field.fieldKey,
+        label: uiInfo.label,
+        description: uiInfo.description,
+        enabled: mapping?.enabled ?? false,
+      });
+    }
+
+    return groups;
+  }, [availableFields, fieldMappingMap]);
+
+  async function handleFieldToggle(fieldKey: string, enabled: boolean) {
+    if (!connection?.id) return;
+
+    const mapping = fieldMappingMap.get(fieldKey);
+    if (!mapping) return;
+
+    try {
+      await updateFieldMutation.mutateAsync({
+        brand_integration_id: connection.id,
+        field_key: fieldKey,
+        ownership_enabled: enabled,
+      });
+    } catch (error) {
+      toast.error("Failed to update field");
+    }
   }
 
   // Not connected state
   if (!connection) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center gap-2 text-secondary">
-          <Link
-            href="/settings/integrations"
-            className="hover:text-foreground transition-colors"
-          >
-            Integrations
-          </Link>
-          <Icons.ChevronRight className="h-4 w-4" />
-          <span className="text-foreground">{integrationInfo?.name ?? slug}</span>
-        </div>
-
         <div className="border border-dashed border-border p-8 flex flex-col items-center justify-center gap-4 text-center">
-          <IntegrationLogo slug={slug} className="h-16 w-16" />
+          <IntegrationLogo slug={slug} size="sm" />
           <div className="flex flex-col gap-1">
             <h5 className="text-foreground font-medium">
               {integrationInfo?.name ?? slug} is not connected
@@ -233,176 +270,126 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     );
   }
 
-  const status = connection.status as
-    | "pending"
-    | "active"
-    | "error"
-    | "paused"
-    | "disconnected";
+  const status = connection.status as IntegrationStatus;
 
-  // Calculate next sync time
+  // Get latest job info for progress display
+  const latestJob = syncStatusData?.data?.latestJob;
+
+  // Use sync status data for dates (more accurate than connection data)
+  // Falls back to latestJob.finishedAt if lastSyncAt isn't set on the connection
+  const lastSyncTime =
+    syncStatusData?.data?.lastSyncAt ??
+    (latestJob?.status === "completed" ? latestJob.finishedAt : null) ??
+    connection.lastSyncAt;
+
+  // Use nextSyncAt from sync status API (it calculates this server-side)
+  // Or calculate from lastSyncTime if available
   const nextSyncTime =
-    connection.lastSyncAt && connection.syncInterval
+    syncStatusData?.data?.nextSyncAt ??
+    (lastSyncTime && connection.syncInterval
       ? new Date(
-          new Date(connection.lastSyncAt).getTime() + connection.syncInterval * 1000,
+          new Date(lastSyncTime).getTime() + connection.syncInterval * 1000,
         ).toISOString()
-      : null;
+      : null);
+  const syncJobStatus = latestJob?.status as SyncJobStatus | undefined;
 
-  // Show setup wizard if field configs haven't been configured yet
+  // Calculate progress percentage from productsProcessed / productsTotal
+  const progress = latestJob
+    ? syncJobStatus === "completed"
+      ? 100
+      : syncJobStatus === "failed"
+        ? 100
+        : syncJobStatus === "running" && latestJob.productsTotal && latestJob.productsTotal > 0
+          ? Math.round((latestJob.productsProcessed / latestJob.productsTotal) * 100)
+          : undefined // No total available: show indeterminate
+    : undefined;
+
+  // Show field setup if not completed
   if (setupCompleted === false) {
     return (
-      <div className="space-y-6">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-secondary text-sm">
-          <Link
-            href="/settings/integrations"
-            className="hover:text-foreground transition-colors"
-          >
-            Integrations
-          </Link>
-          <Icons.ChevronRight className="h-4 w-4" />
-          <Link
-            href={`/settings/integrations/${slug}`}
-            className="hover:text-foreground transition-colors"
-          >
-            {integrationInfo?.name}
-          </Link>
-          <Icons.ChevronRight className="h-4 w-4" />
-          <span className="text-foreground">Setup</span>
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <IntegrationLogo slug={slug} className="h-12 w-12" />
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <h4 className="text-foreground font-medium text-lg">
-                Setup {integrationInfo?.name}
-              </h4>
-              <span className="text-xs text-amber-700 bg-amber-100 px-2 py-0.5 border border-amber-200">
-                Setup Required
-              </span>
-            </div>
-            <p className="text-secondary text-sm">
-              Connected to {connection.shopDomain ?? "your store"}
-            </p>
-          </div>
-        </div>
-
-        {/* Field Setup Wizard */}
-        <FieldSetup
-          brandIntegrationId={connection.id}
-          connectorSlug={slug}
-          integrationName={integrationInfo?.name ?? slug}
-          onSetupComplete={() => setSetupCompleted(true)}
-        />
-      </div>
+      <FieldSetup
+        brandIntegrationId={connection.id}
+        connectorSlug={slug}
+        integrationName={integrationInfo?.name ?? slug}
+        onCancel={() => router.push("/settings/integrations")}
+        onSetupComplete={() => setSetupCompleted(true)}
+      />
     );
   }
 
-  // Show loading state while checking setup status
-  // Use hasMounted to prevent hydration mismatch - always show loading on initial render
+  // Show skeleton while checking setup status (instead of spinner)
   if (!hasMounted || (setupCompleted === null && connection?.id)) {
-    return (
-      <div className="space-y-8">
-        <div className="flex items-center gap-2 text-secondary text-sm">
-          <Link
-            href="/settings/integrations"
-            className="hover:text-foreground transition-colors"
-          >
-            Integrations
-          </Link>
-          <Icons.ChevronRight className="h-4 w-4" />
-          <span className="text-foreground">{integrationInfo?.name}</span>
-        </div>
-        <div className="flex items-center justify-center py-12">
-          <Icons.Loader2 className="h-8 w-8 animate-spin text-secondary" />
-        </div>
-      </div>
-    );
+    return <IntegrationDetailSkeleton />;
   }
 
   return (
-    <div className="space-y-8">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-secondary text-sm">
-        <Link
-          href="/settings/integrations"
-          className="hover:text-foreground transition-colors"
-        >
-          Integrations
-        </Link>
-        <Icons.ChevronRight className="h-4 w-4" />
-        <span className="text-foreground">{integrationInfo?.name}</span>
-      </div>
-
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <IntegrationLogo slug={slug} className="h-12 w-12" />
+      <div className="space-y-3 mx-4">
+        <IntegrationLogo slug={slug} size="sm" />
+        <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <h4 className="text-foreground font-medium text-lg">
-                {integrationInfo?.name}
-              </h4>
-              <IntegrationStatusBadge status={status} />
-            </div>
-            <p className="text-secondary text-sm">
-              Last sync: {formatSyncTime(connection.lastSyncAt)}
+            <h5 className="type-h5 text-foreground">
+              {integrationInfo?.name}
+            </h5>
+            <p className="type-small text-secondary">
+              {getIntegrationDescription(slug)}
             </p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={handleTriggerSync}
-            disabled={isSyncing || status !== "active"}
-          >
-            {isSyncing ? (
-              <>
-                <Icons.Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <Icons.RefreshCw className="h-4 w-4 mr-2" />
-                Sync Now
-              </>
-            )}
-          </Button>
-          <Button variant="outline" onClick={() => setDisconnectModalOpen(true)}>
-            Disconnect
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleTriggerSync}
+              disabled={isSyncing || status !== "active"}
+            >
+              {isSyncing ? "Syncing..." : "Sync now"}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setDisconnectModalOpen(true)}
+            >
+              Disconnect
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Sync Stats */}
-      <section className="space-y-4">
-        <h5 className="text-foreground font-medium">Sync Status</h5>
-        <SyncStats
-          lastSync={connection.lastSyncAt}
-          nextSync={nextSyncTime}
-          totalSyncs={syncHistory.length}
+      {/* Info row */}
+      <IntegrationInfoRow
+        lastSync={lastSyncTime}
+        nextSync={nextSyncTime}
+        status={status}
+      />
+
+      {/* Sync progress block - show optimistic state or real sync status */}
+      {(optimisticSyncStarted || latestJob) && (
+        <SyncProgressBlock
+          status={optimisticSyncStarted ? "running" : (syncJobStatus ?? null)}
+          progress={optimisticSyncStarted ? 0 : progress}
+          startedAt={optimisticSyncStarted?.toISOString() ?? latestJob?.startedAt ?? null}
+          errorMessage={optimisticSyncStarted ? null : latestJob?.errorSummary}
         />
-      </section>
+      )}
 
-      {/* Field Mappings */}
+      {/* Configure fields section */}
       <section className="space-y-4">
-        <h5 className="text-foreground font-medium">Field Mappings</h5>
-        <p className="text-secondary text-sm">
-          Configure which fields to sync from {integrationInfo?.name}.
-        </p>
-        <FieldMappingTable brandIntegrationId={connection.id} connectorSlug={slug} />
-      </section>
+        {FIELD_GROUP_ORDER.map((groupKey) => {
+          const fields = groupedFields[groupKey];
+          if (fields.length === 0) return null;
 
-      {/* Sync History */}
-      <section className="space-y-4">
-        <h5 className="text-foreground font-medium">Sync History</h5>
-        <SyncHistoryTable jobs={syncHistory} isLoading={historyLoading} />
+          return (
+            <FieldSection
+              key={groupKey}
+              title={FIELD_GROUP_LABELS[groupKey]}
+              fields={fields}
+              onToggle={handleFieldToggle}
+            />
+          );
+        })}
       </section>
 
       {/* Disconnect Modal */}
-      <DisconnectModal
+      <DisconnectIntegrationModal
         open={disconnectModalOpen}
         onOpenChange={setDisconnectModalOpen}
         integrationName={integrationInfo?.name ?? slug}

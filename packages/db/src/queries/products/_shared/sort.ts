@@ -2,7 +2,7 @@
  * Shared sorting logic for product queries.
  * 
  * Provides reusable ORDER BY clause builders with special handling
- * for category and season sorting (NULLS LAST).
+ * for category, season, and variant count sorting (NULLS LAST).
  */
 
 import { asc, desc, sql } from "drizzle-orm";
@@ -19,6 +19,7 @@ const SORT_FIELD_MAP: Record<string, any> = {
   category: categories.name, // Requires join
   season: null, // Special handling required
   productHandle: products.productHandle,
+  variantCount: null, // Special handling required (subquery)
 } as const;
 
 /**
@@ -76,6 +77,21 @@ export function buildProductOrderBy(
       return [sql`${categorySortField} ASC NULLS LAST`, asc(products.id)];
     }
     return [sql`${categorySortField} DESC NULLS LAST`, desc(products.id)];
+  }
+
+  if (sortField === "variantCount") {
+    // Subquery to count variants for each product using raw SQL
+    // (drizzle table/column references are interpolated to their SQL names)
+    if (sortDirection === "asc") {
+      return [
+        sql`(SELECT COUNT(*) FROM product_variants WHERE product_variants.product_id = products.id) ASC`,
+        asc(products.id),
+      ];
+    }
+    return [
+      sql`(SELECT COUNT(*) FROM product_variants WHERE product_variants.product_id = products.id) DESC`,
+      desc(products.id),
+    ];
   }
 
   const field = sortField

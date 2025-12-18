@@ -6,6 +6,7 @@
 
 import {
   fetchProducts as shopifyFetchProducts,
+  getProductCount as shopifyGetProductCount,
   shopifySchema,
   testConnection as shopifyTestConnection,
 } from "./shopify/index";
@@ -20,6 +21,8 @@ export interface RegisteredConnector {
     credentials: IntegrationCredentials,
     batchSize?: number,
   ) => AsyncGenerator<FetchedProductBatch, void, undefined>;
+  /** Get total product count for progress tracking. Returns -1 if unknown. */
+  getProductCount: (credentials: IntegrationCredentials) => Promise<number>;
 }
 
 const registry = new Map<string, RegisteredConnector>();
@@ -29,6 +32,7 @@ registry.set("shopify", {
   schema: shopifySchema,
   testConnection: shopifyTestConnection,
   fetchProducts: shopifyFetchProducts,
+  getProductCount: shopifyGetProductCount,
 });
 
 export function getConnector(slug: string): RegisteredConnector | undefined {

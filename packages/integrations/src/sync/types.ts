@@ -90,6 +90,16 @@ export type { StorageClient } from "@v1/supabase/storage";
 import type { StorageClient } from "@v1/supabase/storage";
 
 /**
+ * Progress update sent during sync.
+ */
+export interface SyncProgress {
+  /** Products processed so far */
+  productsProcessed: number;
+  /** Total products to process (if known) */
+  productsTotal?: number;
+}
+
+/**
  * Context passed to sync operations.
  * Contains everything needed to process synced data.
  */
@@ -110,6 +120,10 @@ export interface SyncContext {
   config: IntegrationConfig;
   /** Field configurations from database */
   fieldConfigs: FieldConfig[];
+  /** Total products to process (fetched before sync starts) */
+  productsTotal?: number;
+  /** Callback to report progress during sync */
+  onProgress?: (progress: SyncProgress) => Promise<void>;
 }
 
 /**

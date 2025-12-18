@@ -237,7 +237,7 @@ shopifyOAuthRouter.get("/callback", async (c) => {
         credentials: encrypted,
         credentialsIv: iv,
         shopDomain: shop,
-        syncInterval: 21600, // 6 hours
+        syncInterval: 86400, // 24 hours
         status: "active",
       });
     }

@@ -207,6 +207,7 @@ export const syncRouter = createTRPCRouter({
                 triggerType: latestJob.triggerType,
                 startedAt: latestJob.startedAt,
                 finishedAt: latestJob.finishedAt,
+                productsTotal: latestJob.productsTotal,
                 productsProcessed: latestJob.productsProcessed,
                 productsCreated: latestJob.productsCreated,
                 productsUpdated: latestJob.productsUpdated,

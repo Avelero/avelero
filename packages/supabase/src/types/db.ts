@@ -1295,6 +1295,7 @@ export type Database = {
           products_failed: number;
           products_processed: number;
           products_skipped: number;
+          products_total: number | null;
           products_updated: number;
           started_at: string | null;
           status: string;
@@ -1318,6 +1319,7 @@ export type Database = {
           products_failed?: number;
           products_processed?: number;
           products_skipped?: number;
+          products_total?: number | null;
           products_updated?: number;
           started_at?: string | null;
           status?: string;
@@ -1341,6 +1343,7 @@ export type Database = {
           products_failed?: number;
           products_processed?: number;
           products_skipped?: number;
+          products_total?: number | null;
           products_updated?: number;
           started_at?: string | null;
           status?: string;

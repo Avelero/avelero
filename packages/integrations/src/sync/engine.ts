@@ -14,6 +14,7 @@ import { processProduct } from "./processor";
 import type { FetchedProductBatch, SyncContext, SyncResult } from "./types";
 
 const PRODUCT_CONCURRENCY = 10;
+const PROGRESS_UPDATE_INTERVAL = 5; // Update progress every N products
 
 export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
   const result: SyncResult = {
@@ -29,6 +30,23 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
     errors: [],
   };
 
+  // Shared counter for progress tracking across all batches
+  let totalProductsProcessed = 0;
+  let lastProgressUpdate = 0;
+
+  // Progress callback that fires after each product
+  const onProductProcessed = async () => {
+    totalProductsProcessed++;
+    // Update every N products to avoid too many DB writes
+    if (ctx.onProgress && totalProductsProcessed - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
+      lastProgressUpdate = totalProductsProcessed;
+      await ctx.onProgress({
+        productsProcessed: totalProductsProcessed,
+        productsTotal: ctx.productsTotal,
+      });
+    }
+  };
+
   try {
     const connector = getConnector(ctx.integrationSlug);
     if (!connector) {
@@ -40,7 +58,7 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
     const caches = await initializeCaches(db, ctx.brandId);
 
     for await (const batch of connector.fetchProducts(ctx.credentials)) {
-      const batchResult = await processBatch(db, ctx, batch, mappings, caches);
+      const batchResult = await processBatch(db, ctx, batch, mappings, caches, onProductProcessed);
 
       result.variantsProcessed += batchResult.variantsProcessed;
       result.variantsCreated += batchResult.variantsCreated;
@@ -51,6 +69,14 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
       result.productsUpdated += batchResult.productsUpdated;
       result.entitiesCreated += batchResult.entitiesCreated;
       result.errors.push(...batchResult.errors);
+    }
+
+    // Final progress update to ensure we report 100%
+    if (ctx.onProgress && totalProductsProcessed > lastProgressUpdate) {
+      await ctx.onProgress({
+        productsProcessed: totalProductsProcessed,
+        productsTotal: ctx.productsTotal,
+      });
     }
 
     result.success = result.variantsFailed === 0 && result.errors.length === 0;
@@ -98,7 +124,8 @@ async function processBatch(
   ctx: SyncContext,
   batch: FetchedProductBatch,
   mappings: ReturnType<typeof buildEffectiveFieldMappings>,
-  caches: SyncCaches
+  caches: SyncCaches,
+  onProductProcessed?: () => Promise<void>
 ): Promise<BatchResult> {
   const result: BatchResult = {
     variantsProcessed: 0,
@@ -144,6 +171,11 @@ async function processBatch(
         } else {
           result.variantsFailed += product.variants.length;
           result.errors.push({ externalId: product.externalId, message: processed.error || "Unknown error" });
+        }
+
+        // Report progress after each product is processed
+        if (onProductProcessed) {
+          await onProductProcessed();
         }
       } finally {
         semaphore.release();

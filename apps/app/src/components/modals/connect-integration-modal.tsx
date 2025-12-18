@@ -2,7 +2,7 @@
 
 import {
   useConnectIntegrationMutation,
-  type AvailableIntegration,
+  type Integration,
 } from "@/hooks/use-integrations";
 import { Button } from "@v1/ui/button";
 import {
@@ -17,7 +17,7 @@ import { toast } from "@v1/ui/sonner";
 import { useState } from "react";
 
 interface ConnectIntegrationModalProps {
-  integration: AvailableIntegration | null;
+  integration: Integration | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -163,6 +163,9 @@ export function ConnectIntegrationModal({
     </Dialog>
   );
 }
+
+
+
 
 
 

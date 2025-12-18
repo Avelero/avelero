@@ -40,6 +40,7 @@ const SORT_FIELDS: SortField[] = [
   { id: "status", label: "Status", dataType: "text" },
   { id: "category", label: "Category", dataType: "text" },
   { id: "season", label: "Season", dataType: "text" },
+  { id: "variantCount", label: "Variant count", dataType: "number" },
   { id: "updatedAt", label: "Updated at", dataType: "date" },
   { id: "createdAt", label: "Created at", dataType: "date" },
 ];
@@ -119,7 +120,7 @@ export function SortPopover({
             <span className="px-1">{optimisticSort && activeField ? (
               <>
                 Sorted by{" "}
-                <span className="font-medium pl-2">{activeField.label}</span>
+                <span className="font-medium pl-2 text-foreground">{activeField.label}</span>
               </>
             ) : (
               "Sort"

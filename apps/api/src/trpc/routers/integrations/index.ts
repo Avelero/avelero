@@ -17,11 +17,11 @@ import { syncRouter } from "./sync.js";
  * Main integrations router exposing all integration management endpoints.
  *
  * Structure:
- * - integrations.connections.* (listAvailable, list, get, connect, disconnect, testConnection)
+ * - integrations.connections.* (list, get, getBySlug, connect, disconnect, update, testConnection)
  * - integrations.mappings.* (list, update, updateBatch, listAllOwnerships)
  * - integrations.sync.* (trigger, history, status, getJob)
  *
- * Total: 14 endpoints across 3 sub-routers
+ * Total: 12 endpoints across 3 sub-routers
  */
 export const integrationsRouter = createTRPCRouter({
   /**

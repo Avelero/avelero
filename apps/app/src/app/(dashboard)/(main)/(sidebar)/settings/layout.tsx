@@ -1,25 +1,30 @@
+"use client";
+
 import {
   ControlBar,
   ControlBarLeft,
   ControlBarNavButton,
   ControlBarRight,
 } from "@/components/control-bar";
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Settings | Avelero",
-};
+import { usePathname } from "next/navigation";
 
 export default function AccountLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  
+  // General tab should only be active for /settings exactly, not nested routes
+  const isGeneralActive = pathname === "/settings";
+  
   return (
     <div className="flex flex-col h-full">
       <ControlBar>
         <ControlBarLeft>
-          <ControlBarNavButton href="/settings">General</ControlBarNavButton>
+          <ControlBarNavButton href="/settings" isActive={isGeneralActive}>
+            General
+          </ControlBarNavButton>
           <ControlBarNavButton href="/settings/members">
             Members
           </ControlBarNavButton>

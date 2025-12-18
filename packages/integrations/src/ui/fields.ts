@@ -69,13 +69,16 @@ const SHOPIFY_FIELD_KEYS = [
 
 /**
  * Fields that are ALWAYS synced and cannot be disabled.
- * These are essential for the integration to work properly.
+ * 
+ * Note: salesStatus and currency are managed in the field-setup UI:
+ * - salesStatus: always enabled, hidden from UI
+ * - currency: follows price toggle, hidden from UI
+ * 
+ * webshopUrl and price are user-toggleable in the setup wizard.
  */
-const SHOPIFY_REQUIRED_FIELDS = new Set([
-  "product.webshopUrl",
-  "product.price",
-  "product.currency",
-  "product.salesStatus",
+const SHOPIFY_REQUIRED_FIELDS = new Set<string>([
+  // No fields are required from a schema perspective.
+  // salesStatus is enforced in the field-setup component.
 ]);
 
 /**

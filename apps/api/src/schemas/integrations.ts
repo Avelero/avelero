@@ -65,15 +65,10 @@ export const triggerTypeSchema = z.enum(["scheduled", "manual", "webhook"]);
 // =============================================================================
 
 /**
- * Schema for listing available integration types.
- * No input required - returns all active integrations.
+ * Schema for listing all integrations with connection status.
+ * Returns all available integrations with connection info if connected.
  */
-export const listAvailableSchema = z.object({});
-
-/**
- * Schema for listing a brand's connected integrations.
- */
-export const listConnectedSchema = z.object({});
+export const listIntegrationsSchema = z.object({});
 
 /**
  * Schema for getting a specific brand integration by ID.
@@ -102,8 +97,8 @@ export const connectApiKeySchema = z.object({
   api_secret: z.string().min(1).max(500).optional(),
   /** Optional base URL for the API (for self-hosted instances) */
   base_url: z.string().url().optional(),
-  /** Sync interval in seconds (default: 21600 = 6 hours) */
-  sync_interval: z.number().int().min(3600).max(86400).optional(),
+  /** Sync interval in seconds (default: 86400 = 24 hours) */
+  sync_interval: z.number().int().min(3600).max(604800).optional(),
 });
 
 /**

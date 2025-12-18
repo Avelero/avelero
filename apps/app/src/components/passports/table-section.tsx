@@ -31,7 +31,8 @@ type SortField =
   | "updatedAt"
   | "category"
   | "season"
-  | "productHandle";
+  | "productHandle"
+  | "variantCount";
 
 export function TableSection() {
   const [selectedCount, setSelectedCount] = useState(0);
@@ -330,6 +331,7 @@ export function TableSection() {
       status: "status",
       category: "category",
       season: "season",
+      variantCount: "variantCount",
       updatedAt: "updatedAt",
       createdAt: "createdAt",
     };

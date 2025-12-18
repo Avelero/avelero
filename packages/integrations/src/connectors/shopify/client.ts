@@ -56,7 +56,7 @@ async function executeQuery<T>(
 // CONNECTION TESTING
 // =============================================================================
 
-const SHOP_QUERY = `query { shop { name primaryDomain { url } } }`;
+const SHOP_QUERY = "query { shop { name primaryDomain { url } } }";
 
 export async function testConnection(
   credentials: IntegrationCredentials
@@ -148,16 +148,33 @@ export async function* fetchProducts(
 }
 
 // =============================================================================
-// ESTIMATION
+// COUNTING
 // =============================================================================
 
-const COUNT_QUERY = `query { products(first: 1) { edges { node { id } } } }`;
+const PRODUCT_COUNT_QUERY = "query { productsCount { count } }";
 
-export async function estimateVariantCount(
+interface ProductCountResponse {
+  productsCount: { count: number };
+}
+
+/**
+ * Get the total product count from Shopify.
+ */
+export async function getProductCount(
   credentials: IntegrationCredentials
 ): Promise<number> {
-  // Shopify doesn't have a direct count query, return -1 to indicate unknown
-  return -1;
+  const result = await executeQuery<ProductCountResponse>(
+    credentials,
+    PRODUCT_COUNT_QUERY,
+    {}
+  );
+
+  if (result.errors?.length) {
+    // Fall back to unknown if count query fails (older API versions)
+    return -1;
+  }
+
+  return result.data?.productsCount?.count ?? -1;
 }
 
 // =============================================================================

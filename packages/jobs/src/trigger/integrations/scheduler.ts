@@ -49,8 +49,8 @@ export const integrationSyncScheduler = schedules.task({
           eq(brandIntegrations.status, "active"),
           or(
             isNull(brandIntegrations.lastSyncAt),
-            // Check if lastSyncAt + syncInterval hours < now
-            sql`${brandIntegrations.lastSyncAt} + (${brandIntegrations.syncInterval} || ' hours')::interval < ${now.toISOString()}`,
+            // Check if lastSyncAt + syncInterval seconds < now
+            sql`${brandIntegrations.lastSyncAt} + (${brandIntegrations.syncInterval} * interval '1 second') < ${now.toISOString()}::timestamptz`,
           ),
         ),
       );

@@ -9,64 +9,36 @@ import {
 } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@v1/api/src/trpc/routers/_app";
-import { useMemo } from "react";
 
 /** tRPC router output types for type-safe hooks */
 type RouterOutputs = inferRouterOutputs<AppRouter>;
 
-/** Available integration type from master list */
-export type AvailableIntegration =
-  RouterOutputs["integrations"]["connections"]["listAvailable"]["data"][number];
-
-/** Connected brand integration */
-export type ConnectedIntegration =
+/** Integration with connection status */
+export type Integration =
   RouterOutputs["integrations"]["connections"]["list"]["data"][number];
 
-/** Sync job from history - use the table types for proper typing */
+/** Sync job from history */
 export type SyncJob =
   RouterOutputs["integrations"]["sync"]["history"]["data"][number];
 
-/** Field mapping configuration - use the table types for proper typing */
+/** Field mapping configuration */
 export type FieldMapping =
   RouterOutputs["integrations"]["mappings"]["list"]["data"][number];
 
-// Re-export table types for convenience
-export type { SyncJobRow, SyncJobStatus, TriggerType } from "@/components/tables/sync-history/types";
-export type { FieldMappingRow, SourceOption, FieldCategory } from "@/components/tables/field-mappings/types";
+// Re-export types from integrations module
+export type {
+  IntegrationStatus,
+  SyncJobStatus,
+} from "@/components/integrations/integration-status";
 
 // =============================================================================
 // Connection Hooks
 // =============================================================================
 
 /**
- * Fetches all available integration types.
- *
- * @returns Query hook for available integrations
+ * Fetches all integrations with connection status.
  */
-export function useAvailableIntegrationsQuery() {
-  const trpc = useTRPC();
-  const opts = trpc.integrations.connections.listAvailable.queryOptions({});
-  return useQuery({
-    ...opts,
-    enabled: typeof window !== "undefined",
-  });
-}
-
-/**
- * Suspense version of useAvailableIntegrationsQuery.
- */
-export function useAvailableIntegrationsQuerySuspense() {
-  const trpc = useTRPC();
-  const opts = trpc.integrations.connections.listAvailable.queryOptions({});
-  return useSuspenseQuery(opts);
-}
-
-/**
- * Fetches all connected integrations for the current brand.
- *
- * @returns Query hook for connected integrations
- */
-export function useConnectedIntegrationsQuery() {
+export function useIntegrationsQuery() {
   const trpc = useTRPC();
   const opts = trpc.integrations.connections.list.queryOptions({});
   return useQuery({
@@ -76,31 +48,16 @@ export function useConnectedIntegrationsQuery() {
 }
 
 /**
- * Suspense version of useConnectedIntegrationsQuery.
+ * Suspense version of useIntegrationsQuery.
  */
-export function useConnectedIntegrationsQuerySuspense() {
+export function useIntegrationsQuerySuspense() {
   const trpc = useTRPC();
   const opts = trpc.integrations.connections.list.queryOptions({});
   return useSuspenseQuery(opts);
 }
 
 /**
- * Fetches a specific connected integration by slug.
- *
- * @param slug - Integration slug (e.g., "shopify")
- * @returns Query hook for the integration
- */
-export function useIntegrationBySlugQuery(slug: string) {
-  const trpc = useTRPC();
-  const opts = trpc.integrations.connections.getBySlug.queryOptions({ slug });
-  return useQuery({
-    ...opts,
-    enabled: typeof window !== "undefined" && !!slug,
-  });
-}
-
-/**
- * Suspense version of useIntegrationBySlugQuery.
+ * Suspense query for a specific integration by slug.
  */
 export function useIntegrationBySlugQuerySuspense(slug: string) {
   const trpc = useTRPC();
@@ -110,8 +67,6 @@ export function useIntegrationBySlugQuerySuspense(slug: string) {
 
 /**
  * Connect a new API key integration.
- *
- * @returns Mutation hook for connecting
  */
 export function useConnectIntegrationMutation() {
   const trpc = useTRPC();
@@ -120,14 +75,9 @@ export function useConnectIntegrationMutation() {
   return useMutation(
     trpc.integrations.connections.connect.mutationOptions({
       onSuccess: async () => {
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: trpc.integrations.connections.list.queryKey({}),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: trpc.integrations.connections.listAvailable.queryKey({}),
-          }),
-        ]);
+        await queryClient.invalidateQueries({
+          queryKey: trpc.integrations.connections.list.queryKey({}),
+        });
       },
     }),
   );
@@ -135,8 +85,6 @@ export function useConnectIntegrationMutation() {
 
 /**
  * Disconnect an integration.
- *
- * @returns Mutation hook for disconnecting
  */
 export function useDisconnectIntegrationMutation() {
   const trpc = useTRPC();
@@ -145,33 +93,16 @@ export function useDisconnectIntegrationMutation() {
   return useMutation(
     trpc.integrations.connections.disconnect.mutationOptions({
       onSuccess: async () => {
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: trpc.integrations.connections.list.queryKey({}),
-          }),
-          queryClient.invalidateQueries({
-            queryKey: trpc.integrations.connections.listAvailable.queryKey({}),
-          }),
-        ]);
+        await queryClient.invalidateQueries({
+          queryKey: trpc.integrations.connections.list.queryKey({}),
+        });
       },
     }),
   );
 }
 
 /**
- * Test integration connection.
- *
- * @returns Mutation hook for testing
- */
-export function useTestConnectionMutation() {
-  const trpc = useTRPC();
-  return useMutation(trpc.integrations.connections.testConnection.mutationOptions({}));
-}
-
-/**
  * Update integration settings.
- *
- * @returns Mutation hook for updating
  */
 export function useUpdateIntegrationMutation() {
   const trpc = useTRPC();
@@ -194,9 +125,6 @@ export function useUpdateIntegrationMutation() {
 
 /**
  * Fetches field mappings for an integration.
- *
- * @param brandIntegrationId - Brand integration ID
- * @returns Query hook for field mappings
  */
 export function useFieldMappingsQuery(brandIntegrationId: string | null) {
   const trpc = useTRPC();
@@ -211,6 +139,7 @@ export function useFieldMappingsQuery(brandIntegrationId: string | null) {
 
 /**
  * Suspense version of useFieldMappingsQuery.
+ * Use this when you want the component to suspend until field mappings are loaded.
  */
 export function useFieldMappingsQuerySuspense(brandIntegrationId: string) {
   const trpc = useTRPC();
@@ -221,9 +150,7 @@ export function useFieldMappingsQuerySuspense(brandIntegrationId: string) {
 }
 
 /**
- * Update a field mapping.
- *
- * @returns Mutation hook for updating field mapping
+ * Update a field mapping with optimistic updates.
  */
 export function useUpdateFieldMappingMutation() {
   const trpc = useTRPC();
@@ -231,7 +158,43 @@ export function useUpdateFieldMappingMutation() {
 
   return useMutation(
     trpc.integrations.mappings.update.mutationOptions({
-      onSuccess: async (_data, variables) => {
+      onMutate: async (variables) => {
+        const queryKey = trpc.integrations.mappings.list.queryKey({
+          brand_integration_id: variables.brand_integration_id,
+        });
+
+        // Cancel outgoing refetches to avoid overwriting optimistic update
+        await queryClient.cancelQueries({ queryKey });
+
+        // Snapshot previous value for rollback
+        const previousData = queryClient.getQueryData(queryKey);
+
+        // Optimistically update the cache
+        queryClient.setQueryData(
+          queryKey,
+          (old: RouterOutputs["integrations"]["mappings"]["list"] | undefined) => {
+            if (!old?.data) return old;
+            return {
+              ...old,
+              data: old.data.map((mapping) =>
+                mapping.fieldKey === variables.field_key
+                  ? { ...mapping, ownershipEnabled: variables.ownership_enabled }
+                  : mapping,
+              ),
+            };
+          },
+        );
+
+        return { previousData, queryKey };
+      },
+      onError: (_error, _variables, context) => {
+        // Rollback on error
+        if (context?.previousData !== undefined) {
+          queryClient.setQueryData(context.queryKey, context.previousData);
+        }
+      },
+      onSettled: async (_data, _error, variables) => {
+        // Always refetch after mutation to ensure consistency
         await queryClient.invalidateQueries({
           queryKey: trpc.integrations.mappings.list.queryKey({
             brand_integration_id: variables.brand_integration_id,
@@ -244,8 +207,6 @@ export function useUpdateFieldMappingMutation() {
 
 /**
  * Batch update field mappings.
- *
- * @returns Mutation hook for batch updating
  */
 export function useUpdateFieldMappingsBatchMutation() {
   const trpc = useTRPC();
@@ -264,59 +225,12 @@ export function useUpdateFieldMappingsBatchMutation() {
   );
 }
 
-/**
- * List all field ownerships across integrations.
- *
- * @returns Query hook for all ownerships
- */
-export function useAllOwnershipsQuery() {
-  const trpc = useTRPC();
-  const opts = trpc.integrations.mappings.listAllOwnerships.queryOptions({});
-  return useQuery({
-    ...opts,
-    enabled: typeof window !== "undefined",
-  });
-}
-
 // =============================================================================
 // Sync Hooks
 // =============================================================================
 
 /**
- * Fetches sync history for an integration.
- *
- * @param brandIntegrationId - Brand integration ID
- * @returns Query hook for sync history
- */
-export function useSyncHistoryQuery(brandIntegrationId: string | null, limit = 20) {
-  const trpc = useTRPC();
-  const opts = trpc.integrations.sync.history.queryOptions({
-    brand_integration_id: brandIntegrationId ?? "",
-    limit,
-  });
-  return useQuery({
-    ...opts,
-    enabled: typeof window !== "undefined" && !!brandIntegrationId,
-  });
-}
-
-/**
- * Suspense version of useSyncHistoryQuery.
- */
-export function useSyncHistoryQuerySuspense(brandIntegrationId: string, limit = 20) {
-  const trpc = useTRPC();
-  const opts = trpc.integrations.sync.history.queryOptions({
-    brand_integration_id: brandIntegrationId,
-    limit,
-  });
-  return useSuspenseQuery(opts);
-}
-
-/**
- * Get current sync status.
- *
- * @param brandIntegrationId - Brand integration ID
- * @returns Query hook for sync status
+ * Get current sync status with polling.
  */
 export function useSyncStatusQuery(brandIntegrationId: string | null) {
   const trpc = useTRPC();
@@ -332,8 +246,6 @@ export function useSyncStatusQuery(brandIntegrationId: string | null) {
 
 /**
  * Trigger a manual sync.
- *
- * @returns Mutation hook for triggering sync
  */
 export function useTriggerSyncMutation() {
   const trpc = useTRPC();
@@ -358,39 +270,3 @@ export function useTriggerSyncMutation() {
     }),
   );
 }
-
-// =============================================================================
-// Utility Hooks
-// =============================================================================
-
-/**
- * Finds an available integration by slug.
- *
- * @param slug - Integration slug
- * @returns Available integration or null
- */
-export function useAvailableIntegrationBySlug(slug: string | null) {
-  const { data } = useAvailableIntegrationsQuery();
-  return useMemo(() => {
-    if (!slug || !data?.data) return null;
-    return data.data.find((i) => i.slug === slug) ?? null;
-  }, [data, slug]);
-}
-
-/**
- * Finds a connected integration by slug.
- *
- * @param slug - Integration slug
- * @returns Connected integration or null
- */
-export function useConnectedIntegrationBySlug(slug: string | null) {
-  const { data } = useConnectedIntegrationsQuery();
-  return useMemo(() => {
-    if (!slug || !data?.data) return null;
-    return data.data.find((i) => i.integration?.slug === slug) ?? null;
-  }, [data, slug]);
-}
-
-
-
-

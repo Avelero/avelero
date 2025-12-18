@@ -40,8 +40,8 @@ export const brandIntegrations = pgTable(
     credentialsIv: text("credentials_iv"),
     /** Shop domain for Shopify (e.g., "my-store.myshopify.com") */
     shopDomain: text("shop_domain"),
-    /** Sync interval in seconds (default: 21600 = 6 hours) */
-    syncInterval: integer("sync_interval").notNull().default(21600),
+    /** Sync interval in seconds (default: 86400 = 24 hours) */
+    syncInterval: integer("sync_interval").notNull().default(86400),
     /** Last successful sync timestamp */
     lastSyncAt: timestamp("last_sync_at", {
       withTimezone: true,

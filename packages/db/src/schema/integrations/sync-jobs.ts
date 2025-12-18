@@ -54,6 +54,8 @@ export const integrationSyncJobs = pgTable(
     // ===================
     // PRODUCT-LEVEL STATS (created/updated through variants)
     // ===================
+    /** Total number of products to process (for progress calculation) */
+    productsTotal: integer("products_total"),
     /** Number of products processed */
     productsProcessed: integer("products_processed").notNull().default(0),
     /** Number of products created */

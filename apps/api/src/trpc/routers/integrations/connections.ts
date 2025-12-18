@@ -16,8 +16,7 @@ import {
   getBrandIntegration,
   getBrandIntegrationBySlug,
   getIntegrationBySlug,
-  listAvailableIntegrations,
-  listBrandIntegrations,
+  listIntegrationsWithStatus,
   updateBrandIntegration,
 } from "@v1/db/queries/integrations";
 import { encryptCredentials, decryptCredentials } from "@v1/db/utils";
@@ -27,8 +26,7 @@ import {
   disconnectSchema,
   getIntegrationBySlugSchema,
   getIntegrationSchema,
-  listAvailableSchema,
-  listConnectedSchema,
+  listIntegrationsSchema,
   testConnectionSchema,
   updateIntegrationSchema,
 } from "../../../schemas/integrations.js";
@@ -53,8 +51,7 @@ type BrandContext = AuthenticatedTRPCContext & { brandId: string };
  * Connections sub-router for integration management.
  *
  * Endpoints:
- * - listAvailable: List all active integration types
- * - list: List brand's connected integrations
+ * - list: List all integrations with connection status
  * - get: Get a specific brand integration by ID
  * - getBySlug: Get a brand integration by integration slug
  * - connect: Connect a new API key integration
@@ -64,40 +61,22 @@ type BrandContext = AuthenticatedTRPCContext & { brandId: string };
  */
 export const connectionsRouter = createTRPCRouter({
   /**
-   * List all available integration types.
+   * List all integrations with connection status.
    *
-   * Returns integrations that are active and can be connected.
-   * Does not require brand context (informational only).
-   */
-  listAvailable: brandRequiredProcedure
-    .input(listAvailableSchema)
-    .query(async ({ ctx }) => {
-      const brandCtx = ctx as BrandContext;
-      try {
-        const integrations = await listAvailableIntegrations(brandCtx.db);
-        return createListResponse(integrations);
-      } catch (error) {
-        throw wrapError(error, "Failed to list available integrations");
-      }
-    }),
-
-  /**
-   * List all integrations connected to the current brand.
-   *
-   * Returns connected integrations with status and sync info.
+   * Returns all available integrations with connection info if connected.
    */
   list: brandRequiredProcedure
-    .input(listConnectedSchema)
+    .input(listIntegrationsSchema)
     .query(async ({ ctx }) => {
       const brandCtx = ctx as BrandContext;
       try {
-        const integrations = await listBrandIntegrations(
+        const integrations = await listIntegrationsWithStatus(
           brandCtx.db,
           brandCtx.brandId,
         );
         return createListResponse(integrations);
       } catch (error) {
-        throw wrapError(error, "Failed to list connected integrations");
+        throw wrapError(error, "Failed to list integrations");
       }
     }),
 
@@ -214,7 +193,7 @@ export const connectionsRouter = createTRPCRouter({
           integrationId: integration.id,
           credentials: encrypted,
           credentialsIv: iv,
-          syncInterval: input.sync_interval ?? 21600, // Default 6 hours
+          syncInterval: input.sync_interval ?? 86400, // Default 24 hours
           status: "active",
         });
 

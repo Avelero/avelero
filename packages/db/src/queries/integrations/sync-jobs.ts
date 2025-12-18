@@ -123,6 +123,7 @@ export async function updateSyncJob(
     status?: SyncJobStatus;
     startedAt?: string | null;
     finishedAt?: string | null;
+    productsTotal?: number | null;
     productsProcessed?: number;
     productsCreated?: number;
     productsUpdated?: number;
@@ -139,6 +140,7 @@ export async function updateSyncJob(
       status: input.status,
       startedAt: input.startedAt,
       finishedAt: input.finishedAt,
+      productsTotal: input.productsTotal,
       productsProcessed: input.productsProcessed,
       productsCreated: input.productsCreated,
       productsUpdated: input.productsUpdated,
@@ -155,6 +157,7 @@ export async function updateSyncJob(
       status: integrationSyncJobs.status,
       startedAt: integrationSyncJobs.startedAt,
       finishedAt: integrationSyncJobs.finishedAt,
+      productsTotal: integrationSyncJobs.productsTotal,
       productsProcessed: integrationSyncJobs.productsProcessed,
       productsCreated: integrationSyncJobs.productsCreated,
       productsUpdated: integrationSyncJobs.productsUpdated,
@@ -181,6 +184,7 @@ export async function getLatestSyncJob(
       triggerType: integrationSyncJobs.triggerType,
       startedAt: integrationSyncJobs.startedAt,
       finishedAt: integrationSyncJobs.finishedAt,
+      productsTotal: integrationSyncJobs.productsTotal,
       productsProcessed: integrationSyncJobs.productsProcessed,
       productsCreated: integrationSyncJobs.productsCreated,
       productsUpdated: integrationSyncJobs.productsUpdated,

@@ -16,14 +16,17 @@ import {
   getBrandIntegration,
   getIntegrationById,
   listFieldConfigs,
+  updateBrandIntegration,
   updateSyncJob,
 } from "@v1/db/queries/integrations";
 import { decryptCredentials } from "@v1/db/utils";
+import { getConnector } from "@v1/integrations/connectors";
 import { syncProducts } from "@v1/integrations/sync";
 import type {
   FieldConfig,
   IntegrationCredentials,
   SyncContext,
+  SyncProgress,
 } from "@v1/integrations/sync";
 
 // =============================================================================
@@ -130,12 +133,42 @@ export const syncIntegration = task({
         enabledCount: mappedFieldConfigs.filter((fc) => fc.isEnabled).length,
       });
 
+      // Get connector and product count for progress tracking
+      const connector = getConnector(integration.slug);
+      let productsTotal: number | undefined;
+      
+      if (connector) {
+        try {
+          const count = await connector.getProductCount(credentials);
+          if (count > 0) {
+            productsTotal = count;
+            await updateSyncJob(db, syncJobId, { productsTotal });
+            logger.info("Got product count", { productsTotal });
+          }
+        } catch (error) {
+          logger.warn("Failed to get product count, progress will be indeterminate", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
       // Create Supabase client for storage operations (image uploads)
       const storageClient = createClient(
         process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_KEY ||
           process.env.SUPABASE_SERVICE_ROLE_KEY!,
       );
+
+      // Progress callback to update sync job during processing
+      const onProgress = async (progress: SyncProgress) => {
+        await updateSyncJob(db, syncJobId, {
+          productsProcessed: progress.productsProcessed,
+        });
+        logger.info("Sync progress", {
+          productsProcessed: progress.productsProcessed,
+          productsTotal: progress.productsTotal,
+        });
+      };
 
       // Build sync context
       const ctx: SyncContext = {
@@ -147,6 +180,8 @@ export const syncIntegration = task({
         credentials,
         config: {},
         fieldConfigs: mappedFieldConfigs,
+        productsTotal,
+        onProgress,
       };
 
       // Run sync
@@ -182,6 +217,13 @@ export const syncIntegration = task({
             : null,
         errorLog: result.errors.length > 0 ? result.errors : null,
       });
+
+      // Update brand integration with last sync time
+      if (result.success) {
+        await updateBrandIntegration(db, brandId, brandIntegrationId, {
+          lastSyncAt: new Date().toISOString(),
+        });
+      }
 
       return {
         success: result.success,

@@ -217,6 +217,27 @@ export function VariantSection({
     [getVariantKey, updateVariantData],
   );
 
+  // Helper to update variant field by index (for Case 0 variants with no color/size)
+  const updateVariantFieldByIndex = React.useCallback(
+    (index: number, field: "sku" | "barcode", value: string) => {
+      updateVariantData((prev) => {
+        if (index < 0 || index >= prev.length) return prev;
+        const updated = [...prev];
+        const existing = updated[index];
+        if (existing) {
+          updated[index] = {
+            colorId: existing.colorId,
+            sizeId: existing.sizeId,
+            sku: field === "sku" ? value : existing.sku,
+            barcode: field === "barcode" ? value : existing.barcode,
+          };
+        }
+        return updated;
+      });
+    },
+    [updateVariantData],
+  );
+
   // Variant type for consistent typing
   type VariantItem = {
     key: string;
@@ -224,6 +245,8 @@ export function VariantSection({
     sizeName: string | null;
     sku: string;
     barcode: string;
+    /** Index in variantData array (for Case 0 variants only) */
+    variantDataIndex?: number;
   };
 
   type VariantGroup = {
@@ -238,9 +261,37 @@ export function VariantSection({
     const colors = selectedColors;
     const sizes = normalizedSelectedSizes;
 
-    // No variants if neither colors nor sizes selected
+    // Case 0: Neither colors nor sizes selected, but we have variant data
+    // This can happen when a product was imported from Shopify with color/size fields disabled.
+    // Show variants identified by SKU, barcode, or index.
     if (colors.length === 0 && sizes.length === 0) {
-      return [];
+      // Check if we have any variant data to display
+      if (variantData.length === 0) {
+        return [];
+      }
+      
+      // Show all variants from variantData as a flat list
+      return [
+        {
+          colorId: null,
+          colorName: null,
+          hex: null,
+          variants: variantData.map((v, idx) => {
+            // Generate a unique key for each variant based on index
+            // (since colorId/sizeId are both null and can't distinguish)
+            const variantKey = `variant-${idx}`;
+            return {
+              key: variantKey,
+              sizeId: null,
+              // Use SKU as display name, fall back to barcode, then index
+              sizeName: v.sku || v.barcode || `Variant ${idx + 1}`,
+              sku: v.sku,
+              barcode: v.barcode,
+              variantDataIndex: idx,  // Store index for updates
+            };
+          }),
+        },
+      ];
     }
 
     // Case 1: Only sizes, no colors
@@ -414,8 +465,10 @@ export function VariantSection({
               }))
             ).map((variant, index, arr) => {
               const isLast = index === arr.length - 1;
-              // For colors-only, show color name; for sizes-only, show size name
+              // For colors-only, show color name; for sizes-only or Case 0, show size name (which may be SKU/barcode/index)
               const displayName = variant.sizeName ?? variant.colorName ?? "Variant";
+              // Check if this is a Case 0 variant (has variantDataIndex)
+              const isCase0Variant = variant.variantDataIndex !== undefined;
 
               return (
                 <div
@@ -440,12 +493,9 @@ export function VariantSection({
                     <Input
                       value={variant.sku}
                       onChange={(e) =>
-                        updateVariantField(
-                          variant.colorId,
-                          variant.sizeId,
-                          "sku",
-                          e.target.value,
-                        )
+                        isCase0Variant
+                          ? updateVariantFieldByIndex(variant.variantDataIndex!, "sku", e.target.value)
+                          : updateVariantField(variant.colorId, variant.sizeId, "sku", e.target.value)
                       }
                       placeholder="SKU"
                       className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
@@ -455,12 +505,9 @@ export function VariantSection({
                     <Input
                       value={variant.barcode}
                       onChange={(e) =>
-                        updateVariantField(
-                          variant.colorId,
-                          variant.sizeId,
-                          "barcode",
-                          e.target.value,
-                        )
+                        isCase0Variant
+                          ? updateVariantFieldByIndex(variant.variantDataIndex!, "barcode", e.target.value)
+                          : updateVariantField(variant.colorId, variant.sizeId, "barcode", e.target.value)
                       }
                       placeholder="Barcode"
                       className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"

@@ -1146,6 +1146,7 @@ export type Database = {
           external_name: string | null;
           id: string;
           last_synced_at: string | null;
+          last_synced_hash: string | null;
           product_id: string;
           updated_at: string;
         };
@@ -1156,6 +1157,7 @@ export type Database = {
           external_name?: string | null;
           id?: string;
           last_synced_at?: string | null;
+          last_synced_hash?: string | null;
           product_id: string;
           updated_at?: string;
         };
@@ -1166,6 +1168,7 @@ export type Database = {
           external_name?: string | null;
           id?: string;
           last_synced_at?: string | null;
+          last_synced_hash?: string | null;
           product_id?: string;
           updated_at?: string;
         };

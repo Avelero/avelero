@@ -98,10 +98,11 @@ export function SyncProgressBlock({
   const isInProgress = status === "pending" || status === "running";
   const isFailed = status === "failed";
   const isCompleted = status === "completed";
+  const isCancelled = status === "cancelled";
 
   // Show indeterminate state when in progress but no percentage available
   const isIndeterminate = isInProgress && progress === undefined;
-  const displayProgress = progress ?? (isCompleted ? 100 : isFailed ? 100 : 0);
+  const displayProgress = progress ?? (isCompleted ? 100 : (isFailed || isCancelled) ? 100 : 0);
 
   return (
     <div className="border border-border p-4 flex flex-col gap-2">
@@ -111,6 +112,7 @@ export function SyncProgressBlock({
           {isInProgress && "In progress"}
           {isCompleted && "Completed"}
           {isFailed && "Failed"}
+          {isCancelled && "Cancelled"}
           {!status && "No sync"}
         </span>
         {status && !isIndeterminate && (
@@ -127,7 +129,7 @@ export function SyncProgressBlock({
             <div
               className={cn(
                 "h-full transition-all duration-300",
-                isFailed ? "bg-destructive" : "bg-brand",
+                (isFailed || isCancelled) ? "bg-destructive" : "bg-brand",
               )}
               style={{ width: `${displayProgress}%` }}
             />
@@ -143,7 +145,7 @@ export function SyncProgressBlock({
       )}
 
       {/* Error message */}
-      {isFailed && errorMessage && (
+      {(isFailed || isCancelled) && errorMessage && (
         <p className="type-small text-destructive mt-1">{errorMessage}</p>
       )}
     </div>

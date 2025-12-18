@@ -5,7 +5,7 @@
  */
 
 import type { Database } from "@v1/db/client";
-import { batchFindProductLinks, batchFindVariantLinks } from "@v1/db/queries/integrations";
+import { batchFindProductLinks, batchFindVariantLinks, batchFindVariantsByProductIds } from "@v1/db/queries/integrations";
 import { getConnector } from "../connectors/registry";
 import { buildEffectiveFieldMappings } from "./extractor";
 import { initializeCaches, type SyncCaches } from "./caches";
@@ -13,10 +13,13 @@ import { createMissingEntities, extractUniqueEntitiesFromBatch } from "./batch-o
 import { processProduct } from "./processor";
 import type { FetchedProductBatch, SyncContext, SyncResult } from "./types";
 
-const PRODUCT_CONCURRENCY = 10;
+const PRODUCT_CONCURRENCY = 50;
 const PROGRESS_UPDATE_INTERVAL = 5; // Update progress every N products
 
 export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
+  const syncStart = Date.now();
+  console.log(`[SYNC] Starting sync for ${ctx.productsTotal} products...`);
+
   const result: SyncResult = {
     success: false,
     variantsProcessed: 0,
@@ -33,6 +36,7 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
   // Shared counter for progress tracking across all batches
   let totalProductsProcessed = 0;
   let lastProgressUpdate = 0;
+  let batchNumber = 0;
 
   // Progress callback that fires after each product
   const onProductProcessed = async () => {
@@ -58,7 +62,13 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
     const caches = await initializeCaches(db, ctx.brandId);
 
     for await (const batch of connector.fetchProducts(ctx.credentials)) {
+      batchNumber++;
+      const batchStart = Date.now();
+      console.log(`[SYNC] Batch ${batchNumber}: Processing ${batch.length} products...`);
+
       const batchResult = await processBatch(db, ctx, batch, mappings, caches, onProductProcessed);
+
+      console.log(`[SYNC] Batch ${batchNumber}: Completed in ${Date.now() - batchStart}ms (created: ${batchResult.productsCreated}, updated: ${batchResult.productsUpdated}, variants: ${batchResult.variantsCreated}/${batchResult.variantsUpdated}/${batchResult.variantsSkipped} c/u/s)`);
 
       result.variantsProcessed += batchResult.variantsProcessed;
       result.variantsCreated += batchResult.variantsCreated;
@@ -80,7 +90,9 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
     }
 
     result.success = result.variantsFailed === 0 && result.errors.length === 0;
+    console.log(`[SYNC] Completed in ${Date.now() - syncStart}ms - Products: ${result.productsCreated} created, ${result.productsUpdated} updated | Variants: ${result.variantsCreated} created, ${result.variantsUpdated} updated, ${result.variantsSkipped} skipped`);
   } catch (error) {
+    console.log(`[SYNC] Failed after ${Date.now() - syncStart}ms: ${error instanceof Error ? error.message : String(error)}`);
     result.errors.push({
       externalId: "SYSTEM",
       message: error instanceof Error ? error.message : String(error),
@@ -144,13 +156,16 @@ async function processBatch(
   const creationStats = await createMissingEntities(db, ctx.brandId, extracted, caches);
   result.entitiesCreated += creationStats.colorsCreated + creationStats.sizesCreated + creationStats.tagsCreated;
 
-  // Pre-fetch links
+  // Pre-fetch links and variants
   const [productLinks, variantLinks] = await Promise.all([
     batchFindProductLinks(db, ctx.brandIntegrationId, Array.from(extracted.productIds)),
     batchFindVariantLinks(db, ctx.brandIntegrationId, Array.from(extracted.variantIds)),
   ]);
 
-  const preFetched = { productLinks, variantLinks };
+  const linkedProductIds = Array.from(productLinks.values()).map((l) => l.productId);
+  const existingVariantsByProduct = await batchFindVariantsByProductIds(db, linkedProductIds);
+
+  const preFetched = { productLinks, variantLinks, existingVariantsByProduct };
 
   // Process products with concurrency limit
   const semaphore = new Semaphore(PRODUCT_CONCURRENCY);
@@ -173,7 +188,6 @@ async function processBatch(
           result.errors.push({ externalId: product.externalId, message: processed.error || "Unknown error" });
         }
 
-        // Report progress after each product is processed
         if (onProductProcessed) {
           await onProductProcessed();
         }

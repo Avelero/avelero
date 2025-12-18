@@ -47,6 +47,8 @@ export const integrationProductLinks = pgTable(
       withTimezone: true,
       mode: "string",
     }),
+    /** Hash of last synced data (for change detection - includes product fields + tags) */
+    lastSyncedHash: text("last_synced_hash"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

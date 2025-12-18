@@ -183,14 +183,17 @@ export interface ProductLinkData {
   id: string;
   brandIntegrationId: string;
   productId: string;
+  productHandle: string;
   externalId: string;
   externalName: string | null;
   lastSyncedAt: string | null;
+  lastSyncedHash: string | null;
 }
 
 /**
  * Batch find product links by external IDs.
  * Returns a Map for O(1) lookup.
+ * Includes productHandle via join to eliminate per-product lookups.
  */
 export async function batchFindProductLinks(
   db: Database,
@@ -206,11 +209,14 @@ export async function batchFindProductLinks(
       id: integrationProductLinks.id,
       brandIntegrationId: integrationProductLinks.brandIntegrationId,
       productId: integrationProductLinks.productId,
+      productHandle: products.productHandle,
       externalId: integrationProductLinks.externalId,
       externalName: integrationProductLinks.externalName,
       lastSyncedAt: integrationProductLinks.lastSyncedAt,
+      lastSyncedHash: integrationProductLinks.lastSyncedHash,
     })
     .from(integrationProductLinks)
+    .innerJoin(products, eq(products.id, integrationProductLinks.productId))
     .where(
       and(
         eq(integrationProductLinks.brandIntegrationId, brandIntegrationId),
@@ -228,6 +234,7 @@ export async function batchFindProductLinks(
 /**
  * Upsert a product link.
  * Creates if not exists, updates if exists.
+ * Note: Returns link data without productHandle (use batchFindProductLinks for lookups with productHandle).
  */
 export async function upsertProductLink(
   db: Database,
@@ -236,15 +243,17 @@ export async function upsertProductLink(
     productId: string;
     externalId: string;
     externalName?: string | null;
+    lastSyncedHash?: string | null;
   },
-): Promise<ProductLinkData> {
-  const [row] = await db
+): Promise<void> {
+  await db
     .insert(integrationProductLinks)
     .values({
       brandIntegrationId: input.brandIntegrationId,
       productId: input.productId,
       externalId: input.externalId,
       externalName: input.externalName ?? null,
+      lastSyncedHash: input.lastSyncedHash ?? null,
       lastSyncedAt: new Date().toISOString(),
     })
     .onConflictDoUpdate({
@@ -254,22 +263,10 @@ export async function upsertProductLink(
       ],
       set: {
         externalName: input.externalName ?? null,
+        lastSyncedHash: input.lastSyncedHash ?? null,
         lastSyncedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
-    })
-    .returning({
-      id: integrationProductLinks.id,
-      brandIntegrationId: integrationProductLinks.brandIntegrationId,
-      productId: integrationProductLinks.productId,
-      externalId: integrationProductLinks.externalId,
-      externalName: integrationProductLinks.externalName,
-      lastSyncedAt: integrationProductLinks.lastSyncedAt,
     });
-
-  if (!row) {
-    throw new Error("Failed to upsert product link");
-  }
-  return row;
 }
 

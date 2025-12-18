@@ -330,6 +330,54 @@ export async function batchUpsertVariantLinks(
 }
 
 // =============================================================================
+// BATCH VARIANT PRE-FETCH
+// =============================================================================
+
+export interface PreFetchedVariant {
+  id: string;
+  productId: string;
+  colorId: string | null;
+  sizeId: string | null;
+  sku: string | null;
+  barcode: string | null;
+}
+
+/**
+ * Batch fetch all variants for a set of product IDs.
+ * Returns a Map<productId, variants[]> for O(1) lookup per product.
+ * This eliminates N queries (one per product) with a single batch query.
+ */
+export async function batchFindVariantsByProductIds(
+  db: Database,
+  productIds: string[]
+): Promise<Map<string, PreFetchedVariant[]>> {
+  if (productIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await db
+    .select({
+      id: productVariants.id,
+      productId: productVariants.productId,
+      colorId: productVariants.colorId,
+      sizeId: productVariants.sizeId,
+      sku: productVariants.sku,
+      barcode: productVariants.barcode,
+    })
+    .from(productVariants)
+    .where(inArray(productVariants.productId, productIds));
+
+  // Group by productId for O(1) lookup
+  const map = new Map<string, PreFetchedVariant[]>();
+  for (const row of rows) {
+    const existing = map.get(row.productId) ?? [];
+    existing.push(row);
+    map.set(row.productId, existing);
+  }
+  return map;
+}
+
+// =============================================================================
 // SKU/BARCODE MATCHING
 // =============================================================================
 

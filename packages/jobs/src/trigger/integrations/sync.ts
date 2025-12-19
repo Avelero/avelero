@@ -136,7 +136,7 @@ export const syncIntegration = task({
       // Get connector and product count for progress tracking
       const connector = getConnector(integration.slug);
       let productsTotal: number | undefined;
-      
+
       if (connector) {
         try {
           const count = await connector.getProductCount(credentials);
@@ -146,9 +146,12 @@ export const syncIntegration = task({
             logger.info("Got product count", { productsTotal });
           }
         } catch (error) {
-          logger.warn("Failed to get product count, progress will be indeterminate", {
-            error: error instanceof Error ? error.message : String(error),
-          });
+          logger.warn(
+            "Failed to get product count, progress will be indeterminate",
+            {
+              error: error instanceof Error ? error.message : String(error),
+            },
+          );
         }
       }
 

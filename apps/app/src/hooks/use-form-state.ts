@@ -31,13 +31,13 @@ export function useFormState<TState extends Record<string, any>>(
   type FieldName = keyof TState;
   type FieldValue<T extends FieldName> = TState[T];
 
-  type FormAction<T extends FieldName> =
-    | { type: "SET_FIELD"; field: T; value: FieldValue<T> }
-    | { type: "UPDATE_FIELD"; field: T; updater: (prev: FieldValue<T>) => FieldValue<T> }
+  type FormAction =
+    | { type: "SET_FIELD"; field: FieldName; value: FieldValue<FieldName> }
+    | { type: "UPDATE_FIELD"; field: FieldName; updater: (prev: FieldValue<FieldName>) => FieldValue<FieldName> }
     | { type: "SET_FIELDS"; fields: Partial<TState> }
     | { type: "RESET_FORM" };
 
-  function formReducer(state: TState, action: FormAction<FieldName>): TState {
+  function formReducer(state: TState, action: FormAction): TState {
     switch (action.type) {
       case "SET_FIELD":
         return { ...state, [action.field]: action.value };
@@ -71,7 +71,7 @@ export function useFormState<TState extends Record<string, any>>(
       field: T,
       updater: (prev: FieldValue<T>) => FieldValue<T>,
     ) => {
-      dispatch({ type: "UPDATE_FIELD", field, updater });
+      dispatch({ type: "UPDATE_FIELD", field, updater: updater as unknown as (prev: FieldValue<FieldName>) => FieldValue<FieldName> });
     },
     [],
   );

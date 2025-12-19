@@ -178,7 +178,7 @@ export function useUpdateFieldMappingMutation() {
               ...old,
               data: old.data.map((mapping) =>
                 mapping.fieldKey === variables.field_key
-                  ? { ...mapping, ownershipEnabled: variables.ownership_enabled }
+                  ? { ...mapping, ownershipEnabled: variables.ownership_enabled ?? false }
                   : mapping,
               ),
             };

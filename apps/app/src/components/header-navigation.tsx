@@ -31,11 +31,13 @@ function getHeaderBreadcrumbs(pathname: string): BreadcrumbItem[] {
       }
       // /settings/integrations/[integration]
       const integrationName = segments[2];
-      const displayName = integrationName.charAt(0).toUpperCase() + integrationName.slice(1);
-      return [
-        { label: "Integrations", href: "/settings/integrations" },
-        { label: displayName },
-      ];
+      if (integrationName) {
+        const displayName = integrationName.charAt(0).toUpperCase() + integrationName.slice(1);
+        return [
+          { label: "Integrations", href: "/settings/integrations" },
+          { label: displayName },
+        ];
+      }
     }
     return [{ label: "Settings" }];
   }
@@ -87,8 +89,9 @@ function getHeaderBreadcrumbs(pathname: string): BreadcrumbItem[] {
     invites: "Invites",
   };
 
-  if (segments[0] && routeLabels[segments[0]]) {
-    return [{ label: routeLabels[segments[0]] }];
+  const firstSegment = segments[0];
+  if (firstSegment && routeLabels[firstSegment]) {
+    return [{ label: routeLabels[firstSegment] }];
   }
 
   return [];

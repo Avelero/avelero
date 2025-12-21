@@ -3,12 +3,8 @@ import type { Database } from "@v1/db/client";
 import { and, eq, sql } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 
-const {
-  valueMappings,
-  brandMaterials,
-  taxonomyCategories,
-  brandEcoClaims,
-} = schema;
+const { valueMappings, brandMaterials, taxonomyCategories, brandEcoClaims } =
+  schema;
 
 /**
  * Entity type enumeration for value mapping
@@ -371,7 +367,6 @@ export class ValueMapper {
       };
     }
 
-
     // No match found
     return { targetId: null, found: false, confidence: 0, matchType: "none" };
   }
@@ -429,7 +424,6 @@ export class ValueMapper {
         matchType: "exact",
       };
     }
-
 
     return { targetId: null, found: false, confidence: 0, matchType: "none" };
   }

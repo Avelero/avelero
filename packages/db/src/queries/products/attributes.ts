@@ -9,7 +9,7 @@
  * - Tags
  */
 
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
   productEcoClaims,
@@ -94,37 +94,62 @@ export async function setProductEcoClaims(
 
 /**
  * Upserts product environment metrics.
+ * Stores carbon and water as separate rows with metric type.
+ * Note: Schema should support multiple rows per product (composite key on productId + metric).
  */
 export async function upsertProductEnvironment(
   db: Database,
   productId: string,
   input: { carbonKgCo2e?: string; waterLiters?: string },
 ) {
-  let result: { product_id: string } | undefined;
   await db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(productEnvironment)
-      .values({
+    // Delete existing environment rows for this product and metric type
+    const metricsToDelete: string[] = [];
+    if (input.carbonKgCo2e !== undefined) {
+      metricsToDelete.push("carbon_kg_co2e");
+    }
+    if (input.waterLiters !== undefined) {
+      metricsToDelete.push("water_liters");
+    }
+
+    if (metricsToDelete.length > 0) {
+      await tx
+        .delete(productEnvironment)
+        .where(
+          and(
+            eq(productEnvironment.productId, productId),
+            inArray(productEnvironment.metric, metricsToDelete),
+          )!,
+        );
+    }
+
+    // Insert carbon metric if provided
+    if (input.carbonKgCo2e) {
+      await tx.insert(productEnvironment).values({
         productId,
-        carbonKgCo2e: input.carbonKgCo2e ?? null,
-        waterLiters: input.waterLiters ?? null,
-      })
-      .onConflictDoUpdate({
-        target: productEnvironment.productId,
-        set: {
-          carbonKgCo2e: input.carbonKgCo2e ?? null,
-          waterLiters: input.waterLiters ?? null,
-        },
-      })
-      .returning({ product_id: productEnvironment.productId });
-    result = row;
+        value: input.carbonKgCo2e,
+        unit: "kgCO2e",
+        metric: "carbon_kg_co2e",
+      });
+    }
+
+    // Insert water metric if provided
+    if (input.waterLiters) {
+      await tx.insert(productEnvironment).values({
+        productId,
+        value: input.waterLiters,
+        unit: "liters",
+        metric: "water_liters",
+      });
+    }
+
     const [{ brandId } = { brandId: undefined } as any] = await tx
       .select({ brandId: products.brandId })
       .from(products)
       .where(eq(products.id, productId))
       .limit(1);
   });
-  return result as { product_id: string };
+  return { product_id: productId };
 }
 
 /**

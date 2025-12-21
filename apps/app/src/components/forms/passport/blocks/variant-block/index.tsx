@@ -387,10 +387,10 @@ export function VariantSection({
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={handleAddCustomAttribute}
-                        className="flex w-full items-center gap-2 px-2 py-1.5 text-left type-p text-secondary hover:bg-accent hover:text-foreground transition-colors"
+                        className="flex w-full items-center px-3 py-2 text-left type-p text-foreground hover:bg-accent transition-colors"
                       >
                         <Icons.Plus className="h-4 w-4" />
-                        Add custom attribute
+                        <span className="px-1">Add custom attribute</span>
                       </button>
                     </div>
                   </Command>
@@ -414,10 +414,10 @@ export function VariantSection({
                 <button
                   type="button"
                   onClick={handleAddCustomAttribute}
-                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left type-p text-secondary hover:bg-accent hover:text-foreground transition-colors"
+                  className="flex w-full items-center px-3 py-2 text-left type-p text-foreground hover:bg-accent transition-colors"
                 >
                   <Icons.Plus className="h-4 w-4" />
-                  Add custom attribute
+                  <span className="px-1">Add custom attribute</span>
                 </button>
               }
             />

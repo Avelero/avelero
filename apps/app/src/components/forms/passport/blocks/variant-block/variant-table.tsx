@@ -166,13 +166,13 @@ export function VariantTable({
           <div className="px-4 py-2 type-small text-secondary">SKU</div>
           <div className="px-4 py-2 type-small text-secondary">Barcode</div>
         </div>
-        {dim.effectiveValues.map((value, valueIndex) => {
+        {dim.effectiveValues.map((value) => {
           const key = buildKey([value]);
           const meta = variantMetadata[key] ?? {};
           const { name, hex } = getValueDisplay(dimIndex, value, effectiveDimensions);
           return (
             <div
-              key={`${dimIndex}-${valueIndex}`}
+              key={key}
               className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border"
             >
               <div className="px-4 py-2 flex items-center gap-2">
@@ -248,13 +248,14 @@ export function VariantTable({
         <div className="px-4 py-2 type-small text-secondary">Barcode</div>
       </div>
 
-      {firstDim.effectiveValues.map((groupValue, groupIndex) => {
+      {firstDim.effectiveValues.map((groupValue) => {
         const isExpanded = expandedGroups.has(groupValue);
         const { name: groupName, hex: groupHex } = getValueDisplay(firstDimIndex, groupValue, effectiveDimensions);
         const childCount = childCombinations.length;
+        const groupKey = buildKey([groupValue]);
 
         return (
-          <div key={`${firstDimIndex}-${groupIndex}`}>
+          <div key={groupKey}>
             {/* Group header row */}
             <button
               type="button"
@@ -276,7 +277,7 @@ export function VariantTable({
 
             {/* Child rows */}
             {isExpanded &&
-              childCombinations.map((combo, comboIndex) => {
+              childCombinations.map((combo) => {
                 const fullCombo = [groupValue, ...combo];
                 const key = buildKey(fullCombo);
                 const meta = variantMetadata[key] ?? {};
@@ -286,17 +287,17 @@ export function VariantTable({
                   const otherDim = otherDims[i];
                   const otherDimIndex = otherDim ? effectiveDimensions.indexOf(otherDim) : -1;
                   const { name, hex } = getValueDisplay(otherDimIndex, val, effectiveDimensions);
-                  return { name, hex };
+                  return { name, hex, value: val };
                 });
 
                 return (
                   <div
-                    key={`${key}-${comboIndex}`}
+                    key={key}
                     className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border"
                   >
                     <div className="px-4 py-2 pl-10 flex items-center gap-1.5">
                       {labelParts.map((part, i) => (
-                        <React.Fragment key={i}>
+                        <React.Fragment key={`${part.value}-${i}`}>
                           {i > 0 && <span className="type-p text-tertiary">/</span>}
                           {part.hex && (
                             <div

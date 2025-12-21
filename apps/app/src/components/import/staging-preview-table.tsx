@@ -37,8 +37,6 @@ interface StagingDataRow {
   };
   variant: {
     upid: string;
-    colorId: string | null;
-    sizeId: string | null;
   } | null;
 }
 

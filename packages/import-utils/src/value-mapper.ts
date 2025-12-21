@@ -6,7 +6,7 @@ import * as schema from "@v1/db/schema";
 const {
   valueMappings,
   brandMaterials,
-  categories,
+  taxonomyCategories,
   brandEcoClaims,
 } = schema;
 
@@ -535,8 +535,8 @@ export class ValueMapper {
     const normalizedName = categoryName.trim();
 
     // Query categories directly (categories are global, no brand scoping)
-    const category = await this.database.query.categories.findFirst({
-      where: sql`LOWER(TRIM(${categories.name})) = LOWER(TRIM(${normalizedName}))`,
+    const category = await this.database.query.taxonomyCategories.findFirst({
+      where: sql`LOWER(TRIM(${taxonomyCategories.name})) = LOWER(TRIM(${normalizedName}))`,
     });
 
     if (category) {
@@ -1024,7 +1024,7 @@ export class ValueMapper {
         break;
       }
       case EntityType.CATEGORY: {
-        const cats = await this.database.query.categories.findMany({});
+        const cats = await this.database.query.taxonomyCategories.findMany({});
         candidates = cats.map((c): { id: string; name: string } => ({
           id: c.id,
           name: c.name,

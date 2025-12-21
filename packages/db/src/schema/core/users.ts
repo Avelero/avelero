@@ -74,9 +74,9 @@ export const users = pgTable(
           brand_id IS NULL
           OR EXISTS (
             SELECT 1
-            FROM users_on_brand uob
-            WHERE uob.brand_id = brand_id
-              AND uob.user_id = auth.uid()
+            FROM brand_members bm
+            WHERE bm.brand_id = brand_id
+              AND bm.user_id = auth.uid()
           )
         )
       `,

@@ -153,9 +153,6 @@ function ImportReviewDialogContent({
   const createMaterialMutation = useMutation(
     trpc.catalog.materials.create.mutationOptions(),
   );
-  const createSizeMutation = useMutation(
-    trpc.catalog.sizes.create.mutationOptions(),
-  );
   const createSeasonMutation = useMutation(
     trpc.catalog.seasons.create.mutationOptions(),
   );
@@ -179,9 +176,9 @@ function ImportReviewDialogContent({
       }
 
       // Group by entity type
+      // Note: SIZE entity type removed - sizes are now managed via generic attributes
       const grouped = {
         MATERIAL: pending.filter((p) => p.entityType === "MATERIAL"),
-        SIZE: pending.filter((p) => p.entityType === "SIZE"),
         SEASON: pending.filter((p) => p.entityType === "SEASON"),
         FACILITY: pending.filter((p) => p.entityType === "FACILITY"),
         MANUFACTURER: pending.filter(
@@ -199,7 +196,7 @@ function ImportReviewDialogContent({
       const createMaterial = async (p: any) => {
         try {
           const result = await createMaterialMutation.mutateAsync(p.entityData);
-          const material = result?.data;
+          const material = result.data;
           if (!material?.id) {
             throw new Error("Material created without identifier");
           }
@@ -212,26 +209,10 @@ function ImportReviewDialogContent({
         }
       };
 
-      const createSize = async (p: any) => {
-        try {
-          const result = await createSizeMutation.mutateAsync(p.entityData);
-          const size = result?.data;
-          if (!size?.id) {
-            throw new Error("Size created without identifier");
-          }
-          created.push({ entity: size, pending: p });
-        } catch (err) {
-          failed.push({
-            pending: p,
-            error: err instanceof Error ? err.message : "Unknown error",
-          });
-        }
-      };
-
       const createSeason = async (p: any) => {
         try {
           const result = await createSeasonMutation.mutateAsync(p.entityData);
-          const season = result?.data;
+          const season = result.data;
           if (!season?.id) {
             throw new Error("Season created without identifier");
           }
@@ -247,7 +228,7 @@ function ImportReviewDialogContent({
       const createFacility = async (p: any) => {
         try {
           const result = await createFacilityMutation.mutateAsync(p.entityData);
-          const facility = result?.data;
+          const facility = result.data;
           if (!facility?.id) {
             throw new Error("Facility created without identifier");
           }
@@ -265,11 +246,11 @@ function ImportReviewDialogContent({
           const result = await createManufacturerMutation.mutateAsync(
             p.entityData,
           );
-          const brand = result?.data;
-          if (!brand?.id) {
+          const manufacturer = result.data;
+          if (!manufacturer?.id) {
             throw new Error("Manufacturer created without identifier");
           }
-          created.push({ entity: brand, pending: p });
+          created.push({ entity: manufacturer, pending: p });
         } catch (err) {
           failed.push({
             pending: p,
@@ -279,9 +260,9 @@ function ImportReviewDialogContent({
       };
 
       // Execute all creations in parallel
+      // Note: SIZE entity type removed - sizes are now managed via generic attributes
       await Promise.all([
         ...grouped.MATERIAL.map(createMaterial),
-        ...grouped.SIZE.map(createSize),
         ...grouped.SEASON.map(createSeason),
         ...grouped.FACILITY.map(createFacility),
         ...grouped.MANUFACTURER.map(createManufacturer),

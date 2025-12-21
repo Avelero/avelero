@@ -47,11 +47,10 @@ export async function generateMetadata({
   const brandName = data.dppData.productAttributes.brand;
   const productName = data.dppData.productIdentifiers.productName;
   const description = data.dppData.productAttributes.description;
-  const color = data.dppData.productAttributes.color?.color;
-  const size = data.dppData.productAttributes.size?.size;
+  const attributes = data.dppData.productAttributes.attributes ?? [];
 
   // Build title with variant info if available
-  const variantInfo = [color, size].filter(Boolean).join(" ");
+  const variantInfo = attributes.map((attr) => attr.value).join(" ");
   const productTitle = variantInfo ? `${productName} (${variantInfo})` : productName;
 
   return {

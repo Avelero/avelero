@@ -15,6 +15,7 @@ import {
   replaceProductVariantsExplicit,
   replaceProductVariantsMatrix,
   getProductVariantsWithAttributes,
+  type ReplaceVariantsResult,
 } from "@v1/db/queries/products";
 import {
   productVariantsDeleteSchema,
@@ -72,7 +73,7 @@ const variantUpsertProcedure = brandRequiredProcedure
       // Get product handle before upsert for cache revalidation
       const productHandle = await getProductHandle(db, brandId, input.product_id);
 
-      let result;
+      let result: ReplaceVariantsResult;
 
       if (input.mode === "explicit") {
         // Explicit mode: caller provides complete variant definitions

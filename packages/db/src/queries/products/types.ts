@@ -67,8 +67,20 @@ export interface ProductVariantSummary {
 export interface VariantAttributeSummary {
   attribute_id: string;
   attribute_name: string;
+  /**
+   * Present when the brand attribute is linked to a taxonomy attribute.
+   * Needed by clients to rehydrate taxonomy-linked dimensions and access
+   * taxonomy metadata (e.g. color swatches).
+   */
+  taxonomy_attribute_id: string | null;
   value_id: string;
   value_name: string;
+  /**
+   * Present when the brand attribute value is linked to a taxonomy value.
+   * Needed by clients to rehydrate taxonomy-linked dimensions and access
+   * taxonomy metadata (e.g. color swatches).
+   */
+  taxonomy_value_id: string | null;
 }
 
 /**

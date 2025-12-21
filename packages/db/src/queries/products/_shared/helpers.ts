@@ -151,8 +151,10 @@ export async function loadVariantsForProducts(
       variant_id: productVariantAttributes.variantId,
       attribute_id: brandAttributeValues.attributeId,
       attribute_name: brandAttributes.name,
+      taxonomy_attribute_id: brandAttributes.taxonomyAttributeId,
       value_id: brandAttributeValues.id,
       value_name: brandAttributeValues.name,
+      taxonomy_value_id: brandAttributeValues.taxonomyValueId,
       sort_order: productVariantAttributes.sortOrder,
     })
     .from(productVariantAttributes)
@@ -174,8 +176,10 @@ export async function loadVariantsForProducts(
     attrs.push({
       attribute_id: row.attribute_id,
       attribute_name: row.attribute_name,
+      taxonomy_attribute_id: row.taxonomy_attribute_id ?? null,
       value_id: row.value_id,
       value_name: row.value_name,
+      taxonomy_value_id: row.taxonomy_value_id ?? null,
     });
     attributesByVariant.set(row.variant_id, attrs);
   }

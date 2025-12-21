@@ -33,7 +33,6 @@ import {
   brandMaterials,
   brandSeasons,
   brandTags,
-  categories,
   productEcoClaims,
   productEnvironment,
   productJourneySteps,
@@ -41,6 +40,7 @@ import {
   productVariants,
   products,
   productTags,
+  taxonomyCategories,
 } from "../schema";
 
 // ============================================================================
@@ -584,6 +584,7 @@ function buildEnvironmentClause(
 ): SQL | null {
   const metric = field === "carbonKgCo2e" ? "carbon_kg_co2e" : "water_liters";
   const column = schema.productEnvironment.value;
+  const metricColumn = schema.productEnvironment.metric;
 
   // Handle "between" operator directly to avoid SQL interpolation issues
   // Supports partial ranges: min only, max only, or both
@@ -595,7 +596,9 @@ function buildEnvironmentClause(
       !Array.isArray(value) &&
       ("min" in value || "max" in value)
     ) {
-      const conditions: SQL[] = [];
+      const conditions: SQL[] = [
+        eq(metricColumn, metric),
+      ];
 
       // min filled = "is greater than or equal to"
       if (
@@ -616,7 +619,7 @@ function buildEnvironmentClause(
       }
 
       // If neither min nor max is provided, return null
-      if (conditions.length === 0) {
+      if (conditions.length === 1) {
         return null;
       }
 
@@ -640,6 +643,7 @@ function buildEnvironmentClause(
   return sql`EXISTS (
     SELECT 1 FROM ${schema.productEnvironment}
     WHERE ${schema.productEnvironment.productId} = ${schema.products.id}
+    AND ${eq(metricColumn, metric)}
     AND ${operatorClause}
   )`;
 }

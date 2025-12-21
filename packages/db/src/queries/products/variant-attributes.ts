@@ -108,6 +108,44 @@ async function validateOneValuePerAttribute(
 }
 
 /**
+ * Loads a mapping of attribute value ID -> attribute ID.
+ *
+ * Unlike `validateOneValuePerAttribute`, this does NOT enforce uniqueness of
+ * attribute IDs. This is required for matrix mode where a single dimension
+ * intentionally contains multiple values for the same attribute (e.g. Color:
+ * Red, Blue, Green).
+ */
+async function loadValueToAttributeMap(
+  db: Database,
+  attributeValueIds: string[]
+): Promise<Map<string, string>> {
+  if (attributeValueIds.length === 0) return new Map();
+
+  const uniqueIds = [...new Set(attributeValueIds)];
+  const rows = await db
+    .select({
+      id: brandAttributeValues.id,
+      attributeId: brandAttributeValues.attributeId,
+    })
+    .from(brandAttributeValues)
+    .where(inArray(brandAttributeValues.id, uniqueIds));
+
+  const valueToAttribute = new Map<string, string>();
+  for (const row of rows) {
+    valueToAttribute.set(row.id, row.attributeId);
+  }
+
+  // Defensive: callers typically run validateBrandConsistency first, but make
+  // sure the mapping is complete to avoid confusing downstream errors.
+  if (valueToAttribute.size !== uniqueIds.length) {
+    const missing = uniqueIds.filter((id) => !valueToAttribute.has(id));
+    throw new Error(`Attribute values not found: ${missing.join(", ")}`);
+  }
+
+  return valueToAttribute;
+}
+
+/**
  * Validates dimension constraints for matrix mode.
  */
 function validateMatrixConstraints(dimensions: MatrixDimension[]): void {
@@ -411,10 +449,26 @@ export async function replaceProductVariantsMatrix(
   // Validate brand consistency
   await validateBrandConsistency(db, brandId, allAttributeValueIds);
 
-  // Validate that values belong to their declared attributes
-  const valueToAttribute = await validateOneValuePerAttribute(db, allAttributeValueIds);
+  // Validate dimensions are distinct by attribute (a variant can't have two
+  // values from the same attribute in matrix mode).
+  const seenDimensionAttributes = new Set<string>();
+  for (const dim of dimensions) {
+    if (seenDimensionAttributes.has(dim.attributeId)) {
+      throw new Error(`Duplicate dimension for attribute ${dim.attributeId}`);
+    }
+    seenDimensionAttributes.add(dim.attributeId);
+  }
+
+  // Validate that values belong to their declared attributes.
+  // IMPORTANT: matrix mode intentionally has multiple values per attribute
+  // across the full set, so we must NOT use validateOneValuePerAttribute here.
+  const valueToAttribute = await loadValueToAttributeMap(db, allAttributeValueIds);
 
   for (const dim of dimensions) {
+    // Defensive: ensure no duplicates inside a single dimension.
+    if (new Set(dim.valueIds).size !== dim.valueIds.length) {
+      throw new Error(`Duplicate value IDs in dimension for attribute ${dim.attributeId}`);
+    }
     for (const valueId of dim.valueIds) {
       const actualAttributeId = valueToAttribute.get(valueId);
       if (actualAttributeId !== dim.attributeId) {

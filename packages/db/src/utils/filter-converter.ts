@@ -40,7 +40,7 @@ import {
   productMaterials,
   productVariants,
   products,
-  tagsOnProduct,
+  productTags,
 } from "../schema";
 
 // ============================================================================
@@ -81,8 +81,8 @@ type SchemaRefs = {
   productJourneySteps: typeof productJourneySteps;
   productEnvironment: typeof productEnvironment;
   productEcoClaims: typeof productEcoClaims;
-  tagsOnProduct: typeof tagsOnProduct;
-  categories: typeof categories;
+  productTags: typeof productTags;
+  taxonomyCategories: typeof taxonomyCategories;
   brandSeasons: typeof brandSeasons;
   brandMaterials: typeof brandMaterials;
   brandFacilities: typeof brandFacilities;
@@ -114,8 +114,8 @@ export function convertFilterStateToWhereClauses(
     productJourneySteps,
     productEnvironment,
     productEcoClaims,
-    tagsOnProduct,
-    categories,
+    productTags,
+    taxonomyCategories,
     brandSeasons,
     brandMaterials,
     brandFacilities,
@@ -211,14 +211,14 @@ function buildConditionClause(
     case "hasImage":
       if (operator === "is true") {
         return and(
-          isNotNull(schema.products.primaryImagePath),
-          ne(schema.products.primaryImagePath, ""),
+          isNotNull(schema.products.imagePath),
+          ne(schema.products.imagePath, ""),
         )!;
       }
       if (operator === "is false") {
         return or(
-          isNull(schema.products.primaryImagePath),
-          eq(schema.products.primaryImagePath, ""),
+          isNull(schema.products.imagePath),
+          eq(schema.products.imagePath, ""),
         )!;
       }
       return null;
@@ -268,19 +268,8 @@ function buildConditionClause(
         brandId,
       );
 
-    // Variant-level fields (require EXISTS subquery)
-    case "colorId":
-      return buildVariantClause(
-        schema,
-        "colorId",
-        operator,
-        value,
-        db,
-        brandId,
-      );
-
-    case "sizeId":
-      return buildVariantClause(schema, "sizeId", operator, value, db, brandId);
+    // NOTE: colorId and sizeId filters removed as part of variant attribute migration.
+    // These will be replaced with generic attribute filtering in Phase 4.
 
     // Manufacturing fields (nested)
     case "materials":
@@ -576,59 +565,9 @@ function buildDateClause(
   return null;
 }
 
-// ============================================================================
-// Variant-Level Clause Builders
-// ============================================================================
-
-/**
- * Builds variant-level clause (requires EXISTS subquery)
- */
-function buildVariantClause(
-  schema: SchemaRefs,
-  field: "colorId" | "sizeId",
-  operator: string,
-  value: any,
-  db: Database,
-  brandId: string,
-): SQL | null {
-  const column =
-    field === "colorId"
-      ? schema.productVariants.colorId
-      : schema.productVariants.sizeId;
-
-  switch (operator) {
-    case "is any of": {
-      const ids = Array.isArray(value) ? value : [value];
-      return sql`EXISTS (
-        SELECT 1 FROM ${schema.productVariants}
-        WHERE ${schema.productVariants.productId} = ${schema.products.id}
-        AND ${inArray(column, ids)}
-      )`;
-    }
-    case "is none of": {
-      const excludeIds = Array.isArray(value) ? value : [value];
-      return sql`NOT EXISTS (
-        SELECT 1 FROM ${schema.productVariants}
-        WHERE ${schema.productVariants.productId} = ${schema.products.id}
-        AND ${inArray(column, excludeIds)}
-      )`;
-    }
-    case "is empty":
-      return sql`NOT EXISTS (
-        SELECT 1 FROM ${schema.productVariants}
-        WHERE ${schema.productVariants.productId} = ${schema.products.id}
-        AND ${column} IS NOT NULL
-      )`;
-    case "is not empty":
-      return sql`EXISTS (
-        SELECT 1 FROM ${schema.productVariants}
-        WHERE ${schema.productVariants.productId} = ${schema.products.id}
-        AND ${column} IS NOT NULL
-      )`;
-    default:
-      return null;
-  }
-}
+// NOTE: buildVariantClause function removed as part of variant attribute migration.
+// colorId and sizeId columns no longer exist on product_variants.
+// A new generic attribute filter will be added in Phase 4.
 
 // ============================================================================
 // Environment Clause Builder
@@ -643,10 +582,8 @@ function buildEnvironmentClause(
   operator: string,
   value: any,
 ): SQL | null {
-  const column =
-    field === "carbonKgCo2e"
-      ? schema.productEnvironment.carbonKgCo2e
-      : schema.productEnvironment.waterLiters;
+  const metric = field === "carbonKgCo2e" ? "carbon_kg_co2e" : "water_liters";
+  const column = schema.productEnvironment.value;
 
   // Handle "between" operator directly to avoid SQL interpolation issues
   // Supports partial ranges: min only, max only, or both
@@ -1131,25 +1068,25 @@ function buildTagClause(
   switch (operator) {
     case "is any of":
       return sql`EXISTS (
-        SELECT 1 FROM ${schema.tagsOnProduct}
-        WHERE ${schema.tagsOnProduct.productId} = ${schema.products.id}
-        AND ${inArray(schema.tagsOnProduct.tagId, tagIds)}
+        SELECT 1 FROM ${schema.productTags}
+        WHERE ${schema.productTags.productId} = ${schema.products.id}
+        AND ${inArray(schema.productTags.tagId, tagIds)}
       )`;
     case "is none of":
       return sql`NOT EXISTS (
-        SELECT 1 FROM ${schema.tagsOnProduct}
-        WHERE ${schema.tagsOnProduct.productId} = ${schema.products.id}
-        AND ${inArray(schema.tagsOnProduct.tagId, tagIds)}
+        SELECT 1 FROM ${schema.productTags}
+        WHERE ${schema.productTags.productId} = ${schema.products.id}
+        AND ${inArray(schema.productTags.tagId, tagIds)}
       )`;
     case "is empty":
       return sql`NOT EXISTS (
-        SELECT 1 FROM ${schema.tagsOnProduct}
-        WHERE ${schema.tagsOnProduct.productId} = ${schema.products.id}
+        SELECT 1 FROM ${schema.productTags}
+        WHERE ${schema.productTags.productId} = ${schema.products.id}
       )`;
     case "is not empty":
       return sql`EXISTS (
-        SELECT 1 FROM ${schema.tagsOnProduct}
-        WHERE ${schema.tagsOnProduct.productId} = ${schema.products.id}
+        SELECT 1 FROM ${schema.productTags}
+        WHERE ${schema.productTags.productId} = ${schema.products.id}
       )`;
     default:
       return null;
@@ -1185,11 +1122,11 @@ function buildCategoryClause(
       // Note: Using array parameter binding for the initial WHERE clause
       return sql`EXISTS (
         WITH RECURSIVE category_tree AS (
-          SELECT id, parent_id FROM ${schema.categories} 
-          WHERE ${inArray(schema.categories.id, categoryIds)}
+          SELECT id, parent_id FROM ${schema.taxonomyCategories} 
+          WHERE ${inArray(schema.taxonomyCategories.id, categoryIds)}
           UNION ALL
           SELECT c.id, c.parent_id
-          FROM ${schema.categories} c
+          FROM ${schema.taxonomyCategories} c
           INNER JOIN category_tree ct ON c.parent_id = ct.id
         )
         SELECT 1 FROM category_tree
@@ -1202,10 +1139,10 @@ function buildCategoryClause(
       if (categoryIds.length === 1) {
         return sql`EXISTS (
           WITH RECURSIVE category_tree AS (
-            SELECT id, parent_id FROM ${schema.categories} WHERE id = ${schema.products.categoryId}
+            SELECT id, parent_id FROM ${schema.taxonomyCategories} WHERE id = ${schema.products.categoryId}
             UNION ALL
             SELECT c.id, c.parent_id
-            FROM ${schema.categories} c
+            FROM ${schema.taxonomyCategories} c
             INNER JOIN category_tree ct ON c.id = ct.parent_id
           )
           SELECT 1 FROM category_tree
@@ -1215,10 +1152,10 @@ function buildCategoryClause(
       // For multiple IDs, use OR conditions
       return sql`EXISTS (
         WITH RECURSIVE category_tree AS (
-          SELECT id, parent_id FROM ${schema.categories} WHERE id = ${schema.products.categoryId}
+          SELECT id, parent_id FROM ${schema.taxonomyCategories} WHERE id = ${schema.products.categoryId}
           UNION ALL
           SELECT c.id, c.parent_id
-          FROM ${schema.categories} c
+          FROM ${schema.taxonomyCategories} c
           INNER JOIN category_tree ct ON c.id = ct.parent_id
         )
         SELECT 1 FROM category_tree

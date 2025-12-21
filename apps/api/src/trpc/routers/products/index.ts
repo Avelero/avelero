@@ -169,7 +169,7 @@ export const productsRouter = createTRPCRouter({
           categoryId: input.category_id ?? null,
           seasonId: input.season_id ?? null,
           manufacturerId: input.manufacturer_id ?? null,
-          primaryImagePath: input.primary_image_path ?? null,
+          imagePath: input.image_path ?? null,
           status: input.status ?? undefined,
         };
 
@@ -190,14 +190,6 @@ export const productsRouter = createTRPCRouter({
           environment: input.environment,
           tag_ids: input.tag_ids,
         });
-        if (input.color_ids && input.size_ids) {
-          await replaceVariantsForProduct(
-            brandCtx,
-            product.id,
-            input.color_ids,
-            input.size_ids,
-          );
-        }
 
         return createEntityResponse(product);
       } catch (error) {
@@ -269,7 +261,7 @@ export const productsRouter = createTRPCRouter({
         if (input.category_id !== undefined) payload.categoryId = input.category_id;
         if (input.season_id !== undefined) payload.seasonId = input.season_id;
         if (input.manufacturer_id !== undefined) payload.manufacturerId = input.manufacturer_id;
-        if (input.primary_image_path !== undefined) payload.primaryImagePath = input.primary_image_path;
+        if (input.image_path !== undefined) payload.imagePath = input.image_path;
         if (input.status !== undefined) payload.status = input.status;
 
         const product = await updateProduct(
@@ -285,14 +277,6 @@ export const productsRouter = createTRPCRouter({
           environment: input.environment,
           tag_ids: input.tag_ids,
         });
-        if (input.color_ids && input.size_ids) {
-          await replaceVariantsForProduct(
-            brandCtx,
-            input.id,
-            input.color_ids,
-            input.size_ids,
-          );
-        }
 
         // Revalidate DPP cache for this product (fire-and-forget)
         if (product?.id) {
@@ -367,7 +351,7 @@ export const productsRouter = createTRPCRouter({
 
         // Single product delete
         const [productRow] = await brandCtx.db
-          .select({ primaryImagePath: products.primaryImagePath })
+          .select({ imagePath: products.imagePath })
           .from(products)
           .where(and(eq(products.id, input.id), eq(products.brandId, brandId)))
           .limit(1);
@@ -375,11 +359,11 @@ export const productsRouter = createTRPCRouter({
         const deleted = await deleteProduct(brandCtx.db, brandId, input.id);
 
         // Clean up product image from storage after successful deletion
-        if (deleted && productRow?.primaryImagePath && ctx.supabase) {
+        if (deleted && productRow?.imagePath && ctx.supabase) {
           try {
             await ctx.supabase.storage
               .from("products")
-              .remove([productRow.primaryImagePath]);
+              .remove([productRow.imagePath]);
           } catch {
             // Silently ignore storage cleanup errors - product is already deleted
           }
@@ -453,101 +437,4 @@ async function applyProductAttributes(
   if (input.tag_ids) {
     await setProductTags(ctx.db, productId, input.tag_ids);
   }
-}
-
-async function replaceVariantsForProduct(
-  ctx: BrandContext,
-  productId: string,
-  colorIds: string[],
-  sizeIds: string[],
-) {
-  const uniqueColors = Array.from(new Set(colorIds));
-  const uniqueSizes = Array.from(new Set(sizeIds));
-
-  const desired: Array<{ colorId: string | null; sizeId: string | null }> = [];
-  if (uniqueColors.length === 0 && uniqueSizes.length === 0) return;
-  if (uniqueColors.length === 0) {
-    for (const sizeId of uniqueSizes) desired.push({ colorId: null, sizeId });
-  } else if (uniqueSizes.length === 0) {
-    for (const colorId of uniqueColors) desired.push({ colorId, sizeId: null });
-  } else {
-    for (const colorId of uniqueColors) {
-      for (const sizeId of uniqueSizes) desired.push({ colorId, sizeId });
-    }
-  }
-
-  await ctx.db.transaction(async (tx) => {
-    const existing = await tx
-      .select({
-        id: productVariants.id,
-        color_id: productVariants.colorId,
-        size_id: productVariants.sizeId,
-        upid: productVariants.upid,
-      })
-      .from(productVariants)
-      .where(eq(productVariants.productId, productId));
-
-    const makeKey = (c: string | null, s: string | null) =>
-      `${c ?? "null"}:${s ?? "null"}`;
-
-    const existingByKey = new Map<
-      string,
-      { id: string; upid: string | null }
-    >();
-    for (const row of existing) {
-      existingByKey.set(makeKey(row.color_id, row.size_id), {
-        id: row.id,
-        upid: row.upid,
-      });
-    }
-
-    const desiredKeys = new Set(
-      desired.map((v) => makeKey(v.colorId, v.sizeId)),
-    );
-
-    const idsToDelete = existing
-      .filter((row) => !desiredKeys.has(makeKey(row.color_id, row.size_id)))
-      .map((row) => row.id);
-
-    if (idsToDelete.length) {
-      await tx
-        .delete(productVariants)
-        .where(inArray(productVariants.id, idsToDelete));
-    }
-
-    const toInsert = desired.filter(
-      (v) => !existingByKey.has(makeKey(v.colorId, v.sizeId)),
-    );
-
-    if (toInsert.length) {
-      const needed = toInsert.length;
-      const upids = await generateUniqueUpids({
-        count: needed,
-        isTaken: async (candidate: string) => {
-          const [row] = await tx
-            .select({ id: productVariants.id })
-            .from(productVariants)
-            .where(eq(productVariants.upid, candidate))
-            .limit(1);
-          return Boolean(row);
-        },
-        fetchTakenSet: async (candidates: readonly string[]) => {
-          const rows = await tx
-            .select({ upid: productVariants.upid })
-            .from(productVariants)
-            .where(inArray(productVariants.upid, candidates));
-          return new Set(rows.map((r) => r.upid!).filter(Boolean));
-        },
-      });
-
-      await tx.insert(productVariants).values(
-        toInsert.map((variant, idx) => ({
-          productId,
-          colorId: variant.colorId,
-          sizeId: variant.sizeId,
-          upid: upids[idx] ?? null,
-        })),
-      );
-    }
-  });
 }

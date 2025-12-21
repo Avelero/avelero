@@ -51,7 +51,7 @@ export async function insertStagingProduct(
       name: params.name,
       description: params.description ?? null,
       manufacturerId: params.manufacturerId ?? null,
-      primaryImagePath: params.primaryImagePath ?? null,
+      imagePath: params.imagePath ?? null,
       categoryId: params.categoryId ?? null,
       seasonId: params.seasonId ?? null,
       status: params.status ?? null,
@@ -90,7 +90,7 @@ export async function batchInsertStagingProducts(
     name: p.name,
     description: p.description ?? null,
     manufacturerId: p.manufacturerId ?? null,
-    primaryImagePath: p.primaryImagePath ?? null,
+    imagePath: p.imagePath ?? null,
     categoryId: p.categoryId ?? null,
     seasonId: p.seasonId ?? null,
     status: p.status ?? null,
@@ -106,6 +106,8 @@ export async function batchInsertStagingProducts(
 
 /**
  * Inserts a staging product variant record
+ * 
+ * Note: colorId and sizeId removed in Phase 5 of variant attribute migration.
  */
 export async function insertStagingVariant(
   db: DbOrTx,
@@ -121,8 +123,6 @@ export async function insertStagingVariant(
       existingVariantId: params.existingVariantId ?? null,
       id: params.id,
       productId: params.productId,
-      colorId: params.colorId ?? null,
-      sizeId: params.sizeId ?? null,
       upid: params.upid,
     })
     .returning({ stagingId: stagingProductVariants.stagingId });
@@ -138,6 +138,8 @@ export async function insertStagingVariant(
 
 /**
  * Inserts multiple staging variants in batch
+ * 
+ * Note: colorId and sizeId removed in Phase 5 of variant attribute migration.
  */
 export async function batchInsertStagingVariants(
   db: DbOrTx,
@@ -155,8 +157,6 @@ export async function batchInsertStagingVariants(
     existingVariantId: v.existingVariantId ?? null,
     id: v.id,
     productId: v.productId,
-    colorId: v.colorId ?? null,
-    sizeId: v.sizeId ?? null,
     upid: v.upid,
   }));
 
@@ -318,13 +318,14 @@ export async function batchInsertStagingWithStatus(
     name: p.name,
     description: p.description ?? null,
     manufacturerId: p.manufacturerId ?? null,
-    primaryImagePath: p.primaryImagePath ?? null,
+    imagePath: p.imagePath ?? null,
     categoryId: p.categoryId ?? null,
     seasonId: p.seasonId ?? null,
     status: p.status ?? null,
   }));
 
   // Prepare variants data (without stagingProductId as it will be assigned by the function)
+  // Note: colorId and sizeId removed in Phase 5 of variant attribute migration.
   const variantsData = variants.map((v) => ({
     jobId: v.jobId,
     rowNumber: v.rowNumber,
@@ -332,8 +333,6 @@ export async function batchInsertStagingWithStatus(
     existingVariantId: v.existingVariantId ?? null,
     id: v.id,
     productId: v.productId,
-    colorId: v.colorId ?? null,
-    sizeId: v.sizeId ?? null,
     upid: v.upid,
   }));
 
@@ -371,6 +370,8 @@ export async function batchInsertStagingWithStatus(
     variantIds: resultData?.variant_ids ?? [],
   };
 }
+
+
 
 
 

@@ -1,15 +1,20 @@
 /**
  * Product variant query functions.
  * 
- * Provides functions for listing variants for a product.
+ * Provides functions for listing variants for a product with attributes.
  */
 
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
-import { productVariants } from "../../schema";
+import {
+  brandAttributes,
+  brandAttributeValues,
+  productVariantAttributes,
+  productVariants,
+} from "../../schema";
 import { normalizeLimit, parseCursor } from "../_shared/pagination.js";
 import { getProduct, getProductByHandle } from "./get.js";
-import type { ProductVariantSummary } from "./types.js";
+import type { ProductVariantWithAttributes, VariantAttributeSummary } from "./types.js";
 
 /**
  * Identifier for variant listing - accepts either product UUID or handle.
@@ -17,7 +22,7 @@ import type { ProductVariantSummary } from "./types.js";
 export type VariantProductIdentifier = { product_id: string } | { product_handle: string };
 
 /**
- * Lists variants for a product.
+ * Lists variants for a product with their attributes.
  * Accepts either a product ID (UUID) or product handle.
  */
 export async function listVariantsForProduct(
@@ -25,7 +30,7 @@ export async function listVariantsForProduct(
   brandId: string,
   identifier: VariantProductIdentifier,
   opts: { cursor?: string; limit?: number } = {},
-): Promise<ProductVariantSummary[]> {
+): Promise<ProductVariantWithAttributes[]> {
   // Resolve product ID from identifier
   let productId: string;
   
@@ -44,12 +49,11 @@ export async function listVariantsForProduct(
   const limit = normalizeLimit(opts.limit, 1, 100);
   const offset = parseCursor(opts.cursor);
 
-  const rows = await db
+  // Load variants
+  const variantRows = await db
     .select({
       id: productVariants.id,
       product_id: productVariants.productId,
-      color_id: productVariants.colorId,
-      size_id: productVariants.sizeId,
       sku: productVariants.sku,
       barcode: productVariants.barcode,
       upid: productVariants.upid,
@@ -62,16 +66,53 @@ export async function listVariantsForProduct(
     .limit(limit)
     .offset(offset);
 
-  return rows.map((row) => ({
+  if (variantRows.length === 0) return [];
+
+  // Load attributes for all variants
+  const variantIds = variantRows.map((v) => v.id);
+  const attributeRows = await db
+    .select({
+      variant_id: productVariantAttributes.variantId,
+      attribute_id: brandAttributeValues.attributeId,
+      attribute_name: brandAttributes.name,
+      value_id: brandAttributeValues.id,
+      value_name: brandAttributeValues.name,
+      sort_order: productVariantAttributes.sortOrder,
+    })
+    .from(productVariantAttributes)
+    .innerJoin(
+      brandAttributeValues,
+      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id)
+    )
+    .innerJoin(
+      brandAttributes,
+      eq(brandAttributeValues.attributeId, brandAttributes.id)
+    )
+    .where(inArray(productVariantAttributes.variantId, variantIds))
+    .orderBy(asc(productVariantAttributes.sortOrder));
+
+  // Group attributes by variant ID
+  const attributesByVariant = new Map<string, VariantAttributeSummary[]>();
+  for (const row of attributeRows) {
+    const attrs = attributesByVariant.get(row.variant_id) ?? [];
+    attrs.push({
+      attribute_id: row.attribute_id,
+      attribute_name: row.attribute_name,
+      value_id: row.value_id,
+      value_name: row.value_name,
+    });
+    attributesByVariant.set(row.variant_id, attrs);
+  }
+
+  return variantRows.map((row) => ({
     id: row.id,
     product_id: row.product_id,
-    color_id: row.color_id ?? null,
-    size_id: row.size_id ?? null,
     sku: row.sku ?? null,
     barcode: row.barcode ?? null,
     upid: row.upid ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    attributes: attributesByVariant.get(row.id) ?? [],
   }));
 }
 

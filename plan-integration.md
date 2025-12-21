@@ -252,7 +252,7 @@ This will be a separate file containing 60+ field definitions. A summary:
 - `product.upid` (product-level unique ID)
 - `product.price`, `product.currency`, `product.webshopUrl`
 - `product.weight`, `product.weightUnit`
-- `product.primaryImagePath`, `product.status`, `product.salesStatus`
+- `product.imagePath`, `product.status`, `product.salesStatus`
 - `product.categoryId`, `product.seasonId`, `product.manufacturerId`
 
 **Variant Entity (~10 fields)** - **NOTE: Identifiers are at variant level**:
@@ -509,8 +509,8 @@ export const shopifySchema: ConnectorSchema = {
       transform: (v) => v ? parseFloat(String(v)) : null,
     },
     
-    'product.primaryImagePath': {
-      targetField: 'product.primaryImagePath',
+    'product.imagePath': {
+      targetField: 'product.imagePath',
       entity: 'product',
       sourceOptions: [
         { key: 'variantImage', label: 'Variant Image', path: 'image.url' },

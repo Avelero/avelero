@@ -17,7 +17,7 @@ import {
   productJourneySteps,
   productMaterials,
   products,
-  tagsOnProduct,
+  productTags,
 } from "../../schema";
 
 /**
@@ -180,13 +180,13 @@ export async function setProductTags(
 ) {
   await db.transaction(async (tx) => {
     await tx
-      .delete(tagsOnProduct)
-      .where(eq(tagsOnProduct.productId, productId));
+      .delete(productTags)
+      .where(eq(productTags.productId, productId));
     if (tagIds.length === 0) {
       return;
     }
     await tx
-      .insert(tagsOnProduct)
+      .insert(productTags)
       .values(tagIds.map((tagId) => ({ productId, tagId })));
     const [{ brandId } = { brandId: undefined } as any] = await tx
       .select({ brandId: products.brandId })
@@ -196,6 +196,9 @@ export async function setProductTags(
   });
   return { count: tagIds.length } as const;
 }
+
+
+
 
 
 

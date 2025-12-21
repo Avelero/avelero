@@ -187,7 +187,7 @@ export interface ExtractedProductValues {
   name?: string;
   productHandle?: string;
   description?: string;
-  primaryImagePath?: string;
+  imagePath?: string;
   webshopUrl?: string;
   price?: number;
   currency?: string;
@@ -203,18 +203,10 @@ export interface ExtractedVariantValues {
   gtin?: string;
   barcode?: string;
   gender?: string;
-  colorId?: string;
-  sizeId?: string;
   [key: string]: unknown;
 }
 
 export interface ExtractedReferenceEntities {
-  /** Color name to match or create */
-  colorName?: string;
-  /** Hex color value from Shopify swatch (e.g., "#FF8A00") */
-  colorHex?: string;
-  /** Size name to match or create */
-  sizeName?: string;
   /** Category UUID (resolved from Shopify taxonomy mapping) */
   categoryId?: string;
 }

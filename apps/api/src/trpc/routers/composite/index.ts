@@ -10,11 +10,11 @@ import {
   getUserById,
 } from "@v1/db/queries/user";
 import {
-  listCategories,
+  listTaxonomyCategories,
+  listTaxonomyAttributes,
+  listTaxonomyValues,
 } from "@v1/db/queries/taxonomy";
 import {
-  listColors,
-  listSizes,
   listMaterials,
   listFacilities,
   listBrandManufacturers,
@@ -22,6 +22,8 @@ import {
   listCertifications,
   listBrandTags,
   listSeasonsForBrand,
+  listBrandAttributes,
+  listAllBrandAttributeValues,
 } from "@v1/db/queries/catalog";
 import { and, asc, desc, eq, inArray } from "@v1/db/queries";
 import { brandInvites, brandMembers, users } from "@v1/db/schema";
@@ -382,8 +384,10 @@ export const compositeRouter = createTRPCRouter({
     try {
       const [
         categories,
-        colors,
-        sizes,
+        taxonomyAttributes,
+        taxonomyValues,
+        brandAttributes,
+        brandAttributeValues,
         materials,
         facilities,
         manufacturers,
@@ -392,9 +396,11 @@ export const compositeRouter = createTRPCRouter({
         tags,
         seasons,
       ] = await Promise.all([
-        listCategories(brandCtx.db),
-        listColors(brandCtx.db, brandId),
-        listSizes(brandCtx.db, brandId),
+        listTaxonomyCategories(brandCtx.db),
+        listTaxonomyAttributes(brandCtx.db),
+        listTaxonomyValues(brandCtx.db),
+        listBrandAttributes(brandCtx.db, brandId),
+        listAllBrandAttributeValues(brandCtx.db, brandId),
         listMaterials(brandCtx.db, brandId),
         listFacilities(brandCtx.db, brandId),
         listBrandManufacturers(brandCtx.db, brandId),
@@ -406,9 +412,13 @@ export const compositeRouter = createTRPCRouter({
 
       return {
         categories,
+        taxonomy: {
+          attributes: taxonomyAttributes,
+          values: taxonomyValues,
+        },
         brandCatalog: {
-          colors,
-          sizes,
+          attributes: brandAttributes,
+          attributeValues: brandAttributeValues,
           materials,
           operators: facilities,
           manufacturers,

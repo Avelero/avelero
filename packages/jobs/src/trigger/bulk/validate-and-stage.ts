@@ -27,14 +27,10 @@ import { generateUniqueUpid } from "@v1/db/utils";
 import pMap from "p-map";
 import type { BrandCatalog } from "../../lib/catalog-loader";
 import {
-  addColorToCatalog,
   loadBrandCatalog,
   lookupCategoryId,
-  lookupColorId,
   lookupMaterialId,
-  lookupOperatorId,
   lookupSeasonId,
-  lookupSizeId,
 } from "../../lib/catalog-loader";
 import {
   findCompositeDuplicates,
@@ -174,7 +170,7 @@ interface CSVRow {
   // ============================================================================
   // IMAGES
   // ============================================================================
-  primary_image_url?: string; // Single URL
+  image_url?: string; // Single URL
 
   [key: string]: unknown;
 }
@@ -225,14 +221,12 @@ interface ExistingVariant {
   description: string | null;
   categoryId: string | null;
   seasonId: string | null;
-  primaryImagePath: string | null;
+  imagePath: string | null;
   manufacturerId: string | null;
   status: string | null;
   // Variant fields
   variant_id: string;
   upid: string | null;
-  colorId: string | null;
-  sizeId: string | null;
 }
 
 /**
@@ -546,8 +540,6 @@ export const validateAndStage = task({
       console.log(
         `[validate-and-stage] Catalog loaded in ${catalogLoadDuration}ms`,
         {
-          colors: catalog.colors.size,
-          sizes: catalog.sizes.size,
           materials: catalog.materials.size,
           categories: catalog.categories.size,
           valueMappings: catalog.valueMappings.size,
@@ -555,8 +547,6 @@ export const validateAndStage = task({
       );
       logger.info("Catalog loaded into memory", {
         duration: catalogLoadDuration,
-        colorCount: catalog.colors.size,
-        sizeCount: catalog.sizes.size,
         materialCount: catalog.materials.size,
         categoryCount: catalog.categories.size,
       });
@@ -645,12 +635,10 @@ export const validateAndStage = task({
                 description: products.description,
                 categoryId: products.categoryId,
                 seasonId: products.seasonId,
-                primaryImagePath: products.primaryImagePath,
+                imagePath: products.imagePath,
                 manufacturerId: products.manufacturerId,
                 status: products.status,
                 upid: productVariants.upid,
-                colorId: productVariants.colorId,
-                sizeId: productVariants.sizeId,
               })
               .from(productVariants)
               .innerJoin(products, eq(productVariants.productId, products.id))
@@ -669,13 +657,11 @@ export const validateAndStage = task({
                 description: v.description,
                 categoryId: v.categoryId,
                 seasonId: v.seasonId,
-                primaryImagePath: v.primaryImagePath,
+                imagePath: v.imagePath,
                 manufacturerId: v.manufacturerId,
                 status: v.status,
                 variant_id: v.variantId,
                 upid: v.upid,
-                colorId: v.colorId,
-                sizeId: v.sizeId,
               };
 
               if (v.upid && v.upid.trim() !== "") {
@@ -1346,13 +1332,11 @@ function detectChanges(
     description: string | null;
     categoryId: string | null;
     seasonId: string | null;
-    primaryImagePath: string | null;
+    imagePath: string | null;
     manufacturerId: string | null;
     status: string | null;
     // Variant fields
     upid: string | null;
-    colorId: string | null;
-    sizeId: string | null;
   },
 ): { hasChanges: boolean; changedFields: string[] } {
   const changedFields: string[] = [];
@@ -1379,8 +1363,8 @@ function detectChanges(
     changedFields.push("categoryId");
   if (isDifferent(newProduct.seasonId, existing.seasonId))
     changedFields.push("seasonId");
-  if (isDifferent(newProduct.primaryImagePath, existing.primaryImagePath))
-    changedFields.push("primaryImagePath");
+  if (isDifferent(newProduct.imagePath, existing.imagePath))
+    changedFields.push("imagePath");
   if (isDifferent(newProduct.manufacturerId, existing.manufacturerId))
     changedFields.push("manufacturerId");
   if (isDifferent(newProduct.status, existing.status))
@@ -1388,10 +1372,8 @@ function detectChanges(
 
   // Compare variant fields
   if (isDifferent(newVariant.upid, existing.upid)) changedFields.push("upid");
-  if (isDifferent(newVariant.colorId, existing.colorId))
-    changedFields.push("colorId");
-  if (isDifferent(newVariant.sizeId, existing.sizeId))
-    changedFields.push("sizeId");
+  // NOTE: colorId and sizeId comparison removed as part of variant attribute migration.
+  // These fields no longer exist on product_variants table.
 
   return {
     hasChanges: changedFields.length > 0,
@@ -1673,65 +1655,12 @@ async function validateRow(
   }
 
   // ========================================================================
-  // COLOR VALIDATION
+  // COLOR/SIZE VALIDATION - REMOVED
   // ========================================================================
-  let colorId: string | null = null;
-  const colorIds: string[] = [];
-
-  // Process multiple colors if provided
-  if (colors.length > 0) {
-    for (const colorName of colors) {
-      const foundColorId = lookupColorId(catalog, colorName, "colors");
-      if (!foundColorId) {
-        trackUnmappedValue(
-          unmappedValues,
-          unmappedValueDetails,
-          "COLOR",
-          colorName,
-          "colors",
-        );
-        warnings.push({
-          type: "NEEDS_DEFINITION",
-          subtype: "MISSING_COLOR",
-          field: "colors",
-          message: `Color "${colorName}" needs to be mapped to an existing color`,
-          severity: "warning",
-          entityType: "COLOR",
-        });
-      } else {
-        colorIds.push(foundColorId);
-      }
-    }
-    // For variant, use first color as primary
-    colorId = colorIds.length > 0 ? colorIds[0] ?? null : null;
-  }
-
-  // ========================================================================
-  // SIZE VALIDATION
-  // ========================================================================
-  let sizeId: string | null = null;
-  const sizeName = row.size;
-
-  if (sizeName?.trim()) {
-    sizeId = lookupSizeId(catalog, sizeName, "size");
-    if (!sizeId) {
-      trackUnmappedValue(
-        unmappedValues,
-        unmappedValueDetails,
-        "SIZE",
-        sizeName,
-        "size",
-      );
-      warnings.push({
-        type: "NEEDS_DEFINITION",
-        subtype: "MISSING_SIZE",
-        field: "size",
-        message: `Size "${sizeName}" needs to be mapped or created`,
-        severity: "warning",
-        entityType: "SIZE",
-      });
-    }
-  }
+  // Note: Color and size validation removed in Phase 5 of variant attribute migration.
+  // Colors and sizes are now managed via generic brand attributes.
+  // The colors and size fields in the CSV are still parsed but no longer validated
+  // or stored on variants. In the future, these could be mapped to brand attributes.
 
   // ========================================================================
   // SEASON VALIDATION - Lookup from brand_seasons table
@@ -1822,12 +1751,13 @@ async function validateRow(
     description: row.description?.trim() || null,
     categoryId,
     seasonId,
-    // CSV column is primary_image_url, but we store as primaryImagePath
-    primaryImagePath: row.primary_image_url?.trim() || null,
+    // CSV column is image_url, but we store as imagePath
+    imagePath: row.image_url?.trim() || null,
     status: productStatus,
     manufacturerId,
   };
 
+  // Note: colorId and sizeId removed in Phase 5 of variant attribute migration.
   const tempVariant: InsertStagingVariantParams = {
     stagingProductId: "", // Will be set after product insertion
     jobId,
@@ -1837,8 +1767,6 @@ async function validateRow(
     id: variantId,
     productId,
     upid: upid || "",
-    colorId,
-    sizeId,
   };
 
   // ========================================================================

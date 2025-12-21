@@ -1,16 +1,37 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { Database } from "../../client";
-import { categories } from "../../schema";
+import { taxonomyCategories } from "../../schema";
 
-export async function listCategories(db: Database) {
+export async function listTaxonomyCategories(db: Database) {
   return db
     .select({
-      id: categories.id,
-      name: categories.name,
-      parent_id: categories.parentId,
-      created_at: categories.createdAt,
-      updated_at: categories.updatedAt,
+      id: taxonomyCategories.id,
+      publicId: taxonomyCategories.publicId,
+      name: taxonomyCategories.name,
+      parentId: taxonomyCategories.parentId,
+      createdAt: taxonomyCategories.createdAt,
+      updatedAt: taxonomyCategories.updatedAt,
     })
-    .from(categories)
-    .orderBy(asc(categories.name));
+    .from(taxonomyCategories)
+    .orderBy(asc(taxonomyCategories.name));
+}
+
+export async function getTaxonomyCategoryByPublicId(
+  db: Database,
+  publicId: string,
+) {
+  const [category] = await db
+    .select({
+      id: taxonomyCategories.id,
+      publicId: taxonomyCategories.publicId,
+      name: taxonomyCategories.name,
+      parentId: taxonomyCategories.parentId,
+      createdAt: taxonomyCategories.createdAt,
+      updatedAt: taxonomyCategories.updatedAt,
+    })
+    .from(taxonomyCategories)
+    .where(eq(taxonomyCategories.publicId, publicId))
+    .limit(1);
+
+  return category ?? null;
 }

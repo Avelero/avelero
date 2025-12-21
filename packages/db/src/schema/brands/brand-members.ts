@@ -10,11 +10,11 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brands } from "./brands";
-import { users } from "./users";
+import { brands } from "../core/brands";
+import { users } from "../core/users";
 
 export const brandMembers = pgTable(
-  "users_on_brand",
+  "brand_members",
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     userId: uuid("user_id")

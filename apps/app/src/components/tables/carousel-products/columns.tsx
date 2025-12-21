@@ -61,9 +61,9 @@ export const columns: ColumnDef<CarouselProductRow>[] = [
 
                     {/* Image */}
                     <div className="w-10 h-10 bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
-                        {product.primaryImagePath ? (
+                        {product.imagePath ? (
                             <Image
-                                src={buildPublicUrl("products", product.primaryImagePath) ?? ""}
+                                src={buildPublicUrl("products", product.imagePath) ?? ""}
                                 alt={product.name}
                                 width={40}
                                 height={40}

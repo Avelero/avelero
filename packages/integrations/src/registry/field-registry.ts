@@ -221,9 +221,9 @@ export const fieldRegistry: Record<string, FieldDefinition> = {
 
   // --- Media ---
 
-  "product.primaryImagePath": {
+  "product.imagePath": {
     table: "products",
-    column: "primary_image_path",
+    column: "image_path",
     type: "string",
     maxLength: 500,
     label: "Primary Image",
@@ -297,28 +297,6 @@ export const fieldRegistry: Record<string, FieldDefinition> = {
     maxLength: 50,
     label: "Variant UPID",
     description: "Unique identifier for variant (for QR codes)",
-    category: "variants",
-  },
-
-  "variant.colorId": {
-    table: "product_variants",
-    column: "color_id",
-    type: "reference",
-    referencesTable: "brand_colors",
-    referencesColumn: "name",
-    label: "Color",
-    description: "Variant color",
-    category: "variants",
-  },
-
-  "variant.sizeId": {
-    table: "product_variants",
-    column: "size_id",
-    type: "reference",
-    referencesTable: "brand_sizes",
-    referencesColumn: "name",
-    label: "Size",
-    description: "Variant size",
     category: "variants",
   },
 
@@ -1111,6 +1089,6 @@ export const registryStats = {
  * 
  * Commonly Integrated: ~55 fields
  * Relation Fields: 5 (materials, journeySteps, ecoClaims, tags, variants)
- * Reference Fields: 9 (seasonId, categoryId, manufacturerId, colorId, sizeId, etc.)
+ * Reference Fields: 7 (seasonId, categoryId, manufacturerId, etc.)
  */
 

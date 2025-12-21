@@ -3,18 +3,20 @@
  *
  * Handles batch extraction and creation of entities during sync.
  * Extracts unique entities from product batches and creates missing ones.
+ * 
+ * Note: Color and size entity creation removed in Phase 5 of variant attribute migration.
+ * Variants no longer have colorId/sizeId - colors and sizes are now managed via
+ * generic brand attributes which are not automatically created during sync.
  */
 
 import type { Database } from "@v1/db/client";
 import {
-  batchCreateColors,
-  batchCreateSizes,
   batchCreateTags,
 } from "@v1/db/queries/catalog";
 import type { EffectiveFieldMapping } from "./extractor";
 import { extractValues } from "./extractor";
 import type { SyncCaches } from "./caches";
-import { bulkCacheColors, bulkCacheSizes, bulkCacheTags } from "./caches";
+import { bulkCacheTags } from "./caches";
 import type { FetchedProduct, FetchedProductBatch } from "./types";
 
 // =============================================================================
@@ -22,10 +24,6 @@ import type { FetchedProduct, FetchedProductBatch } from "./types";
 // =============================================================================
 
 export interface ExtractedEntities {
-  /** Unique color names from the batch */
-  colors: Map<string, { name: string; hex: string | null }>;
-  /** Unique size names from the batch */
-  sizes: Set<string>;
   /** Unique tag names from the batch */
   tags: Set<string>;
   /** External product IDs in this batch */
@@ -35,8 +33,6 @@ export interface ExtractedEntities {
 }
 
 export interface BatchCreationStats {
-  colorsCreated: number;
-  sizesCreated: number;
   tagsCreated: number;
 }
 
@@ -48,7 +44,9 @@ export interface BatchCreationStats {
  * Extract unique entities from a batch of products.
  *
  * Iterates through all products and their variants, extracting
- * unique colors, sizes, tags, and tracking external IDs.
+ * unique tags and tracking external IDs.
+ * 
+ * Note: Color and size extraction removed - variants no longer have colorId/sizeId.
  *
  * @param batch - Batch of fetched products
  * @param mappings - Field mappings for value extraction
@@ -58,8 +56,6 @@ export function extractUniqueEntitiesFromBatch(
   batch: FetchedProductBatch,
   mappings: EffectiveFieldMapping[]
 ): ExtractedEntities {
-  const colors = new Map<string, { name: string; hex: string | null }>();
-  const sizes = new Set<string>();
   const tags = new Set<string>();
   const productIds = new Set<string>();
   const variantIds = new Set<string>();
@@ -77,39 +73,13 @@ export function extractUniqueEntitiesFromBatch(
       }
     }
 
-    // Extract variant-level entities (colors, sizes)
+    // Track variant IDs
     for (const variant of product.variants) {
       variantIds.add(variant.externalId);
-
-      // For variant extraction, we need to merge variant data with product data
-      // so the extractor can access product.options for color/size detection
-      const mergedData = {
-        ...variant.data,
-        product: product.data,
-      };
-
-      const variantExtracted = extractValues(mergedData, mappings);
-
-      // Extract color
-      if (variantExtracted.referenceEntities.colorName) {
-        const colorName = variantExtracted.referenceEntities.colorName.trim();
-        const colorHex = variantExtracted.referenceEntities.colorHex ?? null;
-        if (!colors.has(colorName.toLowerCase())) {
-          colors.set(colorName.toLowerCase(), { name: colorName, hex: colorHex });
-        }
-      }
-
-      // Extract size
-      if (variantExtracted.referenceEntities.sizeName) {
-        const sizeName = variantExtracted.referenceEntities.sizeName.trim();
-        if (sizeName) {
-          sizes.add(sizeName);
-        }
-      }
     }
   }
 
-  return { colors, sizes, tags, productIds, variantIds };
+  return { tags, productIds, variantIds };
 }
 
 // =============================================================================
@@ -121,6 +91,8 @@ export function extractUniqueEntitiesFromBatch(
  *
  * Compares extracted entities against caches, creates only what's missing,
  * and updates caches with new IDs.
+ * 
+ * Note: Color and size creation removed - variants no longer have colorId/sizeId.
  *
  * @param db - Database connection
  * @param brandId - Brand ID
@@ -135,26 +107,8 @@ export async function createMissingEntities(
   caches: SyncCaches
 ): Promise<BatchCreationStats> {
   const stats: BatchCreationStats = {
-    colorsCreated: 0,
-    sizesCreated: 0,
     tagsCreated: 0,
   };
-
-  // Find missing colors
-  const missingColors: Array<{ name: string; hex: string | null }> = [];
-  for (const [key, color] of extracted.colors) {
-    if (!caches.colors.has(key)) {
-      missingColors.push(color);
-    }
-  }
-
-  // Find missing sizes
-  const missingSizes: Array<{ name: string }> = [];
-  for (const sizeName of extracted.sizes) {
-    if (!caches.sizes.has(sizeName.toLowerCase())) {
-      missingSizes.push({ name: sizeName });
-    }
-  }
 
   // Find missing tags (assign random hex color for new tags)
   const missingTags: Array<{ name: string; hex: string | null }> = [];
@@ -165,33 +119,13 @@ export async function createMissingEntities(
     }
   }
 
-  // Create missing entities in parallel
-  const [colorMap, sizeMap, tagMap] = await Promise.all([
-    missingColors.length > 0
-      ? batchCreateColors(db, brandId, missingColors)
-      : Promise.resolve(new Map<string, string>()),
-    missingSizes.length > 0
-      ? batchCreateSizes(db, brandId, missingSizes)
-      : Promise.resolve(new Map<string, string>()),
-    missingTags.length > 0
-      ? batchCreateTags(db, brandId, missingTags)
-      : Promise.resolve(new Map<string, string>()),
-  ]);
-
-  // Track which were newly created (vs already existed)
-  const newColorNames = new Set(missingColors.map((c) => c.name.toLowerCase()));
-  const newSizeNames = new Set(missingSizes.map((s) => s.name.toLowerCase()));
-  const newTagNames = new Set(missingTags.map((t) => t.name.toLowerCase()));
-
-  // Update stats
-  stats.colorsCreated = colorMap.size;
-  stats.sizesCreated = sizeMap.size;
-  stats.tagsCreated = tagMap.size;
-
-  // Update caches with newly created entities
-  bulkCacheColors(caches, colorMap, newColorNames);
-  bulkCacheSizes(caches, sizeMap, newSizeNames);
-  bulkCacheTags(caches, tagMap, newTagNames);
+  // Create missing tags
+  if (missingTags.length > 0) {
+    const tagMap = await batchCreateTags(db, brandId, missingTags);
+    const newTagNames = new Set(missingTags.map((t) => t.name.toLowerCase()));
+    stats.tagsCreated = tagMap.size;
+    bulkCacheTags(caches, tagMap, newTagNames);
+  }
 
   return stats;
 }

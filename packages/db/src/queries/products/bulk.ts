@@ -49,13 +49,13 @@ export async function bulkDeleteProductsByFilter(
     .where(and(...whereClauses))
     .returning({
       id: products.id,
-      primaryImagePath: products.primaryImagePath,
+      imagePath: products.imagePath,
     });
 
   return {
     deleted: deleted.length,
     imagePaths: deleted
-      .map((row) => row.primaryImagePath)
+      .map((row) => row.imagePath)
       .filter((path): path is string => path !== null),
   };
 }
@@ -201,13 +201,13 @@ export async function bulkDeleteProductsByIds(
     .where(and(eq(products.brandId, brandId), inArray(products.id, ids)))
     .returning({
       id: products.id,
-      primaryImagePath: products.primaryImagePath,
+      imagePath: products.imagePath,
     });
 
   return {
     deleted: deleted.length,
     imagePaths: deleted
-      .map((row) => row.primaryImagePath)
+      .map((row) => row.imagePath)
       .filter((path): path is string => path !== null),
   };
 }

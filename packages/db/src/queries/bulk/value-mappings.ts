@@ -6,8 +6,6 @@ import { valueMappings } from "../../schema";
  * Entity types supported for value mapping
  */
 export type ValueMappingTarget =
-  | "COLOR"
-  | "SIZE"
   | "MATERIAL"
   | "CATEGORY"
   | "ECO_CLAIM"

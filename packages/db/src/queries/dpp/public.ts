@@ -9,25 +9,26 @@
  * - Variant-level: /:brandSlug/:productHandle/:variantUpid
  */
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { ThemeConfig, ThemeStyles } from "@v1/dpp-components";
 import type { Database } from "../../client";
 import {
   products,
   productVariants,
+  productVariantAttributes,
   productMaterials,
   productJourneySteps,
   productEnvironment,
   productEcoClaims,
   brands,
   brandTheme,
-  brandColors,
-  brandSizes,
   brandMaterials,
   brandCertifications,
   brandFacilities,
   brandEcoClaims,
-  categories,
+  brandAttributes,
+  brandAttributeValues,
+  taxonomyCategories,
   brandManufacturers,
 } from "../../schema";
 
@@ -74,6 +75,14 @@ export interface DppEnvironment {
 }
 
 /**
+ * Variant attribute for DPP display.
+ */
+export interface DppVariantAttribute {
+  name: string;
+  value: string;
+}
+
+/**
  * Complete data structure for public DPP rendering.
  * This is the single object returned by the DPP query functions.
  */
@@ -94,12 +103,12 @@ export interface DppPublicData {
   productStatus: string;
 
   // ─────────────────────────────────────────────────────────────
-  // Variant Data (null if product-level DPP)
+  // Variant Data (null/empty if product-level DPP)
   // ─────────────────────────────────────────────────────────────
   variantId: string | null;
   variantUpid: string | null;
-  colorName: string | null;
-  sizeName: string | null;
+  /** Variant attributes (generic name/value pairs, 0-3 items) */
+  variantAttributes: DppVariantAttribute[];
   /** Stock Keeping Unit (variant-level) */
   variantSku: string | null;
   /** Global Trade Item Number (variant-level) */
@@ -166,8 +175,7 @@ interface CoreDataResult {
   productStatus: string;
   variantId: string | null;
   variantUpid: string | null;
-  colorName: string | null;
-  sizeName: string | null;
+  variantAttributes: DppVariantAttribute[];
   variantSku: string | null;
   variantGtin: string | null;
   variantEan: string | null;
@@ -197,6 +205,34 @@ interface ProductAttributes {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Helper: Fetch variant attributes for a variant.
+ */
+async function fetchVariantAttributes(
+  db: Database,
+  variantId: string,
+): Promise<DppVariantAttribute[]> {
+  const rows = await db
+    .select({
+      name: brandAttributes.name,
+      value: brandAttributeValues.name,
+      sortOrder: productVariantAttributes.sortOrder,
+    })
+    .from(productVariantAttributes)
+    .innerJoin(
+      brandAttributeValues,
+      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id)
+    )
+    .innerJoin(
+      brandAttributes,
+      eq(brandAttributeValues.attributeId, brandAttributes.id)
+    )
+    .where(eq(productVariantAttributes.variantId, variantId))
+    .orderBy(asc(productVariantAttributes.sortOrder));
+
+  return rows.map((r) => ({ name: r.name, value: r.value }));
+}
+
+/**
  * Stage 1: Fetch core product/variant data with essential JOINs.
  * Includes published status check.
  * Looks up brand by slug and product by handle.
@@ -217,18 +253,16 @@ async function fetchCoreData(
         productId: products.id,
         productName: products.name,
         productDescription: products.description,
-        productImage: products.primaryImagePath,
+        productImage: products.imagePath,
         productHandle: products.productHandle,
         productStatus: products.status,
         // Variant
         variantId: productVariants.id,
         variantUpid: productVariants.upid,
-        colorName: brandColors.name,
-        sizeName: brandSizes.name,
         // Variant identifiers for article number
         variantSku: productVariants.sku,
-        variantGtin: productVariants.gtin,
-        variantEan: productVariants.ean,
+        variantGtin: sql<string | null>`CAST(NULL AS TEXT)`.as("variantGtin"),
+        variantEan: sql<string | null>`CAST(NULL AS TEXT)`.as("variantEan"),
         variantBarcode: productVariants.barcode,
         // Brand
         brandId: brands.id,
@@ -236,7 +270,7 @@ async function fetchCoreData(
         brandSlug: brands.slug,
         // Category
         categoryId: products.categoryId,
-        categoryName: categories.name,
+        categoryName: taxonomyCategories.name,
         // Manufacturer
         manufacturerName: brandManufacturers.name,
         manufacturerCountryCode: brandManufacturers.countryCode,
@@ -250,9 +284,7 @@ async function fetchCoreData(
       .innerJoin(products, eq(products.id, productVariants.productId))
       .innerJoin(brands, eq(brands.id, products.brandId))
       .leftJoin(brandTheme, eq(brandTheme.brandId, products.brandId))
-      .leftJoin(brandColors, eq(brandColors.id, productVariants.colorId))
-      .leftJoin(brandSizes, eq(brandSizes.id, productVariants.sizeId))
-      .leftJoin(categories, eq(categories.id, products.categoryId))
+      .leftJoin(taxonomyCategories, eq(taxonomyCategories.id, products.categoryId))
       .leftJoin(brandManufacturers, eq(brandManufacturers.id, products.manufacturerId))
       .where(
         and(
@@ -264,7 +296,18 @@ async function fetchCoreData(
       )
       .limit(1);
 
-    return rows[0] ?? null;
+    const row = rows[0];
+    if (!row) return null;
+
+    // Fetch variant attributes
+    const variantAttributes = await fetchVariantAttributes(db, row.variantId);
+
+    return {
+      ...row,
+      variantAttributes,
+      variantGtin: row.variantGtin ?? null,
+      variantEan: row.variantEan ?? null,
+    } as CoreDataResult;
   }
 
   // Product-level query (no variant identifiers - article number not shown)
@@ -273,14 +316,14 @@ async function fetchCoreData(
       productId: products.id,
       productName: products.name,
       productDescription: products.description,
-      productImage: products.primaryImagePath,
+      productImage: products.imagePath,
       productHandle: products.productHandle,
       productStatus: products.status,
       brandId: brands.id,
       brandName: brands.name,
       brandSlug: brands.slug,
       categoryId: products.categoryId,
-      categoryName: categories.name,
+      categoryName: taxonomyCategories.name,
       manufacturerName: brandManufacturers.name,
       manufacturerCountryCode: brandManufacturers.countryCode,
       themeConfig: brandTheme.themeConfig,
@@ -291,7 +334,7 @@ async function fetchCoreData(
     .from(products)
     .innerJoin(brands, eq(brands.id, products.brandId))
     .leftJoin(brandTheme, eq(brandTheme.brandId, products.brandId))
-    .leftJoin(categories, eq(categories.id, products.categoryId))
+      .leftJoin(taxonomyCategories, eq(taxonomyCategories.id, products.categoryId))
     .leftJoin(brandManufacturers, eq(brandManufacturers.id, products.manufacturerId))
     .where(
       and(
@@ -309,8 +352,7 @@ async function fetchCoreData(
     ...row,
     variantId: null,
     variantUpid: null,
-    colorName: null,
-    sizeName: null,
+    variantAttributes: [],
     variantSku: null,
     variantGtin: null,
     variantEan: null,
@@ -412,12 +454,12 @@ async function fetchProductAttributes(
       // Environment metrics
       db
         .select({
-          carbonKgCo2e: productEnvironment.carbonKgCo2e,
-          waterLiters: productEnvironment.waterLiters,
+          value: productEnvironment.value,
+          unit: productEnvironment.unit,
+          metric: productEnvironment.metric,
         })
         .from(productEnvironment)
-        .where(eq(productEnvironment.productId, productId))
-        .limit(1),
+        .where(eq(productEnvironment.productId, productId)),
 
       // Eco claims
       db
@@ -443,13 +485,13 @@ async function fetchProductAttributes(
       certificationUrl: m.certificationUrl,
     })),
     journey,
-    environment: environmentRows[0]
+    environment: environmentRows.length > 0
       ? {
-          carbonKgCo2e: environmentRows[0].carbonKgCo2e
-            ? String(environmentRows[0].carbonKgCo2e)
+          carbonKgCo2e: environmentRows.find((e) => e.metric === "carbon_kg_co2e")?.value
+            ? String(environmentRows.find((e) => e.metric === "carbon_kg_co2e")!.value)
             : null,
-          waterLiters: environmentRows[0].waterLiters
-            ? String(environmentRows[0].waterLiters)
+          waterLiters: environmentRows.find((e) => e.metric === "water_liters")?.value
+            ? String(environmentRows.find((e) => e.metric === "water_liters")!.value)
             : null,
         }
       : null,
@@ -493,8 +535,7 @@ export async function getDppByProductHandle(
     productStatus: core.productStatus,
     variantId: null,
     variantUpid: null,
-    colorName: null,
-    sizeName: null,
+    variantAttributes: [],
     // No article number at product level - only shown for variants
     variantSku: null,
     variantGtin: null,
@@ -551,8 +592,7 @@ export async function getDppByVariantUpid(
     productStatus: core.productStatus,
     variantId: core.variantId,
     variantUpid: core.variantUpid,
-    colorName: core.colorName,
-    sizeName: core.sizeName,
+    variantAttributes: core.variantAttributes,
     // Variant identifiers for article number (barcode > GTIN > EAN > SKU precedence)
     variantSku: core.variantSku,
     variantGtin: core.variantGtin,
@@ -604,7 +644,7 @@ function formatNumber(value: string): string {
 export interface PublicCarouselProduct {
   id: string;
   name: string;
-  primaryImagePath: string | null;
+  imagePath: string | null;
   price: string;
   currency: string;
   webshopUrl: string;

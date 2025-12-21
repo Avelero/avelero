@@ -52,12 +52,10 @@ const SHOPIFY_FIELD_KEYS = [
   // Variant fields (for matching)
   "variant.sku",
   "variant.barcode",
-  "variant.colorId",
-  "variant.sizeId",
   // Product fields
   "product.name",
   "product.description",
-  "product.primaryImagePath",
+  "product.imagePath",
   "product.webshopUrl",
   "product.price",
   "product.currency",
@@ -88,11 +86,9 @@ const SHOPIFY_REQUIRED_FIELDS = new Set<string>([
 const SHOPIFY_FIELD_DESCRIPTIONS: Partial<Record<string, string>> = {
   "variant.sku": "Stock Keeping Unit - primary identifier for matching variants",
   "variant.barcode": "Variant barcode - secondary identifier for matching",
-  "variant.colorId": "Color extracted from Shopify variant options",
-  "variant.sizeId": "Size extracted from Shopify variant options",
   "product.name": "Product display name from Shopify",
   "product.description": "Product description text from Shopify",
-  "product.primaryImagePath": "Product image URL from Shopify",
+  "product.imagePath": "Product image URL from Shopify",
   "product.webshopUrl": "URL to the product on the online store",
   "product.price": "Product price from variant",
   "product.currency": "Currency code from Shopify shop settings",

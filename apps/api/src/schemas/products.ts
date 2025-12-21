@@ -50,7 +50,7 @@ export const PRODUCT_FIELDS = [
   "category_id",
   "season_id",
   "manufacturer_id",
-  "primary_image_path",
+  "image_path",
   "product_handle",
   "upid",
   "status",
@@ -233,10 +233,10 @@ export const createProductSchema = z.object({
   season_id: uuidSchema.optional(), // FK to brand_seasons.id
   manufacturer_id: uuidSchema.optional(),
   /** Storage path for the product image (not full URL) */
-  primary_image_path: z.string().max(500).optional(),
+  image_path: z.string().max(500).optional(),
   status: shortStringSchema.optional(),
-  color_ids: uuidArraySchema.max(12).optional(),
-  size_ids: uuidArraySchema.max(12).optional(),
+  // NOTE: color_ids and size_ids removed as part of variant attribute migration.
+  // Variants are now created via products.variants.upsert with the generic attribute system.
   tag_ids: uuidArraySchema.optional(),
   materials: z
     .array(
@@ -272,7 +272,7 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
   "category_id",
   "season_id",
   "manufacturer_id",
-  "primary_image_path",
+  "image_path",
   "status",
   "product_handle",
 ]);
@@ -425,22 +425,66 @@ export const getVariantsSchema = byParentId("product_id");
  * Schema for individual variant metadata (SKU and barcode).
  */
 export const variantMetadataSchema = z.object({
-  color_id: uuidSchema.nullable().optional(),
-  size_id: uuidSchema.nullable().optional(),
   sku: z.string().max(100).optional(),
   barcode: z.string().max(100).optional(),
 });
 
 /**
- * Upsert/replace variants for a product by providing colors and sizes.
- * Optionally includes per-variant metadata (SKU and barcode).
+ * Schema for explicit variant input (includes attribute assignments).
  */
-export const productVariantsUpsertSchema = z.object({
-  product_id: uuidSchema,
-  color_ids: uuidArraySchema.max(12).optional(),
-  size_ids: uuidArraySchema.max(12).optional(),
-  variant_data: z.array(variantMetadataSchema).optional(),
+export const explicitVariantSchema = z.object({
+  /** Optional SKU */
+  sku: z.string().max(100).optional(),
+  /** Optional barcode */
+  barcode: z.string().max(100).optional(),
+  /** Optional UPID - auto-generated if not provided */
+  upid: upidSchema.optional(),
+  /** Ordered list of attribute value IDs (can be empty for variants without attributes) */
+  attribute_value_ids: uuidArraySchema.optional().default([]),
 });
+
+/**
+ * Schema for a matrix dimension (one attribute with multiple values).
+ */
+export const matrixDimensionSchema = z.object({
+  /** The brand attribute ID */
+  attribute_id: uuidSchema,
+  /** The brand attribute value IDs for this dimension */
+  value_ids: uuidArraySchema.min(1, "At least one value is required per dimension"),
+});
+
+/**
+ * Upsert/replace variants for a product using the generic attribute system.
+ * 
+ * Supports two modes:
+ * - **explicit**: Provide explicit variant definitions with attribute assignments
+ * - **matrix**: Provide dimensions and auto-generate cartesian product of variants
+ */
+export const productVariantsUpsertSchema = z.discriminatedUnion("mode", [
+  // Explicit mode: caller provides complete variant definitions
+  z.object({
+    product_id: uuidSchema,
+    mode: z.literal("explicit"),
+    /** Explicit variant definitions with attribute assignments */
+    variants: z.array(explicitVariantSchema).max(500, "Maximum 500 variants allowed"),
+  }),
+  // Matrix mode: server generates cartesian product from dimensions
+  z.object({
+    product_id: uuidSchema,
+    mode: z.literal("matrix"),
+    /** 
+     * Ordered dimensions for cartesian product generation.
+     * Max 3 dimensions, each with max 50 values.
+     * Example: [{ attribute_id: "color", value_ids: ["red", "blue"] }, { attribute_id: "size", value_ids: ["S", "M"] }]
+     */
+    dimensions: z.array(matrixDimensionSchema).max(3, "Maximum 3 dimensions allowed"),
+    /** 
+     * Optional metadata for specific combinations, keyed by pipe-separated value IDs.
+     * Example: { "red-value-id|S-value-id": { sku: "SKU001" } }
+     */
+    variant_metadata: z.record(z.string(), variantMetadataSchema).optional(),
+  }),
+]);
 
 /**
  * Deletes variants by id or by parent product.
@@ -542,8 +586,9 @@ export type BulkDeleteProductsInput = z.infer<typeof bulkDeleteProductsSchema>;
 /**
  * Input payload for `products.variants.upsert`.
  *
- * Accepts color and size selections; the cartesian product becomes the final
- * variant set, replacing any existing variants for the product.
+ * Supports two modes:
+ * - explicit: Provide complete variant definitions with attribute assignments
+ * - matrix: Provide dimensions for cartesian product generation
  */
 export type ProductVariantsUpsertInput = z.infer<
   typeof productVariantsUpsertSchema

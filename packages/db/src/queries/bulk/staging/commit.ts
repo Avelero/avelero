@@ -40,7 +40,7 @@ export async function bulkCreateProductsFromStaging(
     categoryId: row.categoryId ?? null,
     seasonId: row.seasonId ?? null,
     manufacturerId: row.manufacturerId ?? null,
-    primaryImagePath: row.primaryImagePath ?? null,
+    imagePath: row.imagePath ?? null,
     status: row.status ?? undefined,
   }));
 
@@ -81,6 +81,8 @@ export async function getStagingProductsForCommit(
     .limit(limit);
   return hydrateStagingProductPreviews(db, jobId, products);
 }
+
+
 
 
 

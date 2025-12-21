@@ -9,8 +9,8 @@ import { ilike, or, sql } from "drizzle-orm";
 import {
   products,
   brandSeasons,
-  categories,
-  tagsOnProduct,
+  taxonomyCategories,
+  productTags,
   brandTags,
 } from "../../../schema";
 import type { ListFilters } from "../types.js";
@@ -53,13 +53,13 @@ export function buildProductSearchClause(
     sql`EXISTS (
       WITH RECURSIVE category_hierarchy AS (
         -- Base case: the product's direct category
-        SELECT id, name, parent_id FROM ${categories}
-        WHERE ${categories.id} = ${products.categoryId}
+        SELECT id, name, parent_id FROM ${taxonomyCategories}
+        WHERE ${taxonomyCategories.id} = ${products.categoryId}
         
         UNION
         
         -- Recursive case: parent categories
-        SELECT c.id, c.name, c.parent_id FROM ${categories} c
+        SELECT c.id, c.name, c.parent_id FROM ${taxonomyCategories} c
         INNER JOIN category_hierarchy ch ON c.id = ch.parent_id
       )
       SELECT 1 FROM category_hierarchy
@@ -67,13 +67,16 @@ export function buildProductSearchClause(
     )`,
     // Tag search via EXISTS
     sql`EXISTS (
-      SELECT 1 FROM ${tagsOnProduct}
-      INNER JOIN ${brandTags} ON ${brandTags.id} = ${tagsOnProduct.tagId}
-      WHERE ${tagsOnProduct.productId} = ${products.id}
+      SELECT 1 FROM ${productTags}
+      INNER JOIN ${brandTags} ON ${brandTags.id} = ${productTags.tagId}
+      WHERE ${productTags.productId} = ${products.id}
       AND ${brandTags.name} ILIKE ${term}
     )`,
   )!;
 }
+
+
+
 
 
 

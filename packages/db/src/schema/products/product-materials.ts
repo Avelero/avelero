@@ -8,7 +8,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
-import { brandMaterials } from "../brands/brand-materials";
+import { brandMaterials } from "../catalog/brand-materials";
 import { products } from "./products";
 
 export const productMaterials = pgTable(

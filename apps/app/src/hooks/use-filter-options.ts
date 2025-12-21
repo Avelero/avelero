@@ -22,6 +22,38 @@ export function useFilterOptions() {
     trpc.catalog.tags.list.queryOptions(undefined),
   );
 
+  // Derive colors from brand attributes linked to "Color" taxonomy attribute
+  const colorOptions = React.useMemo(() => {
+    const taxAttrs = formData?.taxonomy?.attributes ?? [];
+    const colorTaxAttr = taxAttrs.find((a: any) => a.friendlyId === "color");
+    if (!colorTaxAttr) return [];
+
+    const brandAttrs = formData?.brandCatalog?.attributes ?? [];
+    const colorBrandAttr = brandAttrs.find((a: any) => a.taxonomyAttributeId === colorTaxAttr.id);
+    if (!colorBrandAttr) return [];
+
+    const values = (formData?.brandCatalog?.attributeValues ?? [])
+      .filter((v: any) => v.attributeId === colorBrandAttr.id);
+    
+    return values.map((v: any) => ({ value: v.id, label: v.name }));
+  }, [formData]);
+
+  // Derive sizes from brand attributes linked to "Size" taxonomy attribute
+  const sizeOptions = React.useMemo(() => {
+    const taxAttrs = formData?.taxonomy?.attributes ?? [];
+    const sizeTaxAttr = taxAttrs.find((a: any) => a.friendlyId === "size");
+    if (!sizeTaxAttr) return [];
+
+    const brandAttrs = formData?.brandCatalog?.attributes ?? [];
+    const sizeBrandAttr = brandAttrs.find((a: any) => a.taxonomyAttributeId === sizeTaxAttr.id);
+    if (!sizeBrandAttr) return [];
+
+    const values = (formData?.brandCatalog?.attributeValues ?? [])
+      .filter((v: any) => v.attributeId === sizeBrandAttr.id);
+    
+    return values.map((v: any) => ({ value: v.id, label: v.name }));
+  }, [formData]);
+
   // Transform and memoize all options
   const options = React.useMemo(() => {
     return {
@@ -32,21 +64,9 @@ export function useFilterOptions() {
           label: c.name,
         })) ?? [],
 
-      colors:
-        formData?.brandCatalog?.colors?.map(
-          (c: { id: string; name: string }) => ({
-            value: c.id,
-            label: c.name,
-          }),
-        ) ?? [],
+      colors: colorOptions,
 
-      sizes:
-        formData?.brandCatalog?.sizes?.map(
-          (s: { id: string; name: string }) => ({
-            value: s.id,
-            label: s.name,
-          }),
-        ) ?? [],
+      sizes: sizeOptions,
 
       materials:
         formData?.brandCatalog?.materials?.map(
@@ -104,7 +124,7 @@ export function useFilterOptions() {
         })) ?? [],
 
     };
-  }, [formData, tagsData]);
+  }, [formData, tagsData, colorOptions, sizeOptions]);
 
   const isLoading = isFormDataLoading || isTagsLoading;
 

@@ -13,6 +13,7 @@
 
 import {
   and,
+  asc,
   eq,
   ne,
   inArray,
@@ -21,7 +22,7 @@ import {
   sql,
 } from "drizzle-orm";
 import type { Database } from "../../client";
-import { products, categories } from "../../schema";
+import { products, taxonomyCategories, productCommercial } from "../../schema";
 import { convertFilterStateToWhereClauses } from "../../utils/filter-converter";
 
 // ============================================================================
@@ -34,7 +35,7 @@ import { convertFilterStateToWhereClauses } from "../../utils/filter-converter";
 export interface CarouselProduct {
   id: string;
   name: string;
-  primaryImagePath: string | null;
+  imagePath: string | null;
   price: string;
   currency: string;
   webshopUrl: string;
@@ -88,14 +89,14 @@ async function getCategoryHierarchy(
   // Single query to get category, parent, and grandparent
   const rows = await db
     .select({
-      categoryId: categories.id,
-      parentId: categories.parentId,
+      categoryId: taxonomyCategories.id,
+      parentId: taxonomyCategories.parentId,
       grandparentId: sql<string | null>`
-        (SELECT parent_id FROM categories WHERE id = ${categories.parentId})
+        (SELECT parent_id FROM taxonomy_categories WHERE id = ${taxonomyCategories.parentId})
       `.as("grandparent_id"),
     })
-    .from(categories)
-    .where(eq(categories.id, categoryId))
+    .from(taxonomyCategories)
+    .where(eq(taxonomyCategories.id, categoryId))
     .limit(1);
 
   const row = rows[0];
@@ -153,12 +154,12 @@ export async function fetchCarouselProducts(
   const baseConditions = [
     eq(products.brandId, brandId),
     ne(products.id, currentProductId),
-    eq(products.salesStatus, "active"),
+    eq(productCommercial.salesStatus, "active"),
     // Only include products with required fields
-    isNotNull(products.webshopUrl),
-    isNotNull(products.price),
+    isNotNull(productCommercial.webshopUrl),
+    isNotNull(productCommercial.price),
     // Also ensure they're not empty strings
-    ne(products.webshopUrl, ""),
+    ne(productCommercial.webshopUrl, ""),
   ];
 
   // Build relevance ordering based on category hierarchy
@@ -174,17 +175,18 @@ export async function fetchCarouselProducts(
       .select({
         id: products.id,
         name: products.name,
-        primaryImagePath: products.primaryImagePath,
-        price: products.price,
-        currency: products.currency,
-        webshopUrl: products.webshopUrl,
+        imagePath: products.imagePath,
+        price: productCommercial.price,
+        currency: productCommercial.currency,
+        webshopUrl: productCommercial.webshopUrl,
         categoryId: products.categoryId,
-        categoryParentId: categories.parentId,
+        categoryParentId: taxonomyCategories.parentId,
       })
       .from(products)
-      .leftJoin(categories, eq(categories.id, products.categoryId))
+      .innerJoin(productCommercial, eq(productCommercial.productId, products.id))
+      .leftJoin(taxonomyCategories, eq(taxonomyCategories.id, products.categoryId))
       .where(and(...baseConditions, inArray(products.id, eligibleIds)))
-      .orderBy(relevanceOrder, sql`RANDOM()`)
+      .orderBy(asc(relevanceOrder), sql`RANDOM()`)
       .limit(productCount);
 
     return mapToCarouselProducts(rows);
@@ -231,17 +233,18 @@ export async function fetchCarouselProducts(
     .select({
       id: products.id,
       name: products.name,
-      primaryImagePath: products.primaryImagePath,
-      price: products.price,
-      currency: products.currency,
-      webshopUrl: products.webshopUrl,
+      imagePath: products.imagePath,
+      price: productCommercial.price,
+      currency: productCommercial.currency,
+      webshopUrl: productCommercial.webshopUrl,
       categoryId: products.categoryId,
-      categoryParentId: categories.parentId,
+      categoryParentId: taxonomyCategories.parentId,
     })
     .from(products)
-    .leftJoin(categories, eq(categories.id, products.categoryId))
+    .innerJoin(productCommercial, eq(productCommercial.productId, products.id))
+    .leftJoin(taxonomyCategories, eq(taxonomyCategories.id, products.categoryId))
     .where(and(...whereConditions))
-    .orderBy(relevanceOrder, sql`RANDOM()`)
+    .orderBy(asc(relevanceOrder), sql`RANDOM()`)
     .limit(productCount);
 
   return mapToCarouselProducts(rows);
@@ -258,9 +261,9 @@ export async function fetchCarouselProducts(
 function buildRelevanceOrder(hierarchy: CategoryHierarchy) {
   const { categoryId, parentId, grandparentId } = hierarchy;
 
-  // If no category info, just use random ordering
+  // If no category info, just use random ordering (all get same priority)
   if (!categoryId) {
-    return sql`0`;
+    return sql`3`;
   }
 
   // Build CASE expression with available hierarchy levels
@@ -270,8 +273,8 @@ function buildRelevanceOrder(hierarchy: CategoryHierarchy) {
     return sql`
       CASE
         WHEN ${products.categoryId} = ${categoryId} THEN 0
-        WHEN ${categories.parentId} = ${parentId} THEN 1
-        WHEN (SELECT parent_id FROM categories WHERE id = ${categories.parentId}) = ${grandparentId} THEN 2
+        WHEN ${taxonomyCategories.parentId} = ${parentId} THEN 1
+        WHEN (SELECT parent_id FROM taxonomy_categories WHERE id = ${taxonomyCategories.parentId}) = ${grandparentId} THEN 2
         ELSE 3
       END
     `;
@@ -282,7 +285,7 @@ function buildRelevanceOrder(hierarchy: CategoryHierarchy) {
     return sql`
       CASE
         WHEN ${products.categoryId} = ${categoryId} THEN 0
-        WHEN ${categories.parentId} = ${parentId} THEN 1
+        WHEN ${taxonomyCategories.parentId} = ${parentId} THEN 1
         ELSE 3
       END
     `;
@@ -305,7 +308,7 @@ function mapToCarouselProducts(
   rows: Array<{
     id: string;
     name: string;
-    primaryImagePath: string | null;
+    imagePath: string | null;
     price: string | null;
     currency: string | null;
     webshopUrl: string | null;
@@ -324,7 +327,7 @@ function mapToCarouselProducts(
     .map((row) => ({
       id: row.id,
       name: row.name,
-      primaryImagePath: row.primaryImagePath,
+      imagePath: row.imagePath,
       price: row.price,
       currency: row.currency ?? "EUR",
       webshopUrl: row.webshopUrl,

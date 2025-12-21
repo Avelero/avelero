@@ -564,7 +564,7 @@ function TableContent({
         category: (p as any).category_name ?? null,
         categoryPath: (p as any).category_path ?? null,
         season: (p as any).season_name ?? null,
-        primaryImagePath: p.primary_image_path ?? (p as any).primaryImagePath ?? null,
+        imagePath: p.image_path ?? (p as any).imagePath ?? null,
         variantCount: variants.length || undefined,
         createdAt: p.created_at ?? p.createdAt ?? "",
         updatedAt: p.updated_at ?? p.updatedAt ?? "",

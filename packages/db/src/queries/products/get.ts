@@ -31,7 +31,7 @@ export async function getProduct(
       category_id: products.categoryId,
       season_id: products.seasonId,
       manufacturer_id: products.manufacturerId,
-      primary_image_path: products.primaryImagePath,
+      image_path: products.imagePath,
       product_handle: products.productHandle,
       status: products.status,
       created_at: products.createdAt,
@@ -59,7 +59,7 @@ export async function getProductByHandle(
       category_id: products.categoryId,
       season_id: products.seasonId,
       manufacturer_id: products.manufacturerId,
-      primary_image_path: products.primaryImagePath,
+      image_path: products.imagePath,
       product_handle: products.productHandle,
       status: products.status,
       created_at: products.createdAt,
@@ -104,6 +104,8 @@ export async function getProductWithIncludes(
 
   return product;
 }
+
+
 
 
 

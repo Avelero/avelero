@@ -8,24 +8,28 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../../client";
 import {
+  brandAttributes,
+  brandAttributeValues,
   brandEcoClaims,
   brandFacilities,
   brandMaterials,
   brandSeasons,
   brandTags,
-  categories,
+  taxonomyCategories,
   productEcoClaims,
   productEnvironment,
   productJourneySteps,
   productMaterials,
+  productVariantAttributes,
   productVariants,
   products,
-  tagsOnProduct,
+  productTags,
 } from "../../../schema";
 import type {
   ProductAttributesBundle,
   ProductRecord,
-  ProductVariantSummary,
+  ProductVariantWithAttributes,
+  VariantAttributeSummary,
 } from "../types.js";
 
 /**
@@ -54,9 +58,9 @@ export function mapProductRow(row: Record<string, unknown>): ProductRecord {
       (row.product_handle as string | null) ?? null;
   if ("upid" in row) product.upid = (row.upid as string | null) ?? null;
   if ("status" in row) product.status = (row.status as string | null) ?? null;
-  if ("primary_image_path" in row)
-    product.primary_image_path =
-      (row.primary_image_path as string | null) ?? null;
+  if ("image_path" in row)
+    product.image_path =
+      (row.image_path as string | null) ?? null;
   if ("created_at" in row)
     product.created_at = (row.created_at as string | null) ?? undefined;
   if ("updated_at" in row)
@@ -110,25 +114,24 @@ export async function ensureProductBelongsToBrand(
 }
 
 /**
- * Batch loads variants for multiple products.
+ * Batch loads variants with attributes for multiple products.
  *
- * Performs a single database query to fetch all variants for the given
- * product IDs, then groups them by product ID for efficient lookups.
+ * Performs database queries to fetch all variants and their attributes for
+ * the given product IDs, then groups them by product ID for efficient lookups.
  * Optimizes N+1 query problems when loading product lists.
  */
 export async function loadVariantsForProducts(
   db: Database,
   productIds: readonly string[],
-): Promise<Map<string, ProductVariantSummary[]>> {
-  const map = new Map<string, ProductVariantSummary[]>();
+): Promise<Map<string, ProductVariantWithAttributes[]>> {
+  const map = new Map<string, ProductVariantWithAttributes[]>();
   if (productIds.length === 0) return map;
 
-  const rows = await db
+  // Load variants
+  const variantRows = await db
     .select({
       id: productVariants.id,
       product_id: productVariants.productId,
-      color_id: productVariants.colorId,
-      size_id: productVariants.sizeId,
       sku: productVariants.sku,
       barcode: productVariants.barcode,
       upid: productVariants.upid,
@@ -139,18 +142,56 @@ export async function loadVariantsForProducts(
     .where(inArray(productVariants.productId, [...productIds]))
     .orderBy(asc(productVariants.createdAt));
 
-  for (const row of rows) {
+  if (variantRows.length === 0) return map;
+
+  // Load attributes for all variants
+  const variantIds = variantRows.map((v) => v.id);
+  const attributeRows = await db
+    .select({
+      variant_id: productVariantAttributes.variantId,
+      attribute_id: brandAttributeValues.attributeId,
+      attribute_name: brandAttributes.name,
+      value_id: brandAttributeValues.id,
+      value_name: brandAttributeValues.name,
+      sort_order: productVariantAttributes.sortOrder,
+    })
+    .from(productVariantAttributes)
+    .innerJoin(
+      brandAttributeValues,
+      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id)
+    )
+    .innerJoin(
+      brandAttributes,
+      eq(brandAttributeValues.attributeId, brandAttributes.id)
+    )
+    .where(inArray(productVariantAttributes.variantId, variantIds))
+    .orderBy(asc(productVariantAttributes.sortOrder));
+
+  // Group attributes by variant ID
+  const attributesByVariant = new Map<string, VariantAttributeSummary[]>();
+  for (const row of attributeRows) {
+    const attrs = attributesByVariant.get(row.variant_id) ?? [];
+    attrs.push({
+      attribute_id: row.attribute_id,
+      attribute_name: row.attribute_name,
+      value_id: row.value_id,
+      value_name: row.value_name,
+    });
+    attributesByVariant.set(row.variant_id, attrs);
+  }
+
+  // Build result map
+  for (const row of variantRows) {
     const collection = map.get(row.product_id) ?? [];
     collection.push({
       id: row.id,
       product_id: row.product_id,
-      color_id: row.color_id ?? null,
-      size_id: row.size_id ?? null,
       sku: row.sku ?? null,
       barcode: row.barcode ?? null,
       upid: row.upid ?? null,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      attributes: attributesByVariant.get(row.id) ?? [],
     });
     map.set(row.product_id, collection);
   }
@@ -232,19 +273,27 @@ export async function loadAttributesForProducts(
   const environmentRows = await db
     .select({
       product_id: productEnvironment.productId,
-      carbon_kg_co2e: productEnvironment.carbonKgCo2e,
-      water_liters: productEnvironment.waterLiters,
+      value: productEnvironment.value,
+      unit: productEnvironment.unit,
+      metric: productEnvironment.metric,
     })
     .from(productEnvironment)
     .where(inArray(productEnvironment.productId, [...productIds]));
 
   for (const row of environmentRows) {
     const bundle = ensureBundle(row.product_id);
-    bundle.environment = {
-      product_id: row.product_id,
-      carbon_kg_co2e: row.carbon_kg_co2e ? String(row.carbon_kg_co2e) : null,
-      water_liters: row.water_liters ? String(row.water_liters) : null,
-    };
+    if (!bundle.environment) {
+      bundle.environment = {
+        product_id: row.product_id,
+        carbon_kg_co2e: null,
+        water_liters: null,
+      };
+    }
+    if (row.metric === "carbon_kg_co2e") {
+      bundle.environment.carbon_kg_co2e = row.value ? String(row.value) : null;
+    } else if (row.metric === "water_liters") {
+      bundle.environment.water_liters = row.value ? String(row.value) : null;
+    }
   }
 
   // Load journey steps with their facility (one facility per step)
@@ -279,15 +328,15 @@ export async function loadAttributesForProducts(
 
   const tagRows = await db
     .select({
-      id: tagsOnProduct.id,
-      product_id: tagsOnProduct.productId,
-      tag_id: tagsOnProduct.tagId,
+      id: productTags.id,
+      product_id: productTags.productId,
+      tag_id: productTags.tagId,
       name: brandTags.name,
       hex: brandTags.hex,
     })
-    .from(tagsOnProduct)
-    .leftJoin(brandTags, eq(brandTags.id, tagsOnProduct.tagId))
-    .where(inArray(tagsOnProduct.productId, [...productIds]));
+    .from(productTags)
+    .leftJoin(brandTags, eq(brandTags.id, productTags.tagId))
+    .where(inArray(productTags.productId, [...productIds]));
 
   for (const row of tagRows) {
     const bundle = ensureBundle(row.product_id);
@@ -328,11 +377,11 @@ export async function loadCategoryPathsForProducts(
   // Load all categories in one query
   const allCategories = await db
     .select({
-      id: categories.id,
-      name: categories.name,
-      parentId: categories.parentId,
+      id: taxonomyCategories.id,
+      name: taxonomyCategories.name,
+      parentId: taxonomyCategories.parentId,
     })
-    .from(categories);
+    .from(taxonomyCategories);
 
   // Build in-memory lookup map for O(1) access
   const categoryMap = new Map(
@@ -365,6 +414,8 @@ export async function loadCategoryPathsForProducts(
 
   return map;
 }
+
+
 
 
 

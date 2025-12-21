@@ -584,7 +584,7 @@ async function commitStagingRow(
               categoryId: stagingProduct.categoryId || undefined,
               seasonId: stagingProduct.seasonId ?? undefined,
               manufacturerId: stagingProduct.manufacturerId ?? undefined,
-              primaryImagePath: stagingProduct.primaryImagePath ?? undefined,
+              imagePath: stagingProduct.imagePath ?? undefined,
               status: stagingProduct.status ?? undefined,
             },
           );
@@ -612,7 +612,7 @@ async function commitStagingRow(
             categoryId: stagingProduct.categoryId ?? undefined,
             seasonId: stagingProduct.seasonId ?? undefined,
             manufacturerId: stagingProduct.manufacturerId ?? undefined,
-            primaryImagePath: stagingProduct.primaryImagePath ?? undefined,
+            imagePath: stagingProduct.imagePath ?? undefined,
             status: stagingProduct.status ?? undefined,
           },
         );
@@ -631,8 +631,6 @@ async function commitStagingRow(
           .values({
             id: variant.id,
             productId,
-            colorId: variant.colorId ?? null,
-            sizeId: variant.sizeId ?? null,
             upid: variant.upid,
           })
           .returning({ id: productVariants.id });
@@ -651,8 +649,6 @@ async function commitStagingRow(
         const [updatedVariant] = await tx
           .update(productVariants)
           .set({
-            colorId: variant.colorId ?? null,
-            sizeId: variant.sizeId ?? null,
             upid: variant.upid ?? undefined,
           })
           .where(eq(productVariants.id, variant.existingVariantId))

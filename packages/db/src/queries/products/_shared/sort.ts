@@ -6,7 +6,7 @@
  */
 
 import { asc, desc, sql } from "drizzle-orm";
-import { products, categories, brandSeasons } from "../../../schema";
+import { products, taxonomyCategories, brandSeasons } from "../../../schema";
 
 /**
  * Sort field configuration map.
@@ -16,7 +16,7 @@ const SORT_FIELD_MAP: Record<string, any> = {
   status: products.status,
   createdAt: products.createdAt,
   updatedAt: products.updatedAt,
-  category: categories.name, // Requires join
+  category: taxonomyCategories.name, // Requires join
   season: null, // Special handling required
   productHandle: products.productHandle,
   variantCount: null, // Special handling required (subquery)
@@ -72,7 +72,7 @@ export function buildProductOrderBy(
   }
 
   if (sortField === "category") {
-    const categorySortField = categories.name;
+    const categorySortField = taxonomyCategories.name;
     if (sortDirection === "asc") {
       return [sql`${categorySortField} ASC NULLS LAST`, asc(products.id)];
     }

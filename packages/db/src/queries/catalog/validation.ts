@@ -7,8 +7,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import {
-  brandColors,
-  brandSizes,
   brandMaterials,
   brandEcoClaims,
   brandFacilities,
@@ -18,8 +16,6 @@ import {
   brandTags,
 } from "../../schema";
 import type { CatalogEntityType, ValidationError, ValidationResult } from "./types.js";
-import { createColor } from "./colors.js";
-import { createSize } from "./sizes.js";
 import { createMaterial } from "./materials.js";
 import { createEcoClaim } from "./eco-claims.js";
 import { createFacility } from "./facilities.js";
@@ -32,14 +28,6 @@ import { createBrandTag } from "./tags.js";
  * Configuration map for duplicate checking by entity type.
  */
 const DUPLICATE_CHECK_CONFIG = {
-  COLOR: {
-    table: brandColors,
-    nameColumn: brandColors.name,
-  },
-  SIZE: {
-    table: brandSizes,
-    nameColumn: brandSizes.name,
-  },
   MATERIAL: {
     table: brandMaterials,
     nameColumn: brandMaterials.name,
@@ -100,60 +88,6 @@ export async function checkDuplicateName(
       ),
     );
   return (result?.count ?? 0) > 0;
-}
-
-/**
- * Validates color input.
- */
-export function validateColorInput(input: {
-  name: string;
-  hex?: string;
-}): ValidationResult {
-  const errors: ValidationError[] = [];
-  if (!input.name || input.name.trim().length === 0) {
-    errors.push({
-      field: "name",
-      message: "Color name is required",
-      code: "REQUIRED",
-    });
-  } else if (input.name.length > 100) {
-    errors.push({
-      field: "name",
-      message: "Color name too long",
-      code: "TOO_LONG",
-    });
-  }
-  if (!input.hex || input.hex.trim().length === 0) {
-    errors.push({
-      field: "hex",
-      message: "Color hex is required",
-      code: "REQUIRED",
-    });
-  }
-  return { valid: errors.length === 0, errors };
-}
-
-/**
- * Validates size input.
- */
-export function validateSizeInput(input: {
-  name: string;
-}): ValidationResult {
-  const errors: ValidationError[] = [];
-  if (!input.name || input.name.trim().length === 0) {
-    errors.push({
-      field: "name",
-      message: "Size name is required",
-      code: "REQUIRED",
-    });
-  } else if (input.name.length > 100) {
-    errors.push({
-      field: "name",
-      message: "Size name too long",
-      code: "TOO_LONG",
-    });
-  }
-  return { valid: errors.length === 0, errors };
 }
 
 /**
@@ -431,14 +365,6 @@ export async function validateAndCreateEntity(
   let name: string;
 
   switch (entityType) {
-    case "COLOR":
-      validation = validateColorInput(input as { name: string; hex: string });
-      name = (input as { name: string }).name;
-      break;
-    case "SIZE":
-      validation = validateSizeInput(input as { name: string });
-      name = (input as { name: string }).name;
-      break;
     case "MATERIAL":
       validation = validateMaterialInput(
         input as {
@@ -542,22 +468,6 @@ export async function validateAndCreateEntity(
   }
 
   switch (entityType) {
-    case "COLOR":
-      return (
-        (await createColor(
-          db,
-          brandId,
-          input as { name: string; hex: string },
-        )) ?? { id: "" }
-      );
-    case "SIZE":
-      return (
-        (await createSize(
-          db,
-          brandId,
-          input as { name: string },
-        )) ?? { id: "" }
-      );
     case "MATERIAL":
       return (
         (await createMaterial(

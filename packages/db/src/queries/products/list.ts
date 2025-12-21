@@ -10,9 +10,9 @@ import type { Database } from "../../client";
 import {
   brandSeasons,
   brandTags,
-  categories,
+  taxonomyCategories,
   products,
-  tagsOnProduct,
+  productTags,
 } from "../../schema";
 import { normalizeLimit, parseCursor, buildPaginationMeta } from "../_shared/pagination.js";
 import { PRODUCT_FIELD_MAP, PRODUCT_FIELDS } from "./_shared/fields.js";
@@ -30,7 +30,7 @@ import type {
   ListFilters,
   ProductAttributesBundle,
   ProductField,
-  ProductVariantSummary,
+  ProductVariantWithAttributes,
   ProductWithRelations,
 } from "./types.js";
 
@@ -74,7 +74,7 @@ export async function listProducts(
   // Add joined fields for category and season names
   const selectWithJoins = {
     ...selectFields,
-    category_name: categories.name,
+    category_name: taxonomyCategories.name,
     season_name: brandSeasons.name,
   };
 
@@ -87,7 +87,7 @@ export async function listProducts(
   const rows = await db
     .select(selectWithJoins)
     .from(products)
-    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(taxonomyCategories, eq(products.categoryId, taxonomyCategories.id))
     .leftJoin(brandSeasons, eq(products.seasonId, brandSeasons.id))
     .where(and(...whereClauses))
     .orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy]))
@@ -177,7 +177,7 @@ export async function listProductsWithIncludes(
 
   const variantsMap = opts.includeVariants
     ? await loadVariantsForProducts(db, productIds)
-    : new Map<string, ProductVariantSummary[]>();
+    : new Map<string, ProductVariantWithAttributes[]>();
 
   const attributesMap = opts.includeAttributes
     ? await loadAttributesForProducts(db, productIds)
@@ -250,12 +250,12 @@ export async function listProductsForCarouselSelection(
       id: products.id,
       name: products.name,
       productHandle: products.productHandle,
-      primaryImagePath: products.primaryImagePath,
-      categoryName: categories.name,
+      imagePath: products.imagePath,
+      categoryName: taxonomyCategories.name,
       seasonName: brandSeasons.name,
     })
     .from(products)
-    .leftJoin(categories, eq(products.categoryId, categories.id))
+    .leftJoin(taxonomyCategories, eq(products.categoryId, taxonomyCategories.id))
     .leftJoin(brandSeasons, eq(products.seasonId, brandSeasons.id))
     .where(and(...whereClauses))
     .orderBy(...(Array.isArray(orderBy) ? orderBy : [orderBy]))
@@ -276,7 +276,7 @@ export async function listProductsForCarouselSelection(
       id: row.id,
       name: row.name,
       productHandle: row.productHandle,
-      primaryImagePath: row.primaryImagePath,
+      imagePath: row.imagePath,
       categoryName: row.categoryName,
       seasonName: row.seasonName,
     })),

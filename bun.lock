@@ -349,6 +349,19 @@
         "next": ">=16.0.0",
       },
     },
+    "packages/taxonomy": {
+      "name": "@v1/taxonomy",
+      "version": "0.0.0",
+      "dependencies": {
+        "@v1/db": "workspace:*",
+        "yaml": "^2.7.0",
+      },
+      "devDependencies": {
+        "@types/node": "^24.0.1",
+        "@v1/tsconfig": "workspace:*",
+        "typescript": "^5.9.2",
+      },
+    },
     "packages/tsconfig": {
       "name": "@v1/tsconfig",
       "version": "1.0.0",
@@ -1254,6 +1267,8 @@
     "@v1/selections": ["@v1/selections@workspace:packages/selections"],
 
     "@v1/supabase": ["@v1/supabase@workspace:packages/supabase"],
+
+    "@v1/taxonomy": ["@v1/taxonomy@workspace:packages/taxonomy"],
 
     "@v1/tsconfig": ["@v1/tsconfig@workspace:packages/tsconfig"],
 

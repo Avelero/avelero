@@ -35,7 +35,7 @@ export interface ProductRecord {
   category_id?: string | null;
   season_id?: string | null;
   manufacturer_id?: string | null;
-  primary_image_path?: string | null;
+  image_path?: string | null;
   product_handle?: string | null;
   upid?: string | null;
   status?: string | null;
@@ -53,13 +53,30 @@ export interface ProductRecord {
 export interface ProductVariantSummary {
   id: string;
   product_id: string;
-  color_id: string | null;
-  size_id: string | null;
   sku: string | null;
   barcode: string | null;
   upid: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Attribute summary for variant read operations.
+ * Simpler version of VariantAttributeAssignment for API responses.
+ */
+export interface VariantAttributeSummary {
+  attribute_id: string;
+  attribute_name: string;
+  value_id: string;
+  value_name: string;
+}
+
+/**
+ * Variant with attributes for read operations.
+ * Extends ProductVariantSummary with attribute data.
+ */
+export interface ProductVariantWithAttributes extends ProductVariantSummary {
+  attributes: VariantAttributeSummary[];
 }
 
 /**
@@ -121,7 +138,7 @@ export interface ProductAttributesBundle {
  * Product payload enriched with optional relations requested by callers.
  */
 export interface ProductWithRelations extends ProductRecord {
-  variants?: ProductVariantSummary[];
+  variants?: ProductVariantWithAttributes[];
   attributes?: ProductAttributesBundle;
 }
 
@@ -139,7 +156,7 @@ export interface CarouselProductRow {
   id: string;
   name: string;
   productHandle: string;
-  primaryImagePath: string | null;
+  imagePath: string | null;
   categoryName: string | null;
   seasonName: string | null;
 }
@@ -171,5 +188,76 @@ export interface BulkUpdateFields {
   status?: string | null;
   categoryId?: string | null;
   seasonId?: string | null;
+}
+
+// =============================================================================
+// VARIANT ATTRIBUTE TYPES
+// =============================================================================
+
+/**
+ * Attribute assignment for a variant.
+ * Represents a single attribute-value pair assigned to a variant.
+ */
+export interface VariantAttributeAssignment {
+  attributeValueId: string;
+  attributeId: string;
+  attributeName: string;
+  valueName: string;
+  sortOrder: number;
+}
+
+/**
+ * Variant with its attribute assignments.
+ */
+export interface VariantWithAttributeAssignments {
+  id: string;
+  productId: string;
+  sku: string | null;
+  barcode: string | null;
+  upid: string | null;
+  createdAt: string;
+  updatedAt: string;
+  attributes: VariantAttributeAssignment[];
+}
+
+/**
+ * Input for creating a variant with explicit attribute assignments.
+ */
+export interface ExplicitVariantInput {
+  /** Optional SKU for the variant */
+  sku?: string;
+  /** Optional barcode for the variant */
+  barcode?: string;
+  /** Optional UPID - will be auto-generated if not provided */
+  upid?: string;
+  /** Ordered list of attribute value IDs to assign to this variant */
+  attributeValueIds?: string[];
+}
+
+/**
+ * A dimension in a variant matrix.
+ * Represents one axis of the cartesian product (e.g., Color with values Red, Blue).
+ */
+export interface MatrixDimension {
+  /** The brand attribute ID for this dimension */
+  attributeId: string;
+  /** The brand attribute value IDs for this dimension */
+  valueIds: string[];
+}
+
+/**
+ * Result of a replace variants operation.
+ */
+export interface ReplaceVariantsResult {
+  /** Number of variants created */
+  created: number;
+  /** The created variants with their assignments */
+  variants: Array<{
+    id: string;
+    sku: string | null;
+    barcode: string | null;
+    upid: string | null;
+    attributeValueIds: string[];
+  }>;
 }
 

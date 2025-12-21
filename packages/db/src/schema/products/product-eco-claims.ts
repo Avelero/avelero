@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, pgPolicy, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
-import { brandEcoClaims } from "../brands/brand-eco-claims";
+import { brandEcoClaims } from "../catalog/brand-eco-claims";
 import { products } from "./products";
 
 export const productEcoClaims = pgTable(

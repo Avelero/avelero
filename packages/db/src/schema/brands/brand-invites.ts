@@ -9,7 +9,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brands } from "./brands";
+import { brands } from "../core/brands";
 
 export const brandInvites = pgTable(
   "brand_invites",

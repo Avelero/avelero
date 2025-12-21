@@ -5,10 +5,8 @@ import * as schema from "@v1/db/schema";
 
 const {
   valueMappings,
-  brandColors,
-  brandSizes,
   brandMaterials,
-  categories,
+  taxonomyCategories,
   brandEcoClaims,
 } = schema;
 
@@ -16,8 +14,6 @@ const {
  * Entity type enumeration for value mapping
  */
 export enum EntityType {
-  COLOR = "COLOR",
-  SIZE = "SIZE",
   MATERIAL = "MATERIAL",
   CATEGORY = "CATEGORY",
   ECO_CLAIM = "ECO_CLAIM",
@@ -314,204 +310,6 @@ export class ValueMapper {
   }
 
   /**
-   * Map color name to color ID
-   *
-   * @param brandId - Brand ID to scope the lookup
-   * @param colorName - Color name from CSV
-   * @param sourceColumn - Source column name (e.g., "color_name")
-   * @param enableFuzzyMatch - Enable fuzzy matching if exact match fails
-   * @returns Mapping result with target ID if found
-   */
-  public async mapColorName(
-    brandId: string,
-    colorName: string,
-    sourceColumn = "color_name",
-    enableFuzzyMatch = true,
-  ): Promise<MappingResult> {
-    if (!colorName || colorName.trim() === "") {
-      return { targetId: null, found: false, confidence: 0, matchType: "none" };
-    }
-
-    const normalizedName = colorName.trim();
-
-    // Check cache first
-    const cached = this.getFromCache(brandId, sourceColumn, normalizedName);
-    if (cached) {
-      return {
-        targetId: cached,
-        found: true,
-        confidence: 100,
-        matchType: "exact",
-      };
-    }
-
-    // Check for synonym match
-    const synonym = this.findSynonymMatch(normalizedName);
-    const searchValue = synonym || normalizedName;
-
-    // Check value_mappings table for existing mapping (use original normalizedName, not synonym)
-    const existingMapping = await this.database.query.valueMappings.findFirst({
-      where: and(
-        eq(valueMappings.brandId, brandId),
-        eq(valueMappings.sourceColumn, sourceColumn),
-        sql`LOWER(TRIM(${valueMappings.rawValue})) = LOWER(TRIM(${normalizedName}))`,
-      ),
-    });
-
-    if (existingMapping) {
-      this.addToCache(
-        brandId,
-        sourceColumn,
-        normalizedName,
-        existingMapping.targetId,
-      );
-      return {
-        targetId: existingMapping.targetId,
-        found: true,
-        confidence: 100,
-        matchType: "exact",
-      };
-    }
-
-    // Query brand_colors directly for exact match (use synonym for canonical lookup)
-    const color = await this.database.query.brandColors.findFirst({
-      where: and(
-        eq(brandColors.brandId, brandId),
-        sql`LOWER(TRIM(${brandColors.name})) = LOWER(TRIM(${searchValue}))`,
-      ),
-    });
-
-    if (color) {
-      // Create value mapping for future lookups
-      await this.createValueMapping(
-        brandId,
-        sourceColumn,
-        normalizedName,
-        EntityType.COLOR,
-        color.id,
-      );
-      this.addToCache(brandId, sourceColumn, normalizedName, color.id);
-      return {
-        targetId: color.id,
-        found: true,
-        confidence: 100,
-        matchType: synonym ? "fuzzy" : "exact",
-      };
-    }
-
-    // Try fuzzy matching if enabled and no exact match found
-    if (enableFuzzyMatch) {
-      const allColors = await this.database.query.brandColors.findMany({
-        where: eq(brandColors.brandId, brandId),
-      });
-
-      const candidates = allColors.map((c): { id: string; name: string } => ({
-        id: c.id,
-        name: c.name,
-      }));
-      const fuzzyMatches = this.fuzzyMatch(normalizedName, candidates);
-
-      if (fuzzyMatches.length > 0) {
-        const bestMatch = fuzzyMatches[0];
-        if (bestMatch) {
-          // Don't auto-create mapping for fuzzy matches - let user confirm
-          return {
-            targetId: bestMatch.targetId,
-            found: true,
-            confidence: bestMatch.similarity,
-            matchType: "fuzzy",
-          };
-        }
-      }
-    }
-
-    // No match found
-    return { targetId: null, found: false, confidence: 0, matchType: "none" };
-  }
-
-  /**
-   * Map size name to size ID
-   *
-   * @param brandId - Brand ID to scope the lookup
-   * @param sizeName - Size name from CSV
-   * @param sourceColumn - Source column name (e.g., "size_name")
-   * @returns Mapping result with target ID if found
-   */
-  public async mapSizeName(
-    brandId: string,
-    sizeName: string,
-    sourceColumn = "size_name",
-  ): Promise<MappingResult> {
-    if (!sizeName || sizeName.trim() === "") {
-      return { targetId: null, found: false, confidence: 0, matchType: "none" };
-    }
-
-    const normalizedName = sizeName.trim();
-
-    // Check cache first
-    const cached = this.getFromCache(brandId, sourceColumn, normalizedName);
-    if (cached) {
-      return {
-        targetId: cached,
-        found: true,
-        confidence: 100,
-        matchType: "exact",
-      };
-    }
-
-    // Check value_mappings table
-    const existingMapping = await this.database.query.valueMappings.findFirst({
-      where: and(
-        eq(valueMappings.brandId, brandId),
-        eq(valueMappings.sourceColumn, sourceColumn),
-        sql`LOWER(TRIM(${valueMappings.rawValue})) = LOWER(TRIM(${normalizedName}))`,
-      ),
-    });
-
-    if (existingMapping) {
-      this.addToCache(
-        brandId,
-        sourceColumn,
-        normalizedName,
-        existingMapping.targetId,
-      );
-      return {
-        targetId: existingMapping.targetId,
-        found: true,
-        confidence: 100,
-        matchType: "exact",
-      };
-    }
-
-    // Query brand_sizes directly
-    const size = await this.database.query.brandSizes.findFirst({
-      where: and(
-        eq(brandSizes.brandId, brandId),
-        sql`LOWER(TRIM(${brandSizes.name})) = LOWER(TRIM(${normalizedName}))`,
-      ),
-    });
-
-    if (size) {
-      await this.createValueMapping(
-        brandId,
-        sourceColumn,
-        normalizedName,
-        EntityType.SIZE,
-        size.id,
-      );
-      this.addToCache(brandId, sourceColumn, normalizedName, size.id);
-      return {
-        targetId: size.id,
-        found: true,
-        confidence: 100,
-        matchType: "exact",
-      };
-    }
-
-    return { targetId: null, found: false, confidence: 0, matchType: "none" };
-  }
-
-  /**
    * Map material name to material ID
    *
    * @param brandId - Brand ID to scope the lookup
@@ -612,8 +410,8 @@ export class ValueMapper {
     const normalizedName = categoryName.trim();
 
     // Query categories directly (categories are global, no brand scoping)
-    const category = await this.database.query.categories.findFirst({
-      where: sql`LOWER(TRIM(${categories.name})) = LOWER(TRIM(${normalizedName}))`,
+    const category = await this.database.query.taxonomyCategories.findFirst({
+      where: sql`LOWER(TRIM(${taxonomyCategories.name})) = LOWER(TRIM(${normalizedName}))`,
     });
 
     if (category) {
@@ -744,58 +542,6 @@ export class ValueMapper {
   }
 
   /**
-   * Auto-create a color entity if it doesn't exist
-   * Colors are simple entities requiring only a name
-   *
-   * @param brandId - Brand ID
-   * @param colorName - Color name to create
-   * @returns Created color ID or null if creation failed
-   */
-  public async autoCreateColor(
-    brandId: string,
-    colorName: string,
-  ): Promise<string | null> {
-    if (!colorName || colorName.trim() === "") {
-      return null;
-    }
-
-    const normalizedName = colorName.trim();
-
-    try {
-      // Check if color already exists (case-insensitive)
-      const existing = await this.database.query.brandColors.findFirst({
-        where: and(
-          eq(brandColors.brandId, brandId),
-          sql`LOWER(TRIM(${brandColors.name})) = LOWER(TRIM(${normalizedName}))`,
-        ),
-      });
-
-      if (existing) {
-        return existing.id;
-      }
-
-      // Create new color
-      const [newColor] = await this.database
-        .insert(brandColors)
-        .values({
-          brandId,
-          name: normalizedName,
-        })
-        .returning();
-
-      if (!newColor) {
-        throw new Error("Failed to create color - no rows returned");
-      }
-
-      console.log(`Auto-created color: ${normalizedName} for brand ${brandId}`);
-      return newColor.id;
-    } catch (error) {
-      console.error(`Failed to auto-create color "${colorName}":`, error);
-      return null;
-    }
-  }
-
-  /**
    * Auto-create an eco-claim entity if it doesn't exist
    * Eco-claims are simple entities requiring only claim text
    *
@@ -863,12 +609,10 @@ export class ValueMapper {
     value: string,
   ): Promise<string | null> {
     switch (entityType) {
-      case EntityType.COLOR:
-        return this.autoCreateColor(brandId, value);
       case EntityType.ECO_CLAIM:
         return this.autoCreateEcoClaim(brandId, value);
       default:
-        // Complex entities (materials, sizes, facilities, etc.) require additional fields
+        // Complex entities (materials, categories, facilities, etc.) require additional fields
         // and should be created through the user approval workflow
         console.warn(
           `Entity type ${entityType} cannot be auto-created - requires user input`,
@@ -944,21 +688,6 @@ export class ValueMapper {
         let mappingResult: MappingResult;
 
         switch (entityType) {
-          case EntityType.COLOR:
-            mappingResult = await this.mapColorName(
-              brandId,
-              normalizedValue,
-              column,
-              false,
-            );
-            break;
-          case EntityType.SIZE:
-            mappingResult = await this.mapSizeName(
-              brandId,
-              normalizedValue,
-              column,
-            );
-            break;
           case EntityType.MATERIAL:
             mappingResult = await this.mapMaterialName(
               brandId,
@@ -1035,21 +764,6 @@ export class ValueMapper {
       let mappingResult: MappingResult;
 
       switch (entityType) {
-        case EntityType.COLOR:
-          mappingResult = await this.mapColorName(
-            brandId,
-            normalizedValue,
-            sourceColumn,
-            false,
-          );
-          break;
-        case EntityType.SIZE:
-          mappingResult = await this.mapSizeName(
-            brandId,
-            normalizedValue,
-            sourceColumn,
-          );
-          break;
         case EntityType.MATERIAL:
           mappingResult = await this.mapMaterialName(
             brandId,
@@ -1108,26 +822,6 @@ export class ValueMapper {
 
     // Fetch all entities of the specified type
     switch (entityType) {
-      case EntityType.COLOR: {
-        const colors = await this.database.query.brandColors.findMany({
-          where: eq(brandColors.brandId, brandId),
-        });
-        candidates = colors.map((c): { id: string; name: string } => ({
-          id: c.id,
-          name: c.name,
-        }));
-        break;
-      }
-      case EntityType.SIZE: {
-        const sizes = await this.database.query.brandSizes.findMany({
-          where: eq(brandSizes.brandId, brandId),
-        });
-        candidates = sizes.map((s): { id: string; name: string } => ({
-          id: s.id,
-          name: s.name,
-        }));
-        break;
-      }
       case EntityType.MATERIAL: {
         const materials = await this.database.query.brandMaterials.findMany({
           where: eq(brandMaterials.brandId, brandId),
@@ -1139,7 +833,7 @@ export class ValueMapper {
         break;
       }
       case EntityType.CATEGORY: {
-        const cats = await this.database.query.categories.findMany({});
+        const cats = await this.database.query.taxonomyCategories.findMany({});
         candidates = cats.map((c): { id: string; name: string } => ({
           id: c.id,
           name: c.name,

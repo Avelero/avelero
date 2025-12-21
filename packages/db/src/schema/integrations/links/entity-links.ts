@@ -8,14 +8,12 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brandCertifications } from "../../brands/brand-certifications";
-import { brandColors } from "../../brands/brand-colors";
-import { brandEcoClaims } from "../../brands/brand-eco-claims";
-import { brandFacilities } from "../../brands/brand-facilities";
-import { brandManufacturers } from "../../brands/brand-manufacturers";
-import { brandMaterials } from "../../brands/brand-materials";
-import { brandSeasons } from "../../brands/brand-seasons";
-import { brandSizes } from "../../brands/brand-sizes";
+import { brandCertifications } from "../../catalog/brand-certifications";
+import { brandEcoClaims } from "../../catalog/brand-eco-claims";
+import { brandFacilities } from "../../catalog/brand-facilities";
+import { brandManufacturers } from "../../catalog/brand-manufacturers";
+import { brandMaterials } from "../../catalog/brand-materials";
+import { brandSeasons } from "../../catalog/brand-seasons";
 import { brandTags } from "../../brands/brand-tags";
 import { brandIntegrations } from "../brand-integrations";
 
@@ -265,100 +263,6 @@ export const integrationSeasonLinks = pgTable(
     ),
     index("idx_integration_season_links_season").on(table.seasonId),
     ...createEntityLinkPolicies("integration_season_links"),
-  ],
-);
-
-// =============================================================================
-// COLOR LINKS
-// =============================================================================
-
-export const integrationColorLinks = pgTable(
-  "integration_color_links",
-  {
-    id: uuid("id").defaultRandom().primaryKey().notNull(),
-    brandIntegrationId: uuid("brand_integration_id")
-      .references(() => brandIntegrations.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      })
-      .notNull(),
-    colorId: uuid("color_id")
-      .references(() => brandColors.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      })
-      .notNull(),
-    externalId: text("external_id").notNull(),
-    externalName: text("external_name"),
-    lastSyncedAt: timestamp("last_synced_at", {
-      withTimezone: true,
-      mode: "string",
-    }),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("integration_color_links_integration_external_unq").on(
-      table.brandIntegrationId,
-      table.externalId,
-    ),
-    uniqueIndex("integration_color_links_integration_color_unq").on(
-      table.brandIntegrationId,
-      table.colorId,
-    ),
-    index("idx_integration_color_links_color").on(table.colorId),
-    ...createEntityLinkPolicies("integration_color_links"),
-  ],
-);
-
-// =============================================================================
-// SIZE LINKS
-// =============================================================================
-
-export const integrationSizeLinks = pgTable(
-  "integration_size_links",
-  {
-    id: uuid("id").defaultRandom().primaryKey().notNull(),
-    brandIntegrationId: uuid("brand_integration_id")
-      .references(() => brandIntegrations.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      })
-      .notNull(),
-    sizeId: uuid("size_id")
-      .references(() => brandSizes.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      })
-      .notNull(),
-    externalId: text("external_id").notNull(),
-    externalName: text("external_name"),
-    lastSyncedAt: timestamp("last_synced_at", {
-      withTimezone: true,
-      mode: "string",
-    }),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("integration_size_links_integration_external_unq").on(
-      table.brandIntegrationId,
-      table.externalId,
-    ),
-    uniqueIndex("integration_size_links_integration_size_unq").on(
-      table.brandIntegrationId,
-      table.sizeId,
-    ),
-    index("idx_integration_size_links_size").on(table.sizeId),
-    ...createEntityLinkPolicies("integration_size_links"),
   ],
 );
 

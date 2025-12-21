@@ -12,8 +12,6 @@ import {
   integrationFacilityLinks,
   integrationManufacturerLinks,
   integrationSeasonLinks,
-  integrationColorLinks,
-  integrationSizeLinks,
   integrationTagLinks,
   integrationEcoClaimLinks,
   integrationCertificationLinks,
@@ -21,8 +19,6 @@ import {
   brandFacilities,
   brandManufacturers,
   brandSeasons,
-  brandColors,
-  brandSizes,
   brandTags,
   brandEcoClaims,
   brandCertifications,
@@ -232,110 +228,6 @@ export async function createSeasonLink(
       id: integrationSeasonLinks.id,
       seasonId: integrationSeasonLinks.seasonId,
       externalId: integrationSeasonLinks.externalId,
-    });
-  return row;
-}
-
-// Color Links
-export async function findColorLink(
-  db: Database,
-  brandIntegrationId: string,
-  externalId: string,
-) {
-  const [row] = await db
-    .select({
-      id: integrationColorLinks.id,
-      brandIntegrationId: integrationColorLinks.brandIntegrationId,
-      colorId: integrationColorLinks.colorId,
-      externalId: integrationColorLinks.externalId,
-      externalName: integrationColorLinks.externalName,
-      lastSyncedAt: integrationColorLinks.lastSyncedAt,
-    })
-    .from(integrationColorLinks)
-    .where(
-      and(
-        eq(integrationColorLinks.brandIntegrationId, brandIntegrationId),
-        eq(integrationColorLinks.externalId, externalId),
-      ),
-    )
-    .limit(1);
-  return row;
-}
-
-export async function createColorLink(
-  db: Database,
-  input: {
-    brandIntegrationId: string;
-    colorId: string;
-    externalId: string;
-    externalName?: string | null;
-  },
-) {
-  const [row] = await db
-    .insert(integrationColorLinks)
-    .values({
-      brandIntegrationId: input.brandIntegrationId,
-      colorId: input.colorId,
-      externalId: input.externalId,
-      externalName: input.externalName ?? null,
-      lastSyncedAt: new Date().toISOString(),
-    })
-    .returning({
-      id: integrationColorLinks.id,
-      colorId: integrationColorLinks.colorId,
-      externalId: integrationColorLinks.externalId,
-    });
-  return row;
-}
-
-// Size Links
-export async function findSizeLink(
-  db: Database,
-  brandIntegrationId: string,
-  externalId: string,
-) {
-  const [row] = await db
-    .select({
-      id: integrationSizeLinks.id,
-      brandIntegrationId: integrationSizeLinks.brandIntegrationId,
-      sizeId: integrationSizeLinks.sizeId,
-      externalId: integrationSizeLinks.externalId,
-      externalName: integrationSizeLinks.externalName,
-      lastSyncedAt: integrationSizeLinks.lastSyncedAt,
-    })
-    .from(integrationSizeLinks)
-    .where(
-      and(
-        eq(integrationSizeLinks.brandIntegrationId, brandIntegrationId),
-        eq(integrationSizeLinks.externalId, externalId),
-      ),
-    )
-    .limit(1);
-  return row;
-}
-
-export async function createSizeLink(
-  db: Database,
-  input: {
-    brandIntegrationId: string;
-    sizeId: string;
-    externalId: string;
-    externalName?: string | null;
-  },
-) {
-  const [row] = await db
-    .insert(integrationSizeLinks)
-    .values({
-      brandIntegrationId: input.brandIntegrationId,
-      sizeId: input.sizeId,
-      externalId: input.externalId,
-      externalName: input.externalName ?? null,
-      lastSyncedAt: new Date().toISOString(),
-    })
-    .returning({
-      id: integrationSizeLinks.id,
-      sizeId: integrationSizeLinks.sizeId,
-      externalId: integrationSizeLinks.externalId,
     });
   return row;
 }
@@ -597,54 +489,6 @@ export async function findSeasonByName(
 }
 
 /**
- * Find a color by name (case-insensitive).
- */
-export async function findColorByName(
-  db: Database,
-  brandId: string,
-  name: string,
-) {
-  const [row] = await db
-    .select({
-      id: brandColors.id,
-      name: brandColors.name,
-    })
-    .from(brandColors)
-    .where(
-      and(
-        eq(brandColors.brandId, brandId),
-        sql`LOWER(${brandColors.name}) = LOWER(${name})`,
-      ),
-    )
-    .limit(1);
-  return row;
-}
-
-/**
- * Find a size by name (case-insensitive).
- */
-export async function findSizeByName(
-  db: Database,
-  brandId: string,
-  name: string,
-) {
-  const [row] = await db
-    .select({
-      id: brandSizes.id,
-      name: brandSizes.name,
-    })
-    .from(brandSizes)
-    .where(
-      and(
-        eq(brandSizes.brandId, brandId),
-        sql`LOWER(${brandSizes.name}) = LOWER(${name})`,
-      ),
-    )
-    .limit(1);
-  return row;
-}
-
-/**
  * Find a tag by name (case-insensitive).
  */
 export async function findTagByName(
@@ -715,6 +559,9 @@ export async function findCertificationByName(
     .limit(1);
   return row;
 }
+
+
+
 
 
 

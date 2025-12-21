@@ -293,8 +293,6 @@ const defineTagDataSchema = z.object({
  */
 export const entityTypeSchema = z.enum([
   "MATERIAL",
-  "COLOR",
-  "SIZE",
   "ECO_CLAIM",
   "FACILITY",
   "MANUFACTURER",

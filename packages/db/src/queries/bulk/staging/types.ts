@@ -19,7 +19,7 @@ export interface InsertStagingProductParams {
   name: string;
   description?: string | null;
   manufacturerId?: string | null;
-  primaryImagePath?: string | null;
+  imagePath?: string | null;
   categoryId?: string | null;
   seasonId?: string | null; // FK to brand_seasons.id
   status?: string | null; // Product publication status
@@ -27,6 +27,10 @@ export interface InsertStagingProductParams {
 
 /**
  * Staging product variant insertion parameters
+ * 
+ * Note: colorId and sizeId removed in Phase 5 of variant attribute migration.
+ * Variants no longer have these fields - colors and sizes are now managed
+ * via generic brand attributes.
  */
 export interface InsertStagingVariantParams {
   stagingProductId: string;
@@ -36,8 +40,6 @@ export interface InsertStagingVariantParams {
   existingVariantId?: string | null;
   id: string;
   productId: string;
-  colorId?: string | null;
-  sizeId?: string | null;
   upid: string;
 }
 
@@ -99,7 +101,7 @@ export interface StagingProductPreview {
   name: string;
   description: string | null;
   manufacturerId: string | null;
-  primaryImagePath: string | null;
+  imagePath: string | null;
   categoryId: string | null;
   seasonId: string | null; // FK to brand_seasons.id
   status: string | null; // Product publication status
@@ -113,6 +115,8 @@ export interface StagingProductPreview {
 
 /**
  * Staging variant preview data
+ * 
+ * Note: colorId and sizeId removed in Phase 5 of variant attribute migration.
  */
 export interface StagingVariantPreview {
   stagingId: string;
@@ -123,8 +127,6 @@ export interface StagingVariantPreview {
   existingVariantId: string | null;
   id: string;
   productId: string;
-  colorId: string | null;
-  sizeId: string | null;
   upid: string;
   createdAt: string;
 }
@@ -173,6 +175,8 @@ export interface ActionCounts {
   update: number;
   total: number;
 }
+
+
 
 
 

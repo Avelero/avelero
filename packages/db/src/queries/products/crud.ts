@@ -22,10 +22,8 @@ export async function createProduct(
     categoryId?: string;
     seasonId?: string;
     manufacturerId?: string;
-    primaryImagePath?: string;
+    imagePath?: string;
     status?: string;
-    sizeOrder?: string[];
-    colorOrder?: string[];
   },
 ) {
   let created:
@@ -46,10 +44,8 @@ export async function createProduct(
         categoryId: input.categoryId ?? null,
         seasonId: input.seasonId ?? null,
         manufacturerId: input.manufacturerId ?? null,
-        primaryImagePath: input.primaryImagePath ?? null,
+        imagePath: input.imagePath ?? null,
         status: input.status ?? "unpublished",
-        sizeOrder: input.sizeOrder ?? [],
-        colorOrder: input.colorOrder ?? [],
       })
       .returning({ id: products.id, productHandle: products.productHandle });
 
@@ -79,10 +75,8 @@ export async function updateProduct(
     categoryId?: string | null;
     seasonId?: string | null;
     manufacturerId?: string | null;
-    primaryImagePath?: string | null;
+    imagePath?: string | null;
     status?: string | null;
-    sizeOrder?: string[] | null;
-    colorOrder?: string[] | null;
   },
 ) {
   let updated: { id: string; variantIds?: readonly string[] } | undefined;
@@ -97,10 +91,8 @@ export async function updateProduct(
     if (input.seasonId !== undefined) updateData.seasonId = input.seasonId;
     if (input.productHandle !== undefined) updateData.productHandle = input.productHandle;
     if (input.manufacturerId !== undefined) updateData.manufacturerId = input.manufacturerId;
-    if (input.primaryImagePath !== undefined) updateData.primaryImagePath = input.primaryImagePath;
+    if (input.imagePath !== undefined) updateData.imagePath = input.imagePath;
     if (input.status !== undefined) updateData.status = input.status;
-    if (input.sizeOrder !== undefined) updateData.sizeOrder = input.sizeOrder ?? [];
-    if (input.colorOrder !== undefined) updateData.colorOrder = input.colorOrder ?? [];
 
     // If no fields to update, return early
     if (Object.keys(updateData).length === 0) {

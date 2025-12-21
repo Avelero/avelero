@@ -2,7 +2,7 @@
  * Product field maps and constants.
  */
 
-import { products, categories } from "../../../schema";
+import { products, taxonomyCategories } from "../../../schema";
 
 /**
  * Maps API field names to database column references.
@@ -14,7 +14,7 @@ export const PRODUCT_FIELD_MAP = {
   category_id: products.categoryId,
   season_id: products.seasonId,
   manufacturer_id: products.manufacturerId,
-  primary_image_path: products.primaryImagePath,
+  image_path: products.imagePath,
   product_handle: products.productHandle,
   status: products.status,
   created_at: products.createdAt,
@@ -29,6 +29,8 @@ export type ProductField = keyof typeof PRODUCT_FIELD_MAP;
 export const PRODUCT_FIELDS = Object.keys(
   PRODUCT_FIELD_MAP,
 ) as readonly ProductField[];
+
+
 
 
 

@@ -8,7 +8,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
-import { brandCertifications } from "./brand-certifications";
+import { brandCertifications } from "../catalog/brand-certifications";
 
 export const brandMaterials = pgTable(
   "brand_materials",

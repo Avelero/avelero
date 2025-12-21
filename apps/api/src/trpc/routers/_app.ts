@@ -20,6 +20,7 @@ import { integrationsRouter } from "./integrations/index.js";
 import { internalRouter } from "./internal/index.js";
 import { productsRouter } from "./products/index.js";
 import { summaryRouter } from "./summary/index.js";
+import { taxonomyRouter } from "./taxonomy/index.js";
 import { userRouter } from "./user/index.js";
 
 /**
@@ -28,7 +29,8 @@ import { userRouter } from "./user/index.js";
  * Structure (reorganized API - Phase 4):
  * - user: User profile, invites (accept/reject), and brand management (list/create/leave)
  * - brand: Brand lifecycle (update/delete), members, invites (send/revoke), theme, collections
- * - catalog: Brand catalog entities (colors, sizes, materials, etc.)
+ * - catalog: Brand catalog entities (attributes, colors, sizes, materials, etc.)
+ * - taxonomy: Global read-only taxonomy data (attributes, values)
  * - products: Products, variants, and attributes
  * - bulk: Centralized bulk operations
  * - composite: Performance-optimized composite endpoints
@@ -41,6 +43,7 @@ export const appRouter = createTRPCRouter({
   user: userRouter,
   brand: brandRouter,
   catalog: catalogRouter,
+  taxonomy: taxonomyRouter,
   products: productsRouter,
   bulk: bulkRouter,
   composite: compositeRouter,

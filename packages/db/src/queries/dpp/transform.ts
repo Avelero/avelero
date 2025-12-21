@@ -62,8 +62,13 @@ export function transformToDppData(data: DppPublicData): DppData {
       category: data.categoryId
         ? { categoryId: Number(data.categoryId) || 0, category: data.categoryName ?? "" }
         : undefined,
-      size: data.sizeName ? { sizeId: 0, size: data.sizeName } : undefined,
-      color: data.colorName ? { colorId: 0, color: data.colorName } : undefined,
+      // Map variant attributes (max 3)
+      attributes: data.variantAttributes.length > 0
+        ? data.variantAttributes.slice(0, 3).map((attr) => ({
+            name: attr.name,
+            value: attr.value,
+          }))
+        : undefined,
     },
     environmental: {
       carbonEmissions: data.environment?.carbonKgCo2e

@@ -8,6 +8,7 @@ export * from "./list.js";
 export * from "./get.js";
 export * from "./crud.js";
 export * from "./variants.js";
+export * from "./variant-attributes.js";
 export * from "./attributes.js";
 export * from "./bulk.js";
 export * from "./types.js";

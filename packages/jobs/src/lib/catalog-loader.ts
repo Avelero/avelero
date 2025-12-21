@@ -3,8 +3,6 @@ import { eq } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 
 const {
-  brandColors,
-  brandSizes,
   brandMaterials,
   brandSeasons,
   categories,
@@ -15,12 +13,11 @@ const {
 /**
  * Brand catalog data structure for in-memory lookups
  * All lookups are case-insensitive and trimmed
+ * 
+ * Note: colors and sizes maps removed in Phase 5 of variant attribute migration.
+ * Colors and sizes are now managed via generic brand attributes.
  */
 export interface BrandCatalog {
-  /** Map of normalized color name -> color ID */
-  colors: Map<string, string>;
-  /** Map of normalized size name -> size ID */
-  sizes: Map<string, string>;
   /** Map of normalized material name -> material ID */
   materials: Map<string, string>;
   /** Map of normalized season name -> season ID */
@@ -63,6 +60,8 @@ function createMappingKey(
 /**
  * Load all brand catalog data into memory for fast lookups
  * This eliminates the N+1 query problem by loading all catalog data once
+ * 
+ * Note: colors and sizes no longer loaded - managed via generic brand attributes.
  *
  * @param db - Database instance
  * @param brandId - Brand ID to load catalog for
@@ -76,22 +75,12 @@ export async function loadBrandCatalog(
 
   // Load all catalog tables in parallel for maximum performance
   const [
-    colors,
-    sizes,
     materials,
     seasons,
     allCategories,
     facilities,
     mappings,
   ] = await Promise.all([
-    db.query.brandColors.findMany({
-      where: eq(brandColors.brandId, brandId),
-      columns: { id: true, name: true },
-    }),
-    db.query.brandSizes.findMany({
-      where: eq(brandSizes.brandId, brandId),
-      columns: { id: true, name: true },
-    }),
     db.query.brandMaterials.findMany({
       where: eq(brandMaterials.brandId, brandId),
       columns: { id: true, name: true },
@@ -120,8 +109,6 @@ export async function loadBrandCatalog(
 
   // Build case-insensitive lookup maps
   const catalog: BrandCatalog = {
-    colors: new Map(colors.map((c) => [normalizeValue(c.name), c.id] as const)),
-    sizes: new Map(sizes.map((s) => [normalizeValue(s.name), s.id] as const)),
     materials: new Map(
       materials.map((m) => [normalizeValue(m.name), m.id] as const),
     ),
@@ -153,8 +140,6 @@ export async function loadBrandCatalog(
     brandId,
     duration: `${loadDuration}ms`,
     stats: {
-      colors: catalog.colors.size,
-      sizes: catalog.sizes.size,
       materials: catalog.materials.size,
       seasons: catalog.seasons.size,
       categories: catalog.categories.size,
@@ -164,66 +149,6 @@ export async function loadBrandCatalog(
   });
 
   return catalog;
-}
-
-/**
- * Lookup color ID from catalog
- *
- * @param catalog - Brand catalog
- * @param colorName - Color name to lookup
- * @param sourceColumn - Source column name for value mappings
- * @returns Color ID or null if not found
- */
-export function lookupColorId(
-  catalog: BrandCatalog,
-  colorName: string,
-  sourceColumn = "color_name",
-): string | null {
-  if (!colorName || colorName.trim() === "") {
-    return null;
-  }
-
-  const normalized = normalizeValue(colorName);
-
-  // Check value mappings first
-  const mappingKey = createMappingKey("COLOR", sourceColumn, colorName);
-  const mappedId = catalog.valueMappings.get(mappingKey);
-  if (mappedId) {
-    return mappedId;
-  }
-
-  // Check direct color catalog
-  return catalog.colors.get(normalized) || null;
-}
-
-/**
- * Lookup size ID from catalog
- *
- * @param catalog - Brand catalog
- * @param sizeName - Size name to lookup
- * @param sourceColumn - Source column name for value mappings
- * @returns Size ID or null if not found
- */
-export function lookupSizeId(
-  catalog: BrandCatalog,
-  sizeName: string,
-  sourceColumn = "size_name",
-): string | null {
-  if (!sizeName || sizeName.trim() === "") {
-    return null;
-  }
-
-  const normalized = normalizeValue(sizeName);
-
-  // Check value mappings first
-  const mappingKey = createMappingKey("SIZE", sourceColumn, sizeName);
-  const mappedId = catalog.valueMappings.get(mappingKey);
-  if (mappedId) {
-    return mappedId;
-  }
-
-  // Check direct size catalog
-  return catalog.sizes.get(normalized) || null;
 }
 
 /**
@@ -340,48 +265,28 @@ export function lookupOperatorId(
 }
 
 /**
- * Add color to in-memory catalog after auto-creation
- * This keeps the catalog synchronized without reloading
- *
- * @param catalog - Brand catalog to update
- * @param colorName - Color name that was created
- * @param colorId - Created color ID
- */
-export function addColorToCatalog(
-  catalog: BrandCatalog,
-  colorName: string,
-  colorId: string,
-): void {
-  const normalized = normalizeValue(colorName);
-  catalog.colors.set(normalized, colorId);
-}
-
-/**
  * Get catalog statistics for logging/debugging
  *
  * @param catalog - Brand catalog
  * @returns Catalog statistics
  */
 export function getCatalogStats(catalog: BrandCatalog): {
-  colors: number;
-  sizes: number;
   materials: number;
+  seasons: number;
   categories: number;
   operators: number;
   valueMappings: number;
   total: number;
 } {
   return {
-    colors: catalog.colors.size,
-    sizes: catalog.sizes.size,
     materials: catalog.materials.size,
+    seasons: catalog.seasons.size,
     categories: catalog.categories.size,
     operators: catalog.operators.size,
     valueMappings: catalog.valueMappings.size,
     total:
-      catalog.colors.size +
-      catalog.sizes.size +
       catalog.materials.size +
+      catalog.seasons.size +
       catalog.categories.size +
       catalog.operators.size +
       catalog.valueMappings.size,

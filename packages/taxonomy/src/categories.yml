@@ -1,0 +1,636 @@
+---
+- id: fw
+  name: Footwear
+  children:
+  - fw-1
+  - fw-2
+  - fw-3
+  - fw-4
+  - fw-5
+  - fw-6
+  - fw-7
+  - fw-8
+  - fw-9
+  - fw-10
+  - fw-11
+  - fw-12
+  - fw-13
+  - fw-14
+  - fw-15
+  - fw-16
+  - fw-17
+  - fw-18
+- id: fw-1
+  name: Sneakers
+  children: []
+- id: fw-2
+  name: Boots
+  children: []
+- id: fw-3
+  name: Lace-up Shoes
+  children: []
+- id: fw-4
+  name: Business Shoes
+  children: []
+- id: fw-5
+  name: Loafers
+  children: []
+- id: fw-6
+  name: Open Shoes
+  children: []
+- id: fw-7
+  name: Slippers
+  children: []
+- id: fw-8
+  name: Sports Shoes
+  children: []
+- id: fw-9
+  name: Outdoor Shoes
+  children: []
+- id: fw-10
+  name: Ankle Boots
+  children: []
+- id: fw-11
+  name: Pumps
+  children: []
+- id: fw-12
+  name: Flat Shoes
+  children: []
+- id: fw-13
+  name: Ballerinas
+  children: []
+- id: fw-14
+  name: High Heels
+  children: []
+- id: fw-15
+  name: Mules
+  children: []
+- id: fw-16
+  name: Sandals
+  children: []
+- id: fw-17
+  name: Bridal Shoes
+  children: []
+- id: fw-18
+  name: Beach Shoes
+  children: []
+- id: cl
+  name: Clothing
+  children:
+  - cl-1
+  - cl-2
+  - cl-3
+  - cl-4
+  - cl-5
+  - cl-6
+  - cl-7
+  - cl-8
+  - cl-9
+  - cl-10
+  - cl-11
+  - cl-12
+  - cl-13
+  - cl-14
+  - cl-15
+  - cl-16
+  - cl-17
+- id: cl-1
+  name: Coats
+  children:
+  - cl-1-1
+  - cl-1-2
+  - cl-1-3
+  - cl-1-4
+  - cl-1-5
+  - cl-1-6
+- id: cl-1-1
+  name: Trench Coats
+  children: []
+- id: cl-1-2
+  name: Parkas
+  children: []
+- id: cl-1-3
+  name: Short Coats
+  children: []
+- id: cl-1-4
+  name: Winter Coats
+  children: []
+- id: cl-1-5
+  name: Wool Coats
+  children: []
+- id: cl-1-6
+  name: Down Coats
+  children: []
+- id: cl-2
+  name: Dresses
+  children:
+  - cl-2-1
+  - cl-2-2
+  - cl-2-3
+  - cl-2-4
+  - cl-2-5
+  - cl-2-6
+  - cl-2-7
+  - cl-2-8
+  - cl-2-9
+- id: cl-2-1
+  name: Casual Dresses
+  children: []
+- id: cl-2-2
+  name: Evening Dresses
+  children: []
+- id: cl-2-3
+  name: Occasion Dresses
+  children: []
+- id: cl-2-4
+  name: Shirt Dresses
+  children: []
+- id: cl-2-5
+  name: Jersey Dresses
+  children: []
+- id: cl-2-6
+  name: Shift Dresses
+  children: []
+- id: cl-2-7
+  name: Maxi Dresses
+  children: []
+- id: cl-2-8
+  name: Denim Dresses
+  children: []
+- id: cl-2-9
+  name: Knitted Dresses
+  children: []
+- id: cl-3
+  name: Sweatshirts & Hoodies
+  children:
+  - cl-3-1
+  - cl-3-2
+  - cl-3-3
+  - cl-3-4
+- id: cl-3-1
+  name: Sweatshirts
+  children: []
+- id: cl-3-2
+  name: Hoodies
+  children: []
+- id: cl-3-3
+  name: Sweat jackets
+  children: []
+- id: cl-3-4
+  name: Pullovers
+  children: []
+- id: cl-4
+  name: T-shirts & Polos
+  children:
+  - cl-4-1
+  - cl-4-2
+  - cl-4-3
+  - cl-4-4
+  - cl-4-5
+  - cl-4-6
+  - cl-4-7
+- id: cl-4-1
+  name: Basic T-shirts
+  children: []
+- id: cl-4-2
+  name: Printed T-shirts
+  children: []
+- id: cl-4-3
+  name: Tops
+  children: []
+- id: cl-4-4
+  name: Tank Tops
+  children: []
+- id: cl-4-5
+  name: Polo Shirts
+  children: []
+- id: cl-4-6
+  name: Long-sleeved Tops
+  children: []
+- id: cl-4-7
+  name: Sports T-shirts
+  children: []
+- id: cl-5
+  name: Shirts & Blouses
+  children:
+  - cl-5-1
+  - cl-5-2
+  - cl-5-3
+  - cl-5-4
+  - cl-5-5
+  - cl-5-6
+- id: cl-5-1
+  name: Casual Shirts
+  children: []
+- id: cl-5-2
+  name: Business Shirts
+  children: []
+- id: cl-5-3
+  name: Shirt blouses
+  children: []
+- id: cl-5-4
+  name: Blouses
+  children: []
+- id: cl-5-5
+  name: Tunics
+  children: []
+- id: cl-6
+  name: Knitwear & Cardigans
+  children:
+  - cl-6-1
+  - cl-6-2
+- id: cl-6-1
+  name: Cardigans
+  children: []
+- id: cl-6-2
+  name: Knitted jumper
+  children: []
+- id: cl-7
+  name: Trousers
+  children:
+  - cl-7-1
+  - cl-7-2
+  - cl-7-3
+  - cl-7-4
+  - cl-7-5
+  - cl-7-6
+  - cl-7-7
+  - cl-7-8
+- id: cl-7-1
+  name: Chinos
+  children: []
+- id: cl-7-2
+  name: Smart Trousers
+  children: []
+- id: cl-7-3
+  name: Cargo Trousers
+  children: []
+- id: cl-7-4
+  name: Joggers
+  children: []
+- id: cl-7-5
+  name: Dungarees
+  children: []
+- id: cl-7-6
+  name: Slacks
+  children: []
+- id: cl-7-7
+  name: Leggings
+  children: []
+- id: cl-7-8
+  name: Leather Trousers
+  children: []
+- id: cl-8
+  name: Jeans
+  children:
+  - cl-8-1
+  - cl-8-2
+  - cl-8-3
+  - cl-8-4
+  - cl-8-5
+  - cl-8-6
+  - cl-8-7
+  - cl-8-8
+  - cl-8-9
+  - cl-8-10
+  - cl-8-11
+- id: cl-8-1
+  name: Baggy & Loose
+  children: []
+- id: cl-8-2
+  name: Wide
+  children: []
+- id: cl-8-3
+  name: Straight
+  children: []
+- id: cl-8-4
+  name: Slim
+  children: []
+- id: cl-8-5
+  name: Tapered
+  children: []
+- id: cl-8-6
+  name: Relaxed
+  children: []
+- id: cl-8-7
+  name: Skinny
+  children: []
+- id: cl-8-8
+  name: Bootcut & Flared
+  children: []
+- id: cl-8-9
+  name: Overalls & Workwear
+  children: []
+- id: cl-8-10
+  name: Denim Shorts
+  children: []
+- id: cl-8-11
+  name: Jumpsuits & Overalls
+  children: []
+- id: cl-9
+  name: Jackets
+  children:
+  - cl-9-1
+  - cl-9-2
+  - cl-9-3
+  - cl-9-4
+  - cl-9-5
+  - cl-9-6
+  - cl-9-7
+  - cl-9-8
+  - cl-9-9
+  - cl-9-10
+  - cl-9-11
+  - cl-9-12
+  - cl-9-13
+  - cl-9-14
+- id: cl-9-1
+  name: Lightweight jackets
+  children: []
+- id: cl-9-2
+  name: Waterproof Jackets
+  children: []
+- id: cl-9-3
+  name: Leather Jackets
+  children: []
+- id: cl-9-4
+  name: Denim Jackets
+  children: []
+- id: cl-9-5
+  name: Winter Jackets
+  children: []
+- id: cl-9-6
+  name: Down Jackets
+  children: []
+- id: cl-9-7
+  name: Outdoor Jackets
+  children: []
+- id: cl-9-8
+  name: Fleece Jackets
+  children: []
+- id: cl-9-9
+  name: Gilet
+  children: []
+- id: cl-9-10
+  name: Blazers
+  children: []
+- id: cl-9-11
+  name: Capes
+  children: []
+- id: cl-9-12
+  name: Waistcoats
+  children: []
+- id: cl-9-13
+  name: Training Jackets
+  children: []
+- id: cl-9-14
+  name: Bomber Jackets
+  children: []
+- id: cl-10
+  name: Tracksuits & Joggers
+  children:
+  - cl-10-1
+  - cl-10-2
+  - cl-10-3
+- id: cl-10-1
+  name: Tracksuits
+  children: []
+- id: cl-10-2
+  name: Joggers
+  children: []
+- id: cl-10-3
+  name: Tracksuit Jackets
+  children: []
+- id: cl-11
+  name: Suits & Tailoring
+  children:
+  - cl-11-1
+  - cl-11-2
+  - cl-11-3
+  - cl-11-4
+  - cl-11-5
+  - cl-11-6
+  - cl-11-7
+- id: cl-11-1
+  name: Suits
+  children: []
+- id: cl-11-2
+  name: Suit jackets
+  children: []
+- id: cl-11-3
+  name: Shirts
+  children: []
+- id: cl-11-4
+  name: Suit trousers
+  children: []
+- id: cl-11-5
+  name: Suit waistcoats
+  children: []
+- id: cl-11-6
+  name: Blazer jackets
+  children: []
+- id: cl-11-7
+  name: Ties & accessories
+  children: []
+- id: cl-12
+  name: Shorts
+  children:
+  - cl-12-1
+  - cl-12-2
+  - cl-12-3
+- id: cl-12-1
+  name: Casual Shorts
+  children: []
+- id: cl-12-2
+  name: Denim shorts
+  children: []
+- id: cl-12-3
+  name: Sport Shorts
+  children: []
+- id: cl-13
+  name: Skirts
+  children:
+  - cl-13-1
+  - cl-13-2
+  - cl-13-3
+  - cl-13-4
+  - cl-13-5
+  - cl-13-6
+  - cl-13-7
+  - cl-13-8
+- id: cl-13-1
+  name: Denim Skirts
+  children: []
+- id: cl-13-2
+  name: Maxi Skirts
+  children: []
+- id: cl-13-3
+  name: Pleated Skirts
+  children: []
+- id: cl-13-4
+  name: A-line Skirts
+  children: []
+- id: cl-13-5
+  name: Mini Skirts
+  children: []
+- id: cl-13-6
+  name: Pencil Skirts
+  children: []
+- id: cl-13-7
+  name: Leather Skirts
+  children: []
+- id: cl-13-8
+  name: Wrap Skirts
+  children: []
+- id: cl-14
+  name: Underwear
+  children:
+  - cl-14-1
+  - cl-14-2
+  - cl-14-3
+  - cl-14-4
+  - cl-14-5
+  - cl-14-6
+  - cl-14-7
+  - cl-14-8
+- id: cl-14-1
+  name: Boxers
+  children: []
+- id: cl-14-2
+  name: Underpants
+  children: []
+- id: cl-14-3
+  name: Undershirts
+  children: []
+- id: cl-14-4
+  name: Bras
+  children: []
+- id: cl-14-5
+  name: Bottoms
+  children: []
+- id: cl-14-6
+  name: Bodysuits & Sets
+  children: []
+- id: cl-14-7
+  name: Shapewear
+  children: []
+- id: cl-15
+  name: Socks & Tights
+  children:
+  - cl-15-1
+  - cl-15-2
+  - cl-15-3
+  - cl-15-4
+  - cl-15-5
+  - cl-15-6
+- id: cl-15-1
+  name: Tights
+  children: []
+- id: cl-15-2
+  name: Leggings
+  children: []
+- id: cl-15-3
+  name: Socks
+  children: []
+- id: cl-15-4
+  name: Sports socks
+  children: []
+- id: cl-15-5
+  name: Knee high socks
+  children: []
+- id: cl-15-6
+  name: Stay-ups
+  children: []
+- id: cl-16
+  name: Swimwear
+  children:
+  - cl-16-1
+  - cl-16-2
+  - cl-16-3
+  - cl-16-4
+- id: cl-16-1
+  name: Swim trunks
+  children: []
+- id: cl-16-2
+  name: Bikinis
+  children: []
+- id: cl-16-3
+  name: Swimsuits
+  children: []
+- id: cl-16-4
+  name: Beach accessories
+  children: []
+- id: cl-17
+  name: Loungewear & Sleepwear
+  children:
+  - cl-17-1
+  - cl-17-2
+  - cl-17-3
+  - cl-17-4
+  - cl-17-5
+- id: cl-17-1
+  name: Pyjamas
+  children: []
+- id: cl-17-2
+  name: Shirts
+  children: []
+- id: cl-17-3
+  name: Trousers
+  children: []
+- id: cl-17-4
+  name: Night shirts
+  children: []
+- id: cl-17-5
+  name: Bathrobes
+  children: []
+- id: ac
+  name: Accessories
+  children:
+  - ac-1
+  - ac-2
+  - ac-3
+  - ac-4
+  - ac-5
+  - ac-6
+  - ac-7
+  - ac-8
+  - ac-9
+  - ac-10
+  - ac-11
+  - ac-12
+- id: ac-1
+  name: Bags & Cases
+  children: []
+- id: ac-2
+  name: Jewellery
+  children: []
+- id: ac-3
+  name: Hats & Caps
+  children: []
+- id: ac-4
+  name: Scarves
+  children: []
+- id: ac-5
+  name: Gloves
+  children: []
+- id: ac-6
+  name: Sunglasses
+  children: []
+- id: ac-7
+  name: Belts
+  children: []
+- id: ac-8
+  name: Watches
+  children: []
+- id: ac-9
+  name: Wallets & Card Holders
+  children: []
+- id: ac-10
+  name: Blue-light Glasses
+  children: []
+- id: ac-11
+  name: Umbrellas
+  children: []
+- id: ac-12
+  name: Miscellaneous
+  children: []

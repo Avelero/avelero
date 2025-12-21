@@ -5,10 +5,7 @@
  */
 
 import type { ConnectorSchema } from "../types.ts";
-import type { ShopifySelectedOption, ShopifyProductOption } from "./types.ts";
 import {
-  extractColorFromOptions,
-  extractSizeFromOptions,
   parseShopifyPrice,
   stripHtmlTags,
   transformSalesStatus,
@@ -16,13 +13,6 @@ import {
   truncateString,
 } from "./mappings";
 import { resolveShopifyCategoryId } from "./category-mappings";
-
-interface ShopifyVariantWithProduct {
-  selectedOptions: ShopifySelectedOption[];
-  product: {
-    options: ShopifyProductOption[] | null;
-  };
-}
 
 interface ShopifyCategory {
   id: string;
@@ -88,44 +78,6 @@ export const shopifySchema: ConnectorSchema = {
       transform: (v) => truncateString(v, 255),
     },
 
-    "variant.colorId": {
-      targetField: "variant.colorId",
-      entity: "variant",
-      description: "Color from variant options",
-      referenceEntity: "color",
-      sourceOptions: [
-        {
-          key: "color_option",
-          label: "Color Option",
-          path: ".",
-          transform: (variant) => {
-            const v = variant as ShopifyVariantWithProduct;
-            return extractColorFromOptions(v.selectedOptions, v.product?.options);
-          },
-        },
-      ],
-      defaultSource: "color_option",
-    },
-
-    "variant.sizeId": {
-      targetField: "variant.sizeId",
-      entity: "variant",
-      description: "Size from variant options",
-      referenceEntity: "size",
-      sourceOptions: [
-        {
-          key: "size_option",
-          label: "Size Option",
-          path: ".",
-          transform: (variant) => {
-            const v = variant as ShopifyVariantWithProduct;
-            return extractSizeFromOptions(v.selectedOptions, v.product?.options);
-          },
-        },
-      ],
-      defaultSource: "size_option",
-    },
-
     // PRODUCT FIELDS - extracted directly from product data (no "product." prefix)
     "product.name": {
       targetField: "product.name",
@@ -148,8 +100,8 @@ export const shopifySchema: ConnectorSchema = {
       transform: (v) => truncateString(v, 5000),
     },
 
-    "product.primaryImagePath": {
-      targetField: "product.primaryImagePath",
+    "product.imagePath": {
+      targetField: "product.imagePath",
       entity: "product",
       description: "Product image URL",
       sourceOptions: [{ key: "featured_image", label: "Featured Image", path: "featuredImage.url" }],

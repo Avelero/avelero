@@ -176,8 +176,6 @@ export async function hydrateStagingProductPreviews(
       existingVariantId: v.existingVariantId,
       id: v.id,
       productId: v.productId,
-      colorId: v.colorId,
-      sizeId: v.sizeId,
       upid: v.upid,
       createdAt: v.createdAt,
     });
@@ -258,7 +256,7 @@ export async function hydrateStagingProductPreviews(
     name: p.name,
     description: p.description,
     manufacturerId: p.manufacturerId,
-    primaryImagePath: p.primaryImagePath,
+    imagePath: p.imagePath,
     categoryId: p.categoryId,
     seasonId: p.seasonId,
     status: p.status,
@@ -326,6 +324,8 @@ export async function getStagingEnvironmentForProduct(
 
   return results[0] || null;
 }
+
+
 
 
 

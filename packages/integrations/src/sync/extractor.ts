@@ -122,26 +122,7 @@ export function extractValues(
 
     // Handle reference entities (can be on product or variant level)
     if (definition.referenceEntity) {
-      if (definition.referenceEntity === "color") {
-        // Handle both string (legacy) and object (new) format
-        if (typeof value === "object" && value !== null && "name" in value) {
-          const colorData = value as { name: string; hex?: string | null };
-          result.referenceEntities.colorName = colorData.name;
-          if (colorData.hex) {
-            result.referenceEntities.colorHex = colorData.hex;
-          }
-        } else {
-          result.referenceEntities.colorName = String(value);
-        }
-      } else if (definition.referenceEntity === "size") {
-        // Handle both string (legacy) and object (new) format
-        if (typeof value === "object" && value !== null && "name" in value) {
-          const sizeData = value as { name: string };
-          result.referenceEntities.sizeName = sizeData.name;
-        } else {
-          result.referenceEntities.sizeName = String(value);
-        }
-      } else if (definition.referenceEntity === "category") {
+      if (definition.referenceEntity === "category") {
         // Store category UUID directly (resolved from Shopify taxonomy mapping)
         // Categories are system-level and the UUID is resolved in the schema transform
         result.referenceEntities.categoryId = String(value);

@@ -32,7 +32,6 @@ export const users = pgTable(
     fullName: text("full_name"),
     avatarPath: text("avatar_path"),
     avatarHue: smallint("avatar_hue"),
-    role: userRoleEnum("role").notNull().default("member"),
     brandId: uuid("brand_id"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()

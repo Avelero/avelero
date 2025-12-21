@@ -8,8 +8,6 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brandColors } from "../brands/brand-colors";
-import { brandSizes } from "../brands/brand-sizes";
 import { products } from "./products";
 
 export const productVariants = pgTable(
@@ -22,17 +20,6 @@ export const productVariants = pgTable(
         onUpdate: "cascade",
       })
       .notNull(),
-    colorId: uuid("color_id").references(() => brandColors.id, {
-      onDelete: "set null",
-      onUpdate: "cascade",
-    }),
-    sizeId: uuid("size_id").references(() => brandSizes.id, {
-      onDelete: "set null",
-      onUpdate: "cascade",
-    }),
-    gender: text("gender"),
-    ean: text("ean"),
-    gtin: text("gtin"),
     barcode: text("barcode"),
     sku: text("sku"),
     upid: text("upid"),

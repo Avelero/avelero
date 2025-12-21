@@ -11,9 +11,3 @@ export default function IntegrationDetailLayout({
 }) {
   return <>{children}</>;
 }
-
-
-
-
-
-

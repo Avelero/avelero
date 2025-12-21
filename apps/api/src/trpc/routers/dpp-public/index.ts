@@ -18,16 +18,12 @@ import {
   getDppByProductHandle,
   getDppByVariantUpid,
   transformToDppData,
-  fetchCarouselProducts,
-  type CarouselProduct,
-} from "@v1/db/queries/dpp";
-import {
   getBrandBySlug,
   getBrandTheme,
-} from "@v1/db/queries/brand";
-import {
+  fetchCarouselProducts,
   getProductByHandle,
-} from "@v1/db/queries/products";
+  type CarouselProduct,
+} from "@v1/db/queries";
 import { dppCarouselListSchema } from "../../../schemas/dpp-public.js";
 import { getPublicUrl } from "@v1/supabase/storage";
 import type { StorageClient } from "@v1/supabase/storage";
@@ -112,8 +108,8 @@ function transformCarouselProducts(
 ): SimilarProduct[] {
   return products.map((product) => ({
     name: product.name,
-    image: product.primaryImagePath
-      ? (getPublicUrl(supabase, "products", product.primaryImagePath) ?? "")
+    image: product.imagePath
+      ? (getPublicUrl(supabase, "products", product.imagePath) ?? "")
       : "",
     price: Number(product.price),
     currency: product.currency,

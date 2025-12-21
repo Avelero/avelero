@@ -82,19 +82,12 @@ export interface CategoryReference {
 }
 
 /**
- * Size reference with ID
+ * Generic variant attribute (name/value pair)
+ * Used for displaying variant-specific attributes like Color, Size, etc.
  */
-export interface SizeReference {
-  sizeId: number;
-  size: string;
-}
-
-/**
- * Color reference with ID
- */
-export interface ColorReference {
-  colorId: number;
-  color: string;
+export interface VariantAttribute {
+  name: string;
+  value: string;
 }
 
 /**
@@ -104,8 +97,8 @@ export interface ProductAttributes {
   description?: string;
   brand: string;
   category?: CategoryReference;
-  size?: SizeReference;
-  color?: ColorReference;
+  /** Variant attributes (0-3) - generic name/value pairs */
+  attributes?: VariantAttribute[];
   /** Product weight (stored in products.weight and products.weight_unit) */
   weight?: MeasuredValue;
 }

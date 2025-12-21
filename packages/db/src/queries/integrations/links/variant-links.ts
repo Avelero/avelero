@@ -336,8 +336,6 @@ export async function batchUpsertVariantLinks(
 export interface PreFetchedVariant {
   id: string;
   productId: string;
-  colorId: string | null;
-  sizeId: string | null;
   sku: string | null;
   barcode: string | null;
 }
@@ -359,8 +357,6 @@ export async function batchFindVariantsByProductIds(
     .select({
       id: productVariants.id,
       productId: productVariants.productId,
-      colorId: productVariants.colorId,
-      sizeId: productVariants.sizeId,
       sku: productVariants.sku,
       barcode: productVariants.barcode,
     })

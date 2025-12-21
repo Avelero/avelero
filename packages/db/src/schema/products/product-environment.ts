@@ -3,6 +3,7 @@ import {
   numeric,
   pgPolicy,
   pgTable,
+  text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -18,8 +19,9 @@ export const productEnvironment = pgTable(
       })
       .primaryKey()
       .notNull(),
-    carbonKgCo2e: numeric("carbon_kg_co2e", { precision: 12, scale: 4 }),
-    waterLiters: numeric("water_liters", { precision: 12, scale: 4 }),
+    value: numeric("value", { precision: 12, scale: 4 }),
+    unit: text("unit"),
+    metric: text("metric"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

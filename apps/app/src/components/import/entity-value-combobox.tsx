@@ -35,9 +35,7 @@ type UnmappedValuesQueryData = BulkValuesRouter["unmapped"];
  * Entity types supported by the combobox
  */
 type EntityType =
-  | "COLOR"
   | "MATERIAL"
-  | "SIZE"
   | "CATEGORY"
   | "SEASON"
   | "TAG"
@@ -124,9 +122,7 @@ function levenshteinDistance(a: string, b: string): number {
 function normalizeEntityType(type: string): EntityType | null {
   const normalized = type.toUpperCase();
   if (
-    normalized === "COLOR" ||
     normalized === "MATERIAL" ||
-    normalized === "SIZE" ||
     normalized === "CATEGORY" ||
     normalized === "SEASON" ||
     normalized === "TAG" ||
@@ -255,11 +251,7 @@ export function EntityValueCombobox({
   const [seasonModalOpen, setSeasonModalOpen] = React.useState(false);
   const [isMappingValue, setIsMappingValue] = React.useState(false);
 
-  // Fetch entity data (cached by parent component)
-  const { data: colorsData } = useQuery({
-    ...trpc.catalog.colors.list.queryOptions(undefined),
-    enabled: entityType === "COLOR",
-  });
+  // COLOR and SIZE entity types removed - now managed as brand attributes
 
   // No longer need to fetch material/facility/manufacturer/season data since we're using direct creation
 
@@ -320,353 +312,18 @@ export function EntityValueCombobox({
     await handleMapEntity(entityData.id, entityData.name);
   };
 
-  // Render COLOR using a simple combobox (READ-ONLY - no creation)
-  if (entityType === "COLOR") {
-    // Match database color names to static color selections for hex values
-    const colorOptions = (colorsData?.data || []).map((c: any) => {
-      // Try to find matching color in selections by name (case-insensitive)
-      const colorKey = c.name.toUpperCase().replace(/\s+/g, "_");
-      const selectionColor =
-        colorSelections[colorKey as keyof typeof colorSelections];
-
-      return {
-        id: c.id,
-        name: c.name,
-        hex: selectionColor?.hex || "808080", // Use static hex or fallback to gray
-      };
-    });
-
-    const [colorOpen, setColorOpen] = React.useState(false);
-    const [colorSearch, setColorSearch] = React.useState("");
-
-    React.useEffect(() => {
-      if (disabled || isMappingValue) {
-        setColorOpen(false);
-      }
-    }, [disabled, isMappingValue]);
-
-    const filteredColors = React.useMemo(() => {
-      if (!colorSearch) return colorOptions;
-      return colorOptions.filter((c) =>
-        c.name.toLowerCase().includes(colorSearch.toLowerCase()),
-      );
-    }, [colorOptions, colorSearch]);
-
-    const buttonLabel = isDefined
-      ? `Mapped: "${getPendingEntity(key)?.entityData?.name || rawValue}"`
-      : isMappingValue
-        ? "Mapping..."
-        : "Select color";
-
-    const buttonIcon = isDefined ? (
-      <Icons.CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-    ) : (
-      <Icons.ChevronDown className="h-3.5 w-3.5 text-tertiary flex-shrink-0" />
-    );
-
+  // COLOR and SIZE entity types removed - now managed as brand attributes
+  if ((entityType as string) === "COLOR" || (entityType as string) === "SIZE") {
     return (
       <div className={cn("w-full", className)}>
-        {isDefined ? (
-          // Show mapped state as a disabled button
-          <button
-            type="button"
-            disabled={true}
-            className={cn(
-              "w-full h-9 px-3 flex items-center justify-between gap-2",
-              "border border-green-600 bg-green-50 rounded cursor-default",
-              className,
-            )}
-          >
-            <span className="type-p truncate text-green-700">
-              {buttonLabel}
-            </span>
-            {buttonIcon}
-          </button>
-        ) : (
-          <Popover
-            modal
-            open={colorOpen}
-            onOpenChange={(next) => {
-              if (!next) {
-                setColorOpen(false);
-                return;
-              }
-
-              if (disabled || isMappingValue) {
-                return;
-              }
-
-              setColorOpen(true);
-            }}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="default"
-                disabled={disabled || isMappingValue}
-                className="w-full justify-between h-9"
-              >
-                <span className="type-p truncate text-secondary px-1">
-                  {buttonLabel}
-                </span>
-                {buttonIcon}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-60 p-0 !z-[100]"
-              align="start"
-              sideOffset={4}
-              inline
-            >
-              <Command shouldFilter={false}>
-                <CommandInput
-                  placeholder="Search colors..."
-                  value={colorSearch}
-                  onValueChange={setColorSearch}
-                />
-                <CommandList onWheel={(event) => event.stopPropagation()}>
-                  <CommandGroup>
-                    {filteredColors.length > 0 ? (
-                      filteredColors.map((color) => (
-                        <CommandItem
-                          key={color.id}
-                          value={color.name}
-                          onSelect={async () => {
-                            await handleMapEntity(color.id, color.name);
-                            setColorOpen(false);
-                            setColorSearch("");
-                          }}
-                          className="justify-between"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-3.5 w-3.5 rounded-full border border-border"
-                              style={{ backgroundColor: `#${color.hex}` }}
-                            />
-                            <span className="type-p text-primary">
-                              {color.name}
-                            </span>
-                          </div>
-                        </CommandItem>
-                      ))
-                    ) : (
-                      <div className="px-3 py-8 text-center">
-                        <p className="type-p text-tertiary">No colors found</p>
-                      </div>
-                    )}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        )}
+        <div className="px-3 py-2 text-sm text-tertiary">
+          {(entityType as string)} entity type is no longer supported. Colors and sizes are now managed as brand attributes.
+        </div>
       </div>
     );
   }
 
-  // Render SIZE using SizeSelect component (allows selecting existing or creating new)
-  if (entityType === "SIZE") {
-    // Fetch sizes from catalog
-    const { data: sizesData } = useQuery({
-      ...trpc.bulk.values.catalogData.queryOptions({ jobId }),
-      select: (data) => data.sizes as CatalogDataQueryData["sizes"],
-    });
-
-    const availableSizes = React.useMemo(() => {
-      return sizesData?.map((s) => s.name) ?? [];
-    }, [sizesData]);
-
-    const [sizeOpen, setSizeOpen] = React.useState(false);
-    const [sizeSearch, setSizeSearch] = React.useState("");
-    const handleCreateSize = React.useCallback(
-      (input?: string) => {
-        const fallbackValue = input ?? sizeSearch ?? rawValue;
-        const proposedName = fallbackValue.trim() || rawValue.trim();
-        if (!proposedName) {
-          return;
-        }
-
-        setPendingEntity({
-          key,
-          entityType: "SIZE",
-          rawValue,
-          sourceColumn,
-          jobId,
-          entityData: {
-            name: proposedName,
-          },
-        });
-
-        markValueAsDefined();
-
-        setSizeOpen(false);
-        setSizeSearch("");
-        toast.success(`Size "${proposedName}" defined`);
-        onMapped?.();
-      },
-      [
-        jobId,
-        key,
-        markValueAsDefined,
-        onMapped,
-        rawValue,
-        setPendingEntity,
-        sizeSearch,
-        sourceColumn,
-      ],
-    );
-
-    React.useEffect(() => {
-      if (disabled || isMappingValue) {
-        setSizeOpen(false);
-      }
-    }, [disabled, isMappingValue]);
-
-    const normalizedSizeSearch = sizeSearch.trim();
-
-    const filteredSizes = React.useMemo(() => {
-      if (!normalizedSizeSearch) return availableSizes;
-      const searchLower = normalizedSizeSearch.toLowerCase();
-      return availableSizes.filter((s: string) =>
-        s.toLowerCase().includes(searchLower),
-      );
-    }, [availableSizes, normalizedSizeSearch]);
-
-    const showCreateOption =
-      normalizedSizeSearch.length > 0 &&
-      !availableSizes.some(
-        (s: string) => s.toLowerCase() === normalizedSizeSearch.toLowerCase(),
-      );
-
-    const buttonLabel = isDefined
-      ? `Mapped: "${getPendingEntity(key)?.entityData?.name || rawValue}"`
-      : "Select or create size";
-
-    const buttonIcon = isDefined ? (
-      <Icons.CheckCircle2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-    ) : (
-      <Icons.ChevronDown className="h-3.5 w-3.5 text-tertiary flex-shrink-0" />
-    );
-
-    return (
-      <>
-        <div className={cn("w-full", className)}>
-          {isDefined ? (
-            // Show mapped state as a disabled button
-            <button
-              type="button"
-              disabled={true}
-              className={cn(
-                "w-full h-9 px-3 flex items-center justify-between gap-2",
-                "border border-green-600 bg-green-50 rounded cursor-default",
-                className,
-              )}
-            >
-              <span className="type-p truncate text-green-700">
-                {buttonLabel}
-              </span>
-              {buttonIcon}
-            </button>
-          ) : (
-            <Popover
-              modal
-              open={sizeOpen}
-              onOpenChange={(next) => {
-                if (!next) {
-                  setSizeOpen(false);
-                  return;
-                }
-
-                if (disabled || isMappingValue) {
-                  return;
-                }
-
-                setSizeOpen(true);
-              }}
-            >
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="default"
-                  disabled={disabled}
-                  className="w-full justify-between h-9"
-                >
-                  <span className="type-p truncate text-secondary px-1">
-                    {buttonLabel}
-                  </span>
-                  {buttonIcon}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="w-60 p-0 !z-[100]"
-                align="start"
-                sideOffset={4}
-                inline
-              >
-                <Command shouldFilter={false}>
-                  <CommandInput
-                    placeholder={`Search sizes or type "${rawValue}"...`}
-                    value={sizeSearch}
-                    onValueChange={setSizeSearch}
-                  />
-                  <CommandList onWheel={(event) => event.stopPropagation()}>
-                    <CommandGroup>
-                      {filteredSizes.length > 0 ? (
-                        filteredSizes.map((size: string) => (
-                          <CommandItem
-                            key={size}
-                            value={size}
-                            onSelect={async () => {
-                              // Find the size ID from sizesData
-                              const sizeData = sizesData?.find(
-                                (s) => s.name === size,
-                              );
-                              if (sizeData) {
-                                await handleMapEntity(
-                                  sizeData.id,
-                                  sizeData.name,
-                                );
-                              }
-                              setSizeOpen(false);
-                              setSizeSearch("");
-                            }}
-                            className="justify-between"
-                          >
-                            <span className="type-p text-primary">{size}</span>
-                          </CommandItem>
-                        ))
-                      ) : sizeSearch && showCreateOption ? (
-                        <CommandItem
-                          value={normalizedSizeSearch}
-                          onSelect={() => {
-                            handleCreateSize(normalizedSizeSearch);
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Icons.Plus className="h-3.5 w-3.5" />
-                            <span className="type-p text-primary">
-                              Create &quot;{normalizedSizeSearch}&quot;
-                            </span>
-                          </div>
-                        </CommandItem>
-                      ) : !normalizedSizeSearch ? (
-                        <div className="px-3 py-8 text-center">
-                          <p className="type-p text-tertiary">
-                            Type &quot;{rawValue}&quot; to create or select
-                            existing
-                          </p>
-                        </div>
-                      ) : null}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
-      </>
-    );
-  }
+  // COLOR and SIZE entity types removed - now managed as brand attributes
 
   // Render CATEGORY using CategorySelect component (read-only mapping)
   if (entityType === "CATEGORY") {

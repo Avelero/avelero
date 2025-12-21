@@ -47,7 +47,7 @@ export const FIELD_UI_LABELS: Record<string, { label: string; description: strin
     label: "Description",
     description: "Product description in your Shopify store, will be publicly visible",
   },
-  "product.primaryImagePath": {
+  "product.imagePath": {
     label: "Image",
     description: "Main product image from your Shopify store, will be publicly visible",
   },
@@ -88,7 +88,7 @@ export function getFieldGroup(fieldKey: string): FieldGroup {
   // Product fields
   if (fieldKey === "product.name") return "product";
   if (fieldKey === "product.description") return "product";
-  if (fieldKey === "product.primaryImagePath") return "product";
+  if (fieldKey === "product.imagePath") return "product";
   if (fieldKey === "product.categoryId") return "product";
 
   // Organization fields

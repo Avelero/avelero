@@ -10,12 +10,13 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
-export const categories = pgTable(
-  "categories",
+export const taxonomyCategories = pgTable(
+  "taxonomy_categories",
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
+    publicId: text("public_id").unique().notNull(),
     name: text("name").notNull(),
-    parentId: uuid("parent_id").references((): AnyPgColumn => categories.id, {
+    parentId: uuid("parent_id").references((): AnyPgColumn => taxonomyCategories.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),

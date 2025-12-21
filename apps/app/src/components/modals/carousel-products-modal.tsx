@@ -349,7 +349,7 @@ function CarouselTableSection({
             id: product.id,
             name: product.name ?? "",
             productHandle: product.product_handle ?? "",
-            primaryImagePath: product.primary_image_path ?? null,
+            imagePath: product.image_path ?? null,
             categoryName: product.category_name ?? null,
             seasonName: product.season_name ?? null,
         }));

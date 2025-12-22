@@ -6,6 +6,3 @@
 
 // Fields
 export * from "./fields";
-
-// Constants
-export * from "./constants";

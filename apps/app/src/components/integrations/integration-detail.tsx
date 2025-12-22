@@ -197,6 +197,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const groupedFields = useMemo(() => {
     const groups: Record<FieldGroup, FieldRowData[]> = {
       product: [],
+      variants: [],
       organization: [],
       sales: [],
     };
@@ -222,10 +223,8 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   async function handleFieldToggle(fieldKey: string, enabled: boolean) {
     if (!connection?.id) return;
 
-    const mapping = fieldMappingMap.get(fieldKey);
-    if (!mapping) return;
-
     try {
+      // API uses upsert - creates mapping if it doesn't exist
       await updateFieldMutation.mutateAsync({
         brand_integration_id: connection.id,
         field_key: fieldKey,

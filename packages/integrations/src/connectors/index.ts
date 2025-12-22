@@ -4,9 +4,6 @@
  * All connector schemas, clients, and registry functions.
  */
 
-// Base utilities
-export * from "./base/index";
-
 // Types
 export * from "./types";
 

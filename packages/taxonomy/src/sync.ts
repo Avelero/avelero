@@ -5,11 +5,16 @@ import { serviceDb, sql } from "@v1/db/index";
 import {
   taxonomyAttributes,
   taxonomyCategories,
+  taxonomyExternalMappings,
   taxonomyValues,
 } from "@v1/db/schema";
 import { parse } from "yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 interface YamlCategory {
   id: string;
@@ -34,10 +39,47 @@ interface YamlValue {
   swatch?: string;
 }
 
+// Shopify → Avelero mapping YAML structure
+interface ShopifyToAveleroYamlConfig {
+  version: string;
+  input_taxonomy: string;
+  output_taxonomy: string;
+  branch_config: {
+    root_filter: string;
+    branches: Record<string, string | null>;
+  };
+  excluded_category_ids: string[];
+  rules: Record<string, string | null>;
+}
+
+// Resolved target with both publicId and UUID
+type ResolvedTarget = { publicId: string; id: string } | null;
+
+// Resolved mapping config stored in DB
+interface ShopifyToAveleroResolvedConfig {
+  version: string;
+  input_taxonomy: string;
+  output_taxonomy: string;
+  branch_config: {
+    root_filter: string;
+    branches: Record<string, ResolvedTarget>;
+  };
+  excluded_category_ids: string[];
+  rules: Record<string, ResolvedTarget>;
+}
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+
 function loadYaml<T>(filename: string): T {
   const content = readFileSync(join(__dirname, filename), "utf-8");
   return parse(content) as T;
 }
+
+// =============================================================================
+// SYNC FUNCTIONS
+// =============================================================================
 
 async function syncCategories() {
   console.log("Syncing taxonomy categories...");
@@ -57,7 +99,7 @@ async function syncCategories() {
     return parent ? getDepth(parent) + 1 : 0;
   };
   const sortedCategories = [...categories].sort(
-    (a, b) => getDepth(a.id) - getDepth(b.id),
+    (a, b) => getDepth(a.id) - getDepth(b.id)
   );
 
   // Upsert categories in order
@@ -87,6 +129,87 @@ async function syncCategories() {
   }
 
   console.log(`✓ Synced ${sortedCategories.length} categories`);
+}
+
+async function syncShopifyToAveleroMapping() {
+  console.log("Syncing Shopify → Avelero taxonomy mapping...");
+
+  const raw = loadYaml<ShopifyToAveleroYamlConfig>(
+    "mappings/shopify-to-avelero.yml"
+  );
+
+  // Load all categories from DB to resolve publicId → UUID
+  const categories = await serviceDb
+    .select({ id: taxonomyCategories.id, publicId: taxonomyCategories.publicId })
+    .from(taxonomyCategories);
+
+  const idByPublicId = new Map(
+    categories.map((c) => [c.publicId, c.id] as const)
+  );
+
+  // Resolve a publicId to { publicId, id } or null
+  const resolve = (publicId: string | null): ResolvedTarget => {
+    if (publicId === null) return null;
+    const id = idByPublicId.get(publicId);
+    if (!id) {
+      throw new Error(
+        `Unknown taxonomy category publicId in mapping: "${publicId}". Make sure categories.yml includes this category.`
+      );
+    }
+    return { publicId, id };
+  };
+
+  // Build resolved config with UUIDs
+  const resolved: ShopifyToAveleroResolvedConfig = {
+    version: raw.version,
+    input_taxonomy: raw.input_taxonomy,
+    output_taxonomy: raw.output_taxonomy,
+    branch_config: {
+      root_filter: raw.branch_config.root_filter,
+      branches: Object.fromEntries(
+        Object.entries(raw.branch_config.branches).map(([k, v]) => [
+          k,
+          resolve(v),
+        ])
+      ),
+    },
+    excluded_category_ids: raw.excluded_category_ids,
+    rules: Object.fromEntries(
+      Object.entries(raw.rules).map(([k, v]) => [k, resolve(v)])
+    ),
+  };
+
+  // Count rules for logging
+  const ruleCount = Object.keys(resolved.rules).length;
+  const branchCount = Object.keys(resolved.branch_config.branches).length;
+
+  // Upsert into DB
+  await serviceDb
+    .insert(taxonomyExternalMappings)
+    .values({
+      slug: "shopify-to-avelero",
+      sourceSystem: "shopify",
+      sourceTaxonomy: raw.input_taxonomy,
+      targetTaxonomy: raw.output_taxonomy,
+      version: raw.version,
+      data: resolved,
+      updatedAt: sql`now()`,
+    })
+    .onConflictDoUpdate({
+      target: taxonomyExternalMappings.slug,
+      set: {
+        sourceSystem: "shopify",
+        sourceTaxonomy: raw.input_taxonomy,
+        targetTaxonomy: raw.output_taxonomy,
+        version: raw.version,
+        data: resolved,
+        updatedAt: sql`now()`,
+      },
+    });
+
+  console.log(
+    `✓ Synced Shopify mapping v${raw.version} (${ruleCount} rules, ${branchCount} branches)`
+  );
 }
 
 async function syncAttributes() {
@@ -135,7 +258,7 @@ async function syncValues() {
     const attrFriendlyId = attrFriendlyIdMap.get(val.attribute_id);
     if (!attrFriendlyId) {
       console.warn(
-        `⚠ Skipping value ${val.friendly_id}: unknown attribute_id ${val.attribute_id}`,
+        `⚠ Skipping value ${val.friendly_id}: unknown attribute_id ${val.attribute_id}`
       );
       continue;
     }
@@ -170,13 +293,24 @@ async function syncValues() {
   console.log(`✓ Synced ${values.length} values`);
 }
 
+// =============================================================================
+// MAIN
+// =============================================================================
+
 async function main() {
   console.log("Starting taxonomy sync...\n");
 
   try {
+    // Sync categories first (required for mapping resolution)
     await syncCategories();
+
+    // Sync external mappings (depends on categories)
+    await syncShopifyToAveleroMapping();
+
+    // Sync attributes and values
     await syncAttributes();
     await syncValues();
+
     console.log("\n✓ Taxonomy sync complete!");
     process.exit(0);
   } catch (error) {

@@ -5,7 +5,7 @@
  * Values belong to a brand attribute and can optionally link to taxonomy values.
  */
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Database } from "../../client";
 import { brandAttributeValues, brandAttributes, taxonomyValues } from "../../schema";
 
@@ -410,5 +410,106 @@ export async function getBrandAttributeValuesWithAttribute(
       eq(brandAttributeValues.attributeId, brandAttributes.id)
     )
     .where(inArray(brandAttributeValues.id, valueIds));
+}
+
+// =============================================================================
+// BATCH OPERATIONS (for sync engine)
+// =============================================================================
+
+/**
+ * Load all attribute values for a brand into a nested Map for O(1) lookup.
+ * Outer key: attributeId, Inner key: value name (lowercase) -> value ID
+ * Used for cache pre-warming in sync operations.
+ */
+export async function loadAllBrandAttributeValuesMap(
+  db: Database,
+  brandId: string
+): Promise<Map<string, Map<string, string>>> {
+  const rows = await db
+    .select({
+      id: brandAttributeValues.id,
+      attributeId: brandAttributeValues.attributeId,
+      name: brandAttributeValues.name,
+    })
+    .from(brandAttributeValues)
+    .where(eq(brandAttributeValues.brandId, brandId));
+
+  const map = new Map<string, Map<string, string>>();
+  for (const row of rows) {
+    if (!map.has(row.attributeId)) {
+      map.set(row.attributeId, new Map());
+    }
+    map.get(row.attributeId)!.set(row.name.toLowerCase(), row.id);
+  }
+  return map;
+}
+
+/**
+ * Batch create multiple brand attribute values in a single query.
+ * Uses ON CONFLICT DO NOTHING to handle existing values.
+ *
+ * @param db - Database connection
+ * @param brandId - Brand ID
+ * @param values - Array of { attributeId, name } pairs to create
+ * @returns Map of (attributeId + ":" + nameLower) -> value ID
+ */
+export async function batchCreateBrandAttributeValues(
+  db: Database,
+  brandId: string,
+  values: Array<{ attributeId: string; name: string; taxonomyValueId?: string | null }>
+): Promise<Map<string, string>> {
+  if (values.length === 0) return new Map();
+
+  // Deduplicate by (attributeId, name)
+  const seen = new Set<string>();
+  const uniqueValues: Array<{ attributeId: string; name: string; taxonomyValueId?: string | null }> = [];
+  for (const v of values) {
+    const key = `${v.attributeId}:${v.name.trim().toLowerCase()}`;
+    if (!seen.has(key) && v.name.trim().length > 0) {
+      seen.add(key);
+      uniqueValues.push({
+        attributeId: v.attributeId,
+        name: v.name.trim(),
+        taxonomyValueId: v.taxonomyValueId ?? null,
+      });
+    }
+  }
+
+  if (uniqueValues.length === 0) return new Map();
+
+  // Insert with ON CONFLICT DO UPDATE (only fills taxonomy_value_id if missing)
+  await db
+    .insert(brandAttributeValues)
+    .values(
+      uniqueValues.map((v) => ({
+        brandId,
+        attributeId: v.attributeId,
+        name: v.name,
+        taxonomyValueId: v.taxonomyValueId ?? null,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [
+        brandAttributeValues.brandId,
+        brandAttributeValues.attributeId,
+        brandAttributeValues.name,
+      ],
+      set: {
+        taxonomyValueId: sql`COALESCE(${brandAttributeValues.taxonomyValueId}, EXCLUDED.taxonomy_value_id)`,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+
+  // Load all values back to get IDs (including any that already existed)
+  const allValues = await loadAllBrandAttributeValuesMap(db, brandId);
+
+  // Flatten to single Map with composite key
+  const result = new Map<string, string>();
+  for (const [attrId, valuesMap] of allValues) {
+    for (const [nameLower, valueId] of valuesMap) {
+      result.set(`${attrId}:${nameLower}`, valueId);
+    }
+  }
+  return result;
 }
 

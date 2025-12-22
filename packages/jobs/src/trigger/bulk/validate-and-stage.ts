@@ -38,7 +38,6 @@ import {
   normalizeHeaders,
   parseFile,
 } from "../../lib/csv-parser";
-import { EntityType, ValueMapper } from "../../lib/value-mapper";
 import { ProgressEmitter } from "./progress-emitter";
 
 /**

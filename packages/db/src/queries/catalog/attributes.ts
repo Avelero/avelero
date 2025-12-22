@@ -270,6 +270,42 @@ export async function getBrandAttributesByIds(
     .where(inArray(brandAttributes.id, attributeIds));
 }
 
+// =============================================================================
+// BATCH OPERATIONS (for sync engine)
+// =============================================================================
+
+/**
+ * Batch create multiple brand attributes in a single query.
+ * Uses ON CONFLICT DO NOTHING to handle existing attributes.
+ * Returns a map of attribute name (lowercase) -> attribute ID for all attributes.
+ */
+export async function batchCreateBrandAttributes(
+  db: Database,
+  brandId: string,
+  names: string[]
+): Promise<Map<string, string>> {
+  if (names.length === 0) return new Map();
+
+  // Deduplicate and normalize names
+  const uniqueNames = [...new Set(names.map((n) => n.trim()).filter((n) => n.length > 0))];
+  if (uniqueNames.length === 0) return new Map();
+
+  // Insert with ON CONFLICT DO NOTHING
+  await db
+    .insert(brandAttributes)
+    .values(uniqueNames.map((name) => ({ brandId, name })))
+    .onConflictDoNothing();
+
+  // Load all attributes back to get IDs (including any that already existed)
+  return loadBrandAttributesMap(db, brandId).then((m) => {
+    const result = new Map<string, string>();
+    for (const [key, val] of m) {
+      result.set(key, val.id);
+    }
+    return result;
+  });
+}
+
 /**
  * Ensure a brand attribute exists for the given taxonomy attribute.
  * Creates the brand attribute if it doesn't exist.

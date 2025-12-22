@@ -18,7 +18,6 @@ import { brandIntegrations } from "./brand-integrations";
  * Field keys follow the pattern: `{entity}.{fieldName}`
  * Example: `product.name`, `material.recyclable`, `facility.city`
  *
- * @see packages/integrations/src/registry/field-registry.ts for available fields
  * @see plan-integration.md for architecture details
  */
 export const integrationFieldConfigs = pgTable(

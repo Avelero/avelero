@@ -1568,7 +1568,7 @@ export type Database = {
       product_environment: {
         Row: {
           created_at: string;
-          metric: string | null;
+          metric: string;
           product_id: string;
           unit: string | null;
           updated_at: string;
@@ -1576,7 +1576,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
-          metric?: string | null;
+          metric: string;
           product_id: string;
           unit?: string | null;
           updated_at?: string;
@@ -1584,7 +1584,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
-          metric?: string | null;
+          metric?: string;
           product_id?: string;
           unit?: string | null;
           updated_at?: string;
@@ -1594,7 +1594,7 @@ export type Database = {
           {
             foreignKeyName: "product_environment_product_id_products_id_fk";
             columns: ["product_id"];
-            isOneToOne: true;
+            isOneToOne: false;
             referencedRelation: "products";
             referencedColumns: ["id"];
           },
@@ -2351,6 +2351,42 @@ export type Database = {
           },
         ];
       };
+      taxonomy_external_mappings: {
+        Row: {
+          created_at: string;
+          data: Json;
+          id: string;
+          slug: string;
+          source_system: string;
+          source_taxonomy: string;
+          target_taxonomy: string;
+          updated_at: string;
+          version: string;
+        };
+        Insert: {
+          created_at?: string;
+          data: Json;
+          id?: string;
+          slug: string;
+          source_system: string;
+          source_taxonomy: string;
+          target_taxonomy: string;
+          updated_at?: string;
+          version: string;
+        };
+        Update: {
+          created_at?: string;
+          data?: Json;
+          id?: string;
+          slug?: string;
+          source_system?: string;
+          source_taxonomy?: string;
+          target_taxonomy?: string;
+          updated_at?: string;
+          version?: string;
+        };
+        Relationships: [];
+      };
       taxonomy_values: {
         Row: {
           attribute_id: string;
@@ -2481,6 +2517,10 @@ export type Database = {
       batch_insert_staging_with_status: {
         Args: { p_products: Json; p_status_updates: Json; p_variants: Json };
         Returns: Json;
+      };
+      claim_invites_for_user: {
+        Args: { p_user_id: string };
+        Returns: undefined;
       };
       get_brands_for_authenticated_user: {
         Args: never;

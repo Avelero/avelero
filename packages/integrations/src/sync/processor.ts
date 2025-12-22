@@ -28,6 +28,7 @@ import {
   isProductUpdated,
 } from "./caches";
 import { processImageUrl } from "./matcher";
+import { parseSelectedOptions, resolveAttributeValueIds } from "./batch-operations";
 import type { FetchedProduct, FetchedVariant, SyncContext } from "./types";
 
 // =============================================================================
@@ -35,10 +36,29 @@ import type { FetchedProduct, FetchedVariant, SyncContext } from "./types";
 // =============================================================================
 
 /**
- * Pending operations to be batched at the engine level.
+ * Update data for the `products` table.
  */
+export interface ProductUpdateOp {
+  id: string;
+  name?: string;
+  description?: string | null;
+  categoryId?: string | null;
+}
+
+/**
+ * Upsert data for the `product_commercial` table.
+ */
+export interface ProductCommercialOp {
+  productId: string;
+  webshopUrl?: string | null;
+  price?: string | null;
+  currency?: string | null;
+  salesStatus?: string | null;
+}
+
 export interface PendingOperations {
-  productUpdates: Array<{ id: string; data: Record<string, unknown> }>;
+  productUpdates: ProductUpdateOp[];
+  productCommercialUpserts: ProductCommercialOp[];
   productLinkUpserts: Array<{
     brandIntegrationId: string;
     productId: string;
@@ -52,6 +72,7 @@ export interface PendingOperations {
     productId: string;
     sku: string | null;
     barcode: string | null;
+    attributeValueIds: string[];
     linkData: {
       brandIntegrationId: string;
       externalId: string;
@@ -69,6 +90,10 @@ export interface PendingOperations {
     externalSku: string | null;
     externalBarcode: string | null;
     lastSyncedHash: string | null;
+  }>;
+  variantAttributeAssignments: Array<{
+    variantId: string;
+    attributeValueIds: string[];
   }>;
 }
 
@@ -128,11 +153,13 @@ function computeProductHash(
 function createEmptyPendingOps(): PendingOperations {
   return {
     productUpdates: [],
+    productCommercialUpserts: [],
     productLinkUpserts: [],
     tagAssignments: [],
     variantUpdates: [],
     variantCreates: [],
     variantLinkUpserts: [],
+    variantAttributeAssignments: [],
   };
 }
 
@@ -198,6 +225,12 @@ export async function processProduct(
           productId = newProduct.id;
           productHandle = newProduct.productHandle;
           productCreated = true;
+          
+          // Queue commercial data for newly created product
+          const commercialData = buildProductCommercialData(productId, productExtracted);
+          if (commercialData) {
+            pendingOps.productCommercialUpserts.push(commercialData);
+          }
         }
 
         // Queue product link upsert
@@ -218,18 +251,28 @@ export async function processProduct(
 
     // STEP 2: Queue product update if needed
     if (!hashMatches && !productCreated && !isProductUpdated(caches, productId)) {
-      const updateData = buildProductUpdateData(productExtracted);
+      const updateData = buildProductUpdateData(productExtracted, mappings);
       if (Object.keys(updateData).length > 0) {
-        pendingOps.productUpdates.push({ id: productId, data: updateData });
+        pendingOps.productUpdates.push({ id: productId, ...updateData });
         productUpdated = true;
       }
+      
+      // Queue commercial data upsert
+      const commercialData = buildProductCommercialData(productId, productExtracted);
+      if (commercialData) {
+        pendingOps.productCommercialUpserts.push(commercialData);
+      }
+      
       markProductUpdated(caches, productId);
       
       // Fire-and-forget image upload
       const imageUrl = productExtracted.product.imagePath as string | undefined;
       if (imageUrl) {
         processImageUrl(ctx.storageClient, ctx.brandId, productId, imageUrl)
-          .then((path) => { if (path) db.update(products).set({ imagePath: path }).where(eq(products.id, productId)); })
+          .then(async (path) => {
+            if (!path) return;
+            await db.update(products).set({ imagePath: path }).where(eq(products.id, productId));
+          })
           .catch(() => {});
       }
     }
@@ -266,6 +309,7 @@ export async function processProduct(
     pendingOps.variantUpdates.push(...variantResult.variantUpdates);
     pendingOps.variantCreates.push(...variantResult.variantCreates);
     pendingOps.variantLinkUpserts.push(...variantResult.variantLinkUpserts);
+    pendingOps.variantAttributeAssignments.push(...variantResult.variantAttributeAssignments);
 
     return {
       success: true,
@@ -291,21 +335,47 @@ export async function processProduct(
   }
 }
 
+/**
+ * Build update data for the `products` table only.
+ */
 function buildProductUpdateData(
-  extracted: ReturnType<typeof extractValues>
-): Record<string, unknown> {
-  const updateData: Record<string, unknown> = {};
+  extracted: ReturnType<typeof extractValues>,
+  mappings: EffectiveFieldMapping[]
+): Omit<ProductUpdateOp, 'id'> {
+  const updateData: Omit<ProductUpdateOp, 'id'> = {};
 
   if (extracted.product.name) updateData.name = extracted.product.name;
   if (extracted.product.description !== undefined) updateData.description = extracted.product.description;
-  if (extracted.product.webshopUrl !== undefined) updateData.webshopUrl = extracted.product.webshopUrl;
-  if (extracted.product.price !== undefined) updateData.price = extracted.product.price?.toString();
-  if (extracted.product.currency !== undefined) updateData.currency = extracted.product.currency;
-  if (extracted.product.salesStatus !== undefined) updateData.salesStatus = extracted.product.salesStatus;
-  if (extracted.referenceEntities.categoryId) updateData.categoryId = extracted.referenceEntities.categoryId;
-  // NOTE: sizeOrder and colorOrder removed as part of variant attribute migration.
+  // Only set categoryId if the field is enabled and a valid value exists
+  if (isFieldEnabled(mappings, "product.categoryId") && extracted.referenceEntities.categoryId) {
+    updateData.categoryId = extracted.referenceEntities.categoryId;
+  }
 
   return updateData;
+}
+
+/**
+ * Build upsert data for the `product_commercial` table.
+ */
+function buildProductCommercialData(
+  productId: string,
+  extracted: ReturnType<typeof extractValues>
+): ProductCommercialOp | null {
+  const hasCommercialData = 
+    extracted.product.webshopUrl !== undefined ||
+    extracted.product.price !== undefined ||
+    extracted.product.currency !== undefined ||
+    extracted.product.salesStatus !== undefined;
+
+  if (!hasCommercialData) return null;
+
+  return {
+    productId,
+    webshopUrl: extracted.product.webshopUrl ?? null,
+    price: extracted.product.price?.toString() ?? null,
+    currency: extracted.product.currency ?? null,
+    salesStatus: extracted.product.salesStatus ?? null,
+  };
 }
 
 async function createProduct(
@@ -330,6 +400,10 @@ async function createProduct(
   });
 
   // NOTE: sizeOrder and colorOrder removed as part of variant attribute migration.
+  
+  // Only set categoryId if the field is enabled
+  const categoryEnabled = isFieldEnabled(mappings, "product.categoryId");
+  const categoryId = categoryEnabled ? (extracted.referenceEntities.categoryId ?? null) : null;
 
   const [created] = await db
     .insert(products)
@@ -340,7 +414,7 @@ async function createProduct(
       description: (extracted.product.description as string) ?? null,
       imagePath: null,
       status: "unpublished",
-      categoryId: extracted.referenceEntities.categoryId ?? null,
+      categoryId,
     })
     .returning({ id: products.id });
 
@@ -350,7 +424,10 @@ async function createProduct(
   const imageUrl = extracted.product.imagePath as string | undefined;
   if (imageUrl) {
     processImageUrl(ctx.storageClient, ctx.brandId, created.id, imageUrl)
-      .then((path) => { if (path) db.update(products).set({ imagePath: path }).where(eq(products.id, created.id)); })
+      .then(async (path) => {
+        if (!path) return;
+        await db.update(products).set({ imagePath: path }).where(eq(products.id, created.id));
+      })
       .catch(() => {});
   }
 
@@ -371,6 +448,7 @@ interface ProcessVariantsResult {
   variantUpdates: PendingOperations['variantUpdates'];
   variantCreates: PendingOperations['variantCreates'];
   variantLinkUpserts: PendingOperations['variantLinkUpserts'];
+  variantAttributeAssignments: PendingOperations['variantAttributeAssignments'];
 }
 
 /**
@@ -390,9 +468,11 @@ function processVariantsSync(
   const variantUpdates: PendingOperations['variantUpdates'] = [];
   const variantCreates: PendingOperations['variantCreates'] = [];
   const variantLinkUpserts: PendingOperations['variantLinkUpserts'] = [];
+  const variantAttributeAssignments: PendingOperations['variantAttributeAssignments'] = [];
 
   const skuEnabled = isFieldEnabled(mappings, "variant.sku");
   const barcodeEnabled = isFieldEnabled(mappings, "variant.barcode");
+  const attributesEnabled = isFieldEnabled(mappings, "variant.attributes");
 
   const existingVariants = preFetched.existingVariantsByProduct.get(productId) ?? [];
   const existingById = new Map(existingVariants.map((v) => [v.id, v]));
@@ -416,10 +496,13 @@ function processVariantsSync(
       continue; 
     }
 
-    // NOTE: colorId/sizeId lookup removed as part of variant attribute migration.
-    // TODO: In Phase 3, this will be replaced with generic attribute value assignment.
     const sku = skuEnabled ? (extracted.variant.sku as string) ?? null : null;
     const barcode = barcodeEnabled ? (extracted.variant.barcode as string) ?? null : null;
+    
+    // Resolve variant attributes to IDs
+    const attributeValueIds = attributesEnabled
+      ? resolveAttributeValueIds(parseSelectedOptions(variantData), caches)
+      : [];
 
     const existingVariant = findExistingVariant(
       existingLink, existingById, existingByBarcode, existingBySku, 
@@ -427,7 +510,7 @@ function processVariantsSync(
     );
 
     if (existingVariant) {
-      // Build update data (only SKU and barcode now - colorId/sizeId removed)
+      // Build update data (only SKU and barcode)
       const updateData: { id: string; sku?: string | null; barcode?: string | null } = { id: existingVariant.id };
       let hasChanges = false;
       
@@ -438,6 +521,14 @@ function processVariantsSync(
         variantUpdates.push(updateData);
       } else { 
         skipped++; 
+      }
+      
+      // Queue attribute assignment for existing variant (always replace to sync state)
+      if (attributesEnabled && attributeValueIds.length > 0) {
+        variantAttributeAssignments.push({
+          variantId: existingVariant.id,
+          attributeValueIds,
+        });
       }
       
       // Queue link upsert
@@ -451,11 +542,12 @@ function processVariantsSync(
         lastSyncedHash: hash,
       });
     } else {
-      // Queue variant creation (colorId/sizeId removed, will be handled by attributes in Phase 3)
+      // Queue variant creation with attribute values
       variantCreates.push({
         productId,
         sku,
         barcode,
+        attributeValueIds,
         linkData: {
           brandIntegrationId: ctx.brandIntegrationId,
           externalId: externalVariant.externalId,
@@ -475,6 +567,7 @@ function processVariantsSync(
     variantUpdates,
     variantCreates,
     variantLinkUpserts,
+    variantAttributeAssignments,
   };
 }
 

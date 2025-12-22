@@ -116,6 +116,7 @@ export function FieldSetup({
   const groupedFields = useMemo(() => {
     const groups: Record<FieldGroup, FieldRowData[]> = {
       product: [],
+      variants: [],
       organization: [],
       sales: [],
     };

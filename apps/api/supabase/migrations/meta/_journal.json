@@ -169,6 +169,20 @@
       "when": 1766246666216,
       "tag": "20251220160426_colossal_gamma_corps",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1766419029812,
+      "tag": "20251222155709_red_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1766428620979,
+      "tag": "20251222183700_swift_deathbird",
+      "breakpoints": true
     }
   ]
 }

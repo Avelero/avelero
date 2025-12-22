@@ -23,7 +23,7 @@ interface ShopifyCategory {
 export const shopifySchema: ConnectorSchema = {
   slug: "shopify",
   name: "Shopify",
-  description: "E-commerce platform. Syncs products with variants, colors, sizes, and tags.",
+  description: "E-commerce platform. Syncs products with variants and tags.",
   authType: "oauth",
 
   entities: {
@@ -36,16 +36,6 @@ export const shopifySchema: ConnectorSchema = {
       table: "products",
       identifiedBy: "productHandle",
       linkedThrough: "variant",
-    },
-    color: {
-      table: "brand_colors",
-      identifiedBy: "name",
-      syncMode: "upsert-on-reference",
-    },
-    size: {
-      table: "brand_sizes",
-      identifiedBy: "name",
-      syncMode: "upsert-on-reference",
     },
     tag: {
       table: "brand_tags",
@@ -76,6 +66,21 @@ export const shopifySchema: ConnectorSchema = {
       sourceOptions: [{ key: "barcode", label: "Barcode", path: "barcode" }],
       defaultSource: "barcode",
       transform: (v) => truncateString(v, 255),
+    },
+
+    "variant.attributes": {
+      targetField: "variant.attributes",
+      entity: "variant",
+      description: "Variant attributes (Color, Size, Age group, etc.)",
+      sourceOptions: [
+        {
+          key: "selectedOptions",
+          label: "Selected Options",
+          path: "selectedOptions",
+        },
+      ],
+      defaultSource: "selectedOptions",
+      // No transform - processor handles normalization
     },
 
     // PRODUCT FIELDS - extracted directly from product data (no "product." prefix)

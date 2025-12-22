@@ -10,16 +10,6 @@ export type EntityLinkType =
   | "facility"
   | "manufacturer"
   | "season"
-  | "color"
-  | "size"
   | "tag"
   | "eco_claim"
   | "certification";
-
-
-
-
-
-
-
-

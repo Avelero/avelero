@@ -15,16 +15,19 @@ import {
   batchFindVariantLinks, 
   batchFindVariantsByProductIds,
   batchUpdateProducts,
+  batchUpsertProductCommercial,
   batchUpdateVariants,
   batchSetProductTags,
   batchUpsertProductLinks,
   batchUpsertVariantLinks,
+  batchReplaceVariantAttributes,
   type VariantUpdateData,
 } from "@v1/db/queries/integrations";
 import { productVariants } from "@v1/db/schema";
 import { generateUniqueUpids } from "@v1/db/utils";
 import { eq, inArray } from "@v1/db/queries";
 import { getConnector } from "../connectors/registry";
+import { initShopifyToAveleroCategoryMapping } from "../connectors/shopify/category-mappings";
 import { buildEffectiveFieldMappings } from "./extractor";
 import { initializeCaches, type SyncCaches } from "./caches";
 import { createMissingEntities, extractUniqueEntitiesFromBatch } from "./batch-operations";
@@ -75,6 +78,11 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
     const mappings = buildEffectiveFieldMappings(connector.schema, ctx.fieldConfigs);
     const db = ctx.db as Database;
     const caches = await initializeCaches(db, ctx.brandId);
+
+    // Initialize category mapping (1 query, cached for entire sync run)
+    if (ctx.integrationSlug === "shopify") {
+      await initShopifyToAveleroCategoryMapping(db);
+    }
 
     for await (const batch of connector.fetchProducts(ctx.credentials)) {
       batchNumber++;
@@ -155,11 +163,13 @@ interface BatchResult {
   queries: {
     preFetch: number;
     productUpdates: number;
+    productCommercial: number;
     productLinks: number;
     tags: number;
     variantUpdates: number;
     variantCreates: number;
     variantLinks: number;
+    variantAttributes: number;
     total: number;
   };
 }
@@ -191,11 +201,13 @@ async function processBatch(
     queries: {
       preFetch: 0,
       productUpdates: 0,
+      productCommercial: 0,
       productLinks: 0,
       tags: 0,
       variantUpdates: 0,
       variantCreates: 0,
       variantLinks: 0,
+      variantAttributes: 0,
       total: 0,
     },
   };
@@ -230,11 +242,13 @@ async function processBatch(
   // Collect all pending operations from all products
   const allPendingOps: PendingOperations = {
     productUpdates: [],
+    productCommercialUpserts: [],
     productLinkUpserts: [],
     tagAssignments: [],
     variantUpdates: [],
     variantCreates: [],
     variantLinkUpserts: [],
+    variantAttributeAssignments: [],
   };
 
   await Promise.all(
@@ -253,11 +267,13 @@ async function processBatch(
           
           // Merge pending operations
           allPendingOps.productUpdates.push(...processed.pendingOps.productUpdates);
+          allPendingOps.productCommercialUpserts.push(...processed.pendingOps.productCommercialUpserts);
           allPendingOps.productLinkUpserts.push(...processed.pendingOps.productLinkUpserts);
           allPendingOps.tagAssignments.push(...processed.pendingOps.tagAssignments);
           allPendingOps.variantUpdates.push(...processed.pendingOps.variantUpdates);
           allPendingOps.variantCreates.push(...processed.pendingOps.variantCreates);
           allPendingOps.variantLinkUpserts.push(...processed.pendingOps.variantLinkUpserts);
+          allPendingOps.variantAttributeAssignments.push(...processed.pendingOps.variantAttributeAssignments);
         } else {
           result.variantsFailed += product.variants.length;
           result.errors.push({ externalId: product.externalId, message: processed.error || "Unknown error" });
@@ -276,10 +292,16 @@ async function processBatch(
   // PHASE 4: Execute all batch operations
   const batchOpsStart = Date.now();
   
-  // 4a: Batch update products
+  // 4a: Batch update products (products table)
   if (allPendingOps.productUpdates.length > 0) {
     await batchUpdateProducts(db, allPendingOps.productUpdates);
     result.queries.productUpdates = 1; // All product updates in one batch
+  }
+
+  // 4a2: Batch upsert product commercial (product_commercial table)
+  if (allPendingOps.productCommercialUpserts.length > 0) {
+    await batchUpsertProductCommercial(db, allPendingOps.productCommercialUpserts);
+    result.queries.productCommercial = 1;
   }
 
   // 4b: Batch upsert product links
@@ -307,9 +329,11 @@ async function processBatch(
 
   // 4e: Batch create variants
   if (allPendingOps.variantCreates.length > 0) {
+    const variantCreates = allPendingOps.variantCreates;
+
     // Generate UPIDs for all new variants
     const upids = await generateUniqueUpids({
-      count: allPendingOps.variantCreates.length,
+      count: variantCreates.length,
       isTaken: async (c) => { 
         const [r] = await db.select({ id: productVariants.id }).from(productVariants).where(eq(productVariants.upid, c)).limit(1); 
         return Boolean(r); 
@@ -322,7 +346,7 @@ async function processBatch(
 
     // Batch insert all variants (colorId/sizeId removed as part of variant attribute migration)
     const inserted = await db.insert(productVariants)
-      .values(allPendingOps.variantCreates.map((v, i) => ({
+      .values(variantCreates.map((v, i) => ({
         productId: v.productId,
         sku: v.sku,
         barcode: v.barcode,
@@ -332,18 +356,28 @@ async function processBatch(
     
     result.queries.variantCreates = 2; // 1 for UPID check + 1 for batch insert
 
-    // Add variant links for newly created variants
+    // Add variant links and attribute assignments for newly created variants
     for (let i = 0; i < inserted.length; i++) {
-      const create = allPendingOps.variantCreates[i]!;
+      const create = variantCreates[i]!;
+      const variantId = inserted[i]!.id;
+      
       allPendingOps.variantLinkUpserts.push({
         brandIntegrationId: create.linkData.brandIntegrationId,
-        variantId: inserted[i]!.id,
+        variantId,
         externalId: create.linkData.externalId,
         externalProductId: create.linkData.externalProductId,
         externalSku: create.linkData.externalSku,
         externalBarcode: create.linkData.externalBarcode,
         lastSyncedHash: create.linkData.lastSyncedHash,
       });
+      
+      // Queue attribute assignments for new variants
+      if (create.attributeValueIds.length > 0) {
+        allPendingOps.variantAttributeAssignments.push({
+          variantId,
+          attributeValueIds: create.attributeValueIds,
+        });
+      }
     }
   }
 
@@ -353,9 +387,16 @@ async function processBatch(
     result.queries.variantLinks = 1;
   }
 
+  // 4g: Batch replace variant attributes
+  if (allPendingOps.variantAttributeAssignments.length > 0) {
+    await batchReplaceVariantAttributes(db, allPendingOps.variantAttributeAssignments);
+    result.queries.variantAttributes = 2; // 1 delete + 1 insert
+  }
+
   result.timing.batchOps = Date.now() - batchOpsStart;
-  result.queries.total = result.queries.preFetch + result.queries.productUpdates + result.queries.productLinks + 
-    result.queries.tags + result.queries.variantUpdates + result.queries.variantCreates + result.queries.variantLinks;
+  result.queries.total = result.queries.preFetch + result.queries.productUpdates + result.queries.productCommercial +
+    result.queries.productLinks + result.queries.tags + result.queries.variantUpdates + result.queries.variantCreates + 
+    result.queries.variantLinks + result.queries.variantAttributes;
 
   return result;
 }

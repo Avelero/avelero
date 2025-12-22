@@ -7,3 +7,4 @@
 export * from "./categories.js";
 export * from "./attributes.js";
 export * from "./values.js";
+export * from "./external-mappings.js";

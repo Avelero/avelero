@@ -317,13 +317,12 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     const variants = Array.isArray(payload?.variants) ? payload.variants : [];
 
     // Build dimensions and metadata from variant attributes
-    // Note: We store taxonomy value IDs for taxonomy-linked attributes, not brand value IDs
+    // Store brand attribute value IDs so custom names (e.g. "Sky Blue") rehydrate correctly
     const dimensionMap = new Map<string, { 
       attributeId: string; 
       name: string; 
       taxonomyAttributeId: string | null; 
       values: Set<string>;
-      brandValueToTaxValue: Map<string, string>;
     }>();
     const metadata: Record<string, VariantMetadata> = {};
 
@@ -336,8 +335,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const brandValueId = attr.value_id ?? attr.valueId;
         const attrName = attr.attribute_name ?? attr.attributeName ?? "Unknown";
         const taxAttrId = attr.taxonomy_attribute_id ?? attr.taxonomyAttributeId ?? null;
-        const taxValueId = attr.taxonomy_value_id ?? attr.taxonomyValueId ?? null;
-        const valueName = attr.value_name ?? attr.valueName ?? "";
 
         if (attrId && brandValueId) {
           if (!dimensionMap.has(attrId)) {
@@ -346,20 +343,17 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               name: attrName,
               taxonomyAttributeId: taxAttrId,
               values: new Set(),
-              brandValueToTaxValue: new Map(),
             });
           }
           
           const dim = dimensionMap.get(attrId)!;
-          // For taxonomy-linked: store taxonomy value ID; for custom: store the value name
-          const valueToStore = taxValueId ?? valueName;
-          dim.values.add(valueToStore);
-          dim.brandValueToTaxValue.set(brandValueId, valueToStore);
-          valueKeys.push(valueToStore);
+          // Store the brand attribute value ID (not taxonomy_value_id)
+          dim.values.add(brandValueId);
+          valueKeys.push(brandValueId);
         }
       }
 
-      // Build metadata key using taxonomy value IDs or custom value names
+      // Build metadata key using brand value IDs
       if (valueKeys.length > 0) {
         const key = valueKeys.join("|");
         metadata[key] = {
@@ -496,9 +490,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       if (d.isCustomInline) {
         return (d.customValues ?? []).some((v) => v.trim().length > 0);
       }
-      const hasValues = d.values.length > 0;
-      const hasPending = (d.pendingValues ?? []).some((v) => v.trim().length > 0);
-      return hasValues || hasPending;
+      return d.values.length > 0;
     });
     if (dims.length === 0) return { dimensions: [], tokenMaps: [] };
 
@@ -590,65 +582,49 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       const resolvedValueIds: string[] = [];
 
       if (dim.taxonomyAttributeId) {
-        // Taxonomy-linked: values are taxonomy value IDs
-        const pending = (dim.pendingValues ?? []).map((v) => v.trim()).filter(Boolean);
-
-        for (const taxValueId of dim.values) {
-          // Check if brand value exists for this taxonomy value
+        // Taxonomy-linked: values are brand value IDs (already created via modal)
+        for (const valueId of dim.values) {
+          // Values should already be brand value IDs
           const existingBrandValue = existingBrandValues.find(
-            (v: any) => v.attributeId === brandAttrId && v.taxonomyValueId === taxValueId
+            (v: any) => v.id === valueId && v.attributeId === brandAttrId
           );
 
           if (existingBrandValue) {
             resolvedValueIds.push(existingBrandValue.id);
-            tokenToBrandValueId.set(taxValueId, existingBrandValue.id);
+            tokenToBrandValueId.set(valueId, existingBrandValue.id);
             tokenToBrandValueId.set(existingBrandValue.name, existingBrandValue.id);
-            tokenToBrandValueId.set(existingBrandValue.id, existingBrandValue.id);
           } else {
-            // Get taxonomy value name for creating brand value
-            const taxValues = brandCatalogQuery?.taxonomy?.values ?? [];
-            const taxValue = taxValues.find((v: any) => v.id === taxValueId);
-            const name = taxValue?.name ?? taxValueId;
+            // Check if it's a taxonomy value ID that needs a brand value
+            const existingByTaxonomy = existingBrandValues.find(
+              (v: any) => v.attributeId === brandAttrId && v.taxonomyValueId === valueId
+            );
+            if (existingByTaxonomy) {
+              resolvedValueIds.push(existingByTaxonomy.id);
+              tokenToBrandValueId.set(valueId, existingByTaxonomy.id);
+              tokenToBrandValueId.set(existingByTaxonomy.name, existingByTaxonomy.id);
+              tokenToBrandValueId.set(existingByTaxonomy.id, existingByTaxonomy.id);
+            } else {
+              // Create brand value for taxonomy value
+              const taxValues = brandCatalogQuery?.taxonomy?.values ?? [];
+              const taxValue = taxValues.find((v: any) => v.id === valueId);
+              const name = taxValue?.name ?? valueId;
 
-            const result = await createAttributeValueMutation.mutateAsync({
-              attribute_id: brandAttrId,
-              name,
-              taxonomy_value_id: taxValueId,
-            });
-            if (!result?.data?.id) throw new Error("Failed to create attribute value");
-            resolvedValueIds.push(result.data.id);
-            tokenToBrandValueId.set(taxValueId, result.data.id);
-            tokenToBrandValueId.set(result.data.name ?? name, result.data.id);
-            tokenToBrandValueId.set(result.data.id, result.data.id);
-            existingBrandValues.push(result.data);
-          }
-        }
-
-        // Pending values: create brand values WITHOUT taxonomy linkage (custom additions)
-        for (const pendingName of pending) {
-          const existingByName = existingBrandValues.find(
-            (v: any) => v.attributeId === brandAttrId && String(v.name).toLowerCase() === pendingName.toLowerCase()
-          );
-          if (existingByName) {
-            resolvedValueIds.push(existingByName.id);
-            tokenToBrandValueId.set(pendingName, existingByName.id);
-            tokenToBrandValueId.set(existingByName.id, existingByName.id);
-          } else {
-            const result = await createAttributeValueMutation.mutateAsync({
-              attribute_id: brandAttrId,
-              name: pendingName,
-            });
-            if (!result?.data?.id) throw new Error("Failed to create attribute value");
-            resolvedValueIds.push(result.data.id);
-            tokenToBrandValueId.set(pendingName, result.data.id);
-            tokenToBrandValueId.set(result.data.id, result.data.id);
-            existingBrandValues.push(result.data);
+              const result = await createAttributeValueMutation.mutateAsync({
+                attribute_id: brandAttrId,
+                name,
+                taxonomy_value_id: valueId,
+              });
+              if (!result?.data?.id) throw new Error("Failed to create attribute value");
+              resolvedValueIds.push(result.data.id);
+              tokenToBrandValueId.set(valueId, result.data.id);
+              tokenToBrandValueId.set(result.data.name ?? name, result.data.id);
+              tokenToBrandValueId.set(result.data.id, result.data.id);
+              existingBrandValues.push(result.data);
+            }
           }
         }
       } else {
-        // Existing custom attribute: values are brand value IDs
-        const pending = (dim.pendingValues ?? []).map((v) => v.trim()).filter(Boolean);
-
+        // Existing custom attribute: values are brand value IDs (already created via modal)
         for (const valueId of dim.values) {
           // Check if this is already a valid brand value ID
           const existingBrandValue = existingBrandValues.find(
@@ -679,27 +655,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               tokenToBrandValueId.set(result.data.id, result.data.id);
               existingBrandValues.push(result.data);
             }
-          }
-        }
-
-        for (const pendingName of pending) {
-          const existingByName = existingBrandValues.find(
-            (v: any) => v.attributeId === brandAttrId && String(v.name).toLowerCase() === pendingName.toLowerCase()
-          );
-          if (existingByName) {
-            resolvedValueIds.push(existingByName.id);
-            tokenToBrandValueId.set(pendingName, existingByName.id);
-            tokenToBrandValueId.set(existingByName.id, existingByName.id);
-          } else {
-            const result = await createAttributeValueMutation.mutateAsync({
-              attribute_id: brandAttrId,
-              name: pendingName,
-            });
-            if (!result?.data?.id) throw new Error("Failed to create attribute value");
-            resolvedValueIds.push(result.data.id);
-            tokenToBrandValueId.set(pendingName, result.data.id);
-            tokenToBrandValueId.set(result.data.id, result.data.id);
-            existingBrandValues.push(result.data);
           }
         }
       }
@@ -791,8 +746,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           imagePath = result.storageUrl;
         }
 
-        const resolvedEcoClaimIds = await resolveEcoClaims();
-        const ecoClaimIds = resolvedEcoClaimIds.length > 0 ? resolvedEcoClaimIds : undefined;
+        // Always send eco claims - empty array clears claims, undefined skips update
+        const ecoClaimIds = await resolveEcoClaims();
 
         // Resolve variant dimensions (creates brand attributes/values as needed)
         const resolvedVariant = await resolveVariantDimensions();
@@ -805,7 +760,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const materials = formValues.materialData.length > 0
           ? formValues.materialData.map((m) => ({ brand_material_id: m.materialId, percentage: m.percentage }))
           : undefined;
-        const tagIds = formValues.tagIds.length > 0 ? formValues.tagIds : undefined;
+        // Always send tagIds - empty array clears tags, undefined skips update
+        const tagIds = formValues.tagIds;
         const journeySteps = formValues.journeySteps.length > 0
           ? formValues.journeySteps.map((s) => ({
               sort_index: s.sortIndex,
@@ -827,7 +783,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           product_handle: productHandle,
           description: formValues.description.trim() || undefined,
           category_id: formValues.categoryId ?? undefined,
-          season_id: formValues.seasonId || undefined,
+          season_id: formValues.seasonId, // null clears season, undefined skips update
           manufacturer_id: formValues.manufacturerId || undefined,
           image_path: imagePath ?? formValues.existingImageUrl ?? undefined,
           status: (formValues.status || "unpublished") as "published" | "scheduled" | "unpublished" | "archived",

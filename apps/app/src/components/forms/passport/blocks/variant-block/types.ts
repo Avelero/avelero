@@ -10,15 +10,10 @@ export interface VariantDimension {
   attributeName: string;
   taxonomyAttributeId: string | null;
   /** 
-   * For taxonomy-linked attributes: array of taxonomy value IDs
-   * For existing custom attributes: array of brand value IDs
+   * Array of brand attribute value IDs (for both taxonomy-linked and custom attributes).
+   * The UI uses these IDs to look up display names and hex colors.
    */
   values: string[];
-  /**
-   * Values that don't exist yet - raw strings typed by user.
-   * Will be created when passport is saved.
-   */
-  pendingValues?: string[];
   
   // For custom inline (not yet saved to catalog):
   isCustomInline?: boolean;

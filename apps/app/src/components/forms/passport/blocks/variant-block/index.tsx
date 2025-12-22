@@ -268,7 +268,6 @@ export function VariantSection({
     dimensions.some(
       (d) =>
         d.values.length > 0 ||
-        (d.pendingValues?.length ?? 0) > 0 ||
         (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0)),
     ) ||
     (explicitVariants && explicitVariants.length > 0);

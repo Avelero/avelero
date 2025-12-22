@@ -13,15 +13,27 @@ import { products, productVariants, productTags, integrationProductLinks, integr
 // TYPES
 // =============================================================================
 
+/**
+ * Update data for the `products` table.
+ * NOTE: webshopUrl, price, currency, salesStatus are in `product_commercial` table.
+ */
 export interface ProductUpdateData {
   id: string;
   name?: string;
   description?: string | null;
+  categoryId?: string | null;
+  imagePath?: string | null;
+}
+
+/**
+ * Upsert data for the `product_commercial` table.
+ */
+export interface ProductCommercialUpsertData {
+  productId: string;
   webshopUrl?: string | null;
   price?: string | null;
   currency?: string | null;
   salesStatus?: string | null;
-  categoryId?: string | null;
 }
 
 export interface VariantUpdateData {
@@ -51,6 +63,9 @@ export interface TagAssignmentData {
  * Batch update multiple products in a SINGLE SQL query using UPDATE FROM VALUES.
  * This reduces N queries to 1 query.
  * 
+ * NOTE: Only updates fields in the `products` table. Commercial fields (price, currency, etc.)
+ * are in `product_commercial` and handled by `batchUpsertProductCommercial`.
+ * 
  * @returns Number of products updated
  */
 export async function batchUpdateProducts(
@@ -61,7 +76,7 @@ export async function batchUpdateProducts(
 
   const now = new Date().toISOString();
   
-  // Build VALUES rows with all updateable fields
+  // Build VALUES rows with product table fields only
   const valueRows: string[] = [];
   
   for (const update of updates) {
@@ -72,42 +87,22 @@ export async function batchUpdateProducts(
     const description = update.description !== undefined
       ? (update.description ? `'${update.description.replace(/'/g, "''")}'` : 'NULL')
       : 'NULL';
-    const webshopUrl = update.webshopUrl !== undefined
-      ? (update.webshopUrl ? `'${update.webshopUrl.replace(/'/g, "''")}'` : 'NULL')
-      : 'NULL';
-    const price = update.price !== undefined
-      ? (update.price ? `'${update.price}'` : 'NULL')
-      : 'NULL';
-    const currency = update.currency !== undefined
-      ? (update.currency ? `'${update.currency.replace(/'/g, "''")}'` : 'NULL')
-      : 'NULL';
-    const salesStatus = update.salesStatus !== undefined
-      ? (update.salesStatus ? `'${update.salesStatus.replace(/'/g, "''")}'` : 'NULL')
-      : 'NULL';
     const categoryId = update.categoryId !== undefined
       ? (update.categoryId ? `'${update.categoryId}'::uuid` : 'NULL::uuid')
       : 'NULL::uuid';
     
-    valueRows.push(`(${id}, ${name}, ${description}, ${webshopUrl}, ${price}, ${currency}, ${salesStatus}, ${categoryId})`);
+    valueRows.push(`(${id}, ${name}, ${description}, ${categoryId})`);
   }
   
   // Determine which columns have updates
   const hasName = updates.some(u => u.name !== undefined);
   const hasDescription = updates.some(u => u.description !== undefined);
-  const hasWebshopUrl = updates.some(u => u.webshopUrl !== undefined);
-  const hasPrice = updates.some(u => u.price !== undefined);
-  const hasCurrency = updates.some(u => u.currency !== undefined);
-  const hasSalesStatus = updates.some(u => u.salesStatus !== undefined);
   const hasCategoryId = updates.some(u => u.categoryId !== undefined);
   
   // Build SET clause
   const setClauses: string[] = [];
   if (hasName) setClauses.push('name = COALESCE(v.name, p.name)');
   if (hasDescription) setClauses.push('description = v.description');
-  if (hasWebshopUrl) setClauses.push('webshop_url = v.webshop_url');
-  if (hasPrice) setClauses.push('price = v.price');
-  if (hasCurrency) setClauses.push('currency = v.currency');
-  if (hasSalesStatus) setClauses.push('sales_status = v.sales_status');
   if (hasCategoryId) setClauses.push('category_id = v.category_id');
   setClauses.push(`updated_at = '${now}'`);
   
@@ -118,13 +113,67 @@ export async function batchUpdateProducts(
   const query = `
     UPDATE products AS p
     SET ${setClauses.join(', ')}
-    FROM (VALUES ${valueRows.join(', ')}) AS v(id, name, description, webshop_url, price, currency, sales_status, category_id)
+    FROM (VALUES ${valueRows.join(', ')}) AS v(id, name, description, category_id)
     WHERE p.id = v.id
   `;
   
   await db.execute(sql.raw(query));
   
   return updates.length;
+}
+
+// =============================================================================
+// BATCH UPSERT PRODUCT COMMERCIAL
+// =============================================================================
+
+import { productCommercial } from "../../schema";
+
+/**
+ * Batch upsert product commercial data (price, currency, webshopUrl, salesStatus).
+ * Uses INSERT ON CONFLICT DO UPDATE for efficient upsert.
+ * 
+ * @returns Number of rows upserted
+ */
+export async function batchUpsertProductCommercial(
+  db: Database,
+  data: ProductCommercialUpsertData[]
+): Promise<number> {
+  if (data.length === 0) return 0;
+
+  const now = new Date().toISOString();
+  
+  // Filter to only records that have at least one commercial field set
+  const validData = data.filter(d => 
+    d.webshopUrl !== undefined || 
+    d.price !== undefined || 
+    d.currency !== undefined || 
+    d.salesStatus !== undefined
+  );
+  
+  if (validData.length === 0) return 0;
+  
+  await db.insert(productCommercial)
+    .values(validData.map(d => ({
+      productId: d.productId,
+      webshopUrl: d.webshopUrl ?? null,
+      price: d.price ?? null,
+      currency: d.currency ?? null,
+      salesStatus: d.salesStatus ?? null,
+      createdAt: now,
+      updatedAt: now,
+    })))
+    .onConflictDoUpdate({
+      target: productCommercial.productId,
+      set: {
+        webshopUrl: sql`EXCLUDED.webshop_url`,
+        price: sql`EXCLUDED.price`,
+        currency: sql`EXCLUDED.currency`,
+        salesStatus: sql`EXCLUDED.sales_status`,
+        updatedAt: now,
+      },
+    });
+  
+  return validData.length;
 }
 
 // =============================================================================
@@ -272,4 +321,62 @@ export async function batchUpsertProductLinks(
 // =============================================================================
 
 export { batchUpsertVariantLinks } from "./links/variant-links";
+
+// =============================================================================
+// BATCH REPLACE VARIANT ATTRIBUTES
+// =============================================================================
+
+import { productVariantAttributes } from "../../schema";
+
+export interface VariantAttributeAssignmentData {
+  variantId: string;
+  attributeValueIds: string[];
+}
+
+/**
+ * Batch replace variant attribute assignments.
+ * Deletes existing assignments for the given variants, then inserts new ones.
+ * Preserves the order of attributeValueIds via sortOrder.
+ *
+ * @param db - Database connection
+ * @param assignments - Array of variant -> attribute value ID assignments
+ * @returns Number of assignments created
+ */
+export async function batchReplaceVariantAttributes(
+  db: Database,
+  assignments: VariantAttributeAssignmentData[]
+): Promise<number> {
+  if (assignments.length === 0) return 0;
+
+  const variantIds = assignments.map((a) => a.variantId);
+
+  // Delete all existing assignments for these variants in one query
+  await db
+    .delete(productVariantAttributes)
+    .where(inArray(productVariantAttributes.variantId, variantIds));
+
+  // Build all assignments to insert with sort order
+  const toInsert: Array<{
+    variantId: string;
+    attributeValueId: string;
+    sortOrder: number;
+  }> = [];
+
+  for (const assignment of assignments) {
+    for (let i = 0; i < assignment.attributeValueIds.length; i++) {
+      toInsert.push({
+        variantId: assignment.variantId,
+        attributeValueId: assignment.attributeValueIds[i]!,
+        sortOrder: i,
+      });
+    }
+  }
+
+  if (toInsert.length === 0) return 0;
+
+  // Insert all assignments in one query
+  await db.insert(productVariantAttributes).values(toInsert);
+
+  return toInsert.length;
+}
 

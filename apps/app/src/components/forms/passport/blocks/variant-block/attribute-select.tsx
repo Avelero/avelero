@@ -28,6 +28,7 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import * as React from "react";
+import { CreateValueModal } from "./create-value-modal";
 import type { VariantDimension } from "./types";
 
 function ValueChip({ name, hex, onRemove }: { name: string; hex?: string | null; onRemove?: () => void }) {
@@ -456,36 +457,110 @@ interface AttributeSelectProps {
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
+// Type for popover options (can be brand value or uncovered taxonomy value)
+interface PopoverOption {
+  id: string;
+  name: string;
+  hex: string | null;
+  isBrandValue: boolean;
+  taxonomyValueId: string | null;
+}
+
 export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, setExpanded, dragHandleProps }: AttributeSelectProps) {
-  const { taxonomyAttributes, taxonomyValuesByAttribute, brandAttributeValuesByAttribute } = useBrandCatalog();
+  const { taxonomyValuesByAttribute, brandAttributeValuesByAttribute } = useBrandCatalog();
   const [valuesOpen, setValuesOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const [createValueModalOpen, setCreateValueModalOpen] = React.useState(false);
+  const [createValueInitialName, setCreateValueInitialName] = React.useState("");
+  const [createValueInitialTaxonomyId, setCreateValueInitialTaxonomyId] = React.useState<string | null>(null);
 
   const taxonomyValues = dimension.taxonomyAttributeId ? taxonomyValuesByAttribute.get(dimension.taxonomyAttributeId) ?? [] : [];
   const brandValues = dimension.attributeId ? brandAttributeValuesByAttribute.get(dimension.attributeId) ?? [] : [];
 
-  const getHex = (id: string) => {
-    const v = taxonomyValues.find((t) => t.id === id);
-    if (v?.metadata && typeof v.metadata === "object") {
-      const m = v.metadata as Record<string, unknown>;
+  // Build a lookup for taxonomy values by ID
+  const taxonomyValuesById = React.useMemo(() => {
+    const map = new Map<string, typeof taxonomyValues[number]>();
+    for (const tv of taxonomyValues) {
+      map.set(tv.id, tv);
+    }
+    return map;
+  }, [taxonomyValues]);
+
+  // Get hex color from taxonomy value metadata
+  const getTaxonomyHex = (taxonomyValueId: string | null) => {
+    if (!taxonomyValueId) return null;
+    const tv = taxonomyValuesById.get(taxonomyValueId);
+    if (tv?.metadata && typeof tv.metadata === "object") {
+      const m = tv.metadata as Record<string, unknown>;
       if (typeof m.swatch === "string") return m.swatch;
       if (typeof m.hex === "string") return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
     }
     return null;
   };
 
+  // Get hex for a value (brand value or taxonomy value)
+  const getHex = (valueId: string) => {
+    // Check if it's a brand value first
+    const bv = brandValues.find((b) => b.id === valueId);
+    if (bv) return getTaxonomyHex(bv.taxonomyValueId);
+    // Otherwise check taxonomy values directly
+    return getTaxonomyHex(valueId);
+  };
+
+  // Get display name for a value
   const getValueName = (val: string) => {
     if (dimension.isCustomInline) return val;
-    if (dimension.pendingValues?.includes(val)) return val;
-    const tv = taxonomyValues.find((t) => t.id === val);
-    if (tv) return tv.name;
+    // Check brand values first (they have the actual names)
     const bv = brandValues.find((b) => b.id === val);
-    return bv?.name ?? val;
+    if (bv) return bv.name;
+    // Fallback to taxonomy value name
+    const tv = taxonomyValuesById.get(val);
+    return tv?.name ?? val;
   };
+
+  // Build available options: brand values + uncovered taxonomy values
+  const availableOptions = React.useMemo((): PopoverOption[] => {
+    const options: PopoverOption[] = [];
+    const coveredTaxonomyIds = new Set<string>();
+
+    // First: Add all brand values
+    for (const bv of brandValues) {
+      options.push({
+        id: bv.id,
+        name: bv.name,
+        hex: getTaxonomyHex(bv.taxonomyValueId),
+        isBrandValue: true,
+        taxonomyValueId: bv.taxonomyValueId,
+      });
+
+      // Check if this brand value "covers" a taxonomy value (same name)
+      if (bv.taxonomyValueId) {
+        const tv = taxonomyValuesById.get(bv.taxonomyValueId);
+        if (tv && tv.name.toLowerCase() === bv.name.toLowerCase()) {
+          coveredTaxonomyIds.add(bv.taxonomyValueId);
+        }
+      }
+    }
+
+    // Second: Add taxonomy values that aren't covered by same-name brand values
+    for (const tv of taxonomyValues) {
+      if (!coveredTaxonomyIds.has(tv.id)) {
+        options.push({
+          id: `tax:${tv.id}`, // Prefix to distinguish from brand value IDs
+          name: tv.name,
+          hex: getTaxonomyHex(tv.id),
+          isBrandValue: false,
+          taxonomyValueId: tv.id,
+        });
+      }
+    }
+
+    return options;
+  }, [brandValues, taxonomyValues, taxonomyValuesById]);
 
   const allValues = dimension.isCustomInline
     ? (dimension.customValues ?? []).map((v) => v.trim()).filter(Boolean)
-    : [...(dimension.values ?? []), ...((dimension.pendingValues ?? []).map((v) => v.trim()).filter(Boolean))];
+    : dimension.values ?? [];
   const displayName = dimension.isCustomInline ? (dimension.customAttributeName || "Custom attribute") : dimension.attributeName;
 
   const toggleValue = (id: string) => {
@@ -493,33 +568,46 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
     onChange({ ...dimension, values: has ? dimension.values.filter((v) => v !== id) : [...dimension.values, id] });
   };
 
-  const removePending = (val: string) => {
-    onChange({ ...dimension, pendingValues: (dimension.pendingValues ?? []).filter((v) => v !== val) });
+  // Handle selecting an option (brand value or taxonomy value)
+  const handleSelectOption = (option: PopoverOption) => {
+    if (option.isBrandValue) {
+      // It's a brand value - use directly
+      toggleValue(option.id);
+    } else {
+      // It's an uncovered taxonomy value - open modal to create brand value
+      // Pre-fill with taxonomy value name and pre-select the taxonomy value
+      setCreateValueInitialName(option.name);
+      setCreateValueInitialTaxonomyId(option.taxonomyValueId);
+      setCreateValueModalOpen(true);
+      setValuesOpen(false);
+      setSearch("");
+    }
   };
 
-  const createPending = () => {
+  const openCreateValueModal = () => {
     const t = search.trim();
     if (!t) return;
-    if (dimension.values.includes(t) || (dimension.pendingValues ?? []).includes(t)) return;
-    if (dimension.taxonomyAttributeId) {
-      const existing = taxonomyValues.find((v) => v.name.toLowerCase() === t.toLowerCase());
-      if (existing) {
-        toggleValue(existing.id);
-        setSearch("");
-        return;
-      }
-    } else {
-      const existing = brandValues.find((v) => v.name.toLowerCase() === t.toLowerCase());
-      if (existing) {
-        toggleValue(existing.id);
-        setSearch("");
-        return;
-      }
+    
+    // Check if value already exists in available options by name
+    const existing = availableOptions.find((v) => v.name.toLowerCase() === t.toLowerCase());
+    if (existing) {
+      handleSelectOption(existing);
+      setSearch("");
+      return;
     }
-    onChange({ ...dimension, pendingValues: [...(dimension.pendingValues ?? []), t] });
+    
+    // Open modal with the search term as initial name (no pre-selected taxonomy)
+    setCreateValueInitialName(t);
+    setCreateValueInitialTaxonomyId(null);
+    setCreateValueModalOpen(true);
+    setValuesOpen(false);
     setSearch("");
   };
 
+  const handleValueCreated = (created: { id: string; name: string; taxonomyValueId: string | null }) => {
+    // Add the newly created value to the selected values
+    onChange({ ...dimension, values: [...dimension.values, created.id] });
+  };
 
   // Collapsed
   if (!isExpanded) {
@@ -553,20 +641,14 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
     );
   }
 
-  // Determine available options for the popover
-  // For taxonomy-linked attributes: show taxonomy values
-  // For custom brand attributes: show brand values
-  const availableOptions = dimension.taxonomyAttributeId
-    ? taxonomyValues.map((v) => ({ id: v.id, name: v.name, hex: getHex(v.id) }))
-    : brandValues.map((v) => ({ id: v.id, name: v.name, hex: null }));
-
+  // Filter options by search
   const filteredOptions = availableOptions.filter(
     (v) => !search || v.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Show create option if search doesn't match any existing option
   const showCreateOption = search.trim() && 
-    !availableOptions.some((v) => v.name.toLowerCase() === search.trim().toLowerCase()) && 
-    !dimension.pendingValues?.includes(search.trim());
+    !availableOptions.some((v) => v.name.toLowerCase() === search.trim().toLowerCase());
 
   // Expanded - Standard attribute
   return (
@@ -581,7 +663,6 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
             <PopoverTrigger asChild>
               <div className="group flex flex-wrap items-center py-[5px] px-2 min-h-9 border border-border bg-background gap-1.5 cursor-pointer">
                 {dimension.values.map((id) => <ValueChip key={id} name={getValueName(id)} hex={getHex(id)} onRemove={() => toggleValue(id)} />)}
-                {(dimension.pendingValues ?? []).map((v) => <ValueChip key={`p-${v}`} name={v} onRemove={() => removePending(v)} />)}
                 <span className="mx-1 border-b border-border type-p text-tertiary group-hover:text-secondary group-hover:border-secondary cursor-pointer transition-colors">
                   Add {dimension.attributeName.toLowerCase()}
                 </span>
@@ -592,20 +673,9 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
                 <CommandInput placeholder="Search..." value={search} onValueChange={setSearch} />
                 <CommandList className="max-h-48">
                   <CommandGroup>
-                    {/* Show pending values first (marked as selected) */}
-                    {(dimension.pendingValues ?? [])
-                      .filter((v) => !search || v.toLowerCase().includes(search.toLowerCase()))
-                      .map((v) => (
-                        <CommandItem key={`pending-${v}`} onSelect={() => removePending(v)} className="justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="type-p">{v}</span>
-                          </div>
-                          <Icons.Check className="h-4 w-4" />
-                        </CommandItem>
-                      ))}
                     {/* Show existing options */}
                     {filteredOptions.map((v) => (
-                      <CommandItem key={v.id} onSelect={() => toggleValue(v.id)} className="justify-between">
+                      <CommandItem key={v.id} onSelect={() => handleSelectOption(v)} className="justify-between">
                         <div className="flex items-center gap-2">
                           {v.hex && <div className="h-3.5 w-3.5 rounded-full border border-border" style={{ backgroundColor: v.hex }} />}
                           <span className="type-p">{v.name}</span>
@@ -615,12 +685,14 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
                     ))}
                     {/* Create option */}
                     {showCreateOption && (
-                      <CommandItem onSelect={createPending}>
-                        <Icons.Plus className="h-3.5 w-3.5 mr-2" />
-                        <span className="type-p">Create &quot;{search.trim()}&quot;</span>
+                      <CommandItem onSelect={openCreateValueModal}>
+                        <div className="flex items-center gap-2">
+                          <Icons.Plus className="h-3.5 w-3.5" />
+                          <span className="type-p text-primary">Create &quot;{search.trim()}&quot;</span>
+                        </div>
                       </CommandItem>
                     )}
-                    {filteredOptions.length === 0 && (dimension.pendingValues ?? []).length === 0 && !showCreateOption && (
+                    {filteredOptions.length === 0 && !showCreateOption && (
                       <CommandEmpty>No values found</CommandEmpty>
                     )}
                   </CommandGroup>
@@ -634,6 +706,20 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
           </div>
         </div>
       </div>
+
+      {/* Create value modal */}
+      {dimension.attributeId && (
+        <CreateValueModal
+          open={createValueModalOpen}
+          onOpenChange={setCreateValueModalOpen}
+          attributeId={dimension.attributeId}
+          attributeName={dimension.attributeName}
+          taxonomyAttributeId={dimension.taxonomyAttributeId}
+          initialName={createValueInitialName}
+          initialTaxonomyValueId={createValueInitialTaxonomyId}
+          onCreated={handleValueCreated}
+        />
+      )}
     </div>
   );
 }

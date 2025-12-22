@@ -59,3 +59,4 @@ export * from "./integrations/links/variant-links";
 export * from "./taxonomy/taxonomy-categories";
 export * from "./taxonomy/taxonomy-attributes";
 export * from "./taxonomy/taxonomy-values";
+export * from "./taxonomy/taxonomy-external-mappings";

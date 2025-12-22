@@ -9,7 +9,7 @@ import type { ConnectorFieldMeta } from "@v1/integrations/ui";
 // =============================================================================
 
 /** UI grouping for field display */
-export type FieldGroup = "product" | "organization" | "sales";
+export type FieldGroup = "product" | "variants" | "organization" | "sales";
 
 // =============================================================================
 // Constants
@@ -17,12 +17,13 @@ export type FieldGroup = "product" | "organization" | "sales";
 
 export const FIELD_GROUP_LABELS: Record<FieldGroup, string> = {
   product: "Product",
+  variants: "Variants",
   organization: "Organization",
   sales: "Sales",
 };
 
 /** Order of groups to display */
-export const FIELD_GROUP_ORDER: FieldGroup[] = ["product", "organization", "sales"];
+export const FIELD_GROUP_ORDER: FieldGroup[] = ["product", "variants", "organization", "sales"];
 
 /**
  * Fields hidden from the UI but still managed:
@@ -39,6 +40,7 @@ export const HIDDEN_FIELDS = new Set([
  * Overrides the default labels from the connector schema.
  */
 export const FIELD_UI_LABELS: Record<string, { label: string; description: string }> = {
+  // Product
   "product.name": {
     label: "Title",
     description: "Product title in your Shopify store, will be publicly visible",
@@ -51,13 +53,10 @@ export const FIELD_UI_LABELS: Record<string, { label: string; description: strin
     label: "Image",
     description: "Main product image from your Shopify store, will be publicly visible",
   },
-  "product.categoryId": {
-    label: "Category",
-    description: "Shopify's category mapped to our category system, will be publicly visible",
-  },
-  "product.tags": {
-    label: "Tags",
-    description: "Tags from your Shopify organization",
+  // Variants
+  "variant.attributes": {
+    label: "Attributes",
+    description: "Variant options from your Shopify store (Color, Size, etc.), will be publicly visible",
   },
   "variant.sku": {
     label: "SKUs",
@@ -67,6 +66,16 @@ export const FIELD_UI_LABELS: Record<string, { label: string; description: strin
     label: "Barcodes",
     description: "Variant-level barcodes, used to identify and enrich products",
   },
+  // Organization
+  "product.categoryId": {
+    label: "Category",
+    description: "Shopify's category mapped to our category system, will be publicly visible",
+  },
+  "product.tags": {
+    label: "Tags",
+    description: "Tags from your Shopify organization",
+  },
+  // Sales
   "product.webshopUrl": {
     label: "Webshop link",
     description: "Link to your Shopify product page, used for the product carousel",
@@ -83,18 +92,27 @@ export const FIELD_UI_LABELS: Record<string, { label: string; description: strin
 
 /**
  * Map field keys to their UI groups for display.
+ * 
+ * Grouping:
+ * - product: Title, Description, Image
+ * - variants: Attributes, SKUs, Barcodes
+ * - organization: Category, Tags
+ * - sales: Webshop link, Price
  */
 export function getFieldGroup(fieldKey: string): FieldGroup {
   // Product fields
   if (fieldKey === "product.name") return "product";
   if (fieldKey === "product.description") return "product";
   if (fieldKey === "product.imagePath") return "product";
-  if (fieldKey === "product.categoryId") return "product";
+
+  // Variant fields
+  if (fieldKey === "variant.attributes") return "variants";
+  if (fieldKey === "variant.sku") return "variants";
+  if (fieldKey === "variant.barcode") return "variants";
 
   // Organization fields
+  if (fieldKey === "product.categoryId") return "organization";
   if (fieldKey === "product.tags") return "organization";
-  if (fieldKey === "variant.sku") return "organization";
-  if (fieldKey === "variant.barcode") return "organization";
 
   // Sales fields
   if (fieldKey === "product.webshopUrl") return "sales";
@@ -116,4 +134,3 @@ export function getFieldUIInfo(field: ConnectorFieldMeta): { label: string; desc
     description: field.description,
   };
 }
-

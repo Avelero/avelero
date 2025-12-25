@@ -1,6 +1,7 @@
 "use client";
 
 import { useUserBrandsQuerySuspense } from "@/hooks/use-brand";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
@@ -43,7 +44,7 @@ export function TableSection() {
   });
   const [hasAnyPassports, setHasAnyPassports] = useState(false);
   const [visibleProductIds, setVisibleProductIds] = useState<string[]>([]);
-  
+
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   // Selection state used specifically for the delete modal (can be the main selection or a single product)
@@ -54,7 +55,7 @@ export function TableSection() {
   });
   // Count for delete modal (resolved from selection or passed directly for single delete)
   const [deleteCount, setDeleteCount] = useState(0);
-  
+
   // Status update mutation
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -67,13 +68,15 @@ export function TableSection() {
       },
     })
   );
-  
+
   // Filter state management
   const [filterState, filterActions] = useFilterState();
 
   // Search state management (debounced)
+  // First debounce by 300ms, then use React's deferred value for smooth rendering
   const [searchValue, setSearchValue] = useState("");
-  const deferredSearch = useDeferredValue(searchValue);
+  const debouncedSearch = useDebounce(searchValue, 300);
+  const deferredSearch = useDeferredValue(debouncedSearch);
 
   // Sort state management (UI only for now)
   const [sortState, setSortState] = useState<{
@@ -117,7 +120,7 @@ export function TableSection() {
           const parsed = JSON.parse(val) as { visible?: string[] } | string[];
           if (Array.isArray(parsed)) return parsed;
           if (parsed && Array.isArray(parsed.visible)) return parsed.visible;
-        } catch {}
+        } catch { }
       }
     }
     return null;
@@ -294,21 +297,21 @@ export function TableSection() {
     // Build the update payload based on selection mode
     const updatePayload = selection.mode === "all"
       ? {
-          selection: {
-            mode: "all" as const,
-            filters: filterState.groups.length > 0 ? filterState : undefined,
-            search: deferredSearch?.trim() || undefined,
-            excludeIds: selection.excludeIds.length > 0 ? selection.excludeIds : undefined,
-          },
-          status,
-        }
+        selection: {
+          mode: "all" as const,
+          filters: filterState.groups.length > 0 ? filterState : undefined,
+          search: deferredSearch?.trim() || undefined,
+          excludeIds: selection.excludeIds.length > 0 ? selection.excludeIds : undefined,
+        },
+        status,
+      }
       : {
-          selection: {
-            mode: "explicit" as const,
-            ids: selection.includeIds,
-          },
-          status,
-        };
+        selection: {
+          mode: "explicit" as const,
+          ids: selection.includeIds,
+        },
+        status,
+      };
 
     updateStatusMutation.mutate(updatePayload, {
       onSuccess: (result) => {
@@ -409,7 +412,7 @@ export function TableSection() {
       ) : (
         tableContent
       )}
-      
+
       {/* Delete Products Modal */}
       <DeleteProductsModal
         open={deleteModalOpen}

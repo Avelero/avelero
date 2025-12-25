@@ -114,24 +114,14 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     // Also available in advanced filters as multi-select (handled by getFieldConfig)
   },
 
-  colorId: {
-    id: "colorId",
-    label: "Color",
+  tagId: {
+    id: "tagId",
+    label: "Tags",
     tier: 1,
-    category: "variants",
+    category: "metadata",
     inputType: "multi-select",
     operators: [...OPERATORS.multiSelect] as FilterOperator[],
-    description: "Filter by variant colors",
-  },
-
-  sizeId: {
-    id: "sizeId",
-    label: "Size",
-    tier: 1,
-    category: "variants",
-    inputType: "multi-select",
-    operators: [...OPERATORS.multiSelect] as FilterOperator[],
-    description: "Filter by variant sizes",
+    description: "Filter by organizational tags",
   },
 
   season: {
@@ -204,15 +194,7 @@ export const FILTER_FIELDS: Record<string, FilterFieldConfig> = {
     description: "Filter by eco claims",
   },
 
-  tagId: {
-    id: "tagId",
-    label: "Tags",
-    tier: 2,
-    category: "metadata",
-    inputType: "multi-select",
-    operators: [...OPERATORS.multiSelect] as FilterOperator[],
-    description: "Filter by organizational tags",
-  },
+  // NOTE: tagId is now in Tier 1 quick filters above
 
   brandCertificationId: {
     id: "brandCertificationId",
@@ -332,8 +314,6 @@ export const FIELD_CATEGORIES = {
       "description",
       "season",
       "categoryId",
-      "colorId",
-      "sizeId",
       "hasImage",
       "manufacturerId",
     ],
@@ -454,7 +434,7 @@ export function getAdvancedFilterFields(): FilterFieldConfig[] {
 }
 
 /**
- * Get advanced fields organized by category (includes tier 1 fields for categoryId, colorId, sizeId, season)
+ * Get advanced fields organized by category (includes tier 1 fields for categoryId, tagId, season)
  */
 export function getAdvancedFieldsByCategoryForUI(): Array<{
   category: string;
@@ -462,7 +442,7 @@ export function getAdvancedFieldsByCategoryForUI(): Array<{
   fields: FilterFieldConfig[];
 }> {
   // Fields that should be available in advanced filters even though they're Tier 1
-  const tier1FieldsInAdvanced = ["categoryId", "colorId", "sizeId", "season"];
+  const tier1FieldsInAdvanced = ["categoryId", "tagId", "season"];
 
   return Object.entries(FIELD_CATEGORIES)
     .map(([category, config]) => ({

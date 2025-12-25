@@ -318,10 +318,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
     // Build dimensions and metadata from variant attributes
     // Store brand attribute value IDs so custom names (e.g. "Sky Blue") rehydrate correctly
-    const dimensionMap = new Map<string, { 
-      attributeId: string; 
-      name: string; 
-      taxonomyAttributeId: string | null; 
+    const dimensionMap = new Map<string, {
+      attributeId: string;
+      name: string;
+      taxonomyAttributeId: string | null;
       values: Set<string>;
     }>();
     const metadata: Record<string, VariantMetadata> = {};
@@ -329,7 +329,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     for (const variant of variants) {
       const attrs = variant.attributes ?? [];
       const valueKeys: string[] = [];
-      
+
       for (const attr of attrs) {
         const attrId = attr.attribute_id ?? attr.attributeId;
         const brandValueId = attr.value_id ?? attr.valueId;
@@ -345,7 +345,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               values: new Set(),
             });
           }
-          
+
           const dim = dimensionMap.get(attrId)!;
           // Store the brand attribute value ID (not taxonomy_value_id)
           dim.values.add(brandValueId);
@@ -677,7 +677,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     const brandCatalogQuery = queryClient.getQueryData(trpc.composite.catalogContent.queryKey()) as any;
     const existingEcoClaims = brandCatalogQuery?.brandCatalog?.ecoClaims ?? [];
     const ecoClaimByText = new Map<string, { id?: string; claim: string }>();
-    
+
     for (const ec of existingEcoClaims) {
       ecoClaimByText.set(ec.claim.trim().toLowerCase(), { id: ec.id, claim: ec.claim });
     }
@@ -764,17 +764,17 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const tagIds = formValues.tagIds;
         const journeySteps = formValues.journeySteps.length > 0
           ? formValues.journeySteps.map((s) => ({
-              sort_index: s.sortIndex,
-              step_type: s.stepType,
-              facility_id: s.facilityId,
-            }))
+            sort_index: s.sortIndex,
+            step_type: s.stepType,
+            facility_id: s.facilityId,
+          }))
           : undefined;
         const environmentPayload =
           formValues.carbonKgCo2e.trim() || formValues.waterLiters.trim()
             ? {
-                carbon_kg_co2e: formValues.carbonKgCo2e.trim() || undefined,
-                water_liters: formValues.waterLiters.trim() || undefined,
-              }
+              carbon_kg_co2e: formValues.carbonKgCo2e.trim() || undefined,
+              water_liters: formValues.waterLiters.trim() || undefined,
+            }
             : undefined;
 
         const basePayload = {
@@ -783,7 +783,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           product_handle: productHandle,
           description: formValues.description.trim() || undefined,
           category_id: formValues.categoryId ?? undefined,
-          season_id: formValues.seasonId, // null clears season, undefined skips update
+          season_id: formValues.seasonId ?? undefined, // Convert null to undefined for create (schema expects optional, not nullable)
           manufacturer_id: formValues.manufacturerId || undefined,
           image_path: imagePath ?? formValues.existingImageUrl ?? undefined,
           status: (formValues.status || "unpublished") as "published" | "scheduled" | "unpublished" | "archived",

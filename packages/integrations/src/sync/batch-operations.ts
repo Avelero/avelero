@@ -62,19 +62,40 @@ export interface ParsedVariantOption {
  * Shopify standard metafield keys and their corresponding taxonomy friendly_ids.
  * Used to determine taxonomy linking for brand attributes.
  *
- * From Shopify docs: linkedMetafield { namespace: "shopify", key: "color-pattern" }
- * maps to our taxonomy attribute "color".
+ * We ONLY use metafield mapping (not name-based fallback) because:
+ * 1. If a merchant has configured linkedMetafield in Shopify, they've explicitly
+ *    defined the semantic meaning - we should respect that.
+ * 2. If there's no linkedMetafield, the attribute has no semantic meaning in
+ *    Shopify either - it's just a string label. We should treat it the same.
+ * 3. Name-based fallback is brittle: "colors" vs "color", translations like
+ *    "kleur" or "Farbe", and false positives from unrelated terms.
+ *
+ * Reference: Shopify Standard Product Taxonomy Category Metafields
+ * https://shopify.dev/docs/apps/build/graphql/migrate/new-product-model/metafields
  */
 const SHOPIFY_METAFIELD_TO_TAXONOMY: Record<string, string> = {
+  // Core attributes available across most categories
   "color-pattern": "color",
+  "size": "size",
   "target-gender": "target_gender",
   "age-group": "age_group",
-  // Add more as needed from Shopify's standard category metafields
+  "fabric": "fabric",
+  // Note: These Shopify metafields exist but we don't have matching taxonomy attributes:
+  // - "neckline" (too specific, not in our taxonomy)
+  // - "sleeve-length-type" (too specific, not in our taxonomy)
+  // - "top-length-type" (too specific, not in our taxonomy)
+  // - "clothing-features" (too specific, not in our taxonomy)
 };
 
 /**
  * Resolves the taxonomy attribute friendly_id from a Shopify option.
- * Uses linkedMetafield.key if present, otherwise tries common name mappings.
+ *
+ * ONLY uses linkedMetafield.key for matching - no name-based fallback.
+ *
+ * If a merchant has configured their Shopify product options with standard
+ * category metafields (e.g., linkedMetafield.key = "color-pattern"), we map
+ * that to our taxonomy. If they haven't, the attribute has no semantic meaning
+ * in Shopify either, so we don't assign one.
  *
  * @returns taxonomy friendly_id (e.g. "color", "size") or null if no mapping found
  */
@@ -85,45 +106,31 @@ export function resolveTaxonomyFriendlyId(
   const name = optionName.trim();
   if (!name) return null;
 
-  // First, check if this option has a linkedMetafield that tells us the semantic type
+  // Check if this option has a linkedMetafield that tells us the semantic type
   const productOptions = getValueByPath(variantData, "product.options");
-  if (Array.isArray(productOptions)) {
-    const match = productOptions.find((opt) => {
-      if (typeof opt !== "object" || opt === null) return false;
-      const optName = (opt as Record<string, unknown>).name;
-      return typeof optName === "string" && optName.trim().toLowerCase() === name.toLowerCase();
-    }) as Record<string, unknown> | undefined;
+  if (!Array.isArray(productOptions)) return null;
 
-    const linked = match?.linkedMetafield;
-    if (linked && typeof linked === "object") {
-      const ns = (linked as Record<string, unknown>).namespace;
-      const key = (linked as Record<string, unknown>).key;
-      if (ns === "shopify" && typeof key === "string" && key.trim().length > 0) {
-        const metafieldKey = key.trim().toLowerCase();
-        const taxonomyId = SHOPIFY_METAFIELD_TO_TAXONOMY[metafieldKey];
-        if (taxonomyId) return taxonomyId;
-      }
-    }
+  const match = productOptions.find((opt) => {
+    if (typeof opt !== "object" || opt === null) return false;
+    const optName = (opt as Record<string, unknown>).name;
+    return typeof optName === "string" && optName.trim().toLowerCase() === name.toLowerCase();
+  }) as Record<string, unknown> | undefined;
+
+  const linked = match?.linkedMetafield;
+  if (!linked || typeof linked !== "object") return null;
+
+  const ns = (linked as Record<string, unknown>).namespace;
+  const key = (linked as Record<string, unknown>).key;
+
+  // Only match Shopify standard metafields (namespace = "shopify")
+  if (ns !== "shopify" || typeof key !== "string" || key.trim().length === 0) {
+    return null;
   }
 
-  // Fallback: try common name mappings (for stores without linkedMetafield)
-  const nameLower = name.toLowerCase();
-  const nameMap: Record<string, string> = {
-    color: "color",
-    colour: "color",
-    kleur: "color",
-    farbe: "color",
-    couleur: "color",
-    size: "size",
-    maat: "size",
-    größe: "size",
-    taille: "size",
-    "age group": "age_group",
-    leeftijdsgroep: "age_group",
-  };
-
-  return nameMap[nameLower] ?? null;
+  const metafieldKey = key.trim().toLowerCase();
+  return SHOPIFY_METAFIELD_TO_TAXONOMY[metafieldKey] ?? null;
 }
+
 
 /**
  * Normalizes an option name for display.

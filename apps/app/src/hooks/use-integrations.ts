@@ -174,10 +174,10 @@ export function useUpdateFieldMappingMutation() {
           queryKey,
           (old: RouterOutputs["integrations"]["mappings"]["list"] | undefined) => {
             if (!old?.data) return old;
-            
+
             // Check if mapping exists
             const exists = old.data.some((m) => m.fieldKey === variables.field_key);
-            
+
             if (exists) {
               // Update existing mapping
               return {
@@ -188,24 +188,23 @@ export function useUpdateFieldMappingMutation() {
                     : mapping,
                 ),
               };
-            } else {
-              // Add new mapping (optimistic - will be replaced by server response)
-              return {
-                ...old,
-                data: [
-                  ...old.data,
-                  {
-                    id: `temp-${variables.field_key}`,
-                    brandIntegrationId: variables.brand_integration_id,
-                    fieldKey: variables.field_key,
-                    ownershipEnabled: variables.ownership_enabled ?? false,
-                    sourceOptionKey: variables.source_option_key ?? null,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  },
-                ],
-              };
             }
+            // Add new mapping (optimistic - will be replaced by server response)
+            return {
+              ...old,
+              data: [
+                ...old.data,
+                {
+                  id: `temp-${variables.field_key}`,
+                  brandIntegrationId: variables.brand_integration_id,
+                  fieldKey: variables.field_key,
+                  ownershipEnabled: variables.ownership_enabled ?? false,
+                  sourceOptionKey: variables.source_option_key ?? null,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                },
+              ],
+            };
           },
         );
 

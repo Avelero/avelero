@@ -51,6 +51,10 @@ export type MultiSelectOperator =
   | "is empty"
   | "is not empty";
 
+export type HierarchicalOperator =
+  | "is descendant of"  // Includes the selected category AND all child categories
+  | "is ancestor of";   // Includes the selected category AND all parent categories
+
 export type DateOperator =
   | "is"
   | "is before"
@@ -66,6 +70,7 @@ export type FilterOperator =
   | TextOperator
   | NumberOperator
   | MultiSelectOperator
+  | HierarchicalOperator
   | DateOperator
   | BooleanOperator;
 
@@ -93,11 +98,11 @@ export interface FilterFieldConfig {
   label: string;
   tier: 1 | 2 | 3; // Quick (1), Advanced (2), Power User (3)
   category:
-    | "product"
-    | "sustainability"
-    | "variants"
-    | "manufacturing"
-    | "metadata";
+  | "product"
+  | "sustainability"
+  | "variants"
+  | "manufacturing"
+  | "metadata";
   inputType: FilterInputType;
   operators: FilterOperator[];
   options?: SelectOption[]; // Static options

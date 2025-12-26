@@ -45,6 +45,7 @@ export function CreateBrandForm() {
             queryKey: trpc.composite.initDashboard.queryKey(),
           }),
         ]);
+        router.refresh();
         router.push("/");
       },
       onError: (err) => {

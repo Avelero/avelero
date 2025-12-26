@@ -136,7 +136,7 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
       <div className="flex items-center gap-3">
         <SignedAvatar
           bucket="brand-avatars"
-          path={invite.brand_logo}
+          url={invite.brand_logo}
           name={invite.brand_name ?? undefined}
           hue={invite.brand_avatar_hue ?? undefined}
           size={32}

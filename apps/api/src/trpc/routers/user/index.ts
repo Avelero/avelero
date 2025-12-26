@@ -181,7 +181,7 @@ export const userRouter = createTRPCRouter({
   update: protectedProcedure
     .input(userDomainUpdateSchema)
     .mutation(async ({ ctx, input }) => {
-      const { db, user, supabaseAdmin } = ctx;
+      const { db, user } = ctx;
 
       // Ensure we have a valid authenticated user
       if (!user) {
@@ -194,7 +194,9 @@ export const userRouter = createTRPCRouter({
         avatarPath?: string | null;
       } = {};
 
-      // Handle email change separately with full validation and sync
+      // Handle email sync to users table
+      // Note: Supabase Auth email is already updated via OTP verification flow
+      // This simply syncs the new email to our application database
       if (input.email !== undefined && input.email !== null) {
         const newEmail = input.email.trim().toLowerCase();
 
@@ -203,117 +205,24 @@ export const userRouter = createTRPCRouter({
           throw badRequest("Invalid email format");
         }
 
-        // Don't process if email hasn't actually changed
-        const currentEmail = user.email?.toLowerCase();
-        if (newEmail !== currentEmail) {
-          // Check if email is already taken by another user
-          const emailTaken = await isEmailTaken(db, newEmail, user.id);
-          if (emailTaken) {
-            throw badRequest(
-              "Email address is already in use by another account",
-            );
-          }
-
-          // Require admin client for email changes
-          if (!supabaseAdmin) {
-            logger.error(
-              {
-                userId: user.id,
-                newEmail,
-              },
-              "Email change attempted without admin client",
-            );
-            throw internalServerError(
-              "Email changes require admin privileges. Please contact support.",
-            );
-          }
-
-          try {
-            // Step 1: Update Supabase Auth first (primary source of truth)
-            // This will trigger Supabase's email verification flow
-            logger.info(
-              {
-                userId: user.id,
-                oldEmail: currentEmail,
-                newEmail,
-              },
-              "Updating user email in Supabase Auth",
-            );
-
-            const { data: authUpdateData, error: authUpdateError } =
-              await supabaseAdmin.auth.admin.updateUserById(user.id, {
-                email: newEmail,
-              });
-
-            if (authUpdateError) {
-              logger.error(
-                {
-                  userId: user.id,
-                  error: authUpdateError.message,
-                  code: authUpdateError.code,
-                },
-                "Failed to update email in Supabase Auth",
-              );
-              throw new TRPCError({
-                code: "INTERNAL_SERVER_ERROR",
-                message: `Failed to update email in authentication system: ${authUpdateError.message}`,
-                cause: authUpdateError,
-              });
-            }
-
-            if (!authUpdateData?.user) {
-              logger.error(
-                {
-                  userId: user.id,
-                },
-                "Supabase Auth update succeeded but returned no user",
-              );
-              throw internalServerError(
-                "Email update failed: authentication system returned invalid response",
-              );
-            }
-
-            logger.info(
-              {
-                userId: user.id,
-                newEmail,
-                emailConfirmedAt: authUpdateData.user.email_confirmed_at,
-              },
-              "Successfully updated email in Supabase Auth",
-            );
-
-            // Step 2: Update application DB after auth update succeeds
-            payload.email = newEmail;
-
-            // Note: Supabase Auth automatically sends:
-            // - A confirmation email to the new address (user must verify)
-            // - Optionally, a notification to the old address (if configured)
-            // The email_confirmed_at will be null until verification
-            logger.info(
-              {
-                userId: user.id,
-                newEmail,
-                requiresVerification: !authUpdateData.user.email_confirmed_at,
-              },
-              "Email change initiated successfully",
-            );
-          } catch (error) {
-            // If it's already a TRPCError, rethrow it
-            if (error instanceof TRPCError) {
-              throw error;
-            }
-
-            // Wrap unexpected errors
-            logger.error(
-              {
-                userId: user.id,
-                error: error instanceof Error ? error.message : String(error),
-              },
-              "Unexpected error during email update",
-            );
-            throw wrapError(error, "Failed to update email address");
-          }
+        // Check if email is already taken by another user in our DB
+        const emailTaken = await isEmailTaken(db, newEmail, user.id);
+        if (emailTaken) {
+          throw badRequest(
+            "Email address is already in use by another account",
+          );
         }
+
+        // Set email for DB update - auth is already updated via OTP flow
+        payload.email = newEmail;
+
+        logger.info(
+          {
+            userId: user.id,
+            newEmail,
+          },
+          "Syncing email to application database",
+        );
       }
 
       // Handle other profile fields

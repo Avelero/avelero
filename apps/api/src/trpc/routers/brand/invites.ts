@@ -130,7 +130,7 @@ export const brandInvitesRouter = createTRPCRouter({
         const payload: InviteEmailPayload[] = inviteResults.map((invite) => {
           const isExisting = invite.isExistingUser;
           const acceptUrl = isExisting
-            ? `${appUrl}/account/brands`
+            ? `${appUrl}/invites`
             : `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash ?? ""}`;
           return {
             recipientEmail: invite.email,

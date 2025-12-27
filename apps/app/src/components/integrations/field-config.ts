@@ -2,7 +2,7 @@
  * Shared field UI configuration for setup wizard and detail view.
  * Centralizes field grouping, labels, and descriptions.
  */
-import type { ConnectorFieldMeta } from "@v1/integrations/ui";
+import type { ConnectorFieldMeta } from "@v1/integrations";
 
 // =============================================================================
 // Types

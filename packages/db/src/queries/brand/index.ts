@@ -1,11 +1,11 @@
 /**
  * Brand query functions barrel export.
  */
-export * from "./brands.js";
-export * from "./theme.js";
-export * from "./members.js";
-export * from "./invites.js";
-export * from "./collections.js";
+export * from "./brands";
+export * from "./theme";
+export * from "./members";
+export * from "./invites";
+export * from "./collections";
 
 
 

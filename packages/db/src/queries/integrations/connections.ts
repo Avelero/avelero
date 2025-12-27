@@ -8,7 +8,7 @@ export {
   getIntegrationBySlug,
   getIntegrationById,
   type IntegrationStatus,
-} from "./providers.js";
+} from "./providers";
 
 // =============================================================================
 // TYPES

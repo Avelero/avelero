@@ -8,13 +8,13 @@
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { Database } from "../../client";
 import { products } from "../../schema";
-import { buildProductWhereClauses } from "./_shared/where.js";
+import { buildProductWhereClauses } from "./_shared/where";
 import type {
   BulkDeleteResult,
   BulkUpdateFields,
   BulkUpdateResult,
   ListFilters,
-} from "./types.js";
+} from "./types";
 
 /**
  * Bulk delete products matching filters.

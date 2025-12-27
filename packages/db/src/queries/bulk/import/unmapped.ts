@@ -7,11 +7,11 @@
 import type { Database } from "../../../client";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
-import { getImportJobStatus } from "./jobs.js";
+import { getImportJobStatus } from "./jobs";
 import type {
   UnmappedValue,
   UnmappedValuesResponse,
-} from "./types.js";
+} from "./types";
 
 type DbOrTx =
   | Database

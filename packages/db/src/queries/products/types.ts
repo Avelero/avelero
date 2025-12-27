@@ -158,7 +158,7 @@ export interface ProductWithRelations extends ProductRecord {
  * Type-safe product field names.
  * Re-exported from _shared/fields.ts for convenience.
  */
-export type { ProductField } from "./_shared/fields.js";
+export type { ProductField } from "./_shared/fields";
 
 /**
  * Product row for carousel selection modal.

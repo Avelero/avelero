@@ -11,4 +11,4 @@
  * 
  * @deprecated Import directly from bulk/staging/ submodules for better tree-shaking.
  */
-export * from "./staging/index.js";
+export * from "./staging/index";

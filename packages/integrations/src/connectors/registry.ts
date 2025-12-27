@@ -7,23 +7,10 @@
 import {
   fetchProducts as shopifyFetchProducts,
   getProductCount as shopifyGetProductCount,
-  shopifySchema,
   testConnection as shopifyTestConnection,
-} from "./shopify/index";
-import type { ConnectorSchema } from "./types";
-import type { FetchedProductBatch, IntegrationCredentials } from "../sync/types";
-
-export interface RegisteredConnector {
-  slug: string;
-  schema: ConnectorSchema;
-  testConnection: (credentials: IntegrationCredentials) => Promise<unknown>;
-  fetchProducts: (
-    credentials: IntegrationCredentials,
-    batchSize?: number,
-  ) => AsyncGenerator<FetchedProductBatch, void, undefined>;
-  /** Get total product count for progress tracking. Returns -1 if unknown. */
-  getProductCount: (credentials: IntegrationCredentials) => Promise<number>;
-}
+} from "./shopify/client";
+import { shopifySchema } from "./shopify/schema";
+import type { RegisteredConnector } from "../types";
 
 const registry = new Map<string, RegisteredConnector>();
 

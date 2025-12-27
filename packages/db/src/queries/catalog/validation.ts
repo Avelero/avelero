@@ -15,14 +15,14 @@ import {
   brandSeasons,
   brandTags,
 } from "../../schema";
-import type { CatalogEntityType, ValidationError, ValidationResult } from "./types.js";
-import { createMaterial } from "./materials.js";
-import { createEcoClaim } from "./eco-claims.js";
-import { createFacility } from "./facilities.js";
-import { createBrandManufacturer } from "./manufacturers.js";
-import { createCertification } from "./certifications.js";
-import { createSeason } from "./seasons.js";
-import { createBrandTag } from "./tags.js";
+import type { CatalogEntityType, ValidationError, ValidationResult } from "./types";
+import { createMaterial } from "./materials";
+import { createEcoClaim } from "./eco-claims";
+import { createFacility } from "./facilities";
+import { createBrandManufacturer } from "./manufacturers";
+import { createCertification } from "./certifications";
+import { createSeason } from "./seasons";
+import { createBrandTag } from "./tags";
 
 /**
  * Configuration map for duplicate checking by entity type.

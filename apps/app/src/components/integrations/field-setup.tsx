@@ -16,7 +16,7 @@ import {
   getFieldUIInfo,
   type FieldGroup,
 } from "@/components/integrations/field-config";
-import { getConnectorFields } from "@v1/integrations/ui";
+import { getConnectorFields } from "@v1/integrations";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";

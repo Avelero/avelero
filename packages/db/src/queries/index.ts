@@ -16,14 +16,14 @@
 // =============================================================================
 // Organized domain exports
 // =============================================================================
-export * from "./products/index.js";
-export * from "./catalog/index.js";
-export * from "./brand/index.js";
-export * from "./user/index.js";
-export * from "./taxonomy/index.js";
-export * from "./dpp/index.js";
-export * from "./integrations/index.js";
-export * from "./bulk/index.js";
+export * from "./products/index";
+export * from "./catalog/index";
+export * from "./brand/index";
+export * from "./user/index";
+export * from "./taxonomy/index";
+export * from "./dpp/index";
+export * from "./integrations/index";
+export * from "./bulk/index";
 
 // =============================================================================
 // Drizzle-ORM utilities

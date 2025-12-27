@@ -13,8 +13,10 @@ import {
   ensureBrandAttributeForTaxonomy,
 } from "@v1/db/queries/catalog";
 import { getTaxonomyAttributeByFriendlyId, listTaxonomyValuesByAttribute } from "@v1/db/queries/taxonomy";
-import type { EffectiveFieldMapping } from "./extractor";
-import { extractValues, getValueByPath } from "./extractor";
+import type { FetchedProductBatch } from "../types";
+import { parseSelectedOptions } from "../connectors/shopify/schema";
+import type { EffectiveFieldMapping } from "./processor";
+import { extractValues } from "./processor";
 import type { SyncCaches } from "./caches";
 import {
   bulkCacheTags,
@@ -23,7 +25,6 @@ import {
   getCachedAttributeId,
   getCachedAttributeValueId,
 } from "./caches";
-import type { FetchedProduct, FetchedProductBatch } from "./types";
 
 // =============================================================================
 // TYPES
@@ -48,97 +49,6 @@ export interface BatchCreationStats {
   tagsCreated: number;
   attributesCreated: number;
   attributeValuesCreated: number;
-}
-
-/**
- * Parsed variant option from Shopify selectedOptions.
- */
-export interface ParsedVariantOption {
-  name: string;
-  value: string;
-}
-
-/**
- * Shopify standard metafield keys and their corresponding taxonomy friendly_ids.
- * Used to determine taxonomy linking for brand attributes.
- *
- * We ONLY use metafield mapping (not name-based fallback) because:
- * 1. If a merchant has configured linkedMetafield in Shopify, they've explicitly
- *    defined the semantic meaning - we should respect that.
- * 2. If there's no linkedMetafield, the attribute has no semantic meaning in
- *    Shopify either - it's just a string label. We should treat it the same.
- * 3. Name-based fallback is brittle: "colors" vs "color", translations like
- *    "kleur" or "Farbe", and false positives from unrelated terms.
- *
- * Reference: Shopify Standard Product Taxonomy Category Metafields
- * https://shopify.dev/docs/apps/build/graphql/migrate/new-product-model/metafields
- */
-const SHOPIFY_METAFIELD_TO_TAXONOMY: Record<string, string> = {
-  // Core attributes available across most categories
-  "color-pattern": "color",
-  "size": "size",
-  "target-gender": "target_gender",
-  "age-group": "age_group",
-  "fabric": "fabric",
-  // Note: These Shopify metafields exist but we don't have matching taxonomy attributes:
-  // - "neckline" (too specific, not in our taxonomy)
-  // - "sleeve-length-type" (too specific, not in our taxonomy)
-  // - "top-length-type" (too specific, not in our taxonomy)
-  // - "clothing-features" (too specific, not in our taxonomy)
-};
-
-/**
- * Resolves the taxonomy attribute friendly_id from a Shopify option.
- *
- * ONLY uses linkedMetafield.key for matching - no name-based fallback.
- *
- * If a merchant has configured their Shopify product options with standard
- * category metafields (e.g., linkedMetafield.key = "color-pattern"), we map
- * that to our taxonomy. If they haven't, the attribute has no semantic meaning
- * in Shopify either, so we don't assign one.
- *
- * @returns taxonomy friendly_id (e.g. "color", "size") or null if no mapping found
- */
-export function resolveTaxonomyFriendlyId(
-  optionName: string,
-  variantData: Record<string, unknown>,
-): string | null {
-  const name = optionName.trim();
-  if (!name) return null;
-
-  // Check if this option has a linkedMetafield that tells us the semantic type
-  const productOptions = getValueByPath(variantData, "product.options");
-  if (!Array.isArray(productOptions)) return null;
-
-  const match = productOptions.find((opt) => {
-    if (typeof opt !== "object" || opt === null) return false;
-    const optName = (opt as Record<string, unknown>).name;
-    return typeof optName === "string" && optName.trim().toLowerCase() === name.toLowerCase();
-  }) as Record<string, unknown> | undefined;
-
-  const linked = match?.linkedMetafield;
-  if (!linked || typeof linked !== "object") return null;
-
-  const ns = (linked as Record<string, unknown>).namespace;
-  const key = (linked as Record<string, unknown>).key;
-
-  // Only match Shopify standard metafields (namespace = "shopify")
-  if (ns !== "shopify" || typeof key !== "string" || key.trim().length === 0) {
-    return null;
-  }
-
-  const metafieldKey = key.trim().toLowerCase();
-  return SHOPIFY_METAFIELD_TO_TAXONOMY[metafieldKey] ?? null;
-}
-
-
-/**
- * Normalizes an option name for display.
- * Keeps the original name but trims whitespace.
- * We preserve the merchant's chosen name (e.g. "kleur" stays "kleur").
- */
-function normalizeOptionName(name: string): string {
-  return name.trim();
 }
 
 // =============================================================================
@@ -207,54 +117,6 @@ export function extractUniqueEntitiesFromBatch(
   }
 
   return { tags, productIds, variantIds, attributeNames, attributeValuesByName, attributeTaxonomyHints };
-}
-
-/**
- * Parsed variant option with optional taxonomy hint.
- */
-export interface ParsedVariantOptionWithTaxonomy extends ParsedVariantOption {
-  /** Taxonomy friendly_id if resolvable (e.g. "color", "size") */
-  taxonomyFriendlyId: string | null;
-}
-
-/**
- * Parse Shopify selectedOptions from variant data.
- * Normalizes, filters empty values, and drops "Title=Default Title".
- * Also resolves taxonomy hints for each option.
- */
-export function parseSelectedOptions(
-  variantData: Record<string, unknown>
-): ParsedVariantOptionWithTaxonomy[] {
-  const selectedOptions = getValueByPath(variantData, "selectedOptions");
-  if (!Array.isArray(selectedOptions)) return [];
-
-  const result: ParsedVariantOptionWithTaxonomy[] = [];
-
-  for (const opt of selectedOptions) {
-    if (
-      typeof opt !== "object" ||
-      opt === null ||
-      typeof (opt as Record<string, unknown>).name !== "string" ||
-      typeof (opt as Record<string, unknown>).value !== "string"
-    ) {
-      continue;
-    }
-
-    const name = ((opt as Record<string, unknown>).name as string).trim();
-    const value = ((opt as Record<string, unknown>).value as string).trim();
-
-    // Skip empty values
-    if (!name || !value) continue;
-
-    // Skip "Title = Default Title" (Shopify's placeholder for single-variant products)
-    if (name === "Title" && value === "Default Title") continue;
-
-    const normalizedName = normalizeOptionName(name);
-    const taxonomyFriendlyId = resolveTaxonomyFriendlyId(name, variantData);
-    result.push({ name: normalizedName, value, taxonomyFriendlyId });
-  }
-
-  return result;
 }
 
 // =============================================================================
@@ -419,78 +281,4 @@ function getRandomHex(): string {
     "FF7F50", "87CEEB", "DA70D6", "8FBC8F", "E6E6FA",
   ] as const;
   return colors[Math.floor(Math.random() * colors.length)] ?? "FF6B6B";
-}
-
-/**
- * Prepare variant data for extraction.
- *
- * Merges variant data with its parent product data so the extractor
- * can access product-level fields (like product.options for color detection).
- */
-export function prepareVariantData(
-  product: FetchedProduct,
-  variantIndex: number
-): Record<string, unknown> {
-  const variant = product.variants[variantIndex];
-  if (!variant) {
-    throw new Error(`Variant at index ${variantIndex} not found`);
-  }
-
-  return {
-    ...variant.data,
-    product: product.data,
-  };
-}
-
-/**
- * Get all variant identifiers from a product.
- * Used for SKU/barcode matching.
- */
-export function getProductVariantIdentifiers(
-  product: FetchedProduct,
-  mappings: EffectiveFieldMapping[]
-): Array<{ sku?: string; barcode?: string }> {
-  const identifiers: Array<{ sku?: string; barcode?: string }> = [];
-
-  for (const variant of product.variants) {
-    const mergedData = {
-      ...variant.data,
-      product: product.data,
-    };
-
-    const extracted = extractValues(mergedData, mappings);
-    identifiers.push({
-      sku: extracted.variant.sku as string | undefined,
-      barcode: extracted.variant.barcode as string | undefined,
-    });
-  }
-
-  return identifiers;
-}
-
-/**
- * Resolve variant attribute value IDs from selected options.
- * Uses caches to look up IDs without database queries.
- *
- * @param options - Parsed selected options from variant
- * @param caches - Sync caches with attribute/value IDs
- * @returns Array of attribute value IDs in option order
- */
-export function resolveAttributeValueIds(
-  options: ParsedVariantOption[],
-  caches: SyncCaches
-): string[] {
-  const valueIds: string[] = [];
-
-  for (const opt of options) {
-    const attrId = getCachedAttributeId(caches, opt.name);
-    if (!attrId) continue;
-
-    const valueId = getCachedAttributeValueId(caches, attrId, opt.value);
-    if (valueId) {
-      valueIds.push(valueId);
-    }
-  }
-
-  return valueIds;
 }

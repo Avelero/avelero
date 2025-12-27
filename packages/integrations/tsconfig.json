@@ -1,7 +1,6 @@
 {
-  "extends": "@v1/tsconfig/base.json",
+  "extends": "@v1/tsconfig/nextjs.json",
   "compilerOptions": {
-    "outDir": "dist",
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

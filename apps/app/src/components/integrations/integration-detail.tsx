@@ -29,7 +29,7 @@ import {
   useTriggerSyncMutation,
   useUpdateFieldMappingMutation,
 } from "@/hooks/use-integrations";
-import { getConnectorFields } from "@v1/integrations/ui";
+import { getConnectorFields } from "@v1/integrations";
 import { Button } from "@v1/ui/button";
 import { Skeleton } from "@v1/ui/skeleton";
 import { toast } from "@v1/ui/sonner";

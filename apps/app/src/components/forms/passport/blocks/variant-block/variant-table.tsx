@@ -231,7 +231,10 @@ export function VariantTable({
     return null;
   }
 
-  // Case 1: Only one dimension has values - flat list (even if there are more dimensions defined)
+  // Case 1: Only one dimension has values - flat list without checkboxes
+  // When there's only one attribute, users can simply remove the attribute value
+  // instead of using checkboxes. Checkboxes only make sense with 2+ attributes
+  // where matrix combinations create variants users may want to selectively disable.
   if (dimensionsWithValues.length === 1) {
     const dim = dimensionsWithValues[0]!;
     const dimIndex = effectiveDimensions.indexOf(dim);
@@ -246,21 +249,12 @@ export function VariantTable({
           const key = buildKey([value]);
           const meta = variantMetadata[key] ?? {};
           const { name, hex } = getValueDisplay(dimIndex, value, effectiveDimensions);
-          const isEnabled = enabledVariantKeys.has(key);
           return (
             <div
               key={key}
-              className={cn(
-                "grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border",
-                !isEnabled && "opacity-50"
-              )}
+              className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border"
             >
               <div className="px-4 py-2 flex items-center gap-2">
-                <VariantCheckbox
-                  checked={isEnabled}
-                  onChange={(checked) => toggleVariantEnabled(key, checked)}
-                  ariaLabel={`Enable variant ${name}`}
-                />
                 {hex && (
                   <div
                     className="h-3.5 w-3.5 rounded-full border border-border shrink-0"
@@ -275,7 +269,6 @@ export function VariantTable({
                   onChange={(e) => updateMetadata(key, "sku", e.target.value)}
                   placeholder="SKU"
                   className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
-                  disabled={!isEnabled}
                 />
               </div>
               <div className="px-2 py-1.5 border-l border-border">
@@ -284,7 +277,6 @@ export function VariantTable({
                   onChange={(e) => updateMetadata(key, "barcode", e.target.value)}
                   placeholder="Barcode"
                   className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
-                  disabled={!isEnabled}
                 />
               </div>
             </div>

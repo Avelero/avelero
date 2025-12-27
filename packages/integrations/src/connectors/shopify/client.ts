@@ -2,6 +2,7 @@
  * Shopify API Client
  *
  * Handles communication with Shopify's GraphQL Admin API.
+ * Includes configuration constants and API response types.
  */
 
 import type {
@@ -9,14 +10,146 @@ import type {
   FetchedProductBatch,
   FetchedVariant,
   IntegrationCredentials,
-} from "../../sync/types.ts";
-import { buildShopifyEndpoint, SHOPIFY_BATCH_SIZE } from "./config";
+} from "../../types";
 import { SHOPIFY_PRODUCTS_QUERY } from "./schema";
-import type {
-  ProductsQueryResponse,
-  ShopifyGraphQLResponse,
-  ShopQueryResponse,
-} from "./types.ts";
+
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/**
+ * Shopify GraphQL Admin API version to use.
+ * @see https://shopify.dev/docs/api/usage/versioning
+ */
+export const SHOPIFY_API_VERSION = "2024-10";
+
+/**
+ * Default batch size for fetching variants.
+ * Shopify allows up to 250 per request.
+ * Using max for better performance - reduces API calls by 60%.
+ */
+export const SHOPIFY_BATCH_SIZE = 250;
+
+/**
+ * Shopify OAuth scopes required for sync.
+ */
+export const SHOPIFY_DEFAULT_SCOPES = "read_products";
+
+/**
+ * Build the Shopify GraphQL endpoint URL.
+ */
+export function buildShopifyEndpoint(shopDomain: string): string {
+  // Normalize shop domain
+  let domain = shopDomain.trim().toLowerCase();
+
+  // Remove protocol if present
+  domain = domain.replace(/^https?:\/\//, "");
+
+  // Remove trailing slash
+  domain = domain.replace(/\/$/, "");
+
+  // Add .myshopify.com if not present
+  if (!domain.includes(".")) {
+    domain = `${domain}.myshopify.com`;
+  }
+
+  return `https://${domain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`;
+}
+
+/**
+ * Validate shop domain format.
+ */
+export function isValidShopDomain(shop: string): boolean {
+  const shopRegex = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i;
+  return shopRegex.test(shop);
+}
+
+// =============================================================================
+// GRAPHQL TYPES
+// =============================================================================
+
+export interface ShopifyGraphQLResponse<T> {
+  data?: T;
+  errors?: Array<{ message: string; locations?: unknown[] }>;
+  extensions?: {
+    cost?: {
+      requestedQueryCost: number;
+      actualQueryCost: number;
+      throttleStatus?: {
+        maximumAvailable: number;
+        currentlyAvailable: number;
+        restoreRate: number;
+      };
+    };
+  };
+}
+
+export interface ShopQueryResponse {
+  shop: {
+    name: string;
+    primaryDomain: { url: string };
+  };
+}
+
+// =============================================================================
+// PRODUCT TYPES
+// =============================================================================
+
+export interface ShopifySelectedOption {
+  name: string;
+  value: string;
+}
+
+export interface ShopifyProductOptionValue {
+  id: string;
+  name: string;
+  linkedMetafieldValue: string | null;
+  swatch: { color: string | null } | null;
+}
+
+export interface ShopifyProductOption {
+  id: string;
+  name: string;
+  position: number;
+  linkedMetafield: { namespace: string; key: string } | null;
+  optionValues: ShopifyProductOptionValue[];
+}
+
+export interface ShopifyVariantNode {
+  id: string;
+  sku: string | null;
+  barcode: string | null;
+  title: string;
+  price: string;
+  compareAtPrice: string | null;
+  selectedOptions: ShopifySelectedOption[];
+  image: { url: string } | null;
+}
+
+export interface ShopifyProductNode {
+  id: string;
+  handle: string;
+  title: string;
+  description: string | null;
+  descriptionHtml: string | null;
+  status: string;
+  productType: string | null;
+  vendor: string | null;
+  tags: string[];
+  onlineStoreUrl: string | null;
+  category: { id: string; name: string; fullName: string } | null;
+  featuredImage: { url: string } | null;
+  priceRangeV2: { minVariantPrice: { amount: string; currencyCode: string } } | null;
+  options: ShopifyProductOption[] | null;
+  variants: { edges: Array<{ node: ShopifyVariantNode }> };
+}
+
+export interface ProductsQueryResponse {
+  products: {
+    pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    edges: Array<{ node: ShopifyProductNode }>;
+  };
+}
 
 // =============================================================================
 // QUERY EXECUTION

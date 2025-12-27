@@ -24,7 +24,7 @@ import type {
   StagingEcoClaimPreview,
   StagingJourneyStepPreview,
   StagingEnvironmentPreview,
-} from "./types.js";
+} from "./types";
 
 type DbOrTx =
   | Database

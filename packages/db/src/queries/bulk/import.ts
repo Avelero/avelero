@@ -10,5 +10,5 @@
  * 
  * @deprecated Import directly from bulk/import/ submodules for better tree-shaking.
  */
-export * from "./import/index.js";
+export * from "./import/index";
 

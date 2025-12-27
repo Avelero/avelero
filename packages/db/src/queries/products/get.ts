@@ -12,8 +12,8 @@ import {
   createEmptyAttributes,
   loadAttributesForProducts,
   loadVariantsForProducts,
-} from "./_shared/helpers.js";
-import type { ProductHandle, ProductWithRelations } from "./types.js";
+} from "./_shared/helpers";
+import type { ProductHandle, ProductWithRelations } from "./types";
 
 /**
  * Retrieves a product by ID.

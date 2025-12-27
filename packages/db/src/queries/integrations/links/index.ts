@@ -1,11 +1,11 @@
 /**
  * Integration links barrel export.
  */
-export * from "./types.js";
-export * from "./product-links.js";
-export * from "./variant-links.js";
-export * from "./entity-links.js";
-export * from "./oauth-states.js";
+export * from "./types";
+export * from "./product-links";
+export * from "./variant-links";
+export * from "./entity-links";
+export * from "./oauth-states";
 
 
 

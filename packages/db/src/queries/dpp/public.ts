@@ -728,5 +728,5 @@ export async function getCarouselProductsForDpp(
 }
 
 // transformToDppData has been moved to ./transform.ts
-export { transformToDppData } from "./transform.js";
+export { transformToDppData } from "./transform";
 

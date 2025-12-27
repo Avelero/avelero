@@ -29,15 +29,30 @@ import {
 import { products, productVariants } from "@v1/db/schema";
 import { generateUniqueUpids, slugifyProductName } from "@v1/db/utils";
 import { eq, and, inArray } from "@v1/db/queries";
+import {
+  downloadAndUploadImage,
+  isExternalImageUrl,
+} from "@v1/supabase/utils/external-images";
 import { getConnector } from "../connectors/registry";
 import { initShopifyToAveleroCategoryMapping } from "../connectors/shopify/category-mappings";
-import { buildEffectiveFieldMappings, extractValues, getValueByPath } from "./extractor";
+import type {
+  FetchedProductBatch,
+  FetchedProduct,
+  SyncContext,
+  SyncResult,
+  StorageClient,
+} from "../types";
 import { initializeCaches, type SyncCaches } from "./caches";
 import { createMissingEntities, extractUniqueEntitiesFromBatch } from "./batch-operations";
-import { processProduct, type PendingOperations } from "./processor";
-import type { FetchedProductBatch, SyncContext, SyncResult, FetchedProduct } from "./types";
+import {
+  processProduct,
+  buildEffectiveFieldMappings,
+  extractValues,
+  getValueByPath,
+  type PendingOperations,
+  type ProductCreateOp,
+} from "./processor";
 
-const PRODUCT_CONCURRENCY = 10;
 const PROGRESS_UPDATE_INTERVAL = 5;
 
 export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
@@ -165,6 +180,10 @@ export async function testIntegrationConnection(
   }
 }
 
+// =============================================================================
+// BATCH PROCESSING
+// =============================================================================
+
 interface BatchResult {
   variantsProcessed: number;
   variantsCreated: number;
@@ -183,7 +202,6 @@ interface BatchResult {
   };
   queries: {
     preFetch: number;
-    // Batch phase queries
     productCreates: number;
     productUpdates: number;
     productCommercial: number;
@@ -195,7 +213,6 @@ interface BatchResult {
     variantAttributes: number;
     total: number;
   };
-  // Image upload promise - awaited at job level, not batch level
   imageUploadPromise: Promise<{ completed: number; failed: number }> | null;
 }
 
@@ -262,7 +279,7 @@ async function processBatch(
   for (const product of batch) {
     if (!productLinks.has(product.externalId)) {
       // Extract variant identifiers for matching
-      const identifiers = product.variants.map((v) => {
+      const identifiers = product.variants.map((v: FetchedProduct["variants"][number]) => {
         const variantData = { ...v.data, product: product.data };
         return extractRawIdentifiers(variantData);
       });
@@ -291,7 +308,7 @@ async function processBatch(
 
   // 2e: Batch check which handles are taken (replaces N individual isTaken calls)
   const productsNeedingHandles = batch.filter(
-    (p) => !productLinks.has(p.externalId) && !identifierMatches.has(p.externalId)
+    (p: FetchedProduct) => !productLinks.has(p.externalId) && !identifierMatches.has(p.externalId)
   );
   const takenHandles = await batchCheckHandlesTaken(db, ctx.brandId, productsNeedingHandles, mappings);
   result.queries.preFetch += 1;
@@ -377,7 +394,7 @@ async function processBatch(
   const createdProductMap = new Map<string, string>(); // externalId -> productId
   if (allPendingOps.productCreates.length > 0) {
     const insertedProducts = await db.insert(products)
-      .values(allPendingOps.productCreates.map((p) => ({
+      .values(allPendingOps.productCreates.map((p: ProductCreateOp) => ({
         brandId: ctx.brandId,
         name: p.name,
         productHandle: p.productHandle,
@@ -428,7 +445,7 @@ async function processBatch(
   }
   
   if (allPendingOps.variantUpdates.length > 0) {
-    const variantUpdates: VariantUpdateData[] = allPendingOps.variantUpdates.map(u => ({
+    const variantUpdates: VariantUpdateData[] = allPendingOps.variantUpdates.map((u: PendingOperations["variantUpdates"][number]) => ({
       id: u.id,
       sku: u.sku,
       barcode: u.barcode,
@@ -456,7 +473,7 @@ async function processBatch(
 
     // Batch insert all variants
     const inserted = await db.insert(productVariants)
-      .values(variantCreates.map((v, i) => ({
+      .values(variantCreates.map((v: PendingOperations["variantCreates"][number], i: number) => ({
         productId: v.productId,
         sku: v.sku,
         barcode: v.barcode,
@@ -567,7 +584,6 @@ async function batchCheckHandlesTaken(
   }
 
   // Query for all handles that start with any of our base slugs
-  // This captures both exact matches and suffix variations (e.g., "my-product-1234")
   const rows = await db
     .select({ handle: products.productHandle })
     .from(products)
@@ -576,8 +592,6 @@ async function batchCheckHandlesTaken(
       inArray(products.productHandle, Array.from(baseSlugs))
     ));
 
-  // Also query for suffix variations by checking if handle starts with base slug + "-"
-  // This is done with a broader query using LIKE patterns
   const takenHandles = new Set(rows.map((r) => r.handle));
   
   return takenHandles;
@@ -636,7 +650,35 @@ function updatePendingOpsWithCreatedProducts(
   }
 }
 
-import { processImageUrl } from "./matcher";
+// =============================================================================
+// IMAGE PROCESSING (inlined from matcher.ts)
+// =============================================================================
+
+/**
+ * Download external image and upload to storage if needed.
+ * Returns the storage path, or null if download fails.
+ * If the URL is already a storage path (not external), returns it unchanged.
+ */
+async function processImageUrl(
+  storageClient: StorageClient,
+  brandId: string,
+  productId: string,
+  imageUrl: string | null | undefined
+): Promise<string | null> {
+  if (!imageUrl) return null;
+
+  // If not an external URL, return as-is (already a storage path)
+  if (!isExternalImageUrl(imageUrl)) return imageUrl;
+
+  // Download and upload to our storage
+  const storagePath = await downloadAndUploadImage(storageClient, {
+    url: imageUrl,
+    bucket: "products",
+    pathPrefix: brandId,
+  });
+
+  return storagePath;
+}
 
 /**
  * Process image uploads with rate limiting to avoid overwhelming external services.
@@ -645,7 +687,7 @@ import { processImageUrl } from "./matcher";
  * Each image has a 60-second timeout to prevent hanging.
  */
 function processImagesWithRateLimit(
-  storageClient: SyncContext["storageClient"],
+  storageClient: StorageClient,
   brandId: string,
   db: Database,
   tasks: Array<{ productId: string; imageUrl: string }>,

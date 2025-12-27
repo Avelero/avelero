@@ -9,17 +9,17 @@
  * - ./attributes.ts (brand dimensions)
  * - ./attribute-values.ts (dimension options)
  */
-export * from "./types.js";
-export * from "./attributes.js";
-export * from "./attribute-values.js";
-export * from "./tags.js";
-export * from "./materials.js";
-export * from "./eco-claims.js";
-export * from "./facilities.js";
-export * from "./manufacturers.js";
-export * from "./certifications.js";
-export * from "./seasons.js";
-export * from "./validation.js";
+export * from "./types";
+export * from "./attributes";
+export * from "./attribute-values";
+export * from "./tags";
+export * from "./materials";
+export * from "./eco-claims";
+export * from "./facilities";
+export * from "./manufacturers";
+export * from "./certifications";
+export * from "./seasons";
+export * from "./validation";
 
 
 

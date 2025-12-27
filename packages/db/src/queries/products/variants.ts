@@ -13,8 +13,8 @@ import {
   productVariants,
 } from "../../schema";
 import { normalizeLimit, parseCursor } from "../_shared/pagination.js";
-import { getProduct, getProductByHandle } from "./get.js";
-import type { ProductVariantWithAttributes, VariantAttributeSummary } from "./types.js";
+import { getProduct, getProductByHandle } from "./get";
+import type { ProductVariantWithAttributes, VariantAttributeSummary } from "./types";
 
 /**
  * Identifier for variant listing - accepts either product UUID or handle.

@@ -15,16 +15,16 @@ import {
   productTags,
 } from "../../schema";
 import { normalizeLimit, parseCursor, buildPaginationMeta } from "../_shared/pagination.js";
-import { PRODUCT_FIELD_MAP, PRODUCT_FIELDS } from "./_shared/fields.js";
-import { buildProductWhereClauses } from "./_shared/where.js";
-import { buildProductOrderBy } from "./_shared/sort.js";
+import { PRODUCT_FIELD_MAP, PRODUCT_FIELDS } from "./_shared/fields";
+import { buildProductWhereClauses } from "./_shared/where";
+import { buildProductOrderBy } from "./_shared/sort";
 import {
   createEmptyAttributes,
   loadAttributesForProducts,
   loadCategoryPathsForProducts,
   loadVariantsForProducts,
   mapProductRow,
-} from "./_shared/helpers.js";
+} from "./_shared/helpers";
 import type {
   CarouselProductRow,
   ListFilters,
@@ -32,7 +32,7 @@ import type {
   ProductField,
   ProductVariantWithAttributes,
   ProductWithRelations,
-} from "./types.js";
+} from "./types";
 
 /**
  * Lists products with optional field selection for performance optimization.

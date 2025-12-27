@@ -9,8 +9,8 @@ import type { Database } from "../../../client";
 import { stagingProducts, products } from "../../../schema";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
-import { hydrateStagingProductPreviews } from "./preview.js";
-import type { StagingProductPreview } from "./types.js";
+import { hydrateStagingProductPreviews } from "./preview";
+import type { StagingProductPreview } from "./types";
 
 type DbOrTx =
   | Database

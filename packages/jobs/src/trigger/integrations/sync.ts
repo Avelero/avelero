@@ -20,14 +20,14 @@ import {
   updateSyncJob,
 } from "@v1/db/queries/integrations";
 import { decryptCredentials } from "@v1/db/utils";
-import { getConnector } from "@v1/integrations/connectors";
-import { syncProducts } from "@v1/integrations/sync";
-import type {
-  FieldConfig,
-  IntegrationCredentials,
-  SyncContext,
-  SyncProgress,
-} from "@v1/integrations/sync";
+import {
+  type FieldConfig,
+  type IntegrationCredentials,
+  type SyncContext,
+  type SyncProgress,
+  getConnector,
+  syncProducts,
+} from "@v1/integrations";
 
 // =============================================================================
 // TYPES

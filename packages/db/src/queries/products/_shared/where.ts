@@ -10,7 +10,7 @@ import type { Database } from "../../../client";
 import { products } from "../../../schema";
 import { convertFilterStateToWhereClauses } from "../../../utils/filter-converter.js";
 import type { ListFilters } from "../types.js";
-import { buildProductSearchClause } from "./search.js";
+import { buildProductSearchClause } from "./search";
 import { safeNotInArray } from "../../_shared/selection.js";
 
 /**

@@ -14,7 +14,7 @@ import type {
   ImportJobStatus,
   UpdateImportJobProgressParams,
   UpdateImportJobStatusParams,
-} from "./types.js";
+} from "./types";
 
 type DbOrTx =
   | Database

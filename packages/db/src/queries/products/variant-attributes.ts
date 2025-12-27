@@ -21,7 +21,7 @@ import type {
   ExplicitVariantInput,
   MatrixDimension,
   ReplaceVariantsResult,
-} from "./types.js";
+} from "./types";
 
 // =============================================================================
 // CONSTRAINTS

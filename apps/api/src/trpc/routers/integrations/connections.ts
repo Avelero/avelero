@@ -20,7 +20,7 @@ import {
   updateBrandIntegration,
 } from "@v1/db/queries/integrations";
 import { encryptCredentials, decryptCredentials } from "@v1/db/utils";
-import { testIntegrationConnection } from "@v1/integrations/sync";
+import { testIntegrationConnection } from "@v1/integrations";
 import {
   connectApiKeySchema,
   disconnectSchema,

@@ -1,7 +1,7 @@
 /**
  * User query functions barrel export.
  */
-export * from "./users.js";
+export * from "./users";
 
 
 

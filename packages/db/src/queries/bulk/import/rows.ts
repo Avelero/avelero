@@ -14,7 +14,7 @@ import type {
   FailedRowExport,
   ImportError,
   UpdateImportRowStatusParams,
-} from "./types.js";
+} from "./types";
 
 type DbOrTx =
   | Database

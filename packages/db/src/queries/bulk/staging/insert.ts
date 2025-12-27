@@ -24,7 +24,7 @@ import type {
   InsertStagingEcoClaimParams,
   InsertStagingJourneyStepParams,
   InsertStagingEnvironmentParams,
-} from "./types.js";
+} from "./types";
 
 type DbOrTx =
   | Database

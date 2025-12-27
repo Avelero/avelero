@@ -4,21 +4,29 @@
  * Processes a single product with all its variants.
  * Returns pending operations to be batched at the engine level.
  * 
+ * Also includes value extraction logic (inlined from extractor.ts).
+ * 
  * IMPORTANT: This module is now SYNCHRONOUS and does NO database queries.
  * All lookup data is pre-fetched by the engine and passed in.
  */
 
+import { createHash, randomInt } from "node:crypto";
 import type {
   ProductLinkData,
   VariantLinkData,
   PreFetchedVariant,
 } from "@v1/db/queries/integrations";
 import { slugifyProductName } from "@v1/db/utils";
-import type { EffectiveFieldMapping } from "./extractor";
-import { extractValues, computeHash, getValueByPath } from "./extractor";
-import type { ExtractedValues } from "./types";
-import { createHash } from "node:crypto";
-import { randomInt } from "node:crypto";
+import type {
+  ConnectorFieldDefinition,
+  ConnectorSchema,
+  ExtractedValues,
+  FetchedProduct,
+  FieldConfig,
+  SourceOption,
+  SyncContext,
+} from "../types";
+import { parseSelectedOptions } from "../connectors/shopify/schema";
 import {
   type SyncCaches,
   getCachedTag,
@@ -26,9 +34,177 @@ import {
   cacheProduct,
   markProductUpdated,
   isProductUpdated,
+  getCachedAttributeId,
+  getCachedAttributeValueId,
 } from "./caches";
-import { parseSelectedOptions, resolveAttributeValueIds } from "./batch-operations";
-import type { FetchedProduct, SyncContext } from "./types";
+
+// =============================================================================
+// VALUE EXTRACTION (inlined from extractor.ts)
+// =============================================================================
+
+export interface EffectiveFieldMapping {
+  fieldKey: string;
+  definition: ConnectorFieldDefinition;
+  sourceKey: string;
+}
+
+/**
+ * Get a value from a nested object using dot notation path.
+ * Use "." as path to return the root object.
+ */
+export function getValueByPath(obj: Record<string, unknown>, path: string): unknown {
+  // Special case: "." returns the root object
+  if (path === ".") return obj;
+
+  const parts = path.split(".");
+  let current: unknown = obj;
+
+  for (const part of parts) {
+    if (current === null || current === undefined) return undefined;
+    if (typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+
+  return current;
+}
+
+/**
+ * Build effective field mappings from schema and configs.
+ * Only includes fields that are enabled for this integration.
+ */
+export function buildEffectiveFieldMappings(
+  schema: ConnectorSchema,
+  fieldConfigs: FieldConfig[]
+): EffectiveFieldMapping[] {
+  const mappings: EffectiveFieldMapping[] = [];
+  const configMap = new Map(
+    fieldConfigs
+      .filter((c) => c.isEnabled)
+      .map((c) => [c.fieldKey, c.selectedSource])
+  );
+
+  for (const [fieldKey, definition] of Object.entries(schema.fields) as [string, ConnectorFieldDefinition][]) {
+    // If there's a config, use it; otherwise use default
+    const isEnabled = configMap.has(fieldKey) || !fieldConfigs.length;
+    if (!isEnabled) continue;
+
+    const sourceKey = configMap.get(fieldKey) ?? definition.defaultSource;
+
+    mappings.push({
+      fieldKey,
+      definition,
+      sourceKey,
+    });
+  }
+
+  return mappings;
+}
+
+/**
+ * Extract values from external data using field mappings.
+ */
+export function extractValues(
+  externalData: Record<string, unknown>,
+  mappings: EffectiveFieldMapping[]
+): ExtractedValues {
+  const result: ExtractedValues = {
+    product: {},
+    variant: {},
+    referenceEntities: {},
+    relations: {},
+  };
+
+  for (const mapping of mappings) {
+    const { fieldKey, definition, sourceKey } = mapping;
+
+    // Find the source option
+    const sourceOption = definition.sourceOptions.find(
+      (opt: SourceOption) => opt.key === sourceKey
+    );
+    if (!sourceOption) continue;
+
+    // Get raw value
+    let value = getValueByPath(externalData, sourceOption.path);
+
+    // Apply source-specific transform
+    if (sourceOption.transform && value !== undefined) {
+      value = sourceOption.transform(value);
+    }
+
+    // Apply global transform
+    if (definition.transform && value !== undefined) {
+      value = definition.transform(value);
+    }
+
+    // Skip null/undefined values
+    if (value === null || value === undefined) continue;
+
+    // Parse field key safely
+    const dotIndex = fieldKey.indexOf(".");
+    if (dotIndex === -1) continue;
+
+    const entityType = fieldKey.slice(0, dotIndex);
+    const fieldName = fieldKey.slice(dotIndex + 1);
+
+    // Handle reference entities (can be on product or variant level)
+    if (definition.referenceEntity) {
+      if (definition.referenceEntity === "category") {
+        // Store category UUID directly (resolved from Shopify taxonomy mapping)
+        result.referenceEntities.categoryId = String(value);
+      }
+      // Don't put reference entity values directly in product/variant objects
+      continue;
+    }
+
+    if (entityType === "product") {
+      result.product[fieldName] = value;
+    } else if (entityType === "variant") {
+      result.variant[fieldName] = value;
+    }
+
+    // Handle relations (tags)
+    if (definition.isRelation && definition.relationType === "tags") {
+      result.relations.tags = value as string[];
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Compute a hash of extracted values for change detection.
+ */
+export function computeHash(values: ExtractedValues): string {
+  const str = JSON.stringify(values);
+  return createHash("sha256").update(str).digest("hex").slice(0, 32);
+}
+
+// =============================================================================
+// ATTRIBUTE VALUE RESOLUTION
+// =============================================================================
+
+/**
+ * Resolve variant attribute value IDs from selected options.
+ * Uses caches to look up IDs without database queries.
+ */
+export function resolveAttributeValueIds(
+  options: Array<{ name: string; value: string }>,
+  caches: SyncCaches
+): string[] {
+  const valueIds: string[] = [];
+
+  for (const opt of options) {
+    const attrId = getCachedAttributeId(caches, opt.name);
+    if (!attrId) continue;
+
+    const valueId = getCachedAttributeValueId(caches, attrId, opt.value);
+    if (valueId) {
+      valueIds.push(valueId);
+    }
+  }
+
+  return valueIds;
+}
 
 // =============================================================================
 // TYPES
@@ -216,8 +392,8 @@ export function processProduct(
     // Pre-compute tag IDs for hash calculation
     const tagNames = productExtracted.relations.tags ?? [];
     const tagIds = tagNames
-      .map((name) => getCachedTag(caches, name)?.id)
-      .filter((id): id is string => !!id);
+      .map((name: string) => getCachedTag(caches, name)?.id)
+      .filter((id: string | undefined): id is string => !!id);
 
     // Compute product hash
     const productHash = computeProductHash(productExtracted, tagIds);
@@ -450,9 +626,6 @@ function buildProductCommercialData(
   };
 }
 
-// NOTE: createProduct function removed - product creation is now batched at engine level.
-// NOTE: buildOrderArrays function removed as part of variant attribute migration.
-
 // =============================================================================
 // VARIANT PROCESSING (SYNCHRONOUS - NO DB WRITES)
 // =============================================================================
@@ -492,8 +665,6 @@ function processVariantsSync(
 
   const existingVariants = preFetched.existingVariantsByProduct.get(productId) ?? [];
   const existingById = new Map(existingVariants.map((v) => [v.id, v]));
-  // NOTE: existingByKey (color/size key) removed as part of variant attribute migration.
-  // Variant matching now relies on link, barcode, and SKU only.
   const existingByBarcode = new Map(existingVariants.filter((v) => v.barcode?.trim()).map((v) => [v.barcode!.toLowerCase(), v]));
   const existingBySku = new Map(existingVariants.filter((v) => v.sku?.trim()).map((v) => [v.sku!.toLowerCase(), v]));
   
@@ -614,14 +785,5 @@ function findExistingVariant<T extends { id: string }>(
     }
   }
 
-  // NOTE: Key-based matching (colorId:sizeId) removed as part of variant attribute migration.
-  // In the future, attribute-based matching may be added in Phase 3.
-
   return undefined;
 }
-
-// NOTE: makeKey function removed as part of variant attribute migration.
-// colorId and sizeId no longer exist on product_variants.
-
-
-

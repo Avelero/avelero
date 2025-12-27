@@ -6,7 +6,7 @@
 
 import { countries, type CountryCode } from "@v1/selections";
 import type { DppData } from "@v1/dpp-components";
-import type { DppPublicData } from "./public.js";
+import type { DppPublicData } from "./public";
 
 /**
  * Get article number from variant identifiers using precedence:

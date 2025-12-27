@@ -20,6 +20,18 @@ on:
       - apps/api/**
       - packages/**
 
+  # Allow being called by preview-app.yaml with the Vercel URL
+  workflow_call:
+    inputs:
+      app_url:
+        description: 'The Vercel deployment URL for APP_URL'
+        type: string
+        required: true
+      pr_number:
+        description: 'The PR number'
+        type: string
+        required: true
+
 permissions:
   contents: read
   pull-requests: write
@@ -30,10 +42,33 @@ env:
   FLY_ORG: personal
 
 jobs:
+  # Check if we should skip because preview-app will call us
+  check-skip:
+    name: 🔍 Check Skip Condition
+    runs-on: ubuntu-latest
+    # Only check when directly triggered, not when called via workflow_call
+    if: github.event_name != 'workflow_call'
+    outputs:
+      should_skip: ${{ steps.filter.outputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'apps/app/**'
+
   # Always run tests (on push and PR)
   test:
     name: 🧪 Lint & Type Check
     runs-on: ubuntu-latest
+    # Skip if app files also changed (preview-app will call us later)
+    # But always run if called via workflow_call
+    needs: [check-skip]
+    if: |
+      always() &&
+      (github.event_name == 'workflow_call' || needs.check-skip.outputs.should_skip != 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -51,11 +86,14 @@ jobs:
   # Only deploy on PR (not on push)
   preview:
     name: 🚀 Deploy Preview
-    needs: test
-    if: github.event_name == 'pull_request'
+    needs: [test, check-skip]
+    if: |
+      always() &&
+      needs.test.result == 'success' &&
+      (github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && needs.check-skip.outputs.should_skip != 'true'))
     runs-on: ubuntu-latest
     concurrency:
-      group: pr-${{ github.event.number }}-api
+      group: pr-${{ github.event.number || inputs.pr_number }}-api
       cancel-in-progress: true
     environment:
       name: preview
@@ -63,16 +101,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 🚀 Deploy PR API to Fly.io
+      # Compute the URLs
+      - name: � Set URLs
+        id: urls
+        run: |
+          PR_NUM="${{ github.event.number || inputs.pr_number }}"
+          API_URL="https://pr-${PR_NUM}-avelero-api.fly.dev"
+          
+          # Use passed APP_URL if available, otherwise use predictable pattern
+          if [[ -n "${{ inputs.app_url }}" ]]; then
+            APP_URL="${{ inputs.app_url }}"
+          else
+            # Fallback for standalone runs - use predictable pattern
+            # Note: This won't work perfectly for OAuth redirects, but the integration will still complete
+            APP_URL="https://pr-${PR_NUM}-avelero-app.vercel.app"
+          fi
+          
+          echo "api_url=${API_URL}" >> $GITHUB_OUTPUT
+          echo "app_url=${APP_URL}" >> $GITHUB_OUTPUT
+          echo "pr_num=${PR_NUM}" >> $GITHUB_OUTPUT
+
+      - name: �🚀 Deploy PR API to Fly.io
         id: deploy
         uses: superfly/fly-pr-review-apps@1.3.0
         with:
-          name: pr-${{ github.event.number }}-avelero-api
+          name: pr-${{ steps.urls.outputs.pr_num }}-avelero-api
           config: apps/api/fly-preview.yml
-          secrets: DATABASE_URL=${{ secrets.DATABASE_URL }} NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }} TRIGGER_SECRET_KEY=${{ secrets.PREVIEW_TRIGGER_SECRET_KEY }} INTERNAL_API_KEY=${{ secrets.PREVIEW_INTERNAL_API_KEY }} SHOPIFY_CLIENT_ID=${{ secrets.SHOPIFY_CLIENT_ID }} SHOPIFY_CLIENT_SECRET=${{ secrets.SHOPIFY_CLIENT_SECRET }} INTEGRATION_ENCRYPTION_KEY=${{ secrets.INTEGRATION_ENCRYPTION_KEY }}
+          secrets: >
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
+            SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}
+            TRIGGER_SECRET_KEY=${{ secrets.PREVIEW_TRIGGER_SECRET_KEY }}
+            INTERNAL_API_KEY=${{ secrets.PREVIEW_INTERNAL_API_KEY }}
+            SHOPIFY_CLIENT_ID=${{ secrets.SHOPIFY_CLIENT_ID }}
+            SHOPIFY_CLIENT_SECRET=${{ secrets.SHOPIFY_CLIENT_SECRET }}
+            INTEGRATION_ENCRYPTION_KEY=${{ secrets.INTEGRATION_ENCRYPTION_KEY }}
+            API_URL=${{ steps.urls.outputs.api_url }}
+            APP_URL=${{ steps.urls.outputs.app_url }}
 
       - name: 💬 Comment Preview URL
-        if: github.event.action != 'closed'
+        if: github.event_name != 'workflow_call' && github.event.action != 'closed'
         uses: actions/github-script@v6
         with:
           script: |
@@ -82,7 +152,8 @@ jobs:
               repo: context.repo.repo,
               body: `## 🚀 API Preview Deployment Ready!
               
-              **API:** https://pr-${{ github.event.number }}-avelero-api.fly.dev
+              **API:** ${{ steps.urls.outputs.api_url }}
+              **APP_URL:** ${{ steps.urls.outputs.app_url }}
               
               Preview environment will auto-delete when PR closes.`
             })

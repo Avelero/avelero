@@ -32,8 +32,7 @@ type SortField =
   | "updatedAt"
   | "category"
   | "season"
-  | "productHandle"
-  | "variantCount";
+  | "productHandle";
 
 export function TableSection() {
   const [selectedCount, setSelectedCount] = useState(0);
@@ -86,7 +85,7 @@ export function TableSection() {
 
   // Column preferences state (excludes locked `product` and fixed `actions`)
   const DEFAULT_VISIBLE: string[] = useMemo(
-    () => ["status", "category", "season", "variantCount"],
+    () => ["status", "category", "season"],
     [],
   );
 
@@ -205,7 +204,6 @@ export function TableSection() {
       status: false,
       category: false,
       season: false,
-      variantCount: false,
     };
     for (const id of visibleColumns) all[id] = true;
     return all;
@@ -216,7 +214,6 @@ export function TableSection() {
       { id: "status", label: "Status" },
       { id: "category", label: "Category" },
       { id: "season", label: "Season" },
-      { id: "variantCount", label: "Variants" },
     ],
     [],
   );
@@ -334,7 +331,6 @@ export function TableSection() {
       status: "status",
       category: "category",
       season: "season",
-      variantCount: "variantCount",
       updatedAt: "updatedAt",
       createdAt: "createdAt",
     };
@@ -568,7 +564,6 @@ function TableContent({
         categoryPath: (p as any).category_path ?? null,
         season: (p as any).season_name ?? null,
         imagePath: p.image_path ?? (p as any).imagePath ?? null,
-        variantCount: variants.length || undefined,
         createdAt: p.created_at ?? p.createdAt ?? "",
         updatedAt: p.updated_at ?? p.updatedAt ?? "",
       } satisfies PassportTableRow;

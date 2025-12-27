@@ -36,7 +36,6 @@ export interface ProductPassportRow {
   imagePath?: string | null;
   colors?: string[]; // distinct color names/hexes for variants
   sizes?: string[]; // distinct size names
-  variantCount?: number;
   createdAt: string | Date;
   updatedAt: string | Date;
 }

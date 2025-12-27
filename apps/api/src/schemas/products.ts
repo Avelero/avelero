@@ -204,7 +204,6 @@ export const listProductsSchema = z.object({
         "category",
         "season",
         "productHandle",
-        "variantCount",
       ]),
       direction: z.enum(["asc", "desc"]).default("desc"),
     })

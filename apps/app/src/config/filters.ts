@@ -56,7 +56,7 @@ export const OPERATORS = {
     "is ancestor of",
   ] as const,
 
-  date: ["is before", "is after", "is between"] as const,
+  date: ["is", "is before", "is after", "is on or before", "is on or after", "is between", "relative"] as const,
 
   boolean: ["is true", "is false"] as const,
 } as const;
@@ -328,10 +328,7 @@ export const FIELD_CATEGORIES = {
       "materialRecyclable",
     ],
   },
-  variants: {
-    label: "Variants",
-    fields: [],
-  },
+
   manufacturing: {
     label: "Manufacturing",
     fields: ["materials", "operatorId", "stepType"],
@@ -442,7 +439,7 @@ export function getAdvancedFieldsByCategoryForUI(): Array<{
   fields: FilterFieldConfig[];
 }> {
   // Fields that should be available in advanced filters even though they're Tier 1
-  const tier1FieldsInAdvanced = ["categoryId", "tagId", "season"];
+  const tier1FieldsInAdvanced = ["status", "categoryId", "tagId", "season"];
 
   return Object.entries(FIELD_CATEGORIES)
     .map(([category, config]) => ({

@@ -22,37 +22,7 @@ export function useFilterOptions() {
     trpc.catalog.tags.list.queryOptions(undefined),
   );
 
-  // Derive colors from brand attributes linked to "Color" taxonomy attribute
-  const colorOptions = React.useMemo(() => {
-    const taxAttrs = formData?.taxonomy?.attributes ?? [];
-    const colorTaxAttr = taxAttrs.find((a: any) => a.friendlyId === "color");
-    if (!colorTaxAttr) return [];
 
-    const brandAttrs = formData?.brandCatalog?.attributes ?? [];
-    const colorBrandAttr = brandAttrs.find((a: any) => a.taxonomyAttributeId === colorTaxAttr.id);
-    if (!colorBrandAttr) return [];
-
-    const values = (formData?.brandCatalog?.attributeValues ?? [])
-      .filter((v: any) => v.attributeId === colorBrandAttr.id);
-    
-    return values.map((v: any) => ({ value: v.id, label: v.name }));
-  }, [formData]);
-
-  // Derive sizes from brand attributes linked to "Size" taxonomy attribute
-  const sizeOptions = React.useMemo(() => {
-    const taxAttrs = formData?.taxonomy?.attributes ?? [];
-    const sizeTaxAttr = taxAttrs.find((a: any) => a.friendlyId === "size");
-    if (!sizeTaxAttr) return [];
-
-    const brandAttrs = formData?.brandCatalog?.attributes ?? [];
-    const sizeBrandAttr = brandAttrs.find((a: any) => a.taxonomyAttributeId === sizeTaxAttr.id);
-    if (!sizeBrandAttr) return [];
-
-    const values = (formData?.brandCatalog?.attributeValues ?? [])
-      .filter((v: any) => v.attributeId === sizeBrandAttr.id);
-    
-    return values.map((v: any) => ({ value: v.id, label: v.name }));
-  }, [formData]);
 
   // Transform and memoize all options
   const options = React.useMemo(() => {
@@ -63,10 +33,6 @@ export function useFilterOptions() {
           value: c.id,
           label: c.name,
         })) ?? [],
-
-      colors: colorOptions,
-
-      sizes: sizeOptions,
 
       materials:
         formData?.brandCatalog?.materials?.map(
@@ -92,7 +58,7 @@ export function useFilterOptions() {
           }),
         ) ?? [],
 
-      operators:
+      manufacturers:
         formData?.brandCatalog?.manufacturers?.map(
           (m: { id: string; name: string }) => ({
             value: m.id,
@@ -118,13 +84,14 @@ export function useFilterOptions() {
         ) ?? [],
 
       tags:
-        tagsData?.data?.map((t: { id: string; name: string }) => ({
+        tagsData?.data?.map((t: { id: string; name: string; hex?: string }) => ({
           value: t.id,
           label: t.name,
+          hex: t.hex ?? undefined,
         })) ?? [],
 
     };
-  }, [formData, tagsData, colorOptions, sizeOptions]);
+  }, [formData, tagsData]);
 
   const isLoading = isFormDataLoading || isTagsLoading;
 
@@ -147,12 +114,10 @@ export function useFieldOptions(fieldId: string): {
     // Map field IDs to their corresponding options
     const fieldMap: Record<string, SelectOption[]> = {
       categoryId: options.categories,
-      colorId: options.colors,
-      sizeId: options.sizes,
       materials: options.materials,
       brandCertificationId: options.certifications,
       operatorId: options.facilities,
-      manufacturerId: options.operators,
+      manufacturerId: options.manufacturers,
       ecoClaimId: options.ecoClaims,
       tagId: options.tags,
       season: options.seasons ?? [],

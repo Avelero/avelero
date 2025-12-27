@@ -98,10 +98,9 @@ export function PassportControls({
             placeholder={"Search..."}
             className={cn(
               "pl-8 pr-3 py-[6px] h-9",
-              "transition-all",
+              "transition-transform",
               // Ensure normal arrow cursor when disabled (not not-allowed)
-              "disabled:cursor-default disabled:hover:cursor-default",
-              isSearchFocused ? "ring-1 ring-brand" : "ring-0",
+              "disabled:cursor-default disabled:hover:cursor-default"
             )}
             disabled={disabled}
             value={searchValue}

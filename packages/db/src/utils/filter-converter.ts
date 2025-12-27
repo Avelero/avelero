@@ -223,12 +223,21 @@ function buildConditionClause(
       }
       return null;
 
-    case "manufacturerId":
+    case "manufacturerId": {
+      // For negation operators on nullable columns, include NULL values
+      if (operator === "is not" || operator === "is none of") {
+        const ids = Array.isArray(value) ? value : [value];
+        return or(
+          sql`NOT ${inArray(schema.products.manufacturerId, ids)}`,
+          isNull(schema.products.manufacturerId)
+        )!;
+      }
       return buildOperatorClause(
         schema.products.manufacturerId,
         operator,
         value,
       );
+    }
 
     case "categoryId":
       return buildCategoryClause(schema, operator, value, db, brandId);
@@ -293,7 +302,9 @@ function buildConditionClause(
       );
 
     case "facilityCountryCode":
-      return buildFacilityCountryClause(schema, operator, value, db, brandId);
+      // Note: facilityCountryCode is only available as nested condition in facilities
+      // This case is kept for backwards compatibility but should not be used directly
+      return null;
 
     case "stepType":
       return buildStepTypeClause(schema, operator, value, db, brandId);
@@ -340,8 +351,13 @@ function buildOperatorClause(
       return ne(column, value);
     case "is any of":
       return inArray(column, Array.isArray(value) ? value : [value]);
-    case "is none of":
-      return sql`NOT ${inArray(column, Array.isArray(value) ? value : [value])}`;
+    case "is none of": {
+      const arr = Array.isArray(value) ? value : [value];
+      return or(
+        sql`NOT ${inArray(column, arr)}`,
+        isNull(column)
+      )!;
+    }
     case "contains":
       return ilike(column, `%${value}%`);
     case "does not contain":
@@ -760,7 +776,10 @@ function buildMaterialRecyclableClause(
   db: Database,
   brandId: string,
 ): SQL | null {
-  const boolValue = operator === "is true";
+  // Determine boolean value from operator
+  const boolValue = operator === "is true" ? true : operator === "is false" ? false : null;
+
+  if (boolValue === null) return null;
 
   return sql`EXISTS (
     SELECT 1 FROM ${schema.productMaterials}
@@ -789,6 +808,29 @@ function buildMaterialsClause(
   // Build base material filter
   const materialIds = Array.isArray(value) ? value : value ? [value] : [];
 
+  // Handle operators that don't require material IDs
+  switch (operator) {
+    case "is empty":
+      return sql`NOT EXISTS (
+        SELECT 1 FROM ${schema.productMaterials}
+        WHERE ${schema.productMaterials.productId} = ${schema.products.id}
+      )`;
+    case "is not empty":
+      return sql`EXISTS (
+        SELECT 1 FROM ${schema.productMaterials}
+        WHERE ${schema.productMaterials.productId} = ${schema.products.id}
+      )`;
+    case "is none of": {
+      if (materialIds.length === 0) return null;
+      return sql`NOT EXISTS (
+        SELECT 1 FROM ${schema.productMaterials}
+        WHERE ${schema.productMaterials.productId} = ${schema.products.id}
+        AND ${inArray(schema.productMaterials.brandMaterialId, materialIds)}
+      )`;
+    }
+  }
+
+  // For "is any of" and default case, continue with existing logic
   let baseClause: SQL | null = null;
   if (materialIds.length > 0) {
     baseClause = inArray(schema.productMaterials.brandMaterialId, materialIds);
@@ -1116,10 +1158,27 @@ function buildCategoryClause(
   switch (operator) {
     case "is":
       return inArray(schema.products.categoryId, categoryIds);
-    case "is not":
-      return sql`NOT ${inArray(schema.products.categoryId, categoryIds)}`;
+    case "is not": {
+      // Include products with NULL category when excluding specific categories
+      return or(
+        sql`NOT ${inArray(schema.products.categoryId, categoryIds)}`,
+        isNull(schema.products.categoryId)
+      )!;
+    }
     case "is any of":
-      return inArray(schema.products.categoryId, categoryIds);
+      // For advanced filters using multi-select, include descendants
+      return sql`EXISTS (
+        WITH RECURSIVE category_tree AS (
+          SELECT id, parent_id FROM ${schema.taxonomyCategories} 
+          WHERE ${inArray(schema.taxonomyCategories.id, categoryIds)}
+          UNION ALL
+          SELECT c.id, c.parent_id
+          FROM ${schema.taxonomyCategories} c
+          INNER JOIN category_tree ct ON c.parent_id = ct.id
+        )
+        SELECT 1 FROM category_tree
+        WHERE category_tree.id = ${schema.products.categoryId}
+      )`;
     case "is descendant of":
       // For now, use recursive CTE or path-based lookup
       // This is a simplified version - may need enhancement
@@ -1193,8 +1252,13 @@ function buildSeasonClause(
   switch (operator) {
     case "is any of":
       return inArray(schema.products.seasonId, seasonIds);
-    case "is none of":
-      return sql`NOT ${inArray(schema.products.seasonId, seasonIds)}`;
+    case "is none of": {
+      // Include products with NULL seasonId when excluding specific seasons
+      return or(
+        sql`NOT ${inArray(schema.products.seasonId, seasonIds)}`,
+        isNull(schema.products.seasonId)
+      )!;
+    }
     case "is empty":
       return isNull(schema.products.seasonId);
     case "is not empty":

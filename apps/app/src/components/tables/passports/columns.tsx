@@ -262,20 +262,6 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
     },
   },
-  // Variants count
-  {
-    id: "variantCount",
-    header: "Variants",
-    cell: ({ row }) => (
-      <span className="inline-block text-primary">
-        {row.original.variantCount ?? 0}
-      </span>
-    ),
-    meta: {
-      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
-      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
-    },
-  },
   {
     id: "actions",
     header: "Actions",
@@ -291,11 +277,11 @@ export const columns: ColumnDef<PassportTableRow>[] = [
 
       // Get callbacks from table meta
       const meta = table.options.meta as
-        | { 
-            brandSlug?: string | null;
-            onDeleteProduct?: (productId: string) => void;
-            onChangeStatus?: (productId: string, status: string) => void;
-          }
+        | {
+          brandSlug?: string | null;
+          onDeleteProduct?: (productId: string) => void;
+          onChangeStatus?: (productId: string, status: string) => void;
+        }
         | undefined;
       const brandSlug = meta?.brandSlug;
       const onDeleteProduct = meta?.onDeleteProduct;

@@ -7,7 +7,7 @@
  * Authentication: Uses a shared secret to prevent unauthorized revalidation.
  *
  * Cache tags supported:
- * - `dpp-product-{productUpid}` - Invalidate a specific product's DPP page
+ * - `dpp-product-{productHandle}` - Invalidate a specific product's DPP page
  * - `dpp-variant-{variantUpid}` - Invalidate a specific variant's DPP page
  * - `dpp-brand-{brandSlug}` - Invalidate all DPP pages for a brand
  */

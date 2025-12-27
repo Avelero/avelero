@@ -22,6 +22,8 @@ export function useFilterOptions() {
     trpc.catalog.tags.list.queryOptions(undefined),
   );
 
+
+
   // Transform and memoize all options
   const options = React.useMemo(() => {
     return {
@@ -31,22 +33,6 @@ export function useFilterOptions() {
           value: c.id,
           label: c.name,
         })) ?? [],
-
-      colors:
-        formData?.brandCatalog?.colors?.map(
-          (c: { id: string; name: string }) => ({
-            value: c.id,
-            label: c.name,
-          }),
-        ) ?? [],
-
-      sizes:
-        formData?.brandCatalog?.sizes?.map(
-          (s: { id: string; name: string }) => ({
-            value: s.id,
-            label: s.name,
-          }),
-        ) ?? [],
 
       materials:
         formData?.brandCatalog?.materials?.map(
@@ -72,7 +58,7 @@ export function useFilterOptions() {
           }),
         ) ?? [],
 
-      operators:
+      manufacturers:
         formData?.brandCatalog?.manufacturers?.map(
           (m: { id: string; name: string }) => ({
             value: m.id,
@@ -98,9 +84,10 @@ export function useFilterOptions() {
         ) ?? [],
 
       tags:
-        tagsData?.data?.map((t: { id: string; name: string }) => ({
+        tagsData?.data?.map((t: { id: string; name: string; hex?: string }) => ({
           value: t.id,
           label: t.name,
+          hex: t.hex ?? undefined,
         })) ?? [],
 
     };
@@ -127,12 +114,10 @@ export function useFieldOptions(fieldId: string): {
     // Map field IDs to their corresponding options
     const fieldMap: Record<string, SelectOption[]> = {
       categoryId: options.categories,
-      colorId: options.colors,
-      sizeId: options.sizes,
       materials: options.materials,
       brandCertificationId: options.certifications,
       operatorId: options.facilities,
-      manufacturerId: options.operators,
+      manufacturerId: options.manufacturers,
       ecoClaimId: options.ecoClaims,
       tagId: options.tags,
       season: options.seasons ?? [],

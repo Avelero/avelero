@@ -41,6 +41,7 @@ interface BaseSelectProps {
   className?: string;
   width?: string; // Custom popover width class (e.g., "w-[200px]")
   inline?: boolean; // Prevents portal rendering for nested contexts like sheets
+  footer?: React.ReactNode; // Custom footer content (e.g., "Add custom" button)
 }
 
 interface SingleSelectProps extends BaseSelectProps {
@@ -73,6 +74,7 @@ export function Select(props: SelectProps) {
     className,
     width = "w-[300px]",
     inline = false,
+    footer,
   } = props;
 
   const [open, setOpen] = React.useState(false);
@@ -306,6 +308,9 @@ export function Select(props: SelectProps) {
               </CommandGroup>
             )}
           </CommandList>
+
+          {/* Custom footer */}
+          {footer && <div className="border-t border-border">{footer}</div>}
         </Command>
       </PopoverContent>
     </Popover>

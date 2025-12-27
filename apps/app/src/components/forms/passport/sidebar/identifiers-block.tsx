@@ -12,21 +12,21 @@ import {
 } from "../../../sheets/manufacturer-sheet";
 
 interface IdentifiersSectionProps {
-  productIdentifier: string;
-  setProductIdentifier: (value: string) => void;
+  productHandle: string;
+  setProductHandle: (value: string) => void;
   manufacturerId: string | null;
   setManufacturerId: (value: string | null) => void;
-  productIdentifierError?: string;
-  productIdentifierInputRef?: React.RefObject<HTMLInputElement | null>;
+  productHandleError?: string;
+  productHandleInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export function IdentifiersSection({
-  productIdentifier,
-  setProductIdentifier,
+  productHandle,
+  setProductHandle,
   manufacturerId,
   setManufacturerId,
-  productIdentifierError,
-  productIdentifierInputRef,
+  productHandleError,
+  productHandleInputRef,
 }: IdentifiersSectionProps) {
   const { manufacturers: apiBrandOptions } = useBrandCatalog();
 
@@ -61,23 +61,23 @@ export function IdentifiersSection({
         {/* Product Identifier */}
         <div className="space-y-1.5">
           <Label>
-            Product identifier <span className="text-destructive">*</span>
+            Product handle <span className="text-destructive">*</span>
           </Label>
           <Input
-            ref={productIdentifierInputRef}
-            value={productIdentifier}
-            onChange={(e) => setProductIdentifier(e.target.value)}
-            placeholder="Enter product identifier"
+            ref={productHandleInputRef}
+            value={productHandle}
+            onChange={(e) => setProductHandle(e.target.value)}
+            placeholder="Enter product handle"
             className={cn(
               "h-9",
-              productIdentifierError &&
+              productHandleError &&
                 "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
             )}
-            aria-invalid={Boolean(productIdentifierError)}
+            aria-invalid={Boolean(productHandleError)}
           />
-          {productIdentifierError && (
+          {productHandleError && (
             <p className="type-small text-destructive">
-              {productIdentifierError}
+              {productHandleError}
             </p>
           )}
         </div>

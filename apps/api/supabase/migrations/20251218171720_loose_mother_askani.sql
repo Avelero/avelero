@@ -1,0 +1,1 @@
+ALTER TABLE "integration_sync_jobs" ADD COLUMN "products_total" integer;

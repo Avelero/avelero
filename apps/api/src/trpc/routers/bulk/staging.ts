@@ -12,7 +12,7 @@ import {
   getImportErrors,
   getImportJobStatus,
   getStagingPreview,
-} from "@v1/db/queries";
+} from "@v1/db/queries/bulk";
 import { generateCSV } from "../../../lib/csv-parser.js";
 import {
   exportFailedRowsSchema,
@@ -83,13 +83,12 @@ export const stagingRouter = createTRPCRouter({
                 description: p.description,
                 categoryId: p.categoryId,
                 seasonId: p.seasonId,
-                primaryImagePath: p.primaryImagePath,
+                imagePath: p.imagePath,
               },
               variant: p.variant
                 ? {
                     upid: p.variant.upid,
-                    colorId: p.variant.colorId,
-                    sizeId: p.variant.sizeId,
+                    // Note: colorId/sizeId removed - use generic attributes (Phase 5)
                   }
                 : null,
             })),
@@ -185,13 +184,12 @@ export const stagingRouter = createTRPCRouter({
               description: p.description,
               categoryId: p.categoryId,
               seasonId: p.seasonId,
-              primaryImagePath: p.primaryImagePath,
+              imagePath: p.imagePath,
             },
             variant: p.variant
               ? {
                   upid: p.variant.upid,
-                  colorId: p.variant.colorId,
-                  sizeId: p.variant.sizeId,
+                  // Note: colorId/sizeId removed - use generic attributes (Phase 5)
                 }
               : null,
           })),

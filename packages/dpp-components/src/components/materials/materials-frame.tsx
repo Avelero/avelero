@@ -1,9 +1,21 @@
-import type { Material, ThemeConfig } from "@v1/dpp-components";
+import type { ThemeConfig } from "@v1/dpp-components";
 import { Icons } from "@v1/ui/icons";
 import { Fragment } from "react";
 
+/**
+ * Display-only material type for UI rendering.
+ * Data is transformed from MaterialComposition in InformationFrame.
+ */
+interface MaterialDisplay {
+  percentage: number;
+  type: string;
+  origin: string;
+  certification?: string;
+  certificationUrl?: string;
+}
+
 interface Props {
-  materials: Material[];
+  materials: MaterialDisplay[];
   themeConfig: ThemeConfig;
 }
 

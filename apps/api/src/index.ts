@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { websocketManager } from "./lib/websocket-manager.js";
+import { integrationRoutes } from "./routes/integrations/index.js";
 import { createTRPCContext } from "./trpc/init.js";
 import { appRouter } from "./trpc/routers/_app.js";
 
@@ -71,6 +72,18 @@ app.use(
     },
   }),
 );
+
+/**
+ * Mount integration OAuth routes.
+ *
+ * These are raw HTTP endpoints (not tRPC) because OAuth providers
+ * redirect directly to them during the OAuth flow.
+ *
+ * Endpoints:
+ * - GET /integrations/shopify/install - Initiate Shopify OAuth
+ * - GET /integrations/shopify/callback - Handle Shopify OAuth callback
+ */
+app.route("/integrations", integrationRoutes);
 
 /**
  * Lightweight health check endpoint used by hosting to confirm the API is up.

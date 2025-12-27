@@ -50,7 +50,7 @@ export async function resolveAuthRedirectPath({
   if (isProfileIncomplete) return "/setup";
 
   const { count } = await supabase
-    .from("users_on_brand")
+    .from("brand_members")
     .select("*", { count: "exact" })
     .eq("user_id", userId);
 
@@ -65,7 +65,7 @@ export async function resolveAuthRedirectPath({
   // If user has memberships but no active brand selected, pick the most recent membership
   if (membershipCount > 0 && !typedProfile?.brand_id) {
     const { data: recentMembership } = await supabase
-      .from("users_on_brand")
+      .from("brand_members")
       .select("brand_id, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -74,7 +74,7 @@ export async function resolveAuthRedirectPath({
 
     // Type assertion for recentMembership
     const typedMembership = recentMembership as Pick<
-      Tables<"users_on_brand">,
+      Tables<"brand_members">,
       "brand_id"
     > | null;
     const selectedBrandId = typedMembership?.brand_id ?? null;

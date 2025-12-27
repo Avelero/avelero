@@ -1,19 +1,20 @@
 import type { Database } from "@v1/db/client";
 import {
   type BrandMembershipListItem,
-  type UserInviteSummaryRow,
-  and,
-  asc,
-  desc,
-  eq,
   getBrandsByUserId,
   getOwnerCountsByBrandIds,
-  getUserById,
-  inArray,
   listPendingInvitesForEmail,
-  listCategories,
-  listColors,
-  listSizes,
+  type UserInviteSummaryRow,
+} from "@v1/db/queries/brand";
+import {
+  getUserById,
+} from "@v1/db/queries/user";
+import {
+  listTaxonomyCategories,
+  listTaxonomyAttributes,
+  listTaxonomyValues,
+} from "@v1/db/queries/taxonomy";
+import {
   listMaterials,
   listFacilities,
   listBrandManufacturers,
@@ -21,7 +22,10 @@ import {
   listCertifications,
   listBrandTags,
   listSeasonsForBrand,
-} from "@v1/db/queries";
+  listBrandAttributes,
+  listAllBrandAttributeValues,
+} from "@v1/db/queries/catalog";
+import { and, asc, desc, eq, inArray } from "@v1/db/queries";
 import { brandInvites, brandMembers, users } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
 /**
@@ -380,8 +384,10 @@ export const compositeRouter = createTRPCRouter({
     try {
       const [
         categories,
-        colors,
-        sizes,
+        taxonomyAttributes,
+        taxonomyValues,
+        brandAttributes,
+        brandAttributeValues,
         materials,
         facilities,
         manufacturers,
@@ -390,9 +396,11 @@ export const compositeRouter = createTRPCRouter({
         tags,
         seasons,
       ] = await Promise.all([
-        listCategories(brandCtx.db),
-        listColors(brandCtx.db, brandId),
-        listSizes(brandCtx.db, brandId),
+        listTaxonomyCategories(brandCtx.db),
+        listTaxonomyAttributes(brandCtx.db),
+        listTaxonomyValues(brandCtx.db),
+        listBrandAttributes(brandCtx.db, brandId),
+        listAllBrandAttributeValues(brandCtx.db, brandId),
         listMaterials(brandCtx.db, brandId),
         listFacilities(brandCtx.db, brandId),
         listBrandManufacturers(brandCtx.db, brandId),
@@ -404,9 +412,13 @@ export const compositeRouter = createTRPCRouter({
 
       return {
         categories,
+        taxonomy: {
+          attributes: taxonomyAttributes,
+          values: taxonomyValues,
+        },
         brandCatalog: {
-          colors,
-          sizes,
+          attributes: brandAttributes,
+          attributeValues: brandAttributeValues,
           materials,
           operators: facilities,
           manufacturers,

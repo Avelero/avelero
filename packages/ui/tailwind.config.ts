@@ -170,6 +170,10 @@ export default {
           "50%": { left: "calc(100% - 80px)" },
           "100%": { left: "0%" },
         },
+        indeterminate: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(400%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -182,6 +186,7 @@ export default {
         fifth: "moveInCircle 20s ease infinite",
         shimmer: "shimmer 2.5s linear infinite",
         "slide-effect": "slide-effect 1.3s ease-in-out infinite",
+        indeterminate: "indeterminate 1.5s ease-in-out infinite",
         scroll:
           "scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite",
       },

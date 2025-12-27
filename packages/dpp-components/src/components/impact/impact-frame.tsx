@@ -1,9 +1,8 @@
-import type { ImpactMetric } from "@v1/dpp-components";
-import { LargeImpactCard } from "./large-impact-card";
+import { type ImpactMetricDisplay, LargeImpactCard } from "./large-impact-card";
 import { SmallImpactFrame } from "./small-impact-frame";
 
 interface Props {
-  metrics: ImpactMetric[];
+  metrics: ImpactMetricDisplay[];
   claims: string[];
 }
 

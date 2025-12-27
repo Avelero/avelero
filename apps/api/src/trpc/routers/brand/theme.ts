@@ -14,8 +14,8 @@
 import {
   getBrandTheme,
   updateBrandThemeConfig,
-  eq,
-} from "@v1/db/queries";
+} from "@v1/db/queries/brand";
+import { eq } from "@v1/db/queries";
 import { brands } from "@v1/db/schema";
 import { tasks } from "@trigger.dev/sdk/v3";
 import { z } from "zod";

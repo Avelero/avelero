@@ -8,6 +8,8 @@ export {
   desc,
   eq,
   inArray,
+  isNull,
+  or,
   sql,
   SQL,
   type SQLWrapper,

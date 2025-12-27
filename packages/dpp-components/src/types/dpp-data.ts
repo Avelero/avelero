@@ -46,15 +46,26 @@ export interface TestingInstitute {
 
 /**
  * Core product identification data
+ *
+ * Article number is derived from variant identifiers using precedence:
+ * barcode > GTIN > EAN > SKU
+ *
+ * At product-level DPP (no variant), articleNumber will be empty since
+ * identifiers are tracked at the variant level.
  */
 export interface ProductIdentifiers {
   productId: number;
   productName: string;
   productImage: string;
+  /**
+   * Article number displayed on DPP.
+   * Derived from variant: barcode > GTIN > EAN > SKU precedence.
+   * Empty string at product-level (no variant selected).
+   */
   articleNumber: string;
-  /** European Article Number (barcode) */
+  /** European Article Number (barcode) - variant-level */
   ean?: string;
-  /** Global Trade Item Number */
+  /** Global Trade Item Number - variant-level */
   gtin?: string;
 }
 
@@ -71,19 +82,12 @@ export interface CategoryReference {
 }
 
 /**
- * Size reference with ID
+ * Generic variant attribute (name/value pair)
+ * Used for displaying variant-specific attributes like Color, Size, etc.
  */
-export interface SizeReference {
-  sizeId: number;
-  size: string;
-}
-
-/**
- * Color reference with ID
- */
-export interface ColorReference {
-  colorId: number;
-  color: string;
+export interface VariantAttribute {
+  name: string;
+  value: string;
 }
 
 /**
@@ -93,8 +97,8 @@ export interface ProductAttributes {
   description?: string;
   brand: string;
   category?: CategoryReference;
-  size?: SizeReference;
-  color?: ColorReference;
+  /** Variant attributes (0-3) - generic name/value pairs */
+  attributes?: VariantAttribute[];
   /** Product weight (stored in products.weight and products.weight_unit) */
   weight?: MeasuredValue;
 }
@@ -244,42 +248,4 @@ export interface DppData {
 
   // Manufacturing & supply chain traceability
   manufacturing?: Manufacturing;
-}
-
-// =============================================================================
-// LEGACY EXPORTS (for backward compatibility during migration)
-// =============================================================================
-
-/**
- * @deprecated Use MaterialComposition instead
- */
-export interface Material {
-  percentage: number;
-  type: string;
-  origin: string;
-  certification?: string;
-  certificationUrl?: string;
-}
-
-/**
- * @deprecated Use SupplyChainStep instead
- */
-export interface JourneyStage {
-  id: string;
-  name: string;
-  companies: Array<{
-    name: string;
-    location: string;
-  }>;
-}
-
-/**
- * @deprecated Impact metrics are now part of Environmental
- */
-export interface ImpactMetric {
-  type: string;
-  value: string;
-  unit: string;
-  icon: "leaf" | "drop" | "recycle" | "factory";
-  iconColor?: string;
 }

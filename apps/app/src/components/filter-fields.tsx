@@ -120,8 +120,18 @@ export function FilterFieldInput({
   ]);
 
   // Boolean fields: show True/False only (no operator)
+  // The operator is set based on the toggle value for proper backend handling
   if (fieldConfig.inputType === "boolean") {
-    const boolValue = (value as boolean) ?? false;
+    // Derive current boolean state from the operator
+    const boolValue = operator === "is true";
+
+    const handleBooleanChange = (newValue: boolean) => {
+      // Set the operator based on the boolean value
+      // This is what the filter-converter expects
+      onOperatorChange(newValue ? "is true" : "is false");
+      onValueChange(newValue);
+    };
+
     return (
       <div className="flex items-center gap-2 w-full">
         {/* Static operator container matching operator button size/style */}
@@ -131,7 +141,7 @@ export function FilterFieldInput({
 
         <BooleanToggle
           value={boolValue}
-          onChange={onValueChange}
+          onChange={handleBooleanChange}
           leftLabel="False"
           rightLabel="True"
         />
@@ -636,10 +646,10 @@ function SizePopoverSelect({
     for (const size of filteredSizes) {
       let groupName = "Other";
 
-      // Find which group this size belongs to using sortIndex (unique identifier)
+      // Find which group this size belongs to using displayHint (unique identifier)
       // This correctly handles sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
       for (const [name, sizes] of Object.entries(sizeGroups)) {
-        if (sizes.some((s) => s.sortIndex === size.sortIndex)) {
+        if (sizes.some((s) => s.displayHint === size.displayHint)) {
           groupName = name;
           break;
         }

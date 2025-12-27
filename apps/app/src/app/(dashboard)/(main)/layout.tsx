@@ -19,13 +19,13 @@ export default async function MainLayout({
   const queryClient = getQueryClient();
 
   // Fetch data (will use cached result from parent layout's bootstrap)
-  const workflowInit = await queryClient.fetchQuery(
+  const initDashboard = await queryClient.fetchQuery(
     trpc.composite.initDashboard.queryOptions(),
   );
 
-  const user = workflowInit.user;
-  const brands = workflowInit.brands;
-  const invites = workflowInit.myInvites;
+  const user = initDashboard.user;
+  const brands = initDashboard.brands;
+  const invites = initDashboard.myInvites;
 
   // Redirect logic for incomplete users
   // These destinations are OUTSIDE (main), so no infinite loops

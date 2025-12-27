@@ -11,6 +11,7 @@
  */
 import { createTRPCRouter } from "../../init.js";
 import {
+  brandCheckSlugProcedure,
   brandDeleteProcedure,
   brandUpdateProcedure,
 } from "./base.js";
@@ -23,6 +24,7 @@ export const brandRouter = createTRPCRouter({
   // Brand lifecycle (update/delete only - list/create/setActive moved to user.brands)
   update: brandUpdateProcedure,
   delete: brandDeleteProcedure,
+  checkSlug: brandCheckSlugProcedure,
   // Nested routers for brand-scoped resources
   members: brandMembersRouter,
   invites: brandInvitesRouter,
@@ -31,3 +33,4 @@ export const brandRouter = createTRPCRouter({
 });
 
 export type BrandRouter = typeof brandRouter;
+

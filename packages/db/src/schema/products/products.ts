@@ -9,9 +9,9 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { brandSeasons } from "../brands/brand-seasons";
-import { categories } from "../brands/categories";
-import { brandManufacturers } from "../brands/brand-manufacturers";
+import { brandSeasons } from "../catalog/brand-seasons";
+import { taxonomyCategories } from "../taxonomy/taxonomy-categories";
+import { brandManufacturers } from "../catalog/brand-manufacturers";
 import { brands } from "../core/brands";
 
 export const products = pgTable(
@@ -22,10 +22,7 @@ export const products = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     name: text("name").notNull(),
-    productIdentifier: text("product_identifier").notNull(),
-    ean: text("ean"),
-    gtin: text("gtin"),
-    upid: text("upid"),
+    productHandle: text("product_handle").notNull(),
     description: text("description"),
     manufacturerId: uuid("manufacturer_id").references(
       () => brandManufacturers.id,
@@ -34,15 +31,8 @@ export const products = pgTable(
         onUpdate: "cascade",
       },
     ),
-    primaryImagePath: text("primary_image_path"),
-    weight: numeric("weight", { precision: 10, scale: 2 }),
-    weightUnit: text("weight_unit"),
-    gender: text("gender"),
-    webshopUrl: text("webshop_url"),
-    price: numeric("price", { precision: 10, scale: 2 }),
-    currency: text("currency"),
-    salesStatus: text("sales_status"),
-    categoryId: uuid("category_id").references(() => categories.id, {
+    imagePath: text("image_path"),
+    categoryId: uuid("category_id").references(() => taxonomyCategories.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),
@@ -59,10 +49,10 @@ export const products = pgTable(
       .notNull(),
   },
   (table) => [
-    // Unique constraint: product_identifier must be unique within each brand
-    uniqueIndex("products_brand_id_product_identifier_unq").on(
+    // Unique constraint: product_handle must be unique within each brand
+    uniqueIndex("products_brand_id_product_handle_unq").on(
       table.brandId,
-      table.productIdentifier,
+      table.productHandle,
     ),
     // Indexes for query performance
     // For products.list - filtering by brand
@@ -82,11 +72,11 @@ export const products = pgTable(
       table.brandId.asc().nullsLast().op("uuid_ops"),
       table.createdAt.desc().nullsLast().op("timestamptz_ops"),
     ),
-    // For products.getByUpid - lookup by UPID
-    index("idx_products_brand_upid").using(
+    // For products.getByProductHandle - lookup by product handle
+    index("idx_products_brand_product_handle").using(
       "btree",
       table.brandId.asc().nullsLast().op("uuid_ops"),
-      table.upid.asc().nullsLast().op("text_ops"),
+      table.productHandle.asc().nullsLast().op("text_ops"),
     ),
     // For products.list - filtering by category
     index("idx_products_brand_category").using(
@@ -106,6 +96,8 @@ export const products = pgTable(
       table.brandId.asc().nullsLast().op("uuid_ops"),
       table.name.asc().nullsLast().op("text_ops"),
     ),
+    // For queries filtering by name alone (count by name)
+    index("idx_products_name").using("btree", table.name.asc().nullsLast().op("text_ops")),
     // RLS policies - both members and owners can perform all operations
     pgPolicy("products_select_for_brand_members", {
       as: "permissive",

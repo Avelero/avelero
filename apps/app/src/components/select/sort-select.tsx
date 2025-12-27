@@ -36,7 +36,7 @@ interface SortPopoverProps {
 
 const SORT_FIELDS: SortField[] = [
   { id: "title", label: "Product title", dataType: "text" },
-  { id: "productIdentifier", label: "Product identifier", dataType: "text" },
+  { id: "productHandle", label: "Product handle", dataType: "text" },
   { id: "status", label: "Status", dataType: "text" },
   { id: "category", label: "Category", dataType: "text" },
   { id: "season", label: "Season", dataType: "text" },
@@ -119,7 +119,7 @@ export function SortPopover({
             <span className="px-1">{optimisticSort && activeField ? (
               <>
                 Sorted by{" "}
-                <span className="font-medium pl-2">{activeField.label}</span>
+                <span className="font-medium pl-2 text-foreground">{activeField.label}</span>
               </>
             ) : (
               "Sort"

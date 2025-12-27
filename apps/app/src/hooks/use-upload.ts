@@ -4,9 +4,9 @@ import { useState, useCallback } from "react";
 import { createClient } from "@v1/supabase/client";
 import { upload } from "@v1/supabase/storage";
 import {
-  buildDisplayUrl,
   buildObjectPath,
-  getSupabaseUrl,
+  buildProxyUrl,
+  buildPublicUrl,
   sanitizeFilename,
   validateFile,
   validateImageFile,
@@ -64,13 +64,10 @@ export function useUpload() {
       try {
         const supabase = createClient();
         const result = await upload(supabase, { file, bucket, path, metadata });
-        const supabaseUrl = getSupabaseUrl();
-        const displayUrl = buildDisplayUrl({
-          bucket,
-          path,
-          isPublic,
-          supabaseUrl,
-        });
+        const joinedPath = path.join("/");
+        const displayUrl = isPublic
+          ? buildPublicUrl(bucket, joinedPath) ?? ""
+          : buildProxyUrl(bucket, joinedPath) ?? "";
 
         return {
           path: buildObjectPath(path),
@@ -128,13 +125,10 @@ export function useImageUpload() {
       try {
         const supabase = createClient();
         const result = await upload(supabase, { file, bucket, path, metadata });
-        const supabaseUrl = getSupabaseUrl();
-        const displayUrl = buildDisplayUrl({
-          bucket,
-          path,
-          isPublic,
-          supabaseUrl,
-        });
+        const joinedPath = path.join("/");
+        const displayUrl = isPublic
+          ? buildPublicUrl(bucket, joinedPath) ?? ""
+          : buildProxyUrl(bucket, joinedPath) ?? "";
 
         return {
           path: buildObjectPath(path),

@@ -1,0 +1,1 @@
+ALTER TABLE "brand_integrations" ALTER COLUMN "sync_interval" SET DEFAULT 86400;

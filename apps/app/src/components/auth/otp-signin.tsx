@@ -8,7 +8,7 @@ import { Input } from "@v1/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@v1/ui/input-otp";
 import { useAction } from "next-safe-action/hooks";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Props = {
   className?: string;
@@ -24,6 +24,17 @@ export function OTPSignIn({ className }: Props) {
   const [sendError, setSendError] = useState<string | null>(null);
   const supabase = createClient();
   const searchParams = useSearchParams();
+
+  // Reset all form state on mount to handle bfcache restoration
+  useEffect(() => {
+    setSent(false);
+    setOtpValue("");
+    setEmailInput("");
+    setEmail(undefined);
+    setSendError(null);
+    setLoading(false);
+    verifyOtp.reset();
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -190,7 +201,7 @@ export function OTPSignIn({ className }: Props) {
             }}
             className={cn(
               sendError &&
-                "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none",
+              "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none",
             )}
             aria-invalid={!!sendError}
           />

@@ -11,12 +11,6 @@ export {
   getSupabaseUrl,
 } from "./storage-urls";
 
-// Import for internal use
-import {
-  buildPublicUrl,
-  buildProxyUrl,
-} from "./storage-urls";
-
 export type ValidationResult =
   | { valid: true }
   | { valid: false; error: string };
@@ -109,26 +103,6 @@ export function buildObjectPath(
     .filter(Boolean)
     .map((part) => part!.trim())
     .filter((part) => part.length > 0);
-}
-
-/**
- * Build a display URL for a storage path.
- * @deprecated Use buildPublicUrl or buildProxyUrl from storage-urls.ts instead
- */
-export function buildDisplayUrl(params: {
-  bucket: string;
-  path: string | string[];
-  isPublic?: boolean;
-  supabaseUrl?: string | null;
-}) {
-  const { bucket, path, isPublic = true } = params;
-  const joinedPath = Array.isArray(path) ? path.join("/") : path;
-
-  if (isPublic) {
-    return buildPublicUrl(bucket, joinedPath) ?? "";
-  }
-
-  return buildProxyUrl(bucket, joinedPath) ?? "";
 }
 
 export function sanitizeFilename(name: string) {

@@ -1,0 +1,19 @@
+{
+  "name": "@v1/taxonomy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "bun run src/sync.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@v1/db": "workspace:*",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.1",
+    "@v1/tsconfig": "workspace:*",
+    "typescript": "^5.9.2"
+  }
+}

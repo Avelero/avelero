@@ -62,6 +62,13 @@ export function MembersTable() {
     return Array.isArray(list) ? (list as InviteItem[]) : [];
   }, [compositeRes]);
 
+  // Determine if current user is an owner of this brand
+  const currentUserRole = useMemo(() => {
+    const currentMember = members.find((m) => m.user_id === meUser?.id);
+    return currentMember?.role ?? null;
+  }, [members, meUser?.id]);
+  const isOwner = currentUserRole === "owner";
+
   const isLoading = false;
   const rows = tab === "members" ? members : invites;
 
@@ -73,6 +80,7 @@ export function MembersTable() {
           setTab(t);
         }}
         brandId={brandId ?? undefined}
+        isOwner={isOwner}
       />
 
       <div className="border">
@@ -101,8 +109,8 @@ export function MembersTable() {
                 key={
                   tab === "members"
                     ? (row as MemberItem).user_id ??
-                      (row as MemberItem).email ??
-                      `member-fallback-${index}`
+                    (row as MemberItem).email ??
+                    `member-fallback-${index}`
                     : (row as InviteItem).id
                 }
                 className="p-3"
@@ -112,9 +120,10 @@ export function MembersTable() {
                     brandId={brandId}
                     membership={row as MemberItem}
                     currentUserId={meUser?.id ?? null}
+                    isOwner={isOwner}
                   />
                 ) : (
-                  <MembersRow brandId={brandId} invite={row as InviteItem} />
+                  <MembersRow brandId={brandId} invite={row as InviteItem} isOwner={isOwner} />
                 )}
               </div>
             ))}

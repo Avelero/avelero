@@ -1,7 +1,5 @@
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { allColors } from "@v1/selections/colors";
-import { allDefaultSizes, type DefaultSize } from "@v1/selections";
 import * as React from "react";
 
 export interface CategoryNode {
@@ -16,34 +14,60 @@ export interface BrandTagOption {
   hex: string;
 }
 
+export interface TaxonomyAttribute {
+  id: string;
+  friendlyId: string;
+  name: string;
+}
+
+export interface TaxonomyValue {
+  id: string;
+  friendlyId: string;
+  attributeId: string;
+  name: string;
+  sortOrder: number;
+  metadata: unknown;
+}
+
+export interface BrandAttribute {
+  id: string;
+  name: string;
+  taxonomyAttributeId: string | null;
+}
+
+export interface BrandAttributeValue {
+  id: string;
+  attributeId: string;
+  name: string;
+  taxonomyValueId: string | null;
+}
+
 /**
- * SizeOption - flat size representation (no category coupling)
+ * Legacy SizeOption type for backwards compatibility with filter components.
  */
 export interface SizeOption {
-  id?: string; // DB ID (undefined = not yet in brand's DB)
-  name: string; // Display name (e.g., "XL", "42", "XII")
-  sortIndex: number; // For ordering - UNIQUE identifier, differentiates sizes with same name in different groups
-  group?: string; // Size group (e.g., "Letter", "US Numeric", "US Shoe") for UI grouping
+  id?: string;
+  name: string;
+  displayHint: number;
+  isDefault: boolean;
 }
 
 /**
  * Transforms flat category list into hierarchical structure
  */
 function buildCategoryHierarchy(
-  categories: Array<{ id: string; name: string; parent_id: string | null }>,
+  categories: Array<{ id: string; name: string; parentId: string | null }>,
 ): Record<string, CategoryNode> {
   const hierarchy: Record<string, CategoryNode> = {};
   const categoryMap = new Map<
     string,
-    { id: string; name: string; parent_id: string | null }
+    { id: string; name: string; parentId: string | null }
   >();
 
-  // Build map for quick lookup
   for (const category of categories) {
     categoryMap.set(category.id, category);
   }
 
-  // Helper to build a node with its children recursively
   function buildNode(categoryId: string): CategoryNode | null {
     const category = categoryMap.get(categoryId);
     if (!category) return null;
@@ -53,8 +77,7 @@ function buildCategoryHierarchy(
       id: category.id,
     };
 
-    // Find children
-    const children = categories.filter((c) => c.parent_id === categoryId);
+    const children = categories.filter((c) => c.parentId === categoryId);
     if (children.length > 0) {
       node.children = {};
       for (const child of children) {
@@ -68,8 +91,7 @@ function buildCategoryHierarchy(
     return node;
   }
 
-  // Find root categories (those with no parent)
-  const rootCategories = categories.filter((c) => !c.parent_id);
+  const rootCategories = categories.filter((c) => !c.parentId);
   for (const root of rootCategories) {
     const node = buildNode(root.id);
     if (node) {
@@ -81,72 +103,17 @@ function buildCategoryHierarchy(
 }
 
 /**
- * Hook to fetch and merge brand catalog reference data.
+ * Hook to fetch brand catalog reference data.
  *
- * Consumes the prefetched `brandCatalogContent` query and merges
- * API data with client-side defaults from the selections package.
- *
- * This hook provides brand-level catalog data (categories, colors, sizes,
- * materials, operators, etc.) that can be used across the application,
- * not just in passport forms.
- *
- * @returns Merged dropdown options for brand catalog fields
+ * Provides taxonomy (global), brand catalog (brand-specific), categories,
+ * and other reference data for the application.
  */
 export function useBrandCatalog() {
   const trpc = useTRPC();
 
-  // Access prefetched data from React Query cache
   const { data } = useSuspenseQuery(
     trpc.composite.catalogContent.queryOptions(),
   );
-
-  // Merge colors: API colors + default colors from selections
-  const colors = React.useMemo(() => {
-    const apiColors = data?.brandCatalog.colors || [];
-    const defaultColors = allColors;
-
-    const normalizeHex = (hex?: string | null) => {
-      if (!hex) return null;
-      return hex.replace("#", "").trim().toUpperCase();
-    };
-
-    // Create a map to avoid duplicates (API colors take precedence)
-    // id is undefined for default colors (not yet in brand's DB), or a real UUID for brand colors
-    const colorMap = new Map<
-      string,
-      { id: string | undefined; name: string; hex: string }
-    >();
-
-    // Add API colors first (these have real IDs from DB)
-    for (const color of apiColors) {
-      const defaultColor = defaultColors.find(
-        (c) => c.name.toLowerCase() === color.name.toLowerCase(),
-      );
-      const normalizedHex =
-        normalizeHex(color.hex) ?? defaultColor?.hex ?? "000000";
-      colorMap.set(color.name.toLowerCase(), {
-        id: color.id,
-        name: color.name,
-        hex: normalizedHex.toUpperCase(),
-      });
-    }
-
-    // Add default colors that aren't already in API colors
-    // Default colors have id: undefined to indicate they need to be created when the product is saved
-    // (NOT when selected - selection just stores them in local state as "pending")
-    for (const color of defaultColors) {
-      const key = color.name.toLowerCase();
-      if (!colorMap.has(key)) {
-        colorMap.set(key, {
-          id: undefined, // Undefined = default color not yet in brand's DB
-          name: color.name,
-          hex: normalizeHex(color.hex) ?? "000000",
-        });
-      }
-    }
-
-    return Array.from(colorMap.values());
-  }, [data?.brandCatalog.colors]);
 
   const categoryMap = React.useMemo(() => {
     const map = new Map<string, { name: string; parentId: string | null }>();
@@ -154,58 +121,12 @@ export function useBrandCatalog() {
     for (const category of rawCategories) {
       map.set(category.id, {
         name: category.name,
-        parentId: category.parent_id ?? null,
+        parentId: category.parentId ?? null,
       });
     }
     return map;
   }, [data?.categories]);
 
-  // Flat size options: merge brand's existing sizes with default sizes
-  const sizeOptions = React.useMemo<SizeOption[]>(() => {
-    const apiSizes = data?.brandCatalog.sizes ?? [];
-    // Use sortIndex as unique key since same name can exist in different groups
-    // (e.g., "8" in US Numeric vs "8" in US Shoe)
-    const sizeMap = new Map<number, SizeOption>();
-
-    // Helper to find the group for a given sortIndex
-    const findGroupForSortIndex = (sortIndex: number): string | undefined => {
-      const defaultSize = allDefaultSizes.find(s => s.sortIndex === sortIndex);
-      return defaultSize?.group;
-    };
-
-    // Add brand's existing sizes first (have real DB IDs)
-    for (const size of apiSizes) {
-      const sortIndex = size.sort_index ?? 0;
-      sizeMap.set(sortIndex, {
-        id: size.id,
-        name: size.name,
-        sortIndex,
-        group: findGroupForSortIndex(sortIndex),
-      });
-    }
-
-    // Add default sizes that aren't already in brand's catalog
-    for (const size of allDefaultSizes) {
-      if (!sizeMap.has(size.sortIndex)) {
-        sizeMap.set(size.sortIndex, {
-          id: undefined, // Not in DB yet
-          name: size.name,
-          sortIndex: size.sortIndex,
-          group: size.group,
-        });
-      }
-    }
-
-    // Sort by sortIndex, then by name
-    return Array.from(sizeMap.values()).sort((a, b) => {
-      if (a.sortIndex !== b.sortIndex) {
-        return a.sortIndex - b.sortIndex;
-      }
-      return a.name.localeCompare(b.name, undefined, { numeric: true });
-    });
-  }, [data?.brandCatalog.sizes]);
-
-  // Build category hierarchy for CategorySelect component
   const categoryHierarchy = React.useMemo(() => {
     return buildCategoryHierarchy(data?.categories || []);
   }, [data?.categories]);
@@ -219,17 +140,123 @@ export function useBrandCatalog() {
     }));
   }, [data?.brandCatalog.tags]);
 
+  // Taxonomy attributes (global, read-only)
+  const taxonomyAttributes = React.useMemo<TaxonomyAttribute[]>(() => {
+    return (data?.taxonomy?.attributes ?? []).map((attr: any) => ({
+      id: attr.id,
+      friendlyId: attr.friendlyId,
+      name: attr.name,
+    }));
+  }, [data?.taxonomy?.attributes]);
+
+  // Taxonomy values grouped by attribute
+  const taxonomyValuesByAttribute = React.useMemo(() => {
+    const map = new Map<string, TaxonomyValue[]>();
+    for (const val of data?.taxonomy?.values ?? []) {
+      const list = map.get(val.attributeId) ?? [];
+      list.push({
+        id: val.id,
+        friendlyId: val.friendlyId,
+        attributeId: val.attributeId,
+        name: val.name,
+        sortOrder: val.sortOrder,
+        metadata: val.metadata,
+      });
+      map.set(val.attributeId, list);
+    }
+    // Sort each list by sortOrder
+    for (const [key, list] of map) {
+      map.set(key, list.sort((a, b) => a.sortOrder - b.sortOrder));
+    }
+    return map;
+  }, [data?.taxonomy?.values]);
+
+  // Brand attributes
+  const brandAttributes = React.useMemo<BrandAttribute[]>(() => {
+    return (data?.brandCatalog.attributes ?? []).map((attr: any) => ({
+      id: attr.id,
+      name: attr.name,
+      taxonomyAttributeId: attr.taxonomyAttributeId ?? null,
+    }));
+  }, [data?.brandCatalog.attributes]);
+
+  // Brand attribute values grouped by attribute
+  const brandAttributeValuesByAttribute = React.useMemo(() => {
+    const map = new Map<string, BrandAttributeValue[]>();
+    for (const val of data?.brandCatalog.attributeValues ?? []) {
+      const list = map.get(val.attributeId) ?? [];
+      list.push({
+        id: val.id,
+        attributeId: val.attributeId,
+        name: val.name,
+        taxonomyValueId: val.taxonomyValueId ?? null,
+      });
+      map.set(val.attributeId, list);
+    }
+    return map;
+  }, [data?.brandCatalog.attributeValues]);
+
+  // Legacy: derive sizeOptions from "Size" attribute values (for filter components)
+  const sizeOptions = React.useMemo<SizeOption[]>(() => {
+    const sizeAttr = taxonomyAttributes.find((a) => a.friendlyId === "size");
+    if (!sizeAttr) return [];
+    
+    const brandAttr = brandAttributes.find((a) => a.taxonomyAttributeId === sizeAttr.id);
+    if (!brandAttr) return [];
+    
+    const values = brandAttributeValuesByAttribute.get(brandAttr.id) ?? [];
+    const taxValues = taxonomyValuesByAttribute.get(sizeAttr.id) ?? [];
+    
+    return values.map((v, idx) => {
+      const taxVal = taxValues.find((tv) => tv.id === v.taxonomyValueId);
+      return {
+        id: v.id,
+        name: v.name,
+        displayHint: taxVal?.sortOrder ?? (1000 + idx),
+        isDefault: !!v.taxonomyValueId,
+      };
+    }).sort((a, b) => a.displayHint - b.displayHint);
+  }, [taxonomyAttributes, brandAttributes, brandAttributeValuesByAttribute, taxonomyValuesByAttribute]);
+
+  // Legacy: derive colors from "Color" attribute values (for filter components)
+  const colors = React.useMemo(() => {
+    const colorAttr = taxonomyAttributes.find((a) => a.friendlyId === "color");
+    if (!colorAttr) return [];
+    
+    const brandAttr = brandAttributes.find((a) => a.taxonomyAttributeId === colorAttr.id);
+    if (!brandAttr) return [];
+    
+    const values = brandAttributeValuesByAttribute.get(brandAttr.id) ?? [];
+    const taxValues = taxonomyValuesByAttribute.get(colorAttr.id) ?? [];
+    
+    return values.map((v) => {
+      const taxVal = taxValues.find((tv) => tv.id === v.taxonomyValueId);
+      const meta = taxVal?.metadata as { hex?: string } | null;
+      return {
+        id: v.id,
+        name: v.name,
+        hex: meta?.hex ?? null,
+      };
+    });
+  }, [taxonomyAttributes, brandAttributes, brandAttributeValuesByAttribute, taxonomyValuesByAttribute]);
+
   return {
-    // System-level (no merging needed)
+    // System-level
     categories: data?.categories || [],
     categoryHierarchy,
     categoryMap,
 
-    // Brand catalog (API only, no defaults)
+    // Taxonomy (global, read-only)
+    taxonomyAttributes,
+    taxonomyValuesByAttribute,
+
+    // Brand catalog
+    brandAttributes,
+    brandAttributeValuesByAttribute,
     materials: data?.brandCatalog.materials || [],
-    operators: data?.brandCatalog.operators || [], // Facilities/production plants from brand_facilities table
+    operators: data?.brandCatalog.operators || [],
     certifications: data?.brandCatalog.certifications || [],
-    manufacturers: data?.brandCatalog.manufacturers || [], // Manufacturers from brand_manufacturers table
+    manufacturers: data?.brandCatalog.manufacturers || [],
     seasons: (data?.brandCatalog.seasons || []).map((s: any) => ({
       id: s.id ?? "",
       name: s.name,
@@ -237,13 +264,10 @@ export function useBrandCatalog() {
       endDate: s.endDate ? new Date(s.endDate) : undefined,
       isOngoing: s.ongoing,
     })),
-
-    // Merged with defaults
-    colors,
-    sizeOptions,
     tags,
+    
+    // Legacy compatibility
+    sizeOptions,
+    colors,
   };
 }
-
-// Backwards compatibility alias
-export const usePassportFormData = useBrandCatalog;

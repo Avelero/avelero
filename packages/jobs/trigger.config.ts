@@ -28,7 +28,7 @@ export const config: TriggerConfig = {
         // - dev: Local development (http://localhost:4100)
         // - staging: PRs targeting main (pr-X-avelero-api.fly.dev)
         // - feature branches: Dynamic per-branch environments (feature-specific API URLs)
-        // - prod: Production main branch only (avelero-api.fly.dev)
+        // - prod: Production main branch only (api.avelero.com)
         //
         // This extension reads API_URL and INTERNAL_API_KEY from GitHub Actions
         // environment and syncs them to Trigger.dev for runtime access

@@ -1,0 +1,670 @@
+# Shopify to Avelero Taxonomy Mapping
+# Version: 1.0.0
+# Input: Shopify Standard Product Taxonomy (2024-07)
+# Output: Avelero DPP Taxonomy (1.0)
+#
+# Mapping Rules:
+# - If output is null, the category is explicitly unmapped (out of scope)
+# - If output is a category ID, that's a direct/ancestor mapping
+# - Resolution: Try exact match first, then walk up ancestors until a match is found
+
+---
+version: "1.0.0"
+input_taxonomy: "shopify/2024-07"
+output_taxonomy: "avelero/1.0"
+
+# =============================================================================
+# BRANCH-LEVEL CONFIGURATION
+# =============================================================================
+# Defines which Shopify top-level branches map to which Avelero top-level categories
+# and which branches are excluded entirely.
+
+branch_config:
+  # Only products under "aa" (Apparel & Accessories) are in scope
+  root_filter: "aa"
+  
+  # Branch mappings (Shopify branch → Avelero top-level fallback)
+  branches:
+    aa-1: cl      # Clothing → Clothing
+    aa-2: ac      # Clothing Accessories → Accessories
+    aa-3: null    # Costumes & Accessories → Out of scope
+    aa-4: ac      # Handbag & Wallet Accessories → Accessories
+    aa-5: ac      # Handbags, Wallets & Cases → Accessories
+    aa-6: null    # Jewelry → Out of scope (not fashion apparel)
+    aa-7: ac      # Shoe Accessories → Accessories
+    aa-8: fw      # Shoes → Footwear
+
+# =============================================================================
+# EXCLUDED CATEGORY IDS
+# =============================================================================
+# These Shopify categories will always return null, regardless of ancestor matching.
+# Products with these categories should have no Avelero category assigned.
+
+excluded_category_ids:
+  # Jewelry (entire branch) - out of scope for fashion DPP
+  - aa-6
+  - aa-6-1      # Anklets
+  - aa-6-2      # Body Jewelry
+  - aa-6-3      # Bracelets
+  - aa-6-4      # Brooches & Lapel Pins
+  - aa-6-5      # Charms & Pendants
+  - aa-6-6      # Earrings
+  - aa-6-7      # Jewelry Sets
+  - aa-6-8      # Necklaces
+  - aa-6-9      # Rings
+  - aa-6-10     # Watch Accessories
+  - aa-6-10-1   # Watch Bands
+  - aa-6-10-2   # Watch Stickers & Decals
+  - aa-6-10-3   # Watch Winders
+  - aa-6-11     # Watches
+  - aa-6-12     # Smart Watches
+  # Costumes (entire branch) - out of scope
+  - aa-3
+  - aa-3-1      # Costume Accessories
+  - aa-3-2      # Costume Shoes
+  - aa-3-3      # Costumes
+  - aa-3-3-1    # Costume Dresses
+  - aa-3-3-2    # Costume Sets
+  - aa-3-4      # Masks
+
+# =============================================================================
+# CATEGORY MAPPINGS
+# =============================================================================
+# Direct mappings from Shopify category IDs to Avelero category IDs.
+# Format: shopify_id: avelero_id
+#
+# When resolving: try exact match first, then walk up to parent until match found.
+
+rules:
+
+  # ===========================================================================
+  # FOOTWEAR (aa-8 → fw)
+  # ===========================================================================
+  
+  aa-8: fw                          # Shoes → Footwear
+  
+  # Athletic Shoes
+  aa-8-1: fw-8                      # Athletic Shoes → Sports Shoes
+  
+  # Baby & Toddler Shoes
+  aa-8-2: fw                        # Baby & Toddler Shoes → Footwear (no baby-specific)
+  aa-8-2-1: fw-2                    # Baby & Toddler Boots → Boots
+  aa-8-2-2: fw-16                   # Baby & Toddler Sandals → Sandals
+  aa-8-2-4: fw-8                    # Baby & Toddler Athletic Shoes → Sports Shoes
+  aa-8-2-5: fw-1                    # Baby & Toddler Sneakers → Sneakers
+  aa-8-2-6: fw                      # First Steps & Crawlers → Footwear
+  
+  # Main Shoe Categories
+  aa-8-3: fw-2                      # Boots → Boots
+  aa-8-6: fw-16                     # Sandals → Sandals
+  aa-8-7: fw-7                      # Slippers → Slippers
+  aa-8-8: fw-1                      # Sneakers → Sneakers
+  aa-8-9: fw-12                     # Flats → Flat Shoes
+  aa-8-10: fw-14                    # Heels → High Heels
+
+  # ===========================================================================
+  # CLOTHING (aa-1 → cl)
+  # ===========================================================================
+  
+  aa-1: cl                          # Clothing → Clothing
+
+  # ---------------------------------------------------------------------------
+  # Activewear (aa-1-1)
+  # ---------------------------------------------------------------------------
+  aa-1-1: cl                        # Activewear → Clothing
+  
+  # Activewear Pants
+  aa-1-1-1: cl-7                    # Activewear Pants → Trousers
+  aa-1-1-1-1: cl-7-4                # Joggers → Joggers
+  aa-1-1-1-2: cl-7-7                # Leggings → Leggings
+  aa-1-1-1-3: cl-12                 # Shorts → Shorts
+  aa-1-1-1-4: cl-7-4                # Sweatpants → Joggers
+  aa-1-1-1-5: cl-15-1               # Tights → Tights
+  aa-1-1-1-6: cl-7-4                # Track Pants → Joggers
+  aa-1-1-1-7: cl-7-4                # Training Pants → Joggers
+  aa-1-1-1-8: cl-7                  # Wind Pants → Trousers
+  
+  # Activewear Tops
+  aa-1-1-2: cl-4                    # Activewear Tops → T-shirts & Polos
+  aa-1-1-2-1: cl-4-3                # Crop Tops → Tops
+  aa-1-1-2-2: cl-4-7                # T-Shirts → Sports T-shirts
+  aa-1-1-2-3: cl-4-4                # Tank Tops → Tank Tops
+  
+  # Other Activewear
+  aa-1-1-4: cl-12-3                 # Boxing Shorts → Sport Shorts
+  aa-1-1-5: cl-2                    # Dance Dresses, Skirts & Costumes → Dresses
+  aa-1-1-6: cl-14-4                 # Sports Bras → Bras
+  
+  # Activewear Sweatshirts & Hoodies
+  aa-1-1-7: cl-3                    # Activewear Sweatshirts & Hoodies → Sweatshirts & Hoodies
+  aa-1-1-7-2: cl-3-2                # Hoodies → Hoodies
+  aa-1-1-7-4: cl-3-1                # Sweatshirts → Sweatshirts
+  aa-1-1-7-5: cl-10-3               # Track Jackets → Tracksuit Jackets
+  
+  # Activewear Vests & Jackets
+  aa-1-1-8: cl-9                    # Activewear Vests & Jackets → Jackets
+  aa-1-1-8-1: cl-9-9                # Vests → Gilet
+  aa-1-1-8-2: cl-9-13               # Jackets → Training Jackets
+  
+  aa-1-1-9: cl-14-6                 # Leotards & Unitards → Bodysuits & Sets
+
+  # ---------------------------------------------------------------------------
+  # Baby & Toddler Clothing (aa-1-2)
+  # ---------------------------------------------------------------------------
+  aa-1-2: cl                        # Baby & Toddler Clothing → Clothing
+  
+  # Baby Bottoms
+  aa-1-2-1: cl-7                    # Baby & Toddler Bottoms → Trousers
+  aa-1-2-1-2: cl-7-3                # Cargos → Cargo Trousers
+  aa-1-2-1-3: cl-7-1                # Chinos → Chinos
+  aa-1-2-1-4: cl-8                  # Jeans → Jeans
+  aa-1-2-1-5: cl-8                  # Jeggings → Jeans
+  aa-1-2-1-7: cl-7-4                # Joggers → Joggers
+  aa-1-2-1-8: cl-7-7                # Leggings → Leggings
+  aa-1-2-1-11: cl-13                # Skirts → Skirts
+  aa-1-2-1-12: cl-13                # Skorts → Skirts
+  aa-1-2-1-13: cl-7-4               # Sweatpants → Joggers
+  aa-1-2-1-14: cl-7                 # Trousers → Trousers
+  
+  aa-1-2-2: cl-14                   # Baby & Toddler Diaper Covers → Underwear
+  aa-1-2-3: cl-2                    # Baby & Toddler Dresses → Dresses
+  
+  # Baby Outerwear
+  aa-1-2-4: cl-1                    # Baby & Toddler Outerwear → Coats
+  aa-1-2-4-17: cl-1                 # Baby & Toddler Coats & Jackets → Coats
+  aa-1-2-4-17-1: cl-9               # Bolero Jackets → Jackets
+  aa-1-2-4-17-2: cl-9-14            # Bomber Jackets → Bomber Jackets
+  aa-1-2-4-17-3: cl-9-11            # Capes → Capes
+  aa-1-2-4-17-4: cl-9-3             # Motorcycle Outerwear → Leather Jackets
+  aa-1-2-4-17-5: cl-1               # Overcoats → Coats
+  aa-1-2-4-17-6: cl-1-2             # Parkas → Parkas
+  aa-1-2-4-17-7: cl-1-5             # Pea Coats → Wool Coats
+  aa-1-2-4-17-8: cl-9-11            # Ponchos → Capes
+  aa-1-2-4-17-9: cl-1-6             # Puffer Jackets → Down Coats
+  aa-1-2-4-17-10: cl-9-2            # Rain Coats → Waterproof Jackets
+  aa-1-2-4-17-11: cl-9              # Sport Jackets → Jackets
+  aa-1-2-4-17-12: cl-10-3           # Track Jackets → Tracksuit Jackets
+  aa-1-2-4-17-13: cl-1-1            # Trench Coats → Trench Coats
+  aa-1-2-4-17-14: cl-9-4            # Trucker Jackets → Denim Jackets
+  aa-1-2-4-17-15: cl-9-1            # Windbreakers → Lightweight jackets
+  aa-1-2-4-17-16: cl-1              # Wrap Coats → Coats
+  aa-1-2-4-18: cl-1-4               # Snow Pants & Suits → Winter Coats
+  
+  aa-1-2-5: cl                      # Baby & Toddler Outfits → Clothing
+  aa-1-2-6: cl-17                   # Baby & Toddler Sleepwear → Loungewear & Sleepwear
+  aa-1-2-7: cl-15                   # Baby & Toddler Socks & Tights → Socks & Tights
+  
+  # Baby Swimwear
+  aa-1-2-8: cl-16                   # Baby & Toddler Swimwear → Swimwear
+  aa-1-2-8-2: cl-16-3               # Burkinis → Swimsuits
+  aa-1-2-8-3: cl-16-2               # Classic Bikinis → Bikinis
+  aa-1-2-8-4: cl-16-4               # Cover Ups → Beach accessories
+  aa-1-2-8-9: cl-16                 # Rash Guards → Swimwear
+  aa-1-2-8-10: cl-16-2              # Skirtinis → Bikinis
+  aa-1-2-8-13: cl-16-1              # Swim Boxers → Swim trunks
+  aa-1-2-8-14: cl-16-1              # Swim Briefs → Swim trunks
+  aa-1-2-8-15: cl-16-3              # Swim Dresses → Swimsuits
+  aa-1-2-8-16: cl-16-1              # Swim Jammers → Swim trunks
+  aa-1-2-8-17: cl-16-1              # Swim Trunks → Swim trunks
+  aa-1-2-8-22: cl-16-3              # One-Piece Swimsuits → Swimsuits
+  aa-1-2-8-23: cl-16                # Surf Tops → Swimwear
+  aa-1-2-8-24: cl-16                # Swimwear Tops → Swimwear
+  
+  # Baby Tops
+  aa-1-2-9: cl-4                    # Baby & Toddler Tops → T-shirts & Polos
+  aa-1-2-9-2: cl-14-6               # Bodysuits → Bodysuits & Sets
+  aa-1-2-9-3: cl-6-1                # Cardigans → Cardigans
+  aa-1-2-9-4: cl-5                  # Overshirts → Shirts & Blouses
+  aa-1-2-9-5: cl-4-5                # Polos → Polo Shirts
+  aa-1-2-9-6: cl-5                  # Shirts → Shirts & Blouses
+  aa-1-2-9-7: cl-4-1                # T-Shirts → Basic T-shirts
+  aa-1-2-9-10: cl-5-5               # Tunics → Tunics
+  aa-1-2-9-11: cl-3-2               # Hoodies → Hoodies
+  aa-1-2-9-12: cl-6-2               # Sweaters → Knitted jumper
+  aa-1-2-9-13: cl-3-1               # Sweatshirts → Sweatshirts
+  
+  aa-1-2-10: cl-14-6                # Baby One-Pieces → Bodysuits & Sets
+  
+  # Toddler Underwear
+  aa-1-2-11: cl-14                  # Toddler Underwear → Underwear
+  aa-1-2-11-1: cl-14-1              # Boxer Briefs → Boxers
+  aa-1-2-11-2: cl-14-1              # Boxers → Boxers
+  aa-1-2-11-3: cl-14-2              # Briefs → Underpants
+  aa-1-2-11-4: cl-14-2              # Panties → Underpants
+  aa-1-2-11-5: cl-14-2              # Training Pants → Underpants
+
+  # ---------------------------------------------------------------------------
+  # Boys' Underwear (aa-1-3)
+  # ---------------------------------------------------------------------------
+  aa-1-3: cl-14                     # Boys' Underwear → Underwear
+  aa-1-3-1: cl-14                   # Boys' Long Johns → Underwear
+  aa-1-3-2: cl-14                   # Boys' Underpants → Underwear
+  aa-1-3-2-1: cl-14-1               # Boxer Briefs → Boxers
+  aa-1-3-2-2: cl-14-1               # Boxer Shorts → Boxers
+  aa-1-3-2-3: cl-14-2               # Briefs → Underpants
+  aa-1-3-2-4: cl-14-2               # Midway Briefs → Underpants
+  aa-1-3-2-5: cl-14-1               # Trunks → Boxers
+  aa-1-3-3: cl-14-3                 # Boys' Undershirts → Undershirts
+
+  # ---------------------------------------------------------------------------
+  # Dresses (aa-1-4)
+  # ---------------------------------------------------------------------------
+  aa-1-4: cl-2                      # Dresses → Dresses
+
+  # ---------------------------------------------------------------------------
+  # Girls' Underwear (aa-1-5)
+  # ---------------------------------------------------------------------------
+  aa-1-5: cl-14                     # Girls' Underwear → Underwear
+  aa-1-5-1: cl-14                   # Girls' Long Johns → Underwear
+  aa-1-5-2: cl-14                   # Girls' Underpants → Underwear
+  aa-1-5-2-1: cl-14-2               # Bikinis → Underpants
+  aa-1-5-2-2: cl-14-1               # Boxer Briefs → Boxers
+  aa-1-5-2-3: cl-14-2               # Boyshorts → Underpants
+  aa-1-5-2-4: cl-14-2               # Briefs → Underpants
+  aa-1-5-2-5: cl-14-2               # Hipsters → Underpants
+  aa-1-5-2-6: cl-14-2               # Panties → Underpants
+  aa-1-5-2-7: cl-14-2               # Period Underwear → Underpants
+  aa-1-5-2-8: cl-14-2               # Thongs → Underpants
+  aa-1-5-3: cl-14-3                 # Girls' Undershirts → Undershirts
+  aa-1-5-3-2: cl-14-4               # First Bras → Bras
+
+  # ---------------------------------------------------------------------------
+  # Lingerie (aa-1-6)
+  # ---------------------------------------------------------------------------
+  aa-1-6: cl-14                     # Lingerie → Underwear
+  aa-1-6-1: cl-14-6                 # Bodysuits → Bodysuits & Sets
+  aa-1-6-2: cl-14                   # Bra Accessories → Underwear
+  aa-1-6-2-1: cl-14                 # Bra Strap Pads → Underwear
+  aa-1-6-2-2: cl-14                 # Bra Straps & Extenders → Underwear
+  aa-1-6-2-3: cl-14                 # Breast Enhancing Inserts → Underwear
+  aa-1-6-2-4: cl-14                 # Breast Petals & Concealers → Underwear
+  aa-1-6-3: cl-14-4                 # Bras → Bras
+  aa-1-6-4: cl-14-3                 # Camisoles → Undershirts
+  aa-1-6-6: cl-15                   # Hosiery → Socks & Tights
+  aa-1-6-7: cl-14-1                 # Jock Straps → Boxers
+  aa-1-6-8: cl-14                   # Lingerie Accessories → Underwear
+  aa-1-6-8-1: cl-14                 # Garter Belts → Underwear
+  aa-1-6-8-2: cl-14                 # Garters → Underwear
+  aa-1-6-8-3: cl-15-1               # Pantyhose → Tights
+  aa-1-6-9: cl-14-5                 # Petticoats & Pettipants → Bottoms
+  aa-1-6-10: cl-14-7                # Shapewear → Shapewear
+  aa-1-6-10-1: cl-14-7              # Bodysuits (Shapewear) → Shapewear
+  aa-1-6-10-2: cl-14-7              # Full Body Shapes → Shapewear
+  aa-1-6-10-3: cl-14-7              # High Waisted Briefs → Shapewear
+  aa-1-6-10-4: cl-14-7              # Thigh Slimmers → Shapewear
+  aa-1-6-10-5: cl-14-7              # Waist Cinchers → Shapewear
+  aa-1-6-11: cl-14                  # Women's Underpants → Underwear
+  aa-1-6-11-1: cl-14-2              # Bikinis (Underpants) → Underpants
+  aa-1-6-11-2: cl-14-2              # Boyshorts → Underpants
+  aa-1-6-11-3: cl-14-2              # Briefs → Underpants
+  aa-1-6-11-4: cl-14-2              # G-Strings → Underpants
+  aa-1-6-11-5: cl-14-2              # Period Underwear → Underpants
+  aa-1-6-11-6: cl-14-2              # Thongs → Underpants
+  aa-1-6-12: cl-14-3                # Women's Undershirts → Undershirts
+  aa-1-6-13: cl-14                  # Women's Underwear Slips → Underwear
+
+  # ---------------------------------------------------------------------------
+  # Maternity Clothing (aa-1-7)
+  # ---------------------------------------------------------------------------
+  aa-1-7: cl                        # Maternity Clothing → Clothing
+  aa-1-7-1: cl-14-4                 # Nursing Bras → Bras
+  aa-1-7-2: cl-2                    # Maternity Dresses → Dresses
+  aa-1-7-3: cl-8-11                 # Maternity One-Pieces → Jumpsuits & Overalls
+  aa-1-7-4: cl-7                    # Maternity Pants → Trousers
+  aa-1-7-4-2: cl-7-3                # Cargos → Cargo Trousers
+  aa-1-7-4-3: cl-7-1                # Chinos → Chinos
+  aa-1-7-4-4: cl-8                  # Jeans → Jeans
+  aa-1-7-4-5: cl-8                  # Jeggings → Jeans
+  aa-1-7-4-7: cl-7-4                # Joggers → Joggers
+  aa-1-7-4-8: cl-7-7                # Leggings → Leggings
+  aa-1-7-4-11: cl-13                # Skorts → Skirts
+  aa-1-7-4-12: cl-7                 # Trousers → Trousers
+  aa-1-7-5: cl-13                   # Maternity Skirts → Skirts
+  aa-1-7-6: cl-17                   # Maternity Sleepwear → Loungewear & Sleepwear
+  aa-1-7-7: cl-16                   # Maternity Swimwear → Swimwear
+  aa-1-7-7-2: cl-16-1               # Swim Boxers → Swim trunks
+  aa-1-7-7-4: cl-16-3               # Burkinis → Swimsuits
+  aa-1-7-7-5: cl-16-2               # Classic Bikinis → Bikinis
+  aa-1-7-7-6: cl-16-4               # Cover Ups → Beach accessories
+  aa-1-7-7-14: cl-16-3              # Swim Dresses → Swimsuits
+  aa-1-7-7-20: cl-16-3              # One-Piece Swimsuits → Swimsuits
+  aa-1-7-7-21: cl-16                # Swimwear Tops → Swimwear
+  aa-1-7-8: cl-4                    # Maternity Tops → T-shirts & Polos
+  aa-1-7-8-1: cl-5-4                # Blouses → Blouses
+  aa-1-7-8-2: cl-14-6               # Bodysuits → Bodysuits & Sets
+  aa-1-7-8-3: cl-6-1                # Cardigans → Cardigans
+  aa-1-7-8-4: cl-5                  # Nursing Shirts → Shirts & Blouses
+  aa-1-7-8-5: cl-5                  # Overshirts → Shirts & Blouses
+  aa-1-7-8-7: cl-5                  # Shirts → Shirts & Blouses
+  aa-1-7-8-8: cl-4-1                # T-Shirts → Basic T-shirts
+  aa-1-7-8-11: cl-5-5               # Tunics → Tunics
+
+  # ---------------------------------------------------------------------------
+  # Men's Undergarments (aa-1-8)
+  # ---------------------------------------------------------------------------
+  aa-1-8: cl-14                     # Men's Undergarments → Underwear
+  aa-1-8-1: cl-14                   # Men's Long Johns → Underwear
+  aa-1-8-2: cl-14-3                 # Men's Undershirts → Undershirts
+  aa-1-8-3: cl-14                   # Men's Underwear → Underwear
+  aa-1-8-3-2: cl-14-1               # Boxer Briefs → Boxers
+  aa-1-8-3-3: cl-14-1               # Boxer Shorts → Boxers
+  aa-1-8-3-4: cl-14-2               # Briefs → Underpants
+  aa-1-8-3-5: cl-14-1               # Jockstraps → Boxers
+  aa-1-8-3-6: cl-14-2               # Midway Briefs → Underpants
+  aa-1-8-3-7: cl-14-2               # Thongs → Underpants
+  aa-1-8-3-8: cl-14-1               # Trunks → Boxers
+  aa-1-8-3-9: cl-14-2               # Undershorts → Underpants
+
+  # ---------------------------------------------------------------------------
+  # One-Pieces (aa-1-9)
+  # ---------------------------------------------------------------------------
+  aa-1-9: cl-8-11                   # One-Pieces → Jumpsuits & Overalls
+
+  # ---------------------------------------------------------------------------
+  # Outerwear (aa-1-10)
+  # ---------------------------------------------------------------------------
+  aa-1-10: cl-9                     # Outerwear → Jackets
+  aa-1-10-1: cl-7-8                 # Chaps → Leather Trousers
+  aa-1-10-2: cl-9                   # Coats & Jackets → Jackets
+  aa-1-10-2-1: cl-9                 # Bolero Jackets → Jackets
+  aa-1-10-2-2: cl-9-14              # Bomber Jackets → Bomber Jackets
+  aa-1-10-2-3: cl-9-11              # Capes → Capes
+  aa-1-10-2-5: cl-1                 # Overcoats → Coats
+  aa-1-10-2-6: cl-1-2               # Parkas → Parkas
+  aa-1-10-2-7: cl-1-5               # Pea Coats → Wool Coats
+  aa-1-10-2-8: cl-9-11              # Ponchos → Capes
+  aa-1-10-2-9: cl-1-6               # Puffer Jackets → Down Coats
+  aa-1-10-2-10: cl-9-2              # Rain Coats → Waterproof Jackets
+  aa-1-10-2-11: cl-9                # Sport Jackets → Jackets
+  aa-1-10-2-12: cl-10-3             # Track Jackets → Tracksuit Jackets
+  aa-1-10-2-13: cl-1-1              # Trench Coats → Trench Coats
+  aa-1-10-2-14: cl-9-4              # Trucker Jackets → Denim Jackets
+  aa-1-10-2-15: cl-9                # Varsity Jackets → Jackets
+  aa-1-10-2-16: cl-9-1              # Windbreakers → Lightweight jackets
+  aa-1-10-2-17: cl-1                # Wrap Coats → Coats
+  aa-1-10-3: cl-7                   # Rain Pants → Trousers
+  aa-1-10-4: cl-10-1                # Rain Suits → Tracksuits
+  aa-1-10-5: cl-1-4                 # Snow Pants & Suits → Winter Coats
+  aa-1-10-6: cl-9-9                 # Vests → Gilet
+  aa-1-10-7: cl-9-3                 # Motorcycle Outerwear → Leather Jackets
+
+  # ---------------------------------------------------------------------------
+  # Outfit Sets (aa-1-11)
+  # ---------------------------------------------------------------------------
+  aa-1-11: cl                       # Outfit Sets → Clothing
+
+  # ---------------------------------------------------------------------------
+  # Pants (aa-1-12)
+  # ---------------------------------------------------------------------------
+  aa-1-12: cl-7                     # Pants → Trousers
+  aa-1-12-2: cl-7-3                 # Cargo Pants → Cargo Trousers
+  aa-1-12-3: cl-7-1                 # Chinos → Chinos
+  aa-1-12-4: cl-8                   # Jeans → Jeans
+  aa-1-12-5: cl-8                   # Jeggings → Jeans
+  aa-1-12-7: cl-7-4                 # Joggers → Joggers
+  aa-1-12-8: cl-7-7                 # Leggings → Leggings
+  aa-1-12-11: cl-7                  # Trousers → Trousers
+
+  # ---------------------------------------------------------------------------
+  # Clothing Tops (aa-1-13)
+  # ---------------------------------------------------------------------------
+  aa-1-13: cl-4                     # Clothing Tops → T-shirts & Polos
+  aa-1-13-1: cl-5-4                 # Blouses → Blouses
+  aa-1-13-2: cl-14-6                # Bodysuits → Bodysuits & Sets
+  aa-1-13-3: cl-6-1                 # Cardigans → Cardigans
+  aa-1-13-5: cl-5                   # Overshirts → Shirts & Blouses
+  aa-1-13-6: cl-4-5                 # Polos → Polo Shirts
+  aa-1-13-7: cl-5                   # Shirts → Shirts & Blouses
+  aa-1-13-8: cl-4-1                 # T-Shirts → Basic T-shirts
+  aa-1-13-9: cl-4-4                 # Tank Tops → Tank Tops
+  aa-1-13-11: cl-5-5                # Tunics → Tunics
+  aa-1-13-12: cl-6-2                # Sweaters → Knitted jumper
+  aa-1-13-13: cl-3-2                # Hoodies → Hoodies
+  aa-1-13-14: cl-3-1                # Sweatshirts → Sweatshirts
+
+  # ---------------------------------------------------------------------------
+  # Shorts (aa-1-14)
+  # ---------------------------------------------------------------------------
+  aa-1-14: cl-12                    # Shorts → Shorts
+  aa-1-14-1: cl-12-1                # Bermudas → Casual Shorts
+  aa-1-14-2: cl-12-1                # Cargo Shorts → Casual Shorts
+  aa-1-14-3: cl-12-1                # Chino Shorts → Casual Shorts
+  aa-1-14-4: cl-12-1                # Short Trousers → Casual Shorts
+  aa-1-14-5: cl-12-2                # Denim Shorts → Denim shorts
+  aa-1-14-6: cl-12                  # Jegging Shorts → Shorts
+  aa-1-14-7: cl-12-1                # Jogger Shorts → Casual Shorts
+  aa-1-14-8: cl-12-3                # Legging Shorts → Sport Shorts
+
+  # ---------------------------------------------------------------------------
+  # Skirts (aa-1-15)
+  # ---------------------------------------------------------------------------
+  aa-1-15: cl-13                    # Skirts → Skirts
+
+  # ---------------------------------------------------------------------------
+  # Skorts (aa-1-16)
+  # ---------------------------------------------------------------------------
+  aa-1-16: cl-13                    # Skorts → Skirts
+
+  # ---------------------------------------------------------------------------
+  # Sleepwear & Loungewear (aa-1-17)
+  # ---------------------------------------------------------------------------
+  aa-1-17: cl-17                    # Sleepwear & Loungewear → Loungewear & Sleepwear
+  aa-1-17-1: cl-17                  # Long Johns → Loungewear & Sleepwear
+  aa-1-17-2: cl-17                  # Loungewear → Loungewear & Sleepwear
+  aa-1-17-2-1: cl-17-3              # Loungewear Bottoms → Trousers
+  aa-1-17-2-1-1: cl-14-1            # Boxers → Boxers
+  aa-1-17-2-1-2: cl-7-4             # Joggers → Joggers
+  aa-1-17-2-1-3: cl-7-7             # Leggings → Leggings
+  aa-1-17-2-1-4: cl-12              # Shorts → Shorts
+  aa-1-17-2-1-5: cl-13              # Skirts → Skirts
+  aa-1-17-2-2: cl-17-2              # Loungewear Tops → Shirts
+  aa-1-17-3: cl-17-4                # Nightgowns → Night shirts
+  aa-1-17-4: cl-17-1                # Pajamas → Pyjamas
+  aa-1-17-5: cl-17-5                # Robes → Bathrobes
+  aa-1-17-6: cl-17-1                # Onesies → Pyjamas
+
+  # ---------------------------------------------------------------------------
+  # Socks (aa-1-18)
+  # ---------------------------------------------------------------------------
+  aa-1-18: cl-15-3                  # Socks → Socks
+  aa-1-18-1: cl-15-3                # Ankle Socks → Socks
+  aa-1-18-2: cl-15-4                # Athletic Socks → Sports socks
+  aa-1-18-3: cl-15-3                # Crew Socks → Socks
+  aa-1-18-4: cl-15-3                # Dance Socks → Socks
+  aa-1-18-5: cl-15-3                # Footie Socks → Socks
+  aa-1-18-6: cl-15-3                # Heel Socks → Socks
+  aa-1-18-7: cl-15-6                # Hold Up Socks → Stay-ups
+  aa-1-18-8: cl-15-5                # Knee Socks → Knee high socks
+  aa-1-18-9: cl-15-3                # Panty Socks → Socks
+  aa-1-18-10: cl-15-3               # Sneaker Socks → Socks
+
+  # ---------------------------------------------------------------------------
+  # Suits (aa-1-19)
+  # ---------------------------------------------------------------------------
+  aa-1-19: cl-11                    # Suits → Suits & Tailoring
+  aa-1-19-1: cl-11-1                # Pant Suits → Suits
+  aa-1-19-2: cl-11-1                # Skirt Suits → Suits
+  aa-1-19-3: cl-11-1                # Tuxedos → Suits
+
+  # ---------------------------------------------------------------------------
+  # Swimwear (aa-1-20)
+  # ---------------------------------------------------------------------------
+  aa-1-20: cl-16                    # Swimwear → Swimwear
+  aa-1-20-2: cl-16-1                # Boardshorts → Swim trunks
+  aa-1-20-3: cl-16-1                # Swim Boxers → Swim trunks
+  aa-1-20-4: cl-16-1                # Swim Briefs → Swim trunks
+  aa-1-20-5: cl-16-3                # Burkinis → Swimsuits
+  aa-1-20-6: cl-16-2                # Classic Bikinis → Bikinis
+  aa-1-20-7: cl-16-4                # Cover Ups → Beach accessories
+  aa-1-20-12: cl-16                 # Rash Guards → Swimwear
+  aa-1-20-17: cl-16-3               # Swim Dresses → Swimsuits
+  aa-1-20-22: cl-16-3               # One-Piece Swimsuits → Swimsuits
+  aa-1-20-23: cl-16                 # Surf Tops → Swimwear
+  aa-1-20-24: cl-16                 # Swimwear Tops → Swimwear
+  aa-1-20-25: cl-16-3               # Period Swimwear → Swimsuits
+
+  # ---------------------------------------------------------------------------
+  # Wedding & Bridal Party Dresses (aa-1-22)
+  # ---------------------------------------------------------------------------
+  aa-1-22: cl-2                     # Wedding & Bridal Party Dresses → Dresses
+  aa-1-22-1: cl-2-3                 # Bridal Party Dresses → Occasion Dresses
+  aa-1-22-2: cl-2-3                 # Wedding Dresses → Occasion Dresses
+
+  # ---------------------------------------------------------------------------
+  # Traditional & Ceremonial Clothing (aa-1-23)
+  # ---------------------------------------------------------------------------
+  aa-1-23: cl                       # Traditional & Ceremonial Clothing → Clothing
+  aa-1-23-1: cl-2                   # Kimonos → Dresses
+  aa-1-23-2: cl-2                   # Saris & Lehengas → Dresses
+
+  # ---------------------------------------------------------------------------
+  # Uniforms & Workwear (aa-1-24)
+  # ---------------------------------------------------------------------------
+  aa-1-24: cl                       # Uniforms & Workwear → Clothing
+  aa-1-24-1: cl-7-5                 # Contractor Pants & Coveralls → Dungarees
+  aa-1-24-2: cl-8-9                 # Flight Suits → Overalls & Workwear
+  aa-1-24-3: cl                     # Food Service Uniforms → Clothing
+  aa-1-24-4: cl                     # Military Uniforms → Clothing
+  aa-1-24-5: cl                     # School Uniforms → Clothing
+  aa-1-24-6: cl                     # Security Uniforms → Clothing
+  aa-1-24-7: cl                     # Sports Uniforms → Clothing
+  aa-1-24-8: cl-1                   # White Coats → Coats
+  aa-1-24-9: cl                     # Scrubs → Clothing
+
+  # ===========================================================================
+  # CLOTHING ACCESSORIES (aa-2 → ac)
+  # ===========================================================================
+  
+  aa-2: ac                          # Clothing Accessories → Accessories
+  aa-2-1: ac-12                     # Arm Warmers & Sleeves → Miscellaneous
+  aa-2-2: ac                        # Baby & Toddler Clothing Accessories → Accessories
+  aa-2-2-1: ac-7                    # Baby & Toddler Belts → Belts
+  aa-2-2-2: ac-5                    # Baby & Toddler Gloves & Mittens → Gloves
+  aa-2-2-3: ac-3                    # Baby & Toddler Hats → Hats & Caps
+  aa-2-2-4: ac-12                   # Baby Protective Wear → Miscellaneous
+  aa-2-3: ac-3                      # Balaclavas → Hats & Caps
+  aa-2-4: ac-4                      # Bandanas & Headties → Scarves
+  aa-2-5: ac-7                      # Belt Buckles → Belts
+  aa-2-6: ac-7                      # Belts → Belts
+  aa-2-7: ac-12                     # Bridal Accessories → Miscellaneous
+  aa-2-8: ac-12                     # Button Studs → Miscellaneous
+  aa-2-9: ac-12                     # Collar Stays → Miscellaneous
+  aa-2-10: ac-12                    # Cufflinks → Miscellaneous
+  aa-2-11: ac-12                    # Decorative Fans → Miscellaneous
+  aa-2-12: ac-3                     # Earmuffs → Hats & Caps
+  aa-2-13: ac-5                     # Gloves & Mittens → Gloves
+  aa-2-14: ac-12                    # Hair Accessories → Miscellaneous
+  aa-2-14-1: ac-12                  # Hair Bun & Volume Shapers → Miscellaneous
+  aa-2-14-2: ac-12                  # Hair Combs → Miscellaneous
+  aa-2-14-3: ac-12                  # Hair Extensions → Miscellaneous
+  aa-2-14-4: ac-12                  # Hair Forks & Sticks → Miscellaneous
+  aa-2-14-5: ac-12                  # Hair Nets → Miscellaneous
+  aa-2-14-6: ac-12                  # Hair Pins, Claws & Clips → Miscellaneous
+  aa-2-14-7: ac-12                  # Hair Wreaths → Miscellaneous
+  aa-2-14-8: ac-12                  # Headbands → Miscellaneous
+  aa-2-14-9: ac-12                  # Ponytail Holders → Miscellaneous
+  aa-2-14-10: ac-12                 # Tiaras → Miscellaneous
+  aa-2-14-11: ac-12                 # Wig Accessories → Miscellaneous
+  aa-2-14-12: ac-12                 # Wigs → Miscellaneous
+  aa-2-14-13: ac-12                 # Hair Bands → Miscellaneous
+  aa-2-15: ac-5                     # Hand Muffs → Gloves
+  aa-2-16: ac-4                     # Handkerchiefs → Scarves
+  aa-2-17: ac-3                     # Hats → Hats & Caps
+  aa-2-17-1: ac-3                   # Baseball Caps → Hats & Caps
+  aa-2-17-2: ac-3                   # Beanies → Hats & Caps
+  aa-2-17-3: ac-3                   # Berets → Hats & Caps
+  aa-2-17-4: ac-3                   # Bowler Hats → Hats & Caps
+  aa-2-17-5: ac-3                   # Bucket Hats → Hats & Caps
+  aa-2-17-6: ac-3                   # Cowboy Hats → Hats & Caps
+  aa-2-17-7: ac-3                   # Fedoras → Hats & Caps
+  aa-2-17-8: ac-3                   # Flat Caps → Hats & Caps
+  aa-2-17-9: ac-3                   # Panama Hats → Hats & Caps
+  aa-2-17-10: ac-3                  # Snapback Caps → Hats & Caps
+  aa-2-17-11: ac-3                  # Sun Hats → Hats & Caps
+  aa-2-17-12: ac-3                  # Top Hats → Hats & Caps
+  aa-2-17-13: ac-3                  # Trilbies → Hats & Caps
+  aa-2-17-14: ac-3                  # Trucker Hats → Hats & Caps
+  aa-2-17-15: ac-3                  # Visors → Hats & Caps
+  aa-2-17-16: ac-3                  # Winter Hats → Hats & Caps
+  aa-2-18: ac-3                     # Headwear → Hats & Caps
+  aa-2-18-1: ac-3                   # Fascinators → Hats & Caps
+  aa-2-18-2: ac-3                   # Headdresses → Hats & Caps
+  aa-2-18-3: ac-3                   # Turbans → Hats & Caps
+  aa-2-19: ac-12                    # Leg Warmers → Miscellaneous
+  aa-2-20: ac-12                    # Leis → Miscellaneous
+  aa-2-21: ac-7                     # Maternity Belts & Support Bands → Belts
+  aa-2-22: ac-4                     # Neck Gaiters → Scarves
+  aa-2-23: ac-12                    # Neckties → Miscellaneous
+  aa-2-24: ac-12                    # Pinback Buttons → Miscellaneous
+  aa-2-25: ac-4                     # Sashes → Scarves
+  aa-2-26: ac-4                     # Scarves & Shawls → Scarves
+  aa-2-27: ac-6                     # Sunglasses → Sunglasses
+  aa-2-28: ac-7                     # Suspenders → Belts
+  aa-2-29: ac-12                    # Tie Clips → Miscellaneous
+  aa-2-30: ac-12                    # Wristbands → Miscellaneous
+  aa-2-31: ac-12                    # Traditional Clothing Accessories → Miscellaneous
+  aa-2-32: ac-12                    # Fashion Face Masks → Miscellaneous
+
+  # ===========================================================================
+  # HANDBAG & WALLET ACCESSORIES (aa-4 → ac)
+  # ===========================================================================
+  
+  aa-4: ac                          # Handbag & Wallet Accessories → Accessories
+  aa-4-1: ac-12                     # Keychains → Miscellaneous
+  aa-4-2: ac-12                     # Lanyards → Miscellaneous
+  aa-4-3: ac-12                     # Wallet Chains → Miscellaneous
+
+  # ===========================================================================
+  # HANDBAGS, WALLETS & CASES (aa-5 → ac)
+  # ===========================================================================
+  
+  aa-5: ac                          # Handbags, Wallets & Cases → Accessories
+  aa-5-1: ac-9                      # Badge & Pass Holders → Wallets & Card Holders
+  aa-5-2: ac-9                      # Business Card Cases → Wallets & Card Holders
+  aa-5-3: ac-9                      # Checkbook Covers → Wallets & Card Holders
+  aa-5-4: ac-1                      # Handbags → Bags & Cases
+  aa-5-4-1: ac-1                    # Baguette Handbags → Bags & Cases
+  aa-5-4-2: ac-1                    # Barrel Bags → Bags & Cases
+  aa-5-4-3: ac-1                    # Beach Bags → Bags & Cases
+  aa-5-4-4: ac-1                    # Bucket Bags → Bags & Cases
+  aa-5-4-5: ac-1                    # Clutch Bags → Bags & Cases
+  aa-5-4-6: ac-1                    # Convertible Bags → Bags & Cases
+  aa-5-4-7: ac-1                    # Cross Body Bags → Bags & Cases
+  aa-5-4-8: ac-1                    # Doctor Bags → Bags & Cases
+  aa-5-4-9: ac-1                    # Envelope Clutches → Bags & Cases
+  aa-5-4-10: ac-1                   # Fold Over Clutches → Bags & Cases
+  aa-5-4-11: ac-1                   # Half-Moon Bags → Bags & Cases
+  aa-5-4-12: ac-1                   # Hobo Bags → Bags & Cases
+  aa-5-4-13: ac-1                   # Minaudieres → Bags & Cases
+  aa-5-4-14: ac-1                   # Muff Clutches & Bags → Bags & Cases
+  aa-5-4-15: ac-1                   # Saddle Bags → Bags & Cases
+  aa-5-4-16: ac-1                   # Satchel Bags → Bags & Cases
+  aa-5-4-17: ac-1                   # School Bags → Bags & Cases
+  aa-5-4-18: ac-1                   # Shopper Bags → Bags & Cases
+  aa-5-4-19: ac-1                   # Shoulder Bags → Bags & Cases
+  aa-5-4-20: ac-1                   # Trapezoid Bags → Bags & Cases
+  aa-5-5: ac-9                      # Wallets & Money Clips → Wallets & Card Holders
+  aa-5-5-2: ac-9                    # Card Cases → Wallets & Card Holders
+  aa-5-5-3: ac-9                    # Coin Purses → Wallets & Card Holders
+  aa-5-5-4: ac-9                    # Key Cases → Wallets & Card Holders
+  aa-5-5-5: ac-9                    # Neck Pouches → Wallets & Card Holders
+  aa-5-5-6: ac-9                    # Travel Wallets → Wallets & Card Holders
+  aa-5-5-7: ac-9                    # Wallets → Wallets & Card Holders
+  aa-5-5-8: ac-1                    # Wrist Bags → Bags & Cases
+
+  # ===========================================================================
+  # SHOE ACCESSORIES (aa-7 → ac)
+  # ===========================================================================
+  
+  aa-7: ac-12                       # Shoe Accessories → Miscellaneous
+  aa-7-1: ac-12                     # Boot Liners → Miscellaneous
+  aa-7-2: ac-12                     # Gaiters → Miscellaneous
+  aa-7-3: ac-12                     # Shoe Covers → Miscellaneous
+  aa-7-4: ac-12                     # Shoe Grips → Miscellaneous
+  aa-7-5: ac-12                     # Shoe Inserts → Miscellaneous
+  aa-7-5-1: ac-12                   # Anti Slip Steps → Miscellaneous
+  aa-7-5-2: ac-12                   # Arch Supports → Miscellaneous
+  aa-7-5-3: ac-12                   # Gel Pads → Miscellaneous
+  aa-7-5-4: ac-12                   # Heel Cushions → Miscellaneous
+  aa-7-6: ac-12                     # Shoelaces → Miscellaneous
+  aa-7-7: ac-12                     # Spurs → Miscellaneous

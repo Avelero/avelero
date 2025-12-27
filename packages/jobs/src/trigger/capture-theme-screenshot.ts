@@ -3,7 +3,7 @@ import { type SupabaseClient, createClient } from "@supabase/supabase-js";
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
 import { eq } from "@v1/db/queries";
-import { updateBrandThemeScreenshots } from "@v1/db/queries";
+import { updateBrandThemeScreenshots } from "@v1/db/queries/brand";
 import { brands } from "@v1/db/schema";
 
 const BROWSERLESS_URL =

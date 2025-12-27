@@ -34,23 +34,23 @@ async function DashboardLayoutContent({
   const queryClient = getQueryClient();
 
   // Single bootstrap fetch - handles authentication
-  const workflowInit = await queryClient.fetchQuery(
+  const initDashboard = await queryClient.fetchQuery(
     trpc.composite.initDashboard.queryOptions(),
   );
 
-  const user = workflowInit.user;
+  const user = initDashboard.user;
 
   // Seed caches so child components don't refetch
   queryClient.setQueryData(trpc.user.get.queryOptions().queryKey, user);
 
   queryClient.setQueryData(
     trpc.user.brands.list.queryOptions().queryKey,
-    workflowInit.brands,
+    initDashboard.brands,
   );
 
   queryClient.setQueryData(
     trpc.user.invites.list.queryOptions().queryKey,
-    workflowInit.myInvites,
+    initDashboard.myInvites,
   );
 
   return <HydrateClient>{children}</HydrateClient>;

@@ -1,23 +1,23 @@
 // Core schemas
 export * from "./core/users";
 export * from "./core/brands";
-export * from "./core/brand-members";
-export * from "./core/brand-invites";
 
 // Brand schemas
-export * from "./brands/categories";
-export * from "./brands/brand-certifications";
 export * from "./brands/brand-collections";
-export * from "./brands/brand-colors";
-export * from "./brands/brand-eco-claims";
-export * from "./brands/brand-facilities";
-export * from "./brands/brand-materials";
-export * from "./brands/brand-seasons";
-export * from "./brands/brand-sizes";
+export * from "./brands/brand-members";
+export * from "./brands/brand-invites";
 export * from "./brands/brand-tags";
-export * from "./brands/brand-manufacturers";
-export * from "./brands/brand-seasons";
 export * from "./brands/brand-theme";
+
+// Catalog schemas
+export * from "./catalog/brand-attributes";
+export * from "./catalog/brand-attribute-values";
+export * from "./catalog/brand-certifications";
+export * from "./catalog/brand-eco-claims";
+export * from "./catalog/brand-facilities";
+export * from "./catalog/brand-manufacturers";
+export * from "./catalog/brand-materials";
+export * from "./catalog/brand-seasons";
 
 // Product schemas
 export * from "./products/products";
@@ -26,7 +26,10 @@ export * from "./products/product-materials";
 export * from "./products/product-journey-steps";
 export * from "./products/product-environment";
 export * from "./products/product-eco-claims";
-export * from "./products/tags-on-product";
+export * from "./products/product-tags";
+export * from "./products/product-variant-attributes";
+export * from "./products/product-weight";
+export * from "./products/product-commercial";
 
 // Data schemas
 export * from "./data/file-assets";
@@ -41,3 +44,19 @@ export * from "./staging/staging-product-journey-steps";
 export * from "./staging/staging-product-environment";
 export * from "./staging/staging-eco-claims";
 export * from "./staging/value-mappings";
+
+// Integration schemas
+export * from "./integrations/brand-integrations";
+export * from "./integrations/field-configs";
+export * from "./integrations/integrations";
+export * from "./integrations/oauth-states";
+export * from "./integrations/sync-jobs";
+export * from "./integrations/links/entity-links";
+export * from "./integrations/links/product-links";
+export * from "./integrations/links/variant-links";
+
+// Taxonomy schemas
+export * from "./taxonomy/taxonomy-categories";
+export * from "./taxonomy/taxonomy-attributes";
+export * from "./taxonomy/taxonomy-values";
+export * from "./taxonomy/taxonomy-external-mappings";

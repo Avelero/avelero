@@ -74,7 +74,11 @@ function ControlBarNavButton({
   function normalize(path?: string) {
     return (path ?? "").replace(/\/+$/, "");
   }
-  const computedActive = normalize(pathname).endsWith(normalize(href));
+  const normalizedPathname = normalize(pathname);
+  const normalizedHref = normalize(href);
+  // For exact route matching: only use prefix matching for routes with common prefixes
+  // /account should NOT match /account/brands - only exact match or explicit child routes
+  const computedActive = normalizedPathname === normalizedHref;
   const isActive = providedIsActive ?? computedActive;
 
   return (

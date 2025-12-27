@@ -65,7 +65,9 @@ export function extractQuickFiltersFromFilterState(
 
 /**
  * Convert quick filter selections to FilterState format
- * Each quick filter field becomes its own AND group with "is any of" operator
+ * Each quick filter field becomes its own AND group with appropriate operator
+ * - categoryId uses "is descendant of" to include child categories
+ * - Other fields use "is any of" operator
  * Marked with source: "quick" to distinguish from advanced filters
  */
 export function convertQuickFiltersToFilterState(
@@ -76,12 +78,16 @@ export function convertQuickFiltersToFilterState(
   for (const [fieldId, values] of Object.entries(quickFilters)) {
     if (values.length === 0) continue;
 
-    // Create a group with one condition using "is any of" operator
+    // Use "is descendant of" for category to include child categories in hierarchy
+    // This means selecting "clothing" will also match "outerwear", "rain jackets", etc.
+    const operator = fieldId === "categoryId" ? "is descendant of" : "is any of";
+
+    // Create a group with one condition
     const condition: FilterCondition = {
       id: `${fieldId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       fieldId,
-      operator: "is any of",
-      value: values, // Array of selected values
+      operator: operator as FilterCondition["operator"],
+      value: values,
     };
 
     groups.push({

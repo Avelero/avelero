@@ -3,98 +3,102 @@ import type { Database } from "@v1/db/client";
  * Catalog router implementation.
  *
  * Implements the reorganized `catalog.*` namespace covering all brand-owned
- * catalog resources (colors, sizes, materials, facilities, manufacturers,
- * ecoClaims, certifications).
+ * catalog resources (attributes, attribute values, materials, facilities,
+ * manufacturers, ecoClaims, certifications).
  *
  * Renamed from `brand.*` to `catalog.*` in Phase 4 to clarify that this
  * router handles catalog entities, not brand lifecycle operations.
+ * 
+ * Note: Legacy color/size routers removed in Phase 5 of variant attribute migration.
+ * Colors and sizes are now managed via generic brand attributes.
  *
- * All 36 endpoints follow a consistent CRUD pattern using shared helper
+ * All endpoints follow a consistent CRUD pattern using shared helper
  * functions to minimize code duplication and ensure uniform error handling.
  */
 import {
+  createBrandAttribute,
+  createBrandAttributeValue,
   createBrandTag,
   createCertification,
-  createColor,
   createEcoClaim,
   createFacility,
   createMaterial,
   createSeason,
   createBrandManufacturer,
-  createSize,
+  deleteBrandAttribute,
+  deleteBrandAttributeValue,
   deleteBrandTag,
   deleteCertification,
-  deleteColor,
   deleteEcoClaim,
   deleteFacility,
   deleteMaterial,
   deleteSeason,
   deleteBrandManufacturer,
-  deleteSize,
+  listBrandAttributes,
+  listBrandAttributeValues,
   listBrandTags,
   listCertifications,
-  listColors,
   listEcoClaims,
   listFacilities,
   listMaterials,
   listSeasonsForBrand,
   listBrandManufacturers,
-  listSizes,
+  updateBrandAttribute,
+  updateBrandAttributeValue,
   updateBrandTag,
   updateCertification,
-  updateColor,
   updateEcoClaim,
   updateFacility,
   updateMaterial,
   updateSeason,
   updateBrandManufacturer,
-  updateSize,
-} from "@v1/db/queries";
+} from "@v1/db/queries/catalog";
 import {
+  createBrandAttributeSchema,
+  createBrandAttributeValueSchema,
   createBrandTagSchema,
   createCertificationSchema,
-  createColorSchema,
   createEcoClaimSchema,
   createFacilitySchema,
   createMaterialSchema,
   createSeasonSchema,
   createManufacturerSchema,
-  createSizeSchema,
+  deleteBrandAttributeSchema,
+  deleteBrandAttributeValueSchema,
   deleteBrandTagSchema,
   deleteCertificationSchema,
-  deleteColorSchema,
   deleteEcoClaimSchema,
   deleteFacilitySchema,
   deleteMaterialSchema,
   deleteSeasonSchema,
   deleteManufacturerSchema,
-  deleteSizeSchema,
+  listBrandAttributesSchema,
+  listBrandAttributeValuesSchema,
   listBrandTagsSchema,
   listCertificationsSchema,
-  listColorsSchema,
   listEcoClaimsSchema,
   listFacilitiesSchema,
   listMaterialsSchema,
   listSeasonsSchema,
   listManufacturersSchema,
-  listSizesSchema,
+  updateBrandAttributeSchema,
+  updateBrandAttributeValueSchema,
   updateBrandTagSchema,
   updateCertificationSchema,
-  updateColorSchema,
   updateEcoClaimSchema,
   updateFacilitySchema,
   updateMaterialSchema,
   updateSeasonSchema,
   updateManufacturerSchema,
-  updateSizeSchema,
 } from "../../../schemas/catalog/index.js";
 import {
+  transformBrandAttributeInput,
+  transformBrandAttributeValueInput,
   transformCertificationInput,
   transformFacilityInput,
   transformMaterialInput,
   transformSeasonInput,
   transformManufacturerInput,
-  transformSizeInput,
 } from "../../../utils/catalog-transform.js";
 import { notFound, wrapError } from "../../../utils/errors.js";
 import {
@@ -348,8 +352,8 @@ function createCatalogResourceRouter<T>(
  * Catalog router exposing all nested catalog collections.
  *
  * Structure:
- * - catalog.colors.* (list/create/update/delete)
- * - catalog.sizes.* (list/create/update/delete)
+ * - catalog.attributes.* (list/create/update/delete) - variant dimensions
+ * - catalog.attributeValues.* (list/create/update/delete) - dimension options
  * - catalog.materials.* (list/create/update/delete)
  * - catalog.seasons.* (list/create/update/delete)
  * - catalog.facilities.* (list/create/update/delete)
@@ -358,9 +362,78 @@ function createCatalogResourceRouter<T>(
  * - catalog.certifications.* (list/create/update/delete)
  * - catalog.tags.* (list/create/update/delete)
  *
+ * Note: Legacy colors/sizes routers removed in Phase 5.
+ * Colors and sizes are now managed via catalog.attributes and catalog.attributeValues.
+ *
  * Total: 36 endpoints (9 resources × 4 operations)
  */
 export const catalogRouter = createTRPCRouter({
+  /**
+   * Brand attributes catalog endpoints.
+   *
+   * Variant dimensions (e.g., Color, Size, Material) that can optionally
+   * link to taxonomy attributes for semantic meaning.
+   */
+  attributes: createCatalogResourceRouter(
+    "attribute",
+    {
+      list: listBrandAttributesSchema,
+      create: createBrandAttributeSchema,
+      update: updateBrandAttributeSchema,
+      delete: deleteBrandAttributeSchema,
+    },
+    {
+      list: listBrandAttributes,
+      create: createBrandAttribute,
+      update: updateBrandAttribute,
+      delete: deleteBrandAttribute,
+    },
+    transformBrandAttributeInput,
+  ),
+
+  /**
+   * Brand attribute values catalog endpoints.
+   *
+   * The selectable options within a dimension (e.g., "Red", "Blue" for Color).
+   * Values belong to a specific attribute and can optionally link to taxonomy.
+   *
+   * Note: list requires attribute_id, so we use a custom implementation.
+   */
+  attributeValues: createTRPCRouter({
+    list: brandRequiredProcedure
+      .input(listBrandAttributeValuesSchema)
+      .query(async ({ ctx, input }) => {
+        const brandCtx = ctx as BrandContext;
+        try {
+          const results = await listBrandAttributeValues(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.attribute_id
+          );
+          return createListResponse(results);
+        } catch (error) {
+          throw wrapError(error, "Failed to list attribute values");
+        }
+      }),
+    create: createCreateProcedure(
+      createBrandAttributeValueSchema,
+      createBrandAttributeValue,
+      "attribute value",
+      transformBrandAttributeValueInput
+    ),
+    update: createUpdateProcedure(
+      updateBrandAttributeValueSchema,
+      updateBrandAttributeValue,
+      "attribute value",
+      transformBrandAttributeValueInput
+    ),
+    delete: createDeleteProcedure(
+      deleteBrandAttributeValueSchema,
+      deleteBrandAttributeValue,
+      "attribute value"
+    ),
+  }),
+
   /**
    * Brand tags catalog endpoints.
    *
@@ -380,50 +453,6 @@ export const catalogRouter = createTRPCRouter({
       update: updateBrandTag,
       delete: deleteBrandTag,
     },
-  ),
-
-  /**
-   * Colors catalog endpoints.
-   *
-   * Stores name and hex values for brand-specific color palettes used
-   * throughout the passport workflow.
-   */
-  colors: createCatalogResourceRouter(
-    "color",
-    {
-      list: listColorsSchema,
-      create: createColorSchema,
-      update: updateColorSchema,
-      delete: deleteColorSchema,
-    },
-    {
-      list: listColors,
-      create: createColor,
-      update: updateColor,
-      delete: deleteColor,
-    },
-  ),
-
-  /**
-   * Sizes catalog endpoints.
-   *
-   * Supports optional category_id filtering and drag-and-drop sort ordering.
-   */
-  sizes: createCatalogResourceRouter(
-    "size",
-    {
-      list: listSizesSchema,
-      create: createSizeSchema,
-      update: updateSizeSchema,
-      delete: deleteSizeSchema,
-    },
-    {
-      list: listSizes,
-      create: createSize,
-      update: updateSize,
-      delete: deleteSize,
-    },
-    transformSizeInput,
   ),
 
   /**

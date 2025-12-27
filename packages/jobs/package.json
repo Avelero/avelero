@@ -18,10 +18,12 @@
     "@trigger.dev/sdk": "4.0.6",
     "@v1/db": "workspace:*",
     "@v1/email": "workspace:*",
+    "@v1/integrations": "workspace:*",
     "@v1/supabase": "workspace:*",
     "@v1/utils": "workspace:*",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
+    "import-in-the-middle": "^2.0.0",
     "jschardet": "^3.1.4",
     "p-map": "^7.0.2",
     "papaparse": "^5.5.3",
@@ -40,6 +42,9 @@
     "./trigger/validate-and-stage": "./src/trigger/validate-and-stage.ts",
     "./trigger/commit-to-production": "./src/trigger/commit-to-production.ts",
     "./trigger/capture-theme-screenshot": "./src/trigger/capture-theme-screenshot.ts",
-    "./trigger/delete-brand": "./src/trigger/delete-brand.ts"
+    "./trigger/delete-brand": "./src/trigger/delete-brand.ts",
+    "./trigger/integrations": "./src/trigger/integrations/index.ts",
+    "./trigger/integrations/sync": "./src/trigger/integrations/sync.ts",
+    "./trigger/integrations/scheduler": "./src/trigger/integrations/scheduler.ts"
   }
 }

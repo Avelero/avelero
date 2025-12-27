@@ -158,20 +158,29 @@ export function EmailChangeModal({
       return;
     }
 
+    // Refresh session to get updated auth state
     await supabase.auth.getSession();
-    // Best-effort: mirror email to public.users and refresh cache
+
+    // Sync email to public.users table - this is critical for data consistency
     try {
       await updateUserMutation.mutateAsync({ email: newEmail });
       await queryClient.invalidateQueries({
         queryKey: trpc.user.get.queryKey(),
       });
-    } catch {
-      // ignore errors to avoid blocking success UX
+      setBusy(false);
+      toast.success("Email changed successfully");
+      onSuccess?.();
+      onOpenChange(false);
+    } catch (syncError) {
+      // Auth email is updated but DB sync failed - critical error
+      setBusy(false);
+      console.error("Failed to sync email to database:", syncError);
+      toast.error(
+        "Email updated in authentication but failed to sync. Please refresh the page or contact support.",
+      );
+      // Still close modal since auth is updated, but user is warned
+      onOpenChange(false);
     }
-    setBusy(false);
-    toast.success("Email changed successfully");
-    onSuccess?.();
-    onOpenChange(false);
   }
 
   const title =

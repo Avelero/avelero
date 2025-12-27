@@ -1,12 +1,12 @@
-import type { ThemeConfig } from "@v1/dpp-components";
+import type { ThemeConfig, VariantAttribute } from "@v1/dpp-components";
 
 interface Props {
   articleNumber: string;
   manufacturer: string;
   countryOfOrigin: string;
   category: string;
-  size: string;
-  color: string;
+  /** Variant attributes (0-3) */
+  attributes?: VariantAttribute[];
   themeConfig: ThemeConfig;
 }
 
@@ -15,8 +15,7 @@ export function ProductDetails({
   manufacturer,
   countryOfOrigin,
   category,
-  size,
-  color,
+  attributes = [],
   themeConfig,
 }: Props) {
   const articleNumberClickable = true;
@@ -62,18 +61,14 @@ export function ProductDetails({
     });
   }
 
-  if (size) {
-    rows.push({
-      label: "SIZE",
-      value: size,
-    });
-  }
-
-  if (color) {
-    rows.push({
-      label: "COLOR",
-      value: color,
-    });
+  // Add variant attributes (max 3, enforced by data model)
+  for (const attr of attributes.slice(0, 3)) {
+    if (attr.value) {
+      rows.push({
+        label: attr.name.toUpperCase(),
+        value: attr.value,
+      });
+    }
   }
 
   // Don't render anything if no rows

@@ -24,7 +24,7 @@ export interface ValidationResult {
     fileSize: number;
     headers: string[];
     hasUpid: boolean;
-    hasProductIdentifier: boolean;
+    hasProductHandle: boolean;
   };
 }
 
@@ -148,7 +148,7 @@ function validateHeaders(headers: string[]): ValidationError[] {
   const normalizedHeaders = headers.map(normalizeHeader);
 
   const hasProductName = normalizedHeaders.includes("product_name");
-  const hasProductIdentifier = normalizedHeaders.includes("product_identifier");
+  const hasProductHandle = normalizedHeaders.includes("product_handle");
 
   if (!hasProductName) {
     errors.push({
@@ -157,10 +157,10 @@ function validateHeaders(headers: string[]): ValidationError[] {
     });
   }
 
-  if (!hasProductIdentifier) {
+  if (!hasProductHandle) {
     errors.push({
       type: "MISSING_COLUMNS",
-      message: "Missing required column: 'product_identifier'",
+      message: "Missing required column: 'product_handle'",
     });
   }
 
@@ -202,8 +202,8 @@ export async function validateImportFile(
         filename: file.name,
         fileSize: file.size,
         headers: [],
-        hasUpid: true, // Assume valid (product_identifier or upid), backend will validate
-        hasProductIdentifier: true,
+        hasUpid: true, // Assume valid (product_handle or upid), backend will validate
+        hasProductHandle: true,
       },
     };
   }
@@ -224,7 +224,7 @@ export async function validateImportFile(
         fileSize: file.size,
         headers: [],
         hasUpid: true, // Backend will validate
-        hasProductIdentifier: true,
+        hasProductHandle: true,
       },
     };
   }
@@ -250,7 +250,7 @@ export async function validateImportFile(
   const headerErrors = validateHeaders(headers);
 
   const normalizedHeaders = headers.map(normalizeHeader);
-  const hasProductIdentifier = normalizedHeaders.includes("product_identifier");
+  const hasProductHandle = normalizedHeaders.includes("product_handle");
 
   return {
     valid: headerErrors.length === 0,
@@ -260,7 +260,7 @@ export async function validateImportFile(
       fileSize: file.size,
       headers: headers,
       hasUpid: normalizedHeaders.includes("upid"),
-      hasProductIdentifier,
+      hasProductHandle,
     },
   };
 }

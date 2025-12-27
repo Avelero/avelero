@@ -15,7 +15,7 @@ import {
   deleteCollection,
   listCollections,
   updateCollection,
-} from "@v1/db/queries";
+} from "@v1/db/queries/brand";
 import {
   collectionCreateSchema,
   collectionDeleteSchema,

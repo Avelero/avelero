@@ -7,22 +7,24 @@ import { serviceDb } from "@v1/db/client";
  * - define: Create single catalog entity inline
  * - batchDefine: Create multiple catalog entities at once
  */
-import { categories } from "@v1/db/schema";
+import { taxonomyCategories } from "@v1/db/schema";
 import {
-  and,
-  eq,
-  isNull,
   createValueMapping,
   getImportJobStatus,
   getUnmappedValuesForJob,
   getValueMapping,
   updateImportJobProgress,
   updateValueMapping,
+} from "@v1/db/queries/bulk";
+import {
   validateAndCreateEntity,
   createSeason,
   createBrandTag,
-} from "@v1/db/queries";
-import type { SQL, ValueMappingTarget } from "@v1/db/queries";
+  type CatalogEntityType,
+} from "@v1/db/queries/catalog";
+import { and, eq, isNull, sql } from "@v1/db/queries";
+import type { SQL } from "@v1/db/queries";
+import type { ValueMappingTarget } from "@v1/db/queries/bulk";
 import { z } from "zod";
 import {
   batchDefineValuesSchema,
@@ -100,7 +102,8 @@ async function createEntityForType(
       );
     }
     default:
-      return validateAndCreateEntity(db, brandId, entityType, entityData);
+      // TypeScript should now know this is a CatalogEntityType (COLOR/SIZE removed from ValueMappingTarget)
+      return validateAndCreateEntity(db, brandId, entityType as CatalogEntityType, entityData);
   }
 }
 
@@ -169,9 +172,7 @@ export const valuesRouter = createTRPCRouter({
         // Fetch ALL entity types in parallel for maximum speed
         // This is faster than querying unmapped values first to determine which types are needed
         const [
-          colors,
           materials,
-          sizes,
           facilities,
           manufacturers,
           categories,
@@ -179,20 +180,10 @@ export const valuesRouter = createTRPCRouter({
           seasons,
           tags,
         ] = await Promise.all([
-          brandCtx.db.query.brandColors.findMany({
-            where: (colors, { eq }) => eq(colors.brandId, brandId),
-            columns: { id: true, name: true },
-            orderBy: (colors, { asc }) => [asc(colors.name)],
-          }),
           brandCtx.db.query.brandMaterials.findMany({
             where: (materials, { eq }) => eq(materials.brandId, brandId),
             columns: { id: true, name: true },
             orderBy: (materials, { asc }) => [asc(materials.name)],
-          }),
-          brandCtx.db.query.brandSizes.findMany({
-            where: (sizes, { eq }) => eq(sizes.brandId, brandId),
-            columns: { id: true, name: true },
-            orderBy: (sizes, { asc }) => [asc(sizes.name)],
           }),
           brandCtx.db.query.brandFacilities.findMany({
             where: (facilities, { eq }) => eq(facilities.brandId, brandId),
@@ -204,7 +195,7 @@ export const valuesRouter = createTRPCRouter({
             columns: { id: true, name: true },
             orderBy: (manufacturers, { asc }) => [asc(manufacturers.name)],
           }),
-          brandCtx.db.query.categories.findMany({
+          brandCtx.db.query.taxonomyCategories.findMany({
             columns: { id: true, name: true },
             orderBy: (categories, { asc }) => [asc(categories.name)],
           }),
@@ -226,9 +217,9 @@ export const valuesRouter = createTRPCRouter({
         ]);
 
         return {
-          colors: colors.map((c) => ({ id: c.id, name: c.name })),
+          colors: [],
           materials: materials.map((m) => ({ id: m.id, name: m.name })),
-          sizes: sizes.map((s) => ({ id: s.id, name: s.name })),
+          sizes: [],
           facilities: facilities.map((f) => ({
             id: f.id,
             name: f.displayName,
@@ -291,14 +282,14 @@ export const valuesRouter = createTRPCRouter({
 
         for (const label of labels) {
           const parentCondition: SQL<unknown> = parentId
-            ? eq(categories.parentId, parentId)
-            : isNull(categories.parentId);
+            ? eq(taxonomyCategories.parentId, parentId)
+            : isNull(taxonomyCategories.parentId);
 
           // Check if category exists using regular db connection (with RLS)
           const existing: Array<{ id: string }> = await brandCtx.db
-            .select({ id: categories.id })
-            .from(categories)
-            .where(and(parentCondition, eq(categories.name, label)))
+            .select({ id: taxonomyCategories.id })
+            .from(taxonomyCategories)
+            .where(and(parentCondition, eq(taxonomyCategories.name, label)))
             .limit(1);
 
           let currentId: string | null = existing[0]?.id ?? null;
@@ -306,25 +297,33 @@ export const valuesRouter = createTRPCRouter({
           if (!currentId) {
             // Use serviceDb to bypass RLS for category insertion
             // Categories are system-managed and have restrictive RLS policies
+            // Generate a publicId from the label (slugified)
+            const publicId = label
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-+|-+$/g, "");
+
             const inserted: Array<{ id: string }> = await serviceDb
-              .insert(categories)
+              .insert(taxonomyCategories)
               .values({
+                publicId: `${publicId}-${crypto.randomUUID().slice(0, 8)}`,
                 name: label,
                 parentId,
               })
               .onConflictDoNothing({
-                target: [categories.parentId, categories.name],
+                target: [taxonomyCategories.parentId, taxonomyCategories.name],
               })
-              .returning({ id: categories.id });
+              .returning({ id: taxonomyCategories.id });
 
             currentId = inserted[0]?.id ?? null;
 
             if (!currentId) {
               // Fallback: check again in case of race condition
               const fallback = await brandCtx.db
-                .select({ id: categories.id })
-                .from(categories)
-                .where(and(parentCondition, eq(categories.name, label)))
+                .select({ id: taxonomyCategories.id })
+                .from(taxonomyCategories)
+                .where(and(parentCondition, eq(taxonomyCategories.name, label)))
                 .limit(1);
 
               currentId = fallback[0]?.id ?? null;

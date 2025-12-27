@@ -4,19 +4,24 @@
  * Covers the nested `products.variants.*` namespace responsible for variant
  * listings, batch upserts, and explicit delete operations.
  *
- * Phase 5 changes:
- * - Updated `list` to support discriminated union (product_id OR product_upid)
- * - Removed redundant `get` endpoint (use `list` instead)
+ * Phase 3 changes:
+ * - Implemented variant upsert with generic attribute system
+ * - Supports explicit mode (direct variant definitions) and matrix mode (cartesian product)
  */
-import { and, eq, inArray } from "@v1/db/queries";
+import { and, eq } from "@v1/db/queries";
 import { productVariants, products } from "@v1/db/schema";
-import { generateUniqueUpids } from "@v1/db/utils";
+import {
+  listVariantsForProduct,
+  replaceProductVariantsExplicit,
+  replaceProductVariantsMatrix,
+  getProductVariantsWithAttributes,
+  type ReplaceVariantsResult,
+} from "@v1/db/queries/products";
 import {
   productVariantsDeleteSchema,
   productVariantsUpsertSchema,
   variantUnifiedListSchema,
 } from "../../../schemas/products.js";
-import { listVariantsForProduct } from "@v1/db/queries";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
@@ -29,54 +34,94 @@ import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 type BrandDb = BrandContext["db"];
 
-const MAX_VARIANT_DIMENSION = 12;
-
 /**
  * List variants for a product.
- * Accepts discriminated union: { product_id } OR { product_upid }
+ * Accepts discriminated union: { product_id } OR { product_handle }
  */
 const variantListProcedure = brandRequiredProcedure
   .input(variantUnifiedListSchema)
   .query(async ({ ctx, input }) => {
     const { db, brandId } = ctx as BrandContext;
-    
-    // Handle discriminated union: { product_id } or { product_upid }
-    const identifier = 'product_id' in input 
-      ? { product_id: input.product_id } 
-      : { product_upid: input.product_upid };
-    
+
+    // Handle discriminated union: { product_id } or { product_handle }
+    const identifier =
+      "product_id" in input
+        ? { product_id: input.product_id }
+        : { product_handle: input.product_handle };
+
     const variants = await listVariantsForProduct(db, brandId, identifier, {
       limit: input.limit,
     });
     return createListResponse(variants);
   });
 
+/**
+ * Upsert variants for a product using the generic attribute system.
+ *
+ * Supports two modes:
+ * - explicit: Provide complete variant definitions with attribute assignments
+ * - matrix: Provide dimensions for cartesian product generation
+ *
+ * Both modes replace all existing variants for the product.
+ */
 const variantUpsertProcedure = brandRequiredProcedure
   .input(productVariantsUpsertSchema)
   .mutation(async ({ ctx, input }) => {
     const { db, brandId } = ctx as BrandContext;
+
     try {
-      await replaceProductVariants(
-        db,
-        brandId,
-        input.product_id,
-        input.color_ids ?? [],
-        input.size_ids ?? [],
-      );
+      // Get product handle before upsert for cache revalidation
+      const productHandle = await getProductHandle(db, brandId, input.product_id);
 
-      const variants = await fetchProductVariants(
-        db,
-        brandId,
-        input.product_id,
-      );
+      let result: ReplaceVariantsResult;
 
-      // Revalidate parent product's DPP cache (fire-and-forget)
-      const productUpid = await getProductUpid(db, brandId, input.product_id);
-      if (productUpid) {
-        revalidateProduct(productUpid).catch(() => {});
+      if (input.mode === "explicit") {
+        // Explicit mode: caller provides complete variant definitions
+        result = await replaceProductVariantsExplicit(
+          db,
+          brandId,
+          input.product_id,
+          input.variants.map((v) => ({
+            sku: v.sku,
+            barcode: v.barcode,
+            upid: v.upid,
+            attributeValueIds: v.attribute_value_ids,
+          }))
+        );
+      } else {
+        // Matrix mode: generate cartesian product from dimensions
+        const variantMetadata = input.variant_metadata
+          ? new Map(Object.entries(input.variant_metadata))
+          : undefined;
+
+        result = await replaceProductVariantsMatrix(
+          db,
+          brandId,
+          input.product_id,
+          input.dimensions.map((d) => ({
+            attributeId: d.attribute_id,
+            valueIds: d.value_ids,
+          })),
+          variantMetadata
+        );
       }
 
-      return createListResponse(variants);
+      // Revalidate parent product's DPP cache (fire-and-forget)
+      if (productHandle) {
+        revalidateProduct(productHandle).catch(() => {});
+      }
+
+      // Return created variants with their attribute assignments
+      const variantsWithAttributes = await getProductVariantsWithAttributes(
+        db,
+        brandId,
+        input.product_id
+      );
+
+      return createEntityResponse({
+        created: result.created,
+        variants: variantsWithAttributes,
+      });
     } catch (error) {
       throw wrapError(error, "Failed to upsert product variants");
     }
@@ -87,18 +132,21 @@ const variantDeleteProcedure = brandRequiredProcedure
   .mutation(async ({ ctx, input }) => {
     const { db, brandId } = ctx as BrandContext;
     try {
-      // Get product UPID before deletion for cache revalidation
+      // Get product handle before deletion for cache revalidation
       // Handle union type: input is either { product_id: string } or { variant_id: string }
-      const productId = 'product_id' in input 
-        ? input.product_id 
-        : await getProductIdFromVariant(db, brandId, input.variant_id);
-      const productUpid = productId ? await getProductUpid(db, brandId, productId) : null;
+      const productId =
+        "product_id" in input
+          ? input.product_id
+          : await getProductIdFromVariant(db, brandId, input.variant_id);
+      const productHandle = productId
+        ? await getProductHandle(db, brandId, productId)
+        : null;
 
       const deleted = await deleteProductVariants(db, brandId, input);
 
       // Revalidate parent product's DPP cache (fire-and-forget)
-      if (productUpid) {
-        revalidateProduct(productUpid).catch(() => {});
+      if (productHandle) {
+        revalidateProduct(productHandle).catch(() => {});
       }
 
       return createEntityResponse({ deleted });
@@ -107,168 +155,10 @@ const variantDeleteProcedure = brandRequiredProcedure
     }
   });
 
-function makeVariantKey(colorId: string | null, sizeId: string | null) {
-  return `${colorId ?? "null"}:${sizeId ?? "null"}`;
-}
-
-function buildDesiredVariants(
-  colorIds: readonly string[],
-  sizeIds: readonly string[],
-): Array<{ colorId: string | null; sizeId: string | null }> {
-  if (colorIds.length === 0 && sizeIds.length === 0) {
-    return [];
-  }
-
-  if (colorIds.length === 0) {
-    return sizeIds.map((sizeId) => ({ colorId: null, sizeId }));
-  }
-
-  if (sizeIds.length === 0) {
-    return colorIds.map((colorId) => ({ colorId, sizeId: null }));
-  }
-
-  const combinations: Array<{ colorId: string; sizeId: string }> = [];
-  for (const colorId of colorIds) {
-    for (const sizeId of sizeIds) {
-      combinations.push({ colorId, sizeId });
-    }
-  }
-  return combinations;
-}
-
-async function fetchProductVariants(
-  db: BrandDb,
-  brandId: string,
-  productId: string,
-  opts: { limit?: number } = {},
-) {
-  await assertProductForBrand(db, brandId, productId);
-
-  const baseQuery = db
-    .select({
-      id: productVariants.id,
-      product_id: productVariants.productId,
-      color_id: productVariants.colorId,
-      size_id: productVariants.sizeId,
-      upid: productVariants.upid,
-      created_at: productVariants.createdAt,
-      updated_at: productVariants.updatedAt,
-    })
-    .from(productVariants)
-    .where(eq(productVariants.productId, productId))
-    .orderBy(productVariants.createdAt, productVariants.id);
-
-  const rows = opts.limit ? await baseQuery.limit(opts.limit) : await baseQuery;
-  return rows;
-}
-
-async function replaceProductVariants(
-  db: BrandDb,
-  brandId: string,
-  productId: string,
-  colorIds: string[],
-  sizeIds: string[],
-) {
-  const uniqueColors = Array.from(new Set(colorIds));
-  const uniqueSizes = Array.from(new Set(sizeIds));
-
-  if (
-    uniqueColors.length > MAX_VARIANT_DIMENSION ||
-    uniqueSizes.length > MAX_VARIANT_DIMENSION
-  ) {
-    throw badRequest("color_ids and size_ids cannot exceed 12 each.");
-  }
-
-  await assertProductForBrand(db, brandId, productId);
-
-  const desired = buildDesiredVariants(uniqueColors, uniqueSizes);
-  const desiredKeys = new Set(
-    desired.map((variant) => makeVariantKey(variant.colorId, variant.sizeId)),
-  );
-
-  await db.transaction(async (tx) => {
-    const existing = await tx
-      .select({
-        id: productVariants.id,
-        color_id: productVariants.colorId,
-        size_id: productVariants.sizeId,
-      })
-      .from(productVariants)
-      .where(eq(productVariants.productId, productId));
-
-    const existingByKey = new Map<string, string>();
-    for (const row of existing) {
-      existingByKey.set(makeVariantKey(row.color_id, row.size_id), row.id);
-    }
-
-    const idsToDelete = existing
-      .filter(
-        (row) => !desiredKeys.has(makeVariantKey(row.color_id, row.size_id)),
-      )
-      .map((row) => row.id);
-
-    if (idsToDelete.length > 0) {
-      await tx
-        .delete(productVariants)
-        .where(inArray(productVariants.id, idsToDelete));
-    }
-
-    // Only insert NEW variants (ones that don't already exist)
-    // Existing variants keep their UPIDs - we never touch them
-    const variantsToInsert = desired.filter(
-      (variant) =>
-        !existingByKey.has(makeVariantKey(variant.colorId, variant.sizeId)),
-    );
-
-    if (variantsToInsert.length > 0) {
-      // Generate unique UPIDs for new variants only (brand-unique)
-      const upids = await generateUniqueUpids({
-        count: variantsToInsert.length,
-        isTaken: async (candidate) => {
-          const [row] = await tx
-            .select({ id: productVariants.id })
-            .from(productVariants)
-            .innerJoin(products, eq(products.id, productVariants.productId))
-            .where(
-              and(
-                eq(productVariants.upid, candidate),
-                eq(products.brandId, brandId),
-              ),
-            )
-            .limit(1);
-          return Boolean(row);
-        },
-        fetchTakenSet: async (candidates) => {
-          const rows = await tx
-            .select({ upid: productVariants.upid })
-            .from(productVariants)
-            .innerJoin(products, eq(products.id, productVariants.productId))
-            .where(
-              and(
-                inArray(productVariants.upid, candidates as string[]),
-                eq(products.brandId, brandId),
-              ),
-            );
-          return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
-        },
-      });
-
-      const toInsert = variantsToInsert.map((variant, index) => ({
-        productId,
-        colorId: variant.colorId,
-        sizeId: variant.sizeId,
-        upid: upids[index],
-      }));
-
-      await tx.insert(productVariants).values(toInsert);
-    }
-  });
-}
-
 async function deleteProductVariants(
   db: BrandDb,
   brandId: string,
-  input: { variant_id?: string; product_id?: string },
+  input: { variant_id?: string; product_id?: string }
 ) {
   if (input.variant_id) {
     const deleted = await db.transaction(async (tx) => {
@@ -279,8 +169,8 @@ async function deleteProductVariants(
         .where(
           and(
             eq(productVariants.id, input.variant_id as string),
-            eq(products.brandId, brandId),
-          ),
+            eq(products.brandId, brandId)
+          )
         )
         .limit(1);
 
@@ -313,7 +203,7 @@ async function deleteProductVariants(
 async function assertProductForBrand(
   db: BrandDb,
   brandId: string,
-  productId: string,
+  productId: string
 ) {
   const owned = await db
     .select({ id: products.id })
@@ -326,19 +216,19 @@ async function assertProductForBrand(
 }
 
 /**
- * Get a product's UPID for DPP cache revalidation.
+ * Get a product's handle for DPP cache revalidation.
  */
-async function getProductUpid(
+async function getProductHandle(
   db: BrandDb,
   brandId: string,
-  productId: string,
+  productId: string
 ): Promise<string | null> {
   const [product] = await db
-    .select({ upid: products.upid })
+    .select({ productHandle: products.productHandle })
     .from(products)
     .where(and(eq(products.id, productId), eq(products.brandId, brandId)))
     .limit(1);
-  return product?.upid ?? null;
+  return product?.productHandle ?? null;
 }
 
 /**
@@ -347,7 +237,7 @@ async function getProductUpid(
 async function getProductIdFromVariant(
   db: BrandDb,
   brandId: string,
-  variantId?: string,
+  variantId?: string
 ): Promise<string | null> {
   if (!variantId) return null;
   const [variant] = await db
@@ -355,7 +245,7 @@ async function getProductIdFromVariant(
     .from(productVariants)
     .innerJoin(products, eq(products.id, productVariants.productId))
     .where(
-      and(eq(productVariants.id, variantId), eq(products.brandId, brandId)),
+      and(eq(productVariants.id, variantId), eq(products.brandId, brandId))
     )
     .limit(1);
   return variant?.productId ?? null;

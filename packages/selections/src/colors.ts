@@ -86,6 +86,14 @@ export const colors = {
     name: "Zinc",
     hex: "71717A",
   },
+  BLACK: {
+    name: "Black",
+    hex: "000000",
+  },
+  WHITE: {
+    name: "White",
+    hex: "FFFFFF",
+  },
   GRAY: {
     name: "Gray",
     hex: "6B7280",

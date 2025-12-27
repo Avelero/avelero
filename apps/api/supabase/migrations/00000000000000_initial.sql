@@ -129,9 +129,9 @@ language sql
 security definer
 set search_path = public
 as $$
-  select uob.brand_id as member_brand_id
-  from public.users_on_brand uob
-  where uob.user_id = auth.uid();
+  select bm.brand_id as member_brand_id
+  from public.brand_members bm
+  where bm.user_id = auth.uid();
 $$;
 
 create or replace function public.is_brand_member(b_id uuid)
@@ -141,8 +141,8 @@ security definer
 set search_path = public
 as $$
   select exists (
-    select 1 from public.users_on_brand uob
-    where uob.brand_id = b_id and uob.user_id = auth.uid()
+    select 1 from public.brand_members bm
+    where bm.brand_id = b_id and bm.user_id = auth.uid()
   );
 $$;
 
@@ -153,8 +153,8 @@ security definer
 set search_path = public
 as $$
   select exists (
-    select 1 from public.users_on_brand uob
-    where uob.brand_id = b_id and uob.user_id = auth.uid() and uob.role = 'owner'
+    select 1 from public.brand_members bm
+    where bm.brand_id = b_id and bm.user_id = auth.uid() and bm.role = 'owner'
   );
 $$;
 
@@ -322,12 +322,12 @@ begin
       and (bi.expires_at is null or bi.expires_at > now())
   ), 
   inserted as (
-    insert into public.users_on_brand (user_id, brand_id, role)
+    insert into public.brand_members (user_id, brand_id, role)
     select p_user_id, e.brand_id, e.role 
     from eligible e
     on conflict (user_id, brand_id) do update 
       set role = excluded.role
-    returning users_on_brand.brand_id
+    returning brand_members.brand_id
   )
   -- Update the invite status to fulfilled
   update public.brand_invites bi

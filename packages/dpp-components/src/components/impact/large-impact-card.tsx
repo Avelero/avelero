@@ -2,11 +2,22 @@ import { DropIcon } from "@phosphor-icons/react/dist/ssr/Drop";
 import { FactoryIcon } from "@phosphor-icons/react/dist/ssr/Factory";
 import { LeafIcon } from "@phosphor-icons/react/dist/ssr/Leaf";
 import { RecycleIcon } from "@phosphor-icons/react/dist/ssr/Recycle";
-import type { ImpactMetric } from "@v1/dpp-components";
 import { Icons } from "@v1/ui/icons";
 
+/**
+ * Display-only impact metric type for UI rendering.
+ * Data is transformed from Environmental in InformationFrame.
+ */
+export interface ImpactMetricDisplay {
+  type: string;
+  value: string;
+  unit: string;
+  icon: "leaf" | "drop" | "recycle" | "factory";
+  iconColor?: string;
+}
+
 interface Props {
-  metric: ImpactMetric;
+  metric: ImpactMetricDisplay;
 }
 
 export function LargeImpactCard({ metric }: Props) {

@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
 import { products } from "./products";
-import { brandFacilities } from "../brands/brand-facilities";
+import { brandFacilities } from "../catalog/brand-facilities";
 
 export const productJourneySteps = pgTable(
   "product_journey_steps",

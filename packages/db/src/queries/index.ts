@@ -1,18 +1,33 @@
-export * from "./users.js";
-export * from "./brands.js";
-export * from "./brand-members.js";
-export * from "./brand-invites.js";
-export * from "./brand-collections.js";
-export * from "./catalog.js";
-export * from "./brand-catalog.js";
-export * from "./products.js";
-export * from "./bulk-import.js";
-export * from "./staging.js";
-export * from "./value-mappings.js";
-export * from "./dpp-public.js";
-export * from "./carousel-products.js";
+/**
+ * Main queries barrel export.
+ * 
+ * Re-exports all query functions from their organized domain folders.
+ * For better tree-shaking, import directly from domain folders:
+ * - @v1/db/queries/products
+ * - @v1/db/queries/catalog
+ * - @v1/db/queries/brand
+ * - @v1/db/queries/bulk
+ * - @v1/db/queries/integrations
+ * - @v1/db/queries/dpp
+ * - @v1/db/queries/user
+ * - @v1/db/queries/taxonomy
+ */
 
-// Re-export drizzle-orm utilities for consumers
+// =============================================================================
+// Organized domain exports
+// =============================================================================
+export * from "./products/index";
+export * from "./catalog/index";
+export * from "./brand/index";
+export * from "./user/index";
+export * from "./taxonomy/index";
+export * from "./dpp/index";
+export * from "./integrations/index";
+export * from "./bulk/index";
+
+// =============================================================================
+// Drizzle-ORM utilities
+// =============================================================================
 export {
   and,
   asc,
@@ -20,6 +35,7 @@ export {
   eq,
   inArray,
   isNull,
+  or,
   sql,
   SQL,
   type SQLWrapper,

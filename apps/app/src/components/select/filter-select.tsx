@@ -2,8 +2,7 @@
 
 import { getQuickFilterFields } from "@/config/filters";
 import { useFieldOptions } from "@/hooks/use-filter-options";
-import { useBrandCatalog, type SizeOption } from "@/hooks/use-brand-catalog";
-import { sizeGroups } from "@v1/selections";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import {
   convertQuickFiltersToFilterState,
   extractQuickFiltersFromFilterState,
@@ -76,6 +75,10 @@ export function QuickFiltersPopover({
   const [open, setOpen] = React.useState(false);
   const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
 
+  // Store pending selections locally - only apply when popover closes
+  const [pendingQuickFilters, setPendingQuickFilters] = React.useState<Record<string, string[]>>({});
+  const [hasLocalChanges, setHasLocalChanges] = React.useState(false);
+
   // Extract current quick filter selections from FilterState
   // If advanced filters exist, show empty (quick filters will overwrite on apply)
   const currentQuickFilters = React.useMemo(() => {
@@ -85,6 +88,17 @@ export function QuickFiltersPopover({
     return {};
   }, [filterState]);
 
+  // Sync pending filters with actual filters when popover opens
+  React.useEffect(() => {
+    if (open) {
+      setPendingQuickFilters(currentQuickFilters);
+      setHasLocalChanges(false);
+    }
+  }, [open, currentQuickFilters]);
+
+  // The display filters - show pending when open, otherwise show current
+  const displayFilters = open ? pendingQuickFilters : currentQuickFilters;
+
   const activeFilters = React.useMemo(() => {
     const filters: Array<{
       fieldId: string;
@@ -92,7 +106,7 @@ export function QuickFiltersPopover({
       value: string[];
     }> = [];
     for (const field of QUICK_FIELDS) {
-      const values = currentQuickFilters[field.id] ?? [];
+      const values = displayFilters[field.id] ?? [];
       if (values.length > 0) {
         filters.push({
           fieldId: field.id,
@@ -102,29 +116,52 @@ export function QuickFiltersPopover({
       }
     }
     return filters;
-  }, [currentQuickFilters]);
+  }, [displayFilters]);
 
-  // Handle toggling a quick filter value
+  // Handle toggling a quick filter value - only updates local state
   const handleToggleValue = React.useCallback(
     (fieldId: string, optionValue: string) => {
-      const newQuickFilters = { ...currentQuickFilters };
-      const current = newQuickFilters[fieldId] ?? [];
-      const nextValues = current.includes(optionValue)
-        ? current.filter((v) => v !== optionValue)
-        : [...current, optionValue];
+      setPendingQuickFilters((prev) => {
+        const newQuickFilters = { ...prev };
 
-      if (nextValues.length > 0) {
-        newQuickFilters[fieldId] = nextValues;
-      } else {
-        delete newQuickFilters[fieldId];
-      }
+        // Standard multi-select toggle behavior
+        const current = newQuickFilters[fieldId] ?? [];
+        const nextValues = current.includes(optionValue)
+          ? current.filter((v) => v !== optionValue)
+          : [...current, optionValue];
 
-      // Convert to FilterState and replace entire FilterState
-      // This ensures quick filters overwrite advanced filters if they exist
-      const newFilterState = convertQuickFiltersToFilterState(newQuickFilters);
-      filterActions.setGroups(newFilterState.groups);
+        if (nextValues.length > 0) {
+          newQuickFilters[fieldId] = nextValues;
+        } else {
+          delete newQuickFilters[fieldId];
+        }
+
+        return newQuickFilters;
+      });
+      setHasLocalChanges(true);
     },
-    [currentQuickFilters, filterActions],
+    [],
+  );
+
+  // Apply pending filters to actual filter state
+  const applyPendingFilters = React.useCallback(() => {
+    if (!hasLocalChanges) return;
+
+    const newFilterState = convertQuickFiltersToFilterState(pendingQuickFilters);
+    filterActions.setGroups(newFilterState.groups);
+    setHasLocalChanges(false);
+  }, [pendingQuickFilters, hasLocalChanges, filterActions]);
+
+  // Handle popover open/close - apply filters on close
+  const handleOpenChange = React.useCallback(
+    (newOpen: boolean) => {
+      if (!newOpen && hasLocalChanges) {
+        // Popover is closing - apply pending filters
+        applyPendingFilters();
+      }
+      setOpen(newOpen);
+    },
+    [hasLocalChanges, applyPendingFilters],
   );
 
   const removeFilter = React.useCallback(
@@ -146,9 +183,13 @@ export function QuickFiltersPopover({
 
   const handleAdvancedClick = React.useCallback(() => {
     if (!showAdvancedFilters || !onOpenAdvanced) return;
+    // Apply pending filters before opening advanced
+    if (hasLocalChanges) {
+      applyPendingFilters();
+    }
     setOpen(false);
     onOpenAdvanced();
-  }, [onOpenAdvanced, showAdvancedFilters]);
+  }, [onOpenAdvanced, showAdvancedFilters, hasLocalChanges, applyPendingFilters]);
 
   // Keyboard shortcut: Shift + Cmd/Ctrl + F (only when advanced filters are enabled)
   useHotkeys(
@@ -164,7 +205,7 @@ export function QuickFiltersPopover({
 
   return (
     <>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenu open={open} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="subtle"
@@ -184,7 +225,7 @@ export function QuickFiltersPopover({
           <div className="max-h-[400px] overflow-y-auto">
             <div>
               {QUICK_FIELDS.map((field) => {
-                const selectedValues = currentQuickFilters[field.id] ?? [];
+                const selectedValues = pendingQuickFilters[field.id] ?? [];
                 return (
                   <QuickFilterItem
                     key={field.id}
@@ -423,106 +464,57 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
   );
 });
 
-// Flat size selection component (with groups)
-const SizeFlatSubmenu = React.memo(function SizeFlatSubmenu({
-  sizeOptions,
+// Tags selection component with hex color swatches
+const TagsSubmenu = React.memo(function TagsSubmenu({
+  tags,
   selectedValues,
   onToggleValue,
 }: {
-  sizeOptions: SizeOption[];
+  tags: Array<{ id: string; name: string; hex: string }>;
   selectedValues: string[];
-  onToggleValue: (sizeId: string) => void;
+  onToggleValue: (tagId: string) => void;
 }) {
   const [searchTerm, setSearchTerm] = React.useState("");
 
-  // Filter sizes by search term
-  const filteredSizes = React.useMemo(() => {
-    if (!searchTerm) return sizeOptions;
+  // Filter tags by search term
+  const filteredTags = React.useMemo(() => {
+    if (!searchTerm) return tags;
     const lower = searchTerm.toLowerCase();
-    return sizeOptions.filter((s) => s.name.toLowerCase().includes(lower));
-  }, [sizeOptions, searchTerm]);
-
-  // Group filtered sizes for display
-  const groupedSizes = React.useMemo(() => {
-    const groups: Record<string, SizeOption[]> = {};
-
-    for (const size of filteredSizes) {
-      let groupName = "Other";
-
-      // Find which group this size belongs to using sortIndex (unique identifier)
-      // This correctly handles sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
-      for (const [name, sizes] of Object.entries(sizeGroups)) {
-        if (sizes.some((s) => s.sortIndex === size.sortIndex)) {
-          groupName = name;
-          break;
-        }
-      }
-
-      if (!groups[groupName]) groups[groupName] = [];
-      groups[groupName]!.push(size);
-    }
-
-    return groups;
-  }, [filteredSizes]);
-
-  const handleToggleSize = React.useCallback(
-    (size: SizeOption) => {
-      // Use sortIndex as fallback since it's documented as the unique identifier
-      // This prevents ID collisions for sizes with same name in different groups (e.g., "8" in US Numeric vs US Shoe)
-      const sizeId = size.id || `custom-${size.sortIndex}`;
-      onToggleValue(sizeId);
-      setSearchTerm("");
-    },
-    [onToggleValue],
-  );
-
-  // Define group order for consistent display
-  const groupOrder = [
-    "Letter",
-    "US Numeric",
-    "Waist",
-    "US Shoe",
-    "EU Shoe",
-    "UK Shoe",
-    "One Size",
-    "Other",
-  ];
+    return tags.filter((t) => t.name.toLowerCase().includes(lower));
+  }, [tags, searchTerm]);
 
   return (
     <Command shouldFilter={false}>
       <CommandInput
-        placeholder="Search sizes..."
+        placeholder="Search tags..."
         value={searchTerm}
         onValueChange={setSearchTerm}
       />
       <CommandList className="max-h-64">
-        {groupOrder.map((groupName) => {
-          const sizes = groupedSizes[groupName];
-          if (!sizes || sizes.length === 0) return null;
-
-          return (
-            <CommandGroup key={groupName} heading={groupName}>
-              {sizes.map((size) => {
-                // Use sortIndex as fallback since it's documented as the unique identifier
-                const sizeId = size.id || `custom-${size.sortIndex}`;
-                const isSelected = selectedValues.includes(sizeId);
-                return (
-                  <CommandItem
-                    key={size.sortIndex}
-                    value={size.name}
-                    onSelect={() => handleToggleSize(size)}
-                    className="justify-between"
-                  >
-                    <span className="type-p text-primary">{size.name}</span>
-                    {isSelected && <Icons.Check className="h-4 w-4" />}
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          );
-        })}
-        {filteredSizes.length === 0 && (
-          <CommandEmpty>No sizes found</CommandEmpty>
+        <CommandGroup>
+          {filteredTags.map((tag) => {
+            const isSelected = selectedValues.includes(tag.id);
+            return (
+              <CommandItem
+                key={tag.id}
+                value={tag.name}
+                onSelect={() => onToggleValue(tag.id)}
+                className="justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-3.5 w-3.5 rounded-full border border-border flex-shrink-0"
+                    style={{ backgroundColor: `#${tag.hex}` }}
+                  />
+                  <span className="type-p text-primary">{tag.name}</span>
+                </div>
+                {isSelected && <Icons.Check className="h-4 w-4" />}
+              </CommandItem>
+            );
+          })}
+        </CommandGroup>
+        {filteredTags.length === 0 && (
+          <CommandEmpty>No tags found</CommandEmpty>
         )}
       </CommandList>
     </Command>
@@ -545,9 +537,7 @@ const ActiveFiltersDisplay = React.memo(function ActiveFiltersDisplay({
 }) {
   // Get dynamic options for all fields
   const { options: categoryOptions } = useFieldOptions("categoryId");
-  const { options: colorOptions } = useFieldOptions("colorId");
-  const { options: sizeOptions } = useFieldOptions("sizeId");
-  const { seasons } = useBrandCatalog();
+  const { seasons, tags } = useBrandCatalog();
 
   const getOptionLabel = React.useCallback(
     (fieldId: string, value: string) => {
@@ -561,22 +551,18 @@ const ActiveFiltersDisplay = React.memo(function ActiveFiltersDisplay({
         const option = categoryOptions.find((o) => o.value === value);
         return option?.label ?? value;
       }
-      if (fieldId === "colorId") {
-        const option = colorOptions.find((o) => o.value === value);
-        return option?.label ?? value;
-      }
-      if (fieldId === "sizeId") {
-        const option = sizeOptions.find((o) => o.value === value);
-        return option?.label ?? value;
-      }
       if (fieldId === "season") {
         const season = seasons.find((s) => s.id === value);
         return season?.name ?? value;
       }
+      if (fieldId === "tagId") {
+        const tag = tags.find((t) => t.id === value);
+        return tag?.name ?? value;
+      }
 
       return value;
     },
-    [categoryOptions, colorOptions, sizeOptions, seasons],
+    [categoryOptions, seasons, tags],
   );
 
   return (
@@ -633,9 +619,8 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
   const {
     categoryHierarchy,
     categoryMap,
-    colors,
     seasons,
-    sizeOptions,
+    tags,
   } = useBrandCatalog();
 
   // For season, convert seasons to options format
@@ -688,8 +673,8 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
     );
   }
 
-  // Special handling for size (flat list with groups)
-  if (field.id === "sizeId") {
+  // Special handling for tags (with hex color swatches)
+  if (field.id === "tagId") {
     return (
       <DropdownMenuSub
         open={openSubmenu === field.id}
@@ -702,8 +687,8 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
         </DropdownMenuSubTrigger>
         <DropdownMenuPortal>
           <DropdownMenuSubContent>
-            <SizeFlatSubmenu
-              sizeOptions={sizeOptions}
+            <TagsSubmenu
+              tags={tags}
               selectedValues={selectedValues}
               onToggleValue={toggleValue}
             />
@@ -740,13 +725,6 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
                 {options.map((option: any) => {
                   const isSelected = selectedValues.includes(option.value);
 
-                  // Get color hex for color field
-                  let colorHex: string | undefined;
-                  if (field.id === "colorId") {
-                    const color = colors.find((c) => c.id === option.value);
-                    colorHex = color?.hex;
-                  }
-
                   // Get season info for season field
                   let seasonInfo:
                     | {
@@ -775,12 +753,6 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
                     >
                       <div className="flex items-center gap-2">
                         {renderStatusIcon(field.id, option.value)}
-                        {colorHex && (
-                          <div
-                            className="h-3.5 w-3.5 rounded-full border border-border flex-shrink-0"
-                            style={{ backgroundColor: `#${colorHex}` }}
-                          />
-                        )}
                         <span>{option.label}</span>
                         {seasonInfo && (
                           <span className="type-p text-tertiary ml-auto">

@@ -20,7 +20,21 @@
  * ```
  */
 export * from "./products.js";
-export * from "./bulk.js";
+// Re-export bulk schemas, but exclude bulkSelectionSchema (already exported from products.js)
+export {
+  approveImportSchema,
+  cancelImportSchema,
+  exportFailedRowsSchema,
+  getImportErrorsSchema,
+  getImportStatusSchema,
+  getStagingPreviewSchema,
+  getUnmappedValuesSchema,
+  startImportSchema,
+  defineValueSchema,
+  batchDefineValuesSchema,
+  mapToExistingEntitySchema,
+  type BulkSelectionInput,
+} from "./bulk.js";
 export * from "./user.js";
 export * from "./brand.js";
 export * from "./brand-theme.js";

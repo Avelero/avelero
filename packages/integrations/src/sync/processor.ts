@@ -3,22 +3,22 @@
  *
  * Processes a single product with all its variants.
  * Returns pending operations to be batched at the engine level.
+ * 
+ * IMPORTANT: This module is now SYNCHRONOUS and does NO database queries.
+ * All lookup data is pre-fetched by the engine and passed in.
  */
 
-import type { Database } from "@v1/db/client";
-import { eq, and, inArray } from "@v1/db/queries";
-import {
-  type ProductLinkData,
-  findProductByVariantIdentifiers,
-  type VariantLinkData,
-  type PreFetchedVariant,
+import type {
+  ProductLinkData,
+  VariantLinkData,
+  PreFetchedVariant,
 } from "@v1/db/queries/integrations";
-import { productVariants, products } from "@v1/db/schema";
-import { generateUniqueUpids, generateUniqueProductHandle } from "@v1/db/utils";
+import { slugifyProductName } from "@v1/db/utils";
 import type { EffectiveFieldMapping } from "./extractor";
 import { extractValues, computeHash, getValueByPath } from "./extractor";
 import type { ExtractedValues } from "./types";
 import { createHash } from "node:crypto";
+import { randomInt } from "node:crypto";
 import {
   type SyncCaches,
   getCachedTag,
@@ -27,13 +27,24 @@ import {
   markProductUpdated,
   isProductUpdated,
 } from "./caches";
-import { processImageUrl } from "./matcher";
 import { parseSelectedOptions, resolveAttributeValueIds } from "./batch-operations";
-import type { FetchedProduct, FetchedVariant, SyncContext } from "./types";
+import type { FetchedProduct, SyncContext } from "./types";
 
 // =============================================================================
 // TYPES
 // =============================================================================
+
+/**
+ * Data for creating a new product (batched at engine level).
+ */
+export interface ProductCreateOp {
+  externalId: string;
+  name: string;
+  productHandle: string;
+  description: string | null;
+  categoryId: string | null;
+  imageUrl: string | null;
+}
 
 /**
  * Update data for the `products` table.
@@ -57,6 +68,8 @@ export interface ProductCommercialOp {
 }
 
 export interface PendingOperations {
+  productCreates: ProductCreateOp[];
+  productCreate?: ProductCreateOp;
   productUpdates: ProductUpdateOp[];
   productCommercialUpserts: ProductCommercialOp[];
   productLinkUpserts: Array<{
@@ -106,19 +119,30 @@ export interface ProcessedProductResult {
   variantsSkipped: number;
   productId?: string;
   error?: string;
-  pendingOps: PendingOperations;
+  pendingOps: Omit<PendingOperations, 'productCreates'> & { productCreate?: ProductCreateOp };
 }
 
 export interface PreFetchedData {
   productLinks: Map<string, ProductLinkData>;
   variantLinks: Map<string, VariantLinkData>;
   existingVariantsByProduct: Map<string, PreFetchedVariant[]>;
+  /** Pre-computed identifier matches: externalId -> matched product */
+  identifierMatches: Map<string, { productId: string; productHandle: string }>;
+  /** Pre-computed set of handles that are already taken */
+  takenHandles: Set<string>;
 }
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
+function isFieldEnabled(mappings: EffectiveFieldMapping[], fieldKey: string): boolean {
+  return mappings.some((m) => m.fieldKey === fieldKey);
+}
+
+/**
+ * Extract raw SKU/barcode identifiers from variant data.
+ */
 function extractRawIdentifiers(variantData: Record<string, unknown>): {
   sku: string | undefined;
   barcode: string | undefined;
@@ -132,10 +156,6 @@ function extractRawIdentifiers(variantData: Record<string, unknown>): {
   };
 }
 
-function isFieldEnabled(mappings: EffectiveFieldMapping[], fieldKey: string): boolean {
-  return mappings.some((m) => m.fieldKey === fieldKey);
-}
-
 function computeProductHash(
   extracted: ExtractedValues,
   tagIds: string[]
@@ -144,13 +164,12 @@ function computeProductHash(
     product: extracted.product,
     referenceEntities: extracted.referenceEntities,
     tags: tagIds.sort(),
-    // NOTE: sizeOrder and colorOrder removed as part of variant attribute migration.
   };
   const str = JSON.stringify(data);
   return createHash("sha256").update(str).digest("hex").slice(0, 32);
 }
 
-function createEmptyPendingOps(): PendingOperations {
+function createEmptyPendingOps(): Omit<PendingOperations, 'productCreates'> & { productCreate?: ProductCreateOp } {
   return {
     productUpdates: [],
     productCommercialUpserts: [],
@@ -164,17 +183,28 @@ function createEmptyPendingOps(): PendingOperations {
 }
 
 // =============================================================================
-// MAIN PROCESSOR
+// MAIN PROCESSOR (SYNCHRONOUS - NO DB QUERIES)
 // =============================================================================
 
-export async function processProduct(
-  db: Database,
+/**
+ * Process a single product. This is now SYNCHRONOUS and does no DB queries.
+ * All lookup data is pre-fetched and passed in via preFetched.
+ * 
+ * @param ctx - Sync context
+ * @param externalProduct - The external product to process
+ * @param mappings - Field mappings
+ * @param caches - In-memory caches
+ * @param preFetched - Pre-fetched lookup data (links, matches, handles)
+ * @param usedHandlesInBatch - Set of handles already used in this batch (to avoid collisions)
+ */
+export function processProduct(
   ctx: SyncContext,
   externalProduct: FetchedProduct,
   mappings: EffectiveFieldMapping[],
   caches: SyncCaches,
-  preFetched: PreFetchedData
-): Promise<ProcessedProductResult> {
+  preFetched: PreFetchedData,
+  usedHandlesInBatch: Set<string>
+): ProcessedProductResult {
   let productCreated = false;
   let productUpdated = false;
   const pendingOps = createEmptyPendingOps();
@@ -183,48 +213,64 @@ export async function processProduct(
     const productExtracted = extractValues(externalProduct.data, mappings);
     const productName = (productExtracted.product.name as string) || "Unnamed Product";
 
-    // Pre-compute tag IDs and order arrays for hash calculation
+    // Pre-compute tag IDs for hash calculation
     const tagNames = productExtracted.relations.tags ?? [];
     const tagIds = tagNames
       .map((name) => getCachedTag(caches, name)?.id)
       .filter((id): id is string => !!id);
-    // NOTE: buildOrderArrays removed as part of variant attribute migration.
-    // sizeOrder and colorOrder no longer exist on products table.
 
     // Compute product hash
     const productHash = computeProductHash(productExtracted, tagIds);
 
-    // STEP 1: Find or create product
+    // STEP 1: Find or create product (using pre-fetched data - NO DB QUERIES)
     let productId: string;
     let productHandle: string;
 
     const existingLink = preFetched.productLinks.get(externalProduct.externalId);
     if (existingLink) {
+      // Product already linked to this integration
       productId = existingLink.productId;
       productHandle = existingLink.productHandle;
     } else {
+      // Check our in-batch cache first
       const cached = getCachedProduct(caches, externalProduct.externalId);
       if (cached) {
         productId = cached.id;
         productHandle = cached.productHandle;
         productCreated = cached.created;
       } else {
-        const identifiers = externalProduct.variants.map((v) => {
-          const variantData = { ...v.data, product: externalProduct.data };
-          return extractRawIdentifiers(variantData);
-        });
-
-        const matched = await findProductByVariantIdentifiers(db, ctx.brandId, identifiers);
-
-        if (matched) {
-          productId = matched.productId;
-          productHandle = matched.productHandle;
+        // Check pre-fetched identifier matches (replaces findProductByVariantIdentifiers)
+        const identifierMatch = preFetched.identifierMatches.get(externalProduct.externalId);
+        
+        if (identifierMatch) {
+          // Matched to existing product via SKU/barcode
+          productId = identifierMatch.productId;
+          productHandle = identifierMatch.productHandle;
         } else {
-          // Create product immediately (needed for variant creation)
-          const newProduct = await createProduct(db, ctx, productName, productExtracted, externalProduct, mappings, caches);
-          productId = newProduct.id;
-          productHandle = newProduct.productHandle;
+          // Need to create a new product - generate handle (using pre-fetched taken handles)
+          productHandle = generateUniqueHandleSync(
+            productName, 
+            preFetched.takenHandles, 
+            usedHandlesInBatch
+          );
+          usedHandlesInBatch.add(productHandle);
+          
+          // Use placeholder ID - will be replaced after batch insert
+          productId = `__pending:${externalProduct.externalId}`;
           productCreated = true;
+          
+          // Queue product creation
+          const categoryEnabled = isFieldEnabled(mappings, "product.categoryId");
+          const categoryId = categoryEnabled ? (productExtracted.referenceEntities.categoryId ?? null) : null;
+          
+          pendingOps.productCreate = {
+            externalId: externalProduct.externalId,
+            name: productName,
+            productHandle,
+            description: (productExtracted.product.description as string) ?? null,
+            categoryId,
+            imageUrl: (productExtracted.product.imagePath as string) ?? null,
+          };
           
           // Queue commercial data for newly created product
           const commercialData = buildProductCommercialData(productId, productExtracted);
@@ -242,6 +288,7 @@ export async function processProduct(
           lastSyncedHash: productHash,
         });
 
+        // Cache for other products in this batch that might reference the same external ID
         cacheProduct(caches, externalProduct.externalId, productId, productHandle, productCreated);
       }
     }
@@ -264,17 +311,6 @@ export async function processProduct(
       }
       
       markProductUpdated(caches, productId);
-      
-      // Fire-and-forget image upload
-      const imageUrl = productExtracted.product.imagePath as string | undefined;
-      if (imageUrl) {
-        processImageUrl(ctx.storageClient, ctx.brandId, productId, imageUrl)
-          .then(async (path) => {
-            if (!path) return;
-            await db.update(products).set({ imagePath: path }).where(eq(products.id, productId));
-          })
-          .catch(() => {});
-      }
     }
 
     // STEP 3: Queue tags if needed
@@ -294,7 +330,7 @@ export async function processProduct(
     }
 
     // STEP 4: Process variants (returns pending operations)
-    const matchViaIdentifiers = !existingLink;
+    const matchViaIdentifiers = !existingLink && !preFetched.identifierMatches.has(externalProduct.externalId);
     const variantResult = processVariantsSync(
       ctx,
       productId,
@@ -333,6 +369,42 @@ export async function processProduct(
       pendingOps,
     };
   }
+}
+
+/**
+ * Generate a unique handle synchronously using pre-fetched taken handles.
+ * Falls back to suffix if base slug is taken.
+ */
+function generateUniqueHandleSync(
+  name: string,
+  takenHandles: Set<string>,
+  usedInBatch: Set<string>
+): string {
+  const baseSlug = slugifyProductName(name);
+  
+  if (!baseSlug) {
+    // Fallback for empty names
+    const suffix = String(randomInt(1000, 10000));
+    return `product-${suffix}`;
+  }
+
+  // Check if base slug is available
+  if (!takenHandles.has(baseSlug) && !usedInBatch.has(baseSlug)) {
+    return baseSlug;
+  }
+
+  // Try with random suffixes (synchronous, no DB check needed)
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const suffix = String(randomInt(1000, 10000));
+    const candidate = `${baseSlug}-${suffix}`;
+    if (!takenHandles.has(candidate) && !usedInBatch.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Last resort: use timestamp-based suffix
+  const timestamp = Date.now().toString(36);
+  return `${baseSlug}-${timestamp}`;
 }
 
 /**
@@ -378,64 +450,8 @@ function buildProductCommercialData(
   };
 }
 
-async function createProduct(
-  db: Database,
-  ctx: SyncContext,
-  name: string,
-  extracted: ReturnType<typeof extractValues>,
-  externalProduct: FetchedProduct,
-  mappings: EffectiveFieldMapping[],
-  caches: SyncCaches
-): Promise<{ id: string; productHandle: string }> {
-  const productHandle = await generateUniqueProductHandle({
-    name,
-    isTaken: async (candidate) => {
-      const [row] = await db
-        .select({ id: products.id })
-        .from(products)
-        .where(and(eq(products.brandId, ctx.brandId), eq(products.productHandle, candidate)))
-        .limit(1);
-      return Boolean(row);
-    },
-  });
-
-  // NOTE: sizeOrder and colorOrder removed as part of variant attribute migration.
-  
-  // Only set categoryId if the field is enabled
-  const categoryEnabled = isFieldEnabled(mappings, "product.categoryId");
-  const categoryId = categoryEnabled ? (extracted.referenceEntities.categoryId ?? null) : null;
-
-  const [created] = await db
-    .insert(products)
-    .values({
-      brandId: ctx.brandId,
-      name,
-      productHandle,
-      description: (extracted.product.description as string) ?? null,
-      imagePath: null,
-      status: "unpublished",
-      categoryId,
-    })
-    .returning({ id: products.id });
-
-  if (!created) throw new Error(`Failed to create product: ${productHandle}`);
-
-  // Fire-and-forget image upload
-  const imageUrl = extracted.product.imagePath as string | undefined;
-  if (imageUrl) {
-    processImageUrl(ctx.storageClient, ctx.brandId, created.id, imageUrl)
-      .then(async (path) => {
-        if (!path) return;
-        await db.update(products).set({ imagePath: path }).where(eq(products.id, created.id));
-      })
-      .catch(() => {});
-  }
-
-  return { id: created.id, productHandle };
-}
-
+// NOTE: createProduct function removed - product creation is now batched at engine level.
 // NOTE: buildOrderArrays function removed as part of variant attribute migration.
-// sizeOrder and colorOrder no longer exist on products table.
 
 // =============================================================================
 // VARIANT PROCESSING (SYNCHRONOUS - NO DB WRITES)

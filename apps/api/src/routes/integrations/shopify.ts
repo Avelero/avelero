@@ -5,8 +5,8 @@
  * directly to them during the OAuth flow.
  *
  * Endpoints:
- * - GET /api/integrations/shopify/install - Initiate OAuth flow
- * - GET /api/integrations/shopify/callback - Handle OAuth callback
+ * - GET /integrations/shopify/install - Initiate OAuth flow
+ * - GET /integrations/shopify/callback - Handle OAuth callback
  *
  * @module routes/integrations/shopify
  */
@@ -105,7 +105,7 @@ shopifyOAuthRouter.get("/install", async (c) => {
     });
 
     // Build Shopify OAuth URL using shared utility
-    const redirectUri = `${API_URL}/api/integrations/shopify/callback`;
+    const redirectUri = `${API_URL}/integrations/shopify/callback`;
     const installUrl = buildAuthorizationUrl(
       shop,
       SHOPIFY_CLIENT_ID,

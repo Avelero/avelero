@@ -87,6 +87,44 @@ interface VariantSectionProps {
   setVariantMetadata: React.Dispatch<React.SetStateAction<Record<string, VariantMetadata>>>;
   explicitVariants?: ExplicitVariant[];
   setExplicitVariants?: React.Dispatch<React.SetStateAction<ExplicitVariant[]>>;
+  /** Set of pipe-separated value ID keys that are enabled */
+  enabledVariantKeys: Set<string>;
+  /** Setter for updating enabled variant keys */
+  setEnabledVariantKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
+}
+
+/**
+ * Generates cartesian product of dimension values.
+ * Returns array of pipe-separated keys.
+ */
+function generateAllCombinationKeys(dimensions: VariantDimension[]): string[] {
+  // Get effective values for each dimension
+  const effectiveDimensions = dimensions
+    .map((dim) => {
+      if (dim.isCustomInline) {
+        return (dim.customValues ?? []).map((v) => v.trim()).filter(Boolean);
+      }
+      return dim.values ?? [];
+    })
+    .filter((vals) => vals.length > 0);
+
+  if (effectiveDimensions.length === 0) return [];
+
+  // Generate cartesian product
+  const generateCombos = (dims: string[][]): string[][] => {
+    if (dims.length === 0) return [[]];
+    const [first, ...rest] = dims;
+    const restCombos = generateCombos(rest);
+    const result: string[][] = [];
+    for (const value of first!) {
+      for (const combo of restCombos) {
+        result.push([value, ...combo]);
+      }
+    }
+    return result;
+  };
+
+  return generateCombos(effectiveDimensions).map((combo) => combo.join("|"));
 }
 
 export function VariantSection({
@@ -96,6 +134,8 @@ export function VariantSection({
   setVariantMetadata,
   explicitVariants,
   setExplicitVariants,
+  enabledVariantKeys,
+  setEnabledVariantKeys,
 }: VariantSectionProps) {
   const { taxonomyAttributes, brandAttributes } = useBrandCatalog();
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -222,6 +262,8 @@ export function VariantSection({
       taxonomyAttributeId: attrData.taxonomyId,
       values: [],
     };
+    
+    // Add dimension (values will be empty, so no combinations to enable yet)
     setDimensions((prev) => [...prev, newDim]);
     setExpandedId(newDim.id);
   };
@@ -247,10 +289,29 @@ export function VariantSection({
   };
 
   const handleUpdateDimension = (index: number, updated: VariantDimension) => {
+    // Get old keys before update for comparison
+    const oldKeys = new Set(generateAllCombinationKeys(dimensions));
+    
     setDimensions((prev) => {
       const next = [...prev];
       next[index] = updated;
       return next;
+    });
+    
+    // After dimensions update, auto-enable new combinations
+    const newDimensions = [...dimensions];
+    newDimensions[index] = updated;
+    const newKeys = generateAllCombinationKeys(newDimensions);
+    
+    setEnabledVariantKeys((prevEnabled) => {
+      const nextEnabled = new Set(prevEnabled);
+      for (const key of newKeys) {
+        // Enable keys that are genuinely new (weren't possible before)
+        if (!oldKeys.has(key)) {
+          nextEnabled.add(key);
+        }
+      }
+      return nextEnabled;
     });
   };
 
@@ -432,6 +493,8 @@ export function VariantSection({
           setVariantMetadata={setVariantMetadata}
           explicitVariants={explicitVariants}
           setExplicitVariants={setExplicitVariants}
+          enabledVariantKeys={enabledVariantKeys}
+          setEnabledVariantKeys={setEnabledVariantKeys}
         />
       )}
     </div>

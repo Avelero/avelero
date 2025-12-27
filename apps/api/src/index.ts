@@ -80,10 +80,10 @@ app.use(
  * redirect directly to them during the OAuth flow.
  *
  * Endpoints:
- * - GET /api/integrations/shopify/install - Initiate Shopify OAuth
- * - GET /api/integrations/shopify/callback - Handle Shopify OAuth callback
+ * - GET /integrations/shopify/install - Initiate Shopify OAuth
+ * - GET /integrations/shopify/callback - Handle Shopify OAuth callback
  */
-app.route("/api/integrations", integrationRoutes);
+app.route("/integrations", integrationRoutes);
 
 /**
  * Lightweight health check endpoint used by hosting to confirm the API is up.

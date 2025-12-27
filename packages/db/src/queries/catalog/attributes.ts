@@ -328,18 +328,25 @@ export async function ensureBrandAttributeForTaxonomy(
     })
     .onConflictDoNothing();
 
-  // Fetch the existing (or just-inserted) attribute
+  // Fetch the existing (or just-inserted) attribute by name
+  // Note: Query by name to match the unique constraint (brandId, name) used in ON CONFLICT
   const [result] = await db
     .select({ id: brandAttributes.id })
     .from(brandAttributes)
     .where(
       and(
         eq(brandAttributes.brandId, brandId),
-        eq(brandAttributes.taxonomyAttributeId, taxonomyAttributeId)
+        eq(brandAttributes.name, taxonomyAttributeName)
       )
     )
     .limit(1);
 
-  return result!.id;
+  if (!result) {
+    throw new Error(
+      `Failed to find or create brand attribute for taxonomy "${taxonomyAttributeName}"`
+    );
+  }
+
+  return result.id;
 }
 

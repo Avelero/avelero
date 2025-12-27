@@ -222,6 +222,14 @@ export function PassportForm({ mode, productHandle, initialData }: PassportFormP
                   setField("explicitVariants", value);
                 }
               }}
+              enabledVariantKeys={state.enabledVariantKeys}
+              setEnabledVariantKeys={(value) => {
+                if (typeof value === "function") {
+                  updateField("enabledVariantKeys", value);
+                } else {
+                  setField("enabledVariantKeys", value);
+                }
+              }}
             />
             <EnvironmentSection
               carbonKgCo2e={state.carbonKgCo2e}

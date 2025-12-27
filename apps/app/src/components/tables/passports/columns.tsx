@@ -311,7 +311,7 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                   ))}
                 </div>
                 {/* Right-edge fade-out gradient overlay */}
-                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background pointer-events-none [tr:hover_&]:to-accent-light [tr[data-state=selected]_&]:to-accent-blue" />
               </div>
             </TooltipTrigger>
             <TooltipContent side="top" align="start" className="p-2 min-w-[120px]">
@@ -319,7 +319,7 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                 {tags.map((tag) => (
                   <div
                     key={tag.id}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2.5"
                   >
                     {tag.hex && (
                       <span

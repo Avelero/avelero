@@ -221,7 +221,7 @@ function CustomInlineExpanded({
   // Use a counter to generate stable keys - only increments, never reused
   const keyCounterRef = React.useRef(0);
   const keysRef = React.useRef<string[]>([]);
-  
+
   // Ensure we have exactly enough keys for all values + 1 for the new input slot
   if (keysRef.current.length > vals.length + 1) {
     keysRef.current = keysRef.current.slice(0, vals.length + 1);
@@ -405,23 +405,23 @@ function CustomInlineExpanded({
                         isNewSlot
                           ? undefined
                           : (e) => {
-                              if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
-                                e.preventDefault();
-                                focusNewValueInput();
-                              }
+                            if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+                              e.preventDefault();
+                              focusNewValueInput();
                             }
+                          }
                       }
                       onBlur={
                         isNewSlot
                           ? undefined
                           : () => {
-                              const current = (vals[i] ?? "").trim();
-                              if (current) return;
-                              const last = (lastNonEmptyByIdRef.current.get(id) ?? "").trim();
-                              if (last) {
-                                handleValueChange(i, last);
-                              }
+                            const current = (vals[i] ?? "").trim();
+                            if (current) return;
+                            const last = (lastNonEmptyByIdRef.current.get(id) ?? "").trim();
+                            if (last) {
+                              handleValueChange(i, last);
                             }
+                          }
                       }
                     />
                   );
@@ -555,7 +555,13 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
       }
     }
 
-    return options;
+    // Sort by taxonomy value sortOrder so sizes appear in logical order (3XS, 2XS, XS, S, M, L, XL, etc.)
+    // Values without a taxonomy mapping appear at the end
+    return options.sort((a, b) => {
+      const aSortOrder = a.taxonomyValueId ? (taxonomyValuesById.get(a.taxonomyValueId)?.sortOrder ?? Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY;
+      const bSortOrder = b.taxonomyValueId ? (taxonomyValuesById.get(b.taxonomyValueId)?.sortOrder ?? Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY;
+      return aSortOrder - bSortOrder;
+    });
   }, [brandValues, taxonomyValues, taxonomyValuesById]);
 
   const allValues = dimension.isCustomInline
@@ -587,7 +593,7 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
   const openCreateValueModal = () => {
     const t = search.trim();
     if (!t) return;
-    
+
     // Check if value already exists in available options by name
     const existing = availableOptions.find((v) => v.name.toLowerCase() === t.toLowerCase());
     if (existing) {
@@ -595,7 +601,7 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
       setSearch("");
       return;
     }
-    
+
     // Open modal with the search term as initial name (no pre-selected taxonomy)
     setCreateValueInitialName(t);
     setCreateValueInitialTaxonomyId(null);
@@ -647,7 +653,7 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
   );
 
   // Show create option if search doesn't match any existing option
-  const showCreateOption = search.trim() && 
+  const showCreateOption = search.trim() &&
     !availableOptions.some((v) => v.name.toLowerCase() === search.trim().toLowerCase());
 
   // Expanded - Standard attribute

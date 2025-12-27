@@ -36,6 +36,13 @@ export interface PassportFormValues {
   variantDimensions: VariantDimension[];
   variantMetadata: Record<string, VariantMetadata>;
   explicitVariants: Array<{ sku: string; barcode: string }>;
+  /**
+   * Tracks which variant combinations are enabled (exist).
+   * Keys are pipe-separated value IDs, e.g., "red-value-id|S-value-id".
+   * This allows heterogeneous variants where not all combinations from the
+   * cartesian product need to exist.
+   */
+  enabledVariantKeys: Set<string>;
 
   // Materials
   materialData: Array<{ materialId: string; percentage: number }>;
@@ -80,6 +87,7 @@ const initialFormValues: PassportFormValues = {
   variantDimensions: [],
   variantMetadata: {},
   explicitVariants: [],
+  enabledVariantKeys: new Set<string>(),
   materialData: [],
   ecoClaims: [],
   journeySteps: [],
@@ -286,6 +294,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       })),
       variantMetadata: values.variantMetadata,
       explicitVariants: values.explicitVariants,
+      enabledVariantKeys: Array.from(values.enabledVariantKeys).sort(),
       materialData: values.materialData,
       ecoClaims: values.ecoClaims,
       journeySteps: values.journeySteps.map((step) => ({
@@ -372,6 +381,19 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       values: Array.from(d.values),
     }));
 
+    // Compute enabled variant keys from actual existing variants
+    // This allows heterogeneous products where not all combinations exist
+    const enabledVariantKeys = new Set<string>();
+    for (const variant of variants) {
+      const attrs = variant.attributes ?? [];
+      const valueKeys = attrs
+        .map((a: any) => a.value_id ?? a.valueId)
+        .filter(Boolean);
+      if (valueKeys.length > 0) {
+        enabledVariantKeys.add(valueKeys.join("|"));
+      }
+    }
+
     // Handle explicit variants (no attributes)
     const explicitVariants: Array<{ sku: string; barcode: string }> = [];
     if (variantDimensions.length === 0 && variants.length > 0) {
@@ -414,6 +436,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       variantDimensions,
       variantMetadata: metadata,
       explicitVariants,
+      enabledVariantKeys,
       materialData: materials,
       ecoClaims,
       journeySteps,
@@ -805,14 +828,40 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             id: metadataRef.current.productId,
           });
 
-          // Upsert variants using new matrix mode
+          // Upsert variants using explicit mode (supports heterogeneous variants)
           if (resolvedDimensions.length > 0) {
-            await upsertVariantsMutation.mutateAsync({
-              product_id: metadataRef.current.productId,
-              mode: "matrix",
-              dimensions: resolvedDimensions,
-              variant_metadata: variantMetadataForUpsert,
-            });
+            // Build explicit variants from enabled keys only
+            const explicitVariantsToSend: Array<{
+              attribute_value_ids: string[];
+              sku?: string;
+              barcode?: string;
+            }> = [];
+
+            for (const key of formValues.enabledVariantKeys) {
+              const tokens = key.split("|");
+              // Translate UI tokens to resolved brand value IDs using tokenMaps
+              const resolvedValueIds = tokens.map((token, idx) =>
+                resolvedVariant.tokenMaps[idx]?.get(token)
+              ).filter((id): id is string => id !== undefined);
+
+              // Only include if all values resolved
+              if (resolvedValueIds.length === tokens.length) {
+                const metadata = variantMetadataForUpsert?.[resolvedValueIds.join("|")];
+                explicitVariantsToSend.push({
+                  attribute_value_ids: resolvedValueIds,
+                  sku: metadata?.sku || undefined,
+                  barcode: metadata?.barcode || undefined,
+                });
+              }
+            }
+
+            if (explicitVariantsToSend.length > 0) {
+              await upsertVariantsMutation.mutateAsync({
+                product_id: metadataRef.current.productId,
+                mode: "explicit",
+                variants: explicitVariantsToSend,
+              });
+            }
           } else if (formValues.explicitVariants.length > 0) {
             await upsertVariantsMutation.mutateAsync({
               product_id: metadataRef.current.productId,
@@ -851,14 +900,40 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const targetProductHandle = (created as any)?.data?.product_handle ?? productHandle ?? null;
         if (!productId) throw new Error("Product was not created");
 
-        // Upsert variants (matrix or explicit mode)
+        // Upsert variants using explicit mode (supports heterogeneous variants)
         if (resolvedDimensions.length > 0) {
-          await upsertVariantsMutation.mutateAsync({
-            product_id: productId,
-            mode: "matrix",
-            dimensions: resolvedDimensions,
-            variant_metadata: variantMetadataForUpsert,
-          });
+          // Build explicit variants from enabled keys only
+          const explicitVariantsToSend: Array<{
+            attribute_value_ids: string[];
+            sku?: string;
+            barcode?: string;
+          }> = [];
+
+          for (const key of formValues.enabledVariantKeys) {
+            const tokens = key.split("|");
+            // Translate UI tokens to resolved brand value IDs using tokenMaps
+            const resolvedValueIds = tokens.map((token, idx) =>
+              resolvedVariant.tokenMaps[idx]?.get(token)
+            ).filter((id): id is string => id !== undefined);
+
+            // Only include if all values resolved
+            if (resolvedValueIds.length === tokens.length) {
+              const metadata = variantMetadataForUpsert?.[resolvedValueIds.join("|")];
+              explicitVariantsToSend.push({
+                attribute_value_ids: resolvedValueIds,
+                sku: metadata?.sku || undefined,
+                barcode: metadata?.barcode || undefined,
+              });
+            }
+          }
+
+          if (explicitVariantsToSend.length > 0) {
+            await upsertVariantsMutation.mutateAsync({
+              product_id: productId,
+              mode: "explicit",
+              variants: explicitVariantsToSend,
+            });
+          }
         } else if (formValues.explicitVariants.length > 0) {
           await upsertVariantsMutation.mutateAsync({
             product_id: productId,

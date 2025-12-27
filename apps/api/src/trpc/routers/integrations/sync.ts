@@ -180,13 +180,17 @@ export const syncRouter = createTRPCRouter({
           input.brand_integration_id,
         );
 
-        // Check if the job is stale (older than 10 minutes)
-        // This handles cases where Trigger.dev tasks were cancelled but DB wasn't updated
+        // Check if the job is stale (older than 2 minutes with no progress, or 5 minutes total)
+        // This handles cases where Trigger.dev tasks were cancelled/crashed but DB wasn't updated
         if (latestJob && (latestJob.status === "pending" || latestJob.status === "running")) {
           const jobAge = Date.now() - new Date(latestJob.createdAt).getTime();
-          const staleThresholdMs = 10 * 60 * 1000; // 10 minutes
+          const lastUpdate = latestJob.updatedAt ? new Date(latestJob.updatedAt).getTime() : new Date(latestJob.createdAt).getTime();
+          const timeSinceUpdate = Date.now() - lastUpdate;
           
-          if (jobAge > staleThresholdMs) {
+          const staleNoProgressMs = 2 * 60 * 1000; // 2 minutes with no progress
+          const staleAbsoluteMs = 5 * 60 * 1000; // 5 minutes absolute max
+          
+          if (timeSinceUpdate > staleNoProgressMs || jobAge > staleAbsoluteMs) {
             // Mark the stale job as cancelled
             await updateSyncJob(brandCtx.db, latestJob.id, {
               status: "cancelled",

@@ -91,7 +91,7 @@ export function ConnectShopifyModal({
 
     // Build the OAuth install URL and redirect
     const installUrl = new URL(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/integrations/shopify/install`,
+      `${process.env.NEXT_PUBLIC_API_URL}/integrations/shopify/install`,
     );
     installUrl.searchParams.set("shop", normalizedDomain);
     installUrl.searchParams.set("brand_id", brandId);

@@ -193,6 +193,7 @@ export async function getLatestSyncJob(
       entitiesCreated: integrationSyncJobs.entitiesCreated,
       errorSummary: integrationSyncJobs.errorSummary,
       createdAt: integrationSyncJobs.createdAt,
+      updatedAt: integrationSyncJobs.updatedAt,
     })
     .from(integrationSyncJobs)
     .where(eq(integrationSyncJobs.brandIntegrationId, brandIntegrationId))

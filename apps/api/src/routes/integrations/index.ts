@@ -2,7 +2,7 @@
  * Integration OAuth routes aggregator.
  *
  * Combines all integration OAuth routes into a single Hono app
- * that can be mounted at /api/integrations.
+ * that can be mounted at /integrations.
  *
  * @module routes/integrations
  */
@@ -18,7 +18,7 @@ import { shopifyOAuthRouter } from "./shopify.js";
  * Usage in main app:
  * ```ts
  * import { integrationRoutes } from "./routes/integrations/index.js";
- * app.route("/api/integrations", integrationRoutes);
+ * app.route("/integrations", integrationRoutes);
  * ```
  */
 export const integrationRoutes = new Hono();

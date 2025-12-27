@@ -3,6 +3,7 @@
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
+import { cn } from "@v1/ui/cn";
 import * as React from "react";
 import type { ExplicitVariant, VariantDimension, VariantMetadata } from "./types";
 
@@ -12,6 +13,46 @@ interface VariantTableProps {
   setVariantMetadata: React.Dispatch<React.SetStateAction<Record<string, VariantMetadata>>>;
   explicitVariants?: ExplicitVariant[];
   setExplicitVariants?: React.Dispatch<React.SetStateAction<ExplicitVariant[]>>;
+  /** Set of pipe-separated value ID keys that are enabled */
+  enabledVariantKeys: Set<string>;
+  /** Setter for updating enabled variant keys */
+  setEnabledVariantKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
+}
+
+/**
+ * Checkbox component styled to match the passports table.
+ */
+function VariantCheckbox({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <label
+      className="relative inline-flex h-3.5 w-3.5 items-center justify-center cursor-pointer shrink-0"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        type="checkbox"
+        aria-label={ariaLabel}
+        className="block h-3.5 w-3.5 shrink-0 appearance-none border-[1.5px] border-border bg-background checked:bg-background checked:border-brand cursor-pointer outline-none focus:outline-none"
+        checked={checked}
+        onChange={(e) => {
+          (e.target as HTMLInputElement).blur();
+          onChange(e.target.checked);
+        }}
+      />
+      {checked && (
+        <div className="absolute top-0 left-0 w-3.5 h-3.5 flex items-center justify-center pointer-events-none">
+          <div className="w-[8px] h-[8px] bg-brand" />
+        </div>
+      )}
+    </label>
+  );
 }
 
 export function VariantTable({
@@ -20,9 +61,24 @@ export function VariantTable({
   setVariantMetadata,
   explicitVariants,
   setExplicitVariants,
+  enabledVariantKeys,
+  setEnabledVariantKeys,
 }: VariantTableProps) {
   const { taxonomyValuesByAttribute, brandAttributeValuesByAttribute } = useBrandCatalog();
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
+
+  // Toggle a variant's enabled state
+  const toggleVariantEnabled = (key: string, enabled: boolean) => {
+    setEnabledVariantKeys((prev) => {
+      const next = new Set(prev);
+      if (enabled) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    });
+  };
 
   // Get values array for a dimension (handles both standard and custom inline)
   const getDimensionValues = (dim: VariantDimension): string[] => {
@@ -115,11 +171,12 @@ export function VariantTable({
           <div className="px-4 py-2 type-small text-secondary">Barcode</div>
         </div>
         {explicitVariants.map((variant, idx) => {
-          // Use sku or barcode as stable key if available, otherwise fall back to index-based key
-          const stableKey = variant.sku || variant.barcode || `variant-${idx}`;
+          // Use index-based key since array position is the stable identity
+          // Using editable fields (sku/barcode) causes focus loss when transitioning from empty to non-empty
           return (
             <div
-              key={stableKey}
+              // biome-ignore lint/suspicious/noArrayIndexKey: Index is intentional - using editable fields (sku/barcode) causes focus loss when transitioning from empty to non-empty
+              key={`variant-${idx}`}
               className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border"
             >
               <div className="px-4 py-2 type-p text-primary">
@@ -189,12 +246,21 @@ export function VariantTable({
           const key = buildKey([value]);
           const meta = variantMetadata[key] ?? {};
           const { name, hex } = getValueDisplay(dimIndex, value, effectiveDimensions);
+          const isEnabled = enabledVariantKeys.has(key);
           return (
             <div
               key={key}
-              className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border"
+              className={cn(
+                "grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border",
+                !isEnabled && "opacity-50"
+              )}
             >
               <div className="px-4 py-2 flex items-center gap-2">
+                <VariantCheckbox
+                  checked={isEnabled}
+                  onChange={(checked) => toggleVariantEnabled(key, checked)}
+                  ariaLabel={`Enable variant ${name}`}
+                />
                 {hex && (
                   <div
                     className="h-3.5 w-3.5 rounded-full border border-border shrink-0"
@@ -209,6 +275,7 @@ export function VariantTable({
                   onChange={(e) => updateMetadata(key, "sku", e.target.value)}
                   placeholder="SKU"
                   className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                  disabled={!isEnabled}
                 />
               </div>
               <div className="px-2 py-1.5 border-l border-border">
@@ -217,6 +284,7 @@ export function VariantTable({
                   onChange={(e) => updateMetadata(key, "barcode", e.target.value)}
                   placeholder="Barcode"
                   className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                  disabled={!isEnabled}
                 />
               </div>
             </div>
@@ -270,8 +338,14 @@ export function VariantTable({
       {firstDim.effectiveValues.map((groupValue) => {
         const isExpanded = expandedGroups.has(groupValue);
         const { name: groupName, hex: groupHex } = getValueDisplay(firstDimIndex, groupValue, effectiveDimensions);
-        const childCount = childCombinations.length;
         const groupKey = buildKey([groupValue]);
+
+        // Count enabled variants within this group
+        const enabledInGroup = childCombinations.filter((combo) => {
+          const fullCombo = [groupValue, ...combo];
+          return enabledVariantKeys.has(buildKey(fullCombo));
+        }).length;
+        const totalInGroup = childCombinations.length;
 
         return (
           <div key={groupKey}>
@@ -291,7 +365,11 @@ export function VariantTable({
                 />
               )}
               <span className="type-p text-primary">{groupName}</span>
-              <span className="type-small text-tertiary">{childCount} variants</span>
+              <span className="type-small text-tertiary">
+                {enabledInGroup === totalInGroup
+                  ? `${totalInGroup} variants`
+                  : `${enabledInGroup}/${totalInGroup} variants`}
+              </span>
             </button>
 
             {/* Child rows */}
@@ -300,6 +378,7 @@ export function VariantTable({
                 const fullCombo = [groupValue, ...combo];
                 const key = buildKey(fullCombo);
                 const meta = variantMetadata[key] ?? {};
+                const isEnabled = enabledVariantKeys.has(key);
 
                 // Build label with hex colors for each value in combo
                 const labelParts = combo.map((val, i) => {
@@ -312,9 +391,19 @@ export function VariantTable({
                 return (
                   <div
                     key={key}
-                    className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border"
+                    className={cn(
+                      "grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border",
+                      !isEnabled && "opacity-50"
+                    )}
                   >
-                    <div className="px-4 py-2 pl-10 flex items-center gap-1.5">
+                    <div className="px-4 py-2 flex items-center gap-2">
+                      <div className="flex items-center mx-[1px]">
+                        <VariantCheckbox
+                          checked={isEnabled}
+                          onChange={(checked) => toggleVariantEnabled(key, checked)}
+                          ariaLabel={`Enable variant ${labelParts.map((p) => p.name).join(" / ")}`}
+                        />
+                      </div>
                       {labelParts.map((part, i) => (
                         <React.Fragment key={`${part.value}-${i}`}>
                           {i > 0 && <span className="type-p text-tertiary">/</span>}
@@ -334,6 +423,7 @@ export function VariantTable({
                         onChange={(e) => updateMetadata(key, "sku", e.target.value)}
                         placeholder="SKU"
                         className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                        disabled={!isEnabled}
                       />
                     </div>
                     <div className="px-2 py-1.5 border-l border-border">
@@ -342,6 +432,7 @@ export function VariantTable({
                         onChange={(e) => updateMetadata(key, "barcode", e.target.value)}
                         placeholder="Barcode"
                         className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                        disabled={!isEnabled}
                       />
                     </div>
                   </div>

@@ -463,3 +463,115 @@ export async function findProductByVariantIdentifiers(
 
   return null;
 }
+
+// =============================================================================
+// BATCH IDENTIFIER MATCHING
+// =============================================================================
+
+/**
+ * Input for batch identifier matching - one entry per external product.
+ */
+export interface ProductIdentifierBatch {
+  externalId: string;
+  identifiers: { sku?: string; barcode?: string }[];
+}
+
+/**
+ * Result of batch identifier matching.
+ */
+export interface BatchIdentifierMatchResult {
+  /** Map from external product ID to matched internal product */
+  matches: Map<string, { productId: string; productHandle: string }>;
+}
+
+/**
+ * Batch find products by variant identifiers for multiple external products.
+ * 
+ * This eliminates N queries (one per product) with 1-2 batch queries.
+ * Prioritizes barcode matches over SKU matches.
+ * 
+ * @param db - Database connection
+ * @param brandId - Brand ID to search within
+ * @param products - Array of external products with their variant identifiers
+ * @returns Map from external product ID to matched internal product
+ */
+export async function batchFindProductsByIdentifiers(
+  db: Database,
+  brandId: string,
+  products: ProductIdentifierBatch[]
+): Promise<BatchIdentifierMatchResult> {
+  const matches = new Map<string, { productId: string; productHandle: string }>();
+  
+  if (products.length === 0) {
+    return { matches };
+  }
+
+  // Collect all unique SKUs and barcodes from all products
+  const allBarcodes: string[] = [];
+  const allSkus: string[] = [];
+  
+  // Track which identifiers belong to which external product
+  const barcodeToExternalIds = new Map<string, string[]>();
+  const skuToExternalIds = new Map<string, string[]>();
+  
+  for (const product of products) {
+    for (const id of product.identifiers) {
+      if (id.barcode?.trim()) {
+        const barcode = id.barcode.trim().toLowerCase();
+        allBarcodes.push(id.barcode.trim());
+        const existing = barcodeToExternalIds.get(barcode) ?? [];
+        existing.push(product.externalId);
+        barcodeToExternalIds.set(barcode, existing);
+      }
+      if (id.sku?.trim()) {
+        const sku = id.sku.trim().toLowerCase();
+        allSkus.push(id.sku.trim());
+        const existing = skuToExternalIds.get(sku) ?? [];
+        existing.push(product.externalId);
+        skuToExternalIds.set(sku, existing);
+      }
+    }
+  }
+
+  // Priority 1: Match by barcode (single batch query)
+  if (allBarcodes.length > 0) {
+    const barcodeMatches = await findVariantsBySKUorBarcode(db, brandId, [], allBarcodes);
+    for (const match of barcodeMatches) {
+      if (!match.barcode) continue;
+      const externalIds = barcodeToExternalIds.get(match.barcode.toLowerCase()) ?? [];
+      for (const externalId of externalIds) {
+        if (!matches.has(externalId)) {
+          matches.set(externalId, { productId: match.productId, productHandle: match.productHandle });
+        }
+      }
+    }
+  }
+
+  // Priority 2: Match by SKU for remaining unmatched products (single batch query)
+  const unmatchedWithSkus = products.filter(
+    p => !matches.has(p.externalId) && p.identifiers.some(i => i.sku?.trim())
+  );
+  
+  if (unmatchedWithSkus.length > 0 && allSkus.length > 0) {
+    // Only query for SKUs of unmatched products
+    const skusToQuery = new Set<string>();
+    for (const p of unmatchedWithSkus) {
+      for (const id of p.identifiers) {
+        if (id.sku?.trim()) skusToQuery.add(id.sku.trim());
+      }
+    }
+    
+    const skuMatches = await findVariantsBySKUorBarcode(db, brandId, Array.from(skusToQuery), []);
+    for (const match of skuMatches) {
+      if (!match.sku) continue;
+      const externalIds = skuToExternalIds.get(match.sku.toLowerCase()) ?? [];
+      for (const externalId of externalIds) {
+        if (!matches.has(externalId)) {
+          matches.set(externalId, { productId: match.productId, productHandle: match.productHandle });
+        }
+      }
+    }
+  }
+
+  return { matches };
+}

@@ -246,31 +246,15 @@
         "typescript": "^5.9.2",
       },
     },
-    "packages/import-utils": {
-      "name": "@v1/import-utils",
-      "version": "0.0.0",
-      "dependencies": {
-        "@v1/db": "workspace:*",
-        "papaparse": "^5.5.3",
-      },
-      "devDependencies": {
-        "@types/papaparse": "^5.5.0",
-        "@v1/tsconfig": "workspace:*",
-        "typescript": "^5.9.2",
-      },
-    },
     "packages/integrations": {
       "name": "@v1/integrations",
       "version": "0.0.0",
       "dependencies": {
         "@v1/db": "workspace:*",
-        "@v1/selections": "workspace:*",
         "@v1/supabase": "workspace:*",
       },
       "devDependencies": {
-        "@types/node": "^24.0.1",
         "@v1/tsconfig": "workspace:*",
-        "typescript": "^5.9.2",
       },
     },
     "packages/jobs": {
@@ -1253,8 +1237,6 @@
     "@v1/dpp-components": ["@v1/dpp-components@workspace:packages/dpp-components"],
 
     "@v1/email": ["@v1/email@workspace:packages/email"],
-
-    "@v1/import-utils": ["@v1/import-utils@workspace:packages/import-utils"],
 
     "@v1/integrations": ["@v1/integrations@workspace:packages/integrations"],
 

@@ -57,10 +57,10 @@ function getIntegrationDescription(slug: string): string {
  */
 export function IntegrationDetailSkeleton() {
   return (
-      <div className="space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="space-y-3 mx-4">
-      <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-8" />
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
             <Skeleton className="h-[28px] w-[80px]" />
@@ -74,23 +74,23 @@ export function IntegrationDetailSkeleton() {
       </div>
 
       <div className="flex flex-row items-start gap-4 mx-4">
-      <div className="flex flex-col items-start gap-2">
-        <Skeleton className="h-[24px] w-[60px]" />
-        <Skeleton className="h-[24px] w-[60px]" />
-        <Skeleton className="h-[24px] w-[60px]" />
+        <div className="flex flex-col items-start gap-2">
+          <Skeleton className="h-[24px] w-[60px]" />
+          <Skeleton className="h-[24px] w-[60px]" />
+          <Skeleton className="h-[24px] w-[60px]" />
+        </div>
+        <div className="flex flex-col items-start gap-2">
+          <Skeleton className="h-[24px] w-[200px]" />
+          <Skeleton className="h-[24px] w-[200px]" />
+          <Skeleton className="h-[24px] w-[76px]" />
+        </div>
       </div>
-      <div className="flex flex-col items-start gap-2">
-        <Skeleton className="h-[24px] w-[200px]" />
-        <Skeleton className="h-[24px] w-[200px]" />
-        <Skeleton className="h-[24px] w-[76px]" />
-      </div>
-    </div>
 
-    <Skeleton className="h-[98px] w-full" />
+      <Skeleton className="h-[98px] w-full" />
 
-    <Skeleton className="h-[385px] w-full" />
-    <Skeleton className="h-[251px] w-full" />
-    <Skeleton className="h-[184px] w-full" />
+      <Skeleton className="h-[385px] w-full" />
+      <Skeleton className="h-[251px] w-full" />
+      <Skeleton className="h-[184px] w-full" />
     </div>
   );
 }
@@ -105,7 +105,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
   const [shopifyModalOpen, setShopifyModalOpen] = useState(false);
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
-  
+
   // Optimistic sync state - shows "In progress" immediately when user clicks sync
   const [optimisticSyncStarted, setOptimisticSyncStarted] = useState<Date | null>(null);
 
@@ -169,7 +169,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       toast.error("Failed to start sync");
     }
   }
-  
+
   // Clear optimistic state when real sync status is available
   useEffect(() => {
     if (syncStatusData?.data?.isSyncing) {
@@ -261,7 +261,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
             </>
           ) : (
             <Button asChild>
-              <Link href="/settings/integrations">Go to Integrations</Link>
+              <Link href="/settings/integrations" prefetch>Go to Integrations</Link>
             </Button>
           )}
         </div>
@@ -287,8 +287,8 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     syncStatusData?.data?.nextSyncAt ??
     (lastSyncTime && connection.syncInterval
       ? new Date(
-          new Date(lastSyncTime).getTime() + connection.syncInterval * 1000,
-        ).toISOString()
+        new Date(lastSyncTime).getTime() + connection.syncInterval * 1000,
+      ).toISOString()
       : null);
   const syncJobStatus = latestJob?.status as SyncJobStatus | undefined;
 

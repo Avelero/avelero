@@ -47,7 +47,7 @@ export function IntegrationCard({
       <div className="flex items-center gap-3">
         {isConnected ? (
           <Button variant="outline" asChild>
-            <Link href={`/settings/integrations/${integration.slug}`}>Manage</Link>
+            <Link href={`/settings/integrations/${integration.slug}`} prefetch>Manage</Link>
           </Button>
         ) : (
           <Button variant="outline" onClick={onConnect}>

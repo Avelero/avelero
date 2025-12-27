@@ -7,16 +7,8 @@
  * URL structure: /[brandSlug]/[productHandle]/[variantUpid]/
  */
 import { z } from "zod";
-import { slugSchema } from "./_shared/primitives.js";
+import { productHandleSchema, slugSchema } from "./_shared/primitives.js";
 import { upidSchema } from "./products.js";
-
-/**
- * Product handle schema: brand-defined identifier used in URL
- */
-const productHandleSchema = z
-  .string()
-  .min(1, "Product handle is required")
-  .max(255, "Product handle too long");
 
 /**
  * Input for fetching DPP by product handle.

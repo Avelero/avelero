@@ -52,7 +52,7 @@ export function CreateValueModal({
   const [nameError, setNameError] = React.useState("");
 
   // Get taxonomy values for this attribute (if linked to taxonomy)
-  const taxonomyValues = taxonomyAttributeId 
+  const taxonomyValues = taxonomyAttributeId
     ? taxonomyValuesByAttribute.get(taxonomyAttributeId) ?? []
     : [];
 
@@ -193,6 +193,7 @@ export function CreateValueModal({
         {
           delay: 500,
           successMessage: "Value created successfully",
+          errorMessage: "Failed to create value",
         }
       )
       .catch((error) => {

@@ -315,7 +315,13 @@ export const connectionsRouter = createTRPCRouter({
         });
       } catch (error) {
         // If decryption failed, it's likely a credentials issue
-        if (error instanceof Error && error.message.includes("decrypt")) {
+        // AES-256-GCM throws "Unsupported state or unable to authenticate data" on auth tag failure
+        if (
+          error instanceof Error &&
+          (error.message.includes("authenticate data") ||
+            error.message.includes("Unsupported state") ||
+            error.message.includes("decrypt"))
+        ) {
           return createEntityResponse({
             success: false,
             message: "Failed to decrypt credentials. Please reconnect the integration.",

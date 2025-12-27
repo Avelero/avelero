@@ -123,10 +123,10 @@ export async function listBrandAttributesWithTaxonomy(
     updatedAt: row.updatedAt,
     taxonomyAttribute: row.taxonomyId
       ? {
-          id: row.taxonomyId,
-          friendlyId: row.taxonomyFriendlyId!,
-          name: row.taxonomyName!,
-        }
+        id: row.taxonomyId,
+        friendlyId: row.taxonomyFriendlyId!,
+        name: row.taxonomyName!,
+      }
       : null,
   }));
 }
@@ -308,7 +308,7 @@ export async function batchCreateBrandAttributes(
 
 /**
  * Ensure a brand attribute exists for the given taxonomy attribute.
- * Creates the brand attribute if it doesn't exist.
+ * Creates the brand attribute if it doesn't exist using an atomic upsert.
  * Returns the brand attribute ID.
  */
 export async function ensureBrandAttributeForTaxonomy(
@@ -317,8 +317,19 @@ export async function ensureBrandAttributeForTaxonomy(
   taxonomyAttributeId: string,
   taxonomyAttributeName: string
 ): Promise<string> {
-  // Check if brand already has an attribute linked to this taxonomy attribute
-  const [existing] = await db
+  // Use atomic upsert to handle concurrent inserts safely
+  // ON CONFLICT DO NOTHING prevents race conditions
+  await db
+    .insert(brandAttributes)
+    .values({
+      brandId,
+      taxonomyAttributeId,
+      name: taxonomyAttributeName,
+    })
+    .onConflictDoNothing();
+
+  // Fetch the existing (or just-inserted) attribute
+  const [result] = await db
     .select({ id: brandAttributes.id })
     .from(brandAttributes)
     .where(
@@ -329,20 +340,6 @@ export async function ensureBrandAttributeForTaxonomy(
     )
     .limit(1);
 
-  if (existing) {
-    return existing.id;
-  }
-
-  // Create new brand attribute linked to taxonomy
-  const [created] = await db
-    .insert(brandAttributes)
-    .values({
-      brandId,
-      taxonomyAttributeId,
-      name: taxonomyAttributeName,
-    })
-    .returning({ id: brandAttributes.id });
-
-  return created!.id;
+  return result!.id;
 }
 

@@ -22,7 +22,7 @@ export const taxonomyExternalMappings = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     /** Unique slug for the mapping (e.g., "shopify-to-avelero") */
-    slug: text("slug").unique().notNull(),
+    slug: text("slug").notNull(),
 
     /** Source system identifier (e.g., "shopify") */
     sourceSystem: text("source_system").notNull(),

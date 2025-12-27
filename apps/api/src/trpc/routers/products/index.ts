@@ -27,7 +27,6 @@ import {
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { productVariants, products } from "@v1/db/schema";
 import { and, eq, inArray } from "@v1/db/queries";
-import { generateUniqueUpid, generateUniqueUpids } from "@v1/db/utils";
 import {
   productsDomainCreateSchema,
   productsDomainListSchema,
@@ -123,12 +122,12 @@ export const productsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = ensureBrandScope(brandCtx);
-      
+
       // Handle discriminated union: { id } or { handle }
-      const identifier = 'id' in input 
-        ? { id: input.id } 
+      const identifier = 'id' in input
+        ? { id: input.id }
         : { handle: input.handle };
-      
+
       return getProductWithIncludes(brandCtx.db, brandId, identifier, {
         includeVariants: input.includeVariants,
         includeAttributes: input.includeAttributes,
@@ -142,28 +141,11 @@ export const productsRouter = createTRPCRouter({
       const brandId = ensureBrandScope(brandCtx, input.brand_id);
 
       try {
-        const upid = await generateUniqueUpid({
-          isTaken: async (candidate: string) => {
-            const existing = await brandCtx.db
-              .select({ id: products.id })
-              .from(products)
-              .where(
-                and(
-                  eq(products.brandId, brandId),
-                  eq(products.productHandle, candidate),
-                ),
-              )
-              .limit(1);
-            return Boolean(existing[0]);
-          },
-        });
-
         // Auto-generate product handle from name if not provided
         const productHandle = input.product_handle || generateProductHandle(input.name);
 
         const payload: Record<string, unknown> = {
           name: input.name,
-          upid,
           productHandle,
           description: input.description ?? null,
           categoryId: input.category_id ?? null,
@@ -253,7 +235,7 @@ export const productsRouter = createTRPCRouter({
 
         // Single product update
         const payload: Record<string, unknown> = { id: input.id };
-        
+
         // Only add fields to payload if they were explicitly provided in input
         if (input.product_handle !== undefined) payload.productHandle = input.product_handle;
         if (input.name !== undefined) payload.name = input.name;
@@ -286,7 +268,7 @@ export const productsRouter = createTRPCRouter({
             .where(and(eq(products.id, product.id), eq(products.brandId, brandId)))
             .limit(1);
           if (productWithHandle?.productHandle) {
-            revalidateProduct(productWithHandle.productHandle).catch(() => {});
+            revalidateProduct(productWithHandle.productHandle).catch(() => { });
           }
         }
 

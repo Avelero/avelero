@@ -449,8 +449,8 @@ export const explicitVariantSchema = z.object({
 export const matrixDimensionSchema = z.object({
   /** The brand attribute ID */
   attribute_id: uuidSchema,
-  /** The brand attribute value IDs for this dimension */
-  value_ids: uuidArraySchema.min(1, "At least one value is required per dimension"),
+  /** The brand attribute value IDs for this dimension (max 50 values) */
+  value_ids: uuidArraySchema.min(1, "At least one value is required per dimension").max(50, "Maximum 50 values allowed per dimension"),
 });
 
 /**

@@ -16,13 +16,13 @@ import { products, productVariants, productTags, integrationProductLinks, integr
 /**
  * Update data for the `products` table.
  * NOTE: webshopUrl, price, currency, salesStatus are in `product_commercial` table.
+ * NOTE: imagePath updates are handled separately via product update mutations, not batch sync.
  */
 export interface ProductUpdateData {
   id: string;
   name?: string;
   description?: string | null;
   categoryId?: string | null;
-  imagePath?: string | null;
 }
 
 /**
@@ -75,14 +75,14 @@ export async function batchUpdateProducts(
   if (updates.length === 0) return 0;
 
   const now = new Date().toISOString();
-  
+
   // Build VALUES rows with product table fields only
   const valueRows: string[] = [];
-  
+
   for (const update of updates) {
     const id = `'${update.id}'::uuid`;
-    const name = update.name !== undefined 
-      ? `'${update.name.replace(/'/g, "''")}'` 
+    const name = update.name !== undefined
+      ? `'${update.name.replace(/'/g, "''")}'`
       : 'NULL';
     const description = update.description !== undefined
       ? (update.description ? `'${update.description.replace(/'/g, "''")}'` : 'NULL')
@@ -90,35 +90,35 @@ export async function batchUpdateProducts(
     const categoryId = update.categoryId !== undefined
       ? (update.categoryId ? `'${update.categoryId}'::uuid` : 'NULL::uuid')
       : 'NULL::uuid';
-    
+
     valueRows.push(`(${id}, ${name}, ${description}, ${categoryId})`);
   }
-  
+
   // Determine which columns have updates
   const hasName = updates.some(u => u.name !== undefined);
   const hasDescription = updates.some(u => u.description !== undefined);
   const hasCategoryId = updates.some(u => u.categoryId !== undefined);
-  
+
   // Build SET clause
   const setClauses: string[] = [];
   if (hasName) setClauses.push('name = COALESCE(v.name, p.name)');
   if (hasDescription) setClauses.push('description = v.description');
   if (hasCategoryId) setClauses.push('category_id = v.category_id');
   setClauses.push(`updated_at = '${now}'`);
-  
+
   if (setClauses.length === 1) {
     return 0;
   }
-  
+
   const query = `
     UPDATE products AS p
     SET ${setClauses.join(', ')}
     FROM (VALUES ${valueRows.join(', ')}) AS v(id, name, description, category_id)
     WHERE p.id = v.id
   `;
-  
+
   await db.execute(sql.raw(query));
-  
+
   return updates.length;
 }
 
@@ -141,17 +141,17 @@ export async function batchUpsertProductCommercial(
   if (data.length === 0) return 0;
 
   const now = new Date().toISOString();
-  
+
   // Filter to only records that have at least one commercial field set
-  const validData = data.filter(d => 
-    d.webshopUrl !== undefined || 
-    d.price !== undefined || 
-    d.currency !== undefined || 
+  const validData = data.filter(d =>
+    d.webshopUrl !== undefined ||
+    d.price !== undefined ||
+    d.currency !== undefined ||
     d.salesStatus !== undefined
   );
-  
+
   if (validData.length === 0) return 0;
-  
+
   await db.insert(productCommercial)
     .values(validData.map(d => ({
       productId: d.productId,
@@ -172,7 +172,7 @@ export async function batchUpsertProductCommercial(
         updatedAt: now,
       },
     });
-  
+
   return validData.length;
 }
 
@@ -193,13 +193,13 @@ export async function batchUpdateVariants(
   updates: VariantUpdateData[]
 ): Promise<number> {
   if (updates.length === 0) return 0;
-  
+
   const now = new Date().toISOString();
-  
+
   // Build the VALUES clause rows
   // Format: (id::uuid, sku::text, barcode::text)
   const valueRows: string[] = [];
-  
+
   for (const update of updates) {
     const id = `'${update.id}'::uuid`;
     const sku = update.sku !== undefined
@@ -208,25 +208,25 @@ export async function batchUpdateVariants(
     const barcode = update.barcode !== undefined
       ? (update.barcode ? `'${update.barcode.replace(/'/g, "''")}'` : 'NULL')
       : 'NULL';
-    
+
     valueRows.push(`(${id}, ${sku}, ${barcode})`);
   }
-  
+
   // Determine which columns actually have updates (to avoid setting unchanged columns)
   const hasSkuUpdates = updates.some(u => u.sku !== undefined);
   const hasBarcodeUpdates = updates.some(u => u.barcode !== undefined);
-  
+
   // Build SET clause - only update columns that have changes
   const setClauses: string[] = [];
   if (hasSkuUpdates) setClauses.push('sku = v.sku');
   if (hasBarcodeUpdates) setClauses.push('barcode = v.barcode');
   setClauses.push(`updated_at = '${now}'`);
-  
+
   if (setClauses.length === 1) {
     // Only updated_at, nothing substantive to update
     return 0;
   }
-  
+
   // Execute single UPDATE FROM VALUES query
   const query = `
     UPDATE product_variants AS pv
@@ -234,9 +234,9 @@ export async function batchUpdateVariants(
     FROM (VALUES ${valueRows.join(', ')}) AS v(id, sku, barcode)
     WHERE pv.id = v.id
   `;
-  
+
   await db.execute(sql.raw(query));
-  
+
   return updates.length;
 }
 
@@ -255,13 +255,13 @@ export async function batchSetProductTags(
   assignments: TagAssignmentData[]
 ): Promise<number> {
   if (assignments.length === 0) return 0;
-  
+
   const productIds = assignments.map(a => a.productId);
-  
+
   // Delete all existing tags for these products in one query
   await db.delete(productTags)
     .where(inArray(productTags.productId, productIds));
-  
+
   // Build all tag assignments to insert
   const toInsert: { productId: string; tagId: string }[] = [];
   for (const assignment of assignments) {
@@ -269,12 +269,12 @@ export async function batchSetProductTags(
       toInsert.push({ productId: assignment.productId, tagId });
     }
   }
-  
+
   if (toInsert.length === 0) return 0;
-  
+
   // Insert all tags in one query
   await db.insert(productTags).values(toInsert);
-  
+
   return toInsert.length;
 }
 
@@ -290,9 +290,9 @@ export async function batchUpsertProductLinks(
   links: ProductLinkUpsertData[]
 ): Promise<void> {
   if (links.length === 0) return;
-  
+
   const now = new Date().toISOString();
-  
+
   await db.insert(integrationProductLinks)
     .values(links.map(link => ({
       brandIntegrationId: link.brandIntegrationId,

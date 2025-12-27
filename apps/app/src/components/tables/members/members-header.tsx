@@ -52,11 +52,11 @@ export function MembersHeader({ activeTab, onTabChange, brandId, isOwner = false
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span tabIndex={0}>
+              <div role="button" tabIndex={0}>
                 <Button variant="outline" disabled>
                   Invite member
                 </Button>
-              </span>
+              </div>
             </TooltipTrigger>
             <TooltipContent>
               <p>Only brand owners can send invites</p>

@@ -37,10 +37,10 @@ export function VariantTable({
   // Get hex color for a taxonomy value (check both "swatch" and "hex" keys)
   const getTaxonomyValueHex = (dim: VariantDimension, valueId: string): string | null => {
     if (dim.isCustomInline || !dim.taxonomyAttributeId) return null;
-    
+
     const taxValues = taxonomyValuesByAttribute.get(dim.taxonomyAttributeId) ?? [];
     const taxVal = taxValues.find((v) => v.id === valueId);
-    
+
     if (taxVal?.metadata && typeof taxVal.metadata === "object") {
       const meta = taxVal.metadata as Record<string, unknown>;
       if (typeof meta.swatch === "string") return meta.swatch;
@@ -65,12 +65,12 @@ export function VariantTable({
   const getValueDisplay = (dimIndex: number, value: string, effectiveDims: typeof effectiveDimensions): { name: string; hex: string | null } => {
     const dim = effectiveDims[dimIndex];
     if (!dim) return { name: value, hex: null };
-    
+
     // Custom inline - value is the string itself
     if (dim.isCustomInline) {
       return { name: value, hex: null };
     }
-    
+
     // Always check brand values first - dimension.values contains brand value IDs
     if (dim.attributeId) {
       const brandValues = brandAttributeValuesByAttribute.get(dim.attributeId) ?? [];
@@ -83,7 +83,7 @@ export function VariantTable({
         return { name: brandVal.name, hex };
       }
     }
-    
+
     // Fallback to direct taxonomy value lookup (legacy compatibility)
     if (dim.taxonomyAttributeId) {
       const taxValues = taxonomyValuesByAttribute.get(dim.taxonomyAttributeId) ?? [];
@@ -92,7 +92,7 @@ export function VariantTable({
         return { name: taxVal.name, hex: getTaxonomyValueHex(dim, value) };
       }
     }
-    
+
     return { name: value, hex: null };
   };
 
@@ -114,44 +114,48 @@ export function VariantTable({
           <div className="px-4 py-2 type-small text-secondary">SKU</div>
           <div className="px-4 py-2 type-small text-secondary">Barcode</div>
         </div>
-        {explicitVariants.map((variant, idx) => (
-          <div
-            key={`explicit-${variant.sku || variant.barcode || idx}`}
-            className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border"
-          >
-            <div className="px-4 py-2 type-p text-primary">
-              {variant.sku || variant.barcode || `Variant ${idx + 1}`}
+        {explicitVariants.map((variant, idx) => {
+          // Use sku or barcode as stable key if available, otherwise fall back to index-based key
+          const stableKey = variant.sku || variant.barcode || `variant-${idx}`;
+          return (
+            <div
+              key={stableKey}
+              className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border"
+            >
+              <div className="px-4 py-2 type-p text-primary">
+                {variant.sku || variant.barcode || `Variant ${idx + 1}`}
+              </div>
+              <div className="px-2 py-1.5 border-l border-border">
+                <Input
+                  value={variant.sku}
+                  onChange={(e) => {
+                    setExplicitVariants?.((prev) => {
+                      const next = [...prev];
+                      next[idx] = { sku: e.target.value, barcode: next[idx]?.barcode ?? "" };
+                      return next;
+                    });
+                  }}
+                  placeholder="SKU"
+                  className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                />
+              </div>
+              <div className="px-2 py-1.5 border-l border-border">
+                <Input
+                  value={variant.barcode}
+                  onChange={(e) => {
+                    setExplicitVariants?.((prev) => {
+                      const next = [...prev];
+                      next[idx] = { sku: next[idx]?.sku ?? "", barcode: e.target.value };
+                      return next;
+                    });
+                  }}
+                  placeholder="Barcode"
+                  className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                />
+              </div>
             </div>
-            <div className="px-2 py-1.5 border-l border-border">
-              <Input
-                value={variant.sku}
-                onChange={(e) => {
-                  setExplicitVariants?.((prev) => {
-                    const next = [...prev];
-                    next[idx] = { sku: e.target.value, barcode: next[idx]?.barcode ?? "" };
-                    return next;
-                  });
-                }}
-                placeholder="SKU"
-                className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
-              />
-            </div>
-            <div className="px-2 py-1.5 border-l border-border">
-              <Input
-                value={variant.barcode}
-                onChange={(e) => {
-                  setExplicitVariants?.((prev) => {
-                    const next = [...prev];
-                    next[idx] = { sku: next[idx]?.sku ?? "", barcode: e.target.value };
-                    return next;
-                  });
-                }}
-                placeholder="Barcode"
-                className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   }
@@ -296,7 +300,7 @@ export function VariantTable({
                 const fullCombo = [groupValue, ...combo];
                 const key = buildKey(fullCombo);
                 const meta = variantMetadata[key] ?? {};
-                
+
                 // Build label with hex colors for each value in combo
                 const labelParts = combo.map((val, i) => {
                   const otherDim = otherDims[i];

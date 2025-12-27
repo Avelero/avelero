@@ -37,8 +37,9 @@ export function RemoveMemberModal({
     }
 
     function handleConfirm() {
+        // Don't close modal here - let parent close it after async operation completes
+        // so users can see the "Removing..." loading state
         onConfirm();
-        onOpenChange(false);
     }
 
     return (

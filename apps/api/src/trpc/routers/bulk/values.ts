@@ -307,7 +307,7 @@ export const valuesRouter = createTRPCRouter({
             const inserted: Array<{ id: string }> = await serviceDb
               .insert(taxonomyCategories)
               .values({
-                publicId: `${publicId}-${Date.now()}`,
+                publicId: `${publicId}-${crypto.randomUUID().slice(0, 8)}`,
                 name: label,
                 parentId,
               })

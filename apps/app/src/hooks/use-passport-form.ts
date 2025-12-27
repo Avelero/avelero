@@ -851,13 +851,22 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const targetProductHandle = (created as any)?.data?.product_handle ?? productHandle ?? null;
         if (!productId) throw new Error("Product was not created");
 
-        // Upsert variants
+        // Upsert variants (matrix or explicit mode)
         if (resolvedDimensions.length > 0) {
           await upsertVariantsMutation.mutateAsync({
             product_id: productId,
             mode: "matrix",
             dimensions: resolvedDimensions,
             variant_metadata: variantMetadataForUpsert,
+          });
+        } else if (formValues.explicitVariants.length > 0) {
+          await upsertVariantsMutation.mutateAsync({
+            product_id: productId,
+            mode: "explicit",
+            variants: formValues.explicitVariants.map((v) => ({
+              sku: v.sku || undefined,
+              barcode: v.barcode || undefined,
+            })),
           });
         }
 

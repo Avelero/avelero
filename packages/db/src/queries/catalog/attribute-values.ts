@@ -165,11 +165,11 @@ export async function listBrandAttributeValuesWithTaxonomy(
     updatedAt: row.updatedAt,
     taxonomyValue: row.taxonomyId
       ? {
-          id: row.taxonomyId,
-          friendlyId: row.taxonomyFriendlyId!,
-          name: row.taxonomyName!,
-          metadata: row.taxonomyMetadata,
-        }
+        id: row.taxonomyId,
+        friendlyId: row.taxonomyFriendlyId!,
+        name: row.taxonomyName!,
+        metadata: row.taxonomyMetadata,
+      }
       : null,
   }));
 }
@@ -446,7 +446,8 @@ export async function loadAllBrandAttributeValuesMap(
 
 /**
  * Batch create multiple brand attribute values in a single query.
- * Uses ON CONFLICT DO NOTHING to handle existing values.
+ * Uses ON CONFLICT DO UPDATE to handle existing values - fills `taxonomyValueId`
+ * if it was previously null and updates `updatedAt`.
  *
  * @param db - Database connection
  * @param brandId - Brand ID

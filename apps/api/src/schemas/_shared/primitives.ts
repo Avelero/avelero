@@ -60,17 +60,26 @@ export const productHandleSchema = z
 /**
  * Generates a URL-friendly handle from a product name.
  * Converts to lowercase, replaces spaces with dashes, and removes special characters.
+ * @throws {Error} If the input would result in an empty handle (empty string, only special characters, only spaces)
  * @example "Special Pants" → "special-pants"
  * @example "Organic Cotton T-Shirt (2024)" → "organic-cotton-t-shirt-2024"
  */
 export function generateProductHandle(productName: string): string {
-  return productName
+  const handle = productName
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9\s-]/g, "") // Remove special characters except spaces and dashes
     .replace(/\s+/g, "-") // Replace spaces with dashes
     .replace(/-+/g, "-") // Replace multiple dashes with single dash
     .replace(/^-|-$/g, ""); // Remove leading/trailing dashes
+
+  if (!handle) {
+    throw new Error(
+      "Cannot generate product handle: input contains no valid characters (only letters, numbers, spaces, and dashes are allowed)"
+    );
+  }
+
+  return handle;
 }
 
 /**

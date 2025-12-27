@@ -327,6 +327,11 @@ export async function createMissingEntities(
         // We know this attribute should be linked to a taxonomy attribute
         const taxonomyAttr = await getTaxonomyAttributeByFriendlyId(db, taxonomyFriendlyId);
         if (taxonomyAttr) {
+          // Check if this attribute was already in the cache before calling ensureBrandAttributeForTaxonomy
+          // to determine if we're creating vs retrieving
+          const wasAlreadyCached = caches.attributes.has(rawName.toLowerCase()) ||
+            caches.attributes.has(taxonomyFriendlyId);
+
           const id = await ensureBrandAttributeForTaxonomy(
             db,
             brandId,
@@ -338,7 +343,11 @@ export async function createMissingEntities(
           caches.attributes.set(rawName.toLowerCase(), { id, created: false });
           // Also cache under taxonomy friendly_id for reference
           caches.attributes.set(taxonomyFriendlyId, { id, created: false });
-          stats.attributesCreated++;
+
+          // Only count as created if it wasn't already cached
+          if (!wasAlreadyCached) {
+            stats.attributesCreated++;
+          }
           continue;
         }
       }

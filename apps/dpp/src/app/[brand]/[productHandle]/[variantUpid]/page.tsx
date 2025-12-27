@@ -50,7 +50,7 @@ export async function generateMetadata({
   const attributes = data.dppData.productAttributes.attributes ?? [];
 
   // Build title with variant info if available
-  const variantInfo = attributes.map((attr) => attr.value).join(" ");
+  const variantInfo = attributes.map((attr) => attr.value).filter(Boolean).join(" ");
   const productTitle = variantInfo ? `${productName} (${variantInfo})` : productName;
 
   return {

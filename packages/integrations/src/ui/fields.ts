@@ -49,12 +49,12 @@ export interface ConnectorFieldMeta {
 /**
  * Category labels for UI display.
  */
-export const FIELD_CATEGORY_LABELS: Record<FieldCategory | string, string> = {
+export const FIELD_CATEGORY_LABELS = {
   product: "Product",
   variants: "Variants",
   organization: "Organization",
   sales: "Sales",
-};
+} satisfies Record<FieldCategory, string>;
 
 // =============================================================================
 // SHOPIFY FIELDS
@@ -75,118 +75,118 @@ const SHOPIFY_FIELD_DEFINITIONS: Array<{
   category: FieldCategory;
   required: boolean;
 }> = [
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PRODUCT FIELDS
-  // ─────────────────────────────────────────────────────────────────────────────
-  {
-    fieldKey: "product.name",
-    label: "Product Name",
-    description: "Product display name from Shopify",
-    entity: "product",
-    category: "product",
-    required: false,
-  },
-  {
-    fieldKey: "product.description",
-    label: "Description",
-    description: "Product description text from Shopify",
-    entity: "product",
-    category: "product",
-    required: false,
-  },
-  {
-    fieldKey: "product.imagePath",
-    label: "Primary Image",
-    description: "Product image URL from Shopify",
-    entity: "product",
-    category: "product",
-    required: false,
-  },
+    // ─────────────────────────────────────────────────────────────────────────────
+    // PRODUCT FIELDS
+    // ─────────────────────────────────────────────────────────────────────────────
+    {
+      fieldKey: "product.name",
+      label: "Product Name",
+      description: "Product display name from Shopify",
+      entity: "product",
+      category: "product",
+      required: false,
+    },
+    {
+      fieldKey: "product.description",
+      label: "Description",
+      description: "Product description text from Shopify",
+      entity: "product",
+      category: "product",
+      required: false,
+    },
+    {
+      fieldKey: "product.imagePath",
+      label: "Primary Image",
+      description: "Product image URL from Shopify",
+      entity: "product",
+      category: "product",
+      required: false,
+    },
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // VARIANT FIELDS
-  // ─────────────────────────────────────────────────────────────────────────────
-  {
-    fieldKey: "variant.attributes",
-    label: "Attributes",
-    description: "Variant options from your Shopify store (Color, Size, etc.), will be publicly visible",
-    entity: "variant",
-    category: "variants",
-    required: false,
-  },
-  {
-    fieldKey: "variant.sku",
-    label: "SKU",
-    description: "Stock Keeping Unit - primary identifier for matching variants",
-    entity: "variant",
-    category: "variants",
-    required: false,
-  },
-  {
-    fieldKey: "variant.barcode",
-    label: "Barcode",
-    description: "Variant barcode - secondary identifier for matching",
-    entity: "variant",
-    category: "variants",
-    required: false,
-  },
+    // ─────────────────────────────────────────────────────────────────────────────
+    // VARIANT FIELDS
+    // ─────────────────────────────────────────────────────────────────────────────
+    {
+      fieldKey: "variant.attributes",
+      label: "Attributes",
+      description: "Variant options from your Shopify store (Color, Size, etc.), will be publicly visible",
+      entity: "variant",
+      category: "variants",
+      required: false,
+    },
+    {
+      fieldKey: "variant.sku",
+      label: "SKU",
+      description: "Stock Keeping Unit - primary identifier for matching variants",
+      entity: "variant",
+      category: "variants",
+      required: false,
+    },
+    {
+      fieldKey: "variant.barcode",
+      label: "Barcode",
+      description: "Variant barcode - secondary identifier for matching",
+      entity: "variant",
+      category: "variants",
+      required: false,
+    },
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // ORGANIZATION FIELDS
-  // ─────────────────────────────────────────────────────────────────────────────
-  {
-    fieldKey: "product.tags",
-    label: "Tags",
-    description: "Product tags synced as brand tags",
-    entity: "product",
-    category: "organization",
-    required: false,
-  },
-  {
-    fieldKey: "product.categoryId",
-    label: "Category",
-    description: "Product category from Shopify taxonomy",
-    entity: "product",
-    category: "organization",
-    required: false,
-  },
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ORGANIZATION FIELDS
+    // ─────────────────────────────────────────────────────────────────────────────
+    {
+      fieldKey: "product.tags",
+      label: "Tags",
+      description: "Product tags synced as brand tags",
+      entity: "product",
+      category: "organization",
+      required: false,
+    },
+    {
+      fieldKey: "product.categoryId",
+      label: "Category",
+      description: "Product category from Shopify taxonomy",
+      entity: "product",
+      category: "organization",
+      required: false,
+    },
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SALES FIELDS
-  // ─────────────────────────────────────────────────────────────────────────────
-  {
-    fieldKey: "product.webshopUrl",
-    label: "Webshop URL",
-    description: "URL to the product on the online store",
-    entity: "product",
-    category: "sales",
-    required: false,
-  },
-  {
-    fieldKey: "product.price",
-    label: "Price",
-    description: "Product price from variant",
-    entity: "product",
-    category: "sales",
-    required: false,
-  },
-  {
-    fieldKey: "product.currency",
-    label: "Currency",
-    description: "Currency code from Shopify shop settings",
-    entity: "product",
-    category: "sales",
-    required: false,
-  },
-  {
-    fieldKey: "product.salesStatus",
-    label: "Sales Status",
-    description: "Availability status derived from Shopify product status",
-    entity: "product",
-    category: "sales",
-    required: false,
-  },
-];
+    // ─────────────────────────────────────────────────────────────────────────────
+    // SALES FIELDS
+    // ─────────────────────────────────────────────────────────────────────────────
+    {
+      fieldKey: "product.webshopUrl",
+      label: "Webshop URL",
+      description: "URL to the product on the online store",
+      entity: "product",
+      category: "sales",
+      required: false,
+    },
+    {
+      fieldKey: "product.price",
+      label: "Price",
+      description: "Product price from variant",
+      entity: "product",
+      category: "sales",
+      required: false,
+    },
+    {
+      fieldKey: "product.currency",
+      label: "Currency",
+      description: "Currency code from Shopify shop settings",
+      entity: "product",
+      category: "sales",
+      required: false,
+    },
+    {
+      fieldKey: "product.salesStatus",
+      label: "Sales Status",
+      description: "Availability status derived from Shopify product status",
+      entity: "product",
+      category: "sales",
+      required: false,
+    },
+  ];
 
 // =============================================================================
 // EXPORTS

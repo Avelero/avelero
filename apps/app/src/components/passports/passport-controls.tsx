@@ -23,7 +23,6 @@ import type {
   FilterState,
   SelectionState,
 } from "../tables/passports/types";
-import { DisplayPopover } from "./display-popover";
 
 interface PassportControlsProps {
   selectedCount?: number;
@@ -33,12 +32,6 @@ interface PassportControlsProps {
   onRequestBulkUpdate?: (changes: BulkChanges) => void; // optional external handler
   onDeleteSelectedAction?: () => void; // trigger delete modal for selected items
   onStatusChangeAction?: (status: string) => void; // trigger bulk status change
-  displayProps?: {
-    productLabel?: string;
-    allColumns: { id: string; label: string }[];
-    initialVisible: string[];
-    onSave: (visibleOrdered: string[]) => void;
-  };
   filterState?: FilterState;
   filterActions?: FilterActions;
   sortState?: { field: string; direction: "asc" | "desc" } | null;
@@ -56,7 +49,6 @@ export function PassportControls({
   onClearSelectionAction,
   onDeleteSelectedAction,
   onStatusChangeAction,
-  displayProps,
   filterState,
   filterActions,
   sortState,
@@ -156,45 +148,6 @@ export function PassportControls({
         )}
 
         <div className="flex-1" />
-
-        {/* Display */}
-        {displayProps ? (
-          disabled ? (
-            <Button
-              variant="subtle"
-              size="default"
-              disabled
-            >
-              <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
-              <span className="px-1">Display</span>
-            </Button>
-          ) : (
-            <DisplayPopover
-              trigger={
-                <Button
-                  variant="subtle"
-                  size="default"
-                >
-                  <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
-                  <span className="px-1">Display</span>
-                </Button>
-              }
-              productLabel={displayProps.productLabel}
-              allColumns={displayProps.allColumns}
-              initialVisible={displayProps.initialVisible}
-              onSave={displayProps.onSave}
-            />
-          )
-        ) : (
-          <Button
-            variant="subtle"
-            size="default"
-            disabled={disabled}
-          >
-            <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
-            <span className="px-1">Display</span>
-          </Button>
-        )}
 
         {/* Actions */}
         <DropdownMenu>

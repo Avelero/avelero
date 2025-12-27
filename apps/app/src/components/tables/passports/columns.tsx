@@ -262,6 +262,85 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
     },
   },
+  // Variant count
+  {
+    id: "variantCount",
+    header: "Variants",
+    cell: ({ row }) => {
+      const count = row.original.variantCount;
+      return (
+        <span className="type-p text-primary">
+          {count}
+        </span>
+      );
+    },
+    meta: {
+      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+    },
+  },
+  // Tags
+  {
+    id: "tags",
+    header: "Tags",
+    cell: ({ row }) => {
+      const tags = row.original.tags;
+      if (!tags || tags.length === 0) {
+        return null;
+      }
+      return (
+        <TooltipProvider delayDuration={120}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="relative max-w-[200px]">
+                {/* Tags container with hidden overflow */}
+                <div className="flex items-center gap-1 overflow-hidden">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="inline-flex h-6 items-center gap-1.5 rounded-full border bg-background px-2 type-small text-primary flex-shrink-0"
+                    >
+                      {tag.hex && (
+                        <span
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0 border-[0.5px] border-border"
+                          style={{ backgroundColor: `#${tag.hex}` }}
+                        />
+                      )}
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
+                {/* Right-edge fade-out gradient overlay */}
+                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background pointer-events-none" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="start" className="p-2 min-w-[120px]">
+              <div className="flex flex-col gap-1.5">
+                {tags.map((tag) => (
+                  <div
+                    key={tag.id}
+                    className="flex items-center gap-2"
+                  >
+                    {tag.hex && (
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0 border-[0.5px] border-border"
+                        style={{ backgroundColor: `#${tag.hex}` }}
+                      />
+                    )}
+                    <span className="type-small text-primary">{tag.name}</span>
+                  </div>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    },
+    meta: {
+      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+    },
+  },
   {
     id: "actions",
     header: "Actions",

@@ -17,13 +17,14 @@ import type { PassportTableRow } from "./types";
 import { PassportControls } from "@/components/passports/passport-controls";
 
 // Default values matching table-section.tsx
-const DEFAULT_VISIBLE = ["status", "category", "season"];
-const DEFAULT_COLUMN_ORDER = ["product", ...DEFAULT_VISIBLE, "actions"];
+const DEFAULT_COLUMN_ORDER = ["product", "status", "category", "season", "variantCount", "tags", "actions"];
 const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
   product: true,
   status: true,
   category: true,
   season: true,
+  variantCount: true,
+  tags: true,
   actions: true,
 };
 

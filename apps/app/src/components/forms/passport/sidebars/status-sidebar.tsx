@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * StatusSidebar
+ *
+ * Sidebar component for product forms showing status selector.
+ */
+
 import { Icons } from "@v1/ui/icons";
 import { Select } from "@v1/ui/select";
 
@@ -26,12 +32,12 @@ const STATUS_OPTIONS = [
   },
 ];
 
-interface StatusSectionProps {
+interface StatusSidebarProps {
   status: string;
   setStatus: (value: string) => void;
 }
 
-export function StatusSection({ status, setStatus }: StatusSectionProps) {
+export function StatusSidebar({ status, setStatus }: StatusSidebarProps) {
   return (
     <div className="border border-border bg-background p-4 flex flex-col gap-3">
       <p className="type-p !font-medium text-primary">Status</p>
@@ -42,6 +48,6 @@ export function StatusSection({ status, setStatus }: StatusSectionProps) {
         placeholder="Select status"
         width="w-full min-w-[200px] max-w-[320px]"
       />
-    </div> 
+    </div>
   );
 }

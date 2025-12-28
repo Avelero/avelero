@@ -95,9 +95,10 @@ jobs:
           exit 1
 
       - name: 🚀 Deploy to Trigger.dev Preview
-        run: bunx trigger.dev@4.0.6 deploy --env preview --branch "${{ github.head_ref }}"
+        run: bunx trigger.dev@4.0.6 deploy --env preview --branch "$BRANCH_NAME"
         working-directory: ./packages/jobs
         env:
+          BRANCH_NAME: ${{ github.head_ref }}
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
           API_URL: ${{ steps.api-url.outputs.url }}
           INTERNAL_API_KEY: ${{ secrets.PREVIEW_INTERNAL_API_KEY }}

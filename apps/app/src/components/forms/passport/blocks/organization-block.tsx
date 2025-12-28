@@ -1,10 +1,10 @@
 "use client";
 
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { SeasonModal } from "@/components/modals/season-modal";
 import { CategorySelect } from "@/components/select/category-select";
 import { type Season, SeasonSelect } from "@/components/select/season-select";
 import { TagSelect } from "@/components/select/tag-select";
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";

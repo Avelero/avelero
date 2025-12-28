@@ -1,5 +1,6 @@
 "use client";
 
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import {
   DndContext,
   type DragEndEvent,
@@ -16,7 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
+import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
   Command,
@@ -30,14 +31,23 @@ import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { Select, type SelectOptionGroup } from "@v1/ui/select";
+import Link from "next/link";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { AttributeSelect } from "./attribute-select";
-import type { ExplicitVariant, VariantDimension, VariantMetadata } from "./types";
+import type {
+  ExplicitVariant,
+  VariantDimension,
+  VariantMetadata,
+} from "./types";
 import { VariantTable } from "./variant-table";
 
 // Re-export types
-export type { ExplicitVariant, VariantDimension, VariantMetadata } from "./types";
+export type {
+  ExplicitVariant,
+  VariantDimension,
+  VariantMetadata,
+} from "./types";
 
 // ============================================================================
 // Sortable Wrapper
@@ -51,8 +61,21 @@ interface SortableAttributeRowProps {
   setExpanded: (expanded: boolean) => void;
 }
 
-function SortableAttributeRow({ dimension, onChange, onDelete, isExpanded, setExpanded }: SortableAttributeRowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+function SortableAttributeRow({
+  dimension,
+  onChange,
+  onDelete,
+  isExpanded,
+  setExpanded,
+}: SortableAttributeRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: dimension.id,
   });
 
@@ -84,13 +107,21 @@ interface VariantSectionProps {
   dimensions: VariantDimension[];
   setDimensions: React.Dispatch<React.SetStateAction<VariantDimension[]>>;
   variantMetadata: Record<string, VariantMetadata>;
-  setVariantMetadata: React.Dispatch<React.SetStateAction<Record<string, VariantMetadata>>>;
+  setVariantMetadata: React.Dispatch<
+    React.SetStateAction<Record<string, VariantMetadata>>
+  >;
   explicitVariants?: ExplicitVariant[];
   setExplicitVariants?: React.Dispatch<React.SetStateAction<ExplicitVariant[]>>;
   /** Set of pipe-separated value ID keys that are enabled */
   enabledVariantKeys: Set<string>;
   /** Setter for updating enabled variant keys */
   setEnabledVariantKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
+  /** Whether in edit mode (variants are clickable and navigate to variant edit page) */
+  isEditMode?: boolean;
+  /** Product handle for building variant edit URLs */
+  productHandle?: string;
+  /** Saved variants with UPIDs and override status, keyed by the value id key (e.g., "valueId1|valueId2") */
+  savedVariants?: Map<string, { upid: string; hasOverrides: boolean }>;
 }
 
 /**
@@ -136,6 +167,9 @@ export function VariantSection({
   setExplicitVariants,
   enabledVariantKeys,
   setEnabledVariantKeys,
+  isEditMode = false,
+  productHandle,
+  savedVariants,
 }: VariantSectionProps) {
   const { taxonomyAttributes, brandAttributes } = useBrandCatalog();
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -144,7 +178,7 @@ export function VariantSection({
   const [addSearchTerm, setAddSearchTerm] = React.useState("");
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
   // Collect existing attribute IDs for filtering
@@ -154,73 +188,106 @@ export function VariantSection({
 
   // Build attribute lookup map for resolving selections
   const attributeLookup = React.useMemo(() => {
-    const map = new Map<string, { id: string; name: string; taxonomyId: string | null }>();
-    
+    const map = new Map<
+      string,
+      { id: string; name: string; taxonomyId: string | null }
+    >();
+
     // Custom brand attributes (no taxonomy link)
     for (const attr of brandAttributes) {
       if (!attr.taxonomyAttributeId) {
         map.set(attr.id, { id: attr.id, name: attr.name, taxonomyId: null });
       }
     }
-    
+
     // Taxonomy attributes
     for (const attr of taxonomyAttributes) {
-      const brandAttr = brandAttributes.find((a) => a.taxonomyAttributeId === attr.id);
+      const brandAttr = brandAttributes.find(
+        (a) => a.taxonomyAttributeId === attr.id,
+      );
       const attrId = brandAttr?.id ?? `tax:${attr.id}`;
       map.set(attrId, { id: attrId, name: attr.name, taxonomyId: attr.id });
     }
-    
+
     return map;
   }, [taxonomyAttributes, brandAttributes]);
 
   // Build select groups for empty state Select
   const selectGroups = React.useMemo((): SelectOptionGroup[] => {
     const groups: SelectOptionGroup[] = [];
-    
+
     // Custom attributes first
     const customOptions = brandAttributes
-      .filter((attr) => !attr.taxonomyAttributeId && !existingAttributeIds.includes(attr.id))
+      .filter(
+        (attr) =>
+          !attr.taxonomyAttributeId && !existingAttributeIds.includes(attr.id),
+      )
       .map((attr) => ({ value: attr.id, label: attr.name }));
-    
+
     if (customOptions.length > 0) {
       groups.push({ label: "Custom", options: customOptions });
     }
-    
+
     // Standard taxonomy attributes
     const standardOptions = taxonomyAttributes
       .filter((attr) => {
-        const brandAttr = brandAttributes.find((a) => a.taxonomyAttributeId === attr.id);
+        const brandAttr = brandAttributes.find(
+          (a) => a.taxonomyAttributeId === attr.id,
+        );
         const attrId = brandAttr?.id ?? `tax:${attr.id}`;
         return !existingAttributeIds.includes(attrId);
       })
       .map((attr) => {
-        const brandAttr = brandAttributes.find((a) => a.taxonomyAttributeId === attr.id);
+        const brandAttr = brandAttributes.find(
+          (a) => a.taxonomyAttributeId === attr.id,
+        );
         return { value: brandAttr?.id ?? `tax:${attr.id}`, label: attr.name };
       });
-    
+
     if (standardOptions.length > 0) {
-      groups.push({ label: customOptions.length > 0 ? "Standard" : "", options: standardOptions });
+      groups.push({
+        label: customOptions.length > 0 ? "Standard" : "",
+        options: standardOptions,
+      });
     }
-    
+
     return groups;
   }, [taxonomyAttributes, brandAttributes, existingAttributeIds]);
 
   // Filter for add popover
   const filteredCustomAttrs = React.useMemo(() => {
     return brandAttributes
-      .filter((attr) => !attr.taxonomyAttributeId && !existingAttributeIds.includes(attr.id))
-      .filter((attr) => !addSearchTerm || attr.name.toLowerCase().includes(addSearchTerm.toLowerCase()));
+      .filter(
+        (attr) =>
+          !attr.taxonomyAttributeId && !existingAttributeIds.includes(attr.id),
+      )
+      .filter(
+        (attr) =>
+          !addSearchTerm ||
+          attr.name.toLowerCase().includes(addSearchTerm.toLowerCase()),
+      );
   }, [brandAttributes, existingAttributeIds, addSearchTerm]);
 
   const filteredTaxonomyAttrs = React.useMemo(() => {
     return taxonomyAttributes
       .filter((attr) => {
-        const brandAttr = brandAttributes.find((a) => a.taxonomyAttributeId === attr.id);
+        const brandAttr = brandAttributes.find(
+          (a) => a.taxonomyAttributeId === attr.id,
+        );
         const attrId = brandAttr?.id ?? `tax:${attr.id}`;
         return !existingAttributeIds.includes(attrId);
       })
-      .filter((attr) => !addSearchTerm || attr.name.toLowerCase().includes(addSearchTerm.toLowerCase()));
-  }, [taxonomyAttributes, brandAttributes, existingAttributeIds, addSearchTerm]);
+      .filter(
+        (attr) =>
+          !addSearchTerm ||
+          attr.name.toLowerCase().includes(addSearchTerm.toLowerCase()),
+      );
+  }, [
+    taxonomyAttributes,
+    brandAttributes,
+    existingAttributeIds,
+    addSearchTerm,
+  ]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -262,7 +329,7 @@ export function VariantSection({
       taxonomyAttributeId: attrData.taxonomyId,
       values: [],
     };
-    
+
     // Add dimension (values will be empty, so no combinations to enable yet)
     setDimensions((prev) => [...prev, newDim]);
     setExpandedId(newDim.id);
@@ -289,28 +356,55 @@ export function VariantSection({
   };
 
   const handleUpdateDimension = (index: number, updated: VariantDimension) => {
-    // Get old keys before update for comparison
+    // Get old dimension count and keys before update
+    const oldDimensionCount = dimensions.filter((d) =>
+      d.values.length > 0 ||
+      (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
+    ).length;
     const oldKeys = new Set(generateAllCombinationKeys(dimensions));
-    
+
     setDimensions((prev) => {
       const next = [...prev];
       next[index] = updated;
       return next;
     });
-    
-    // After dimensions update, auto-enable new combinations
+
+    // Calculate new dimension count and keys
     const newDimensions = [...dimensions];
     newDimensions[index] = updated;
+    const newDimensionCount = newDimensions.filter((d) =>
+      d.values.length > 0 ||
+      (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
+    ).length;
     const newKeys = generateAllCombinationKeys(newDimensions);
-    
+    const newKeysSet = new Set(newKeys);
+
     setEnabledVariantKeys((prevEnabled) => {
-      const nextEnabled = new Set(prevEnabled);
-      for (const key of newKeys) {
-        // Enable keys that are genuinely new (weren't possible before)
-        if (!oldKeys.has(key)) {
+      const nextEnabled = new Set<string>();
+
+      // If dimension count changed, we need to rebuild the enabled set
+      // Only keep keys that match the new structure
+      if (oldDimensionCount !== newDimensionCount) {
+        // Add all new keys (all new combinations are enabled by default)
+        for (const key of newKeys) {
           nextEnabled.add(key);
         }
+      } else {
+        // Same dimension count - preserve existing enabled states
+        for (const key of prevEnabled) {
+          // Only keep if still valid in new structure
+          if (newKeysSet.has(key)) {
+            nextEnabled.add(key);
+          }
+        }
+        // Add genuinely new keys
+        for (const key of newKeys) {
+          if (!oldKeys.has(key)) {
+            nextEnabled.add(key);
+          }
+        }
       }
+
       return nextEnabled;
     });
   };
@@ -320,27 +414,48 @@ export function VariantSection({
     if (dim && expandedId === dim.id) {
       setExpandedId(null);
     }
-    setDimensions((prev) => prev.filter((_, i) => i !== index));
+
+    // Calculate new dimensions after deletion
+    const newDimensions = dimensions.filter((_, i) => i !== index);
+    const newKeys = generateAllCombinationKeys(newDimensions);
+
+    setDimensions(newDimensions);
+
+    // Reset enabled keys to match new structure
+    setEnabledVariantKeys(new Set(newKeys));
   };
 
-  const activeDimension = activeId ? dimensions.find((d) => d.id === activeId) : null;
+  const activeDimension = activeId
+    ? dimensions.find((d) => d.id === activeId)
+    : null;
 
   const hasVariants =
     dimensions.some(
       (d) =>
         d.values.length > 0 ||
-        (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0)),
+        (d.isCustomInline &&
+          (d.customValues ?? []).some((v) => v.trim().length > 0)),
     ) ||
     (explicitVariants && explicitVariants.length > 0);
 
   const hasDimensions = dimensions.length > 0;
 
   return (
-    <div className={cn("border border-border bg-background", hasVariants && "border-b-0")}>
+    <div className="border border-border bg-background">
       {/* Header */}
-      <div className="p-4 flex flex-col gap-3">
+      <div className="p-4 flex items-center justify-between">
         <p className="type-p !font-medium text-primary">Variants</p>
-        
+        {/* Add variant button - only in edit mode */}
+        {isEditMode && productHandle && (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/passports/edit/${productHandle}/variant/new`}>
+              <Icons.Plus className="h-4 w-4 mr-1.5" />
+              Add variant
+            </Link>
+          </Button>
+        )}
+      </div>
+      <div className="px-4 pb-4 flex flex-col gap-3">
         {hasDimensions ? (
           // Has dimensions: show rows + add button
           <div className="border border-border divide-y divide-border">
@@ -361,7 +476,9 @@ export function VariantSection({
                     onChange={(updated) => handleUpdateDimension(idx, updated)}
                     onDelete={() => handleDeleteDimension(idx)}
                     isExpanded={expandedId === dim.id}
-                    setExpanded={(expanded) => setExpandedId(expanded ? dim.id : null)}
+                    setExpanded={(expanded) =>
+                      setExpandedId(expanded ? dim.id : null)
+                    }
                   />
                 ))}
               </SortableContext>
@@ -372,14 +489,15 @@ export function VariantSection({
                     {activeDimension && (
                       <div className="border border-border bg-background shadow-lg p-4">
                         <p className="type-p !font-medium text-primary">
-                          {activeDimension.isCustomInline 
-                            ? (activeDimension.customAttributeName || "Custom attribute")
-                            : (activeDimension.attributeName || "New attribute")}
+                          {activeDimension.isCustomInline
+                            ? activeDimension.customAttributeName ||
+                            "Custom attribute"
+                            : activeDimension.attributeName || "New attribute"}
                         </p>
                       </div>
                     )}
                   </DragOverlay>,
-                  document.body
+                  document.body,
                 )}
             </DndContext>
 
@@ -392,7 +510,9 @@ export function VariantSection({
                     className="w-full flex items-center gap-1.5 px-4 py-3 text-left hover:bg-accent transition-colors"
                   >
                     <Icons.Plus className="h-4 w-4 text-tertiary" />
-                    <span className="px-1 type-p text-secondary">Add attribute</span>
+                    <span className="px-1 type-p text-secondary">
+                      Add attribute
+                    </span>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[280px] p-0" align="start">
@@ -412,7 +532,9 @@ export function VariantSection({
                               onMouseDown={(e) => e.preventDefault()}
                               onSelect={() => handleSelectAttribute(attr.id)}
                             >
-                              <span className="type-p text-primary">{attr.name}</span>
+                              <span className="type-p text-primary">
+                                {attr.name}
+                              </span>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -420,25 +542,40 @@ export function VariantSection({
 
                       {/* Standard taxonomy attributes */}
                       {filteredTaxonomyAttrs.length > 0 && (
-                        <CommandGroup heading={filteredCustomAttrs.length > 0 ? "Standard" : undefined}>
+                        <CommandGroup
+                          heading={
+                            filteredCustomAttrs.length > 0
+                              ? "Standard"
+                              : undefined
+                          }
+                        >
                           {filteredTaxonomyAttrs.map((attr) => {
-                            const brandAttr = brandAttributes.find((a) => a.taxonomyAttributeId === attr.id);
+                            const brandAttr = brandAttributes.find(
+                              (a) => a.taxonomyAttributeId === attr.id,
+                            );
                             return (
                               <CommandItem
                                 key={attr.id}
                                 onMouseDown={(e) => e.preventDefault()}
-                                onSelect={() => handleSelectAttribute(brandAttr?.id ?? `tax:${attr.id}`)}
+                                onSelect={() =>
+                                  handleSelectAttribute(
+                                    brandAttr?.id ?? `tax:${attr.id}`,
+                                  )
+                                }
                               >
-                                <span className="type-p text-primary">{attr.name}</span>
+                                <span className="type-p text-primary">
+                                  {attr.name}
+                                </span>
                               </CommandItem>
                             );
                           })}
                         </CommandGroup>
                       )}
 
-                      {filteredTaxonomyAttrs.length === 0 && filteredCustomAttrs.length === 0 && (
-                        <CommandEmpty>No attributes found</CommandEmpty>
-                      )}
+                      {filteredTaxonomyAttrs.length === 0 &&
+                        filteredCustomAttrs.length === 0 && (
+                          <CommandEmpty>No attributes found</CommandEmpty>
+                        )}
                     </CommandList>
 
                     {/* Add custom button - always visible at bottom */}
@@ -494,7 +631,9 @@ export function VariantSection({
           explicitVariants={explicitVariants}
           setExplicitVariants={setExplicitVariants}
           enabledVariantKeys={enabledVariantKeys}
-          setEnabledVariantKeys={setEnabledVariantKeys}
+          isEditMode={isEditMode}
+          productHandle={productHandle}
+          savedVariants={savedVariants}
         />
       )}
     </div>

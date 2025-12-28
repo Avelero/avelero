@@ -1,14 +1,14 @@
 "use client";
 
+import { ImageUploader } from "@/components/image-upload";
+import { generateProductHandle } from "@/utils/product-handle";
+import { BUCKETS } from "@/utils/storage-config";
+import { normalizeToDisplayUrl } from "@/utils/storage-urls";
 import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
 import { Textarea } from "@v1/ui/textarea";
-import { useEffect, useState, useRef } from "react";
-import { ImageUploader } from "@/components/image-upload";
-import { normalizeToDisplayUrl } from "@/utils/storage-urls";
-import { BUCKETS } from "@/utils/storage-config";
-import { generateProductHandle } from "@/utils/product-handle";
+import { useEffect, useRef, useState } from "react";
 
 interface BasicInfoSectionProps {
   name: string;
@@ -22,6 +22,8 @@ interface BasicInfoSectionProps {
   nameInputRef?: React.RefObject<HTMLInputElement | null>;
   productHandle?: string;
   setProductHandle?: (value: string) => void;
+  /** Whether the name field is required. Defaults to true for product forms. */
+  required?: boolean;
 }
 
 export function BasicInfoSection({
@@ -36,13 +38,14 @@ export function BasicInfoSection({
   nameInputRef,
   productHandle,
   setProductHandle,
+  required = true,
 }: BasicInfoSectionProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(
     normalizeToDisplayUrl(BUCKETS.PRODUCTS, existingImageUrl),
   );
   // Track when we've just set imagePreview from user file selection
   const pendingUserSelection = useRef(false);
-  
+
   // Track if user has ever defocused the name field (to stop syncing after first blur)
   const nameHasBeenBlurred = useRef(false);
 
@@ -65,9 +68,14 @@ export function BasicInfoSection({
   // Handle name change with real-time handle sync (until first blur)
   const handleNameChange = (value: string) => {
     setName(value);
-    
+
     // Real-time sync: update handle from name if user hasn't blurred yet
-    if (setProductHandle && productHandle !== undefined && !nameHasBeenBlurred.current && value.trim()) {
+    if (
+      setProductHandle &&
+      productHandle !== undefined &&
+      !nameHasBeenBlurred.current &&
+      value.trim()
+    ) {
       const normalizedHandle = generateProductHandle(value);
       setProductHandle(normalizedHandle);
     }
@@ -83,7 +91,7 @@ export function BasicInfoSection({
       {/* Name Input */}
       <div className="space-y-1.5">
         <Label>
-          Name <span className="text-destructive">*</span>
+          Name {required && <span className="text-destructive">*</span>}
         </Label>
         <Input
           ref={nameInputRef}

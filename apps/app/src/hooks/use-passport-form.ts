@@ -264,6 +264,33 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     [formValues, validationErrors, hasAttemptedSubmit],
   );
 
+  // Compute a map of variant value keys -> { upid, hasOverrides } for navigation in edit mode
+  // The key is pipe-separated value IDs matching the format used in variantMetadata
+  const savedVariantsMap = React.useMemo(() => {
+    if (!isEditMode || !passportFormQuery.data) return new Map<string, { upid: string; hasOverrides: boolean }>();
+
+    const payload = passportFormQuery.data as any;
+    const variants = Array.isArray(payload?.variants) ? payload.variants : [];
+    const map = new Map<string, { upid: string; hasOverrides: boolean }>();
+
+    for (const variant of variants) {
+      const upid = variant.upid ?? variant.unique_product_id;
+      if (!upid) continue;
+
+      const attrs = variant.attributes ?? [];
+      const valueKeys = attrs
+        .map((a: any) => a.value_id ?? a.valueId)
+        .filter(Boolean);
+
+      if (valueKeys.length > 0) {
+        const key = valueKeys.join("|");
+        map.set(key, { upid, hasOverrides: variant.hasOverrides ?? false });
+      }
+    }
+
+    return map;
+  }, [isEditMode, passportFormQuery.data]);
+
   const clearValidationError = React.useCallback(
     (field: keyof PassportFormValidationErrors) => {
       setValidationErrors((prev) => {
@@ -605,41 +632,48 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       const resolvedValueIds: string[] = [];
 
       if (dim.taxonomyAttributeId) {
-        // Taxonomy-linked: values are brand value IDs (already created via modal)
+        // Taxonomy-linked: values can be brand value IDs or tax:-prefixed taxonomy value IDs
         for (const valueId of dim.values) {
-          // Values should already be brand value IDs
+          // Check if this is a tax:-prefixed pending taxonomy value
+          const isTaxPrefixed = valueId.startsWith("tax:");
+          const actualValueId = isTaxPrefixed ? valueId.slice(4) : valueId;
+
+          // First, check if it's already a brand value ID
           const existingBrandValue = existingBrandValues.find(
-            (v: any) => v.id === valueId && v.attributeId === brandAttrId
+            (v: any) => v.id === actualValueId && v.attributeId === brandAttrId
           );
 
           if (existingBrandValue) {
             resolvedValueIds.push(existingBrandValue.id);
             tokenToBrandValueId.set(valueId, existingBrandValue.id);
+            tokenToBrandValueId.set(actualValueId, existingBrandValue.id);
             tokenToBrandValueId.set(existingBrandValue.name, existingBrandValue.id);
           } else {
-            // Check if it's a taxonomy value ID that needs a brand value
+            // Check if there's already a brand value linked to this taxonomy value
             const existingByTaxonomy = existingBrandValues.find(
-              (v: any) => v.attributeId === brandAttrId && v.taxonomyValueId === valueId
+              (v: any) => v.attributeId === brandAttrId && v.taxonomyValueId === actualValueId
             );
             if (existingByTaxonomy) {
               resolvedValueIds.push(existingByTaxonomy.id);
               tokenToBrandValueId.set(valueId, existingByTaxonomy.id);
+              tokenToBrandValueId.set(actualValueId, existingByTaxonomy.id);
               tokenToBrandValueId.set(existingByTaxonomy.name, existingByTaxonomy.id);
               tokenToBrandValueId.set(existingByTaxonomy.id, existingByTaxonomy.id);
             } else {
               // Create brand value for taxonomy value
               const taxValues = brandCatalogQuery?.taxonomy?.values ?? [];
-              const taxValue = taxValues.find((v: any) => v.id === valueId);
-              const name = taxValue?.name ?? valueId;
+              const taxValue = taxValues.find((v: any) => v.id === actualValueId);
+              const name = taxValue?.name ?? actualValueId;
 
               const result = await createAttributeValueMutation.mutateAsync({
                 attribute_id: brandAttrId,
                 name,
-                taxonomy_value_id: valueId,
+                taxonomy_value_id: actualValueId,
               });
               if (!result?.data?.id) throw new Error("Failed to create attribute value");
               resolvedValueIds.push(result.data.id);
               tokenToBrandValueId.set(valueId, result.data.id);
+              tokenToBrandValueId.set(actualValueId, result.data.id);
               tokenToBrandValueId.set(result.data.name ?? name, result.data.id);
               tokenToBrandValueId.set(result.data.id, result.data.id);
               existingBrandValues.push(result.data);
@@ -839,6 +873,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
             for (const key of formValues.enabledVariantKeys) {
               const tokens = key.split("|");
+
+              // Skip keys that don't match the current dimension count
+              // This prevents stale variants from old dimension structures
+              if (tokens.length !== resolvedDimensions.length) {
+                continue;
+              }
+
               // Translate UI tokens to resolved brand value IDs using tokenMaps
               const resolvedValueIds = tokens.map((token, idx) =>
                 resolvedVariant.tokenMaps[idx]?.get(token)
@@ -911,6 +952,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
           for (const key of formValues.enabledVariantKeys) {
             const tokens = key.split("|");
+
+            // Skip keys that don't match the current dimension count
+            // This prevents stale variants from old dimension structures
+            if (tokens.length !== resolvedDimensions.length) {
+              continue;
+            }
+
             // Translate UI tokens to resolved brand value IDs using tokenMaps
             const resolvedValueIds = tokens.map((token, idx) =>
               resolvedVariant.tokenMaps[idx]?.get(token)
@@ -1004,5 +1052,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     error,
     isInitializing: isEditMode && (!hasHydratedRef.current || passportFormQuery.isLoading),
     hasUnsavedChanges,
+    // Navigation support for variant editing
+    savedVariantsMap,
+    productHandle,
   };
 }

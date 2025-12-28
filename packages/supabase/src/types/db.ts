@@ -1769,27 +1769,42 @@ export type Database = {
         Row: {
           barcode: string | null;
           created_at: string;
+          description: string | null;
           id: string;
+          image_path: string | null;
+          name: string | null;
           product_id: string;
           sku: string | null;
+          source_external_id: string | null;
+          source_integration: string | null;
           updated_at: string;
           upid: string | null;
         };
         Insert: {
           barcode?: string | null;
           created_at?: string;
+          description?: string | null;
           id?: string;
+          image_path?: string | null;
+          name?: string | null;
           product_id: string;
           sku?: string | null;
+          source_external_id?: string | null;
+          source_integration?: string | null;
           updated_at?: string;
           upid?: string | null;
         };
         Update: {
           barcode?: string | null;
           created_at?: string;
+          description?: string | null;
           id?: string;
+          image_path?: string | null;
+          name?: string | null;
           product_id?: string;
           sku?: string | null;
+          source_external_id?: string | null;
+          source_integration?: string | null;
           updated_at?: string;
           upid?: string | null;
         };
@@ -2501,6 +2516,261 @@ export type Database = {
             columns: ["brand_id"];
             isOneToOne: false;
             referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variant_commercial: {
+        Row: {
+          created_at: string;
+          currency: string | null;
+          price: number | null;
+          sales_status: string | null;
+          source_external_id: string | null;
+          source_integration: string | null;
+          updated_at: string;
+          variant_id: string;
+          webshop_url: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          currency?: string | null;
+          price?: number | null;
+          sales_status?: string | null;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          updated_at?: string;
+          variant_id: string;
+          webshop_url?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          currency?: string | null;
+          price?: number | null;
+          sales_status?: string | null;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          updated_at?: string;
+          variant_id?: string;
+          webshop_url?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_commercial_variant_id_product_variants_id_fk";
+            columns: ["variant_id"];
+            isOneToOne: true;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variant_eco_claims: {
+        Row: {
+          created_at: string;
+          eco_claim_id: string;
+          id: string;
+          source_external_id: string | null;
+          source_integration: string | null;
+          variant_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          eco_claim_id: string;
+          id?: string;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          variant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          eco_claim_id?: string;
+          id?: string;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          variant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_eco_claims_eco_claim_id_brand_eco_claims_id_fk";
+            columns: ["eco_claim_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_eco_claims";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "variant_eco_claims_variant_id_product_variants_id_fk";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variant_environment: {
+        Row: {
+          carbon_kg_co2e: number | null;
+          created_at: string;
+          source_external_id: string | null;
+          source_integration: string | null;
+          updated_at: string;
+          variant_id: string;
+          water_liters: number | null;
+        };
+        Insert: {
+          carbon_kg_co2e?: number | null;
+          created_at?: string;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          updated_at?: string;
+          variant_id: string;
+          water_liters?: number | null;
+        };
+        Update: {
+          carbon_kg_co2e?: number | null;
+          created_at?: string;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          updated_at?: string;
+          variant_id?: string;
+          water_liters?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_environment_variant_id_product_variants_id_fk";
+            columns: ["variant_id"];
+            isOneToOne: true;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variant_journey_steps: {
+        Row: {
+          created_at: string;
+          facility_id: string;
+          id: string;
+          sort_index: number;
+          source_external_id: string | null;
+          source_integration: string | null;
+          step_type: string;
+          variant_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          facility_id: string;
+          id?: string;
+          sort_index: number;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          step_type: string;
+          variant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          facility_id?: string;
+          id?: string;
+          sort_index?: number;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          step_type?: string;
+          variant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_journey_steps_facility_id_brand_facilities_id_fk";
+            columns: ["facility_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_facilities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "variant_journey_steps_variant_id_product_variants_id_fk";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variant_materials: {
+        Row: {
+          brand_material_id: string;
+          created_at: string;
+          id: string;
+          percentage: number | null;
+          source_external_id: string | null;
+          source_integration: string | null;
+          variant_id: string;
+        };
+        Insert: {
+          brand_material_id: string;
+          created_at?: string;
+          id?: string;
+          percentage?: number | null;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          variant_id: string;
+        };
+        Update: {
+          brand_material_id?: string;
+          created_at?: string;
+          id?: string;
+          percentage?: number | null;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          variant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_materials_brand_material_id_brand_materials_id_fk";
+            columns: ["brand_material_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "variant_materials_variant_id_product_variants_id_fk";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variant_weight: {
+        Row: {
+          created_at: string;
+          source_external_id: string | null;
+          source_integration: string | null;
+          updated_at: string;
+          variant_id: string;
+          weight: number | null;
+          weight_unit: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          updated_at?: string;
+          variant_id: string;
+          weight?: number | null;
+          weight_unit?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          source_external_id?: string | null;
+          source_integration?: string | null;
+          updated_at?: string;
+          variant_id?: string;
+          weight?: number | null;
+          weight_unit?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_weight_variant_id_product_variants_id_fk";
+            columns: ["variant_id"];
+            isOneToOne: true;
+            referencedRelation: "product_variants";
             referencedColumns: ["id"];
           },
         ];

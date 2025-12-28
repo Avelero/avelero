@@ -1,6 +1,6 @@
 "use client";
 
-import { useBrandCatalog, type TaxonomyValue } from "@/hooks/use-brand-catalog";
+import { type TaxonomyValue, useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
@@ -30,7 +30,11 @@ interface CreateValueModalProps {
   /** Pre-selected taxonomy value ID (when selecting an uncovered taxonomy value) */
   initialTaxonomyValueId?: string | null;
   /** Callback when value is successfully created */
-  onCreated: (value: { id: string; name: string; taxonomyValueId: string | null }) => void;
+  onCreated: (value: {
+    id: string;
+    name: string;
+    taxonomyValueId: string | null;
+  }) => void;
 }
 
 export function CreateValueModal({
@@ -45,10 +49,13 @@ export function CreateValueModal({
 }: CreateValueModalProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { taxonomyValuesByAttribute, brandAttributeValuesByAttribute } = useBrandCatalog();
+  const { taxonomyValuesByAttribute, brandAttributeValuesByAttribute } =
+    useBrandCatalog();
 
   const [name, setName] = React.useState("");
-  const [selectedTaxonomyValueId, setSelectedTaxonomyValueId] = React.useState<string | null>(null);
+  const [selectedTaxonomyValueId, setSelectedTaxonomyValueId] = React.useState<
+    string | null
+  >(null);
   const [nameError, setNameError] = React.useState("");
 
   // Get taxonomy values for this attribute (if linked to taxonomy)
@@ -57,14 +64,16 @@ export function CreateValueModal({
     : [];
 
   // Get existing brand values for duplicate checking
-  const existingBrandValues = brandAttributeValuesByAttribute.get(attributeId) ?? [];
+  const existingBrandValues =
+    brandAttributeValuesByAttribute.get(attributeId) ?? [];
 
   // Get hex color from taxonomy value metadata
   const getHex = (value: TaxonomyValue) => {
     if (value.metadata && typeof value.metadata === "object") {
       const m = value.metadata as Record<string, unknown>;
       if (typeof m.swatch === "string") return m.swatch;
-      if (typeof m.hex === "string") return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
+      if (typeof m.hex === "string")
+        return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
     }
     return null;
   };
@@ -88,7 +97,7 @@ export function CreateValueModal({
 
   // API mutation for creating attribute value
   const createValueMutation = useMutation(
-    trpc.catalog.attributeValues.create.mutationOptions()
+    trpc.catalog.attributeValues.create.mutationOptions(),
   );
 
   // Prefill name and taxonomy value when modal opens
@@ -111,7 +120,7 @@ export function CreateValueModal({
 
     // Only check against existing brand values that are already in the database
     const isDuplicate = existingBrandValues.some(
-      (v) => v.name.toLowerCase() === trimmedName.toLowerCase()
+      (v) => v.name.toLowerCase() === trimmedName.toLowerCase(),
     );
 
     if (isDuplicate) {
@@ -170,7 +179,7 @@ export function CreateValueModal({
                   ],
                 },
               };
-            }
+            },
           );
 
           // Invalidate to trigger background refetch
@@ -194,7 +203,7 @@ export function CreateValueModal({
           delay: 500,
           successMessage: "Value created successfully",
           errorMessage: "Failed to create value",
-        }
+        },
       )
       .catch((error) => {
         console.error("Failed to create value:", error);
@@ -218,7 +227,8 @@ export function CreateValueModal({
   const hasTaxonomyOptions = taxonomyValues.length > 0;
 
   // Determine if we can create
-  const canCreate = name.trim() && (!taxonomyAttributeId || selectedTaxonomyValueId);
+  const canCreate =
+    name.trim() && (!taxonomyAttributeId || selectedTaxonomyValueId);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -235,7 +245,8 @@ export function CreateValueModal({
             {hasTaxonomyOptions && (
               <div className="space-y-1.5">
                 <Label>
-                  Link to standard value <span className="text-destructive">*</span>
+                  Link to standard value{" "}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={selectedTaxonomyValueId}
@@ -283,10 +294,7 @@ export function CreateValueModal({
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={!canCreate || isCreating}
-          >
+          <Button onClick={handleSave} disabled={!canCreate || isCreating}>
             Create
           </Button>
         </DialogFooter>

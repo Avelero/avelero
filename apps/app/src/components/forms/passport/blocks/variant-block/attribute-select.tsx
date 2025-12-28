@@ -1,5 +1,6 @@
 "use client";
 
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import {
   DndContext,
   type DragEndEvent,
@@ -14,7 +15,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -31,7 +31,11 @@ import * as React from "react";
 import { CreateValueModal } from "./create-value-modal";
 import type { VariantDimension } from "./types";
 
-function ValueChip({ name, hex, onRemove }: { name: string; hex?: string | null; onRemove?: () => void }) {
+function ValueChip({
+  name,
+  hex,
+  onRemove,
+}: { name: string; hex?: string | null; onRemove?: () => void }) {
   const [hovered, setHovered] = React.useState(false);
   return (
     <div
@@ -48,7 +52,9 @@ function ValueChip({ name, hex, onRemove }: { name: string; hex?: string | null;
         </div>
       )}
 
-      <p className={cn("type-small leading-none text-primary", hex && "ml-1.5")}>
+      <p
+        className={cn("type-small leading-none text-primary", hex && "ml-1.5")}
+      >
         {name}
       </p>
 
@@ -172,7 +178,14 @@ function SortableCustomValueRow({
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   onBlur?: React.FocusEventHandler<HTMLInputElement>;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id,
     disabled,
   });
@@ -190,7 +203,9 @@ function SortableCustomValueRow({
         onChange={onChange}
         onRemove={onRemove}
         placeholder={placeholder}
-        dragHandleProps={!disabled ? { ...attributes, ...listeners } : undefined}
+        dragHandleProps={
+          !disabled ? { ...attributes, ...listeners } : undefined
+        }
         dragDisabled={disabled}
         inputRef={inputRef}
         onKeyDown={onKeyDown}
@@ -238,9 +253,7 @@ function CustomInlineExpanded({
   const newSlotId = slotIds[slotIds.length - 1]!;
   const valueIds = slotIds.slice(0, -1);
 
-  const normalizedNonEmptyValues = vals
-    .map((v) => v.trim())
-    .filter(Boolean);
+  const normalizedNonEmptyValues = vals.map((v) => v.trim()).filter(Boolean);
 
   const duplicateNormalizedValues = (() => {
     const counts = new Map<string, { count: number; display: string }>();
@@ -371,14 +384,19 @@ function CustomInlineExpanded({
   return (
     <div className="px-4 py-3">
       <div className="flex items-start gap-3">
-        <div {...dragHandleProps} className="w-6 pt-2 flex items-center justify-center cursor-grab text-tertiary hover:text-secondary">
+        <div
+          {...dragHandleProps}
+          className="w-6 pt-2 flex items-center justify-center cursor-grab text-tertiary hover:text-secondary"
+        >
           <Icons.GripVertical className="h-4 w-4" />
         </div>
         <div className="flex-1 space-y-4">
           <input
             type="text"
             value={dimension.customAttributeName ?? ""}
-            onChange={(e) => onChange({ ...dimension, customAttributeName: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...dimension, customAttributeName: e.target.value })
+            }
             placeholder="Enter attribute"
             className="w-full h-9 px-3 border border-border bg-background type-p outline-none placeholder:text-tertiary"
           />
@@ -387,7 +405,10 @@ function CustomInlineExpanded({
             collisionDetection={closestCenter}
             onDragEnd={handleValueDragEnd}
           >
-            <SortableContext items={slotIds} strategy={verticalListSortingStrategy}>
+            <SortableContext
+              items={slotIds}
+              strategy={verticalListSortingStrategy}
+            >
               <div className="space-y-1.5">
                 {slotIds.map((id, i) => {
                   const isNewSlot = i === vals.length;
@@ -395,9 +416,11 @@ function CustomInlineExpanded({
                     <SortableCustomValueRow
                       key={id}
                       id={id}
-                      value={isNewSlot ? "" : (vals[i] ?? "")}
+                      value={isNewSlot ? "" : vals[i] ?? ""}
                       onChange={(newVal) => handleValueChange(i, newVal)}
-                      onRemove={isNewSlot ? undefined : () => handleRemoveValue(i)}
+                      onRemove={
+                        isNewSlot ? undefined : () => handleRemoveValue(i)
+                      }
                       placeholder="Enter value"
                       disabled={isNewSlot}
                       inputRef={isNewSlot ? newValueInputRef : undefined}
@@ -405,7 +428,10 @@ function CustomInlineExpanded({
                         isNewSlot
                           ? undefined
                           : (e) => {
-                            if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+                            if (
+                              e.key === "Enter" ||
+                              (e.key === "Tab" && !e.shiftKey)
+                            ) {
                               e.preventDefault();
                               focusNewValueInput();
                             }
@@ -417,7 +443,9 @@ function CustomInlineExpanded({
                           : () => {
                             const current = (vals[i] ?? "").trim();
                             if (current) return;
-                            const last = (lastNonEmptyByIdRef.current.get(id) ?? "").trim();
+                            const last = (
+                              lastNonEmptyByIdRef.current.get(id) ?? ""
+                            ).trim();
                             if (last) {
                               handleValueChange(i, last);
                             }
@@ -429,15 +457,30 @@ function CustomInlineExpanded({
               </div>
             </SortableContext>
           </DndContext>
-          {duplicateError && <p className="type-small text-destructive">{duplicateError}</p>}
+          {duplicateError && (
+            <p className="type-small text-destructive">{duplicateError}</p>
+          )}
           <div className="flex justify-between">
-            <Button type="button" variant="outline" size="sm" onClick={onDelete} className="text-destructive">Delete</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onDelete}
+              className="text-destructive"
+            >
+              Delete
+            </Button>
             <Button
               type="button"
               variant="brand"
               size="sm"
               onClick={handleDone}
-              disabled={!(dimension.customAttributeName?.trim() && normalizedNonEmptyValues.length > 0)}
+              disabled={
+                !(
+                  dimension.customAttributeName?.trim() &&
+                  normalizedNonEmptyValues.length > 0
+                )
+              }
             >
               Done
             </Button>
@@ -466,20 +509,34 @@ interface PopoverOption {
   taxonomyValueId: string | null;
 }
 
-export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, setExpanded, dragHandleProps }: AttributeSelectProps) {
-  const { taxonomyValuesByAttribute, brandAttributeValuesByAttribute } = useBrandCatalog();
+export function AttributeSelect({
+  dimension,
+  onChange,
+  onDelete,
+  isExpanded,
+  setExpanded,
+  dragHandleProps,
+}: AttributeSelectProps) {
+  const { taxonomyValuesByAttribute, brandAttributeValuesByAttribute } =
+    useBrandCatalog();
   const [valuesOpen, setValuesOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [createValueModalOpen, setCreateValueModalOpen] = React.useState(false);
-  const [createValueInitialName, setCreateValueInitialName] = React.useState("");
-  const [createValueInitialTaxonomyId, setCreateValueInitialTaxonomyId] = React.useState<string | null>(null);
+  const [createValueInitialName, setCreateValueInitialName] =
+    React.useState("");
+  const [createValueInitialTaxonomyId, setCreateValueInitialTaxonomyId] =
+    React.useState<string | null>(null);
 
-  const taxonomyValues = dimension.taxonomyAttributeId ? taxonomyValuesByAttribute.get(dimension.taxonomyAttributeId) ?? [] : [];
-  const brandValues = dimension.attributeId ? brandAttributeValuesByAttribute.get(dimension.attributeId) ?? [] : [];
+  const taxonomyValues = dimension.taxonomyAttributeId
+    ? taxonomyValuesByAttribute.get(dimension.taxonomyAttributeId) ?? []
+    : [];
+  const brandValues = dimension.attributeId
+    ? brandAttributeValuesByAttribute.get(dimension.attributeId) ?? []
+    : [];
 
   // Build a lookup for taxonomy values by ID
   const taxonomyValuesById = React.useMemo(() => {
-    const map = new Map<string, typeof taxonomyValues[number]>();
+    const map = new Map<string, (typeof taxonomyValues)[number]>();
     for (const tv of taxonomyValues) {
       map.set(tv.id, tv);
     }
@@ -493,13 +550,19 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
     if (tv?.metadata && typeof tv.metadata === "object") {
       const m = tv.metadata as Record<string, unknown>;
       if (typeof m.swatch === "string") return m.swatch;
-      if (typeof m.hex === "string") return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
+      if (typeof m.hex === "string")
+        return m.hex.startsWith("#") ? m.hex : `#${m.hex}`;
     }
     return null;
   };
 
   // Get hex for a value (brand value or taxonomy value)
   const getHex = (valueId: string) => {
+    // Handle tax: prefixed IDs (pending taxonomy values)
+    if (valueId.startsWith("tax:")) {
+      const taxId = valueId.slice(4);
+      return getTaxonomyHex(taxId);
+    }
     // Check if it's a brand value first
     const bv = brandValues.find((b) => b.id === valueId);
     if (bv) return getTaxonomyHex(bv.taxonomyValueId);
@@ -510,6 +573,12 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
   // Get display name for a value
   const getValueName = (val: string) => {
     if (dimension.isCustomInline) return val;
+    // Handle tax: prefixed IDs (pending taxonomy values)
+    if (val.startsWith("tax:")) {
+      const taxId = val.slice(4);
+      const tv = taxonomyValuesById.get(taxId);
+      return tv?.name ?? val;
+    }
     // Check brand values first (they have the actual names)
     const bv = brandValues.find((b) => b.id === val);
     if (bv) return bv.name;
@@ -558,8 +627,14 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
     // Sort by taxonomy value sortOrder so sizes appear in logical order (3XS, 2XS, XS, S, M, L, XL, etc.)
     // Values without a taxonomy mapping appear at the end
     return options.sort((a, b) => {
-      const aSortOrder = a.taxonomyValueId ? (taxonomyValuesById.get(a.taxonomyValueId)?.sortOrder ?? Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY;
-      const bSortOrder = b.taxonomyValueId ? (taxonomyValuesById.get(b.taxonomyValueId)?.sortOrder ?? Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY;
+      const aSortOrder = a.taxonomyValueId
+        ? taxonomyValuesById.get(a.taxonomyValueId)?.sortOrder ??
+        Number.POSITIVE_INFINITY
+        : Number.POSITIVE_INFINITY;
+      const bSortOrder = b.taxonomyValueId
+        ? taxonomyValuesById.get(b.taxonomyValueId)?.sortOrder ??
+        Number.POSITIVE_INFINITY
+        : Number.POSITIVE_INFINITY;
       return aSortOrder - bSortOrder;
     });
   }, [brandValues, taxonomyValues, taxonomyValuesById]);
@@ -567,27 +642,26 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
   const allValues = dimension.isCustomInline
     ? (dimension.customValues ?? []).map((v) => v.trim()).filter(Boolean)
     : dimension.values ?? [];
-  const displayName = dimension.isCustomInline ? (dimension.customAttributeName || "Custom attribute") : dimension.attributeName;
+  const displayName = dimension.isCustomInline
+    ? dimension.customAttributeName || "Custom attribute"
+    : dimension.attributeName;
 
   const toggleValue = (id: string) => {
     const has = dimension.values.includes(id);
-    onChange({ ...dimension, values: has ? dimension.values.filter((v) => v !== id) : [...dimension.values, id] });
+    onChange({
+      ...dimension,
+      values: has
+        ? dimension.values.filter((v) => v !== id)
+        : [...dimension.values, id],
+    });
   };
 
   // Handle selecting an option (brand value or taxonomy value)
   const handleSelectOption = (option: PopoverOption) => {
-    if (option.isBrandValue) {
-      // It's a brand value - use directly
-      toggleValue(option.id);
-    } else {
-      // It's an uncovered taxonomy value - open modal to create brand value
-      // Pre-fill with taxonomy value name and pre-select the taxonomy value
-      setCreateValueInitialName(option.name);
-      setCreateValueInitialTaxonomyId(option.taxonomyValueId);
-      setCreateValueModalOpen(true);
-      setValuesOpen(false);
-      setSearch("");
-    }
+    // Both brand values and uncovered taxonomy values (with tax: prefix) can be toggled directly
+    // For uncovered taxonomy values, the brand value will be created at save time
+    // by resolveVariantDimensions in use-passport-form.ts
+    toggleValue(option.id);
   };
 
   const openCreateValueModal = () => {
@@ -595,7 +669,9 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
     if (!t) return;
 
     // Check if value already exists in available options by name
-    const existing = availableOptions.find((v) => v.name.toLowerCase() === t.toLowerCase());
+    const existing = availableOptions.find(
+      (v) => v.name.toLowerCase() === t.toLowerCase(),
+    );
     if (existing) {
       handleSelectOption(existing);
       setSearch("");
@@ -610,7 +686,11 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
     setSearch("");
   };
 
-  const handleValueCreated = (created: { id: string; name: string; taxonomyValueId: string | null }) => {
+  const handleValueCreated = (created: {
+    id: string;
+    name: string;
+    taxonomyValueId: string | null;
+  }) => {
     // Add the newly created value to the selected values
     onChange({ ...dimension, values: [...dimension.values, created.id] });
   };
@@ -618,15 +698,31 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
   // Collapsed
   if (!isExpanded) {
     return (
-      <button type="button" onClick={() => setExpanded(true)} className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors">
-        <div {...dragHandleProps} onClick={(e) => e.stopPropagation()} className="w-6 flex items-center justify-center cursor-grab text-tertiary hover:text-secondary">
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-accent transition-colors"
+      >
+        <div
+          {...dragHandleProps}
+          onClick={(e) => e.stopPropagation()}
+          className="w-6 flex items-center justify-center cursor-grab text-tertiary hover:text-secondary"
+        >
           <Icons.GripVertical className="h-4 w-4" />
         </div>
         <div className="flex-1">
-          <p className="type-p text-foreground">{displayName || "Select attribute"}</p>
+          <p className="type-p text-foreground">
+            {displayName || "Select attribute"}
+          </p>
           {allValues.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {allValues.map((v, i) => <ValueChip key={`${i}-${v}`} name={getValueName(v)} hex={getHex(v)} />)}
+              {allValues.map((v, i) => (
+                <ValueChip
+                  key={`${i}-${v}`}
+                  name={getValueName(v)}
+                  hex={getHex(v)}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -649,44 +745,77 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
 
   // Filter options by search
   const filteredOptions = availableOptions.filter(
-    (v) => !search || v.name.toLowerCase().includes(search.toLowerCase())
+    (v) => !search || v.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   // Show create option if search doesn't match any existing option
-  const showCreateOption = search.trim() &&
-    !availableOptions.some((v) => v.name.toLowerCase() === search.trim().toLowerCase());
+  const showCreateOption =
+    search.trim() &&
+    !availableOptions.some(
+      (v) => v.name.toLowerCase() === search.trim().toLowerCase(),
+    );
 
   // Expanded - Standard attribute
   return (
     <div className="px-4 py-3">
       <div className="flex items-start gap-3">
-        <div {...dragHandleProps} className="w-6 pt-2 flex items-center justify-center cursor-grab text-tertiary hover:text-secondary">
+        <div
+          {...dragHandleProps}
+          className="w-6 pt-2 flex items-center justify-center cursor-grab text-tertiary hover:text-secondary"
+        >
           <Icons.GripVertical className="h-4 w-4" />
         </div>
         <div className="flex-1 space-y-3">
-          <div className="h-9 px-3 flex items-center border border-border bg-accent/50 type-p">{dimension.attributeName}</div>
+          <div className="h-9 px-3 flex items-center border border-border bg-accent/50 type-p">
+            {dimension.attributeName}
+          </div>
           <Popover open={valuesOpen} onOpenChange={setValuesOpen}>
             <PopoverTrigger asChild>
               <div className="group flex flex-wrap items-center py-[5px] px-2 min-h-9 border border-border bg-background gap-1.5 cursor-pointer">
-                {dimension.values.map((id) => <ValueChip key={id} name={getValueName(id)} hex={getHex(id)} onRemove={() => toggleValue(id)} />)}
+                {dimension.values.map((id) => (
+                  <ValueChip
+                    key={id}
+                    name={getValueName(id)}
+                    hex={getHex(id)}
+                    onRemove={() => toggleValue(id)}
+                  />
+                ))}
                 <span className="mx-1 border-b border-border type-p text-tertiary group-hover:text-secondary group-hover:border-secondary cursor-pointer transition-colors">
                   Add {dimension.attributeName.toLowerCase()}
                 </span>
               </div>
             </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0" align="start">
+            <PopoverContent
+              className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0"
+              align="start"
+            >
               <Command shouldFilter={false}>
-                <CommandInput placeholder="Search..." value={search} onValueChange={setSearch} />
+                <CommandInput
+                  placeholder="Search..."
+                  value={search}
+                  onValueChange={setSearch}
+                />
                 <CommandList className="max-h-48">
                   <CommandGroup>
                     {/* Show existing options */}
                     {filteredOptions.map((v) => (
-                      <CommandItem key={v.id} onSelect={() => handleSelectOption(v)} className="justify-between">
+                      <CommandItem
+                        key={v.id}
+                        onSelect={() => handleSelectOption(v)}
+                        className="justify-between"
+                      >
                         <div className="flex items-center gap-2">
-                          {v.hex && <div className="h-3.5 w-3.5 rounded-full border border-border" style={{ backgroundColor: v.hex }} />}
+                          {v.hex && (
+                            <div
+                              className="h-3.5 w-3.5 rounded-full border border-border"
+                              style={{ backgroundColor: v.hex }}
+                            />
+                          )}
                           <span className="type-p">{v.name}</span>
                         </div>
-                        {dimension.values.includes(v.id) && <Icons.Check className="h-4 w-4" />}
+                        {dimension.values.includes(v.id) && (
+                          <Icons.Check className="h-4 w-4" />
+                        )}
                       </CommandItem>
                     ))}
                     {/* Create option */}
@@ -694,7 +823,9 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
                       <CommandItem onSelect={openCreateValueModal}>
                         <div className="flex items-center gap-2">
                           <Icons.Plus className="h-3.5 w-3.5" />
-                          <span className="type-p text-primary">Create &quot;{search.trim()}&quot;</span>
+                          <span className="type-p text-primary">
+                            Create &quot;{search.trim()}&quot;
+                          </span>
                         </div>
                       </CommandItem>
                     )}
@@ -707,8 +838,23 @@ export function AttributeSelect({ dimension, onChange, onDelete, isExpanded, set
             </PopoverContent>
           </Popover>
           <div className="flex justify-between">
-            <Button type="button" variant="outline" size="sm" onClick={onDelete} className="text-destructive">Delete</Button>
-            <Button type="button" variant="brand" size="sm" onClick={() => setExpanded(false)}>Done</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onDelete}
+              className="text-destructive"
+            >
+              Delete
+            </Button>
+            <Button
+              type="button"
+              variant="brand"
+              size="sm"
+              onClick={() => setExpanded(false)}
+            >
+              Done
+            </Button>
           </div>
         </div>
       </div>

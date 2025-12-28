@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * IdentifiersSidebar
+ *
+ * Sidebar component for product forms showing:
+ * - Product handle input
+ * - Manufacturer select
+ */
+
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
@@ -11,7 +19,7 @@ import {
   ManufacturerSheet,
 } from "../../../sheets/manufacturer-sheet";
 
-interface IdentifiersSectionProps {
+interface IdentifiersSidebarProps {
   productHandle: string;
   setProductHandle: (value: string) => void;
   manufacturerId: string | null;
@@ -20,14 +28,14 @@ interface IdentifiersSectionProps {
   productHandleInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
-export function IdentifiersSection({
+export function IdentifiersSidebar({
   productHandle,
   setProductHandle,
   manufacturerId,
   setManufacturerId,
   productHandleError,
   productHandleInputRef,
-}: IdentifiersSectionProps) {
+}: IdentifiersSidebarProps) {
   const { manufacturers: apiBrandOptions } = useBrandCatalog();
 
   // Convert brandOptions from API format to Select format
@@ -76,9 +84,7 @@ export function IdentifiersSection({
             aria-invalid={Boolean(productHandleError)}
           />
           {productHandleError && (
-            <p className="type-small text-destructive">
-              {productHandleError}
-            </p>
+            <p className="type-small text-destructive">{productHandleError}</p>
           )}
         </div>
 

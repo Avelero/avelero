@@ -31,6 +31,14 @@ export * from "./products/product-variant-attributes";
 export * from "./products/product-weight";
 export * from "./products/product-commercial";
 
+// Variant override tables (for multi-source integration support)
+export * from "./products/variant-commercial";
+export * from "./products/variant-environment";
+export * from "./products/variant-eco-claims";
+export * from "./products/variant-materials";
+export * from "./products/variant-weight";
+export * from "./products/variant-journey-steps";
+
 // Data schemas
 export * from "./data/file-assets";
 export * from "./data/import-jobs";

@@ -1,11 +1,19 @@
 "use client";
 
+/**
+ * ProductFormSkeleton
+ *
+ * Loading skeleton for product create and edit forms.
+ * Layout: Wide content on LEFT, narrow sidebar on RIGHT.
+ */
+
 import { Skeleton } from "@v1/ui/skeleton";
 
-interface PassportSkeletonProps {
+interface ProductFormSkeletonProps {
   title: string;
 }
-export function PassportSkeleton({ title }: PassportSkeletonProps) {
+
+export function ProductFormSkeleton({ title }: ProductFormSkeletonProps) {
   return (
     <div className="flex flex-col gap-6 w-full max-w-[924px]">
       <p className="type-h4 text-primary">{title}</p>

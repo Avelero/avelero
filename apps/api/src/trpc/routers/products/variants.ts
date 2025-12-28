@@ -108,7 +108,7 @@ const variantUpsertProcedure = brandRequiredProcedure
 
       // Revalidate parent product's DPP cache (fire-and-forget)
       if (productHandle) {
-        revalidateProduct(productHandle).catch(() => {});
+        revalidateProduct(productHandle).catch(() => { });
       }
 
       // Return created variants with their attribute assignments
@@ -133,12 +133,27 @@ const variantDeleteProcedure = brandRequiredProcedure
     const { db, brandId } = ctx as BrandContext;
     try {
       // Get product handle before deletion for cache revalidation
-      // Handle union type: input is either { product_id: string } or { variant_id: string }
+      let productHandle: string | null = null;
+
+      if ("productHandle" in input && "variantUpid" in input) {
+        // Delete by productHandle + variantUpid
+        productHandle = input.productHandle;
+        const deleted = await deleteVariantByUpid(db, brandId, input.productHandle, input.variantUpid);
+
+        // Revalidate parent product's DPP cache (fire-and-forget)
+        if (productHandle) {
+          revalidateProduct(productHandle).catch(() => { });
+        }
+
+        return createEntityResponse({ deleted });
+      }
+
+      // Handle legacy union type: { product_id: string } or { variant_id: string }
       const productId =
         "product_id" in input
           ? input.product_id
           : await getProductIdFromVariant(db, brandId, input.variant_id);
-      const productHandle = productId
+      productHandle = productId
         ? await getProductHandle(db, brandId, productId)
         : null;
 
@@ -146,7 +161,7 @@ const variantDeleteProcedure = brandRequiredProcedure
 
       // Revalidate parent product's DPP cache (fire-and-forget)
       if (productHandle) {
-        revalidateProduct(productHandle).catch(() => {});
+        revalidateProduct(productHandle).catch(() => { });
       }
 
       return createEntityResponse({ deleted });
@@ -154,6 +169,60 @@ const variantDeleteProcedure = brandRequiredProcedure
       throw wrapError(error, "Failed to delete product variants");
     }
   });
+
+/**
+ * Delete a variant by product handle and variant UPID.
+ */
+async function deleteVariantByUpid(
+  db: BrandDb,
+  brandId: string,
+  productHandle: string,
+  variantUpid: string
+): Promise<number> {
+  const deleted = await db.transaction(async (tx) => {
+    // First, find the product by handle
+    const [product] = await tx
+      .select({ id: products.id })
+      .from(products)
+      .where(
+        and(
+          eq(products.productHandle, productHandle),
+          eq(products.brandId, brandId)
+        )
+      )
+      .limit(1);
+
+    if (!product) {
+      throw badRequest("Product not found for the active brand");
+    }
+
+    // Find the variant by UPID
+    const [variant] = await tx
+      .select({ id: productVariants.id })
+      .from(productVariants)
+      .where(
+        and(
+          eq(productVariants.productId, product.id),
+          eq(productVariants.upid, variantUpid)
+        )
+      )
+      .limit(1);
+
+    if (!variant) {
+      throw badRequest("Variant not found");
+    }
+
+    // Delete the variant
+    const removed = await tx
+      .delete(productVariants)
+      .where(eq(productVariants.id, variant.id))
+      .returning({ id: productVariants.id });
+
+    return removed.length;
+  });
+
+  return deleted;
+}
 
 async function deleteProductVariants(
   db: BrandDb,

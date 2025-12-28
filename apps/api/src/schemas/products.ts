@@ -486,12 +486,30 @@ export const productVariantsUpsertSchema = z.discriminatedUnion("mode", [
 ]);
 
 /**
- * Deletes variants by id or by parent product.
+ * Deletes variants by id, by parent product, or by product handle + variant UPID.
  */
 export const productVariantsDeleteSchema = z.union([
   z.object({ variant_id: uuidSchema }),
   z.object({ product_id: uuidSchema }),
+  z.object({ productHandle: shortStringSchema, variantUpid: shortStringSchema }),
 ]);
+
+/**
+ * Creates a single new variant for a product.
+ * Uses product handle for URL-friendly API calls from the frontend.
+ */
+export const productVariantsCreateSchema = z.object({
+  /** Product handle (URL-friendly identifier) */
+  productHandle: shortStringSchema,
+  /** Ordered list of brand attribute value IDs defining this variant's attributes */
+  attribute_value_ids: uuidArraySchema.min(1, "At least one attribute value is required"),
+  /** Optional SKU */
+  sku: z.string().max(100).optional(),
+  /** Optional barcode */
+  barcode: z.string().max(100).optional(),
+});
+
+export type ProductVariantsCreateInput = z.infer<typeof productVariantsCreateSchema>;
 
 /**
  * Input payload for `products.list` in the reorganized API.

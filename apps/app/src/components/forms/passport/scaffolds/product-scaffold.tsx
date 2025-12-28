@@ -1,8 +1,16 @@
 "use client";
 
+/**
+ * ProductFormScaffold
+ *
+ * Layout wrapper for product create and edit forms.
+ * - Wide column (600px) on LEFT (content/blocks)
+ * - Narrow column (300px) on RIGHT (sidebar with status, identifiers)
+ */
+
 import { cn } from "@v1/ui/cn";
 
-export function PassportFormScaffold({
+export function ProductFormScaffold({
   title,
   left,
   right,

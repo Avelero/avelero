@@ -47,7 +47,8 @@ jobs:
     name: 🔍 Check Skip Condition
     runs-on: ubuntu-latest
     # Only check when directly triggered, not when called via workflow_call
-    if: github.event_name != 'workflow_call'
+    # inputs.app_url is only set when called via workflow_call
+    if: ${{ !inputs.app_url }}
     outputs:
       should_skip: ${{ steps.filter.outputs.app }}
     steps:
@@ -67,11 +68,11 @@ jobs:
     name: 🧪 Lint & Type Check
     runs-on: ubuntu-latest
     # Skip if app files also changed (preview-app will call us later)
-    # But always run if called via workflow_call
+    # But always run if called via workflow_call (detected by inputs.app_url being set)
     needs: [check-skip]
     if: |
       always() &&
-      (github.event_name == 'workflow_call' || needs.check-skip.outputs.should_skip != 'true')
+      (inputs.app_url || needs.check-skip.outputs.should_skip != 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -93,7 +94,7 @@ jobs:
     if: |
       always() &&
       needs.test.result == 'success' &&
-      (github.event_name == 'workflow_call' || (github.event_name == 'pull_request' && needs.check-skip.outputs.should_skip != 'true'))
+      (inputs.app_url || (github.event_name == 'pull_request' && needs.check-skip.outputs.should_skip != 'true'))
     runs-on: ubuntu-latest
     concurrency:
       group: pr-${{ github.event.number || inputs.pr_number }}-api
@@ -145,7 +146,7 @@ jobs:
             APP_URL=${{ steps.urls.outputs.app_url }}
 
       - name: 💬 Comment Preview URL
-        if: github.event_name != 'workflow_call' && github.event.action != 'closed'
+        if: ${{ !inputs.app_url && github.event.action != 'closed' }}
         uses: actions/github-script@v6
         with:
           script: |

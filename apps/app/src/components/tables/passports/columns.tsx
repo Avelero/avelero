@@ -319,7 +319,7 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                 {tags.map((tag) => (
                   <div
                     key={tag.id}
-                    className="flex items-center gap-2.5"
+                    className="flex items-center gap-2"
                   >
                     {tag.hex && (
                       <span

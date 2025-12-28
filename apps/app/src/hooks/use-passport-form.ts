@@ -291,6 +291,43 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     return map;
   }, [isEditMode, passportFormQuery.data]);
 
+  // Sync enabledVariantKeys with savedVariantsMap when variants are deleted externally
+  // This handles the case where a user deletes a variant from the variant edit page
+  // and navigates back - the deleted variant should not show as "new"
+  const prevSavedVariantsRef = React.useRef<Map<string, { upid: string; hasOverrides: boolean }> | null>(null);
+  React.useEffect(() => {
+    // Only run after initial hydration is complete
+    if (!isEditMode || !hasHydratedRef.current) return;
+
+    // Skip if savedVariantsMap is empty (would clear everything on first load)
+    if (!savedVariantsMap || savedVariantsMap.size === 0) {
+      prevSavedVariantsRef.current = savedVariantsMap;
+      return;
+    }
+
+    // Detect if any variants were removed from savedVariantsMap
+    const prevMap = prevSavedVariantsRef.current;
+    if (prevMap && prevMap.size > savedVariantsMap.size) {
+      // Find which variants were deleted
+      const deletedKeys = new Set<string>();
+      for (const [key] of prevMap) {
+        if (!savedVariantsMap.has(key)) {
+          deletedKeys.add(key);
+        }
+      }
+
+      // Remove deleted variants from enabledVariantKeys
+      if (deletedKeys.size > 0) {
+        const updatedKeys = new Set(
+          [...formValues.enabledVariantKeys].filter((key) => !deletedKeys.has(key))
+        );
+        setFields({ enabledVariantKeys: updatedKeys });
+      }
+    }
+
+    prevSavedVariantsRef.current = savedVariantsMap;
+  }, [isEditMode, savedVariantsMap, setFields, formValues.enabledVariantKeys]);
+
   const clearValidationError = React.useCallback(
     (field: keyof PassportFormValidationErrors) => {
       setValidationErrors((prev) => {
@@ -914,6 +951,50 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             });
           }
 
+          // After save, update dimension values to use resolved brand value IDs
+          // This replaces tax:-prefixed pending values with actual brand value IDs
+          if (resolvedVariant.tokenMaps.length > 0) {
+            const updatedDimensions = formValues.variantDimensions.map((dim, dimIndex) => {
+              const tokenMap = resolvedVariant.tokenMaps[dimIndex];
+              if (!tokenMap || dim.isCustomInline) return dim;
+
+              // Replace values with resolved brand value IDs
+              const updatedValues = dim.values.map((valueId) =>
+                tokenMap.get(valueId) ?? valueId
+              );
+
+              return { ...dim, values: updatedValues };
+            });
+
+            // Update enabledVariantKeys with resolved brand value IDs
+            const updatedEnabledKeys = new Set<string>();
+            for (const key of formValues.enabledVariantKeys) {
+              const tokens = key.split("|");
+              const resolvedTokens = tokens.map((token, idx) => {
+                const tokenMap = resolvedVariant.tokenMaps[idx];
+                return tokenMap?.get(token) ?? token;
+              });
+              updatedEnabledKeys.add(resolvedTokens.join("|"));
+            }
+
+            // Update variantMetadata keys with resolved brand value IDs
+            const updatedMetadata: Record<string, { sku?: string; barcode?: string }> = {};
+            for (const [key, value] of Object.entries(formValues.variantMetadata)) {
+              const tokens = key.split("|");
+              const resolvedTokens = tokens.map((token, idx) => {
+                const tokenMap = resolvedVariant.tokenMaps[idx];
+                return tokenMap?.get(token) ?? token;
+              });
+              updatedMetadata[resolvedTokens.join("|")] = value;
+            }
+
+            setFields({
+              variantDimensions: updatedDimensions,
+              enabledVariantKeys: updatedEnabledKeys,
+              variantMetadata: updatedMetadata,
+            });
+          }
+
           setFields({
             imageFile: null,
             existingImageUrl: imagePath ?? formValues.existingImageUrl ?? null,
@@ -930,6 +1011,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           void queryClient.invalidateQueries({ queryKey: trpc.products.get.queryKey({ id: metadataRef.current.productId }) });
           void queryClient.invalidateQueries({ queryKey: trpc.products.list.queryKey() });
           void queryClient.invalidateQueries({ queryKey: trpc.summary.productStatus.queryKey() });
+          void queryClient.invalidateQueries({ queryKey: trpc.composite.catalogContent.queryKey() });
 
           toast.success("Passport updated successfully");
           return;

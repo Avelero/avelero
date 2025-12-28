@@ -8,8 +8,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { SmartAvatar } from "@v1/ui/avatar";
 
@@ -26,9 +26,23 @@ export function SetupForm() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const pathname = usePathname();
 
-  // Prefill if anything exists, but initial setup usually has nothing.
+  // Track if we've done the initial mount reset
+  const hasMountResetRef = useRef(false);
+
+  // Reset all form state on mount and when navigating to this page
   useEffect(() => {
+    setFullName("");
+    setAvatarUrl(null);
+    setIsSubmitting(false);
+    setError("");
+    hasMountResetRef.current = true;
+  }, [pathname]);
+
+  // Prefill if anything exists, but only after mount reset and if user data available.
+  useEffect(() => {
+    if (!hasMountResetRef.current) return;
     const u = user as CurrentUser | null | undefined;
     if (!u) return;
     if (!fullName && u.full_name) setFullName(u.full_name);

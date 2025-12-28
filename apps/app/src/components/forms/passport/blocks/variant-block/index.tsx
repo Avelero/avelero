@@ -122,6 +122,11 @@ interface VariantSectionProps {
   productHandle?: string;
   /** Saved variants with UPIDs and override status, keyed by the value id key (e.g., "valueId1|valueId2") */
   savedVariants?: Map<string, { upid: string; hasOverrides: boolean }>;
+  /**
+   * Whether this is a new product (no saved variants yet).
+   * Used to determine matrix vs reality-based variant display and dimension change behavior.
+   */
+  isNewProduct?: boolean;
 }
 
 /**
@@ -170,6 +175,7 @@ export function VariantSection({
   isEditMode = false,
   productHandle,
   savedVariants,
+  isNewProduct = false,
 }: VariantSectionProps) {
   const { taxonomyAttributes, brandAttributes } = useBrandCatalog();
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -356,12 +362,15 @@ export function VariantSection({
   };
 
   const handleUpdateDimension = (index: number, updated: VariantDimension) => {
-    // Get old dimension count and keys before update
+    // Get old dimension info before update
     const oldDimensionCount = dimensions.filter((d) =>
       d.values.length > 0 ||
       (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
     ).length;
-    const oldKeys = new Set(generateAllCombinationKeys(dimensions));
+    const oldDimension = dimensions[index];
+    const oldValues = oldDimension?.isCustomInline
+      ? new Set(oldDimension.customValues ?? [])
+      : new Set(oldDimension?.values ?? []);
 
     setDimensions((prev) => {
       const next = [...prev];
@@ -369,38 +378,110 @@ export function VariantSection({
       return next;
     });
 
-    // Calculate new dimension count and keys
+    // Calculate new dimension info
     const newDimensions = [...dimensions];
     newDimensions[index] = updated;
     const newDimensionCount = newDimensions.filter((d) =>
       d.values.length > 0 ||
       (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
     ).length;
+    const newValues = updated.isCustomInline
+      ? new Set(updated.customValues ?? [])
+      : new Set(updated.values);
     const newKeys = generateAllCombinationKeys(newDimensions);
     const newKeysSet = new Set(newKeys);
+
+    // Check if this is genuinely a new product (no saved variants)
+    const isExistingProduct = savedVariants && savedVariants.size > 0;
 
     setEnabledVariantKeys((prevEnabled) => {
       const nextEnabled = new Set<string>();
 
-      // If dimension count changed, we need to rebuild the enabled set
-      // Only keep keys that match the new structure
-      if (oldDimensionCount !== newDimensionCount) {
-        // Add all new keys (all new combinations are enabled by default)
-        for (const key of newKeys) {
-          nextEnabled.add(key);
-        }
-      } else {
-        // Same dimension count - preserve existing enabled states
-        for (const key of prevEnabled) {
-          // Only keep if still valid in new structure
-          if (newKeysSet.has(key)) {
+      if (isNewProduct || !isExistingProduct) {
+        // NEW PRODUCT: Matrix behavior - all combinations enabled
+        if (oldDimensionCount !== newDimensionCount) {
+          // Dimension count changed, add all new keys
+          for (const key of newKeys) {
             nextEnabled.add(key);
           }
+        } else {
+          // Same dimension count - preserve existing enabled states
+          for (const key of prevEnabled) {
+            if (newKeysSet.has(key)) {
+              nextEnabled.add(key);
+            }
+          }
+          // Add genuinely new keys
+          for (const key of newKeys) {
+            if (!prevEnabled.has(key)) {
+              nextEnabled.add(key);
+            }
+          }
         }
-        // Add genuinely new keys
-        for (const key of newKeys) {
-          if (!oldKeys.has(key)) {
-            nextEnabled.add(key);
+      } else {
+        // EXISTING PRODUCT: Shopify-like behavior
+        // Determine added and removed values
+        const addedValues = [...newValues].filter((v) => !oldValues.has(v));
+        const removedValues = [...oldValues].filter((v) => !newValues.has(v));
+
+        // Handle dimension count change (new dimension added)
+        if (newDimensionCount > oldDimensionCount && addedValues.length > 0) {
+          // A new dimension was added with values
+          // Expand all existing enabled keys by appending the new dimension's values
+          for (const key of prevEnabled) {
+            for (const newValue of newValues) {
+              // Append new value at the position of the new dimension
+              const keyParts = key.split("|");
+              // Insert value at the correct position (index of the new dimension)
+              const newKeyParts = [...keyParts];
+              newKeyParts.splice(index, 0, newValue);
+              const newKey = newKeyParts.join("|");
+              if (newKeysSet.has(newKey)) {
+                nextEnabled.add(newKey);
+              }
+            }
+          }
+        } else {
+          // Same dimension count - handle value additions/removals
+
+          // Start with existing enabled keys
+          for (const key of prevEnabled) {
+            const keyParts = key.split("|");
+            // Check if key contains any removed values
+            const containsRemovedValue = keyParts.some((part) => removedValues.includes(part));
+            // Check if key is still valid in new structure
+            if (!containsRemovedValue && newKeysSet.has(key)) {
+              nextEnabled.add(key);
+            }
+          }
+
+          // For added values: expand existing variants like Shopify
+          // Create new combinations by adding new values to existing variant patterns
+          if (addedValues.length > 0 && newDimensionCount === oldDimensionCount) {
+            // Get existing variant patterns without the current dimension
+            const existingPatterns = new Set<string>();
+            for (const key of prevEnabled) {
+              const keyParts = key.split("|");
+              // Remove the value at the current dimension's position
+              const patternParts = keyParts.filter((_, i) => i !== index);
+              if (patternParts.length > 0) {
+                existingPatterns.add(patternParts.join("|"));
+              }
+            }
+
+            // For each existing pattern, create combinations with new values
+            for (const pattern of existingPatterns) {
+              const patternParts = pattern.split("|");
+              for (const newValue of addedValues) {
+                // Insert new value at the correct position
+                const newKeyParts = [...patternParts];
+                newKeyParts.splice(index, 0, newValue);
+                const newKey = newKeyParts.join("|");
+                if (newKeysSet.has(newKey)) {
+                  nextEnabled.add(newKey);
+                }
+              }
+            }
           }
         }
       }
@@ -418,11 +499,37 @@ export function VariantSection({
     // Calculate new dimensions after deletion
     const newDimensions = dimensions.filter((_, i) => i !== index);
     const newKeys = generateAllCombinationKeys(newDimensions);
+    const newKeysSet = new Set(newKeys);
 
     setDimensions(newDimensions);
 
-    // Reset enabled keys to match new structure
-    setEnabledVariantKeys(new Set(newKeys));
+    // Check if this is an existing product with saved variants
+    const isExistingProduct = savedVariants && savedVariants.size > 0;
+
+    setEnabledVariantKeys((prevEnabled) => {
+      if (isNewProduct || !isExistingProduct) {
+        // NEW PRODUCT: Matrix behavior - all combinations enabled
+        return new Set(newKeys);
+      }
+
+      // EXISTING PRODUCT: Only keep variants that still match the new structure
+      // and were previously enabled (this collapses variants, removing the deleted dimension)
+      const nextEnabled = new Set<string>();
+
+      for (const key of prevEnabled) {
+        const keyParts = key.split("|");
+        // Remove the value at the deleted dimension's position
+        const collapsedParts = keyParts.filter((_, i) => i !== index);
+        const collapsedKey = collapsedParts.join("|");
+
+        // If the collapsed key is valid in the new structure, add it
+        if (newKeysSet.has(collapsedKey)) {
+          nextEnabled.add(collapsedKey);
+        }
+      }
+
+      return nextEnabled;
+    });
   };
 
   const activeDimension = activeId
@@ -449,8 +556,8 @@ export function VariantSection({
         {isEditMode && productHandle && (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/passports/edit/${productHandle}/variant/new`}>
-              <Icons.Plus className="h-4 w-4 mr-1.5" />
-              Add variant
+              <Icons.Plus className="h-4 w-4" />
+              <span className="px-1">Add variant</span>
             </Link>
           </Button>
         )}
@@ -634,6 +741,7 @@ export function VariantSection({
           isEditMode={isEditMode}
           productHandle={productHandle}
           savedVariants={savedVariants}
+          isNewProduct={isNewProduct}
         />
       )}
     </div>

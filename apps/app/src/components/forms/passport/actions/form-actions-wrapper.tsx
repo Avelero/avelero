@@ -12,11 +12,13 @@ import { VariantFormActions } from "@/components/forms/passport/actions/variant-
 import { usePassportFormContext } from "@/contexts/passport-form-context";
 
 export function FormActionsWrapper() {
-  const { formType } = usePassportFormContext();
+    const { formType, variantUpid } = usePassportFormContext();
 
-  if (formType === "variant") {
-    return <VariantFormActions />;
-  }
+    if (formType === "variant") {
+        // Determine if create mode based on variantUpid
+        const mode = variantUpid === "new" ? "create" : "edit";
+        return <VariantFormActions mode={mode} />;
+    }
 
-  return <ProductFormActions />;
+    return <ProductFormActions />;
 }

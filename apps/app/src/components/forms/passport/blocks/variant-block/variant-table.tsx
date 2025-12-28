@@ -18,6 +18,19 @@ import type {
   VariantMetadata,
 } from "./types";
 
+/**
+ * Badge component to indicate a new variant that hasn't been saved yet.
+ * Styled like TagLabel from tag-select.tsx
+ */
+function NewBadge() {
+  return (
+    <span className="inline-flex h-5 items-center gap-1.5 rounded-full border bg-background px-1.5 text-[12px] font-regular leading-none text-foreground flex-shrink-0">
+      <span className="w-2 h-2 rounded-full flex-shrink-0 bg-brand border-border" />
+      New
+    </span>
+  );
+}
+
 interface VariantTableProps {
   dimensions: VariantDimension[];
   variantMetadata: Record<string, VariantMetadata>;
@@ -34,6 +47,12 @@ interface VariantTableProps {
   productHandle?: string;
   /** Saved variants with UPIDs and override status, keyed by the value id key (e.g., "valueId1|valueId2") */
   savedVariants?: Map<string, { upid: string; hasOverrides: boolean }>;
+  /** 
+   * Whether this is a new product (no saved variants yet).
+   * - New product: Shows all enabled combinations from matrix (creation flow)
+   * - Existing product: Shows ONLY variants that exist in savedVariants
+   */
+  isNewProduct?: boolean;
 }
 
 export function VariantTable({
@@ -46,6 +65,7 @@ export function VariantTable({
   isEditMode = false,
   productHandle,
   savedVariants,
+  isNewProduct = false,
 }: VariantTableProps) {
   const router = useRouter();
   const { taxonomyValuesByAttribute, brandAttributeValuesByAttribute } =
@@ -210,12 +230,15 @@ export function VariantTable({
             <div
               // biome-ignore lint/suspicious/noArrayIndexKey: Index is intentional - using editable fields (sku/barcode) causes focus loss when transitioning from empty to non-empty
               key={`variant-${idx}`}
-              className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border"
+              className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] h-10 border-b border-border"
             >
-              <div className="px-4 py-2 type-p text-primary">
+              <div className="px-4 flex items-center type-p text-primary">
                 {variant.sku || variant.barcode || `Variant ${idx + 1}`}
               </div>
-              <div className="px-2 py-1.5 border-l border-border">
+              <div
+                className="border-l border-border"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Input
                   value={variant.sku}
                   onChange={(e) => {
@@ -229,10 +252,13 @@ export function VariantTable({
                     });
                   }}
                   placeholder="SKU"
-                  className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                  className="h-full w-full rounded-none border-0 bg-transparent type-p px-4 focus-visible:ring-[1.5px] focus-visible:ring-brand"
                 />
               </div>
-              <div className="px-2 py-1.5 border-l border-border">
+              <div
+                className="border-l border-border"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Input
                   value={variant.barcode}
                   onChange={(e) => {
@@ -246,7 +272,7 @@ export function VariantTable({
                     });
                   }}
                   placeholder="Barcode"
-                  className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                  className="h-full w-full rounded-none border-0 bg-transparent type-p px-4 focus-visible:ring-[1.5px] focus-visible:ring-brand"
                 />
               </div>
             </div>
@@ -279,6 +305,18 @@ export function VariantTable({
   if (dimensionsWithValues.length === 1) {
     const dim = dimensionsWithValues[0]!;
     const dimIndex = effectiveDimensions.indexOf(dim);
+
+    // SIMPLIFIED: Always use enabledVariantKeys for display
+    // savedVariants is only used for metadata lookup (UPID, hasOverrides)
+    // This ensures new variants show up immediately when values are added
+    const valuesToRender = dim.effectiveValues.filter((value) =>
+      enabledVariantKeys.has(buildKey([value]))
+    );
+
+    if (valuesToRender.length === 0) {
+      return null;
+    }
+
     return (
       <div className="border-t border-border">
         <div className="grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] bg-accent-light border-b border-border">
@@ -286,7 +324,8 @@ export function VariantTable({
           <div className="px-4 py-2 type-small text-secondary">SKU</div>
           <div className="px-4 py-2 type-small text-secondary">Barcode</div>
         </div>
-        {dim.effectiveValues.map((value) => {
+        {valuesToRender.map((value, valueIndex) => {
+          const isLastRow = valueIndex === valuesToRender.length - 1;
           const key = buildKey([value]);
           const meta = variantMetadata[key] ?? {};
           const { name, hex } = getValueDisplay(
@@ -296,17 +335,20 @@ export function VariantTable({
           );
           const isClickable = isEditMode && savedVariants?.has(key);
           const savedVariant = savedVariants?.get(key);
+          // A variant is "new" if it's enabled but doesn't exist in savedVariants
+          const isNewVariant = !savedVariants?.has(key);
 
           return (
             <div
               key={key}
               className={cn(
-                "grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border last:border-b-0 group",
+                "grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] h-10 border-b border-border group",
                 isClickable && "cursor-pointer hover:bg-accent",
+                isLastRow && "border-b-0",
               )}
               onClick={isClickable ? () => navigateToVariant(key) : undefined}
             >
-              <div className="px-4 py-2 flex items-center justify-between gap-2">
+              <div className="px-4 flex items-center gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   {hex && (
                     <div
@@ -322,36 +364,38 @@ export function VariantTable({
                   >
                     {name}
                   </span>
+                  {/* New variant indicator */}
+                  {isNewVariant && <NewBadge />}
+                  {/* Override indicator */}
+                  {savedVariant?.hasOverrides && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                            <div className="w-2 h-2 rounded-full bg-brand" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Contains variant-specific overrides
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                 </div>
-                {/* Override indicator */}
-                {savedVariant?.hasOverrides && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                          <div className="w-2 h-2 rounded-full bg-brand" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        Contains variant-specific overrides
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
               </div>
               <div
-                className="px-2 py-1.5 border-l border-border"
+                className="border-l border-border"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Input
                   value={meta.sku ?? ""}
                   onChange={(e) => updateMetadata(key, "sku", e.target.value)}
                   placeholder="SKU"
-                  className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                  className="h-full w-full rounded-none border-0 bg-transparent type-p px-4 focus-visible:ring-[1.5px] focus-visible:ring-brand"
                 />
               </div>
               <div
-                className="px-2 py-1.5 border-l border-border"
+                className="border-l border-border"
                 onClick={(e) => e.stopPropagation()}
               >
                 <Input
@@ -360,7 +404,7 @@ export function VariantTable({
                     updateMetadata(key, "barcode", e.target.value)
                   }
                   placeholder="Barcode"
-                  className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
+                  className="h-full w-full rounded-none border-0 bg-transparent type-p px-4 focus-visible:ring-[1.5px] focus-visible:ring-brand"
                 />
               </div>
             </div>
@@ -387,7 +431,7 @@ export function VariantTable({
     });
   };
 
-  // Generate cartesian product for other dimensions
+  // Generate cartesian product for other dimensions (used for new products)
   const generateCombinations = (
     dims: typeof dimensionsWithValues,
   ): string[][] => {
@@ -403,7 +447,25 @@ export function VariantTable({
     return result;
   };
 
-  const childCombinations = generateCombinations(otherDims);
+  // Get all combinations that should be shown based on product state
+  const allChildCombinations = generateCombinations(otherDims);
+
+  // SIMPLIFIED LOGIC: Always use enabledVariantKeys for display
+  // savedVariants is only used for metadata lookup (UPID, hasOverrides)
+  // This ensures new variants show up immediately when values are added
+
+  // Determine which first-dimension values to show
+  // Show groups that have at least one enabled combination
+  const groupValuesToShow = firstDim.effectiveValues.filter((value) => {
+    return allChildCombinations.some((combo) => {
+      const fullCombo = [value, ...combo];
+      return enabledVariantKeys.has(buildKey(fullCombo));
+    });
+  });
+
+  if (groupValuesToShow.length === 0) {
+    return null;
+  }
 
   return (
     <div className="border-t border-border">
@@ -413,8 +475,8 @@ export function VariantTable({
         <div className="px-4 py-2 type-small text-secondary">Barcode</div>
       </div>
 
-      {firstDim.effectiveValues.map((groupValue, groupIndex) => {
-        const isLastGroup = groupIndex === firstDim.effectiveValues.length - 1;
+      {groupValuesToShow.map((groupValue, groupIndex) => {
+        const isLastGroup = groupIndex === groupValuesToShow.length - 1;
         const isExpanded = expandedGroups.has(groupValue);
         const { name: groupName, hex: groupHex } = getValueDisplay(
           firstDimIndex,
@@ -423,12 +485,18 @@ export function VariantTable({
         );
         const groupKey = buildKey([groupValue]);
 
-        // Count enabled variants within this group
-        const enabledInGroup = childCombinations.filter((combo) => {
+        // Get child combinations for this group - ALWAYS use enabledVariantKeys
+        const childCombosForGroup = allChildCombinations.filter((combo) => {
           const fullCombo = [groupValue, ...combo];
           return enabledVariantKeys.has(buildKey(fullCombo));
-        }).length;
-        const totalInGroup = childCombinations.length;
+        });
+
+        const variantCount = childCombosForGroup.length;
+
+        // Skip groups with no variants
+        if (variantCount === 0) {
+          return null;
+        }
 
         return (
           <div key={groupKey}>
@@ -453,22 +521,22 @@ export function VariantTable({
               )}
               <span className="type-p text-primary">{groupName}</span>
               <span className="type-small text-tertiary">
-                {enabledInGroup === totalInGroup
-                  ? `${totalInGroup} variants`
-                  : `${enabledInGroup}/${totalInGroup} variants`}
+                {variantCount} variant{variantCount !== 1 ? "s" : ""}
               </span>
             </button>
 
             {/* Child rows */}
             {isExpanded &&
-              childCombinations.map((combo, childIndex) => {
-                const isLastChild = childIndex === childCombinations.length - 1;
+              childCombosForGroup.map((combo, childIndex) => {
+                const isLastChild = childIndex === childCombosForGroup.length - 1;
                 const isVeryLastRow = isLastGroup && isLastChild;
                 const fullCombo = [groupValue, ...combo];
                 const key = buildKey(fullCombo);
                 const meta = variantMetadata[key] ?? {};
-                const isEnabled = enabledVariantKeys.has(key);
                 const savedVariant = savedVariants?.get(key);
+                const isClickable = isEditMode && savedVariants?.has(key);
+                // A variant is "new" if it's enabled but doesn't exist in savedVariants
+                const isNewVariant = !savedVariants?.has(key);
 
                 // Build label with hex colors for each value in combo
                 const labelParts = combo.map((val, i) => {
@@ -488,66 +556,48 @@ export function VariantTable({
                   <div
                     key={key}
                     className={cn(
-                      "grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] border-b border-border group",
-                      !isEnabled && "opacity-50",
-                      isEditMode &&
-                      savedVariants?.has(key) &&
-                      isEnabled &&
-                      "cursor-pointer hover:bg-accent",
+                      "grid grid-cols-[minmax(100px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] h-10 border-b border-border group",
+                      isClickable && "cursor-pointer hover:bg-accent",
                       // Remove border on the very last row
                       isVeryLastRow && "border-b-0",
                     )}
                     onClick={
-                      isEditMode && savedVariants?.has(key) && isEnabled
+                      isClickable
                         ? () => navigateToVariant(key)
                         : undefined
                     }
                   >
-                    <div className="px-4 py-2 flex items-center justify-between gap-2">
+                    <div className="px-4 flex items-center gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        {labelParts.map((part, i) => (
-                          <React.Fragment key={`${part.value}-${i}`}>
-                            {i > 0 && (
-                              <span className="type-p text-tertiary">/</span>
-                            )}
-                            {part.hex && (
-                              <div
-                                className="h-3 w-3 rounded-full border border-border shrink-0"
-                                style={{ backgroundColor: part.hex }}
-                              />
-                            )}
-                            <span
-                              className={cn(
-                                "type-p text-primary",
-                                isEditMode &&
-                                savedVariants?.has(key) &&
-                                isEnabled &&
-                                "group-hover:underline",
-                              )}
-                            >
-                              {part.name}
-                            </span>
-                          </React.Fragment>
-                        ))}
+                        <span
+                          className={cn(
+                            "type-p text-primary truncate",
+                            isClickable && "group-hover:underline",
+                          )}
+                        >
+                          {labelParts.map((part) => part.name).join(" / ")}
+                        </span>
+                        {/* New variant indicator */}
+                        {isNewVariant && <NewBadge />}
+                        {/* Override indicator */}
+                        {savedVariant?.hasOverrides && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                                  <div className="w-2 h-2 rounded-full bg-brand" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                Contains variant-specific overrides
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </div>
-                      {/* Override indicator */}
-                      {savedVariant?.hasOverrides && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                                <div className="w-2 h-2 rounded-full bg-brand" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                              Contains variant-specific overrides
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
                     </div>
                     <div
-                      className="px-2 py-1.5 border-l border-border"
+                      className="border-l border-border"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Input
@@ -556,12 +606,11 @@ export function VariantTable({
                           updateMetadata(key, "sku", e.target.value)
                         }
                         placeholder="SKU"
-                        className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
-                        disabled={!isEnabled}
+                        className="h-full w-full rounded-none border-0 bg-transparent type-p px-4 focus-visible:ring-[1.5px] focus-visible:ring-brand"
                       />
                     </div>
                     <div
-                      className="px-2 py-1.5 border-l border-border"
+                      className="border-l border-border"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Input
@@ -570,8 +619,7 @@ export function VariantTable({
                           updateMetadata(key, "barcode", e.target.value)
                         }
                         placeholder="Barcode"
-                        className="h-7 border-0 bg-transparent type-p px-2 focus-visible:ring-0"
-                        disabled={!isEnabled}
+                        className="h-full w-full rounded-none border-0 bg-transparent type-p px-4 focus-visible:ring-[1.5px] focus-visible:ring-brand"
                       />
                     </div>
                   </div>

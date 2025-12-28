@@ -15,6 +15,12 @@
  * triggering suspense boundary when navigating between variants.
  */
 
+import {
+  AttributesSelectBlock,
+  buildExistingCombinations,
+  extractDimensionsFromVariants,
+  isSelectionDuplicate,
+} from "@/components/forms/passport/blocks/attributes-select-block";
 import { BasicInfoSection } from "@/components/forms/passport/blocks/basic-info-block";
 import { EnvironmentSection } from "@/components/forms/passport/blocks/environment-block";
 import { JourneySection } from "@/components/forms/passport/blocks/journey-block";
@@ -28,12 +34,15 @@ import {
 import { useVariantForm } from "@/hooks/use-variant-form";
 import { useTRPC } from "@/trpc/client";
 import {
+  useMutation,
   useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { Icons } from "@v1/ui/icons";
+import { toast } from "@v1/ui/sonner";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 
 interface VariantFormProps {
@@ -43,10 +52,26 @@ interface VariantFormProps {
 }
 
 function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps) {
+  const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const { setIsSubmitting, setHasUnsavedChanges } = usePassportFormContext();
   const isCreateMode = mode === "create";
+
+  // State for create mode selections
+  const [selectedAttributes, setSelectedAttributes] = React.useState<Record<string, string>>({});
+
+  // Track if we're actively creating a variant (to suppress duplicate warning during submission)
+  const [isCreatingVariant, setIsCreatingVariant] = React.useState(false);
+
+  // Reset form state when entering create mode (fixes cache issue on navigation)
+  const createModeKey = isCreateMode ? `${productHandle}-create` : null;
+  React.useEffect(() => {
+    if (isCreateMode) {
+      setSelectedAttributes({});
+      setIsCreatingVariant(false);
+    }
+  }, [createModeKey, isCreateMode]);
 
   // Register form with context
   useRegisterForm({
@@ -56,7 +81,6 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
   });
 
   // Scroll to top when variant changes
-  // Note: The scrollable container is not window, but the div with overflow-y-auto in the layout
   React.useEffect(() => {
     const scrollContainer = document.getElementById(
       "passport-form-scroll-container",
@@ -84,6 +108,11 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
     }),
   );
 
+  // Create variant mutation
+  const createVariantMutation = useMutation(
+    trpc.products.variants.create.mutationOptions()
+  );
+
   // Build variants list for sidebar with prefetch capability
   const variants = React.useMemo(() => {
     if (!productData?.variants) return [];
@@ -104,6 +133,28 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
       })
       .filter((v) => v.upid); // Only variants with UPIDs
   }, [productData?.variants]);
+
+  // Extract dimensions from existing variants (for create mode)
+  const dimensions = React.useMemo(() => {
+    if (!productData?.variants) return [];
+    return extractDimensionsFromVariants(productData.variants);
+  }, [productData?.variants]);
+
+  // Build existing combinations set (for duplicate check)
+  const existingCombinations = React.useMemo(() => {
+    if (!productData?.variants) return new Set<string>();
+    return buildExistingCombinations(productData.variants);
+  }, [productData?.variants]);
+
+  // Check if current selection is a duplicate
+  const isDuplicate = React.useMemo(() => {
+    return isSelectionDuplicate(selectedAttributes, existingCombinations);
+  }, [selectedAttributes, existingCombinations]);
+
+  // Check if all dimensions are selected
+  const allDimensionsSelected = React.useMemo(() => {
+    return dimensions.every((dim) => selectedAttributes[dim.attributeId]);
+  }, [dimensions, selectedAttributes]);
 
   // Prefetch variant data on hover
   const prefetchVariant = React.useCallback(
@@ -163,8 +214,8 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
 
   // Sync with context
   React.useEffect(() => {
-    setIsSubmitting(isSubmitting);
-  }, [isSubmitting, setIsSubmitting]);
+    setIsSubmitting(isSubmitting || createVariantMutation.isPending);
+  }, [isSubmitting, createVariantMutation.isPending, setIsSubmitting]);
 
   React.useEffect(() => {
     setHasUnsavedChanges(hasUnsavedChanges);
@@ -188,15 +239,60 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const errors = validate();
-    if (Object.keys(errors).length > 0) {
-      return;
-    }
+    if (isCreateMode) {
+      // Create mode: create the variant with selected attributes
+      if (!allDimensionsSelected) {
+        toast.error("Please select a value for each attribute");
+        return;
+      }
 
-    try {
-      await submit();
-    } catch (err) {
-      console.error("Form submission failed:", err);
+      if (isDuplicate) {
+        toast.error("A variant with this attribute combination already exists");
+        return;
+      }
+
+      // Set creating flag to prevent duplicate warning flash after cache invalidation
+      setIsCreatingVariant(true);
+
+      try {
+        const result = await createVariantMutation.mutateAsync({
+          productHandle,
+          attribute_value_ids: Object.values(selectedAttributes),
+        });
+
+        // Navigate first, then invalidate in background (prevents flash of duplicate warning)
+        toast.success("Variant created successfully");
+
+        if (result.data?.upid) {
+          // Navigate immediately
+          router.push(`/passports/edit/${productHandle}/variant/${result.data.upid}`);
+
+          // Invalidate queries in background (don't await - navigation takes priority)
+          queryClient.invalidateQueries({
+            queryKey: trpc.products.get.queryKey({
+              handle: productHandle,
+              includeVariants: true,
+              includeAttributes: true,
+            }),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to create variant:", err);
+        toast.error("Failed to create variant");
+        setIsCreatingVariant(false);
+      }
+    } else {
+      // Edit mode: save overrides
+      const errors = validate();
+      if (Object.keys(errors).length > 0) {
+        return;
+      }
+
+      try {
+        await submit();
+      } catch (err) {
+        console.error("Form submission failed:", err);
+      }
     }
   };
 
@@ -242,14 +338,13 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
           isCreateMode ? (
             <>
               {/* Attributes Selection Block (Create mode only) */}
-              <div className="border border-border bg-background p-6">
-                <h3 className="type-h5 text-primary mb-4">Attributes</h3>
-                <p className="type-small text-secondary">
-                  Select the attribute values for this new variant.
-                  The variant creation feature is coming soon.
-                </p>
-                {/* TODO: Add AttributesSelectBlock component here */}
-              </div>
+              <AttributesSelectBlock
+                dimensions={dimensions}
+                existingCombinations={existingCombinations}
+                selectedValues={selectedAttributes}
+                onSelectionChange={setSelectedAttributes}
+                isDuplicate={isDuplicate && !isCreatingVariant}
+              />
             </>
           ) : (
             <>

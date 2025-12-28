@@ -305,6 +305,7 @@ function ProductFormInner({
               isEditMode={isEditMode}
               productHandle={savedProductHandle ?? undefined}
               savedVariants={savedVariantsMap}
+              isNewProduct={!isEditMode || !savedVariantsMap || savedVariantsMap.size === 0}
             />
             <EnvironmentSection
               carbonKgCo2e={state.carbonKgCo2e}

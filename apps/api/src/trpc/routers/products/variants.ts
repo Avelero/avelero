@@ -8,8 +8,8 @@
  * - Implemented variant upsert with generic attribute system
  * - Supports explicit mode (direct variant definitions) and matrix mode (cartesian product)
  */
-import { and, eq } from "@v1/db/queries";
-import { productVariants, products } from "@v1/db/schema";
+import { and, eq, inArray } from "@v1/db/queries";
+import { productVariants, products, productVariantAttributes } from "@v1/db/schema";
 import {
   listVariantsForProduct,
   replaceProductVariantsExplicit,
@@ -18,6 +18,7 @@ import {
   type ReplaceVariantsResult,
 } from "@v1/db/queries/products";
 import {
+  productVariantsCreateSchema,
   productVariantsDeleteSchema,
   productVariantsUpsertSchema,
   variantUnifiedListSchema,
@@ -126,6 +127,147 @@ const variantUpsertProcedure = brandRequiredProcedure
       throw wrapError(error, "Failed to upsert product variants");
     }
   });
+
+/**
+ * Create a single new variant for a product.
+ * Uses product handle for URL-friendly API calls.
+ */
+const variantCreateProcedure = brandRequiredProcedure
+  .input(productVariantsCreateSchema)
+  .mutation(async ({ ctx, input }) => {
+    const { db, brandId } = ctx as BrandContext;
+    try {
+      // Find product by handle
+      const [product] = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(
+          and(
+            eq(products.productHandle, input.productHandle),
+            eq(products.brandId, brandId)
+          )
+        )
+        .limit(1);
+
+      if (!product) {
+        throw badRequest("Product not found");
+      }
+
+      // Check if a variant with this exact attribute combination already exists
+      const existingVariants = await db
+        .select({
+          id: productVariants.id,
+          upid: productVariants.upid,
+        })
+        .from(productVariants)
+        .where(eq(productVariants.productId, product.id));
+
+      // Get attribute assignments for existing variants
+      if (existingVariants.length > 0) {
+        const existingAttributes = await db
+          .select({
+            variantId: productVariantAttributes.variantId,
+            attributeValueId: productVariantAttributes.attributeValueId,
+          })
+          .from(productVariantAttributes)
+          .where(
+            inArray(
+              productVariantAttributes.variantId,
+              existingVariants.map((v) => v.id)
+            )
+          );
+
+        // Group by variant
+        const variantAttrMap = new Map<string, Set<string>>();
+        for (const attr of existingAttributes) {
+          if (!variantAttrMap.has(attr.variantId)) {
+            variantAttrMap.set(attr.variantId, new Set());
+          }
+          variantAttrMap.get(attr.variantId)!.add(attr.attributeValueId);
+        }
+
+        // Check if any existing variant has the exact same attribute combination
+        const inputValueSet = new Set(input.attribute_value_ids);
+        for (const [, attrSet] of variantAttrMap) {
+          if (
+            attrSet.size === inputValueSet.size &&
+            [...attrSet].every((v) => inputValueSet.has(v))
+          ) {
+            throw badRequest(
+              "A variant with this attribute combination already exists"
+            );
+          }
+        }
+      }
+
+      // Generate unique UPID
+      const upid = await generateUniqueUpidForVariant(db);
+
+      // Create the variant
+      const [variant] = await db
+        .insert(productVariants)
+        .values({
+          productId: product.id,
+          upid,
+          sku: input.sku ?? null,
+          barcode: input.barcode ?? null,
+        })
+        .returning({
+          id: productVariants.id,
+          upid: productVariants.upid,
+        });
+
+      // Create attribute assignments
+      if (input.attribute_value_ids.length > 0) {
+        await db.insert(productVariantAttributes).values(
+          input.attribute_value_ids.map((valueId, index) => ({
+            variantId: variant!.id,
+            attributeValueId: valueId,
+            sortOrder: index,
+          }))
+        );
+      }
+
+      // Revalidate product cache
+      revalidateProduct(input.productHandle).catch(() => { });
+
+      return createEntityResponse({
+        id: variant!.id,
+        upid: variant!.upid,
+      });
+    } catch (error) {
+      throw wrapError(error, "Failed to create variant");
+    }
+  });
+
+/**
+ * Generate a unique UPID for a new variant.
+ */
+async function generateUniqueUpidForVariant(db: BrandDb): Promise<string> {
+  const BASE36 = "0123456789abcdefghijklmnopqrstuvwxyz";
+  const LENGTH = 16;
+  const MAX_ATTEMPTS = 10;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    let upid = "";
+    for (let i = 0; i < LENGTH; i++) {
+      upid += BASE36[Math.floor(Math.random() * BASE36.length)];
+    }
+
+    // Check if UPID already exists
+    const [existing] = await db
+      .select({ id: productVariants.id })
+      .from(productVariants)
+      .where(eq(productVariants.upid, upid))
+      .limit(1);
+
+    if (!existing) {
+      return upid;
+    }
+  }
+
+  throw new Error("Failed to generate unique UPID");
+}
 
 const variantDeleteProcedure = brandRequiredProcedure
   .input(productVariantsDeleteSchema)
@@ -322,6 +464,7 @@ async function getProductIdFromVariant(
 
 export const productVariantsRouter = createTRPCRouter({
   list: variantListProcedure,
+  create: variantCreateProcedure,
   upsert: variantUpsertProcedure,
   delete: variantDeleteProcedure,
 });

@@ -137,7 +137,8 @@ jobs:
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
             SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}
-            TRIGGER_SECRET_KEY=${{ secrets.PREVIEW_TRIGGER_SECRET_KEY }}
+            TRIGGER_SECRET_KEY=${{ secrets.TRIGGER_SECRET_KEY_PREVIEW }}
+            TRIGGER_PREVIEW_BRANCH=${{ github.head_ref }}
             INTERNAL_API_KEY=${{ secrets.PREVIEW_INTERNAL_API_KEY }}
             SHOPIFY_CLIENT_ID=${{ secrets.SHOPIFY_CLIENT_ID }}
             SHOPIFY_CLIENT_SECRET=${{ secrets.SHOPIFY_CLIENT_SECRET }}

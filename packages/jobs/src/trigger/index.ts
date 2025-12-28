@@ -9,5 +9,5 @@ export { commitToProduction } from "./bulk/commit-to-production";
 export { captureThemeScreenshot } from "./capture-theme-screenshot";
 export { deleteBrand } from "./delete-brand";
 
-// Integration sync tasks
+// Integration sync tasks.
 export { syncIntegration, integrationSyncScheduler } from "./integrations";

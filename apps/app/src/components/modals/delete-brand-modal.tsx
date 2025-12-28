@@ -45,17 +45,12 @@ function DeleteBrandModal({ open, onOpenChange, brandId }: Props) {
       onOpenChange(false);
 
       // Smart redirection based on remaining brands
-      // Force a TRUE hard refresh by using a cache-busting timestamp
-      // This ensures:
-      // 1. All server-side context is regenerated with new active brand
-      // 2. All Server Components are re-rendered with fresh data
-      // 3. Client-side cache is completely cleared
-      // 4. No stale data from the deleted brand
       const payload = result as { nextBrandId?: string | null };
       const destination = payload.nextBrandId ? "/" : "/create-brand";
-      
-      // Navigate with cache-busting param to force fresh server request
-      window.location.href = `${destination}?_t=${Date.now()}`;
+
+      // Force fresh server data after brand deletion
+      router.refresh();
+      router.push(destination);
     } catch (e: unknown) {
       const error =
         e instanceof Error ? e : new Error("Failed to delete brand");

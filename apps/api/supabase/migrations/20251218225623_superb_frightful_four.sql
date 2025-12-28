@@ -1,0 +1,1 @@
+ALTER TABLE "integration_product_links" ADD COLUMN "last_synced_hash" text;

@@ -29,6 +29,25 @@ env:
   TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
 
 jobs:
+  # Check if API files also changed (to know if we need to call preview-api)
+  check-api-changes:
+    name: 🔍 Check API Changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    outputs:
+      api_changed: ${{ steps.filter.outputs.api }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'packages/**'
+              - '!packages/email/**'
+              - '!packages/ui/**'
+
   # Always run tests (on push and PR)
   test:
     name: 🧪 Lint & Type Check
@@ -50,12 +69,15 @@ jobs:
   # Only deploy on PR (not on push)
   preview:
     name: 🚀 Deploy Preview
-    needs: test
+    needs: [test, check-api-changes]
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
       group: pr-${{ github.event.number }}-app
       cancel-in-progress: true
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+      api_url: ${{ steps.api-url.outputs.url }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -64,7 +86,7 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      # Get the API URL from the PR
+      # Get the API URL from the PR (predictable)
       - name: Set API URL
         id: api-url
         run: |
@@ -72,6 +94,9 @@ jobs:
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
 
       - name: ⏳ Wait for API to be ready
+        # Only wait if API isn't being deployed by us (i.e., API files didn't change)
+        # If API files changed, we'll deploy it after the app
+        if: needs.check-api-changes.outputs.api_changed != 'true'
         run: |
           API_URL="${{ steps.api-url.outputs.url }}"
           echo "Waiting for API at ${API_URL}/health to be ready..."
@@ -111,7 +136,7 @@ jobs:
           DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
 
-      - name: 💬 Comment Preview URL
+      - name: 💬 Comment App Preview URL
         uses: actions/github-script@v6
         with:
           script: |
@@ -126,3 +151,14 @@ jobs:
               
               Preview environment will auto-delete when PR closes.`
             })
+
+  # Deploy API with the real Vercel URL (only if API files also changed)
+  deploy-api:
+    name: 🚀 Deploy API (Chained)
+    needs: [preview, check-api-changes]
+    if: needs.check-api-changes.outputs.api_changed == 'true'
+    uses: ./.github/workflows/preview-api.yaml
+    with:
+      app_url: ${{ needs.preview.outputs.url }}
+      pr_number: ${{ github.event.number }}
+    secrets: inherit

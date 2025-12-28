@@ -42,7 +42,7 @@ export async function createBrand(params: {
 
     // 2) add owner membership
     const { error: membershipError } = await supabase
-      .from("users_on_brand")
+      .from("brand_members")
       .insert({ user_id: params.ownerId, brand_id: brand.id, role: "owner" });
     if (membershipError) return { error: membershipError };
 
@@ -66,7 +66,7 @@ export async function setActiveBrand(userId: string, brandId: string) {
   try {
     // Guard: ensure membership exists (RLS protects too, but helpful error)
     const { count, error: countError } = await supabase
-      .from("users_on_brand")
+      .from("brand_members")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("brand_id", brandId);

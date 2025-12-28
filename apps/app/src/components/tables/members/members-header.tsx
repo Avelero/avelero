@@ -3,14 +3,22 @@
 import { InviteModal } from "@/components/modals/invite-modal";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@v1/ui/tooltip";
 
 interface Props {
   activeTab: "members" | "invites";
   onTabChange: (tab: "members" | "invites") => void;
   brandId?: string;
+  /** Whether the current user is an owner of this brand */
+  isOwner?: boolean;
 }
 
-export function MembersHeader({ activeTab, onTabChange, brandId }: Props) {
+export function MembersHeader({ activeTab, onTabChange, brandId, isOwner = false }: Props) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
@@ -38,12 +46,23 @@ export function MembersHeader({ activeTab, onTabChange, brandId }: Props) {
         </Button>
       </div>
 
-      {brandId ? (
+      {brandId && isOwner ? (
         <InviteModal brandId={brandId} />
       ) : (
-        <Button variant="outline" disabled>
-          Invite member
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div role="button" tabIndex={0}>
+                <Button variant="outline" disabled>
+                  Invite member
+                </Button>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Only brand owners can send invites</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   );

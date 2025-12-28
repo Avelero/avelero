@@ -11,7 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { importJobs } from "../data/import-jobs";
-import { brandFacilities } from "../brands/brand-facilities";
+import { brandFacilities } from "../catalog/brand-facilities";
 import { stagingProducts } from "./staging-products";
 
 export const stagingProductJourneySteps = pgTable(

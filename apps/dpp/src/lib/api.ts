@@ -76,7 +76,7 @@ interface TrpcBatchResponse {
  * enabling request deduplication during SSR while maintaining fresh data
  * when products are updated.
  *
- * @param path - The procedure path (e.g., "dppPublic.getByProductUpid")
+ * @param path - The procedure path (e.g., "dppPublic.getByProductHandle")
  * @param input - The input object for the procedure
  * @param tags - Cache tags for on-demand revalidation
  * @returns The parsed response data or null
@@ -139,50 +139,52 @@ async function trpcQuery<T>(
 
 /**
  * Fetch DPP data for a product-level passport.
+ * URL: /[brandSlug]/[productHandle]/
  *
  * Cache tags used for on-demand revalidation:
- * - `dpp-product-{productUpid}` - Invalidated when product is updated
+ * - `dpp-product-{productHandle}` - Invalidated when product is updated
  * - `dpp-brand-{brandSlug}` - Invalidated when brand theme/config changes
  *
  * @param brandSlug - URL-friendly brand identifier
- * @param productUpid - 16-character product UPID
+ * @param productHandle - Brand-defined product identifier (used in URL)
  * @returns DppApiResponse or null if not found/not published
  */
 export async function fetchProductDpp(
   brandSlug: string,
-  productUpid: string,
+  productHandle: string,
 ): Promise<DppApiResponse | null> {
   return trpcQuery<DppApiResponse>(
-    "dppPublic.getByProductUpid",
-    { brandSlug, productUpid },
-    [`dpp-product-${productUpid}`, `dpp-brand-${brandSlug}`],
+    "dppPublic.getByProductHandle",
+    { brandSlug, productHandle },
+    [`dpp-product-${productHandle}`, `dpp-brand-${brandSlug}`],
   );
 }
 
 /**
  * Fetch DPP data for a variant-level passport.
+ * URL: /[brandSlug]/[productHandle]/[variantUpid]/
  *
  * Cache tags used for on-demand revalidation:
  * - `dpp-variant-{variantUpid}` - Invalidated when variant is updated
- * - `dpp-product-{productUpid}` - Invalidated when parent product is updated
+ * - `dpp-product-{productHandle}` - Invalidated when parent product is updated
  * - `dpp-brand-{brandSlug}` - Invalidated when brand theme/config changes
  *
  * @param brandSlug - URL-friendly brand identifier
- * @param productUpid - 16-character product UPID
+ * @param productHandle - Brand-defined product identifier (used in URL)
  * @param variantUpid - 16-character variant UPID
  * @returns DppApiResponse or null if not found/not published
  */
 export async function fetchVariantDpp(
   brandSlug: string,
-  productUpid: string,
+  productHandle: string,
   variantUpid: string,
 ): Promise<DppApiResponse | null> {
   return trpcQuery<DppApiResponse>(
     "dppPublic.getByVariantUpid",
-    { brandSlug, productUpid, variantUpid },
+    { brandSlug, productHandle, variantUpid },
     [
       `dpp-variant-${variantUpid}`,
-      `dpp-product-${productUpid}`,
+      `dpp-product-${productHandle}`,
       `dpp-brand-${brandSlug}`,
     ],
   );

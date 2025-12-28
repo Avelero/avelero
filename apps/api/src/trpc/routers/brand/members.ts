@@ -1,11 +1,10 @@
 import {
   BrandMemberForbiddenError,
   BrandMemberSoleOwnerError,
-  asc,
   deleteMember,
-  eq,
   updateMemberRole,
-} from "@v1/db/queries";
+} from "@v1/db/queries/brand";
+import { asc, eq } from "@v1/db/queries";
 import { brandMembers, users } from "@v1/db/schema";
 import { z } from "zod";
 /**

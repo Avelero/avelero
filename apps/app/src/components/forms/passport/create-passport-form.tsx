@@ -10,7 +10,6 @@ import { PassportFormScaffold } from "@/components/forms/passport/scaffold/passp
 import { IdentifiersSection } from "@/components/forms/passport/sidebar/identifiers-block";
 import { StatusSection } from "@/components/forms/passport/sidebar/status-block";
 import { usePassportFormContext } from "@/contexts/passport-form-context";
-import { useBrandCatalog, type SizeOption } from "@/hooks/use-brand-catalog";
 import { usePassportForm } from "@/hooks/use-passport-form";
 import { getFirstInvalidField, isFormValid } from "@/hooks/use-form-validation";
 import type { PassportFormValidationErrors } from "@/hooks/use-passport-form";
@@ -22,25 +21,18 @@ import * as React from "react";
 
 interface PassportFormProps {
   mode: "create" | "edit";
-  productUpid?: string;
+  productHandle?: string;
+  initialData?: unknown;
 }
 
-export function PassportForm({ mode, productUpid }: PassportFormProps) {
+export function PassportForm({ mode, productHandle, initialData }: PassportFormProps) {
   const { data: user } = useUserQuery();
-  const { sizeOptions, colors: brandColors } = useBrandCatalog();
   const {
     setIsSubmitting: setContextIsSubmitting,
     setHasUnsavedChanges: setContextHasUnsavedChanges,
   } = usePassportFormContext();
   const isEditMode = mode === "edit";
 
-  // Filter out colors without IDs (default colors not yet in DB)
-  const availableColors = React.useMemo(
-    () => brandColors.filter((c): c is { id: string; name: string; hex: string } => c.id !== undefined),
-    [brandColors]
-  );
-
-  // Consolidated form hook (state + validation + submission)
   const {
     state,
     setField,
@@ -50,20 +42,7 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     submit,
     isSubmitting,
     hasUnsavedChanges,
-  } = usePassportForm({ mode, productUpid, sizeOptions, colors: availableColors });
-
-  const handleSelectedSizesChange = React.useCallback<
-    React.Dispatch<React.SetStateAction<SizeOption[]>>
-  >(
-    (value) => {
-      if (typeof value === "function") {
-        updateField("selectedSizes", value);
-      } else {
-        setField("selectedSizes", value);
-      }
-    },
-    [setField, updateField],
-  );
+  } = usePassportForm({ mode, productHandle, initialData });
 
   const handleEcoClaimsChange = React.useCallback<
     React.Dispatch<React.SetStateAction<{ id: string; value: string }[]>>
@@ -83,114 +62,40 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
     if (state.hasAttemptedSubmit && state.name && state.validationErrors.name) {
       clearValidationError("name");
     }
-  }, [
-    state.name,
-    state.hasAttemptedSubmit,
-    state.validationErrors.name,
-    clearValidationError,
-  ]);
+  }, [state.name, state.hasAttemptedSubmit, state.validationErrors.name, clearValidationError]);
 
   React.useEffect(() => {
-    if (
-      state.hasAttemptedSubmit &&
-      state.productIdentifier &&
-      state.validationErrors.productIdentifier
-    ) {
-      clearValidationError("productIdentifier");
+    if (state.hasAttemptedSubmit && state.productHandle && state.validationErrors.productHandle) {
+      clearValidationError("productHandle");
     }
-  }, [
-    state.productIdentifier,
-    state.hasAttemptedSubmit,
-    state.validationErrors.productIdentifier,
-    clearValidationError,
-  ]);
+  }, [state.productHandle, state.hasAttemptedSubmit, state.validationErrors.productHandle, clearValidationError]);
 
   React.useEffect(() => {
-    if (
-      state.hasAttemptedSubmit &&
-      state.validationErrors.colors &&
-      state.colorIds.length + state.pendingColors.length <= 12
-    ) {
-      clearValidationError("colors");
-    }
-  }, [
-    state.colorIds,
-    state.pendingColors,
-    state.hasAttemptedSubmit,
-    state.validationErrors.colors,
-    clearValidationError,
-  ]);
-
-  React.useEffect(() => {
-    if (
-      state.hasAttemptedSubmit &&
-      state.validationErrors.selectedSizes &&
-      state.selectedSizes.length <= 12
-    ) {
-      clearValidationError("selectedSizes");
-    }
-  }, [
-    state.selectedSizes,
-    state.hasAttemptedSubmit,
-    state.validationErrors.selectedSizes,
-    clearValidationError,
-  ]);
-
-  React.useEffect(() => {
-    if (
-      state.hasAttemptedSubmit &&
-      state.materialData.length > 0 &&
-      state.validationErrors.materials
-    ) {
-      // Re-validate materials when they change
+    if (state.hasAttemptedSubmit && state.materialData.length > 0 && state.validationErrors.materials) {
       const errors = validate();
       if (!errors.materials) {
         clearValidationError("materials");
       }
     }
-  }, [
-    state.materialData,
-    state.hasAttemptedSubmit,
-    state.validationErrors.materials,
-    validate,
-    clearValidationError,
-  ]);
+  }, [state.materialData, state.hasAttemptedSubmit, state.validationErrors.materials, validate, clearValidationError]);
 
   React.useEffect(() => {
-    if (
-      state.hasAttemptedSubmit &&
-      state.carbonKgCo2e &&
-      state.validationErrors.carbonKgCo2e
-    ) {
+    if (state.hasAttemptedSubmit && state.carbonKgCo2e && state.validationErrors.carbonKgCo2e) {
       const carbonValue = Number.parseFloat(state.carbonKgCo2e);
       if (!Number.isNaN(carbonValue) && carbonValue >= 0) {
         clearValidationError("carbonKgCo2e");
       }
     }
-  }, [
-    state.carbonKgCo2e,
-    state.hasAttemptedSubmit,
-    state.validationErrors.carbonKgCo2e,
-    clearValidationError,
-  ]);
+  }, [state.carbonKgCo2e, state.hasAttemptedSubmit, state.validationErrors.carbonKgCo2e, clearValidationError]);
 
   React.useEffect(() => {
-    if (
-      state.hasAttemptedSubmit &&
-      state.waterLiters &&
-      state.validationErrors.waterLiters
-    ) {
+    if (state.hasAttemptedSubmit && state.waterLiters && state.validationErrors.waterLiters) {
       const waterValue = Number.parseFloat(state.waterLiters);
       if (!Number.isNaN(waterValue) && waterValue >= 0) {
         clearValidationError("waterLiters");
       }
     }
-  }, [
-    state.waterLiters,
-    state.hasAttemptedSubmit,
-    state.validationErrors.waterLiters,
-    clearValidationError,
-  ]);
+  }, [state.waterLiters, state.hasAttemptedSubmit, state.validationErrors.waterLiters, clearValidationError]);
 
   React.useEffect(() => {
     setContextIsSubmitting(isSubmitting);
@@ -201,38 +106,29 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
   }, [hasUnsavedChanges, isEditMode, setContextHasUnsavedChanges]);
 
   React.useEffect(() => {
-    if (!isEditMode || !hasUnsavedChanges) {
-      return;
-    }
+    if (!isEditMode || !hasUnsavedChanges) return;
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [hasUnsavedChanges, isEditMode]);
 
   // Refs for focusing invalid fields
   const nameInputRef = React.useRef<HTMLInputElement>(null);
-  const productIdentifierInputRef = React.useRef<HTMLInputElement>(null);
+  const productHandleInputRef = React.useRef<HTMLInputElement>(null);
   const materialsSectionRef = React.useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!user?.brand_id) {
-      return;
-    }
+    if (!user?.brand_id) return;
 
-    // Validate form
     const errors = validate();
-    const missingRequired =
-      !state.name.trim() || !state.productIdentifier.trim();
+    const missingRequired = !state.name.trim() || !state.productHandle.trim();
     const materialsErrorMessage = errors.materials;
 
-    // If form is invalid, show toast and focus first invalid field
     if (!isFormValid(errors)) {
       if (missingRequired) {
         toast.error("Please fill in the required fields");
@@ -242,12 +138,9 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
         toast.error("Please fix the errors in the form before submitting");
       }
 
-      // Focus on first invalid field
       const fieldOrder: Array<keyof PassportFormValidationErrors> = [
         "name",
-        "productIdentifier",
-        "colors",
-        "selectedSizes",
+        "productHandle",
         "materials",
         "carbonKgCo2e",
         "waterLiters",
@@ -255,42 +148,27 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
       const firstInvalidField = getFirstInvalidField(errors, fieldOrder);
       if (firstInvalidField === "name") {
         nameInputRef.current?.focus();
-        nameInputRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      } else if (firstInvalidField === "productIdentifier") {
-        productIdentifierInputRef.current?.focus();
-        productIdentifierInputRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+        nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (firstInvalidField === "productHandle") {
+        productHandleInputRef.current?.focus();
+        productHandleInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       } else if (firstInvalidField === "materials") {
         materialsSectionRef.current?.focus();
-        materialsSectionRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+        materialsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
 
       return;
     }
 
-    // Form is valid, proceed with submission
     try {
       await submit(user.brand_id);
     } catch (err) {
-      // Error is already handled by the submission hook
       console.error("Form submission failed:", err);
     }
   };
 
   return (
-    <form
-      id="passport-form"
-      className="flex justify-center w-full"
-      onSubmit={handleSubmit}
-    >
+    <form id="passport-form" className="flex justify-center w-full" onSubmit={handleSubmit}>
       <PassportFormScaffold
         title={mode === "create" ? "Create passport" : "Edit passport"}
         left={
@@ -303,17 +181,13 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               imageFile={state.imageFile}
               setImageFile={(file) => {
                 setField("imageFile", file);
-                if (file) {
-                  setField("existingImageUrl", null);
-                }
+                if (file) setField("existingImageUrl", null);
               }}
               existingImageUrl={state.existingImageUrl}
-              nameError={
-                state.hasAttemptedSubmit
-                  ? state.validationErrors.name
-                  : undefined
-              }
+              nameError={state.hasAttemptedSubmit ? state.validationErrors.name : undefined}
               nameInputRef={nameInputRef}
+              productHandle={state.productHandle}
+              setProductHandle={(value) => setField("productHandle", value)}
             />
             <OrganizationSection
               categoryId={state.categoryId}
@@ -324,22 +198,38 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               setTagIds={(value) => setField("tagIds", value)}
             />
             <VariantSection
-              colorIds={state.colorIds}
-              pendingColors={state.pendingColors}
-              setColorIds={(value) => setField("colorIds", value)}
-              setPendingColors={(value) => setField("pendingColors", value)}
-              selectedSizes={state.selectedSizes}
-              setSelectedSizes={handleSelectedSizesChange}
-              colorsError={
-                state.hasAttemptedSubmit
-                  ? state.validationErrors.colors
-                  : undefined
-              }
-              sizesError={
-                state.hasAttemptedSubmit
-                  ? state.validationErrors.selectedSizes
-                  : undefined
-              }
+              dimensions={state.variantDimensions}
+              setDimensions={(value) => {
+                if (typeof value === "function") {
+                  updateField("variantDimensions", value);
+                } else {
+                  setField("variantDimensions", value);
+                }
+              }}
+              variantMetadata={state.variantMetadata}
+              setVariantMetadata={(value) => {
+                if (typeof value === "function") {
+                  updateField("variantMetadata", value);
+                } else {
+                  setField("variantMetadata", value);
+                }
+              }}
+              explicitVariants={state.explicitVariants}
+              setExplicitVariants={(value) => {
+                if (typeof value === "function") {
+                  updateField("explicitVariants", value);
+                } else {
+                  setField("explicitVariants", value);
+                }
+              }}
+              enabledVariantKeys={state.enabledVariantKeys}
+              setEnabledVariantKeys={(value) => {
+                if (typeof value === "function") {
+                  updateField("enabledVariantKeys", value);
+                } else {
+                  setField("enabledVariantKeys", value);
+                }
+              }}
             />
             <EnvironmentSection
               carbonKgCo2e={state.carbonKgCo2e}
@@ -348,25 +238,13 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
               setWaterLiters={(value) => setField("waterLiters", value)}
               ecoClaims={state.ecoClaims}
               setEcoClaims={handleEcoClaimsChange}
-              carbonError={
-                state.hasAttemptedSubmit
-                  ? state.validationErrors.carbonKgCo2e
-                  : undefined
-              }
-              waterError={
-                state.hasAttemptedSubmit
-                  ? state.validationErrors.waterLiters
-                  : undefined
-              }
+              carbonError={state.hasAttemptedSubmit ? state.validationErrors.carbonKgCo2e : undefined}
+              waterError={state.hasAttemptedSubmit ? state.validationErrors.waterLiters : undefined}
             />
             <MaterialsSection
               materials={state.materialData}
               setMaterials={(value) => setField("materialData", value)}
-              materialsError={
-                state.hasAttemptedSubmit
-                  ? state.validationErrors.materials
-                  : undefined
-              }
+              materialsError={state.hasAttemptedSubmit ? state.validationErrors.materials : undefined}
               sectionRef={materialsSectionRef}
             />
             <JourneySection
@@ -377,23 +255,14 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
         }
         right={
           <>
-            <StatusSection
-              status={state.status}
-              setStatus={(value) => setField("status", value)}
-            />
+            <StatusSection status={state.status} setStatus={(value) => setField("status", value)} />
             <IdentifiersSection
-              productIdentifier={state.productIdentifier}
-              setProductIdentifier={(value) =>
-                setField("productIdentifier", value)
-              }
+              productHandle={state.productHandle}
+              setProductHandle={(value) => setField("productHandle", value)}
               manufacturerId={state.manufacturerId}
               setManufacturerId={(value) => setField("manufacturerId", value)}
-              productIdentifierError={
-                state.hasAttemptedSubmit
-                  ? state.validationErrors.productIdentifier
-                  : undefined
-              }
-              productIdentifierInputRef={productIdentifierInputRef}
+              productHandleError={state.hasAttemptedSubmit ? state.validationErrors.productHandle : undefined}
+              productHandleInputRef={productHandleInputRef}
             />
           </>
         }
@@ -402,19 +271,18 @@ export function PassportForm({ mode, productUpid }: PassportFormProps) {
   );
 }
 
-// Convenience exports for backwards compatibility
 export function CreatePassportForm() {
   return <PassportForm mode="create" />;
 }
 
-export function EditPassportForm({ productUpid }: { productUpid: string }) {
+export function EditPassportForm({ productHandle }: { productHandle: string }) {
   const trpc = useTRPC();
-  useSuspenseQuery(
+  const { data } = useSuspenseQuery(
     trpc.products.get.queryOptions({
-      upid: productUpid,
+      handle: productHandle,
       includeVariants: true,
       includeAttributes: true,
     }),
   );
-  return <PassportForm mode="edit" productUpid={productUpid} />;
+  return <PassportForm mode="edit" productHandle={productHandle} initialData={data} />;
 }

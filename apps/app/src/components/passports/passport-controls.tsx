@@ -1,7 +1,5 @@
 "use client";
 
-import { useTRPC } from "@/trpc/client";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import {
@@ -15,7 +13,6 @@ import {
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
-import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { QuickFiltersPopover } from "../select/filter-select";
 import { SortPopover } from "../select/sort-select";
@@ -26,7 +23,6 @@ import type {
   FilterState,
   SelectionState,
 } from "../tables/passports/types";
-import { DisplayPopover } from "./display-popover";
 
 interface PassportControlsProps {
   selectedCount?: number;
@@ -34,12 +30,8 @@ interface PassportControlsProps {
   selection?: SelectionState;
   onClearSelectionAction?: () => void;
   onRequestBulkUpdate?: (changes: BulkChanges) => void; // optional external handler
-  displayProps?: {
-    productLabel?: string;
-    allColumns: { id: string; label: string }[];
-    initialVisible: string[];
-    onSave: (visibleOrdered: string[]) => void;
-  };
+  onDeleteSelectedAction?: () => void; // trigger delete modal for selected items
+  onStatusChangeAction?: (status: string) => void; // trigger bulk status change
   filterState?: FilterState;
   filterActions?: FilterActions;
   sortState?: { field: string; direction: "asc" | "desc" } | null;
@@ -55,7 +47,8 @@ export function PassportControls({
   disabled = false,
   selection,
   onClearSelectionAction,
-  displayProps,
+  onDeleteSelectedAction,
+  onStatusChangeAction,
   filterState,
   filterActions,
   sortState,
@@ -67,15 +60,11 @@ export function PassportControls({
   const [advancedFilterOpen, setAdvancedFilterOpen] = React.useState(false);
 
   const hasSelection = selectedCount > 0;
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
 
-  async function handleBulkStatusChange(
+  function handleBulkStatusChange(
     status: "published" | "scheduled" | "unpublished" | "archived",
   ) {
-    // Bulk update API not available in this router yet; gracefully notify.
-    toast.error("Bulk update is not available right now.");
-    onClearSelectionAction?.();
+    onStatusChangeAction?.(status);
   }
 
   return (
@@ -101,10 +90,9 @@ export function PassportControls({
             placeholder={"Search..."}
             className={cn(
               "pl-8 pr-3 py-[6px] h-9",
-              "transition-all",
+              "transition-transform",
               // Ensure normal arrow cursor when disabled (not not-allowed)
-              "disabled:cursor-default disabled:hover:cursor-default",
-              isSearchFocused ? "ring-1 ring-brand" : "ring-0",
+              "disabled:cursor-default disabled:hover:cursor-default"
             )}
             disabled={disabled}
             value={searchValue}
@@ -160,45 +148,6 @@ export function PassportControls({
         )}
 
         <div className="flex-1" />
-
-        {/* Display */}
-        {displayProps ? (
-          disabled ? (
-            <Button
-              variant="subtle"
-              size="default"
-              disabled
-            >
-              <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
-              <span className="px-1">Display</span>
-            </Button>
-          ) : (
-            <DisplayPopover
-              trigger={
-                <Button
-                  variant="subtle"
-                  size="default"
-                >
-                  <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
-                  <span className="px-1">Display</span>
-                </Button>
-              }
-              productLabel={displayProps.productLabel}
-              allColumns={displayProps.allColumns}
-              initialVisible={displayProps.initialVisible}
-              onSave={displayProps.onSave}
-            />
-          )
-        ) : (
-          <Button
-            variant="subtle"
-            size="default"
-            disabled={disabled}
-          >
-            <Icons.SlidersHorizontal className="h-[14px] w-[14px]" />
-            <span className="px-1">Display</span>
-          </Button>
-        )}
 
         {/* Actions */}
         <DropdownMenu>
@@ -269,6 +218,17 @@ export function PassportControls({
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            <DropdownMenuItem
+              className="h-9 py-3 text-destructive focus:text-destructive"
+              onSelect={() => {
+                onDeleteSelectedAction?.();
+              }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <Icons.Trash2 size={14} />
+                <span>Delete</span>
+              </span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

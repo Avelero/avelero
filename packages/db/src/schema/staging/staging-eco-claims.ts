@@ -9,7 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { importJobs } from "../data/import-jobs";
-import { brandEcoClaims } from "../brands/brand-eco-claims";
+import { brandEcoClaims } from "../catalog/brand-eco-claims";
 import { stagingProducts } from "./staging-products";
 
 export const stagingProductEcoClaims = pgTable(

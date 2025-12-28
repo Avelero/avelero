@@ -2,7 +2,9 @@
   "extends": "@v1/tsconfig/base.json",
   "include": ["src"],
   "compilerOptions": {
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
   },
   "exclude": ["node_modules"]
 }

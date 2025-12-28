@@ -1,0 +1,16 @@
+{
+  "name": "@v1/integrations",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@v1/db": "workspace:*",
+    "@v1/supabase": "workspace:*"
+  },
+  "devDependencies": {
+    "@v1/tsconfig": "workspace:*"
+  }
+}

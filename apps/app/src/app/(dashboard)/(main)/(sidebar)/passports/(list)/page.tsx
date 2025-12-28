@@ -16,6 +16,7 @@ export default async function PassportsPage() {
     trpc.products.list.queryOptions({
       limit: 50,
       includeVariants: true,
+      includeAttributes: true,
     }),
     trpc.composite.catalogContent.queryOptions(),
   ]);

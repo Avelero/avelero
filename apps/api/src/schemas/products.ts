@@ -15,6 +15,7 @@ import {
   longStringSchema,
   nonNegativeIntSchema,
   paginationLimitSchema,
+  productHandleSchema,
   shortStringSchema,
   urlSchema,
   uuidArraySchema,
@@ -49,8 +50,8 @@ export const PRODUCT_FIELDS = [
   "category_id",
   "season_id",
   "manufacturer_id",
-  "primary_image_path",
-  "product_identifier",
+  "image_path",
+  "product_handle",
   "upid",
   "status",
   "created_at",
@@ -202,7 +203,7 @@ export const listProductsSchema = z.object({
         "updatedAt",
         "category",
         "season",
-        "productIdentifier",
+        "productHandle",
       ]),
       direction: z.enum(["asc", "desc"]).default("desc"),
     })
@@ -220,19 +221,21 @@ export const getProductSchema = byIdSchema;
 export const createProductSchema = z.object({
   name: shortStringSchema,
   /**
-   * Human-friendly article number that uniquely identifies the product within
-   * a brand. Required alongside the product name when creating products.
+   * URL-friendly identifier that uniquely identifies the product within a brand.
+   * Used in DPP URLs: /[brandSlug]/[productHandle]/
+   * Must be lowercase letters, numbers, and dashes only.
+   * If not provided, will be auto-generated from the product name.
    */
-  product_identifier: shortStringSchema,
+  product_handle: productHandleSchema.optional(),
   description: longStringSchema.optional(),
   category_id: uuidSchema.optional(),
   season_id: uuidSchema.optional(), // FK to brand_seasons.id
   manufacturer_id: uuidSchema.optional(),
   /** Storage path for the product image (not full URL) */
-  primary_image_path: z.string().max(500).optional(),
+  image_path: z.string().max(500).optional(),
   status: shortStringSchema.optional(),
-  color_ids: uuidArraySchema.max(12).optional(),
-  size_ids: uuidArraySchema.max(12).optional(),
+  // NOTE: color_ids and size_ids removed as part of variant attribute migration.
+  // Variants are now created via products.variants.upsert with the generic attribute system.
   tag_ids: uuidArraySchema.optional(),
   materials: z
     .array(
@@ -268,23 +271,138 @@ export const updateProductSchema = updateWithNullable(createProductSchema, [
   "category_id",
   "season_id",
   "manufacturer_id",
-  "primary_image_path",
+  "image_path",
   "status",
-  "product_identifier",
+  "product_handle",
 ]);
 
 /**
- * Payload for deleting a product.
+ * Payload for deleting a product (single).
  */
 export const deleteProductSchema = byIdSchema;
+
+// ============================================================================
+// Unified Selection Schema for Bulk Operations
+// ============================================================================
+
+/**
+ * Selection schema for bulk operations.
+ * Supports two modes:
+ * - 'explicit': Operate on specific products by ID (manual selection)
+ * - 'all': Operate on all products matching filters, optionally excluding some IDs
+ */
+export const bulkSelectionSchema = z.discriminatedUnion("mode", [
+  // Explicit mode: specific IDs (manual selection)
+  z.object({
+    mode: z.literal("explicit"),
+    ids: uuidArraySchema.min(1, "At least one product ID is required"),
+  }),
+  // All mode: all matching filters except excluded IDs
+  z.object({
+    mode: z.literal("all"),
+    filters: filterStateSchema.optional(),
+    search: shortStringSchema.optional(),
+    excludeIds: uuidArraySchema.optional(),
+  }),
+]);
+
+export type BulkSelection = z.infer<typeof bulkSelectionSchema>;
+
+/**
+ * Unified delete schema supporting both single and bulk operations.
+ * 
+ * Single mode: { id: string }
+ * Bulk mode: { selection: BulkSelection }
+ */
+export const unifiedDeleteSchema = z.union([
+  // Single product delete
+  z.object({
+    id: uuidSchema,
+    brand_id: uuidSchema.optional(),
+  }),
+  // Bulk delete
+  z.object({
+    selection: bulkSelectionSchema,
+    brand_id: uuidSchema.optional(),
+  }),
+]);
+
+export type UnifiedDeleteInput = z.infer<typeof unifiedDeleteSchema>;
+
+/**
+ * Fields that can be bulk updated across multiple products.
+ * Limited to fields where mass updates make sense (e.g., status, category).
+ */
+export const bulkUpdateFieldsSchema = z.object({
+  status: shortStringSchema.optional(),
+  category_id: uuidSchema.nullable().optional(),
+  season_id: uuidSchema.nullable().optional(),
+});
+
+export type BulkUpdateFields = z.infer<typeof bulkUpdateFieldsSchema>;
+
+/**
+ * Unified update schema supporting both single and bulk operations.
+ * 
+ * Single mode: { id: string, ...allUpdateFields }
+ * Bulk mode: { selection: BulkSelection, ...bulkUpdateFields }
+ */
+export const unifiedUpdateSchema = z.union([
+  // Single product update (all fields available)
+  updateProductSchema.extend({
+    brand_id: uuidSchema.optional(),
+  }),
+  // Bulk update (limited fields)
+  z.object({
+    selection: bulkSelectionSchema,
+    brand_id: uuidSchema.optional(),
+  }).merge(bulkUpdateFieldsSchema),
+]);
+
+export type UnifiedUpdateInput = z.infer<typeof unifiedUpdateSchema>;
+
+/**
+ * @deprecated Use unifiedDeleteSchema instead
+ * Payload for bulk deleting products (legacy).
+ */
+export const bulkDeleteProductsSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("explicit"),
+    ids: uuidArraySchema.min(1, "At least one product ID is required"),
+    brand_id: uuidSchema.optional(),
+  }),
+  z.object({
+    mode: z.literal("all"),
+    filters: filterStateSchema.optional(),
+    search: shortStringSchema.optional(),
+    exclude_ids: uuidArraySchema.optional(),
+    brand_id: uuidSchema.optional(),
+  }),
+]);
+
+/**
+ * Payload for fetching all product IDs matching filters.
+ * Used for bulk operations when "select all" is active.
+ * Returns all matching IDs without pagination.
+ */
+export const listProductIdsSchema = z.object({
+  brand_id: uuidSchema.optional(),
+  // Advanced filters using FilterState structure
+  filters: filterStateSchema.optional(),
+  // Search term
+  search: shortStringSchema.optional(),
+  // Optional list of IDs to exclude from results
+  excludeIds: uuidArraySchema.optional(),
+});
+
+export type ListProductIdsInput = z.infer<typeof listProductIdsSchema>;
 
 /**
  * Upsert payload used for product-level identifiers.
  */
-export const upsertProductIdentifierSchema = z.object({
+export const upsertProductHandleSchema = z.object({
   product_id: uuidSchema,
-  id_type: shortStringSchema,
-  value: shortStringSchema,
+  handle: productHandleSchema,
 });
 
 // Variants (consolidated under products)
@@ -303,13 +421,69 @@ export const listVariantsSchema = z.object({
 export const getVariantsSchema = byParentId("product_id");
 
 /**
- * Upsert/replace variants for a product by providing colors and sizes.
+ * Schema for individual variant metadata (SKU and barcode).
  */
-export const productVariantsUpsertSchema = z.object({
-  product_id: uuidSchema,
-  color_ids: uuidArraySchema.max(12).optional(),
-  size_ids: uuidArraySchema.max(12).optional(),
+export const variantMetadataSchema = z.object({
+  sku: z.string().max(100).optional(),
+  barcode: z.string().max(100).optional(),
 });
+
+/**
+ * Schema for explicit variant input (includes attribute assignments).
+ */
+export const explicitVariantSchema = z.object({
+  /** Optional SKU */
+  sku: z.string().max(100).optional(),
+  /** Optional barcode */
+  barcode: z.string().max(100).optional(),
+  /** Optional UPID - auto-generated if not provided */
+  upid: upidSchema.optional(),
+  /** Ordered list of attribute value IDs (can be empty for variants without attributes) */
+  attribute_value_ids: uuidArraySchema.optional().default([]),
+});
+
+/**
+ * Schema for a matrix dimension (one attribute with multiple values).
+ */
+export const matrixDimensionSchema = z.object({
+  /** The brand attribute ID */
+  attribute_id: uuidSchema,
+  /** The brand attribute value IDs for this dimension (max 50 values) */
+  value_ids: uuidArraySchema.min(1, "At least one value is required per dimension").max(50, "Maximum 50 values allowed per dimension"),
+});
+
+/**
+ * Upsert/replace variants for a product using the generic attribute system.
+ * 
+ * Supports two modes:
+ * - **explicit**: Provide explicit variant definitions with attribute assignments
+ * - **matrix**: Provide dimensions and auto-generate cartesian product of variants
+ */
+export const productVariantsUpsertSchema = z.discriminatedUnion("mode", [
+  // Explicit mode: caller provides complete variant definitions
+  z.object({
+    product_id: uuidSchema,
+    mode: z.literal("explicit"),
+    /** Explicit variant definitions with attribute assignments */
+    variants: z.array(explicitVariantSchema).max(500, "Maximum 500 variants allowed"),
+  }),
+  // Matrix mode: server generates cartesian product from dimensions
+  z.object({
+    product_id: uuidSchema,
+    mode: z.literal("matrix"),
+    /** 
+     * Ordered dimensions for cartesian product generation.
+     * Max 3 dimensions, each with max 50 values.
+     * Example: [{ attribute_id: "color", value_ids: ["red", "blue"] }, { attribute_id: "size", value_ids: ["S", "M"] }]
+     */
+    dimensions: z.array(matrixDimensionSchema).max(3, "Maximum 3 dimensions allowed"),
+    /** 
+     * Optional metadata for specific combinations, keyed by pipe-separated value IDs.
+     * Example: { "red-value-id|S-value-id": { sku: "SKU001" } }
+     */
+    variant_metadata: z.record(z.string(), variantMetadataSchema).optional(),
+  }),
+]);
 
 /**
  * Deletes variants by id or by parent product.
@@ -404,10 +578,16 @@ export type ProductsDomainDeleteInput = z.infer<
 >;
 
 /**
+ * Input payload for bulk product deletion.
+ */
+export type BulkDeleteProductsInput = z.infer<typeof bulkDeleteProductsSchema>;
+
+/**
  * Input payload for `products.variants.upsert`.
  *
- * Accepts color and size selections; the cartesian product becomes the final
- * variant set, replacing any existing variants for the product.
+ * Supports two modes:
+ * - explicit: Provide complete variant definitions with attribute assignments
+ * - matrix: Provide dimensions for cartesian product generation
  */
 export type ProductVariantsUpsertInput = z.infer<
   typeof productVariantsUpsertSchema
@@ -425,13 +605,13 @@ export type ProductVariantsDeleteInput = z.infer<
 // ============================================================================
 
 /**
- * Unified product get schema accepting either ID or UPID.
+ * Unified product get schema accepting either ID or handle.
  * Replaces separate `productsDomainGetSchema` and `productsDomainGetByUpidSchema`.
  */
 export const productUnifiedGetSchema = z.intersection(
   z.union([
     z.object({ id: uuidSchema }),
-    z.object({ upid: upidSchema }),
+    z.object({ handle: shortStringSchema }),
   ]),
   z.object({
     includeVariants: z.boolean().optional().default(false),
@@ -442,13 +622,13 @@ export const productUnifiedGetSchema = z.intersection(
 export type ProductUnifiedGetInput = z.infer<typeof productUnifiedGetSchema>;
 
 /**
- * Unified variant list schema accepting either product_id or product_upid.
- * Supports listing variants by product ID or UPID.
+ * Unified variant list schema accepting either product_id or product_handle.
+ * Supports listing variants by product ID or handle.
  */
 export const variantUnifiedListSchema = z.intersection(
   z.union([
     z.object({ product_id: uuidSchema }),
-    z.object({ product_upid: upidSchema }),
+    z.object({ product_handle: shortStringSchema }),
   ]),
   z.object({
     cursor: z.string().optional(),

@@ -32,7 +32,6 @@ export const users = pgTable(
     fullName: text("full_name"),
     avatarPath: text("avatar_path"),
     avatarHue: smallint("avatar_hue"),
-    role: userRoleEnum("role").notNull().default("member"),
     brandId: uuid("brand_id"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
@@ -75,9 +74,9 @@ export const users = pgTable(
           brand_id IS NULL
           OR EXISTS (
             SELECT 1
-            FROM users_on_brand uob
-            WHERE uob.brand_id = brand_id
-              AND uob.user_id = auth.uid()
+            FROM brand_members bm
+            WHERE bm.brand_id = users.brand_id
+              AND bm.user_id = auth.uid()
           )
         )
       `,

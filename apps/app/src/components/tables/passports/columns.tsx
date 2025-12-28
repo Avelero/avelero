@@ -8,7 +8,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import {
@@ -17,9 +19,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@v1/ui/tooltip";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { PassportTableRow } from "./types";
+import { buildPublicUrl } from "@/utils/storage-urls";
 
 const MAX_COLUMN_WIDTH = 320;
 const CELL_PADDING_X = "px-4";
@@ -134,19 +138,35 @@ export const columns: ColumnDef<PassportTableRow>[] = [
               </div>
             )}
           </label>
+
+          {/* Image */}
+          <div className="w-10 h-10 bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
+            {product.imagePath ? (
+              <Image
+                src={buildPublicUrl("products", product.imagePath) ?? ""}
+                alt={product.name}
+                width={40}
+                height={40}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-full h-full bg-accent">
+                <Icons.Image className="h-[14px] w-[14px] text-muted" />
+              </div>
+            )}
+          </div>
+
           <div className="min-w-0 max-w-[680px] space-y-1">
             <EditPassportLink
-              href={`/passports/edit/${product.productUpid}`}
+              href={`/passports/edit/${product.productHandle}`}
               className="block max-w-full truncate type-p text-primary hover:text-brand cursor-pointer"
               onClick={(event) => event.stopPropagation()}
             >
               {product.name}
             </EditPassportLink>
-            {product.productIdentifier ? (
-              <span className="block max-w-full truncate type-small text-secondary">
-                {product.productIdentifier}
-              </span>
-            ) : null}
+            <span className="block max-w-full truncate type-small text-secondary">
+              {product.productHandle}
+            </span>
           </div>
         </div>
       );
@@ -242,15 +262,80 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
     },
   },
-  // Variants count
+  // Variant count
   {
     id: "variantCount",
     header: "Variants",
-    cell: ({ row }) => (
-      <span className="inline-block text-primary">
-        {row.original.variantCount ?? 0}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const count = row.original.variantCount;
+      return (
+        <span className="type-p text-primary">
+          {count}
+        </span>
+      );
+    },
+    meta: {
+      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+    },
+  },
+  // Tags
+  {
+    id: "tags",
+    header: "Tags",
+    cell: ({ row }) => {
+      const tags = row.original.tags;
+      if (!tags || tags.length === 0) {
+        return null;
+      }
+      return (
+        <TooltipProvider delayDuration={120}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="relative max-w-[200px]">
+                {/* Tags container with hidden overflow */}
+                <div className="flex items-center gap-1 overflow-hidden">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="inline-flex h-6 items-center gap-1.5 rounded-full border bg-background px-2 type-small text-primary flex-shrink-0"
+                    >
+                      {tag.hex && (
+                        <span
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0 border-[0.5px] border-border"
+                          style={{ backgroundColor: `#${tag.hex}` }}
+                        />
+                      )}
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
+                {/* Right-edge fade-out gradient overlay */}
+                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background pointer-events-none [tr:hover_&]:to-accent-light [tr[data-state=selected]_&]:to-accent-blue" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="start" className="p-2 min-w-[120px]">
+              <div className="flex flex-col gap-1.5">
+                {tags.map((tag) => (
+                  <div
+                    key={tag.id}
+                    className="flex items-center gap-2"
+                  >
+                    {tag.hex && (
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0 border-[0.5px] border-border"
+                        style={{ backgroundColor: `#${tag.hex}` }}
+                      />
+                    )}
+                    <span className="type-small text-primary">{tag.name}</span>
+                  </div>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    },
     meta: {
       headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
       cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
@@ -266,20 +351,26 @@ export const columns: ColumnDef<PassportTableRow>[] = [
     },
     cell: ({ row, table }) => {
       const product = row.original;
-      const upid = product.productUpid || product.id;
-      const editHref = upid ? `/passports/edit/${upid}` : undefined;
+      const handle = product.productHandle || product.id;
+      const editHref = handle ? `/passports/edit/${handle}` : undefined;
 
-      // Get brandSlug from table meta for DPP URL
+      // Get callbacks from table meta
       const meta = table.options.meta as
-        | { brandSlug?: string | null }
+        | {
+          brandSlug?: string | null;
+          onDeleteProduct?: (productId: string) => void;
+          onChangeStatus?: (productId: string, status: string) => void;
+        }
         | undefined;
       const brandSlug = meta?.brandSlug;
+      const onDeleteProduct = meta?.onDeleteProduct;
+      const onChangeStatus = meta?.onChangeStatus;
 
       // Build public DPP URL (opens in new tab, no prefetch)
       const dppBaseUrl =
         process.env.NEXT_PUBLIC_DPP_URL || "https://passport.avelero.com";
       const dppUrl =
-        brandSlug && upid ? `${dppBaseUrl}/${brandSlug}/${upid}` : undefined;
+        brandSlug && handle ? `${dppBaseUrl}/${brandSlug}/${handle}` : undefined;
 
       // Only show passport button if product is published and has a valid DPP URL
       const canViewPassport =
@@ -335,15 +426,67 @@ export const columns: ColumnDef<PassportTableRow>[] = [
               className="w-[220px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <DropdownMenuItem asChild onSelect={(e) => e.preventDefault()}>
-                <Link href={editHref ?? ""}>Open Edit Passport</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="h-9 py-3">
+                  Change status
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-[220px]">
+                  <DropdownMenuItem
+                    className="h-9 py-3"
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "published");
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icons.StatusPublished width={12} height={12} />
+                      <span>Published</span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="h-9 py-3"
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "scheduled");
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icons.StatusScheduled width={12} height={12} />
+                      <span>Scheduled</span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="h-9 py-3"
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "unpublished");
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icons.StatusUnpublished width={12} height={12} />
+                      <span>Unpublished</span>
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="h-9 py-3"
+                    onSelect={() => {
+                      onChangeStatus?.(product.id, "archived");
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icons.StatusArchived width={12} height={12} />
+                      <span>Archived</span>
+                    </span>
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuItem
-                className="text-destructive"
-                onSelect={(e) => e.preventDefault()}
+                className="h-9 py-3 text-destructive focus:text-destructive"
+                onSelect={() => {
+                  onDeleteProduct?.(product.id);
+                }}
               >
-                Delete Product
+                <span className="inline-flex items-center gap-2">
+                  <Icons.Trash2 size={14} />
+                  <span>Delete</span>
+                </span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

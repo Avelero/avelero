@@ -17,6 +17,9 @@ next-env.d.ts
 .expo/
 dist/
 
+# LLM Context
+llm_context/
+
 # production
 build
 

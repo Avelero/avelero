@@ -1,9 +1,9 @@
 import {
   deleteBrand as deleteBrandRecord,
-  eq,
   isSlugTaken,
   updateBrand as updateBrandRecord,
-} from "@v1/db/queries";
+} from "@v1/db/queries/brand";
+import { eq } from "@v1/db/queries";
 import { brands } from "@v1/db/schema";
 import { tasks } from "@trigger.dev/sdk/v3";
 import { getAppUrl } from "@v1/utils/envs";
@@ -110,10 +110,10 @@ export const brandUpdateProcedure = brandRequiredProcedure
       // Revalidate DPP cache when slug changes (fire-and-forget)
       // Both old and new slugs need to be revalidated
       if (input.slug !== undefined && oldSlug && oldSlug !== input.slug) {
-        revalidateBrand(oldSlug).catch(() => {});
+        revalidateBrand(oldSlug).catch(() => { });
       }
       if (result.slug) {
-        revalidateBrand(result.slug).catch(() => {});
+        revalidateBrand(result.slug).catch(() => { });
       }
 
       return { success: true, slug: result.slug ?? null };
@@ -162,3 +162,21 @@ export const brandDeleteProcedure = protectedProcedure
       throw wrapError(error, "Failed to delete brand");
     }
   });
+
+import { z } from "zod";
+
+/**
+ * Checks if a slug is available for use.
+ * Used for real-time validation during slug editing.
+ */
+export const brandCheckSlugProcedure = brandRequiredProcedure
+  .input(z.object({ slug: z.string().min(1) }))
+  .query(async ({ ctx, input }) => {
+    const { db, brandId } = ctx;
+
+    // Check if slug is taken by another brand (excluding current brand)
+    const taken = await isSlugTaken(db, input.slug, brandId);
+
+    return { available: !taken };
+  });
+

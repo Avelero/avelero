@@ -1,4 +1,4 @@
-import { NavigationLabel } from "@/components/navigation-label";
+import { HeaderNavigation } from "@/components/header-navigation";
 import { UserMenu } from "@/components/user-menu";
 import { Icons } from "@v1/ui/icons";
 import Image from "next/image";
@@ -68,7 +68,7 @@ export function Header({
         {/* Navigation Section */}
         <div className="flex min-w-0 flex-1 items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <NavigationLabel />
+            <HeaderNavigation />
             {isEditor ? <EditorHeaderStatus /> : null}
           </div>
           <div className="flex items-center gap-2">

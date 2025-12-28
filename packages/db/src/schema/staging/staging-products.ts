@@ -31,13 +31,15 @@ export const stagingProducts = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     manufacturerId: uuid("manufacturer_id"),
-    primaryImagePath: text("primary_image_path"),
+    imagePath: text("image_path"),
     categoryId: uuid("category_id"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
     seasonId: uuid("season_id"),
-    productIdentifier: text("product_identifier"),
+    /** URL-friendly product handle for DPP URLs */
+    productHandle: text("product_handle"),
+    /** Internal 16-character UPID (legacy, still stored in products table) */
     productUpid: text("product_upid"),
     status: text("status"),
   },

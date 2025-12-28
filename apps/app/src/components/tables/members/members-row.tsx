@@ -1,5 +1,6 @@
 "use client";
 
+import { RemoveMemberModal } from "@/components/modals/remove-member-modal";
 import { SignedAvatar } from "@/components/signed-avatar";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import {
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
+import { useState } from "react";
 
 /** tRPC router output types for type-safe components */
 type RouterOutputs = inferRouterOutputs<AppRouter>;
@@ -39,19 +41,23 @@ type InviteRow = MembersWithInvites["invites"][number];
  */
 type Props =
   | {
-      /** Active brand membership to display */
-      membership: MemberRow;
-      /** Brand ID for scoped operations */
-      brandId: string;
-      /** Current user's ID to determine if viewing own membership */
-      currentUserId: string | null;
-    }
+    /** Active brand membership to display */
+    membership: MemberRow;
+    /** Brand ID for scoped operations */
+    brandId: string;
+    /** Current user's ID to determine if viewing own membership */
+    currentUserId: string | null;
+    /** Whether the current user is an owner of this brand */
+    isOwner?: boolean;
+  }
   | {
-      /** Pending invitation to display */
-      invite: InviteRow;
-      /** Brand ID for scoped operations */
-      brandId: string;
-    };
+    /** Pending invitation to display */
+    invite: InviteRow;
+    /** Brand ID for scoped operations */
+    brandId: string;
+    /** Whether the current user is an owner of this brand */
+    isOwner?: boolean;
+  };
 
 /**
  * Displays a single row in the members table, supporting both active members
@@ -83,11 +89,12 @@ export function MembersRow(props: Props) {
         brandId={props.brandId}
         membership={props.membership}
         currentUserId={props.currentUserId}
+        isOwner={props.isOwner}
       />
     );
   }
 
-  return <InviteRowComp invite={props.invite} brandId={props.brandId} />;
+  return <InviteRowComp invite={props.invite} brandId={props.brandId} isOwner={props.isOwner} />;
 }
 
 /**
@@ -105,14 +112,18 @@ function MembershipRow({
   brandId,
   membership,
   currentUserId,
+  isOwner = false,
 }: {
   brandId: string;
   membership: MemberRow;
   currentUserId: string | null;
+  isOwner?: boolean;
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const queryKey = trpc.composite.membersWithInvites.queryKey({});
+
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
 
   const displayName = membership.full_name ?? membership.email ?? undefined;
   const email = membership.email ?? "";
@@ -141,11 +152,14 @@ function MembershipRow({
 
         return { previous } as const;
       },
+      onSuccess: () => {
+        toast.success("Role updated successfully");
+      },
       onError: (_err, _vars, ctx) => {
         if (ctx?.previous) {
           queryClient.setQueryData(queryKey, ctx.previous);
         }
-        toast.error("Action failed, please try again");
+        toast.error("Failed to update role, please try again");
       },
       onSettled: async () => {
         await Promise.all([
@@ -218,57 +232,67 @@ function MembershipRow({
           <span className="type-p text-secondary">{roleLabel}</span>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Member options">
-              <Icons.EllipsisVertical className="w-4 h-4" strokeWidth={1} />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Assign role</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuItem
-                  disabled={membership.role === "owner"}
-                  onClick={() =>
-                    updateMemberMutation.mutate({
-                      user_id: membership.user_id ?? undefined,
-                      role: "owner",
-                    })
-                  }
-                >
-                  Owner
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={membership.role === "member"}
-                  onClick={() =>
-                    updateMemberMutation.mutate({
-                      user_id: membership.user_id ?? undefined,
-                      role: "member",
-                    })
-                  }
-                >
-                  Member
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuItem
-              disabled={Boolean(isSelf) || !membership.user_id}
-              className={
-                isSelf || !membership.user_id ? undefined : "text-destructive"
-              }
-              onClick={() =>
-                deleteMemberMutation.mutate({
-                  user_id: membership.user_id ?? undefined,
-                })
-              }
-            >
-              Remove member
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {isOwner && (
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" aria-label="Member options">
+                <Icons.EllipsisVertical className="w-4 h-4" strokeWidth={1} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Assign role</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    disabled={membership.role === "owner"}
+                    onClick={() =>
+                      updateMemberMutation.mutate({
+                        user_id: membership.user_id ?? undefined,
+                        role: "owner",
+                      })
+                    }
+                  >
+                    Owner
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={membership.role === "member"}
+                    onClick={() =>
+                      updateMemberMutation.mutate({
+                        user_id: membership.user_id ?? undefined,
+                        role: "member",
+                      })
+                    }
+                  >
+                    Member
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem
+                disabled={Boolean(isSelf) || !membership.user_id}
+                className={
+                  isSelf || !membership.user_id ? undefined : "text-destructive"
+                }
+                onClick={() => setShowRemoveModal(true)}
+              >
+                Remove member
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
+      <RemoveMemberModal
+        open={showRemoveModal}
+        onOpenChange={setShowRemoveModal}
+        memberEmail={email}
+        isRemoving={deleteMemberMutation.status === "pending"}
+        onConfirm={() =>
+          deleteMemberMutation.mutate({
+            user_id: membership.user_id ?? undefined,
+          })
+        }
+      />
     </div>
   );
 }
@@ -326,9 +350,11 @@ function formatExpiresIn(expiresAt: string | null): string {
 function InviteRowComp({
   invite,
   brandId,
+  isOwner = false,
 }: {
   invite: InviteRow;
   brandId: string;
+  isOwner?: boolean;
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -393,14 +419,16 @@ function InviteRowComp({
             {formatExpiresIn(invite.expires_at)}
           </span>
         ) : null}
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Withdraw invite"
-          onClick={onWithdraw}
-        >
-          <Icons.Trash2 className="w-4 h-4" strokeWidth={1} />
-        </Button>
+        {isOwner && (
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Withdraw invite"
+            onClick={onWithdraw}
+          >
+            <Icons.Trash2 className="w-4 h-4" strokeWidth={1} />
+          </Button>
+        )}
       </div>
     </div>
   );

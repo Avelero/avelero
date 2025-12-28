@@ -3,6 +3,8 @@ import {
   numeric,
   pgPolicy,
   pgTable,
+  primaryKey,
+  text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -16,10 +18,10 @@ export const productEnvironment = pgTable(
         onDelete: "cascade",
         onUpdate: "cascade",
       })
-      .primaryKey()
       .notNull(),
-    carbonKgCo2e: numeric("carbon_kg_co2e", { precision: 12, scale: 4 }),
-    waterLiters: numeric("water_liters", { precision: 12, scale: 4 }),
+    value: numeric("value", { precision: 12, scale: 4 }),
+    unit: text("unit"),
+    metric: text("metric").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -28,6 +30,8 @@ export const productEnvironment = pgTable(
       .notNull(),
   },
   (table) => [
+    // Composite primary key: one row per product per metric type
+    primaryKey({ columns: [table.productId, table.metric], name: "product_environment_pkey" }),
     // RLS policies - inherit brand access through products relationship
     pgPolicy("product_environment_select_for_brand_members", {
       as: "permissive",

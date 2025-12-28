@@ -96,11 +96,11 @@ export async function revalidateDppCache(
  *
  * Call this when a product is created, updated, or deleted.
  *
- * @param productUpid - The product's UPID (16-character identifier)
+ * @param productHandle - The product's handle (URL-friendly identifier)
  */
-export function revalidateProduct(productUpid: string): Promise<void> {
-  if (!productUpid) return Promise.resolve();
-  return revalidateDppCache([`dpp-product-${productUpid}`]);
+export function revalidateProduct(productHandle: string): Promise<void> {
+  if (!productHandle) return Promise.resolve();
+  return revalidateDppCache([`dpp-product-${productHandle}`]);
 }
 
 /**
@@ -110,15 +110,15 @@ export function revalidateProduct(productUpid: string): Promise<void> {
  * Also invalidates the parent product's cache.
  *
  * @param variantUpid - The variant's UPID (16-character identifier)
- * @param productUpid - The parent product's UPID (optional, for additional invalidation)
+ * @param productHandle - The parent product's handle (optional, for additional invalidation)
  */
 export function revalidateVariant(
   variantUpid: string,
-  productUpid?: string,
+  productHandle?: string,
 ): Promise<void> {
   const tags: string[] = [];
   if (variantUpid) tags.push(`dpp-variant-${variantUpid}`);
-  if (productUpid) tags.push(`dpp-product-${productUpid}`);
+  if (productHandle) tags.push(`dpp-product-${productHandle}`);
   if (tags.length === 0) return Promise.resolve();
   return revalidateDppCache(tags);
 }
@@ -143,11 +143,11 @@ export function revalidateBrand(brandSlug: string): Promise<void> {
  *
  * Useful for bulk operations like imports.
  *
- * @param productUpids - Array of product UPIDs to invalidate
+ * @param productHandles - Array of product handles to invalidate
  */
-export function revalidateProducts(productUpids: string[]): Promise<void> {
-  const validUpids = productUpids.filter(Boolean);
-  if (validUpids.length === 0) return Promise.resolve();
-  return revalidateDppCache(validUpids.map((upid) => `dpp-product-${upid}`));
+export function revalidateProducts(productHandles: string[]): Promise<void> {
+  const validHandles = productHandles.filter(Boolean);
+  if (validHandles.length === 0) return Promise.resolve();
+  return revalidateDppCache(validHandles.map((handle) => `dpp-product-${handle}`));
 }
 

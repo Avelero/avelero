@@ -17,8 +17,6 @@ import { EntityValueCombobox } from "./entity-value-combobox";
 
 type EntityType =
   | "MATERIAL"
-  | "COLOR"
-  | "SIZE"
   | "SEASON"
   | "TAG"
   | "ECO_CLAIM"
@@ -60,8 +58,6 @@ interface UnmappedValuesSectionProps {
 function getEntityTypeName(entityType: EntityType): string {
   const names: Record<EntityType, string> = {
     MATERIAL: "Materials",
-    COLOR: "Colors",
-    SIZE: "Sizes",
     SEASON: "Seasons",
     TAG: "Tags",
     ECO_CLAIM: "Eco Claims",
@@ -79,8 +75,6 @@ function getEntityTypeName(entityType: EntityType): string {
 function getEntityIcon(entityType: EntityType) {
   const icons: Record<EntityType, React.ReactNode> = {
     MATERIAL: <Icons.Shirt className="h-4 w-4" />,
-    COLOR: <Icons.Palette className="h-4 w-4" />,
-    SIZE: <Icons.Ruler className="h-4 w-4" />,
     SEASON: <Icons.Calendar className="h-4 w-4" />,
     TAG: <Icons.Plus className="h-4 w-4" />,
     ECO_CLAIM: <Icons.Leaf className="h-4 w-4" />,
@@ -147,12 +141,7 @@ export function UnmappedValuesSection({
   React.useEffect(() => {
     if (!catalogData) return;
 
-    // Populate colors cache
-    if (catalogData.colors.length > 0) {
-      queryClient.setQueryData(trpc.catalog.colors.list.queryKey(undefined), {
-        data: catalogData.colors,
-      });
-    }
+    // Colors removed - now managed as brand attributes
 
     // Populate materials cache
     if (catalogData.materials.length > 0) {
@@ -161,12 +150,7 @@ export function UnmappedValuesSection({
       });
     }
 
-    // Populate sizes cache
-    if (catalogData.sizes.length > 0) {
-      queryClient.setQueryData(trpc.catalog.sizes.list.queryKey({}), {
-        data: catalogData.sizes,
-      });
-    }
+    // Sizes removed - now managed as brand attributes
 
     // Populate facilities cache
     if (catalogData.facilities.length > 0) {

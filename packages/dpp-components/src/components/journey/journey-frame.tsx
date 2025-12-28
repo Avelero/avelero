@@ -1,7 +1,20 @@
-import type { JourneyStage, ThemeConfig } from "@v1/dpp-components";
+import type { ThemeConfig } from "@v1/dpp-components";
+
+/**
+ * Display-only journey stage type for UI rendering.
+ * Data is transformed from SupplyChainStep in InformationFrame.
+ */
+interface JourneyStageDisplay {
+  id: string;
+  name: string;
+  companies: Array<{
+    name: string;
+    location: string;
+  }>;
+}
 
 interface Props {
-  journey: JourneyStage[];
+  journey: JourneyStageDisplay[];
   themeConfig: ThemeConfig;
 }
 

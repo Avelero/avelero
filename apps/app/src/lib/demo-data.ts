@@ -18,8 +18,10 @@ export const DEMO_DPP_DATA: DppData = {
       "Jacket crafted with a blend of virgin wool and recycled polyester. Detailed with an Avelero Apparel logo embroidery at the back. Cut to a loose and comfortable fit, perfect for any occasion.",
     brand: "Avelero Apparel",
     category: { categoryId: 1, category: "Jackets" },
-    size: { sizeId: 1, size: "S" },
-    color: { colorId: 1, color: "Black" },
+    attributes: [
+      { name: "Size", value: "S" },
+      { name: "Color", value: "Black" },
+    ],
     weight: { value: 850, unit: "grams" },
   },
 

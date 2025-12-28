@@ -42,6 +42,8 @@ export function PassportDataTable({
   hasActiveFilters,
   onClearFilters,
   brandSlug,
+  onDeleteProduct,
+  onChangeStatus,
 }: {
   onSelectionChangeAction?: (count: number) => void;
   columnOrder?: string[];
@@ -70,6 +72,8 @@ export function PassportDataTable({
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
   brandSlug?: string | null;
+  onDeleteProduct?: (productId: string) => void;
+  onChangeStatus?: (productId: string, status: string) => void;
 }) {
   const pageSize = 50;
   const page =
@@ -266,6 +270,8 @@ export function PassportDataTable({
     meta: {
       handleRangeSelection,
       brandSlug,
+      onDeleteProduct,
+      onChangeStatus,
     },
   });
 

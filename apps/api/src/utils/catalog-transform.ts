@@ -32,25 +32,6 @@ export function transformSeasonInput<T extends Record<string, any>>(
 }
 
 /**
- * Transforms size input from snake_case schema to camelCase DB format.
- */
-export function transformSizeInput<T extends Record<string, any>>(
-  input: T,
-): any {
-  const result: any = {};
-
-  for (const [key, value] of Object.entries(input)) {
-    if (key === "sort_index") {
-      result.sortIndex = value;
-    } else {
-      result[key] = value;
-    }
-  }
-
-  return result;
-}
-
-/**
  * Transforms material input from snake_case schema to camelCase DB format.
  */
 export function transformMaterialInput<T extends Record<string, any>>(
@@ -200,6 +181,51 @@ export function transformManufacturerInput<T extends Record<string, any>>(
         break;
       case "country_code":
         result.countryCode = value;
+        break;
+      default:
+        result[key] = value;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Transforms brand attribute input from snake_case schema to camelCase DB format.
+ */
+export function transformBrandAttributeInput<T extends Record<string, any>>(
+  input: T,
+): any {
+  const result: any = {};
+
+  for (const [key, value] of Object.entries(input)) {
+    switch (key) {
+      case "taxonomy_attribute_id":
+        result.taxonomyAttributeId = value;
+        break;
+      default:
+        result[key] = value;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Transforms brand attribute value input from snake_case schema to camelCase DB format.
+ */
+export function transformBrandAttributeValueInput<T extends Record<string, any>>(
+  input: T,
+): any {
+  const result: any = {};
+
+  for (const [key, value] of Object.entries(input)) {
+    switch (key) {
+      case "attribute_id":
+        result.attributeId = value;
+        break;
+      case "taxonomy_value_id":
+        result.taxonomyValueId = value;
         break;
       default:
         result[key] = value;

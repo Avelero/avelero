@@ -116,8 +116,7 @@ export function InformationFrame({ data, themeConfig }: Props) {
             getCountryName(manufacturing?.manufacturer?.countryCode) || ""
           }
           category={productAttributes.category?.category ?? ""}
-          size={productAttributes.size?.size ?? ""}
-          color={productAttributes.color?.color ?? ""}
+          attributes={productAttributes.attributes}
           themeConfig={themeConfig}
         />
       )}

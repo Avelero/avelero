@@ -14,10 +14,9 @@
 import { tasks } from "@trigger.dev/sdk/v3";
 import {
   createBrandInvites,
-  desc,
-  eq,
   revokeBrandInviteByOwner,
-} from "@v1/db/queries";
+} from "@v1/db/queries/brand";
+import { desc, eq } from "@v1/db/queries";
 import { brandInvites, users } from "@v1/db/schema";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
@@ -131,7 +130,7 @@ export const brandInvitesRouter = createTRPCRouter({
         const payload: InviteEmailPayload[] = inviteResults.map((invite) => {
           const isExisting = invite.isExistingUser;
           const acceptUrl = isExisting
-            ? `${appUrl}/account/brands`
+            ? `${appUrl}/invites`
             : `${appUrl}/api/auth/accept?token_hash=${invite.tokenHash ?? ""}`;
           return {
             recipientEmail: invite.email,

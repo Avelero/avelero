@@ -1,10 +1,12 @@
 "use client";
 
 import { useUserBrandsQuerySuspense } from "@/hooks/use-brand";
+import { useDebounce } from "@/hooks/use-debounce";
 import { useFilterState } from "@/hooks/use-filter-state";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { toast } from "@v1/ui/sonner";
 import {
   Suspense,
   useState,
@@ -14,6 +16,7 @@ import {
   useRef,
   useDeferredValue,
 } from "react";
+import { DeleteProductsModal } from "../modals/delete-products-modal";
 import { PassportDataTable, PassportTableSkeleton } from "../tables/passports";
 import type {
   PassportTableRow,
@@ -29,7 +32,7 @@ type SortField =
   | "updatedAt"
   | "category"
   | "season"
-  | "productIdentifier";
+  | "productHandle";
 
 export function TableSection() {
   const [selectedCount, setSelectedCount] = useState(0);
@@ -39,12 +42,40 @@ export function TableSection() {
     excludeIds: [],
   });
   const [hasAnyPassports, setHasAnyPassports] = useState(false);
+  const [visibleProductIds, setVisibleProductIds] = useState<string[]>([]);
+
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  // Selection state used specifically for the delete modal (can be the main selection or a single product)
+  const [deleteSelection, setDeleteSelection] = useState<SelectionState>({
+    mode: "explicit",
+    includeIds: [],
+    excludeIds: [],
+  });
+  // Count for delete modal (resolved from selection or passed directly for single delete)
+  const [deleteCount, setDeleteCount] = useState(0);
+
+  // Status update mutation
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const updateStatusMutation = useMutation(
+    trpc.products.update.mutationOptions({
+      onSuccess: () => {
+        // Invalidate products list to refresh table
+        void queryClient.invalidateQueries({ queryKey: [["products", "list"]] });
+        void queryClient.invalidateQueries({ queryKey: [["summary"]] });
+      },
+    })
+  );
+
   // Filter state management
   const [filterState, filterActions] = useFilterState();
 
   // Search state management (debounced)
+  // First debounce by 300ms, then use React's deferred value for smooth rendering
   const [searchValue, setSearchValue] = useState("");
-  const deferredSearch = useDeferredValue(searchValue);
+  const debouncedSearch = useDebounce(searchValue, 300);
+  const deferredSearch = useDeferredValue(debouncedSearch);
 
   // Sort state management (UI only for now)
   const [sortState, setSortState] = useState<{
@@ -52,140 +83,28 @@ export function TableSection() {
     direction: "asc" | "desc";
   } | null>(null);
 
-  // Column preferences state (excludes locked `product` and fixed `actions`)
-  const DEFAULT_VISIBLE: string[] = useMemo(
-    () => ["status", "category", "season", "variantCount"],
-    [],
-  );
-
   const userQuery = useUserQuerySuspense();
   const brandId = (userQuery.data as any)?.brand_id as
     | string
     | null
     | undefined;
-  const userId = (userQuery.data as any)?.id as string | null | undefined;
 
-  const buildCookieKeys = useCallback(() => {
-    const base = "avelero.passports.columns.v1";
-    const keys: string[] = [];
-    if (brandId && userId) keys.push(`${base}:${brandId}:${userId}`);
-    if (brandId) keys.push(`${base}:${brandId}`);
-    if (userId) keys.push(`${base}::user:${userId}`);
-    keys.push(base);
-    return keys;
-  }, [brandId, userId]);
-
-  const readCookie = useCallback((): string[] | null => {
-    if (typeof document === "undefined") return null;
-    const keys = buildCookieKeys();
-    for (const key of keys) {
-      const match = document.cookie
-        ?.split("; ")
-        .find((row) => row.startsWith(`${key}=`));
-      if (match) {
-        try {
-          const val = decodeURIComponent(match.split("=")[1] ?? "");
-          const parsed = JSON.parse(val) as { visible?: string[] } | string[];
-          if (Array.isArray(parsed)) return parsed;
-          if (parsed && Array.isArray(parsed.visible)) return parsed.visible;
-        } catch {}
-      }
-    }
-    return null;
-  }, [buildCookieKeys]);
-
-  const writeCookie = useCallback(
-    (visible: string[], scope: "specific" | "brand" | "user" | "global") => {
-      if (typeof document === "undefined") return;
-      const base = "avelero.passports.columns.v1";
-      let key = base;
-      if (scope === "specific" && brandId && userId)
-        key = `${base}:${brandId}:${userId}`;
-      else if (scope === "brand" && brandId) key = `${base}:${brandId}`;
-      else if (scope === "user" && userId) key = `${base}::user:${userId}`;
-      const value = encodeURIComponent(JSON.stringify({ visible }));
-      const maxAge = 60 * 60 * 24 * 365; // 365 days
-      document.cookie = `${key}=${value}; Max-Age=${maxAge}; Path=/; SameSite=Lax; Secure`;
-    },
-    [brandId, userId],
+  // Static column order - all columns always visible
+  const columnOrder = useMemo(
+    () => ["product", "status", "category", "season", "variantCount", "tags", "actions"],
+    [],
   );
 
-  const deleteCookie = useCallback((key: string) => {
-    if (typeof document === "undefined") return;
-    document.cookie = `${key}=; Max-Age=0; Path=/; SameSite=Lax; Secure`;
-  }, []);
-
-  const migrateIfNeeded = useCallback(
-    (visible: string[] | null) => {
-      if (!visible) return;
-      if (brandId && userId) {
-        const base = "avelero.passports.columns.v1";
-        const specific = `${base}:${brandId}:${userId}`;
-        const brandOnly = `${base}:${brandId}`;
-        const userOnly = `${base}::user:${userId}`;
-        const global = base;
-        // If specific not present but broader exists, migrate
-        const existingSpecific = document.cookie
-          ?.split("; ")
-          .some((r) => r.startsWith(`${specific}=`));
-        if (!existingSpecific) {
-          writeCookie(visible, "specific");
-          // remove broader ones
-          for (const k of [brandOnly, userOnly, global]) deleteCookie(k);
-        }
-      }
-    },
-    [brandId, userId, writeCookie, deleteCookie],
-  );
-
-  const [visibleColumns, setVisibleColumns] =
-    useState<string[]>(DEFAULT_VISIBLE);
-
-  useEffect(() => {
-    const saved = readCookie();
-    if (saved?.length) {
-      setVisibleColumns(saved);
-      migrateIfNeeded(saved);
-    } else {
-      setVisibleColumns(DEFAULT_VISIBLE);
-    }
-  }, [readCookie, migrateIfNeeded, DEFAULT_VISIBLE]);
-
-  const handleSavePrefs = useCallback(
-    (nextVisible: string[]) => {
-      setVisibleColumns(nextVisible);
-      if (brandId && userId) writeCookie(nextVisible, "specific");
-      else if (brandId) writeCookie(nextVisible, "brand");
-      else if (userId) writeCookie(nextVisible, "user");
-      else writeCookie(nextVisible, "global");
-    },
-    [brandId, userId, writeCookie],
-  );
-
-  // Compute table state from visible
-  const columnOrder = useMemo(() => {
-    return ["product", ...visibleColumns, "actions"];
-  }, [visibleColumns]);
-
-  const columnVisibility = useMemo(() => {
-    const all: Record<string, boolean> = {
+  const columnVisibility = useMemo(
+    () => ({
       product: true,
-      status: false,
-      category: false,
-      season: false,
-      variantCount: false,
-    };
-    for (const id of visibleColumns) all[id] = true;
-    return all;
-  }, [visibleColumns]);
-
-  const allCustomizable = useMemo(
-    () => [
-      { id: "status", label: "Status" },
-      { id: "category", label: "Category" },
-      { id: "season", label: "Season" },
-      { id: "variantCount", label: "Variants" },
-    ],
+      status: true,
+      category: true,
+      season: true,
+      variantCount: true,
+      tags: true,
+      actions: true,
+    }),
     [],
   );
 
@@ -210,11 +129,95 @@ export function TableSection() {
     filterActions.clearAll();
   }, [filterActions]);
 
+  // Handle delete from row action (single product)
+  const handleDeleteProduct = useCallback((productId: string) => {
+    // Create a temporary explicit selection with just this product
+    setDeleteSelection({
+      mode: "explicit",
+      includeIds: [productId],
+      excludeIds: [],
+    });
+    setDeleteCount(1);
+    setDeleteModalOpen(true);
+  }, []);
+
+  // Handle bulk delete from Actions button
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedCount > 0) {
+      // Pass the current selection state directly to the modal
+      setDeleteSelection(selection);
+      setDeleteCount(selectedCount);
+      setDeleteModalOpen(true);
+    }
+  }, [selection, selectedCount]);
+
+  // Clear selection after successful delete
+  const handleDeleteSuccess = useCallback(() => {
+    setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+    setDeleteSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+    setDeleteCount(0);
+  }, []);
+
+  // Handle status change from row action (single product)
+  const handleChangeStatus = useCallback((productId: string, status: string) => {
+    updateStatusMutation.mutate(
+      { id: productId, status },
+      {
+        onSuccess: () => {
+          toast.success(`Status updated to ${status}`);
+        },
+        onError: (error) => {
+          toast.error(error.message || "Failed to update status");
+        },
+      }
+    );
+  }, [updateStatusMutation]);
+
+  // Handle bulk status change from Actions menu
+  // Uses the unified update endpoint which supports both single and bulk operations
+  const handleBulkStatusChange = useCallback((status: string) => {
+    if (selectedCount === 0) {
+      toast.error("No products selected");
+      return;
+    }
+
+    // Build the update payload based on selection mode
+    const updatePayload = selection.mode === "all"
+      ? {
+        selection: {
+          mode: "all" as const,
+          filters: filterState.groups.length > 0 ? filterState : undefined,
+          search: deferredSearch?.trim() || undefined,
+          excludeIds: selection.excludeIds.length > 0 ? selection.excludeIds : undefined,
+        },
+        status,
+      }
+      : {
+        selection: {
+          mode: "explicit" as const,
+          ids: selection.includeIds,
+        },
+        status,
+      };
+
+    updateStatusMutation.mutate(updatePayload, {
+      onSuccess: (result) => {
+        const updated = 'updated' in result ? result.updated : 1;
+        toast.success(`Updated ${updated} ${updated === 1 ? "product" : "products"} to ${status}`);
+        // Clear selection after bulk update
+        setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to update products");
+      },
+    });
+  }, [selection, selectedCount, filterState, deferredSearch, updateStatusMutation]);
+
   // Map UI field names to API field names
   const mapSortField = useCallback((uiField: string): SortField => {
     const fieldMap: Record<string, SortField> = {
       title: "name",
-      productIdentifier: "productIdentifier",
+      productHandle: "productHandle",
       status: "status",
       category: "category",
       season: "season",
@@ -251,6 +254,9 @@ export function TableSection() {
       filterState={filterState}
       hasActiveFilters={hasActiveFilters}
       onClearFilters={handleClearFilters}
+      onDeleteProduct={handleDeleteProduct}
+      onChangeStatus={handleChangeStatus}
+      onVisibleProductIdsChange={setVisibleProductIds}
     />
   );
 
@@ -263,12 +269,8 @@ export function TableSection() {
         onClearSelectionAction={() => {
           setSelection({ mode: "explicit", includeIds: [], excludeIds: [] });
         }}
-        displayProps={{
-          productLabel: "Product",
-          allColumns: allCustomizable,
-          initialVisible: visibleColumns,
-          onSave: handleSavePrefs,
-        }}
+        onDeleteSelectedAction={handleDeleteSelected}
+        onStatusChangeAction={handleBulkStatusChange}
         filterState={filterState}
         filterActions={filterActions}
         sortState={sortState}
@@ -290,6 +292,17 @@ export function TableSection() {
       ) : (
         tableContent
       )}
+
+      {/* Delete Products Modal */}
+      <DeleteProductsModal
+        open={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        selection={deleteSelection}
+        filterState={filterState}
+        search={deferredSearch}
+        totalCount={deleteCount}
+        onSuccess={handleDeleteSuccess}
+      />
     </div>
   );
 }
@@ -311,6 +324,9 @@ interface TableContentProps {
   filterState: FilterState;
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
+  onDeleteProduct?: (productId: string) => void;
+  onChangeStatus?: (productId: string, status: string) => void;
+  onVisibleProductIdsChange?: (ids: string[]) => void;
 }
 
 function TableContent({
@@ -330,6 +346,9 @@ function TableContent({
   filterState,
   hasActiveFilters = false,
   onClearFilters,
+  onDeleteProduct,
+  onChangeStatus,
+  onVisibleProductIdsChange,
 }: TableContentProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -401,6 +420,7 @@ function TableContent({
       cursor,
       limit: pageSize,
       includeVariants: true,
+      includeAttributes: true,
       filters: filterState.groups.length > 0 ? filterState : undefined,
       search: search?.trim() || undefined,
       sort: sort,
@@ -411,31 +431,37 @@ function TableContent({
     const list = productsResponse?.data ?? [];
     return list.map((p: any) => {
       const variants: any[] = Array.isArray(p.variants) ? p.variants : [];
-      const colorSet = new Set<string>();
-      const sizeSet = new Set<string>();
-      for (const v of variants) {
-        const c = (v.color_id ?? v.colorId ?? "").toString();
-        const s = (v.size_id ?? v.sizeId ?? "").toString();
-        if (c) colorSet.add(c);
-        if (s) sizeSet.add(s);
-      }
+      const attributes = p.attributes ?? {};
+      const tags = Array.isArray(attributes.tags) ? attributes.tags : [];
       return {
         id: p.id,
         passportIds: [p.id],
-        productUpid: p.upid ?? "",
         name: p.name ?? "",
-        productIdentifier: p.product_identifier ?? p.productIdentifier ?? "",
+        productHandle: p.product_handle ?? p.productHandle ?? "",
         status: (p.status ?? "unpublished") as any,
         category: (p as any).category_name ?? null,
         categoryPath: (p as any).category_path ?? null,
         season: (p as any).season_name ?? null,
-        primaryImagePath: p.primary_image_path ?? (p as any).primaryImagePath ?? null,
-        variantCount: variants.length || undefined,
+        imagePath: p.image_path ?? (p as any).imagePath ?? null,
         createdAt: p.created_at ?? p.createdAt ?? "",
         updatedAt: p.updated_at ?? p.updatedAt ?? "",
+        variantCount: variants.length,
+        tags: tags.map((t: any) => ({
+          id: t.id ?? t.tag_id ?? "",
+          name: t.name ?? null,
+          hex: t.hex ?? null,
+        })),
       } satisfies PassportTableRow;
     });
   }, [productsResponse]);
+
+  // Report visible product IDs to parent for bulk operations
+  useEffect(() => {
+    if (onVisibleProductIdsChange) {
+      const ids = tableRows.map(row => row.id);
+      onVisibleProductIdsChange(ids);
+    }
+  }, [tableRows, onVisibleProductIdsChange]);
 
   const meta = (productsResponse as any)?.meta ?? {};
   const totalRows =
@@ -499,6 +525,7 @@ function TableContent({
         cursor: meta?.cursor ?? undefined,
         limit: pageSize,
         includeVariants: true,
+        includeAttributes: true,
         filters: filterState.groups.length > 0 ? filterState : undefined,
         search: search?.trim() || undefined,
         sort: sort,
@@ -523,6 +550,7 @@ function TableContent({
         cursor: prevCursor,
         limit: pageSize,
         includeVariants: true,
+        includeAttributes: true,
         filters: filterState.groups.length > 0 ? filterState : undefined,
         search: search?.trim() || undefined,
         sort: sort,
@@ -536,6 +564,7 @@ function TableContent({
         cursor: undefined,
         limit: pageSize,
         includeVariants: true,
+        includeAttributes: true,
         filters: filterState.groups.length > 0 ? filterState : undefined,
         search: search?.trim() || undefined,
         sort: sort,
@@ -555,6 +584,7 @@ function TableContent({
         cursor: lastCursor,
         limit: pageSize,
         includeVariants: true,
+        includeAttributes: true,
         filters: filterState.groups.length > 0 ? filterState : undefined,
         search: search?.trim() || undefined,
         sort: sort,
@@ -622,6 +652,8 @@ function TableContent({
       hasActiveFilters={hasActiveFilters}
       onClearFilters={onClearFilters}
       brandSlug={brandSlug}
+      onDeleteProduct={onDeleteProduct}
+      onChangeStatus={onChangeStatus}
     />
   );
 }

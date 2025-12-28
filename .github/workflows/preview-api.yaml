@@ -55,9 +55,12 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          # Must match preview-app.yaml trigger paths exactly
+          # If preview-app.yaml will trigger, we skip and let it call us
           filters: |
             app:
               - 'apps/app/**'
+              - 'packages/**'
 
   # Always run tests (on push and PR)
   test:

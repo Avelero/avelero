@@ -10,6 +10,21 @@ import type { Database } from "../../client";
 import { products, productVariants, productTags, integrationProductLinks, integrationVariantLinks } from "../../schema";
 
 // =============================================================================
+// SQL SANITIZATION
+// =============================================================================
+
+/**
+ * Safely escape a string for use in raw SQL.
+ * Handles single quotes, backslashes, null bytes, and unicode escapes.
+ */
+function escapeSqlString(value: string): string {
+  return value
+    .replace(/\0/g, '')           // Remove null bytes
+    .replace(/\\/g, '\\\\')       // Escape backslashes
+    .replace(/'/g, "''");         // Escape single quotes (SQL standard)
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
@@ -82,10 +97,10 @@ export async function batchUpdateProducts(
   for (const update of updates) {
     const id = `'${update.id}'::uuid`;
     const name = update.name !== undefined
-      ? `'${update.name.replace(/'/g, "''")}'`
+      ? `'${escapeSqlString(update.name)}'`
       : 'NULL';
     const description = update.description !== undefined
-      ? (update.description ? `'${update.description.replace(/'/g, "''")}'` : 'NULL')
+      ? (update.description ? `'${escapeSqlString(update.description)}'` : 'NULL')
       : 'NULL';
     const categoryId = update.categoryId !== undefined
       ? (update.categoryId ? `'${update.categoryId}'::uuid` : 'NULL::uuid')
@@ -203,10 +218,10 @@ export async function batchUpdateVariants(
   for (const update of updates) {
     const id = `'${update.id}'::uuid`;
     const sku = update.sku !== undefined
-      ? (update.sku ? `'${update.sku.replace(/'/g, "''")}'` : 'NULL')
+      ? (update.sku ? `'${escapeSqlString(update.sku)}'` : 'NULL')
       : 'NULL';
     const barcode = update.barcode !== undefined
-      ? (update.barcode ? `'${update.barcode.replace(/'/g, "''")}'` : 'NULL')
+      ? (update.barcode ? `'${escapeSqlString(update.barcode)}'` : 'NULL')
       : 'NULL';
 
     valueRows.push(`(${id}, ${sku}, ${barcode})`);

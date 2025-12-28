@@ -11,9 +11,9 @@
  */
 
 import type { Database } from "@v1/db/client";
-import { 
-  batchFindProductLinks, 
-  batchFindVariantLinks, 
+import {
+  batchFindProductLinks,
+  batchFindVariantLinks,
   batchFindVariantsByProductIds,
   batchFindProductsByIdentifiers,
   batchUpdateProducts,
@@ -266,7 +266,7 @@ async function processBatch(
 
   // PHASE 2: Pre-fetch all links, variants, AND identifier matches (BATCHED)
   const preFetchStart = Date.now();
-  
+
   // 2a: Fetch existing product/variant links
   const [productLinks, variantLinks] = await Promise.all([
     batchFindProductLinks(db, ctx.brandIntegrationId, Array.from(extracted.productIds)),
@@ -312,20 +312,20 @@ async function processBatch(
   );
   const takenHandles = await batchCheckHandlesTaken(db, ctx.brandId, productsNeedingHandles, mappings);
   result.queries.preFetch += 1;
-  
+
   result.timing.preFetch = Date.now() - preFetchStart;
 
-  const preFetched = { 
-    productLinks, 
-    variantLinks, 
-    existingVariantsByProduct, 
+  const preFetched = {
+    productLinks,
+    variantLinks,
+    existingVariantsByProduct,
     identifierMatches,
     takenHandles,
   };
 
   // PHASE 3: Process all products to compute pending operations (pure computation, NO DB!)
   const computeStart = Date.now();
-  
+
   // Collect all pending operations from all products
   const allPendingOps: PendingOperations = {
     productCreates: [],
@@ -353,7 +353,7 @@ async function processBatch(
         result.variantsSkipped += processed.variantsSkipped;
         if (processed.productCreated) result.productsCreated++;
         else if (processed.productUpdated) result.productsUpdated++;
-        
+
         // Merge pending operations
         if (processed.pendingOps.productCreate) {
           allPendingOps.productCreates.push(processed.pendingOps.productCreate);
@@ -376,9 +376,9 @@ async function processBatch(
       }
     } catch (error) {
       result.variantsFailed += product.variants.length;
-      result.errors.push({ 
-        externalId: product.externalId, 
-        message: error instanceof Error ? error.message : String(error) 
+      result.errors.push({
+        externalId: product.externalId,
+        message: error instanceof Error ? error.message : String(error)
       });
     }
   }
@@ -386,10 +386,10 @@ async function processBatch(
 
   // PHASE 4: Execute all batch operations (PARALLELIZED where possible)
   const batchOpsStart = Date.now();
-  
+
   // Collect image upload tasks for rate-limited execution
   const imageUploadTasks: Array<{ productId: string; imageUrl: string }> = [];
-  
+
   // GROUP 1: Product creates (must be first - generates IDs)
   const createdProductMap = new Map<string, string>(); // externalId -> productId
   if (allPendingOps.productCreates.length > 0) {
@@ -404,21 +404,21 @@ async function processBatch(
         categoryId: p.categoryId,
       })))
       .returning({ id: products.id, productHandle: products.productHandle });
-    
+
     result.queries.productCreates = 1;
-    
+
     // Map external IDs to created product IDs and collect image uploads
     for (let i = 0; i < insertedProducts.length; i++) {
       const create = allPendingOps.productCreates[i]!;
       const inserted = insertedProducts[i]!;
       createdProductMap.set(create.externalId, inserted.id);
-      
+
       // Queue image upload for later (rate-limited)
       if (create.imageUrl) {
         imageUploadTasks.push({ productId: inserted.id, imageUrl: create.imageUrl });
       }
     }
-    
+
     // Update pending ops that reference newly created products
     updatePendingOpsWithCreatedProducts(allPendingOps, createdProductMap);
   }
@@ -428,22 +428,22 @@ async function processBatch(
     await batchUpdateProducts(db, allPendingOps.productUpdates);
     result.queries.productUpdates = 1;
   }
-  
+
   if (allPendingOps.productCommercialUpserts.length > 0) {
     await batchUpsertProductCommercial(db, allPendingOps.productCommercialUpserts);
     result.queries.productCommercial = 1;
   }
-  
+
   if (allPendingOps.productLinkUpserts.length > 0) {
     await batchUpsertProductLinks(db, allPendingOps.productLinkUpserts);
     result.queries.productLinks = 1;
   }
-  
+
   if (allPendingOps.tagAssignments.length > 0) {
     await batchSetProductTags(db, allPendingOps.tagAssignments);
     result.queries.tags = 2;
   }
-  
+
   if (allPendingOps.variantUpdates.length > 0) {
     const variantUpdates: VariantUpdateData[] = allPendingOps.variantUpdates.map((u: PendingOperations["variantUpdates"][number]) => ({
       id: u.id,
@@ -461,13 +461,13 @@ async function processBatch(
     // Generate UPIDs for all new variants
     const upids = await generateUniqueUpids({
       count: variantCreates.length,
-      isTaken: async (c) => { 
-        const [r] = await db.select({ id: productVariants.id }).from(productVariants).where(eq(productVariants.upid, c)).limit(1); 
-        return Boolean(r); 
+      isTaken: async (c) => {
+        const [r] = await db.select({ id: productVariants.id }).from(productVariants).where(eq(productVariants.upid, c)).limit(1);
+        return Boolean(r);
       },
-      fetchTakenSet: async (candidates) => { 
-        const rows = await db.select({ upid: productVariants.upid }).from(productVariants).where(inArray(productVariants.upid, candidates as string[])); 
-        return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]); 
+      fetchTakenSet: async (candidates) => {
+        const rows = await db.select({ upid: productVariants.upid }).from(productVariants).where(inArray(productVariants.upid, candidates as string[]));
+        return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
       },
     });
 
@@ -480,14 +480,14 @@ async function processBatch(
         upid: upids[i]!,
       })))
       .returning({ id: productVariants.id });
-    
+
     result.queries.variantCreates = 2;
 
     // Add variant links and attribute assignments for newly created variants
     for (let i = 0; i < inserted.length; i++) {
       const create = variantCreates[i]!;
       const variantId = inserted[i]!.id;
-      
+
       allPendingOps.variantLinkUpserts.push({
         brandIntegrationId: create.linkData.brandIntegrationId,
         variantId,
@@ -497,7 +497,7 @@ async function processBatch(
         externalBarcode: create.linkData.externalBarcode,
         lastSyncedHash: create.linkData.lastSyncedHash,
       });
-      
+
       if (create.attributeValueIds.length > 0) {
         allPendingOps.variantAttributeAssignments.push({
           variantId,
@@ -512,22 +512,22 @@ async function processBatch(
     await batchUpsertVariantLinks(db, allPendingOps.variantLinkUpserts);
     result.queries.variantLinks = 1;
   }
-  
+
   if (allPendingOps.variantAttributeAssignments.length > 0) {
     await batchReplaceVariantAttributes(db, allPendingOps.variantAttributeAssignments);
     result.queries.variantAttributes = 2;
   }
 
   result.timing.batchOps = Date.now() - batchOpsStart;
-  
+
   // PHASE 5: Start image uploads (fire-and-forget at batch level, awaited at job level)
   if (imageUploadTasks.length > 0) {
     result.imageUploadPromise = processImagesWithRateLimit(ctx.storageClient, ctx.brandId, db, imageUploadTasks, 25);
   }
-  
+
   // Calculate total queries: preFetch + batch
   const batchTotal = result.queries.productCreates + result.queries.productUpdates + result.queries.productCommercial +
-    result.queries.productLinks + result.queries.tags + result.queries.variantUpdates + result.queries.variantCreates + 
+    result.queries.productLinks + result.queries.tags + result.queries.variantUpdates + result.queries.variantCreates +
     result.queries.variantLinks + result.queries.variantAttributes;
   result.queries.total = result.queries.preFetch + batchTotal;
 
@@ -547,7 +547,7 @@ function extractRawIdentifiers(variantData: Record<string, unknown>): {
 } {
   const rawSku = getValueByPath(variantData, "sku");
   const rawBarcode = getValueByPath(variantData, "barcode");
-  
+
   return {
     sku: rawSku ? String(rawSku).trim() || undefined : undefined,
     barcode: rawBarcode ? String(rawBarcode).trim() || undefined : undefined,
@@ -593,7 +593,7 @@ async function batchCheckHandlesTaken(
     ));
 
   const takenHandles = new Set(rows.map((r) => r.handle));
-  
+
   return takenHandles;
 }
 
@@ -696,31 +696,31 @@ function processImagesWithRateLimit(
   if (tasks.length === 0) {
     return Promise.resolve({ completed: 0, failed: 0 });
   }
-  
+
   console.log(`[SYNC] Starting image upload for ${tasks.length} images (concurrency: ${concurrency})`);
-  
+
   return new Promise((resolve) => {
     let currentIndex = 0;
     let completedCount = 0;
     let failedCount = 0;
-    
+
     const checkDone = () => {
       if (completedCount + failedCount === tasks.length) {
         console.log(`[SYNC] Image upload finished: ${completedCount} succeeded, ${failedCount} failed`);
         resolve({ completed: completedCount, failed: failedCount });
       }
     };
-    
+
     const processNext = () => {
       if (currentIndex >= tasks.length) return;
-      
+
       const task = tasks[currentIndex++]!;
-      
-      // Process with timeout
-      const timeoutPromise = new Promise<null>((_, reject) => 
-        setTimeout(() => reject(new Error('Image upload timeout')), 60_000)
+
+      // Process with timeout (120s to handle large images and slow networks)
+      const timeoutPromise = new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error('Image upload timeout')), 120_000)
       );
-      
+
       const uploadPromise = (async () => {
         const path = await processImageUrl(storageClient, brandId, task.productId, task.imageUrl);
         if (path) {
@@ -728,7 +728,7 @@ function processImagesWithRateLimit(
         }
         return path;
       })();
-      
+
       Promise.race([uploadPromise, timeoutPromise])
         .then(() => {
           completedCount++;
@@ -744,7 +744,7 @@ function processImagesWithRateLimit(
           checkDone();
         });
     };
-    
+
     // Start initial batch (up to concurrency limit)
     const initialBatch = Math.min(concurrency, tasks.length);
     for (let i = 0; i < initialBatch; i++) {

@@ -32,8 +32,8 @@ import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
-import { CreateValueModal } from "./create-value-modal";
-import type { VariantDimension } from "./types";
+import { CreateValueModal } from "@/components/modals/create-value-modal";
+import type { VariantDimension } from "@/components/forms/passport/blocks/variant-block";
 
 function ValueChip({
   name,

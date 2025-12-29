@@ -444,6 +444,9 @@ export const explicitVariantSchema = z.object({
 
 /**
  * Schema for a matrix dimension (one attribute with multiple values).
+ * 
+ * @deprecated Use the `products.variants.sync` endpoint instead.
+ * Matrix mode has been removed in favor of explicit variant definitions.
  */
 export const matrixDimensionSchema = z.object({
   /** The brand attribute ID */
@@ -454,6 +457,10 @@ export const matrixDimensionSchema = z.object({
 
 /**
  * Upsert/replace variants for a product using the generic attribute system.
+ * 
+ * @deprecated Use the `products.variants.sync` endpoint instead.
+ * This schema and the associated upsert endpoint have been replaced by the
+ * unified variants router which uses productHandle + variantUpid identifiers.
  * 
  * Supports two modes:
  * - **explicit**: Provide explicit variant definitions with attribute assignments

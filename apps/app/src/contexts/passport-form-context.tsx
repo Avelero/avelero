@@ -13,6 +13,7 @@
  * - Handles navigation blocking with pending URL state
  */
 
+import { useRouter } from "next/navigation";
 import * as React from "react";
 
 type FormType = "create" | "edit" | "variant";
@@ -37,6 +38,11 @@ interface PassportFormContextType {
   // Navigation control
   pendingNavigationUrl: string | null;
   setPendingNavigationUrl: (url: string | null) => void;
+  /**
+   * Request navigation to a URL. If there are unsaved changes, sets the pending URL
+   * to trigger the unsaved changes modal. Otherwise, navigates directly.
+   */
+  requestNavigation: (url: string) => void;
 }
 
 const PassportFormContext = React.createContext<PassportFormContextType | null>(
@@ -52,6 +58,8 @@ export function PassportFormProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+
   // Form identification
   const [formType, setFormType] = React.useState<FormType>("create");
   const [productHandle, setProductHandle] = React.useState<string | null>(null);
@@ -68,6 +76,18 @@ export function PassportFormProvider({
     string | null
   >(null);
 
+  // Request navigation - will set pending URL if unsaved changes, otherwise navigate directly
+  const requestNavigation = React.useCallback(
+    (url: string) => {
+      if (hasUnsavedChanges) {
+        setPendingNavigationUrl(url);
+      } else {
+        router.push(url);
+      }
+    },
+    [hasUnsavedChanges, router]
+  );
+
   const value = React.useMemo(
     () => ({
       formType,
@@ -82,6 +102,7 @@ export function PassportFormProvider({
       setHasUnsavedChanges,
       pendingNavigationUrl,
       setPendingNavigationUrl,
+      requestNavigation,
     }),
     [
       formType,
@@ -90,6 +111,7 @@ export function PassportFormProvider({
       isSubmitting,
       hasUnsavedChanges,
       pendingNavigationUrl,
+      requestNavigation,
     ],
   );
 

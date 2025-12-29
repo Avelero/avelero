@@ -186,13 +186,7 @@ export function useAttributes({ brandAttributeId, taxonomyAttributeId }: UseAttr
                 const taxId = valueId.slice(4);
                 const taxVal = taxonomyValuesById.get(taxId);
                 if (taxVal) {
-                    const meta = taxVal.metadata as Record<string, unknown> | null;
-                    if (meta) {
-                        if (typeof meta.swatch === "string") return meta.swatch;
-                        if (typeof meta.hex === "string") {
-                            return meta.hex.startsWith("#") ? meta.hex : `#${meta.hex}`;
-                        }
-                    }
+                    return extractHex(taxVal.metadata);
                 }
             }
 

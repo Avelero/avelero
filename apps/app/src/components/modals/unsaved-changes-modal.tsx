@@ -43,7 +43,7 @@ export function UnsavedChangesModal({
 }: UnsavedChangesModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
+      <DialogContent className="rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
         <DialogHeader>
           <DialogTitle className="text-foreground">{title}</DialogTitle>
           <DialogDescription className="text-secondary w-full whitespace-normal break-words">

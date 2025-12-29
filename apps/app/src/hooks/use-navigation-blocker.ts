@@ -18,13 +18,15 @@ import * as React from "react";
 interface UseNavigationBlockerOptions {
   /** Whether navigation should be blocked */
   shouldBlock: boolean;
+  /** Optional callback invoked when user confirms discard (before navigation) */
+  onDiscard?: () => void | Promise<void>;
 }
 
 interface UseNavigationBlockerResult {
   /** URL user is trying to navigate to (null if no pending navigation) */
   pendingUrl: string | null;
   /** Confirm navigation and proceed to pending URL */
-  confirmNavigation: () => void;
+  confirmNavigation: () => void | Promise<void>;
   /** Cancel navigation and stay on current page */
   cancelNavigation: () => void;
   /** Programmatically request navigation (will be blocked if shouldBlock) */
@@ -35,6 +37,7 @@ interface UseNavigationBlockerResult {
 
 export function useNavigationBlocker({
   shouldBlock,
+  onDiscard,
 }: UseNavigationBlockerOptions): UseNavigationBlockerResult {
   const router = useRouter();
   const [pendingUrl, setPendingUrl] = React.useState<string | null>(null);
@@ -57,6 +60,9 @@ export function useNavigationBlocker({
     if (!shouldBlock) return;
 
     const handleClick = (event: MouseEvent) => {
+      // Skip if modifier keys are pressed (new tab/window navigation)
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
       const target = event.target as HTMLElement;
       const link = target.closest("a");
 
@@ -91,16 +97,24 @@ export function useNavigationBlocker({
     };
   }, [shouldBlock]);
 
-  const confirmNavigation = React.useCallback(() => {
+  const confirmNavigation = React.useCallback(async () => {
     if (pendingUrl) {
       const url = pendingUrl;
       setPendingUrl(null);
+      // Call onDiscard callback if provided (e.g., to invalidate caches)
+      if (onDiscard) {
+        try {
+          await onDiscard();
+        } catch (err) {
+          console.error("onDiscard callback failed:", err);
+        }
+      }
       // Use setTimeout to ensure state is cleared before navigation
       setTimeout(() => {
         router.push(url);
       }, 0);
     }
-  }, [pendingUrl, router]);
+  }, [pendingUrl, router, onDiscard]);
 
   const cancelNavigation = React.useCallback(() => {
     setPendingUrl(null);

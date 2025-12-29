@@ -1,4 +1,11 @@
 {
   "importMap": "./import_map.json",
-  "unstable": true
+  "compilerOptions": {
+    "lib": [
+      "deno.window"
+    ],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
+  },
+  "nodeModulesDir": "auto"
 }

@@ -25,7 +25,6 @@ import { BasicInfoSection } from "@/components/forms/passport/blocks/basic-info-
 import { EnvironmentSection } from "@/components/forms/passport/blocks/environment-block";
 import { JourneySection } from "@/components/forms/passport/blocks/journey-block";
 import { MaterialsSection } from "@/components/forms/passport/blocks/materials-block";
-import { VariantFormScaffold } from "@/components/forms/passport/scaffolds/variant-scaffold";
 import { VariantsOverview } from "@/components/forms/passport/sidebars/variants-overview";
 import {
   usePassportFormContext,
@@ -39,11 +38,48 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+
+// ============================================================================
+// Scaffold Component (embedded)
+// ============================================================================
+
+function VariantFormScaffold({
+  header,
+  sidebar,
+  content,
+  className,
+}: {
+  header: React.ReactNode;
+  sidebar: React.ReactNode;
+  content: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-6 w-full max-w-[924px]", className)}>
+      {header}
+      <div className="flex flex-row gap-6">
+        {/* Narrow sidebar on LEFT */}
+        <div className="flex flex-col gap-6 w-full max-w-[300px] shrink-0">
+          {sidebar}
+        </div>
+        {/* Wide content on RIGHT */}
+        <div className="flex flex-col gap-6 w-full max-w-[600px]">
+          {content}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Types
+// ============================================================================
 
 interface VariantFormProps {
   mode: "create" | "edit";
@@ -91,26 +127,109 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
   }, [variantUpid]);
 
   // Fetch the variant override data - only in edit mode
+  // Form pages should ALWAYS fetch fresh data on mount
   const { data: variantData } = useQuery({
-    ...trpc.products.variantOverrides.get.queryOptions({
+    ...trpc.products.variants.getOverrides.queryOptions({
       productHandle,
       variantUpid: variantUpid ?? "",
     }),
     enabled: !isCreateMode && !!variantUpid,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
-  // Fetch product data for sidebar and defaults (use suspense - this doesn't change)
-  const { data: productData } = useSuspenseQuery(
-    trpc.products.get.queryOptions({
+  // Fetch product data for sidebar and defaults
+  // Form pages should ALWAYS fetch fresh data on mount
+  const { data: productData } = useSuspenseQuery({
+    ...trpc.products.get.queryOptions({
       handle: productHandle,
       includeVariants: true,
       includeAttributes: true,
     }),
-  );
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
 
   // Create variant mutation
   const createVariantMutation = useMutation(
     trpc.products.variants.create.mutationOptions()
+  );
+
+  // Create attribute value mutation (for resolving pending taxonomy values)
+  const createAttributeValueMutation = useMutation(
+    trpc.catalog.attributeValues.create.mutationOptions()
+  );
+
+  /**
+   * Resolves pending taxonomy values (tax:-prefixed IDs) to real brand attribute value IDs.
+   * For each dimension, if the selected value is a pending taxonomy value, creates the
+   * brand attribute value first and returns the real ID.
+   */
+  const resolvePendingAttributeValues = React.useCallback(
+    async (selections: Record<string, string>): Promise<string[]> => {
+      // Get existing brand values from cache for quick lookup
+      const brandCatalogQuery = queryClient.getQueryData(
+        trpc.composite.catalogContent.queryKey()
+      ) as any;
+      const existingBrandValues: any[] = [
+        ...(brandCatalogQuery?.brandCatalog?.attributeValues ?? []),
+      ];
+      const taxValues = brandCatalogQuery?.taxonomy?.values ?? [];
+
+      const resolvedIds: string[] = [];
+
+      for (const [attributeId, valueId] of Object.entries(selections)) {
+        // Check if this is a pending taxonomy value (tax:-prefixed)
+        if (valueId.startsWith("tax:")) {
+          const taxonomyValueId = valueId.slice(4);
+
+          // Check if a brand value already exists for this taxonomy value
+          const existingByTaxonomy = existingBrandValues.find(
+            (v: any) =>
+              v.attributeId === attributeId && v.taxonomyValueId === taxonomyValueId
+          );
+
+          if (existingByTaxonomy) {
+            resolvedIds.push(existingByTaxonomy.id);
+          } else {
+            // Find the taxonomy value to get its name
+            const taxValue = taxValues.find((v: any) => v.id === taxonomyValueId);
+            const name = taxValue?.name ?? taxonomyValueId;
+
+            // Create the brand attribute value
+            const result = await createAttributeValueMutation.mutateAsync({
+              attribute_id: attributeId,
+              name,
+              taxonomy_value_id: taxonomyValueId,
+            });
+
+            if (!result?.data?.id) {
+              throw new Error("Failed to create attribute value");
+            }
+
+            resolvedIds.push(result.data.id);
+            // Add to existing list for subsequent lookups in this batch
+            existingBrandValues.push(result.data);
+          }
+        } else {
+          // Already a real brand value ID
+          resolvedIds.push(valueId);
+        }
+      }
+
+      // Invalidate catalog cache if we created any new values
+      if (resolvedIds.some((id, idx) => {
+        const originalId = Object.values(selections)[idx];
+        return originalId?.startsWith("tax:");
+      })) {
+        queryClient.invalidateQueries({
+          queryKey: trpc.composite.catalogContent.queryKey(),
+        });
+      }
+
+      return resolvedIds;
+    },
+    [queryClient, trpc, createAttributeValueMutation]
   );
 
   // Build variants list for sidebar with prefetch capability
@@ -161,7 +280,7 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
     (targetUpid: string) => {
       if (targetUpid === variantUpid) return; // Don't prefetch current
       queryClient.prefetchQuery(
-        trpc.products.variantOverrides.get.queryOptions({
+        trpc.products.variants.getOverrides.queryOptions({
           productHandle,
           variantUpid: targetUpid,
         }),
@@ -255,9 +374,14 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
       setIsCreatingVariant(true);
 
       try {
+        // Resolve any pending taxonomy values (tax:-prefixed) to real brand value IDs
+        const resolvedAttributeValueIds = await resolvePendingAttributeValues(
+          selectedAttributes
+        );
+
         const result = await createVariantMutation.mutateAsync({
           productHandle,
-          attribute_value_ids: Object.values(selectedAttributes),
+          attributeValueIds: resolvedAttributeValueIds,
         });
 
         // Navigate first, then invalidate in background (prevents flash of duplicate warning)
@@ -328,7 +452,6 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
             productHandle={productHandle}
             productName={productName}
             productImage={productImage}
-            productStatus={productStatus}
             variants={variants}
             selectedUpid={isCreateMode ? "" : (variantUpid ?? "")}
             onVariantHover={prefetchVariant}

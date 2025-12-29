@@ -182,34 +182,13 @@ export function useVariantForm(options: UseVariantFormOptions) {
     // Image upload hook
     const { uploadImage, buildPath: buildImagePath } = useImageUpload();
 
-    // tRPC mutations
-    const updateCoreMutation = useMutation(
-        trpc.products.variantOverrides.updateCore.mutationOptions()
-    );
-
-    const updateEnvironmentMutation = useMutation(
-        trpc.products.variantOverrides.updateEnvironment.mutationOptions()
-    );
-
-    const setMaterialsMutation = useMutation(
-        trpc.products.variantOverrides.setMaterials.mutationOptions()
-    );
-
-    const setJourneyMutation = useMutation(
-        trpc.products.variantOverrides.setJourney.mutationOptions()
-    );
-
-    const setEcoClaimsMutation = useMutation(
-        trpc.products.variantOverrides.setEcoClaims.mutationOptions()
+    // Use the unified variants.update mutation with overrides
+    const updateVariantMutation = useMutation(
+        trpc.products.variants.update.mutationOptions()
     );
 
     // Is submitting
-    const isSubmitting =
-        updateCoreMutation.isPending ||
-        updateEnvironmentMutation.isPending ||
-        setMaterialsMutation.isPending ||
-        setJourneyMutation.isPending ||
-        setEcoClaimsMutation.isPending;
+    const isSubmitting = updateVariantMutation.isPending;
 
     // Check for unsaved changes
     const hasUnsavedChanges = React.useMemo(() => {
@@ -300,7 +279,7 @@ export function useVariantForm(options: UseVariantFormOptions) {
         [updateField]
     );
 
-    // Submit handler
+    // Submit handler - uses the unified update mutation with overrides
     const submit = React.useCallback(async () => {
         const errors = validate();
         if (Object.keys(errors).length > 0) {
@@ -329,107 +308,46 @@ export function useVariantForm(options: UseVariantFormOptions) {
                 imagePath = result.displayUrl;
             }
 
-            // Determine what changed and run mutations in parallel
-            const orig = originalValuesRef.current;
-            const mutations: Promise<unknown>[] = [];
+            // Build overrides object for the update mutation
+            const overrides: Record<string, unknown> = {};
 
-            // Core update
-            if (
-                state.name !== orig.name ||
-                state.description !== orig.description ||
-                state.imageFile !== null
-            ) {
-                mutations.push(
-                    updateCoreMutation.mutateAsync({
-                        productHandle,
-                        variantUpid,
-                        name: state.name || null,
-                        description: state.description || null,
-                        imagePath: imagePath || null,
-                    })
-                );
-            }
+            // Core fields
+            overrides.name = state.name || null;
+            overrides.description = state.description || null;
+            overrides.imagePath = imagePath || null;
 
-            // Environment update
-            if (
-                state.carbonKgCo2e !== orig.carbonKgCo2e ||
-                state.waterLiters !== orig.waterLiters
-            ) {
-                mutations.push(
-                    updateEnvironmentMutation.mutateAsync({
-                        productHandle,
-                        variantUpid,
-                        carbonKgCo2e: state.carbonKgCo2e || null,
-                        waterLiters: state.waterLiters || null,
-                    })
-                );
-            }
+            // Environment
+            overrides.environment = {
+                carbonKgCo2e: state.carbonKgCo2e || null,
+                waterLiters: state.waterLiters || null,
+            };
 
-            // Eco claims update
-            const ecoClaimIdsChanged =
-                state.ecoClaims.length !== orig.ecoClaims.length ||
-                state.ecoClaims.some((c, i) => c.id !== orig.ecoClaims[i]?.id);
+            // Materials (map materialId -> brandMaterialId for API)
+            overrides.materials = state.materials.map((m) => ({
+                brandMaterialId: m.materialId,
+                percentage: m.percentage > 0 ? String(m.percentage) : null,
+            }));
 
-            if (ecoClaimIdsChanged) {
-                mutations.push(
-                    setEcoClaimsMutation.mutateAsync({
-                        productHandle,
-                        variantUpid,
-                        ecoClaimIds: state.ecoClaims.map((c) => c.id),
-                    })
-                );
-            }
+            // Journey
+            overrides.journey = state.journeySteps.map((j) => ({
+                stepType: j.stepType,
+                facilityId: j.facilityId,
+                sortIndex: j.sortIndex,
+            }));
 
-            // Materials update (map materialId -> brandMaterialId for API)
-            const materialsChanged =
-                state.materials.length !== orig.materials.length ||
-                state.materials.some((m, i) => {
-                    const origM = orig.materials[i];
-                    return m.materialId !== origM?.materialId || m.percentage !== origM?.percentage;
-                });
+            // Eco claims
+            overrides.ecoClaimIds = state.ecoClaims.map((c) => c.id);
 
-            if (materialsChanged) {
-                mutations.push(
-                    setMaterialsMutation.mutateAsync({
-                        productHandle,
-                        variantUpid,
-                        materials: state.materials.map((m) => ({
-                            brandMaterialId: m.materialId,
-                            percentage: m.percentage > 0 ? String(m.percentage) : null,
-                        })),
-                    })
-                );
-            }
-
-            // Journey update
-            const journeyChanged =
-                state.journeySteps.length !== orig.journeySteps.length ||
-                state.journeySteps.some((j, i) => {
-                    const origJ = orig.journeySteps[i];
-                    return j.stepType !== origJ?.stepType || j.facilityId !== origJ?.facilityId || j.sortIndex !== origJ?.sortIndex;
-                });
-
-            if (journeyChanged) {
-                mutations.push(
-                    setJourneyMutation.mutateAsync({
-                        productHandle,
-                        variantUpid,
-                        steps: state.journeySteps.map((j) => ({
-                            stepType: j.stepType,
-                            facilityId: j.facilityId,
-                            sortIndex: j.sortIndex,
-                        })),
-                    })
-                );
-            }
-
-            if (mutations.length > 0) {
-                await Promise.all(mutations);
-            }
+            // Call the unified update mutation
+            await updateVariantMutation.mutateAsync({
+                productHandle,
+                variantUpid,
+                overrides,
+            });
 
             // Invalidate queries
             await queryClient.invalidateQueries({
-                queryKey: trpc.products.variantOverrides.get.queryKey({
+                queryKey: trpc.products.variants.getOverrides.queryKey({
                     productHandle,
                     variantUpid,
                 }),
@@ -453,11 +371,7 @@ export function useVariantForm(options: UseVariantFormOptions) {
         buildImagePath,
         productHandle,
         variantUpid,
-        updateCoreMutation,
-        updateEnvironmentMutation,
-        setEcoClaimsMutation,
-        setMaterialsMutation,
-        setJourneyMutation,
+        updateVariantMutation,
         queryClient,
         trpc,
     ]);

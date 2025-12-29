@@ -13,7 +13,6 @@ import { JourneySection } from "@/components/forms/passport/blocks/journey-block
 import { MaterialsSection } from "@/components/forms/passport/blocks/materials-block";
 import { OrganizationSection } from "@/components/forms/passport/blocks/organization-block";
 import { VariantSection } from "@/components/forms/passport/blocks/variant-block";
-import { ProductFormScaffold } from "@/components/forms/passport/scaffolds/product-scaffold";
 import { IdentifiersSidebar } from "@/components/forms/passport/sidebars/identifiers-sidebar";
 import { StatusSidebar } from "@/components/forms/passport/sidebars/status-sidebar";
 import {
@@ -26,8 +25,57 @@ import type { PassportFormValidationErrors } from "@/hooks/use-passport-form";
 import { useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { cn } from "@v1/ui/cn";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
+
+// ============================================================================
+// Scaffold Component (embedded)
+// ============================================================================
+
+function ProductFormScaffold({
+  title,
+  left,
+  right,
+  className,
+  leftClassName,
+  rightClassName,
+}: {
+  title: React.ReactNode;
+  left: React.ReactNode;
+  right: React.ReactNode;
+  className?: string;
+  leftClassName?: string;
+  rightClassName?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-6 w-full max-w-[924px]", className)}>
+      <p className="type-h4 text-primary">{title}</p>
+      <div className="flex flex-row gap-6">
+        <div
+          className={cn(
+            "flex flex-col gap-6 w-full max-w-[600px]",
+            leftClassName,
+          )}
+        >
+          {left}
+        </div>
+        <div
+          className={cn(
+            "flex flex-col gap-6 w-full max-w-[300px]",
+            rightClassName,
+          )}
+        >
+          {right}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Types
+// ============================================================================
 
 interface ProductFormProps {
   mode: "create" | "edit";
@@ -41,7 +89,7 @@ function ProductFormInner({
   initialData,
 }: ProductFormProps) {
   const { data: user } = useUserQuery();
-  const { setIsSubmitting, setHasUnsavedChanges } = usePassportFormContext();
+  const { setIsSubmitting, setHasUnsavedChanges, requestNavigation } = usePassportFormContext();
   const isEditMode = mode === "edit";
 
   // Register form with context
@@ -306,6 +354,7 @@ function ProductFormInner({
               productHandle={savedProductHandle ?? undefined}
               savedVariants={savedVariantsMap}
               isNewProduct={!isEditMode || !savedVariantsMap || savedVariantsMap.size === 0}
+              onNavigateToVariant={requestNavigation}
             />
             <EnvironmentSection
               carbonKgCo2e={state.carbonKgCo2e}
@@ -376,13 +425,16 @@ export function EditProductForm({
   productHandle: string;
 }) {
   const trpc = useTRPC();
-  const { data } = useSuspenseQuery(
-    trpc.products.get.queryOptions({
+  // Form pages should ALWAYS fetch fresh data on mount
+  const { data } = useSuspenseQuery({
+    ...trpc.products.get.queryOptions({
       handle: productHandle,
       includeVariants: true,
       includeAttributes: true,
     }),
-  );
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
   return (
     <ProductFormInner
       mode="edit"

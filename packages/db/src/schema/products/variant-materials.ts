@@ -84,6 +84,12 @@ export const variantMaterials = pgTable(
         WHERE pv.id = variant_id
         AND is_brand_member(p.brand_id)
       )`,
+            withCheck: sql`EXISTS (
+        SELECT 1 FROM product_variants pv
+        JOIN products p ON p.id = pv.product_id
+        WHERE pv.id = variant_id
+        AND is_brand_member(p.brand_id)
+      )`,
         }),
         pgPolicy("variant_materials_delete_by_brand_member", {
             as: "permissive",

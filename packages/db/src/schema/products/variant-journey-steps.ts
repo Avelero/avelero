@@ -58,6 +58,11 @@ export const variantJourneySteps = pgTable(
             table.variantId.asc().nullsLast().op("uuid_ops"),
             table.sortIndex.asc().nullsLast().op("int4_ops"),
         ),
+        // Index for facility_id foreign key (optimizes JOINs and referential integrity checks)
+        index("idx_variant_journey_steps_facility_id").using(
+            "btree",
+            table.facilityId.asc().nullsLast().op("uuid_ops"),
+        ),
         // RLS policies - inherit brand access through product_variants → products relationship
         pgPolicy("variant_journey_steps_select_for_brand_members", {
             as: "permissive",
@@ -86,6 +91,12 @@ export const variantJourneySteps = pgTable(
             for: "update",
             to: ["authenticated", "service_role"],
             using: sql`EXISTS (
+        SELECT 1 FROM product_variants pv
+        JOIN products p ON p.id = pv.product_id
+        WHERE pv.id = variant_id
+        AND is_brand_member(p.brand_id)
+      )`,
+            withCheck: sql`EXISTS (
         SELECT 1 FROM product_variants pv
         JOIN products p ON p.id = pv.product_id
         WHERE pv.id = variant_id

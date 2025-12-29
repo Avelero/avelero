@@ -7,7 +7,7 @@
  * per attribute dimension. Used only in create mode.
  */
 
-import { CreateValueModal } from "@/components/forms/passport/blocks/variant-block/create-value-modal";
+import { CreateValueModal } from "@/components/modals/create-value-modal";
 import { useAttributes } from "@/hooks/use-attributes";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -310,13 +310,14 @@ export function extractDimensionsFromVariants(
 
     // Return dimensions in order
     return orderedAttributeIds.map((attrId) => {
-        const data = dimensionMap.get(attrId)!;
+        const data = dimensionMap.get(attrId);
+        if (!data) return null;
         return {
             attributeId: attrId,
             attributeName: data.attributeName,
             taxonomyAttributeId: data.taxonomyAttributeId,
         };
-    });
+    }).filter((d): d is AttributeDimension => d !== null);
 }
 
 /**

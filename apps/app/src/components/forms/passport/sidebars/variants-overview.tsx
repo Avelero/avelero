@@ -55,7 +55,6 @@ interface VariantsOverviewProps {
   productHandle: string;
   productName: string;
   productImage: string | null;
-  productStatus: "draft" | "published" | "archived";
   variants: VariantInfo[];
   selectedUpid: string;
   /** Called when hovering a variant row - used for prefetching */

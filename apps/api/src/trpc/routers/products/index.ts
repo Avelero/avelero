@@ -43,7 +43,6 @@ import {
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 import { productVariantsRouter } from "./variants.js";
-import { variantOverridesRouter } from "./variant-overrides.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
@@ -359,7 +358,6 @@ export const productsRouter = createTRPCRouter({
     }),
 
   variants: productVariantsRouter,
-  variantOverrides: variantOverridesRouter,
 });
 
 export type ProductsRouter = typeof productsRouter;

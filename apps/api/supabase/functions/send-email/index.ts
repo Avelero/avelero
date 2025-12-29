@@ -1,4 +1,4 @@
-import { renderAsync } from "npm:@react-email/components@0.0.22";
+import { render } from "npm:@react-email/components@1.0.3";
 import React from "npm:react@18.3.1";
 import { Resend } from "npm:resend@4.0.0";
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       };
     };
 
-    const html = await renderAsync(
+    const html = await render(
       React.createElement(OtpEmail, {
         code: token,
         siteUrl: site_url,

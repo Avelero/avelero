@@ -224,8 +224,8 @@ export async function loadVariantsForProducts(
   for (const row of variantRows) {
     const collection = map.get(row.product_id) ?? [];
 
-    // Check if variant has any overrides
-    const hasCoreOverride = !!(row.name || row.description || row.imagePath);
+    // Check if variant has any overrides (use explicit null checks - empty string is a valid override)
+    const hasCoreOverride = row.name !== null || row.description !== null || row.imagePath !== null;
     const hasTableOverride =
       hasEnvOverride.has(row.id) ||
       hasEcoClaimOverride.has(row.id) ||

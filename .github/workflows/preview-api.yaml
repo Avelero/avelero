@@ -1,32 +1,14 @@
 name: Preview API Deploy
+
 on:
-  # Run tests on every push to feature branches
-  push:
-    branches:
-      - 'feature/**'
-      - 'feat/**'
-    paths:
-      - apps/api/**
-      - packages/**
-      - "!packages/email/**"
-      - "!packages/ui/**"
-
-  # Deploy preview only on PR to main
-  pull_request:
-    types: [opened, reopened, synchronize, closed]
-    branches:
-      - main
-    paths:
-      - apps/api/**
-      - packages/**
-
-  # Allow being called by preview-app.yaml with the Vercel URL
+  # Called by preview-orchestrator.yaml
   workflow_call:
     inputs:
       app_url:
         description: 'The Vercel deployment URL for APP_URL'
         type: string
-        required: true
+        required: false
+        default: ''
       pr_number:
         description: 'The PR number'
         type: string
@@ -42,37 +24,10 @@ env:
   FLY_ORG: personal
 
 jobs:
-  # Check if we should skip because preview-app will call us
-  check-skip:
-    name: 🔍 Check Skip Condition
-    runs-on: ubuntu-latest
-    # Only check when directly triggered, not when called via workflow_call
-    # inputs.app_url is only set when called via workflow_call
-    if: ${{ !inputs.app_url }}
-    outputs:
-      should_skip: ${{ steps.filter.outputs.app }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          # Must match preview-app.yaml trigger paths exactly
-          # If preview-app.yaml will trigger, we skip and let it call us
-          filters: |
-            app:
-              - 'apps/app/**'
-              - 'packages/**'
-
-  # Always run tests (on push and PR)
+  # Always run tests
   test:
     name: 🧪 Lint & Type Check
     runs-on: ubuntu-latest
-    # Skip if app files also changed (preview-app will call us later)
-    # But always run if called via workflow_call (detected by inputs.app_url being set)
-    needs: [check-skip]
-    if: |
-      always() &&
-      (inputs.app_url || needs.check-skip.outputs.should_skip != 'true')
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -87,17 +42,13 @@ jobs:
         run: bun run typecheck
         working-directory: ./apps/api
 
-  # Only deploy on PR (not on push)
+  # Deploy preview
   preview:
     name: 🚀 Deploy Preview
-    needs: [test, check-skip]
-    if: |
-      always() &&
-      needs.test.result == 'success' &&
-      (inputs.app_url || (github.event_name == 'pull_request' && needs.check-skip.outputs.should_skip != 'true'))
+    needs: test
     runs-on: ubuntu-latest
     concurrency:
-      group: pr-${{ github.event.number || inputs.pr_number }}-api
+      group: pr-${{ inputs.pr_number }}-api
       cancel-in-progress: true
     environment:
       name: preview
@@ -105,25 +56,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Compute the URLs
-      - name: � Set URLs
+      # Compute the URLs - use environment variable for app_url to prevent command injection
+      - name: 🔗 Set URLs
         id: urls
+        env:
+          INPUT_APP_URL: ${{ inputs.app_url }}
+          INPUT_PR_NUM: ${{ inputs.pr_number }}
         run: |
-          PR_NUM="${{ github.event.number || inputs.pr_number }}"
-          API_URL="https://pr-${PR_NUM}-avelero-api.fly.dev"
+          API_URL="https://pr-${INPUT_PR_NUM}-avelero-api.fly.dev"
           
           # Use passed APP_URL if available, otherwise use predictable pattern
-          if [[ -n "${{ inputs.app_url }}" ]]; then
-            APP_URL="${{ inputs.app_url }}"
+          if [[ -n "${INPUT_APP_URL}" ]]; then
+            APP_URL="${INPUT_APP_URL}"
           else
-            # Fallback for standalone runs - use predictable pattern
-            # Note: This won't work perfectly for OAuth redirects, but the integration will still complete
-            APP_URL="https://pr-${PR_NUM}-avelero-app.vercel.app"
+            # Fallback - use predictable pattern
+            APP_URL="https://pr-${INPUT_PR_NUM}-avelero-app.vercel.app"
           fi
           
           echo "api_url=${API_URL}" >> $GITHUB_OUTPUT
           echo "app_url=${APP_URL}" >> $GITHUB_OUTPUT
-          echo "pr_num=${PR_NUM}" >> $GITHUB_OUTPUT
+          echo "pr_num=${INPUT_PR_NUM}" >> $GITHUB_OUTPUT
 
       - name: �🚀 Deploy PR API to Fly.io
         id: deploy
@@ -145,20 +97,3 @@ jobs:
             INTEGRATION_ENCRYPTION_KEY=${{ secrets.INTEGRATION_ENCRYPTION_KEY }}
             API_URL=${{ steps.urls.outputs.api_url }}
             APP_URL=${{ steps.urls.outputs.app_url }}
-
-      - name: 💬 Comment Preview URL
-        if: ${{ !inputs.app_url && github.event.action != 'closed' }}
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🚀 API Preview Deployment Ready!
-              
-              **API:** ${{ steps.urls.outputs.api_url }}
-              **APP_URL:** ${{ steps.urls.outputs.app_url }}
-              
-              Preview environment will auto-delete when PR closes.`
-            })

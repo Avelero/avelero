@@ -1,35 +1,20 @@
 name: Preview Jobs Deploy
-on:
-  # Run tests on every push to feature branches
-  push:
-    branches:
-      - 'feature/**'
-      - 'feat/**'
-    paths:
-      - packages/jobs/**
-      - packages/db/**
-      - packages/supabase/**
-      - packages/email/**
-      - packages/utils/**
 
-  # Deploy preview only on PR to main
-  pull_request:
-    types: [opened, reopened, synchronize, closed]
-    branches:
-      - main
-    paths:
-      - packages/jobs/**
-      - packages/db/**
-      - packages/supabase/**
-      - packages/email/**
-      - packages/utils/**
+on:
+  # Called by preview-orchestrator.yaml
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'The PR number'
+        type: string
+        required: true
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
-  # Always run tests (on push and PR)
+  # Always run tests
   test:
     name: 🧪 Lint & Type Check
     runs-on: ubuntu-latest
@@ -47,14 +32,13 @@ jobs:
         run: bun run typecheck
         working-directory: ./packages/jobs
 
-  # Only deploy on PR (not on push)
+  # Deploy preview
   preview:
     name: 🚀 Deploy Preview
     needs: test
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
-      group: pr-${{ github.event.number }}-jobs
+      group: pr-${{ inputs.pr_number }}-jobs
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -67,13 +51,16 @@ jobs:
       # Get the API URL from the PR
       - name: Set API URL
         id: api-url
+        env:
+          PR_NUM: ${{ inputs.pr_number }}
         run: |
-          API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
+          API_URL="https://pr-${PR_NUM}-avelero-api.fly.dev"
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
 
       - name: ⏳ Wait for API to be ready
+        env:
+          API_URL: ${{ steps.api-url.outputs.url }}
         run: |
-          API_URL="${{ steps.api-url.outputs.url }}"
           echo "Waiting for API at ${API_URL}/health to be ready..."
 
           MAX_RETRIES=30
@@ -95,8 +82,6 @@ jobs:
           exit 1
 
       - name: 🚀 Deploy to Trigger.dev Preview
-        run: bunx trigger.dev@4.0.6 deploy --env preview --branch "$BRANCH_NAME"
-        working-directory: ./packages/jobs
         env:
           BRANCH_NAME: ${{ github.head_ref }}
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
@@ -106,38 +91,5 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-
-      - name: 💬 Comment Preview URL
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🚀 Jobs Preview Deployment Ready!
-              
-              **Environment:** Preview
-              **API:** ${{ steps.api-url.outputs.url }}
-              **Trigger.dev:** https://cloud.trigger.dev/projects/v3/proj_mqxiyipljbptdmfeivig/runs?environment=preview
-              
-              Preview environment will auto-delete when PR closes.`
-            })
-
-  # Archive preview branch when PR is closed
-  archive:
-    name: 🗑️ Archive Preview
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: "1.2.21"
-      - name: Install dependencies
-        run: bun install
-      - name: 🗑️ Archive Trigger.dev Preview
-        run: bunx trigger.dev@4.0.6 preview archive
+        run: bunx trigger.dev@4.0.6 deploy --env preview --branch "$BRANCH_NAME"
         working-directory: ./packages/jobs
-        env:
-          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}

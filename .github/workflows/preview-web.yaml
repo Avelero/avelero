@@ -1,22 +1,17 @@
 name: Preview Web Deploy
-on:
-  # Run tests on every push to feature branches
-  push:
-    branches:
-      - 'feature/**'
-      - 'feat/**'
-    paths:
-      - apps/web/**
-      - packages/**
 
-  # Deploy preview only on PR to main
-  pull_request:
-    types: [opened, reopened, synchronize, closed]
-    branches:
-      - main
-    paths:
-      - apps/web/**
-      - packages/**
+on:
+  # Called by preview-orchestrator.yaml
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 'The PR number'
+        type: string
+        required: true
+    outputs:
+      url:
+        description: 'The Vercel deployment URL'
+        value: ${{ jobs.preview.outputs.url }}
 
 permissions:
   contents: read
@@ -29,7 +24,7 @@ env:
   TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
 
 jobs:
-  # Always run tests (on push and PR)
+  # Always run tests
   test:
     name: 🧪 Lint & Type Check
     runs-on: ubuntu-latest
@@ -47,15 +42,16 @@ jobs:
         run: bun run typecheck
         working-directory: ./apps/web
 
-  # Only deploy on PR (not on push)
+  # Deploy preview
   preview:
     name: 🚀 Deploy Preview
     needs: test
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
-      group: pr-${{ github.event.number }}-web
+      group: pr-${{ inputs.pr_number }}-web
       cancel-in-progress: true
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -78,18 +74,3 @@ jobs:
         run: |
           DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
-
-      - name: 💬 Comment Preview URL
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🚀 Website Preview Deployment Ready!
-              
-              **Website:** ${{ steps.deploy.outputs.url }}
-              
-              Preview environment will auto-delete when PR closes.`
-            })

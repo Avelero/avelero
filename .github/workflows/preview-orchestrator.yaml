@@ -1,0 +1,232 @@
+name: Preview Deploy Orchestrator
+
+on:
+  # Run on every push to feature branches
+  push:
+    branches:
+      - 'feature/**'
+      - 'feat/**'
+    paths:
+      - apps/**
+      - packages/**
+
+  # Deploy preview only on PR to main
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    branches:
+      - main
+    paths:
+      - apps/**
+      - packages/**
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ============================================
+  # Step 1: Detect which components changed
+  # ============================================
+  detect-changes:
+    name: 🔍 Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      app_changed: ${{ steps.filter.outputs.app }}
+      api_changed: ${{ steps.filter.outputs.api }}
+      jobs_changed: ${{ steps.filter.outputs.jobs }}
+      dpp_changed: ${{ steps.filter.outputs.dpp }}
+      web_changed: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'apps/app/**'
+              - 'packages/**'
+            api:
+              - 'apps/api/**'
+              - 'packages/**'
+              - '!packages/email/**'
+              - '!packages/ui/**'
+            jobs:
+              - 'packages/jobs/**'
+              - 'packages/db/**'
+              - 'packages/supabase/**'
+              - 'packages/email/**'
+              - 'packages/utils/**'
+            dpp:
+              - 'apps/dpp/**'
+              - 'packages/**'
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+
+  # ============================================
+  # Step 2: Deploy Web (independent, no dependencies)
+  # ============================================
+  deploy-web:
+    name: 🌐 Deploy Web
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.web_changed == 'true' &&
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed'
+    uses: ./.github/workflows/preview-web.yaml
+    with:
+      pr_number: ${{ github.event.number }}
+    secrets: inherit
+
+  # ============================================
+  # Step 3: Deploy App (outputs Vercel URL)
+  # ============================================
+  deploy-app:
+    name: 📱 Deploy App
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.app_changed == 'true' &&
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed'
+    uses: ./.github/workflows/preview-app.yaml
+    with:
+      skip_api_wait: ${{ needs.detect-changes.outputs.api_changed == 'true' }}
+      pr_number: ${{ github.event.number }}
+    secrets: inherit
+
+  # ============================================
+  # Step 4: Deploy API (needs App URL from deploy-app)
+  # ============================================
+  deploy-api:
+    name: 🔧 Deploy API
+    needs: [detect-changes, deploy-app]
+    # Run if:
+    # - API files changed AND app deployment succeeded (or was skipped)
+    # - We use always() to run even if deploy-app was skipped
+    if: |
+      always() &&
+      needs.detect-changes.outputs.api_changed == 'true' &&
+      (needs.deploy-app.result == 'success' || needs.deploy-app.result == 'skipped') &&
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed'
+    uses: ./.github/workflows/preview-api.yaml
+    with:
+      # Pass the app URL from the app deployment (will be empty if app wasn't deployed)
+      app_url: ${{ needs.deploy-app.outputs.url || '' }}
+      pr_number: ${{ github.event.number }}
+    secrets: inherit
+
+  # ============================================
+  # Step 5: Deploy Jobs (needs API to be healthy)
+  # ============================================
+  deploy-jobs:
+    name: ⚙️ Deploy Jobs
+    needs: [detect-changes, deploy-api]
+    # Run if:
+    # - Jobs files changed AND API deployment succeeded (or was skipped)
+    if: |
+      always() &&
+      needs.detect-changes.outputs.jobs_changed == 'true' &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed'
+    uses: ./.github/workflows/preview-jobs.yaml
+    with:
+      pr_number: ${{ github.event.number }}
+    secrets: inherit
+
+  # ============================================
+  # Step 6: Deploy DPP (needs API to be healthy)
+  # ============================================
+  deploy-dpp:
+    name: 📋 Deploy DPP
+    needs: [detect-changes, deploy-api]
+    # Run if:
+    # - DPP files changed AND API deployment succeeded (or was skipped)
+    if: |
+      always() &&
+      needs.detect-changes.outputs.dpp_changed == 'true' &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed'
+    uses: ./.github/workflows/preview-dpp.yaml
+    with:
+      pr_number: ${{ github.event.number }}
+    secrets: inherit
+
+  # ============================================
+  # Summary comment with all deployment URLs
+  # ============================================
+  summary:
+    name: 📝 Post Summary
+    needs: [detect-changes, deploy-web, deploy-app, deploy-api, deploy-jobs, deploy-dpp]
+    if: always() && github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 💬 Comment Summary
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const appUrl = '${{ needs.deploy-app.outputs.url }}' || null;
+            const apiUrl = `https://pr-${{ github.event.number }}-avelero-api.fly.dev`;
+            const webUrl = '${{ needs.deploy-web.outputs.url }}' || null;
+            const dppUrl = '${{ needs.deploy-dpp.outputs.url }}' || null;
+            
+            const appChanged = '${{ needs.detect-changes.outputs.app_changed }}' === 'true';
+            const apiChanged = '${{ needs.detect-changes.outputs.api_changed }}' === 'true';
+            const webChanged = '${{ needs.detect-changes.outputs.web_changed }}' === 'true';
+            const dppChanged = '${{ needs.detect-changes.outputs.dpp_changed }}' === 'true';
+            const jobsChanged = '${{ needs.detect-changes.outputs.jobs_changed }}' === 'true';
+            
+            let body = `## 🚀 Preview Deployment Summary\n\n`;
+            
+            if (appChanged) {
+              body += `**App:** ${appUrl || '❌ Failed'}\n`;
+            }
+            if (apiChanged) {
+              body += `**API:** ${apiUrl}\n`;
+            }
+            if (webChanged) {
+              body += `**Web:** ${webUrl || '❌ Failed'}\n`;
+            }
+            if (dppChanged) {
+              body += `**DPP:** ${dppUrl || '❌ Failed'}\n`;
+            }
+            if (jobsChanged) {
+              body += `**Jobs:** Deployed to Trigger.dev\n`;
+            }
+            
+            if (!appChanged && !apiChanged && !webChanged && !dppChanged && !jobsChanged) {
+              body += `No components were deployed.\n`;
+            }
+            
+            body += `\nPreview environments will auto-delete when PR closes.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # ============================================
+  # Cleanup when PR is closed
+  # ============================================
+  cleanup:
+    name: 🗑️ Cleanup Previews
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.2.21"
+      - name: Install dependencies
+        run: bun install
+      - name: 🗑️ Archive Trigger.dev Preview
+        run: bunx trigger.dev@4.0.6 preview archive
+        working-directory: ./packages/jobs
+        env:
+          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+      # Note: Fly.io preview apps are auto-deleted by the fly-pr-review-apps action
+      # Note: Vercel preview deployments are retained but don't incur ongoing costs

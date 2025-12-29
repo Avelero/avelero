@@ -1,22 +1,22 @@
 name: Preview App Deploy
-on:
-  # Run tests on every push to feature branches
-  push:
-    branches:
-      - 'feature/**'
-      - 'feat/**'
-    paths:
-      - apps/app/**
-      - packages/**
 
-  # Deploy preview only on PR to main
-  pull_request:
-    types: [opened, reopened, synchronize, closed]
-    branches:
-      - main
-    paths:
-      - apps/app/**
-      - packages/**
+on:
+  # Called by preview-orchestrator.yaml
+  workflow_call:
+    inputs:
+      skip_api_wait:
+        description: 'Skip waiting for API (API will be deployed after app)'
+        type: boolean
+        required: false
+        default: false
+      pr_number:
+        description: 'The PR number'
+        type: string
+        required: true
+    outputs:
+      url:
+        description: 'The Vercel deployment URL'
+        value: ${{ jobs.preview.outputs.url }}
 
 permissions:
   contents: read
@@ -29,26 +29,7 @@ env:
   TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
 
 jobs:
-  # Check if API files also changed (to know if we need to call preview-api)
-  check-api-changes:
-    name: 🔍 Check API Changes
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
-    outputs:
-      api_changed: ${{ steps.filter.outputs.api }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            api:
-              - 'apps/api/**'
-              - 'packages/**'
-              - '!packages/email/**'
-              - '!packages/ui/**'
-
-  # Always run tests (on push and PR)
+  # Always run tests
   test:
     name: 🧪 Lint & Type Check
     runs-on: ubuntu-latest
@@ -66,18 +47,16 @@ jobs:
         run: NODE_OPTIONS="--max-old-space-size=8192" bun run typecheck
         working-directory: ./apps/app
 
-  # Only deploy on PR (not on push)
+  # Deploy preview
   preview:
     name: 🚀 Deploy Preview
-    needs: [test, check-api-changes]
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    needs: test
     runs-on: ubuntu-latest
     concurrency:
-      group: pr-${{ github.event.number }}-app
+      group: pr-${{ inputs.pr_number }}-app
       cancel-in-progress: true
     outputs:
       url: ${{ steps.deploy.outputs.url }}
-      api_url: ${{ steps.api-url.outputs.url }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -89,14 +68,15 @@ jobs:
       # Get the API URL from the PR (predictable)
       - name: Set API URL
         id: api-url
+        env:
+          PR_NUM: ${{ inputs.pr_number }}
         run: |
-          API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
+          API_URL="https://pr-${PR_NUM}-avelero-api.fly.dev"
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
 
       - name: ⏳ Wait for API to be ready
-        # Only wait if API isn't being deployed by us (i.e., API files didn't change)
-        # If API files changed, we'll deploy it after the app
-        if: needs.check-api-changes.outputs.api_changed != 'true'
+        # Skip if the orchestrator will deploy API after us
+        if: ${{ !inputs.skip_api_wait }}
         run: |
           API_URL="${{ steps.api-url.outputs.url }}"
           echo "Waiting for API at ${API_URL}/health to be ready..."
@@ -135,30 +115,3 @@ jobs:
         run: |
           DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
-
-      - name: 💬 Comment App Preview URL
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🚀 App Preview Deployment Ready!
-              
-              **App:** ${{ steps.deploy.outputs.url }}
-              **API:** ${{ steps.api-url.outputs.url }}
-              
-              Preview environment will auto-delete when PR closes.`
-            })
-
-  # Deploy API with the real Vercel URL (only if API files also changed)
-  deploy-api:
-    name: 🚀 Deploy API (Chained)
-    needs: [preview, check-api-changes]
-    if: needs.check-api-changes.outputs.api_changed == 'true'
-    uses: ./.github/workflows/preview-api.yaml
-    with:
-      app_url: ${{ needs.preview.outputs.url }}
-      pr_number: ${{ github.event.number }}
-    secrets: inherit

@@ -19,7 +19,6 @@ dist/
 
 # LLM Context
 llm_context/
-.agent/
 
 # production
 build

@@ -6,11 +6,23 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "lint": "biome lint ./src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "dependencies": {
     "@v1/db": "workspace:*",
     "@v1/supabase": "workspace:*"
   },
   "devDependencies": {
-    "@v1/tsconfig": "workspace:*"
+    "@types/node": "^24.0.1",
+    "@v1/tsconfig": "workspace:*",
+    "drizzle-orm": "^0.44.7",
+    "msw": "^2.7.0",
+    "postgres": "^3.4.7",
+    "typescript": "^5.9.2",
+    "vitest": "^3.0.0"
   }
 }

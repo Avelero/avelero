@@ -17,13 +17,13 @@ This document provides a complete guide for setting up and running automated int
 
 | Item | Status | Location |
 |------|--------|----------|
-| Test runner (Jest) | ⚠️ Installed but unused | Root `package.json` - lines 6, 9 |
-| Test command | ✅ Exists | `bun run test` → `turbo test --parallel` |
-| Test scripts in packages | ❌ Missing | No `test` script in any package |
-| Test database | ❌ Not configured | Using production Supabase only |
-| Mocking library | ❌ Not installed | Need MSW for Shopify API mocking |
-| CI test workflow | ❌ Missing | Only lint + typecheck in current workflows |
-| Integration tests | ❌ None | No test files exist |
+| Test runner (Vitest) | ✅ Installed | `packages/integrations/package.json` |
+| Test command | ✅ Exists | `bun run test` in integrations package |
+| Test scripts in packages | ✅ Added | `test` and `test:watch` scripts |
+| Test database | ✅ Configured | PostgreSQL service container in CI |
+| Mocking library (MSW) | ✅ Installed | `packages/integrations/package.json` |
+| CI test workflow | ✅ Added | `.github/workflows/preview.yaml` |
+| Integration tests | ✅ Phase 1 | 6 tests in `__tests__/sync/basic-sync.test.ts` |
 
 ---
 
@@ -1288,7 +1288,7 @@ ERP (Source 1)                          Shopify (Source 2)
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| Phase 1: Basic Sync | ☐ | |
+| Phase 1: Basic Sync | ✅ Complete | 6 tests implemented |
 | Phase 2: Re-Sync (No Changes) | ☐ | |
 | Phase 3: Re-Sync (With Changes) | ☐ | |
 | Phase 4: Field Configuration | ☐ | |

@@ -747,6 +747,9 @@ export const productVariantsRouter = createTRPCRouter({
 
         const createdVariants: Array<{ id: string; upid: string }> = [];
 
+        // Track variant overrides to apply after transaction
+        const variantOverridesToApply: Array<{ variantId: string; overrides: NonNullable<typeof input.variants[number]['overrides']> }> = [];
+
         await db.transaction(async (tx) => {
           for (let i = 0; i < input.variants.length; i++) {
             const variantInput = input.variants[i]!;
@@ -779,8 +782,21 @@ export const productVariantsRouter = createTRPCRouter({
                 }))
               );
             }
+
+            // Track overrides to apply after transaction
+            if (variantInput.overrides) {
+              variantOverridesToApply.push({
+                variantId: variant.id,
+                overrides: variantInput.overrides,
+              });
+            }
           }
         });
+
+        // Apply overrides outside transaction (existing pattern from single create)
+        for (const { variantId, overrides } of variantOverridesToApply) {
+          await applyVariantOverrides(db, variantId, overrides);
+        }
 
         // Revalidate product cache
         revalidateProduct(input.productHandle).catch(() => { });
@@ -815,6 +831,9 @@ export const productVariantsRouter = createTRPCRouter({
         );
 
         let updated = 0;
+
+        // Track variant overrides to apply after transaction
+        const variantOverridesToApply: Array<{ variantId: string; overrides: NonNullable<typeof input.variants[number]['overrides']> }> = [];
 
         await db.transaction(async (tx) => {
           for (const variantInput of input.variants) {
@@ -865,9 +884,22 @@ export const productVariantsRouter = createTRPCRouter({
               }
             }
 
+            // Track overrides to apply after transaction
+            if (variantInput.overrides) {
+              variantOverridesToApply.push({
+                variantId: variant.id,
+                overrides: variantInput.overrides,
+              });
+            }
+
             updated++;
           }
         });
+
+        // Apply overrides outside transaction (existing pattern from single update)
+        for (const { variantId, overrides } of variantOverridesToApply) {
+          await applyVariantOverrides(db, variantId, overrides);
+        }
 
         // Revalidate product cache
         revalidateProduct(input.productHandle).catch(() => { });

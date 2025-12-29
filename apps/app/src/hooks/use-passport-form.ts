@@ -1150,6 +1150,7 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       buildPath,
       resetFormValues,
       setFields,
+      savedVariantsMap,
     ],
   );
 

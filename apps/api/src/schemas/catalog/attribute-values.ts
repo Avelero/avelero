@@ -41,11 +41,5 @@ export const deleteBrandAttributeValueSchema = byIdSchema;
  * Useful for creating multiple values in one request during variant setup.
  */
 export const batchCreateBrandAttributeValuesSchema = z.object({
-  values: z.array(
-    z.object({
-      attribute_id: uuidSchema,
-      name: shortStringSchema,
-      taxonomy_value_id: uuidSchema.optional().nullable(),
-    })
-  ).min(1).max(100, "Maximum 100 values per batch"),
+  values: z.array(createBrandAttributeValueSchema).min(1).max(100, "Maximum 100 values per batch"),
 });

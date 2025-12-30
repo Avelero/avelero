@@ -1,42 +1,42 @@
 -- Ensure RLS enabled (no-op if already)
-alter table public.users_on_brand enable row level security;
+alter table public.brand_members enable row level security;
 alter table public.users enable row level security;
 
 -- 1) Users-on-brand: allow members to select brand membership rows
-drop policy if exists users_on_brand_select_for_members on public.users_on_brand;
-create policy users_on_brand_select_for_members
-on public.users_on_brand
+drop policy if exists brand_members_select_for_members on public.brand_members;
+create policy brand_members_select_for_members
+on public.brand_members
 for select
 to authenticated
 using (
-  public.is_brand_member(public.users_on_brand.brand_id)
+  public.is_brand_member(public.brand_members.brand_id)
 );
 
 -- 2) Users-on-brand: delete policies
 -- Drop broad owner-delete policy if present
-drop policy if exists users_on_brand_delete_by_owner on public.users_on_brand;
+drop policy if exists brand_members_delete_by_owner on public.brand_members;
 
 -- Self-delete for any member (including owners)
-drop policy if exists users_on_brand_delete_self on public.users_on_brand;
-create policy users_on_brand_delete_self
-on public.users_on_brand
+drop policy if exists brand_members_delete_self on public.brand_members;
+create policy brand_members_delete_self
+on public.brand_members
 for delete
 to authenticated
 using (
-  public.users_on_brand.user_id = auth.uid()
+  public.brand_members.user_id = auth.uid()
 );
 
 -- Owners can delete non-owners; owners cannot delete other owners (but can delete themselves via self-policy)
-drop policy if exists users_on_brand_delete_owner_non_owner on public.users_on_brand;
-create policy users_on_brand_delete_owner_non_owner
-on public.users_on_brand
+drop policy if exists brand_members_delete_owner_non_owner on public.brand_members;
+create policy brand_members_delete_owner_non_owner
+on public.brand_members
 for delete
 to authenticated
 using (
-  public.is_brand_owner(public.users_on_brand.brand_id)
+  public.is_brand_owner(public.brand_members.brand_id)
   and (
-    public.users_on_brand.role <> 'owner'
-    or public.users_on_brand.user_id = auth.uid()
+    public.brand_members.role <> 'owner'
+    or public.brand_members.user_id = auth.uid()
   )
 );
 

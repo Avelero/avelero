@@ -22,8 +22,8 @@ set search_path = public
 as $$
   select exists (
     select 1
-    from public.users_on_brand u1
-    join public.users_on_brand u2 on u1.brand_id = u2.brand_id
+    from public.brand_members u1
+    join public.brand_members u2 on u1.brand_id = u2.brand_id
     where u1.user_id = p_user_id
       and u2.user_id = auth.uid()
   );

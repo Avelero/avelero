@@ -250,9 +250,9 @@ CREATE TABLE "value_mappings" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "users_on_brand" DROP CONSTRAINT "users_on_brand_brand_id_fkey";
+ALTER TABLE "brand_members" DROP CONSTRAINT "brand_members_brand_id_fkey";
 --> statement-breakpoint
-ALTER TABLE "users_on_brand" DROP CONSTRAINT "users_on_brand_user_id_fkey";
+ALTER TABLE "brand_members" DROP CONSTRAINT "brand_members_user_id_fkey";
 --> statement-breakpoint
 ALTER TABLE "users" DROP CONSTRAINT "fk_auth_user";
 --> statement-breakpoint
@@ -313,7 +313,7 @@ CREATE UNIQUE INDEX "product_care_codes_unique" ON "product_care_codes" USING bt
 CREATE UNIQUE INDEX "file_assets_bucket_path_unq" ON "file_assets" USING btree ("bucket","path");--> statement-breakpoint
 CREATE UNIQUE INDEX "import_rows_job_row_unq" ON "import_rows" USING btree ("job_id","row_number");--> statement-breakpoint
 CREATE UNIQUE INDEX "value_mappings_brand_col_raw_unq" ON "value_mappings" USING btree ("brand_id","source_column","raw_value");--> statement-breakpoint
-ALTER TABLE "users_on_brand" ADD CONSTRAINT "users_on_brand_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "users_on_brand" ADD CONSTRAINT "users_on_brand_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "brand_members" ADD CONSTRAINT "brand_members_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "brand_members" ADD CONSTRAINT "brand_members_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_id_users_id_fk" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "brand_invites" ADD CONSTRAINT "brand_invites_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;

@@ -1,11 +1,11 @@
 -- 0) Ensure each brand has an owner membership before dropping created_by
-insert into public.users_on_brand (user_id, brand_id, role)
+insert into public.brand_members (user_id, brand_id, role)
 select b.created_by, b.id, 'owner'
 from public.brands b
 where not exists (
   select 1
-  from public.users_on_brand uob
-  where uob.brand_id = b.id and uob.role = 'owner'
+  from public.brand_members bm
+  where bm.brand_id = b.id and bm.role = 'owner'
 );
 
 -- 1) Drop objects depending on brands.created_by
@@ -45,20 +45,20 @@ alter table public.brands
 alter table public.users
   drop constraint if exists users_brand_id_fkey;
 
--- 4) Replace users_on_brand insert policy that referenced is_brand_creator
+-- 4) Replace brand_members insert policy that referenced is_brand_creator
 -- Allow the authenticated user to self-insert as the first owner for a brand
-drop policy if exists users_on_brand_insert_owner_self on public.users_on_brand;
-create policy users_on_brand_insert_first_owner_self
-on public.users_on_brand
+drop policy if exists brand_members_insert_owner_self on public.brand_members;
+create policy brand_members_insert_first_owner_self
+on public.brand_members
 for insert to authenticated
 with check (
-  public.users_on_brand.user_id = auth.uid()
-  and public.users_on_brand.role = 'owner'
+  public.brand_members.user_id = auth.uid()
+  and public.brand_members.role = 'owner'
   and not exists (
     select 1
-    from public.users_on_brand u
-    where u.brand_id = public.users_on_brand.brand_id
-      and u.role = 'owner'
+    from public.brand_members bm
+    where bm.brand_id = public.brand_members.brand_id
+      and bm.role = 'owner'
   )
 );
 

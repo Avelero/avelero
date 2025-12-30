@@ -12,8 +12,14 @@
 -- on (brand_id, name), so this separate index is redundant
 DROP INDEX IF EXISTS idx_brand_colors_brand_name;
 
-COMMENT ON CONSTRAINT brand_colors_brand_name_unq ON brand_colors IS
-  'Unique constraint on (brand_id, name). This constraint automatically provides an index for lookups and sorting.';
+-- Add comment if constraint exists
+DO $$
+BEGIN
+  COMMENT ON CONSTRAINT brand_colors_brand_name_unq ON brand_colors IS
+    'Unique constraint on (brand_id, name). This constraint automatically provides an index for lookups and sorting.';
+EXCEPTION WHEN undefined_object THEN
+  NULL;
+END $$;
 
 -- ============================================================================
 -- Remove duplicate index for showcase_brands (duplicates showcase_brands_brand_name_unq)
@@ -23,8 +29,14 @@ COMMENT ON CONSTRAINT brand_colors_brand_name_unq ON brand_colors IS
 -- on (brand_id, name), so this separate index is redundant
 DROP INDEX IF EXISTS idx_showcase_brands_brand_name;
 
-COMMENT ON CONSTRAINT showcase_brands_brand_name_unq ON showcase_brands IS
-  'Unique constraint on (brand_id, name). This constraint automatically provides an index for lookups and sorting.';
+-- Add comment if constraint exists
+DO $$
+BEGIN
+  COMMENT ON CONSTRAINT showcase_brands_brand_name_unq ON showcase_brands IS
+    'Unique constraint on (brand_id, name). This constraint automatically provides an index for lookups and sorting.';
+EXCEPTION WHEN undefined_object THEN
+  NULL;
+END $$;
 
 -- ============================================================================
 -- Remove duplicate index for brand_seasons (duplicates brand_seasons_brand_name_unq)
@@ -34,8 +46,14 @@ COMMENT ON CONSTRAINT showcase_brands_brand_name_unq ON showcase_brands IS
 -- on (brand_id, name), so this separate index is redundant
 DROP INDEX IF EXISTS idx_brand_seasons_brand_name;
 
-COMMENT ON CONSTRAINT brand_seasons_brand_name_unq ON brand_seasons IS
-  'Unique constraint on (brand_id, name). This constraint automatically provides an index for lookups and sorting.';
+-- Add comment if constraint exists
+DO $$
+BEGIN
+  COMMENT ON CONSTRAINT brand_seasons_brand_name_unq ON brand_seasons IS
+    'Unique constraint on (brand_id, name). This constraint automatically provides an index for lookups and sorting.';
+EXCEPTION WHEN undefined_object THEN
+  NULL;
+END $$;
 
 -- ============================================================================
 -- Keep the other indexes as they don't have corresponding unique constraints
@@ -54,3 +72,4 @@ COMMENT ON CONSTRAINT brand_seasons_brand_name_unq ON brand_seasons IS
 -- 2. Write overhead (each index must be updated on INSERT/UPDATE/DELETE)
 -- 3. Maintenance overhead (vacuum, analyze must process each index)
 -- No performance degradation as the unique constraint indexes remain
+

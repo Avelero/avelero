@@ -201,7 +201,7 @@ export function VariantsOverview({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                            <div className="w-2 h-2 rounded-full bg-brand" />
+                            <div className="w-2 h-2 rounded-full bg-slate-500" />
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="top">

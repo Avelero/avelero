@@ -76,37 +76,37 @@ using (
   or public.is_brand_creator(public.brand_invites.brand_id)
 );
 
--- 3) users_on_brand RLS: allow invitee to create their own membership (and support upsert)
-alter table public.users_on_brand enable row level security;
+-- 3) brand_members RLS: allow invitee to create their own membership (and support upsert)
+alter table public.brand_members enable row level security;
 
-drop policy if exists users_on_brand_insert_by_invitee on public.users_on_brand;
-create policy users_on_brand_insert_by_invitee on public.users_on_brand
+drop policy if exists brand_members_insert_by_invitee on public.brand_members;
+create policy brand_members_insert_by_invitee on public.brand_members
 for insert to authenticated
 with check (
-  public.users_on_brand.user_id = auth.uid()
+  public.brand_members.user_id = auth.uid()
   and exists (
     select 1
     from public.brand_invites bi
     join public.users u on u.id = auth.uid()
-    where bi.brand_id = public.users_on_brand.brand_id
+    where bi.brand_id = public.brand_members.brand_id
       and lower(bi.email) = lower(u.email)
       and (bi.expires_at is null or bi.expires_at > now())
   )
 );
 
-drop policy if exists users_on_brand_update_by_invitee_with_matching_invite on public.users_on_brand;
-create policy users_on_brand_update_by_invitee_with_matching_invite on public.users_on_brand
+drop policy if exists brand_members_update_by_invitee_with_matching_invite on public.brand_members;
+create policy brand_members_update_by_invitee_with_matching_invite on public.brand_members
 for update to authenticated
-using (public.users_on_brand.user_id = auth.uid())
+using (public.brand_members.user_id = auth.uid())
 with check (
-  public.users_on_brand.user_id = auth.uid()
+  public.brand_members.user_id = auth.uid()
   and exists (
     select 1
     from public.brand_invites bi
     join public.users u on u.id = auth.uid()
-    where bi.brand_id = public.users_on_brand.brand_id
+    where bi.brand_id = public.brand_members.brand_id
       and lower(bi.email) = lower(u.email)
-      and bi.role = public.users_on_brand.role
+      and bi.role = public.brand_members.role
       and (bi.expires_at is null or bi.expires_at > now())
   )
 );

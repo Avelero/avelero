@@ -166,25 +166,104 @@ jobs:
         run: bun run typecheck
         working-directory: ./apps/web
 
+  # ============================================
+  # Step 2.5: Setup Preview Database
+  # Creates a Supabase branch ensuring isolated data for this PR
+  # ============================================
+  setup-database:
+    name: 🗄️ Setup Preview Database
+    needs: detect-changes
+    if: |
+      (needs.detect-changes.outputs.api_changed == 'true' || 
+       needs.detect-changes.outputs.jobs_changed == 'true' || 
+       needs.detect-changes.outputs.integrations_changed == 'true') && 
+       github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    outputs:
+      db_url: ${{ steps.branch-info.outputs.db_url }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      # We extract the password from the production DATABASE_URL
+      PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🔐 Extract DB Password
+        id: db-pass
+        run: |
+          node -e '
+            try {
+              const url = new URL(process.env.PROD_DATABASE_URL);
+              console.log("::add-mask::" + url.password);
+              console.log("password=" + url.password);
+            } catch (e) {
+              console.error("Failed to parse DATABASE_URL");
+              process.exit(1);
+            }
+          ' >> $GITHUB_OUTPUT
+
+      - name: 🌿 Create or Get Preview Branch
+        run: |
+          BRANCH_NAME="pr-${{ github.event.number }}"
+          echo "Managing branch: $BRANCH_NAME"
+          
+          if supabase branches list --project-ref $SUPABASE_PROJECT_ID | grep -q "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME already exists."
+          else
+            echo "Creating branch $BRANCH_NAME..."
+            supabase branches create "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID
+          fi
+
+      - name: ℹ️ Get Branch Connection Info
+        id: branch-info
+        run: |
+          BRANCH_NAME="pr-${{ github.event.number }}"
+          
+          # Retry getting branch details as creation might take a moment to propagate
+          sleep 5
+          
+          # Get branch config
+          RAW_CONFIG=$(supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID)
+          
+          # Extract DB Host (typical format in output: [db] ... host = "...")
+          DB_HOST=$(echo "$RAW_CONFIG" | grep -o 'db\.[a-z0-9-]*\.supabase\.co')
+          
+          if [ -z "$DB_HOST" ]; then
+             echo "Could not parse DB Host from output:"
+             echo "$RAW_CONFIG"
+             exit 1
+          fi
+          
+          # Construct URL: postgres://postgres:[password]@[host]:5432/postgres
+          # Note: Supabase branching typically uses port 5432 and "postgres" user/db
+          DB_URL="postgres://postgres:${{ steps.db-pass.outputs.password }}@${DB_HOST}:5432/postgres"
+          
+          echo "::add-mask::$DB_URL"
+          echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: 🗄️ Sync Database Schema
+        # We use Drizzle push to apply ONLY the diff between production (cloned) and local schema
+        run: bun run db:push
+        working-directory: ./packages/db
+        env:
+          DATABASE_URL: ${{ steps.branch-info.outputs.db_url }}
+
   test-integrations:
     name: 🧪 Integration Tests
-    needs: detect-changes
+    needs: [detect-changes, setup-database]
     if: needs.detect-changes.outputs.integrations_changed == 'true' && github.event.action != 'closed'
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: avelero_test
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    # Removed local postgres service in favor of Supabase Preview Branch
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -192,16 +271,13 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
-      - name: 🗄️ Apply database schema
-        run: bun run db:push
-        working-directory: ./packages/db
-        env:
-          DATABASE_URL: postgres://test:test@localhost:5432/avelero_test
+        
       - name: 🧪 Run integration tests
         run: bun run test
         working-directory: ./packages/integrations
         env:
-          DATABASE_URL: postgres://test:test@localhost:5432/avelero_test
+          # Use the Preview Branch
+          DATABASE_URL: ${{ needs.setup-database.outputs.db_url }}
 
   # ============================================
   # Gate Job: Reports single status for branch protection
@@ -325,7 +401,7 @@ jobs:
   # ============================================
   deploy-api:
     name: 🔧 Deploy API
-    needs: [detect-changes, test-api, deploy-app]
+    needs: [detect-changes, test-api, deploy-app, setup-database]
     if: |
       always() &&
       (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') &&
@@ -369,7 +445,7 @@ jobs:
           name: pr-${{ github.event.number }}-avelero-api
           config: apps/api/fly-preview.yml
           secrets: >
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DATABASE_URL=${{ needs.setup-database.outputs.db_url }}
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -388,7 +464,7 @@ jobs:
   # ============================================
   deploy-jobs:
     name: ⚙️ Deploy Jobs
-    needs: [detect-changes, test-jobs, deploy-api]
+    needs: [detect-changes, test-jobs, deploy-api, setup-database]
     if: |
       always() &&
       (needs.test-jobs.result == 'success' || needs.test-jobs.result == 'skipped') &&
@@ -436,7 +512,7 @@ jobs:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
           API_URL: ${{ steps.api-url.outputs.url }}
           INTERNAL_API_KEY: ${{ secrets.PREVIEW_INTERNAL_API_KEY }}
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          DATABASE_URL: ${{ needs.setup-database.outputs.db_url }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
@@ -572,11 +648,17 @@ jobs:
     name: 🗑️ Cleanup Previews
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
         with:
           bun-version: "1.2.21"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       - name: Install dependencies
         run: bun install
       - name: 🗑️ Archive Trigger.dev Preview
@@ -584,5 +666,12 @@ jobs:
         working-directory: ./packages/jobs
         env:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
-      # Note: Fly.io preview apps are auto-deleted by the fly-pr-review-apps action
-      # Note: Vercel preview deployments are retained but don't incur ongoing costs
+      - name: 🗑️ Delete Supabase Branch
+        run: |
+          BRANCH_NAME="pr-${{ github.event.number }}"
+          if supabase branches list --project-ref $SUPABASE_PROJECT_ID | grep -q "$BRANCH_NAME"; then
+            echo "Deleting Supabase branch $BRANCH_NAME..."
+            supabase branches delete "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID
+          else
+            echo "Branch $BRANCH_NAME does not exist, skipping."
+          fi

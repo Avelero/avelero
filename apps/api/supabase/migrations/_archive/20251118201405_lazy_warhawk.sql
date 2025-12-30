@@ -115,10 +115,22 @@ ALTER TABLE "staging_product_variants" DROP COLUMN "sku";--> statement-breakpoin
 ALTER TABLE "staging_product_variants" DROP COLUMN "product_image_url";--> statement-breakpoint
 ALTER TABLE "staging_product_variants" DROP COLUMN "ean";--> statement-breakpoint
 ALTER TABLE "staging_product_variants" DROP COLUMN "status";--> statement-breakpoint
-ALTER TABLE "brands" ADD CONSTRAINT "brands_avatar_hue_check" CHECK ((avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360)));--> statement-breakpoint
-ALTER TABLE "users_on_brand" ADD CONSTRAINT "users_on_brand_role_check" CHECK (role = ANY (ARRAY['owner'::text, 'member'::text]));--> statement-breakpoint
-ALTER TABLE "brand_invites" ADD CONSTRAINT "brand_invites_role_check" CHECK (role = ANY (ARRAY['owner'::text, 'member'::text]));--> statement-breakpoint
-ALTER TABLE "users" ADD CONSTRAINT "users_avatar_hue_check" CHECK ((avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360)));--> statement-breakpoint
+DO $$ BEGIN
+  ALTER TABLE "brands" ADD CONSTRAINT "brands_avatar_hue_check" CHECK ((avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360)));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  ALTER TABLE "brand_members" ADD CONSTRAINT "brand_members_role_check" CHECK (role = ANY (ARRAY['owner'::text, 'member'::text]));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  ALTER TABLE "brand_invites" ADD CONSTRAINT "brand_invites_role_check" CHECK (role = ANY (ARRAY['owner'::text, 'member'::text]));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  ALTER TABLE "users" ADD CONSTRAINT "users_avatar_hue_check" CHECK ((avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360)));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
 ALTER POLICY "brands_update_by_owner" ON "brands" RENAME TO "brands_update_by_member";--> statement-breakpoint
 ALTER POLICY "brand_certifications_insert_by_brand_owner" ON "brand_certifications" RENAME TO "brand_certifications_insert_by_brand_member";--> statement-breakpoint
 ALTER POLICY "brand_certifications_update_by_brand_owner" ON "brand_certifications" RENAME TO "brand_certifications_update_by_brand_member";--> statement-breakpoint
@@ -175,7 +187,10 @@ ALTER POLICY "brand_sizes_insert_by_brand_owner" ON "brand_sizes" RENAME TO "bra
 ALTER POLICY "brand_sizes_update_by_brand_owner" ON "brand_sizes" RENAME TO "brand_sizes_update_by_brand_member";--> statement-breakpoint
 ALTER POLICY "brand_sizes_delete_by_brand_owner" ON "brand_sizes" RENAME TO "brand_sizes_delete_by_brand_member";--> statement-breakpoint
 ALTER POLICY "import_jobs_insert_by_brand_owner" ON "import_jobs" RENAME TO "import_jobs_insert_by_brand_member";--> statement-breakpoint
-ALTER POLICY "import_jobs_update_by_brand_owner" ON "import_jobs" RENAME TO "import_jobs_update_by_brand_member";--> statement-breakpoint
+DO $$ BEGIN
+  ALTER POLICY "import_jobs_update_by_brand_owner" ON "import_jobs" RENAME TO "import_jobs_update_by_brand_member";
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
 ALTER POLICY "import_jobs_delete_by_brand_owner" ON "import_jobs" RENAME TO "import_jobs_delete_by_brand_member";--> statement-breakpoint
 ALTER POLICY "product_variants_insert_by_brand_owner" ON "product_variants" RENAME TO "product_variants_insert_by_brand_member";--> statement-breakpoint
 ALTER POLICY "product_variants_update_by_brand_owner" ON "product_variants" RENAME TO "product_variants_update_by_brand_member";--> statement-breakpoint
@@ -184,11 +199,11 @@ ALTER POLICY "brands_delete_by_owner" ON "brands" TO authenticated,service_role 
 ALTER POLICY "brands_insert_by_authenticated" ON "brands" TO authenticated,service_role;--> statement-breakpoint
 ALTER POLICY "brands_select_for_invite_recipients" ON "brands" TO authenticated,service_role;--> statement-breakpoint
 ALTER POLICY "brands_select_for_members" ON "brands" TO authenticated,service_role USING (is_brand_member(id));--> statement-breakpoint
-ALTER POLICY "users_on_brand_delete_owner_non_owner" ON "users_on_brand" TO authenticated,service_role USING ((is_brand_owner(brand_id) AND ((role <> 'owner'::text) OR (user_id = auth.uid()))));--> statement-breakpoint
-ALTER POLICY "users_on_brand_delete_self" ON "users_on_brand" TO authenticated,service_role;--> statement-breakpoint
-ALTER POLICY "users_on_brand_insert_first_owner_self" ON "users_on_brand" TO authenticated,service_role;--> statement-breakpoint
-ALTER POLICY "users_on_brand_select_for_members" ON "users_on_brand" TO authenticated,service_role USING (is_brand_member(brand_id));--> statement-breakpoint
-ALTER POLICY "users_on_brand_update_by_owner" ON "users_on_brand" TO authenticated,service_role USING (is_brand_owner(brand_id));--> statement-breakpoint
+ALTER POLICY "brand_members_delete_owner_non_owner" ON "brand_members" TO authenticated,service_role USING ((is_brand_owner(brand_id) AND ((role <> 'owner'::text) OR (user_id = auth.uid()))));--> statement-breakpoint
+ALTER POLICY "brand_members_delete_self" ON "brand_members" TO authenticated,service_role;--> statement-breakpoint
+ALTER POLICY "brand_members_insert_first_owner_self" ON "brand_members" TO authenticated,service_role;--> statement-breakpoint
+ALTER POLICY "brand_members_select_for_members" ON "brand_members" TO authenticated,service_role USING (is_brand_member(brand_id));--> statement-breakpoint
+ALTER POLICY "brand_members_update_by_owner" ON "brand_members" TO authenticated,service_role USING (is_brand_owner(brand_id));--> statement-breakpoint
 ALTER POLICY "brand_invites_delete_by_owner" ON "brand_invites" TO authenticated,service_role USING (is_brand_owner(brand_id));--> statement-breakpoint
 ALTER POLICY "brand_invites_delete_by_recipient" ON "brand_invites" TO authenticated,service_role;--> statement-breakpoint
 ALTER POLICY "brand_invites_insert_by_owner" ON "brand_invites" TO authenticated,service_role WITH CHECK (is_brand_owner(brand_id));--> statement-breakpoint
@@ -204,7 +219,7 @@ ALTER POLICY "users_update_own_profile" ON "users" TO authenticated,service_role
           brand_id IS NULL
           OR EXISTS (
             SELECT 1
-            FROM users_on_brand uob
+            FROM brand_members uob
             WHERE uob.brand_id = brand_id
               AND uob.user_id = auth.uid()
           )

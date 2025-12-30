@@ -1,4 +1,4 @@
-CREATE TABLE "staging_product_care_codes" (
+CREATE TABLE IF NOT EXISTS "staging_product_care_codes" (
 	"staging_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"staging_product_id" uuid NOT NULL,
 	"job_id" uuid NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE "staging_product_care_codes" (
 );
 --> statement-breakpoint
 ALTER TABLE "staging_product_care_codes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "staging_product_eco_claims" (
+CREATE TABLE IF NOT EXISTS "staging_product_eco_claims" (
 	"staging_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"staging_product_id" uuid NOT NULL,
 	"job_id" uuid NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE "staging_product_eco_claims" (
 );
 --> statement-breakpoint
 ALTER TABLE "staging_product_eco_claims" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "staging_product_environment" (
+CREATE TABLE IF NOT EXISTS "staging_product_environment" (
 	"staging_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"staging_product_id" uuid NOT NULL,
 	"job_id" uuid NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE "staging_product_environment" (
 );
 --> statement-breakpoint
 ALTER TABLE "staging_product_environment" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "staging_product_identifiers" (
+CREATE TABLE IF NOT EXISTS "staging_product_identifiers" (
 	"staging_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"staging_product_id" uuid NOT NULL,
 	"job_id" uuid NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE "staging_product_identifiers" (
 );
 --> statement-breakpoint
 ALTER TABLE "staging_product_identifiers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "staging_product_journey_steps" (
+CREATE TABLE IF NOT EXISTS "staging_product_journey_steps" (
 	"staging_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"staging_product_id" uuid NOT NULL,
 	"job_id" uuid NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE "staging_product_journey_steps" (
 );
 --> statement-breakpoint
 ALTER TABLE "staging_product_journey_steps" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "staging_product_materials" (
+CREATE TABLE IF NOT EXISTS "staging_product_materials" (
 	"staging_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"staging_product_id" uuid NOT NULL,
 	"job_id" uuid NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE "staging_product_materials" (
 );
 --> statement-breakpoint
 ALTER TABLE "staging_product_materials" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "staging_product_variant_identifiers" (
+CREATE TABLE IF NOT EXISTS "staging_product_variant_identifiers" (
 	"staging_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"staging_variant_id" uuid NOT NULL,
 	"job_id" uuid NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE "staging_product_variant_identifiers" (
 );
 --> statement-breakpoint
 ALTER TABLE "staging_product_variant_identifiers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "staging_product_variants" (
+CREATE TABLE IF NOT EXISTS "staging_product_variants" (
 	"staging_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"staging_product_id" uuid NOT NULL,
 	"job_id" uuid NOT NULL,
@@ -87,7 +87,7 @@ CREATE TABLE "staging_product_variants" (
 );
 --> statement-breakpoint
 ALTER TABLE "staging_product_variants" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "staging_products" (
+CREATE TABLE IF NOT EXISTS "staging_products" (
 	"staging_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"job_id" uuid NOT NULL,
 	"row_number" integer NOT NULL,
@@ -108,8 +108,8 @@ CREATE TABLE "staging_products" (
 );
 --> statement-breakpoint
 ALTER TABLE "staging_products" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "import_jobs" ADD COLUMN "commit_started_at" timestamp with time zone;--> statement-breakpoint
-ALTER TABLE "import_jobs" ADD COLUMN "requires_value_approval" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "import_jobs" ADD COLUMN IF NOT EXISTS "commit_started_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "import_jobs" ADD COLUMN IF NOT EXISTS "requires_value_approval" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "staging_product_care_codes" ADD CONSTRAINT "staging_product_care_codes_staging_product_id_staging_products_staging_id_fk" FOREIGN KEY ("staging_product_id") REFERENCES "public"."staging_products"("staging_id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "staging_product_care_codes" ADD CONSTRAINT "staging_product_care_codes_job_id_import_jobs_id_fk" FOREIGN KEY ("job_id") REFERENCES "public"."import_jobs"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "staging_product_care_codes" ADD CONSTRAINT "staging_product_care_codes_care_code_id_care_codes_id_fk" FOREIGN KEY ("care_code_id") REFERENCES "public"."care_codes"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint

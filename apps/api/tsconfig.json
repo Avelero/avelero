@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "target": "ESNext",
     "module": "ESNext",
     "moduleDetection": "force",
@@ -20,13 +24,27 @@
     "jsxImportSource": "react",
     "baseUrl": ".",
     "paths": {
-      "@api/*": ["src/*"],
-      "@engine/*": ["../engine/src/*"],
-      "@jobs/*": ["../../packages/jobs/src/*"],
-      "@db/*": ["../../packages/db/src/*"]
+      "@api/*": [
+        "src/*"
+      ],
+      "@engine/*": [
+        "../engine/src/*"
+      ],
+      "@jobs/*": [
+        "../../packages/jobs/src/*"
+      ],
+      "@db/*": [
+        "../../packages/db/src/*"
+      ]
     },
-    "types": ["bun", "jest"]
+    "types": [
+      "bun"
+    ]
   },
-  "exclude": ["node_modules"],
-  "include": ["src/**/*.ts"]
+  "exclude": [
+    "node_modules"
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
 }

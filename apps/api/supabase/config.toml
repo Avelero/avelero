@@ -12,6 +12,13 @@ site_url = "env(APP_URL)"
 additional_redirect_urls = ["env(APP_URL)", "env(ADDITIONAL_REDIRECT_URL)"]
 jwt_expiry = 36000
 
+[auth.hook.send_email]
+enabled = false
+uri = "http://host.docker.internal:54321/functions/v1/send-email"
+# Note: env() doesn't work properly for secrets in Supabase CLI v2.x (known bug)
+# See: https://github.com/supabase/cli/issues/3031
+secrets = "env(SEND_EMAIL_HOOK_SECRET)"
+
 [db]
 port = 54322
 

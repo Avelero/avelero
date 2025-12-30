@@ -5,7 +5,7 @@ create extension if not exists pgcrypto;
 
 -- Ensure RLS is enabled
 alter table public.brand_invites enable row level security;
-alter table public.users_on_brand enable row level security;
+alter table public.brand_members enable row level security;
 
 -- 1) Helpful indexes (idempotent)
 -- Fast recipient lookups by email
@@ -21,15 +21,15 @@ create index if not exists idx_brand_invites_token_hash
   on public.brand_invites (token_hash);
 
 -- (Usually already present) uniqueness for membership
-create unique index if not exists ux_users_on_brand_user_brand
-  on public.users_on_brand (user_id, brand_id);
+create unique index if not exists ux_brand_members_user_brand
+  on public.brand_members (user_id, brand_id);
 
--- 2) Remove fragile write-time invitee policies on users_on_brand
-drop policy if exists users_on_brand_insert_by_invitee on public.users_on_brand;
-drop policy if exists users_on_brand_update_by_invitee_with_matching_invite on public.users_on_brand;
+-- 2) Remove fragile write-time invitee policies on brand_members
+drop policy if exists brand_members_insert_by_invitee on public.brand_members;
+drop policy if exists brand_members_update_by_invitee_with_matching_invite on public.brand_members;
 
 -- Forbid direct client writes; writes will go via SECURITY DEFINER RPC
-revoke insert, update, delete on public.users_on_brand from authenticated;
+revoke insert, update, delete on public.brand_members from authenticated;
 
 -- 3) Recipient-centric read policies using auth claims (no joins to public.users)
 drop policy if exists brand_invites_select_for_recipient on public.brand_invites;
@@ -83,7 +83,7 @@ using (
 );
 
 -- NOTE:
--- Keep your existing owner/member read policies for users_on_brand (e.g., select-for-members)
+-- Keep your existing owner/member read policies for brand_members (e.g., select-for-members)
 -- so owners can list members. We are only removing invitee INSERT/UPDATE write policies.
 
 -- 5) SECURITY DEFINER RPC: accept invite in one transaction
@@ -126,7 +126,7 @@ begin
   end if;
 
   -- Create or elevate membership
-  insert into public.users_on_brand(user_id, brand_id, role)
+  insert into public.brand_members(user_id, brand_id, role)
   values (auth.uid(), v_brand, v_role)
   on conflict (user_id, brand_id) do update
   set role = excluded.role;

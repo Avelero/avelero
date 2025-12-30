@@ -44,7 +44,6 @@ CREATE TABLE "passport_module_completion" (
 ALTER TABLE "passport_module_completion" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "users" DISABLE ROW LEVEL SECURITY;--> statement-breakpoint
 DROP INDEX "idx_users_avatar_hue";--> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "role" "user_role" DEFAULT 'member' NOT NULL;--> statement-breakpoint
 ALTER TABLE "passports" ADD CONSTRAINT "passports_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "passports" ADD CONSTRAINT "passports_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 ALTER TABLE "passports" ADD CONSTRAINT "passports_template_id_passport_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."passport_templates"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint

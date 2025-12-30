@@ -102,22 +102,21 @@ DROP POLICY "integration_size_links_insert_by_brand_member" ON "integration_size
 DROP POLICY "integration_size_links_update_by_brand_member" ON "integration_size_links" CASCADE;--> statement-breakpoint
 DROP POLICY "integration_size_links_delete_by_brand_member" ON "integration_size_links" CASCADE;--> statement-breakpoint
 DROP TABLE "integration_size_links" CASCADE;--> statement-breakpoint
-ALTER TABLE "users_on_brand" RENAME TO "brand_members";--> statement-breakpoint
 ALTER TABLE "tags_on_product" RENAME TO "product_tags";--> statement-breakpoint
 ALTER TABLE "categories" RENAME TO "taxonomy_categories";--> statement-breakpoint
 ALTER TABLE "products" RENAME COLUMN "primary_image_path" TO "image_path";--> statement-breakpoint
 ALTER TABLE "staging_products" RENAME COLUMN "primary_image_path" TO "image_path";--> statement-breakpoint
-ALTER TABLE "brand_members" DROP CONSTRAINT "users_on_brand_user_id_users_id_fk";
+ALTER TABLE "brand_members" DROP CONSTRAINT "brand_members_user_id_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "brand_members" DROP CONSTRAINT "users_on_brand_brand_id_brands_id_fk";
+ALTER TABLE "brand_members" DROP CONSTRAINT "brand_members_brand_id_brands_id_fk";
 --> statement-breakpoint
-ALTER TABLE "taxonomy_categories" DROP CONSTRAINT "categories_parent_id_categories_id_fk";
+ALTER TABLE "taxonomy_categories" DROP CONSTRAINT IF EXISTS "categories_parent_id_categories_id_fk";
 --> statement-breakpoint
-ALTER TABLE "products" DROP CONSTRAINT "products_category_id_categories_id_fk";
+ALTER TABLE "products" DROP CONSTRAINT IF EXISTS "products_category_id_categories_id_fk";
 --> statement-breakpoint
-ALTER TABLE "product_tags" DROP CONSTRAINT "tags_on_product_tag_id_brand_tags_id_fk";
+ALTER TABLE "product_tags" DROP CONSTRAINT IF EXISTS "tags_on_product_tag_id_brand_tags_id_fk";
 --> statement-breakpoint
-ALTER TABLE "product_tags" DROP CONSTRAINT "tags_on_product_product_id_products_id_fk";
+ALTER TABLE "product_tags" DROP CONSTRAINT IF EXISTS "tags_on_product_product_id_products_id_fk";
 --> statement-breakpoint
 ALTER TABLE "taxonomy_categories" ADD COLUMN "public_id" text;--> statement-breakpoint
 UPDATE "taxonomy_categories" SET "public_id" = gen_random_uuid()::text WHERE "public_id" IS NULL;--> statement-breakpoint
@@ -149,6 +148,23 @@ ALTER TABLE "product_tags" ADD CONSTRAINT "product_tags_tag_id_brand_tags_id_fk"
 ALTER TABLE "product_tags" ADD CONSTRAINT "product_tags_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
 CREATE INDEX "idx_products_name" ON "products" USING btree ("name" text_ops);--> statement-breakpoint
 ALTER TABLE "users" DROP COLUMN "role";--> statement-breakpoint
+-- Update handle_new_user function to not use role column (since we just dropped it)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.users (id, email, full_name)
+  VALUES (
+    new.id,
+    new.email,
+    new.raw_user_meta_data ->> 'full_name'
+  );
+  RETURN new;
+END;
+$$;--> statement-breakpoint
 ALTER TABLE "products" DROP COLUMN "weight";--> statement-breakpoint
 ALTER TABLE "products" DROP COLUMN "weight_unit";--> statement-breakpoint
 ALTER TABLE "products" DROP COLUMN "webshop_url";--> statement-breakpoint

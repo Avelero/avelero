@@ -29,9 +29,7 @@ ON brand_certifications(brand_id, title ASC);
 CREATE INDEX IF NOT EXISTS idx_categories_name
 ON categories(name ASC);
 
--- Index for brand_seasons (brandId + name for sorting)
-CREATE INDEX IF NOT EXISTS idx_brand_seasons_brand_name
-ON brand_seasons(brand_id, name ASC);
+-- Note: brand_seasons index is created in the add_brand_seasons migration
 
 -- PERFORMANCE IMPACT:
 -- These composite indexes (brandId + sortColumn) allow PostgreSQL to:

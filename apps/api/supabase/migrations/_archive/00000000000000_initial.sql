@@ -103,7 +103,7 @@ before update on public.brands
 for each row execute function public.update_updated_at();
 
 -- Memberships
-create table if not exists public.users_on_brand (
+create table if not exists public.brand_members (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users(id) on delete cascade,
   brand_id uuid not null references public.brands(id) on delete cascade,
@@ -113,13 +113,13 @@ create table if not exists public.users_on_brand (
   unique (user_id, brand_id)
 );
 
-create index if not exists idx_users_on_brand_brand_id on public.users_on_brand(brand_id);
-create index if not exists idx_users_on_brand_user_id on public.users_on_brand(user_id);
+create index if not exists idx_brand_members_brand_id on public.brand_members(brand_id);
+create index if not exists idx_brand_members_user_id on public.brand_members(user_id);
 
-alter table public.users_on_brand enable row level security;
+alter table public.brand_members enable row level security;
 
-create trigger update_users_on_brand_updated_at
-before update on public.users_on_brand
+create trigger update_brand_members_updated_at
+before update on public.brand_members
 for each row execute function public.update_updated_at();
 
 -- Helper functions
@@ -190,9 +190,9 @@ with check (
     public.users.brand_id is null
     or exists (
       select 1
-      from public.users_on_brand uob
-      where uob.brand_id = public.users.brand_id
-        and uob.user_id = auth.uid()
+      from public.brand_members bm
+      where bm.brand_id = public.users.brand_id
+        and bm.user_id = auth.uid()
     )
   )
 );
@@ -222,28 +222,28 @@ for delete to authenticated
 using (public.is_brand_owner(public.brands.id));
 
 -- Membership RLS policies
-drop policy if exists users_on_brand_select_for_members on public.users_on_brand;
-create policy users_on_brand_select_for_members on public.users_on_brand
+drop policy if exists brand_members_select_for_members on public.brand_members;
+create policy brand_members_select_for_members on public.brand_members
 for select to authenticated
-using (public.is_brand_member(public.users_on_brand.brand_id));
+using (public.is_brand_member(public.brand_members.brand_id));
 
-drop policy if exists users_on_brand_insert_owner_self on public.users_on_brand;
-create policy users_on_brand_insert_owner_self on public.users_on_brand
+drop policy if exists brand_members_insert_owner_self on public.brand_members;
+create policy brand_members_insert_owner_self on public.brand_members
 for insert to authenticated
 with check (
-  public.users_on_brand.user_id = auth.uid()
-  and public.is_brand_creator(public.users_on_brand.brand_id)
+  public.brand_members.user_id = auth.uid()
+  and public.is_brand_creator(public.brand_members.brand_id)
 );
 
-drop policy if exists users_on_brand_update_by_owner on public.users_on_brand;
-create policy users_on_brand_update_by_owner on public.users_on_brand
+drop policy if exists brand_members_update_by_owner on public.brand_members;
+create policy brand_members_update_by_owner on public.brand_members
 for update to authenticated
-using (public.is_brand_owner(public.users_on_brand.brand_id));
+using (public.is_brand_owner(public.brand_members.brand_id));
 
-drop policy if exists users_on_brand_delete_by_owner on public.users_on_brand;
-create policy users_on_brand_delete_by_owner on public.users_on_brand
+drop policy if exists brand_members_delete_by_owner on public.brand_members;
+create policy brand_members_delete_by_owner on public.brand_members
 for delete to authenticated
-using (public.is_brand_owner(public.users_on_brand.brand_id));
+using (public.is_brand_owner(public.brand_members.brand_id));
 
 -- -----------------------------------------------------------------------------
 -- Brand Invites

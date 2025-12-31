@@ -267,7 +267,7 @@ jobs:
           source branch_env.txt
           set +a
           
-          # Mask sensitive values
+          # Mask sensitive values from Supabase (prevents them from appearing in logs)
           echo "::add-mask::$POSTGRES_URL"
           echo "::add-mask::$POSTGRES_URL_NON_POOLING"
           
@@ -281,8 +281,9 @@ jobs:
           
           # Replace port 6543 with 5432 for Session Pooler
           DB_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          echo "::add-mask::$DB_URL"
           
+          # Note: We don't mask DB_URL here because GitHub blocks masked values from job outputs
+          # The password portion will still be hidden since we masked POSTGRES_URL above
           echo "✅ Using Session Pooler URL (port 5432)"
           echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
           

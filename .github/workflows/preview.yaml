@@ -255,7 +255,7 @@ jobs:
           BRANCH_NAME="${{ github.head_ref }}"
           
           # Get branch credentials using -o env format
-          # This outputs environment variables like POSTGRES_URL, DB_PASSWORD, etc.
+          # This outputs: POSTGRES_URL (pooler), POSTGRES_URL_NON_POOLING (direct), SUPABASE_* keys
           supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > branch_env.txt
           
           # Debug: Show available variables (without values)
@@ -268,37 +268,22 @@ jobs:
           set +a
           
           # Mask sensitive values
-          echo "::add-mask::$DB_PASSWORD"
           echo "::add-mask::$POSTGRES_URL"
+          echo "::add-mask::$POSTGRES_URL_NON_POOLING"
           
-          # Extract project ref from DB_HOST (e.g., db.xxxxx.supabase.co -> xxxxx)
-          if [ -n "$DB_HOST" ]; then
-            PROJECT_REF=$(echo "$DB_HOST" | sed 's/db\.\([a-z0-9-]*\)\.supabase\.co/\1/')
-            echo "Found Project Ref: $PROJECT_REF"
-          else
-            echo "❌ DB_HOST not found in branch env output"
+          # POSTGRES_URL from Supabase uses port 6543 (Transaction Pooler)
+          # We need port 5432 (Session Pooler) for Drizzle's prepared statements
+          if [ -z "$POSTGRES_URL" ]; then
+            echo "❌ POSTGRES_URL not found in branch env output"
             cat branch_env.txt
             exit 1
           fi
           
-          if [ -z "$DB_PASSWORD" ]; then
-            echo "❌ DB_PASSWORD not found in branch env output"
-            exit 1
-          fi
-          
-          # Construct Session Pooler URL for IPv4 compatibility
-          # GitHub Actions is IPv4-only, but Supabase direct connections are IPv6-only
-          # Session Pooler provides free IPv4 proxy
-          # Format: postgresql://postgres.[project-ref]:[password]@aws-1-eu-west-2.pooler.supabase.com:5432/postgres
-          POOLER_HOST="aws-1-eu-west-2.pooler.supabase.com"
-          
-          # URL-encode the password in case it contains special characters
-          ENCODED_PASSWORD=$(node -e "process.stdout.write(encodeURIComponent('$DB_PASSWORD'))")
-          echo "::add-mask::$ENCODED_PASSWORD"
-          
-          DB_URL="postgresql://postgres.${PROJECT_REF}:${ENCODED_PASSWORD}@${POOLER_HOST}:5432/postgres"
-          
+          # Replace port 6543 with 5432 for Session Pooler
+          DB_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
           echo "::add-mask::$DB_URL"
+          
+          echo "✅ Using Session Pooler URL (port 5432)"
           echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
           
           # Cleanup

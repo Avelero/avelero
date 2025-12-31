@@ -8,8 +8,10 @@ import { beforeAll, afterAll, afterEach } from "vitest";
 import { mockServer } from "./utils/mock-shopify";
 import { cleanupTables, closeTestDb } from "./utils/test-db";
 
-// Start MSW mock server before all tests
-beforeAll(() => {
+// Clean database before all tests to ensure a fresh state
+// This handles cases where a previous run failed and left stale data
+beforeAll(async () => {
+    await cleanupTables();
     mockServer.listen({ onUnhandledRequest: "error" });
 });
 

@@ -2,7 +2,7 @@
  * Test Database Utility
  *
  * Connects to test PostgreSQL database and provides cleanup functions.
- * Tables are cleaned in correct order to respect foreign key constraints.
+ * Uses dynamic table discovery instead of hardcoded lists to avoid sync issues.
  */
 
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -21,62 +21,51 @@ const client = postgres(connectionString);
 export const testDb = drizzle(client, { schema });
 
 /**
- * Tables to clean between tests, ordered by foreign key dependencies.
- * Delete child tables before parent tables to avoid FK violations.
+ * Tables that should NOT be cleaned between tests.
+ * These contain reference data that is seeded once and should persist.
  */
-const tablesToClean = [
-    // Integration links (depend on products/variants and brand_integrations)
-    "integration_variant_links",
-    "integration_product_links",
-
-    // Sync jobs (depend on brand_integrations)
-    "sync_jobs",
-
-    // Variant-level override tables (depend on product_variants)
-    "variant_commercial",
-    "variant_environment",
-    "variant_eco_claims",
-    "variant_materials",
-    "variant_weight",
-    "variant_journey_steps",
-
-    // Variant attributes (depends on product_variants + brand_attribute_values)
-    "product_variant_attributes",
-
-    // Variants (depend on products)
-    "product_variants",
-
-    // Product-level tables (depend on products)
-    "product_tags",
-    "product_materials",
-    "product_journey_steps",
-    "product_environment",
-    "product_eco_claims",
-    "product_commercial",
-    "product_weight",
-
-    // Products (depend on brands)
-    "products",
-
-    // Catalog tables (depend on brands)
-    "brand_tags",
-    "brand_attribute_values",
-    "brand_attributes",
-
-    // Brand integrations (depend on brands and integrations)
-    "integration_field_configs",
-    "brand_integrations",
-] as const;
+const protectedTables = new Set([
+    // Taxonomy data - seeded by taxonomy sync, required for all tests
+    "taxonomy_categories",
+    "taxonomy_attributes",
+    "taxonomy_values",
+    "taxonomy_external_mappings",
+    // System tables
+    "users",
+    // Reference tables
+    "integrations",
+]);
 
 /**
- * Clean all test tables. Called after each test.
- * Uses TRUNCATE with CASCADE for speed and to handle all dependencies.
+ * Clean all user tables between tests.
+ * Dynamically queries the database for all tables and truncates them,
+ * except for protected tables that contain reference data.
+ *
+ * Uses a single TRUNCATE statement with CASCADE for speed.
  */
 export async function cleanupTables(): Promise<void> {
-    // Use TRUNCATE CASCADE for faster cleanup and to handle all dependencies
-    for (const table of tablesToClean) {
-        await testDb.execute(sql.raw(`TRUNCATE TABLE "${table}" CASCADE`));
+    // Query all user tables from the public schema
+    const result = await testDb.execute<{ tablename: string }>(sql`
+        SELECT tablename 
+        FROM pg_tables 
+        WHERE schemaname = 'public'
+        AND tablename NOT LIKE 'drizzle_%'
+        AND tablename NOT LIKE 'pg_%'
+    `);
+
+    // Filter out protected tables
+    const tablesToClean = result
+        .map((row) => row.tablename)
+        .filter((table) => !protectedTables.has(table));
+
+    if (tablesToClean.length === 0) {
+        return;
     }
+
+    // Build a single TRUNCATE statement for all tables
+    // This is faster than truncating one by one and handles FK dependencies with CASCADE
+    const tableList = tablesToClean.map((t) => `"${t}"`).join(", ");
+    await testDb.execute(sql.raw(`TRUNCATE TABLE ${tableList} CASCADE`));
 }
 
 /**

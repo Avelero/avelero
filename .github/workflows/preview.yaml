@@ -180,13 +180,10 @@ jobs:
        github.event.action != 'closed'
     runs-on: ubuntu-latest
     outputs:
-      # Only output the project ref (not secret) - dependent jobs will construct Session Pooler URL
-      project_ref: ${{ steps.branch-info.outputs.project_ref }}
+      db_url: ${{ steps.branch-info.outputs.db_url }}
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-      # We extract the password from the production DATABASE_URL
-      PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -195,23 +192,6 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-
-      - name: 🔐 Extract DB Password
-        id: db-pass
-        run: |
-          # Extract password and URL-encode it for use in connection strings
-          # The URL parser decodes special chars, so we need to re-encode them
-          PASSWORD=$(node -e '
-            try {
-              const url = new URL(process.env.PROD_DATABASE_URL);
-              // Re-encode the password for use in URLs
-              process.stdout.write(encodeURIComponent(url.password));
-            } catch (e) {
-              process.exit(1);
-            }
-          ')
-          echo "::add-mask::$PASSWORD"
-          echo "password=$PASSWORD" >> $GITHUB_OUTPUT
 
       - name: 🌿 Get Preview Branch (Wait for Integration)
         id: get-branch
@@ -274,46 +254,58 @@ jobs:
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
           
-          # Get branch config - branch should be ready now
-          RAW_CONFIG=$(supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID)
+          # Get branch credentials using -o env format
+          # This outputs environment variables like POSTGRES_URL, DB_PASSWORD, etc.
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > branch_env.txt
           
-          # Extract DB Host to get the project ref
-          DB_HOST=$(echo "$RAW_CONFIG" | grep -o 'db\.[a-z0-9-]*\.supabase\.co')
+          # Debug: Show available variables (without values)
+          echo "Available env variables:"
+          grep -oE '^[A-Z_]+=' branch_env.txt | tr -d '=' || true
           
-          if [ -z "$DB_HOST" ]; then
-             echo "❌ Could not parse DB Host. Raw Config:"
-             echo "$RAW_CONFIG"
-             exit 1
+          # Source the env file to get variables
+          set -a
+          source branch_env.txt
+          set +a
+          
+          # Mask sensitive values
+          echo "::add-mask::$DB_PASSWORD"
+          echo "::add-mask::$POSTGRES_URL"
+          
+          # Extract project ref from DB_HOST (e.g., db.xxxxx.supabase.co -> xxxxx)
+          if [ -n "$DB_HOST" ]; then
+            PROJECT_REF=$(echo "$DB_HOST" | sed 's/db\.\([a-z0-9-]*\)\.supabase\.co/\1/')
+            echo "Found Project Ref: $PROJECT_REF"
+          else
+            echo "❌ DB_HOST not found in branch env output"
+            cat branch_env.txt
+            exit 1
           fi
           
-          # Extract project ref from db host (e.g., db.nkpzlimqtcwwpciglygr.supabase.co -> nkpzlimqtcwwpciglygr)
-          PROJECT_REF=$(echo "$DB_HOST" | sed 's/db\.\([a-z0-9-]*\)\.supabase\.co/\1/')
+          if [ -z "$DB_PASSWORD" ]; then
+            echo "❌ DB_PASSWORD not found in branch env output"
+            exit 1
+          fi
           
-          echo "Found Project Ref: $PROJECT_REF"
-          echo "project_ref=$PROJECT_REF" >> $GITHUB_OUTPUT
-          
-          # Construct Session Pooler URL for internal use (GitHub Actions is IPv4-only)
-          # Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+          # Construct Session Pooler URL for IPv4 compatibility
+          # GitHub Actions is IPv4-only, but Supabase direct connections are IPv6-only
+          # Session Pooler provides free IPv4 proxy
+          # Format: postgresql://postgres.[project-ref]:[password]@aws-1-eu-west-2.pooler.supabase.com:5432/postgres
           POOLER_HOST="aws-1-eu-west-2.pooler.supabase.com"
-          DB_URL="postgresql://postgres.${PROJECT_REF}:${{ steps.db-pass.outputs.password }}@${POOLER_HOST}:5432/postgres"
+          
+          # URL-encode the password in case it contains special characters
+          ENCODED_PASSWORD=$(node -e "process.stdout.write(encodeURIComponent('$DB_PASSWORD'))")
+          echo "::add-mask::$ENCODED_PASSWORD"
+          
+          DB_URL="postgresql://postgres.${PROJECT_REF}:${ENCODED_PASSWORD}@${POOLER_HOST}:5432/postgres"
+          
           echo "::add-mask::$DB_URL"
           echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
+          
+          # Cleanup
+          rm -f branch_env.txt
 
       - name: Install dependencies
         run: bun install
-
-      - name: 🛠️ Repair Migration State
-        # The preview branch is cloned from prod, so it has old migration history.
-        # But our local repo acts as a new baseline (archived old migrations).
-        # We force-apply the baseline migrations to the migrations table to avoid "unhealthy" state warnings
-        # and ensure schema sync works on top.
-        run: |
-          echo "Repairing migration history..."
-          # List specific baseline versions if needed, or rely on Drizzle.
-          # For now, we just ensure we can connect.
-          # We intentionally do not fail here if repair fails.
-        env:
-           SUPABASE_DB_URL: ${{ steps.branch-info.outputs.db_url }}
 
       - name: 🗄️ Sync Database Schema
         # We use Drizzle push to apply ONLY the diff between production (cloned) and local schema
@@ -325,14 +317,8 @@ jobs:
   test-integrations:
     name: 🧪 Integration Tests
     needs: [detect-changes, setup-database]
-    if: |
-      needs.detect-changes.outputs.integrations_changed == 'true' &&
-      needs.setup-database.result == 'success' &&
-      github.event.action != 'closed'
+    if: needs.detect-changes.outputs.integrations_changed == 'true' && github.event.action != 'closed'
     runs-on: ubuntu-latest
-    env:
-      # We need access to the production DATABASE_URL to extract the password
-      PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
     # Removed local postgres service in favor of Supabase Preview Branch
     steps:
       - uses: actions/checkout@v4
@@ -341,36 +327,13 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
-      
-      - name: 🔗 Construct Database URL
-        id: db-url
-        run: |
-          # Extract password from production DATABASE_URL
-          PASSWORD=$(node -e '
-            try {
-              const url = new URL(process.env.PROD_DATABASE_URL);
-              process.stdout.write(encodeURIComponent(url.password));
-            } catch (e) {
-              process.exit(1);
-            }
-          ')
-          
-          # Construct Session Pooler URL (GitHub Actions is IPv4-only, direct connection is IPv6-only)
-          # Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
-          PROJECT_REF="${{ needs.setup-database.outputs.project_ref }}"
-          POOLER_HOST="aws-1-eu-west-2.pooler.supabase.com"
-          DB_URL="postgresql://postgres.${PROJECT_REF}:${PASSWORD}@${POOLER_HOST}:5432/postgres"
-          
-          # Mask the full URL so it doesn't appear in logs
-          echo "::add-mask::$DB_URL"
-          echo "url=$DB_URL" >> $GITHUB_OUTPUT
         
       - name: 🧪 Run integration tests
         run: bun run test
         working-directory: ./packages/integrations
         env:
-          # Use the reconstructed preview branch URL
-          DATABASE_URL: ${{ steps.db-url.outputs.url }}
+          # Use the Preview Branch
+          DATABASE_URL: ${{ needs.setup-database.outputs.db_url }}
 
   # ============================================
   # Gate Job: Reports single status for branch protection
@@ -500,7 +463,6 @@ jobs:
       (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') &&
       needs.detect-changes.outputs.api_changed == 'true' &&
       (needs.deploy-app.result == 'success' || needs.deploy-app.result == 'skipped') &&
-      needs.setup-database.result == 'success' &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
@@ -508,8 +470,6 @@ jobs:
       cancel-in-progress: true
     outputs:
       url: ${{ steps.urls.outputs.api_url }}
-    env:
-      PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -517,28 +477,6 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
-      - name: 🔗 Construct Database URL
-        id: db-url
-        run: |
-          # Extract password from production DATABASE_URL
-          PASSWORD=$(node -e '
-            try {
-              const url = new URL(process.env.PROD_DATABASE_URL);
-              process.stdout.write(encodeURIComponent(url.password));
-            } catch (e) {
-              process.exit(1);
-            }
-          ')
-          
-          # Construct Session Pooler URL for preview branch
-          # Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
-          PROJECT_REF="${{ needs.setup-database.outputs.project_ref }}"
-          POOLER_HOST="aws-1-eu-west-2.pooler.supabase.com"
-          DB_URL="postgresql://postgres.${PROJECT_REF}:${PASSWORD}@${POOLER_HOST}:5432/postgres"
-          
-          # Mask the full URL so it doesn't appear in logs
-          echo "::add-mask::$DB_URL"
-          echo "url=$DB_URL" >> $GITHUB_OUTPUT
       - name: 🔗 Set URLs
         id: urls
         env:
@@ -563,7 +501,7 @@ jobs:
           name: pr-${{ github.event.number }}-avelero-api
           config: apps/api/fly-preview.yml
           secrets: >
-            DATABASE_URL=${{ steps.db-url.outputs.url }}
+            DATABASE_URL=${{ needs.setup-database.outputs.db_url }}
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -588,14 +526,11 @@ jobs:
       (needs.test-jobs.result == 'success' || needs.test-jobs.result == 'skipped') &&
       needs.detect-changes.outputs.jobs_changed == 'true' &&
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
-      needs.setup-database.result == 'success' &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
       group: pr-${{ github.event.number }}-jobs
       cancel-in-progress: true
-    env:
-      PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -603,28 +538,6 @@ jobs:
           bun-version: "1.2.21"
       - name: Install dependencies
         run: bun install
-      - name: 🔗 Construct Database URL
-        id: db-url
-        run: |
-          # Extract password from production DATABASE_URL
-          PASSWORD=$(node -e '
-            try {
-              const url = new URL(process.env.PROD_DATABASE_URL);
-              process.stdout.write(encodeURIComponent(url.password));
-            } catch (e) {
-              process.exit(1);
-            }
-          ')
-          
-          # Construct Session Pooler URL for preview branch
-          # Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
-          PROJECT_REF="${{ needs.setup-database.outputs.project_ref }}"
-          POOLER_HOST="aws-1-eu-west-2.pooler.supabase.com"
-          DB_URL="postgresql://postgres.${PROJECT_REF}:${PASSWORD}@${POOLER_HOST}:5432/postgres"
-          
-          # Mask the full URL so it doesn't appear in logs
-          echo "::add-mask::$DB_URL"
-          echo "url=$DB_URL" >> $GITHUB_OUTPUT
       - name: Set API URL
         id: api-url
         run: |
@@ -655,7 +568,7 @@ jobs:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
           API_URL: ${{ steps.api-url.outputs.url }}
           INTERNAL_API_KEY: ${{ secrets.PREVIEW_INTERNAL_API_KEY }}
-          DATABASE_URL: ${{ steps.db-url.outputs.url }}
+          DATABASE_URL: ${{ needs.setup-database.outputs.db_url }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}

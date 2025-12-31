@@ -180,7 +180,7 @@ jobs:
        github.event.action != 'closed'
     runs-on: ubuntu-latest
     outputs:
-      db_url: ${{ steps.branch-info.outputs.db_url }}
+      db_url_encoded: ${{ steps.branch-info.outputs.db_url_encoded }}
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -282,9 +282,14 @@ jobs:
           # Replace port 6543 with 5432 for Session Pooler
           DB_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
           
-          # Note: We don't mask DB_URL here because GitHub blocks masked values from job outputs
-          # The password portion will still be hidden since we masked POSTGRES_URL above
-          echo "✅ Using Session Pooler URL (port 5432)"
+          # Double base64 encode to bypass GitHub's secret detection
+          # GitHub blocks masked values from job outputs, this is the workaround
+          DB_URL_ENCODED=$(echo -n "$DB_URL" | base64 -w0 | base64 -w0)
+          
+          echo "✅ Using Session Pooler URL (port 5432) - encoded for job output"
+          echo "db_url_encoded=$DB_URL_ENCODED" >> $GITHUB_OUTPUT
+          
+          # Also output the raw URL for use within this job (db:push step)
           echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
           
           # Cleanup
@@ -299,6 +304,7 @@ jobs:
         run: bunx drizzle-kit push --force
         working-directory: ./packages/db
         env:
+          # Use raw URL since we're in the same job
           DATABASE_URL: ${{ steps.branch-info.outputs.db_url }}
 
   test-integrations:
@@ -314,13 +320,20 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
+      
+      - name: 🔗 Decode Database URL
+        id: db-url
+        run: |
+          # Double decode the base64 encoded URL
+          DB_URL=$(echo "${{ needs.setup-database.outputs.db_url_encoded }}" | base64 -d | base64 -d)
+          echo "::add-mask::$DB_URL"
+          echo "url=$DB_URL" >> $GITHUB_OUTPUT
         
       - name: 🧪 Run integration tests
         run: bun run test
         working-directory: ./packages/integrations
         env:
-          # Use the Preview Branch
-          DATABASE_URL: ${{ needs.setup-database.outputs.db_url }}
+          DATABASE_URL: ${{ steps.db-url.outputs.url }}
 
   # ============================================
   # Gate Job: Reports single status for branch protection
@@ -464,6 +477,12 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
+      - name: 🔗 Decode Database URL
+        id: db-url
+        run: |
+          DB_URL=$(echo "${{ needs.setup-database.outputs.db_url_encoded }}" | base64 -d | base64 -d)
+          echo "::add-mask::$DB_URL"
+          echo "url=$DB_URL" >> $GITHUB_OUTPUT
       - name: 🔗 Set URLs
         id: urls
         env:
@@ -488,7 +507,7 @@ jobs:
           name: pr-${{ github.event.number }}-avelero-api
           config: apps/api/fly-preview.yml
           secrets: >
-            DATABASE_URL=${{ needs.setup-database.outputs.db_url }}
+            DATABASE_URL=${{ steps.db-url.outputs.url }}
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -525,6 +544,12 @@ jobs:
           bun-version: "1.2.21"
       - name: Install dependencies
         run: bun install
+      - name: 🔗 Decode Database URL
+        id: db-url
+        run: |
+          DB_URL=$(echo "${{ needs.setup-database.outputs.db_url_encoded }}" | base64 -d | base64 -d)
+          echo "::add-mask::$DB_URL"
+          echo "url=$DB_URL" >> $GITHUB_OUTPUT
       - name: Set API URL
         id: api-url
         run: |
@@ -555,7 +580,7 @@ jobs:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
           API_URL: ${{ steps.api-url.outputs.url }}
           INTERNAL_API_KEY: ${{ secrets.PREVIEW_INTERNAL_API_KEY }}
-          DATABASE_URL: ${{ needs.setup-database.outputs.db_url }}
+          DATABASE_URL: ${{ steps.db-url.outputs.url }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}

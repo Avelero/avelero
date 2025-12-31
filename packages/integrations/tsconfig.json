@@ -2,9 +2,9 @@
   "extends": "@v1/tsconfig/nextjs.json",
   "compilerOptions": {
     "types": [
-      "node",
-      "vitest/globals"
-    ]
+      "@types/bun"
+    ],
+    "moduleResolution": "bundler"
   },
   "include": [
     "src/**/*.ts",

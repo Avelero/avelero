@@ -16,6 +16,8 @@ import {
   batchFindVariantLinks,
   batchFindVariantsByProductIds,
   batchFindProductsByIdentifiers,
+  batchFindAllBrandVariants,
+  batchFindProductsWithCanonicalLink,
   batchUpdateProducts,
   batchUpsertProductCommercial,
   batchUpdateVariants,
@@ -23,6 +25,7 @@ import {
   batchUpsertProductLinks,
   batchUpsertVariantLinks,
   batchReplaceVariantAttributes,
+  batchUpsertVariantDisplayOverrides,
   type VariantUpdateData,
   type ProductIdentifierBatch,
 } from "@v1/db/queries/integrations";
@@ -313,6 +316,20 @@ async function processBatch(
   const takenHandles = await batchCheckHandlesTaken(db, ctx.brandId, productsNeedingHandles, mappings);
   result.queries.preFetch += 1;
 
+  // 2f: Build global variant index for multi-source integration matching
+  // This enables matching variants across ALL products in the brand, not just linked ones
+  const globalVariantIndex = await batchFindAllBrandVariants(db, ctx.brandId);
+  result.queries.preFetch += 1;
+
+  // 2g: Find which products already have a canonical link from this integration (multi-source support)
+  // This is used to determine if new links should be canonical or non-canonical
+  const productsWithCanonicalLink = await batchFindProductsWithCanonicalLink(
+    db,
+    ctx.brandIntegrationId,
+    linkedProductIds
+  );
+  result.queries.preFetch += 1;
+
   result.timing.preFetch = Date.now() - preFetchStart;
 
   const preFetched = {
@@ -321,6 +338,8 @@ async function processBatch(
     existingVariantsByProduct,
     identifierMatches,
     takenHandles,
+    globalVariantIndex,
+    productsWithCanonicalLink,
   };
 
   // PHASE 3: Process all products to compute pending operations (pure computation, NO DB!)
@@ -337,6 +356,7 @@ async function processBatch(
     variantCreates: [],
     variantLinkUpserts: [],
     variantAttributeAssignments: [],
+    variantDisplayOverrides: [],
   };
 
   // Track handles used within this batch to avoid collisions
@@ -366,6 +386,7 @@ async function processBatch(
         allPendingOps.variantCreates.push(...processed.pendingOps.variantCreates);
         allPendingOps.variantLinkUpserts.push(...processed.pendingOps.variantLinkUpserts);
         allPendingOps.variantAttributeAssignments.push(...processed.pendingOps.variantAttributeAssignments);
+        allPendingOps.variantDisplayOverrides.push(...processed.pendingOps.variantDisplayOverrides);
       } else {
         result.variantsFailed += product.variants.length;
         result.errors.push({ externalId: product.externalId, message: processed.error || "Unknown error" });
@@ -516,6 +537,13 @@ async function processBatch(
   if (allPendingOps.variantAttributeAssignments.length > 0) {
     await batchReplaceVariantAttributes(db, allPendingOps.variantAttributeAssignments);
     result.queries.variantAttributes = 2;
+  }
+
+  // GROUP 5: Variant display overrides (multi-source integration support)
+  // These are written for non-canonical source products in many-to-one mappings
+  if (allPendingOps.variantDisplayOverrides.length > 0) {
+    await batchUpsertVariantDisplayOverrides(db, allPendingOps.variantDisplayOverrides);
+    result.queries.variantUpdates += 1; // Reuse variantUpdates counter for display overrides
   }
 
   result.timing.batchOps = Date.now() - batchOpsStart;

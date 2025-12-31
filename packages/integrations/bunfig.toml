@@ -1,0 +1,7 @@
+# Bun configuration for integration tests
+[test]
+# Preload the setup file to initialize env vars and MSW
+preload = ["./__tests__/setup.ts"]
+
+# Run tests sequentially to avoid DB conflicts 
+coverage = false

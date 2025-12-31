@@ -15,6 +15,7 @@ import type {
   ProductLinkData,
   VariantLinkData,
   PreFetchedVariant,
+  GlobalVariantIndex,
 } from "@v1/db/queries/integrations";
 import { slugifyProductName } from "@v1/db/utils";
 import type {
@@ -254,6 +255,8 @@ export interface PendingOperations {
     externalId: string;
     externalName: string | null;
     lastSyncedHash: string | null;
+    /** Whether this source product is canonical within its integration */
+    isCanonical?: boolean;
   }>;
   tagAssignments: Array<{ productId: string; tagIds: string[] }>;
   variantUpdates: Array<{ id: string; sku?: string | null; barcode?: string | null }>;
@@ -284,6 +287,15 @@ export interface PendingOperations {
     variantId: string;
     attributeValueIds: string[];
   }>;
+  /** Variant display overrides for non-canonical source products (multi-source integration) */
+  variantDisplayOverrides: Array<{
+    variantId: string;
+    name?: string | null;
+    description?: string | null;
+    imagePath?: string | null;
+    sourceIntegration?: string | null;
+    sourceExternalId?: string | null;
+  }>;
 }
 
 export interface ProcessedProductResult {
@@ -306,6 +318,13 @@ export interface PreFetchedData {
   identifierMatches: Map<string, { productId: string; productHandle: string }>;
   /** Pre-computed set of handles that are already taken */
   takenHandles: Set<string>;
+  /** Global variant index for SKU/barcode matching across ALL brand variants */
+  globalVariantIndex: GlobalVariantIndex;
+  /**
+   * Set of Avelero product IDs that already have a canonical link from this integration.
+   * Used to determine if a new link should be canonical or non-canonical.
+   */
+  productsWithCanonicalLink: Set<string>;
 }
 
 // =============================================================================
@@ -325,7 +344,7 @@ function extractRawIdentifiers(variantData: Record<string, unknown>): {
 } {
   const rawSku = getValueByPath(variantData, "sku");
   const rawBarcode = getValueByPath(variantData, "barcode");
-  
+
   return {
     sku: rawSku ? String(rawSku).trim() || undefined : undefined,
     barcode: rawBarcode ? String(rawBarcode).trim() || undefined : undefined,
@@ -355,6 +374,7 @@ function createEmptyPendingOps(): Omit<PendingOperations, 'productCreates'> & { 
     variantCreates: [],
     variantLinkUpserts: [],
     variantAttributeAssignments: [],
+    variantDisplayOverrides: [],
   };
 }
 
@@ -403,10 +423,17 @@ export function processProduct(
     let productHandle: string;
 
     const existingLink = preFetched.productLinks.get(externalProduct.externalId);
+
+    // Determine if this source product is canonical within this integration.
+    // - If we have an existing link, use its isCanonical status
+    // - If creating a new link, check if the product already has a canonical link from this integration
+    let isCanonical = true; // Default: first link is canonical
+
     if (existingLink) {
       // Product already linked to this integration
       productId = existingLink.productId;
       productHandle = existingLink.productHandle;
+      isCanonical = existingLink.isCanonical;
     } else {
       // Check our in-batch cache first
       const cached = getCachedProduct(caches, externalProduct.externalId);
@@ -414,31 +441,41 @@ export function processProduct(
         productId = cached.id;
         productHandle = cached.productHandle;
         productCreated = cached.created;
+        // For cached products, check if this product already has a canonical link
+        if (!productCreated && preFetched.productsWithCanonicalLink.has(productId)) {
+          isCanonical = false;
+        }
       } else {
         // Check pre-fetched identifier matches (replaces findProductByVariantIdentifiers)
         const identifierMatch = preFetched.identifierMatches.get(externalProduct.externalId);
-        
+
         if (identifierMatch) {
           // Matched to existing product via SKU/barcode
           productId = identifierMatch.productId;
           productHandle = identifierMatch.productHandle;
+          // Check if this product already has a canonical link from this integration
+          if (preFetched.productsWithCanonicalLink.has(productId)) {
+            isCanonical = false;
+          }
         } else {
           // Need to create a new product - generate handle (using pre-fetched taken handles)
           productHandle = generateUniqueHandleSync(
-            productName, 
-            preFetched.takenHandles, 
+            productName,
+            preFetched.takenHandles,
             usedHandlesInBatch
           );
           usedHandlesInBatch.add(productHandle);
-          
+
           // Use placeholder ID - will be replaced after batch insert
           productId = `__pending:${externalProduct.externalId}`;
           productCreated = true;
-          
+          // New products are always canonical (first link)
+          isCanonical = true;
+
           // Queue product creation
           const categoryEnabled = isFieldEnabled(mappings, "product.categoryId");
           const categoryId = categoryEnabled ? (productExtracted.referenceEntities.categoryId ?? null) : null;
-          
+
           pendingOps.productCreate = {
             externalId: externalProduct.externalId,
             name: productName,
@@ -447,7 +484,7 @@ export function processProduct(
             categoryId,
             imageUrl: (productExtracted.product.imagePath as string) ?? null,
           };
-          
+
           // Queue commercial data for newly created product
           const commercialData = buildProductCommercialData(productId, productExtracted);
           if (commercialData) {
@@ -455,13 +492,14 @@ export function processProduct(
           }
         }
 
-        // Queue product link upsert
+        // Queue product link upsert (with isCanonical)
         pendingOps.productLinkUpserts.push({
           brandIntegrationId: ctx.brandIntegrationId,
           productId,
           externalId: externalProduct.externalId,
           externalName: productName,
           lastSyncedHash: productHash,
+          isCanonical,
         });
 
         // Cache for other products in this batch that might reference the same external ID
@@ -473,24 +511,26 @@ export function processProduct(
     const hashMatches = existingLink?.lastSyncedHash === productHash;
 
     // STEP 2: Queue product update if needed
-    if (!hashMatches && !productCreated && !isProductUpdated(caches, productId)) {
+    // Only canonical source products write to product-level.
+    // Non-canonical sources will write to variant overrides in processVariantsSync.
+    if (isCanonical && !hashMatches && !productCreated && !isProductUpdated(caches, productId)) {
       const updateData = buildProductUpdateData(productExtracted, mappings);
       if (Object.keys(updateData).length > 0) {
         pendingOps.productUpdates.push({ id: productId, ...updateData });
         productUpdated = true;
       }
-      
-      // Queue commercial data upsert
+
+      // Queue commercial data upsert (canonical sources only)
       const commercialData = buildProductCommercialData(productId, productExtracted);
       if (commercialData) {
         pendingOps.productCommercialUpserts.push(commercialData);
       }
-      
+
       markProductUpdated(caches, productId);
     }
 
-    // STEP 3: Queue tags if needed
-    if (!hashMatches && tagIds.length) {
+    // STEP 3: Queue tags if needed (canonical sources only)
+    if (isCanonical && !hashMatches && tagIds.length) {
       pendingOps.tagAssignments.push({ productId, tagIds });
     }
 
@@ -502,11 +542,17 @@ export function processProduct(
         externalId: externalProduct.externalId,
         externalName: productName,
         lastSyncedHash: productHash,
+        // Preserve existing isCanonical status
+        isCanonical: existingLink.isCanonical,
       });
     }
 
     // STEP 4: Process variants (returns pending operations)
-    const matchViaIdentifiers = !existingLink && !preFetched.identifierMatches.has(externalProduct.externalId);
+    // Always allow variant-level SKU/barcode matching when there's no existing variant link.
+    // Previously this was incorrectly set to false when the product was matched by identifier,
+    // which caused variants to be duplicated instead of linked to existing ones.
+    // Product-level matching and variant-level matching are separate concerns.
+    const matchViaIdentifiers = !existingLink;
     const variantResult = processVariantsSync(
       ctx,
       productId,
@@ -514,14 +560,17 @@ export function processProduct(
       mappings,
       caches,
       preFetched,
-      matchViaIdentifiers
+      matchViaIdentifiers,
+      isCanonical,
+      productExtracted  // Pass product-level extracted values for display override comparison
     );
-    
+
     // Merge variant pending ops
     pendingOps.variantUpdates.push(...variantResult.variantUpdates);
     pendingOps.variantCreates.push(...variantResult.variantCreates);
     pendingOps.variantLinkUpserts.push(...variantResult.variantLinkUpserts);
     pendingOps.variantAttributeAssignments.push(...variantResult.variantAttributeAssignments);
+    pendingOps.variantDisplayOverrides.push(...variantResult.variantDisplayOverrides);
 
     return {
       success: true,
@@ -557,7 +606,7 @@ function generateUniqueHandleSync(
   usedInBatch: Set<string>
 ): string {
   const baseSlug = slugifyProductName(name);
-  
+
   if (!baseSlug) {
     // Fallback for empty names
     const suffix = String(randomInt(1000, 10000));
@@ -609,7 +658,7 @@ function buildProductCommercialData(
   productId: string,
   extracted: ReturnType<typeof extractValues>
 ): ProductCommercialOp | null {
-  const hasCommercialData = 
+  const hasCommercialData =
     extracted.product.webshopUrl !== undefined ||
     extracted.product.price !== undefined ||
     extracted.product.currency !== undefined ||
@@ -638,11 +687,17 @@ interface ProcessVariantsResult {
   variantCreates: PendingOperations['variantCreates'];
   variantLinkUpserts: PendingOperations['variantLinkUpserts'];
   variantAttributeAssignments: PendingOperations['variantAttributeAssignments'];
+  /** Variant display overrides for non-canonical source products */
+  variantDisplayOverrides: PendingOperations['variantDisplayOverrides'];
 }
 
 /**
  * Process variants synchronously - compute what needs to change without DB writes.
  * All DB operations are returned as pending operations to be batched at engine level.
+ * 
+ * @param isCanonical - Whether this source product is canonical within its integration.
+ *                      Non-canonical sources write to variant display overrides.
+ * @param productExtracted - Product-level extracted values for display override comparison.
  */
 function processVariantsSync(
   ctx: SyncContext,
@@ -651,13 +706,16 @@ function processVariantsSync(
   mappings: EffectiveFieldMapping[],
   caches: SyncCaches,
   preFetched: PreFetchedData,
-  matchViaIdentifiers: boolean
+  matchViaIdentifiers: boolean,
+  isCanonical: boolean,
+  productExtracted: ExtractedValues
 ): ProcessVariantsResult {
   let skipped = 0;
   const variantUpdates: PendingOperations['variantUpdates'] = [];
   const variantCreates: PendingOperations['variantCreates'] = [];
   const variantLinkUpserts: PendingOperations['variantLinkUpserts'] = [];
   const variantAttributeAssignments: PendingOperations['variantAttributeAssignments'] = [];
+  const variantDisplayOverrides: PendingOperations['variantDisplayOverrides'] = [];
 
   const skuEnabled = isFieldEnabled(mappings, "variant.sku");
   const barcodeEnabled = isFieldEnabled(mappings, "variant.barcode");
@@ -667,8 +725,13 @@ function processVariantsSync(
   const existingById = new Map(existingVariants.map((v) => [v.id, v]));
   const existingByBarcode = new Map(existingVariants.filter((v) => v.barcode?.trim()).map((v) => [v.barcode!.toLowerCase(), v]));
   const existingBySku = new Map(existingVariants.filter((v) => v.sku?.trim()).map((v) => [v.sku!.toLowerCase(), v]));
-  
+
   const usedVariantIds = new Set<string>();
+
+  // Extract product-level values for override comparison
+  const productName = productExtracted.product.name as string | undefined;
+  const productDescription = productExtracted.product.description as string | undefined;
+  const productImagePath = productExtracted.product.imagePath as string | undefined;
 
   for (const externalVariant of externalProduct.variants) {
     const variantData = { ...externalVariant.data, product: externalProduct.data };
@@ -676,40 +739,50 @@ function processVariantsSync(
     const hash = computeHash(extracted);
     const rawIds = extractRawIdentifiers(variantData);
     const existingLink = preFetched.variantLinks.get(externalVariant.externalId);
-    
+
     // FAST PATH: Hash matches = no changes
-    if (existingLink?.lastSyncedHash === hash) { 
-      skipped++; 
-      continue; 
+    if (existingLink?.lastSyncedHash === hash) {
+      skipped++;
+      continue;
     }
 
     const sku = skuEnabled ? (extracted.variant.sku as string) ?? null : null;
     const barcode = barcodeEnabled ? (extracted.variant.barcode as string) ?? null : null;
-    
+
     // Resolve variant attributes to IDs
     const attributeValueIds = attributesEnabled
       ? resolveAttributeValueIds(parseSelectedOptions(variantData), caches)
       : [];
 
-    const existingVariant = findExistingVariant(
-      existingLink, existingById, existingByBarcode, existingBySku, 
-      rawIds, usedVariantIds, matchViaIdentifiers
+    const matchResult = findExistingVariant(
+      existingLink, existingById, existingByBarcode, existingBySku,
+      rawIds, usedVariantIds, matchViaIdentifiers, preFetched.globalVariantIndex
     );
 
-    if (existingVariant) {
-      // Build update data (only SKU and barcode)
+    if (matchResult) {
+      const existingVariant = matchResult.variant;
+      // Build update data (only SKU and barcode - we don't update identifiers from global matches
+      // as those would require understanding the target product context)
       const updateData: { id: string; sku?: string | null; barcode?: string | null } = { id: existingVariant.id };
       let hasChanges = false;
-      
-      if (skuEnabled && existingVariant.sku !== sku) { updateData.sku = sku; hasChanges = true; }
-      if (barcodeEnabled && existingVariant.barcode !== barcode) { updateData.barcode = barcode; hasChanges = true; }
-      
+
+      // Only update SKU/barcode if we matched within the same product (not a global match)
+      // Global matches may involve variants from other products with valid identifiers
+      if (!matchResult.productId) {
+        // Get the matched variant's current SKU/barcode from the existingVariants map
+        const matchedVariantData = existingById.get(existingVariant.id);
+        if (matchedVariantData) {
+          if (skuEnabled && matchedVariantData.sku !== sku) { updateData.sku = sku; hasChanges = true; }
+          if (barcodeEnabled && matchedVariantData.barcode !== barcode) { updateData.barcode = barcode; hasChanges = true; }
+        }
+      }
+
       if (hasChanges) {
         variantUpdates.push(updateData);
-      } else { 
-        skipped++; 
+      } else {
+        skipped++;
       }
-      
+
       // Queue attribute assignment for existing variant (always replace to sync state)
       if (attributesEnabled && attributeValueIds.length > 0) {
         variantAttributeAssignments.push({
@@ -717,7 +790,42 @@ function processVariantsSync(
           attributeValueIds,
         });
       }
-      
+
+      // NON-CANONICAL SOURCE: Queue variant display overrides if values differ from product-level
+      // This handles many-to-one mappings where multiple source products link to the same Avelero product.
+      // The canonical source writes to product-level; non-canonical sources write to variant overrides.
+      if (!isCanonical) {
+        const override: PendingOperations['variantDisplayOverrides'][number] = {
+          variantId: existingVariant.id,
+          sourceIntegration: ctx.integrationSlug,
+          sourceExternalId: externalProduct.externalId,
+        };
+        let hasOverride = false;
+
+        // Only create override if value differs from product-level
+        const sourceName = productExtracted.product.name as string | undefined;
+        const sourceDescription = productExtracted.product.description as string | undefined;
+        const sourceImagePath = productExtracted.product.imagePath as string | undefined;
+
+        if (sourceName && sourceName !== productName) {
+          override.name = sourceName;
+          hasOverride = true;
+        }
+        if (sourceDescription !== undefined && sourceDescription !== productDescription) {
+          override.description = sourceDescription;
+          hasOverride = true;
+        }
+        if (sourceImagePath && sourceImagePath !== productImagePath) {
+          override.imagePath = sourceImagePath;
+          hasOverride = true;
+        }
+
+        // Only queue override if at least one field differs
+        if (hasOverride) {
+          variantDisplayOverrides.push(override);
+        }
+      }
+
       // Queue link upsert
       variantLinkUpserts.push({
         brandIntegrationId: ctx.brandIntegrationId,
@@ -747,17 +855,26 @@ function processVariantsSync(
     }
   }
 
-  return { 
-    variantsCreated: variantCreates.length, 
-    variantsUpdated: variantUpdates.length, 
+  return {
+    variantsCreated: variantCreates.length,
+    variantsUpdated: variantUpdates.length,
     variantsSkipped: skipped,
     variantUpdates,
     variantCreates,
     variantLinkUpserts,
     variantAttributeAssignments,
+    variantDisplayOverrides,
   };
 }
 
+/**
+ * Find an existing variant to link to.
+ * 
+ * Priority order:
+ * 1. Match via existing integration link (variantId from link)
+ * 2. Match via product-scoped identifiers (barcode/SKU within the product)
+ * 3. Match via global variant index (barcode/SKU across ALL brand variants) - NEW for multi-source
+ */
 function findExistingVariant<T extends { id: string }>(
   existingLink: { variantId: string } | undefined,
   existingById: Map<string, T>,
@@ -765,23 +882,50 @@ function findExistingVariant<T extends { id: string }>(
   existingBySku: Map<string, T>,
   rawIds: { sku?: string; barcode?: string },
   usedVariantIds: Set<string>,
-  matchViaIdentifiers: boolean
-): T | undefined {
+  matchViaIdentifiers: boolean,
+  globalVariantIndex?: GlobalVariantIndex
+): { variant: T; productId?: string } | undefined {
   // Priority 1: Match via existing integration link
   if (existingLink) {
     const v = existingById.get(existingLink.variantId);
-    if (v) { usedVariantIds.add(v.id); return v; }
+    if (v) { usedVariantIds.add(v.id); return { variant: v }; }
   }
 
-  // Priority 2: Match via barcode/SKU identifiers
+  // Priority 2: Match via product-scoped barcode/SKU identifiers
   if (matchViaIdentifiers) {
     if (rawIds.barcode) {
       const v = existingByBarcode.get(rawIds.barcode.toLowerCase());
-      if (v && !usedVariantIds.has(v.id)) { usedVariantIds.add(v.id); return v; }
+      if (v && !usedVariantIds.has(v.id)) { usedVariantIds.add(v.id); return { variant: v }; }
     }
     if (rawIds.sku) {
       const v = existingBySku.get(rawIds.sku.toLowerCase());
-      if (v && !usedVariantIds.has(v.id)) { usedVariantIds.add(v.id); return v; }
+      if (v && !usedVariantIds.has(v.id)) { usedVariantIds.add(v.id); return { variant: v }; }
+    }
+  }
+
+  // Priority 3: Match via global variant index (multi-source integration support)
+  // This allows matching variants from other products in the brand
+  if (matchViaIdentifiers && globalVariantIndex) {
+    if (rawIds.barcode) {
+      const match = globalVariantIndex.byBarcode.get(rawIds.barcode.toLowerCase());
+      if (match && !usedVariantIds.has(match.variantId)) {
+        usedVariantIds.add(match.variantId);
+        // Return a synthetic variant object with the matched ID
+        return {
+          variant: { id: match.variantId } as T,
+          productId: match.productId
+        };
+      }
+    }
+    if (rawIds.sku) {
+      const match = globalVariantIndex.bySku.get(rawIds.sku.toLowerCase());
+      if (match && !usedVariantIds.has(match.variantId)) {
+        usedVariantIds.add(match.variantId);
+        return {
+          variant: { id: match.variantId } as T,
+          productId: match.productId
+        };
+      }
     }
   }
 

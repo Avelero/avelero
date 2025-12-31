@@ -9,20 +9,21 @@
   "scripts": {
     "lint": "biome lint ./src",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "bun test --preload ./__tests__/setup.ts",
+    "test:watch": "bun test --watch --preload ./__tests__/setup.ts"
   },
   "dependencies": {
     "@v1/db": "workspace:*",
     "@v1/supabase": "workspace:*"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.16",
     "@types/node": "^24.0.1",
     "@v1/tsconfig": "workspace:*",
+    "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
     "msw": "^2.7.0",
     "postgres": "^3.4.7",
-    "typescript": "^5.9.2",
-    "vitest": "^3.0.0"
+    "typescript": "^5.9.2"
   }
 }

@@ -4,7 +4,12 @@
  * Initializes MSW mock server and database cleanup between tests.
  */
 
-import { beforeAll, afterAll, afterEach } from "vitest";
+// Load .env.test FIRST before any other imports that depend on DATABASE_URL
+import { config } from "dotenv";
+import { resolve } from "path";
+config({ path: resolve(import.meta.dir, "../.env.test") });
+
+import { beforeAll, afterAll, afterEach } from "bun:test";
 import { mockServer } from "./utils/mock-shopify";
 import { cleanupTables, closeTestDb } from "./utils/test-db";
 
@@ -26,3 +31,4 @@ afterAll(async () => {
     mockServer.close();
     await closeTestDb();
 });
+

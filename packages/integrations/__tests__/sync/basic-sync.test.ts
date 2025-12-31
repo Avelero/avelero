@@ -5,7 +5,7 @@
  * Covers Tests 1.1-1.6 from the integration test plan.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { eq } from "drizzle-orm";
 import { products, productVariants, productVariantAttributes, brandAttributes, brandAttributeValues, productTags, brandTags } from "@v1/db/schema";
 import { syncProducts } from "../../src/sync/engine";

@@ -1,6 +1,6 @@
 {
-  "id": "bd966d82-8b5b-40d7-a366-542481ceba2f",
-  "prevId": "805e253c-da4a-457f-a5d1-8341db5ef7c9",
+  "id": "4a8121f3-fc65-4a44-8fd7-259cc499d3a1",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -134,7 +134,7 @@
             "service_role"
           ],
           "using": "auth.uid() = id",
-          "withCheck": "\n        auth.uid() = id\n        AND (\n          brand_id IS NULL\n          OR EXISTS (\n            SELECT 1\n            FROM users_on_brand uob\n            WHERE uob.brand_id = brand_id\n              AND uob.user_id = auth.uid()\n          )\n        )\n      "
+          "withCheck": "\n        auth.uid() = id\n        AND (\n          brand_id IS NULL\n          OR EXISTS (\n            SELECT 1\n            FROM brand_members bm\n            WHERE bm.brand_id = users.brand_id\n              AND bm.user_id = auth.uid()\n          )\n        )\n      "
         },
         "users_insert_own_profile": {
           "name": "users_insert_own_profile",
@@ -2877,6 +2877,36 @@
           "primaryKey": false,
           "notNull": false
         },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image_path": {
+          "name": "image_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_integration": {
+          "name": "source_integration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_external_id": {
+          "name": "source_external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2945,50 +2975,6 @@
           ],
           "isUnique": false,
           "where": "(upid IS NOT NULL)",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_unique_sku_per_brand": {
-          "name": "idx_unique_sku_per_brand",
-          "columns": [
-            {
-              "expression": "sku",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "get_product_brand_id(product_id)",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "sku IS NOT NULL AND sku != ''",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_unique_barcode_per_brand": {
-          "name": "idx_unique_barcode_per_brand",
-          "columns": [
-            {
-              "expression": "barcode",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "get_product_brand_id(product_id)",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "barcode IS NOT NULL AND barcode != ''",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3453,7 +3439,7 @@
         "product_id": {
           "name": "product_id",
           "type": "uuid",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true
         },
         "value": {
@@ -3472,7 +3458,7 @@
           "name": "metric",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -3505,7 +3491,15 @@
           "onUpdate": "cascade"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "product_environment_pkey": {
+          "name": "product_environment_pkey",
+          "columns": [
+            "product_id",
+            "metric"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {
         "product_environment_select_for_brand_members": {
@@ -4228,6 +4222,884 @@
             "service_role"
           ],
           "using": "EXISTS (\n      SELECT 1 FROM products \n      WHERE products.id = product_id \n      AND is_brand_member(products.brand_id)\n    )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.variant_commercial": {
+      "name": "variant_commercial",
+      "schema": "",
+      "columns": {
+        "variant_id": {
+          "name": "variant_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "webshop_url": {
+          "name": "webshop_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sales_status": {
+          "name": "sales_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_integration": {
+          "name": "source_integration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_external_id": {
+          "name": "source_external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "variant_commercial_variant_id_product_variants_id_fk": {
+          "name": "variant_commercial_variant_id_product_variants_id_fk",
+          "tableFrom": "variant_commercial",
+          "tableTo": "product_variants",
+          "columnsFrom": [
+            "variant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "variant_commercial_select_for_brand_members": {
+          "name": "variant_commercial_select_for_brand_members",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_commercial_insert_by_brand_member": {
+          "name": "variant_commercial_insert_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_commercial_update_by_brand_member": {
+          "name": "variant_commercial_update_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_commercial_delete_by_brand_member": {
+          "name": "variant_commercial_delete_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.variant_environment": {
+      "name": "variant_environment",
+      "schema": "",
+      "columns": {
+        "variant_id": {
+          "name": "variant_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "carbon_kg_co2e": {
+          "name": "carbon_kg_co2e",
+          "type": "numeric(12, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "water_liters": {
+          "name": "water_liters",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_integration": {
+          "name": "source_integration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_external_id": {
+          "name": "source_external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "variant_environment_variant_id_product_variants_id_fk": {
+          "name": "variant_environment_variant_id_product_variants_id_fk",
+          "tableFrom": "variant_environment",
+          "tableTo": "product_variants",
+          "columnsFrom": [
+            "variant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "variant_environment_select_for_brand_members": {
+          "name": "variant_environment_select_for_brand_members",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_environment_insert_by_brand_member": {
+          "name": "variant_environment_insert_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_environment_update_by_brand_member": {
+          "name": "variant_environment_update_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_environment_delete_by_brand_member": {
+          "name": "variant_environment_delete_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.variant_eco_claims": {
+      "name": "variant_eco_claims",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "variant_id": {
+          "name": "variant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "eco_claim_id": {
+          "name": "eco_claim_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_integration": {
+          "name": "source_integration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_external_id": {
+          "name": "source_external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "variant_eco_claims_unique": {
+          "name": "variant_eco_claims_unique",
+          "columns": [
+            {
+              "expression": "variant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "eco_claim_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_variant_eco_claims_variant_id": {
+          "name": "idx_variant_eco_claims_variant_id",
+          "columns": [
+            {
+              "expression": "variant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "variant_eco_claims_variant_id_product_variants_id_fk": {
+          "name": "variant_eco_claims_variant_id_product_variants_id_fk",
+          "tableFrom": "variant_eco_claims",
+          "tableTo": "product_variants",
+          "columnsFrom": [
+            "variant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "variant_eco_claims_eco_claim_id_brand_eco_claims_id_fk": {
+          "name": "variant_eco_claims_eco_claim_id_brand_eco_claims_id_fk",
+          "tableFrom": "variant_eco_claims",
+          "tableTo": "brand_eco_claims",
+          "columnsFrom": [
+            "eco_claim_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "variant_eco_claims_select_for_brand_members": {
+          "name": "variant_eco_claims_select_for_brand_members",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_eco_claims_insert_by_brand_member": {
+          "name": "variant_eco_claims_insert_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_eco_claims_update_by_brand_member": {
+          "name": "variant_eco_claims_update_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_eco_claims_delete_by_brand_member": {
+          "name": "variant_eco_claims_delete_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.variant_materials": {
+      "name": "variant_materials",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "variant_id": {
+          "name": "variant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brand_material_id": {
+          "name": "brand_material_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "percentage": {
+          "name": "percentage",
+          "type": "numeric(6, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_integration": {
+          "name": "source_integration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_external_id": {
+          "name": "source_external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "variant_materials_variant_material_unq": {
+          "name": "variant_materials_variant_material_unq",
+          "columns": [
+            {
+              "expression": "variant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "brand_material_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_variant_materials_variant_id": {
+          "name": "idx_variant_materials_variant_id",
+          "columns": [
+            {
+              "expression": "variant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "variant_materials_variant_id_product_variants_id_fk": {
+          "name": "variant_materials_variant_id_product_variants_id_fk",
+          "tableFrom": "variant_materials",
+          "tableTo": "product_variants",
+          "columnsFrom": [
+            "variant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "variant_materials_brand_material_id_brand_materials_id_fk": {
+          "name": "variant_materials_brand_material_id_brand_materials_id_fk",
+          "tableFrom": "variant_materials",
+          "tableTo": "brand_materials",
+          "columnsFrom": [
+            "brand_material_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "variant_materials_select_for_brand_members": {
+          "name": "variant_materials_select_for_brand_members",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_materials_insert_by_brand_member": {
+          "name": "variant_materials_insert_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_materials_update_by_brand_member": {
+          "name": "variant_materials_update_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )",
+          "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_materials_delete_by_brand_member": {
+          "name": "variant_materials_delete_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.variant_weight": {
+      "name": "variant_weight",
+      "schema": "",
+      "columns": {
+        "variant_id": {
+          "name": "variant_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "weight": {
+          "name": "weight",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "weight_unit": {
+          "name": "weight_unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_integration": {
+          "name": "source_integration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_external_id": {
+          "name": "source_external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "variant_weight_variant_id_product_variants_id_fk": {
+          "name": "variant_weight_variant_id_product_variants_id_fk",
+          "tableFrom": "variant_weight",
+          "tableTo": "product_variants",
+          "columnsFrom": [
+            "variant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "variant_weight_select_for_brand_members": {
+          "name": "variant_weight_select_for_brand_members",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_weight_insert_by_brand_member": {
+          "name": "variant_weight_insert_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_weight_update_by_brand_member": {
+          "name": "variant_weight_update_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_weight_delete_by_brand_member": {
+          "name": "variant_weight_delete_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.variant_journey_steps": {
+      "name": "variant_journey_steps",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "variant_id": {
+          "name": "variant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_index": {
+          "name": "sort_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "step_type": {
+          "name": "step_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "facility_id": {
+          "name": "facility_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_integration": {
+          "name": "source_integration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_external_id": {
+          "name": "source_external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "variant_journey_steps_variant_sort_unq": {
+          "name": "variant_journey_steps_variant_sort_unq",
+          "columns": [
+            {
+              "expression": "variant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sort_index",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_variant_journey_steps_variant_id": {
+          "name": "idx_variant_journey_steps_variant_id",
+          "columns": [
+            {
+              "expression": "variant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_variant_journey_steps_variant_sort": {
+          "name": "idx_variant_journey_steps_variant_sort",
+          "columns": [
+            {
+              "expression": "variant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops"
+            },
+            {
+              "expression": "sort_index",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_variant_journey_steps_facility_id": {
+          "name": "idx_variant_journey_steps_facility_id",
+          "columns": [
+            {
+              "expression": "facility_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "variant_journey_steps_variant_id_product_variants_id_fk": {
+          "name": "variant_journey_steps_variant_id_product_variants_id_fk",
+          "tableFrom": "variant_journey_steps",
+          "tableTo": "product_variants",
+          "columnsFrom": [
+            "variant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "variant_journey_steps_facility_id_brand_facilities_id_fk": {
+          "name": "variant_journey_steps_facility_id_brand_facilities_id_fk",
+          "tableFrom": "variant_journey_steps",
+          "tableTo": "brand_facilities",
+          "columnsFrom": [
+            "facility_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "variant_journey_steps_select_for_brand_members": {
+          "name": "variant_journey_steps_select_for_brand_members",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_journey_steps_insert_by_brand_member": {
+          "name": "variant_journey_steps_insert_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "INSERT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_journey_steps_update_by_brand_member": {
+          "name": "variant_journey_steps_update_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "UPDATE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )",
+          "withCheck": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
+        },
+        "variant_journey_steps_delete_by_brand_member": {
+          "name": "variant_journey_steps_delete_by_brand_member",
+          "as": "PERMISSIVE",
+          "for": "DELETE",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "EXISTS (\n        SELECT 1 FROM product_variants pv\n        JOIN products p ON p.id = pv.product_id\n        WHERE pv.id = variant_id\n        AND is_brand_member(p.brand_id)\n      )"
         }
       },
       "checkConstraints": {},
@@ -8302,6 +9174,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "is_canonical": {
+          "name": "is_canonical",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -9020,6 +9899,124 @@
       "policies": {
         "taxonomy_values_select_for_authenticated": {
           "name": "taxonomy_values_select_for_authenticated",
+          "as": "PERMISSIVE",
+          "for": "SELECT",
+          "to": [
+            "authenticated",
+            "service_role"
+          ],
+          "using": "true"
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.taxonomy_external_mappings": {
+      "name": "taxonomy_external_mappings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_system": {
+          "name": "source_system",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_taxonomy": {
+          "name": "source_taxonomy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_taxonomy": {
+          "name": "target_taxonomy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "taxonomy_external_mappings_slug_unq": {
+          "name": "taxonomy_external_mappings_slug_unq",
+          "columns": [
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "taxonomy_external_mappings_source_idx": {
+          "name": "taxonomy_external_mappings_source_idx",
+          "columns": [
+            {
+              "expression": "source_system",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_taxonomy",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "taxonomy_external_mappings_select_for_authenticated": {
+          "name": "taxonomy_external_mappings_select_for_authenticated",
           "as": "PERMISSIVE",
           "for": "SELECT",
           "to": [

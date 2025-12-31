@@ -70,6 +70,12 @@ export interface ProductLinkUpsertData {
   externalId: string;
   externalName: string | null;
   lastSyncedHash: string | null;
+  /**
+   * Whether this source product is canonical within its integration.
+   * Canonical sources write to product-level; non-canonical write to variant overrides.
+   * When undefined, defaults to true for new links (preserving backward compatibility).
+   */
+  isCanonical?: boolean;
 }
 
 export interface TagAssignmentData {
@@ -334,6 +340,13 @@ export async function batchSetProductTags(
 
 /**
  * Batch upsert product links in a single query.
+ * 
+ * Includes isCanonical flag for multi-source integration support:
+ * - Canonical sources (isCanonical=true) write to product-level
+ * - Non-canonical sources (isCanonical=false) write to variant overrides
+ * 
+ * The isCanonical flag is only set on INSERT (new links), not on UPDATE.
+ * This preserves the first link as canonical even if re-synced.
  */
 export async function batchUpsertProductLinks(
   db: Database,
@@ -351,6 +364,8 @@ export async function batchUpsertProductLinks(
       externalName: link.externalName,
       lastSyncedHash: link.lastSyncedHash,
       lastSyncedAt: now,
+      // isCanonical defaults to true for new links (backward compatibility)
+      isCanonical: link.isCanonical ?? true,
     })))
     .onConflictDoUpdate({
       target: [
@@ -358,6 +373,9 @@ export async function batchUpsertProductLinks(
         integrationProductLinks.externalId,
       ],
       set: {
+        // NOTE: We do NOT update isCanonical on conflict.
+        // Once a link is created, its canonical status is preserved.
+        // This ensures the first link remains canonical even after re-sync.
         externalName: sql`EXCLUDED.external_name`,
         lastSyncedHash: sql`EXCLUDED.last_synced_hash`,
         lastSyncedAt: sql`EXCLUDED.last_synced_at`,
@@ -825,4 +843,72 @@ export async function batchReplaceVariantEcoClaims(
   await db.insert(variantEcoClaims).values(toInsert);
 
   return toInsert.length;
+}
+
+// =============================================================================
+// BATCH UPSERT VARIANT DISPLAY OVERRIDES (Multi-Source Integration Support)
+// =============================================================================
+
+/**
+ * Display override data for variant-level overrides.
+ * 
+ * These overrides are written when processing a non-canonical source product
+ * within an integration (many-to-one mapping). The canonical source product
+ * writes to product-level, while non-canonical sources write to variant overrides.
+ */
+export interface VariantDisplayOverrideData {
+  variantId: string;
+  /** Variant-level name override (takes precedence over product.name for DPP) */
+  name?: string | null;
+  /** Variant-level description override (takes precedence over product.description for DPP) */
+  description?: string | null;
+  /** Variant-level image override (takes precedence over product.imagePath for DPP) */
+  imagePath?: string | null;
+  /** The integration that wrote this override */
+  sourceIntegration?: string | null;
+  /** External ID from the source system */
+  sourceExternalId?: string | null;
+}
+
+/**
+ * Batch upsert variant display overrides.
+ * 
+ * Updates the name, description, imagePath, sourceIntegration, and sourceExternalId
+ * columns on the product_variants table. These are variant-level overrides that
+ * take precedence over product-level values for DPP rendering.
+ * 
+ * Used for multi-source integration support when a non-canonical source product
+ * links to the same Avelero product as a canonical source.
+ * 
+ * @param db - Database connection
+ * @param overrides - Array of variant display override data
+ * @returns Number of variants updated
+ */
+export async function batchUpsertVariantDisplayOverrides(
+  db: Database,
+  overrides: VariantDisplayOverrideData[]
+): Promise<number> {
+  if (overrides.length === 0) return 0;
+
+  // Filter to only records that have at least one display field set
+  const validOverrides = overrides.filter(
+    (d) =>
+      d.name !== undefined ||
+      d.description !== undefined ||
+      d.imagePath !== undefined
+  );
+
+  if (validOverrides.length === 0) return 0;
+
+  // Use the existing batchUpdateVariants function with display override fields
+  const updates: VariantUpdateData[] = validOverrides.map((d) => ({
+    id: d.variantId,
+    name: d.name,
+    description: d.description,
+    imagePath: d.imagePath,
+    sourceIntegration: d.sourceIntegration,
+    sourceExternalId: d.sourceExternalId,
+  }));
+
+  return batchUpdateVariants(db, updates);
 }

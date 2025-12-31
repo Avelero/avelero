@@ -374,6 +374,89 @@ export async function batchFindVariantsByProductIds(
 }
 
 // =============================================================================
+// GLOBAL VARIANT INDEX (for multi-source integration)
+// =============================================================================
+
+/**
+ * A variant match with product info for global lookup.
+ */
+export interface GlobalVariantMatch {
+  variantId: string;
+  productId: string;
+  sku: string | null;
+  barcode: string | null;
+}
+
+/**
+ * Global variant index for O(1) lookups by SKU or barcode.
+ * Used for multi-source integration to match variants across all products in a brand.
+ */
+export interface GlobalVariantIndex {
+  /** Map from lowercase SKU to variant match */
+  bySku: Map<string, GlobalVariantMatch>;
+  /** Map from lowercase barcode to variant match */
+  byBarcode: Map<string, GlobalVariantMatch>;
+}
+
+/**
+ * Fetch ALL variants for a brand and build global indices.
+ * Returns Maps for O(1) lookup by SKU or barcode.
+ * 
+ * This enables variant matching across ALL products in the brand,
+ * not just products that were matched in the current batch.
+ * Critical for multi-source integration scenarios.
+ * 
+ * @param db - Database connection
+ * @param brandId - Brand ID to fetch variants for
+ * @returns GlobalVariantIndex with bySku and byBarcode maps
+ */
+export async function batchFindAllBrandVariants(
+  db: Database,
+  brandId: string
+): Promise<GlobalVariantIndex> {
+  const rows = await db
+    .select({
+      variantId: productVariants.id,
+      productId: productVariants.productId,
+      sku: productVariants.sku,
+      barcode: productVariants.barcode,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(eq(products.brandId, brandId));
+
+  const bySku = new Map<string, GlobalVariantMatch>();
+  const byBarcode = new Map<string, GlobalVariantMatch>();
+
+  for (const row of rows) {
+    const match: GlobalVariantMatch = {
+      variantId: row.variantId,
+      productId: row.productId,
+      sku: row.sku,
+      barcode: row.barcode,
+    };
+
+    // Index by lowercase SKU (first variant wins for duplicates)
+    if (row.sku?.trim()) {
+      const key = row.sku.toLowerCase();
+      if (!bySku.has(key)) {
+        bySku.set(key, match);
+      }
+    }
+
+    // Index by lowercase barcode (first variant wins for duplicates)
+    if (row.barcode?.trim()) {
+      const key = row.barcode.toLowerCase();
+      if (!byBarcode.has(key)) {
+        byBarcode.set(key, match);
+      }
+    }
+  }
+
+  return { bySku, byBarcode };
+}
+
+// =============================================================================
 // SKU/BARCODE MATCHING
 // =============================================================================
 
@@ -501,7 +584,7 @@ export async function batchFindProductsByIdentifiers(
   products: ProductIdentifierBatch[]
 ): Promise<BatchIdentifierMatchResult> {
   const matches = new Map<string, { productId: string; productHandle: string }>();
-  
+
   if (products.length === 0) {
     return { matches };
   }
@@ -509,11 +592,11 @@ export async function batchFindProductsByIdentifiers(
   // Collect all unique SKUs and barcodes from all products
   const allBarcodes: string[] = [];
   const allSkus: string[] = [];
-  
+
   // Track which identifiers belong to which external product
   const barcodeToExternalIds = new Map<string, string[]>();
   const skuToExternalIds = new Map<string, string[]>();
-  
+
   for (const product of products) {
     for (const id of product.identifiers) {
       if (id.barcode?.trim()) {
@@ -551,7 +634,7 @@ export async function batchFindProductsByIdentifiers(
   const unmatchedWithSkus = products.filter(
     p => !matches.has(p.externalId) && p.identifiers.some(i => i.sku?.trim())
   );
-  
+
   if (unmatchedWithSkus.length > 0 && allSkus.length > 0) {
     // Only query for SKUs of unmatched products
     const skusToQuery = new Set<string>();
@@ -560,7 +643,7 @@ export async function batchFindProductsByIdentifiers(
         if (id.sku?.trim()) skusToQuery.add(id.sku.trim());
       }
     }
-    
+
     const skuMatches = await findVariantsBySKUorBarcode(db, brandId, Array.from(skusToQuery), []);
     for (const match of skuMatches) {
       if (!match.sku) continue;

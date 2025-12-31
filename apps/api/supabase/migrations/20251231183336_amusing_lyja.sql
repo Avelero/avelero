@@ -1,0 +1,1 @@
+DROP INDEX "integration_product_links_integration_product_unq";

@@ -180,8 +180,8 @@ jobs:
        github.event.action != 'closed'
     runs-on: ubuntu-latest
     outputs:
-      # Only output the host (not secret) - dependent jobs will reconstruct the full URL
-      db_host: ${{ steps.branch-info.outputs.db_host }}
+      # Only output the project ref (not secret) - dependent jobs will construct Session Pooler URL
+      project_ref: ${{ steps.branch-info.outputs.project_ref }}
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -274,7 +274,7 @@ jobs:
           # Get branch config - branch should be ready now
           RAW_CONFIG=$(supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID)
           
-          # Extract DB Host (this is NOT secret - just a hostname)
+          # Extract DB Host to get the project ref
           DB_HOST=$(echo "$RAW_CONFIG" | grep -o 'db\.[a-z0-9-]*\.supabase\.co')
           
           if [ -z "$DB_HOST" ]; then
@@ -283,11 +283,16 @@ jobs:
              exit 1
           fi
           
-          echo "Found DB Host: $DB_HOST"
-          echo "db_host=$DB_HOST" >> $GITHUB_OUTPUT
+          # Extract project ref from db host (e.g., db.nkpzlimqtcwwpciglygr.supabase.co -> nkpzlimqtcwwpciglygr)
+          PROJECT_REF=$(echo "$DB_HOST" | sed 's/db\.\([a-z0-9-]*\)\.supabase\.co/\1/')
           
-          # Construct full URL for internal use only (masked, not output between jobs)
-          DB_URL="postgres://postgres:${{ steps.db-pass.outputs.password }}@${DB_HOST}:5432/postgres"
+          echo "Found Project Ref: $PROJECT_REF"
+          echo "project_ref=$PROJECT_REF" >> $GITHUB_OUTPUT
+          
+          # Construct Session Pooler URL for internal use (GitHub Actions is IPv4-only)
+          # Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+          POOLER_HOST="aws-0-eu-west-2.pooler.supabase.com"
+          DB_URL="postgresql://postgres.${PROJECT_REF}:${{ steps.db-pass.outputs.password }}@${POOLER_HOST}:5432/postgres"
           echo "::add-mask::$DB_URL"
           echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
 
@@ -347,9 +352,11 @@ jobs:
             }
           ')
           
-          # Construct preview branch URL using host from setup-database
-          DB_HOST="${{ needs.setup-database.outputs.db_host }}"
-          DB_URL="postgres://postgres:${PASSWORD}@${DB_HOST}:5432/postgres"
+          # Construct Session Pooler URL (GitHub Actions is IPv4-only, direct connection is IPv6-only)
+          # Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+          PROJECT_REF="${{ needs.setup-database.outputs.project_ref }}"
+          POOLER_HOST="aws-0-eu-west-2.pooler.supabase.com"
+          DB_URL="postgresql://postgres.${PROJECT_REF}:${PASSWORD}@${POOLER_HOST}:5432/postgres"
           
           # Mask the full URL so it doesn't appear in logs
           echo "::add-mask::$DB_URL"
@@ -520,9 +527,11 @@ jobs:
             }
           ')
           
-          # Construct preview branch URL using host from setup-database
-          DB_HOST="${{ needs.setup-database.outputs.db_host }}"
-          DB_URL="postgres://postgres:${PASSWORD}@${DB_HOST}:5432/postgres"
+          # Construct Session Pooler URL for preview branch
+          # Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+          PROJECT_REF="${{ needs.setup-database.outputs.project_ref }}"
+          POOLER_HOST="aws-0-eu-west-2.pooler.supabase.com"
+          DB_URL="postgresql://postgres.${PROJECT_REF}:${PASSWORD}@${POOLER_HOST}:5432/postgres"
           
           # Mask the full URL so it doesn't appear in logs
           echo "::add-mask::$DB_URL"
@@ -604,9 +613,11 @@ jobs:
             }
           ')
           
-          # Construct preview branch URL using host from setup-database
-          DB_HOST="${{ needs.setup-database.outputs.db_host }}"
-          DB_URL="postgres://postgres:${PASSWORD}@${DB_HOST}:5432/postgres"
+          # Construct Session Pooler URL for preview branch
+          # Format: postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+          PROJECT_REF="${{ needs.setup-database.outputs.project_ref }}"
+          POOLER_HOST="aws-0-eu-west-2.pooler.supabase.com"
+          DB_URL="postgresql://postgres.${PROJECT_REF}:${PASSWORD}@${POOLER_HOST}:5432/postgres"
           
           # Mask the full URL so it doesn't appear in logs
           echo "::add-mask::$DB_URL"

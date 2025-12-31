@@ -498,7 +498,7 @@ export const productVariantsUpsertSchema = z.discriminatedUnion("mode", [
 export const productVariantsDeleteSchema = z.union([
   z.object({ variant_id: uuidSchema }),
   z.object({ product_id: uuidSchema }),
-  z.object({ productHandle: shortStringSchema, variantUpid: shortStringSchema }),
+  z.object({ productHandle: productHandleSchema, variantUpid: upidSchema }),
 ]);
 
 /**
@@ -507,7 +507,7 @@ export const productVariantsDeleteSchema = z.union([
  */
 export const productVariantsCreateSchema = z.object({
   /** Product handle (URL-friendly identifier) */
-  productHandle: shortStringSchema,
+  productHandle: productHandleSchema,
   /** Ordered list of brand attribute value IDs defining this variant's attributes */
   attribute_value_ids: uuidArraySchema.min(1, "At least one attribute value is required"),
   /** Optional SKU */

@@ -238,14 +238,40 @@ jobs:
              supabase branches create "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID || true
           fi
 
+      - name: ⏳ Wait for Branch to be Ready
+        id: wait-ready
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "Waiting for branch $BRANCH_NAME to become ACTIVE_HEALTHY..."
+          
+          MAX_RETRIES=30
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            STATUS=$(supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID 2>/dev/null | grep -oE 'ACTIVE_HEALTHY|CREATING_PROJECT|COMING_UP|UNKNOWN' | head -1 || echo "UNKNOWN")
+            echo "Branch status: $STATUS (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES})"
+            
+            if [ "$STATUS" = "ACTIVE_HEALTHY" ]; then
+              echo "✅ Branch is ready!"
+              break
+            fi
+            
+            if [ $RETRY_COUNT -ge $((MAX_RETRIES - 1)) ]; then
+              echo "❌ Branch did not become ready after $((MAX_RETRIES * 10)) seconds"
+              exit 1
+            fi
+            
+            sleep 10
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+
       - name: ℹ️ Get Branch Connection Info
         id: branch-info
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
           
-          # Get branch config
-          # We purposefully don't fail immediately if get fails, as we might need to retry
-          RAW_CONFIG=$(supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID) || echo "Failed to get branch"
+          # Get branch config - branch should be ready now
+          RAW_CONFIG=$(supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID)
           
           # Extract DB Host
           DB_HOST=$(echo "$RAW_CONFIG" | grep -o 'db\.[a-z0-9-]*\.supabase\.co')
@@ -288,7 +314,10 @@ jobs:
   test-integrations:
     name: 🧪 Integration Tests
     needs: [detect-changes, setup-database]
-    if: needs.detect-changes.outputs.integrations_changed == 'true' && github.event.action != 'closed'
+    if: |
+      needs.detect-changes.outputs.integrations_changed == 'true' &&
+      needs.setup-database.result == 'success' &&
+      github.event.action != 'closed'
     runs-on: ubuntu-latest
     # Removed local postgres service in favor of Supabase Preview Branch
     steps:
@@ -434,6 +463,7 @@ jobs:
       (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') &&
       needs.detect-changes.outputs.api_changed == 'true' &&
       (needs.deploy-app.result == 'success' || needs.deploy-app.result == 'skipped') &&
+      needs.setup-database.result == 'success' &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
@@ -497,6 +527,7 @@ jobs:
       (needs.test-jobs.result == 'success' || needs.test-jobs.result == 'skipped') &&
       needs.detect-changes.outputs.jobs_changed == 'true' &&
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
+      needs.setup-database.result == 'success' &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:

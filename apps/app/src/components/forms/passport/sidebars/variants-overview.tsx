@@ -217,6 +217,7 @@ export function VariantsOverview({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
+                      aria-label="Variant options"
                       className="h-6 w-6 flex items-center justify-center shrink-0 text-tertiary hover:text-primary transition-colors"
                       onClick={(e) => e.preventDefault()}
                     >

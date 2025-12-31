@@ -157,9 +157,9 @@ export function useVariantForm(options: UseVariantFormOptions) {
             description: initialData.description,
             imagePath: initialData.imagePath,
             env: initialData.environment,
-            eco: initialData.ecoClaims.length,
-            mat: initialData.materials.length,
-            journey: initialData.journey.length,
+            eco: initialData.ecoClaims,
+            mat: initialData.materials,
+            journey: initialData.journey,
         });
     }, [initialData]);
     const lastInitialDataKeyRef = React.useRef(initialDataKey);

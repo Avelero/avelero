@@ -294,7 +294,8 @@ jobs:
 
       - name: 🗄️ Sync Database Schema
         # We use Drizzle push to apply ONLY the diff between production (cloned) and local schema
-        run: bun run db:push
+        # --force skips confirmation prompts for CI
+        run: bunx drizzle-kit push --force
         working-directory: ./packages/db
         env:
           DATABASE_URL: ${{ steps.branch-info.outputs.db_url }}

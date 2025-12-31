@@ -21,7 +21,7 @@ env:
 
 jobs:
   # ============================================
-  # Step 1: Detect which components changed
+  # Step 1: Detect which components changed.
   # ============================================
   detect-changes:
     name: 🔍 Detect Changes

@@ -307,6 +307,13 @@ jobs:
           # Use raw URL since we're in the same job
           DATABASE_URL: ${{ steps.branch-info.outputs.db_url }}
 
+      - name: 📚 Sync Taxonomy Data
+        # Sync categories, attributes, and Shopify-to-Avelero mappings required for integration tests
+        run: bun run sync
+        working-directory: ./packages/taxonomy
+        env:
+          DATABASE_URL: ${{ steps.branch-info.outputs.db_url }}
+
   test-integrations:
     name: 🧪 Integration Tests
     needs: [detect-changes, setup-database]

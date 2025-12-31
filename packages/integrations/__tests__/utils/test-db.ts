@@ -28,7 +28,6 @@ const tablesToClean = [
     // Integration links (depend on products/variants and brand_integrations)
     "integration_variant_links",
     "integration_product_links",
-    "integration_entity_links",
 
     // Sync jobs (depend on brand_integrations)
     "sync_jobs",

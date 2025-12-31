@@ -180,7 +180,8 @@ jobs:
        github.event.action != 'closed'
     runs-on: ubuntu-latest
     outputs:
-      db_url: ${{ steps.branch-info.outputs.db_url }}
+      # Only output the host (not secret) - dependent jobs will reconstruct the full URL
+      db_host: ${{ steps.branch-info.outputs.db_host }}
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -273,7 +274,7 @@ jobs:
           # Get branch config - branch should be ready now
           RAW_CONFIG=$(supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID)
           
-          # Extract DB Host
+          # Extract DB Host (this is NOT secret - just a hostname)
           DB_HOST=$(echo "$RAW_CONFIG" | grep -o 'db\.[a-z0-9-]*\.supabase\.co')
           
           if [ -z "$DB_HOST" ]; then
@@ -282,9 +283,11 @@ jobs:
              exit 1
           fi
           
-          # Construct URL
-          DB_URL="postgres://postgres:${{ steps.db-pass.outputs.password }}@${DB_HOST}:5432/postgres"
+          echo "Found DB Host: $DB_HOST"
+          echo "db_host=$DB_HOST" >> $GITHUB_OUTPUT
           
+          # Construct full URL for internal use only (masked, not output between jobs)
+          DB_URL="postgres://postgres:${{ steps.db-pass.outputs.password }}@${DB_HOST}:5432/postgres"
           echo "::add-mask::$DB_URL"
           echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
 
@@ -319,6 +322,9 @@ jobs:
       needs.setup-database.result == 'success' &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
+    env:
+      # We need access to the production DATABASE_URL to extract the password
+      PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
     # Removed local postgres service in favor of Supabase Preview Branch
     steps:
       - uses: actions/checkout@v4
@@ -327,13 +333,34 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
+      
+      - name: 🔗 Construct Database URL
+        id: db-url
+        run: |
+          # Extract password from production DATABASE_URL
+          PASSWORD=$(node -e '
+            try {
+              const url = new URL(process.env.PROD_DATABASE_URL);
+              process.stdout.write(url.password);
+            } catch (e) {
+              process.exit(1);
+            }
+          ')
+          
+          # Construct preview branch URL using host from setup-database
+          DB_HOST="${{ needs.setup-database.outputs.db_host }}"
+          DB_URL="postgres://postgres:${PASSWORD}@${DB_HOST}:5432/postgres"
+          
+          # Mask the full URL so it doesn't appear in logs
+          echo "::add-mask::$DB_URL"
+          echo "url=$DB_URL" >> $GITHUB_OUTPUT
         
       - name: 🧪 Run integration tests
         run: bun run test
         working-directory: ./packages/integrations
         env:
-          # Use the Preview Branch
-          DATABASE_URL: ${{ needs.setup-database.outputs.db_url }}
+          # Use the reconstructed preview branch URL
+          DATABASE_URL: ${{ steps.db-url.outputs.url }}
 
   # ============================================
   # Gate Job: Reports single status for branch protection
@@ -471,6 +498,8 @@ jobs:
       cancel-in-progress: true
     outputs:
       url: ${{ steps.urls.outputs.api_url }}
+    env:
+      PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -478,6 +507,26 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
+      - name: 🔗 Construct Database URL
+        id: db-url
+        run: |
+          # Extract password from production DATABASE_URL
+          PASSWORD=$(node -e '
+            try {
+              const url = new URL(process.env.PROD_DATABASE_URL);
+              process.stdout.write(url.password);
+            } catch (e) {
+              process.exit(1);
+            }
+          ')
+          
+          # Construct preview branch URL using host from setup-database
+          DB_HOST="${{ needs.setup-database.outputs.db_host }}"
+          DB_URL="postgres://postgres:${PASSWORD}@${DB_HOST}:5432/postgres"
+          
+          # Mask the full URL so it doesn't appear in logs
+          echo "::add-mask::$DB_URL"
+          echo "url=$DB_URL" >> $GITHUB_OUTPUT
       - name: 🔗 Set URLs
         id: urls
         env:
@@ -502,7 +551,7 @@ jobs:
           name: pr-${{ github.event.number }}-avelero-api
           config: apps/api/fly-preview.yml
           secrets: >
-            DATABASE_URL=${{ needs.setup-database.outputs.db_url }}
+            DATABASE_URL=${{ steps.db-url.outputs.url }}
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
             SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -533,6 +582,8 @@ jobs:
     concurrency:
       group: pr-${{ github.event.number }}-jobs
       cancel-in-progress: true
+    env:
+      PROD_DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -540,6 +591,26 @@ jobs:
           bun-version: "1.2.21"
       - name: Install dependencies
         run: bun install
+      - name: 🔗 Construct Database URL
+        id: db-url
+        run: |
+          # Extract password from production DATABASE_URL
+          PASSWORD=$(node -e '
+            try {
+              const url = new URL(process.env.PROD_DATABASE_URL);
+              process.stdout.write(url.password);
+            } catch (e) {
+              process.exit(1);
+            }
+          ')
+          
+          # Construct preview branch URL using host from setup-database
+          DB_HOST="${{ needs.setup-database.outputs.db_host }}"
+          DB_URL="postgres://postgres:${PASSWORD}@${DB_HOST}:5432/postgres"
+          
+          # Mask the full URL so it doesn't appear in logs
+          echo "::add-mask::$DB_URL"
+          echo "url=$DB_URL" >> $GITHUB_OUTPUT
       - name: Set API URL
         id: api-url
         run: |
@@ -570,7 +641,7 @@ jobs:
           TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
           API_URL: ${{ steps.api-url.outputs.url }}
           INTERNAL_API_KEY: ${{ secrets.PREVIEW_INTERNAL_API_KEY }}
-          DATABASE_URL: ${{ needs.setup-database.outputs.db_url }}
+          DATABASE_URL: ${{ steps.db-url.outputs.url }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}

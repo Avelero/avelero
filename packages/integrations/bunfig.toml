@@ -3,7 +3,7 @@
 # Preload the setup file to initialize env vars and MSW
 preload = ["./__tests__/setup.ts"]
 
-# Run tests sequentially to avoid DB conflicts 
+# Disable code coverage to speed up test runs
 coverage = false
 
 # Increase timeout for CI environments with remote databases

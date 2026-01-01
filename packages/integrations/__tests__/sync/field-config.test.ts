@@ -15,6 +15,7 @@ import {
     productVariantAttributes,
     brandAttributes,
     brandAttributeValues,
+    productTags,
 } from "@v1/db/schema";
 import { syncProducts } from "../../src/sync/engine";
 import {
@@ -696,9 +697,19 @@ describe("Phase 4: Field Configuration", () => {
         });
         await syncProducts(ctx2);
 
-        // Assert: Verify we still have the original 2 tags (not 3)
-        // This would need to check productTags table
-        // For now, we just ensure no error occurs
-        // The actual tag preservation logic would be verified in a more detailed test
+        // Assert: Verify we still have the original 2 tags (not 3 new tags)
+        const [product] = await testDb
+            .select()
+            .from(products)
+            .where(eq(products.brandId, brandId))
+            .limit(1);
+
+        const tags = await testDb
+            .select()
+            .from(productTags)
+            .where(eq(productTags.productId, product!.id));
+
+        // Should have exactly 2 tags (the original ones, not the 3 new ones)
+        expect(tags).toHaveLength(2);
     });
 });

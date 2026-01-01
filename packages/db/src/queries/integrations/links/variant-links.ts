@@ -438,7 +438,7 @@ export async function batchFindAllBrandVariants(
 
     // Index by lowercase SKU (first variant wins for duplicates)
     if (row.sku?.trim()) {
-      const key = row.sku.toLowerCase();
+      const key = row.sku.trim().toLowerCase();
       if (!bySku.has(key)) {
         bySku.set(key, match);
       }
@@ -446,7 +446,7 @@ export async function batchFindAllBrandVariants(
 
     // Index by lowercase barcode (first variant wins for duplicates)
     if (row.barcode?.trim()) {
-      const key = row.barcode.toLowerCase();
+      const key = row.barcode.trim().toLowerCase();
       if (!byBarcode.has(key)) {
         byBarcode.set(key, match);
       }

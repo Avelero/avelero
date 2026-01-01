@@ -73,6 +73,10 @@ export const integrationProductLinks = pgTable(
     // NOTE: We intentionally do NOT have a unique constraint on (brandIntegrationId, productId).
     // This allows many-to-one mappings where multiple external products link to the same Avelero product.
     // The isCanonical column determines which link writes to product-level data.
+    // Partial unique index: only one canonical link per (integration, product) pair
+    uniqueIndex("integration_product_links_canonical_unq")
+      .on(table.brandIntegrationId, table.productId)
+      .where(sql`is_canonical = true`),
     // Index for looking up by product
     index("idx_integration_product_links_product").on(table.productId),
     // RLS policies - access via brand_integrations join

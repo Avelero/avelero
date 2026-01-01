@@ -9,7 +9,7 @@
   "scripts": {
     "lint": "biome lint ./src",
     "typecheck": "tsc --noEmit",
-    "test": "bun test --preload ./__tests__/setup.ts",
+    "test": "bun test --preload ./__tests__/setup.ts --serial --timeout 30000",
     "test:watch": "bun test --watch --preload ./__tests__/setup.ts"
   },
   "dependencies": {

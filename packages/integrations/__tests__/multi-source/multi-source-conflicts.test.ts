@@ -292,23 +292,33 @@ describe("Phase 9: Multi-Source Conflict Resolution (Variant Overrides)", () => 
             .from(productVariants)
             .where(eq(productVariants.id, whiteVariant!.id));
 
-        // Variant overrides should be set (name/description on product_variants table)
-        // Note: If sync doesn't write to variant overrides, the test documents expected behavior
-        // In many-to-one scenarios, differing product data should go to variant level
+        // Variant overrides should be set for NON-CANONICAL sources only.
+        // In many-to-one scenarios:
+        // - First synced product (Black) is CANONICAL → writes to product-level
+        // - Second synced product (White) is NON-CANONICAL → writes to variant overrides
         expect(updatedBlackVariant).toBeDefined();
         expect(updatedWhiteVariant).toBeDefined();
 
-        // If variant overrides are implemented, verify them
-        if (updatedBlackVariant!.name) {
-            expect(updatedBlackVariant!.name).toBe("Amazing Jacket Black");
-            expect(updatedBlackVariant!.description).toBe("Sleek black design");
-            expect(updatedBlackVariant!.sourceIntegration).toBe("shopify");
-        }
+        // Black variant is from the CANONICAL source:
+        // - Variant-level overrides should be NULL (inherits from product)
+        // - The product-level should have "Amazing Jacket Black"
+        expect(updatedBlackVariant!.name).toBeNull();
+        expect(updatedBlackVariant!.description).toBeNull();
+        expect(updatedBlackVariant!.sourceIntegration).toBeNull();
 
-        if (updatedWhiteVariant!.name) {
-            expect(updatedWhiteVariant!.name).toBe("Amazing Jacket White");
-            expect(updatedWhiteVariant!.description).toBe("Clean white aesthetic");
-        }
+        // Verify product-level was updated by canonical source
+        const [updatedProduct] = await testDb
+            .select()
+            .from(products)
+            .where(eq(products.id, aveleroProduct.id));
+        expect(updatedProduct!.name).toBe("Amazing Jacket Black");
+        expect(updatedProduct!.description).toBe("Sleek black design");
+
+        // White variant is from the NON-CANONICAL source:
+        // - Variant-level overrides should have the white product's data
+        expect(updatedWhiteVariant!.name).toBe("Amazing Jacket White");
+        expect(updatedWhiteVariant!.description).toBe("Clean white aesthetic");
+        expect(updatedWhiteVariant!.sourceIntegration).toBe("shopify");
     });
 
     // =========================================================================
@@ -379,13 +389,28 @@ describe("Phase 9: Multi-Source Conflict Resolution (Variant Overrides)", () => 
             .from(productVariants)
             .where(eq(productVariants.id, whiteVariant!.id));
 
-        // If variant image overrides are implemented
-        if (updatedBlackVariant!.imagePath) {
-            expect(updatedBlackVariant!.imagePath).toContain("black");
-        }
-        if (updatedWhiteVariant!.imagePath) {
-            expect(updatedWhiteVariant!.imagePath).toContain("white");
-        }
+        // Verify variant overrides:
+        // - Black variant is CANONICAL → overrides are null (inherits from product)
+        // - White variant is NON-CANONICAL → name/description have override values
+        // NOTE: imagePath is processed async (downloaded and uploaded to storage) so we
+        // verify using name/description which are set immediately
+        expect(updatedBlackVariant).toBeDefined();
+        expect(updatedWhiteVariant).toBeDefined();
+
+        // Black variant (canonical) - no variant-level overrides
+        expect(updatedBlackVariant!.name).toBeNull();
+        expect(updatedBlackVariant!.sourceIntegration).toBeNull();
+
+        // White variant (non-canonical) - has variant-level overrides
+        expect(updatedWhiteVariant!.name).toBe("Amazing Jacket White");
+        expect(updatedWhiteVariant!.sourceIntegration).toBe("shopify");
+
+        // Verify product-level data was set by canonical source
+        const [updatedProduct] = await testDb
+            .select()
+            .from(products)
+            .where(eq(products.id, aveleroProduct.id));
+        expect(updatedProduct!.name).toBe("Amazing Jacket Black");
     });
 
     // =========================================================================
@@ -458,15 +483,24 @@ describe("Phase 9: Multi-Source Conflict Resolution (Variant Overrides)", () => 
             .from(variantCommercial)
             .where(eq(variantCommercial.variantId, whiteVariant!.id));
 
-        // Document expected behavior: variant commercial overrides should exist
-        // If the sync implements variant commercial overrides:
-        if (blackCommercial.length > 0) {
-            expect(blackCommercial[0]!.price).toBe("120.00");
-            expect(blackCommercial[0]!.currency).toBe("USD");
-        }
-        if (whiteCommercial.length > 0) {
-            expect(whiteCommercial[0]!.price).toBe("110.00");
-        }
+        // Verify variant commercial overrides:
+        // - Black variant is CANONICAL → no variant_commercial (price goes to product_commercial)
+        // - White variant is NON-CANONICAL → variant_commercial override with white's price
+        expect(blackCommercial.length).toBe(0);
+        expect(whiteCommercial.length).toBeGreaterThan(0);
+
+        expect(whiteCommercial[0]!.price).toBe("110.00");
+        expect(whiteCommercial[0]!.currency).toBe("USD");
+
+        // Verify product_commercial has canonical source's data
+        const { productCommercial } = await import("@v1/db/schema");
+        const productComm = await testDb
+            .select()
+            .from(productCommercial)
+            .where(eq(productCommercial.productId, aveleroProduct.id));
+        expect(productComm.length).toBeGreaterThan(0);
+        expect(productComm[0]!.price).toBe("120.00");
+        expect(productComm[0]!.currency).toBe("USD");
     });
 
     // =========================================================================
@@ -700,17 +734,34 @@ describe("Phase 9: Multi-Source Conflict Resolution (Variant Overrides)", () => 
         // Assert
         expect(result.success).toBe(true);
 
-        // Black variant should reflect the update
+        // Black is the CANONICAL source:
+        // - Variant-level name should be NULL (inherits from product)
+        // - Product-level should have the updated name
         const blackVariant = aveleroVariants.find((v) => v.barcode === "UPDATE-BLK-001");
         const [updatedBlackVariant] = await testDb
             .select()
             .from(productVariants)
             .where(eq(productVariants.id, blackVariant!.id));
 
-        // If variant overrides are used, verify the update
-        if (updatedBlackVariant!.name) {
-            expect(updatedBlackVariant!.name).toBe("Update Test Black V2 - Updated!");
-        }
+        // Verify the black variant inherits from product (not stored at variant level)
+        expect(updatedBlackVariant).toBeDefined();
+        expect(updatedBlackVariant!.name).toBeNull();
+
+        // Verify product-level was updated by canonical source
+        const [updatedProduct] = await testDb
+            .select()
+            .from(products)
+            .where(eq(products.id, aveleroProduct.id));
+        expect(updatedProduct!.name).toBe("Update Test Black V2 - Updated!");
+
+        // White is NON-CANONICAL - verify its variant override is still set
+        const whiteVariant = aveleroVariants.find((v) => v.barcode === "UPDATE-WHT-001");
+        const [updatedWhiteVariant] = await testDb
+            .select()
+            .from(productVariants)
+            .where(eq(productVariants.id, whiteVariant!.id));
+        expect(updatedWhiteVariant!.name).toBe("Update Test White V1");
+        expect(updatedWhiteVariant!.sourceIntegration).toBe("shopify");
     });
 
     // =========================================================================
@@ -718,19 +769,21 @@ describe("Phase 9: Multi-Source Conflict Resolution (Variant Overrides)", () => 
     // =========================================================================
 
     it("9.12 - variant overrides can be tracked by source integration for cleanup", async () => {
-        // Arrange: Pre-create Avelero product
+        // Arrange: Pre-create Avelero product with 2 variants
+        // Need 2 variants to test many-to-one mapping where one source is non-canonical
         const { product: aveleroProduct, variants: aveleroVariants } =
             await createAveleroProductWithVariants({
                 brandId,
                 productName: "Disconnect Test Product",
-                variantBarcodes: ["DISCONNECT-001"],
+                variantBarcodes: ["DISCONNECT-001", "DISCONNECT-002"],
             });
 
-        // Sync to create links and potentially variant overrides
-        const shopifyProduct = createMockProduct({
+        // Create 2 Shopify products (many-to-one mapping)
+        // This ensures we have a non-canonical source that writes variant overrides
+        const shopifyProduct1 = createMockProduct({
             id: nextProductId(),
-            title: "Shopify Disconnect Test",
-            description: "Will be disconnected",
+            title: "Shopify Product 1 - Canonical",
+            description: "This is the canonical source",
             variants: [
                 createMockVariant({
                     id: nextVariantId(),
@@ -740,12 +793,25 @@ describe("Phase 9: Multi-Source Conflict Resolution (Variant Overrides)", () => 
             ],
         });
 
-        setMockProducts([shopifyProduct]);
+        const shopifyProduct2 = createMockProduct({
+            id: nextProductId(),
+            title: "Shopify Product 2 - Non-Canonical",
+            description: "This source writes variant overrides",
+            variants: [
+                createMockVariant({
+                    id: nextVariantId(),
+                    sku: "DISCONNECT-002",
+                    barcode: "DISCONNECT-002",
+                }),
+            ],
+        });
+
+        setMockProducts([shopifyProduct1, shopifyProduct2]);
 
         const ctx = createTestSyncContext({
             brandId,
             brandIntegrationId,
-            productsTotal: 1,
+            productsTotal: 2,
         });
         await syncProducts(ctx);
 
@@ -754,25 +820,30 @@ describe("Phase 9: Multi-Source Conflict Resolution (Variant Overrides)", () => 
             .select()
             .from(integrationVariantLinks)
             .where(eq(integrationVariantLinks.brandIntegrationId, brandIntegrationId));
-        expect(linksBeforeDisconnect.length).toBeGreaterThanOrEqual(1);
+        expect(linksBeforeDisconnect.length).toBe(2);
 
-        // Act: Simulate disconnect by checking sourceIntegration tracking
-        const variant = aveleroVariants[0]!;
-        const [variantData] = await testDb
+        // Check variant 1 (canonical - no sourceIntegration on variant)
+        const variant1 = aveleroVariants.find((v) => v.barcode === "DISCONNECT-001")!;
+        const [variant1Data] = await testDb
             .select()
             .from(productVariants)
-            .where(eq(productVariants.id, variant.id));
+            .where(eq(productVariants.id, variant1.id));
+        expect(variant1Data!.sourceIntegration).toBeNull(); // Canonical - no override
 
-        // Verify sourceIntegration is tracked (if implemented)
-        // This allows cleanup on disconnect
-        if (variantData!.sourceIntegration) {
-            expect(variantData!.sourceIntegration).toBe("shopify");
-        }
+        // Check variant 2 (non-canonical - sourceIntegration should be set)
+        const variant2 = aveleroVariants.find((v) => v.barcode === "DISCONNECT-002")!;
+        const [variant2Data] = await testDb
+            .select()
+            .from(productVariants)
+            .where(eq(productVariants.id, variant2.id));
+
+        // Verify sourceIntegration is tracked for cleanup on disconnect
+        expect(variant2Data).toBeDefined();
+        expect(variant2Data!.sourceIntegration).toBe("shopify");
 
         // On actual disconnect, you would:
         // 1. Delete integration links (done automatically via cascade)
         // 2. Clear variant overrides where sourceIntegration matches
-        // This test verifies the tracking is in place
     });
 
     // =========================================================================

@@ -26,6 +26,7 @@ import {
   batchUpsertVariantLinks,
   batchReplaceVariantAttributes,
   batchUpsertVariantDisplayOverrides,
+  batchUpsertVariantCommercial,
   type VariantUpdateData,
   type ProductIdentifierBatch,
 } from "@v1/db/queries/integrations";
@@ -357,14 +358,19 @@ async function processBatch(
     variantLinkUpserts: [],
     variantAttributeAssignments: [],
     variantDisplayOverrides: [],
+    variantCommercialOverrides: [],
   };
 
   // Track handles used within this batch to avoid collisions
   const usedHandlesInBatch = new Set<string>();
 
+  // Track products that have been assigned a canonical link within THIS batch
+  // This prevents multiple products in the same batch from all being marked as canonical
+  const productsWithCanonicalLinkInBatch = new Set<string>();
+
   for (const product of batch) {
     try {
-      const processed = processProduct(ctx, product, mappings, caches, preFetched, usedHandlesInBatch);
+      const processed = processProduct(ctx, product, mappings, caches, preFetched, usedHandlesInBatch, productsWithCanonicalLinkInBatch);
       result.variantsProcessed += product.variants.length;
 
       if (processed.success) {
@@ -387,6 +393,7 @@ async function processBatch(
         allPendingOps.variantLinkUpserts.push(...processed.pendingOps.variantLinkUpserts);
         allPendingOps.variantAttributeAssignments.push(...processed.pendingOps.variantAttributeAssignments);
         allPendingOps.variantDisplayOverrides.push(...processed.pendingOps.variantDisplayOverrides);
+        allPendingOps.variantCommercialOverrides.push(...processed.pendingOps.variantCommercialOverrides);
       } else {
         result.variantsFailed += product.variants.length;
         result.errors.push({ externalId: product.externalId, message: processed.error || "Unknown error" });
@@ -410,6 +417,7 @@ async function processBatch(
 
   // Collect image upload tasks for rate-limited execution
   const imageUploadTasks: Array<{ productId: string; imageUrl: string }> = [];
+  const variantImageUploadTasks: Array<{ variantId: string; imageUrl: string }> = [];
 
   // GROUP 1: Product creates (must be first - generates IDs)
   const createdProductMap = new Map<string, string>(); // externalId -> productId
@@ -542,15 +550,41 @@ async function processBatch(
   // GROUP 5: Variant display overrides (multi-source integration support)
   // These are written for non-canonical source products in many-to-one mappings
   if (allPendingOps.variantDisplayOverrides.length > 0) {
+    // Extract image URLs for async processing (like product images)
+    for (const override of allPendingOps.variantDisplayOverrides) {
+      if (override.imagePath && isExternalImageUrl(override.imagePath)) {
+        variantImageUploadTasks.push({
+          variantId: override.variantId,
+          imageUrl: override.imagePath,
+        });
+        // Clear imagePath - will be set after async upload
+        override.imagePath = null;
+      }
+    }
     await batchUpsertVariantDisplayOverrides(db, allPendingOps.variantDisplayOverrides);
     result.queries.variantUpdates += 1; // Reuse variantUpdates counter for display overrides
+  }
+
+  // GROUP 6: Variant commercial overrides (multi-source integration support)
+  // These are written for non-canonical source products with differing prices
+  if (allPendingOps.variantCommercialOverrides.length > 0) {
+    await batchUpsertVariantCommercial(db, allPendingOps.variantCommercialOverrides);
+    result.queries.variantUpdates += 1; // Reuse variantUpdates counter for commercial overrides
   }
 
   result.timing.batchOps = Date.now() - batchOpsStart;
 
   // PHASE 5: Start image uploads (fire-and-forget at batch level, awaited at job level)
-  if (imageUploadTasks.length > 0) {
-    result.imageUploadPromise = processImagesWithRateLimit(ctx.storageClient, ctx.brandId, db, imageUploadTasks, 25);
+  // Process both product and variant images
+  if (imageUploadTasks.length > 0 || variantImageUploadTasks.length > 0) {
+    result.imageUploadPromise = processImagesWithRateLimit(
+      ctx.storageClient,
+      ctx.brandId,
+      db,
+      imageUploadTasks,
+      variantImageUploadTasks,
+      25
+    );
   }
 
   // Calculate total queries: preFetch + batch
@@ -709,23 +743,62 @@ async function processImageUrl(
 }
 
 /**
+ * Download external image for a variant and upload to storage.
+ * Uses a different path prefix to organize variant images separately.
+ * Returns the storage path, or null if download fails.
+ */
+async function processVariantImageUrl(
+  storageClient: StorageClient,
+  brandId: string,
+  variantId: string,
+  imageUrl: string | null | undefined
+): Promise<string | null> {
+  if (!imageUrl) return null;
+
+  // If not an external URL, return as-is (already a storage path)
+  if (!isExternalImageUrl(imageUrl)) return imageUrl;
+
+  // Download and upload to our storage with variants path prefix
+  const storagePath = await downloadAndUploadImage(storageClient, {
+    url: imageUrl,
+    bucket: "products",
+    pathPrefix: `${brandId}/variants`,
+  });
+
+  return storagePath;
+}
+
+
+/**
  * Process image uploads with rate limiting to avoid overwhelming external services.
  * Returns a Promise that resolves when all images are uploaded.
  * 
- * Each image has a 60-second timeout to prevent hanging.
+ * Handles both product images and variant images (for multi-source overrides).
+ * Each image has a 120-second timeout to prevent hanging.
  */
 function processImagesWithRateLimit(
   storageClient: StorageClient,
   brandId: string,
   db: Database,
-  tasks: Array<{ productId: string; imageUrl: string }>,
+  productTasks: Array<{ productId: string; imageUrl: string }>,
+  variantTasks: Array<{ variantId: string; imageUrl: string }>,
   concurrency: number
 ): Promise<{ completed: number; failed: number }> {
-  if (tasks.length === 0) {
+  // Combine all tasks into a unified list
+  type ImageTask =
+    | { type: 'product'; productId: string; imageUrl: string }
+    | { type: 'variant'; variantId: string; imageUrl: string };
+
+  const allTasks: ImageTask[] = [
+    ...productTasks.map(t => ({ type: 'product' as const, ...t })),
+    ...variantTasks.map(t => ({ type: 'variant' as const, ...t })),
+  ];
+
+  if (allTasks.length === 0) {
     return Promise.resolve({ completed: 0, failed: 0 });
   }
 
-  console.log(`[SYNC] Starting image upload for ${tasks.length} images (concurrency: ${concurrency})`);
+  console.log(`[SYNC] Starting image upload for ${allTasks.length} images (${productTasks.length} products, ${variantTasks.length} variants, concurrency: ${concurrency})`);
 
   return new Promise((resolve) => {
     let currentIndex = 0;
@@ -733,16 +806,16 @@ function processImagesWithRateLimit(
     let failedCount = 0;
 
     const checkDone = () => {
-      if (completedCount + failedCount === tasks.length) {
+      if (completedCount + failedCount === allTasks.length) {
         console.log(`[SYNC] Image upload finished: ${completedCount} succeeded, ${failedCount} failed`);
         resolve({ completed: completedCount, failed: failedCount });
       }
     };
 
     const processNext = () => {
-      if (currentIndex >= tasks.length) return;
+      if (currentIndex >= allTasks.length) return;
 
-      const task = tasks[currentIndex++]!;
+      const task = allTasks[currentIndex++]!;
 
       // Process with timeout (120s to handle large images and slow networks)
       const timeoutPromise = new Promise<null>((_, reject) =>
@@ -750,9 +823,17 @@ function processImagesWithRateLimit(
       );
 
       const uploadPromise = (async () => {
-        const path = await processImageUrl(storageClient, brandId, task.productId, task.imageUrl);
+        if (task.type === 'product') {
+          const path = await processImageUrl(storageClient, brandId, task.productId, task.imageUrl);
+          if (path) {
+            await db.update(products).set({ imagePath: path }).where(eq(products.id, task.productId));
+          }
+          return path;
+        }
+        // Variant image - use variants path prefix
+        const path = await processVariantImageUrl(storageClient, brandId, task.variantId, task.imageUrl);
         if (path) {
-          await db.update(products).set({ imagePath: path }).where(eq(products.id, task.productId));
+          await db.update(productVariants).set({ imagePath: path }).where(eq(productVariants.id, task.variantId));
         }
         return path;
       })();
@@ -766,7 +847,7 @@ function processImagesWithRateLimit(
         })
         .finally(() => {
           // Start next task or check if done
-          if (currentIndex < tasks.length) {
+          if (currentIndex < allTasks.length) {
             processNext();
           }
           checkDone();
@@ -774,7 +855,7 @@ function processImagesWithRateLimit(
     };
 
     // Start initial batch (up to concurrency limit)
-    const initialBatch = Math.min(concurrency, tasks.length);
+    const initialBatch = Math.min(concurrency, allTasks.length);
     for (let i = 0; i < initialBatch; i++) {
       processNext();
     }

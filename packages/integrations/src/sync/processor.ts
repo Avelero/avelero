@@ -296,6 +296,16 @@ export interface PendingOperations {
     sourceIntegration?: string | null;
     sourceExternalId?: string | null;
   }>;
+  /** Variant commercial overrides for non-canonical source products (multi-source integration) */
+  variantCommercialOverrides: Array<{
+    variantId: string;
+    webshopUrl?: string | null;
+    price?: string | null;
+    currency?: string | null;
+    salesStatus?: string | null;
+    sourceIntegration?: string | null;
+    sourceExternalId?: string | null;
+  }>;
 }
 
 export interface ProcessedProductResult {
@@ -375,6 +385,7 @@ function createEmptyPendingOps(): Omit<PendingOperations, 'productCreates'> & { 
     variantLinkUpserts: [],
     variantAttributeAssignments: [],
     variantDisplayOverrides: [],
+    variantCommercialOverrides: [],
   };
 }
 
@@ -399,7 +410,9 @@ export function processProduct(
   mappings: EffectiveFieldMapping[],
   caches: SyncCaches,
   preFetched: PreFetchedData,
-  usedHandlesInBatch: Set<string>
+  usedHandlesInBatch: Set<string>,
+  /** Products that have been assigned a canonical link within THIS batch (mutated during processing) */
+  productsWithCanonicalLinkInBatch: Set<string>
 ): ProcessedProductResult {
   let productCreated = false;
   let productUpdated = false;
@@ -442,7 +455,11 @@ export function processProduct(
         productHandle = cached.productHandle;
         productCreated = cached.created;
         // For cached products, check if this product already has a canonical link
-        if (!productCreated && preFetched.productsWithCanonicalLink.has(productId)) {
+        // Check BOTH the DB-prefetched set AND the in-batch set
+        if (!productCreated && (
+          preFetched.productsWithCanonicalLink.has(productId) ||
+          productsWithCanonicalLinkInBatch.has(productId)
+        )) {
           isCanonical = false;
         }
       } else {
@@ -454,7 +471,11 @@ export function processProduct(
           productId = identifierMatch.productId;
           productHandle = identifierMatch.productHandle;
           // Check if this product already has a canonical link from this integration
-          if (preFetched.productsWithCanonicalLink.has(productId)) {
+          // Check BOTH the DB-prefetched set AND the in-batch set
+          if (
+            preFetched.productsWithCanonicalLink.has(productId) ||
+            productsWithCanonicalLinkInBatch.has(productId)
+          ) {
             isCanonical = false;
           }
         } else {
@@ -504,6 +525,11 @@ export function processProduct(
 
         // Cache for other products in this batch that might reference the same external ID
         cacheProduct(caches, externalProduct.externalId, productId, productHandle, productCreated);
+
+        // Track canonical links within this batch so subsequent products know this one is canonical
+        if (isCanonical && !productId.startsWith('__pending:')) {
+          productsWithCanonicalLinkInBatch.add(productId);
+        }
       }
     }
 
@@ -571,6 +597,7 @@ export function processProduct(
     pendingOps.variantLinkUpserts.push(...variantResult.variantLinkUpserts);
     pendingOps.variantAttributeAssignments.push(...variantResult.variantAttributeAssignments);
     pendingOps.variantDisplayOverrides.push(...variantResult.variantDisplayOverrides);
+    pendingOps.variantCommercialOverrides.push(...variantResult.variantCommercialOverrides);
 
     return {
       success: true,
@@ -689,6 +716,8 @@ interface ProcessVariantsResult {
   variantAttributeAssignments: PendingOperations['variantAttributeAssignments'];
   /** Variant display overrides for non-canonical source products */
   variantDisplayOverrides: PendingOperations['variantDisplayOverrides'];
+  /** Variant commercial overrides for non-canonical source products */
+  variantCommercialOverrides: PendingOperations['variantCommercialOverrides'];
 }
 
 /**
@@ -716,6 +745,7 @@ function processVariantsSync(
   const variantLinkUpserts: PendingOperations['variantLinkUpserts'] = [];
   const variantAttributeAssignments: PendingOperations['variantAttributeAssignments'] = [];
   const variantDisplayOverrides: PendingOperations['variantDisplayOverrides'] = [];
+  const variantCommercialOverrides: PendingOperations['variantCommercialOverrides'] = [];
 
   const skuEnabled = isFieldEnabled(mappings, "variant.sku");
   const barcodeEnabled = isFieldEnabled(mappings, "variant.barcode");
@@ -728,10 +758,6 @@ function processVariantsSync(
 
   const usedVariantIds = new Set<string>();
 
-  // Extract product-level values for override comparison
-  const productName = productExtracted.product.name as string | undefined;
-  const productDescription = productExtracted.product.description as string | undefined;
-  const productImagePath = productExtracted.product.imagePath as string | undefined;
 
   for (const externalVariant of externalProduct.variants) {
     const variantData = { ...externalVariant.data, product: externalProduct.data };
@@ -791,38 +817,48 @@ function processVariantsSync(
         });
       }
 
-      // NON-CANONICAL SOURCE: Queue variant display overrides if values differ from product-level
+      // NON-CANONICAL SOURCE: Queue variant display overrides with source values.
       // This handles many-to-one mappings where multiple source products link to the same Avelero product.
       // The canonical source writes to product-level; non-canonical sources write to variant overrides.
+      // 
+      // NOTE: We always write overrides for non-canonical sources because we don't have access to
+      // the canonical product's stored DB values here. The override values are the non-canonical 
+      // source's product-level data (name, description, image from this external product).
+      // At render time, these can be compared to the actual product-level data if deduplication is needed.
       if (!isCanonical) {
-        const override: PendingOperations['variantDisplayOverrides'][number] = {
-          variantId: existingVariant.id,
-          sourceIntegration: ctx.integrationSlug,
-          sourceExternalId: externalProduct.externalId,
-        };
-        let hasOverride = false;
-
-        // Only create override if value differs from product-level
         const sourceName = productExtracted.product.name as string | undefined;
         const sourceDescription = productExtracted.product.description as string | undefined;
         const sourceImagePath = productExtracted.product.imagePath as string | undefined;
 
-        if (sourceName && sourceName !== productName) {
-          override.name = sourceName;
-          hasOverride = true;
-        }
-        if (sourceDescription !== undefined && sourceDescription !== productDescription) {
-          override.description = sourceDescription;
-          hasOverride = true;
-        }
-        if (sourceImagePath && sourceImagePath !== productImagePath) {
-          override.imagePath = sourceImagePath;
-          hasOverride = true;
+        // Only create override if we have at least one value to store
+        if (sourceName || sourceDescription !== undefined || sourceImagePath) {
+          variantDisplayOverrides.push({
+            variantId: existingVariant.id,
+            sourceIntegration: ctx.integrationSlug,
+            sourceExternalId: externalProduct.externalId,
+            name: sourceName ?? null,
+            description: sourceDescription ?? null,
+            imagePath: sourceImagePath ?? null,
+          });
         }
 
-        // Only queue override if at least one field differs
-        if (hasOverride) {
-          variantDisplayOverrides.push(override);
+        // Also queue commercial data overrides for non-canonical sources
+        const sourcePrice = productExtracted.product.price as string | number | undefined;
+        const sourceCurrency = productExtracted.product.currency as string | undefined;
+        const sourceWebshopUrl = productExtracted.product.webshopUrl as string | undefined;
+        const sourceSalesStatus = productExtracted.product.salesStatus as string | undefined;
+
+        // Only create commercial override if we have at least one value
+        if (sourcePrice !== undefined || sourceCurrency || sourceWebshopUrl || sourceSalesStatus) {
+          variantCommercialOverrides.push({
+            variantId: existingVariant.id,
+            sourceIntegration: ctx.integrationSlug,
+            sourceExternalId: externalProduct.externalId,
+            price: sourcePrice !== undefined ? String(sourcePrice) : null,
+            currency: sourceCurrency ?? null,
+            webshopUrl: sourceWebshopUrl ?? null,
+            salesStatus: sourceSalesStatus ?? null,
+          });
         }
       }
 
@@ -864,6 +900,7 @@ function processVariantsSync(
     variantLinkUpserts,
     variantAttributeAssignments,
     variantDisplayOverrides,
+    variantCommercialOverrides,
   };
 }
 

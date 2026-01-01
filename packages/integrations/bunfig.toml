@@ -5,3 +5,6 @@ preload = ["./__tests__/setup.ts"]
 
 # Run tests sequentially to avoid DB conflicts 
 coverage = false
+
+# Increase timeout for CI environments with remote databases
+timeout = 30000

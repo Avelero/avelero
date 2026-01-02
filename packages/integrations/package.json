@@ -24,6 +24,7 @@
     "@v1/testing": "workspace:*",
     "@v1/tsconfig": "workspace:*",
     "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
     "typescript": "^5.9.2"
   }
 }

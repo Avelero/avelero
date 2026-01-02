@@ -285,7 +285,7 @@ jobs:
         # --force skips confirmation prompts for CI
         run: |
           set -a
-          source .env.supabase
+          source $GITHUB_WORKSPACE/.env.supabase
           set +a
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
           export DATABASE_URL
@@ -296,7 +296,7 @@ jobs:
         # Sync categories, attributes, and Shopify-to-Avelero mappings required for integration tests
         run: |
           set -a
-          source .env.supabase
+          source $GITHUB_WORKSPACE/.env.supabase
           set +a
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
           export DATABASE_URL
@@ -325,19 +325,19 @@ jobs:
       - name: 🔗 Fetch Branch Credentials
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
-          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
           
           # Add DATABASE_URL with correct port
           set -a
-          source .env.supabase
+          source $GITHUB_WORKSPACE/.env.supabase
           set +a
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          echo "DATABASE_URL=$DATABASE_URL" >> .env.supabase
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
         
       - name: 🧪 Run integration tests
         run: |
           set -a
-          source .env.supabase
+          source $GITHUB_WORKSPACE/.env.supabase
           set +a
           export DATABASE_URL
           bun run test
@@ -457,20 +457,20 @@ jobs:
       - name: 🔗 Fetch Branch Credentials
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
-          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
           
           # Add DATABASE_URL with correct port
           set -a
-          source .env.supabase
+          source $GITHUB_WORKSPACE/.env.supabase
           set +a
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          echo "DATABASE_URL=$DATABASE_URL" >> .env.supabase
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       - name: 🏗 Build Project Artifacts
         run: |
           set -a
-          source .env.supabase
+          source $GITHUB_WORKSPACE/.env.supabase
           set +a
           export NEXT_PUBLIC_API_URL="${{ steps.api-url.outputs.url }}"
           export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
@@ -519,11 +519,11 @@ jobs:
         id: creds
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
-          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
           
           # Source the env file to get variables
           set -a
-          source .env.supabase
+          source $GITHUB_WORKSPACE/.env.supabase
           set +a
           
           # Create DATABASE_URL with correct port
@@ -614,14 +614,14 @@ jobs:
       - name: 🔗 Fetch Branch Credentials
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
-          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
           
           # Add DATABASE_URL with correct port
           set -a
-          source .env.supabase
+          source $GITHUB_WORKSPACE/.env.supabase
           set +a
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          echo "DATABASE_URL=$DATABASE_URL" >> .env.supabase
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
       - name: Set API URL
         id: api-url
         run: |
@@ -649,7 +649,7 @@ jobs:
       - name: 🚀 Deploy to Trigger.dev Preview
         run: |
           set -a
-          source .env.supabase
+          source $GITHUB_WORKSPACE/.env.supabase
           set +a
           export DATABASE_URL
           export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"

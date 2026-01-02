@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "integration_product_links_canonical_unq" ON "integration_product_links" USING btree ("brand_integration_id","product_id") WHERE is_canonical = true;--> statement-breakpoint
+ALTER TABLE "integrations" DROP COLUMN "icon_path";

@@ -281,16 +281,15 @@ jobs:
         run: bun install
 
       - name: 🗄️ Sync Database Schema
-        # We use Drizzle push to apply ONLY the diff between production (cloned) and local schema
-        # --force skips confirmation prompts for CI
+        # Apply pending Supabase migrations to the preview branch
+        # Preview branches are clones of production, so only new migrations need to be applied
         run: |
           set -a
           source $GITHUB_WORKSPACE/.env.supabase
           set +a
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-          export DATABASE_URL
-          bunx drizzle-kit push --force
-        working-directory: ./packages/db
+          supabase db push --db-url "$DATABASE_URL"
+        working-directory: ./apps/api
 
       - name: 📚 Sync Taxonomy Data
         # Sync categories, attributes, and Shopify-to-Avelero mappings required for integration tests

@@ -46,7 +46,6 @@ export async function listBrandIntegrations(db: Database, brandId: string) {
         slug: integrations.slug,
         name: integrations.name,
         authType: integrations.authType,
-        iconPath: integrations.iconPath,
       },
     })
     .from(brandIntegrations)
@@ -83,7 +82,6 @@ export async function getBrandIntegration(
         slug: integrations.slug,
         name: integrations.name,
         authType: integrations.authType,
-        iconPath: integrations.iconPath,
       },
     })
     .from(brandIntegrations)
@@ -122,7 +120,6 @@ export async function getBrandIntegrationBySlug(
         slug: integrations.slug,
         name: integrations.name,
         authType: integrations.authType,
-        iconPath: integrations.iconPath,
       },
     })
     .from(brandIntegrations)
@@ -254,7 +251,6 @@ export async function listIntegrationsWithStatus(db: Database, brandId: string) 
       name: integrations.name,
       description: integrations.description,
       authType: integrations.authType,
-      iconPath: integrations.iconPath,
       status: integrations.status,
       createdAt: integrations.createdAt,
       updatedAt: integrations.updatedAt,

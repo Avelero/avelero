@@ -19,6 +19,8 @@ dist/
 
 # LLM Context
 llm_context/
+integration-refactor-plan.md
+testing-plan.md
 
 # production
 build

@@ -13,21 +13,21 @@ import {
     productVariantAttributes,
     brandAttributes,
 } from "@v1/db/schema";
-import { syncProducts } from "../../src/sync/engine";
+import { syncProducts } from "../../../src/sync/engine";
 import {
     testDb,
     createTestBrand,
     createTestBrandIntegration,
     createDefaultFieldConfigs,
-} from "../utils/test-db";
-import { createTestSyncContext } from "../utils/sync-context";
+} from "@v1/testing/db";
+import { createTestSyncContext } from "@v1/testing/context";
 import {
     setMockProducts,
     clearMockProducts,
     createMockProduct,
     createMockVariant,
-    createColorSizeVariants,
-} from "../utils/mock-shopify";
+} from "@v1/testing/mocks/shopify";
+import { createColorSizeVariants } from "@v1/testing/fixtures/shopify";
 
 describe("Phase 8: Performance & Limits", () => {
     let brandId: string;

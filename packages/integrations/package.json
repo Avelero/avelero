@@ -10,6 +10,8 @@
     "lint": "biome lint ./src",
     "typecheck": "tsc --noEmit",
     "test": "bun test --preload ./__tests__/setup.ts --serial --timeout 30000",
+    "test:unit": "bun test ./__tests__/unit --timeout 10000",
+    "test:integration": "bun test --preload ./__tests__/setup.ts --serial --timeout 30000 --testPathPattern='\\.integration\\.test\\.ts$'",
     "test:watch": "bun test --watch --preload ./__tests__/setup.ts"
   },
   "dependencies": {
@@ -19,11 +21,9 @@
   "devDependencies": {
     "@types/bun": "^1.2.16",
     "@types/node": "^24.0.1",
+    "@v1/testing": "workspace:*",
     "@v1/tsconfig": "workspace:*",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.44.7",
-    "msw": "^2.7.0",
-    "postgres": "^3.4.7",
     "typescript": "^5.9.2"
   }
 }

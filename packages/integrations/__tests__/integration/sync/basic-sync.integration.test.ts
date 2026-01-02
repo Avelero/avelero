@@ -8,18 +8,21 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { eq } from "drizzle-orm";
 import { products, productVariants, productVariantAttributes, brandAttributes, brandAttributeValues, productTags, brandTags } from "@v1/db/schema";
-import { syncProducts } from "../../src/sync/engine";
-import { testDb, createTestBrand, createTestBrandIntegration, createDefaultFieldConfigs } from "../utils/test-db";
-import { createTestSyncContext } from "../utils/sync-context";
+import { syncProducts } from "../../../src/sync/engine";
+import { testDb, createTestBrand, createTestBrandIntegration, createDefaultFieldConfigs } from "@v1/testing/db";
+import { createTestSyncContext } from "@v1/testing/context";
 import {
     setMockProducts,
     clearMockProducts,
     createMockProduct,
     createMockVariant,
+} from "@v1/testing/mocks/shopify";
+import {
     createSizeVariants,
     createColorSizeVariants,
     createThreeAttributeVariants,
-} from "../utils/mock-shopify";
+} from "@v1/testing/fixtures/shopify";
+
 
 describe("Phase 1: Basic Product Sync", () => {
     let brandId: string;

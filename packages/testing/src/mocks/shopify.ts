@@ -3,28 +3,30 @@
  *
  * Uses MSW (Mock Service Worker) to intercept Shopify GraphQL API calls.
  * Provides factory functions to create mock products and variants.
+ *
+ * @module @v1/testing/mocks/shopify
  */
 
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 
 // =============================================================================
-// SHOPIFY TYPES (duplicated to avoid import extension issues in tests)
+// SHOPIFY TYPES
 // =============================================================================
 
-interface ShopifySelectedOption {
+export interface ShopifySelectedOption {
     name: string;
     value: string;
 }
 
-interface ShopifyProductOptionValue {
+export interface ShopifyProductOptionValue {
     id: string;
     name: string;
     linkedMetafieldValue: string | null;
     swatch: { color: string | null } | null;
 }
 
-interface ShopifyProductOption {
+export interface ShopifyProductOption {
     id: string;
     name: string;
     position: number;
@@ -32,7 +34,7 @@ interface ShopifyProductOption {
     optionValues: ShopifyProductOptionValue[];
 }
 
-interface ShopifyVariantNode {
+export interface ShopifyVariantNode {
     id: string;
     sku: string | null;
     barcode: string | null;
@@ -43,7 +45,7 @@ interface ShopifyVariantNode {
     image: { url: string } | null;
 }
 
-interface ShopifyProductNode {
+export interface ShopifyProductNode {
     id: string;
     handle: string;
     title: string;
@@ -60,9 +62,6 @@ interface ShopifyProductNode {
     options: ShopifyProductOption[] | null;
     variants: { edges: Array<{ node: ShopifyVariantNode }> };
 }
-
-// Re-export types for use in tests
-export type { ShopifyProductNode, ShopifyVariantNode, ShopifySelectedOption, ShopifyProductOption };
 
 // =============================================================================
 // MOCK DATA STATE
@@ -100,6 +99,14 @@ export function setMockProductCount(count: number): void {
 
 let productIdCounter = 1000;
 let variantIdCounter = 2000;
+
+/**
+ * Reset the ID counters. Useful for deterministic test output.
+ */
+export function resetMockIds(): void {
+    productIdCounter = 1000;
+    variantIdCounter = 2000;
+}
 
 /**
  * Create a mock Shopify variant.
@@ -164,79 +171,6 @@ export function createMockProduct(
         ...overrides,
         variants: { edges: variants.map((v) => ({ node: v })) },
     };
-}
-
-/**
- * Create variants for a simple size range.
- */
-export function createSizeVariants(
-    skuPrefix: string,
-    sizes: string[] = ["S", "M", "L"]
-): ShopifyVariantNode[] {
-    return sizes.map((size) =>
-        createMockVariant({
-            sku: `${skuPrefix}-${size}`,
-            selectedOptions: [{ name: "Size", value: size }],
-        })
-    );
-}
-
-/**
- * Create variants for color × size combinations.
- */
-export function createColorSizeVariants(
-    skuPrefix: string,
-    colors: string[],
-    sizes: string[]
-): ShopifyVariantNode[] {
-    const variants: ShopifyVariantNode[] = [];
-
-    for (const color of colors) {
-        for (const size of sizes) {
-            variants.push(
-                createMockVariant({
-                    sku: `${skuPrefix}-${color.toUpperCase()}-${size}`,
-                    selectedOptions: [
-                        { name: "Color", value: color },
-                        { name: "Size", value: size },
-                    ],
-                })
-            );
-        }
-    }
-
-    return variants;
-}
-
-/**
- * Create variants for color × size × material combinations (3 attributes).
- */
-export function createThreeAttributeVariants(
-    skuPrefix: string,
-    colors: string[],
-    sizes: string[],
-    materials: string[]
-): ShopifyVariantNode[] {
-    const variants: ShopifyVariantNode[] = [];
-
-    for (const color of colors) {
-        for (const size of sizes) {
-            for (const material of materials) {
-                variants.push(
-                    createMockVariant({
-                        sku: `${skuPrefix}-${color.substring(0, 3).toUpperCase()}-${size}-${material.substring(0, 3).toUpperCase()}`,
-                        selectedOptions: [
-                            { name: "Color", value: color },
-                            { name: "Size", value: size },
-                            { name: "Material", value: material },
-                        ],
-                    })
-                );
-            }
-        }
-    }
-
-    return variants;
 }
 
 // =============================================================================

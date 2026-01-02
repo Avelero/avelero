@@ -3,6 +3,8 @@
  *
  * Connects to test PostgreSQL database and provides cleanup functions.
  * Uses dynamic table discovery instead of hardcoded lists to avoid sync issues.
+ *
+ * @module @v1/testing/db
  */
 
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -18,6 +20,11 @@ if (!connectionString) {
 }
 
 const client = postgres(connectionString);
+
+/**
+ * Drizzle database instance for tests.
+ * Uses the schema from @v1/db for full type safety.
+ */
 export const testDb = drizzle(client, { schema });
 
 /**

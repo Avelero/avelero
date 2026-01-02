@@ -1,0 +1,30 @@
+{
+    "name": "@v1/testing",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        ".": "./src/index.ts",
+        "./db": "./src/db.ts",
+        "./mocks": "./src/mocks/index.ts",
+        "./mocks/shopify": "./src/mocks/shopify.ts",
+        "./fixtures": "./src/fixtures/index.ts",
+        "./fixtures/shopify": "./src/fixtures/shopify.ts",
+        "./context": "./src/context.ts"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@v1/db": "workspace:*",
+        "@v1/supabase": "workspace:*",
+        "drizzle-orm": "^0.44.7",
+        "msw": "^2.7.0",
+        "postgres": "^3.4.7"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.2.16",
+        "@v1/tsconfig": "workspace:*",
+        "typescript": "^5.9.2"
+    }
+}

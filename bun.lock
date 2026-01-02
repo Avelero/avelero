@@ -254,11 +254,9 @@
       "devDependencies": {
         "@types/bun": "^1.2.16",
         "@types/node": "^24.0.1",
+        "@v1/testing": "workspace:*",
         "@v1/tsconfig": "workspace:*",
         "dotenv": "^17.2.3",
-        "drizzle-orm": "^0.44.7",
-        "msw": "^2.7.0",
-        "postgres": "^3.4.7",
         "typescript": "^5.9.2",
       },
     },
@@ -347,6 +345,22 @@
       },
       "devDependencies": {
         "@types/node": "^24.0.1",
+        "@v1/tsconfig": "workspace:*",
+        "typescript": "^5.9.2",
+      },
+    },
+    "packages/testing": {
+      "name": "@v1/testing",
+      "version": "0.0.0",
+      "dependencies": {
+        "@v1/db": "workspace:*",
+        "@v1/supabase": "workspace:*",
+        "drizzle-orm": "^0.44.7",
+        "msw": "^2.7.0",
+        "postgres": "^3.4.7",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.2.16",
         "@v1/tsconfig": "workspace:*",
         "typescript": "^5.9.2",
       },
@@ -1082,6 +1096,8 @@
     "@v1/supabase": ["@v1/supabase@workspace:packages/supabase"],
 
     "@v1/taxonomy": ["@v1/taxonomy@workspace:packages/taxonomy"],
+
+    "@v1/testing": ["@v1/testing@workspace:packages/testing"],
 
     "@v1/tsconfig": ["@v1/tsconfig@workspace:packages/tsconfig"],
 

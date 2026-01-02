@@ -116,7 +116,7 @@ begin
   end if;
 
   -- Create or elevate membership
-  insert into public.users_on_brand(user_id, brand_id, role)
+  insert into public.brand_members(user_id, brand_id, role)
   values (auth.uid(), v_brand, v_role)
   on conflict (user_id, brand_id) do update
   set role = excluded.role;
@@ -383,8 +383,8 @@ CREATE OR REPLACE FUNCTION "public"."shares_brand_with"("p_user_id" "uuid") RETU
     AS $$
   select exists (
     select 1
-    from public.users_on_brand u1
-    join public.users_on_brand u2 on u1.brand_id = u2.brand_id
+    from public.brand_members u1
+    join public.brand_members u2 on u1.brand_id = u2.brand_id
     where u1.user_id = p_user_id
       and u2.user_id = auth.uid()
   );
@@ -617,7 +617,7 @@ CREATE TABLE IF NOT EXISTS "public"."brand_members" (
     "role" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "users_on_brand_role_check" CHECK (("role" = ANY (ARRAY['owner'::"text", 'member'::"text"])))
+    CONSTRAINT "brand_members_role_check" CHECK (("role" = ANY (ARRAY['owner'::"text", 'member'::"text"])))
 );
 
 
@@ -1661,12 +1661,12 @@ ALTER TABLE ONLY "public"."users"
 
 
 ALTER TABLE ONLY "public"."brand_members"
-    ADD CONSTRAINT "users_on_brand_pkey" PRIMARY KEY ("id");
+    ADD CONSTRAINT "brand_members_pkey" PRIMARY KEY ("id");
 
 
 
 ALTER TABLE ONLY "public"."brand_members"
-    ADD CONSTRAINT "users_on_brand_user_id_brand_id_key" UNIQUE ("user_id", "brand_id");
+    ADD CONSTRAINT "brand_members_user_id_brand_id_key" UNIQUE ("user_id", "brand_id");
 
 
 
@@ -1950,11 +1950,11 @@ CREATE INDEX "idx_users_brand_id" ON "public"."users" USING "btree" ("brand_id")
 
 
 
-CREATE INDEX "idx_users_on_brand_brand_id" ON "public"."brand_members" USING "btree" ("brand_id");
+CREATE INDEX "idx_brand_members_brand_id" ON "public"."brand_members" USING "btree" ("brand_id");
 
 
 
-CREATE INDEX "idx_users_on_brand_user_id" ON "public"."brand_members" USING "btree" ("user_id");
+CREATE INDEX "idx_brand_members_user_id" ON "public"."brand_members" USING "btree" ("user_id");
 
 
 
@@ -2210,7 +2210,7 @@ CREATE UNIQUE INDEX "ux_brand_invites_token_hash_not_null" ON "public"."brand_in
 
 
 
-CREATE UNIQUE INDEX "ux_users_on_brand_user_brand" ON "public"."brand_members" USING "btree" ("user_id", "brand_id");
+CREATE UNIQUE INDEX "ux_brand_members_user_brand" ON "public"."brand_members" USING "btree" ("user_id", "brand_id");
 
 
 
@@ -2238,7 +2238,7 @@ CREATE OR REPLACE TRIGGER "update_brands_updated_at" BEFORE UPDATE ON "public"."
 
 
 
-CREATE OR REPLACE TRIGGER "update_users_on_brand_updated_at" BEFORE UPDATE ON "public"."brand_members" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at"();
+CREATE OR REPLACE TRIGGER "update_brand_members_updated_at" BEFORE UPDATE ON "public"."brand_members" FOR EACH ROW EXECUTE FUNCTION "public"."update_updated_at"();
 
 
 
@@ -3849,25 +3849,25 @@ CREATE POLICY "users_insert_own_profile" ON "public"."users" FOR INSERT TO "auth
 
 
 
-CREATE POLICY "users_on_brand_delete_owner_non_owner" ON "public"."brand_members" FOR DELETE TO "authenticated", "service_role" USING (("public"."is_brand_owner"("brand_id") AND (("role" <> 'owner'::"text") OR ("user_id" = "auth"."uid"()))));
+CREATE POLICY "brand_members_delete_owner_non_owner" ON "public"."brand_members" FOR DELETE TO "authenticated", "service_role" USING (("public"."is_brand_owner"("brand_id") AND (("role" <> 'owner'::"text") OR ("user_id" = "auth"."uid"()))));
 
 
 
-CREATE POLICY "users_on_brand_delete_self" ON "public"."brand_members" FOR DELETE TO "authenticated", "service_role" USING (("user_id" = "auth"."uid"()));
+CREATE POLICY "brand_members_delete_self" ON "public"."brand_members" FOR DELETE TO "authenticated", "service_role" USING (("user_id" = "auth"."uid"()));
 
 
 
-CREATE POLICY "users_on_brand_insert_first_owner_self" ON "public"."brand_members" FOR INSERT TO "authenticated", "service_role" WITH CHECK ((("user_id" = "auth"."uid"()) AND ("role" = 'owner'::"text") AND (NOT (EXISTS ( SELECT 1
+CREATE POLICY "brand_members_insert_first_owner_self" ON "public"."brand_members" FOR INSERT TO "authenticated", "service_role" WITH CHECK ((("user_id" = "auth"."uid"()) AND ("role" = 'owner'::"text") AND (NOT (EXISTS ( SELECT 1
    FROM "public"."brand_members" "u"
   WHERE (("u"."brand_id" = "brand_members"."brand_id") AND ("u"."role" = 'owner'::"text")))))));
 
 
 
-CREATE POLICY "users_on_brand_select_for_members" ON "public"."brand_members" FOR SELECT TO "authenticated", "service_role" USING ("public"."is_brand_member"("brand_id"));
+CREATE POLICY "brand_members_select_for_members" ON "public"."brand_members" FOR SELECT TO "authenticated", "service_role" USING ("public"."is_brand_member"("brand_id"));
 
 
 
-CREATE POLICY "users_on_brand_update_by_owner" ON "public"."brand_members" FOR UPDATE TO "authenticated", "service_role" USING ("public"."is_brand_owner"("brand_id"));
+CREATE POLICY "brand_members_update_by_owner" ON "public"."brand_members" FOR UPDATE TO "authenticated", "service_role" USING ("public"."is_brand_owner"("brand_id"));
 
 
 

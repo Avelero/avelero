@@ -179,8 +179,7 @@ jobs:
        needs.detect-changes.outputs.integrations_changed == 'true') && 
        github.event.action != 'closed'
     runs-on: ubuntu-latest
-    outputs:
-      db_url_encoded: ${{ steps.branch-info.outputs.db_url_encoded }}
+    # No outputs - each downstream job fetches its own credentials
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
@@ -194,7 +193,6 @@ jobs:
           version: latest
 
       - name: 🌿 Get Preview Branch (Wait for Integration)
-        id: get-branch
         run: |
           # Use the git branch name to match Supabase Integration behavior
           BRANCH_NAME="${{ github.head_ref }}"
@@ -223,7 +221,6 @@ jobs:
           fi
 
       - name: ⏳ Wait for Branch to be Ready
-        id: wait-ready
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
           echo "Waiting for branch $BRANCH_NAME to become ACTIVE_HEALTHY..."
@@ -249,51 +246,36 @@ jobs:
             RETRY_COUNT=$((RETRY_COUNT + 1))
           done
 
-      - name: ℹ️ Get Branch Connection Info
-        id: branch-info
+      - name: 🔗 Fetch Branch Credentials
+        id: branch-creds
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
           
-          # Get branch credentials using -o env format
-          # This outputs: POSTGRES_URL (pooler), POSTGRES_URL_NON_POOLING (direct), SUPABASE_* keys
-          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > branch_env.txt
+          # Get branch credentials using -o env format and write to .env file
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
           
           # Debug: Show available variables (without values)
           echo "Available env variables:"
-          grep -oE '^[A-Z_]+=' branch_env.txt | tr -d '=' || true
+          grep -oE '^[A-Z_]+=' .env.supabase | tr -d '=' || true
           
           # Source the env file to get variables
           set -a
-          source branch_env.txt
+          source .env.supabase
           set +a
-          
-          # Mask sensitive values from Supabase (prevents them from appearing in logs)
-          echo "::add-mask::$POSTGRES_URL"
-          echo "::add-mask::$POSTGRES_URL_NON_POOLING"
           
           # POSTGRES_URL from Supabase uses port 6543 (Transaction Pooler)
           # We need port 5432 (Session Pooler) for Drizzle's prepared statements
           if [ -z "$POSTGRES_URL" ]; then
             echo "❌ POSTGRES_URL not found in branch env output"
-            cat branch_env.txt
+            cat .env.supabase
             exit 1
           fi
           
-          # Replace port 6543 with 5432 for Session Pooler
-          DB_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          # Replace port 6543 with 5432 for Session Pooler and export
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "DATABASE_URL=$DATABASE_URL" >> .env.supabase
           
-          # Double base64 encode to bypass GitHub's secret detection
-          # GitHub blocks masked values from job outputs, this is the workaround
-          DB_URL_ENCODED=$(echo -n "$DB_URL" | base64 -w0 | base64 -w0)
-          
-          echo "✅ Using Session Pooler URL (port 5432) - encoded for job output"
-          echo "db_url_encoded=$DB_URL_ENCODED" >> $GITHUB_OUTPUT
-          
-          # Also output the raw URL for use within this job (db:push step)
-          echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
-          
-          # Cleanup
-          rm -f branch_env.txt
+          echo "✅ Branch credentials fetched and stored in .env.supabase"
 
       - name: Install dependencies
         run: bun install
@@ -301,46 +283,65 @@ jobs:
       - name: 🗄️ Sync Database Schema
         # We use Drizzle push to apply ONLY the diff between production (cloned) and local schema
         # --force skips confirmation prompts for CI
-        run: bunx drizzle-kit push --force
+        run: |
+          set -a
+          source .env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          export DATABASE_URL
+          bunx drizzle-kit push --force
         working-directory: ./packages/db
-        env:
-          # Use raw URL since we're in the same job
-          DATABASE_URL: ${{ steps.branch-info.outputs.db_url }}
 
       - name: 📚 Sync Taxonomy Data
         # Sync categories, attributes, and Shopify-to-Avelero mappings required for integration tests
-        run: bun run sync
+        run: |
+          set -a
+          source .env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          export DATABASE_URL
+          bun run sync
         working-directory: ./packages/taxonomy
-        env:
-          DATABASE_URL: ${{ steps.branch-info.outputs.db_url }}
 
   test-integrations:
     name: 🧪 Integration Tests
     needs: [detect-changes, setup-database]
     if: needs.detect-changes.outputs.integrations_changed == 'true' && github.event.action != 'closed'
     runs-on: ubuntu-latest
-    # Removed local postgres service in favor of Supabase Preview Branch
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       - name: Install dependencies
         run: bun install
       
-      - name: 🔗 Decode Database URL
-        id: db-url
+      - name: 🔗 Fetch Branch Credentials
         run: |
-          # Double decode the base64 encoded URL
-          DB_URL=$(echo "${{ needs.setup-database.outputs.db_url_encoded }}" | base64 -d | base64 -d)
-          echo "::add-mask::$DB_URL"
-          echo "url=$DB_URL" >> $GITHUB_OUTPUT
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
+          
+          # Add DATABASE_URL with correct port
+          set -a
+          source .env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "DATABASE_URL=$DATABASE_URL" >> .env.supabase
         
       - name: 🧪 Run integration tests
-        run: bun run test
+        run: |
+          set -a
+          source .env.supabase
+          set +a
+          export DATABASE_URL
+          bun run test
         working-directory: ./packages/integrations
-        env:
-          DATABASE_URL: ${{ steps.db-url.outputs.url }}
 
   # ============================================
   # Gate Job: Reports single status for branch protection
@@ -419,11 +420,12 @@ jobs:
   # ============================================
   deploy-app:
     name: 📱 Deploy App
-    needs: [detect-changes, test-app]
+    needs: [detect-changes, test-app, setup-database]
     if: |
       always() &&
       (needs.test-app.result == 'success' || needs.test-app.result == 'skipped') &&
       needs.detect-changes.outputs.app_changed == 'true' &&
+      (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
@@ -435,11 +437,16 @@ jobs:
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_APP }}
       TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       - name: Install dependencies
         run: bun install
       - name: Set API URL
@@ -447,12 +454,29 @@ jobs:
         run: |
           API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
+      - name: 🔗 Fetch Branch Credentials
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
+          
+          # Add DATABASE_URL with correct port
+          set -a
+          source .env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "DATABASE_URL=$DATABASE_URL" >> .env.supabase
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       - name: 🏗 Build Project Artifacts
-        run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          NEXT_PUBLIC_API_URL: ${{ steps.api-url.outputs.url }}
+        run: |
+          set -a
+          source .env.supabase
+          set +a
+          export NEXT_PUBLIC_API_URL="${{ steps.api-url.outputs.url }}"
+          export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+          export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
       - name: 🚀 Deploy to Vercel
         id: deploy
         run: |
@@ -460,16 +484,17 @@ jobs:
           echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
 
   # ============================================
-  # Step 5: Deploy API (needs App URL from deploy-app)
+  # Step 6: Deploy API (needs App URL and DPP URL)
   # ============================================
   deploy-api:
     name: 🔧 Deploy API
-    needs: [detect-changes, test-api, deploy-app, setup-database]
+    needs: [detect-changes, test-api, deploy-app, deploy-dpp, setup-database]
     if: |
       always() &&
       (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') &&
       needs.detect-changes.outputs.api_changed == 'true' &&
       (needs.deploy-app.result == 'success' || needs.deploy-app.result == 'skipped') &&
+      (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
@@ -477,23 +502,43 @@ jobs:
       cancel-in-progress: true
     outputs:
       url: ${{ steps.urls.outputs.api_url }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       - name: Install dependencies
         run: bun install
-      - name: 🔗 Decode Database URL
-        id: db-url
+      - name: 🔗 Fetch Branch Credentials
+        id: creds
         run: |
-          DB_URL=$(echo "${{ needs.setup-database.outputs.db_url_encoded }}" | base64 -d | base64 -d)
-          echo "::add-mask::$DB_URL"
-          echo "url=$DB_URL" >> $GITHUB_OUTPUT
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
+          
+          # Source the env file to get variables
+          set -a
+          source .env.supabase
+          set +a
+          
+          # Create DATABASE_URL with correct port
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          
+          # Output for Fly.io secrets (these will be passed to the deploy action)
+          echo "database_url=$DATABASE_URL" >> $GITHUB_OUTPUT
+          echo "supabase_url=$SUPABASE_URL" >> $GITHUB_OUTPUT
+          echo "supabase_anon_key=$SUPABASE_ANON_KEY" >> $GITHUB_OUTPUT
+          echo "supabase_service_key=$SUPABASE_SERVICE_ROLE_KEY" >> $GITHUB_OUTPUT
       - name: 🔗 Set URLs
         id: urls
         env:
           INPUT_APP_URL: ${{ needs.deploy-app.outputs.url }}
+          INPUT_DPP_URL: ${{ needs.deploy-dpp.outputs.url }}
           INPUT_PR_NUM: ${{ github.event.number }}
         run: |
           API_URL="https://pr-${INPUT_PR_NUM}-avelero-api.fly.dev"
@@ -502,22 +547,29 @@ jobs:
           if [[ -n "${INPUT_APP_URL}" ]]; then
             APP_URL="${INPUT_APP_URL}"
           else
-            # Fallback - use predictable pattern
             APP_URL="https://pr-${INPUT_PR_NUM}-avelero-app.vercel.app"
+          fi
+          
+          # Use passed DPP_URL if available
+          if [[ -n "${INPUT_DPP_URL}" ]]; then
+            DPP_URL="${INPUT_DPP_URL}"
+          else
+            DPP_URL=""
           fi
           
           echo "api_url=${API_URL}" >> $GITHUB_OUTPUT
           echo "app_url=${APP_URL}" >> $GITHUB_OUTPUT
+          echo "dpp_url=${DPP_URL}" >> $GITHUB_OUTPUT
       - name: 🚀 Deploy PR API to Fly.io
         uses: superfly/fly-pr-review-apps@1.3.0
         with:
           name: pr-${{ github.event.number }}-avelero-api
           config: apps/api/fly-preview.yml
           secrets: >
-            DATABASE_URL=${{ steps.db-url.outputs.url }}
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-            SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
+            DATABASE_URL=${{ steps.creds.outputs.database_url }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ steps.creds.outputs.supabase_url }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ steps.creds.outputs.supabase_anon_key }}
+            SUPABASE_SERVICE_KEY=${{ steps.creds.outputs.supabase_service_key }}
             SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}
             TRIGGER_SECRET_KEY=${{ secrets.TRIGGER_SECRET_KEY_PREVIEW }}
             TRIGGER_PREVIEW_BRANCH=${{ github.head_ref }}
@@ -527,36 +579,49 @@ jobs:
             INTEGRATION_ENCRYPTION_KEY=${{ secrets.INTEGRATION_ENCRYPTION_KEY }}
             API_URL=${{ steps.urls.outputs.api_url }}
             APP_URL=${{ steps.urls.outputs.app_url }}
+            DPP_URL=${{ steps.urls.outputs.dpp_url }}
 
   # ============================================
-  # Step 6: Deploy Jobs (waits for API to be healthy)
+  # Step 7: Deploy Jobs (waits for API to be healthy)
   # ============================================
   deploy-jobs:
     name: ⚙️ Deploy Jobs
-    needs: [detect-changes, test-jobs, deploy-api, setup-database]
+    needs: [detect-changes, test-jobs, deploy-api, deploy-dpp, setup-database]
     if: |
       always() &&
       (needs.test-jobs.result == 'success' || needs.test-jobs.result == 'skipped') &&
       needs.detect-changes.outputs.jobs_changed == 'true' &&
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
+      (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
       group: pr-${{ github.event.number }}-jobs
       cancel-in-progress: true
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
         with:
           bun-version: "1.2.21"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
       - name: Install dependencies
         run: bun install
-      - name: 🔗 Decode Database URL
-        id: db-url
+      - name: 🔗 Fetch Branch Credentials
         run: |
-          DB_URL=$(echo "${{ needs.setup-database.outputs.db_url_encoded }}" | base64 -d | base64 -d)
-          echo "::add-mask::$DB_URL"
-          echo "url=$DB_URL" >> $GITHUB_OUTPUT
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
+          
+          # Add DATABASE_URL with correct port
+          set -a
+          source .env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "DATABASE_URL=$DATABASE_URL" >> .env.supabase
       - name: Set API URL
         id: api-url
         run: |
@@ -582,29 +647,33 @@ jobs:
           echo "❌ API did not become ready after $((MAX_RETRIES * RETRY_DELAY_SECONDS)) seconds"
           exit 1
       - name: 🚀 Deploy to Trigger.dev Preview
-        env:
-          BRANCH_NAME: ${{ github.head_ref }}
-          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
-          API_URL: ${{ steps.api-url.outputs.url }}
-          INTERNAL_API_KEY: ${{ secrets.PREVIEW_INTERNAL_API_KEY }}
-          DATABASE_URL: ${{ steps.db-url.outputs.url }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-        run: bunx trigger.dev@4.0.6 deploy --env preview --branch "$BRANCH_NAME"
+        run: |
+          set -a
+          source .env.supabase
+          set +a
+          export DATABASE_URL
+          export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          export BRANCH_NAME="${{ github.head_ref }}"
+          export TRIGGER_ACCESS_TOKEN="${{ secrets.TRIGGER_ACCESS_TOKEN }}"
+          export API_URL="${{ steps.api-url.outputs.url }}"
+          export DPP_URL="${{ needs.deploy-dpp.outputs.url }}"
+          export INTERNAL_API_KEY="${{ secrets.PREVIEW_INTERNAL_API_KEY }}"
+          export RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}"
+          bunx trigger.dev@4.0.6 deploy --env preview --branch "$BRANCH_NAME"
         working-directory: ./packages/jobs
 
   # ============================================
-  # Step 7: Deploy DPP (waits for API to be healthy)
+  # Step 5b: Deploy DPP (moved earlier to provide URL for API/Jobs)
   # ============================================
   deploy-dpp:
     name: 📋 Deploy DPP
-    needs: [detect-changes, test-dpp, deploy-api]
+    needs: [detect-changes, test-dpp, deploy-app]
     if: |
       always() &&
       (needs.test-dpp.result == 'success' || needs.test-dpp.result == 'skipped') &&
       needs.detect-changes.outputs.dpp_changed == 'true' &&
-      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
+      (needs.deploy-app.result == 'success' || needs.deploy-app.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
@@ -626,27 +695,9 @@ jobs:
       - name: Set API URL
         id: api-url
         run: |
+          # Use predictable Fly.io URL pattern (API will be deployed after DPP)
           API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
           echo "url=${API_URL}" >> $GITHUB_OUTPUT
-      - name: ⏳ Wait for API to be ready
-        env:
-          API_URL: ${{ steps.api-url.outputs.url }}
-        run: |
-          echo "Waiting for API at ${API_URL}/health to be ready..."
-          MAX_RETRIES=30
-          RETRY_DELAY_SECONDS=10
-          RETRY_COUNT=0
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl --fail --silent --show-error --connect-timeout 3 --max-time 5 "${API_URL}/health" > /dev/null 2>&1; then
-              echo "✅ API is ready!"
-              exit 0
-            fi
-            echo "API not ready yet (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES}), waiting ${RETRY_DELAY_SECONDS} seconds..."
-            sleep $RETRY_DELAY_SECONDS
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-          done
-          echo "❌ API did not become ready after $((MAX_RETRIES * RETRY_DELAY_SECONDS)) seconds"
-          exit 1
       - name: 📤 Pull Vercel Environment Information
         run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
       - name: 🏗 Build Project Artifacts

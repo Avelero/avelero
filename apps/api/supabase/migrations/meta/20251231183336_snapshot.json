@@ -532,8 +532,8 @@
         }
       },
       "indexes": {
-        "ux_users_on_brand_user_brand": {
-          "name": "ux_users_on_brand_user_brand",
+        "ux_brand_members_user_brand": {
+          "name": "ux_brand_members_user_brand",
           "columns": [
             {
               "expression": "user_id",
@@ -555,8 +555,8 @@
           "method": "btree",
           "with": {}
         },
-        "idx_users_on_brand_brand_id": {
-          "name": "idx_users_on_brand_brand_id",
+        "idx_brand_members_brand_id": {
+          "name": "idx_brand_members_brand_id",
           "columns": [
             {
               "expression": "brand_id",
@@ -571,8 +571,8 @@
           "method": "btree",
           "with": {}
         },
-        "idx_users_on_brand_user_id": {
-          "name": "idx_users_on_brand_user_id",
+        "idx_brand_members_user_id": {
+          "name": "idx_brand_members_user_id",
           "columns": [
             {
               "expression": "user_id",
@@ -618,8 +618,8 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "users_on_brand_user_id_brand_id_key": {
-          "name": "users_on_brand_user_id_brand_id_key",
+        "brand_members_user_id_brand_id_key": {
+          "name": "brand_members_user_id_brand_id_key",
           "nullsNotDistinct": false,
           "columns": [
             "user_id",
@@ -628,8 +628,8 @@
         }
       },
       "policies": {
-        "users_on_brand_update_by_owner": {
-          "name": "users_on_brand_update_by_owner",
+        "brand_members_update_by_owner": {
+          "name": "brand_members_update_by_owner",
           "as": "PERMISSIVE",
           "for": "UPDATE",
           "to": [
@@ -638,8 +638,8 @@
           ],
           "using": "is_brand_owner(brand_id)"
         },
-        "users_on_brand_select_for_members": {
-          "name": "users_on_brand_select_for_members",
+        "brand_members_select_for_members": {
+          "name": "brand_members_select_for_members",
           "as": "PERMISSIVE",
           "for": "SELECT",
           "to": [
@@ -648,8 +648,8 @@
           ],
           "using": "is_brand_member(brand_id)"
         },
-        "users_on_brand_delete_self": {
-          "name": "users_on_brand_delete_self",
+        "brand_members_delete_self": {
+          "name": "brand_members_delete_self",
           "as": "PERMISSIVE",
           "for": "DELETE",
           "to": [
@@ -657,8 +657,8 @@
             "service_role"
           ]
         },
-        "users_on_brand_delete_owner_non_owner": {
-          "name": "users_on_brand_delete_owner_non_owner",
+        "brand_members_delete_owner_non_owner": {
+          "name": "brand_members_delete_owner_non_owner",
           "as": "PERMISSIVE",
           "for": "DELETE",
           "to": [
@@ -666,8 +666,8 @@
             "service_role"
           ]
         },
-        "users_on_brand_insert_first_owner_self": {
-          "name": "users_on_brand_insert_first_owner_self",
+        "brand_members_insert_first_owner_self": {
+          "name": "brand_members_insert_first_owner_self",
           "as": "PERMISSIVE",
           "for": "INSERT",
           "to": [
@@ -677,8 +677,8 @@
         }
       },
       "checkConstraints": {
-        "users_on_brand_role_check": {
-          "name": "users_on_brand_role_check",
+        "brand_members_role_check": {
+          "name": "brand_members_role_check",
           "value": "role = ANY (ARRAY['owner'::text, 'member'::text])"
         }
       },

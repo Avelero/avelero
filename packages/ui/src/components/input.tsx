@@ -3,12 +3,16 @@ import * as React from "react";
 import { cn } from "../utils";
 
 const inputVariants = cva(
-  "flex w-full rounded-none border border-border bg-background px-3 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-tertiary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+  "flex w-full rounded-none border border-border bg-background px-3 ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-tertiary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50 transition-colors [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
   {
     variants: {
       variant: {
         default: "h-9 !type-p",
         small: "h-[30px] !type-small",
+      },
+      error: {
+        true: "focus-visible:ring-0 border-destructive",
+        false: "",
       },
     },
     defaultVariants: {
@@ -40,6 +44,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       allowEmpty,
       emptyDefault = 0,
       variant,
+      error,
       value,
       onChange,
       onBlur,
@@ -124,7 +129,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <input
         type={type}
-        className={cn(inputVariants({ variant, className }))}
+        className={cn(inputVariants({ variant, error, className }))}
         ref={ref}
         value={isNumericWithEmpty ? localValue : value}
         onChange={handleChange}

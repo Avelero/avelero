@@ -126,7 +126,7 @@ export function SetupForm() {
         <p className="text-secondary">Add your name and an optional avatar.</p>
       </div>
 
-      <div className="flex flex-col items-center gap-6 w-full">
+      <div className="flex flex-col items-center space-y-6 w-full">
         <AvatarUpload
           entity="user"
           entityId={userId}
@@ -137,19 +137,23 @@ export function SetupForm() {
           onUpload={onAvatarUpload}
         />
 
-        <div className="flex flex-col gap-1 w-full">
+        <div className="space-y-1.5 w-full">
           <Label>Full name</Label>
           <Input
             value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            onChange={(e) => {
+              setFullName(e.target.value);
+              setError("");
+            }}
             placeholder="John Doe"
+            error={!!error}
           />
+
+          {error ? (
+            <p className="type-small text-destructive text-center">{error}</p>
+          ) : null}
         </div>
       </div>
-
-      {error ? (
-        <p className="text-sm text-destructive text-center">{error}</p>
-      ) : null}
 
       <Button
         className="w-full"

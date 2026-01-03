@@ -18,6 +18,7 @@ import type { Database } from "@v1/db/client";
 import {
   createBrandAttribute,
   createBrandAttributeValue,
+  batchCreateBrandAttributeValues,
   createBrandTag,
   createCertification,
   createEcoClaim,
@@ -56,6 +57,7 @@ import {
 import {
   createBrandAttributeSchema,
   createBrandAttributeValueSchema,
+  batchCreateBrandAttributeValuesSchema,
   createBrandTagSchema,
   createCertificationSchema,
   createEcoClaimSchema,
@@ -432,6 +434,31 @@ export const catalogRouter = createTRPCRouter({
       deleteBrandAttributeValue,
       "attribute value"
     ),
+    batchCreate: brandRequiredProcedure
+      .input(batchCreateBrandAttributeValuesSchema)
+      .mutation(async ({ ctx, input }) => {
+        const brandCtx = ctx as BrandContext;
+        try {
+          const valuesWithTransform = input.values.map((v) => ({
+            attributeId: v.attribute_id,
+            name: v.name,
+            taxonomyValueId: v.taxonomy_value_id ?? null,
+          }));
+          const resultMap = await batchCreateBrandAttributeValues(
+            brandCtx.db,
+            brandCtx.brandId,
+            valuesWithTransform
+          );
+          // Convert map to array of results
+          const results: Array<{ key: string; id: string }> = [];
+          for (const [key, id] of resultMap) {
+            results.push({ key, id });
+          }
+          return createEntityResponse({ created: results.length, values: results });
+        } catch (error) {
+          throw wrapError(error, "Failed to batch create attribute values");
+        }
+      }),
   }),
 
   /**

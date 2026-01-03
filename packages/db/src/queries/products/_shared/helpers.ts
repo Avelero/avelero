@@ -24,6 +24,11 @@ import {
   productVariants,
   products,
   productTags,
+  // Variant override tables
+  variantEcoClaims,
+  variantEnvironment,
+  variantJourneySteps,
+  variantMaterials,
 } from "../../../schema";
 import type {
   ProductAttributesBundle,
@@ -127,7 +132,7 @@ export async function loadVariantsForProducts(
   const map = new Map<string, ProductVariantWithAttributes[]>();
   if (productIds.length === 0) return map;
 
-  // Load variants
+  // Load variants with core override fields
   const variantRows = await db
     .select({
       id: productVariants.id,
@@ -137,6 +142,10 @@ export async function loadVariantsForProducts(
       upid: productVariants.upid,
       created_at: productVariants.createdAt,
       updated_at: productVariants.updatedAt,
+      // Check core override fields
+      name: productVariants.name,
+      description: productVariants.description,
+      imagePath: productVariants.imagePath,
     })
     .from(productVariants)
     .where(inArray(productVariants.productId, [...productIds]))
@@ -169,6 +178,33 @@ export async function loadVariantsForProducts(
     .where(inArray(productVariantAttributes.variantId, variantIds))
     .orderBy(asc(productVariantAttributes.sortOrder));
 
+  // Batch check for override tables
+  // We only need to know if ANY row exists for each variant
+  const [envRows, ecoClaimRows, materialRows, journeyRows] = await Promise.all([
+    db
+      .select({ variantId: variantEnvironment.variantId })
+      .from(variantEnvironment)
+      .where(inArray(variantEnvironment.variantId, variantIds)),
+    db
+      .select({ variantId: variantEcoClaims.variantId })
+      .from(variantEcoClaims)
+      .where(inArray(variantEcoClaims.variantId, variantIds)),
+    db
+      .select({ variantId: variantMaterials.variantId })
+      .from(variantMaterials)
+      .where(inArray(variantMaterials.variantId, variantIds)),
+    db
+      .select({ variantId: variantJourneySteps.variantId })
+      .from(variantJourneySteps)
+      .where(inArray(variantJourneySteps.variantId, variantIds)),
+  ]);
+
+  // Build sets of variant IDs that have overrides
+  const hasEnvOverride = new Set(envRows.map((r) => r.variantId));
+  const hasEcoClaimOverride = new Set(ecoClaimRows.map((r) => r.variantId));
+  const hasMaterialOverride = new Set(materialRows.map((r) => r.variantId));
+  const hasJourneyOverride = new Set(journeyRows.map((r) => r.variantId));
+
   // Group attributes by variant ID
   const attributesByVariant = new Map<string, VariantAttributeSummary[]>();
   for (const row of attributeRows) {
@@ -187,6 +223,16 @@ export async function loadVariantsForProducts(
   // Build result map
   for (const row of variantRows) {
     const collection = map.get(row.product_id) ?? [];
+
+    // Check if variant has any overrides (use explicit null checks - empty string is a valid override)
+    const hasCoreOverride = row.name !== null || row.description !== null || row.imagePath !== null;
+    const hasTableOverride =
+      hasEnvOverride.has(row.id) ||
+      hasEcoClaimOverride.has(row.id) ||
+      hasMaterialOverride.has(row.id) ||
+      hasJourneyOverride.has(row.id);
+    const hasOverrides = hasCoreOverride || hasTableOverride;
+
     collection.push({
       id: row.id,
       product_id: row.product_id,
@@ -196,6 +242,7 @@ export async function loadVariantsForProducts(
       created_at: row.created_at,
       updated_at: row.updated_at,
       attributes: attributesByVariant.get(row.id) ?? [],
+      hasOverrides,
     });
     map.set(row.product_id, collection);
   }

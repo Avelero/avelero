@@ -188,6 +188,8 @@ export interface ProductLinkData {
   externalName: string | null;
   lastSyncedAt: string | null;
   lastSyncedHash: string | null;
+  /** Whether this source product is canonical within its integration (writes to product-level) */
+  isCanonical: boolean;
 }
 
 /**
@@ -214,6 +216,7 @@ export async function batchFindProductLinks(
       externalName: integrationProductLinks.externalName,
       lastSyncedAt: integrationProductLinks.lastSyncedAt,
       lastSyncedHash: integrationProductLinks.lastSyncedHash,
+      isCanonical: integrationProductLinks.isCanonical,
     })
     .from(integrationProductLinks)
     .innerJoin(products, eq(products.id, integrationProductLinks.productId))
@@ -270,3 +273,42 @@ export async function upsertProductLink(
     });
 }
 
+// =============================================================================
+// MULTI-SOURCE INTEGRATION SUPPORT
+// =============================================================================
+
+/**
+ * Batch find which products already have a canonical link from this integration.
+ * 
+ * This is used during sync to determine if a new source product should be canonical
+ * (first link within an integration) or non-canonical (subsequent links).
+ * 
+ * @param db - Database connection
+ * @param brandIntegrationId - The integration to check
+ * @param productIds - Array of Avelero product IDs to check
+ * @returns Set of product IDs that already have a canonical link from this integration
+ */
+export async function batchFindProductsWithCanonicalLink(
+  db: Database,
+  brandIntegrationId: string,
+  productIds: string[],
+): Promise<Set<string>> {
+  if (productIds.length === 0) {
+    return new Set();
+  }
+
+  const rows = await db
+    .select({
+      productId: integrationProductLinks.productId,
+    })
+    .from(integrationProductLinks)
+    .where(
+      and(
+        eq(integrationProductLinks.brandIntegrationId, brandIntegrationId),
+        inArray(integrationProductLinks.productId, productIds),
+        eq(integrationProductLinks.isCanonical, true),
+      ),
+    );
+
+  return new Set(rows.map((r) => r.productId));
+}

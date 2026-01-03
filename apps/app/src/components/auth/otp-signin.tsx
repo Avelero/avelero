@@ -7,8 +7,8 @@ import { cn } from "@v1/ui/cn";
 import { Input } from "@v1/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@v1/ui/input-otp";
 import { useAction } from "next-safe-action/hooks";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   className?: string;
@@ -24,9 +24,14 @@ export function OTPSignIn({ className }: Props) {
   const [sendError, setSendError] = useState<string | null>(null);
   const supabase = createClient();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
-  // Reset all form state on mount to handle bfcache restoration
+  // Track mount count to force reset on navigation (handles bfcache)
+  const mountCountRef = useRef(0);
+
+  // Reset all form state on mount and when navigating back to this page
   useEffect(() => {
+    mountCountRef.current += 1;
     setSent(false);
     setOtpValue("");
     setEmailInput("");
@@ -34,7 +39,7 @@ export function OTPSignIn({ className }: Props) {
     setSendError(null);
     setLoading(false);
     verifyOtp.reset();
-  }, []);
+  }, [pathname]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

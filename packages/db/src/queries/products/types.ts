@@ -89,6 +89,8 @@ export interface VariantAttributeSummary {
  */
 export interface ProductVariantWithAttributes extends ProductVariantSummary {
   attributes: VariantAttributeSummary[];
+  /** Whether this variant has override data (differs from product level) */
+  hasOverrides?: boolean;
 }
 
 /**

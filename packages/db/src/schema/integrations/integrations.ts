@@ -21,8 +21,6 @@ export const integrations = pgTable(
     description: text("description"),
     /** Authentication type required */
     authType: text("auth_type").notNull(), // 'oauth' | 'api_key' | 'api_key_secret'
-    /** Path to integration icon (relative to assets) */
-    iconPath: text("icon_path"),
     /** Integration status */
     status: text("status").notNull().default("active"), // 'active' | 'beta' | 'deprecated' | 'disabled'
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })

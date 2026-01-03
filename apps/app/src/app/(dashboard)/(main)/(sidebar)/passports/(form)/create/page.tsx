@@ -1,5 +1,4 @@
-import { CreatePassportForm } from "@/components/forms/passport/create-passport-form";
-import { PassportSkeleton } from "@/components/forms/passport/skeleton";
+import { CreateProductForm, ProductFormSkeleton } from "@/components/forms/passport";
 import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -16,8 +15,8 @@ export default async function CreatePassportsPage() {
 
   return (
     <HydrateClient>
-      <Suspense fallback={<PassportSkeleton title="Create passport" />}>
-        <CreatePassportForm />
+      <Suspense fallback={<ProductFormSkeleton title="Create passport" />}>
+        <CreateProductForm />
       </Suspense>
     </HydrateClient>
   );

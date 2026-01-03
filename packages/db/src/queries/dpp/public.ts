@@ -20,6 +20,10 @@ import {
   productJourneySteps,
   productEnvironment,
   productEcoClaims,
+  variantMaterials,
+  variantJourneySteps,
+  variantEnvironment,
+  variantEcoClaims,
   brands,
   brandTheme,
   brandMaterials,
@@ -246,19 +250,23 @@ async function fetchCoreData(
   variantUpid?: string,
 ): Promise<CoreDataResult | null> {
   if (variantUpid) {
-    // Variant-level query
+    // Variant-level query - includes variant override columns
     const rows = await db
       .select({
-        // Product
+        // Product (base values)
         productId: products.id,
-        productName: products.name,
-        productDescription: products.description,
-        productImage: products.imagePath,
+        productNameBase: products.name,
+        productDescriptionBase: products.description,
+        productImageBase: products.imagePath,
         productHandle: products.productHandle,
         productStatus: products.status,
-        // Variant
+        // Variant core data
         variantId: productVariants.id,
         variantUpid: productVariants.upid,
+        // Variant override columns (for inheritance)
+        variantName: productVariants.name,
+        variantDescription: productVariants.description,
+        variantImage: productVariants.imagePath,
         // Variant identifiers for article number
         variantSku: productVariants.sku,
         variantGtin: sql<string | null>`CAST(NULL AS TEXT)`.as("variantGtin"),
@@ -299,14 +307,35 @@ async function fetchCoreData(
     const row = rows[0];
     if (!row) return null;
 
-    // Fetch variant attributes
-    const variantAttributes = await fetchVariantAttributes(db, row.variantId);
+    // Fetch variant display attributes (Color, Size, etc.)
+    const variantDisplayAttributes = await fetchVariantAttributes(db, row.variantId);
 
+    // Apply inheritance: variant value ?? product value
     return {
-      ...row,
-      variantAttributes,
+      productId: row.productId,
+      productName: row.variantName ?? row.productNameBase,
+      productDescription: row.variantDescription ?? row.productDescriptionBase,
+      productImage: row.variantImage ?? row.productImageBase,
+      productHandle: row.productHandle,
+      productStatus: row.productStatus,
+      variantId: row.variantId,
+      variantUpid: row.variantUpid,
+      variantAttributes: variantDisplayAttributes,
+      variantSku: row.variantSku,
       variantGtin: row.variantGtin ?? null,
       variantEan: row.variantEan ?? null,
+      variantBarcode: row.variantBarcode,
+      brandId: row.brandId,
+      brandName: row.brandName,
+      brandSlug: row.brandSlug,
+      categoryId: row.categoryId,
+      categoryName: row.categoryName,
+      manufacturerName: row.manufacturerName,
+      manufacturerCountryCode: row.manufacturerCountryCode,
+      themeConfig: row.themeConfig,
+      themeStyles: row.themeStyles,
+      stylesheetPath: row.stylesheetPath,
+      googleFontsUrl: row.googleFontsUrl,
     } as CoreDataResult;
   }
 
@@ -334,7 +363,7 @@ async function fetchCoreData(
     .from(products)
     .innerJoin(brands, eq(brands.id, products.brandId))
     .leftJoin(brandTheme, eq(brandTheme.brandId, products.brandId))
-      .leftJoin(taxonomyCategories, eq(taxonomyCategories.id, products.categoryId))
+    .leftJoin(taxonomyCategories, eq(taxonomyCategories.id, products.categoryId))
     .leftJoin(brandManufacturers, eq(brandManufacturers.id, products.manufacturerId))
     .where(
       and(
@@ -487,15 +516,204 @@ async function fetchProductAttributes(
     journey,
     environment: environmentRows.length > 0
       ? {
-          carbonKgCo2e: environmentRows.find((e) => e.metric === "carbon_kg_co2e")?.value
-            ? String(environmentRows.find((e) => e.metric === "carbon_kg_co2e")!.value)
-            : null,
-          waterLiters: environmentRows.find((e) => e.metric === "water_liters")?.value
-            ? String(environmentRows.find((e) => e.metric === "water_liters")!.value)
-            : null,
-        }
+        carbonKgCo2e: environmentRows.find((e) => e.metric === "carbon_kg_co2e")?.value
+          ? String(environmentRows.find((e) => e.metric === "carbon_kg_co2e")!.value)
+          : null,
+        waterLiters: environmentRows.find((e) => e.metric === "water_liters")?.value
+          ? String(environmentRows.find((e) => e.metric === "water_liters")!.value)
+          : null,
+      }
       : null,
     ecoClaims: ecoClaimRows.map((c) => c.claim),
+  };
+}
+
+/**
+ * Helper: Fetch variant journey steps with their associated facilities.
+ * Uses batch loading to avoid N+1 queries.
+ */
+async function fetchVariantJourneyWithFacilities(
+  db: Database,
+  variantId: string,
+): Promise<DppJourneyStep[]> {
+  // Get journey steps from variant table
+  const steps = await db
+    .select({
+      id: variantJourneySteps.id,
+      sortIndex: variantJourneySteps.sortIndex,
+      stepType: variantJourneySteps.stepType,
+    })
+    .from(variantJourneySteps)
+    .where(eq(variantJourneySteps.variantId, variantId))
+    .orderBy(asc(variantJourneySteps.sortIndex));
+
+  if (steps.length === 0) return [];
+
+  // Get all facilities for these steps in one query
+  const stepIds = steps.map((s) => s.id);
+  const facilityRows = await db
+    .select({
+      journeyStepId: variantJourneySteps.id,
+      displayName: brandFacilities.displayName,
+      city: brandFacilities.city,
+      countryCode: brandFacilities.countryCode,
+    })
+    .from(variantJourneySteps)
+    .innerJoin(
+      brandFacilities,
+      eq(brandFacilities.id, variantJourneySteps.facilityId),
+    )
+    .where(inArray(variantJourneySteps.id, stepIds));
+
+  // Group facilities by step
+  const facilitiesByStep = new Map<string, DppFacility[]>();
+  for (const row of facilityRows) {
+    const existing = facilitiesByStep.get(row.journeyStepId) ?? [];
+    existing.push({
+      displayName: row.displayName,
+      city: row.city,
+      countryCode: row.countryCode,
+    });
+    facilitiesByStep.set(row.journeyStepId, existing);
+  }
+
+  return steps.map((step) => ({
+    sortIndex: step.sortIndex,
+    stepType: step.stepType,
+    facilities: facilitiesByStep.get(step.id) ?? [],
+  }));
+}
+
+/**
+ * Stage 2b: Fetch variant-level override data with full DPP details.
+ * Used for variant-level DPP rendering with inheritance.
+ * Returns null for each field if no variant-level data exists.
+ */
+async function fetchVariantOverrideData(
+  db: Database,
+  variantId: string,
+): Promise<ProductAttributes | null> {
+  const [materials, journey, environmentRows, ecoClaimRows] = await Promise.all(
+    [
+      // Variant materials with certification info
+      db
+        .select({
+          percentage: variantMaterials.percentage,
+          materialName: brandMaterials.name,
+          countryOfOrigin: brandMaterials.countryOfOrigin,
+          recyclable: brandMaterials.recyclable,
+          certificationTitle: brandCertifications.title,
+          certificationUrl: brandCertifications.instituteWebsite,
+        })
+        .from(variantMaterials)
+        .innerJoin(
+          brandMaterials,
+          eq(brandMaterials.id, variantMaterials.brandMaterialId),
+        )
+        .leftJoin(
+          brandCertifications,
+          eq(brandCertifications.id, brandMaterials.certificationId),
+        )
+        .where(eq(variantMaterials.variantId, variantId))
+        .orderBy(asc(variantMaterials.createdAt)),
+
+      // Variant journey steps with facilities
+      fetchVariantJourneyWithFacilities(db, variantId),
+
+      // Variant environment metrics
+      db
+        .select({
+          carbonKgCo2e: variantEnvironment.carbonKgCo2e,
+          waterLiters: variantEnvironment.waterLiters,
+        })
+        .from(variantEnvironment)
+        .where(eq(variantEnvironment.variantId, variantId))
+        .limit(1),
+
+      // Variant eco claims
+      db
+        .select({
+          claim: brandEcoClaims.claim,
+        })
+        .from(variantEcoClaims)
+        .innerJoin(
+          brandEcoClaims,
+          eq(brandEcoClaims.id, variantEcoClaims.ecoClaimId),
+        )
+        .where(eq(variantEcoClaims.variantId, variantId)),
+    ],
+  );
+
+  // Check if ANY variant-level data exists for each category
+  const hasMaterials = materials.length > 0;
+  const hasJourney = journey.length > 0;
+  const hasEnvironment = environmentRows.length > 0;
+  const hasEcoClaims = ecoClaimRows.length > 0;
+
+  // If no variant data exists at all, return null to signal full inheritance
+  if (!hasMaterials && !hasJourney && !hasEnvironment && !hasEcoClaims) {
+    return null;
+  }
+
+  return {
+    // Only include if variant has overrides, otherwise null triggers inheritance
+    materials: hasMaterials
+      ? materials.map((m) => ({
+        percentage: m.percentage ? Number(m.percentage) : 0,
+        materialName: m.materialName,
+        countryOfOrigin: m.countryOfOrigin,
+        recyclable: m.recyclable,
+        certificationTitle: m.certificationTitle,
+        certificationUrl: m.certificationUrl,
+      }))
+      : [],
+    journey: hasJourney ? journey : [],
+    environment: hasEnvironment && environmentRows[0]
+      ? {
+        carbonKgCo2e: environmentRows[0].carbonKgCo2e
+          ? String(environmentRows[0].carbonKgCo2e)
+          : null,
+        waterLiters: environmentRows[0].waterLiters
+          ? String(environmentRows[0].waterLiters)
+          : null,
+      }
+      : null,
+    ecoClaims: hasEcoClaims ? ecoClaimRows.map((c) => c.claim) : [],
+  };
+}
+
+/**
+ * Resolve attributes with variant-level inheritance.
+ * For each category: use variant data if exists, else fall back to product data.
+ */
+async function resolveVariantAttributesWithInheritance(
+  db: Database,
+  variantId: string,
+  productId: string,
+): Promise<ProductAttributes> {
+  // Fetch both variant and product attributes in parallel
+  const [variantAttrs, productAttrs] = await Promise.all([
+    fetchVariantOverrideData(db, variantId),
+    fetchProductAttributes(db, productId),
+  ]);
+
+  // If no variant overrides exist, use product attributes entirely
+  if (!variantAttrs) {
+    return productAttrs;
+  }
+
+  // Apply inheritance: variant data takes precedence, fall back to product
+  return {
+    materials: variantAttrs.materials.length > 0
+      ? variantAttrs.materials
+      : productAttrs.materials,
+    journey: variantAttrs.journey.length > 0
+      ? variantAttrs.journey
+      : productAttrs.journey,
+    environment: variantAttrs.environment ?? productAttrs.environment,
+    ecoClaims: variantAttrs.ecoClaims.length > 0
+      ? variantAttrs.ecoClaims
+      : productAttrs.ecoClaims,
   };
 }
 
@@ -503,6 +721,7 @@ async function fetchProductAttributes(
 // ─────────────────────────────────────────────────────────────────────────────
 // Public Query Functions
 // ─────────────────────────────────────────────────────────────────────────────
+
 
 /**
  * Fetch complete DPP data for a product-level passport.
@@ -575,12 +794,17 @@ export async function getDppByVariantUpid(
   productHandle: string,
   variantUpid: string,
 ): Promise<DppPublicData | null> {
-  // Stage 1: Core data (includes variant info)
+  // Stage 1: Core data (includes variant info with inheritance for name/description/image)
   const core = await fetchCoreData(db, brandSlug, productHandle, variantUpid);
   if (!core) return null;
 
-  // Stage 2: Attributes (same as product-level)
-  const attributes = await fetchProductAttributes(db, core.productId);
+  // Stage 2: Attributes with variant-level inheritance
+  // For each category: use variant data if exists, else fall back to product data
+  const attributes = await resolveVariantAttributesWithInheritance(
+    db,
+    core.variantId!,
+    core.productId,
+  );
 
   return {
     sourceType: "variant",
@@ -718,9 +942,9 @@ export async function getCarouselProductsForDpp(
     currentCategoryId: currentProduct.categoryId,
     carouselConfig: carouselConfig
       ? {
-          ...carouselConfig,
-          productCount: Math.min(limit, carouselConfig.productCount ?? limit, 20),
-        }
+        ...carouselConfig,
+        productCount: Math.min(limit, carouselConfig.productCount ?? limit, 20),
+      }
       : { productCount: Math.min(limit, 20) },
   });
 

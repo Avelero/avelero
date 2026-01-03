@@ -13,6 +13,7 @@ import { brandSeasons } from "../catalog/brand-seasons";
 import { taxonomyCategories } from "../taxonomy/taxonomy-categories";
 import { brandManufacturers } from "../catalog/brand-manufacturers";
 import { brands } from "../core/brands";
+import { brandIntegrations } from "../integrations/brand-integrations";
 
 export const products = pgTable(
   "products",
@@ -41,6 +42,21 @@ export const products = pgTable(
       onUpdate: "cascade",
     }),
     status: text("status").notNull().default("unpublished"),
+    /**
+     * Source of product creation.
+     * Values: 'manual' | 'integration'
+     * - 'manual': Created by user in UI or bulk upload (create mode)
+     * - 'integration': Created by primary integration sync
+     */
+    source: text("source").default("manual").notNull(),
+    /**
+     * If source is 'integration', tracks which integration created this product.
+     * NULL for manual products.
+     */
+    sourceIntegrationId: uuid("source_integration_id").references(
+      () => brandIntegrations.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

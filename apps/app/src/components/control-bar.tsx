@@ -76,9 +76,11 @@ function ControlBarNavButton({
   }
   const normalizedPathname = normalize(pathname);
   const normalizedHref = normalize(href);
-  // For exact route matching: only use prefix matching for routes with common prefixes
-  // /account should NOT match /account/brands - only exact match or explicit child routes
-  const computedActive = normalizedPathname === normalizedHref;
+  // Use prefix matching so sub-routes (e.g. /settings/integrations/Shopify)
+  // still highlight the parent nav button (e.g. /settings/integrations)
+  const computedActive =
+    normalizedPathname === normalizedHref ||
+    normalizedPathname.startsWith(`${normalizedHref}/`);
   const isActive = providedIsActive ?? computedActive;
 
   return (
@@ -86,7 +88,7 @@ function ControlBarNavButton({
       href={href}
       prefetch
       className={cn(
-        "h-full px-1 flex items-center",
+        "h-full px-1 group flex items-center",
         isActive
           ? "border-b-2 border-primary -mb-px"
           : "border-b border-transparent",
@@ -98,7 +100,7 @@ function ControlBarNavButton({
           "type-p",
           isActive
             ? "text-primary !font-medium"
-            : "text-secondary !font-medium hover:text-primary transition-colors duration-150",
+            : "text-secondary !font-medium group-hover:text-primary transition-colors duration-150",
         )}
       >
         {children}

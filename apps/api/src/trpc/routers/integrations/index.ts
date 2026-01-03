@@ -11,6 +11,7 @@
 import { createTRPCRouter } from "../../init.js";
 import { connectionsRouter } from "./connections.js";
 import { mappingsRouter } from "./mappings.js";
+import { promotionRouter } from "./promotion.js";
 import { syncRouter } from "./sync.js";
 
 /**
@@ -51,6 +52,14 @@ export const integrationsRouter = createTRPCRouter({
    * - View sync history and status
    */
   sync: syncRouter,
+
+  /**
+   * Promotion operations sub-router.
+   *
+   * Powers the promotion status UI:
+   * - Poll for promotion operation progress
+   */
+  promotion: promotionRouter,
 });
 
 export type IntegrationsRouter = typeof integrationsRouter;

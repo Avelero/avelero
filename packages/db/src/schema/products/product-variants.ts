@@ -23,6 +23,14 @@ export const productVariants = pgTable(
     barcode: text("barcode"),
     sku: text("sku"),
     upid: text("upid"),
+    // Display override columns (nullable = inherit from product)
+    // When populated, these take precedence over product-level values for DPP rendering
+    name: text("name"),
+    description: text("description"),
+    imagePath: text("image_path"),
+    // Source tracking: which integration wrote this data
+    sourceIntegration: text("source_integration"),
+    sourceExternalId: text("source_external_id"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

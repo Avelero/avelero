@@ -1,6 +1,11 @@
 import "./src/env.mjs";
 
 /** @type {import('next').NextConfig} */
+const supabaseUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL);
+
+const isLocal = supabaseUrl.hostname === '127.0.0.1' || supabaseUrl.hostname === 'localhost';
+
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: [
     "@v1/supabase",
@@ -12,10 +17,12 @@ const nextConfig = {
   cacheComponents: true,
   serverExternalPackages: ["pino", "thread-stream"],
   images: {
+    unoptimized: isLocal,
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname,
+        protocol: supabaseUrl.protocol.replace(":", ""),
+        hostname: supabaseUrl.hostname,
+        port: supabaseUrl.port,
         pathname: "/storage/**", // allow both public and sign URLs
       },
       {

@@ -3,7 +3,7 @@ import {
   ControlBarLeft,
   ControlBarRight,
 } from "@/components/control-bar";
-import { PassportFormActions } from "@/components/passports/form-actions";
+import { FormActionsWrapper } from "@/components/forms/passport";
 import { PassportFormProvider } from "@/contexts/passport-form-context";
 import type { Metadata } from "next";
 
@@ -22,10 +22,13 @@ export default function PassportsFormLayout({
         <ControlBar>
           <ControlBarLeft />
           <ControlBarRight>
-            <PassportFormActions />
+            <FormActionsWrapper />
           </ControlBarRight>
         </ControlBar>
-        <div className="flex w-full h-full justify-center items-start p-12 overflow-y-auto scrollbar-hide">
+        <div
+          id="passport-form-scroll-container"
+          className="flex w-full h-full justify-center items-start p-12 overflow-y-auto scrollbar-hide"
+        >
           {children}
         </div>
       </div>

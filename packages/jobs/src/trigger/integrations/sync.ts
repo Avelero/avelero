@@ -183,6 +183,9 @@ export const syncIntegration = task({
         credentials,
         config: {},
         fieldConfigs: mappedFieldConfigs,
+        isPrimary: brandIntegration.isPrimary ?? true,
+        matchIdentifier:
+          (brandIntegration.matchIdentifier as "barcode" | "sku") ?? "barcode",
         productsTotal,
         onProgress,
       };

@@ -1,0 +1,3 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_unique_sku_per_brand" ON "product_variants" USING btree ("sku",get_product_brand_id(product_id)) WHERE sku IS NOT NULL AND sku != '';--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_unique_barcode_per_brand" ON "product_variants" USING btree ("barcode",get_product_brand_id(product_id)) WHERE barcode IS NOT NULL AND barcode != '';--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "idx_unique_upid_per_brand" ON "product_variants" USING btree ("upid",get_product_brand_id(product_id)) WHERE upid IS NOT NULL AND upid != '';

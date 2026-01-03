@@ -1,0 +1,16 @@
+{
+    "imports": {
+        "@react-email/components": "npm:@react-email/components@0.0.22",
+        "react": "npm:react@18.3.1",
+        "resend": "npm:resend@4.0.0",
+        "standardwebhooks": "npm:standardwebhooks@1.0.0"
+    },
+    "compilerOptions": {
+        "lib": [
+            "deno.window"
+        ],
+        "jsx": "react-jsx",
+        "jsxImportSource": "react"
+    },
+    "nodeModulesDir": "auto"
+}

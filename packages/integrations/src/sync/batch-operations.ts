@@ -129,17 +129,22 @@ export function extractUniqueEntitiesFromBatch(
  * Compares extracted entities against caches, creates only what's missing,
  * and updates caches with new IDs.
  *
+ * NOTE: Attributes and attribute values are ONLY created by PRIMARY integrations.
+ * Secondary integrations can only enrich existing products, not define structure.
+ *
  * @param db - Database connection
  * @param brandId - Brand ID
  * @param extracted - Extracted entities from batch
  * @param caches - Sync caches to check and update
+ * @param isPrimary - Whether this is a primary integration sync (only primary can create attributes)
  * @returns Stats on how many entities were created
  */
 export async function createMissingEntities(
   db: Database,
   brandId: string,
   extracted: ExtractedEntities,
-  caches: SyncCaches
+  caches: SyncCaches,
+  isPrimary = true
 ): Promise<BatchCreationStats> {
   const stats: BatchCreationStats = {
     tagsCreated: 0,
@@ -156,12 +161,18 @@ export async function createMissingEntities(
     }
   }
 
-  // Create missing tags
+  // Create missing tags (both primary and secondary can create tags)
   if (missingTags.length > 0) {
     const tagMap = await batchCreateTags(db, brandId, missingTags);
     const newTagNames = new Set(missingTags.map((t) => t.name.toLowerCase()));
     stats.tagsCreated = tagMap.size;
     bulkCacheTags(caches, tagMap, newTagNames);
+  }
+
+  // SECONDARY INTEGRATIONS: Skip attribute creation entirely
+  // Per integration-refactor-plan.md, only PRIMARY can define product structure
+  if (!isPrimary) {
+    return stats;
   }
 
   // Find missing attributes

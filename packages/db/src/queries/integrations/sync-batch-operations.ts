@@ -55,6 +55,13 @@ export interface VariantUpdateData {
   id: string;
   sku?: string | null;
   barcode?: string | null;
+  // NEW: Display override fields
+  name?: string | null;
+  description?: string | null;
+  imagePath?: string | null;
+  // NEW: Source tracking
+  sourceIntegration?: string | null;
+  sourceExternalId?: string | null;
 }
 
 export interface ProductLinkUpsertData {
@@ -63,6 +70,12 @@ export interface ProductLinkUpsertData {
   externalId: string;
   externalName: string | null;
   lastSyncedHash: string | null;
+  /**
+   * Whether this source product is canonical within its integration.
+   * Canonical sources write to product-level; non-canonical write to variant overrides.
+   * When undefined, defaults to true for new links (preserving backward compatibility).
+   */
+  isCanonical?: boolean;
 }
 
 export interface TagAssignmentData {
@@ -201,6 +214,8 @@ export async function batchUpsertProductCommercial(
  * 
  * Uses PostgreSQL's UPDATE FROM with VALUES clause to update all rows atomically.
  * 
+ * Now supports variant-level override fields: name, description, imagePath, sourceIntegration, sourceExternalId.
+ * 
  * @returns Number of variants updated
  */
 export async function batchUpdateVariants(
@@ -212,7 +227,7 @@ export async function batchUpdateVariants(
   const now = new Date().toISOString();
 
   // Build the VALUES clause rows
-  // Format: (id::uuid, sku::text, barcode::text)
+  // Format: (id::uuid, sku::text, barcode::text, name::text, description::text, image_path::text, source_integration::text, source_external_id::text)
   const valueRows: string[] = [];
 
   for (const update of updates) {
@@ -223,18 +238,43 @@ export async function batchUpdateVariants(
     const barcode = update.barcode !== undefined
       ? (update.barcode ? `'${escapeSqlString(update.barcode)}'` : 'NULL')
       : 'NULL';
+    const name = update.name !== undefined
+      ? (update.name ? `'${escapeSqlString(update.name)}'` : 'NULL')
+      : 'NULL';
+    const description = update.description !== undefined
+      ? (update.description ? `'${escapeSqlString(update.description)}'` : 'NULL')
+      : 'NULL';
+    const imagePath = update.imagePath !== undefined
+      ? (update.imagePath ? `'${escapeSqlString(update.imagePath)}'` : 'NULL')
+      : 'NULL';
+    const sourceIntegration = update.sourceIntegration !== undefined
+      ? (update.sourceIntegration ? `'${escapeSqlString(update.sourceIntegration)}'` : 'NULL')
+      : 'NULL';
+    const sourceExternalId = update.sourceExternalId !== undefined
+      ? (update.sourceExternalId ? `'${escapeSqlString(update.sourceExternalId)}'` : 'NULL')
+      : 'NULL';
 
-    valueRows.push(`(${id}, ${sku}, ${barcode})`);
+    valueRows.push(`(${id}, ${sku}, ${barcode}, ${name}, ${description}, ${imagePath}, ${sourceIntegration}, ${sourceExternalId})`);
   }
 
   // Determine which columns actually have updates (to avoid setting unchanged columns)
   const hasSkuUpdates = updates.some(u => u.sku !== undefined);
   const hasBarcodeUpdates = updates.some(u => u.barcode !== undefined);
+  const hasNameUpdates = updates.some(u => u.name !== undefined);
+  const hasDescriptionUpdates = updates.some(u => u.description !== undefined);
+  const hasImagePathUpdates = updates.some(u => u.imagePath !== undefined);
+  const hasSourceIntegrationUpdates = updates.some(u => u.sourceIntegration !== undefined);
+  const hasSourceExternalIdUpdates = updates.some(u => u.sourceExternalId !== undefined);
 
   // Build SET clause - only update columns that have changes
   const setClauses: string[] = [];
   if (hasSkuUpdates) setClauses.push('sku = v.sku');
   if (hasBarcodeUpdates) setClauses.push('barcode = v.barcode');
+  if (hasNameUpdates) setClauses.push('name = v.name');
+  if (hasDescriptionUpdates) setClauses.push('description = v.description');
+  if (hasImagePathUpdates) setClauses.push('image_path = v.image_path');
+  if (hasSourceIntegrationUpdates) setClauses.push('source_integration = v.source_integration');
+  if (hasSourceExternalIdUpdates) setClauses.push('source_external_id = v.source_external_id');
   setClauses.push(`updated_at = '${now}'`);
 
   if (setClauses.length === 1) {
@@ -246,7 +286,7 @@ export async function batchUpdateVariants(
   const query = `
     UPDATE product_variants AS pv
     SET ${setClauses.join(', ')}
-    FROM (VALUES ${valueRows.join(', ')}) AS v(id, sku, barcode)
+    FROM (VALUES ${valueRows.join(', ')}) AS v(id, sku, barcode, name, description, image_path, source_integration, source_external_id)
     WHERE pv.id = v.id
   `;
 
@@ -254,6 +294,7 @@ export async function batchUpdateVariants(
 
   return updates.length;
 }
+
 
 // =============================================================================
 // BATCH SET PRODUCT TAGS
@@ -299,6 +340,13 @@ export async function batchSetProductTags(
 
 /**
  * Batch upsert product links in a single query.
+ * 
+ * Includes isCanonical flag for multi-source integration support:
+ * - Canonical sources (isCanonical=true) write to product-level
+ * - Non-canonical sources (isCanonical=false) write to variant overrides
+ * 
+ * The isCanonical flag is only set on INSERT (new links), not on UPDATE.
+ * This preserves the first link as canonical even if re-synced.
  */
 export async function batchUpsertProductLinks(
   db: Database,
@@ -316,6 +364,8 @@ export async function batchUpsertProductLinks(
       externalName: link.externalName,
       lastSyncedHash: link.lastSyncedHash,
       lastSyncedAt: now,
+      // isCanonical defaults to true for new links (backward compatibility)
+      isCanonical: link.isCanonical ?? true,
     })))
     .onConflictDoUpdate({
       target: [
@@ -323,6 +373,9 @@ export async function batchUpsertProductLinks(
         integrationProductLinks.externalId,
       ],
       set: {
+        // NOTE: We do NOT update isCanonical on conflict.
+        // Once a link is created, its canonical status is preserved.
+        // This ensures the first link remains canonical even after re-sync.
         externalName: sql`EXCLUDED.external_name`,
         lastSyncedHash: sql`EXCLUDED.last_synced_hash`,
         lastSyncedAt: sql`EXCLUDED.last_synced_at`,
@@ -395,3 +448,467 @@ export async function batchReplaceVariantAttributes(
   return toInsert.length;
 }
 
+// =============================================================================
+// VARIANT OVERRIDE BATCH OPERATIONS
+// =============================================================================
+
+import {
+  variantCommercial,
+  variantEnvironment,
+  variantMaterials,
+  variantWeight,
+  variantJourneySteps,
+  variantEcoClaims,
+} from "../../schema";
+
+/**
+ * Upsert data for variant commercial overrides.
+ */
+export interface VariantCommercialUpsertData {
+  variantId: string;
+  webshopUrl?: string | null;
+  price?: string | null;
+  currency?: string | null;
+  salesStatus?: string | null;
+  sourceIntegration?: string | null;
+  sourceExternalId?: string | null;
+}
+
+/**
+ * Batch upsert variant commercial data.
+ * Uses INSERT ON CONFLICT DO UPDATE for efficient upsert.
+ *
+ * @returns Number of rows upserted
+ */
+export async function batchUpsertVariantCommercial(
+  db: Database,
+  data: VariantCommercialUpsertData[]
+): Promise<number> {
+  if (data.length === 0) return 0;
+
+  const now = new Date().toISOString();
+
+  // Filter to only records that have at least one commercial field set
+  const validData = data.filter(
+    (d) =>
+      d.webshopUrl !== undefined ||
+      d.price !== undefined ||
+      d.currency !== undefined ||
+      d.salesStatus !== undefined
+  );
+
+  if (validData.length === 0) return 0;
+
+  await db
+    .insert(variantCommercial)
+    .values(
+      validData.map((d) => ({
+        variantId: d.variantId,
+        webshopUrl: d.webshopUrl ?? null,
+        price: d.price ?? null,
+        currency: d.currency ?? null,
+        salesStatus: d.salesStatus ?? null,
+        sourceIntegration: d.sourceIntegration ?? null,
+        sourceExternalId: d.sourceExternalId ?? null,
+        createdAt: now,
+        updatedAt: now,
+      }))
+    )
+    .onConflictDoUpdate({
+      target: variantCommercial.variantId,
+      set: {
+        webshopUrl: sql`EXCLUDED.webshop_url`,
+        price: sql`EXCLUDED.price`,
+        currency: sql`EXCLUDED.currency`,
+        salesStatus: sql`EXCLUDED.sales_status`,
+        sourceIntegration: sql`EXCLUDED.source_integration`,
+        sourceExternalId: sql`EXCLUDED.source_external_id`,
+        updatedAt: now,
+      },
+    });
+
+  return validData.length;
+}
+
+/**
+ * Upsert data for variant environment overrides.
+ */
+export interface VariantEnvironmentUpsertData {
+  variantId: string;
+  carbonKgCo2e?: string | null;
+  waterLiters?: string | null;
+  sourceIntegration?: string | null;
+  sourceExternalId?: string | null;
+}
+
+/**
+ * Batch upsert variant environment data.
+ * Uses INSERT ON CONFLICT DO UPDATE for efficient upsert.
+ *
+ * @returns Number of rows upserted
+ */
+export async function batchUpsertVariantEnvironment(
+  db: Database,
+  data: VariantEnvironmentUpsertData[]
+): Promise<number> {
+  if (data.length === 0) return 0;
+
+  const now = new Date().toISOString();
+
+  // Filter to only records that have at least one environment field set
+  const validData = data.filter(
+    (d) => d.carbonKgCo2e !== undefined || d.waterLiters !== undefined
+  );
+
+  if (validData.length === 0) return 0;
+
+  await db
+    .insert(variantEnvironment)
+    .values(
+      validData.map((d) => ({
+        variantId: d.variantId,
+        carbonKgCo2e: d.carbonKgCo2e ?? null,
+        waterLiters: d.waterLiters ?? null,
+        sourceIntegration: d.sourceIntegration ?? null,
+        sourceExternalId: d.sourceExternalId ?? null,
+        createdAt: now,
+        updatedAt: now,
+      }))
+    )
+    .onConflictDoUpdate({
+      target: variantEnvironment.variantId,
+      set: {
+        carbonKgCo2e: sql`EXCLUDED.carbon_kg_co2e`,
+        waterLiters: sql`EXCLUDED.water_liters`,
+        sourceIntegration: sql`EXCLUDED.source_integration`,
+        sourceExternalId: sql`EXCLUDED.source_external_id`,
+        updatedAt: now,
+      },
+    });
+
+  return validData.length;
+}
+
+/**
+ * Material data for variant material replacement.
+ */
+export interface VariantMaterialData {
+  brandMaterialId: string;
+  percentage?: string | null;
+}
+
+/**
+ * Replacement data for variant materials.
+ */
+export interface VariantMaterialsReplacementData {
+  variantId: string;
+  materials: VariantMaterialData[];
+  sourceIntegration?: string | null;
+  sourceExternalId?: string | null;
+}
+
+/**
+ * Batch replace variant materials.
+ * Deletes existing materials for the given variants, then inserts new ones.
+ *
+ * @returns Number of material entries created
+ */
+export async function batchReplaceVariantMaterials(
+  db: Database,
+  data: VariantMaterialsReplacementData[]
+): Promise<number> {
+  if (data.length === 0) return 0;
+
+  const variantIds = data.map((d) => d.variantId);
+
+  // Delete all existing materials for these variants in one query
+  await db
+    .delete(variantMaterials)
+    .where(inArray(variantMaterials.variantId, variantIds));
+
+  // Build all materials to insert
+  const now = new Date().toISOString();
+  const toInsert: Array<{
+    variantId: string;
+    brandMaterialId: string;
+    percentage: string | null;
+    sourceIntegration: string | null;
+    sourceExternalId: string | null;
+    createdAt: string;
+  }> = [];
+
+  for (const item of data) {
+    for (const material of item.materials) {
+      toInsert.push({
+        variantId: item.variantId,
+        brandMaterialId: material.brandMaterialId,
+        percentage: material.percentage ?? null,
+        sourceIntegration: item.sourceIntegration ?? null,
+        sourceExternalId: item.sourceExternalId ?? null,
+        createdAt: now,
+      });
+    }
+  }
+
+  if (toInsert.length === 0) return 0;
+
+  await db.insert(variantMaterials).values(toInsert);
+
+  return toInsert.length;
+}
+
+/**
+ * Upsert data for variant weight overrides.
+ */
+export interface VariantWeightUpsertData {
+  variantId: string;
+  weight?: string | null;
+  weightUnit?: string | null;
+  sourceIntegration?: string | null;
+  sourceExternalId?: string | null;
+}
+
+/**
+ * Batch upsert variant weight data.
+ * Uses INSERT ON CONFLICT DO UPDATE for efficient upsert.
+ *
+ * @returns Number of rows upserted
+ */
+export async function batchUpsertVariantWeight(
+  db: Database,
+  data: VariantWeightUpsertData[]
+): Promise<number> {
+  if (data.length === 0) return 0;
+
+  const now = new Date().toISOString();
+
+  // Filter to only records that have at least one weight field set
+  const validData = data.filter(
+    (d) => d.weight !== undefined || d.weightUnit !== undefined
+  );
+
+  if (validData.length === 0) return 0;
+
+  await db
+    .insert(variantWeight)
+    .values(
+      validData.map((d) => ({
+        variantId: d.variantId,
+        weight: d.weight ?? null,
+        weightUnit: d.weightUnit ?? null,
+        sourceIntegration: d.sourceIntegration ?? null,
+        sourceExternalId: d.sourceExternalId ?? null,
+        createdAt: now,
+        updatedAt: now,
+      }))
+    )
+    .onConflictDoUpdate({
+      target: variantWeight.variantId,
+      set: {
+        weight: sql`EXCLUDED.weight`,
+        weightUnit: sql`EXCLUDED.weight_unit`,
+        sourceIntegration: sql`EXCLUDED.source_integration`,
+        sourceExternalId: sql`EXCLUDED.source_external_id`,
+        updatedAt: now,
+      },
+    });
+
+  return validData.length;
+}
+
+/**
+ * Journey step data for variant journey replacement.
+ */
+export interface VariantJourneyStepData {
+  sortIndex: number;
+  stepType: string;
+  facilityId: string;
+}
+
+/**
+ * Replacement data for variant journey steps.
+ */
+export interface VariantJourneyReplacementData {
+  variantId: string;
+  steps: VariantJourneyStepData[];
+  sourceIntegration?: string | null;
+  sourceExternalId?: string | null;
+}
+
+/**
+ * Batch replace variant journey steps.
+ * Deletes existing journey steps for the given variants, then inserts new ones.
+ *
+ * @returns Number of journey steps created
+ */
+export async function batchReplaceVariantJourney(
+  db: Database,
+  data: VariantJourneyReplacementData[]
+): Promise<number> {
+  if (data.length === 0) return 0;
+
+  const variantIds = data.map((d) => d.variantId);
+
+  // Delete all existing journey steps for these variants in one query
+  await db
+    .delete(variantJourneySteps)
+    .where(inArray(variantJourneySteps.variantId, variantIds));
+
+  // Build all steps to insert
+  const now = new Date().toISOString();
+  const toInsert: Array<{
+    variantId: string;
+    sortIndex: number;
+    stepType: string;
+    facilityId: string;
+    sourceIntegration: string | null;
+    sourceExternalId: string | null;
+    createdAt: string;
+  }> = [];
+
+  for (const item of data) {
+    for (const step of item.steps) {
+      toInsert.push({
+        variantId: item.variantId,
+        sortIndex: step.sortIndex,
+        stepType: step.stepType,
+        facilityId: step.facilityId,
+        sourceIntegration: item.sourceIntegration ?? null,
+        sourceExternalId: item.sourceExternalId ?? null,
+        createdAt: now,
+      });
+    }
+  }
+
+  if (toInsert.length === 0) return 0;
+
+  await db.insert(variantJourneySteps).values(toInsert);
+
+  return toInsert.length;
+}
+
+/**
+ * Replacement data for variant eco claims.
+ */
+export interface VariantEcoClaimsReplacementData {
+  variantId: string;
+  ecoClaimIds: string[];
+  sourceIntegration?: string | null;
+  sourceExternalId?: string | null;
+}
+
+/**
+ * Batch replace variant eco claims.
+ * Deletes existing eco claims for the given variants, then inserts new ones.
+ *
+ * @returns Number of eco claims created
+ */
+export async function batchReplaceVariantEcoClaims(
+  db: Database,
+  data: VariantEcoClaimsReplacementData[]
+): Promise<number> {
+  if (data.length === 0) return 0;
+
+  const variantIds = data.map((d) => d.variantId);
+
+  // Delete all existing eco claims for these variants in one query
+  await db
+    .delete(variantEcoClaims)
+    .where(inArray(variantEcoClaims.variantId, variantIds));
+
+  // Build all eco claims to insert
+  const now = new Date().toISOString();
+  const toInsert: Array<{
+    variantId: string;
+    ecoClaimId: string;
+    sourceIntegration: string | null;
+    sourceExternalId: string | null;
+    createdAt: string;
+  }> = [];
+
+  for (const item of data) {
+    for (const ecoClaimId of item.ecoClaimIds) {
+      toInsert.push({
+        variantId: item.variantId,
+        ecoClaimId,
+        sourceIntegration: item.sourceIntegration ?? null,
+        sourceExternalId: item.sourceExternalId ?? null,
+        createdAt: now,
+      });
+    }
+  }
+
+  if (toInsert.length === 0) return 0;
+
+  await db.insert(variantEcoClaims).values(toInsert);
+
+  return toInsert.length;
+}
+
+// =============================================================================
+// BATCH UPSERT VARIANT DISPLAY OVERRIDES (Multi-Source Integration Support)
+// =============================================================================
+
+/**
+ * Display override data for variant-level overrides.
+ * 
+ * These overrides are written when processing a non-canonical source product
+ * within an integration (many-to-one mapping). The canonical source product
+ * writes to product-level, while non-canonical sources write to variant overrides.
+ */
+export interface VariantDisplayOverrideData {
+  variantId: string;
+  /** Variant-level name override (takes precedence over product.name for DPP) */
+  name?: string | null;
+  /** Variant-level description override (takes precedence over product.description for DPP) */
+  description?: string | null;
+  /** Variant-level image override (takes precedence over product.imagePath for DPP) */
+  imagePath?: string | null;
+  /** The integration that wrote this override */
+  sourceIntegration?: string | null;
+  /** External ID from the source system */
+  sourceExternalId?: string | null;
+}
+
+/**
+ * Batch upsert variant display overrides.
+ * 
+ * Updates the name, description, imagePath, sourceIntegration, and sourceExternalId
+ * columns on the product_variants table. These are variant-level overrides that
+ * take precedence over product-level values for DPP rendering.
+ * 
+ * Used for multi-source integration support when a non-canonical source product
+ * links to the same Avelero product as a canonical source.
+ * 
+ * @param db - Database connection
+ * @param overrides - Array of variant display override data
+ * @returns Number of variants updated
+ */
+export async function batchUpsertVariantDisplayOverrides(
+  db: Database,
+  overrides: VariantDisplayOverrideData[]
+): Promise<number> {
+  if (overrides.length === 0) return 0;
+
+  // Filter to only records that have at least one display field set
+  const validOverrides = overrides.filter(
+    (d) =>
+      d.name !== undefined ||
+      d.description !== undefined ||
+      d.imagePath !== undefined
+  );
+
+  if (validOverrides.length === 0) return 0;
+
+  // Use the existing batchUpdateVariants function with display override fields
+  const updates: VariantUpdateData[] = validOverrides.map((d) => ({
+    id: d.variantId,
+    name: d.name,
+    description: d.description,
+    imagePath: d.imagePath,
+    sourceIntegration: d.sourceIntegration,
+    sourceExternalId: d.sourceExternalId,
+  }));
+
+  return batchUpdateVariants(db, updates);
+}

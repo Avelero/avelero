@@ -10,13 +10,17 @@
  *
  * @module trpc/routers/integrations/connections
  */
+import { tasks } from "@trigger.dev/sdk/v3";
 import {
   createBrandIntegration,
   deleteBrandIntegration,
   getBrandIntegration,
   getBrandIntegrationBySlug,
+  getCurrentPrimaryIntegration,
   getIntegrationBySlug,
+  getIntegrationVariantCount,
   listIntegrationsWithStatus,
+  setBrandIntegrationPrimary,
   updateBrandIntegration,
 } from "@v1/db/queries/integrations";
 import { encryptCredentials, decryptCredentials } from "@v1/db/utils";
@@ -27,6 +31,7 @@ import {
   getIntegrationBySlugSchema,
   getIntegrationSchema,
   listIntegrationsSchema,
+  promoteToPrimarySchema,
   testConnectionSchema,
   updateIntegrationSchema,
 } from "../../../schemas/integrations.js";
@@ -40,6 +45,7 @@ import {
   createEntityResponse,
   createListResponse,
   createSuccessResponse,
+  createSuccessWithMeta,
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
@@ -209,12 +215,24 @@ export const connectionsRouter = createTRPCRouter({
    * Allows updating:
    * - Sync interval
    * - Status (pause/resume)
+   * - Match identifier (for secondary integrations)
+   * - Primary status (will demote current primary if setting to true)
    */
   update: brandRequiredProcedure
     .input(updateIntegrationSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       try {
+        // If setting is_primary to true, use special atomic operation
+        if (input.is_primary === true) {
+          await setBrandIntegrationPrimary(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+        }
+
+        // Update other fields
         const result = await updateBrandIntegration(
           brandCtx.db,
           brandCtx.brandId,
@@ -222,6 +240,9 @@ export const connectionsRouter = createTRPCRouter({
           {
             syncInterval: input.sync_interval,
             status: input.status,
+            matchIdentifier: input.match_identifier,
+            // Only set isPrimary to false here (true is handled above)
+            isPrimary: input.is_primary === false ? false : undefined,
           },
         );
         if (!result) {
@@ -328,6 +349,73 @@ export const connectionsRouter = createTRPCRouter({
           });
         }
         throw wrapError(error, "Failed to test connection");
+      }
+    }),
+
+  /**
+   * Promote an integration to primary.
+   *
+   * This will trigger the re-grouping algorithm that:
+   * - Re-parents variants based on the new primary's product structure
+   * - Updates canonical links
+   * - Archives empty products
+   * - Re-assigns attributes
+   *
+   * The operation runs asynchronously as a background job.
+   * If no variants exist, the promotion happens instantly.
+   */
+  promoteToPrimary: brandRequiredProcedure
+    .input(promoteToPrimarySchema)
+    .mutation(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      try {
+        // Verify the integration exists and belongs to this brand
+        const integration = await getBrandIntegration(
+          brandCtx.db,
+          brandCtx.brandId,
+          input.id,
+        );
+        if (!integration) {
+          throw notFound("Integration", input.id);
+        }
+
+        // Check if already primary
+        if (integration.isPrimary) {
+          throw badRequest("This integration is already the primary integration");
+        }
+
+        // Check if there are any variants to regroup
+        const variantCount = await getIntegrationVariantCount(
+          brandCtx.db,
+          brandCtx.brandId,
+        );
+
+        if (variantCount === 0) {
+          // No variants exist - instant promotion (no regrouping needed)
+          await setBrandIntegrationPrimary(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+
+          return createSuccessWithMeta({
+            instant: true,
+            message: "Promoted to primary (no products to regroup)",
+          });
+        }
+
+        // Trigger the background promotion job
+        const handle = await tasks.trigger("promote-integration", {
+          brandIntegrationId: input.id,
+          brandId: brandCtx.brandId,
+        });
+
+        return createSuccessWithMeta({
+          taskId: handle.id,
+          message: "Promotion started",
+        });
+      } catch (error) {
+        throw wrapError(error, "Failed to start promotion");
       }
     }),
 });

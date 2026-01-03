@@ -52,6 +52,8 @@ export {
   getConnector,
   listConnectors,
   getConnectorSlugs,
+  registerConnector,
+  unregisterConnector,
 } from "./connectors/registry";
 
 // =============================================================================
@@ -62,6 +64,22 @@ export {
   syncProducts,
   testIntegrationConnection,
 } from "./sync/engine";
+
+// =============================================================================
+// PROMOTION ENGINE
+// =============================================================================
+
+export {
+  promoteIntegrationToPrimary,
+  resumePromotion,
+} from "./sync/promotion";
+
+export type {
+  PromotionConfig,
+  PromotionProgress,
+  PromotionResult,
+  PromotionPhase,
+} from "./sync/promotion-types";
 
 // =============================================================================
 // UI UTILITIES

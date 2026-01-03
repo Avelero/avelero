@@ -8,7 +8,7 @@ import { Skeleton } from "@v1/ui/skeleton";
 import { Button } from "@v1/ui/button";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
@@ -25,6 +25,15 @@ export function CreateBrandForm() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Reset all form state on mount and when navigating to this page
+  useEffect(() => {
+    setName("");
+    setCountryCode("");
+    setError("");
+    setIsSubmitting(false);
+  }, [pathname]);
 
   // Prefetch home route for post-creation navigation
   useEffect(() => {
@@ -87,9 +96,16 @@ export function CreateBrandForm() {
           <Label>Brand name</Label>
           <Input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setError("");
+            }}
             placeholder="Acme Inc."
+            error={!!error}
           />
+          {error ? (
+            <p className="type-small text-destructive text-center">{error}</p>
+          ) : null}
         </div>
         <CountrySelect
           id="country_code"
@@ -99,10 +115,6 @@ export function CreateBrandForm() {
           onChange={(code) => setCountryCode(code)}
         />
       </div>
-
-      {error ? (
-        <p className="type-p text-destructive text-center">{error}</p>
-      ) : null}
 
       <Button
         className="w-full"

@@ -1,15 +1,16 @@
 "use client";
 
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import {
   DndContext,
   type DragEndEvent,
   DragOverlay,
   type DragStartEvent,
+  type DraggableSyntheticListeners,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
-  type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -17,7 +18,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { productionStepNames } from "@v1/selections/production-steps";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -656,7 +656,10 @@ export function JourneySection({
     if (justCreatedTimeoutRef.current) {
       clearTimeout(justCreatedTimeoutRef.current);
     }
-    justCreatedTimeoutRef.current = setTimeout(() => setJustCreatedOperator(null), 500);
+    justCreatedTimeoutRef.current = setTimeout(
+      () => setJustCreatedOperator(null),
+      500,
+    );
   };
 
   const deleteJourneyStep = (id: string) => {
@@ -779,7 +782,11 @@ export function JourneySection({
                     onDelete={() => deleteJourneyStep(step.id)}
                     availableOperators={availableOperators}
                     onOperatorJustCreated={(operatorId, operatorName) =>
-                      handleOperatorJustCreated(step.id, operatorId, operatorName)
+                      handleOperatorJustCreated(
+                        step.id,
+                        operatorId,
+                        operatorName,
+                      )
                     }
                   />
                 ))}

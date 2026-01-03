@@ -39,53 +39,53 @@ export const brandMembers = pgTable(
   },
   (t) => [
     // Unique constraint and matching unique index (both exist in your DB)
-    unique("users_on_brand_user_id_brand_id_key").on(t.userId, t.brandId),
-    uniqueIndex("ux_users_on_brand_user_brand").using(
+    unique("brand_members_user_id_brand_id_key").on(t.userId, t.brandId),
+    uniqueIndex("ux_brand_members_user_brand").using(
       "btree",
       t.userId.asc().nullsLast().op("uuid_ops"),
       t.brandId.asc().nullsLast().op("uuid_ops"),
     ),
 
     // Secondary indexes
-    index("idx_users_on_brand_brand_id").using(
+    index("idx_brand_members_brand_id").using(
       "btree",
       t.brandId.asc().nullsLast().op("uuid_ops"),
     ),
-    index("idx_users_on_brand_user_id").using(
+    index("idx_brand_members_user_id").using(
       "btree",
       t.userId.asc().nullsLast().op("uuid_ops"),
     ),
 
     // Check constraint
     check(
-      "users_on_brand_role_check",
+      "brand_members_role_check",
       sql`role = ANY (ARRAY['owner'::text, 'member'::text])`,
     ),
 
     // RLS policies
-    pgPolicy("users_on_brand_update_by_owner", {
+    pgPolicy("brand_members_update_by_owner", {
       as: "permissive",
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`is_brand_owner(brand_id)`,
     }),
-    pgPolicy("users_on_brand_select_for_members", {
+    pgPolicy("brand_members_select_for_members", {
       as: "permissive",
       for: "select",
       to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("users_on_brand_delete_self", {
+    pgPolicy("brand_members_delete_self", {
       as: "permissive",
       for: "delete",
       to: ["authenticated", "service_role"],
     }),
-    pgPolicy("users_on_brand_delete_owner_non_owner", {
+    pgPolicy("brand_members_delete_owner_non_owner", {
       as: "permissive",
       for: "delete",
       to: ["authenticated", "service_role"],
     }),
-    pgPolicy("users_on_brand_insert_first_owner_self", {
+    pgPolicy("brand_members_insert_first_owner_self", {
       as: "permissive",
       for: "insert",
       to: ["authenticated", "service_role"],

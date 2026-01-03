@@ -20,7 +20,7 @@
     "@v1/selections": "workspace:*",
     "@v1/ui": "workspace:*",
     "clsx": "^2.1.1",
-    "next": "16.0.7",
+    "next": "16.0.10",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "superjson": "^2.2.1",

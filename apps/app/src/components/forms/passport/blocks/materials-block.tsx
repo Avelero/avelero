@@ -180,8 +180,7 @@ const CountryTags = ({ countries }: { countries: string[] }) => {
     <div className="flex flex-wrap gap-1.5">
       {countries.map((countryCode) => {
         // Look up the full country name from the country code
-        const country =
-          countryData[countryCode as keyof typeof countryData];
+        const country = countryData[countryCode as keyof typeof countryData];
         const displayName = country?.name || countryCode;
 
         return (
@@ -491,7 +490,10 @@ export function MaterialsSection({
       if (justCreatedTimeoutRef.current) {
         clearTimeout(justCreatedTimeoutRef.current);
       }
-      justCreatedTimeoutRef.current = setTimeout(() => setJustCreatedMaterial(null), 500);
+      justCreatedTimeoutRef.current = setTimeout(
+        () => setJustCreatedMaterial(null),
+        500,
+      );
     }
   };
 
@@ -541,7 +543,7 @@ export function MaterialsSection({
       className={cn(
         "relative flex flex-col border border-border bg-background focus:outline-none",
         materialsError &&
-        "border-destructive focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-destructive",
+          "border-destructive focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-destructive",
       )}
       tabIndex={-1}
     >
@@ -604,13 +606,13 @@ export function MaterialsSection({
                         prev.map((m) =>
                           m.id === material.id
                             ? {
-                              ...m,
-                              id: selectedMaterial.id, // Update to real ID
-                              name: selectedMaterial.name,
-                              countries: selectedMaterial.country_of_origin
-                                ? [selectedMaterial.country_of_origin]
-                                : [],
-                            }
+                                ...m,
+                                id: selectedMaterial.id, // Update to real ID
+                                name: selectedMaterial.name,
+                                countries: selectedMaterial.country_of_origin
+                                  ? [selectedMaterial.country_of_origin]
+                                  : [],
+                              }
                             : m,
                         ),
                       );

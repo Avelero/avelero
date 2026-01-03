@@ -12,6 +12,14 @@ site_url = "env(APP_URL)"
 additional_redirect_urls = ["env(APP_URL)", "env(ADDITIONAL_REDIRECT_URL)"]
 jwt_expiry = 36000
 
+[auth.hook.send_email]
+enabled = true
+uri = "env(SEND_EMAIL_HOOK_URI)"
+secrets = "env(SEND_EMAIL_HOOK_SECRET)"
+
+[functions.send-email]
+verify_jwt = false
+
 [db]
 port = 54322
 
@@ -22,7 +30,7 @@ port = 54323
 enabled = true
 client_id = "env(GOOGLE_CLIENT_ID)"
 secret = "env(GOOGLE_SECRET)"
-redirect_uri = "env(AUTH_REDIRECT_URI)"
+redirect_uri = "env(GOOGLE_REDIRECT_URI)"
 
 [analytics]
 enabled = true

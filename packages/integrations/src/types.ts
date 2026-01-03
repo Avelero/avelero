@@ -103,6 +103,12 @@ export interface SyncProgress {
 }
 
 /**
+ * Identifier type used for variant matching (secondary integrations only).
+ * Primary integrations always use link-based matching.
+ */
+export type MatchIdentifier = "barcode" | "sku";
+
+/**
  * Context passed to sync operations.
  * Contains everything needed to process synced data.
  */
@@ -123,6 +129,17 @@ export interface SyncContext {
   config: IntegrationConfig;
   /** Field configurations from database */
   fieldConfigs: FieldConfig[];
+  /**
+   * Whether this is the primary integration for the brand.
+   * Primary integrations create products/variants/attributes.
+   * Secondary integrations can only enrich existing products.
+   */
+  isPrimary: boolean;
+  /**
+   * Identifier used for matching variants (secondary integrations only).
+   * Primary integrations ignore this and use link-based matching.
+   */
+  matchIdentifier: MatchIdentifier;
   /** Total products to process (fetched before sync starts) */
   productsTotal?: number;
   /** Callback to report progress during sync */
@@ -155,6 +172,17 @@ export interface SyncResult {
   productsUpdated: number;
   // Entity stats
   entitiesCreated: number;
+  // Secondary integration stats (enrich-only mode)
+  /**
+   * Products skipped because no existing match was found (secondary integrations only).
+   * Primary integrations create new products instead of skipping.
+   */
+  productsSkippedNoMatch: number;
+  /**
+   * Variants skipped because no existing match was found (secondary integrations only).
+   * Primary integrations create new variants instead of skipping.
+   */
+  variantsSkippedNoMatch: number;
   // Errors
   errors: SyncError[];
 }
@@ -312,6 +340,15 @@ export interface ConnectorFieldDefinition {
    */
   isRelation?: boolean;
   relationType?: "tags";
+
+  /**
+   * If true, this field is always synced regardless of user configuration.
+   * Used for structural fields that define product/variant identity:
+   * - variant.sku: Used for matching
+   * - variant.barcode: Used for matching
+   * - variant.attributes: Defines variant structure (primary only)
+   */
+  alwaysEnabled?: boolean;
 }
 
 /**

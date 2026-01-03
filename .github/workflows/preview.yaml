@@ -800,8 +800,22 @@ jobs:
 
       - name: 🚀 Deploy Edge Functions to Preview Branch
         env:
+          APP_URL: ${{ needs.deploy-app.outputs.url }}
+          SUPABASE_URL: ${{ steps.creds.outputs.supabase_url }}
           BRANCH_PROJECT_REF: ${{ steps.creds.outputs.branch_project_ref }}
         run: |
+          # Create .env file for Supabase CLI's env() function in config.toml
+          # The env() function reads from .env file, not shell environment variables
+          {
+            echo "APP_URL=${APP_URL}"
+            echo "ADDITIONAL_REDIRECT_URL=${APP_URL}"
+            echo "SEND_EMAIL_HOOK_URI=${SUPABASE_URL}/functions/v1/send-email"
+            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
+            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
+            echo "GOOGLE_REDIRECT_URI=${SUPABASE_URL}/auth/v1/callback"
+          } > .env
+
           echo "Deploying Edge Functions to branch: $BRANCH_PROJECT_REF"
           supabase functions deploy send-email --project-ref "$BRANCH_PROJECT_REF"
           echo "✅ Edge Functions deployed successfully"

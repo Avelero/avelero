@@ -476,6 +476,7 @@ jobs:
 
   # ============================================
   # Step 4: Deploy App (outputs URL for API)
+  # Also deploys when API changes, since deploy-api requires APP_URL
   # ============================================
   deploy-app:
     name: 📱 Deploy App
@@ -483,7 +484,7 @@ jobs:
     if: |
       always() &&
       (needs.test-app.result == 'success' || needs.test-app.result == 'skipped') &&
-      needs.detect-changes.outputs.app_changed == 'true' &&
+      (needs.detect-changes.outputs.app_changed == 'true' || needs.detect-changes.outputs.api_changed == 'true') &&
       (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
@@ -552,7 +553,7 @@ jobs:
       always() &&
       (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') &&
       needs.detect-changes.outputs.api_changed == 'true' &&
-      (needs.deploy-app.result == 'success' || needs.deploy-app.result == 'skipped') &&
+      needs.deploy-app.result == 'success' &&
       (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
@@ -652,8 +653,8 @@ jobs:
     needs: [detect-changes, deploy-app, setup-database]
     if: |
       always() &&
-      (needs.deploy-app.result == 'success' || needs.deploy-app.result == 'skipped') &&
-      (needs.setup-database.result == 'success') &&
+      needs.deploy-app.result == 'success' &&
+      needs.setup-database.result == 'success' &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     env:
@@ -723,10 +724,27 @@ jobs:
 
       - name: 📤 Push Config to Preview Branch
         env:
+          APP_URL: ${{ needs.deploy-app.outputs.url }}
+          SUPABASE_URL: ${{ steps.creds.outputs.supabase_url }}
           BRANCH_PROJECT_REF: ${{ steps.creds.outputs.branch_project_ref }}
         run: |
+          # Create .env file for Supabase CLI's env() function in config.toml
+          # The env() function reads from .env file, not shell environment variables
+          {
+            echo "APP_URL=${APP_URL}"
+            echo "ADDITIONAL_REDIRECT_URL=${APP_URL}"
+            echo "SEND_EMAIL_HOOK_URI=${SUPABASE_URL}/functions/v1/send-email"
+            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
+            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
+            echo "GOOGLE_REDIRECT_URI=${SUPABASE_URL}/auth/v1/callback"
+          } > .env
+
           echo "Pushing config.toml to branch: $BRANCH_PROJECT_REF"
           supabase config push --project-ref "$BRANCH_PROJECT_REF"
+
+          # Clean up .env file
+          rm -f .env
           echo "✅ Config pushed successfully"
         working-directory: ./apps/api
 

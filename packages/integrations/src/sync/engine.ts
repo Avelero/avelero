@@ -438,44 +438,32 @@ async function processBatch(
   // GROUP 1: Product creates (must be first - generates IDs)
   const createdProductMap = new Map<string, string>(); // externalId -> productId
   if (allPendingOps.productCreates.length > 0) {
-    // Pre-validate handles to ensure uniqueness (handles edge cases prefetch may miss)
+    // Validate handles using pre-fetched takenHandles (no N+1 queries)
     const handlesInBatch = new Set<string>();
     for (const create of allPendingOps.productCreates) {
       let handle = create.productHandle;
-      let isUnique = false;
       let attempts = 0;
       const maxAttempts = 10;
 
-      while (!isUnique && attempts < maxAttempts) {
-        // Check if handle is already used in this batch
-        if (handlesInBatch.has(handle)) {
-          handle = `${create.productHandle}-${Date.now().toString(36)}${attempts}`;
-          attempts++;
-          continue;
+      // Check against batch-prefetched takenHandles and handles used in this batch
+      while (attempts < maxAttempts) {
+        const isTakenInDb = preFetched.takenHandles.has(handle);
+        const isTakenInBatch = handlesInBatch.has(handle);
+
+        if (!isTakenInDb && !isTakenInBatch) {
+          break; // Handle is unique
         }
 
-        // Check if handle exists in database
-        const [existing] = await db
-          .select({ id: products.id })
-          .from(products)
-          .where(and(
-            eq(products.brandId, ctx.brandId),
-            eq(products.productHandle, handle)
-          ))
-          .limit(1);
-
-        if (existing) {
-          // Handle exists, generate a new one with suffix
-          handle = `${create.productHandle}-${Date.now().toString(36)}${attempts}`;
-          attempts++;
-        } else {
-          isUnique = true;
-        }
+        // Generate a new handle with suffix
+        handle = `${create.productHandle}-${Date.now().toString(36)}${attempts}`;
+        attempts++;
       }
 
       // Update the create op with the verified unique handle
       create.productHandle = handle;
       handlesInBatch.add(handle);
+      // Also add to takenHandles so subsequent batches see it
+      preFetched.takenHandles.add(handle);
     }
 
     const insertedProducts = await db.insert(products)

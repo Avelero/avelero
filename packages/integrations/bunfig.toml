@@ -7,4 +7,4 @@ preload = ["./__tests__/setup.ts"]
 coverage = false
 
 # Increase timeout for CI environments with remote databases
-timeout = 30000
+timeout = 60000

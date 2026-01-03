@@ -178,11 +178,14 @@ describe("Phase 4: Field Configuration", () => {
     });
 
     // =========================================================================
-    // Test 4.2: Disable Attributes Field
+    // Test 4.2: Attributes Field is Always Enabled
+    // Per integration-refactor-plan.md Section 2.2:
+    // "Attributes are NO LONGER a selectable field. Attributes are intrinsic
+    // to product/variant structure."
     // =========================================================================
 
-    it("4.2 - disabled attributes field preserves existing and blocks new assignments", async () => {
-        // Arrange: Initial sync with attributes enabled
+    it("4.2 - attributes are always synced regardless of field config (alwaysEnabled)", async () => {
+        // Arrange: Initial sync with attributes
         const productId = `gid://shopify/Product/${Date.now()}`;
         const variantIdS = `gid://shopify/ProductVariant/${Date.now()}-S`;
         const variantIdM = `gid://shopify/ProductVariant/${Date.now()}-M`;
@@ -242,7 +245,8 @@ describe("Phase 4: Field Configuration", () => {
             .from(productVariantAttributes);
         expect(initialAttrs.length).toBeGreaterThanOrEqual(2);
 
-        // Act: Add new variant L with attributes disabled
+        // Act: Add new variant L - even with attributes set to false in config,
+        // it should STILL sync because attributes have alwaysEnabled = true
         const variantIdL = `gid://shopify/ProductVariant/${Date.now()}-L`;
         const updatedProduct = createMockProduct({
             id: productId,
@@ -280,12 +284,14 @@ describe("Phase 4: Field Configuration", () => {
         });
         setMockProducts([updatedProduct]);
 
+        // Even with attributes "disabled" in config, they should still sync
+        // because variant.attributes has alwaysEnabled = true
         const ctx2 = createTestSyncContext({
             brandId,
             brandIntegrationId,
             productsTotal: 1,
             enabledFields: {
-                "variant.attributes": false, // Disable attribute sync
+                "variant.attributes": false, // This is IGNORED for alwaysEnabled fields
             },
         });
         const result2 = await syncProducts(ctx2);
@@ -304,20 +310,19 @@ describe("Phase 4: Field Configuration", () => {
         const lVariant = finalVariants.find((v) => v.sku === "ATTR-L");
         expect(lVariant).toBeDefined();
 
-        // L variant should have NO attribute assignments (attributes disabled)
+        // L variant SHOULD have attribute assignments because attributes are alwaysEnabled
+        // The field config "disabled" setting is ignored for structural fields
         const lVariantAttrs = await testDb
             .select()
             .from(productVariantAttributes)
             .where(eq(productVariantAttributes.variantId, lVariant!.id));
-        expect(lVariantAttrs).toHaveLength(0);
+        expect(lVariantAttrs.length).toBeGreaterThanOrEqual(1); // Has L assignment
 
-        // Existing S and M variants still have their attribute assignments
-        const sVariant = finalVariants.find((v) => v.sku === "ATTR-S")!;
-        const sVariantAttrs = await testDb
+        // Verify the L value was created
+        const allAttrAssignments = await testDb
             .select()
-            .from(productVariantAttributes)
-            .where(eq(productVariantAttributes.variantId, sVariant.id));
-        expect(sVariantAttrs.length).toBeGreaterThanOrEqual(1);
+            .from(productVariantAttributes);
+        expect(allAttrAssignments.length).toBeGreaterThanOrEqual(3); // S, M, L
     });
 
     // =========================================================================
@@ -416,10 +421,14 @@ describe("Phase 4: Field Configuration", () => {
     });
 
     // =========================================================================
-    // Test 4.4: Disable SKU Field
+    // Test 4.4: SKU Field is Always Enabled
+    // Per integration-refactor-plan.md Section 2.2:
+    // "SKU and Barcode are NO LONGER selectable fields. Instead, each secondary
+    // integration must choose ONE identifier for matching. Both are always
+    // synced as structural identifiers."
     // =========================================================================
 
-    it("4.4 - disabled SKU field prevents SKU updates but variant still matched by link", async () => {
+    it("4.4 - SKU is always synced regardless of field config (alwaysEnabled)", async () => {
         // Arrange: Initial sync
         const productId = `gid://shopify/Product/${Date.now()}`;
         const variantId = `gid://shopify/ProductVariant/${Date.now()}`;
@@ -457,7 +466,8 @@ describe("Phase 4: Field Configuration", () => {
             .limit(1);
         expect(variant1!.sku).toBe("ORIGINAL-SKU");
 
-        // Act: Change SKU in Shopify, but sync with SKU disabled
+        // Act: Change SKU in Shopify - even with SKU "disabled" in config,
+        // it should STILL sync because SKU has alwaysEnabled = true
         const updatedProduct = createMockProduct({
             id: productId,
             title: "Test Product",
@@ -471,32 +481,31 @@ describe("Phase 4: Field Configuration", () => {
         });
         setMockProducts([updatedProduct]);
 
+        // Even with SKU "disabled" in config, it should still sync
+        // because variant.sku has alwaysEnabled = true
         const ctx2 = createTestSyncContext({
             brandId,
             brandIntegrationId,
             productsTotal: 1,
             enabledFields: {
-                "variant.sku": false, // Disable SKU sync
+                "variant.sku": false, // This is IGNORED for alwaysEnabled fields
             },
         });
         const result2 = await syncProducts(ctx2);
 
-        // Assert: Sync succeeds (variant matched by existing link, not SKU)
+        // Assert: Sync succeeds
         expect(result2.success).toBe(true);
-        // Variant is skipped because hash still matches (only SKU changed, but SKU is disabled)
-        // Actually, the barcode is the same, but since SKU is in the hash and changed, 
-        // the variant might be marked as needing update but SKU won't be written
-        // Let's check what actually happens
 
-        // Verify: SKU was NOT updated in Avelero
+        // SKU SHOULD be updated because SKU is alwaysEnabled
+        // The field config "disabled" setting is ignored for structural fields
         const [variant2] = await testDb
             .select()
             .from(productVariants)
             .where(eq(productVariants.productId, product!.id))
             .limit(1);
-        expect(variant2!.sku).toBe("ORIGINAL-SKU");
+        expect(variant2!.sku).toBe("CHANGED-SKU"); // Updated despite "disabled" config
 
-        // But barcode should still match (it wasn't disabled and wasn't changed)
+        // Barcode should also be synced (it's also alwaysEnabled)
         expect(variant2!.barcode).toBe("1234567890");
     });
 

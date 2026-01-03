@@ -25,6 +25,11 @@ interface FieldConfig {
 }
 
 /**
+ * Identifier type used for variant matching (secondary integrations only).
+ */
+type MatchIdentifier = "barcode" | "sku";
+
+/**
  * Import the actual StorageClient type from @v1/supabase
  * This ensures type compatibility with the integrations package.
  */
@@ -46,6 +51,17 @@ interface SyncContext {
     };
     config: Record<string, unknown>;
     fieldConfigs: FieldConfig[];
+    /**
+     * Whether this is the primary integration for the brand.
+     * Primary integrations create products/variants/attributes.
+     * Secondary integrations can only enrich existing products.
+     */
+    isPrimary: boolean;
+    /**
+     * Identifier used for matching variants (secondary integrations only).
+     * Primary integrations ignore this and use link-based matching.
+     */
+    matchIdentifier: MatchIdentifier;
     productsTotal?: number;
     onProgress?: (progress: { productsProcessed: number; productsTotal?: number }) => Promise<void>;
 }
@@ -56,7 +72,10 @@ interface SyncContext {
 
 /**
  * Default field configurations for Shopify sync.
- * All fields enabled with their default sources.
+ * All configurable fields enabled with their default sources.
+ * 
+ * NOTE: variant.sku, variant.barcode, and variant.attributes are NOT included.
+ * These are always-enabled structural fields that don't need configuration.
  */
 const defaultFieldConfigs: FieldConfig[] = [
     { fieldKey: "product.name", isEnabled: true, selectedSource: "title" },
@@ -68,9 +87,6 @@ const defaultFieldConfigs: FieldConfig[] = [
     { fieldKey: "product.categoryId", isEnabled: true, selectedSource: "category" },
     { fieldKey: "product.price", isEnabled: true, selectedSource: "price" },
     { fieldKey: "product.currency", isEnabled: true, selectedSource: "currency" },
-    { fieldKey: "variant.sku", isEnabled: true, selectedSource: "sku" },
-    { fieldKey: "variant.barcode", isEnabled: true, selectedSource: "barcode" },
-    { fieldKey: "variant.attributes", isEnabled: true, selectedSource: "selectedOptions" },
 ];
 
 // =============================================================================
@@ -125,6 +141,16 @@ interface CreateSyncContextOptions {
     integrationSlug?: string;
     fieldConfigs?: FieldConfig[];
     enabledFields?: Partial<Record<string, boolean>>;
+    /**
+     * Whether this is the primary integration.
+     * Defaults to true for backwards compatibility.
+     */
+    isPrimary?: boolean;
+    /**
+     * Identifier used for matching (secondary integrations only).
+     * Defaults to 'barcode'.
+     */
+    matchIdentifier?: MatchIdentifier;
     productsTotal?: number;
     onProgress?: (progress: { productsProcessed: number; productsTotal?: number }) => Promise<void>;
 }
@@ -165,6 +191,8 @@ export function createTestSyncContext(options: CreateSyncContextOptions): SyncCo
         },
         config: {},
         fieldConfigs,
+        isPrimary: options.isPrimary ?? true,
+        matchIdentifier: options.matchIdentifier ?? "barcode",
         productsTotal: options.productsTotal,
         onProgress: options.onProgress,
     };

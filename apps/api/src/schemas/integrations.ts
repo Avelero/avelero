@@ -111,6 +111,17 @@ export const updateIntegrationSchema = z.object({
   sync_interval: z.number().int().min(3600).max(86400).optional(),
   /** Integration status (only allows pausing/resuming) */
   status: z.enum(["active", "paused"]).optional(),
+  /** Match identifier for variant matching (secondary integrations) */
+  match_identifier: z.enum(["sku", "barcode"]).optional(),
+});
+
+/**
+ * Schema for promoting an integration to primary.
+ * This will trigger the re-grouping algorithm.
+ */
+export const promoteToPrimarySchema = z.object({
+  /** Brand integration ID to promote */
+  id: uuidSchema,
 });
 
 /**
@@ -268,6 +279,7 @@ export type ConnectApiKeyInput = z.infer<typeof connectApiKeySchema>;
 export type UpdateIntegrationInput = z.infer<typeof updateIntegrationSchema>;
 export type DisconnectInput = z.infer<typeof disconnectSchema>;
 export type TestConnectionInput = z.infer<typeof testConnectionSchema>;
+export type PromoteToPrimaryInput = z.infer<typeof promoteToPrimarySchema>;
 
 export type ListFieldMappingsInput = z.infer<typeof listFieldMappingsSchema>;
 export type UpdateFieldMappingInput = z.infer<typeof updateFieldMappingSchema>;

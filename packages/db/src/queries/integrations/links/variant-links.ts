@@ -568,20 +568,28 @@ export interface BatchIdentifierMatchResult {
 }
 
 /**
+ * Identifier type for matching: 'barcode' or 'sku'.
+ * Secondary integrations must specify which identifier to use.
+ */
+export type MatchIdentifierType = "barcode" | "sku";
+
+/**
  * Batch find products by variant identifiers for multiple external products.
  * 
- * This eliminates N queries (one per product) with 1-2 batch queries.
- * Prioritizes barcode matches over SKU matches.
+ * This eliminates N queries (one per product) with a single batch query.
+ * Uses ONLY the configured matchIdentifier type (barcode OR sku), not both.
  * 
  * @param db - Database connection
  * @param brandId - Brand ID to search within
  * @param products - Array of external products with their variant identifiers
+ * @param matchIdentifier - Which identifier to use for matching ('barcode' or 'sku')
  * @returns Map from external product ID to matched internal product
  */
 export async function batchFindProductsByIdentifiers(
   db: Database,
   brandId: string,
-  products: ProductIdentifierBatch[]
+  products: ProductIdentifierBatch[],
+  matchIdentifier: MatchIdentifierType = "barcode"
 ): Promise<BatchIdentifierMatchResult> {
   const matches = new Map<string, { productId: string; productHandle: string }>();
 
@@ -589,69 +597,42 @@ export async function batchFindProductsByIdentifiers(
     return { matches };
   }
 
-  // Collect all unique SKUs and barcodes from all products
-  const allBarcodes: string[] = [];
-  const allSkus: string[] = [];
-
-  // Track which identifiers belong to which external product
-  const barcodeToExternalIds = new Map<string, string[]>();
-  const skuToExternalIds = new Map<string, string[]>();
+  // Collect identifiers based on matchIdentifier setting
+  const identifiersToMatch: string[] = [];
+  const identifierToExternalIds = new Map<string, string[]>();
 
   for (const product of products) {
     for (const id of product.identifiers) {
-      if (id.barcode?.trim()) {
-        const barcode = id.barcode.trim().toLowerCase();
-        allBarcodes.push(id.barcode.trim());
-        const existing = barcodeToExternalIds.get(barcode) ?? [];
+      // Only collect the configured identifier type
+      const value = matchIdentifier === "barcode" ? id.barcode : id.sku;
+      if (value?.trim()) {
+        const normalized = value.trim().toLowerCase();
+        identifiersToMatch.push(value.trim());
+        const existing = identifierToExternalIds.get(normalized) ?? [];
         existing.push(product.externalId);
-        barcodeToExternalIds.set(barcode, existing);
-      }
-      if (id.sku?.trim()) {
-        const sku = id.sku.trim().toLowerCase();
-        allSkus.push(id.sku.trim());
-        const existing = skuToExternalIds.get(sku) ?? [];
-        existing.push(product.externalId);
-        skuToExternalIds.set(sku, existing);
+        identifierToExternalIds.set(normalized, existing);
       }
     }
   }
 
-  // Priority 1: Match by barcode (single batch query)
-  if (allBarcodes.length > 0) {
-    const barcodeMatches = await findVariantsBySKUorBarcode(db, brandId, [], allBarcodes);
-    for (const match of barcodeMatches) {
-      if (!match.barcode) continue;
-      const externalIds = barcodeToExternalIds.get(match.barcode.toLowerCase()) ?? [];
-      for (const externalId of externalIds) {
-        if (!matches.has(externalId)) {
-          matches.set(externalId, { productId: match.productId, productHandle: match.productHandle });
-        }
-      }
-    }
+  if (identifiersToMatch.length === 0) {
+    return { matches };
   }
 
-  // Priority 2: Match by SKU for remaining unmatched products (single batch query)
-  const unmatchedWithSkus = products.filter(
-    p => !matches.has(p.externalId) && p.identifiers.some(i => i.sku?.trim())
-  );
+  // Single batch query for the configured identifier type
+  const variantMatches = matchIdentifier === "barcode"
+    ? await findVariantsBySKUorBarcode(db, brandId, [], identifiersToMatch)
+    : await findVariantsBySKUorBarcode(db, brandId, identifiersToMatch, []);
 
-  if (unmatchedWithSkus.length > 0 && allSkus.length > 0) {
-    // Only query for SKUs of unmatched products
-    const skusToQuery = new Set<string>();
-    for (const p of unmatchedWithSkus) {
-      for (const id of p.identifiers) {
-        if (id.sku?.trim()) skusToQuery.add(id.sku.trim());
-      }
-    }
+  for (const match of variantMatches) {
+    const matchValue = matchIdentifier === "barcode" ? match.barcode : match.sku;
+    if (!matchValue) continue;
 
-    const skuMatches = await findVariantsBySKUorBarcode(db, brandId, Array.from(skusToQuery), []);
-    for (const match of skuMatches) {
-      if (!match.sku) continue;
-      const externalIds = skuToExternalIds.get(match.sku.toLowerCase()) ?? [];
-      for (const externalId of externalIds) {
-        if (!matches.has(externalId)) {
-          matches.set(externalId, { productId: match.productId, productHandle: match.productHandle });
-        }
+    const externalIds = identifierToExternalIds.get(matchValue.toLowerCase()) ?? [];
+    for (const externalId of externalIds) {
+      // First match wins (as specified in plan)
+      if (!matches.has(externalId)) {
+        matches.set(externalId, { productId: match.productId, productHandle: match.productHandle });
       }
     }
   }

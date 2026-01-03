@@ -74,6 +74,8 @@ export async function getBrandIntegration(
       lastSyncAt: brandIntegrations.lastSyncAt,
       status: brandIntegrations.status,
       errorMessage: brandIntegrations.errorMessage,
+      isPrimary: brandIntegrations.isPrimary,
+      matchIdentifier: brandIntegrations.matchIdentifier,
       createdAt: brandIntegrations.createdAt,
       updatedAt: brandIntegrations.updatedAt,
       // Join integration details
@@ -113,6 +115,8 @@ export async function getBrandIntegrationBySlug(
       lastSyncAt: brandIntegrations.lastSyncAt,
       status: brandIntegrations.status,
       errorMessage: brandIntegrations.errorMessage,
+      matchIdentifier: brandIntegrations.matchIdentifier,
+      isPrimary: brandIntegrations.isPrimary,
       createdAt: brandIntegrations.createdAt,
       updatedAt: brandIntegrations.updatedAt,
       integration: {
@@ -188,6 +192,8 @@ export async function updateBrandIntegration(
     lastSyncAt?: string | null;
     status?: BrandIntegrationStatus;
     errorMessage?: string | null;
+    matchIdentifier?: string | null;
+    isPrimary?: boolean;
   },
 ) {
   const [row] = await db
@@ -200,6 +206,8 @@ export async function updateBrandIntegration(
       lastSyncAt: input.lastSyncAt,
       status: input.status,
       errorMessage: input.errorMessage,
+      matchIdentifier: input.matchIdentifier,
+      isPrimary: input.isPrimary,
       updatedAt: new Date().toISOString(),
     })
     .where(
@@ -214,6 +222,8 @@ export async function updateBrandIntegration(
       lastSyncAt: brandIntegrations.lastSyncAt,
       status: brandIntegrations.status,
       errorMessage: brandIntegrations.errorMessage,
+      matchIdentifier: brandIntegrations.matchIdentifier,
+      isPrimary: brandIntegrations.isPrimary,
       createdAt: brandIntegrations.createdAt,
       updatedAt: brandIntegrations.updatedAt,
     });

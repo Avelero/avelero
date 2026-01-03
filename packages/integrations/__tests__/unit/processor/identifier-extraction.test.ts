@@ -27,8 +27,8 @@ function extractRawIdentifiers(variantData: Record<string, unknown>): {
     const rawBarcode = getValueByPath(variantData, "barcode");
 
     return {
-        sku: rawSku ? String(rawSku).trim() || undefined : undefined,
-        barcode: rawBarcode ? String(rawBarcode).trim() || undefined : undefined,
+        sku: rawSku != null ? String(rawSku).trim() || undefined : undefined,
+        barcode: rawBarcode != null ? String(rawBarcode).trim() || undefined : undefined,
     };
 }
 

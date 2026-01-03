@@ -18,13 +18,14 @@
  * 
  * Grouping:
  * - product: Title, description, image
- * - variants: Attributes, SKU, barcode
  * - organization: Tags, categories
  * - sales: Webshop URL, price, currency, status
+ * 
+ * NOTE: Variant fields (SKU, barcode, attributes) are NOT configurable.
+ * They are always synced as structural fields.
  */
 export type FieldCategory =
   | "product"
-  | "variants"
   | "organization"
   | "sales";
 
@@ -51,7 +52,6 @@ export interface ConnectorFieldMeta {
  */
 export const FIELD_CATEGORY_LABELS = {
   product: "Product",
-  variants: "Variants",
   organization: "Organization",
   sales: "Sales",
 } satisfies Record<FieldCategory, string>;
@@ -106,30 +106,14 @@ const SHOPIFY_FIELD_DEFINITIONS: Array<{
     // ─────────────────────────────────────────────────────────────────────────────
     // VARIANT FIELDS
     // ─────────────────────────────────────────────────────────────────────────────
-    {
-      fieldKey: "variant.attributes",
-      label: "Attributes",
-      description: "Variant options from your Shopify store (Color, Size, etc.), will be publicly visible",
-      entity: "variant",
-      category: "variants",
-      required: false,
-    },
-    {
-      fieldKey: "variant.sku",
-      label: "SKU",
-      description: "Stock Keeping Unit - primary identifier for matching variants",
-      entity: "variant",
-      category: "variants",
-      required: false,
-    },
-    {
-      fieldKey: "variant.barcode",
-      label: "Barcode",
-      description: "Variant barcode - secondary identifier for matching",
-      entity: "variant",
-      category: "variants",
-      required: false,
-    },
+    // NOTE: variant.attributes, variant.sku, and variant.barcode are NOT included here.
+    // These are structural fields that are ALWAYS synced:
+    // - SKU and barcode are used for matching variants
+    // - Attributes define variant structure (primary integrations only)
+    // Users cannot disable these fields.
+    //
+    // For secondary integrations, match identifier (barcode vs SKU) is configured
+    // via brand_integrations.match_identifier, not here.
 
     // ─────────────────────────────────────────────────────────────────────────────
     // ORGANIZATION FIELDS

@@ -267,7 +267,8 @@ jobs:
           # We need port 5432 (Session Pooler) for Drizzle's prepared statements
           if [ -z "$POSTGRES_URL" ]; then
             echo "❌ POSTGRES_URL not found in branch env output"
-            cat .env.supabase
+            echo "Available variables:"
+            grep -oE '^[A-Z_]+=' .env.supabase | tr -d '=' || echo "(none)"
             exit 1
           fi
           
@@ -361,15 +362,21 @@ jobs:
           echo "  test-web: ${{ needs.test-web.result }}"
           echo "  test-integrations: ${{ needs.test-integrations.result }}"
           
-          # If ANY test failed, this gate fails
+          # If ANY test failed or was cancelled, this gate fails
           if [[ "${{ needs.test-app.result }}" == "failure" ]] || \
              [[ "${{ needs.test-api.result }}" == "failure" ]] || \
              [[ "${{ needs.test-jobs.result }}" == "failure" ]] || \
              [[ "${{ needs.test-dpp.result }}" == "failure" ]] || \
              [[ "${{ needs.test-web.result }}" == "failure" ]] || \
-             [[ "${{ needs.test-integrations.result }}" == "failure" ]]; then
+             [[ "${{ needs.test-integrations.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-app.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-api.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-jobs.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-dpp.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-web.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-integrations.result }}" == "cancelled" ]]; then
             echo ""
-            echo "❌ One or more tests failed"
+            echo "❌ One or more tests failed or were cancelled"
             exit 1
           fi
           
@@ -579,6 +586,92 @@ jobs:
             API_URL=${{ steps.urls.outputs.api_url }}
             APP_URL=${{ steps.urls.outputs.app_url }}
             DPP_URL=${{ steps.urls.outputs.dpp_url }}
+
+  # ============================================
+  # Step 6b: Configure Supabase Auth for Preview Branch
+  # Sets up auth hooks (send_email) and OAuth (Google) for the preview branch
+  # This runs after deploy-app so we have access to the actual APP_URL
+  # ============================================
+  configure-supabase-auth:
+    name: 🔐 Configure Supabase Auth
+    needs: [detect-changes, deploy-app, setup-database]
+    if: |
+      always() &&
+      (needs.deploy-app.result == 'success' || needs.deploy-app.result == 'skipped') &&
+      (needs.setup-database.result == 'success') &&
+      github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🔗 Fetch Branch Credentials
+        id: creds
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
+          
+          # Source the env file to get variables
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          
+          # Extract the branch project ref from SUPABASE_URL
+          # SUPABASE_URL format: https://<project-ref>.supabase.co
+          BRANCH_PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+)\.supabase\.co.*|\1|')
+          
+          echo "supabase_url=$SUPABASE_URL" >> $GITHUB_OUTPUT
+          echo "branch_project_ref=$BRANCH_PROJECT_REF" >> $GITHUB_OUTPUT
+
+      - name: 🔧 Set Auth Configuration Secrets
+        env:
+          APP_URL: ${{ needs.deploy-app.outputs.url }}
+          SUPABASE_URL: ${{ steps.creds.outputs.supabase_url }}
+          BRANCH_PROJECT_REF: ${{ steps.creds.outputs.branch_project_ref }}
+        run: |
+          # Use the actual APP_URL from deploy-app, or fall back to a predictable pattern
+          if [[ -z "$APP_URL" ]]; then
+            APP_URL="https://pr-${{ github.event.number }}-avelero-app.vercel.app"
+          fi
+          
+          # Construct the Edge Function URL for send_email hook
+          SEND_EMAIL_HOOK_URI="${SUPABASE_URL}/functions/v1/send-email"
+          
+          # Construct the Google OAuth redirect URI
+          GOOGLE_REDIRECT_URI="${SUPABASE_URL}/auth/v1/callback"
+          
+          echo "Setting secrets for branch: $BRANCH_PROJECT_REF"
+          echo "  APP_URL: $APP_URL"
+          echo "  SEND_EMAIL_HOOK_URI: $SEND_EMAIL_HOOK_URI"
+          echo "  GOOGLE_REDIRECT_URI: $GOOGLE_REDIRECT_URI"
+          
+          # Set all the secrets needed by config.toml env() references
+          supabase secrets set \
+            APP_URL="$APP_URL" \
+            ADDITIONAL_REDIRECT_URL="$APP_URL" \
+            SEND_EMAIL_HOOK_URI="$SEND_EMAIL_HOOK_URI" \
+            SEND_EMAIL_HOOK_SECRET="${{ secrets.SEND_EMAIL_HOOK_SECRET }}" \
+            GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            GOOGLE_SECRET="${{ secrets.GOOGLE_SECRET }}" \
+            GOOGLE_REDIRECT_URI="$GOOGLE_REDIRECT_URI" \
+            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
+            --project-ref "$BRANCH_PROJECT_REF"
+          
+          echo "✅ Secrets set successfully"
+
+      - name: 📤 Push Config to Preview Branch
+        env:
+          BRANCH_PROJECT_REF: ${{ steps.creds.outputs.branch_project_ref }}
+        run: |
+          echo "Pushing config.toml to branch: $BRANCH_PROJECT_REF"
+          supabase config push --project-ref "$BRANCH_PROJECT_REF"
+          echo "✅ Config pushed successfully"
+        working-directory: ./apps/api
 
   # ============================================
   # Step 7: Deploy Jobs (waits for API to be healthy)

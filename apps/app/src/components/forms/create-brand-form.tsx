@@ -96,9 +96,16 @@ export function CreateBrandForm() {
           <Label>Brand name</Label>
           <Input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setError("");
+            }}
             placeholder="Acme Inc."
+            error={!!error}
           />
+          {error ? (
+            <p className="type-small text-destructive text-center">{error}</p>
+          ) : null}
         </div>
         <CountrySelect
           id="country_code"
@@ -108,10 +115,6 @@ export function CreateBrandForm() {
           onChange={(code) => setCountryCode(code)}
         />
       </div>
-
-      {error ? (
-        <p className="type-p text-destructive text-center">{error}</p>
-      ) : null}
 
       <Button
         className="w-full"

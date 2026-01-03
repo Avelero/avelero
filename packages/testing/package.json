@@ -8,6 +8,7 @@
         "./db": "./src/db.ts",
         "./mocks": "./src/mocks/index.ts",
         "./mocks/shopify": "./src/mocks/shopify.ts",
+        "./mocks/its-perfect": "./src/mocks/its-perfect.ts",
         "./fixtures": "./src/fixtures/index.ts",
         "./fixtures/shopify": "./src/fixtures/shopify.ts",
         "./context": "./src/context.ts"

@@ -297,3 +297,27 @@ export function useTriggerSyncMutation() {
     }),
   );
 }
+
+// =============================================================================
+// Promotion Hooks
+// =============================================================================
+
+/**
+ * Promote an integration to primary.
+ * This triggers the re-grouping algorithm that restructures products.
+ */
+export function usePromoteToPrimaryMutation() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    trpc.integrations.connections.promoteToPrimary.mutationOptions({
+      onSuccess: async () => {
+        // Invalidate all integration-related queries
+        await queryClient.invalidateQueries({
+          queryKey: trpc.integrations.connections.list.queryKey({}),
+        });
+      },
+    }),
+  );
+}

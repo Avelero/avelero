@@ -101,11 +101,12 @@ export function resetItsPerfectMockIds(): void {
 export function createItsPerfectMockVariant(
     overrides: Partial<ItsPerfectVariant> = {}
 ): ItsPerfectVariant {
-    const id = overrides.id ?? `itsp-variant-${variantIdCounter++}`;
+    const currentId = variantIdCounter++;
+    const id = overrides.id ?? `itsp-variant-${currentId}`;
 
     return {
         id,
-        sku: `ITSP-SKU-${variantIdCounter}`,
+        sku: overrides.sku ?? `ITSP-SKU-${currentId}`,
         barcode: null,
         title: "Default Variant",
         price: "49.99",
@@ -125,9 +126,10 @@ export function createItsPerfectMockProduct(
         variants?: ItsPerfectVariant[];
     } = {}
 ): ItsPerfectProduct {
-    const id = overrides.id ?? `itsp-product-${productIdCounter++}`;
+    const currentId = productIdCounter++;
+    const id = overrides.id ?? `itsp-product-${currentId}`;
     const name = overrides.name ?? "Test It's Perfect Product";
-    const articleNumber = overrides.articleNumber ?? `ART-${productIdCounter}`;
+    const articleNumber = overrides.articleNumber ?? `ART-${currentId}`;
 
     // Create default variant if none provided
     const variants = overrides.variants ?? [
@@ -228,3 +230,146 @@ export function createItsPerfectHandlers(baseUrl: string = "https://api.its-perf
         }),
     ];
 }
+
+// =============================================================================
+// MOCK CONNECTOR FOR TESTING
+// =============================================================================
+
+/**
+ * Mock It's Perfect schema for testing.
+ */
+const mockItsPerfectSchema = {
+    slug: "its-perfect",
+    name: "It's Perfect",
+    description: "PLM system mock for testing",
+    authType: "api_key" as const,
+    entities: {
+        variant: {
+            table: "product_variants",
+            identifiedBy: ["sku", "barcode"],
+            primaryIdentifier: "sku",
+        },
+        product: {
+            table: "products",
+            identifiedBy: "productHandle",
+            linkedThrough: "variant" as const,
+        },
+    },
+    fields: {
+        "variant.sku": {
+            targetField: "variant.sku",
+            entity: "variant" as const,
+            description: "SKU",
+            alwaysEnabled: true,
+            sourceOptions: [{ key: "sku", label: "SKU", path: "sku" }],
+            defaultSource: "sku",
+        },
+        "variant.barcode": {
+            targetField: "variant.barcode",
+            entity: "variant" as const,
+            description: "Barcode",
+            alwaysEnabled: true,
+            sourceOptions: [{ key: "barcode", label: "Barcode", path: "barcode" }],
+            defaultSource: "barcode",
+        },
+        "product.name": {
+            targetField: "product.name",
+            entity: "product" as const,
+            description: "Product name",
+            sourceOptions: [{ key: "name", label: "Name", path: "name" }],
+            defaultSource: "name",
+        },
+    },
+};
+
+/**
+ * Fetch products generator for mock It's Perfect.
+ * Returns mock products in FetchedProduct format.
+ */
+async function* mockFetchProducts(
+    _credentials: unknown,
+    _batchSize?: number
+): AsyncGenerator<Array<{
+    externalId: string;
+    data: Record<string, unknown>;
+    variants: Array<{
+        externalId: string;
+        externalProductId: string;
+        data: Record<string, unknown>;
+    }>;
+}>, void, undefined> {
+    // Yield all mock products as a single batch
+    const batch = mockProducts.map((product) => ({
+        externalId: product.id,
+        data: {
+            id: product.id,
+            articleNumber: product.articleNumber,
+            name: product.name,
+            title: product.name, // For compatibility with extractProductData
+            description: product.description,
+            brand: product.brand,
+            category: product.category,
+            sustainabilityScore: product.sustainabilityScore,
+            originCountry: product.originCountry,
+        },
+        variants: product.variants.map((v) => ({
+            externalId: v.id,
+            externalProductId: product.id,
+            data: {
+                id: v.id,
+                sku: v.sku,
+                barcode: v.barcode,
+                title: v.title,
+                price: v.price,
+                currency: v.currency,
+                selectedOptions: v.attributes.map((a) => ({
+                    name: a.name,
+                    value: a.value,
+                })),
+                materials: v.materials,
+                weight: v.weight,
+            },
+        })),
+    }));
+
+    if (batch.length > 0) {
+        yield batch;
+    }
+}
+
+/**
+ * Mock test connection for It's Perfect.
+ */
+async function mockTestConnection(_credentials: unknown): Promise<{ name: string }> {
+    return { name: "Mock It's Perfect" };
+}
+
+/**
+ * Mock get product count for It's Perfect.
+ */
+async function mockGetProductCount(_credentials: unknown): Promise<number> {
+    return mockProducts.length;
+}
+
+/**
+ * Get a mock It's Perfect connector that can be registered for testing.
+ * 
+ * @example
+ * ```ts
+ * import { getMockItsPerfectConnector } from "@v1/testing/mocks/its-perfect";
+ * import { registerConnector } from "@v1/integrations";
+ * 
+ * // In test setup:
+ * registerConnector(getMockItsPerfectConnector());
+ * ```
+ */
+export function getMockItsPerfectConnector() {
+    return {
+        slug: "its-perfect",
+        schema: mockItsPerfectSchema,
+        testConnection: mockTestConnection,
+        fetchProducts: mockFetchProducts,
+        getProductCount: mockGetProductCount,
+    };
+}
+

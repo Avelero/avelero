@@ -13,24 +13,37 @@ import {
   getFieldUIInfo,
   type FieldGroup,
 } from "@/components/integrations/field-config";
+import { IdentifierToggle } from "@/components/integrations/identifier-toggle";
 import { IntegrationLogo } from "@/components/integrations/integration-logo";
 import {
   IntegrationInfoRow,
+  PrimaryBadge,
   SyncProgressBlock,
   type IntegrationStatus,
   type SyncJobStatus,
 } from "@/components/integrations/integration-status";
 import { ConnectShopifyModal } from "@/components/modals/connect-shopify-modal";
 import { DisconnectIntegrationModal } from "@/components/modals/disconnect-integration-modal";
+import { PromoteToPrimaryModal } from "@/components/modals/promote-to-primary-modal";
 import {
   useFieldMappingsQuery,
   useIntegrationBySlugQuerySuspense,
+  usePromoteToPrimaryMutation,
   useSyncStatusQuery,
   useTriggerSyncMutation,
   useUpdateFieldMappingMutation,
+  useUpdateIntegrationMutation,
 } from "@/hooks/use-integrations";
 import { getConnectorFields } from "@v1/integrations";
 import { Button } from "@v1/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@v1/ui/dropdown-menu";
+import { Icons } from "@v1/ui/icons";
 import { Skeleton } from "@v1/ui/skeleton";
 import { toast } from "@v1/ui/sonner";
 import Link from "next/link";
@@ -103,6 +116,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const { data: connectionData } = useIntegrationBySlugQuerySuspense(slug);
 
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
+  const [promoteModalOpen, setPromoteModalOpen] = useState(false);
   const [shopifyModalOpen, setShopifyModalOpen] = useState(false);
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
 
@@ -117,6 +131,13 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
 
   const connection = connectionData?.data;
   const integrationInfo = connection?.integration;
+
+  // Match identifier - load from connection or default to barcode
+  const matchIdentifier = (connection?.matchIdentifier as "sku" | "barcode" | null) ?? "barcode";
+
+  // Mutations
+  const { mutate: updateIntegration } = useUpdateIntegrationMutation();
+  const { mutate: promoteToPrimary, isPending: isPromoting } = usePromoteToPrimaryMutation();
 
   // Field configs to determine if setup is needed (only runs on client)
   const { data: fieldConfigsData, isLoading: fieldConfigsLoading } = useFieldMappingsQuery(
@@ -235,6 +256,36 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     }
   }
 
+  function handleMatchIdentifierChange(value: "sku" | "barcode") {
+    if (!connection?.id) return;
+
+    updateIntegration(
+      { id: connection.id, match_identifier: value },
+      {
+        onError: () => {
+          toast.error("Failed to update match identifier");
+        },
+      }
+    );
+  }
+
+  function handlePromote() {
+    if (!connection?.id) return;
+
+    promoteToPrimary(
+      { id: connection.id },
+      {
+        onSuccess: () => {
+          toast.success("Promotion started. This may take a few minutes.");
+          setPromoteModalOpen(false);
+        },
+        onError: (error) => {
+          toast.error(error.message || "Failed to start promotion");
+        },
+      }
+    );
+  }
+
   // Not connected state
   if (!connection) {
     return (
@@ -328,9 +379,12 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         <IntegrationLogo slug={slug} size="sm" />
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
-            <h5 className="type-h5 text-foreground">
-              {integrationInfo?.name}
-            </h5>
+            <div className="flex items-center gap-2">
+              <h5 className="type-h5 text-foreground">
+                {integrationInfo?.name}
+              </h5>
+              {connection?.isPrimary && <PrimaryBadge />}
+            </div>
             <p className="type-small text-secondary">
               {getIntegrationDescription(slug)}
             </p>
@@ -343,12 +397,29 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
             >
               {isSyncing ? "Syncing..." : "Sync now"}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setDisconnectModalOpen(true)}
-            >
-              Disconnect
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-9 w-9">
+                  <Icons.EllipsisVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {!connection?.isPrimary && (
+                  <>
+                    <DropdownMenuItem onClick={() => setPromoteModalOpen(true)}>
+                      Promote to Primary
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem
+                  onClick={() => setDisconnectModalOpen(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  Disconnect
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -369,6 +440,12 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
           errorMessage={optimisticSyncStarted ? null : latestJob?.errorSummary}
         />
       )}
+
+      {/* Identifier toggle */}
+      <IdentifierToggle
+        value={matchIdentifier}
+        onChange={handleMatchIdentifierChange}
+      />
 
       {/* Configure fields section */}
       <section className="space-y-4">
@@ -394,6 +471,16 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         integrationName={integrationInfo?.name ?? slug}
         integrationId={connection.id}
         onDisconnected={handleDisconnected}
+      />
+
+      {/* Promote to Primary Modal */}
+      <PromoteToPrimaryModal
+        open={promoteModalOpen}
+        onOpenChange={setPromoteModalOpen}
+        integrationName={integrationInfo?.name ?? slug}
+        integrationId={connection.id}
+        onConfirm={handlePromote}
+        isPromoting={isPromoting}
       />
     </div>
   );

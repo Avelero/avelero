@@ -58,15 +58,39 @@ export function IntegrationStatusBadge({
     >
       {status === "active" && (
         <div className="flex h-3 w-3 items-center justify-center">
-            <span className="h-2 w-2 rounded-full bg-brand" />
+          <span className="h-2 w-2 rounded-full bg-brand" />
         </div>
       )}
       {status === "error" && (
         <div className="flex h-3 w-3 items-center justify-center">
-            <span className="h-2 w-2 rounded-full bg-destructive" />
+          <span className="h-2 w-2 rounded-full bg-destructive" />
         </div>
       )}
       <span className="type-small text-foreground px-1">{config.label}</span>
+    </span>
+  );
+}
+
+// =============================================================================
+// Primary Badge
+// =============================================================================
+
+interface PrimaryBadgeProps {
+  className?: string;
+}
+
+/**
+ * Badge indicating this is the primary integration.
+ */
+export function PrimaryBadge({ className }: PrimaryBadgeProps) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2 h-6 rounded-full border border-brand/30 bg-brand/10",
+        className,
+      )}
+    >
+      <span className="type-small text-brand font-medium">Primary</span>
     </span>
   );
 }

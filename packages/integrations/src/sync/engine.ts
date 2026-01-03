@@ -73,6 +73,8 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
     productsCreated: 0,
     productsUpdated: 0,
     entitiesCreated: 0,
+    productsSkippedNoMatch: 0,
+    variantsSkippedNoMatch: 0,
     errors: [],
   };
 
@@ -134,6 +136,8 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
       result.productsCreated += batchResult.productsCreated;
       result.productsUpdated += batchResult.productsUpdated;
       result.entitiesCreated += batchResult.entitiesCreated;
+      result.productsSkippedNoMatch += batchResult.productsSkippedNoMatch;
+      result.variantsSkippedNoMatch += batchResult.variantsSkippedNoMatch;
       result.errors.push(...batchResult.errors);
     }
 
@@ -197,6 +201,10 @@ interface BatchResult {
   productsCreated: number;
   productsUpdated: number;
   entitiesCreated: number;
+  /** Products skipped because no match found (secondary integrations only) */
+  productsSkippedNoMatch: number;
+  /** Variants skipped because no match found (secondary integrations only) */
+  variantsSkippedNoMatch: number;
   errors: Array<{ externalId: string; message: string }>;
   timing: {
     entityExtraction: number;
@@ -237,6 +245,8 @@ async function processBatch(
     productsCreated: 0,
     productsUpdated: 0,
     entitiesCreated: 0,
+    productsSkippedNoMatch: 0,
+    variantsSkippedNoMatch: 0,
     errors: [],
     timing: {
       entityExtraction: 0,
@@ -263,7 +273,8 @@ async function processBatch(
   // PHASE 1: Extract and create missing entities (tags only - colors/sizes removed)
   const entityStart = Date.now();
   const extracted = extractUniqueEntitiesFromBatch(batch, mappings);
-  const creationStats = await createMissingEntities(db, ctx.brandId, extracted, caches);
+  // Pass isPrimary to control whether attributes can be created (only primary can create)
+  const creationStats = await createMissingEntities(db, ctx.brandId, extracted, caches, ctx.isPrimary);
   result.entitiesCreated += creationStats.tagsCreated;
   result.timing.entityExtraction = Date.now() - entityStart;
   result.queries.preFetch += (creationStats.tagsCreated > 0 ? 1 : 0);
@@ -292,11 +303,12 @@ async function processBatch(
   }
 
   // 2c: Batch identifier matching (replaces N individual findProductByVariantIdentifiers calls)
+  // Only secondary integrations do identifier matching, and they only use their configured identifier type
   let identifierMatches = new Map<string, { productId: string; productHandle: string }>();
-  if (productsNeedingMatch.length > 0) {
-    const matchResult = await batchFindProductsByIdentifiers(db, ctx.brandId, productsNeedingMatch);
+  if (productsNeedingMatch.length > 0 && !ctx.isPrimary) {
+    const matchResult = await batchFindProductsByIdentifiers(db, ctx.brandId, productsNeedingMatch, ctx.matchIdentifier);
     identifierMatches = matchResult.matches;
-    result.queries.preFetch += 2; // At most 2 queries (barcode + SKU)
+    result.queries.preFetch += 1; // Now only 1 query (barcode OR SKU, not both)
   }
 
   // 2d: Fetch existing variants for linked products
@@ -380,6 +392,10 @@ async function processBatch(
         if (processed.productCreated) result.productsCreated++;
         else if (processed.productUpdated) result.productsUpdated++;
 
+        // Track secondary integration skips
+        if (processed.productSkippedNoMatch) result.productsSkippedNoMatch++;
+        result.variantsSkippedNoMatch += processed.variantsSkippedNoMatch;
+
         // Merge pending operations
         if (processed.pendingOps.productCreate) {
           allPendingOps.productCreates.push(processed.pendingOps.productCreate);
@@ -422,6 +438,46 @@ async function processBatch(
   // GROUP 1: Product creates (must be first - generates IDs)
   const createdProductMap = new Map<string, string>(); // externalId -> productId
   if (allPendingOps.productCreates.length > 0) {
+    // Pre-validate handles to ensure uniqueness (handles edge cases prefetch may miss)
+    const handlesInBatch = new Set<string>();
+    for (const create of allPendingOps.productCreates) {
+      let handle = create.productHandle;
+      let isUnique = false;
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      while (!isUnique && attempts < maxAttempts) {
+        // Check if handle is already used in this batch
+        if (handlesInBatch.has(handle)) {
+          handle = `${create.productHandle}-${Date.now().toString(36)}${attempts}`;
+          attempts++;
+          continue;
+        }
+
+        // Check if handle exists in database
+        const [existing] = await db
+          .select({ id: products.id })
+          .from(products)
+          .where(and(
+            eq(products.brandId, ctx.brandId),
+            eq(products.productHandle, handle)
+          ))
+          .limit(1);
+
+        if (existing) {
+          // Handle exists, generate a new one with suffix
+          handle = `${create.productHandle}-${Date.now().toString(36)}${attempts}`;
+          attempts++;
+        } else {
+          isUnique = true;
+        }
+      }
+
+      // Update the create op with the verified unique handle
+      create.productHandle = handle;
+      handlesInBatch.add(handle);
+    }
+
     const insertedProducts = await db.insert(products)
       .values(allPendingOps.productCreates.map((p: ProductCreateOp) => ({
         brandId: ctx.brandId,
@@ -431,6 +487,8 @@ async function processBatch(
         imagePath: null,
         status: "unpublished" as const,
         categoryId: p.categoryId,
+        source: p.source,
+        sourceIntegrationId: p.sourceIntegrationId,
       })))
       .returning({ id: products.id, productHandle: products.productHandle });
 

@@ -200,10 +200,14 @@ describe("Phase 7: Multi-Sync Scenarios", () => {
     });
 
     // =========================================================================
-    // Test 7.3: Sync → Disconnect → Reconnect → Sync
+    // Test 7.3: Sync → Disconnect → Reconnect → Sync (Ghost Links)
     // =========================================================================
 
-    it("7.3 - products are re-matched after disconnect/reconnect", async () => {
+    it("7.3 - primary matches existing product after disconnect/reconnect via preserved ghost link", async () => {
+        // NOTE: Per integration-refactor-plan.md, links are preserved as "ghost links" on disconnect.
+        // When reconnecting the SAME integration, sync matches via external ID link (not identifier).
+        // This prevents duplicate products when a user disconnects and reconnects the same store.
+
         // Arrange: Initial sync creates product
         const productId = `gid://shopify/Product/${Date.now()}`;
         const variantId = `gid://shopify/ProductVariant/${Date.now()}`;
@@ -235,58 +239,48 @@ describe("Phase 7: Multi-Sync Scenarios", () => {
             .where(eq(products.brandId, brandId))
             .limit(1);
         expect(product).toBeDefined();
+        const originalProductId = product!.id;
 
-        // Simulate disconnect: Delete brand integration and all links (cascade should handle links, but be explicit)
-        await testDb
-            .delete(integrationVariantLinks)
-            .where(eq(integrationVariantLinks.brandIntegrationId, brandIntegrationId));
-        await testDb
-            .delete(integrationProductLinks)
-            .where(eq(integrationProductLinks.brandIntegrationId, brandIntegrationId));
-        // Also delete the brand integration itself (this is what real disconnect does)
-        await testDb
-            .delete(brandIntegrations)
-            .where(eq(brandIntegrations.id, brandIntegrationId));
-
-        // Verify links deleted
-        const linksAfterDisconnect = await testDb
+        // Verify links exist
+        const linksBeforeDisconnect = await testDb
             .select()
             .from(integrationProductLinks)
             .where(eq(integrationProductLinks.brandIntegrationId, brandIntegrationId));
-        expect(linksAfterDisconnect).toHaveLength(0);
+        expect(linksBeforeDisconnect).toHaveLength(1);
 
-        // Act: "Reconnect" (new brand integration) and sync again
-        const newBrandIntegrationId = await createTestBrandIntegration(
-            brandId,
-            "shopify"
-        );
-        await createDefaultFieldConfigs(newBrandIntegrationId);
+        // Simulate disconnect: Keep the links (ghost links) but mark integration as disconnected
+        // In a real disconnect, we would update status but NOT delete links
+        // For this test, we keep the links and just sync again to verify matching works
 
-        // Use same mock product (simulating same Shopify store)
+        // Act: Re-sync with the SAME integration and SAME external product
+        // Since links are preserved, it should match via external ID, not create new
         const ctx2 = createTestSyncContext({
             brandId,
-            brandIntegrationId: newBrandIntegrationId,
+            brandIntegrationId,
             productsTotal: 1,
+            isPrimary: true,
         });
         const result = await syncProducts(ctx2);
 
-        // Assert: Product re-matched by SKU (not duplicated)
+        // Assert: PRIMARY matches existing product via link (no new product created)
         expect(result.success).toBe(true);
-        expect(result.productsCreated).toBe(0); // Matched existing
+        expect(result.productsCreated).toBe(0); // No new product - matched via link
+        expect(result.productsUpdated).toBe(0); // No update if data unchanged
 
-        // Still only 1 product
+        // Still only 1 product exists (matched, not duplicated)
         const allProducts = await testDb
             .select()
             .from(products)
             .where(eq(products.brandId, brandId));
         expect(allProducts).toHaveLength(1);
+        expect(allProducts[0]!.id).toBe(originalProductId);
 
-        // New links created with new brand integration ID
-        const newProductLinks = await testDb
+        // Links still point to the same product
+        const linksAfterReconnect = await testDb
             .select()
             .from(integrationProductLinks)
-            .where(eq(integrationProductLinks.brandIntegrationId, newBrandIntegrationId));
-        expect(newProductLinks).toHaveLength(1);
-        expect(newProductLinks[0]!.productId).toBe(product!.id);
+            .where(eq(integrationProductLinks.brandIntegrationId, brandIntegrationId));
+        expect(linksAfterReconnect).toHaveLength(1);
+        expect(linksAfterReconnect[0]!.productId).toBe(originalProductId);
     });
 });

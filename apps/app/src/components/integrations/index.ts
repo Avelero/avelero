@@ -11,6 +11,7 @@ export {
 export { IntegrationDetail, IntegrationDetailSkeleton } from "./integration-detail";
 export { IntegrationsList } from "./integrations-list";
 export { IntegrationLogo } from "./integration-logo";
+export { IdentifierToggle } from "./identifier-toggle";
 export { FieldSetup } from "./field-setup";
 export {
   FieldSection,
@@ -19,6 +20,7 @@ export {
 } from "./field-section";
 export {
   IntegrationStatusBadge,
+  PrimaryBadge,
   SyncProgressBlock,
   IntegrationInfoRow,
   formatSyncTime,

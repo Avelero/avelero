@@ -143,7 +143,7 @@ describe("buildEffectiveFieldMappings()", () => {
         expect(mappings[0]?.sourceKey).toBe("handle");
     });
 
-    test("default source used when no config for field", () => {
+    test("unconfigured field is excluded when other configs provided", () => {
         const schema = createTestSchema({
             "product.name": { entity: "product", defaultSource: "title" },
             "variant.sku": { entity: "variant", defaultSource: "sku" },

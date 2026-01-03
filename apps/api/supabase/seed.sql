@@ -9,7 +9,7 @@ VALUES (
   'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   'shopify',
   'Shopify',
-  'Connect your Shopify store to sync product information with your digital product passports.',
+  'Connect your Shopify store to sync product information with Avelero',
   'oauth',
   'active'
 )

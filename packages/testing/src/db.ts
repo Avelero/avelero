@@ -108,7 +108,8 @@ export async function createTestBrand(name = "Test Brand"): Promise<string> {
  */
 export async function createTestBrandIntegration(
     brandId: string,
-    integrationSlug = "shopify"
+    integrationSlug = "shopify",
+    options?: { isPrimary?: boolean }
 ): Promise<string> {
     // First ensure the integration exists
     const [existingIntegration] = await testDb
@@ -147,6 +148,7 @@ export async function createTestBrandIntegration(
             brandId,
             integrationId,
             status: "active",
+            isPrimary: options?.isPrimary ?? false,
             credentials: JSON.stringify({
                 accessToken: "test-access-token",
                 shopDomain: "test-shop.myshopify.com",

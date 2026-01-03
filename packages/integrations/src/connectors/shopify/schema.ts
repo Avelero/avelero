@@ -72,14 +72,14 @@ export function stripHtmlTags(html: unknown): string | null {
  */
 export function transformTags(tags: unknown): string[] {
   if (!tags) return [];
-  
+
   // Handle array format (expected from GraphQL API)
   if (Array.isArray(tags)) {
     return tags
       .map((t) => String(t).trim())
       .filter((t) => t.length > 0);
   }
-  
+
   // Handle comma-separated string format (defensive handling)
   if (typeof tags === "string") {
     return tags
@@ -87,7 +87,7 @@ export function transformTags(tags: unknown): string[] {
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
   }
-  
+
   return [];
 }
 
@@ -280,6 +280,7 @@ export const shopifySchema: ConnectorSchema = {
       targetField: "variant.sku",
       entity: "variant",
       description: "Stock Keeping Unit",
+      alwaysEnabled: true,
       sourceOptions: [{ key: "sku", label: "SKU", path: "sku" }],
       defaultSource: "sku",
       transform: (v: unknown) => truncateString(v, 255),
@@ -289,6 +290,7 @@ export const shopifySchema: ConnectorSchema = {
       targetField: "variant.barcode",
       entity: "variant",
       description: "Barcode",
+      alwaysEnabled: true,
       sourceOptions: [{ key: "barcode", label: "Barcode", path: "barcode" }],
       defaultSource: "barcode",
       transform: (v: unknown) => truncateString(v, 255),
@@ -298,6 +300,7 @@ export const shopifySchema: ConnectorSchema = {
       targetField: "variant.attributes",
       entity: "variant",
       description: "Variant attributes (Color, Size, Age group, etc.)",
+      alwaysEnabled: true,
       sourceOptions: [
         {
           key: "selectedOptions",

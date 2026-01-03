@@ -33,3 +33,20 @@ export function listConnectors(): RegisteredConnector[] {
 export function getConnectorSlugs(): string[] {
   return Array.from(registry.keys());
 }
+
+/**
+ * Register a connector in the registry.
+ * Primarily used for testing with mock connectors.
+ */
+export function registerConnector(connector: RegisteredConnector): void {
+  registry.set(connector.slug, connector);
+}
+
+/**
+ * Unregister a connector from the registry.
+ * Primarily used for cleanup after tests.
+ */
+export function unregisterConnector(slug: string): void {
+  registry.delete(slug);
+}
+

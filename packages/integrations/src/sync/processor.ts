@@ -71,7 +71,9 @@ export function getValueByPath(obj: Record<string, unknown>, path: string): unkn
 
 /**
  * Build effective field mappings from schema and configs.
- * Only includes fields that are enabled for this integration.
+ * 
+ * Fields with `alwaysEnabled: true` are always included regardless of config.
+ * Other fields are included only if enabled in fieldConfigs (or if no configs exist).
  */
 export function buildEffectiveFieldMappings(
   schema: ConnectorSchema,
@@ -85,8 +87,12 @@ export function buildEffectiveFieldMappings(
   );
 
   for (const [fieldKey, definition] of Object.entries(schema.fields) as [string, ConnectorFieldDefinition][]) {
+    // Always include fields with alwaysEnabled flag (SKU, barcode, attributes)
+    const forceEnabled = definition.alwaysEnabled === true;
+
     // If there's a config, use it; otherwise use default
-    const isEnabled = configMap.has(fieldKey) || !fieldConfigs.length;
+    // If no configs exist at all, include all fields (backwards compat)
+    const isEnabled = forceEnabled || configMap.has(fieldKey) || !fieldConfigs.length;
     if (!isEnabled) continue;
 
     const sourceKey = configMap.get(fieldKey) ?? definition.defaultSource;
@@ -221,6 +227,8 @@ export interface ProductCreateOp {
   description: string | null;
   categoryId: string | null;
   imageUrl: string | null;
+  source: "integration" | "bulk_upload" | "manual";
+  sourceIntegrationId: string | null;
 }
 
 /**
@@ -315,6 +323,10 @@ export interface ProcessedProductResult {
   variantsCreated: number;
   variantsUpdated: number;
   variantsSkipped: number;
+  /** True if this product was skipped because no match found (secondary only) */
+  productSkippedNoMatch: boolean;
+  /** Number of variants skipped because no match found (secondary only) */
+  variantsSkippedNoMatch: number;
   productId?: string;
   error?: string;
   pendingOps: Omit<PendingOperations, 'productCreates'> & { productCreate?: ProductCreateOp };
@@ -463,23 +475,12 @@ export function processProduct(
           isCanonical = false;
         }
       } else {
-        // Check pre-fetched identifier matches (replaces findProductByVariantIdentifiers)
-        const identifierMatch = preFetched.identifierMatches.get(externalProduct.externalId);
+        // No existing integration link for this external product
 
-        if (identifierMatch) {
-          // Matched to existing product via SKU/barcode
-          productId = identifierMatch.productId;
-          productHandle = identifierMatch.productHandle;
-          // Check if this product already has a canonical link from this integration
-          // Check BOTH the DB-prefetched set AND the in-batch set
-          if (
-            preFetched.productsWithCanonicalLink.has(productId) ||
-            productsWithCanonicalLinkInBatch.has(productId)
-          ) {
-            isCanonical = false;
-          }
-        } else {
-          // Need to create a new product - generate handle (using pre-fetched taken handles)
+        // PRIMARY INTEGRATION: Never matches by identifier - always creates new products
+        // This ensures primary defines the product grouping without conflicts
+        if (ctx.isPrimary) {
+          // Primary creates new product
           productHandle = generateUniqueHandleSync(
             productName,
             preFetched.takenHandles,
@@ -504,6 +505,8 @@ export function processProduct(
             description: (productExtracted.product.description as string) ?? null,
             categoryId,
             imageUrl: (productExtracted.product.imagePath as string) ?? null,
+            source: "integration",
+            sourceIntegrationId: ctx.brandIntegrationId,
           };
 
           // Queue commercial data for newly created product
@@ -511,25 +514,55 @@ export function processProduct(
           if (commercialData) {
             pendingOps.productCommercialUpserts.push(commercialData);
           }
+        } else {
+          // SECONDARY INTEGRATION: Try to match by identifier (SKU/barcode)
+          const identifierMatch = preFetched.identifierMatches.get(externalProduct.externalId);
+
+          if (identifierMatch) {
+            // Matched to existing product via SKU/barcode
+            productId = identifierMatch.productId;
+            productHandle = identifierMatch.productHandle;
+            // Check if this product already has a canonical link from this integration
+            // Check BOTH the DB-prefetched set AND the in-batch set
+            if (
+              preFetched.productsWithCanonicalLink.has(productId) ||
+              productsWithCanonicalLinkInBatch.has(productId)
+            ) {
+              isCanonical = false;
+            }
+          } else {
+            // No existing link and no identifier match - secondary cannot create
+            return {
+              success: true,
+              productCreated: false,
+              productUpdated: false,
+              variantsCreated: 0,
+              variantsUpdated: 0,
+              variantsSkipped: 0,
+              productSkippedNoMatch: true,
+              variantsSkippedNoMatch: externalProduct.variants.length,
+              pendingOps,
+            };
+          }
         }
+      }
 
-        // Queue product link upsert (with isCanonical)
-        pendingOps.productLinkUpserts.push({
-          brandIntegrationId: ctx.brandIntegrationId,
-          productId,
-          externalId: externalProduct.externalId,
-          externalName: productName,
-          lastSyncedHash: productHash,
-          isCanonical,
-        });
+      // Queue product link upsert (with isCanonical)
+      pendingOps.productLinkUpserts.push({
+        brandIntegrationId: ctx.brandIntegrationId,
+        productId,
+        externalId: externalProduct.externalId,
+        externalName: productName,
+        lastSyncedHash: productHash,
+        isCanonical,
+      });
 
-        // Cache for other products in this batch that might reference the same external ID
-        cacheProduct(caches, externalProduct.externalId, productId, productHandle, productCreated);
+      // Cache for other products in this batch that might reference the same external ID
+      cacheProduct(caches, externalProduct.externalId, productId, productHandle, productCreated);
 
-        // Track canonical links within this batch so subsequent products know this one is canonical
-        if (isCanonical && !productId.startsWith('__pending:')) {
-          productsWithCanonicalLinkInBatch.add(productId);
-        }
+      // Track canonical links within this batch so subsequent products know this one is canonical
+      if (isCanonical && !productId.startsWith('__pending:')) {
+        productsWithCanonicalLinkInBatch.add(productId);
       }
     }
 
@@ -574,11 +607,10 @@ export function processProduct(
     }
 
     // STEP 4: Process variants (returns pending operations)
-    // Always allow variant-level SKU/barcode matching when there's no existing variant link.
-    // Previously this was incorrectly set to false when the product was matched by identifier,
-    // which caused variants to be duplicated instead of linked to existing ones.
-    // Product-level matching and variant-level matching are separate concerns.
-    const matchViaIdentifiers = !existingLink;
+    // PRIMARY integrations NEVER match by identifier - they use links or create new variants.
+    // SECONDARY integrations CAN match by identifier when there's no existing link.
+    // This ensures primary defines the variant structure without picking up unrelated variants.
+    const matchViaIdentifiers = !ctx.isPrimary && !existingLink;
     const variantResult = processVariantsSync(
       ctx,
       productId,
@@ -606,6 +638,8 @@ export function processProduct(
       variantsCreated: variantResult.variantsCreated,
       variantsUpdated: variantResult.variantsUpdated,
       variantsSkipped: variantResult.variantsSkipped,
+      productSkippedNoMatch: false,
+      variantsSkippedNoMatch: variantResult.variantsSkippedNoMatch,
       productId,
       pendingOps,
     };
@@ -617,6 +651,8 @@ export function processProduct(
       variantsCreated: 0,
       variantsUpdated: 0,
       variantsSkipped: 0,
+      productSkippedNoMatch: false,
+      variantsSkippedNoMatch: 0,
       error: error instanceof Error ? error.message : String(error),
       pendingOps,
     };
@@ -710,6 +746,8 @@ interface ProcessVariantsResult {
   variantsCreated: number;
   variantsUpdated: number;
   variantsSkipped: number;
+  /** Variants skipped because no match found (secondary only) */
+  variantsSkippedNoMatch: number;
   variantUpdates: PendingOperations['variantUpdates'];
   variantCreates: PendingOperations['variantCreates'];
   variantLinkUpserts: PendingOperations['variantLinkUpserts'];
@@ -740,6 +778,7 @@ function processVariantsSync(
   productExtracted: ExtractedValues
 ): ProcessVariantsResult {
   let skipped = 0;
+  let skippedNoMatch = 0; // Variants skipped because no match found (secondary only)
   const variantUpdates: PendingOperations['variantUpdates'] = [];
   const variantCreates: PendingOperations['variantCreates'] = [];
   const variantLinkUpserts: PendingOperations['variantLinkUpserts'] = [];
@@ -782,7 +821,8 @@ function processVariantsSync(
 
     const matchResult = findExistingVariant(
       existingLink, existingById, existingByBarcode, existingBySku,
-      rawIds, usedVariantIds, matchViaIdentifiers, preFetched.globalVariantIndex
+      rawIds, usedVariantIds, matchViaIdentifiers, preFetched.globalVariantIndex,
+      ctx.matchIdentifier
     );
 
     if (matchResult) {
@@ -810,7 +850,8 @@ function processVariantsSync(
       }
 
       // Queue attribute assignment for existing variant (always replace to sync state)
-      if (attributesEnabled && attributeValueIds.length > 0) {
+      // NOTE: Only PRIMARY can modify attribute assignments - secondary just enriches data
+      if (ctx.isPrimary && attributesEnabled && attributeValueIds.length > 0) {
         variantAttributeAssignments.push({
           variantId: existingVariant.id,
           attributeValueIds,
@@ -873,7 +914,16 @@ function processVariantsSync(
         lastSyncedHash: hash,
       });
     } else {
-      // Queue variant creation with attribute values
+      // No existing variant match found
+
+      // SECONDARY INTEGRATION CHECK: Cannot create variants
+      if (!ctx.isPrimary) {
+        // Secondary integrations skip variants they cannot match
+        skippedNoMatch++;
+        continue;
+      }
+
+      // PRIMARY INTEGRATION: Queue variant creation with attribute values
       variantCreates.push({
         productId,
         sku,
@@ -895,6 +945,7 @@ function processVariantsSync(
     variantsCreated: variantCreates.length,
     variantsUpdated: variantUpdates.length,
     variantsSkipped: skipped,
+    variantsSkippedNoMatch: skippedNoMatch,
     variantUpdates,
     variantCreates,
     variantLinkUpserts,
@@ -909,8 +960,10 @@ function processVariantsSync(
  * 
  * Priority order:
  * 1. Match via existing integration link (variantId from link)
- * 2. Match via product-scoped identifiers (barcode/SKU within the product)
- * 3. Match via global variant index (barcode/SKU across ALL brand variants) - NEW for multi-source
+ * 2. Match via product-scoped identifiers (barcode/SKU within the product) - respects matchIdentifier
+ * 3. Match via global variant index (barcode/SKU across ALL brand variants) - respects matchIdentifier
+ * 
+ * @param matchIdentifier - Which identifier type to use for matching ('barcode' or 'sku')
  */
 function findExistingVariant<T extends { id: string }>(
   existingLink: { variantId: string } | undefined,
@@ -920,7 +973,8 @@ function findExistingVariant<T extends { id: string }>(
   rawIds: { sku?: string; barcode?: string },
   usedVariantIds: Set<string>,
   matchViaIdentifiers: boolean,
-  globalVariantIndex?: GlobalVariantIndex
+  globalVariantIndex: GlobalVariantIndex | undefined,
+  matchIdentifier: "barcode" | "sku"
 ): { variant: T; productId?: string } | undefined {
   // Priority 1: Match via existing integration link
   if (existingLink) {
@@ -928,22 +982,21 @@ function findExistingVariant<T extends { id: string }>(
     if (v) { usedVariantIds.add(v.id); return { variant: v }; }
   }
 
-  // Priority 2: Match via product-scoped barcode/SKU identifiers
+  // Priority 2: Match via product-scoped identifiers (only the configured type)
   if (matchViaIdentifiers) {
-    if (rawIds.barcode) {
+    if (matchIdentifier === "barcode" && rawIds.barcode) {
       const v = existingByBarcode.get(rawIds.barcode.toLowerCase());
       if (v && !usedVariantIds.has(v.id)) { usedVariantIds.add(v.id); return { variant: v }; }
-    }
-    if (rawIds.sku) {
+    } else if (matchIdentifier === "sku" && rawIds.sku) {
       const v = existingBySku.get(rawIds.sku.toLowerCase());
       if (v && !usedVariantIds.has(v.id)) { usedVariantIds.add(v.id); return { variant: v }; }
     }
   }
 
-  // Priority 3: Match via global variant index (multi-source integration support)
+  // Priority 3: Match via global variant index (only the configured type)
   // This allows matching variants from other products in the brand
   if (matchViaIdentifiers && globalVariantIndex) {
-    if (rawIds.barcode) {
+    if (matchIdentifier === "barcode" && rawIds.barcode) {
       const match = globalVariantIndex.byBarcode.get(rawIds.barcode.toLowerCase());
       if (match && !usedVariantIds.has(match.variantId)) {
         usedVariantIds.add(match.variantId);
@@ -953,8 +1006,7 @@ function findExistingVariant<T extends { id: string }>(
           productId: match.productId
         };
       }
-    }
-    if (rawIds.sku) {
+    } else if (matchIdentifier === "sku" && rawIds.sku) {
       const match = globalVariantIndex.bySku.get(rawIds.sku.toLowerCase());
       if (match && !usedVariantIds.has(match.variantId)) {
         usedVariantIds.add(match.variantId);
@@ -968,3 +1020,4 @@ function findExistingVariant<T extends { id: string }>(
 
   return undefined;
 }
+

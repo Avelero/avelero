@@ -19,8 +19,6 @@ dist/
 
 # LLM Context
 llm_context/
-integration-refactor-plan.md
-testing-plan.md
 
 # production
 build
@@ -134,3 +132,8 @@ csv/
 generate-test-csvs.py
 
 sort-and-filter-plan.md
+
+# Integration credential files (sensitive, do not commit)
+*.local.json
+shopify-credentials*.json
+integration-credentials*.json

@@ -118,7 +118,7 @@ interface VariantFormActionsProps {
 }
 
 export function VariantFormActions({ mode = "edit" }: VariantFormActionsProps) {
-    const { isSubmitting, hasUnsavedChanges, productHandle, variantUpid } =
+    const { isSubmitting, hasUnsavedChanges, productHandle, variantUpid, formResetCallbackRef } =
         usePassportFormContext();
     const trpc = useTRPC();
     const queryClient = useQueryClient();
@@ -127,8 +127,12 @@ export function VariantFormActions({ mode = "edit" }: VariantFormActionsProps) {
         ? `/passports/edit/${productHandle}`
         : "/passports";
 
-    // Callback to invalidate cache when discarding changes
+    // Callback to invalidate cache and reset form when discarding changes
     const handleDiscard = React.useCallback(async () => {
+        // Reset form state first
+        if (formResetCallbackRef.current) {
+            formResetCallbackRef.current();
+        }
         // Invalidate the product query to ensure fresh variant data on next visit
         if (productHandle) {
             await queryClient.invalidateQueries({
@@ -141,7 +145,7 @@ export function VariantFormActions({ mode = "edit" }: VariantFormActionsProps) {
                 queryKey: trpc.products.variants.getOverrides.queryKey({ productHandle, variantUpid }),
             });
         }
-    }, [productHandle, variantUpid, queryClient, trpc]);
+    }, [productHandle, variantUpid, queryClient, trpc, formResetCallbackRef]);
 
     const { pendingUrl, confirmNavigation, cancelNavigation, requestNavigation } =
         useNavigationBlocker({ shouldBlock: hasUnsavedChanges, onDiscard: handleDiscard });

@@ -11,8 +11,8 @@ export {
 export { IntegrationDetail, IntegrationDetailSkeleton } from "./integration-detail";
 export { IntegrationsList } from "./integrations-list";
 export { IntegrationLogo } from "./integration-logo";
-export { IdentifierToggle } from "./identifier-toggle";
-export { FieldSetup } from "./field-setup";
+
+export { SetupWizard } from "./setup-wizard";
 export {
   FieldSection,
   FieldSectionSkeleton,
@@ -28,6 +28,8 @@ export {
   formatDuration,
   type IntegrationStatus,
   type SyncJobStatus,
+  type JobType,
+  type MatchIdentifier,
 } from "./integration-status";
 export {
   FIELD_GROUP_LABELS,

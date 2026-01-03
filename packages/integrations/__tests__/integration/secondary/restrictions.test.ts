@@ -73,7 +73,7 @@ async function createExistingProduct(options: {
     product: typeof products.$inferSelect;
     variants: (typeof productVariants.$inferSelect)[];
 }> {
-    const handle = options.name.toLowerCase().replace(/\\s+/g, "-");
+    const handle = options.name.toLowerCase().replace(/\s+/g, "-");
 
     const [product] = await testDb
         .insert(products)

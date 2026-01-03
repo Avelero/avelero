@@ -358,12 +358,14 @@ jobs:
 
   test-integrations:
     name: 🧪 Integration Tests
-    needs: [detect-changes, setup-database]
+    needs: [detect-changes]
     if: needs.detect-changes.outputs.integrations_changed == 'true' && github.event.action != 'closed'
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      # Unique branch name for this test run (deleted after tests complete)
+      TEST_BRANCH_NAME: test-pr-${{ github.event.number }}-${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v1
@@ -374,19 +376,60 @@ jobs:
           version: latest
       - name: Install dependencies
         run: bun install
-      
-      - name: 🔗 Fetch Branch Credentials
+
+      - name: 🌿 Create Temporary Test Branch
+        id: create-branch
         run: |
-          BRANCH_NAME="${{ github.head_ref }}"
-          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
-          
+          echo "Creating temporary Supabase branch: $TEST_BRANCH_NAME"
+          supabase branches create "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID
+          echo "branch_created=true" >> $GITHUB_OUTPUT
+
+      - name: ⏳ Wait for Test Branch to be Ready
+        run: |
+          echo "Waiting for branch $TEST_BRANCH_NAME to become ACTIVE_HEALTHY..."
+
+          MAX_RETRIES=30
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            STATUS=$(supabase branches get "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID 2>/dev/null | grep -oE 'ACTIVE_HEALTHY|CREATING_PROJECT|COMING_UP|UNKNOWN' | head -1 || echo "UNKNOWN")
+            echo "Branch status: $STATUS (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES})"
+
+            if [ "$STATUS" = "ACTIVE_HEALTHY" ]; then
+              echo "✅ Test branch is ready!"
+              break
+            fi
+
+            if [ $RETRY_COUNT -ge $((MAX_RETRIES - 1)) ]; then
+              echo "❌ Test branch did not become ready after $((MAX_RETRIES * 10)) seconds"
+              exit 1
+            fi
+
+            sleep 10
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+
+      - name: 🔗 Fetch Test Branch Credentials
+        run: |
+          supabase branches get "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
+
           # Add DATABASE_URL with correct port
           set -a
           source $GITHUB_WORKSPACE/.env.supabase
           set +a
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
           echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
-        
+
+      - name: 📚 Sync Taxonomy Data
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          export DATABASE_URL
+          bun run sync
+        working-directory: ./packages/taxonomy
+
       - name: 🧪 Run integration tests
         run: |
           set -a
@@ -395,6 +438,13 @@ jobs:
           export DATABASE_URL
           bun run test
         working-directory: ./packages/integrations
+
+      - name: 🗑️ Delete Temporary Test Branch
+        if: always() && steps.create-branch.outputs.branch_created == 'true'
+        run: |
+          echo "Cleaning up temporary test branch: $TEST_BRANCH_NAME"
+          supabase branches delete "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID || true
+          echo "✅ Temporary test branch deleted"
 
   # ============================================
   # Gate Job: Reports single status for branch protection
@@ -721,6 +771,15 @@ jobs:
             --project-ref "$BRANCH_PROJECT_REF"
           
           echo "✅ Secrets set successfully"
+
+      - name: 🚀 Deploy Edge Functions to Preview Branch
+        env:
+          BRANCH_PROJECT_REF: ${{ steps.creds.outputs.branch_project_ref }}
+        run: |
+          echo "Deploying Edge Functions to branch: $BRANCH_PROJECT_REF"
+          supabase functions deploy send-email --project-ref "$BRANCH_PROJECT_REF"
+          echo "✅ Edge Functions deployed successfully"
+        working-directory: ./apps/api
 
       - name: 📤 Push Config to Preview Branch
         env:

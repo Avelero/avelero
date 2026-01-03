@@ -285,6 +285,80 @@ export async function listIntegrationsWithStatus(db: Database, brandId: string) 
 }
 
 /**
+ * Get the current primary integration for a brand.
+ */
+export async function getCurrentPrimaryIntegration(db: Database, brandId: string) {
+  const [row] = await db
+    .select({
+      id: brandIntegrations.id,
+      brandId: brandIntegrations.brandId,
+      integrationId: brandIntegrations.integrationId,
+      isPrimary: brandIntegrations.isPrimary,
+      integration: {
+        slug: integrations.slug,
+        name: integrations.name,
+      },
+    })
+    .from(brandIntegrations)
+    .innerJoin(integrations, eq(brandIntegrations.integrationId, integrations.id))
+    .where(
+      and(
+        eq(brandIntegrations.brandId, brandId),
+        eq(brandIntegrations.isPrimary, true),
+      ),
+    )
+    .limit(1);
+  return row;
+}
+
+/**
+ * Set a brand integration as primary.
+ * This is an atomic operation that:
+ * 1. Demotes all other integrations for the brand to isPrimary=false
+ * 2. Sets the specified integration to isPrimary=true
+ */
+export async function setBrandIntegrationPrimary(
+  db: Database,
+  brandId: string,
+  integrationId: string,
+) {
+  // Demote all other integrations first
+  await db
+    .update(brandIntegrations)
+    .set({
+      isPrimary: false,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(
+      and(
+        eq(brandIntegrations.brandId, brandId),
+        eq(brandIntegrations.isPrimary, true),
+      ),
+    );
+
+  // Set the specified integration as primary
+  const [row] = await db
+    .update(brandIntegrations)
+    .set({
+      isPrimary: true,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(
+      and(
+        eq(brandIntegrations.id, integrationId),
+        eq(brandIntegrations.brandId, brandId),
+      ),
+    )
+    .returning({
+      id: brandIntegrations.id,
+      brandId: brandIntegrations.brandId,
+      isPrimary: brandIntegrations.isPrimary,
+    });
+
+  return row;
+}
+
+/**
  * List brand integrations that are due for sync.
  * Returns integrations where last_sync_at + sync_interval < now.
  */

@@ -242,7 +242,7 @@ export function Select(props: SelectProps) {
                           onSelect={() => handleSelect(option.value)}
                           className="justify-between"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-0.5">
                             {option.icon && (
                               <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
                                 {option.icon}
@@ -274,7 +274,7 @@ export function Select(props: SelectProps) {
                           onSelect={() => handleSelect(option.value)}
                           className="justify-between"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-0.5">
                             {option.icon && (
                               <div className="flex items-center justify-center w-[14px] h-[14px] shrink-0 [&>svg]:!w-[14px] [&>svg]:!h-[14px]">
                                 {option.icon}
@@ -298,7 +298,7 @@ export function Select(props: SelectProps) {
             {hasCreateOption && !hasFilteredResults && searchTerm.trim() && (
               <CommandGroup>
                 <CommandItem value={searchTerm.trim()} onSelect={handleCreate}>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5">
                     <Icons.Plus className="h-3.5 w-3.5" />
                     <span className="type-p text-primary">
                       {createLabel} &quot;{searchTerm.trim()}&quot;

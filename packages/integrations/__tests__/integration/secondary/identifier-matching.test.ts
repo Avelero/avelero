@@ -320,7 +320,7 @@ describe("ID-004: Missing Identifier Skips Variant", () => {
 
         // Assert: Skipped because empty barcode can't match
         expect(result.success).toBe(true);
-        expect(result.productsSkippedNoMatch).toBeGreaterThanOrEqual(1);
+        expect(result.variantsSkippedNoMatch).toBeGreaterThanOrEqual(1);
     });
 
     it("primary sync creates variants even with missing identifiers", async () => {

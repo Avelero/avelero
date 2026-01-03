@@ -113,6 +113,8 @@ export const updateIntegrationSchema = z.object({
   status: z.enum(["active", "paused"]).optional(),
   /** Match identifier for variant matching (secondary integrations) */
   match_identifier: z.enum(["sku", "barcode"]).optional(),
+  /** Set as primary integration (will demote current primary if any) */
+  is_primary: z.boolean().optional(),
 });
 
 /**
@@ -122,6 +124,14 @@ export const updateIntegrationSchema = z.object({
 export const promoteToPrimarySchema = z.object({
   /** Brand integration ID to promote */
   id: uuidSchema,
+});
+
+/**
+ * Schema for getting promotion operation status.
+ */
+export const getPromotionStatusSchema = z.object({
+  /** Brand integration ID to check promotion status for */
+  brand_integration_id: uuidSchema,
 });
 
 /**
@@ -280,6 +290,7 @@ export type UpdateIntegrationInput = z.infer<typeof updateIntegrationSchema>;
 export type DisconnectInput = z.infer<typeof disconnectSchema>;
 export type TestConnectionInput = z.infer<typeof testConnectionSchema>;
 export type PromoteToPrimaryInput = z.infer<typeof promoteToPrimarySchema>;
+export type GetPromotionStatusInput = z.infer<typeof getPromotionStatusSchema>;
 
 export type ListFieldMappingsInput = z.infer<typeof listFieldMappingsSchema>;
 export type UpdateFieldMappingInput = z.infer<typeof updateFieldMappingSchema>;

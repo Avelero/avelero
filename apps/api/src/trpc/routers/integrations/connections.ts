@@ -10,13 +10,17 @@
  *
  * @module trpc/routers/integrations/connections
  */
+import { tasks } from "@trigger.dev/sdk/v3";
 import {
   createBrandIntegration,
   deleteBrandIntegration,
   getBrandIntegration,
   getBrandIntegrationBySlug,
+  getCurrentPrimaryIntegration,
   getIntegrationBySlug,
+  getIntegrationVariantCount,
   listIntegrationsWithStatus,
+  setBrandIntegrationPrimary,
   updateBrandIntegration,
 } from "@v1/db/queries/integrations";
 import { encryptCredentials, decryptCredentials } from "@v1/db/utils";
@@ -212,12 +216,23 @@ export const connectionsRouter = createTRPCRouter({
    * - Sync interval
    * - Status (pause/resume)
    * - Match identifier (for secondary integrations)
+   * - Primary status (will demote current primary if setting to true)
    */
   update: brandRequiredProcedure
     .input(updateIntegrationSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       try {
+        // If setting is_primary to true, use special atomic operation
+        if (input.is_primary === true) {
+          await setBrandIntegrationPrimary(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+        }
+
+        // Update other fields
         const result = await updateBrandIntegration(
           brandCtx.db,
           brandCtx.brandId,
@@ -226,6 +241,8 @@ export const connectionsRouter = createTRPCRouter({
             syncInterval: input.sync_interval,
             status: input.status,
             matchIdentifier: input.match_identifier,
+            // Only set isPrimary to false here (true is handled above)
+            isPrimary: input.is_primary === false ? false : undefined,
           },
         );
         if (!result) {
@@ -345,6 +362,7 @@ export const connectionsRouter = createTRPCRouter({
    * - Re-assigns attributes
    *
    * The operation runs asynchronously as a background job.
+   * If no variants exist, the promotion happens instantly.
    */
   promoteToPrimary: brandRequiredProcedure
     .input(promoteToPrimarySchema)
@@ -366,14 +384,35 @@ export const connectionsRouter = createTRPCRouter({
           throw badRequest("This integration is already the primary integration");
         }
 
-        // TODO: Trigger the background job
-        // For now we're setting up the API - the actual job trigger will be added
-        // when we import from @v1/jobs (requires careful dependency management)
+        // Check if there are any variants to regroup
+        const variantCount = await getIntegrationVariantCount(
+          brandCtx.db,
+          brandCtx.brandId,
+        );
 
-        // Mark the operation as started by returning success
-        // The actual promotion will be handled by the background job
+        if (variantCount === 0) {
+          // No variants exist - instant promotion (no regrouping needed)
+          await setBrandIntegrationPrimary(
+            brandCtx.db,
+            brandCtx.brandId,
+            input.id,
+          );
+
+          return createSuccessWithMeta({
+            instant: true,
+            message: "Promoted to primary (no products to regroup)",
+          });
+        }
+
+        // Trigger the background promotion job
+        const handle = await tasks.trigger("promote-integration", {
+          brandIntegrationId: input.id,
+          brandId: brandCtx.brandId,
+        });
+
         return createSuccessWithMeta({
-          message: "Promotion started. This may take a few minutes."
+          taskId: handle.id,
+          message: "Promotion started",
         });
       } catch (error) {
         throw wrapError(error, "Failed to start promotion");

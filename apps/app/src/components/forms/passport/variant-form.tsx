@@ -91,7 +91,7 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { setIsSubmitting, setHasUnsavedChanges } = usePassportFormContext();
+  const { setIsSubmitting, setHasUnsavedChanges, formResetCallbackRef } = usePassportFormContext();
   const isCreateMode = mode === "create";
 
   // State for create mode selections
@@ -309,6 +309,7 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
     submit,
     isSubmitting,
     hasUnsavedChanges,
+    resetForm,
   } = useVariantForm({
     productHandle,
     variantUpid: variantUpid ?? "new",
@@ -339,6 +340,12 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
   React.useEffect(() => {
     setHasUnsavedChanges(hasUnsavedChanges);
   }, [hasUnsavedChanges, setHasUnsavedChanges]);
+
+  // Register reset callback with context so discard handler can reset form
+  React.useEffect(() => {
+    formResetCallbackRef.current = resetForm;
+    return () => { formResetCallbackRef.current = null; };
+  }, [resetForm, formResetCallbackRef]);
 
   // Eco claims handler
   const handleEcoClaimsChange = React.useCallback<

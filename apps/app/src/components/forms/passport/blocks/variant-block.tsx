@@ -360,10 +360,82 @@ export function VariantSection({
 
         if (oldIndex === -1 || newIndex === -1) return;
 
+        // Reorder dimensions
         const next = [...dimensions];
         const [removed] = next.splice(oldIndex, 1);
         if (removed) {
             next.splice(newIndex, 0, removed);
+        }
+
+        // Build old-to-new index mapping for dimensions WITH values
+        // We need to map positions in the key (which only includes dimensions with values)
+        const oldDimsWithValues = dimensions
+            .map((d, i) => ({ dim: d, originalIndex: i }))
+            .filter((item) => {
+                const d = item.dim;
+                return d.values.length > 0 ||
+                    (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0));
+            });
+
+        const newDimsWithValues = next
+            .map((d, i) => ({ dim: d, originalIndex: i }))
+            .filter((item) => {
+                const d = item.dim;
+                return d.values.length > 0 ||
+                    (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0));
+            });
+
+        // Create a mapping from old key position to new key position
+        // Keys are structured as: value0|value1|value2 where position corresponds to dimension order
+        const remapKey = (oldKey: string): string => {
+            const parts = oldKey.split("|");
+            if (parts.length !== oldDimsWithValues.length) {
+                // Key doesn't match current dimension structure, can't remap
+                return oldKey;
+            }
+
+            // Build mapping: for each position in the new order, find where it was in the old order
+            const newParts: string[] = [];
+            for (const newItem of newDimsWithValues) {
+                const oldPosition = oldDimsWithValues.findIndex(
+                    (oldItem) => oldItem.dim.id === newItem.dim.id
+                );
+                if (oldPosition !== -1 && parts[oldPosition]) {
+                    newParts.push(parts[oldPosition]!);
+                }
+            }
+
+            return newParts.join("|");
+        };
+
+        // Remap all keys if there are dimensions with values
+        if (oldDimsWithValues.length > 0) {
+            // Remap enabledVariantKeys
+            setEnabledVariantKeys((prev) => {
+                const remapped = new Set<string>();
+                for (const key of prev) {
+                    remapped.add(remapKey(key));
+                }
+                return remapped;
+            });
+
+            // Remap variantMetadata
+            setVariantMetadata((prev) => {
+                const remapped: Record<string, { sku?: string; barcode?: string }> = {};
+                for (const [key, value] of Object.entries(prev)) {
+                    remapped[remapKey(key)] = value;
+                }
+                return remapped;
+            });
+
+            // Remap collapsedVariantMappings
+            setCollapsedVariantMappings((prev) => {
+                const remapped = new Map<string, { upid: string; hasOverrides: boolean }>();
+                for (const [key, value] of prev) {
+                    remapped.set(remapKey(key), value);
+                }
+                return remapped;
+            });
         }
 
         setDimensions(next);
@@ -488,6 +560,16 @@ export function VariantSection({
             if (!firstNewValue) return; // Type guard - should never happen due to length check above
             const otherNewValues = addedValues.slice(1);
 
+            // Calculate the correct insertion position for the key
+            // Keys only include dimensions with values, so we need to find where this dimension
+            // falls among the dimensions-with-values in the NEW structure
+            const newDimsWithValues = newDimensions.filter((d) =>
+                d.values.length > 0 ||
+                (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
+            );
+            const keyInsertPosition = newDimsWithValues.findIndex((d) => d.id === updated.id);
+            if (keyInsertPosition === -1) return; // Shouldn't happen but guard anyway
+
             // Build new enabled keys and update collapsed mappings
             const nextEnabled = new Set<string>();
             const nextExpandedMappings = new Map<string, { upid: string; hasOverrides: boolean }>();
@@ -496,9 +578,9 @@ export function VariantSection({
             // For each existing saved variant, expand it with the first new value (preserve UPID)
             for (const [originalKey, variantInfo] of currentSavedVariants) {
                 const keyParts = originalKey.split("|");
-                // Insert new value at the correct position (index of the new dimension)
+                // Insert new value at the correct position (based on dimensions-with-values order)
                 const expandedKeyParts = [...keyParts];
-                expandedKeyParts.splice(index, 0, firstNewValue!);
+                expandedKeyParts.splice(keyInsertPosition, 0, firstNewValue!);
                 const expandedKey = expandedKeyParts.join("|");
 
                 if (newKeysSet.has(expandedKey)) {
@@ -518,7 +600,7 @@ export function VariantSection({
                 // For the other new values, create genuinely new variants (no UPID mapping)
                 for (const otherValue of otherNewValues) {
                     const newKeyParts = [...keyParts];
-                    newKeyParts.splice(index, 0, otherValue);
+                    newKeyParts.splice(keyInsertPosition, 0, otherValue);
                     const newKey = newKeyParts.join("|");
                     if (newKeysSet.has(newKey)) {
                         nextEnabled.add(newKey);
@@ -536,7 +618,7 @@ export function VariantSection({
                     const keyParts = key.split("|");
                     for (const newValue of addedValues) {
                         const expandedKeyParts = [...keyParts];
-                        expandedKeyParts.splice(index, 0, newValue);
+                        expandedKeyParts.splice(keyInsertPosition, 0, newValue);
                         const expandedKey = expandedKeyParts.join("|");
                         if (newKeysSet.has(expandedKey)) {
                             nextEnabled.add(expandedKey);
@@ -645,12 +727,20 @@ export function VariantSection({
                 // For added values: expand existing variants like Shopify
                 // Create new combinations by adding new values to existing variant patterns
                 if (addedValues.length > 0 && newDimensionCount === oldDimensionCount) {
+                    // Calculate the correct position for this dimension among dimensions-with-values
+                    const dimsWithValues = newDimensions.filter((d) =>
+                        d.values.length > 0 ||
+                        (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
+                    );
+                    const keyPosition = dimsWithValues.findIndex((d) => d.id === updated.id);
+                    if (keyPosition === -1) return nextEnabled; // Guard
+
                     // Get existing variant patterns without the current dimension
                     const existingPatterns = new Set<string>();
                     for (const key of prevEnabled) {
                         const keyParts = key.split("|");
-                        // Remove the value at the current dimension's position
-                        const patternParts = keyParts.filter((_, i) => i !== index);
+                        // Remove the value at the current dimension's key position
+                        const patternParts = keyParts.filter((_, i) => i !== keyPosition);
                         if (patternParts.length > 0) {
                             existingPatterns.add(patternParts.join("|"));
                         }
@@ -660,9 +750,9 @@ export function VariantSection({
                     for (const pattern of existingPatterns) {
                         const patternParts = pattern.split("|");
                         for (const newValue of addedValues) {
-                            // Insert new value at the correct position
+                            // Insert new value at the correct key position
                             const newKeyParts = [...patternParts];
-                            newKeyParts.splice(index, 0, newValue);
+                            newKeyParts.splice(keyPosition, 0, newValue);
                             const newKey = newKeyParts.join("|");
                             if (newKeysSet.has(newKey)) {
                                 nextEnabled.add(newKey);

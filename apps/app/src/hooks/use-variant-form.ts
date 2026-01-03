@@ -376,6 +376,13 @@ export function useVariantForm(options: UseVariantFormOptions) {
         trpc,
     ]);
 
+    // Reset form to initial state (called when discarding changes)
+    const resetForm = React.useCallback(() => {
+        const initialState = buildInitialState();
+        setFields(initialState);
+        originalValuesRef.current = initialState;
+    }, [buildInitialState, setFields]);
+
     return {
         state,
         setField,
@@ -386,5 +393,6 @@ export function useVariantForm(options: UseVariantFormOptions) {
         isSubmitting,
         hasUnsavedChanges,
         productDefaults,
+        resetForm,
     };
 }

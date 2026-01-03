@@ -122,6 +122,42 @@ export async function getPromotionOperation(db: Database, operationId: string) {
 }
 
 /**
+ * Get the latest promotion operation status for a brand integration.
+ * Used by the frontend to poll for promotion progress.
+ */
+export async function getPromotionStatusByIntegration(
+    db: Database,
+    brandIntegrationId: string,
+) {
+    const [row] = await db
+        .select({
+            id: promotionOperations.id,
+            brandId: promotionOperations.brandId,
+            newPrimaryIntegrationId: promotionOperations.newPrimaryIntegrationId,
+            oldPrimaryIntegrationId: promotionOperations.oldPrimaryIntegrationId,
+            status: promotionOperations.status,
+            phase: promotionOperations.phase,
+            variantsProcessed: promotionOperations.variantsProcessed,
+            totalVariants: promotionOperations.totalVariants,
+            productsCreated: promotionOperations.productsCreated,
+            productsArchived: promotionOperations.productsArchived,
+            variantsMoved: promotionOperations.variantsMoved,
+            variantsOrphaned: promotionOperations.variantsOrphaned,
+            attributesCreated: promotionOperations.attributesCreated,
+            errorMessage: promotionOperations.errorMessage,
+            startedAt: promotionOperations.startedAt,
+            completedAt: promotionOperations.completedAt,
+            createdAt: promotionOperations.createdAt,
+            updatedAt: promotionOperations.updatedAt,
+        })
+        .from(promotionOperations)
+        .where(eq(promotionOperations.newPrimaryIntegrationId, brandIntegrationId))
+        .orderBy(desc(promotionOperations.createdAt))
+        .limit(1);
+    return row;
+}
+
+/**
  * Update promotion operation progress.
  */
 export async function updatePromotionProgress(
@@ -186,67 +222,48 @@ export async function markPromotionCompleted(
 // BRAND INTEGRATION MANAGEMENT
 // =============================================================================
 
-/**
- * Get the current primary integration for a brand.
- */
-export async function getCurrentPrimaryIntegration(
-    db: Database,
-    brandId: string,
-) {
-    const [row] = await db
-        .select({
-            id: brandIntegrations.id,
-            integrationId: brandIntegrations.integrationId,
-            isPrimary: brandIntegrations.isPrimary,
-        })
-        .from(brandIntegrations)
-        .where(
-            and(
-                eq(brandIntegrations.brandId, brandId),
-                eq(brandIntegrations.isPrimary, true),
-            ),
-        )
-        .limit(1);
-    return row;
-}
+// Note: getCurrentPrimaryIntegration is exported from connections.ts
 
 /**
  * Update integration primary status.
  * Sets the new integration as primary and demotes the old one.
+ * Uses a transaction to ensure atomicity.
  */
 export async function updateIntegrationPrimaryStatus(
     db: Database,
     brandId: string,
     newPrimaryId: string,
 ) {
-    // First, demote any existing primary
-    await db
-        .update(brandIntegrations)
-        .set({
-            isPrimary: false,
-            updatedAt: new Date().toISOString(),
-        })
-        .where(
-            and(
-                eq(brandIntegrations.brandId, brandId),
-                eq(brandIntegrations.isPrimary, true),
-            ),
-        );
+    return db.transaction(async (tx) => {
+        // First, demote any existing primary
+        await tx
+            .update(brandIntegrations)
+            .set({
+                isPrimary: false,
+                updatedAt: new Date().toISOString(),
+            })
+            .where(
+                and(
+                    eq(brandIntegrations.brandId, brandId),
+                    eq(brandIntegrations.isPrimary, true),
+                ),
+            );
 
-    // Then, promote the new primary
-    const [row] = await db
-        .update(brandIntegrations)
-        .set({
-            isPrimary: true,
-            updatedAt: new Date().toISOString(),
-        })
-        .where(eq(brandIntegrations.id, newPrimaryId))
-        .returning({
-            id: brandIntegrations.id,
-            isPrimary: brandIntegrations.isPrimary,
-        });
+        // Then, promote the new primary
+        const [row] = await tx
+            .update(brandIntegrations)
+            .set({
+                isPrimary: true,
+                updatedAt: new Date().toISOString(),
+            })
+            .where(eq(brandIntegrations.id, newPrimaryId))
+            .returning({
+                id: brandIntegrations.id,
+                isPrimary: brandIntegrations.isPrimary,
+            });
 
-    return row;
+        return row;
+    });
 }
 
 // =============================================================================
@@ -308,7 +325,7 @@ export async function reParentVariantsBatch(
 ): Promise<number> {
     if (moves.length === 0) return 0;
 
-    // Use a CTE to update all variants in a single query
+    // Update variants individually in batches (Drizzle doesn't support bulk CASE updates)
     let updated = 0;
 
     // Process in chunks to avoid parameter limits

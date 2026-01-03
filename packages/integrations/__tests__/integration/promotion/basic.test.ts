@@ -129,9 +129,7 @@ describe("Promotion: Basic Flow", () => {
             .where(eq(products.brandId, brandId));
 
         expect(allProducts).toHaveLength(2);
-        expect(allProducts.map(p => p.sourceIntegrationId)).toEqual(
-            expect.arrayContaining([primaryIntegrationId, primaryIntegrationId])
-        );
+        expect(allProducts.every(p => p.sourceIntegrationId === primaryIntegrationId)).toBe(true);
     });
 
     // =========================================================================

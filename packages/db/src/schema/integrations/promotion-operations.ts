@@ -88,7 +88,7 @@ export const promotionOperations = pgTable(
         startedAt: timestamp("started_at", {
             withTimezone: true,
             mode: "string",
-        }).defaultNow(),
+        }).defaultNow().notNull(),
         /** When the operation completed (successfully or failed) */
         completedAt: timestamp("completed_at", {
             withTimezone: true,

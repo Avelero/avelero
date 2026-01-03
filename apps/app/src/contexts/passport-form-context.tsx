@@ -43,6 +43,9 @@ interface PassportFormContextType {
    * to trigger the unsaved changes modal. Otherwise, navigates directly.
    */
   requestNavigation: (url: string) => void;
+
+  // Form reset callback (registered by form components via ref to avoid re-render cycles)
+  formResetCallbackRef: React.MutableRefObject<(() => void) | null>;
 }
 
 const PassportFormContext = React.createContext<PassportFormContextType | null>(
@@ -76,6 +79,9 @@ export function PassportFormProvider({
     string | null
   >(null);
 
+  // Form reset callback (use ref to avoid re-render cycles)
+  const formResetCallbackRef = React.useRef<(() => void) | null>(null);
+
   // Request navigation - will set pending URL if unsaved changes, otherwise navigate directly
   const requestNavigation = React.useCallback(
     (url: string) => {
@@ -103,6 +109,7 @@ export function PassportFormProvider({
       pendingNavigationUrl,
       setPendingNavigationUrl,
       requestNavigation,
+      formResetCallbackRef,
     }),
     [
       formType,

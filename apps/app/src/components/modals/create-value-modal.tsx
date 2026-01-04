@@ -33,12 +33,14 @@ import * as React from "react";
 // ============================================================================
 
 interface TaxonomyValueSelectProps {
+  id: string;
   options: { value: string; label: string; hex: string | null }[];
   value: string | null;
   onValueChange: (value: string | null) => void;
 }
 
 function TaxonomyValueSelect({
+  id,
   options,
   value,
   onValueChange,
@@ -66,12 +68,13 @@ function TaxonomyValueSelect({
 
   return (
     <div className="space-y-1.5">
-      <Label>
+      <Label htmlFor={id}>
         Link to standard value <span className="text-destructive">*</span>
       </Label>
       <Select open={open} onOpenChange={setOpen}>
         <SelectTrigger asChild>
           <Button
+            id={id}
             variant="outline"
             size="default"
             className="w-full justify-between"
@@ -350,6 +353,7 @@ export function CreateValueModal({
             {/* Left side: Taxonomy value selector (required for taxonomy-linked) */}
             {hasTaxonomyOptions && (
               <TaxonomyValueSelect
+                id="taxonomy-value-select"
                 options={taxonomySelectOptions}
                 value={selectedTaxonomyValueId}
                 onValueChange={setSelectedTaxonomyValueId}

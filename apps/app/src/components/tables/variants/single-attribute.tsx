@@ -16,7 +16,7 @@ interface SingleAttributeTableProps {
     getValueDisplay: (value: string) => ValueDisplay;
     /** Build key from values array */
     buildKey: (values: string[]) => string;
-    /** Current variant metadata */
+    /** Current variant metadata (fallback for values not yet in hook) */
     variantMetadata: Record<string, VariantMetadata>;
     /** Update metadata callback */
     updateMetadata: (key: string, field: "sku" | "barcode", value: string) => void;
@@ -53,6 +53,8 @@ export function SingleAttributeTable({
                 const isLastRow = valueIndex === valuesToRender.length - 1;
                 const key = buildKey([value]);
                 const meta = variantMetadata[key] ?? {};
+                const sku = meta.sku ?? "";
+                const barcode = meta.barcode ?? "";
                 const { name, hex } = getValueDisplay(value);
                 const isClickable = isEditMode && savedVariants?.has(key);
                 const savedVariant = savedVariants?.get(key);
@@ -67,8 +69,8 @@ export function SingleAttributeTable({
                         hex={hex}
                         isNew={isNewVariant}
                         hasOverrides={savedVariant?.hasOverrides ?? false}
-                        sku={meta.sku ?? ""}
-                        barcode={meta.barcode ?? ""}
+                        sku={sku}
+                        barcode={barcode}
                         onSkuChange={(val) => updateMetadata(key, "sku", val)}
                         onBarcodeChange={(val) => updateMetadata(key, "barcode", val)}
                         isClickable={!!isClickable}

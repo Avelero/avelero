@@ -68,6 +68,7 @@ export function CountrySelect({
       <Select open={open} onOpenChange={setOpen}>
         <SelectTrigger asChild>
           <Button
+            id={id}
             variant="outline"
             size="default"
             className="w-full justify-between"

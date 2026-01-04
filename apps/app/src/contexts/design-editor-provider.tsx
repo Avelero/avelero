@@ -193,6 +193,12 @@ export function DesignEditorProvider({
   // Preview Data State
   // ---------------------------------------------------------------------------
   const [previewData, setPreviewData] = useState<DppData>(initialPreviewData);
+
+  // Sync preview data when initial prop changes (e.g., brand switch)
+  useEffect(() => {
+    setPreviewData(initialPreviewData);
+  }, [initialPreviewData]);
+
   // ---------------------------------------------------------------------------
   // Theme Styles State
   // ---------------------------------------------------------------------------

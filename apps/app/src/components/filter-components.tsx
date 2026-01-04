@@ -72,8 +72,15 @@ function FieldSelect({
     setSearchTerm("");
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setSearchTerm("");
+    }
+    setOpen(newOpen);
+  };
+
   return (
-    <Select open={open} onOpenChange={setOpen}>
+    <Select open={open} onOpenChange={handleOpenChange}>
       <SelectTrigger asChild>
         <Button
           variant="outline"

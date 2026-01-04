@@ -230,19 +230,33 @@ function variantsReducer(state: VariantsState, action: VariantsAction): Variants
 
             const isFirstValueInDimension = dimension.valueIds.length === 0;
             let updatedVariants = [...state.variants];
+            const activeVariants = updatedVariants.filter((v) => v.status !== "deleted");
 
             if (isFirstValueInDimension) {
                 // Assign the new value to all existing variants
-                updatedVariants = updatedVariants.map((v) => {
-                    // Skip deleted variants
-                    if (v.status === "deleted") return v;
+                if (activeVariants.length > 0) {
+                    updatedVariants = updatedVariants.map((v) => {
+                        // Skip deleted variants
+                        if (v.status === "deleted") return v;
 
-                    return {
-                        ...v,
-                        attributeValueIds: [...v.attributeValueIds, valueId],
-                        status: v.upid ? ("modified" as const) : v.status,
+                        return {
+                            ...v,
+                            attributeValueIds: [...v.attributeValueIds, valueId],
+                            status: v.upid ? ("modified" as const) : v.status,
+                        };
+                    });
+                } else {
+                    // No existing variants - create a new variant with just this value
+                    const newVariant: LocalVariant = {
+                        localId: generateLocalId(),
+                        upid: null,
+                        sku: "",
+                        barcode: "",
+                        attributeValueIds: [valueId],
+                        status: "new",
                     };
-                });
+                    updatedVariants.push(newVariant);
+                }
             } else {
                 // Create new variants for: newValue × all combinations of other dimensions
                 // Get other dimension value arrays

@@ -195,16 +195,19 @@ export function VariantTable({
 
     const buildKey = (values: string[]) => values.join("|");
 
-    const updateMetadata = (
-        key: string,
-        field: "sku" | "barcode",
-        value: string,
-    ) => {
-        setVariantMetadata((prev) => ({
-            ...prev,
-            [key]: { ...prev[key], [field]: value },
-        }));
-    };
+    // Update metadata directly via the prop setter
+    const updateMetadata = React.useCallback(
+        (key: string, field: "sku" | "barcode", value: string) => {
+            setVariantMetadata((prev) => ({
+                ...prev,
+                [key]: {
+                    ...prev[key],
+                    [field]: value,
+                },
+            }));
+        },
+        [setVariantMetadata]
+    );
 
     // Case 0: Explicit variants (imported without attributes)
     if (

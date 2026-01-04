@@ -174,6 +174,8 @@ export function MultiAttributeTable({
                                 const fullCombo = [groupValue, ...combo];
                                 const key = buildKey(fullCombo);
                                 const meta = variantMetadata[key] ?? {};
+                                const sku = meta.sku ?? "";
+                                const barcode = meta.barcode ?? "";
                                 const savedVariant = savedVariants?.get(key);
                                 const isClickable = isEditMode && savedVariants?.has(key);
                                 // A variant is "new" if it's enabled but doesn't exist in savedVariants
@@ -196,8 +198,8 @@ export function MultiAttributeTable({
                                         label={labelParts.join(" / ")}
                                         isNew={isNewVariant}
                                         hasOverrides={savedVariant?.hasOverrides ?? false}
-                                        sku={meta.sku ?? ""}
-                                        barcode={meta.barcode ?? ""}
+                                        sku={sku}
+                                        barcode={barcode}
                                         onSkuChange={(val) => updateMetadata(key, "sku", val)}
                                         onBarcodeChange={(val) => updateMetadata(key, "barcode", val)}
                                         isClickable={!!isClickable}

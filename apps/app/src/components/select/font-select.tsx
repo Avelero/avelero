@@ -257,11 +257,25 @@ function FontList({
     if (selectedGoogleFontIndex < 0 || selectedCustomFontIndex >= 0) return 0;
 
     const itemHeight = 32;
+    const headerHeight = 28; // Section header height
     const viewportHeight = 300;
-    // Center the selected item in the viewport
-    const targetOffset = selectedGoogleFontIndex * itemHeight - viewportHeight / 2 + itemHeight / 2;
+
+    // Account for custom fonts section height when scrolling to Google fonts
+    const hasCustomFontsVisible = customFonts.length > 0;
+    const customSectionHeight = hasCustomFontsVisible
+      ? customFonts.length * itemHeight + headerHeight // Custom fonts items + "Custom fonts" header
+      : 0;
+    const googleFontsHeaderOffset = hasCustomFontsVisible ? headerHeight : 0; // "Default fonts" header
+
+    // Center the selected item in the viewport, accounting for sections above
+    const targetOffset =
+      customSectionHeight +
+      googleFontsHeaderOffset +
+      selectedGoogleFontIndex * itemHeight -
+      viewportHeight / 2 +
+      itemHeight / 2;
     return Math.max(0, targetOffset);
-  }, [selectedGoogleFontIndex, selectedCustomFontIndex, searchTerm]);
+  }, [selectedGoogleFontIndex, selectedCustomFontIndex, searchTerm, customFonts.length]);
 
   // Virtual list for Google fonts
   const virtualizer = useVirtualizer({

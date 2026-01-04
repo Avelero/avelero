@@ -53,7 +53,7 @@ const SelectTrigger = PopoverTrigger;
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof PopoverContent>,
   React.ComponentPropsWithoutRef<typeof PopoverContent> & {
-    /** If true, disables cmdk's built-in filtering (useful for external/async filtering) */
+    /** If false, disables cmdk's built-in filtering (useful for external/async filtering). Default: true */
     shouldFilter?: boolean;
     /** Default highlighted value - highlights this item instead of the first one */
     defaultValue?: string;

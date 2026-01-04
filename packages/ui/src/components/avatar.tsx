@@ -27,11 +27,13 @@ export interface SmartAvatarProps
 }
 
 /**
- * SmartAvatar implements 3 states:
+ * SmartAvatar implements 3 visual states with 4 scenarios:
  * 1) loading → default empty state (bg-accent + user icon)
  * 2) src present → render image
  * 3) no src and color present → initials with colored background
  * 4) no src and no color → default empty state (bg-accent + user icon)
+ *
+ * Note: Scenarios 1 and 4 share the same visual appearance (default fallback).
  */
 export const SmartAvatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,

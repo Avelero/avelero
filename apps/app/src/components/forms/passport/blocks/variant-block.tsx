@@ -41,7 +41,6 @@ import {
     SelectSearch,
     SelectTrigger,
 } from "@v1/ui/select";
-import { cn } from "@v1/ui/cn";
 import Link from "next/link";
 import * as React from "react";
 import { createPortal } from "react-dom";
@@ -79,6 +78,56 @@ export interface VariantMetadata {
 export interface ExplicitVariant {
     sku: string;
     barcode: string;
+}
+
+// ============================================================================
+// Utilities
+// ============================================================================
+
+/**
+ * Gets the effective values for a dimension, handling both standard and custom inline attributes.
+ */
+function getEffectiveValues(dim: VariantDimension): string[] {
+    if (dim.isCustomInline) {
+        return (dim.customValues ?? []).map((v) => v.trim()).filter(Boolean);
+    }
+    return dim.values ?? [];
+}
+
+/**
+ * Checks if a dimension has any values.
+ */
+function dimensionHasValues(dim: VariantDimension): boolean {
+    return getEffectiveValues(dim).length > 0;
+}
+
+/**
+ * Generates cartesian product of dimension values.
+ * Returns array of pipe-separated keys.
+ */
+function generateAllCombinationKeys(dimensions: VariantDimension[]): string[] {
+    // Get effective values for each dimension
+    const effectiveDimensions = dimensions
+        .map((dim) => getEffectiveValues(dim))
+        .filter((vals) => vals.length > 0);
+
+    if (effectiveDimensions.length === 0) return [];
+
+    // Generate cartesian product
+    const generateCombos = (dims: string[][]): string[][] => {
+        if (dims.length === 0) return [[]];
+        const [first, ...rest] = dims;
+        const restCombos = generateCombos(rest);
+        const result: string[][] = [];
+        for (const value of first!) {
+            for (const combo of restCombos) {
+                result.push([value, ...combo]);
+            }
+        }
+        return result;
+    };
+
+    return generateCombos(effectiveDimensions).map((combo) => combo.join("|"));
 }
 
 // ============================================================================
@@ -148,11 +197,6 @@ function EmptyStateAttributeSelect({
 }: EmptyStateAttributeSelectProps) {
     const [open, setOpen] = React.useState(false);
     const [searchTerm, setSearchTerm] = React.useState("");
-
-    // Flatten options for filtering
-    const allOptions = React.useMemo(() => {
-        return groups.flatMap((g) => g.options);
-    }, [groups]);
 
     const filteredGroups = React.useMemo(() => {
         if (!searchTerm.trim()) return groups;
@@ -269,40 +313,6 @@ interface VariantSectionProps {
      * This allows the parent to intercept navigation and show unsaved changes modal.
      */
     onNavigateToVariant?: (url: string) => void;
-}
-
-/**
- * Generates cartesian product of dimension values.
- * Returns array of pipe-separated keys.
- */
-function generateAllCombinationKeys(dimensions: VariantDimension[]): string[] {
-    // Get effective values for each dimension
-    const effectiveDimensions = dimensions
-        .map((dim) => {
-            if (dim.isCustomInline) {
-                return (dim.customValues ?? []).map((v) => v.trim()).filter(Boolean);
-            }
-            return dim.values ?? [];
-        })
-        .filter((vals) => vals.length > 0);
-
-    if (effectiveDimensions.length === 0) return [];
-
-    // Generate cartesian product
-    const generateCombos = (dims: string[][]): string[][] => {
-        if (dims.length === 0) return [[]];
-        const [first, ...rest] = dims;
-        const restCombos = generateCombos(rest);
-        const result: string[][] = [];
-        for (const value of first!) {
-            for (const combo of restCombos) {
-                result.push([value, ...combo]);
-            }
-        }
-        return result;
-    };
-
-    return generateCombos(effectiveDimensions).map((combo) => combo.join("|"));
 }
 
 export function VariantSection({
@@ -488,19 +498,11 @@ export function VariantSection({
         // We need to map positions in the key (which only includes dimensions with values)
         const oldDimsWithValues = dimensions
             .map((d, i) => ({ dim: d, originalIndex: i }))
-            .filter((item) => {
-                const d = item.dim;
-                return d.values.length > 0 ||
-                    (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0));
-            });
+            .filter((item) => dimensionHasValues(item.dim));
 
         const newDimsWithValues = next
             .map((d, i) => ({ dim: d, originalIndex: i }))
-            .filter((item) => {
-                const d = item.dim;
-                return d.values.length > 0 ||
-                    (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0));
-            });
+            .filter((item) => dimensionHasValues(item.dim));
 
         // Create a mapping from old key position to new key position
         // Keys are structured as: value0|value1|value2 where position corresponds to dimension order
@@ -602,14 +604,10 @@ export function VariantSection({
 
     const handleUpdateDimension = (index: number, updated: VariantDimension) => {
         // Get old dimension info before update
-        const oldDimensionCount = dimensions.filter((d) =>
-            d.values.length > 0 ||
-            (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
-        ).length;
+        const oldDimensionCount = dimensions.filter((d) => dimensionHasValues(d)).length;
         const oldDimension = dimensions[index];
-        const oldValues = oldDimension?.isCustomInline
-            ? new Set(oldDimension.customValues ?? [])
-            : new Set(oldDimension?.values ?? []);
+        const oldValuesList = getEffectiveValues(oldDimension!);
+        const oldValues = new Set(oldValuesList);
 
         setDimensions((prev) => {
             const next = [...prev];
@@ -620,40 +618,123 @@ export function VariantSection({
         // Calculate new dimension info
         const newDimensions = [...dimensions];
         newDimensions[index] = updated;
-        const newDimensionCount = newDimensions.filter((d) =>
-            d.values.length > 0 ||
-            (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
-        ).length;
-        const newValues = updated.isCustomInline
-            ? new Set(updated.customValues ?? [])
-            : new Set(updated.values);
+        const newDimensionCount = newDimensions.filter((d) => dimensionHasValues(d)).length;
+        const newValuesList = getEffectiveValues(updated);
+        const newValues = new Set(newValuesList);
         const newKeys = generateAllCombinationKeys(newDimensions);
         const newKeysSet = new Set(newKeys);
 
-        // Check if this is genuinely a new product (no saved variants)
-        const isExistingProduct = savedVariants && savedVariants.size > 0;
+        // For custom inline attributes, detect if values are being EDITED (same position, different content)
+        // vs truly added/removed. When editing, we need to REMAP keys, not treat as removal+addition.
+        const isCustomEdit = updated.isCustomInline &&
+            oldValuesList.length === newValuesList.length &&
+            oldValuesList.length > 0;
 
-        if (isNewProduct || !isExistingProduct) {
-            // NEW PRODUCT: Matrix behavior - all combinations enabled
+        // Build value remapping for custom edits (old value → new value at same index)
+        const valueRemapping = new Map<string, string>();
+        if (isCustomEdit) {
+            for (let i = 0; i < oldValuesList.length; i++) {
+                const oldVal = oldValuesList[i];
+                const newVal = newValuesList[i];
+                if (oldVal && newVal && oldVal !== newVal) {
+                    valueRemapping.set(oldVal, newVal);
+                }
+            }
+        }
+
+        // If this is a pure custom value edit (no new values added, just renamed), handle with remapping
+        if (isCustomEdit && valueRemapping.size > 0) {
+            // Remap enabled keys
             setEnabledVariantKeys((prevEnabled) => {
                 const nextEnabled = new Set<string>();
-                if (oldDimensionCount !== newDimensionCount) {
-                    // Dimension count changed, add all new keys
-                    for (const key of newKeys) {
+                for (const key of prevEnabled) {
+                    let newKey = key;
+                    for (const [oldVal, newVal] of valueRemapping) {
+                        // Replace the old value with new value in the key
+                        const keyParts = newKey.split("|");
+                        const updatedParts = keyParts.map(part => part === oldVal ? newVal : part);
+                        newKey = updatedParts.join("|");
+                    }
+                    if (newKeysSet.has(newKey)) {
+                        nextEnabled.add(newKey);
+                    }
+                }
+                return nextEnabled;
+            });
+
+            // Remap metadata
+            setVariantMetadata((prev) => {
+                const next: Record<string, VariantMetadata> = {};
+                for (const [key, meta] of Object.entries(prev)) {
+                    let newKey = key;
+                    for (const [oldVal, newVal] of valueRemapping) {
+                        const keyParts = newKey.split("|");
+                        const updatedParts = keyParts.map(part => part === oldVal ? newVal : part);
+                        newKey = updatedParts.join("|");
+                    }
+                    if (newKeysSet.has(newKey)) {
+                        next[newKey] = meta;
+                    }
+                }
+                return next;
+            });
+
+            // Remap collapsed variant mappings
+            setCollapsedVariantMappings((prev) => {
+                const next = new Map<string, { upid: string; hasOverrides: boolean }>();
+                for (const [key, value] of prev) {
+                    let newKey = key;
+                    for (const [oldVal, newVal] of valueRemapping) {
+                        const keyParts = newKey.split("|");
+                        const updatedParts = keyParts.map(part => part === oldVal ? newVal : part);
+                        newKey = updatedParts.join("|");
+                    }
+                    if (newKeysSet.has(newKey)) {
+                        next.set(newKey, value);
+                    }
+                }
+                return next;
+            });
+
+            return;
+        }
+
+        // Determine added and removed values (works for both standard AND custom attributes)
+        const addedValues = [...newValues].filter((v) => !oldValues.has(v));
+        const removedValues = [...oldValues].filter((v) => !newValues.has(v));
+
+        // Check if we have any variants to preserve:
+        // 1. Saved variants (from DB with UPIDs)
+        // 2. Local variants with metadata (SKU or barcode entered by user)
+        // 3. Currently enabled variants (even without metadata, we track which were selected)
+        const hasSavedVariants = savedVariants && savedVariants.size > 0;
+        const hasLocalVariantsWithData = Object.values(variantMetadata).some(
+            (m) => m.sku || m.barcode
+        );
+        const hasEnabledVariants = enabledVariantKeys.size > 0;
+
+        // For dimension count changes (adding/removing attributes), we should ALWAYS use
+        // Shopify-like expansion to preserve which variants were enabled, even for new products.
+        // Only use simple matrix behavior for same-dimension-count changes on new products with no data.
+        const shouldUseMatrixBehavior = isNewProduct &&
+            !hasSavedVariants &&
+            !hasLocalVariantsWithData &&
+            oldDimensionCount === newDimensionCount;
+
+        // Pure new product with no data to preserve AND same dimension count - use matrix behavior
+        if (shouldUseMatrixBehavior) {
+            setEnabledVariantKeys((prevEnabled) => {
+                const nextEnabled = new Set<string>();
+                // Same dimension count - preserve existing enabled states
+                for (const key of prevEnabled) {
+                    if (newKeysSet.has(key)) {
                         nextEnabled.add(key);
                     }
-                } else {
-                    // Same dimension count - preserve existing enabled states
-                    for (const key of prevEnabled) {
-                        if (newKeysSet.has(key)) {
-                            nextEnabled.add(key);
-                        }
-                    }
-                    // Add genuinely new keys
-                    for (const key of newKeys) {
-                        if (!prevEnabled.has(key)) {
-                            nextEnabled.add(key);
-                        }
+                }
+                // Add genuinely new keys (new values added to existing dimension)
+                for (const key of newKeys) {
+                    if (!prevEnabled.has(key)) {
+                        nextEnabled.add(key);
                     }
                 }
                 return nextEnabled;
@@ -661,52 +742,75 @@ export function VariantSection({
             return;
         }
 
-        // EXISTING PRODUCT: Shopify-like behavior with UPID preservation
-        // Determine added and removed values
-        const addedValues = [...newValues].filter((v) => !oldValues.has(v));
-        const removedValues = [...oldValues].filter((v) => !newValues.has(v));
+        // SHOPIFY-LIKE BEHAVIOR: Preserve variants and expand with new dimension values
+        // When dimension count changes, we expand existing variants with the first new value
+        // and create genuinely new variants for subsequent values.
 
-        // Handle dimension count change (new dimension added)
+        // Build a map of "variants to preserve" from all sources
+        const variantsToPreserve = new Map<string, { upid: string | null; hasOverrides: boolean }>();
+
+        // Add saved variants (from DB with UPIDs)
+        if (savedVariants) {
+            for (const [key, value] of savedVariants) {
+                variantsToPreserve.set(key, value);
+            }
+        }
+
+        // Add collapsed variant mappings (from previous dimension removals)
+        for (const [key, value] of collapsedVariantMappings) {
+            if (!variantsToPreserve.has(key)) {
+                variantsToPreserve.set(key, value);
+            }
+        }
+
+        // For dimension count changes, include ALL enabled variants for expansion
+        // (even without metadata, we want to preserve which combinations were selected)
+        const isDimensionCountChange = newDimensionCount !== oldDimensionCount;
+        for (const key of enabledVariantKeys) {
+            if (!variantsToPreserve.has(key)) {
+                const meta = variantMetadata[key];
+                // Include if has metadata OR if we're changing dimension count
+                if (meta?.sku || meta?.barcode || isDimensionCountChange) {
+                    variantsToPreserve.set(key, { upid: null, hasOverrides: false });
+                }
+            }
+        }
+
+        // Handle dimension count change (new dimension added with values)
         if (newDimensionCount > oldDimensionCount && addedValues.length > 0) {
             // A new dimension was added with values
-            // Use effectiveSavedVariants which includes collapsed mappings
-            const currentSavedVariants = effectiveSavedVariants;
-
             // Get the first value of the new dimension - this will be assigned to existing variants
             const firstNewValue = addedValues[0];
-            if (!firstNewValue) return; // Type guard - should never happen due to length check above
+            if (!firstNewValue) return;
             const otherNewValues = addedValues.slice(1);
 
             // Calculate the correct insertion position for the key
-            // Keys only include dimensions with values, so we need to find where this dimension
-            // falls among the dimensions-with-values in the NEW structure
-            const newDimsWithValues = newDimensions.filter((d) =>
-                d.values.length > 0 ||
-                (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
-            );
+            const newDimsWithValues = newDimensions.filter((d) => dimensionHasValues(d));
             const keyInsertPosition = newDimsWithValues.findIndex((d) => d.id === updated.id);
-            if (keyInsertPosition === -1) return; // Shouldn't happen but guard anyway
+            if (keyInsertPosition === -1) return;
 
             // Build new enabled keys and update collapsed mappings
             const nextEnabled = new Set<string>();
             const nextExpandedMappings = new Map<string, { upid: string; hasOverrides: boolean }>();
             const nextMetadata: Record<string, { sku?: string; barcode?: string }> = {};
 
-            // For each existing saved variant, expand it with the first new value (preserve UPID)
-            for (const [originalKey, variantInfo] of currentSavedVariants) {
+            // For each existing variant to preserve, expand it with the first new value
+            for (const [originalKey, variantInfo] of variantsToPreserve) {
                 const keyParts = originalKey.split("|");
-                // Insert new value at the correct position (based on dimensions-with-values order)
+                // Insert new value at the correct position
                 const expandedKeyParts = [...keyParts];
-                expandedKeyParts.splice(keyInsertPosition, 0, firstNewValue!);
+                expandedKeyParts.splice(keyInsertPosition, 0, firstNewValue);
                 const expandedKey = expandedKeyParts.join("|");
 
                 if (newKeysSet.has(expandedKey)) {
                     nextEnabled.add(expandedKey);
-                    // Preserve the UPID for the expanded key
-                    nextExpandedMappings.set(expandedKey, {
-                        upid: variantInfo.upid,
-                        hasOverrides: variantInfo.hasOverrides,
-                    });
+                    // Preserve the UPID for the expanded key (if it has one)
+                    if (variantInfo.upid) {
+                        nextExpandedMappings.set(expandedKey, {
+                            upid: variantInfo.upid,
+                            hasOverrides: variantInfo.hasOverrides,
+                        });
+                    }
                     // Preserve metadata
                     const originalMeta = variantMetadata[originalKey];
                     if (originalMeta) {
@@ -714,23 +818,22 @@ export function VariantSection({
                     }
                 }
 
-                // For the other new values, create genuinely new variants (no UPID mapping)
+                // For the other new values, create genuinely new variants (no UPID/metadata mapping)
                 for (const otherValue of otherNewValues) {
                     const newKeyParts = [...keyParts];
                     newKeyParts.splice(keyInsertPosition, 0, otherValue);
                     const newKey = newKeyParts.join("|");
                     if (newKeysSet.has(newKey)) {
                         nextEnabled.add(newKey);
-                        // Don't add to mappings - these are genuinely new variants
+                        // Don't add to mappings or metadata - these are genuinely new variants
                     }
                 }
             }
 
-            // Also handle currently enabled keys that might not be saved yet
+            // Also handle currently enabled keys that aren't in variantsToPreserve
             setEnabledVariantKeys((prevEnabled) => {
                 for (const key of prevEnabled) {
-                    // Skip if already a saved variant (handled above)
-                    if (currentSavedVariants.has(key)) continue;
+                    if (variantsToPreserve.has(key)) continue;
 
                     const keyParts = key.split("|");
                     for (const newValue of addedValues) {
@@ -766,7 +869,7 @@ export function VariantSection({
             });
         } else if (newDimensionCount < oldDimensionCount) {
             // Dimension count DECREASED - a dimension lost all its values
-            // Collapse enabled keys similar to handleDeleteDimension
+            // Collapse enabled keys
 
             setEnabledVariantKeys((prevEnabled) => {
                 const nextEnabled = new Set<string>();
@@ -774,33 +877,31 @@ export function VariantSection({
 
                 for (const key of prevEnabled) {
                     const keyParts = key.split("|");
-                    // Check if key contains any removed values at this dimension's position
                     const containsRemovedValue = keyParts.some((part) => removedValues.includes(part));
 
                     if (containsRemovedValue) {
-                        // Collapse the key by removing the value at the empty dimension's position
                         const collapsedParts = keyParts.filter((part) => !removedValues.includes(part));
                         const collapsedKey = collapsedParts.join("|");
 
-                        // Only add if valid and not already seen (deduplicate collapsed keys)
                         if (newKeysSet.has(collapsedKey) && !seenCollapsedKeys.has(collapsedKey)) {
                             nextEnabled.add(collapsedKey);
                             seenCollapsedKeys.add(collapsedKey);
                         }
                     } else if (newKeysSet.has(key)) {
-                        // Key doesn't contain removed values and is still valid
                         nextEnabled.add(key);
                     }
                 }
                 return nextEnabled;
             });
 
-            // Also update collapsed variant mappings to preserve UPIDs
-            if (savedVariants && savedVariants.size > 0) {
+            // Update collapsed variant mappings to preserve UPIDs
+            if (variantsToPreserve.size > 0) {
                 const nextCollapsedMappings = new Map<string, { upid: string; hasOverrides: boolean }>();
                 const seenCollapsedKeys = new Set<string>();
 
-                for (const [originalKey, variantInfo] of savedVariants) {
+                for (const [originalKey, variantInfo] of variantsToPreserve) {
+                    if (!variantInfo.upid) continue; // Only track variants with UPIDs
+
                     const keyParts = originalKey.split("|");
                     const containsRemovedValue = keyParts.some((part) => removedValues.includes(part));
 
@@ -809,7 +910,10 @@ export function VariantSection({
                         const collapsedKey = collapsedParts.join("|");
 
                         if (newKeysSet.has(collapsedKey) && !seenCollapsedKeys.has(collapsedKey)) {
-                            nextCollapsedMappings.set(collapsedKey, variantInfo);
+                            nextCollapsedMappings.set(collapsedKey, {
+                                upid: variantInfo.upid,
+                                hasOverrides: variantInfo.hasOverrides,
+                            });
                             seenCollapsedKeys.add(collapsedKey);
                         }
                     }
@@ -825,6 +929,30 @@ export function VariantSection({
                     });
                 }
             }
+
+            // Also collapse metadata
+            setVariantMetadata((prev) => {
+                const nextMetadata: Record<string, { sku?: string; barcode?: string }> = {};
+                const seenCollapsedKeys = new Set<string>();
+
+                for (const [key, meta] of Object.entries(prev)) {
+                    const keyParts = key.split("|");
+                    const containsRemovedValue = keyParts.some((part) => removedValues.includes(part));
+
+                    if (containsRemovedValue) {
+                        const collapsedParts = keyParts.filter((part) => !removedValues.includes(part));
+                        const collapsedKey = collapsedParts.join("|");
+
+                        if (newKeysSet.has(collapsedKey) && !seenCollapsedKeys.has(collapsedKey)) {
+                            nextMetadata[collapsedKey] = meta;
+                            seenCollapsedKeys.add(collapsedKey);
+                        }
+                    } else if (newKeysSet.has(key)) {
+                        nextMetadata[key] = meta;
+                    }
+                }
+                return nextMetadata;
+            });
         } else {
             // Same dimension count - handle value additions/removals
             setEnabledVariantKeys((prevEnabled) => {
@@ -833,30 +961,22 @@ export function VariantSection({
                 // Start with existing enabled keys
                 for (const key of prevEnabled) {
                     const keyParts = key.split("|");
-                    // Check if key contains any removed values
                     const containsRemovedValue = keyParts.some((part) => removedValues.includes(part));
-                    // Check if key is still valid in new structure
                     if (!containsRemovedValue && newKeysSet.has(key)) {
                         nextEnabled.add(key);
                     }
                 }
 
                 // For added values: expand existing variants like Shopify
-                // Create new combinations by adding new values to existing variant patterns
                 if (addedValues.length > 0 && newDimensionCount === oldDimensionCount) {
-                    // Calculate the correct position for this dimension among dimensions-with-values
-                    const dimsWithValues = newDimensions.filter((d) =>
-                        d.values.length > 0 ||
-                        (d.isCustomInline && (d.customValues ?? []).some((v) => v.trim().length > 0))
-                    );
+                    const dimsWithValues = newDimensions.filter((d) => dimensionHasValues(d));
                     const keyPosition = dimsWithValues.findIndex((d) => d.id === updated.id);
-                    if (keyPosition === -1) return nextEnabled; // Guard
+                    if (keyPosition === -1) return nextEnabled;
 
                     // Get existing variant patterns without the current dimension
                     const existingPatterns = new Set<string>();
                     for (const key of prevEnabled) {
                         const keyParts = key.split("|");
-                        // Remove the value at the current dimension's key position
                         const patternParts = keyParts.filter((_, i) => i !== keyPosition);
                         if (patternParts.length > 0) {
                             existingPatterns.add(patternParts.join("|"));
@@ -867,7 +987,6 @@ export function VariantSection({
                     for (const pattern of existingPatterns) {
                         const patternParts = pattern.split("|");
                         for (const newValue of addedValues) {
-                            // Insert new value at the correct key position
                             const newKeyParts = [...patternParts];
                             newKeyParts.splice(keyPosition, 0, newValue);
                             const newKey = newKeyParts.join("|");
@@ -880,6 +999,21 @@ export function VariantSection({
 
                 return nextEnabled;
             });
+
+            // Also update metadata when values are removed
+            if (removedValues.length > 0) {
+                setVariantMetadata((prev) => {
+                    const nextMetadata: Record<string, { sku?: string; barcode?: string }> = {};
+                    for (const [key, meta] of Object.entries(prev)) {
+                        const keyParts = key.split("|");
+                        const containsRemovedValue = keyParts.some((part) => removedValues.includes(part));
+                        if (!containsRemovedValue && newKeysSet.has(key)) {
+                            nextMetadata[key] = meta;
+                        }
+                    }
+                    return nextMetadata;
+                });
+            }
         }
     };
 
@@ -896,26 +1030,39 @@ export function VariantSection({
 
         setDimensions(newDimensions);
 
-        // Check if this is an existing product with saved variants
-        const isExistingProduct = savedVariants && savedVariants.size > 0;
+        // SHOPIFY-LIKE BEHAVIOR: Collapse variants when dimension is removed
+        // Build variantsToPreserve map from all sources, including all enabled variants
+        // since deleting a dimension is a dimension count change
+        const variantsToPreserve = new Map<string, { upid: string | null; hasOverrides: boolean }>();
 
-        if (isNewProduct || !isExistingProduct) {
-            // NEW PRODUCT: Matrix behavior - all combinations enabled
-            setEnabledVariantKeys(new Set(newKeys));
-            return;
+        if (savedVariants) {
+            for (const [key, value] of savedVariants) {
+                variantsToPreserve.set(key, value);
+            }
         }
 
-        // EXISTING PRODUCT: Preserve variants by collapsing and deduplicating
-        // Group saved variants by their collapsed key (after removing the dimension)
+        for (const [key, value] of collapsedVariantMappings) {
+            if (!variantsToPreserve.has(key)) {
+                variantsToPreserve.set(key, value);
+            }
+        }
+
+        // Include ALL enabled variants for collapse (dimension count is changing)
+        for (const key of enabledVariantKeys) {
+            if (!variantsToPreserve.has(key)) {
+                variantsToPreserve.set(key, { upid: null, hasOverrides: false });
+            }
+        }
+
+        // Group variants by their collapsed key
         const collapsedGroups = new Map<string, Array<{
             originalKey: string;
-            upid: string;
+            upid: string | null;
             hasOverrides: boolean;
         }>>();
 
-        for (const [originalKey, variantInfo] of savedVariants) {
+        for (const [originalKey, variantInfo] of variantsToPreserve) {
             const keyParts = originalKey.split("|");
-            // Remove the value at the deleted dimension's position
             const collapsedParts = keyParts.filter((_, i) => i !== index);
             const collapsedKey = collapsedParts.join("|");
 
@@ -931,21 +1078,21 @@ export function VariantSection({
             });
         }
 
-        // For each collapsed group, keep the first variant (preferring those with overrides)
-        // and update enabled keys
+        // For each collapsed group, keep the first variant (preferring those with overrides/UPIDs)
         const nextEnabled = new Set<string>();
         const nextMetadata: Record<string, { sku?: string; barcode?: string }> = {};
         const nextCollapsedMappings = new Map<string, { upid: string; hasOverrides: boolean }>();
 
         for (const [collapsedKey, variants] of collapsedGroups) {
-            // Sort: variants with overrides first, then by original position
+            // Sort: variants with UPIDs first, then those with overrides
             variants.sort((a, b) => {
+                if (a.upid && !b.upid) return -1;
+                if (!a.upid && b.upid) return 1;
                 if (a.hasOverrides && !b.hasOverrides) return -1;
                 if (!a.hasOverrides && b.hasOverrides) return 1;
                 return 0;
             });
 
-            // Keep the first variant
             const keptVariant = variants[0];
             if (keptVariant) {
                 nextEnabled.add(collapsedKey);
@@ -954,28 +1101,27 @@ export function VariantSection({
                 if (originalMeta) {
                     nextMetadata[collapsedKey] = originalMeta;
                 }
-                // Store the collapsed mapping so variants aren't marked as "new"
-                nextCollapsedMappings.set(collapsedKey, {
-                    upid: keptVariant.upid,
-                    hasOverrides: keptVariant.hasOverrides,
-                });
+                // Store the collapsed mapping if it has a UPID
+                if (keptVariant.upid) {
+                    nextCollapsedMappings.set(collapsedKey, {
+                        upid: keptVariant.upid,
+                        hasOverrides: keptVariant.hasOverrides,
+                    });
+                }
             }
         }
 
-        // Also handle local (unsaved) variants that were enabled
+        // Also handle local variants that weren't in variantsToPreserve
         setEnabledVariantKeys((prevEnabled) => {
             for (const key of prevEnabled) {
-                // Skip if this was a saved variant (already processed above)
-                if (savedVariants.has(key)) continue;
+                if (variantsToPreserve.has(key)) continue;
 
                 const keyParts = key.split("|");
                 const collapsedParts = keyParts.filter((_, i) => i !== index);
                 const collapsedKey = collapsedParts.join("|");
 
-                // Only add if not already added from saved variants and is valid
                 if (newKeysSet.has(collapsedKey) && !nextEnabled.has(collapsedKey)) {
                     nextEnabled.add(collapsedKey);
-                    // Preserve metadata
                     const originalMeta = variantMetadata[key];
                     if (originalMeta) {
                         nextMetadata[collapsedKey] = originalMeta;
@@ -985,19 +1131,19 @@ export function VariantSection({
             return nextEnabled;
         });
 
-        // Update variant metadata with collapsed keys
+        // Update variant metadata
         setVariantMetadata((prev) => {
-            const merged = { ...prev };
-            // Add the new collapsed metadata entries
-            for (const [key, meta] of Object.entries(nextMetadata)) {
-                if (meta && !merged[key]) {
+            const merged = { ...nextMetadata };
+            // Keep any metadata from previous that maps to valid keys and isn't overwritten
+            for (const [key, meta] of Object.entries(prev)) {
+                if (newKeysSet.has(key) && !merged[key]) {
                     merged[key] = meta;
                 }
             }
             return merged;
         });
 
-        // Update collapsed variant mappings for proper "new" badge display
+        // Update collapsed variant mappings
         setCollapsedVariantMappings((prev) => {
             const merged = new Map(prev);
             for (const [key, value] of nextCollapsedMappings) {
@@ -1012,12 +1158,7 @@ export function VariantSection({
         : null;
 
     const hasVariants =
-        dimensions.some(
-            (d) =>
-                d.values.length > 0 ||
-                (d.isCustomInline &&
-                    (d.customValues ?? []).some((v) => v.trim().length > 0)),
-        ) ||
+        dimensions.some((d) => dimensionHasValues(d)) ||
         (explicitVariants && explicitVariants.length > 0);
 
     const hasDimensions = dimensions.length > 0;

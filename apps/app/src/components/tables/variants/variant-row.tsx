@@ -15,14 +15,24 @@ import * as React from "react";
  * Badge component to indicate a new variant that hasn't been saved yet.
  * Styled like TagLabel from tag-select.tsx
  */
-function NewBadge() {
+const NewBadge = React.forwardRef<
+    HTMLSpanElement,
+    React.HTMLAttributes<HTMLSpanElement>
+>((props, ref) => {
     return (
-        <span className="inline-flex h-5 items-center gap-1.5 rounded-full border bg-background px-1.5 text-[12px] font-regular leading-none text-foreground flex-shrink-0">
-            <span className="w-2 h-2 rounded-full flex-shrink-0 bg-brand border-border" />
+        <span
+            ref={ref}
+            {...props}
+            className={cn(
+                "inline-flex items-center rounded-full bg-[#E1F0FF] px-1.5 text-[12px] font-regular leading-[20px] text-brand flex-shrink-0 cursor-default",
+                props.className,
+            )}
+        >
             New
         </span>
     );
-}
+});
+NewBadge.displayName = "NewBadge";
 
 export interface VariantRowProps {
     /** Unique key for this variant (pipe-separated value IDs) */
@@ -92,7 +102,18 @@ export function VariantRow({
                         {label}
                     </span>
                     {/* New variant indicator */}
-                    {isNew && <NewBadge />}
+                    {isNew && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <NewBadge />
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                    This variant will be created on save
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
                     {/* Override indicator */}
                     {hasOverrides && (
                         <TooltipProvider>

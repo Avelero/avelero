@@ -142,7 +142,7 @@ export function FontSelect({
         <Button
           variant="outline"
           size="default"
-          className={cn("w-full justify-between", className)}
+          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
         >
           <span
             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}

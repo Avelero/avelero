@@ -14,34 +14,18 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 
 // ============================================================================
-// Composable Select Primitives
+// Select Context - for clearing cmdk selection when hovering footer
 // ============================================================================
-// These primitives allow building custom select components with consistent
-// styling. They wrap Command and Popover components with Select-specific naming.
-//
-// Usage:
-//   <Select>
-//     <SelectTrigger asChild>
-//       <Button>Select...</Button>
-//     </SelectTrigger>
-//     <SelectContent>
-//       <SelectSearch placeholder="Search..." />
-//       <SelectList>
-//         <SelectGroup>
-//           <SelectItem value="..." onSelect={...}>...</SelectItem>
-//         </SelectGroup>
-//       </SelectList>
-//       <SelectFooter>
-//         <SelectAction onSelect={...}>Create new...</SelectAction>
-//       </SelectFooter>
-//     </SelectContent>
-//   </Select>
-//
-// Standardized behaviors:
-// - Search placeholder: "Search..."
-// - Empty with create option: "Start typing to create..."
-// - Empty without items: "No items found."
-// - Width: min-w-[200px] max-w-[320px] (matches trigger width)
+interface SelectContextValue {
+  /** Clears the cmdk selection highlight (used when hovering outside the list) */
+  clearSelection: () => void;
+}
+
+const SelectContext = React.createContext<SelectContextValue | null>(null);
+
+function useSelectContext() {
+  return React.useContext(SelectContext);
+}
 
 /** Root component for composable select - wraps Popover */
 const Select = Popover;
@@ -62,21 +46,44 @@ const SelectContent = React.forwardRef<
   (
     { className, children, shouldFilter = true, defaultValue, ...props },
     ref,
-  ) => (
-    <PopoverContent
-      ref={ref}
-      className={cn(
-        "w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0",
-        className,
-      )}
-      align="start"
-      {...props}
-    >
-      <Command shouldFilter={shouldFilter} defaultValue={defaultValue}>
-        {children}
-      </Command>
-    </PopoverContent>
-  ),
+  ) => {
+    // Track the controlled value for cmdk selection
+    const [value, setValue] = React.useState(defaultValue ?? "");
+
+    // Reset to default value when defaultValue changes (e.g., when popover reopens)
+    React.useEffect(() => {
+      setValue(defaultValue ?? "");
+    }, [defaultValue]);
+
+    const contextValue = React.useMemo<SelectContextValue>(
+      () => ({
+        clearSelection: () => setValue("__clear__"),
+      }),
+      [],
+    );
+
+    return (
+      <PopoverContent
+        ref={ref}
+        className={cn(
+          "w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0",
+          className,
+        )}
+        align="start"
+        {...props}
+      >
+        <SelectContext.Provider value={contextValue}>
+          <Command
+            shouldFilter={shouldFilter}
+            value={value}
+            onValueChange={setValue}
+          >
+            {children}
+          </Command>
+        </SelectContext.Provider>
+      </PopoverContent>
+    );
+  },
 );
 SelectContent.displayName = "SelectContent";
 
@@ -130,17 +137,31 @@ const SelectHeader = React.forwardRef<
 ));
 SelectHeader.displayName = "SelectHeader";
 
-/** Footer section for select content (below the list, separated by border) */
+/** Footer section for select content (below the list, separated by border).
+ *  Clears cmdk selection on mouse enter to prevent double-highlight. */
 const SelectFooter = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("border-t border-border p-1", className)}
-    {...props}
-  />
-));
+>(({ className, onMouseEnter, ...props }, ref) => {
+  const context = useSelectContext();
+
+  const handleMouseEnter = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      context?.clearSelection();
+      onMouseEnter?.(e);
+    },
+    [context, onMouseEnter],
+  );
+
+  return (
+    <div
+      ref={ref}
+      className={cn("border-t border-border p-1", className)}
+      onMouseEnter={handleMouseEnter}
+      {...props}
+    />
+  );
+});
 SelectFooter.displayName = "SelectFooter";
 
 /**
@@ -157,14 +178,14 @@ const SelectAction = React.forwardRef<
   <button
     ref={ref}
     type="button"
+    tabIndex={-1}
     onClick={(e) => {
       onClick?.(e);
       onSelect?.();
     }}
     className={cn(
-      "relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none",
+      "relative flex w-full cursor-pointer select-none items-center gap-0.5 rounded-none px-2 h-[30px] !type-small outline-none",
       "hover:bg-accent hover:text-accent-foreground",
-      "focus:bg-accent focus:text-accent-foreground",
       className,
     )}
     {...props}

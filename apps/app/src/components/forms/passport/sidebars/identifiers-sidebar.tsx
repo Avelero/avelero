@@ -73,7 +73,7 @@ export function IdentifiersSidebar({
   }, [options, searchTerm]);
 
   const selectedOption = options.find((o) => o.value === manufacturerId);
-  const displayValue = selectedOption?.label || "Select manufacturer...";
+  const displayValue = selectedOption?.label || "Select manufacturer";
   const isPlaceholder = !selectedOption;
 
   const showCreateOption =
@@ -121,7 +121,7 @@ export function IdentifiersSidebar({
             className={cn(
               "h-9",
               productHandleError &&
-                "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
+              "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
             )}
             aria-invalid={Boolean(productHandleError)}
           />
@@ -138,7 +138,7 @@ export function IdentifiersSidebar({
               <Button
                 variant="outline"
                 size="default"
-                className="w-full justify-between"
+                className="w-full justify-between data-[state=open]:bg-accent"
               >
                 <span
                   className={cn(

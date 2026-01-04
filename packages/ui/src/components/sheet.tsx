@@ -165,11 +165,11 @@ const SheetBreadcrumbHeader = ({
           <button
             type="button"
             onClick={() => onPageClick?.(0)}
-            className="type-h6 text-tertiary cursor-pointer"
+            className="type-h6 text-secondary cursor-pointer hover:text-primary transition-colors duration-150"
           >
             {visiblePages[0]}
           </button>
-          <p className="type-h6 text-tertiary mx-1.5">/</p>
+          <p className="type-h6 text-secondary mx-1.5">/</p>
           <p className="type-h6 text-primary">{visiblePages[1]}</p>
         </>
       );
@@ -181,13 +181,13 @@ const SheetBreadcrumbHeader = ({
         <button
           type="button"
           onClick={() => onPageClick?.(0)}
-          className="type-h6 text-tertiary cursor-pointer"
+          className="type-h6 text-secondary cursor-pointer hover:text-primary transition-colors duration-150"
         >
           {visiblePages[0]}
         </button>
-        <p className="type-h6 text-tertiary mx-1.5">/</p>
-        <p className="type-h6 text-tertiary">...</p>
-        <p className="type-h6 text-tertiary mx-1.5">/</p>
+        <p className="type-h6 text-secondary mx-1.5">/</p>
+        <p className="type-h6 text-secondary">...</p>
+        <p className="type-h6 text-secondary mx-1.5">/</p>
         <p className="type-h6 text-primary">
           {visiblePages[visiblePages.length - 1]}
         </p>

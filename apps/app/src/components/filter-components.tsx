@@ -85,7 +85,7 @@ function FieldSelect({
         <Button
           variant="outline"
           size="default"
-          className={cn("justify-between", className)}
+          className={cn("justify-between data-[state=open]:bg-accent", className)}
         >
           <span
             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
@@ -237,7 +237,7 @@ export function FilterRow({
       {/* Actions Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" aria-label="Filter options">
+          <Button variant="outline" size="icon" aria-label="Filter options" className="data-[state=open]:bg-accent">
             <Icons.EllipsisVertical className="w-4 h-4" strokeWidth={1} />
           </Button>
         </DropdownMenuTrigger>
@@ -248,7 +248,7 @@ export function FilterRow({
             </DropdownMenuItem>
           )}
           <DropdownMenuItem className="text-destructive" onSelect={onDelete}>
-            <Icons.Trash2 className="h-4 w-4" /> Delete filter
+            <Icons.Trash2 className="h-4 w-4" /> <span className="px-1">Delete filter</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

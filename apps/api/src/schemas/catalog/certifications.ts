@@ -38,7 +38,7 @@ export const createCertificationSchema = z.object({
   institute_country_code: countryCodeSchema.optional(),
   issue_date: datetimeSchema.optional(),
   expiry_date: datetimeSchema.optional(),
-  file_path: mediumStringSchema.optional(),
+  certification_path: mediumStringSchema.optional(),
 });
 
 /**
@@ -59,7 +59,7 @@ export const updateCertificationSchema = updateWithNullable(
     "institute_country_code",
     "issue_date",
     "expiry_date",
-    "file_path",
+    "certification_path",
   ],
 );
 

@@ -211,6 +211,7 @@ export function QuickFiltersPopover({
             variant="subtle"
             size="default"
             disabled={disabled}
+            className="data-[state=open]:bg-accent"
           >
             <Icons.Filter className="h-[14px] w-[14px]" />
             <span className="px-1">Filter</span>
@@ -245,7 +246,7 @@ export function QuickFiltersPopover({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleAdvancedClick}>
-                Advanced filters
+                <span>Advanced filters</span>
                 <DropdownMenuShortcut>⇧⌘F</DropdownMenuShortcut>
               </DropdownMenuItem>
             </>
@@ -501,12 +502,12 @@ const TagsSubmenu = React.memo(function TagsSubmenu({
                 onSelect={() => onToggleValue(tag.id)}
                 className="justify-between"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center">
                   <div
                     className="h-3.5 w-3.5 rounded-full border border-border flex-shrink-0"
                     style={{ backgroundColor: `#${tag.hex}` }}
                   />
-                  <span className="type-p text-primary">{tag.name}</span>
+                  <span className="type-p text-primary px-1">{tag.name}</span>
                 </div>
                 {isSelected && <Icons.Check className="h-4 w-4" />}
               </CommandItem>

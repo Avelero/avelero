@@ -16,14 +16,14 @@ import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectEmpty,
-  SelectGroup,
-  SelectItem,
-  SelectList,
-  SelectSearch,
-  SelectTrigger,
+    Select,
+    SelectContent,
+    SelectEmpty,
+    SelectGroup,
+    SelectItem,
+    SelectList,
+    SelectSearch,
+    SelectTrigger,
 } from "@v1/ui/select";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
@@ -217,7 +217,7 @@ function DimensionSelect({
                     <Button
                         variant="outline"
                         size="default"
-                        className="w-full justify-between"
+                        className="w-full justify-between data-[state=open]:bg-accent"
                     >
                         <span
                             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}

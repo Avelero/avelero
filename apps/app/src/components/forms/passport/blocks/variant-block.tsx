@@ -231,7 +231,7 @@ function EmptyStateAttributeSelect({
                     <Button
                         variant="outline"
                         size="default"
-                        className="w-full justify-between"
+                        className="w-full justify-between data-[state=open]:bg-accent"
                     >
                         <span className="truncate px-1 text-tertiary">
                             Select attribute
@@ -1230,7 +1230,7 @@ export function VariantSection({
                                 <PopoverTrigger asChild>
                                     <button
                                         type="button"
-                                        className="w-full flex items-center gap-1.5 px-4 py-3 text-left hover:bg-accent transition-colors"
+                                        className="w-full flex items-center gap-1.5 px-4 py-3 text-left hover:bg-accent data-[state=open]:bg-accent transition-colors"
                                     >
                                         <Icons.Plus className="h-4 w-4 text-tertiary" />
                                         <span className="px-1 type-p text-secondary">

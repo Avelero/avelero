@@ -168,65 +168,61 @@ export function PassportControls({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[220px]">
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="h-9 py-3">
-                Change status
+              <DropdownMenuSubTrigger>
+                <span>Change status</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-[220px]">
                 <DropdownMenuItem
-                  className="h-9 py-3"
                   onSelect={() => {
                     handleBulkStatusChange("published");
                   }}
                 >
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center">
                     <Icons.StatusPublished width={12} height={12} />
-                    <span>Published</span>
+                    <span className="px-1">Published</span>
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="h-9 py-3"
                   onSelect={() => {
                     handleBulkStatusChange("scheduled");
                   }}
                 >
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center">
                     <Icons.StatusScheduled width={12} height={12} />
-                    <span>Scheduled</span>
+                    <span className="px-1">Scheduled</span>
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="h-9 py-3"
                   onSelect={() => {
                     handleBulkStatusChange("unpublished");
                   }}
                 >
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center">
                     <Icons.StatusUnpublished width={12} height={12} />
-                    <span>Unpublished</span>
+                    <span className="px-1">Unpublished</span>
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="h-9 py-3"
                   onSelect={() => {
                     handleBulkStatusChange("archived");
                   }}
                 >
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center">
                     <Icons.StatusArchived width={12} height={12} />
-                    <span>Archived</span>
+                    <span className="px-1">Archived</span>
                   </span>
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuItem
-              className="h-9 py-3 text-destructive focus:text-destructive"
+              className="text-destructive focus:text-destructive"
               onSelect={() => {
                 onDeleteSelectedAction?.();
               }}
             >
-              <span className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center">
                 <Icons.Trash2 size={14} />
-                <span>Delete</span>
+                <span className="px-1">Delete</span>
               </span>
             </DropdownMenuItem>
           </DropdownMenuContent>

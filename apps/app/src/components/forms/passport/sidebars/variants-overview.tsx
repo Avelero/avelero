@@ -218,7 +218,7 @@ export function VariantsOverview({
                     <button
                       type="button"
                       aria-label="Variant options"
-                      className="h-6 w-6 flex items-center justify-center shrink-0 text-tertiary hover:text-primary transition-colors"
+                      className="h-6 w-6 flex items-center justify-center shrink-0 text-tertiary hover:text-primary data-[state=open]:text-primary transition-colors"
                       onClick={(e) => e.preventDefault()}
                     >
                       <Icons.EllipsisVertical className="h-4 w-4" />
@@ -230,7 +230,7 @@ export function VariantsOverview({
                       onClick={(e) => handleDeleteClick(variant.upid, e)}
                     >
                       <Icons.Trash2 className="h-4 w-4 mr-2" />
-                      Delete variant
+                      <span className="px-1">Delete variant</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

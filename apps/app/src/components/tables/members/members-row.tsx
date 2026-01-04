@@ -236,7 +236,7 @@ function MembershipRow({
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Member options">
+              <Button variant="outline" size="icon" aria-label="Member options" className="data-[state=open]:bg-accent">
                 <Icons.EllipsisVertical className="w-4 h-4" strokeWidth={1} />
               </Button>
             </DropdownMenuTrigger>

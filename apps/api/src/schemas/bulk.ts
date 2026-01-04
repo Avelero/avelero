@@ -264,7 +264,7 @@ const defineCertificationDataSchema = z.object({
     .optional(),
   issueDate: z.string().datetime().optional(),
   expiryDate: z.string().datetime().optional(),
-  filePath: z.string().optional(),
+  certificationPath: z.string().optional(),
 });
 
 const defineSeasonDataSchema = z.object({

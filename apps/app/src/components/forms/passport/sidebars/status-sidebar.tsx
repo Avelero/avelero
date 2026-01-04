@@ -68,7 +68,7 @@ export function StatusSidebar({ status, setStatus }: StatusSidebarProps) {
           <Button
             variant="outline"
             size="default"
-            className="w-full justify-between"
+            className="w-full justify-between data-[state=open]:bg-accent"
           >
             <div className="flex items-center gap-2 px-1">
               {displayIcon}

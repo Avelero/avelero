@@ -38,30 +38,35 @@
     @apply bg-background text-foreground;
   }
 
+  ::selection {
+    background-color: var(--brand);
+    color: var(--brand-foreground);
+  }
+
 }
 
 @layer utilities {
-    .button-3d-default {
-      box-shadow: inset 0.8px -0.8px 0 1px hsl(240 80% 4% / 5%), 
-                  inset 0 0 0 1px hsl(240 80% 4% / 10%),
-                  inset -0.8px 0.8px 0 1.5px hsl(240 100% 99% / 50%);
-      background: linear-gradient(45deg, hsl(240 23% 95%) 64%, hsl(240 23% 97%) 100%);
-      transition: filter 0.1s ease-in-out;
-    }
-    
-    .button-3d-default:hover {
-      filter: brightness(0.97);
-    }
-    
-    .button-3d-brand {
-        box-shadow: inset 0.8px -0.8px 0 1px hsl(240 80% 4% / 25%), 
-                    inset 0 0 0 1px hsl(240 80% 4% / 15%),
-                    inset -0.8px 0.8px 0 1.5px hsl(240 100% 99% / 25%);
-      background: linear-gradient(45deg, hsl(240 100% 50%) 64%, hsl(240 100% 60%) 100%);
-      transition: filter 0.1s ease-in-out;
-    }
-    
-    .button-3d-brand:hover {
-      filter: brightness(0.9);
-    }
+  .button-3d-default {
+    box-shadow: inset 0.8px -0.8px 0 1px hsl(240 80% 4% / 5%),
+      inset 0 0 0 1px hsl(240 80% 4% / 10%),
+      inset -0.8px 0.8px 0 1.5px hsl(240 100% 99% / 50%);
+    background: linear-gradient(45deg, hsl(240 23% 95%) 64%, hsl(240 23% 97%) 100%);
+    transition: filter 0.1s ease-in-out;
   }
+
+  .button-3d-default:hover {
+    filter: brightness(0.97);
+  }
+
+  .button-3d-brand {
+    box-shadow: inset 0.8px -0.8px 0 1px hsl(240 80% 4% / 25%),
+      inset 0 0 0 1px hsl(240 80% 4% / 15%),
+      inset -0.8px 0.8px 0 1.5px hsl(240 100% 99% / 25%);
+    background: linear-gradient(45deg, hsl(240 100% 50%) 64%, hsl(240 100% 60%) 100%);
+    transition: filter 0.1s ease-in-out;
+  }
+
+  .button-3d-brand:hover {
+    filter: brightness(0.9);
+  }
+}

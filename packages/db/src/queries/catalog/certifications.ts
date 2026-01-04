@@ -20,7 +20,7 @@ export async function listCertifications(db: Database, brandId: string) {
       institute_country_code: brandCertifications.instituteCountryCode,
       issue_date: brandCertifications.issueDate,
       expiry_date: brandCertifications.expiryDate,
-      file_path: brandCertifications.filePath,
+      certification_path: brandCertifications.certificationPath,
       created_at: brandCertifications.createdAt,
       updated_at: brandCertifications.updatedAt,
     })
@@ -46,7 +46,7 @@ export async function createCertification(
     instituteCountryCode?: string;
     issueDate?: string;
     expiryDate?: string;
-    filePath?: string;
+    certificationPath?: string;
   },
 ) {
   const [row] = await db
@@ -66,7 +66,7 @@ export async function createCertification(
       instituteCountryCode: input.instituteCountryCode ?? null,
       issueDate: input.issueDate ?? null,
       expiryDate: input.expiryDate ?? null,
-      filePath: input.filePath ?? null,
+      certificationPath: input.certificationPath ?? null,
     })
     .returning({ id: brandCertifications.id });
   return row;
@@ -90,7 +90,7 @@ export async function updateCertification(
     instituteCountryCode: string | null;
     issueDate: string | null;
     expiryDate: string | null;
-    filePath: string | null;
+    certificationPath: string | null;
   }>,
 ) {
   const updateData = buildPartialUpdate({
@@ -107,7 +107,7 @@ export async function updateCertification(
     instituteCountryCode: input.instituteCountryCode ?? null,
     issueDate: input.issueDate ?? null,
     expiryDate: input.expiryDate ?? null,
-    filePath: input.filePath ?? null,
+    certificationPath: input.certificationPath ?? null,
   });
 
   const [row] = await db

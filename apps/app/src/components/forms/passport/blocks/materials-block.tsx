@@ -113,8 +113,8 @@ const MaterialDropdown = ({
               className={cn(
                 "border-b border-border type-p transition-colors",
                 material
-                  ? "text-primary group-hover:text-secondary group-hover:border-secondary"
-                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary",
+                  ? "text-primary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary"
+                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary",
               )}
             >
               {material || "Select material"}
@@ -156,9 +156,9 @@ const MaterialDropdown = ({
                     value={searchQuery.trim()}
                     onSelect={handleCreate}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center">
                       <Icons.Plus className="h-3.5 w-3.5" />
-                      <span className="type-p text-primary">
+                      <span className="type-p text-primary px-1">
                         Create &quot;{searchQuery.trim()}&quot;
                       </span>
                     </div>
@@ -206,12 +206,8 @@ const PercentageCell = ({
   onDelete: () => void;
 }) => {
   const [isHovered, setIsHovered] = React.useState(false);
+  const [isFocused, setIsFocused] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleCellClick = () => {
-    inputRef.current?.focus();
-  };
 
   const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -231,31 +227,46 @@ const PercentageCell = ({
 
   return (
     <div
-      className="flex items-center justify-between w-full h-full px-4 py-2 cursor-text"
+      className="relative w-full h-full"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={handleCellClick}
     >
-      <div className="flex items-center flex-1 min-w-0">
-        <span className="text-tertiary mr-2 type-p">%</span>
-        <input
-          ref={inputRef}
-          type="text"
-          value={percentage}
-          onChange={(e) => handlePercentageChange(e.target.value)}
-          placeholder="Value"
-          className="flex-1 type-p text-primary focus:outline-none placeholder:text-tertiary min-w-0 bg-transparent"
-        />
-      </div>
+      {/* Full-cell input with focus ring */}
+      <Input
+        type="text"
+        value={percentage}
+        onChange={(e) => handlePercentageChange(e.target.value)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        placeholder="Value"
+        className="h-full w-full rounded-none border-0 bg-transparent type-p pl-8 pr-10 focus-visible:ring-[1.5px] focus-visible:ring-brand"
+      />
 
-      <div className="w-6 flex justify-center ml-2" onClick={handleMenuClick}>
+      {/* Absolutely positioned % symbol */}
+      <span
+        className={cn(
+          "absolute left-4 top-1/2 -translate-y-1/2 text-tertiary type-p pointer-events-none",
+          isFocused && "z-10",
+        )}
+      >
+        %
+      </span>
+
+      {/* Absolutely positioned three-dot menu */}
+      <div
+        className={cn(
+          "absolute right-2 top-1/2 -translate-y-1/2",
+          isFocused && "z-10",
+        )}
+        onClick={handleMenuClick}
+      >
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               className={cn(
-                "p-1 hover:bg-accent transition-colors",
-                isHovered ? "opacity-100" : "opacity-0",
+                "p-1 hover:bg-accent data-[state=open]:bg-accent data-[state=open]:opacity-100 rounded transition-colors",
+                isHovered || menuOpen ? "opacity-100" : "opacity-0",
               )}
             >
               <Icons.EllipsisVertical className="h-4 w-4 text-tertiary" />
@@ -273,8 +284,10 @@ const PercentageCell = ({
               }}
               className="text-destructive focus:text-destructive"
             >
-              <Icons.X className="h-4 w-4" />
-              Delete
+              <div className="flex items-center">
+                <Icons.X className="h-4 w-4" />
+                <span className="px-1">Delete</span>
+              </div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -512,6 +525,15 @@ export function MaterialsSection({
   };
 
   const deleteMaterial = (id: string) => {
+    // If deleting the just-created material, clear the safety net
+    // to prevent the useEffect from resurrecting it
+    if (justCreatedMaterial?.id === id) {
+      setJustCreatedMaterial(null);
+      if (justCreatedTimeoutRef.current) {
+        clearTimeout(justCreatedTimeoutRef.current);
+        justCreatedTimeoutRef.current = null;
+      }
+    }
     setDisplayMaterials((prev) =>
       prev.filter((material) => material.id !== id),
     );
@@ -543,7 +565,7 @@ export function MaterialsSection({
       className={cn(
         "relative flex flex-col border border-border bg-background focus:outline-none",
         materialsError &&
-          "border-destructive focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-destructive",
+        "border-destructive focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-destructive",
       )}
       tabIndex={-1}
     >
@@ -568,10 +590,10 @@ export function MaterialsSection({
         </div>
       </div>
 
-      {/* Empty State or Material Rows - with fixed height and scroll */}
-      <div className="h-[200px] overflow-y-auto scrollbar-hide">
+      {/* Empty State or Material Rows - min-height with growth */}
+      <div className="min-h-[200px]">
         {displayMaterials.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 h-full">
+          <div className="flex flex-col items-center justify-center gap-3 h-[200px]">
             <p className="type-p text-tertiary">No materials added</p>
             <Button
               type="button"
@@ -585,7 +607,10 @@ export function MaterialsSection({
           </div>
         ) : (
           displayMaterials.map((material) => (
-            <div key={material.id} className="grid grid-cols-3">
+            <div
+              key={material.id}
+              className="grid grid-cols-3"
+            >
               {/* Material Column */}
               <div className="border-r border-b border-border">
                 <MaterialDropdown
@@ -606,13 +631,13 @@ export function MaterialsSection({
                         prev.map((m) =>
                           m.id === material.id
                             ? {
-                                ...m,
-                                id: selectedMaterial.id, // Update to real ID
-                                name: selectedMaterial.name,
-                                countries: selectedMaterial.country_of_origin
-                                  ? [selectedMaterial.country_of_origin]
-                                  : [],
-                              }
+                              ...m,
+                              id: selectedMaterial.id, // Update to real ID
+                              name: selectedMaterial.name,
+                              countries: selectedMaterial.country_of_origin
+                                ? [selectedMaterial.country_of_origin]
+                                : [],
+                            }
                             : m,
                         ),
                       );
@@ -650,10 +675,10 @@ export function MaterialsSection({
 
       {/* Summary Row */}
       {displayMaterials.length > 0 && (
-        <div className="grid grid-cols-3 -mt-px">
-          <div className="bg-background px-4 py-2 border-t border-b border-border" />
-          <div className="bg-background px-4 py-2 border-t border-b border-border" />
-          <div className="bg-background px-4 py-2 type-small font-medium flex justify-end items-center gap-[6px] border-t border-b border-border">
+        <div className="grid grid-cols-3 border-t border-border -mt-px">
+          <div className="bg-background px-4 py-2" />
+          <div className="bg-background px-4 py-2" />
+          <div className="bg-background px-4 py-2 type-small font-medium flex justify-end items-center gap-[6px]">
             <span
               className={cn(
                 totalPercentage > 100 ? "text-destructive" : "text-primary",

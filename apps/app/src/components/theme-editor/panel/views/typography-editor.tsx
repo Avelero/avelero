@@ -5,12 +5,12 @@ import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
 import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectList,
-    SelectTrigger,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectList,
+  SelectTrigger,
 } from "@v1/ui/select";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { FontSelect } from "@/components/select/font-select";
@@ -90,7 +90,7 @@ function TypographySelect({
         <Button
           variant="outline"
           size="default"
-          className={cn("w-full justify-between", className)}
+          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
         >
           <span
             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}

@@ -300,8 +300,7 @@ export function IntegrationInfoRow({
                 type="button"
                 className={cn(
                   "inline-flex items-center px-1.5 h-6 rounded-full transition-colors duration-100 cursor-pointer",
-                  "hover:bg-accent",
-                  open && "bg-accent"
+                  "hover:bg-accent data-[state=open]:bg-accent"
                 )}
               >
                 <CurrentIcon className="h-3 w-3 text-secondary" />

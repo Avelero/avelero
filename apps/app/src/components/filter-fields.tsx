@@ -102,7 +102,7 @@ function FilterSingleSelect({
         <Button
           variant="outline"
           size="default"
-          className="w-full justify-between"
+          className="w-full justify-between data-[state=open]:bg-accent"
         >
           <span
             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
@@ -195,7 +195,7 @@ function FilterMultiSelect({
         <Button
           variant="outline"
           size="default"
-          className="w-full justify-between"
+          className="w-full justify-between data-[state=open]:bg-accent"
         >
           <span
             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
@@ -588,7 +588,7 @@ export function FilterFieldInput({
               variant="outline"
               size="default"
               className={cn(
-                "justify-between",
+                "justify-between data-[state=open]:bg-accent",
                 operatorNeedsNoValue ? "w-full" : "w-fit",
               )}
             >
@@ -701,7 +701,7 @@ function CategoryPopoverSelect({
         <Button
           variant="outline"
           size="default"
-          className="w-full justify-between"
+          className="w-full justify-between data-[state=open]:bg-accent"
         >
           <span className="truncate px-1">{displayText}</span>
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
@@ -898,7 +898,7 @@ function SizePopoverSelect({
           size="default"
           className="w-full justify-between"
         >
-          <span className="px-1 truncate">{displayText}</span>
+          <span className="px-1 truncate data-[state=open]:bg-accent">{displayText}</span>
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>
@@ -1026,7 +1026,7 @@ function SeasonPopoverSelect({
           size="default"
           className="w-full justify-between"
         >
-          <span className="px-1 truncate">{displayText}</span>
+          <span className="px-1 truncate data-[state=open]:bg-accent">{displayText}</span>
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>

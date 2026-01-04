@@ -109,7 +109,7 @@ export function SeasonSelect({
           variant="outline"
           size="default"
           disabled={disabled}
-          className={cn("w-full justify-between", className)}
+          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
         >
           {value ? (
             <div className="flex items-center gap-2 px-1">

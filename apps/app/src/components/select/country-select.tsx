@@ -71,7 +71,7 @@ export function CountrySelect({
             id={id}
             variant="outline"
             size="default"
-            className="w-full justify-between"
+            className="w-full justify-between data-[state=open]:bg-accent"
           >
             <span
               className={cn("truncate px-1", isPlaceholder && "text-tertiary")}

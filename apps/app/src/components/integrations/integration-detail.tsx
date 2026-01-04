@@ -459,7 +459,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-9 w-9">
+                <Button variant="outline" size="icon" className="h-9 w-9 data-[state=open]:bg-accent">
                   <Icons.EllipsisVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -467,9 +467,9 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
                 {!connection?.isPrimary && (
                   <>
                     <DropdownMenuItem onClick={() => setPromoteModalOpen(true)}>
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center">
                         <Icons.ArrowUp className="h-4 w-4" />
-                        Promote to Primary
+                        <span className="px-1">Promote to Primary</span>
                       </span>
                     </DropdownMenuItem>
                   </>
@@ -478,9 +478,9 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
                   onClick={() => setDisconnectModalOpen(true)}
                   className="text-destructive focus:text-destructive"
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center">
                     <Icons.Unlink className="h-4 w-4" />
-                    Disconnect
+                    <span className="px-1">Disconnect</span>
                   </span>
                 </DropdownMenuItem>
               </DropdownMenuContent>

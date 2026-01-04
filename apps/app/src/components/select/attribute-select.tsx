@@ -760,7 +760,7 @@ export function AttributeSelect({
                     onRemove={() => toggleValue(id)}
                   />
                 ))}
-                <span className="mx-1 border-b border-border type-p text-tertiary group-hover:text-secondary group-hover:border-secondary cursor-pointer transition-colors">
+                <span className="mx-1 border-b border-border type-p text-tertiary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary cursor-pointer transition-colors">
                   Add {dimension.attributeName.toLowerCase()}
                 </span>
               </div>
@@ -801,16 +801,16 @@ export function AttributeSelect({
                     {/* Create option */}
                     {showCreateOption && (
                       <CommandItem onSelect={handleCreateValue}>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center">
                           <Icons.Plus className="h-3.5 w-3.5" />
-                          <span className="type-p text-primary">
+                          <span className="type-p text-primary px-1">
                             Create &quot;{search.trim()}&quot;
                           </span>
                         </div>
                       </CommandItem>
                     )}
                     {filteredOptions.length === 0 && !showCreateOption && (
-                      <CommandEmpty>No items found.</CommandEmpty>
+                      <CommandEmpty>No values found</CommandEmpty>
                     )}
                   </CommandGroup>
                 </CommandList>

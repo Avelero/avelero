@@ -120,7 +120,7 @@ export function DatePicker({
             type="button"
             variant="ghost"
             disabled={disabled}
-            className="absolute top-1/2 right-2 size-6 -translate-y-1/2 p-0"
+            className="absolute top-1/2 right-2 size-6 -translate-y-1/2 p-0 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
           >
             <Icons.Calendar className="h-3.5 w-3.5 text-secondary" />
             <span className="sr-only">Select date</span>

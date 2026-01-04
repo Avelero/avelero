@@ -85,6 +85,7 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
               variant="outline"
               size="icon"
               disabled={isSwitching}
+              className="data-[state=open]:bg-accent"
               aria-label="Brand options"
             >
               <Icons.EllipsisVertical className="w-4 h-4" strokeWidth={1} />

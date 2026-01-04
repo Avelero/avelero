@@ -6,7 +6,6 @@
  */
 import { z } from "zod";
 import {
-  avatarHueSchema,
   emailSchema,
   urlSchema,
   uuidSchema,
@@ -22,7 +21,6 @@ export const updateUserSchema = z.object({
   avatar_url: urlSchema.optional(),
   // new storage path: "<uid>/<file>"
   avatar_path: z.string().optional(),
-  avatar_hue: avatarHueSchema.optional(),
 });
 
 /**

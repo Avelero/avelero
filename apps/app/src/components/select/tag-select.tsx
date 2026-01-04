@@ -295,7 +295,7 @@ export function TagSelect({
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search or create tags..."
+              placeholder="Search..."
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
@@ -336,7 +336,7 @@ export function TagSelect({
                 )}
                 {filteredTags.length === 0 && !showCreateOption && (
                   <CommandEmpty>
-                    {searchTerm ? "No tags found" : "No tags yet"}
+                    {searchTerm ? "No items found." : "Start typing to create..."}
                   </CommandEmpty>
                 )}
               </CommandGroup>
@@ -345,7 +345,7 @@ export function TagSelect({
         ) : (
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Select a color..."
+              placeholder="Search..."
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
@@ -368,7 +368,7 @@ export function TagSelect({
                   </CommandItem>
                 ))}
                 {filteredColors.length === 0 && (
-                  <CommandEmpty>No colors found</CommandEmpty>
+                  <CommandEmpty>No items found.</CommandEmpty>
                 )}
               </CommandGroup>
             </CommandList>

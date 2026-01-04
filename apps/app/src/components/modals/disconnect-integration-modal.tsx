@@ -62,16 +62,11 @@ export function DisconnectIntegrationModal({
         </DialogHeader>
 
         <div className="px-6 py-4 space-y-3">
-          <DialogDescription className="text-secondary">
-            Are you sure you want to disconnect this integration? This will:
+          <DialogDescription className="text-secondary type-p">
+            Are you sure you want to disconnect this integration? This will stop automatic syncing.
           </DialogDescription>
-          <ul className="space-y-1 text-secondary text-sm list-disc list-inside">
-            <li>Stop automatic syncing</li>
-            <li>Remove all field mappings</li>
-            <li>Delete sync history</li>
-          </ul>
-          <p className="text-secondary text-sm">
-            Your product data will <strong className="text-foreground">not</strong> be deleted.
+          <p className="text-secondary type-p">
+            Your product data will <span className="text-foreground font-medium">not</span> be deleted.
           </p>
         </div>
 

@@ -32,6 +32,7 @@ export function ConnectShopifyModal({
   const { data: user } = useUserQuery();
   const [shopDomain, setShopDomain] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const brandId = (user as { brand_id?: string } | null)?.brand_id;
 
@@ -90,6 +91,7 @@ export function ConnectShopifyModal({
     }
 
     // Build the OAuth install URL and redirect
+    setIsConnecting(true);
     const installUrl = new URL(
       `${process.env.NEXT_PUBLIC_API_URL}/integrations/shopify/install`,
     );
@@ -150,8 +152,8 @@ export function ConnectShopifyModal({
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleConnect} disabled={!shopDomain.trim()}>
-            Connect
+          <Button onClick={handleConnect} disabled={!shopDomain.trim() || isConnecting}>
+            {isConnecting ? "Connecting..." : "Connect"}
           </Button>
         </DialogFooter>
       </DialogContent>

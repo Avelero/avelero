@@ -22,7 +22,6 @@ export interface UserRecord {
   readonly email: string | null;
   readonly fullName: string | null;
   readonly avatarPath: string | null;
-  readonly avatarHue: number | null;
   readonly brandId: string | null;
 }
 
@@ -34,7 +33,6 @@ export interface BrandRecord {
   readonly name: string;
   readonly email: string | null;
   readonly logoPath: string | null;
-  readonly avatarHue: number | null;
   readonly countryCode: string | null;
 }
 
@@ -85,7 +83,6 @@ function createUserByIdLoader(
             email: users.email,
             fullName: users.fullName,
             avatarPath: users.avatarPath,
-            avatarHue: users.avatarHue,
             brandId: users.brandId,
           })
           .from(users)
@@ -132,7 +129,6 @@ function createBrandByIdLoader(
           name: brands.name,
           email: brands.email,
           logoPath: brands.logoPath,
-          avatarHue: brands.avatarHue,
           countryCode: brands.countryCode,
         })
         .from(brands)

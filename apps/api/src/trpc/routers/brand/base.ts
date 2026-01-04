@@ -100,9 +100,6 @@ export const brandUpdateProcedure = brandRequiredProcedure
     if (input.logo_url !== undefined) {
       updatePayload.logo_path = extractStoragePath(input.logo_url);
     }
-    if (input.avatar_hue !== undefined) {
-      updatePayload.avatar_hue = input.avatar_hue;
-    }
 
     try {
       const result = await updateBrandRecord(db, user.id, updatePayload);

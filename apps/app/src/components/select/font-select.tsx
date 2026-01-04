@@ -1,13 +1,20 @@
 "use client";
 
-import * as React from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { fonts, type FontMetadata } from "@v1/selections/fonts";
 import type { CustomFont } from "@v1/dpp-components";
+import { type FontMetadata, fonts } from "@v1/selections/fonts";
+import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
 import { Icons } from "@v1/ui/icons";
-import { Button } from "@v1/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import {
+  Select,
+  SelectAction,
+  SelectContent,
+  SelectFooter,
+  SelectSearch,
+  SelectTrigger,
+} from "@v1/ui/select";
+import * as React from "react";
 
 // Pre-sort all fonts alphabetically
 const ALL_FONTS_SORTED = [...fonts].sort((a, b) =>
@@ -130,8 +137,8 @@ export function FontSelect({
   const isPlaceholder = !value;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Select open={open} onOpenChange={setOpen}>
+      <SelectTrigger asChild>
         <Button
           variant="outline"
           size="default"
@@ -145,31 +152,14 @@ export function FontSelect({
           </span>
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0 flex flex-col"
-        align="start"
-      >
-        {/* Search Input */}
-        <div className="flex items-center border-b px-3">
-          <Icons.Search className="mr-2 h-4 w-4 shrink-0 text-tertiary" />
-          <input
-            ref={inputRef}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search fonts..."
-            className="flex h-10 w-full bg-transparent py-3 type-p outline-none placeholder:text-tertiary disabled:cursor-not-allowed disabled:opacity-50"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm("")}
-              className="ml-2 text-tertiary hover:text-secondary"
-            >
-              <Icons.X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+      </SelectTrigger>
+      <SelectContent shouldFilter={false}>
+        <SelectSearch
+          ref={inputRef}
+          placeholder="Search..."
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+        />
 
         {/* Font List */}
         <FontList
@@ -179,21 +169,20 @@ export function FontSelect({
           searchTerm={searchTerm}
           selectedValue={value}
           onSelect={handleSelect}
+          isOpen={open}
         />
 
         {/* Custom Fonts Button - always visible at bottom */}
-        <div className="border-t">
-          <button
-            type="button"
-            onClick={handleManageCustomFonts}
-            className="flex w-full items-center justify-start gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
-          >
-            <Icons.Plus className="h-4 w-4" />
-            <span>Custom fonts</span>
-          </button>
-        </div>
-      </PopoverContent>
-    </Popover>
+        <SelectFooter>
+          <SelectAction onSelect={handleManageCustomFonts}>
+            <div className="flex items-center gap-2">
+              <Icons.Plus className="h-3.5 w-3.5" />
+              <span>Custom fonts</span>
+            </div>
+          </SelectAction>
+        </SelectFooter>
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -208,6 +197,7 @@ interface FontListProps {
   searchTerm: string;
   selectedValue: string | null;
   onSelect: (fontFamily: string) => void;
+  isOpen: boolean;
 }
 
 function FontList({
@@ -217,6 +207,7 @@ function FontList({
   searchTerm,
   selectedValue,
   onSelect,
+  isOpen,
 }: FontListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -246,13 +237,52 @@ function FontList({
   const hasGoogleFonts = filteredGoogleFonts.length > 0;
   const showSectionHeaders = customFonts.length > 0; // Show headers if there are any custom fonts (even if filtered out)
 
+  // Find selected item index for scroll-to-selected
+  const selectedGoogleFontIndex = React.useMemo(() => {
+    if (!selectedValue) return -1;
+    return filteredGoogleFonts.findIndex((f) => f.family === selectedValue);
+  }, [filteredGoogleFonts, selectedValue]);
+
+  const selectedCustomFontIndex = React.useMemo(() => {
+    if (!selectedValue) return -1;
+    return filteredCustomFonts.findIndex(
+      (f) => f.fontFamily.toLowerCase() === selectedValue.toLowerCase(),
+    );
+  }, [filteredCustomFonts, selectedValue]);
+
+  // Calculate initial offset for virtualizer to prevent flicker
+  const initialOffset = React.useMemo(() => {
+    if (searchTerm.trim()) return 0;
+    // Only calculate offset for Google fonts (virtualized section)
+    if (selectedGoogleFontIndex < 0 || selectedCustomFontIndex >= 0) return 0;
+
+    const itemHeight = 32;
+    const viewportHeight = 300;
+    // Center the selected item in the viewport
+    const targetOffset = selectedGoogleFontIndex * itemHeight - viewportHeight / 2 + itemHeight / 2;
+    return Math.max(0, targetOffset);
+  }, [selectedGoogleFontIndex, selectedCustomFontIndex, searchTerm]);
+
   // Virtual list for Google fonts
   const virtualizer = useVirtualizer({
     count: filteredGoogleFonts.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 32,
     overscan: 10,
+    initialOffset,
   });
+
+  // Scroll to selected custom font when opening (non-virtualized)
+  React.useEffect(() => {
+    if (!isOpen || searchTerm.trim()) return;
+    if (selectedCustomFontIndex < 0) return;
+
+    // Immediate scroll for custom fonts section
+    const itemHeight = 32;
+    const headerHeight = showSectionHeaders ? 28 : 0;
+    const scrollTop = headerHeight + selectedCustomFontIndex * itemHeight;
+    scrollRef.current?.scrollTo({ top: Math.max(0, scrollTop - 48) });
+  }, [isOpen, searchTerm, selectedCustomFontIndex, showSectionHeaders]);
 
   // Load fonts for visible Google font items
   const virtualItems = virtualizer.getVirtualItems();
@@ -293,11 +323,7 @@ function FontList({
   const googleFontsHeaderHeight = showSectionHeaders && hasGoogleFonts ? 28 : 0;
 
   return (
-    <div
-      ref={scrollRef}
-      className="overflow-auto"
-      style={{ maxHeight: 300 }}
-    >
+    <div ref={scrollRef} className="overflow-auto p-1" style={{ maxHeight: 300 }}>
       {/* Custom Fonts Section */}
       {hasCustomFonts && (
         <div>

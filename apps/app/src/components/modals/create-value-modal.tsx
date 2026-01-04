@@ -4,6 +4,7 @@ import { type TaxonomyValue, useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
 import {
   Dialog,
   DialogContent,
@@ -11,11 +12,121 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@v1/ui/dialog";
+import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { Label } from "@v1/ui/label";
-import { Select, type SelectOption } from "@v1/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectEmpty,
+  SelectGroup,
+  SelectItem,
+  SelectList,
+  SelectSearch,
+  SelectTrigger,
+} from "@v1/ui/select";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
+
+// ============================================================================
+// Internal Taxonomy Value Select Component
+// ============================================================================
+
+interface TaxonomyValueSelectProps {
+  options: { value: string; label: string; hex: string | null }[];
+  value: string | null;
+  onValueChange: (value: string | null) => void;
+}
+
+function TaxonomyValueSelect({
+  options,
+  value,
+  onValueChange,
+}: TaxonomyValueSelectProps) {
+  const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const query = searchTerm.toLowerCase().trim();
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(query),
+    );
+  }, [options, searchTerm]);
+
+  const selectedOption = options.find((o) => o.value === value);
+  const displayValue = selectedOption?.label || "Select standard value";
+  const isPlaceholder = !selectedOption;
+
+  const handleSelect = (optionValue: string) => {
+    onValueChange(optionValue);
+    setOpen(false);
+    setSearchTerm("");
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label>
+        Link to standard value <span className="text-destructive">*</span>
+      </Label>
+      <Select open={open} onOpenChange={setOpen}>
+        <SelectTrigger asChild>
+          <Button
+            variant="outline"
+            size="default"
+            className="w-full justify-between"
+          >
+            <span
+              className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
+            >
+              {displayValue}
+            </span>
+            <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+          </Button>
+        </SelectTrigger>
+        <SelectContent shouldFilter={false} inline defaultValue={value ?? undefined}>
+          <SelectSearch
+            placeholder="Search..."
+            value={searchTerm}
+            onValueChange={setSearchTerm}
+          />
+          <SelectList>
+            {filteredOptions.length > 0 ? (
+              <SelectGroup>
+                {filteredOptions.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    onSelect={() => handleSelect(option.value)}
+                  >
+                    <div className="flex items-center gap-2">
+                      {option.hex && (
+                        <div
+                          className="h-3.5 w-3.5 rounded-full border border-border"
+                          style={{ backgroundColor: option.hex }}
+                        />
+                      )}
+                      <span className="type-p">{option.label}</span>
+                    </div>
+                    {value === option.value && (
+                      <Icons.Check className="h-4 w-4" />
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ) : (
+              <SelectEmpty>No items found.</SelectEmpty>
+            )}
+          </SelectList>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
 
 interface CreateValueModalProps {
   open: boolean;
@@ -79,18 +190,13 @@ export function CreateValueModal({
   };
 
   // Build select options for taxonomy values
-  const taxonomySelectOptions: SelectOption[] = React.useMemo(() => {
+  const taxonomySelectOptions = React.useMemo(() => {
     return taxonomyValues.map((v) => {
       const hex = getHex(v);
       return {
         value: v.id,
         label: v.name,
-        icon: hex ? (
-          <div
-            className="h-3.5 w-3.5 rounded-full border border-border"
-            style={{ backgroundColor: hex }}
-          />
-        ) : undefined,
+        hex,
       };
     });
   }, [taxonomyValues]);
@@ -243,22 +349,11 @@ export function CreateValueModal({
           <div className="grid grid-cols-2 gap-4">
             {/* Left side: Taxonomy value selector (required for taxonomy-linked) */}
             {hasTaxonomyOptions && (
-              <div className="space-y-1.5">
-                <Label>
-                  Link to standard value{" "}
-                  <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={selectedTaxonomyValueId}
-                  onValueChange={setSelectedTaxonomyValueId}
-                  options={taxonomySelectOptions}
-                  placeholder="Select standard value"
-                  searchable
-                  searchPlaceholder="Search..."
-                  emptyText="No values found"
-                  inline
-                />
-              </div>
+              <TaxonomyValueSelect
+                options={taxonomySelectOptions}
+                value={selectedTaxonomyValueId}
+                onValueChange={setSelectedTaxonomyValueId}
+              />
             )}
 
             {/* Right side: Value name input */}

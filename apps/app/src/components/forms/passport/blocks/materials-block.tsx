@@ -128,7 +128,7 @@ const MaterialDropdown = ({
         >
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search materials..."
+              placeholder="Search..."
               value={searchQuery}
               onValueChange={setSearchQuery}
             />

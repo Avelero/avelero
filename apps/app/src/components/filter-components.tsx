@@ -13,7 +13,16 @@ import {
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import { Select } from "@v1/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectEmpty,
+  SelectGroup,
+  SelectItem,
+  SelectList,
+  SelectSearch,
+  SelectTrigger,
+} from "@v1/ui/select";
 import * as React from "react";
 import { FilterFieldInput } from "./filter-fields";
 import type {
@@ -22,6 +31,93 @@ import type {
   FilterGroup as FilterGroupType,
   FilterOperator,
 } from "./passports/filter-types";
+
+// ============================================================================
+// FieldSelect Component (internal helper)
+// ============================================================================
+
+interface FieldSelectProps {
+  options: { value: string; label: string }[];
+  value: string | null;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+function FieldSelect({
+  options,
+  value,
+  onValueChange,
+  placeholder = "Select...",
+  className,
+}: FieldSelectProps) {
+  const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const query = searchTerm.toLowerCase().trim();
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(query),
+    );
+  }, [options, searchTerm]);
+
+  const selectedOption = options.find((o) => o.value === value);
+  const displayValue = selectedOption?.label || placeholder;
+  const isPlaceholder = !selectedOption;
+
+  const handleSelect = (optionValue: string) => {
+    onValueChange(optionValue);
+    setOpen(false);
+    setSearchTerm("");
+  };
+
+  return (
+    <Select open={open} onOpenChange={setOpen}>
+      <SelectTrigger asChild>
+        <Button
+          variant="outline"
+          size="default"
+          className={cn("justify-between", className)}
+        >
+          <span
+            className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
+          >
+            {displayValue}
+          </span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+        </Button>
+      </SelectTrigger>
+      <SelectContent shouldFilter={false} inline defaultValue={value ?? undefined}>
+        <SelectSearch
+          placeholder="Search..."
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+        />
+        <SelectList>
+          {filteredOptions.length > 0 ? (
+            <SelectGroup>
+              {filteredOptions.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  onSelect={() => handleSelect(option.value)}
+                >
+                  <span className="type-p">{option.label}</span>
+                  {value === option.value && (
+                    <Icons.Check className="h-4 w-4" />
+                  )}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ) : (
+            <SelectEmpty>No items found.</SelectEmpty>
+          )}
+        </SelectList>
+      </SelectContent>
+    </Select>
+  );
+}
 
 // ============================================================================
 // FilterRow Component
@@ -107,17 +203,14 @@ export function FilterRow({
     >
       {/* Field Selector */}
       <div className={cn(isUnselected ? "flex-1 min-w-0" : "flex-none")}>
-        <Select
+        <FieldSelect
           options={categorizedFields.flatMap(({ fields }) =>
             fields.map((f) => ({ value: f.id, label: f.label })),
           )}
           value={condition.fieldId ?? null}
           onValueChange={handleFieldSelect}
           placeholder="Select field..."
-          searchable
-          searchPlaceholder="Search fields..."
           className={isUnselected ? "w-full" : "w-fit"}
-          inline
         />
       </div>
 

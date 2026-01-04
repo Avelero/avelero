@@ -553,15 +553,17 @@ jobs:
   # ============================================
   # Step 4: Deploy App (outputs URL for API)
   # Also deploys when API changes, since deploy-api requires APP_URL
+  # Depends on deploy-dpp to get the DPP URL for passport links
   # ============================================
   deploy-app:
     name: 📱 Deploy App
-    needs: [detect-changes, test-app, setup-database]
+    needs: [detect-changes, test-app, setup-database, deploy-dpp]
     if: |
       always() &&
       (needs.test-app.result == 'success' || needs.test-app.result == 'skipped') &&
       (needs.detect-changes.outputs.app_changed == 'true' || needs.detect-changes.outputs.api_changed == 'true') &&
       (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
+      (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:
@@ -612,6 +614,8 @@ jobs:
           export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
           export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
           export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          # Set DPP URL for passport links (from deploy-dpp output or empty if not deployed)
+          export NEXT_PUBLIC_DPP_URL="${{ needs.deploy-dpp.outputs.url }}"
           bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
       - name: 🚀 Deploy to Vercel
         id: deploy
@@ -934,12 +938,12 @@ jobs:
   # ============================================
   deploy-dpp:
     name: 📋 Deploy DPP
-    needs: [detect-changes, test-dpp, deploy-app]
+    needs: [detect-changes, test-dpp, setup-database]
     if: |
       always() &&
       (needs.test-dpp.result == 'success' || needs.test-dpp.result == 'skipped') &&
       needs.detect-changes.outputs.dpp_changed == 'true' &&
-      (needs.deploy-app.result == 'success' || needs.deploy-app.result == 'skipped') &&
+      (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
       github.event.action != 'closed'
     runs-on: ubuntu-latest
     concurrency:

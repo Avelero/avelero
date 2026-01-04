@@ -29,7 +29,19 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
-import { Select, type SelectOptionGroup } from "@v1/ui/select";
+import {
+    Select,
+    SelectAction,
+    SelectContent,
+    SelectEmpty,
+    SelectFooter,
+    SelectGroup,
+    SelectItem,
+    SelectList,
+    SelectSearch,
+    SelectTrigger,
+} from "@v1/ui/select";
+import { cn } from "@v1/ui/cn";
 import Link from "next/link";
 import * as React from "react";
 import { createPortal } from "react-dom";
@@ -115,6 +127,111 @@ function SortableAttributeRow({
                 setExpanded={setExpanded}
                 dragHandleProps={{ ...attributes, ...listeners }}
             />
+        </div>
+    );
+}
+
+// ============================================================================
+// Empty State Attribute Select
+// ============================================================================
+
+interface EmptyStateAttributeSelectProps {
+    groups: { label: string; options: { value: string; label: string }[] }[];
+    onSelectAttribute: (attrId: string) => void;
+    onAddCustomAttribute: () => void;
+}
+
+function EmptyStateAttributeSelect({
+    groups,
+    onSelectAttribute,
+    onAddCustomAttribute,
+}: EmptyStateAttributeSelectProps) {
+    const [open, setOpen] = React.useState(false);
+    const [searchTerm, setSearchTerm] = React.useState("");
+
+    // Flatten options for filtering
+    const allOptions = React.useMemo(() => {
+        return groups.flatMap((g) => g.options);
+    }, [groups]);
+
+    const filteredGroups = React.useMemo(() => {
+        if (!searchTerm.trim()) return groups;
+        const query = searchTerm.toLowerCase().trim();
+        return groups
+            .map((g) => ({
+                ...g,
+                options: g.options.filter((o) =>
+                    o.label.toLowerCase().includes(query),
+                ),
+            }))
+            .filter((g) => g.options.length > 0);
+    }, [groups, searchTerm]);
+
+    const handleSelect = (attrId: string) => {
+        onSelectAttribute(attrId);
+        setOpen(false);
+        setSearchTerm("");
+    };
+
+    const handleAddCustom = () => {
+        onAddCustomAttribute();
+        setOpen(false);
+        setSearchTerm("");
+    };
+
+    return (
+        <div className="space-y-1.5">
+            <Label>Attribute</Label>
+            <Select open={open} onOpenChange={setOpen}>
+                <SelectTrigger asChild>
+                    <Button
+                        variant="outline"
+                        size="default"
+                        className="w-full justify-between"
+                    >
+                        <span className="truncate px-1 text-tertiary">
+                            Select attribute
+                        </span>
+                        <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+                    </Button>
+                </SelectTrigger>
+                <SelectContent shouldFilter={false}>
+                    <SelectSearch
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onValueChange={setSearchTerm}
+                    />
+                    <SelectList>
+                        {filteredGroups.length > 0 ? (
+                            filteredGroups.map((group) => (
+                                <SelectGroup key={group.label || "default"} heading={group.label || undefined}>
+                                    {group.options.map((option) => (
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                            onSelect={() => handleSelect(option.value)}
+                                        >
+                                            <span className="type-p text-primary">
+                                                {option.label}
+                                            </span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            ))
+                        ) : (
+                            <SelectEmpty>No items found.</SelectEmpty>
+                        )}
+                    </SelectList>
+                    <SelectFooter>
+                        <SelectAction onSelect={handleAddCustom}>
+                            <div className="flex items-center gap-2">
+                                <Icons.Plus className="h-4 w-4" />
+                                <span>Add custom attribute</span>
+                            </div>
+                        </SelectAction>
+                    </SelectFooter>
+                </SelectContent>
+            </Select>
         </div>
     );
 }
@@ -269,8 +386,8 @@ export function VariantSection({
     }, [taxonomyAttributes, brandAttributes]);
 
     // Build select groups for empty state Select
-    const selectGroups = React.useMemo((): SelectOptionGroup[] => {
-        const groups: SelectOptionGroup[] = [];
+    const selectGroups = React.useMemo((): { label: string; options: { value: string; label: string }[] }[] => {
+        const groups: { label: string; options: { value: string; label: string }[] }[] = [];
 
         // Custom attributes first
         const customOptions = brandAttributes
@@ -1062,28 +1179,11 @@ export function VariantSection({
                     </div>
                 ) : (
                     // Empty state: show simple attribute select with label
-                    <div className="space-y-1.5">
-                        <Label>Attribute</Label>
-                        <Select
-                            value={null}
-                            onValueChange={handleSelectAttribute}
-                            groups={selectGroups}
-                            placeholder="Select attribute"
-                            searchable
-                            searchPlaceholder="Search attributes..."
-                            emptyText="No attributes found"
-                            footer={
-                                <button
-                                    type="button"
-                                    onClick={handleAddCustomAttribute}
-                                    className="flex w-full items-center px-3 py-2 text-left type-p text-foreground hover:bg-accent transition-colors"
-                                >
-                                    <Icons.Plus className="h-4 w-4" />
-                                    <span className="px-1">Add custom attribute</span>
-                                </button>
-                            }
-                        />
-                    </div>
+                    <EmptyStateAttributeSelect
+                        groups={selectGroups}
+                        onSelectAttribute={handleSelectAttribute}
+                        onAddCustomAttribute={handleAddCustomAttribute}
+                    />
                 )}
             </div>
 

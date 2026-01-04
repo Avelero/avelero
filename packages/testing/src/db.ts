@@ -87,11 +87,16 @@ export async function closeTestDb(): Promise<void> {
  * Returns the brand ID for use in tests.
  */
 export async function createTestBrand(name = "Test Brand"): Promise<string> {
+    // Generate unique slug with random suffix to prevent collisions
+    // when tests run concurrently or cleanup is incomplete
+    const randomSuffix = Math.random().toString(36).substring(2, 10);
+    const baseSlug = name.toLowerCase().replace(/\s+/g, "-");
+
     const [brand] = await testDb
         .insert(schema.brands)
         .values({
             name,
-            slug: name.toLowerCase().replace(/\s+/g, "-"),
+            slug: `${baseSlug}-${randomSuffix}`,
         })
         .returning({ id: schema.brands.id });
 

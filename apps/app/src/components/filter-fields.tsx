@@ -17,8 +17,17 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { MinMaxInput } from "@v1/ui/min-max";
-import { Select } from "@v1/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectEmpty,
+  SelectGroup,
+  SelectItem,
+  SelectList,
+  SelectSearch,
+  SelectTrigger,
+} from "@v1/ui/select";
 import {
   Command,
   CommandEmpty,
@@ -41,6 +50,194 @@ interface FilterFieldInputProps {
   value: FilterValue;
   onOperatorChange: (operator: FilterOperator) => void;
   onValueChange: (value: FilterValue) => void;
+}
+
+// ============================================================================
+// Internal Select Components
+// ============================================================================
+
+interface FilterSelectOption {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+}
+
+function FilterSingleSelect({
+  options,
+  value,
+  onValueChange,
+  placeholder = "Select...",
+  isLoading = false,
+}: {
+  options: FilterSelectOption[];
+  value: string | null;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  isLoading?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const query = searchTerm.toLowerCase().trim();
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(query),
+    );
+  }, [options, searchTerm]);
+
+  const selectedOption = options.find((o) => o.value === value);
+  const displayValue = selectedOption?.label || placeholder;
+  const isPlaceholder = !selectedOption;
+
+  const handleSelect = (optionValue: string) => {
+    onValueChange(optionValue);
+    setOpen(false);
+    setSearchTerm("");
+  };
+
+  return (
+    <Select open={open} onOpenChange={setOpen}>
+      <SelectTrigger asChild>
+        <Button
+          variant="outline"
+          size="default"
+          className="w-full justify-between"
+        >
+          <span
+            className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
+          >
+            {isLoading ? "Loading..." : displayValue}
+          </span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+        </Button>
+      </SelectTrigger>
+      <SelectContent shouldFilter={false} inline defaultValue={value ?? undefined}>
+        <SelectSearch
+          placeholder="Search..."
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+        />
+        <SelectList>
+          {filteredOptions.length > 0 ? (
+            <SelectGroup>
+              {filteredOptions.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  onSelect={() => handleSelect(option.value)}
+                >
+                  <div className="flex items-center gap-2">
+                    {option.icon}
+                    <span className="type-p">{option.label}</span>
+                  </div>
+                  {value === option.value && (
+                    <Icons.Check className="h-4 w-4" />
+                  )}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ) : (
+            <SelectEmpty>No items found.</SelectEmpty>
+          )}
+        </SelectList>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function FilterMultiSelect({
+  options,
+  value,
+  onValueChange,
+  placeholder = "Select...",
+  isLoading = false,
+}: {
+  options: FilterSelectOption[];
+  value: string[];
+  onValueChange: (value: string[]) => void;
+  placeholder?: string;
+  isLoading?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const query = searchTerm.toLowerCase().trim();
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(query),
+    );
+  }, [options, searchTerm]);
+
+  const displayValue = React.useMemo(() => {
+    if (value.length === 0) return placeholder;
+    if (value.length === 1) {
+      const firstValue = value[0];
+      const option = options.find((o) => o.value === firstValue);
+      return option?.label ?? "1 selected";
+    }
+    return `${value.length} selected`;
+  }, [value, options, placeholder]);
+
+  const isPlaceholder = value.length === 0;
+
+  const handleToggle = (optionValue: string) => {
+    const newValue = value.includes(optionValue)
+      ? value.filter((v) => v !== optionValue)
+      : [...value, optionValue];
+    onValueChange(newValue);
+  };
+
+  return (
+    <Select open={open} onOpenChange={setOpen}>
+      <SelectTrigger asChild>
+        <Button
+          variant="outline"
+          size="default"
+          className="w-full justify-between"
+        >
+          <span
+            className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
+          >
+            {isLoading ? "Loading..." : displayValue}
+          </span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+        </Button>
+      </SelectTrigger>
+      <SelectContent shouldFilter={false} inline defaultValue={value[0]}>
+        <SelectSearch
+          placeholder="Search..."
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+        />
+        <SelectList>
+          {filteredOptions.length > 0 ? (
+            <SelectGroup>
+              {filteredOptions.map((option) => {
+                const isSelected = value.includes(option.value);
+                return (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    onSelect={() => handleToggle(option.value)}
+                  >
+                    <div className="flex items-center gap-2">
+                      {option.icon}
+                      <span className="type-p">{option.label}</span>
+                    </div>
+                    {isSelected && <Icons.Check className="h-4 w-4" />}
+                  </SelectItem>
+                );
+              })}
+            </SelectGroup>
+          ) : (
+            <SelectEmpty>No items found.</SelectEmpty>
+          )}
+        </SelectList>
+      </SelectContent>
+    </Select>
+  );
 }
 
 /**
@@ -197,14 +394,12 @@ export function FilterFieldInput({
       case "select": {
         const options = fieldConfig.options ?? dynamicOptions;
         return operatorNeedsNoValue ? null : (
-          <Select
+          <FilterSingleSelect
             options={options}
-            value={value as string}
+            value={(value as string) ?? null}
             onValueChange={onValueChange}
             placeholder="Select..."
-            searchable
-            loading={isLoading}
-            inline
+            isLoading={isLoading}
           />
         );
       }
@@ -245,15 +440,12 @@ export function FilterFieldInput({
           enhancedMultiSelectOptions ?? fieldConfig.options ?? dynamicOptions;
 
         return operatorNeedsNoValue ? null : (
-          <Select
-            multiple
+          <FilterMultiSelect
             options={options}
             value={(value as string[]) ?? []}
             onValueChange={onValueChange}
             placeholder="Select..."
-            searchable
-            loading={isLoading}
-            inline
+            isLoading={isLoading}
           />
         );
       }
@@ -351,7 +543,7 @@ export function FilterFieldInput({
 
       case "date-relative": {
         return (
-          <Select
+          <FilterSingleSelect
             options={RELATIVE_DATE_OPTIONS}
             value={(value as any)?.option ?? null}
             onValueChange={(option: string) => {
@@ -359,7 +551,6 @@ export function FilterFieldInput({
               onValueChange({ type: "relative", option: option as any });
             }}
             placeholder="Select..."
-            inline
           />
         );
       }

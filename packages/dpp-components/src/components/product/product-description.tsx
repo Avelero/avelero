@@ -85,13 +85,14 @@ export function ProductDescription({
       <div className="description-wrapper">
         <div
           id={descriptionId}
-          className={`relative overflow-hidden ${isExpanded ? "max-h-[1000px]" : "max-h-[3em]"}`}
+          className={`relative overflow-hidden ${showButton && !isExpanded ? "max-h-[3em]" : ""}`}
         >
           <p ref={textRef} className="product__description">
             {description}
           </p>
 
-          {!isExpanded && (
+          {/* Only show fade gradient when text is truncated (showButton=true and not expanded) */}
+          {showButton && !isExpanded && (
             <div
               className="absolute bottom-0 left-0 right-0 h-[1.5em] pointer-events-none"
               style={{

@@ -62,7 +62,6 @@ interface MinimalUserRecord {
   email: string | null;
   fullName: string | null;
   avatarPath: string | null;
-  avatarHue: number | null;
   brandId: string | null;
 }
 
@@ -144,7 +143,6 @@ function mapUserProfile(
     email,
     full_name: record.fullName ?? null,
     avatar_url: buildUserAvatarUrl(record.avatarPath),
-    avatar_hue: record.avatarHue ?? null,
     brand_id: record.brandId ?? null,
   };
 }
@@ -158,13 +156,12 @@ function mapUserProfile(
 function mapInvite(invite: UserInviteSummaryRow) {
   return {
     id: invite.id,
+    brand_id: invite.brandId ?? null,
     brand_name: invite.brandName,
     brand_logo: buildBrandLogoUrl(invite.brandLogoPath ?? null),
-    brand_avatar_hue: invite.brandAvatarHue ?? null,
     role: invite.role,
     invited_by: invite.invitedByFullName ?? invite.invitedByEmail ?? null,
     invited_by_avatar_url: buildUserAvatarUrl(invite.invitedByAvatarPath),
-    invited_by_avatar_hue: invite.invitedByAvatarHue ?? null,
     created_at: invite.createdAt,
     expires_at: invite.expiresAt,
   };
@@ -209,7 +206,6 @@ async function mapWorkflowBrands(
       slug: membership.slug ?? null,
       email: membership.email ?? null,
       country_code: membership.country_code ?? null,
-      avatar_hue: membership.avatar_hue ?? null,
       logo_url: buildBrandLogoUrl(membership.logo_path ?? null),
       role,
       canLeave: canLeaveFromRole(role, ownerCount),
@@ -235,7 +231,6 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
       email: users.email,
       fullName: users.fullName,
       avatarPath: users.avatarPath,
-      avatarHue: users.avatarHue,
       role: brandMembers.role,
     })
     .from(brandMembers)
@@ -257,7 +252,6 @@ async function fetchWorkflowMembers(db: Database, brandId: string) {
       email: member.email ?? null,
       full_name: member.fullName ?? null,
       avatar_url: buildUserAvatarUrl(member.avatarPath),
-      avatar_hue: member.avatarHue ?? null,
       role,
       canLeave: canLeaveFromRole(role, ownerCount),
     };

@@ -810,7 +810,7 @@ export function AttributeSelect({
                       </CommandItem>
                     )}
                     {filteredOptions.length === 0 && !showCreateOption && (
-                      <CommandEmpty>No values found</CommandEmpty>
+                      <CommandEmpty>No items found.</CommandEmpty>
                     )}
                   </CommandGroup>
                 </CommandList>

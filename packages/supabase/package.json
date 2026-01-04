@@ -7,7 +7,7 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "types:generate": "supabase gen types typescript --local > src/types/db.ts && biome format --write src/types/db.ts"
+    "types:generate": "supabase gen types typescript --local --workdir ../../apps/api > src/types/db.ts && biome format --write src/types/db.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

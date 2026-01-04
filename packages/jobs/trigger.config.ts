@@ -30,8 +30,8 @@ export const config: TriggerConfig = {
         // - feature branches: Dynamic per-branch environments (feature-specific API URLs)
         // - prod: Production main branch only (api.avelero.com)
         //
-        // This extension reads API_URL and INTERNAL_API_KEY from GitHub Actions
-        // environment and syncs them to Trigger.dev for runtime access
+        // This extension reads environment variables from GitHub Actions
+        // and syncs them to Trigger.dev for runtime access
         const envVars = [];
 
         if (process.env.API_URL) {
@@ -52,6 +52,36 @@ export const config: TriggerConfig = {
           });
         }
 
+        // Database and Supabase environment variables
+        // These are extracted from the Supabase preview branch and passed from the workflow
+        if (process.env.DATABASE_URL) {
+          envVars.push({
+            name: "DATABASE_URL",
+            value: process.env.DATABASE_URL,
+          });
+        }
+
+        if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          envVars.push({
+            name: "NEXT_PUBLIC_SUPABASE_URL",
+            value: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          });
+        }
+
+        if (process.env.SUPABASE_SERVICE_KEY) {
+          envVars.push({
+            name: "SUPABASE_SERVICE_KEY",
+            value: process.env.SUPABASE_SERVICE_KEY,
+          });
+        }
+
+        if (process.env.RESEND_API_KEY) {
+          envVars.push({
+            name: "RESEND_API_KEY",
+            value: process.env.RESEND_API_KEY,
+          });
+        }
+
         console.log(`[syncEnvVars] Environment: ${ctx.environment}`);
         console.log(
           `[syncEnvVars] Syncing ${envVars.length} environment variables`,
@@ -64,6 +94,18 @@ export const config: TriggerConfig = {
         );
         console.log(
           `[syncEnvVars] BRANCH_NAME: ${process.env.BRANCH_NAME ? "SET" : "NOT SET"}`,
+        );
+        console.log(
+          `[syncEnvVars] DATABASE_URL: ${process.env.DATABASE_URL ? "SET" : "NOT SET"}`,
+        );
+        console.log(
+          `[syncEnvVars] NEXT_PUBLIC_SUPABASE_URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "NOT SET"}`,
+        );
+        console.log(
+          `[syncEnvVars] SUPABASE_SERVICE_KEY: ${process.env.SUPABASE_SERVICE_KEY ? "SET" : "NOT SET"}`,
+        );
+        console.log(
+          `[syncEnvVars] RESEND_API_KEY: ${process.env.RESEND_API_KEY ? "SET" : "NOT SET"}`,
         );
 
         return envVars;

@@ -19,7 +19,7 @@ export default function AccountLayout({
     <div className="flex flex-col h-full">
       <ControlBar>
         <ControlBarLeft>
-          <ControlBarNavButton href="/account">General</ControlBarNavButton>
+          <ControlBarNavButton href="/account" exact>General</ControlBarNavButton>
           <ControlBarNavButton href="/account/brands">
             Brands
           </ControlBarNavButton>

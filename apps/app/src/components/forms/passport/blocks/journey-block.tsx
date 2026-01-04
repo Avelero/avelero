@@ -138,7 +138,7 @@ const StepDropdown = ({
         >
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search steps..."
+              placeholder="Search..."
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
@@ -323,7 +323,7 @@ const OperatorCell = ({
         >
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search operators..."
+              placeholder="Search..."
               value={searchQuery}
               onValueChange={setSearchQuery}
             />

@@ -132,7 +132,6 @@ export function SetupForm() {
           entityId={userId}
           avatarUrl={avatarUrl}
           name={fullName || undefined}
-          hue={null} // important: no fallback hue before submit
           size={72}
           onUpload={onAvatarUpload}
         />

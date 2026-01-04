@@ -24,7 +24,6 @@ interface BrandWithRole {
   logoUrl?: string | null;
   role: "owner" | "member" | null;
   canLeave: boolean;
-  avatarHue?: number | null;
   email?: string | null;
   countryCode?: string | null;
 }
@@ -32,9 +31,9 @@ interface BrandWithRole {
 interface InviteRow {
   id: string;
   role: string;
+  brand_id?: string | null;
   brand_name: string | null;
   brand_logo: string | null;
-  brand_avatar_hue?: number | null;
 }
 
 type Props = { membership: BrandWithRole } | { invite: InviteRow };
@@ -60,8 +59,8 @@ function MembershipRow({ membership }: { membership: BrandWithRole }) {
       <div className="flex items-center gap-3">
         <SignedAvatar
           bucket="brand-avatars"
+          id={membership.id}
           url={membership.logoUrl ?? undefined}
-          hue={membership.avatarHue ?? undefined}
           size={32}
           name={membership.name}
         />
@@ -136,9 +135,9 @@ function InviteRowComp({ invite }: { invite: InviteRow }) {
       <div className="flex items-center gap-3">
         <SignedAvatar
           bucket="brand-avatars"
+          id={invite.brand_id ?? invite.id}
           url={invite.brand_logo}
           name={invite.brand_name ?? undefined}
-          hue={invite.brand_avatar_hue ?? undefined}
           size={32}
         />
         <div className="flex flex-col">

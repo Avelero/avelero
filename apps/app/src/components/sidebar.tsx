@@ -2,7 +2,7 @@
 
 import { cn } from "@v1/ui/cn";
 import { useEffect, useRef, useState } from "react";
-import { BrandDropdown } from "./brand-dropdown";
+import { BrandDropdown } from "./select/brand-select";
 import { MainMenu } from "./main-menu";
 import { EditorMenu } from "./editor-menu";
 

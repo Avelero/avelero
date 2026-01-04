@@ -22,7 +22,6 @@ interface BrandWithRoleLocal {
   logoUrl?: string | null;
   role: "owner" | "member" | null;
   canLeave: boolean;
-  avatarHue?: number | null;
   email?: string | null;
   countryCode?: string | null;
 }
@@ -55,7 +54,6 @@ export function BrandsTable() {
                 ? "member"
                 : null,
           canLeave: m.canLeave ?? false,
-          avatarHue: m.avatar_hue ?? null,
           email: (m as { email?: string | null })?.email ?? null,
           countryCode:
             (m as { country_code?: string | null })?.country_code ?? null,
@@ -74,9 +72,9 @@ export function BrandsTable() {
         .map((i) => ({
           id: i.id,
           role: i.role as "owner" | "member",
+          brand_id: i.brand_id ?? null,
           brand_name: i.brand_name as string,
           brand_logo: i.brand_logo ?? null,
-          brand_avatar_hue: i.brand_avatar_hue ?? null,
         })),
     [invites],
   );

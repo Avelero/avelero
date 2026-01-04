@@ -1,23 +1,25 @@
 "use client";
 
+import { getAvatarColor } from "@/utils/avatar-color";
 import { SmartAvatar } from "@v1/ui/avatar";
 
 type Props = {
   bucket: "avatars" | "brand-avatars";
+  /** The UUID to derive the fallback color from (user.id or brand.id) */
+  id: string;
   path?: string | null;
   url?: string | null;
   name?: string | null;
-  hue?: number | null;
   size?: number;
   loading?: boolean;
 };
 
 export function SignedAvatar({
   bucket,
+  id,
   path,
   url,
   name,
-  hue,
   size = 40,
   loading,
 }: Props) {
@@ -50,16 +52,17 @@ export function SignedAvatar({
       .join("/")}`;
   }
 
-  // Only show hue color if there's no image source
-  const effectiveHue = src ? null : hue;
+  // Only compute color if there's no image source
+  const effectiveColor = src ? undefined : getAvatarColor(id);
 
   return (
     <SmartAvatar
       size={size}
       name={name ?? undefined}
       src={src}
-      hue={effectiveHue ?? undefined}
+      color={effectiveColor}
       loading={loading}
     />
   );
 }
+

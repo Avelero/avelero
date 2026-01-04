@@ -9,6 +9,7 @@ import { cn } from "@v1/ui/cn";
 import { toast } from "@v1/ui/sonner";
 import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { removeFolderContents, validateImageFile } from "@/utils/upload";
+import { getAvatarColor } from "@/utils/avatar-color";
 
 type Entity = "user" | "brand";
 
@@ -19,7 +20,6 @@ interface AvatarUploadProps {
   // display props
   avatarUrl?: string | null; // legacy prop, now path if provided
   name?: string | null;
-  hue?: number | null;
 
   size?: number;
   className?: string;
@@ -38,7 +38,6 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
       entityId,
       avatarUrl: initialUrl,
       name,
-      hue,
       size = 52,
       className,
       onUpload,
@@ -215,18 +214,20 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
         {(() => {
           const hasInitialPath = Boolean(
             initialUrl &&
-              !/^https?:\/\//i.test(initialUrl) &&
-              !initialUrl.startsWith("/"),
+            !/^https?:\/\//i.test(initialUrl) &&
+            !initialUrl.startsWith("/"),
           );
           const isAwaitingSignedUrl = hasInitialPath && !avatar;
           const effectiveLoading = Boolean(isLoading) || isAwaitingSignedUrl;
+          // Derive color from entityId when no avatar image
+          const effectiveColor = avatar ? undefined : getAvatarColor(entityId);
 
           return (
             <Avatar
               size={size}
               name={name ?? undefined}
               src={avatar ?? undefined}
-              hue={hue ?? undefined}
+              color={effectiveColor}
               loading={effectiveLoading}
             />
           );

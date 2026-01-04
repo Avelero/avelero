@@ -8,19 +8,21 @@ import { type CurrentUser, useUserQuerySuspense } from "@/hooks/use-user";
 import { SmartAvatar } from "@v1/ui/avatar";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
-import Link from "next/link";
-import { Suspense } from "react";
-import { SignedAvatar } from "./signed-avatar";
+import {
+  Select,
+  SelectAction,
+  SelectContent,
+  SelectFooter,
+  SelectGroup,
+  SelectHeader,
+  SelectItem,
+  SelectList,
+  SelectTrigger,
+} from "@v1/ui/select";
+import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { SignedAvatar } from "../signed-avatar";
 
 interface Brand {
   id: string;
@@ -30,21 +32,19 @@ interface Brand {
   canLeave?: boolean;
   email?: string | null;
   country_code?: string | null;
-  avatar_hue?: number | null;
 }
 
-interface BrandDropdownProps {
+interface BrandSelectProps {
   isExpanded: boolean;
   onPopupChange: (isOpen: boolean) => void;
 }
 
-function BrandDropdownContent({
-  isExpanded,
-  onPopupChange,
-}: BrandDropdownProps) {
+function BrandSelectContent({ isExpanded, onPopupChange }: BrandSelectProps) {
   const { data: brandsData } = useUserBrandsQuerySuspense();
   const { data: user } = useUserQuerySuspense();
   const setActiveBrandMutation = useSetActiveBrandMutation();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
 
   const brands: Brand[] = (brandsData as Brand[] | undefined) ?? [];
   const currentUser = user as CurrentUser | null | undefined;
@@ -54,12 +54,18 @@ function BrandDropdownContent({
   const handleBrandSelect = (brandId: string) => {
     if (brandId !== currentUser?.brand_id && !isSwitching) {
       setActiveBrandMutation.mutate({ brand_id: brandId });
+      setOpen(false);
     }
   };
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    onPopupChange(isOpen);
+  };
+
   return (
-    <DropdownMenu onOpenChange={onPopupChange}>
-      <DropdownMenuTrigger asChild disabled={isSwitching}>
+    <Select open={open} onOpenChange={handleOpenChange}>
+      <SelectTrigger asChild disabled={isSwitching}>
         {/* Button is the sole interactive host. All visuals are inside. */}
         <Button
           variant="ghost"
@@ -83,10 +89,10 @@ function BrandDropdownContent({
           <div className="absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center pointer-events-none">
             <SignedAvatar
               bucket="brand-avatars"
+              id={activeBrand?.id ?? ""}
               size={24}
               name={activeBrand?.name}
               url={activeBrand?.logo_url ?? undefined}
-              hue={activeBrand?.avatar_hue ?? undefined}
             />
           </div>
 
@@ -116,58 +122,50 @@ function BrandDropdownContent({
             <Icons.ChevronsUpDown className="h-4 w-4 text-secondary transition-colors group-hover:text-primary" />
           </div>
         </Button>
-      </DropdownMenuTrigger>
+      </SelectTrigger>
 
-      <DropdownMenuContent
-        className="w-[240px]"
-        sideOffset={8} // match the 8px grid of the sidebar padding
-        align="start"
-      >
-        <DropdownMenuLabel>Select Brand</DropdownMenuLabel>
+      <SelectContent className="w-[240px]" sideOffset={8} shouldFilter={false}>
+        <SelectHeader>Select Brand</SelectHeader>
 
-        <DropdownMenuSeparator />
+        <SelectList>
+          <SelectGroup>
+            {brands.map((brand: Brand) => (
+              <SelectItem
+                key={brand.id}
+                value={brand.id}
+                disabled={isSwitching}
+                onSelect={() => handleBrandSelect(brand.id)}
+                className={cn(
+                  currentUser?.brand_id === brand.id && "bg-accent",
+                  isSwitching && "opacity-50",
+                )}
+              >
+                <span className="type-p truncate">{brand.name}</span>
+                {currentUser?.brand_id === brand.id && (
+                  <Icons.Check className="h-4 w-4 flex-shrink-0" />
+                )}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectList>
 
-        <DropdownMenuGroup>
-          {brands.map((brand: Brand) => (
-            <DropdownMenuItem
-              key={brand.id}
-              disabled={isSwitching}
-              className={cn(
-                "cursor-pointer",
-                currentUser?.brand_id === brand.id && "bg-accent",
-                isSwitching && "opacity-50",
-              )}
-              onClick={() => handleBrandSelect(brand.id)}
-            >
-              <span className="type-p truncate">{brand.name}</span>
-              {currentUser?.brand_id === brand.id && (
-                <Icons.Check className="ml-auto h-4 w-4 flex-shrink-0" />
-              )}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuGroup>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuGroup>
-          <DropdownMenuItem
-            asChild
-            className="cursor-pointer"
+        <SelectFooter>
+          <SelectAction
             disabled={isSwitching}
+            onSelect={() => router.push("/create-brand")}
           >
-            <Link href="/create-brand" prefetch>
-              <div className="flex items-center gap-2">
-                <span className="type-p">Create Brand</span>
-              </div>
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <Icons.Plus className="h-3.5 w-3.5" />
+              <span>Create Brand</span>
+            </div>
+          </SelectAction>
+        </SelectFooter>
+      </SelectContent>
+    </Select>
   );
 }
 
-function BrandDropdownSkeleton() {
+function BrandSelectSkeleton() {
   return (
     <div className="relative h-10 w-full rounded-full border border-transparent">
       <div className="absolute inset-y-0 left-0 w-10 h-10 flex items-center justify-center">
@@ -177,10 +175,13 @@ function BrandDropdownSkeleton() {
   );
 }
 
-export function BrandDropdown(props: BrandDropdownProps) {
+export function BrandSelect(props: BrandSelectProps) {
   return (
-    <Suspense fallback={<BrandDropdownSkeleton />}>
-      <BrandDropdownContent {...props} />
+    <Suspense fallback={<BrandSelectSkeleton />}>
+      <BrandSelectContent {...props} />
     </Suspense>
   );
 }
+
+// Re-export with old name for backwards compatibility during migration
+export { BrandSelect as BrandDropdown };

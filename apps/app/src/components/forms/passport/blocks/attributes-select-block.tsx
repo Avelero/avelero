@@ -11,8 +11,20 @@ import { CreateValueModal } from "@/components/modals/create-value-modal";
 import { useAttributes } from "@/hooks/use-attributes";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
-import { Select, type SelectOption } from "@v1/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectEmpty,
+  SelectGroup,
+  SelectItem,
+  SelectList,
+  SelectSearch,
+  SelectTrigger,
+} from "@v1/ui/select";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
@@ -69,16 +81,11 @@ function DimensionSelect({
     );
 
     // Convert to Select options format with color swatch icons
-    const selectOptions: SelectOption[] = React.useMemo(() => {
+    const selectOptions = React.useMemo(() => {
         return availableOptions.map((opt) => ({
             value: opt.id,
             label: opt.name,
-            icon: opt.hex ? (
-                <div
-                    className="h-3.5 w-3.5 rounded-full border border-border"
-                    style={{ backgroundColor: opt.hex }}
-                />
-            ) : undefined,
+            hex: opt.hex,
         }));
     }, [availableOptions]);
 
@@ -169,21 +176,109 @@ function DimensionSelect({
         onValueChange(created.id);
     };
 
+    const [open, setOpen] = React.useState(false);
+    const [searchTerm, setSearchTerm] = React.useState("");
+
+    const filteredOptions = React.useMemo(() => {
+        if (!searchTerm.trim()) return selectOptions;
+        const query = searchTerm.toLowerCase().trim();
+        return selectOptions.filter((option) =>
+            option.label.toLowerCase().includes(query),
+        );
+    }, [selectOptions, searchTerm]);
+
+    const selectedOption = selectOptions.find((o) => o.value === selectedValueId);
+    const displayValue = selectedOption?.label || `Select ${dimension.attributeName.toLowerCase()}`;
+    const isPlaceholder = !selectedOption;
+
+    const showCreateOption =
+        searchTerm.trim() &&
+        !selectOptions.some(
+            (o) => o.label.toLowerCase() === searchTerm.trim().toLowerCase(),
+        );
+
+    const handleSelect = (optionValue: string) => {
+        onValueChange(optionValue);
+        setOpen(false);
+        setSearchTerm("");
+    };
+
+    const handleCreateClick = () => {
+        handleCreateNew(searchTerm.trim());
+        setOpen(false);
+        setSearchTerm("");
+    };
+
     return (
         <div className="space-y-1.5">
             <Label>{dimension.attributeName}</Label>
-            <Select
-                value={selectedValueId ?? null}
-                onValueChange={onValueChange}
-                options={selectOptions}
-                placeholder={`Select ${dimension.attributeName.toLowerCase()}`}
-                searchable
-                searchPlaceholder={`Search ${dimension.attributeName.toLowerCase()}...`}
-                emptyText="No values found"
-                hasCreateOption
-                onCreateNew={handleCreateNew}
-                createLabel="Create"
-            />
+            <Select open={open} onOpenChange={setOpen}>
+                <SelectTrigger asChild>
+                    <Button
+                        variant="outline"
+                        size="default"
+                        className="w-full justify-between"
+                    >
+                        <span
+                            className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
+                        >
+                            {displayValue}
+                        </span>
+                        <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+                    </Button>
+                </SelectTrigger>
+                <SelectContent shouldFilter={false} defaultValue={selectedValueId}>
+                    <SelectSearch
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onValueChange={setSearchTerm}
+                    />
+                    <SelectList>
+                        {filteredOptions.length > 0 ? (
+                            <SelectGroup>
+                                {filteredOptions.map((option) => (
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                        onSelect={() => handleSelect(option.value)}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {option.hex && (
+                                                <div
+                                                    className="h-3.5 w-3.5 rounded-full border border-border"
+                                                    style={{ backgroundColor: option.hex }}
+                                                />
+                                            )}
+                                            <span className="type-p">{option.label}</span>
+                                        </div>
+                                        {selectedValueId === option.value && (
+                                            <Icons.Check className="h-4 w-4" />
+                                        )}
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
+                        ) : showCreateOption ? (
+                            <SelectGroup>
+                                <SelectItem
+                                    value={searchTerm.trim()}
+                                    onSelect={handleCreateClick}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Icons.Plus className="h-3.5 w-3.5" />
+                                        <span className="type-p text-primary">
+                                            Create &quot;{searchTerm.trim()}&quot;
+                                        </span>
+                                    </div>
+                                </SelectItem>
+                            </SelectGroup>
+                        ) : !searchTerm.trim() ? (
+                            <SelectEmpty>Start typing to create...</SelectEmpty>
+                        ) : (
+                            <SelectEmpty>No items found.</SelectEmpty>
+                        )}
+                    </SelectList>
+                </SelectContent>
+            </Select>
 
             {/* Create value modal (only for taxonomy-linked attributes) */}
             {dimension.attributeId && hasTaxonomy && (

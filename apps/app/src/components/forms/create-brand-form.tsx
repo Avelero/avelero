@@ -2,7 +2,6 @@
 
 import { CountrySelect } from "@/components/select/country-select";
 import { useTRPC } from "@/trpc/client";
-import { hueFromName } from "@/utils/avatar-hue";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@v1/ui/skeleton";
 import { Button } from "@v1/ui/button";
@@ -76,10 +75,7 @@ export function CreateBrandForm() {
       setIsSubmitting(false);
       return;
     }
-    createBrandMutation.mutate({
-      ...parsed.data,
-      avatar_hue: hueFromName(parsed.data.name),
-    });
+    createBrandMutation.mutate(parsed.data);
   };
 
   return (

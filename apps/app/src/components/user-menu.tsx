@@ -34,9 +34,9 @@ function UserMenuContent({ onlySignOut }: Props) {
         >
           <SignedAvatar
             bucket="avatars"
+            id={user?.id ?? ""}
             url={user?.avatar_url ?? null}
             name={user?.full_name ?? undefined}
-            hue={user?.avatar_hue ?? undefined}
             size={32}
           />
         </button>
@@ -45,16 +45,12 @@ function UserMenuContent({ onlySignOut }: Props) {
         {!onlySignOut && (
           <>
             <DropdownMenuLabel>
-              <div className="flex justify-between items-center">
-                <div className="flex flex-col">
-                  <span className="truncate line-clamp-1 max-w-[155px] text-foreground font-medium block">
-                    {user?.full_name ?? ""}
-                  </span>
-                  <span className="truncate text-s text-secondary">
-                    {user?.email ?? ""}
-                  </span>
-                </div>
-              </div>
+              <span className="truncate line-clamp-1 max-w-[155px] text-foreground font-medium block">
+                {user?.full_name ?? ""}
+              </span>
+              <span className="truncate type-small text-secondary">
+                {user?.email ?? ""}
+              </span>
             </DropdownMenuLabel>
 
             <DropdownMenuSeparator />

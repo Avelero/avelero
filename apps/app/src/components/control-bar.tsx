@@ -18,6 +18,8 @@ interface ControlBarNavButtonProps {
   children: React.ReactNode;
   isActive?: boolean;
   className?: string;
+  /** When true, only exact path matches will be considered active (no prefix matching) */
+  exact?: boolean;
 }
 
 const ControlBar = React.forwardRef<HTMLDivElement, ControlBarProps>(
@@ -69,6 +71,7 @@ function ControlBarNavButton({
   children,
   isActive: providedIsActive,
   className,
+  exact = false,
 }: ControlBarNavButtonProps) {
   const pathname = usePathname();
   function normalize(path?: string) {
@@ -76,10 +79,12 @@ function ControlBarNavButton({
   }
   const normalizedPathname = normalize(pathname);
   const normalizedHref = normalize(href);
-  // Use prefix matching so sub-routes (e.g. /settings/integrations/Shopify)
+  // When exact is true, only exact path matches are active.
+  // Otherwise, use prefix matching so sub-routes (e.g. /settings/integrations/Shopify)
   // still highlight the parent nav button (e.g. /settings/integrations)
-  const computedActive =
-    normalizedPathname === normalizedHref ||
+  const computedActive = exact
+    ? normalizedPathname === normalizedHref
+    : normalizedPathname === normalizedHref ||
     normalizedPathname.startsWith(`${normalizedHref}/`);
   const isActive = providedIsActive ?? computedActive;
 

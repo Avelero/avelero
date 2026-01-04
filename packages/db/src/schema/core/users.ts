@@ -6,7 +6,6 @@ import {
   pgPolicy,
   pgSchema,
   pgTable,
-  smallint,
   text,
   timestamp,
   unique,
@@ -31,7 +30,6 @@ export const users = pgTable(
     email: text("email").notNull(),
     fullName: text("full_name"),
     avatarPath: text("avatar_path"),
-    avatarHue: smallint("avatar_hue"),
     brandId: uuid("brand_id"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
@@ -42,10 +40,6 @@ export const users = pgTable(
   },
   (table) => [
     unique("users_email_key").on(table.email),
-    check(
-      "users_avatar_hue_check",
-      sql`(avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360))`,
-    ),
     // For filtering users by active brand (used in composite.workflowInit and brand deletion)
     index("idx_users_brand_id")
       .using("btree", table.brandId.asc().nullsLast().op("uuid_ops"))

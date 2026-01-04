@@ -9,7 +9,6 @@ import { z } from "zod";
 import { roleSchema } from "./_shared/domain.js";
 import { updateWithNullable } from "./_shared/patterns.js";
 import {
-  avatarHueSchema,
   countryCodeSchema,
   emailSchema,
   shortStringSchema,
@@ -30,14 +29,12 @@ export const brandCreateSchema = z.object({
   email: emailSchema.optional().nullable(),
   country_code: countryCodeSchema.optional().nullable(),
   logo_url: shortStringSchema.optional().nullable(),
-  avatar_hue: avatarHueSchema.optional(),
 });
 
 export const brandUpdateSchema = updateWithNullable(brandCreateSchema, [
   "email",
   "country_code",
   "logo_url",
-  "avatar_hue",
 ]);
 
 export type BrandUpdateInput = z.infer<typeof brandUpdateSchema>;

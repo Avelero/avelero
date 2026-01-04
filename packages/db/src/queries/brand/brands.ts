@@ -15,7 +15,6 @@ export type BrandMembershipListItem = {
   slug: string | null;
   email: string | null;
   logo_path: string | null;
-  avatar_hue: number | null;
   country_code: string | null;
   role: "owner" | "member";
 };
@@ -137,7 +136,6 @@ const BRAND_FIELD_MAP = {
   slug: brands.slug,
   email: brands.email,
   logo_path: brands.logoPath,
-  avatar_hue: brands.avatarHue,
   country_code: brands.countryCode,
   role: brandMembers.role,
 } as const;
@@ -192,7 +190,6 @@ export async function getBrandsByUserId(
       slug: brands.slug,
       email: brands.email,
       logo_path: brands.logoPath,
-      avatar_hue: brands.avatarHue,
       country_code: brands.countryCode,
       role: brandMembers.role,
     })
@@ -214,7 +211,6 @@ export async function getBrandsByUserId(
         slug: row.slug,
         email: row.email,
         logo_path: row.logo_path,
-        avatar_hue: row.avatar_hue,
         country_code: row.country_code,
         role: row.role === "owner" ? "owner" : "member",
       }) satisfies BrandMembershipListItem,
@@ -230,7 +226,6 @@ export async function createBrand(
     email?: string | null;
     country_code?: string | null;
     logo_path?: string | null;
-    avatar_hue?: number | null;
   },
 ) {
   let slug: string;
@@ -252,7 +247,6 @@ export async function createBrand(
       email: input.email ?? null,
       countryCode: input.country_code ?? null,
       logoPath: input.logo_path ?? null,
-      avatarHue: input.avatar_hue ?? null,
     })
     .returning({ id: brands.id, slug: brands.slug });
   if (!brand) throw new Error("Failed to create brand");
@@ -282,7 +276,6 @@ export async function updateBrand(
     email: string | null;
     country_code: string | null;
     logo_path: string | null;
-    avatar_hue: number | null;
   }>,
 ): Promise<{ success: true; slug: string | null }> {
   const membership = await db
@@ -302,7 +295,6 @@ export async function updateBrand(
     email: string | null;
     countryCode: string | null;
     logoPath: string | null;
-    avatarHue: number | null;
   }> = {};
 
   if (payload.name !== undefined) updateData.name = payload.name;
@@ -319,8 +311,6 @@ export async function updateBrand(
   if (payload.country_code !== undefined)
     updateData.countryCode = payload.country_code;
   if (payload.logo_path !== undefined) updateData.logoPath = payload.logo_path;
-  if (payload.avatar_hue !== undefined)
-    updateData.avatarHue = payload.avatar_hue;
 
   const [row] = await db
     .update(brands)

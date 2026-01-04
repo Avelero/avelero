@@ -14,12 +14,10 @@ export interface UserInviteSummaryRow {
   brandId: string | null;
   brandName: string | null;
   brandLogoPath: string | null;
-  brandAvatarHue: number | null;
   invitedById: string | null;
   invitedByEmail: string | null;
   invitedByFullName: string | null;
   invitedByAvatarPath: string | null;
-  invitedByAvatarHue: number | null;
 }
 
 export async function listBrandInvites(
@@ -74,7 +72,6 @@ export async function listInvitesByEmail(db: Database, email: string) {
       id: row.brandId,
       name: row.brandName,
       logo_path: row.brandLogoPath,
-      avatar_hue: row.brandAvatarHue,
     },
   }));
   return { data } as const;
@@ -95,12 +92,10 @@ export async function listPendingInvitesForEmail(
       brandId: brands.id,
       brandName: brands.name,
       brandLogoPath: brands.logoPath,
-      brandAvatarHue: brands.avatarHue,
       invitedById: brandInvites.createdBy,
       invitedByEmail: users.email,
       invitedByFullName: users.fullName,
       invitedByAvatarPath: users.avatarPath,
-      invitedByAvatarHue: users.avatarHue,
     })
     .from(brandInvites)
     .leftJoin(brands, eq(brandInvites.brandId, brands.id))
@@ -121,12 +116,10 @@ export async function listPendingInvitesForEmail(
     brandId: row.brandId ?? null,
     brandName: row.brandName ?? null,
     brandLogoPath: row.brandLogoPath ?? null,
-    brandAvatarHue: row.brandAvatarHue ?? null,
     invitedById: row.invitedById ?? null,
     invitedByEmail: row.invitedByEmail ?? null,
     invitedByFullName: row.invitedByFullName ?? null,
     invitedByAvatarPath: row.invitedByAvatarPath ?? null,
-    invitedByAvatarHue: row.invitedByAvatarHue ?? null,
   }));
 }
 

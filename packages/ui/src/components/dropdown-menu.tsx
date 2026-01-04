@@ -54,7 +54,7 @@ const DropdownMenuSubContent = React.forwardRef<
   DropdownMenuSubContentProps
 >(
   (
-    { className, sideOffset = 4, alignOffset = -1, inline = false, ...props },
+    { className, sideOffset = 8, alignOffset = -1, inline = false, ...props },
     ref,
   ) => {
     const content = (
@@ -117,7 +117,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center gap-0.5 px-2 h-8 !type-small outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0",
+      "relative flex cursor-pointer select-none items-center gap-2 px-2 py-1.5 type-small outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0",
       inset && "pl-8",
       className,
     )}
@@ -180,7 +180,11 @@ const DropdownMenuLabel = React.forwardRef<
 >(({ className, inset, ...props }, ref) => (
   <DropdownMenuPrimitive.Label
     ref={ref}
-    className={cn("px-2 py-2 type-p !font-medium", inset && "pl-8", className)}
+    className={cn(
+      "px-2 py-1 type-p flex flex-col gap-0",
+      inset && "pl-8",
+      className,
+    )}
     {...props}
   />
 ));

@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { pgTable, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { check, index, pgPolicy, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, pgPolicy, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const brands = pgTable(
   "brands",
@@ -11,7 +11,6 @@ export const brands = pgTable(
     email: text("email"),
     countryCode: text("country_code"),
     logoPath: text("logo_path"),
-    avatarHue: smallint("avatar_hue"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -30,13 +29,6 @@ export const brands = pgTable(
     index("idx_brands_email").using(
       "btree",
       table.email.asc().nullsLast().op("text_ops"),
-    ),
-    index("idx_brands_avatar_hue")
-      .using("btree", table.avatarHue.asc().nullsLast().op("int2_ops"))
-      .where(sql`(avatar_hue IS NOT NULL)`),
-    check(
-      "brands_avatar_hue_check",
-      sql`(avatar_hue IS NULL) OR ((avatar_hue >= 1) AND (avatar_hue <= 360))`,
     ),
     pgPolicy("brands_update_by_member", {
       as: "permissive",

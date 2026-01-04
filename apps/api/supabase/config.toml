@@ -9,7 +9,15 @@ max_rows = 100
 
 [auth]
 site_url = "env(APP_URL)"
-additional_redirect_urls = ["env(APP_URL)", "env(ADDITIONAL_REDIRECT_URL)"]
+# Redirect URLs where Supabase can send users after auth
+# Format: APP_URL/auth/callback (your Next.js callback handler)
+additional_redirect_urls = [
+  "env(APP_URL)/auth/callback",
+  "env(ADDITIONAL_REDIRECT_URL)/auth/callback",
+  # Local development URLs
+  "http://localhost:3000/auth/callback",
+  "http://127.0.0.1:3000/auth/callback"
+]
 jwt_expiry = 36000
 
 [auth.hook.send_email]
@@ -30,6 +38,11 @@ port = 54323
 enabled = true
 client_id = "env(GOOGLE_CLIENT_ID)"
 secret = "env(GOOGLE_SECRET)"
+# IMPORTANT: This is where GOOGLE redirects to SUPABASE (not your app!)
+# Format: SUPABASE_URL/auth/v1/callback
+# - Production (with custom domain): https://auth.avelero.com/auth/v1/callback
+# - Preview (dynamic): https://<branch-ref>.supabase.co/auth/v1/callback
+# - Local development: http://localhost:54321/auth/v1/callback
 redirect_uri = "env(GOOGLE_REDIRECT_URI)"
 
 [analytics]
@@ -37,3 +50,4 @@ enabled = true
 port = 54327
 vector_port = 54328
 backend = "postgres"
+

@@ -179,16 +179,19 @@ export function CategorySelect({
           <div className="flex flex-col">
             {/* Navigation Bar */}
             {categoryPath.length > 0 && (
-              <div className="border-b border-border bg-background p-1">
-                <button
-                  type="button"
-                  onClick={handleCategoryBack}
-                  className="w-full h-8 px-2 !type-small text-primary gap-2 focus:outline-none flex items-center hover:bg-accent rounded-none"
-                >
-                  <Icons.ChevronLeft className="h-4 w-4 text-secondary" />
-                  <span className="text-primary truncate">{getBreadcrumbString()}</span>
-                </button>
-              </div>
+              <>
+                <div className="p-1">
+                  <button
+                    type="button"
+                    onClick={handleCategoryBack}
+                    className="w-full h-[30px] px-2 !type-small text-primary gap-2 focus:outline-none flex items-center hover:bg-accent rounded-none"
+                  >
+                    <Icons.ChevronLeft className="h-4 w-4 text-secondary" />
+                    <span className="px-1 text-primary truncate">{getBreadcrumbString()}</span>
+                  </button>
+                </div>
+                <div className="-mx-0 my-0 h-px bg-accent-dark" />
+              </>
             )}
 
             {/* Options */}
@@ -206,7 +209,7 @@ export function CategorySelect({
                         // Button-in-button layout for items with children
                         <div
                           className={cn(
-                            "flex h-8 rounded-none",
+                            "flex h-[30px] rounded-none",
                             hoveredRow === key ? "bg-accent" : "",
                           )}
                           onMouseLeave={() => {
@@ -223,7 +226,7 @@ export function CategorySelect({
                               setHoveredArea("selection");
                             }}
                             className={cn(
-                              "w-fit h-8 px-2 !type-small flex items-center gap-2 rounded-none",
+                              "w-fit h-[30px] px-2 !type-small flex items-center gap-0.5 rounded-none",
                               isSelected
                                 ? "bg-accent-blue text-brand"
                                 : hoveredRow === key &&
@@ -232,7 +235,7 @@ export function CategorySelect({
                                   : "text-primary",
                             )}
                           >
-                            <span>{value.label}</span>
+                            <span className="px-1">{value.label}</span>
                             {isSelected && (
                               <Icons.Check className="h-4 w-4 text-brand" />
                             )}
@@ -246,7 +249,7 @@ export function CategorySelect({
                               setHoveredRow(key);
                               setHoveredArea("navigation");
                             }}
-                            className="flex-1 h-8 px-2 flex items-center justify-end rounded-none"
+                            className="flex-1 h-[30px] px-2 flex items-center justify-end rounded-none"
                           >
                             <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
                           </button>
@@ -257,13 +260,13 @@ export function CategorySelect({
                           type="button"
                           onClick={() => handleCategorySelect(key)}
                           className={cn(
-                            "w-full h-8 px-2 !type-small text-left flex items-center justify-between rounded-none",
+                            "w-full h-[30px] px-2 !type-small text-left flex items-center justify-between gap-0.5 rounded-none",
                             isSelected
                               ? "bg-accent-blue text-brand"
                               : "hover:bg-accent text-primary",
                           )}
                         >
-                          <span>{value.label}</span>
+                          <span className="px-1">{value.label}</span>
                           {isSelected && (
                             <Icons.Check className="h-4 w-4 text-brand" />
                           )}

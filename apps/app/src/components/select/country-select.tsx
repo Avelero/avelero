@@ -96,7 +96,7 @@ export function CountrySelect({
                     value={option.value}
                     onSelect={() => handleSelect(option.value)}
                   >
-                    <span className="type-p">{option.label}</span>
+                    <span className="px-1">{option.label}</span>
                     {value === option.value && (
                       <Icons.Check className="h-4 w-4" />
                     )}

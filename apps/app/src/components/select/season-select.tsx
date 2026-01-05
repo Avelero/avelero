@@ -52,9 +52,9 @@ function formatSeasonDateRange(season: Season): string {
 function renderSeasonDateRange(season: Season): React.ReactNode {
   const dateRange = formatSeasonDateRange(season);
   return dateRange ? (
-    <span className="type-p text-tertiary">{dateRange}</span>
+    <span className="text-tertiary">{dateRange}</span>
   ) : season.isOngoing ? (
-    <span className="type-p text-tertiary">Ongoing</span>
+    <span className="text-tertiary">Ongoing</span>
   ) : null;
 }
 
@@ -139,8 +139,8 @@ export function SeasonSelect({
                   value={season.name}
                   onSelect={() => handleSelect(season)}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="type-p text-primary">{season.name}</span>
+                  <div className="flex items-center gap-0.5">
+                    <span className="px-1">{season.name}</span>
                     {renderSeasonDateRange(season)}
                   </div>
                   {value?.id === season.id && (
@@ -152,9 +152,9 @@ export function SeasonSelect({
           ) : showCreateOption ? (
             <SelectGroup>
               <SelectItem value={searchTerm.trim()} onSelect={handleCreate}>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5">
                   <Icons.Plus className="h-3.5 w-3.5" />
-                  <span className="type-p text-primary">
+                  <span className="px-1">
                     Create &quot;{searchTerm.trim()}&quot;
                   </span>
                 </div>

@@ -127,9 +127,9 @@ function FilterSingleSelect({
                   value={option.value}
                   onSelect={() => handleSelect(option.value)}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center">
                     {option.icon}
-                    <span className="type-p">{option.label}</span>
+                    <span className="px-1">{option.label}</span>
                   </div>
                   {value === option.value && (
                     <Icons.Check className="h-4 w-4" />
@@ -222,9 +222,9 @@ function FilterMultiSelect({
                     value={option.value}
                     onSelect={() => handleToggle(option.value)}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center">
                       {option.icon}
-                      <span className="type-p">{option.label}</span>
+                      <span className="px-1">{option.label}</span>
                     </div>
                     {isSelected && <Icons.Check className="h-4 w-4" />}
                   </SelectItem>
@@ -711,20 +711,23 @@ function CategoryPopoverSelect({
         <div className="flex flex-col">
           {/* Navigation Bar */}
           {categoryPath.length > 0 && (
-            <div className="border-b border-border bg-background">
-              <button
-                type="button"
-                onClick={handleCategoryBack}
-                className="w-full py-2 px-3 type-p text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
-              >
-                <Icons.ChevronLeft className="h-4 w-4 mr-2 text-secondary" />
-                <span className="px-1 text-primary">{getBreadcrumbString()}</span>
-              </button>
-            </div>
+            <>
+              <div className="p-1">
+                <button
+                  type="button"
+                  onClick={handleCategoryBack}
+                  className="w-full h-[30px] px-2 !type-small text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
+                >
+                  <Icons.ChevronLeft className="h-4 w-4 text-secondary" />
+                  <span className="px-1 text-primary">{getBreadcrumbString()}</span>
+                </button>
+              </div>
+              <div className="h-px bg-accent-dark" />
+            </>
           )}
 
           {/* Options */}
-          <div className="max-h-48 overflow-y-auto scrollbar-hide">
+          <div className="max-h-48 overflow-y-auto scrollbar-hide p-1">
             {Object.entries(currentLevel).map(
               ([categoryId, node]: [string, any]) => {
                 const hasChildren =
@@ -737,7 +740,7 @@ function CategoryPopoverSelect({
                       // Button-in-button layout for items with children
                       <div
                         className={cn(
-                          "flex transition-colors",
+                          "flex h-[30px] transition-colors",
                           hoveredRow === categoryId ? "bg-accent" : "",
                         )}
                         onMouseLeave={() => {
@@ -754,7 +757,7 @@ function CategoryPopoverSelect({
                             setHoveredArea("selection");
                           }}
                           className={cn(
-                            "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                            "w-fit h-[30px] px-2 !type-small transition-colors flex items-center gap-0.5",
                             isSelected
                               ? "bg-accent-blue text-brand"
                               : hoveredRow === categoryId &&
@@ -763,7 +766,7 @@ function CategoryPopoverSelect({
                                 : "text-primary",
                           )}
                         >
-                          <span>{node.label}</span>
+                          <span className="px-1">{node.label}</span>
                           {isSelected && (
                             <Icons.Check className="h-4 w-4 text-brand" />
                           )}
@@ -777,7 +780,7 @@ function CategoryPopoverSelect({
                             setHoveredRow(categoryId);
                             setHoveredArea("navigation");
                           }}
-                          className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
+                          className="flex-1 h-[30px] px-2 transition-colors flex items-center justify-end"
                         >
                           <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
                         </button>
@@ -788,7 +791,7 @@ function CategoryPopoverSelect({
                         type="button"
                         onClick={() => handleCategorySelect(categoryId)}
                         className={cn(
-                          "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
+                          "w-full h-[30px] px-2 !type-small text-left transition-colors flex items-center justify-between gap-0.5",
                           isSelected
                             ? "bg-accent-blue text-brand"
                             : "hover:bg-accent text-primary",
@@ -926,7 +929,7 @@ function SizePopoverSelect({
                         onSelect={() => handleToggleSize(size)}
                         className="justify-between"
                       >
-                        <span className="type-p text-primary">{size.name}</span>
+                        <span className="px-1">{size.name}</span>
                         {isSelected && <Icons.Check className="h-4 w-4" />}
                       </CommandItem>
                     );
@@ -1058,10 +1061,10 @@ function SeasonPopoverSelect({
                       onSelect={() => handleToggleSeason(option.value)}
                       className="justify-between"
                     >
-                      <div className="flex items-center gap-2">
-                        <span>{option.label}</span>
+                      <div className="flex items-center gap-0.5">
+                        <span className="px-1">{option.label}</span>
                         {seasonInfo && (
-                          <span className="type-p text-tertiary ml-auto">
+                          <span className="text-tertiary">
                             {formatSeasonDateRange(seasonInfo)}
                           </span>
                         )}

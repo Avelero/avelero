@@ -178,7 +178,7 @@ export function PassportControls({
                   }}
                 >
                   <span className="inline-flex items-center">
-                    <Icons.StatusPublished width={12} height={12} />
+                    <Icons.StatusPublished className="!h-[14px] !w-[14px]" />
                     <span className="px-1">Published</span>
                   </span>
                 </DropdownMenuItem>
@@ -188,7 +188,7 @@ export function PassportControls({
                   }}
                 >
                   <span className="inline-flex items-center">
-                    <Icons.StatusScheduled width={12} height={12} />
+                    <Icons.StatusScheduled className="!h-[14px] !w-[14px]" />
                     <span className="px-1">Scheduled</span>
                   </span>
                 </DropdownMenuItem>
@@ -198,7 +198,7 @@ export function PassportControls({
                   }}
                 >
                   <span className="inline-flex items-center">
-                    <Icons.StatusUnpublished width={12} height={12} />
+                    <Icons.StatusUnpublished className="!h-[14px] !w-[14px]" />
                     <span className="px-1">Unpublished</span>
                   </span>
                 </DropdownMenuItem>
@@ -208,7 +208,7 @@ export function PassportControls({
                   }}
                 >
                   <span className="inline-flex items-center">
-                    <Icons.StatusArchived width={12} height={12} />
+                    <Icons.StatusArchived className="!h-[14px] !w-[14px]" />
                     <span className="px-1">Archived</span>
                   </span>
                 </DropdownMenuItem>

@@ -88,9 +88,9 @@ export function StatusSidebar({ status, setStatus }: StatusSidebarProps) {
                   value={option.value}
                   onSelect={() => handleSelect(option.value)}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center">
                     {option.icon}
-                    <span className="type-p">{option.label}</span>
+                    <span className="px-1">{option.label}</span>
                   </div>
                   {status === option.value && (
                     <Icons.Check className="h-4 w-4" />

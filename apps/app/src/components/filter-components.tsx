@@ -110,7 +110,7 @@ function FieldSelect({
                   value={option.value}
                   onSelect={() => handleSelect(option.value)}
                 >
-                  <span className="type-p">{option.label}</span>
+                  <span className="px-1">{option.label}</span>
                   {value === option.value && (
                     <Icons.Check className="h-4 w-4" />
                   )}
@@ -248,7 +248,9 @@ export function FilterRow({
             </DropdownMenuItem>
           )}
           <DropdownMenuItem className="text-destructive" onSelect={onDelete}>
-            <Icons.Trash2 className="h-4 w-4" /> <span className="px-1">Delete filter</span>
+            <div className="flex items-center">
+              <Icons.Trash2 className="h-4 w-4" /> <span className="px-1">Delete filter</span>
+            </div>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -316,7 +316,7 @@ export function TagSelect({
                             className="h-3.5 w-3.5 rounded-full border border-border"
                             style={{ backgroundColor: `#${tag.hex}` }}
                           />
-                          <span className="type-p text-primary px-1">
+                          <span className="px-1">
                             {tag.name}
                           </span>
                         </div>
@@ -328,7 +328,7 @@ export function TagSelect({
                   <CommandItem value={searchTerm} onSelect={handleCreateClick}>
                     <div className="flex items-center">
                       <Icons.Plus className="h-3.5 w-3.5" />
-                      <span className="type-p text-primary px-1">
+                      <span className="px-1">
                         Create &quot;{searchTerm.trim()}&quot;
                       </span>
                     </div>
@@ -363,7 +363,7 @@ export function TagSelect({
                         className="h-3.5 w-3.5 rounded-full border border-border"
                         style={{ backgroundColor: `#${color.hex}` }}
                       />
-                      <span className="type-p text-primary px-1">{color.name}</span>
+                      <span className="px-1">{color.name}</span>
                     </div>
                   </CommandItem>
                 ))}

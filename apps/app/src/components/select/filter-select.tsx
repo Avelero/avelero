@@ -222,8 +222,8 @@ export function QuickFiltersPopover({
             )}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="p-0">
-          <div className="max-h-[400px] overflow-y-auto">
+        <DropdownMenuContent align="start">
+          <div className="max-h-[400px] overflow-y-auto -m-1 p-1">
             <div>
               {QUICK_FIELDS.map((field) => {
                 const selectedValues = pendingQuickFilters[field.id] ?? [];
@@ -364,23 +364,26 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
   const currentLevel = getCurrentLevelOptions();
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col -m-1">
       {/* Navigation Bar */}
       {categoryPath.length > 0 && (
-        <div className="border-b border-border bg-background">
-          <button
-            type="button"
-            onClick={handleCategoryBack}
-            className="w-full py-2 px-3 type-p text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
-          >
-            <Icons.ChevronLeft className="h-4 w-4 mr-2 text-secondary" />
-            <span className="text-primary">{getBreadcrumbString()}</span>
-          </button>
-        </div>
+        <>
+          <div className="p-1">
+            <button
+              type="button"
+              onClick={handleCategoryBack}
+              className="w-full h-[30px] px-2 !type-small text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
+            >
+              <Icons.ChevronLeft className="h-4 w-4 text-secondary" />
+              <span className="px-1 text-primary">{getBreadcrumbString()}</span>
+            </button>
+          </div>
+          <div className="h-px bg-accent-dark" />
+        </>
       )}
 
       {/* Options */}
-      <div className="max-h-48 overflow-y-auto scrollbar-hide">
+      <div className="max-h-48 overflow-y-auto scrollbar-hide p-1">
         {Object.entries(currentLevel).map(
           ([categoryId, node]: [string, any]) => {
             const hasChildren =
@@ -393,7 +396,7 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
                   // Button-in-button layout for items with children
                   <div
                     className={cn(
-                      "flex transition-colors",
+                      "flex h-[30px] transition-colors",
                       hoveredRow === categoryId ? "bg-accent" : "",
                     )}
                     onMouseLeave={() => {
@@ -410,7 +413,7 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
                         setHoveredArea("selection");
                       }}
                       className={cn(
-                        "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                        "w-fit h-[30px] px-2 !type-small transition-colors flex items-center gap-0.5",
                         isSelected
                           ? "bg-accent-blue text-brand"
                           : hoveredRow === categoryId &&
@@ -419,7 +422,7 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
                             : "text-primary",
                       )}
                     >
-                      <span>{node.label}</span>
+                      <span className="px-1">{node.label}</span>
                       {isSelected && (
                         <Icons.Check className="h-4 w-4 text-brand" />
                       )}
@@ -433,7 +436,7 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
                         setHoveredRow(categoryId);
                         setHoveredArea("navigation");
                       }}
-                      className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
+                      className="flex-1 h-[30px] px-2 transition-colors flex items-center justify-end"
                     >
                       <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
                     </button>
@@ -444,13 +447,13 @@ const CategoryHierarchySubmenu = React.memo(function CategoryHierarchySubmenu({
                     type="button"
                     onClick={() => handleCategorySelect(categoryId)}
                     className={cn(
-                      "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
+                      "w-full h-[30px] px-2 !type-small text-left transition-colors flex items-center justify-between gap-0.5",
                       isSelected
                         ? "bg-accent-blue text-brand"
                         : "hover:bg-accent text-primary",
                     )}
                   >
-                    <span>{node.label}</span>
+                    <span className="px-1">{node.label}</span>
                     {isSelected && (
                       <Icons.Check className="h-4 w-4 text-brand" />
                     )}
@@ -485,40 +488,42 @@ const TagsSubmenu = React.memo(function TagsSubmenu({
   }, [tags, searchTerm]);
 
   return (
-    <Command shouldFilter={false}>
-      <CommandInput
-        placeholder="Search tags..."
-        value={searchTerm}
-        onValueChange={setSearchTerm}
-      />
-      <CommandList className="max-h-64">
-        <CommandGroup>
-          {filteredTags.map((tag) => {
-            const isSelected = selectedValues.includes(tag.id);
-            return (
-              <CommandItem
-                key={tag.id}
-                value={tag.name}
-                onSelect={() => onToggleValue(tag.id)}
-                className="justify-between"
-              >
-                <div className="flex items-center">
-                  <div
-                    className="h-3.5 w-3.5 rounded-full border border-border flex-shrink-0"
-                    style={{ backgroundColor: `#${tag.hex}` }}
-                  />
-                  <span className="type-p text-primary px-1">{tag.name}</span>
-                </div>
-                {isSelected && <Icons.Check className="h-4 w-4" />}
-              </CommandItem>
-            );
-          })}
-        </CommandGroup>
-        {filteredTags.length === 0 && (
-          <CommandEmpty>No tags found</CommandEmpty>
-        )}
-      </CommandList>
-    </Command>
+    <div className="-m-1">
+      <Command shouldFilter={false}>
+        <CommandInput
+          placeholder="Search tags..."
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+        />
+        <CommandList className="max-h-64">
+          <CommandGroup>
+            {filteredTags.map((tag) => {
+              const isSelected = selectedValues.includes(tag.id);
+              return (
+                <CommandItem
+                  key={tag.id}
+                  value={tag.name}
+                  onSelect={() => onToggleValue(tag.id)}
+                  className="justify-between"
+                >
+                  <div className="flex items-center">
+                    <div
+                      className="h-3.5 w-3.5 rounded-full border border-border flex-shrink-0"
+                      style={{ backgroundColor: `#${tag.hex}` }}
+                    />
+                    <span className="px-1">{tag.name}</span>
+                  </div>
+                  {isSelected && <Icons.Check className="h-4 w-4" />}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+          {filteredTags.length === 0 && (
+            <CommandEmpty>No tags found</CommandEmpty>
+          )}
+        </CommandList>
+      </Command>
+    </div>
   );
 });
 
@@ -712,62 +717,64 @@ const QuickFilterItem = React.memo(function QuickFilterItem({
       </DropdownMenuSubTrigger>
       <DropdownMenuPortal>
         <DropdownMenuSubContent>
-          <Command>
-            {!hideSearch && (
-              <CommandInput
-                placeholder={`Search ${field.label.toLowerCase()}...`}
-              />
-            )}
-            <CommandList>
-              <CommandEmpty>
-                {isLoading ? "Loading..." : "No results found."}
-              </CommandEmpty>
-              <CommandGroup>
-                {options.map((option: any) => {
-                  const isSelected = selectedValues.includes(option.value);
+          <div className="-m-1">
+            <Command>
+              {!hideSearch && (
+                <CommandInput
+                  placeholder={`Search ${field.label.toLowerCase()}...`}
+                />
+              )}
+              <CommandList>
+                <CommandEmpty>
+                  {isLoading ? "Loading..." : "No results found."}
+                </CommandEmpty>
+                <CommandGroup>
+                  {options.map((option: any) => {
+                    const isSelected = selectedValues.includes(option.value);
 
-                  // Get season info for season field
-                  let seasonInfo:
-                    | {
-                      startDate?: Date | null;
-                      endDate?: Date | null;
-                      isOngoing?: boolean;
+                    // Get season info for season field
+                    let seasonInfo:
+                      | {
+                        startDate?: Date | null;
+                        endDate?: Date | null;
+                        isOngoing?: boolean;
+                      }
+                      | undefined;
+                    if (field.id === "season") {
+                      const season = seasons.find((s) => s.id === option.value);
+                      if (season) {
+                        seasonInfo = {
+                          startDate: season.startDate,
+                          endDate: season.endDate,
+                          isOngoing: season.isOngoing,
+                        };
+                      }
                     }
-                    | undefined;
-                  if (field.id === "season") {
-                    const season = seasons.find((s) => s.id === option.value);
-                    if (season) {
-                      seasonInfo = {
-                        startDate: season.startDate,
-                        endDate: season.endDate,
-                        isOngoing: season.isOngoing,
-                      };
-                    }
-                  }
 
-                  return (
-                    <CommandItem
-                      key={option.value}
-                      value={option.value}
-                      onSelect={() => toggleValue(option.value)}
-                      className="[&_.status-icon]:h-[14px] [&_.status-icon]:w-[14px]"
-                    >
-                      <div className="flex items-center gap-2">
-                        {renderStatusIcon(field.id, option.value)}
-                        <span>{option.label}</span>
-                        {seasonInfo && (
-                          <span className="type-p text-tertiary ml-auto">
-                            {formatSeasonDateRange(seasonInfo)}
-                          </span>
-                        )}
-                      </div>
-                      {isSelected && <Icons.Check className="h-4 w-4" />}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
+                    return (
+                      <CommandItem
+                        key={option.value}
+                        value={option.value}
+                        onSelect={() => toggleValue(option.value)}
+                        className="[&_.status-icon]:h-[14px] [&_.status-icon]:w-[14px]"
+                      >
+                        <div className="flex items-center gap-0.5">
+                          {renderStatusIcon(field.id, option.value)}
+                          <span className="px-1">{option.label}</span>
+                          {seasonInfo && (
+                            <span className="text-tertiary">
+                              {formatSeasonDateRange(seasonInfo)}
+                            </span>
+                          )}
+                        </div>
+                        {isSelected && <Icons.Check className="h-4 w-4" />}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </div>
         </DropdownMenuSubContent>
       </DropdownMenuPortal>
     </DropdownMenuSub>

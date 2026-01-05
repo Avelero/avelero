@@ -136,6 +136,9 @@ export function FontSelect({
   const displayValue = value || placeholder;
   const isPlaceholder = !value;
 
+  // Lift hover state to parent so footer can clear it
+  const [hoveredFont, setHoveredFont] = React.useState<string | null>(null);
+
   return (
     <Select open={open} onOpenChange={setOpen}>
       <SelectTrigger asChild>
@@ -170,10 +173,12 @@ export function FontSelect({
           selectedValue={value}
           onSelect={handleSelect}
           isOpen={open}
+          hoveredFont={hoveredFont}
+          onHoverFont={setHoveredFont}
         />
 
         {/* Custom Fonts Button - always visible at bottom */}
-        <SelectFooter>
+        <SelectFooter onMouseEnter={() => setHoveredFont("__clear__")}>
           <SelectAction onSelect={handleManageCustomFonts}>
             <div className="flex items-center gap-2">
               <Icons.Plus className="h-3.5 w-3.5" />
@@ -198,6 +203,8 @@ interface FontListProps {
   selectedValue: string | null;
   onSelect: (fontFamily: string) => void;
   isOpen: boolean;
+  hoveredFont: string | null;
+  onHoverFont: (fontFamily: string | null) => void;
 }
 
 function FontList({
@@ -208,6 +215,8 @@ function FontList({
   selectedValue,
   onSelect,
   isOpen,
+  hoveredFont,
+  onHoverFont,
 }: FontListProps) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -353,7 +362,15 @@ function FontList({
               isSelected={
                 selectedValue?.toLowerCase() === font.fontFamily.toLowerCase()
               }
+              isHighlighted={
+                hoveredFont === "__clear__"
+                  ? false
+                  : hoveredFont === null
+                    ? selectedValue?.toLowerCase() === font.fontFamily.toLowerCase()
+                    : hoveredFont === font.fontFamily
+              }
               onSelect={onSelect}
+              onHover={onHoverFont}
             />
           ))}
         </div>
@@ -393,7 +410,15 @@ function FontList({
                   <GoogleFontItem
                     font={font}
                     isSelected={selectedValue === font.family}
+                    isHighlighted={
+                      hoveredFont === "__clear__"
+                        ? false
+                        : hoveredFont === null
+                          ? selectedValue === font.family
+                          : hoveredFont === font.family
+                    }
                     onSelect={onSelect}
+                    onHover={onHoverFont}
                   />
                 </div>
               );
@@ -412,21 +437,23 @@ function FontList({
 interface CustomFontItemProps {
   font: CustomFont;
   isSelected: boolean;
+  isHighlighted: boolean;
   onSelect: (fontFamily: string) => void;
+  onHover: (fontFamily: string | null) => void;
 }
 
-function CustomFontItem({ font, isSelected, onSelect }: CustomFontItemProps) {
+function CustomFontItem({ font, isSelected, isHighlighted, onSelect, onHover }: CustomFontItemProps) {
   return (
     <button
       type="button"
       onClick={() => onSelect(font.fontFamily)}
+      onMouseEnter={() => onHover(font.fontFamily)}
       className={cn(
-        "relative flex w-full cursor-pointer select-none items-center justify-between px-2 py-1.5 text-sm outline-none h-8",
-        "hover:bg-accent hover:text-accent-foreground",
-        isSelected && "bg-accent",
+        "relative flex w-full cursor-pointer select-none items-center justify-between gap-0.5 px-2 h-[30px] !type-small outline-none",
+        isHighlighted && "bg-accent text-accent-foreground",
       )}
     >
-      <span style={{ fontFamily: `"${font.fontFamily}", sans-serif` }}>
+      <span className="px-1" style={{ fontFamily: `"${font.fontFamily}", sans-serif` }}>
         {font.fontFamily}
       </span>
       {isSelected && <Icons.Check className="h-4 w-4" />}
@@ -437,21 +464,23 @@ function CustomFontItem({ font, isSelected, onSelect }: CustomFontItemProps) {
 interface GoogleFontItemProps {
   font: FontMetadata;
   isSelected: boolean;
+  isHighlighted: boolean;
   onSelect: (fontFamily: string) => void;
+  onHover: (fontFamily: string | null) => void;
 }
 
-function GoogleFontItem({ font, isSelected, onSelect }: GoogleFontItemProps) {
+function GoogleFontItem({ font, isSelected, isHighlighted, onSelect, onHover }: GoogleFontItemProps) {
   return (
     <button
       type="button"
       onClick={() => onSelect(font.family)}
+      onMouseEnter={() => onHover(font.family)}
       className={cn(
-        "relative flex w-full cursor-pointer select-none items-center justify-between px-2 py-1.5 text-sm outline-none h-8",
-        "hover:bg-accent hover:text-accent-foreground",
-        isSelected && "bg-accent",
+        "relative flex w-full cursor-pointer select-none items-center justify-between gap-0.5 px-2 h-[30px] !type-small outline-none",
+        isHighlighted && "bg-accent text-accent-foreground",
       )}
     >
-      <span style={{ fontFamily: `"${font.family}", sans-serif` }}>
+      <span className="px-1" style={{ fontFamily: `"${font.family}", sans-serif` }}>
         {font.family}
       </span>
       {isSelected && <Icons.Check className="h-4 w-4" />}

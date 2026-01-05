@@ -125,7 +125,7 @@ function BrandSelectContent({ isExpanded, onPopupChange }: BrandSelectProps) {
             </SelectTrigger>
 
             <SelectContent className="w-[240px]" sideOffset={8} shouldFilter={false} defaultValue={activeBrand?.id}>
-                <SelectHeader>Select Brand</SelectHeader>
+                <SelectHeader className="border-b-0">{currentUser?.email}</SelectHeader>
 
                 <SelectList>
                     <SelectGroup>
@@ -136,11 +136,19 @@ function BrandSelectContent({ isExpanded, onPopupChange }: BrandSelectProps) {
                                 disabled={isSwitching}
                                 onSelect={() => handleBrandSelect(brand.id)}
                                 className={cn(
-                                    currentUser?.brand_id === brand.id && "bg-accent",
                                     isSwitching && "opacity-50",
                                 )}
                             >
-                                <span className="type-p truncate">{brand.name}</span>
+                                <div className="flex items-center gap-2">
+                                    <SignedAvatar
+                                        bucket="brand-avatars"
+                                        id={brand.id}
+                                        size={20}
+                                        name={brand.name}
+                                        url={brand.logo_url ?? undefined}
+                                    />
+                                    <span className="type-p truncate">{brand.name}</span>
+                                </div>
                                 {currentUser?.brand_id === brand.id && (
                                     <Icons.Check className="h-4 w-4 flex-shrink-0" />
                                 )}

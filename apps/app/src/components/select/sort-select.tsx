@@ -113,7 +113,7 @@ export function SortPopover({
             variant="subtle"
             size="default"
             disabled={disabled}
-            className="group-hover:bg-accent transition-none group-data-[state=open]:bg-accent"
+            className="group-hover:bg-accent transition-none data-[state=open]:bg-accent"
           >
             <ActiveIcon className="h-[14px] w-[14px]" />
             <span className="px-1">{optimisticSort && activeField ? (

@@ -13,7 +13,7 @@ export function Footer() {
               color="var(--foreground)"
               className="hidden md:block"
             />
-            <div className="gap-x-3 gap-y-2 grid grid-cols-2 md:grid-cols-3">
+            <div className="gap-x-3 gap-y-2 grid grid-cols-2 md:grid-cols-4">
               <div>
                 <h6 className="text-small text-foreground/50 pb-1">Product</h6>
                 <ul>
@@ -74,6 +74,20 @@ export function Footer() {
                       href="/privacy-policy"
                     >
                       Privacy policy
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h6 className="text-small text-foreground/50 pb-1">Resources</h6>
+                <ul>
+                  <li>
+                    <Link
+                      aria-label="Go to updates page"
+                      className="inline-block text-small text-foreground hover:text-foreground/70 transition-colors duration-100 py-1"
+                      href="/updates/"
+                    >
+                      Updates
                     </Link>
                   </li>
                 </ul>

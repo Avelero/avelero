@@ -41,7 +41,7 @@ export const mdxComponents: MDXComponents = {
   // Paragraphs and text
   p: ({ children, ...props }) => (
     <p
-      className="text-small text-foreground/80 mb-4 leading-relaxed"
+      className="text-body text-foreground/80 my-6 leading-relaxed first:mt-0 last:mb-0"
       {...props}
     >
       {children}
@@ -127,4 +127,42 @@ export const mdxComponents: MDXComponents = {
 
   // Horizontal rule
   hr: ({ ...props }) => <hr className="border-border my-8" {...props} />,
+
+  // Tables
+  table: ({ children, ...props }) => (
+    <div className="overflow-x-auto mb-4">
+      <table className="w-full border-collapse border border-border" {...props}>
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children, ...props }) => (
+    <thead className="bg-card" {...props}>
+      {children}
+    </thead>
+  ),
+  tbody: ({ children, ...props }) => (
+    <tbody {...props}>{children}</tbody>
+  ),
+  tr: ({ children, ...props }) => (
+    <tr className="border-b border-border" {...props}>
+      {children}
+    </tr>
+  ),
+  th: ({ children, ...props }) => (
+    <th
+      className="border border-border px-4 py-2 text-left text-small font-semibold"
+      {...props}
+    >
+      {children}
+    </th>
+  ),
+  td: ({ children, ...props }) => (
+    <td
+      className="border border-border px-4 py-2 text-small text-foreground/80"
+      {...props}
+    >
+      {children}
+    </td>
+  ),
 };

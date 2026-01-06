@@ -146,8 +146,8 @@
   }
 
   .dpp-root ::selection {
-    background-color: var(--brand);
-    color: var(--brand-foreground);
+    background-color: #0000FF;
+    color: #FEFEFE;
   }
 }
 

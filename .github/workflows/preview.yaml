@@ -1,0 +1,1083 @@
+name: Preview Deploy
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    branches:
+      - main
+    paths:
+      - apps/**
+      - packages/**
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  FLY_REGION: ams
+  FLY_ORG: personal
+
+jobs:
+  # ============================================
+  # Step 1: Detect which components changed.
+  # ============================================
+  detect-changes:
+    name: 🔍 Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      app_changed: ${{ steps.filter.outputs.app }}
+      api_changed: ${{ steps.filter.outputs.api }}
+      jobs_changed: ${{ steps.filter.outputs.jobs }}
+      dpp_changed: ${{ steps.filter.outputs.dpp }}
+      web_changed: ${{ steps.filter.outputs.web }}
+      integrations_changed: ${{ steps.filter.outputs.integrations }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'apps/app/**'
+              - 'packages/**'
+            api:
+              - 'apps/api/**'
+              - 'packages/**'
+              - '!packages/email/**'
+              - '!packages/ui/**'
+            jobs:
+              - 'packages/jobs/**'
+              - 'packages/db/**'
+              - 'packages/supabase/**'
+              - 'packages/email/**'
+              - 'packages/utils/**'
+            dpp:
+              - 'apps/dpp/**'
+              - 'packages/**'
+            integrations:
+              - 'packages/integrations/**'
+              - 'packages/db/**'
+              - 'packages/jobs/**'
+              - 'apps/api/**'
+              - 'apps/dpp/**'
+              - 'apps/app/**'
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+
+  # ============================================
+  # Step 2: Run tests for changed components
+  # Each test job runs ONCE (no duplicates)
+  # ============================================
+  test-app:
+    name: 🧪 Lint & Type Check (App)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.app_changed == 'true' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./apps/app
+      - name: 🪐 Check TypeScript
+        run: NODE_OPTIONS="--max-old-space-size=8192" bun run typecheck
+        working-directory: ./apps/app
+
+  test-api:
+    name: 🧪 Lint & Type Check (API)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api_changed == 'true' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./apps/api
+      - name: 🪐 Check TypeScript
+        run: bun run typecheck
+        working-directory: ./apps/api
+
+  test-jobs:
+    name: 🧪 Lint & Type Check (Jobs)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.jobs_changed == 'true' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.2.21"
+      - name: Install dependencies
+        run: bun install
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./packages/jobs
+      - name: 🪐 Check TypeScript
+        run: bun run typecheck
+        working-directory: ./packages/jobs
+
+  test-dpp:
+    name: 🧪 Lint & Type Check (DPP)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.dpp_changed == 'true' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./apps/dpp
+      - name: 🪐 Check TypeScript
+        run: bun run typecheck
+        working-directory: ./apps/dpp
+
+  test-web:
+    name: 🧪 Lint & Type Check (Web)
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web_changed == 'true' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 🔦 Run linter
+        run: bun run lint
+        working-directory: ./apps/web
+      - name: 🪐 Check TypeScript
+        run: bun run typecheck
+        working-directory: ./apps/web
+
+  # ============================================
+  # Step 2.5: Setup Preview Database
+  # Creates a Supabase branch ensuring isolated data for this PR
+  # ============================================
+  setup-database:
+    name: 🗄️ Setup Preview Database
+    needs: detect-changes
+    if: |
+      (needs.detect-changes.outputs.api_changed == 'true' || 
+       needs.detect-changes.outputs.jobs_changed == 'true' || 
+       needs.detect-changes.outputs.integrations_changed == 'true') && 
+       github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    # No outputs - each downstream job fetches its own credentials
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🌿 Get Preview Branch (Wait for Integration)
+        run: |
+          # Use the git branch name to match Supabase Integration behavior
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "Looking for branch: $BRANCH_NAME"
+          
+          # The Supabase GitHub Integration should auto-create this branch.
+          # We wait loop until it exists.
+          MAX_RETRIES=10
+          RETRY_COUNT=0
+          FOUND=false
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if supabase branches list --project-ref $SUPABASE_PROJECT_ID | grep -q "$BRANCH_NAME"; then
+              echo "✅ Branch $BRANCH_NAME found."
+              FOUND=true
+              break
+            fi
+            echo "Branch not found yet (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES}). Waiting 10s..."
+            sleep 10
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+          
+          if [ "$FOUND" = "false" ]; then
+             echo "⚠️ Branch was not created by Integration. Creating manually..."
+             supabase branches create "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID || true
+          fi
+
+      - name: ⏳ Wait for Branch to be Ready
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "Waiting for branch $BRANCH_NAME to become ACTIVE_HEALTHY..."
+          
+          MAX_RETRIES=30
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            STATUS=$(supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID 2>/dev/null | grep -oE 'ACTIVE_HEALTHY|CREATING_PROJECT|COMING_UP|UNKNOWN' | head -1 || echo "UNKNOWN")
+            echo "Branch status: $STATUS (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES})"
+            
+            if [ "$STATUS" = "ACTIVE_HEALTHY" ]; then
+              echo "✅ Branch is ready!"
+              break
+            fi
+
+            if [ $RETRY_COUNT -ge $((MAX_RETRIES - 1)) ]; then
+              echo "❌ Branch did not become ready after $((MAX_RETRIES * 10)) seconds"
+              exit 1
+            fi
+
+            sleep 10
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+
+          # Supabase branches need additional time to fully stabilize
+          # even after reporting ACTIVE_HEALTHY
+          echo "Waiting 30s for branch to fully stabilize..."
+          sleep 30
+
+      - name: 🔗 Fetch Branch Credentials
+        id: branch-creds
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          
+          # Get branch credentials using -o env format and write to .env file
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > .env.supabase
+          
+          # Debug: Show available variables (without values)
+          echo "Available env variables:"
+          grep -oE '^[A-Z_]+=' .env.supabase | tr -d '=' || true
+          
+          # Source the env file to get variables
+          set -a
+          source .env.supabase
+          set +a
+          
+          # POSTGRES_URL from Supabase uses port 6543 (Transaction Pooler)
+          # We need port 5432 (Session Pooler) for Drizzle's prepared statements
+          if [ -z "$POSTGRES_URL" ]; then
+            echo "❌ POSTGRES_URL not found in branch env output"
+            echo "Available variables:"
+            grep -oE '^[A-Z_]+=' .env.supabase | tr -d '=' || echo "(none)"
+            exit 1
+          fi
+          
+          # Replace port 6543 with 5432 for Session Pooler and export
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "DATABASE_URL=$DATABASE_URL" >> .env.supabase
+          
+          # Extract the branch project ref from SUPABASE_URL
+          # SUPABASE_URL format: https://<project-ref>.supabase.co
+          BRANCH_PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+)\.supabase\.co.*|\1|')
+          echo "branch_project_ref=$BRANCH_PROJECT_REF" >> $GITHUB_OUTPUT
+          
+          echo "✅ Branch credentials fetched and stored in .env.supabase"
+
+      - name: 🔧 Set Temporary Config Secrets
+        # Set placeholder secrets so config.toml validates during db push.
+        # These will be overwritten by configure-supabase-auth with real values after deploy-app.
+        env:
+          BRANCH_PROJECT_REF: ${{ steps.branch-creds.outputs.branch_project_ref }}
+        run: |
+          set -a
+          source .env.supabase
+          set +a
+          
+          # Use placeholder values - the real APP_URL will be set by configure-supabase-auth
+          # after deploy-app completes and we know the actual Vercel URL
+          TEMP_APP_URL="https://temp-placeholder.vercel.app"
+          TEMP_HOOK_URI="${SUPABASE_URL}/functions/v1/send-email"
+          TEMP_REDIRECT_URI="${SUPABASE_URL}/auth/v1/callback"
+          
+          echo "Setting temporary secrets for branch: $BRANCH_PROJECT_REF"
+          
+          supabase secrets set \
+            APP_URL="$TEMP_APP_URL" \
+            ADDITIONAL_REDIRECT_URL="$TEMP_APP_URL" \
+            SEND_EMAIL_HOOK_URI="$TEMP_HOOK_URI" \
+            SEND_EMAIL_HOOK_SECRET="${{ secrets.SEND_EMAIL_HOOK_SECRET }}" \
+            GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            GOOGLE_SECRET="${{ secrets.GOOGLE_SECRET }}" \
+            GOOGLE_REDIRECT_URI="$TEMP_REDIRECT_URI" \
+            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
+            --project-ref "$BRANCH_PROJECT_REF"
+          
+          echo "✅ Temporary secrets set (will be overwritten with real values later)"
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: 🗄️ Sync Database Schema
+        # Apply pending Supabase migrations to the preview branch
+        # Preview branches are clones of production, so only new migrations need to be applied
+        # Note: supabase db push validates config.toml using env() which reads from .env file (NOT shell env vars)
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+
+          # Create .env file for Supabase CLI's env() function in config.toml
+          # The env() function reads from .env file, not shell environment variables
+          {
+            echo "APP_URL=https://temp-placeholder.vercel.app"
+            echo "ADDITIONAL_REDIRECT_URL=https://temp-placeholder.vercel.app"
+            echo "SEND_EMAIL_HOOK_URI=${SUPABASE_URL}/functions/v1/send-email"
+            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
+            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
+            echo "GOOGLE_REDIRECT_URI=${SUPABASE_URL}/auth/v1/callback"
+          } > .env
+
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          supabase db push --db-url "$DATABASE_URL"
+
+          # Clean up .env file after db push
+          rm -f .env
+        working-directory: ./apps/api
+
+      - name: 📚 Sync Taxonomy Data
+        # Sync categories, attributes, and Shopify-to-Avelero mappings required for integration tests
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          export DATABASE_URL
+          bun run sync
+        working-directory: ./packages/taxonomy
+
+  test-integrations:
+    name: 🧪 Integration Tests
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.integrations_changed == 'true' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      # Unique branch name for this test run (deleted after tests complete)
+      TEST_BRANCH_NAME: test-pr-${{ github.event.number }}-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Install dependencies
+        run: bun install
+
+      - name: 🌿 Create Temporary Test Branch
+        id: create-branch
+        run: |
+          echo "Creating temporary Supabase branch: $TEST_BRANCH_NAME"
+          supabase branches create "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID
+          echo "branch_created=true" >> $GITHUB_OUTPUT
+
+      - name: ⏳ Wait for Test Branch to be Ready
+        run: |
+          echo "Waiting for branch $TEST_BRANCH_NAME to become ACTIVE_HEALTHY..."
+
+          MAX_RETRIES=30
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            STATUS=$(supabase branches get "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID 2>/dev/null | grep -oE 'ACTIVE_HEALTHY|CREATING_PROJECT|COMING_UP|UNKNOWN' | head -1 || echo "UNKNOWN")
+            echo "Branch status: $STATUS (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES})"
+
+            if [ "$STATUS" = "ACTIVE_HEALTHY" ]; then
+              echo "✅ Test branch is ready!"
+              break
+            fi
+
+            if [ $RETRY_COUNT -ge $((MAX_RETRIES - 1)) ]; then
+              echo "❌ Test branch did not become ready after $((MAX_RETRIES * 10)) seconds"
+              exit 1
+            fi
+
+            sleep 10
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+
+          # Supabase branches need additional time to fully stabilize
+          # even after reporting ACTIVE_HEALTHY
+          echo "Waiting 30s for branch to fully stabilize..."
+          sleep 30
+
+      - name: 🔗 Fetch Test Branch Credentials
+        run: |
+          supabase branches get "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
+
+          # Add DATABASE_URL with correct port
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
+
+      - name: 🗄️ Sync Database Schema
+        # Apply pending Supabase migrations to the test branch
+        # Test branches are clean clones, so migrations must be applied before taxonomy sync
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+
+          # Create .env file for Supabase CLI's env() function in config.toml
+          {
+            echo "APP_URL=https://temp-placeholder.vercel.app"
+            echo "ADDITIONAL_REDIRECT_URL=https://temp-placeholder.vercel.app"
+            echo "SEND_EMAIL_HOOK_URI=${SUPABASE_URL}/functions/v1/send-email"
+            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
+            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
+            echo "GOOGLE_REDIRECT_URI=${SUPABASE_URL}/auth/v1/callback"
+          } > .env
+
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          supabase db push --db-url "$DATABASE_URL"
+
+          # Clean up .env file after db push
+          rm -f .env
+        working-directory: ./apps/api
+
+      - name: 📚 Sync Taxonomy Data
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          export DATABASE_URL
+          bun run sync
+        working-directory: ./packages/taxonomy
+
+      - name: 🧪 Run integration tests
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          export DATABASE_URL
+          bun run test
+        working-directory: ./packages/integrations
+
+      - name: 🗑️ Delete Temporary Test Branch
+        if: always() && steps.create-branch.outputs.branch_created == 'true'
+        run: |
+          echo "Cleaning up temporary test branch: $TEST_BRANCH_NAME"
+          supabase branches delete "$TEST_BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID || true
+          echo "✅ Temporary test branch deleted"
+
+  # ============================================
+  # Gate Job: Reports single status for branch protection
+  # ============================================
+  all-tests-passed:
+    name: ✅ All Tests Passed
+    needs: [test-app, test-api, test-jobs, test-dpp, test-web, test-integrations]
+    if: always() && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check test results
+        run: |
+          echo "Test results:"
+          echo "  test-app: ${{ needs.test-app.result }}"
+          echo "  test-api: ${{ needs.test-api.result }}"
+          echo "  test-jobs: ${{ needs.test-jobs.result }}"
+          echo "  test-dpp: ${{ needs.test-dpp.result }}"
+          echo "  test-web: ${{ needs.test-web.result }}"
+          echo "  test-integrations: ${{ needs.test-integrations.result }}"
+          
+          # If ANY test failed or was cancelled, this gate fails
+          if [[ "${{ needs.test-app.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-api.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-jobs.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-dpp.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-web.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-integrations.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-app.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-api.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-jobs.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-dpp.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-web.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.test-integrations.result }}" == "cancelled" ]]; then
+            echo ""
+            echo "❌ One or more tests failed or were cancelled"
+            exit 1
+          fi
+          
+          echo ""
+          echo "✅ All tests passed (or were skipped because their code didn't change)"
+
+  # ============================================
+  # Step 3: Deploy Web (no dependencies on other deploys)
+  # ============================================
+  deploy-web:
+    name: 🌐 Deploy Web
+    needs: [detect-changes, test-web]
+    if: |
+      always() &&
+      (needs.test-web.result == 'success' || needs.test-web.result == 'skipped') &&
+      needs.detect-changes.outputs.web_changed == 'true' &&
+      github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.number }}-web
+      cancel-in-progress: true
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}
+      TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 📤 Pull Vercel Environment Information
+        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🏗 Build Project Artifacts
+        run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🚀 Deploy to Vercel
+        id: deploy
+        run: |
+          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # Step 4: Deploy App (outputs URL for API)
+  # Also deploys when API changes, since deploy-api requires APP_URL
+  # Depends on deploy-dpp to get the DPP URL for passport links
+  # ============================================
+  deploy-app:
+    name: 📱 Deploy App
+    needs: [detect-changes, test-app, setup-database, deploy-dpp]
+    if: |
+      always() &&
+      (needs.test-app.result == 'success' || needs.test-app.result == 'skipped') &&
+      (needs.detect-changes.outputs.app_changed == 'true' || needs.detect-changes.outputs.api_changed == 'true') &&
+      (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
+      (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
+      github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.number }}-app
+      cancel-in-progress: true
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_APP }}
+      TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: Set API URL
+        id: api-url
+        run: |
+          API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
+          echo "url=${API_URL}" >> $GITHUB_OUTPUT
+      - name: 🔗 Fetch Branch Credentials
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
+          
+          # Add DATABASE_URL with correct port
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
+      - name: 📤 Pull Vercel Environment Information
+        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🏗 Build Project Artifacts
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          export NEXT_PUBLIC_API_URL="${{ steps.api-url.outputs.url }}"
+          export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+          export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          # Set DPP URL for passport links (from deploy-dpp output or empty if not deployed)
+          export NEXT_PUBLIC_DPP_URL="${{ needs.deploy-dpp.outputs.url }}"
+          bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🚀 Deploy to Vercel
+        id: deploy
+        run: |
+          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # Step 6: Deploy API (needs App URL and DPP URL)
+  # ============================================
+  deploy-api:
+    name: 🔧 Deploy API
+    needs: [detect-changes, test-api, deploy-app, deploy-dpp, setup-database]
+    if: |
+      always() &&
+      (needs.test-api.result == 'success' || needs.test-api.result == 'skipped') &&
+      needs.detect-changes.outputs.api_changed == 'true' &&
+      needs.deploy-app.result == 'success' &&
+      (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
+      github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.number }}-api
+      cancel-in-progress: true
+    outputs:
+      url: ${{ steps.urls.outputs.api_url }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 🔗 Fetch Branch Credentials
+        id: creds
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
+          
+          # Source the env file to get variables
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          
+          # Create DATABASE_URL with correct port
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          
+          # Output for Fly.io secrets (these will be passed to the deploy action)
+          echo "database_url=$DATABASE_URL" >> $GITHUB_OUTPUT
+          echo "supabase_url=$SUPABASE_URL" >> $GITHUB_OUTPUT
+          echo "supabase_anon_key=$SUPABASE_ANON_KEY" >> $GITHUB_OUTPUT
+          echo "supabase_service_key=$SUPABASE_SERVICE_ROLE_KEY" >> $GITHUB_OUTPUT
+      - name: 🔗 Set URLs
+        id: urls
+        env:
+          INPUT_APP_URL: ${{ needs.deploy-app.outputs.url }}
+          INPUT_DPP_URL: ${{ needs.deploy-dpp.outputs.url }}
+          INPUT_PR_NUM: ${{ github.event.number }}
+        run: |
+          API_URL="https://pr-${INPUT_PR_NUM}-avelero-api.fly.dev"
+          
+          # APP_URL must come from deploy-app - Vercel preview URLs are non-deterministic
+          if [[ -n "${INPUT_APP_URL}" ]]; then
+            APP_URL="${INPUT_APP_URL}"
+          else
+            echo "❌ APP_URL is required but was not provided by deploy-app"
+            echo "This job requires deploy-app to complete successfully first."
+            exit 1
+          fi
+          
+          # Use passed DPP_URL if available
+          if [[ -n "${INPUT_DPP_URL}" ]]; then
+            DPP_URL="${INPUT_DPP_URL}"
+          else
+            DPP_URL=""
+          fi
+          
+          echo "api_url=${API_URL}" >> $GITHUB_OUTPUT
+          echo "app_url=${APP_URL}" >> $GITHUB_OUTPUT
+          echo "dpp_url=${DPP_URL}" >> $GITHUB_OUTPUT
+      - name: 🚀 Deploy PR API to Fly.io
+        uses: superfly/fly-pr-review-apps@1.3.0
+        with:
+          name: pr-${{ github.event.number }}-avelero-api
+          config: apps/api/fly-preview.yml
+          secrets: >
+            DATABASE_URL=${{ steps.creds.outputs.database_url }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ steps.creds.outputs.supabase_url }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ steps.creds.outputs.supabase_anon_key }}
+            SUPABASE_SERVICE_KEY=${{ steps.creds.outputs.supabase_service_key }}
+            SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }}
+            TRIGGER_SECRET_KEY=${{ secrets.TRIGGER_SECRET_KEY_PREVIEW }}
+            TRIGGER_PREVIEW_BRANCH=${{ github.head_ref }}
+            INTERNAL_API_KEY=${{ secrets.PREVIEW_INTERNAL_API_KEY }}
+            SHOPIFY_CLIENT_ID=${{ secrets.SHOPIFY_CLIENT_ID }}
+            SHOPIFY_CLIENT_SECRET=${{ secrets.SHOPIFY_CLIENT_SECRET }}
+            INTEGRATION_ENCRYPTION_KEY=${{ secrets.INTEGRATION_ENCRYPTION_KEY }}
+            API_URL=${{ steps.urls.outputs.api_url }}
+            APP_URL=${{ steps.urls.outputs.app_url }}
+            DPP_URL=${{ steps.urls.outputs.dpp_url }}
+
+  # ============================================
+  # Step 6b: Configure Supabase Auth for Preview Branch
+  # Sets up auth hooks (send_email) and OAuth (Google) for the preview branch
+  # This runs after deploy-app so we have access to the actual APP_URL
+  # ============================================
+  configure-supabase-auth:
+    name: 🔐 Configure Supabase Auth
+    needs: [detect-changes, deploy-app, setup-database]
+    if: |
+      always() &&
+      needs.deploy-app.result == 'success' &&
+      needs.setup-database.result == 'success' &&
+      github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🔗 Fetch Branch Credentials
+        id: creds
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
+          
+          # Source the env file to get variables
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          
+          # Extract the branch project ref from SUPABASE_URL
+          # SUPABASE_URL format: https://<project-ref>.supabase.co
+          BRANCH_PROJECT_REF=$(echo "$SUPABASE_URL" | sed -E 's|https://([^.]+)\.supabase\.co.*|\1|')
+          
+          echo "supabase_url=$SUPABASE_URL" >> $GITHUB_OUTPUT
+          echo "branch_project_ref=$BRANCH_PROJECT_REF" >> $GITHUB_OUTPUT
+
+      - name: 🔧 Set Auth Configuration Secrets
+        env:
+          APP_URL: ${{ needs.deploy-app.outputs.url }}
+          SUPABASE_URL: ${{ steps.creds.outputs.supabase_url }}
+          BRANCH_PROJECT_REF: ${{ steps.creds.outputs.branch_project_ref }}
+        run: |
+          # APP_URL must come from deploy-app - Vercel preview URLs are non-deterministic
+          if [[ -z "$APP_URL" ]]; then
+            echo "❌ APP_URL is required but was not provided by deploy-app"
+            echo "This job requires deploy-app to complete successfully first."
+            exit 1
+          fi
+          
+          # Construct the Edge Function URL for send_email hook
+          SEND_EMAIL_HOOK_URI="${SUPABASE_URL}/functions/v1/send-email"
+          
+          # Construct the Google OAuth redirect URI
+          GOOGLE_REDIRECT_URI="${SUPABASE_URL}/auth/v1/callback"
+          
+          echo "Setting secrets for branch: $BRANCH_PROJECT_REF"
+          echo "  APP_URL: $APP_URL"
+          echo "  SEND_EMAIL_HOOK_URI: $SEND_EMAIL_HOOK_URI"
+          echo "  GOOGLE_REDIRECT_URI: $GOOGLE_REDIRECT_URI"
+          
+          # Set all the secrets needed by config.toml env() references
+          supabase secrets set \
+            APP_URL="$APP_URL" \
+            ADDITIONAL_REDIRECT_URL="$APP_URL" \
+            SEND_EMAIL_HOOK_URI="$SEND_EMAIL_HOOK_URI" \
+            SEND_EMAIL_HOOK_SECRET="${{ secrets.SEND_EMAIL_HOOK_SECRET }}" \
+            GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            GOOGLE_SECRET="${{ secrets.GOOGLE_SECRET }}" \
+            GOOGLE_REDIRECT_URI="$GOOGLE_REDIRECT_URI" \
+            RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}" \
+            --project-ref "$BRANCH_PROJECT_REF"
+          
+          echo "✅ Secrets set successfully"
+
+      - name: 🚀 Deploy Edge Functions to Preview Branch
+        env:
+          APP_URL: ${{ needs.deploy-app.outputs.url }}
+          SUPABASE_URL: ${{ steps.creds.outputs.supabase_url }}
+          BRANCH_PROJECT_REF: ${{ steps.creds.outputs.branch_project_ref }}
+        run: |
+          # Create .env file for Supabase CLI's env() function in config.toml
+          # The env() function reads from .env file, not shell environment variables
+          {
+            echo "APP_URL=${APP_URL}"
+            echo "ADDITIONAL_REDIRECT_URL=${APP_URL}"
+            echo "SEND_EMAIL_HOOK_URI=${SUPABASE_URL}/functions/v1/send-email"
+            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
+            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
+            echo "GOOGLE_REDIRECT_URI=${SUPABASE_URL}/auth/v1/callback"
+          } > .env
+
+          echo "Deploying Edge Functions to branch: $BRANCH_PROJECT_REF"
+          supabase functions deploy send-email --project-ref "$BRANCH_PROJECT_REF"
+          echo "✅ Edge Functions deployed successfully"
+        working-directory: ./apps/api
+
+      - name: 📤 Push Config to Preview Branch
+        env:
+          APP_URL: ${{ needs.deploy-app.outputs.url }}
+          SUPABASE_URL: ${{ steps.creds.outputs.supabase_url }}
+          BRANCH_PROJECT_REF: ${{ steps.creds.outputs.branch_project_ref }}
+        run: |
+          # Create .env file for Supabase CLI's env() function in config.toml
+          # The env() function reads from .env file, not shell environment variables
+          {
+            echo "APP_URL=${APP_URL}"
+            echo "ADDITIONAL_REDIRECT_URL=${APP_URL}"
+            echo "SEND_EMAIL_HOOK_URI=${SUPABASE_URL}/functions/v1/send-email"
+            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
+            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
+            echo "GOOGLE_REDIRECT_URI=${SUPABASE_URL}/auth/v1/callback"
+          } > .env
+
+          echo "Pushing config.toml to branch: $BRANCH_PROJECT_REF"
+          supabase config push --project-ref "$BRANCH_PROJECT_REF"
+
+          # Clean up .env file
+          rm -f .env
+          echo "✅ Config pushed successfully"
+        working-directory: ./apps/api
+
+  # ============================================
+  # Step 7: Deploy Jobs (waits for API to be healthy)
+  # ============================================
+  deploy-jobs:
+    name: ⚙️ Deploy Jobs
+    needs: [detect-changes, test-jobs, deploy-api, deploy-dpp, setup-database]
+    if: |
+      always() &&
+      (needs.test-jobs.result == 'success' || needs.test-jobs.result == 'skipped') &&
+      needs.detect-changes.outputs.jobs_changed == 'true' &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
+      (needs.deploy-dpp.result == 'success' || needs.deploy-dpp.result == 'skipped') &&
+      github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.number }}-jobs
+      cancel-in-progress: true
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.2.21"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 🔗 Fetch Branch Credentials
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          supabase branches get "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID -o env > $GITHUB_WORKSPACE/.env.supabase
+          
+          # Add DATABASE_URL with correct port
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_WORKSPACE/.env.supabase
+      - name: Set API URL
+        id: api-url
+        run: |
+          API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
+          echo "url=${API_URL}" >> $GITHUB_OUTPUT
+      - name: ⏳ Wait for API to be ready
+        env:
+          API_URL: ${{ steps.api-url.outputs.url }}
+        run: |
+          echo "Waiting for API at ${API_URL}/health to be ready..."
+          MAX_RETRIES=30
+          RETRY_DELAY_SECONDS=10
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl --fail --silent --show-error "${API_URL}/health" > /dev/null 2>&1; then
+              echo "✅ API is ready!"
+              exit 0
+            fi
+            echo "API not ready yet (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES}), waiting ${RETRY_DELAY_SECONDS} seconds..."
+            sleep $RETRY_DELAY_SECONDS
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+          echo "❌ API did not become ready after $((MAX_RETRIES * RETRY_DELAY_SECONDS)) seconds"
+          exit 1
+      - name: 🚀 Deploy to Trigger.dev Preview
+        run: |
+          set -a
+          source $GITHUB_WORKSPACE/.env.supabase
+          set +a
+          export DATABASE_URL
+          export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export SUPABASE_SERVICE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
+          export BRANCH_NAME="${{ github.head_ref }}"
+          export TRIGGER_ACCESS_TOKEN="${{ secrets.TRIGGER_ACCESS_TOKEN }}"
+          export API_URL="${{ steps.api-url.outputs.url }}"
+          export DPP_URL="${{ needs.deploy-dpp.outputs.url }}"
+          export INTERNAL_API_KEY="${{ secrets.PREVIEW_INTERNAL_API_KEY }}"
+          export RESEND_API_KEY="${{ secrets.RESEND_API_KEY }}"
+          bunx trigger.dev@4.0.6 deploy --env preview --branch "$BRANCH_NAME"
+        working-directory: ./packages/jobs
+
+  # ============================================
+  # Step 5b: Deploy DPP (moved earlier to provide URL for API/Jobs)
+  # ============================================
+  deploy-dpp:
+    name: 📋 Deploy DPP
+    needs: [detect-changes, test-dpp, setup-database]
+    if: |
+      always() &&
+      (needs.test-dpp.result == 'success' || needs.test-dpp.result == 'skipped') &&
+      needs.detect-changes.outputs.dpp_changed == 'true' &&
+      (needs.setup-database.result == 'success' || needs.setup-database.result == 'skipped') &&
+      github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.number }}-dpp
+      cancel-in-progress: true
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DPP }}
+      TURBO_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      TURBO_TEAM: ${{ secrets.VERCEL_ORG_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: Set API URL
+        id: api-url
+        run: |
+          # Use predictable Fly.io URL pattern (API will be deployed after DPP)
+          API_URL="https://pr-${{ github.event.number }}-avelero-api.fly.dev"
+          echo "url=${API_URL}" >> $GITHUB_OUTPUT
+      - name: 📤 Pull Vercel Environment Information
+        run: bunx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: 🏗 Build Project Artifacts
+        run: bunx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          NEXT_PUBLIC_API_URL: ${{ steps.api-url.outputs.url }}
+      - name: 🚀 Deploy to Vercel
+        id: deploy
+        run: |
+          DEPLOYMENT_URL=$(bunx vercel deploy --prebuilt --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # Summary: Post deployment URLs to PR
+  # ============================================
+  summary:
+    name: 📝 Post Summary
+    needs: [detect-changes, deploy-web, deploy-app, deploy-api, deploy-jobs, deploy-dpp]
+    if: always() && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 💬 Comment Summary
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const appUrl = '${{ needs.deploy-app.outputs.url }}' || null;
+            const apiUrl = `https://pr-${{ github.event.number }}-avelero-api.fly.dev`;
+            const webUrl = '${{ needs.deploy-web.outputs.url }}' || null;
+            const dppUrl = '${{ needs.deploy-dpp.outputs.url }}' || null;
+            
+            const appChanged = '${{ needs.detect-changes.outputs.app_changed }}' === 'true';
+            const apiChanged = '${{ needs.detect-changes.outputs.api_changed }}' === 'true';
+            const webChanged = '${{ needs.detect-changes.outputs.web_changed }}' === 'true';
+            const dppChanged = '${{ needs.detect-changes.outputs.dpp_changed }}' === 'true';
+            const jobsChanged = '${{ needs.detect-changes.outputs.jobs_changed }}' === 'true';
+            
+            let body = `## 🚀 Preview Deployment Summary\n\n`;
+            
+            if (appChanged) {
+              body += `**App:** ${appUrl || '❌ Failed'}\n`;
+            }
+            if (apiChanged) {
+              const apiDeployResult = '${{ needs.deploy-api.result }}';
+              const apiSuccess = apiDeployResult === 'success';
+              body += `**API:** ${apiSuccess ? apiUrl : '❌ Failed'}\n`;
+            }
+            if (webChanged) {
+              body += `**Web:** ${webUrl || '❌ Failed'}\n`;
+            }
+            if (dppChanged) {
+              body += `**DPP:** ${dppUrl || '❌ Failed'}\n`;
+            }
+            if (jobsChanged) {
+              body += `**Jobs:** Deployed to Trigger.dev\n`;
+            }
+            
+            if (!appChanged && !apiChanged && !webChanged && !dppChanged && !jobsChanged) {
+              body += `No components were deployed.\n`;
+            }
+            
+            body += `\nPreview environments will auto-delete when PR closes.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # ============================================
+  # Cleanup: Archive previews when PR is closed
+  # ============================================
+  cleanup:
+    name: 🗑️ Cleanup Previews
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.2.21"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: 🗑️ Archive Trigger.dev Preview
+        run: bunx trigger.dev@4.0.6 preview archive
+        working-directory: ./packages/jobs
+        env:
+          TRIGGER_ACCESS_TOKEN: ${{ secrets.TRIGGER_ACCESS_TOKEN }}
+      - name: 🗑️ Delete Supabase Branch
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          if supabase branches list --project-ref $SUPABASE_PROJECT_ID | grep -q "$BRANCH_NAME"; then
+            echo "Deleting Supabase branch $BRANCH_NAME..."
+            supabase branches delete "$BRANCH_NAME" --project-ref $SUPABASE_PROJECT_ID
+          else
+            echo "Branch $BRANCH_NAME does not exist, skipping."
+          fi

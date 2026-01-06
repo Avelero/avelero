@@ -4,24 +4,20 @@
  * In v4, configuration is handled via trigger.config.ts and environment variables.
  * The SDK automatically reads TRIGGER_SECRET_KEY from the environment.
  *
- * This file is kept for compatibility but no longer performs manual configuration.
+ * This file loads environment variables for local development.
+ * In Trigger.dev cloud, env vars are injected directly via their dashboard.
  */
 
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-// Load environment variables from .env file
 import { config } from "dotenv";
 
-// Load .env from the jobs package directory
+// Load .env with OVERRIDE to ensure local config takes precedence
+// This is critical because Trigger.dev may inject cloud env vars first
 const envPath = resolve(__dirname, "../../.env");
-config({ path: envPath });
-
-console.log("[trigger-config] Loading environment from:", envPath);
-console.log("[trigger-config] Environment variables loaded:", {
-  hasDatabaseUrl: !!process.env.DATABASE_URL,
-  hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-  hasSupabaseKey: !!process.env.SUPABASE_SERVICE_KEY,
-  hasTriggerSecret: !!process.env.TRIGGER_SECRET_KEY,
-});
+if (existsSync(envPath)) {
+  config({ path: envPath, override: true });
+}
 
 // Validate that TRIGGER_SECRET_KEY is set
 const accessToken = process.env.TRIGGER_SECRET_KEY?.trim();

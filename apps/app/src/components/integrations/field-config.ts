@@ -26,13 +26,18 @@ export const FIELD_GROUP_LABELS: Record<FieldGroup, string> = {
 export const FIELD_GROUP_ORDER: FieldGroup[] = ["product", "variants", "organization", "sales"];
 
 /**
- * Fields hidden from the UI but still managed:
+ * Fields hidden from the main field config UI:
  * - salesStatus: always on, managed internally
  * - currency: follows price toggle, managed internally
+ * - sku/barcode: managed by identifier toggle
+ * - attributes: synced automatically, managed separately
  */
 export const HIDDEN_FIELDS = new Set([
   "product.salesStatus",
   "product.currency",
+  "variant.sku",
+  "variant.barcode",
+  "variant.attributes",
 ]);
 
 /**

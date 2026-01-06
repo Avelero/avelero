@@ -444,6 +444,9 @@ export const explicitVariantSchema = z.object({
 
 /**
  * Schema for a matrix dimension (one attribute with multiple values).
+ * 
+ * @deprecated Use the `products.variants.sync` endpoint instead.
+ * Matrix mode has been removed in favor of explicit variant definitions.
  */
 export const matrixDimensionSchema = z.object({
   /** The brand attribute ID */
@@ -454,6 +457,10 @@ export const matrixDimensionSchema = z.object({
 
 /**
  * Upsert/replace variants for a product using the generic attribute system.
+ * 
+ * @deprecated Use the `products.variants.sync` endpoint instead.
+ * This schema and the associated upsert endpoint have been replaced by the
+ * unified variants router which uses productHandle + variantUpid identifiers.
  * 
  * Supports two modes:
  * - **explicit**: Provide explicit variant definitions with attribute assignments
@@ -486,12 +493,30 @@ export const productVariantsUpsertSchema = z.discriminatedUnion("mode", [
 ]);
 
 /**
- * Deletes variants by id or by parent product.
+ * Deletes variants by id, by parent product, or by product handle + variant UPID.
  */
 export const productVariantsDeleteSchema = z.union([
   z.object({ variant_id: uuidSchema }),
   z.object({ product_id: uuidSchema }),
+  z.object({ productHandle: productHandleSchema, variantUpid: upidSchema }),
 ]);
+
+/**
+ * Creates a single new variant for a product.
+ * Uses product handle for URL-friendly API calls from the frontend.
+ */
+export const productVariantsCreateSchema = z.object({
+  /** Product handle (URL-friendly identifier) */
+  productHandle: productHandleSchema,
+  /** Ordered list of brand attribute value IDs defining this variant's attributes */
+  attribute_value_ids: uuidArraySchema.min(1, "At least one attribute value is required"),
+  /** Optional SKU */
+  sku: z.string().max(100).optional(),
+  /** Optional barcode */
+  barcode: z.string().max(100).optional(),
+});
+
+export type ProductVariantsCreateInput = z.infer<typeof productVariantsCreateSchema>;
 
 /**
  * Input payload for `products.list` in the reorganized API.

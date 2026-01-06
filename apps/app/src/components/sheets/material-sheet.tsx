@@ -1,6 +1,7 @@
 "use client";
 
 import { useTRPC } from "@/trpc/client";
+import { useUserQuery } from "@/hooks/use-user";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useImageUpload } from "@/hooks/use-upload";
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
@@ -74,7 +75,7 @@ interface CertificationData {
   /** Expiration date */
   expiryDate?: Date;
   /** File path for certificate document */
-  filePath?: string;
+  certificationPath?: string;
 }
 
 /**
@@ -126,6 +127,8 @@ export function MaterialSheet({
 }: MaterialSheetProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const { data: user } = useUserQuery();
+  const brandId = user?.brand_id;
   const { certifications: apiCertifications } = useBrandCatalog();
   const [currentPage, setCurrentPage] = React.useState<Page>("material");
 
@@ -158,7 +161,7 @@ export function MaterialSheet({
       instituteCountryCode: cert.institute_country_code || undefined,
       issueDate: cert.issue_date ? new Date(cert.issue_date) : undefined,
       expiryDate: cert.expiry_date ? new Date(cert.expiry_date) : undefined,
-      filePath: cert.file_path || undefined,
+      certificationPath: cert.certification_path || undefined,
     }));
   }, [apiCertifications]);
 
@@ -183,7 +186,7 @@ export function MaterialSheet({
   const [certExpiryDate, setCertExpiryDate] = React.useState<Date | undefined>(
     undefined,
   );
-  const [certFilePath, setCertFilePath] = React.useState<string | undefined>(
+  const [certificationPath, setCertificationPath] = React.useState<string | undefined>(
     undefined,
   );
   const [uploadedFileName, setUploadedFileName] = React.useState<
@@ -247,7 +250,7 @@ export function MaterialSheet({
     setCertInstituteCountryCode("");
     setCertIssueDate(undefined);
     setCertExpiryDate(undefined);
-    setCertFilePath(undefined);
+    setCertificationPath(undefined);
     setUploadedFileName(undefined);
   };
 
@@ -284,30 +287,30 @@ export function MaterialSheet({
       // Serialize dates as ISO strings
       const issueDateISO = certIssueDate
         ? new Date(
-            Date.UTC(
-              certIssueDate.getFullYear(),
-              certIssueDate.getMonth(),
-              certIssueDate.getDate(),
-              0,
-              0,
-              0,
-              0,
-            ),
-          ).toISOString()
+          Date.UTC(
+            certIssueDate.getFullYear(),
+            certIssueDate.getMonth(),
+            certIssueDate.getDate(),
+            0,
+            0,
+            0,
+            0,
+          ),
+        ).toISOString()
         : undefined;
 
       const expiryDateISO = certExpiryDate
         ? new Date(
-            Date.UTC(
-              certExpiryDate.getFullYear(),
-              certExpiryDate.getMonth(),
-              certExpiryDate.getDate(),
-              0,
-              0,
-              0,
-              0,
-            ),
-          ).toISOString()
+          Date.UTC(
+            certExpiryDate.getFullYear(),
+            certExpiryDate.getMonth(),
+            certExpiryDate.getDate(),
+            0,
+            0,
+            0,
+            0,
+          ),
+        ).toISOString()
         : undefined;
 
       // Create certification via API
@@ -327,7 +330,7 @@ export function MaterialSheet({
         institute_country_code: certInstituteCountryCode || undefined,
         issue_date: issueDateISO,
         expiry_date: expiryDateISO,
-        file_path: certFilePath || undefined,
+        certification_path: certificationPath || undefined,
       });
 
       // Validate response
@@ -367,7 +370,7 @@ export function MaterialSheet({
                   institute_country_code: certInstituteCountryCode || null,
                   issue_date: issueDateISO || null,
                   expiry_date: expiryDateISO || null,
-                  file_path: certFilePath || null,
+                  certification_path: certificationPath || null,
                   created_at: now,
                   updated_at: now,
                 },
@@ -528,15 +531,23 @@ export function MaterialSheet({
       return;
     }
 
-    // Validate file size (4MB limit)
-    const maxSize = 4 * 1024 * 1024; // 4MB in bytes
+    // Validate file size (50MB limit)
+    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
     if (file.size > maxSize) {
-      toast.error("File too large. Please upload a file smaller than 4MB.");
+      toast.error("File too large. Please upload a file smaller than 50MB.");
+      return;
+    }
+
+    // Ensure we have a brand ID
+    if (!brandId) {
+      toast.error("Unable to upload - no active brand selected.");
       return;
     }
 
     try {
-      const path = buildPath(["certifications"], file);
+      // Path structure: certifications/{brand_id}/{filename}
+      // This is required for RLS policies to work correctly
+      const path = buildPath([brandId], file);
       const result = await uploadImage({
         file,
         path,
@@ -553,16 +564,16 @@ export function MaterialSheet({
           if (f.size > maxSize) {
             return {
               valid: false,
-              error: "File too large. Please upload a file smaller than 4MB.",
+              error:
+                "File too large. Please upload a file smaller than 50MB.",
             };
           }
           return { valid: true };
         },
       });
 
-      setCertFilePath(result.displayUrl);
+      setCertificationPath(result.displayUrl);
       setUploadedFileName(file.name);
-      toast.success("Certificate uploaded successfully");
     } catch (error) {
       const errorMessage =
         error instanceof Error
@@ -614,7 +625,7 @@ export function MaterialSheet({
           onClose={() => onOpenChange(false)}
           onPageClick={(pageIndex) => {
             if (pageIndex === 0) {
-              handleBackToMaterial();
+              handleBackToMaterial(); SheetBreadcrumbHeader
             }
           }}
         />
@@ -701,14 +712,14 @@ export function MaterialSheet({
                         // Filter certifications by search term
                         const filteredCerts = certSearchTerm
                           ? availableCertifications.filter(
-                              (cert) =>
-                                cert.title
-                                  .toLowerCase()
-                                  .includes(certSearchTerm.toLowerCase()) ||
-                                cert.certificationCode
-                                  ?.toLowerCase()
-                                  .includes(certSearchTerm.toLowerCase()),
-                            )
+                            (cert) =>
+                              cert.title
+                                .toLowerCase()
+                                .includes(certSearchTerm.toLowerCase()) ||
+                              cert.certificationCode
+                                ?.toLowerCase()
+                                .includes(certSearchTerm.toLowerCase()),
+                          )
                           : availableCertifications;
 
                         // Check if search term doesn't match any existing certification
@@ -717,9 +728,9 @@ export function MaterialSheet({
                           !availableCertifications.some(
                             (cert) =>
                               cert.title.toLowerCase() ===
-                                certSearchTerm.toLowerCase() ||
+                              certSearchTerm.toLowerCase() ||
                               cert.certificationCode?.toLowerCase() ===
-                                certSearchTerm.toLowerCase(),
+                              certSearchTerm.toLowerCase(),
                           );
 
                         return (
@@ -736,10 +747,10 @@ export function MaterialSheet({
                                     "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border",
                                     // Remove bottom border on last item only if there's no create option below
                                     index === filteredCerts.length - 1 &&
-                                      !showCreateOption &&
-                                      "border-b-0",
+                                    !showCreateOption &&
+                                    "border-b-0",
                                     selectedCertificationId === cert.id &&
-                                      "bg-accent-blue",
+                                    "bg-accent-blue",
                                   )}
                                 >
                                   <div className="w-8 h-8 flex items-center justify-center shrink-0">
@@ -1020,7 +1031,7 @@ export function MaterialSheet({
                     <button
                       type="button"
                       onClick={() => {
-                        setCertFilePath(undefined);
+                        setCertificationPath(undefined);
                         setUploadedFileName(undefined);
                         if (fileInputRef.current) {
                           fileInputRef.current.value = "";
@@ -1054,7 +1065,7 @@ export function MaterialSheet({
                           Drop your certificate here, or click to browse.
                         </p>
                         <p className="type-small text-tertiary">
-                          4MB file limit.
+                          50MB file limit.
                         </p>
                       </>
                     )}

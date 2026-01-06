@@ -101,8 +101,8 @@ export function transformCertificationInput<T extends Record<string, any>>(
       case "expiry_date":
         result.expiryDate = value;
         break;
-      case "file_path":
-        result.filePath = value;
+      case "certification_path":
+        result.certificationPath = value;
         break;
       default:
         result[key] = value;

@@ -6,11 +6,25 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "lint": "biome lint ./src",
+    "typecheck": "tsc --noEmit",
+    "test": "bun run test:unit && bun run test:integration",
+    "test:unit": "bun test ./__tests__/unit --timeout 10000",
+    "test:integration": "bun test ./__tests__/integration --preload ./__tests__/setup.ts --serial --timeout 30000",
+    "test:watch": "bun test --watch ./__tests__/unit"
+  },
   "dependencies": {
     "@v1/db": "workspace:*",
     "@v1/supabase": "workspace:*"
   },
   "devDependencies": {
-    "@v1/tsconfig": "workspace:*"
+    "@types/bun": "^1.2.16",
+    "@types/node": "^24.0.1",
+    "@v1/testing": "workspace:*",
+    "@v1/tsconfig": "workspace:*",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
+    "typescript": "^5.9.2"
   }
 }

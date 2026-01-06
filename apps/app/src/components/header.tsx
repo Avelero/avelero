@@ -1,4 +1,5 @@
 import { HeaderNavigation } from "@/components/header-navigation";
+import { DataControl } from "@/components/theme-editor/data-control";
 import { UserMenu } from "@/components/user-menu";
 import { Icons } from "@v1/ui/icons";
 import Image from "next/image";
@@ -71,7 +72,8 @@ export function Header({
             <HeaderNavigation />
             {isEditor ? <EditorHeaderStatus /> : null}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            {isEditor && <DataControl />}
             {!hideUserMenu && <UserMenu />}
           </div>
         </div>

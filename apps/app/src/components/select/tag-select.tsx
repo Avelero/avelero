@@ -21,7 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 
-export interface TagOption extends BrandTagOption {}
+export interface TagOption extends BrandTagOption { }
 
 interface TagSelectProps {
   value: string[];
@@ -281,7 +281,7 @@ export function TagSelect({
                 e.stopPropagation();
                 setOpen(!open);
               }}
-              className="mx-1 border-b border-border type-p text-tertiary group-hover:text-secondary group-hover:border-secondary cursor-pointer transition-colors"
+              className="mx-1 border-b border-border type-p text-tertiary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary cursor-pointer transition-colors"
             >
               {placeholder}
             </button>
@@ -295,7 +295,7 @@ export function TagSelect({
         {view === "main" ? (
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search or create tags..."
+              placeholder="Search..."
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
@@ -311,12 +311,12 @@ export function TagSelect({
                         onSelect={() => handleToggleTag(tag.id)}
                         className="justify-between"
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center">
                           <div
                             className="h-3.5 w-3.5 rounded-full border border-border"
                             style={{ backgroundColor: `#${tag.hex}` }}
                           />
-                          <span className="type-p text-primary">
+                          <span className="px-1">
                             {tag.name}
                           </span>
                         </div>
@@ -326,9 +326,9 @@ export function TagSelect({
                   })}
                 {filteredTags.length === 0 && showCreateOption && (
                   <CommandItem value={searchTerm} onSelect={handleCreateClick}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center">
                       <Icons.Plus className="h-3.5 w-3.5" />
-                      <span className="type-p text-primary">
+                      <span className="px-1">
                         Create &quot;{searchTerm.trim()}&quot;
                       </span>
                     </div>
@@ -336,7 +336,7 @@ export function TagSelect({
                 )}
                 {filteredTags.length === 0 && !showCreateOption && (
                   <CommandEmpty>
-                    {searchTerm ? "No tags found" : "No tags yet"}
+                    {searchTerm ? "No items found." : "Start typing to create..."}
                   </CommandEmpty>
                 )}
               </CommandGroup>
@@ -345,7 +345,7 @@ export function TagSelect({
         ) : (
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Select a color..."
+              placeholder="Search..."
               value={searchTerm}
               onValueChange={setSearchTerm}
             />
@@ -358,17 +358,17 @@ export function TagSelect({
                     onSelect={() => handleColorPick(color)}
                     disabled={createTagMutation.isPending}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center">
                       <div
                         className="h-3.5 w-3.5 rounded-full border border-border"
                         style={{ backgroundColor: `#${color.hex}` }}
                       />
-                      <span className="type-p text-primary">{color.name}</span>
+                      <span className="px-1">{color.name}</span>
                     </div>
                   </CommandItem>
                 ))}
                 {filteredColors.length === 0 && (
-                  <CommandEmpty>No colors found</CommandEmpty>
+                  <CommandEmpty>No items found.</CommandEmpty>
                 )}
               </CommandGroup>
             </CommandList>

@@ -42,7 +42,7 @@ function RoleSelector({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          className="h-9 w-[110px] justify-between items-center flex-shrink-0"
+          className="h-9 w-[110px] justify-between items-center flex-shrink-0 data-[state=open]:bg-accent"
           variant="outline"
         >
           {value === "owner" ? "Owner" : "Member"}

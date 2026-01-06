@@ -1,12 +1,23 @@
 "use client";
 
 import { cn } from "@v1/ui/cn";
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
+import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import { toast } from "@v1/ui/sonner";
+import { useState } from "react";
 
 // =============================================================================
 // Types
 // =============================================================================
 
+export type MatchIdentifier = "sku" | "barcode";
+export type IntegrationMode = "primary" | "secondary";
 export type IntegrationStatus = "pending" | "active" | "error" | "paused" | "disconnected";
 export type SyncJobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
@@ -58,12 +69,12 @@ export function IntegrationStatusBadge({
     >
       {status === "active" && (
         <div className="flex h-3 w-3 items-center justify-center">
-            <span className="h-2 w-2 rounded-full bg-brand" />
+          <span className="h-2 w-2 rounded-full bg-brand" />
         </div>
       )}
       {status === "error" && (
         <div className="flex h-3 w-3 items-center justify-center">
-            <span className="h-2 w-2 rounded-full bg-destructive" />
+          <span className="h-2 w-2 rounded-full bg-destructive" />
         </div>
       )}
       <span className="type-small text-foreground px-1">{config.label}</span>
@@ -72,10 +83,38 @@ export function IntegrationStatusBadge({
 }
 
 // =============================================================================
+// Primary Badge
+// =============================================================================
+
+interface PrimaryBadgeProps {
+  className?: string;
+}
+
+/**
+ * Badge indicating this is the primary integration.
+ */
+export function PrimaryBadge({ className }: PrimaryBadgeProps) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center px-2 h-6 rounded-full border border-brand/30 bg-brand/10",
+        className,
+      )}
+    >
+      <span className="type-small text-brand font-medium">Primary</span>
+    </span>
+  );
+}
+
+// =============================================================================
 // Sync Progress Block
 // =============================================================================
 
+export type JobType = "sync" | "promotion";
+
 interface SyncProgressBlockProps {
+  /** Type of job being displayed */
+  jobType?: JobType;
   /** Current sync job status */
   status: SyncJobStatus | null;
   /** Sync progress percentage (0-100) */
@@ -87,9 +126,11 @@ interface SyncProgressBlockProps {
 }
 
 /**
- * Progress block showing current sync status with a progress bar.
+ * Progress block showing current job status with a progress bar.
+ * Supports both sync and promotion jobs.
  */
 export function SyncProgressBlock({
+  jobType = "sync",
   status,
   progress,
   startedAt,
@@ -104,16 +145,35 @@ export function SyncProgressBlock({
   const isIndeterminate = isInProgress && progress === undefined;
   const displayProgress = progress ?? (isCompleted ? 100 : (isFailed || isCancelled) ? 100 : 0);
 
+  // Labels based on job type
+  const labels = {
+    sync: {
+      inProgress: "Sync in progress",
+      completed: "Sync completed",
+      failed: "Sync failed",
+      cancelled: "Sync cancelled",
+      startedLabel: "Sync started on",
+    },
+    promotion: {
+      inProgress: "Promotion in progress",
+      completed: "Promotion completed",
+      failed: "Promotion failed",
+      cancelled: "Promotion cancelled",
+      startedLabel: "Promotion started on",
+    },
+  };
+  const jobLabels = labels[jobType];
+
   return (
     <div className="border border-border p-4 flex flex-col gap-2">
       {/* Status header */}
       <div className="flex items-center justify-between">
         <span className="type-small !font-medium text-foreground">
-          {isInProgress && "In progress"}
-          {isCompleted && "Completed"}
-          {isFailed && "Failed"}
-          {isCancelled && "Cancelled"}
-          {!status && "No sync"}
+          {isInProgress && jobLabels.inProgress}
+          {isCompleted && jobLabels.completed}
+          {isFailed && jobLabels.failed}
+          {isCancelled && jobLabels.cancelled}
+          {!status && "No job"}
         </span>
         {status && !isIndeterminate && (
           <span className="type-small text-secondary">{displayProgress}%</span>
@@ -137,10 +197,10 @@ export function SyncProgressBlock({
         </div>
       )}
 
-      {/* Sync start time */}
+      {/* Start time */}
       {startedAt && (
         <p className="type-small text-secondary">
-          Sync started on {formatFullDateTime(startedAt)}
+          {jobLabels.startedLabel} {formatFullDateTime(startedAt)}
         </p>
       )}
 
@@ -152,6 +212,7 @@ export function SyncProgressBlock({
   );
 }
 
+
 // =============================================================================
 // Integration Info Header
 // =============================================================================
@@ -160,22 +221,57 @@ interface IntegrationInfoRowProps {
   lastSync: string | null;
   nextSync: string | null;
   status: IntegrationStatus;
+  mode?: IntegrationMode;
+  matchIdentifier?: MatchIdentifier;
+  onMatchIdentifierChange?: (value: MatchIdentifier) => void;
 }
 
 /**
- * Row showing last sync, next sync, and status info.
+ * Row showing last sync, next sync, status, mode, and identifier info.
  */
 export function IntegrationInfoRow({
   lastSync,
   nextSync,
   status,
+  mode,
+  matchIdentifier,
+  onMatchIdentifierChange,
 }: IntegrationInfoRowProps) {
+  const [open, setOpen] = useState(false);
+
+  const identifierConfig: Record<MatchIdentifier, { label: string; icon: typeof Icons.Barcode }> = {
+    barcode: { label: "Barcode", icon: Icons.Barcode },
+    sku: { label: "SKU", icon: Icons.Package },
+  };
+
+  const modeConfig: Record<IntegrationMode, { label: string; icon: typeof Icons.Crown }> = {
+    primary: { label: "Primary", icon: Icons.Crown },
+    secondary: { label: "Secondary", icon: Icons.LayoutGrid },
+  };
+
+  const currentIdentifier = matchIdentifier ?? "barcode";
+  const CurrentIcon = identifierConfig[currentIdentifier].icon;
+
+  function handleSelect(value: MatchIdentifier) {
+    if (value !== currentIdentifier && onMatchIdentifierChange) {
+      onMatchIdentifierChange(value);
+      toast.success("Identifier successfully changed");
+    }
+    setOpen(false);
+  }
+
   return (
     <div className="flex flex-row items-start gap-4 mx-4">
       <div className="flex flex-col items-start gap-2">
         <span className="type-small h-6 text-secondary flex items-center">Last sync</span>
         <span className="type-small h-6 text-secondary flex items-center">Next sync</span>
         <span className="type-small h-6 text-secondary flex items-center">Status</span>
+        {mode !== undefined && (
+          <span className="type-small h-6 text-secondary flex items-center">Mode</span>
+        )}
+        {matchIdentifier !== undefined && (
+          <span className="type-small h-6 text-secondary flex items-center">Identifier</span>
+        )}
       </div>
       <div className="flex flex-col items-start gap-2">
         <div className="flex items-center pl-1.5 h-6 pr-1">
@@ -187,6 +283,64 @@ export function IntegrationInfoRow({
           <span className="type-small text-foreground pl-1">{nextSync ? formatFullDateTime(nextSync) : "Not scheduled"}</span>
         </div>
         <IntegrationStatusBadge status={status} />
+        {mode !== undefined && (() => {
+          const config = modeConfig[mode];
+          const ModeIcon = config.icon;
+          return (
+            <div className="flex items-center pl-1.5 h-6 pr-1">
+              <ModeIcon className="h-3 w-3 text-secondary" />
+              <span className="type-small text-foreground pl-1">{config.label}</span>
+            </div>
+          );
+        })()}
+        {matchIdentifier !== undefined && onMatchIdentifierChange && (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex items-center px-1.5 h-6 rounded-full transition-colors duration-100 cursor-pointer",
+                  "hover:bg-accent data-[state=open]:bg-accent"
+                )}
+              >
+                <CurrentIcon className="h-3 w-3 text-secondary" />
+                <span className="type-small text-foreground px-1">
+                  {identifierConfig[currentIdentifier].label}
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-[140px] p-0"
+              align="start"
+              sideOffset={4}
+            >
+              <Command shouldFilter={false}>
+                <CommandList>
+                  <CommandGroup>
+                    {(["barcode", "sku"] as const).map((id) => {
+                      const config = identifierConfig[id];
+                      const Icon = config.icon;
+                      const isSelected = id === currentIdentifier;
+                      return (
+                        <CommandItem
+                          key={id}
+                          value={id}
+                          onSelect={() => handleSelect(id)}
+                          className="justify-between"
+                        >
+                          <div className="flex flex-row">
+                            <Icon className="h-3 w-3" />
+                            <span className="px-2">{config.label}</span>
+                          </div>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
     </div>
   );

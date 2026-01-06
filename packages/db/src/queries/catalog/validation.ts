@@ -274,7 +274,7 @@ export function validateCertificationInput(input: {
   instituteCountryCode?: string;
   issueDate?: string;
   expiryDate?: string;
-  filePath?: string;
+  certificationPath?: string;
 }): ValidationResult {
   const errors: ValidationError[] = [];
   if (!input.title || input.title.trim().length === 0) {
@@ -432,7 +432,7 @@ export async function validateAndCreateEntity(
           instituteCountryCode?: string;
           issueDate?: string;
           expiryDate?: string;
-          filePath?: string;
+          certificationPath?: string;
         },
       );
       name = (input as { title: string }).title;

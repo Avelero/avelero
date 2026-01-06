@@ -222,10 +222,10 @@ function MembershipRow({
       <div className="flex items-center gap-3">
         <SignedAvatar
           bucket="avatars"
+          id={membership.user_id ?? ""}
           size={32}
           name={displayName}
           url={membership.avatar_url}
-          hue={membership.avatar_hue}
         />
         <div className="flex flex-col">
           <span className="type-p !font-medium">{email}</span>
@@ -236,7 +236,7 @@ function MembershipRow({
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Member options">
+              <Button variant="outline" size="icon" aria-label="Member options" className="data-[state=open]:bg-accent">
                 <Icons.EllipsisVertical className="w-4 h-4" strokeWidth={1} />
               </Button>
             </DropdownMenuTrigger>

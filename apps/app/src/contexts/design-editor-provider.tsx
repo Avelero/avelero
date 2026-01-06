@@ -1,5 +1,8 @@
 "use client";
 
+import { saveThemeAction } from "@/actions/design/save-theme-action";
+import { useTRPC } from "@/trpc/client";
+import { useMutation } from "@tanstack/react-query";
 import type {
   DppData,
   ThemeConfig,
@@ -7,22 +10,19 @@ import type {
   TypographyScale,
 } from "@v1/dpp-components";
 import {
-  isTokenReference,
-  getTokenName,
   type ColorTokenKey,
+  getTokenName,
+  isTokenReference,
 } from "@v1/dpp-components";
+import { toast } from "@v1/ui/sonner";
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
-  useCallback,
-  useEffect,
 } from "react";
-import { saveThemeAction } from "@/actions/design/save-theme-action";
-import { toast } from "@v1/ui/sonner";
-import { useTRPC } from "@/trpc/client";
-import { useMutation } from "@tanstack/react-query";
 
 // =============================================================================
 // TYPES
@@ -98,6 +98,7 @@ type DesignEditorContextValue = {
   resetDrafts: () => void;
   saveDrafts: () => Promise<void>;
   previewData: DppData;
+  setPreviewData: (data: DppData) => void;
 
   // Helper setters for nested updates (ThemeStyles)
   updateTypographyScale: (
@@ -149,7 +150,11 @@ type DesignEditorContextValue = {
 
   // Menu item editing state
   menuItemEdit: MenuItemEditState;
-  navigateToMenuItemEdit: (menuType: "primary" | "secondary", configPath: string, itemIndex: number) => void;
+  navigateToMenuItemEdit: (
+    menuType: "primary" | "secondary",
+    configPath: string,
+    itemIndex: number,
+  ) => void;
   clearMenuItemEdit: () => void;
 
   // Layout tree expand/collapse state
@@ -181,9 +186,19 @@ export function DesignEditorProvider({
   initialThemeConfig,
   initialThemeStyles,
   initialGoogleFontsUrl,
-  previewData,
+  previewData: initialPreviewData,
   brandId,
 }: ProviderProps) {
+  // ---------------------------------------------------------------------------
+  // Preview Data State
+  // ---------------------------------------------------------------------------
+  const [previewData, setPreviewData] = useState<DppData>(initialPreviewData);
+
+  // Sync preview data when initial prop changes (e.g., brand switch)
+  useEffect(() => {
+    setPreviewData(initialPreviewData);
+  }, [initialPreviewData]);
+
   // ---------------------------------------------------------------------------
   // Theme Styles State
   // ---------------------------------------------------------------------------
@@ -293,7 +308,9 @@ export function DesignEditorProvider({
             themeStyles: themeStylesDraft,
           }).then((result) => {
             if (result?.serverError) {
-              throw new Error(result.serverError || "Failed to save theme styles");
+              throw new Error(
+                result.serverError || "Failed to save theme styles",
+              );
             }
             setSavedThemeStyles(themeStylesDraft);
           }),
@@ -303,18 +320,22 @@ export function DesignEditorProvider({
       // Save config if changed
       if (hasUnsavedConfigChanges) {
         promises.push(
-          updateConfigMutation.mutateAsync({
-            config: themeConfigDraft as unknown as Record<string, unknown>,
-          }).then(() => {
-            setSavedThemeConfig(themeConfigDraft);
-          }),
+          updateConfigMutation
+            .mutateAsync({
+              config: themeConfigDraft as unknown as Record<string, unknown>,
+            })
+            .then(() => {
+              setSavedThemeConfig(themeConfigDraft);
+            }),
         );
       }
 
       await Promise.all(promises);
       toast.success("Changes saved");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to save theme");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to save theme",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -454,7 +475,10 @@ export function DesignEditorProvider({
       const next = JSON.parse(JSON.stringify(prev)) as ThemeConfig;
 
       // Navigate to the parent and set the value
-      let current: Record<string, unknown> = next as unknown as Record<string, unknown>;
+      let current: Record<string, unknown> = next as unknown as Record<
+        string,
+        unknown
+      >;
       for (let i = 0; i < parts.length - 1; i++) {
         const key = parts[i];
         if (key && current[key] !== undefined) {
@@ -560,7 +584,11 @@ export function DesignEditorProvider({
   const [menuItemEdit, setMenuItemEdit] = useState<MenuItemEditState>(null);
 
   const navigateToMenuItemEdit = useCallback(
-    (menuType: "primary" | "secondary", configPath: string, itemIndex: number) => {
+    (
+      menuType: "primary" | "secondary",
+      configPath: string,
+      itemIndex: number,
+    ) => {
       setMenuItemEdit({ menuType, configPath, itemIndex });
     },
     [],
@@ -615,6 +643,7 @@ export function DesignEditorProvider({
       resetDrafts,
       saveDrafts,
       previewData,
+      setPreviewData,
       // Style helpers
       updateTypographyScale,
       updateColor,

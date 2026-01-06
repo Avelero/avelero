@@ -19,25 +19,37 @@ export interface SmartAvatarProps
   > {
   name?: string | null;
   src?: string | null;
-  hue?: number | null;
+  /** Hex color for fallback background (e.g., "#E53935") */
+  color?: string | null;
   size?: number; // single source of truth for size
   loading?: boolean;
   className?: string;
 }
 
 /**
- * SmartAvatar implements the 4 states:
- * 1) src present → render image
- * 2) no src and hue present → initials with HSL(hue 100% 33%)
- * 3) no src and no hue → default empty state (bg-accent + user icon)
- * 4) loading → default empty state
+ * SmartAvatar implements 3 visual states with 4 scenarios:
+ * 1) loading → default empty state (bg-accent + user icon)
+ * 2) src present → render image
+ * 3) no src and color present → initials with colored background
+ * 4) no src and no color → default empty state (bg-accent + user icon)
+ *
+ * Note: Scenarios 1 and 4 share the same visual appearance (default fallback).
  */
 export const SmartAvatar = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Root>,
   SmartAvatarProps
 >(
   (
-    { name, src, hue, size = 40, loading = false, className, style, ...props },
+    {
+      name,
+      src,
+      color,
+      size = 40,
+      loading = false,
+      className,
+      style,
+      ...props
+    },
     ref,
   ) => {
     const w = cssSize(size);
@@ -62,9 +74,9 @@ export const SmartAvatar = React.forwardRef<
     const isImagePending = hasSrc && !isLoaded && !hadError;
 
     // Internal decision once, so AvatarPrimitive subtree stays minimal.
-    const showDefault = loading || (!hasSrc && hue == null) || isImagePending;
+    const showDefault = loading || (!hasSrc && color == null) || isImagePending;
     const showImage = hasSrc && !hadError;
-    const showFallback = !loading && !hasSrc && hue != null;
+    const showFallback = !loading && !hasSrc && color != null;
 
     return (
       <AvatarPrimitive.Root
@@ -90,7 +102,7 @@ export const SmartAvatar = React.forwardRef<
         ) : null}
 
         {showFallback ? (
-          <InitialsFallback name={name ?? undefined} hue={hue!} />
+          <InitialsFallback name={name ?? undefined} color={color!} />
         ) : null}
 
         {showDefault ? (
@@ -153,18 +165,19 @@ const AvatarImageNext = React.forwardRef<
 });
 AvatarImageNext.displayName = "AvatarImageNext";
 
-/** Initials over HSL hue background */
-function InitialsFallback({ name, hue }: { name?: string; hue: number }) {
+/** Initials over colored background - font size is 50% of avatar size (2:1 ratio) */
+function InitialsFallback({ name, color }: { name?: string; color: string }) {
   const label = firstLetter(name);
   return (
     <div
       className={cn(
         "flex h-full w-full select-none items-center justify-center rounded-full",
-        "uppercase font-normal tracking-normal text-primary-foreground",
+        "uppercase font-medium tracking-normal text-primary-foreground",
       )}
       style={{
-        backgroundColor: `hsl(${hue} 100% 33%)`,
-        fontSize: "calc(var(--avatar-size) * 0.5)",
+        backgroundColor: color,
+        // 2:1 ratio: avatar size / 2 = font size (e.g., 24px circle → 12px font)
+        fontSize: "calc(var(--avatar-size) / 2)",
         lineHeight: "var(--avatar-size)",
       }}
     >

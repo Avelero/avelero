@@ -111,9 +111,20 @@ export function useUpdateIntegrationMutation() {
   return useMutation(
     trpc.integrations.connections.update.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: trpc.integrations.connections.list.queryKey({}),
-        });
+        // Invalidate all connection-related queries (list AND getBySlug)
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.integrations.connections.list.queryKey({}),
+          }),
+          // Use predicate to invalidate all getBySlug queries regardless of slug
+          queryClient.invalidateQueries({
+            predicate: (query) =>
+              Array.isArray(query.queryKey) &&
+              query.queryKey[0]?.[0] === "integrations" &&
+              query.queryKey[0]?.[1] === "connections" &&
+              query.queryKey[0]?.[2] === "getBySlug",
+          }),
+        ]);
       },
     }),
   );
@@ -296,4 +307,59 @@ export function useTriggerSyncMutation() {
       },
     }),
   );
+}
+
+// =============================================================================
+// Promotion Hooks
+// =============================================================================
+
+/**
+ * Promote an integration to primary.
+ * This triggers the re-grouping algorithm that restructures products.
+ */
+export function usePromoteToPrimaryMutation() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    trpc.integrations.connections.promoteToPrimary.mutationOptions({
+      onSuccess: async () => {
+        // Invalidate all connection-related queries (list AND getBySlug)
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.integrations.connections.list.queryKey({}),
+          }),
+          // Use predicate to invalidate all getBySlug queries regardless of slug
+          queryClient.invalidateQueries({
+            predicate: (query) =>
+              Array.isArray(query.queryKey) &&
+              query.queryKey[0]?.[0] === "integrations" &&
+              query.queryKey[0]?.[1] === "connections" &&
+              query.queryKey[0]?.[2] === "getBySlug",
+          }),
+        ]);
+      },
+    }),
+  );
+}
+
+/**
+ * Get promotion operation status with optional polling.
+ *
+ * @param brandIntegrationId - The brand integration ID to check status for
+ * @param options - Query options including optional refetchInterval for polling
+ */
+export function usePromotionStatusQuery(
+  brandIntegrationId: string | null,
+  options?: { refetchInterval?: number | false },
+) {
+  const trpc = useTRPC();
+  const opts = trpc.integrations.promotion.status.queryOptions({
+    brand_integration_id: brandIntegrationId ?? "",
+  });
+  return useQuery({
+    ...opts,
+    enabled: typeof window !== "undefined" && !!brandIntegrationId,
+    refetchInterval: options?.refetchInterval ?? false,
+  });
 }

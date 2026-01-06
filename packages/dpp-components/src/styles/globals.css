@@ -15,13 +15,13 @@
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-primary);
-    
+
     /* Header height calculation: 
        Section 1: py-sm (0.75rem * 2) + logo (18px) + border (1px)
        Section 2: py-xs (0.5rem * 2) + logo (12px) + border (1px)
        Total: 1.5rem + 18px + 1rem + 12px + 2px = 2.5rem + 32px */
     --header-height: calc(2.5rem + 32px);
-    
+
     /* Design Token Defaults - These can be overridden by theme system */
     --background: #FFFFFF;
     --foreground: #1E2040;
@@ -39,7 +39,7 @@
     --success-foreground: #03A458;
     --border: #E8E9EC;
     --link: #0000FF;
-    
+
     /* Spacing Tokens - Used by Tailwind utilities */
     --spacing-micro: 0.25rem;
     --spacing-xs: 0.5rem;
@@ -49,21 +49,21 @@
     --spacing-xl: 2rem;
     --spacing-2x: 3rem;
     --spacing-3x: 4.5rem;
-    
+
     /* Border Radius Tokens */
     --radius-none: 0rem;
     --radius-sm: 0.25rem;
     --radius-md: 0.5rem;
     --radius-lg: 1rem;
     --radius-full: 9999px;
-    
+
     /* Container */
     --container-max-width: 1100px;
-    
+
     /* Font Family Tokens - Default fallback fonts */
     --font-primary: var(--font-geist-sans, 'Inter', sans-serif);
     --font-mono: var(--font-geist-mono, 'JetBrains Mono', monospace);
-    
+
     /* Typography Tokens - These can be overridden by theme system */
     /* Header */
     --type-header-family: var(--font-primary);
@@ -77,56 +77,56 @@
     --type-h1-weight: 500;
     --type-h1-line-height: 1;
     --type-h1-letter-spacing: -0.025em;
-    
+
     /* Heading 2 */
     --type-h2-family: var(--font-primary);
     --type-h2-size: 2.5rem;
     --type-h2-weight: 500;
     --type-h2-line-height: 1;
     --type-h2-letter-spacing: -0.025em;
-    
+
     /* Heading 3 */
     --type-h3-family: var(--font-primary);
     --type-h3-size: 2.0625rem;
     --type-h3-weight: 500;
     --type-h3-line-height: 1;
     --type-h3-letter-spacing: -0.025em;
-    
+
     /* Heading 4 */
     --type-h4-family: var(--font-primary);
     --type-h4-size: 1.755rem;
     --type-h4-weight: 500;
     --type-h4-line-height: 1;
     --type-h4-letter-spacing: -0.025em;
-    
+
     /* Heading 5 */
     --type-h5-family: var(--font-primary);
     --type-h5-size: 1.4375rem;
     --type-h5-weight: 500;
     --type-h5-line-height: 1.25;
     --type-h5-letter-spacing: 0em;
-    
+
     /* Heading 6 */
     --type-h6-family: var(--font-primary);
     --type-h6-size: 1.1875rem;
     --type-h6-weight: 500;
     --type-h6-line-height: 1.25;
     --type-h6-letter-spacing: 0em;
-    
+
     /* Body Text */
     --type-body-family: var(--font-primary);
     --type-body-size: 1rem;
     --type-body-weight: 400;
     --type-body-line-height: 1.25;
     --type-body-letter-spacing: 0em;
-    
+
     /* Body Small */
     --type-body-sm-family: var(--font-primary);
     --type-body-sm-size: 0.875rem;
     --type-body-sm-weight: 400;
     --type-body-sm-line-height: 1.5;
     --type-body-sm-letter-spacing: 0em;
-    
+
     /* Body Extra Small */
     --type-body-xs-family: var(--font-primary);
     --type-body-xs-size: 0.75rem;
@@ -134,7 +134,7 @@
     --type-body-xs-line-height: 1.5;
     --type-body-xs-letter-spacing: 0em;
   }
-  
+
   /* Apply border color to all elements within .dpp-root */
   .dpp-root * {
     border-color: var(--border);
@@ -143,6 +143,11 @@
   /* Global link styling within .dpp-root */
   .dpp-root a {
     color: var(--link);
+  }
+
+  .dpp-root ::selection {
+    background-color: var(--brand);
+    color: var(--brand-foreground);
   }
 }
 
@@ -169,7 +174,7 @@
     text-transform: var(--header-text-logo-text-transform, none);
     text-decoration: var(--header-text-logo-text-decoration, none);
   }
-  
+
   /* ==========================================================================
      FOOTER
      ========================================================================== */
@@ -206,7 +211,7 @@
     border-color: var(--product-image-border-color, var(--border));
     border-radius: var(--product-image-border-radius, var(--radius-none));
   }
-  
+
   .dpp-root .product__title {
     font-family: var(--product-title-font-family, var(--type-h5-family));
     font-size: var(--product-title-font-size, var(--type-h5-size));
@@ -401,7 +406,7 @@
   .dpp-root .impact-card__eco-claim-text {
     font-family: var(--impact-card-eco-claim-text-font-family, var(--type-body-sm-family));
     font-size: var(--impact-card-eco-claim-text-font-size, var(--type-body-sm-size));
-    font-weight: var(--impact-card-eco-claim-text-font-weight, var(--type-body-sm-weight)); 
+    font-weight: var(--impact-card-eco-claim-text-font-weight, var(--type-body-sm-weight));
     line-height: var(--impact-card-eco-claim-text-line-height, var(--type-body-sm-line-height));
     letter-spacing: var(--impact-card-eco-claim-text-letter-spacing, var(--type-body-sm-letter-spacing));
     color: var(--impact-card-eco-claim-text-color, var(--card-foreground));
@@ -638,12 +643,12 @@
     border-color: var(--banner-border-color, var(--border));
     border-radius: var(--banner-border-radius, var(--radius-none));
   }
-  
+
   .dpp-root .banner__container {
     align-items: var(--banner-container-align-items, center);
     justify-content: var(--banner-container-justify-content, center);
   }
-  
+
   .dpp-root .banner__headline {
     font-family: var(--banner-headline-font-family, var(--type-h2-family));
     font-size: var(--banner-headline-font-size, var(--type-h2-size));
@@ -667,7 +672,7 @@
     text-decoration: var(--banner-subline-text-decoration, none);
     text-align: var(--banner-subline-text-align, center);
   }
-  
+
   .dpp-root .banner__button {
     font-family: var(--banner-button-font-family, var(--font-mono));
     font-size: var(--banner-button-font-size, var(--type-body-sm-size));
@@ -686,21 +691,23 @@
   }
 
 }
+
 /* Utility Classes - Custom component utilities */
 @layer utilities {
   .dpp-root .text-highlight {
     color: var(--link);
   }
-  
+
   /* Container */
   .dpp-root .max-w-container {
     max-width: var(--container-max-width);
   }
-  
+
   /* Product Carousel */
   .dpp-root .product-item {
     flex: 0 0 auto;
-    width: calc((100% - 24px) * 2/5); /* Mobile: show 2.5 cards (gap * 2 = 24px) */
+    width: calc((100% - 24px) * 2/5);
+    /* Mobile: show 2.5 cards (gap * 2 = 24px) */
   }
 
   .dpp-root .carousel {
@@ -722,36 +729,37 @@
   .dpp-root .carousel__nav-button--next {
     right: var(--carousel-side-padding);
   }
-  
+
   @container (min-width: 768px) {
     .dpp-root .product-item {
-      width: calc((100% - 24px) / 3); /* Desktop: show 3 cards (gap * 2 = 24px) */
+      width: calc((100% - 24px) / 3);
+      /* Desktop: show 3 cards (gap * 2 = 24px) */
     }
 
     .dpp-root .carousel {
       --carousel-side-padding: max(0px, calc((100% - min(100%, var(--container-max-width))) / 2 + var(--spacing-lg)));
     }
   }
-  
+
   /* Scrollbar hiding utilities */
   .dpp-root .scrollbar-none {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .dpp-root .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
-  
+
   /* Navigation button fade effect */
   .dpp-root .nav-button-fade {
     transition: opacity 0.2s ease;
   }
-  
+
   .dpp-root .nav-button-fade.fading {
     opacity: 0;
   }
-  
+
   /* Horizontal Scroll Container (for SmallImpactFrame) */
   .dpp-root .horizontal-scroll-container {
     position: relative;
@@ -759,7 +767,7 @@
     margin-left: calc(-1 * var(--spacing-xl));
     overflow: hidden;
   }
-  
+
   .dpp-root .horizontal-scroll-area {
     width: 100%;
     padding-left: var(--spacing-xl);
@@ -769,17 +777,17 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .dpp-root .horizontal-scroll-area::-webkit-scrollbar {
     display: none;
   }
-  
+
   @container (min-width: 768px) {
     .dpp-root .horizontal-scroll-container {
       width: 100%;
       margin-left: 0;
     }
-    
+
     .dpp-root .horizontal-scroll-area {
       flex-direction: column;
       overflow-x: visible;

@@ -7,7 +7,7 @@
     "clean": "rm -rf .turbo node_modules",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "cd ../../apps/api && supabase migration up --local",
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit introspect",
     "db:studio": "drizzle-kit studio",

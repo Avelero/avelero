@@ -1,4 +1,10 @@
 export function getAppUrl() {
+  // Explicit APP_URL takes precedence (set by Fly.io API deployments)
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
+  }
+
+  // Vercel environment detection (for Next.js apps running on Vercel)
   if (
     process.env.VERCEL_ENV === "production" ||
     process.env.NODE_ENV === "production"

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   pgPolicy,
@@ -51,6 +52,19 @@ export const brandIntegrations = pgTable(
     status: text("status").notNull().default("pending"), // 'pending' | 'active' | 'error' | 'paused' | 'disconnected'
     /** Error message if status is 'error' */
     errorMessage: text("error_message"),
+    /**
+     * Whether this is the primary integration for the brand.
+     * Only one integration per brand can be primary.
+     * Primary integrations create products/variants/attributes.
+     * Secondary integrations can only enrich existing products.
+     */
+    isPrimary: boolean("is_primary").default(false).notNull(),
+    /**
+     * Identifier used for matching variants (secondary integrations only).
+     * Primary integrations always use link-based matching.
+     * Values: 'barcode' | 'sku'
+     */
+    matchIdentifier: text("match_identifier").default("barcode"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -68,6 +82,10 @@ export const brandIntegrations = pgTable(
     index("idx_brand_integrations_brand_id").on(table.brandId),
     // Index for querying by status (for scheduled sync jobs)
     index("idx_brand_integrations_status").on(table.status),
+    // Partial unique index: only one primary per brand
+    uniqueIndex("brand_integrations_primary_unq")
+      .on(table.brandId)
+      .where(sql`${table.isPrimary} = TRUE`),
     // RLS policies - brand members can manage their integrations
     pgPolicy("brand_integrations_select_for_brand_members", {
       as: "permissive",

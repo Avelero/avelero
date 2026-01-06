@@ -19,7 +19,6 @@ function InnerAvatarUpload() {
       entityId={u.id}
       avatarUrl={u.avatar_url}
       name={u.full_name}
-      hue={u.avatar_hue ?? null}
       size={52}
     />
   );

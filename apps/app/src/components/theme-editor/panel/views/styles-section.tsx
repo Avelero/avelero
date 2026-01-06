@@ -1,6 +1,18 @@
 "use client";
 
 import { useDesignEditor } from "@/contexts/design-editor-provider";
+import { Button } from "@v1/ui/button";
+import { cn } from "@v1/ui/cn";
+import { Icons } from "@v1/ui/icons";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectList,
+  SelectTrigger,
+} from "@v1/ui/select";
+import * as React from "react";
 import {
   findComponentById,
   type StyleField,
@@ -16,7 +28,72 @@ import {
   FieldWrapper,
   EditorSection,
 } from "../inputs";
-import { Select } from "@v1/ui/select";
+
+// =============================================================================
+// INTERNAL SELECT COMPONENT
+// =============================================================================
+
+interface StyleSelectProps {
+  options: { value: string; label: string }[];
+  value: string | null;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+function StyleSelect({
+  options,
+  value,
+  onValueChange,
+  placeholder = "Select...",
+  className,
+}: StyleSelectProps) {
+  const [open, setOpen] = React.useState(false);
+
+  const selectedOption = options.find((o) => o.value === value);
+  const displayValue = selectedOption?.label || placeholder;
+  const isPlaceholder = !selectedOption;
+
+  const handleSelect = (optionValue: string) => {
+    onValueChange(optionValue);
+    setOpen(false);
+  };
+
+  return (
+    <Select open={open} onOpenChange={setOpen}>
+      <SelectTrigger asChild>
+        <Button
+          variant="outline"
+          size="default"
+          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
+        >
+          <span
+            className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
+          >
+            {displayValue}
+          </span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+        </Button>
+      </SelectTrigger>
+      <SelectContent defaultValue={value ?? undefined}>
+        <SelectList>
+          <SelectGroup>
+            {options.map((option) => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                onSelect={() => handleSelect(option.value)}
+              >
+                <span className="type-p">{option.label}</span>
+                {value === option.value && <Icons.Check className="h-4 w-4" />}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectList>
+      </SelectContent>
+    </Select>
+  );
+}
 
 // =============================================================================
 // STYLE FIELD RENDERER
@@ -156,7 +233,7 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
     case "typescale": {
       return (
         <FieldWrapper label={field.label}>
-          <Select
+          <StyleSelect
             value={typeof value === "string" ? value : null}
             onValueChange={(val) => updateComponentStyle(field.path, val)}
             options={TYPESCALE_OPTIONS}
@@ -170,7 +247,7 @@ function StyleFieldRenderer({ field }: StyleFieldRendererProps) {
     case "select": {
       return (
         <FieldWrapper label={field.label}>
-          <Select
+          <StyleSelect
             value={typeof value === "string" ? value : null}
             onValueChange={(val) => updateComponentStyle(field.path, val)}
             options={field.options || []}

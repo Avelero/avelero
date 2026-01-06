@@ -1,11 +1,12 @@
-import { renderAsync } from "npm:@react-email/components@0.0.22";
-import React from "npm:react@18.3.1";
-import { Resend } from "npm:resend@4.0.0";
-import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
+import { renderAsync } from "@react-email/components";
+import React from "react";
+import { Resend } from "resend";
+import { Webhook } from "standardwebhooks";
 import OtpEmail from "./_templates/otp.tsx";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY") as string);
-const hookSecret = Deno.env.get("SEND_EMAIL_HOOK_SECRET") as string;
+const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET').replace('v1,whsec_', '')
+
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {

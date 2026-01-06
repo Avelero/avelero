@@ -18,6 +18,7 @@ import {
 import { brandCollectionsRouter } from "./collections.js";
 import { brandInvitesRouter } from "./invites.js";
 import { brandMembersRouter } from "./members.js";
+import { themePreviewRouter } from "./theme-preview.js";
 import { brandThemeRouter } from "./theme.js";
 
 export const brandRouter = createTRPCRouter({
@@ -29,8 +30,8 @@ export const brandRouter = createTRPCRouter({
   members: brandMembersRouter,
   invites: brandInvitesRouter,
   theme: brandThemeRouter,
+  themePreview: themePreviewRouter,
   collections: brandCollectionsRouter,
 });
 
 export type BrandRouter = typeof brandRouter;
-

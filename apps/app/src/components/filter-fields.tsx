@@ -17,8 +17,17 @@ import {
 import { Icons } from "@v1/ui/icons";
 import { Input } from "@v1/ui/input";
 import { MinMaxInput } from "@v1/ui/min-max";
-import { Select } from "@v1/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectEmpty,
+  SelectGroup,
+  SelectItem,
+  SelectList,
+  SelectSearch,
+  SelectTrigger,
+} from "@v1/ui/select";
 import {
   Command,
   CommandEmpty,
@@ -41,6 +50,194 @@ interface FilterFieldInputProps {
   value: FilterValue;
   onOperatorChange: (operator: FilterOperator) => void;
   onValueChange: (value: FilterValue) => void;
+}
+
+// ============================================================================
+// Internal Select Components
+// ============================================================================
+
+interface FilterSelectOption {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+}
+
+function FilterSingleSelect({
+  options,
+  value,
+  onValueChange,
+  placeholder = "Select...",
+  isLoading = false,
+}: {
+  options: FilterSelectOption[];
+  value: string | null;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  isLoading?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const query = searchTerm.toLowerCase().trim();
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(query),
+    );
+  }, [options, searchTerm]);
+
+  const selectedOption = options.find((o) => o.value === value);
+  const displayValue = selectedOption?.label || placeholder;
+  const isPlaceholder = !selectedOption;
+
+  const handleSelect = (optionValue: string) => {
+    onValueChange(optionValue);
+    setOpen(false);
+    setSearchTerm("");
+  };
+
+  return (
+    <Select open={open} onOpenChange={setOpen}>
+      <SelectTrigger asChild>
+        <Button
+          variant="outline"
+          size="default"
+          className="w-full justify-between data-[state=open]:bg-accent"
+        >
+          <span
+            className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
+          >
+            {isLoading ? "Loading..." : displayValue}
+          </span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+        </Button>
+      </SelectTrigger>
+      <SelectContent shouldFilter={false} inline defaultValue={value ?? undefined}>
+        <SelectSearch
+          placeholder="Search..."
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+        />
+        <SelectList>
+          {filteredOptions.length > 0 ? (
+            <SelectGroup>
+              {filteredOptions.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  onSelect={() => handleSelect(option.value)}
+                >
+                  <div className="flex items-center">
+                    {option.icon}
+                    <span className="px-1">{option.label}</span>
+                  </div>
+                  {value === option.value && (
+                    <Icons.Check className="h-4 w-4" />
+                  )}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ) : (
+            <SelectEmpty>No items found.</SelectEmpty>
+          )}
+        </SelectList>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function FilterMultiSelect({
+  options,
+  value,
+  onValueChange,
+  placeholder = "Select...",
+  isLoading = false,
+}: {
+  options: FilterSelectOption[];
+  value: string[];
+  onValueChange: (value: string[]) => void;
+  placeholder?: string;
+  isLoading?: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+
+  const filteredOptions = React.useMemo(() => {
+    if (!searchTerm.trim()) return options;
+    const query = searchTerm.toLowerCase().trim();
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(query),
+    );
+  }, [options, searchTerm]);
+
+  const displayValue = React.useMemo(() => {
+    if (value.length === 0) return placeholder;
+    if (value.length === 1) {
+      const firstValue = value[0];
+      const option = options.find((o) => o.value === firstValue);
+      return option?.label ?? "1 selected";
+    }
+    return `${value.length} selected`;
+  }, [value, options, placeholder]);
+
+  const isPlaceholder = value.length === 0;
+
+  const handleToggle = (optionValue: string) => {
+    const newValue = value.includes(optionValue)
+      ? value.filter((v) => v !== optionValue)
+      : [...value, optionValue];
+    onValueChange(newValue);
+  };
+
+  return (
+    <Select open={open} onOpenChange={setOpen}>
+      <SelectTrigger asChild>
+        <Button
+          variant="outline"
+          size="default"
+          className="w-full justify-between data-[state=open]:bg-accent"
+        >
+          <span
+            className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
+          >
+            {isLoading ? "Loading..." : displayValue}
+          </span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+        </Button>
+      </SelectTrigger>
+      <SelectContent shouldFilter={false} inline defaultValue={value[0]}>
+        <SelectSearch
+          placeholder="Search..."
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+        />
+        <SelectList>
+          {filteredOptions.length > 0 ? (
+            <SelectGroup>
+              {filteredOptions.map((option) => {
+                const isSelected = value.includes(option.value);
+                return (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    onSelect={() => handleToggle(option.value)}
+                  >
+                    <div className="flex items-center">
+                      {option.icon}
+                      <span className="px-1">{option.label}</span>
+                    </div>
+                    {isSelected && <Icons.Check className="h-4 w-4" />}
+                  </SelectItem>
+                );
+              })}
+            </SelectGroup>
+          ) : (
+            <SelectEmpty>No items found.</SelectEmpty>
+          )}
+        </SelectList>
+      </SelectContent>
+    </Select>
+  );
 }
 
 /**
@@ -197,14 +394,12 @@ export function FilterFieldInput({
       case "select": {
         const options = fieldConfig.options ?? dynamicOptions;
         return operatorNeedsNoValue ? null : (
-          <Select
+          <FilterSingleSelect
             options={options}
-            value={value as string}
+            value={(value as string) ?? null}
             onValueChange={onValueChange}
             placeholder="Select..."
-            searchable
-            loading={isLoading}
-            inline
+            isLoading={isLoading}
           />
         );
       }
@@ -245,15 +440,12 @@ export function FilterFieldInput({
           enhancedMultiSelectOptions ?? fieldConfig.options ?? dynamicOptions;
 
         return operatorNeedsNoValue ? null : (
-          <Select
-            multiple
+          <FilterMultiSelect
             options={options}
             value={(value as string[]) ?? []}
             onValueChange={onValueChange}
             placeholder="Select..."
-            searchable
-            loading={isLoading}
-            inline
+            isLoading={isLoading}
           />
         );
       }
@@ -351,7 +543,7 @@ export function FilterFieldInput({
 
       case "date-relative": {
         return (
-          <Select
+          <FilterSingleSelect
             options={RELATIVE_DATE_OPTIONS}
             value={(value as any)?.option ?? null}
             onValueChange={(option: string) => {
@@ -359,7 +551,6 @@ export function FilterFieldInput({
               onValueChange({ type: "relative", option: option as any });
             }}
             placeholder="Select..."
-            inline
           />
         );
       }
@@ -397,7 +588,7 @@ export function FilterFieldInput({
               variant="outline"
               size="default"
               className={cn(
-                "justify-between",
+                "justify-between data-[state=open]:bg-accent",
                 operatorNeedsNoValue ? "w-full" : "w-fit",
               )}
             >
@@ -510,7 +701,7 @@ function CategoryPopoverSelect({
         <Button
           variant="outline"
           size="default"
-          className="w-full justify-between"
+          className="w-full justify-between data-[state=open]:bg-accent"
         >
           <span className="truncate px-1">{displayText}</span>
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
@@ -520,20 +711,23 @@ function CategoryPopoverSelect({
         <div className="flex flex-col">
           {/* Navigation Bar */}
           {categoryPath.length > 0 && (
-            <div className="border-b border-border bg-background">
-              <button
-                type="button"
-                onClick={handleCategoryBack}
-                className="w-full py-2 px-3 type-p text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
-              >
-                <Icons.ChevronLeft className="h-4 w-4 mr-2 text-secondary" />
-                <span className="px-1 text-primary">{getBreadcrumbString()}</span>
-              </button>
-            </div>
+            <>
+              <div className="p-1">
+                <button
+                  type="button"
+                  onClick={handleCategoryBack}
+                  className="w-full h-[30px] px-2 !type-small text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
+                >
+                  <Icons.ChevronLeft className="h-4 w-4 text-secondary" />
+                  <span className="px-1 text-primary">{getBreadcrumbString()}</span>
+                </button>
+              </div>
+              <div className="h-px bg-accent-dark" />
+            </>
           )}
 
           {/* Options */}
-          <div className="max-h-48 overflow-y-auto scrollbar-hide">
+          <div className="max-h-48 overflow-y-auto scrollbar-hide p-1">
             {Object.entries(currentLevel).map(
               ([categoryId, node]: [string, any]) => {
                 const hasChildren =
@@ -546,7 +740,7 @@ function CategoryPopoverSelect({
                       // Button-in-button layout for items with children
                       <div
                         className={cn(
-                          "flex transition-colors",
+                          "flex h-[30px] transition-colors",
                           hoveredRow === categoryId ? "bg-accent" : "",
                         )}
                         onMouseLeave={() => {
@@ -563,7 +757,7 @@ function CategoryPopoverSelect({
                             setHoveredArea("selection");
                           }}
                           className={cn(
-                            "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                            "w-fit h-[30px] px-2 !type-small transition-colors flex items-center gap-0.5",
                             isSelected
                               ? "bg-accent-blue text-brand"
                               : hoveredRow === categoryId &&
@@ -572,7 +766,7 @@ function CategoryPopoverSelect({
                                 : "text-primary",
                           )}
                         >
-                          <span>{node.label}</span>
+                          <span className="px-1">{node.label}</span>
                           {isSelected && (
                             <Icons.Check className="h-4 w-4 text-brand" />
                           )}
@@ -586,7 +780,7 @@ function CategoryPopoverSelect({
                             setHoveredRow(categoryId);
                             setHoveredArea("navigation");
                           }}
-                          className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
+                          className="flex-1 h-[30px] px-2 transition-colors flex items-center justify-end"
                         >
                           <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
                         </button>
@@ -597,7 +791,7 @@ function CategoryPopoverSelect({
                         type="button"
                         onClick={() => handleCategorySelect(categoryId)}
                         className={cn(
-                          "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
+                          "w-full h-[30px] px-2 !type-small text-left transition-colors flex items-center justify-between gap-0.5",
                           isSelected
                             ? "bg-accent-blue text-brand"
                             : "hover:bg-accent text-primary",
@@ -707,7 +901,7 @@ function SizePopoverSelect({
           size="default"
           className="w-full justify-between"
         >
-          <span className="px-1 truncate">{displayText}</span>
+          <span className="px-1 truncate data-[state=open]:bg-accent">{displayText}</span>
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>
@@ -735,7 +929,7 @@ function SizePopoverSelect({
                         onSelect={() => handleToggleSize(size)}
                         className="justify-between"
                       >
-                        <span className="type-p text-primary">{size.name}</span>
+                        <span className="px-1">{size.name}</span>
                         {isSelected && <Icons.Check className="h-4 w-4" />}
                       </CommandItem>
                     );
@@ -835,7 +1029,7 @@ function SeasonPopoverSelect({
           size="default"
           className="w-full justify-between"
         >
-          <span className="px-1 truncate">{displayText}</span>
+          <span className="px-1 truncate data-[state=open]:bg-accent">{displayText}</span>
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>
@@ -867,10 +1061,10 @@ function SeasonPopoverSelect({
                       onSelect={() => handleToggleSeason(option.value)}
                       className="justify-between"
                     >
-                      <div className="flex items-center gap-2">
-                        <span>{option.label}</span>
+                      <div className="flex items-center gap-0.5">
+                        <span className="px-1">{option.label}</span>
                         {seasonInfo && (
-                          <span className="type-p text-tertiary ml-auto">
+                          <span className="text-tertiary">
                             {formatSeasonDateRange(seasonInfo)}
                           </span>
                         )}

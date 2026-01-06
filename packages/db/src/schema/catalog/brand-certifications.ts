@@ -25,7 +25,7 @@ export const brandCertifications = pgTable(
       withTimezone: false,
       mode: "string",
     }),
-    filePath: text("file_path"),
+    certificationPath: text("certification_path"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

@@ -3,16 +3,17 @@
 import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectEmpty,
+  SelectGroup,
+  SelectItem,
+  SelectList,
+  SelectSearch,
+  SelectTrigger,
+} from "@v1/ui/select";
 import { format } from "date-fns";
 import * as React from "react";
 
@@ -51,9 +52,9 @@ function formatSeasonDateRange(season: Season): string {
 function renderSeasonDateRange(season: Season): React.ReactNode {
   const dateRange = formatSeasonDateRange(season);
   return dateRange ? (
-    <span className="type-p text-tertiary">{dateRange}</span>
+    <span className="text-tertiary">{dateRange}</span>
   ) : season.isOngoing ? (
-    <span className="type-p text-tertiary">Ongoing</span>
+    <span className="text-tertiary">Ongoing</span>
   ) : null;
 }
 
@@ -61,7 +62,7 @@ export function SeasonSelect({
   value,
   onValueChange,
   onCreateNew,
-  placeholder = "Select season",
+  placeholder = "Select season...",
   disabled = false,
   className,
 }: SeasonSelectProps) {
@@ -76,95 +77,96 @@ export function SeasonSelect({
   };
 
   const handleCreate = () => {
-    if (onCreateNew && searchTerm) {
-      onCreateNew(searchTerm);
+    if (onCreateNew && searchTerm.trim()) {
+      onCreateNew(searchTerm.trim());
       setOpen(false);
       setSearchTerm("");
     }
   };
 
   const filteredSeasons = React.useMemo(() => {
-    if (!searchTerm) return seasons;
+    if (!searchTerm.trim()) return seasons;
+    const query = searchTerm.toLowerCase().trim();
     return seasons.filter((s: Season) =>
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()),
+      s.name.toLowerCase().includes(query),
     );
   }, [seasons, searchTerm]);
 
   const showCreateOption =
-    searchTerm &&
+    searchTerm.trim() &&
+    onCreateNew &&
     !seasons.some(
-      (s: Season) => s.name.toLowerCase() === searchTerm.toLowerCase(),
+      (s: Season) => s.name.toLowerCase() === searchTerm.trim().toLowerCase(),
     );
 
+  const hasResults = filteredSeasons.length > 0;
+  const isPlaceholder = !value;
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Select open={open} onOpenChange={setOpen}>
+      <SelectTrigger asChild>
         <Button
           variant="outline"
           size="default"
           disabled={disabled}
-          className={cn("w-full justify-between h-9", className)}
+          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
         >
           {value ? (
-            <div className="flex items-center gap-2">
-              <span className="type-p text-primary px-1">{value.name}</span>
+            <div className="flex items-center gap-2 px-1">
+              <span className="type-p text-primary">{value.name}</span>
               {renderSeasonDateRange(value)}
             </div>
           ) : (
-            <span className="text-tertiary px-1">{placeholder}</span>
+            <span className={cn("px-1", isPlaceholder && "text-tertiary")}>
+              {placeholder}
+            </span>
           )}
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[--radix-popover-trigger-width] min-w-[200px] max-w-[320px] p-0"
-        align="start"
-      >
-        <Command shouldFilter={false}>
-          <CommandInput
-            placeholder="Search seasons..."
-            value={searchTerm}
-            onValueChange={setSearchTerm}
-          />
-          <CommandList className="max-h-48">
-            <CommandGroup>
-              {filteredSeasons.length > 0 ? (
-                filteredSeasons.map((season: Season) => (
-                  <CommandItem
-                    key={season.id}
-                    value={season.name}
-                    onSelect={() => handleSelect(season)}
-                    className="justify-between"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="type-p text-primary">{season.name}</span>
-                      {renderSeasonDateRange(season)}
-                    </div>
-                    {value?.id === season.id && (
-                      <Icons.Check className="h-4 w-4" />
-                    )}
-                  </CommandItem>
-                ))
-              ) : searchTerm && showCreateOption && onCreateNew ? (
-                <CommandItem value={searchTerm} onSelect={handleCreate}>
-                  <div className="flex items-center gap-2">
-                    <Icons.Plus className="h-3.5 w-3.5" />
-                    <span className="type-p text-primary">
-                      Create &quot;{searchTerm}&quot;
-                    </span>
+      </SelectTrigger>
+      <SelectContent shouldFilter={false}>
+        <SelectSearch
+          placeholder="Search..."
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+        />
+        <SelectList>
+          {hasResults ? (
+            <SelectGroup>
+              {filteredSeasons.map((season: Season) => (
+                <SelectItem
+                  key={season.id}
+                  value={season.name}
+                  onSelect={() => handleSelect(season)}
+                >
+                  <div className="flex items-center gap-0.5">
+                    <span className="px-1">{season.name}</span>
+                    {renderSeasonDateRange(season)}
                   </div>
-                </CommandItem>
-              ) : !searchTerm ? (
-                onCreateNew ? (
-                  <CommandEmpty>Start typing to create...</CommandEmpty>
-                ) : null
-              ) : (
-                <CommandEmpty>No results found</CommandEmpty>
-              )}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                  {value?.id === season.id && (
+                    <Icons.Check className="h-4 w-4" />
+                  )}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ) : showCreateOption ? (
+            <SelectGroup>
+              <SelectItem value={searchTerm.trim()} onSelect={handleCreate}>
+                <div className="flex items-center gap-0.5">
+                  <Icons.Plus className="h-3.5 w-3.5" />
+                  <span className="px-1">
+                    Create &quot;{searchTerm.trim()}&quot;
+                  </span>
+                </div>
+              </SelectItem>
+            </SelectGroup>
+          ) : onCreateNew && !searchTerm.trim() ? (
+            <SelectEmpty>Start typing to create...</SelectEmpty>
+          ) : (
+            <SelectEmpty>No items found.</SelectEmpty>
+          )}
+        </SelectList>
+      </SelectContent>
+    </Select>
   );
 }

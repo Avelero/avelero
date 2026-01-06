@@ -414,7 +414,7 @@ function FontActionsMenu({ onDelete, label }: FontActionsMenuProps) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="p-1 hover:bg-accent text-tertiary hover:text-secondary transition-colors"
+          className="p-1 hover:bg-accent data-[state=open]:bg-accent text-tertiary hover:text-secondary data-[state=open]:text-secondary transition-colors"
           aria-label={label}
         >
           <Icons.EllipsisVertical className="h-4 w-4" />

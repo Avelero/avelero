@@ -36,3 +36,10 @@ export const updateBrandAttributeValueSchema = updateFrom(
  */
 export const deleteBrandAttributeValueSchema = byIdSchema;
 
+/**
+ * Payload for batch creating brand attribute values.
+ * Useful for creating multiple values in one request during variant setup.
+ */
+export const batchCreateBrandAttributeValuesSchema = z.object({
+  values: z.array(createBrandAttributeValueSchema).min(1).max(100, "Maximum 100 values per batch"),
+});

@@ -29,15 +29,35 @@ export async function resolveAuthRedirectPath({
   const userId = currentUser.id;
 
   // Profile completeness check
-  const { data: profile, error } = await supabase
+  let { data: profile, error } = await supabase
     .from("users")
     .select("full_name, brand_id")
     .eq("id", userId)
     .single();
 
   if (error) {
-    // Handle error appropriately
-    return "/login?error=profile-fetch-failed";
+    if (error.code === "PGRST116" && currentUser.email) {
+      // If profile is missing (PGRST116 = no rows found), try to create it
+      // This happens if the auth hook was disabled or failed
+      const { data: newProfile, error: createError } = await supabase
+        .from("users")
+        .insert({
+          id: userId,
+          email: currentUser.email,
+          full_name: currentUser.user_metadata?.full_name ?? null,
+        })
+        .select("full_name, brand_id")
+        .single();
+
+      if (createError) {
+        return "/login?error=profile-creation-failed";
+      }
+
+      profile = newProfile;
+    } else {
+      // Handle other errors or missing email
+      return "/login?error=profile-fetch-failed";
+    }
   }
 
   // Type assertion to match working pattern in getUserProfile

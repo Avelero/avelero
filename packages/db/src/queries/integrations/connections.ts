@@ -46,7 +46,6 @@ export async function listBrandIntegrations(db: Database, brandId: string) {
         slug: integrations.slug,
         name: integrations.name,
         authType: integrations.authType,
-        iconPath: integrations.iconPath,
       },
     })
     .from(brandIntegrations)
@@ -75,6 +74,8 @@ export async function getBrandIntegration(
       lastSyncAt: brandIntegrations.lastSyncAt,
       status: brandIntegrations.status,
       errorMessage: brandIntegrations.errorMessage,
+      isPrimary: brandIntegrations.isPrimary,
+      matchIdentifier: brandIntegrations.matchIdentifier,
       createdAt: brandIntegrations.createdAt,
       updatedAt: brandIntegrations.updatedAt,
       // Join integration details
@@ -83,7 +84,6 @@ export async function getBrandIntegration(
         slug: integrations.slug,
         name: integrations.name,
         authType: integrations.authType,
-        iconPath: integrations.iconPath,
       },
     })
     .from(brandIntegrations)
@@ -115,6 +115,8 @@ export async function getBrandIntegrationBySlug(
       lastSyncAt: brandIntegrations.lastSyncAt,
       status: brandIntegrations.status,
       errorMessage: brandIntegrations.errorMessage,
+      matchIdentifier: brandIntegrations.matchIdentifier,
+      isPrimary: brandIntegrations.isPrimary,
       createdAt: brandIntegrations.createdAt,
       updatedAt: brandIntegrations.updatedAt,
       integration: {
@@ -122,7 +124,6 @@ export async function getBrandIntegrationBySlug(
         slug: integrations.slug,
         name: integrations.name,
         authType: integrations.authType,
-        iconPath: integrations.iconPath,
       },
     })
     .from(brandIntegrations)
@@ -191,6 +192,8 @@ export async function updateBrandIntegration(
     lastSyncAt?: string | null;
     status?: BrandIntegrationStatus;
     errorMessage?: string | null;
+    matchIdentifier?: string | null;
+    isPrimary?: boolean;
   },
 ) {
   const [row] = await db
@@ -203,6 +206,8 @@ export async function updateBrandIntegration(
       lastSyncAt: input.lastSyncAt,
       status: input.status,
       errorMessage: input.errorMessage,
+      matchIdentifier: input.matchIdentifier,
+      isPrimary: input.isPrimary,
       updatedAt: new Date().toISOString(),
     })
     .where(
@@ -217,6 +222,8 @@ export async function updateBrandIntegration(
       lastSyncAt: brandIntegrations.lastSyncAt,
       status: brandIntegrations.status,
       errorMessage: brandIntegrations.errorMessage,
+      matchIdentifier: brandIntegrations.matchIdentifier,
+      isPrimary: brandIntegrations.isPrimary,
       createdAt: brandIntegrations.createdAt,
       updatedAt: brandIntegrations.updatedAt,
     });
@@ -254,7 +261,6 @@ export async function listIntegrationsWithStatus(db: Database, brandId: string) 
       name: integrations.name,
       description: integrations.description,
       authType: integrations.authType,
-      iconPath: integrations.iconPath,
       status: integrations.status,
       createdAt: integrations.createdAt,
       updatedAt: integrations.updatedAt,
@@ -276,6 +282,80 @@ export async function listIntegrationsWithStatus(db: Database, brandId: string) 
     )
     .where(eq(integrations.status, "active"))
     .orderBy(asc(integrations.name));
+}
+
+/**
+ * Get the current primary integration for a brand.
+ */
+export async function getCurrentPrimaryIntegration(db: Database, brandId: string) {
+  const [row] = await db
+    .select({
+      id: brandIntegrations.id,
+      brandId: brandIntegrations.brandId,
+      integrationId: brandIntegrations.integrationId,
+      isPrimary: brandIntegrations.isPrimary,
+      integration: {
+        slug: integrations.slug,
+        name: integrations.name,
+      },
+    })
+    .from(brandIntegrations)
+    .innerJoin(integrations, eq(brandIntegrations.integrationId, integrations.id))
+    .where(
+      and(
+        eq(brandIntegrations.brandId, brandId),
+        eq(brandIntegrations.isPrimary, true),
+      ),
+    )
+    .limit(1);
+  return row;
+}
+
+/**
+ * Set a brand integration as primary.
+ * This is an atomic operation that:
+ * 1. Demotes all other integrations for the brand to isPrimary=false
+ * 2. Sets the specified integration to isPrimary=true
+ */
+export async function setBrandIntegrationPrimary(
+  db: Database,
+  brandId: string,
+  integrationId: string,
+) {
+  // Demote all other integrations first
+  await db
+    .update(brandIntegrations)
+    .set({
+      isPrimary: false,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(
+      and(
+        eq(brandIntegrations.brandId, brandId),
+        eq(brandIntegrations.isPrimary, true),
+      ),
+    );
+
+  // Set the specified integration as primary
+  const [row] = await db
+    .update(brandIntegrations)
+    .set({
+      isPrimary: true,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(
+      and(
+        eq(brandIntegrations.id, integrationId),
+        eq(brandIntegrations.brandId, brandId),
+      ),
+    )
+    .returning({
+      id: brandIntegrations.id,
+      brandId: brandIntegrations.brandId,
+      isPrimary: brandIntegrations.isPrimary,
+    });
+
+  return row;
 }
 
 /**

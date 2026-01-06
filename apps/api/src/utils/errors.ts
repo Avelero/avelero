@@ -424,6 +424,8 @@ export function isTRPCError(error: unknown): error is TRPCError {
 const CONSTRAINT_MESSAGES: Record<string, string> = {
   products_brand_id_product_handle_unq:
     "A product with this handle already exists",
+  brand_attribute_values_brand_attr_name_unq:
+    "An attribute value with this name already exists for this attribute",
   brand_colors_brand_id_name_unq: "A color with this name already exists",
   brand_materials_brand_id_name_unq:
     "A material with this name already exists",

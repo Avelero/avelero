@@ -1,6 +1,6 @@
 "use client";
 
-import { FieldSetup } from "@/components/integrations/field-setup";
+import { SetupWizard } from "@/components/integrations/setup-wizard";
 import {
   FieldSection,
   type FieldRowData,
@@ -13,24 +13,38 @@ import {
   getFieldUIInfo,
   type FieldGroup,
 } from "@/components/integrations/field-config";
+
 import { IntegrationLogo } from "@/components/integrations/integration-logo";
 import {
   IntegrationInfoRow,
   SyncProgressBlock,
   type IntegrationStatus,
   type SyncJobStatus,
+  type JobType,
 } from "@/components/integrations/integration-status";
 import { ConnectShopifyModal } from "@/components/modals/connect-shopify-modal";
 import { DisconnectIntegrationModal } from "@/components/modals/disconnect-integration-modal";
+import { PromoteToPrimaryModal } from "@/components/modals/promote-to-primary-modal";
 import {
   useFieldMappingsQuery,
   useIntegrationBySlugQuerySuspense,
+  usePromoteToPrimaryMutation,
+  usePromotionStatusQuery,
   useSyncStatusQuery,
   useTriggerSyncMutation,
   useUpdateFieldMappingMutation,
+  useUpdateIntegrationMutation,
 } from "@/hooks/use-integrations";
 import { getConnectorFields } from "@v1/integrations";
 import { Button } from "@v1/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@v1/ui/dropdown-menu";
+import { Icons } from "@v1/ui/icons";
 import { Skeleton } from "@v1/ui/skeleton";
 import { toast } from "@v1/ui/sonner";
 import Link from "next/link";
@@ -103,20 +117,40 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const { data: connectionData } = useIntegrationBySlugQuerySuspense(slug);
 
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
+  const [promoteModalOpen, setPromoteModalOpen] = useState(false);
   const [shopifyModalOpen, setShopifyModalOpen] = useState(false);
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
 
   // Optimistic sync state - shows "In progress" immediately when user clicks sync
   const [optimisticSyncStarted, setOptimisticSyncStarted] = useState<Date | null>(null);
 
+  // Auto-hide progress bar state
+  const [showProgress, setShowProgress] = useState(true);
+
   // Track mount state to prevent hydration mismatch
-  const [hasMounted, setHasMounted] = useState(false);
+  const [hasMounted, setHasMounted] = useState(true);
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
   const connection = connectionData?.data;
   const integrationInfo = connection?.integration;
+
+  // For the setup wizard, we need to know if there's an existing primary integration.
+  // Since the current connection has isPrimary, we can determine this.
+  // If this integration is already primary, existingPrimary should be null.
+  // If this integration is not primary, we don't need to show a specific name -
+  // the wizard just needs to know if another primary exists.
+  // For now, we use a simplified approach: the wizard will show the blocking message
+  // only when needed, and we can enhance this later.
+  const existingPrimary: string | null = null; // TODO: Add API endpoint to get primary name
+
+  // Match identifier - load from connection or default to barcode
+  const matchIdentifier = (connection?.matchIdentifier as "sku" | "barcode" | null) ?? "barcode";
+
+  // Mutations
+  const { mutate: updateIntegration } = useUpdateIntegrationMutation();
+  const { mutate: promoteToPrimary, isPending: isPromoting } = usePromoteToPrimaryMutation();
 
   // Field configs to determine if setup is needed (only runs on client)
   const { data: fieldConfigsData, isLoading: fieldConfigsLoading } = useFieldMappingsQuery(
@@ -125,6 +159,12 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
 
   // Sync status with polling
   const { data: syncStatusData } = useSyncStatusQuery(connection?.id ?? null);
+
+  // Promotion status with polling
+  const { data: promotionStatusData } = usePromotionStatusQuery(
+    connection?.id ?? null,
+    { refetchInterval: isPromoting ? 2000 : false },
+  );
 
   // Get connector fields
   const availableFields = useMemo(
@@ -176,6 +216,24 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       setOptimisticSyncStarted(null);
     }
   }, [syncStatusData?.data?.isSyncing]);
+
+  // Auto-hide progress bar after job completion (5 second delay)
+  const isJobRunning = syncStatusData?.data?.isSyncing ||
+    promotionStatusData?.data?.status === "running";
+  const isJobCompleted = syncStatusData?.data?.latestJob?.status === "completed" ||
+    syncStatusData?.data?.latestJob?.status === "failed" ||
+    promotionStatusData?.data?.status === "completed" ||
+    promotionStatusData?.data?.status === "failed";
+
+  useEffect(() => {
+    if (isJobCompleted && !isJobRunning) {
+      const timer = setTimeout(() => setShowProgress(false), 5000);
+      return () => clearTimeout(timer);
+    }
+    if (isJobRunning) {
+      setShowProgress(true);
+    }
+  }, [isJobCompleted, isJobRunning]);
 
   function handleDisconnected() {
     router.push("/settings/integrations");
@@ -235,12 +293,47 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     }
   }
 
+  function handleMatchIdentifierChange(value: "sku" | "barcode") {
+    if (!connection?.id) return;
+
+    updateIntegration(
+      { id: connection.id, match_identifier: value },
+      {
+        onError: () => {
+          toast.error("Failed to update match identifier");
+        },
+      }
+    );
+  }
+
+  function handlePromote() {
+    if (!connection?.id) return;
+
+    promoteToPrimary(
+      { id: connection.id },
+      {
+        onSuccess: (data) => {
+          // Check if it was an instant promotion (no variants to regroup)
+          if ("instant" in data && data.instant) {
+            toast.success("Integration promoted to primary");
+          } else {
+            toast.success("Promotion started. This may take a few minutes.");
+          }
+          setPromoteModalOpen(false);
+        },
+        onError: (error) => {
+          toast.error(error.message || "Failed to start promotion");
+        },
+      }
+    );
+  }
+
   // Not connected state
   if (!connection) {
     return (
       <div className="space-y-6">
         <div className="border border-dashed border-border p-8 flex flex-col items-center justify-center gap-4 text-center">
-          <IntegrationLogo slug={slug} size="sm" />
+          <IntegrationLogo slug={slug} size="lg" />
           <div className="flex flex-col gap-1">
             <h5 className="text-foreground font-medium">
               {integrationInfo?.name ?? slug} is not connected
@@ -303,13 +396,32 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
           : undefined // No total available: show indeterminate
     : undefined;
 
-  // Show field setup if not completed
+  // Determine active job type (sync vs promotion)
+  const activeJobType: JobType | null = useMemo(() => {
+    if (promotionStatusData?.data?.status === "running") {
+      return "promotion";
+    }
+    if (optimisticSyncStarted || syncStatusData?.data?.isSyncing) {
+      return "sync";
+    }
+    // Check for recent completed jobs
+    if (promotionStatusData?.data?.status === "completed" || promotionStatusData?.data?.status === "failed") {
+      return "promotion";
+    }
+    if (latestJob) {
+      return "sync";
+    }
+    return null;
+  }, [optimisticSyncStarted, syncStatusData?.data?.isSyncing, promotionStatusData?.data?.status, latestJob]);
+
+  // Show setup wizard if not completed
   if (setupCompleted === false) {
     return (
-      <FieldSetup
+      <SetupWizard
         brandIntegrationId={connection.id}
         connectorSlug={slug}
         integrationName={integrationInfo?.name ?? slug}
+        existingPrimaryName={existingPrimary}
         onCancel={() => router.push("/settings/integrations")}
         onSetupComplete={() => setSetupCompleted(true)}
       />
@@ -325,15 +437,17 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="space-y-3 mx-4">
-        <IntegrationLogo slug={slug} size="sm" />
         <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <h5 className="type-h5 text-foreground">
-              {integrationInfo?.name}
-            </h5>
-            <p className="type-small text-secondary">
-              {getIntegrationDescription(slug)}
-            </p>
+          <div className="flex items-center gap-4">
+            <IntegrationLogo slug={slug} size="lg" />
+            <div className="space-y-1">
+              <h5 className="type-h5 text-foreground">
+                {integrationInfo?.name}
+              </h5>
+              <p className="type-small text-secondary">
+                {getIntegrationDescription(slug)}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -343,12 +457,34 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
             >
               {isSyncing ? "Syncing..." : "Sync now"}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setDisconnectModalOpen(true)}
-            >
-              Disconnect
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-9 w-9 data-[state=open]:bg-accent">
+                  <Icons.EllipsisVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {!connection?.isPrimary && (
+                  <>
+                    <DropdownMenuItem onClick={() => setPromoteModalOpen(true)}>
+                      <span className="flex items-center">
+                        <Icons.ArrowUp className="h-4 w-4" />
+                        <span className="px-1">Promote to Primary</span>
+                      </span>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuItem
+                  onClick={() => setDisconnectModalOpen(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <span className="flex items-center">
+                    <Icons.Unlink className="h-4 w-4" />
+                    <span className="px-1">Disconnect</span>
+                  </span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -358,17 +494,48 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         lastSync={lastSyncTime}
         nextSync={nextSyncTime}
         status={status}
+        mode={connection?.isPrimary ? "primary" : "secondary"}
+        matchIdentifier={connection?.isPrimary ? undefined : matchIdentifier}
+        onMatchIdentifierChange={connection?.isPrimary ? undefined : handleMatchIdentifierChange}
       />
 
-      {/* Sync progress block - show optimistic state or real sync status */}
-      {(optimisticSyncStarted || latestJob) && (
+      {/* Progress block - show sync or promotion progress, auto-hide after completion */}
+      {showProgress && (optimisticSyncStarted || latestJob || promotionStatusData?.data) && (
         <SyncProgressBlock
-          status={optimisticSyncStarted ? "running" : (syncJobStatus ?? null)}
-          progress={optimisticSyncStarted ? 0 : progress}
-          startedAt={optimisticSyncStarted?.toISOString() ?? latestJob?.startedAt ?? null}
-          errorMessage={optimisticSyncStarted ? null : latestJob?.errorSummary}
+          jobType={activeJobType ?? "sync"}
+          status={
+            optimisticSyncStarted
+              ? "running"
+              : activeJobType === "promotion"
+                ? (promotionStatusData?.data?.status as SyncJobStatus ?? null)
+                : (syncJobStatus ?? null)
+          }
+          progress={
+            optimisticSyncStarted
+              ? 0
+              : activeJobType === "promotion"
+                ? (promotionStatusData?.data?.totalVariants && promotionStatusData?.data?.totalVariants > 0
+                  ? Math.round((promotionStatusData?.data?.variantsProcessed ?? 0) / promotionStatusData?.data?.totalVariants * 100)
+                  : undefined)
+                : progress
+          }
+          startedAt={
+            optimisticSyncStarted?.toISOString() ??
+            (activeJobType === "promotion"
+              ? promotionStatusData?.data?.startedAt ?? null
+              : latestJob?.startedAt ?? null)
+          }
+          errorMessage={
+            optimisticSyncStarted
+              ? null
+              : activeJobType === "promotion"
+                ? promotionStatusData?.data?.errorMessage
+                : latestJob?.errorSummary
+          }
         />
       )}
+
+
 
       {/* Configure fields section */}
       <section className="space-y-4">
@@ -394,6 +561,16 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         integrationName={integrationInfo?.name ?? slug}
         integrationId={connection.id}
         onDisconnected={handleDisconnected}
+      />
+
+      {/* Promote to Primary Modal */}
+      <PromoteToPrimaryModal
+        open={promoteModalOpen}
+        onOpenChange={setPromoteModalOpen}
+        integrationName={integrationInfo?.name ?? slug}
+        integrationId={connection.id}
+        onConfirm={handlePromote}
+        isPromoting={isPromoting}
       />
     </div>
   );

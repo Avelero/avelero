@@ -1,15 +1,16 @@
 "use client";
 
+import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import {
   DndContext,
   type DragEndEvent,
   DragOverlay,
   type DragStartEvent,
+  type DraggableSyntheticListeners,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
-  type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -17,7 +18,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useBrandCatalog } from "@/hooks/use-brand-catalog";
 import { productionStepNames } from "@v1/selections/production-steps";
 import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
@@ -122,8 +122,8 @@ const StepDropdown = ({
               className={cn(
                 "border-b border-border type-p transition-colors",
                 step
-                  ? "text-primary group-hover:text-secondary group-hover:border-secondary"
-                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary",
+                  ? "text-primary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary"
+                  : "text-tertiary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary",
               )}
             >
               {step || "Select step"}
@@ -138,7 +138,7 @@ const StepDropdown = ({
         >
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search steps..."
+              placeholder="Search..."
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
@@ -166,9 +166,9 @@ const StepDropdown = ({
                     value={searchQuery.trim()}
                     onSelect={handleCreate}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center">
                       <Icons.Plus className="h-3.5 w-3.5" />
-                      <span className="type-p text-primary">
+                      <span className="type-p text-primary px-1">
                         Create &quot;{searchQuery.trim()}&quot;
                       </span>
                     </div>
@@ -271,8 +271,8 @@ const OperatorCell = ({
                 className={cn(
                   "border-b border-border type-p transition-colors",
                   operator
-                    ? "text-primary group-hover:text-secondary group-hover:border-secondary"
-                    : "text-tertiary group-hover:text-secondary group-hover:border-secondary",
+                    ? "text-primary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary"
+                    : "text-tertiary group-hover:text-secondary group-hover:border-secondary group-data-[state=open]:border-secondary group-data-[state=open]:text-secondary",
                 )}
               >
                 {operator || "Select operator"}
@@ -288,7 +288,7 @@ const OperatorCell = ({
                   <button
                     type="button"
                     className={cn(
-                      "p-1 hover:bg-accent transition-colors",
+                      "p-1 hover:bg-accent data-[state=open]:bg-accent data-[state=open]:opacity-100 transition-colors",
                       isHovered ? "opacity-100" : "opacity-0",
                     )}
                   >
@@ -308,7 +308,7 @@ const OperatorCell = ({
                     className="text-destructive focus:text-destructive"
                   >
                     <Icons.X className="h-4 w-4" />
-                    Delete
+                    <span className="px-1">Delete</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -323,7 +323,7 @@ const OperatorCell = ({
         >
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search operators..."
+              placeholder="Search..."
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
@@ -358,9 +358,9 @@ const OperatorCell = ({
                     value={searchQuery.trim()}
                     onSelect={handleCreate}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center">
                       <Icons.Plus className="h-3.5 w-3.5" />
-                      <span className="type-p text-primary">
+                      <span className="type-p text-primary px-1">
                         Create &quot;{searchQuery.trim()}&quot;
                       </span>
                     </div>
@@ -656,7 +656,10 @@ export function JourneySection({
     if (justCreatedTimeoutRef.current) {
       clearTimeout(justCreatedTimeoutRef.current);
     }
-    justCreatedTimeoutRef.current = setTimeout(() => setJustCreatedOperator(null), 500);
+    justCreatedTimeoutRef.current = setTimeout(
+      () => setJustCreatedOperator(null),
+      500,
+    );
   };
 
   const deleteJourneyStep = (id: string) => {
@@ -739,10 +742,10 @@ export function JourneySection({
         </div>
       </div>
 
-      {/* Empty State or Journey Rows - with fixed height and scroll */}
-      <div className="h-[200px] overflow-y-auto scrollbar-hide">
+      {/* Empty State or Journey Rows - min-height with growth */}
+      <div className="min-h-[200px]">
         {displaySteps.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 h-full">
+          <div className="flex flex-col items-center justify-center gap-3 h-[200px]">
             <p className="type-p text-tertiary">No journey steps added</p>
             <Button
               type="button"
@@ -779,7 +782,11 @@ export function JourneySection({
                     onDelete={() => deleteJourneyStep(step.id)}
                     availableOperators={availableOperators}
                     onOperatorJustCreated={(operatorId, operatorName) =>
-                      handleOperatorJustCreated(step.id, operatorId, operatorName)
+                      handleOperatorJustCreated(
+                        step.id,
+                        operatorId,
+                        operatorName,
+                      )
                     }
                   />
                 ))}

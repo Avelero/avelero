@@ -18,6 +18,7 @@ export function GoogleSignin() {
     try {
       const redirectTo = new URL("/api/auth/callback", window.location.origin);
       redirectTo.searchParams.append("provider", "google");
+
       if (returnTo) {
         redirectTo.searchParams.append("return_to", returnTo);
       }

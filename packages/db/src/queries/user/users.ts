@@ -35,14 +35,12 @@ export async function getUserById(db: Database, id: string) {
       email: users.email,
       fullName: users.fullName,
       avatarPath: users.avatarPath,
-      avatarHue: users.avatarHue,
       brandId: users.brandId,
       brand: {
         id: brands.id,
         name: brands.name,
         email: brands.email,
         logoPath: brands.logoPath,
-        avatarHue: brands.avatarHue,
         countryCode: brands.countryCode,
       },
     })
@@ -58,7 +56,6 @@ export interface UpdateUserParams {
   email?: string;
   fullName?: string | null;
   avatarPath?: string | null;
-  avatarHue?: number | null;
   brandId?: string | null;
 }
 
@@ -73,7 +70,6 @@ export async function updateUser(db: Database, params: UpdateUserParams) {
       email: users.email,
       fullName: users.fullName,
       avatarPath: users.avatarPath,
-      avatarHue: users.avatarHue,
       brandId: users.brandId,
     });
   return row ?? null;

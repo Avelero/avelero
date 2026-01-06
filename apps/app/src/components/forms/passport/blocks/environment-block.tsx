@@ -145,7 +145,7 @@ export function EnvironmentSection({
               className={cn(
                 "h-9 flex-1",
                 carbonError &&
-                "focus-visible:ring-destructive focus-visible:border-destructive",
+                  "focus-visible:ring-destructive focus-visible:border-destructive",
               )}
             />
           </div>
@@ -172,7 +172,7 @@ export function EnvironmentSection({
               className={cn(
                 "h-9 flex-1",
                 waterError &&
-                "focus-visible:ring-destructive focus-visible:border-destructive",
+                  "focus-visible:ring-destructive focus-visible:border-destructive",
               )}
             />
           </div>

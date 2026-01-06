@@ -1,9 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Icons } from "@v1/ui/icons";
+import { Button } from "@v1/ui/button";
 import { cn } from "@v1/ui/cn";
-import { Select } from "@v1/ui/select";
+import { Icons } from "@v1/ui/icons";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectList,
+  SelectTrigger,
+} from "@v1/ui/select";
 import { useDesignEditor } from "@/contexts/design-editor-provider";
 import { FontSelect } from "@/components/select/font-select";
 import { CustomFontsModal } from "@/components/modals/custom-fonts-modal";
@@ -45,6 +53,72 @@ const LETTER_SPACING_OPTIONS = [
   { value: "0em", label: "Normal" },
   { value: "0.025em", label: "Wide" },
 ];
+
+// ============================================================================
+// Internal Select Component
+// ============================================================================
+
+interface TypographySelectProps {
+  options: { value: string; label: string }[];
+  value: string;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+function TypographySelect({
+  options,
+  value,
+  onValueChange,
+  placeholder = "Select...",
+  className,
+}: TypographySelectProps) {
+  const [open, setOpen] = React.useState(false);
+
+  const selectedOption = options.find((o) => o.value === value);
+  const displayValue = selectedOption?.label || placeholder;
+  const isPlaceholder = !selectedOption;
+
+  const handleSelect = (optionValue: string) => {
+    onValueChange(optionValue);
+    setOpen(false);
+  };
+
+  return (
+    <Select open={open} onOpenChange={setOpen}>
+      <SelectTrigger asChild>
+        <Button
+          variant="outline"
+          size="default"
+          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
+        >
+          <span
+            className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
+          >
+            {displayValue}
+          </span>
+          <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
+        </Button>
+      </SelectTrigger>
+      <SelectContent defaultValue={value}>
+        <SelectList>
+          <SelectGroup>
+            {options.map((option) => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                onSelect={() => handleSelect(option.value)}
+              >
+                <span className="type-p">{option.label}</span>
+                {value === option.value && <Icons.Check className="h-4 w-4" />}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectList>
+      </SelectContent>
+    </Select>
+  );
+}
 
 // Simple accordion item component
 interface AccordionItemProps {
@@ -131,7 +205,7 @@ function TypographyScaleForm({
           placeholder="px"
         />
         <FieldWrapper label="Weight">
-          <Select
+          <TypographySelect
             value={String(value.fontWeight || "400")}
             onValueChange={(v) =>
               handleChange("fontWeight", Number.parseInt(v, 10))
@@ -146,7 +220,7 @@ function TypographyScaleForm({
       {/* Line height and Tracking row */}
       <div className="grid grid-cols-2 gap-3">
         <FieldWrapper label="Line height">
-          <Select
+          <TypographySelect
             value={String(value.lineHeight || "1.25")}
             onValueChange={(v) =>
               handleChange("lineHeight", Number.parseFloat(v))
@@ -157,7 +231,7 @@ function TypographyScaleForm({
           />
         </FieldWrapper>
         <FieldWrapper label="Tracking">
-          <Select
+          <TypographySelect
             value={String(value.letterSpacing || "0em")}
             onValueChange={(v) => handleChange("letterSpacing", v)}
             options={LETTER_SPACING_OPTIONS}

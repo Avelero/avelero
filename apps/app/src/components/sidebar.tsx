@@ -2,7 +2,7 @@
 
 import { cn } from "@v1/ui/cn";
 import { useEffect, useRef, useState } from "react";
-import { BrandDropdown } from "./brand-dropdown";
+import { BrandDropdown } from "./select/brand-select";
 import { MainMenu } from "./main-menu";
 import { EditorMenu } from "./editor-menu";
 
@@ -54,7 +54,7 @@ export function Sidebar({ variant = "default" }: SidebarProps) {
     <aside
       ref={sidebarRef}
       className={cn(
-        "fixed top-0 z-50 hidden md:flex h-screen mt-14",
+        "fixed top-0 z-50 flex h-screen mt-14",
         "flex-col flex-shrink-0 p-2 gap-2",
         "bg-background border-r border-border",
         "desktop:overflow-hidden desktop:rounded-tl-[10px] desktop:rounded-bl-[10px]",

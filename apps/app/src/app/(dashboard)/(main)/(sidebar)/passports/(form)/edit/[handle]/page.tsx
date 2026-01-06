@@ -1,5 +1,4 @@
-import { EditPassportForm } from "@/components/forms/passport/create-passport-form";
-import { PassportSkeleton } from "@/components/forms/passport/skeleton";
+import { EditProductForm, ProductFormSkeleton } from "@/components/forms/passport";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { connection } from "next/server";
@@ -29,8 +28,8 @@ export default async function EditPassportPage({
 
   return (
     <HydrateClient>
-      <Suspense fallback={<PassportSkeleton title="Edit passport" />}>
-        <EditPassportForm productHandle={handle} />
+      <Suspense fallback={<ProductFormSkeleton title="Edit passport" />}>
+        <EditProductForm productHandle={handle} />
       </Suspense>
     </HydrateClient>
   );

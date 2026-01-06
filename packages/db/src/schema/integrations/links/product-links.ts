@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   pgPolicy,
   pgTable,
@@ -49,6 +50,13 @@ export const integrationProductLinks = pgTable(
     }),
     /** Hash of last synced data (for change detection - includes product fields + tags) */
     lastSyncedHash: text("last_synced_hash"),
+    /**
+     * Whether this source product is the canonical source for product-level data within this integration.
+     * When multiple external products (from the same integration) map to one Avelero product,
+     * only the canonical one writes to product-level fields; others write to variant overrides.
+     * Defaults to true so existing links and first-linked products are canonical.
+     */
+    isCanonical: boolean("is_canonical").default(true).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -62,11 +70,13 @@ export const integrationProductLinks = pgTable(
       table.brandIntegrationId,
       table.externalId,
     ),
-    // Unique constraint: one link per product per integration
-    uniqueIndex("integration_product_links_integration_product_unq").on(
-      table.brandIntegrationId,
-      table.productId,
-    ),
+    // NOTE: We intentionally do NOT have a unique constraint on (brandIntegrationId, productId).
+    // This allows many-to-one mappings where multiple external products link to the same Avelero product.
+    // The isCanonical column determines which link writes to product-level data.
+    // Partial unique index: only one canonical link per (integration, product) pair
+    uniqueIndex("integration_product_links_canonical_unq")
+      .on(table.brandIntegrationId, table.productId)
+      .where(sql`is_canonical = true`),
     // Index for looking up by product
     index("idx_integration_product_links_product").on(table.productId),
     // RLS policies - access via brand_integrations join

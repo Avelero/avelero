@@ -113,7 +113,7 @@ export function SortPopover({
             variant="subtle"
             size="default"
             disabled={disabled}
-            className="group-hover:bg-accent transition-none"
+            className="group-hover:bg-accent transition-none group-data-[state=open]:bg-accent"
           >
             <ActiveIcon className="h-[14px] w-[14px]" />
             <span className="px-1">{optimisticSort && activeField ? (
@@ -133,24 +133,26 @@ export function SortPopover({
 
             return (
               <DropdownMenuSub key={field.id}>
-                <DropdownMenuSubTrigger className="h-9 py-3">
-                  {field.label}
+                <DropdownMenuSubTrigger>
+                  <span>{field.label}</span>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent className="w-[220px]">
                     <DropdownMenuItem
-                      className="h-9 py-3"
                       onSelect={() => handleSortSelect(field.id, "asc")}
                     >
-                      <AscIcon className="h-[14px] w-[14px]" />
-                      <span>Ascending</span>
+                      <span className="flex items-center">
+                        <AscIcon className="h-[14px] w-[14px]" />
+                        <span className="px-1">Ascending</span>
+                      </span>
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      className="h-9 py-3"
                       onSelect={() => handleSortSelect(field.id, "desc")}
                     >
-                      <DescIcon className="h-[14px] w-[14px]" />
-                      <span>Descending</span>
+                      <span className="flex items-center">
+                        <DescIcon className="h-[14px] w-[14px]" />
+                        <span className="px-1">Descending</span>
+                      </span>
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>

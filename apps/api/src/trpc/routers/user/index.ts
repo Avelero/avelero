@@ -53,7 +53,6 @@ interface MinimalUserRecord {
   email: string | null;
   fullName: string | null;
   avatarPath: string | null;
-  avatarHue: number | null;
   brandId: string | null;
 }
 
@@ -133,7 +132,6 @@ function mapUserProfile(
     email,
     full_name: record.fullName ?? null,
     avatar_url: buildUserAvatarUrl(record.avatarPath),
-    avatar_hue: record.avatarHue ?? null,
     brand_id: record.brandId ?? null,
   };
 }
@@ -141,13 +139,12 @@ function mapUserProfile(
 function mapInvite(invite: UserInviteSummaryRow) {
   return {
     id: invite.id,
+    brand_id: invite.brandId ?? null,
     brand_name: invite.brandName,
     brand_logo: buildBrandLogoUrl(invite.brandLogoPath),
-    brand_avatar_hue: invite.brandAvatarHue ?? null,
     role: invite.role,
     invited_by: invite.invitedByFullName ?? invite.invitedByEmail ?? null,
     invited_by_avatar_url: buildUserAvatarUrl(invite.invitedByAvatarPath),
-    invited_by_avatar_hue: invite.invitedByAvatarHue ?? null,
     created_at: invite.createdAt,
     expires_at: invite.expiresAt,
   };
@@ -462,7 +459,6 @@ export const userRouter = createTRPCRouter({
           slug: membership.slug ?? null,
           email: membership.email ?? null,
           country_code: membership.country_code ?? null,
-          avatar_hue: membership.avatar_hue ?? null,
           logo_url: buildBrandLogoUrl(membership.logo_path ?? null),
           role: membership.role,
           canLeave: canLeaveFromRole(membership.role, ownerCount),
@@ -493,7 +489,6 @@ export const userRouter = createTRPCRouter({
           email: input.email ?? user.email ?? null,
           country_code: input.country_code ?? null,
           logo_path: extractStoragePath(input.logo_url),
-          avatar_hue: input.avatar_hue ?? null,
         };
 
         try {

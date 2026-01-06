@@ -159,7 +159,7 @@ export function CategorySelect({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="w-full justify-between h-9"
+            className="w-full justify-between h-9 data-[state=open]:bg-accent"
           >
             <span
               className={cn(
@@ -179,20 +179,23 @@ export function CategorySelect({
           <div className="flex flex-col">
             {/* Navigation Bar */}
             {categoryPath.length > 0 && (
-              <div className="border-b border-border bg-background">
-                <button
-                  type="button"
-                  onClick={handleCategoryBack}
-                  className="w-full py-2 px-3 type-p text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
-                >
-                  <Icons.ChevronLeft className="h-4 w-4 mr-2 text-secondary" />
-                  <span className="text-primary">{getBreadcrumbString()}</span>
-                </button>
-              </div>
+              <>
+                <div className="p-1">
+                  <button
+                    type="button"
+                    onClick={handleCategoryBack}
+                    className="w-full h-[30px] px-2 !type-small text-primary gap-2 focus:outline-none flex items-center hover:bg-accent rounded-none"
+                  >
+                    <Icons.ChevronLeft className="h-4 w-4 text-secondary" />
+                    <span className="px-1 text-primary truncate">{getBreadcrumbString()}</span>
+                  </button>
+                </div>
+                <div className="-mx-0 my-0 h-px bg-accent-dark" />
+              </>
             )}
 
             {/* Options */}
-            <div className="max-h-48 overflow-y-auto scrollbar-hide">
+            <div className="max-h-48 overflow-y-auto scrollbar-hide p-1">
               {Object.entries(getCurrentLevelOptions()).map(
                 ([key, value]: [string, any]) => {
                   const hasChildren =
@@ -206,7 +209,7 @@ export function CategorySelect({
                         // Button-in-button layout for items with children
                         <div
                           className={cn(
-                            "flex transition-colors",
+                            "flex h-[30px] rounded-none",
                             hoveredRow === key ? "bg-accent" : "",
                           )}
                           onMouseLeave={() => {
@@ -223,7 +226,7 @@ export function CategorySelect({
                               setHoveredArea("selection");
                             }}
                             className={cn(
-                              "w-fit px-3 py-2 type-p transition-colors flex items-center gap-2",
+                              "w-fit h-[30px] px-2 !type-small flex items-center gap-0.5 rounded-none",
                               isSelected
                                 ? "bg-accent-blue text-brand"
                                 : hoveredRow === key &&
@@ -232,7 +235,7 @@ export function CategorySelect({
                                   : "text-primary",
                             )}
                           >
-                            <span>{value.label}</span>
+                            <span className="px-1">{value.label}</span>
                             {isSelected && (
                               <Icons.Check className="h-4 w-4 text-brand" />
                             )}
@@ -246,7 +249,7 @@ export function CategorySelect({
                               setHoveredRow(key);
                               setHoveredArea("navigation");
                             }}
-                            className="flex-1 py-2 px-2 transition-colors flex items-center justify-end"
+                            className="flex-1 h-[30px] px-2 flex items-center justify-end rounded-none"
                           >
                             <Icons.ChevronRight className="h-4 w-4 text-tertiary" />
                           </button>
@@ -257,13 +260,13 @@ export function CategorySelect({
                           type="button"
                           onClick={() => handleCategorySelect(key)}
                           className={cn(
-                            "w-full px-3 py-2 type-p text-left transition-colors flex items-center justify-between",
+                            "w-full h-[30px] px-2 !type-small text-left flex items-center justify-between gap-0.5 rounded-none",
                             isSelected
                               ? "bg-accent-blue text-brand"
                               : "hover:bg-accent text-primary",
                           )}
                         >
-                          <span>{value.label}</span>
+                          <span className="px-1">{value.label}</span>
                           {isSelected && (
                             <Icons.Check className="h-4 w-4 text-brand" />
                           )}

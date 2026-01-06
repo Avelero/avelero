@@ -11,6 +11,7 @@ export interface UpdateMeta {
     date: string;
     image: string;
     author?: string;
+    linkedin?: string;
 }
 
 export interface Update extends UpdateMeta {
@@ -63,6 +64,7 @@ export async function getUpdateBySlug(slug: string): Promise<Update> {
         date: data.date,
         image: data.image,
         author: data.author,
+        linkedin: data.linkedin,
         content,
     };
 }

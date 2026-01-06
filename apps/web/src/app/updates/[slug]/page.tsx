@@ -118,7 +118,12 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
                     <header className="w-full max-w-[976px] mx-auto pt-[58px] sm:pt-[92px] pb-[45px] sm:pb-[62px]">
                         {/* Author and Date */}
                         <p className="text-body text-center text-foreground/50 mb-2">
-                            {update.author || "Avelero"} · {formatDate(update.date)}
+                            <a
+                                href={update.linkedin}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="cursor-pointer hover:underline"
+                            >{update.author || "Avelero"}</a> · {formatDate(update.date)}
                         </p>
 
                         {/* Title */}

@@ -29,13 +29,18 @@ export function ProductFormActions() {
         productHandle,
         pendingNavigationUrl,
         setPendingNavigationUrl,
+        formResetCallbackRef,
     } = usePassportFormContext();
     const trpc = useTRPC();
     const queryClient = useQueryClient();
     const router = useRouter();
 
-    // Callback to invalidate cache when discarding changes
+    // Callback to reset form and invalidate cache when discarding changes
     const handleDiscard = React.useCallback(async () => {
+        // Reset form state first (clears local values)
+        if (formResetCallbackRef.current) {
+            formResetCallbackRef.current();
+        }
         // Invalidate the specific product query to ensure fresh data on next visit
         if (productHandle) {
             await queryClient.invalidateQueries({
@@ -46,7 +51,7 @@ export function ProductFormActions() {
         await queryClient.invalidateQueries({
             queryKey: trpc.products.list.queryKey(),
         });
-    }, [productHandle, queryClient, trpc]);
+    }, [productHandle, queryClient, trpc, formResetCallbackRef]);
 
     const { pendingUrl, confirmNavigation, cancelNavigation, requestNavigation } =
         useNavigationBlocker({ shouldBlock: hasUnsavedChanges, onDiscard: handleDiscard });

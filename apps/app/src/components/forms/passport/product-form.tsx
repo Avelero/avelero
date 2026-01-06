@@ -89,7 +89,7 @@ function ProductFormInner({
   initialData,
 }: ProductFormProps) {
   const { data: user } = useUserQuery();
-  const { setIsSubmitting, setHasUnsavedChanges, requestNavigation } = usePassportFormContext();
+  const { setIsSubmitting, setHasUnsavedChanges, requestNavigation, formResetCallbackRef } = usePassportFormContext();
   const isEditMode = mode === "edit";
 
   // Register form with context
@@ -107,6 +107,7 @@ function ProductFormInner({
     submit,
     isSubmitting,
     hasUnsavedChanges,
+    resetForm,
     savedVariantsMap,
     productHandle: savedProductHandle,
   } = usePassportForm({ mode, productHandle, initialData });
@@ -211,9 +212,17 @@ function ProductFormInner({
     setIsSubmitting(isSubmitting);
   }, [isSubmitting, setIsSubmitting]);
 
+  // Sync hasUnsavedChanges with context for both create and edit modes
+  // This ensures the unsaved changes modal shows when users have entered data
   React.useEffect(() => {
-    setHasUnsavedChanges(isEditMode ? hasUnsavedChanges : false);
-  }, [hasUnsavedChanges, isEditMode, setHasUnsavedChanges]);
+    setHasUnsavedChanges(hasUnsavedChanges);
+  }, [hasUnsavedChanges, setHasUnsavedChanges]);
+
+  // Register reset callback with context so discard handler can reset form state
+  React.useEffect(() => {
+    formResetCallbackRef.current = resetForm;
+    return () => { formResetCallbackRef.current = null; };
+  }, [resetForm, formResetCallbackRef]);
 
   // Refs for focusing invalid fields
   const nameInputRef = React.useRef<HTMLInputElement>(null);

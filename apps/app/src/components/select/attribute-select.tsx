@@ -798,22 +798,26 @@ export function AttributeSelect({
                         )}
                       </CommandItem>
                     ))}
-                    {/* Create option */}
-                    {showCreateOption && (
-                      <CommandItem onSelect={handleCreateValue}>
-                        <div className="flex items-center">
-                          <Icons.Plus className="h-3.5 w-3.5" />
-                          <span className="type-p text-primary px-1">
-                            Create &quot;{search.trim()}&quot;
-                          </span>
-                        </div>
-                      </CommandItem>
-                    )}
                     {filteredOptions.length === 0 && !showCreateOption && (
                       <CommandEmpty>No values found</CommandEmpty>
                     )}
                   </CommandGroup>
                 </CommandList>
+                {/* Footer with Create option */}
+                {showCreateOption && (
+                  <div className="border-t border-border p-1">
+                    <button
+                      type="button"
+                      onClick={handleCreateValue}
+                      className="relative flex w-full cursor-pointer select-none items-center gap-0.5 rounded-none px-2 h-[30px] !type-small outline-none hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icons.Plus className="h-3.5 w-3.5" />
+                        <span>Create &quot;{search.trim()}&quot;</span>
+                      </div>
+                    </button>
+                  </div>
+                )}
               </Command>
             </PopoverContent>
           </Popover>

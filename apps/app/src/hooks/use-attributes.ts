@@ -67,8 +67,13 @@ export function buildAttributeValueOptions(
     // Index taxonomy values for quick lookup
     const taxonomyById = new Map(taxVals.map((tv) => [tv.id, tv]));
 
-    // Set of taxonomy value IDs that have a corresponding brand value
+    // Set of taxonomy value IDs that have a corresponding brand value (by ID link)
     const coveredTaxonomyIds = new Set<string>();
+
+    // Set of value names that already exist as brand values (for name-based deduplication)
+    // This prevents showing duplicate taxonomy values when a brand value with the same name
+    // exists but wasn't linked to the taxonomy (e.g., created via integration or custom inline)
+    const coveredNames = new Set<string>();
 
     // 1. Add all brand values
     for (const bv of brandVals) {
@@ -87,11 +92,20 @@ export function buildAttributeValueOptions(
         if (bv.taxonomyValueId) {
             coveredTaxonomyIds.add(bv.taxonomyValueId);
         }
+
+        // Also mark by name (case-insensitive) to prevent duplicates
+        coveredNames.add(bv.name.toLowerCase());
     }
 
     // 2. Add uncovered taxonomy values (pending - not yet created as brand values)
+    // A taxonomy value is "covered" if:
+    // - There's a brand value explicitly linked to it (by taxonomyValueId), OR
+    // - There's a brand value with the same name (case-insensitive)
     for (const tv of taxVals) {
-        if (!coveredTaxonomyIds.has(tv.id)) {
+        const isCoveredById = coveredTaxonomyIds.has(tv.id);
+        const isCoveredByName = coveredNames.has(tv.name.toLowerCase());
+
+        if (!isCoveredById && !isCoveredByName) {
             options.push({
                 id: `tax:${tv.id}`,
                 name: tv.name,

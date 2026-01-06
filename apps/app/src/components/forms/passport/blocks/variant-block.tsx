@@ -779,6 +779,14 @@ export function VariantSection({
         // Handle dimension count change (new dimension added with values)
         if (newDimensionCount > oldDimensionCount && addedValues.length > 0) {
             // A new dimension was added with values
+
+            // SPECIAL CASE: First dimension being added (going from 0 to 1 dimensions)
+            // Simply enable all the new keys - there's nothing to expand from
+            if (oldDimensionCount === 0) {
+                setEnabledVariantKeys(new Set(newKeys));
+                return;
+            }
+
             // Get the first value of the new dimension - this will be assigned to existing variants
             const firstNewValue = addedValues[0];
             if (!firstNewValue) return;

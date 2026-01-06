@@ -242,6 +242,19 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
   }, [productHandle]);
 
+  // Reset form when entering create mode to ensure a fresh start
+  // This prevents old local values from persisting after navigation
+  const lastModeRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!isEditMode && lastModeRef.current !== mode) {
+      resetFormValues();
+      setValidationErrors({});
+      setHasAttemptedSubmit(false);
+      setInitialSnapshot(null);
+    }
+    lastModeRef.current = mode;
+  }, [isEditMode, mode, resetFormValues]);
+
   const createProductMutation = useMutation(trpc.products.create.mutationOptions());
   const updateProductMutation = useMutation(trpc.products.update.mutationOptions());
   const syncVariantsMutation = useMutation(trpc.products.variants.sync.mutationOptions());
@@ -719,23 +732,42 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               tokenToBrandValueId.set(existingByTaxonomy.name, existingByTaxonomy.id);
               tokenToBrandValueId.set(existingByTaxonomy.id, existingByTaxonomy.id);
             } else {
-              // Create brand value for taxonomy value
+              // Look up the taxonomy value to get its name
               const taxValues = brandCatalogQuery?.taxonomy?.values ?? [];
               const taxValue = taxValues.find((v: any) => v.id === actualValueId);
               const name = taxValue?.name ?? actualValueId;
 
-              const result = await createAttributeValueMutation.mutateAsync({
-                attribute_id: brandAttrId,
-                name,
-                taxonomy_value_id: actualValueId,
-              });
-              if (!result?.data?.id) throw new Error("Failed to create attribute value");
-              resolvedValueIds.push(result.data.id);
-              tokenToBrandValueId.set(valueId, result.data.id);
-              tokenToBrandValueId.set(actualValueId, result.data.id);
-              tokenToBrandValueId.set(result.data.name ?? name, result.data.id);
-              tokenToBrandValueId.set(result.data.id, result.data.id);
-              existingBrandValues.push(result.data);
+              // Check if there's already a brand value with the same name for this attribute
+              // This handles cases where:
+              // - The brand has a "Black" value created via integration (no taxonomy link)
+              // - The brand has a "Black" value created via modal without selecting taxonomy
+              // - The user now selects "Black" from the taxonomy dropdown
+              const existingByName = existingBrandValues.find(
+                (v: any) => v.attributeId === brandAttrId && v.name.toLowerCase() === name.toLowerCase()
+              );
+
+              if (existingByName) {
+                // Use existing value found by name - no need to create a duplicate
+                resolvedValueIds.push(existingByName.id);
+                tokenToBrandValueId.set(valueId, existingByName.id);
+                tokenToBrandValueId.set(actualValueId, existingByName.id);
+                tokenToBrandValueId.set(existingByName.name, existingByName.id);
+                tokenToBrandValueId.set(existingByName.id, existingByName.id);
+              } else {
+                // Create brand value for taxonomy value
+                const result = await createAttributeValueMutation.mutateAsync({
+                  attribute_id: brandAttrId,
+                  name,
+                  taxonomy_value_id: actualValueId,
+                });
+                if (!result?.data?.id) throw new Error("Failed to create attribute value");
+                resolvedValueIds.push(result.data.id);
+                tokenToBrandValueId.set(valueId, result.data.id);
+                tokenToBrandValueId.set(actualValueId, result.data.id);
+                tokenToBrandValueId.set(result.data.name ?? name, result.data.id);
+                tokenToBrandValueId.set(result.data.id, result.data.id);
+                existingBrandValues.push(result.data);
+              }
             }
           }
         }

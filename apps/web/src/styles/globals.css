@@ -39,8 +39,8 @@
   }
 
   ::selection {
-    background-color: #0000FF;
-    color: #FEFEFE;
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
   }
 
 }

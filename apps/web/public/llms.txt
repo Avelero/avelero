@@ -1,0 +1,14 @@
+# Avelero
+> Digital Product Passport platform for fashion brands. We help brands turn EU ESPR compliance into a post-purchase engagement channel.
+
+## Key pages
+- / : Homepage with platform overview, features, and value proposition for Digital Product Passports.
+- /updates/ : Blog and news section with articles about DPPs, sustainability, and fashion industry trends.
+- /updates/the-last-step-in-your-customer-journey/ : Article on using DPPs as a post-purchase customer engagement channel; includes resale market data, care/repair use cases, and circular economy insights.
+
+## About Avelero
+Avelero transforms Digital Product Passports from compliance checkboxes into customer experience infrastructure. We provide:
+- Shopify integration for automatic product data sync
+- Customizable passport templates matching brand identity
+- Care instructions, repair guides, and resale program integration
+- Machine-readable structured data for supply chain transparency

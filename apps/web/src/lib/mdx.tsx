@@ -59,7 +59,7 @@ export const mdxComponents: MDXComponents = {
     return (
       <Component
         href={href ?? "#"}
-        className="text-foreground underline hover:text-foreground/70 transition-colors"
+        className="text-primary underline hover:text-primary/70 transition-colors"
         {...externalProps}
         {...props}
       >

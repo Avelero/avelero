@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getUpdateBySlug, getAllUpdateSlugs } from "@/lib/updates";
+import { getUpdateBySlug, getAllUpdateSlugs, type Update } from "@/lib/updates";
 import { MDXRenderer } from "@/components/mdx-renderer";
 import { UpdateFooter } from "@/components/update-footer";
 import { RelatedUpdates } from "@/components/related-updates";
@@ -42,15 +42,22 @@ export async function generateMetadata({
     try {
         const update = await getUpdateBySlug(slug);
 
+        const canonicalUrl = `${baseUrl}/updates/${slug}/`;
+
         return {
             title: update.title,
             description: update.description,
+            alternates: {
+                canonical: canonicalUrl,
+            },
             openGraph: {
                 title: update.title,
                 description: update.description,
                 type: "article",
                 publishedTime: update.date,
+                modifiedTime: update.date,
                 authors: [update.author || "Avelero"],
+                url: canonicalUrl,
                 images: [
                     {
                         url: `${baseUrl}${update.image}`,
@@ -77,7 +84,7 @@ export async function generateMetadata({
 export default async function UpdatePage({ params }: UpdatePageProps) {
     const { slug } = await params;
 
-    let update;
+    let update: Update;
     try {
         update = await getUpdateBySlug(slug);
     } catch {
@@ -85,13 +92,19 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
     }
 
     // JSON-LD structured data for SEO
+    const canonicalUrl = `${baseUrl}/updates/${slug}/`;
     const jsonLd = {
         "@context": "https://schema.org",
         "@type": "Article",
+        mainEntityOfPage: {
+            "@type": "WebPage",
+            "@id": canonicalUrl,
+        },
         headline: update.title,
         description: update.description,
         image: `${baseUrl}${update.image}`,
         datePublished: update.date,
+        dateModified: update.date,
         author: {
             "@type": "Person",
             name: update.author || "Avelero",
@@ -104,6 +117,18 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
                 url: `${baseUrl}/og-image.jpg`,
             },
         },
+        citation: [
+            {
+                "@type": "CreativeWork",
+                name: "ThredUp & GlobalData 2024 Resale Report",
+                url: "https://cf-assets-tup.thredup.com/resale_report/2024/ThredUp_2024_Resale%20Report.pdf",
+            },
+            {
+                "@type": "CreativeWork",
+                name: "WRAP: Extending Product Lifetimes - Clothing Durability",
+                url: "https://www.wrap.ngo/resources/case-study/extending-product-lifetimes-wraps-work-clothing-durability",
+            },
+        ],
     };
 
     return (
@@ -117,7 +142,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
                     {/* Header Section - Author, Date, Title */}
                     <header className="w-full max-w-[976px] mx-auto pt-[58px] sm:pt-[92px] pb-[45px] sm:pb-[62px]">
                         {/* Author and Date */}
-                        <p className="text-body text-center text-foreground/50 mb-2">
+                        <p className="text-body text-center text-foreground/50 mb-2 transition-all duration-150">
                             <a
                                 href={update.linkedin}
                                 target="_blank"

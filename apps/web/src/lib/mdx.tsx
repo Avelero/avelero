@@ -8,32 +8,32 @@ import Link from "next/link";
 export const mdxComponents: MDXComponents = {
   // Headings
   h1: ({ children, ...props }) => (
-    <h1 className="text-h4 font-bold mb-6 mt-8 first:mt-0" {...props}>
+    <h1 className="text-h4 mb-6 mt-8 first:mt-0" {...props}>
       {children}
     </h1>
   ),
   h2: ({ children, ...props }) => (
-    <h2 className="text-h5 font-semibold mb-4 mt-8" {...props}>
+    <h2 className="text-h5 mb-4 mt-8" {...props}>
       {children}
     </h2>
   ),
   h3: ({ children, ...props }) => (
-    <h3 className="text-h6 font-semibold mb-3 mt-6" {...props}>
+    <h3 className="text-h6 mb-3 mt-6" {...props}>
       {children}
     </h3>
   ),
   h4: ({ children, ...props }) => (
-    <h4 className="text-body font-semibold mb-2 mt-4" {...props}>
+    <h4 className="text-body mb-2 mt-4" {...props}>
       {children}
     </h4>
   ),
   h5: ({ children, ...props }) => (
-    <h5 className="text-body font-semibold mb-2 mt-4" {...props}>
+    <h5 className="text-body mb-2 mt-4" {...props}>
       {children}
     </h5>
   ),
   h6: ({ children, ...props }) => (
-    <h6 className="text-small font-semibold mb-2 mt-4" {...props}>
+    <h6 className="text-small mb-2 mt-4" {...props}>
       {children}
     </h6>
   ),

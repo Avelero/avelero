@@ -102,6 +102,7 @@ export {
   validateShopifyHmac,
   exchangeCodeForToken,
   buildAuthorizationUrl,
+  verifyShopifyWebhookHmac,
 } from "./connectors/shopify/oauth";
 export {
   SHOPIFY_API_VERSION,

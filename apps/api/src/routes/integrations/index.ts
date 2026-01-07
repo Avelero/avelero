@@ -8,12 +8,14 @@
  */
 import { Hono } from "hono";
 import { shopifyOAuthRouter } from "./shopify.js";
+import { shopifyWebhooksRouter } from "./shopify-webhooks.js";
 
 /**
  * Main integrations route handler.
  *
  * Mounts OAuth routes for each integration provider:
  * - /shopify/* - Shopify OAuth flow
+ * - /webhooks/compliance/* - Shopify compliance webhooks
  *
  * Usage in main app:
  * ```ts
@@ -25,6 +27,10 @@ export const integrationRoutes = new Hono();
 
 // Mount Shopify OAuth routes
 integrationRoutes.route("/shopify", shopifyOAuthRouter);
+
+// Mount Shopify compliance webhooks
+// These handle: customers/data_request, customers/redact, shop/redact
+integrationRoutes.route("/webhooks/compliance", shopifyWebhooksRouter);
 
 // Health check for integration routes
 integrationRoutes.get("/health", (c) => {

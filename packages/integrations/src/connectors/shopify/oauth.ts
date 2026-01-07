@@ -105,3 +105,30 @@ export function buildAuthorizationUrl(
   return url.toString();
 }
 
+/**
+ * Verifies the HMAC signature of a Shopify webhook.
+ *
+ * Shopify sends webhooks with an `X-Shopify-Hmac-Sha256` header containing
+ * a base64-encoded HMAC-SHA256 hash of the raw request body signed with
+ * the app's API secret (client secret).
+ *
+ * @param rawBody - The raw request body as a string (must be unparsed)
+ * @param hmacHeader - The value of the X-Shopify-Hmac-Sha256 header
+ * @param clientSecret - The Shopify app's client secret (API secret)
+ * @returns true if the signature is valid, false otherwise
+ */
+export function verifyShopifyWebhookHmac(
+  rawBody: string,
+  hmacHeader: string,
+  clientSecret: string
+): boolean {
+  // Calculate the expected HMAC using SHA256 and base64 encoding
+  // Note: This is different from OAuth HMAC which uses hex encoding
+  const expectedHmac = createHmac("sha256", clientSecret)
+    .update(rawBody, "utf8")
+    .digest("base64");
+
+  // Compare using timing-safe comparison to prevent timing attacks
+  return timingSafeEqual(hmacHeader, expectedHmac);
+}
+

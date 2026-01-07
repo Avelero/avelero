@@ -35,7 +35,7 @@ export const saveThemeAction = authActionClient
       includeFontFaces: true,
     });
 
-    const stylesheetPath = `brand-${brandId}/theme.css`;
+    const stylesheetPath = `${brandId}/theme.css`;
     const now = new Date().toISOString();
 
     // Upload CSS to Supabase storage

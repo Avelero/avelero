@@ -15,6 +15,12 @@ type PopoverContentProps = React.ComponentPropsWithoutRef<
   typeof PopoverPrimitive.Content
 > & {
   inline?: boolean;
+  /**
+   * When false (default), prevents focus stealing on open, which avoids scroll jumps
+   * when nested inside other modals (e.g., Sheet/Dialog). When true, allows normal
+   * auto-focus behavior on open.
+   */
+  modal?: boolean;
 };
 
 const PopoverContent = React.forwardRef<
@@ -22,15 +28,32 @@ const PopoverContent = React.forwardRef<
   PopoverContentProps
 >(
   (
-    { className, align = "center", sideOffset = 4, inline = false, ...props },
+    {
+      className,
+      align = "center",
+      sideOffset = 4,
+      inline = false,
+      modal = false,
+      onOpenAutoFocus,
+      ...props
+    },
     ref,
   ) => {
+    // When not modal, prevent focus stealing which can cause scroll jumps
+    const handleOpenAutoFocus = modal
+      ? onOpenAutoFocus
+      : (e: Event) => {
+          e.preventDefault();
+          onOpenAutoFocus?.(e);
+        };
+
     const content = (
       <PopoverPrimitive.Content
         ref={ref}
         align={align}
         sideOffset={sideOffset}
         collisionPadding={16}
+        onOpenAutoFocus={handleOpenAutoFocus}
         className={cn(
           "z-50 min-w-[8rem] overflow-hidden rounded-none",
           "border border-border bg-background p-0 shadow-lg",
@@ -42,7 +65,6 @@ const PopoverContent = React.forwardRef<
           "data-[side=left]:slide-in-from-right-2",
           "data-[side=right]:slide-in-from-left-2",
           "data-[side=top]:slide-in-from-bottom-2",
-          "[&_*]:scrollbar-none [&_*::-webkit-scrollbar]:hidden",
           className,
         )}
         {...props}

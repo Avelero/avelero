@@ -899,9 +899,9 @@ function SizePopoverSelect({
         <Button
           variant="outline"
           size="default"
-          className="w-full justify-between"
+          className="w-full justify-between data-[state=open]:bg-accent"
         >
-          <span className="px-1 truncate data-[state=open]:bg-accent">{displayText}</span>
+          <span className="px-1 truncate">{displayText}</span>
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>
@@ -1027,9 +1027,9 @@ function SeasonPopoverSelect({
         <Button
           variant="outline"
           size="default"
-          className="w-full justify-between"
+          className="w-full justify-between data-[state=open]:bg-accent"
         >
-          <span className="px-1 truncate data-[state=open]:bg-accent">{displayText}</span>
+          <span className="px-1 truncate">{displayText}</span>
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </PopoverTrigger>

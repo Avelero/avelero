@@ -8,32 +8,32 @@ import Link from "next/link";
 export const mdxComponents: MDXComponents = {
   // Headings
   h1: ({ children, ...props }) => (
-    <h1 className="text-h4 font-bold mb-6 mt-8 first:mt-0" {...props}>
+    <h1 className="text-h4 mb-6 mt-8 first:mt-0" {...props}>
       {children}
     </h1>
   ),
   h2: ({ children, ...props }) => (
-    <h2 className="text-h5 font-semibold mb-4 mt-8" {...props}>
+    <h2 className="text-h5 mb-4 mt-8" {...props}>
       {children}
     </h2>
   ),
   h3: ({ children, ...props }) => (
-    <h3 className="text-h6 font-semibold mb-3 mt-6" {...props}>
+    <h3 className="text-h6 mb-3 mt-6" {...props}>
       {children}
     </h3>
   ),
   h4: ({ children, ...props }) => (
-    <h4 className="text-body font-semibold mb-2 mt-4" {...props}>
+    <h4 className="text-body mb-2 mt-4" {...props}>
       {children}
     </h4>
   ),
   h5: ({ children, ...props }) => (
-    <h5 className="text-body font-semibold mb-2 mt-4" {...props}>
+    <h5 className="text-body mb-2 mt-4" {...props}>
       {children}
     </h5>
   ),
   h6: ({ children, ...props }) => (
-    <h6 className="text-small font-semibold mb-2 mt-4" {...props}>
+    <h6 className="text-small mb-2 mt-4" {...props}>
       {children}
     </h6>
   ),
@@ -41,7 +41,7 @@ export const mdxComponents: MDXComponents = {
   // Paragraphs and text
   p: ({ children, ...props }) => (
     <p
-      className="text-small text-foreground/80 mb-4 leading-relaxed"
+      className="text-body text-foreground/80 my-6 leading-relaxed first:mt-0 last:mb-0"
       {...props}
     >
       {children}
@@ -59,7 +59,7 @@ export const mdxComponents: MDXComponents = {
     return (
       <Component
         href={href ?? "#"}
-        className="text-foreground underline hover:text-foreground/70 transition-colors"
+        className="text-primary underline hover:text-primary/70 transition-colors duration-150"
         {...externalProps}
         {...props}
       >
@@ -127,4 +127,42 @@ export const mdxComponents: MDXComponents = {
 
   // Horizontal rule
   hr: ({ ...props }) => <hr className="border-border my-8" {...props} />,
+
+  // Tables
+  table: ({ children, ...props }) => (
+    <div className="overflow-x-auto mb-4">
+      <table className="w-full border-collapse border border-border" {...props}>
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children, ...props }) => (
+    <thead className="bg-card" {...props}>
+      {children}
+    </thead>
+  ),
+  tbody: ({ children, ...props }) => (
+    <tbody {...props}>{children}</tbody>
+  ),
+  tr: ({ children, ...props }) => (
+    <tr className="border-b border-border" {...props}>
+      {children}
+    </tr>
+  ),
+  th: ({ children, ...props }) => (
+    <th
+      className="border border-border px-4 py-2 text-left text-small font-semibold"
+      {...props}
+    >
+      {children}
+    </th>
+  ),
+  td: ({ children, ...props }) => (
+    <td
+      className="border border-border px-4 py-2 text-small text-foreground/80"
+      {...props}
+    >
+      {children}
+    </td>
+  ),
 };

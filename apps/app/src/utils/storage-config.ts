@@ -117,7 +117,7 @@ export const buildStoragePath = {
     filename: string,
   ) => `${brandId}/${folder}/${filename}`,
 
-  themeStylesheet: (brandId: string) => `brand-${brandId}/theme.css`,
+  themeStylesheet: (brandId: string) => `${brandId}/theme.css`,
 
   themeScreenshot: (brandId: string, device: "desktop" | "mobile") =>
     `${brandId}/${device}_${Date.now()}.webp`,

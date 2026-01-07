@@ -191,21 +191,21 @@ export function ContactDrawer() {
         >
           <div
             className={cn(
-              "flex flex-col bg-background border border-border p-3 rounded-md overflow-hidden relative shadow-lg mb-6 transition-all duration-150 ease-in-out",
+              "flex flex-col bg-background border border-border p-3 rounded-2xl overflow-hidden relative shadow-lg mb-6 transition-all duration-150 ease-in-out",
               // Form states
               drawerState === "collapsed" && !emailError && "h-[62px]",
               drawerState === "collapsed" && emailError && "h-[84px]",
               (drawerState === "expanded" || drawerState === "submitting") &&
-                !emailError &&
-                !nameError &&
-                !companyError &&
-                "h-[254px]",
+              !emailError &&
+              !nameError &&
+              !companyError &&
+              "h-[254px]",
               (drawerState === "expanded" || drawerState === "submitting") &&
-                (emailError || nameError || companyError) &&
-                "h-auto",
+              (emailError || nameError || companyError) &&
+              "h-auto",
               // Success/Error states
               (drawerState === "success" || drawerState === "error") &&
-                "h-[140px]",
+              "h-[140px]",
             )}
           >
             <Drawer.Title className="sr-only">Talk to founders</Drawer.Title>
@@ -266,7 +266,10 @@ export function ContactDrawer() {
                     className={cn(
                       "transition-transform duration-150",
                       emailError &&
-                        "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none",
+                      "focus-visible:ring-[1.5px] focus-visible:ring-destructive focus-visible:outline-none transition-transform",
+                      drawerState === "collapsed" && !hasEverExpanded
+                        ? "rounded-l-lg rounded-r-none"
+                        : "rounded-t-lg rounded-b-none",
                     )}
                     aria-invalid={!!emailError}
                   />
@@ -276,7 +279,7 @@ export function ContactDrawer() {
                     type="button"
                     onClick={handleExpand}
                     className={cn(
-                      "flex items-center justify-center ml-2 w-9 h-9 flex-shrink-0 bg-primary text-primary-foreground hover:brightness-[0.9] transition-all duration-150 cursor-pointer",
+                      "flex items-center justify-center ml-2 w-9 h-9 flex-shrink-0 rounded-r-lg bg-primary text-primary-foreground hover:brightness-[0.9] transition-all duration-150 cursor-pointer",
                       drawerState === "collapsed" && !hasEverExpanded
                         ? "opacity-100"
                         : "hidden",
@@ -327,7 +330,7 @@ export function ContactDrawer() {
                       disabled={drawerState === "submitting"}
                       className={cn(
                         nameError &&
-                          "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none",
+                        "focus-visible:ring-[1.5px] focus-visible:ring-destructive focus-visible:outline-none",
                       )}
                       aria-invalid={!!nameError}
                     />
@@ -360,7 +363,7 @@ export function ContactDrawer() {
                       disabled={drawerState === "submitting"}
                       className={cn(
                         companyError &&
-                          "focus-visible:ring-1 focus-visible:ring-destructive focus-visible:outline-none",
+                        "focus-visible:ring-[1.5px] focus-visible:ring-destructive focus-visible:outline-none",
                       )}
                       aria-invalid={!!companyError}
                     />
@@ -375,9 +378,9 @@ export function ContactDrawer() {
                     onClick={handleSubmit}
                     disabled={drawerState === "submitting"}
                     className={cn(
-                      "w-full h-9 !text-small mt-1 transition-all duration-150 bg-primary text-primary-foreground hover:brightness-[0.9]",
+                      "w-full h-9 !text-small mt-1 transition-all rounded-b-lg duration-150 bg-primary text-primary-foreground hover:brightness-[0.9]",
                       drawerState === "submitting" &&
-                        "opacity-70 cursor-not-allowed",
+                      "opacity-70 cursor-not-allowed",
                     )}
                   >
                     {drawerState === "submitting" ? "Submitting..." : "Submit"}

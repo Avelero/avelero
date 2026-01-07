@@ -33,15 +33,15 @@ jobs:
         # Supabase CLI's env() function reads from .env file, not shell environment variables
         # These values are needed for config.toml validation during db push
         run: |
-          {
-            echo "APP_URL=${{ secrets.PRODUCTION_APP_URL }}"
-            echo "ADDITIONAL_REDIRECT_URL=${{ secrets.PRODUCTION_APP_URL }}"
-            echo "SEND_EMAIL_HOOK_URI=${{ secrets.PRODUCTION_SUPABASE_URL }}/functions/v1/send-email"
-            echo "SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}"
-            echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
-            echo "GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}"
-            echo "GOOGLE_REDIRECT_URI=${{ secrets.PRODUCTION_SUPABASE_URL }}/auth/v1/callback"
-          } > ./apps/api/.env
+          cat > ./apps/api/.env << 'EOF'
+          APP_URL=${{ secrets.PRODUCTION_APP_URL }}
+          ADDITIONAL_REDIRECT_URL=${{ secrets.PRODUCTION_APP_URL }}
+          SEND_EMAIL_HOOK_URI=${{ secrets.PRODUCTION_SUPABASE_URL }}/functions/v1/send-email
+          SEND_EMAIL_HOOK_SECRET=${{ secrets.SEND_EMAIL_HOOK_SECRET }}
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_SECRET=${{ secrets.GOOGLE_SECRET }}
+          GOOGLE_REDIRECT_URI=${{ secrets.PRODUCTION_SUPABASE_URL }}/auth/v1/callback
+          EOF
 
       - name: 🗄️ Apply Pending Migrations
         run: supabase db push --linked

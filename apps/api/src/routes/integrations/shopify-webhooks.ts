@@ -15,6 +15,8 @@
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { verifyShopifyWebhookHmac } from "@v1/integrations";
+import { db } from "@v1/db/client";
+import { deleteBrandIntegrationByShopDomain } from "@v1/db/queries/integrations";
 
 // Shopify client secret for HMAC verification
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET ?? "";
@@ -120,14 +122,8 @@ export const shopifyWebhooksRouter = new Hono();
  * Handles customers/data_request webhook.
  *
  * When a customer requests their data from a store, Shopify sends this webhook.
- * The app should:
- * 1. Find all data stored for this customer
- * 2. Prepare it for the merchant to share with the customer
- *
- * For now, we log the request. In a production app, you would:
- * - Query your database for customer data
- * - Generate a report
- * - Notify the merchant or queue a background job
+ * Since we only have read_products scope and do not store any customer data,
+ * this is an intentional no-op. We acknowledge receipt and return success.
  */
 shopifyWebhooksRouter.post("/customers-data-request", async (c) => {
     const result = await verifyAndParseWebhook<CustomerDataRequestPayload>(c);
@@ -138,21 +134,13 @@ shopifyWebhooksRouter.post("/customers-data-request", async (c) => {
 
     const { payload } = result;
 
-    console.log("Shopify webhook: customers/data_request received", {
+    console.log("Shopify webhook: customers/data_request received (no-op, we don't store customer data)", {
         shopDomain: payload.shop_domain,
         shopId: payload.shop_id,
         customerId: payload.customer.id,
-        customerEmail: payload.customer.email,
-        dataRequestId: payload.data_request.id,
-        ordersRequested: payload.orders_requested,
     });
 
-    // TODO: Implement actual data request handling
-    // - Query database for customer data
-    // - Queue background job to prepare data export
-    // - Notify merchant via email or dashboard
-
-    // Respond with 200 to acknowledge receipt
+    // No action needed - we don't store customer data (read_products scope only)
     return c.json({ success: true }, 200);
 });
 
@@ -162,14 +150,8 @@ shopifyWebhooksRouter.post("/customers-data-request", async (c) => {
  * Handles customers/redact webhook.
  *
  * When a store owner requests customer data deletion, Shopify sends this webhook.
- * The app should:
- * 1. Delete or anonymize all customer data
- * 2. This must be completed within 30 days
- *
- * For now, we log the request. In a production app, you would:
- * - Delete customer records from your database
- * - Anonymize any data you're legally required to retain
- * - Queue a background job for the deletion
+ * Since we only have read_products scope and do not store any customer data,
+ * this is an intentional no-op. We acknowledge receipt and return success.
  */
 shopifyWebhooksRouter.post("/customers-redact", async (c) => {
     const result = await verifyAndParseWebhook<CustomerRedactPayload>(c);
@@ -180,20 +162,13 @@ shopifyWebhooksRouter.post("/customers-redact", async (c) => {
 
     const { payload } = result;
 
-    console.log("Shopify webhook: customers/redact received", {
+    console.log("Shopify webhook: customers/redact received (no-op, we don't store customer data)", {
         shopDomain: payload.shop_domain,
         shopId: payload.shop_id,
         customerId: payload.customer.id,
-        customerEmail: payload.customer.email,
-        ordersToRedact: payload.orders_to_redact,
     });
 
-    // TODO: Implement actual customer data redaction
-    // - Delete customer data from database
-    // - Anonymize data if legally required to retain
-    // - Queue background job for cleanup
-
-    // Respond with 200 to acknowledge receipt
+    // No action needed - we don't store customer data (read_products scope only)
     return c.json({ success: true }, 200);
 });
 
@@ -203,13 +178,8 @@ shopifyWebhooksRouter.post("/customers-redact", async (c) => {
  * Handles shop/redact webhook.
  *
  * 48 hours after a store uninstalls the app, Shopify sends this webhook.
- * The app should:
- * 1. Delete all data related to the shop
- *
- * For now, we log the request. In a production app, you would:
- * - Delete the shop's integration record
- * - Delete all products synced from this shop
- * - Delete any other shop-specific data
+ * We delete the brand integration record for this shop. Product data is
+ * retained as it belongs to the brand, not the Shopify integration.
  */
 shopifyWebhooksRouter.post("/shop-redact", async (c) => {
     const result = await verifyAndParseWebhook<ShopRedactPayload>(c);
@@ -225,13 +195,28 @@ shopifyWebhooksRouter.post("/shop-redact", async (c) => {
         shopId: payload.shop_id,
     });
 
-    // TODO: Implement actual shop data redaction
-    // - Delete brand integration record
-    // - Delete synced products
-    // - Delete any other shop-specific data
-    // - Queue background job for cleanup
+    // Delete the brand integration for this shop
+    try {
+        const deleted = await deleteBrandIntegrationByShopDomain(db, payload.shop_domain);
+        if (deleted) {
+            console.log("Shopify webhook: deleted brand integration", {
+                shopDomain: payload.shop_domain,
+                integrationId: deleted.id,
+                brandId: deleted.brandId,
+            });
+        } else {
+            console.log("Shopify webhook: no brand integration found for shop", {
+                shopDomain: payload.shop_domain,
+            });
+        }
+    } catch (error) {
+        console.error("Shopify webhook: error deleting brand integration", {
+            shopDomain: payload.shop_domain,
+            error,
+        });
+        // Still return 200 to prevent Shopify from retrying
+    }
 
-    // Respond with 200 to acknowledge receipt
     return c.json({ success: true }, 200);
 });
 

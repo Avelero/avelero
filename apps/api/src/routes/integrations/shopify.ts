@@ -121,6 +121,15 @@ async function createComplianceWebhookSubscriptions(
         errors?: Array<{ message: string }>;
       };
 
+      // Check for top-level GraphQL errors (auth failures, rate limits, invalid queries)
+      if (result.errors && result.errors.length > 0) {
+        console.error(
+          `GraphQL errors creating webhook for ${topic}:`,
+          result.errors
+        );
+        continue;
+      }
+
       const userErrors = result.data?.webhookSubscriptionCreate?.userErrors;
       if (userErrors && userErrors.length > 0) {
         // Check if it's just a "already exists" error, which is fine

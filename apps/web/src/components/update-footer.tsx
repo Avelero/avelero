@@ -39,7 +39,7 @@ export function UpdateFooter({ title, slug }: UpdateFooterProps) {
     const linkedInShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
 
     return (
-        <div className="max-w-[768px] w-full mx-auto border-t border-border pt-6 pb-[45px] sm:pb-[62px]">
+        <div className="max-w-[624px] w-full mx-auto border-t border-border pt-6 pb-[45px] sm:pb-[62px]">
             <div className="flex flex-col gap-5">
                 {/* Label */}
                 <p className="text-body text-foreground">Share this article</p>

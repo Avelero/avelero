@@ -21,7 +21,7 @@ import { SHOPIFY_PRODUCTS_QUERY } from "./schema";
  * Shopify GraphQL Admin API version to use.
  * @see https://shopify.dev/docs/api/usage/versioning
  */
-export const SHOPIFY_API_VERSION = "2024-10";
+export const SHOPIFY_API_VERSION = "2025-07";
 
 /**
  * Default batch size for fetching variants.
@@ -162,7 +162,7 @@ async function executeQuery<T>(
 ): Promise<ShopifyGraphQLResponse<T>> {
   const storeDomain = (credentials.storeDomain ?? credentials.shopDomain) as string;
   const accessToken = credentials.accessToken as string;
-  
+
   if (!storeDomain || !accessToken) {
     throw new Error("Missing storeDomain/shopDomain or accessToken in credentials");
   }
@@ -284,7 +284,7 @@ export async function* fetchProducts(
 // COUNTING
 // =============================================================================
 
-const PRODUCT_COUNT_QUERY = "query { productsCount { count } }";
+const PRODUCT_COUNT_QUERY = "query { productsCount(limit: null) { count } }";
 
 interface ProductCountResponse {
   productsCount: { count: number };

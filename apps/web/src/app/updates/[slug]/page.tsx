@@ -175,7 +175,7 @@ export default async function UpdatePage({ params }: UpdatePageProps) {
                     {/* MDX Content Section */}
                     <div className="w-full py-[45px] sm:py-[62px]">
                         {/* MDX content with max-width for text readability */}
-                        <div className="max-w-[768px] w-full mx-auto">
+                        <div className="max-w-[624px] w-full mx-auto">
                             <MDXRenderer source={update.content} />
                         </div>
                     </div>

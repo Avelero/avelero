@@ -16,8 +16,9 @@ type PopoverContentProps = React.ComponentPropsWithoutRef<
 > & {
   inline?: boolean;
   /**
-   * Whether the popover should behave as a modal, locking outside scroll.
-   * Defaults to false to prevent scroll blocking when nested inside other modals (e.g., Sheet/Dialog).
+   * When false (default), prevents focus stealing on open, which avoids scroll jumps
+   * when nested inside other modals (e.g., Sheet/Dialog). When true, allows normal
+   * auto-focus behavior on open.
    */
   modal?: boolean;
 };

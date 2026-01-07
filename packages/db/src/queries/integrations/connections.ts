@@ -249,6 +249,21 @@ export async function deleteBrandIntegration(
 }
 
 /**
+ * Delete a brand integration by shop domain.
+ * Used by Shopify shop/redact webhook to remove integration data after app uninstall.
+ */
+export async function deleteBrandIntegrationByShopDomain(
+  db: Database,
+  shopDomain: string,
+) {
+  const [row] = await db
+    .delete(brandIntegrations)
+    .where(eq(brandIntegrations.shopDomain, shopDomain))
+    .returning({ id: brandIntegrations.id, brandId: brandIntegrations.brandId });
+  return row;
+}
+
+/**
  * List all integrations with their connection status for a brand.
  * Returns all available integrations, with connection info if connected.
  */

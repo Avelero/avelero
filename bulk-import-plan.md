@@ -47,14 +47,16 @@
 | 2.3 Simplify values router | ✅ Done | Added deprecation comments to define/batchDefine/mapToExisting, updated unmapped description |
 | 2.4 Update staging router | ✅ Done | Added status filter to preview, added rowStatus/errors to response, deprecated export |
 
-### Phase 3: Background Job Changes 🔲 NOT STARTED
-| Task | Status |
-|------|--------|
-| 3.1 Create Excel parser | 🔲 |
-| 3.2 Create Excel export | 🔲 |
-| 3.3 Rewrite validate-and-stage | 🔲 |
-| 3.4 Update commit-to-production | 🔲 |
-| 3.5 Create staging cleanup job | 🔲 |
+### Phase 3: Background Job Changes ✅ COMPLETE
+| Task | Status | Notes |
+|------|--------|-------|
+| 3.1 Create Excel parser | ✅ Done | `packages/jobs/src/lib/excel-parser.ts` - Shopify-style row grouping, variant-level overrides |
+| 3.2 Create Excel export | ✅ Done | `packages/jobs/src/lib/excel-export.ts` - Correction export with red cell highlighting |
+| 3.3 Rewrite validate-and-stage | ✅ Done | ~836 lines (down from 1867). Auto-create entities, CREATE/ENRICH modes, fire-and-forget |
+| 3.4 Update commit-to-production | ✅ Done | ~596 lines (down from 825). Auto-triggered, per-row status, variant-level overrides |
+| 3.5 Create staging cleanup job | ✅ Done | `packages/jobs/src/trigger/bulk/staging-cleanup.ts` - Daily scheduled cleanup |
+| 3.6 Update catalog-loader | ✅ Done | Extended with attributes, tags, ecoClaims, manufacturers maps |
+| Delete csv-parser.ts | ✅ Done | No longer needed with Excel-only flow |
 
 ### Phase 4: UI Changes 🔲 NOT STARTED
 | Task | Status |

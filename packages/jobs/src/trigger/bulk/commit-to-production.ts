@@ -1,611 +1,277 @@
+/**
+ * Commit to Production Job (Refactored)
+ *
+ * Phase 2 of the bulk import process:
+ * 1. Loads PENDING staging products/variants in batches
+ * 2. Commits each to production tables (create or update)
+ * 3. Updates per-row status to COMMITTED or FAILED
+ * 4. Deletes only COMMITTED rows (keeps FAILED for correction export)
+ * 5. Revalidates DPP cache for the brand
+ *
+ * Key changes from previous version:
+ * - Auto-triggered (no "VALIDATED" status check)
+ * - Uses rowStatus field on staging tables
+ * - Handles variant-level materials, eco claims, journey steps, etc.
+ * - Keeps failed rows for Excel export
+ *
+ * @module commit-to-production
+ */
+
 import "../configure-trigger";
 import { logger, task } from "@trigger.dev/sdk/v3";
-import { db } from "@v1/db/client";
-import type { Database } from "@v1/db/client";
-import { eq } from "@v1/db/index";
-import {
-  type StagingProductPreview,
-  batchUpdateImportRowStatus,
-  bulkCreateProductsFromStaging,
-  deleteStagingDataForJob,
-  getImportJobStatus,
-  getStagingProductsForCommit,
-  updateImportJobProgress,
-  updateImportJobStatus,
-} from "@v1/db/queries/bulk";
-import {
-  createProduct,
-  setProductEcoClaims,
-  setProductJourneySteps,
-  updateProduct,
-  upsertProductEnvironment,
-  upsertProductMaterials,
-} from "@v1/db/queries/products";
-import { brands, productVariants } from "@v1/db/schema";
+import { type Database, serviceDb as db } from "@v1/db/client";
+import { and, eq, sql } from "@v1/db/queries";
+import * as schema from "@v1/db/schema";
 import { revalidateBrand } from "../../lib/dpp-revalidation";
-import { ProgressEmitter } from "./progress-emitter";
 
-/**
- * Task payload for Phase 2 production commit
- */
+// ============================================================================
+// Types
+// ============================================================================
+
 interface CommitToProductionPayload {
   jobId: string;
   brandId: string;
 }
 
-/**
- * Result of committing a single row
- */
-interface CommitRowResult {
-  rowNumber: number;
-  importRowId: string;
-  action: "CREATE" | "UPDATE";
+interface CommitResult {
+  stagingProductId: string;
   success: boolean;
   error?: string;
   productId?: string;
-  variantId?: string;
 }
 
-interface BatchTimingSnapshot {
-  batchNumber: number;
-  startRowNumber: number;
-  endRowNumber: number;
-  rowCount: number;
-  fetchMs: number;
-  processMs: number;
-  progressMs: number;
-  totalMs: number;
-}
+// ============================================================================
+// Schema References
+// ============================================================================
 
-const BATCH_SIZE = 1000; // Optimized for maximum throughput
-const ROW_CONCURRENCY = resolveRowConcurrency();
-const STAGING_DELETE_CHUNK_SIZE = resolveDeleteChunkSize();
-const TIMEOUT_MS = 1800000; // 30 minutes
-const PROGRESS_UPDATE_FREQUENCY = 5; // Update progress every N batches
+const {
+  importJobs,
+  stagingProducts,
+  stagingProductVariants,
+  stagingVariantAttributes,
+  stagingProductTags,
+  stagingVariantMaterials,
+  stagingVariantEcoClaims,
+  stagingVariantEnvironment,
+  stagingVariantJourneySteps,
+  stagingVariantWeight,
+  products,
+  productVariants,
+  productVariantAttributes,
+  productTags,
+  variantMaterials,
+  variantEcoClaims,
+  variantEnvironment,
+  variantJourneySteps,
+  variantWeight,
+  brands,
+} = schema;
 
-/**
- * Phase 2: Commit validated staging data to production tables
- *
- * This background job:
- * 1. Loads validated data from staging tables in batches
- * 2. For each staging row, performs CREATE or UPDATE based on action field
- * 3. Uses database transactions for each batch to ensure atomicity
- * 4. Upserts related tables (materials, care codes, eco claims, etc.)
- * 5. Tracks row-level success/failure with partial success support
- * 6. Cleans up staging data after successful commit
- * 7. Sends WebSocket progress updates (TODO: implement WebSocket)
- *
- * Processes data in batches of 100 rows with transaction rollback on batch failures.
- */
+// ============================================================================
+// Constants
+// ============================================================================
+
+const BATCH_SIZE = 100;
+
+// ============================================================================
+// Main Task
+// ============================================================================
+
 export const commitToProduction = task({
   id: "commit-to-production",
-  maxDuration: 1800, // 30 minutes max - handles large imports with 10k+ rows
-  queue: {
-    concurrencyLimit: 3,
-  },
-  retry: {
-    maxAttempts: 2,
-    minTimeoutInMs: 5000,
-    maxTimeoutInMs: 60000,
-    factor: 2,
-    randomize: true,
-  },
+  maxDuration: 1800, // 30 minutes
+  queue: { concurrencyLimit: 3 },
+  retry: { maxAttempts: 2 },
   run: async (payload: CommitToProductionPayload): Promise<void> => {
     const { jobId, brandId } = payload;
-    const jobStartTime = Date.now();
-    const batchTimings: BatchTimingSnapshot[] = [];
-    const failedRowIds: string[] = [];
-    const progressEmitter = new ProgressEmitter();
-    let totalRows = 0;
-    let processedCount = 0;
-    let createdCount = 0;
-    let updatedCount = 0;
+    const startTime = Date.now();
+
+    logger.info("Starting commit-to-production job", { jobId, brandId });
+
+    let committedCount = 0;
     let failedCount = 0;
 
-    logger.info("Starting commit-to-production job", {
-      jobId,
-      brandId,
-    });
-
     try {
-      const job = await getImportJobStatus(db, jobId);
-      if (!job) {
-        throw new Error(`Import job ${jobId} not found`);
-      }
-
-      if (job.brandId !== brandId) {
-        throw new Error(
-          `Cannot commit job ${jobId}: payload brand ${brandId} does not match job brand ${job.brandId}.`,
-        );
-      }
-
-      if (job.status === "COMMITTING") {
-        logger.warn("Commit job already in progress; continuing", {
-          jobId,
-          brandId,
-        });
-      } else if (job.status !== "VALIDATED") {
-        throw new Error(
-          `Cannot commit job with status ${job.status}. Job must be in VALIDATED status.`,
-        );
-      }
-
-      if (job.status !== "COMMITTING") {
-        await updateImportJobStatus(db, {
-          jobId,
+      // Update job status to COMMITTING
+      await db
+        .update(importJobs)
+        .set({
           status: "COMMITTING",
           commitStartedAt: new Date().toISOString(),
-        });
-      }
+        })
+        .where(eq(importJobs.id, jobId));
 
-      totalRows =
-        ((job.summary as Record<string, unknown>)?.total as number) || 0;
-      processedCount = 0;
-      createdCount = 0;
-      updatedCount = 0;
-      failedCount = 0;
-
-      logger.info("Starting production commit", {
-        jobId,
-        totalRows,
-        rowConcurrency: ROW_CONCURRENCY,
-        deleteChunkSize: STAGING_DELETE_CHUNK_SIZE,
-      });
-
-      // Process staging data in batches
-      let cursorRowNumber: number | null = null;
+      // Process staging products in batches
       let hasMore = true;
-      let batchNumber = 1;
+      let lastRowNumber = 0;
 
       while (hasMore) {
-        // Load batch from staging tables
-        const batchStartMs = Date.now();
-        const fetchStart = Date.now();
-        const stagingBatch = await getStagingProductsForCommit(
-          db,
-          jobId,
-          BATCH_SIZE,
-          cursorRowNumber ?? undefined,
-        );
-        const fetchDurationMs = Date.now() - fetchStart;
+        // Fetch batch of PENDING staging products
+        const batch = await db
+          .select({
+            stagingId: stagingProducts.stagingId,
+            rowNumber: stagingProducts.rowNumber,
+            action: stagingProducts.action,
+            existingProductId: stagingProducts.existingProductId,
+            id: stagingProducts.id,
+            name: stagingProducts.name,
+            description: stagingProducts.description,
+            manufacturerId: stagingProducts.manufacturerId,
+            imagePath: stagingProducts.imagePath,
+            categoryId: stagingProducts.categoryId,
+            seasonId: stagingProducts.seasonId,
+            productHandle: stagingProducts.productHandle,
+            status: stagingProducts.status,
+          })
+          .from(stagingProducts)
+          .where(
+            and(
+              eq(stagingProducts.jobId, jobId),
+              eq(stagingProducts.rowStatus, "PENDING"),
+              sql`${stagingProducts.rowNumber} > ${lastRowNumber}`,
+            ),
+          )
+          .orderBy(stagingProducts.rowNumber)
+          .limit(BATCH_SIZE);
 
-        if (stagingBatch.length === 0) {
+        if (batch.length === 0) {
           hasMore = false;
           break;
         }
 
-        const startRowNumber = stagingBatch[0]?.rowNumber ?? 0;
-        const endRowNumber =
-          stagingBatch[stagingBatch.length - 1]?.rowNumber ?? startRowNumber;
+        logger.info("Processing batch", {
+          size: batch.length,
+          startRow: batch[0]?.rowNumber,
+          endRow: batch[batch.length - 1]?.rowNumber,
+        });
 
-        logger.info(
-          `Processing batch ${batchNumber} (rows ${startRowNumber}-${endRowNumber})`,
-          {
-            batchSize: stagingBatch.length,
-            processedCount,
-            totalRows,
-          },
-        );
-
-        // Process batch within a transaction
-        const processStart = Date.now();
-        const batchResults = await processBatch(
-          db,
-          brandId,
-          stagingBatch,
-          jobId,
-        );
-        const processDurationMs = Date.now() - processStart;
-
-        // Update counters based on batch results
-        for (const result of batchResults) {
-          processedCount++;
+        // Process each product
+        for (const stagingProduct of batch) {
+          const result = await commitStagingProduct(
+            db,
+            brandId,
+            jobId,
+            stagingProduct,
+          );
 
           if (result.success) {
-            if (result.action === "CREATE") {
-              createdCount++;
-            } else {
-              updatedCount++;
-            }
+            committedCount++;
           } else {
             failedCount++;
-            if (result.importRowId) {
-              failedRowIds.push(result.importRowId);
-            }
           }
+
+          lastRowNumber = stagingProduct.rowNumber;
         }
+      }
 
-        // Update job progress (only every N batches to reduce overhead)
-        const progressStart = Date.now();
-        let progressDurationMs = 0;
-        const shouldUpdateProgress =
-          batchNumber % PROGRESS_UPDATE_FREQUENCY === 0 || !hasMore;
+      // Delete only COMMITTED staging data
+      await deleteCommittedStagingData(db, jobId);
 
-        if (shouldUpdateProgress) {
-          const percentage =
-            totalRows > 0
-              ? Math.round((processedCount / totalRows) * 100)
-              : 100;
-          await updateImportJobProgress(db, {
-            jobId,
-            summary: {
-              total: totalRows,
-              processed: processedCount,
-              created: createdCount,
-              updated: updatedCount,
-              failed: failedCount,
-              percentage,
-            },
-          });
-          progressEmitter.emit({
-            jobId,
-            status: "COMMITTING",
-            phase: "commit",
-            processed: processedCount,
-            total: totalRows,
-            created: createdCount,
-            updated: updatedCount,
+      // Determine final status
+      const hasFailures = failedCount > 0;
+      const finalStatus = hasFailures ? "COMPLETED_WITH_FAILURES" : "COMPLETED";
+
+      await db
+        .update(importJobs)
+        .set({
+          status: finalStatus,
+          finishedAt: new Date().toISOString(),
+          hasExportableFailures: hasFailures,
+          summary: {
+            committed: committedCount,
             failed: failedCount,
-            percentage,
-          });
-          progressDurationMs = Date.now() - progressStart;
-        }
-        const totalBatchDurationMs = Date.now() - batchStartMs;
-        batchTimings.push({
-          batchNumber,
-          startRowNumber,
-          endRowNumber,
-          rowCount: stagingBatch.length,
-          fetchMs: fetchDurationMs,
-          processMs: processDurationMs,
-          progressMs: progressDurationMs,
-          totalMs: totalBatchDurationMs,
-        });
+          },
+        })
+        .where(eq(importJobs.id, jobId));
 
-        // Send WebSocket progress update (temporarily disabled)
-        // websocketManager.emit(jobId, {
-        //   jobId,
-        //   status: "COMMITTING",
-        //   phase: "commit",
-        //   processed: processedCount,
-        //   total: totalRows,
-        //   created: createdCount,
-        //   updated: updatedCount,
-        //   failed: failedCount,
-        //   percentage: Math.round((processedCount / totalRows) * 100),
-        // });
+      // Revalidate DPP cache for the brand
+      await revalidateBrandCache(brandId);
 
-        logger.info("Batch committed", {
-          batchNumber,
-          processedCount,
-          createdCount,
-          updatedCount,
-          failedCount,
-          fetchDurationMs,
-          processDurationMs,
-          progressDurationMs,
-          totalBatchDurationMs,
-          rowConcurrency: ROW_CONCURRENCY,
-        });
-
-        cursorRowNumber = endRowNumber;
-        batchNumber += 1;
-      }
-
-      // Clean up staging data
-      logger.info("Cleaning up staging data", { jobId });
-      const cleanupStart = Date.now();
-      const deletedCount = await deleteStagingDataForJob(
-        db,
+      const duration = Date.now() - startTime;
+      logger.info("Commit-to-production completed", {
         jobId,
-        STAGING_DELETE_CHUNK_SIZE,
-      );
-      const cleanupDurationMs = Date.now() - cleanupStart;
-      logger.info("Staging data cleaned up", {
-        jobId,
-        deletedCount,
-        cleanupDurationMs,
-        deleteChunkSize: STAGING_DELETE_CHUNK_SIZE,
-      });
-
-      // Update job status to COMPLETED
-      const totalDurationMs = Date.now() - jobStartTime;
-      const timingSummary = summarizeTimings(
-        totalDurationMs,
-        batchTimings,
-        cleanupDurationMs,
-      );
-      await updateImportJobStatus(db, {
-        jobId,
-        status: "COMPLETED",
-        finishedAt: new Date().toISOString(),
-        summary: {
-          total: totalRows,
-          created: createdCount,
-          updated: updatedCount,
-          failed: failedCount,
-          failedRowIds: failedRowIds.length > 0 ? failedRowIds : undefined,
-          timings: timingSummary,
-        },
-      });
-      progressEmitter.emit({
-        jobId,
-        status: "COMPLETED",
-        phase: "commit",
-        processed: totalRows,
-        total: totalRows,
-        created: createdCount,
-        updated: updatedCount,
-        failed: failedCount,
-        percentage: 100,
-        message: "Import completed successfully",
-      });
-      await progressEmitter.flush();
-
-      // Send WebSocket completion notification (temporarily disabled)
-      // websocketManager.emit(jobId, {
-      //   jobId,
-      //   status: "COMPLETED",
-      //   phase: "commit",
-      //   processed: totalRows,
-      //   total: totalRows,
-      //   created: createdCount,
-      //   updated: updatedCount,
-      //   failed: failedCount,
-      //   percentage: 100,
-      //   message: "Import completed successfully",
-      // });
-
-      // Revalidate DPP cache for the brand (fire-and-forget)
-      // This ensures all DPP pages reflect the imported data
-      try {
-        const [brand] = await db
-          .select({ slug: brands.slug })
-          .from(brands)
-          .where(eq(brands.id, brandId))
-          .limit(1);
-        if (brand?.slug) {
-          await revalidateBrand(brand.slug);
-          logger.info("DPP cache revalidated", { brandSlug: brand.slug });
-        }
-      } catch (revalidateError) {
-        // Don't fail the job if revalidation fails
-        logger.warn("DPP cache revalidation failed (non-fatal)", {
-          error:
-            revalidateError instanceof Error
-              ? revalidateError.message
-              : String(revalidateError),
-        });
-      }
-
-      logger.info("Production commit completed successfully", {
-        jobId,
-        total: totalRows,
-        created: createdCount,
-        updated: updatedCount,
-        failed: failedCount,
-        totalDurationMs,
+        committedCount,
+        failedCount,
+        duration: `${duration}ms`,
+        status: finalStatus,
       });
     } catch (error) {
-      logger.error("Production commit job failed", {
-        jobId,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      const totalDurationMs = Date.now() - jobStartTime;
-      const timingSummary = summarizeTimings(totalDurationMs, batchTimings);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
 
-      // Clean up staging data even on failure to prevent orphaned records
-      try {
-        logger.info("Cleaning up staging data after failure", { jobId });
-        const deletedCount = await deleteStagingDataForJob(
-          db,
-          jobId,
-          STAGING_DELETE_CHUNK_SIZE,
-        );
-        logger.info("Staging data cleaned up after failure", {
-          jobId,
-          deletedCount,
-          deleteChunkSize: STAGING_DELETE_CHUNK_SIZE,
-        });
-      } catch (cleanupError) {
-        logger.error("Failed to clean up staging data after commit failure", {
-          jobId,
-          cleanupError:
-            cleanupError instanceof Error
-              ? cleanupError.message
-              : String(cleanupError),
-        });
-        // Continue to update job status even if cleanup fails
-      }
-
-      // Update job status to FAILED
-      await updateImportJobStatus(db, {
+      logger.error("Commit-to-production failed", {
         jobId,
-        status: "FAILED",
-        finishedAt: new Date().toISOString(),
-        summary: {
-          error: error instanceof Error ? error.message : "Unknown error",
-          failedRowIds: failedRowIds.length > 0 ? failedRowIds : undefined,
-          timings: timingSummary,
-        },
+        error: errorMessage,
       });
-      progressEmitter.emit({
-        jobId,
-        status: "FAILED",
-        phase: "commit",
-        processed: 0,
-        total: 0,
-        failed: failedCount,
-        percentage: 0,
-        message:
-          error instanceof Error ? error.message : "Production commit failed",
-      });
-      await progressEmitter.flush();
 
-      // Send WebSocket failure notification (temporarily disabled)
-      // websocketManager.emit(jobId, {
-      //   jobId,
-      //   status: "FAILED",
-      //   phase: "commit",
-      //   processed: 0,
-      //   total: 0,
-      //   percentage: 0,
-      //   message:
-      //     error instanceof Error ? error.message : "Production commit failed",
-      // });
+      await db
+        .update(importJobs)
+        .set({
+          status: "FAILED",
+          finishedAt: new Date().toISOString(),
+          summary: { error: errorMessage },
+        })
+        .where(eq(importJobs.id, jobId));
 
       throw error;
     }
   },
 });
 
-/**
- * Process a batch of staging products with transaction rollback on failure
- *
- * @param db - Database instance
- * @param brandId - Brand ID for authorization
- * @param stagingBatch - Array of staging products to commit
- * @param jobId - Import job ID
- * @returns Array of commit results for each row
- */
-async function processBatch(
-  db: Database,
-  brandId: string,
-  stagingBatch: StagingProductPreview[],
-  jobId: string,
-): Promise<CommitRowResult[]> {
-  const results: CommitRowResult[] = [];
-  const queue = [...stagingBatch];
-  const workerCount = Math.min(ROW_CONCURRENCY, queue.length || 1);
-  const createRows = stagingBatch.filter(
-    (row) => row.action === "CREATE" && !row.existingProductId,
-  );
-  const precreatedProducts =
-    createRows.length > 0
-      ? await bulkCreateProductsFromStaging(db, brandId, createRows)
-      : new Map<string, string>();
+// ============================================================================
+// Commit Staging Product
+// ============================================================================
 
-  if (precreatedProducts.size > 0) {
-    logger.info("Pre-created products for batch", {
-      count: precreatedProducts.size,
-      batchSize: stagingBatch.length,
-    });
-  }
-
-  const worker = async () => {
-    while (true) {
-      const stagingProduct = queue.shift();
-      if (!stagingProduct) {
-        break;
-      }
-
-      try {
-        const precreatedProductId =
-          stagingProduct.action === "CREATE"
-            ? precreatedProducts.get(stagingProduct.stagingId)
-            : undefined;
-        const result = await commitStagingRow(
-          db,
-          brandId,
-          stagingProduct,
-          jobId,
-          precreatedProductId,
-        );
-        results.push(result);
-      } catch (error) {
-        logger.error("Failed to commit staging row", {
-          rowNumber: stagingProduct.rowNumber,
-          error: error instanceof Error ? error.message : String(error),
-        });
-
-        results.push({
-          rowNumber: stagingProduct.rowNumber,
-          importRowId: "", // Will be looked up if needed
-          action: stagingProduct.action as "CREATE" | "UPDATE",
-          success: false,
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
-    }
-  };
-
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
-
-  return results;
+interface StagingProductRow {
+  stagingId: string;
+  rowNumber: number;
+  action: string;
+  existingProductId: string | null;
+  id: string;
+  name: string;
+  description: string | null;
+  manufacturerId: string | null;
+  imagePath: string | null;
+  categoryId: string | null;
+  seasonId: string | null;
+  productHandle: string | null;
+  status: string | null;
 }
 
-/**
- * Commit a single staging row to production tables
- *
- * @param db - Database instance
- * @param brandId - Brand ID for authorization
- * @param stagingProduct - Staging product to commit
- * @param jobId - Import job ID
- * @param precreatedProductId - Optional pre-created product ID for CREATE rows
- * @returns Commit result
- */
-async function commitStagingRow(
-  db: Database,
+async function commitStagingProduct(
+  database: Database,
   brandId: string,
-  stagingProduct: StagingProductPreview,
   jobId: string,
-  precreatedProductId?: string,
-): Promise<CommitRowResult> {
-  const { action, rowNumber, variant } = stagingProduct;
-  const rowStart = Date.now();
-  let relationDurationMs = 0;
-  let coreDurationMs = 0;
-
-  if (!variant) {
-    throw new Error("Staging product missing variant data");
-  }
-
-  let productId: string | undefined;
-  let variantId: string | undefined;
-  let importRowId = "";
+  stagingProduct: StagingProductRow,
+): Promise<CommitResult> {
+  const {
+    stagingId,
+    action,
+    existingProductId,
+    id: productId,
+  } = stagingProduct;
 
   try {
-    // Execute within a transaction for atomicity
-    await db.transaction(async (tx) => {
-      // Step 1: Create or update the product
-      const coreStart = Date.now();
+    await database.transaction(async (tx) => {
+      // 1. Create or update product
       if (action === "CREATE") {
-        if (precreatedProductId) {
-          productId = precreatedProductId;
-        } else {
-          const created = await createProduct(
-            tx as unknown as Database,
-            brandId,
-            {
-              name: stagingProduct.name,
-              productHandle: stagingProduct.productHandle ?? undefined,
-              description: stagingProduct.description || undefined,
-              categoryId: stagingProduct.categoryId || undefined,
-              seasonId: stagingProduct.seasonId ?? undefined,
-              manufacturerId: stagingProduct.manufacturerId ?? undefined,
-              imagePath: stagingProduct.imagePath ?? undefined,
-              status: stagingProduct.status ?? undefined,
-            },
-          );
-
-          if (!created?.id) {
-            throw new Error("Failed to create product");
-          }
-
-          productId = created.id;
-        }
-      } else {
-        // UPDATE action
-        if (!stagingProduct.existingProductId) {
-          throw new Error("UPDATE action missing existingProductId");
-        }
-
-        const updated = await updateProduct(
-          tx as unknown as Database,
+        await tx.insert(products).values({
+          id: productId,
           brandId,
-          {
-            id: stagingProduct.existingProductId,
+          name: stagingProduct.name,
+          productHandle: stagingProduct.productHandle ?? productId, // Use ID as fallback
+          description: stagingProduct.description ?? undefined,
+          categoryId: stagingProduct.categoryId ?? undefined,
+          seasonId: stagingProduct.seasonId ?? undefined,
+          manufacturerId: stagingProduct.manufacturerId ?? undefined,
+          imagePath: stagingProduct.imagePath ?? undefined,
+          status: stagingProduct.status ?? "draft",
+        });
+      } else {
+        // UPDATE
+        await tx
+          .update(products)
+          .set({
             name: stagingProduct.name,
             productHandle: stagingProduct.productHandle ?? undefined,
             description: stagingProduct.description ?? undefined,
@@ -614,211 +280,317 @@ async function commitStagingRow(
             manufacturerId: stagingProduct.manufacturerId ?? undefined,
             imagePath: stagingProduct.imagePath ?? undefined,
             status: stagingProduct.status ?? undefined,
-          },
-        );
-
-        if (!updated?.id) {
-          throw new Error("Failed to update product");
-        }
-
-        productId = updated.id;
+          })
+          .where(eq(products.id, existingProductId!));
       }
 
-      // Step 2: Create or update the product variant
-      if (action === "CREATE") {
-        const [createdVariant] = await tx
-          .insert(productVariants)
-          .values({
-            id: variant.id,
+      // 2. Process staging variants
+      const stagingVariants = await tx
+        .select()
+        .from(stagingProductVariants)
+        .where(eq(stagingProductVariants.stagingProductId, stagingId));
+
+      for (const stagingVariant of stagingVariants) {
+        const variantId = stagingVariant.id;
+
+        // Create or update variant
+        if (stagingVariant.action === "CREATE") {
+          await tx.insert(productVariants).values({
+            id: variantId,
             productId,
-            upid: variant.upid,
-          })
-          .returning({ id: productVariants.id });
-
-        if (!createdVariant?.id) {
-          throw new Error("Failed to create variant");
+            barcode: stagingVariant.barcode,
+            sku: stagingVariant.sku,
+          });
+        } else {
+          await tx
+            .update(productVariants)
+            .set({
+              barcode: stagingVariant.barcode,
+              sku: stagingVariant.sku,
+            })
+            .where(eq(productVariants.id, stagingVariant.existingVariantId!));
         }
 
-        variantId = createdVariant.id;
-      } else {
-        // UPDATE action
-        if (!variant.existingVariantId) {
-          throw new Error("UPDATE action missing existingVariantId");
+        // 3. Commit variant attributes
+        const stagingAttrs = await tx
+          .select()
+          .from(stagingVariantAttributes)
+          .where(
+            eq(
+              stagingVariantAttributes.stagingVariantId,
+              stagingVariant.stagingId,
+            ),
+          );
+
+        if (stagingAttrs.length > 0) {
+          // Delete existing and insert new
+          await tx
+            .delete(productVariantAttributes)
+            .where(eq(productVariantAttributes.variantId, variantId));
+
+          await tx.insert(productVariantAttributes).values(
+            stagingAttrs.map((a) => ({
+              variantId,
+              attributeId: a.attributeId,
+              attributeValueId: a.attributeValueId,
+              sortOrder: a.sortOrder,
+            })),
+          );
         }
 
-        const [updatedVariant] = await tx
-          .update(productVariants)
-          .set({
-            upid: variant.upid ?? undefined,
-          })
-          .where(eq(productVariants.id, variant.existingVariantId))
-          .returning({ id: productVariants.id });
+        // 4. Commit variant materials
+        const stagingMats = await tx
+          .select()
+          .from(stagingVariantMaterials)
+          .where(
+            eq(
+              stagingVariantMaterials.stagingVariantId,
+              stagingVariant.stagingId,
+            ),
+          );
 
-        if (!updatedVariant?.id) {
-          throw new Error("Failed to update variant");
+        if (stagingMats.length > 0) {
+          await tx
+            .delete(variantMaterials)
+            .where(eq(variantMaterials.variantId, variantId));
+
+          await tx.insert(variantMaterials).values(
+            stagingMats.map((m) => ({
+              variantId,
+              brandMaterialId: m.brandMaterialId,
+              percentage: m.percentage,
+            })),
+          );
         }
 
-        variantId = updatedVariant.id;
+        // 5. Commit variant eco claims
+        const stagingClaims = await tx
+          .select()
+          .from(stagingVariantEcoClaims)
+          .where(
+            eq(
+              stagingVariantEcoClaims.stagingVariantId,
+              stagingVariant.stagingId,
+            ),
+          );
+
+        if (stagingClaims.length > 0) {
+          await tx
+            .delete(variantEcoClaims)
+            .where(eq(variantEcoClaims.variantId, variantId));
+
+          await tx.insert(variantEcoClaims).values(
+            stagingClaims.map((c) => ({
+              variantId,
+              ecoClaimId: c.ecoClaimId,
+            })),
+          );
+        }
+
+        // 6. Commit variant environment
+        const stagingEnv = await tx
+          .select()
+          .from(stagingVariantEnvironment)
+          .where(
+            eq(
+              stagingVariantEnvironment.stagingVariantId,
+              stagingVariant.stagingId,
+            ),
+          );
+
+        if (stagingEnv.length > 0) {
+          const env = stagingEnv[0];
+          await tx
+            .insert(variantEnvironment)
+            .values({
+              variantId,
+              carbonKgCo2e: env?.carbonKgCo2e,
+              waterLiters: env?.waterLiters,
+            })
+            .onConflictDoUpdate({
+              target: variantEnvironment.variantId,
+              set: {
+                carbonKgCo2e: env?.carbonKgCo2e,
+                waterLiters: env?.waterLiters,
+              },
+            });
+        }
+
+        // 7. Commit variant journey steps
+        const stagingSteps = await tx
+          .select()
+          .from(stagingVariantJourneySteps)
+          .where(
+            eq(
+              stagingVariantJourneySteps.stagingVariantId,
+              stagingVariant.stagingId,
+            ),
+          );
+
+        if (stagingSteps.length > 0) {
+          await tx
+            .delete(variantJourneySteps)
+            .where(eq(variantJourneySteps.variantId, variantId));
+
+          await tx.insert(variantJourneySteps).values(
+            stagingSteps.map((s) => ({
+              variantId,
+              sortIndex: s.sortIndex,
+              stepType: s.stepType,
+              facilityId: s.facilityId,
+            })),
+          );
+        }
+
+        // 8. Commit variant weight
+        const stagingWeightData = await tx
+          .select()
+          .from(stagingVariantWeight)
+          .where(
+            eq(stagingVariantWeight.stagingVariantId, stagingVariant.stagingId),
+          );
+
+        if (stagingWeightData.length > 0) {
+          const w = stagingWeightData[0];
+          await tx
+            .insert(variantWeight)
+            .values({
+              variantId,
+              weight: w?.weight,
+              weightUnit: w?.weightUnit,
+            })
+            .onConflictDoUpdate({
+              target: variantWeight.variantId,
+              set: {
+                weight: w?.weight,
+                weightUnit: w?.weightUnit,
+              },
+            });
+        }
+
+        // Update variant staging status
+        await tx
+          .update(stagingProductVariants)
+          .set({ rowStatus: "COMMITTED" })
+          .where(
+            eq(stagingProductVariants.stagingId, stagingVariant.stagingId),
+          );
       }
-      coreDurationMs = Date.now() - coreStart;
 
-      // Step 3: Upsert related tables (materials, eco claims, journey steps, environment)
-      // Fetch and insert materials
-      const relationsStart = Date.now();
-      const stagingMaterials = stagingProduct.materials;
-      if (stagingMaterials.length > 0) {
-        await upsertProductMaterials(
-          tx as unknown as Database,
-          productId,
-          stagingMaterials.map((m) => ({
-            brandMaterialId: m.brandMaterialId,
-            percentage: m.percentage || undefined,
+      // 3. Commit product tags
+      const stagingTagsData = await tx
+        .select()
+        .from(stagingProductTags)
+        .where(eq(stagingProductTags.stagingProductId, stagingId));
+
+      if (stagingTagsData.length > 0) {
+        await tx
+          .delete(productTags)
+          .where(eq(productTags.productId, productId));
+
+        await tx.insert(productTags).values(
+          stagingTagsData.map((t) => ({
+            productId,
+            tagId: t.tagId,
           })),
         );
       }
 
-      // Fetch and insert eco-claims
-      const stagingEcoClaims = stagingProduct.ecoClaims;
-      if (stagingEcoClaims.length > 0) {
-        await setProductEcoClaims(
-          tx as unknown as Database,
-          productId,
-          stagingEcoClaims.map((e) => e.ecoClaimId),
-        );
-      }
-
-      // Fetch and insert journey steps
-      const stagingJourneySteps = stagingProduct.journeySteps;
-      if (stagingJourneySteps.length > 0) {
-        await setProductJourneySteps(
-          tx as unknown as Database,
-          productId,
-          stagingJourneySteps.map((s) => ({
-            sortIndex: s.sortIndex,
-            stepType: s.stepType,
-            facilityId: s.facilityId,
-          })),
-        );
-      }
-
-      // Fetch and insert environment data
-      const stagingEnvironment = stagingProduct.environment;
-      if (stagingEnvironment) {
-        await upsertProductEnvironment(tx as unknown as Database, productId, {
-          carbonKgCo2e: stagingEnvironment.carbonKgCo2e || undefined,
-          waterLiters: stagingEnvironment.waterLiters || undefined,
-        });
-      }
-
-      // Step 4: Mark import_row as APPLIED
-      await batchUpdateImportRowStatus(tx as unknown as Database, [
-        {
-          id: stagingProduct.stagingId, // Using stagingId as temporary lookup
-          status: "APPLIED",
-          normalized: {
-            action,
-            product_id: productId,
-            variant_id: variantId,
-          },
-        },
-      ]);
-
-      importRowId = stagingProduct.stagingId;
-      relationDurationMs = Date.now() - relationsStart;
+      // Mark product as COMMITTED
+      await tx
+        .update(stagingProducts)
+        .set({ rowStatus: "COMMITTED" })
+        .where(eq(stagingProducts.stagingId, stagingId));
     });
 
-    // Removed per-row logging for performance - only log errors and batch summaries
-    return {
-      rowNumber,
-      importRowId,
-      action: action as "CREATE" | "UPDATE",
-      success: true,
-      productId,
-      variantId,
-    };
+    return { stagingProductId: stagingId, success: true, productId };
   } catch (error) {
-    const rowDurationMs = Date.now() - rowStart;
-    logger.error("Failed to commit staging row (transaction rolled back)", {
-      rowNumber,
-      action,
-      rowDurationMs,
-      coreDurationMs,
-      relationDurationMs,
-      error: error instanceof Error ? error.message : String(error),
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    logger.error("Failed to commit staging product", {
+      stagingId,
+      error: errorMessage,
     });
 
-    // Mark import_row as FAILED (outside transaction)
-    try {
-      await batchUpdateImportRowStatus(db, [
-        {
-          id: stagingProduct.stagingId,
-          status: "FAILED",
-          error: error instanceof Error ? error.message : "Unknown error",
-        },
-      ]);
-    } catch (updateError) {
-      logger.error("Failed to update import_row status", {
-        rowNumber,
-        error:
-          updateError instanceof Error
-            ? updateError.message
-            : String(updateError),
-      });
-    }
+    // Mark as FAILED (outside transaction)
+    await database
+      .update(stagingProducts)
+      .set({
+        rowStatus: "FAILED",
+        errors: [{ field: "commit", message: errorMessage }],
+      })
+      .where(eq(stagingProducts.stagingId, stagingId));
 
-    throw error;
+    return { stagingProductId: stagingId, success: false, error: errorMessage };
   }
 }
 
-function summarizeTimings(
-  totalDurationMs: number,
-  batches: BatchTimingSnapshot[],
-  cleanupMs?: number,
-) {
-  const batchCount = batches.length;
-  const totalRows = batches.reduce((sum, batch) => sum + batch.rowCount, 0);
-  const totalBatchMs = batches.reduce((sum, batch) => sum + batch.totalMs, 0);
-  const totalProcessMs = batches.reduce(
-    (sum, batch) => sum + batch.processMs,
-    0,
-  );
-  const slowestBatch = batches.reduce<BatchTimingSnapshot | null>(
-    (slowest, batch) => {
-      if (!slowest || batch.totalMs > slowest.totalMs) {
-        return batch;
-      }
-      return slowest;
-    },
-    null,
-  );
+// ============================================================================
+// Delete Committed Staging Data
+// ============================================================================
 
-  return {
-    totalMs: totalDurationMs,
-    batchCount,
-    totalRows,
-    averageBatchMs:
-      batchCount > 0 ? Math.round(totalBatchMs / batchCount) : undefined,
-    averageRowProcessMs:
-      totalRows > 0 ? Math.round(totalProcessMs / totalRows) : undefined,
-    slowestBatchMs: slowestBatch?.totalMs,
-    slowestBatchNumber: slowestBatch?.batchNumber,
-    cleanupMs,
-    batches,
-    rowConcurrency: ROW_CONCURRENCY,
-    deleteChunkSize: STAGING_DELETE_CHUNK_SIZE,
-  };
+async function deleteCommittedStagingData(
+  database: Database,
+  jobId: string,
+): Promise<void> {
+  // Get all COMMITTED staging product IDs
+  const committedProducts = await database
+    .select({ stagingId: stagingProducts.stagingId })
+    .from(stagingProducts)
+    .where(
+      and(
+        eq(stagingProducts.jobId, jobId),
+        eq(stagingProducts.rowStatus, "COMMITTED"),
+      ),
+    );
+
+  if (committedProducts.length === 0) {
+    return;
+  }
+
+  const stagingIds = committedProducts.map((p) => p.stagingId);
+
+  // Delete in batches to avoid memory issues
+  const CHUNK_SIZE = 500;
+  for (let i = 0; i < stagingIds.length; i += CHUNK_SIZE) {
+    const chunk = stagingIds.slice(i, i + CHUNK_SIZE);
+
+    // Delete cascades from staging_products to related tables
+    await database.delete(stagingProducts).where(
+      sql`${stagingProducts.stagingId} = ANY(ARRAY[${sql.join(
+        chunk.map((id) => sql`${id}`),
+        sql`, `,
+      )}]::uuid[])`,
+    );
+  }
+
+  logger.info("Deleted committed staging data", {
+    jobId,
+    count: stagingIds.length,
+  });
 }
 
-function resolveRowConcurrency(): number {
-  const envValue = process.env.COMMIT_ROW_CONCURRENCY;
-  const parsed = envValue ? Number.parseInt(envValue, 10) : Number.NaN;
-  const base = Number.isNaN(parsed) ? 15 : parsed; // Ultra-optimized: 15 concurrent rows
-  return Math.min(Math.max(base, 1), 20);
-}
+// ============================================================================
+// Revalidate Brand Cache
+// ============================================================================
 
-function resolveDeleteChunkSize(): number {
-  const envValue = process.env.COMMIT_DELETE_CHUNK_SIZE;
-  const parsed = envValue ? Number.parseInt(envValue, 10) : Number.NaN;
-  const base = Number.isNaN(parsed) ? 500 : parsed;
-  return Math.min(Math.max(base, 100), 5000);
+async function revalidateBrandCache(brandId: string): Promise<void> {
+  try {
+    const [brand] = await db
+      .select({ slug: brands.slug })
+      .from(brands)
+      .where(eq(brands.id, brandId))
+      .limit(1);
+
+    if (brand?.slug) {
+      await revalidateBrand(brand.slug);
+      logger.info("DPP cache revalidated", { brandSlug: brand.slug });
+    }
+  } catch (error) {
+    // Don't fail the job if revalidation fails
+    logger.warn("DPP cache revalidation failed (non-fatal)", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }

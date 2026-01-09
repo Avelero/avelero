@@ -1,1033 +1,262 @@
+/**
+ * Validate and Stage Job (Refactored)
+ *
+ * Phase 1 of the bulk import process:
+ * 1. Downloads and parses the uploaded Excel file
+ * 2. Auto-creates missing entities (manufacturers, tags, seasons, etc.)
+ * 3. Validates each product row (only category must exist)
+ * 4. Populates staging tables with validated data
+ * 5. Auto-triggers the commit-to-production job
+ *
+ * Key changes from previous version:
+ * - Uses Excel parser with Shopify-style row grouping
+ * - Auto-creates entities instead of flagging for user mapping
+ * - Fire-and-forget flow (no user approval step)
+ * - Explicit CREATE vs ENRICH mode
+ *
+ * @module validate-and-stage
+ */
+
 import "../configure-trigger";
 import { randomUUID } from "node:crypto";
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
-import { and, eq, inArray } from "@v1/db/queries";
-import {
-  type CreateImportRowParams,
-  type InsertStagingProductParams,
-  type InsertStagingVariantParams,
-  type UpdateImportRowStatusParams,
-  batchInsertStagingProducts,
-  batchInsertStagingVariants,
-  batchInsertStagingWithStatus,
-  batchUpdateImportRowStatus,
-  countStagingProductsByAction,
-  createImportRows,
-  deleteStagingDataForJob,
-  getImportJobStatus,
-  insertStagingProduct,
-  insertStagingVariant,
-  updateImportJobProgress,
-  updateImportJobStatus,
-} from "@v1/db/queries/bulk";
-import { productVariants, products } from "@v1/db/schema";
+import { eq, inArray, sql } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
-import { generateUniqueUpid } from "@v1/db/utils";
-import pMap from "p-map";
-import type { BrandCatalog } from "../../lib/catalog-loader";
+import { type BrandCatalog, loadBrandCatalog } from "../../lib/catalog-loader";
 import {
-  loadBrandCatalog,
-  lookupCategoryId,
-  lookupMaterialId,
-  lookupSeasonId,
-} from "../../lib/catalog-loader";
-import {
-  findCompositeDuplicates,
-  findDuplicates,
-  normalizeHeaders,
-  parseFile,
-} from "../../lib/csv-parser";
-import { ProgressEmitter } from "./progress-emitter";
+  type ExcelParseResult,
+  type ParsedProduct,
+  type ParsedVariant,
+  findDuplicateIdentifiers,
+  parseExcelFile,
+  validateRequiredColumns,
+} from "../../lib/excel-parser";
+
+// ============================================================================
+// Types
+// ============================================================================
 
 /**
- * Task payload for Phase 1 validation and staging
+ * Task payload for validate-and-stage job
  */
 interface ValidateAndStagePayload {
   jobId: string;
   brandId: string;
   filePath: string;
-}
-
-interface StorageDownloadParams {
-  supabaseUrl: string;
-  serviceKey: string;
-  bucket: string;
-  path: string;
-}
-
-async function downloadFileFromSupabase({
-  supabaseUrl,
-  serviceKey,
-  bucket,
-  path,
-}: StorageDownloadParams): Promise<Buffer> {
-  const normalizedBaseUrl = supabaseUrl.endsWith("/")
-    ? supabaseUrl.slice(0, -1)
-    : supabaseUrl;
-
-  const encodedPath = path
-    .split("/")
-    .filter((segment) => segment.length > 0)
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-
-  const downloadUrl = `${normalizedBaseUrl}/storage/v1/object/${bucket}/${encodedPath}`;
-
-  let response: Response;
-  try {
-    response = await fetch(downloadUrl, {
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-      },
-    });
-  } catch (networkError) {
-    throw new Error(
-      `Failed to reach Supabase Storage: ${
-        networkError instanceof Error
-          ? networkError.message
-          : String(networkError)
-      }`,
-    );
-  }
-
-  if (!response.ok) {
-    let responseBody: string | undefined;
-    try {
-      responseBody = await response.text();
-    } catch {
-      responseBody = undefined;
-    }
-
-    throw new Error(
-      `Supabase storage download failed (${response.status} ${response.statusText})${
-        responseBody ? `: ${responseBody}` : ""
-      }`,
-    );
-  }
-
-  const fileArrayBuffer = await response.arrayBuffer();
-  return Buffer.from(fileArrayBuffer);
+  mode: "CREATE" | "ENRICH";
 }
 
 /**
- * CSV row structure with all possible columns
- *
- * NEW FORMAT (minimal):
- * - category: hierarchical path (e.g., "Men's > Tops > T-Shirts")
- * - colors: pipe-separated (e.g., "Blue|Green|Custom:Navy")
- * - eco_claims: pipe-separated (e.g., "Claim1|Claim2|Claim3")
- * - materials: complex format (e.g., "Cotton:75:TR:yes:GOTS:123:2025-12-31|Polyester:25")
- * - journey_steps: step@operators format (e.g., "Spinning@SupplierA,SupplierB|Weaving@SupplierC")
- * Legacy columns are not supported in the new pipeline.
+ * Error for a specific row/field
  */
-interface CSVRow {
-  // ============================================================================
-  // REQUIRED FIELDS
-  // ============================================================================
-  product_name: string; // Max 100 characters
-  product_handle: string; // Required - Unique product identifier (brand-scoped, shared across variants)
-  upid?: string; // Optional - Unique variant identifier (auto-generated if not provided)
-
-  // ============================================================================
-  // BASIC INFORMATION
-  // ============================================================================
-  description?: string; // Max 2000 characters
-  status?: string; // draft|published|archived (default: draft)
-  manufacturer?: string; // Manufacturer name
-
-  // ============================================================================
-  // ORGANIZATION
-  // ============================================================================
-  category?: string; // Hierarchical path: "Men's > Tops > T-Shirts"
-  season?: string; // Season name: "SS 2025" or "FW 2024"
-  colors?: string; // Pipe-separated: "Blue|Green"
-  size?: string; // Size name: "S", "M", "L", "XL", etc.
-
-  // ============================================================================
-  // ENVIRONMENT
-  // ============================================================================
-  carbon_footprint?: string; // Single decimal value (kg CO2e)
-  water_usage?: string; // Single decimal value (liters)
-  eco_claims?: string; // Pipe-separated claims (max 5, each max 50 chars)
-
-  // ============================================================================
-  // MATERIALS
-  // ============================================================================
-  // Format: "Name:Percentage[:Country:Recyclable:CertTitle:CertNumber:CertExpiry]|..."
-  // Example: "Cotton:75:TR:yes:GOTS:123:2025-12-31|Polyester:25"
-  materials?: string;
-
-  // ============================================================================
-  // JOURNEY STEPS
-  // ============================================================================
-  // Format: "StepName@Operator1,Operator2|Step2@Operator3"
-  // Example: "Spinning@SupplierA,SupplierB|Weaving@SupplierC"
-  journey_steps?: string;
-
-  // ============================================================================
-  // IMAGES
-  // ============================================================================
-  image_url?: string; // Single URL
-
-  [key: string]: unknown;
-}
-
-/**
- * Validation error type (blocks import)
- */
-interface ValidationError {
-  type: "HARD_ERROR";
-  subtype: string;
-  field?: string;
+interface RowError {
+  field: string;
   message: string;
-  severity: "error";
 }
 
 /**
- * Validation warning type (needs user definition)
+ * Result of validating and staging a product
  */
-interface ValidationWarning {
-  type: "NEEDS_DEFINITION" | "WARNING";
-  subtype: string;
-  field?: string;
-  message: string;
-  severity: "warning";
-  entityType?:
-    | "COLOR"
-    | "SIZE"
-    | "MATERIAL"
-    | "CATEGORY"
-    | "SEASON"
-    | "TAG"
-    | "ECO_CLAIM"
-    | "FACILITY"
-    | "OPERATOR" // Journey operators
-    | "MANUFACTURER"
-    | "CERTIFICATION"
-    | "PRODUCT_VARIANT"; // For ambiguous match warnings
+interface ProductResult {
+  productHandle: string;
+  rowNumber: number;
+  success: boolean;
+  errors: RowError[];
+  stagingProductId?: string;
 }
 
-/**
- * Existing variant data from database (used for change detection)
- */
-interface ExistingVariant {
-  // Product fields
-  id: string;
-  productHandle: string | null;
-  name: string;
-  description: string | null;
-  categoryId: string | null;
-  seasonId: string | null;
-  imagePath: string | null;
-  manufacturerId: string | null;
-  status: string | null;
-  // Variant fields
-  variant_id: string;
-  upid: string | null;
-}
+// ============================================================================
+// Schema References
+// ============================================================================
 
-/**
- * Validated row data ready for staging
- */
-interface ValidatedRowData {
-  productId: string; // Generated UUID for new product or existing product ID
-  variantId: string; // Generated UUID for new variant or existing variant ID
-  action: "CREATE" | "UPDATE" | "SKIP";
-  existingProductId?: string;
-  existingVariantId?: string;
-  product: InsertStagingProductParams;
-  variant: InsertStagingVariantParams;
-  errors: ValidationError[]; // Hard errors that block import
-  warnings: ValidationWarning[]; // Missing catalog values that need user definition
-  changedFields?: string[]; // Fields that changed (for UPDATE action only)
-}
+const {
+  importJobs,
+  stagingProducts,
+  stagingProductVariants,
+  stagingVariantAttributes,
+  stagingProductTags,
+  stagingProductWeight,
+  stagingVariantMaterials,
+  stagingVariantEcoClaims,
+  stagingVariantEnvironment,
+  stagingVariantJourneySteps,
+  stagingVariantWeight,
+  brandAttributes,
+  brandAttributeValues,
+  brandMaterials,
+  brandSeasons,
+  brandTags,
+  brandEcoClaims,
+  brandFacilities,
+  brandManufacturers,
+  products,
+  productVariants,
+  taxonomyCategories,
+} = schema;
 
-const BATCH_SIZE = 250; // Optimal batch size for memory and performance
-const MAX_PARALLEL_BATCHES = 1; // Sequential processing to avoid overwhelming system
-const TIMEOUT_MS = 1800000; // 30 minutes
+// ============================================================================
+// Constants
+// ============================================================================
 
-/**
- * Resolve parallel batch count from environment
- * @returns number of batches to process in parallel (1-10)
- */
-function resolveParallelBatches(): number {
-  const envValue = process.env.VALIDATION_PARALLEL_BATCHES;
-  const parsed = envValue ? Number.parseInt(envValue, 10) : Number.NaN;
-  const base = Number.isNaN(parsed) ? 5 : parsed;
-  return Math.min(Math.max(base, 1), 10);
-}
+const BATCH_SIZE = 100;
 
-/**
- * Phase 1: Validate CSV data and populate staging tables
- *
- * This background job:
- * 1. Downloads and parses the uploaded CSV/XLSX file
- * 2. Validates each row comprehensively
- * 3. Determines CREATE vs UPDATE action based on UPID matching (product_handle for product grouping)
- * 4. Auto-creates simple entities (colors, eco-claims) when needed
- * 5. Populates staging tables with validated data
- * 6. Tracks unmapped values that need user approval
- * 7. Sends WebSocket progress updates (TODO: implement WebSocket)
- *
- * Processes data in batches of 100 rows for optimal performance.
- */
+// ============================================================================
+// Main Task
+// ============================================================================
+
 export const validateAndStage = task({
   id: "validate-and-stage",
-  maxDuration: 1800, // 30 minutes max - handles large files with 10k+ rows
-  queue: {
-    concurrencyLimit: 5,
-  },
-  retry: {
-    maxAttempts: 2,
-    minTimeoutInMs: 5000,
-    maxTimeoutInMs: 60000,
-    factor: 2,
-    randomize: true,
-  },
+  maxDuration: 1800, // 30 minutes
+  queue: { concurrencyLimit: 5 },
+  retry: { maxAttempts: 2 },
   run: async (payload: ValidateAndStagePayload): Promise<void> => {
-    const { jobId, brandId, filePath } = payload;
-    const jobStartTime = Date.now();
+    const { jobId, brandId, filePath, mode } = payload;
+    const startTime = Date.now();
 
-    // OPTIMIZATION: Create debounced progress emitter for real-time updates
-    // Updates at most once per second, never blocks processing
-    const progressEmitter = new ProgressEmitter();
-
-    console.log("=".repeat(80));
-    console.log("[validate-and-stage] TASK EXECUTION STARTED");
-    console.log("[validate-and-stage] Timestamp:", new Date().toISOString());
-    console.log(
-      "[validate-and-stage] Payload:",
-      JSON.stringify(payload, null, 2),
-    );
-    console.log("[validate-and-stage] Environment Check:", {
-      hasDatabaseUrl: !!process.env.DATABASE_URL,
-      databaseUrlPrefix: process.env.DATABASE_URL?.substring(0, 30),
-      hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasSupabaseKey: !!process.env.SUPABASE_SERVICE_KEY,
-      allEnvKeys: Object.keys(process.env).filter(
-        (k) => k.includes("DATABASE") || k.includes("SUPABASE"),
-      ),
-    });
-    console.log("=".repeat(80));
-    logger.info("Starting validate-and-stage job", {
-      jobId,
-      brandId,
-      filePath,
-      timestamp: new Date().toISOString(),
-    });
+    logger.info("Starting validate-and-stage job", { jobId, brandId, mode });
 
     try {
-      // Validate environment variables first
-      console.log("[validate-and-stage] Checking environment variables...");
-      const requiredEnvVars = {
-        DATABASE_URL: process.env.DATABASE_URL,
-        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
-      };
+      // 1. Update job status to PROCESSING
+      await db
+        .update(importJobs)
+        .set({ status: "PROCESSING", startedAt: new Date().toISOString() })
+        .where(eq(importJobs.id, jobId));
 
-      const missingVars = Object.entries(requiredEnvVars)
-        .filter(([_, value]) => !value)
-        .map(([key]) => key);
+      // 2. Download file from Supabase Storage
+      const fileBuffer = await downloadFileFromSupabase(filePath);
+      logger.info("File downloaded", { size: fileBuffer.byteLength });
 
-      if (missingVars.length > 0) {
-        throw new Error(
-          `Missing required environment variables: ${missingVars.join(", ")}`,
-        );
-      }
-
-      console.log("[validate-and-stage] Environment variables validated:", {
-        hasDatabaseUrl: !!requiredEnvVars.DATABASE_URL,
-        hasSupabaseUrl: !!requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL,
-        hasServiceKey: !!requiredEnvVars.SUPABASE_SERVICE_KEY,
-      });
-
-      // Update job status to VALIDATING
-      console.log("[validate-and-stage] Updating job status to VALIDATING...");
-      try {
-        await updateImportJobStatus(db, {
-          jobId,
-          status: "VALIDATING",
-        });
-        console.log("[validate-and-stage] Job status updated to VALIDATING");
-        logger.info("Import job status set to VALIDATING", { jobId });
-      } catch (statusError) {
-        console.error("[validate-and-stage] Failed to update job status:", {
-          error:
-            statusError instanceof Error
-              ? statusError.message
-              : String(statusError),
-          stack: statusError instanceof Error ? statusError.stack : undefined,
-        });
-        throw statusError;
-      }
-
-      // Initialize Supabase client for file download
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-
-      if (!supabaseUrl || !supabaseServiceKey) {
-        throw new Error("Supabase configuration missing");
-      }
-
-      // Download file from storage
-      console.log(
-        "[validate-and-stage] Downloading file from storage:",
-        filePath,
-      );
-      logger.info("Downloading file from storage", { filePath });
-      const fileBuffer = await downloadFileFromSupabase({
-        supabaseUrl,
-        serviceKey: supabaseServiceKey,
-        bucket: "product-imports",
-        path: filePath,
-      });
-
-      console.log("[validate-and-stage] File downloaded successfully");
-
-      // Parse CSV/XLSX file
-      console.log("[validate-and-stage] Parsing file...");
-      logger.info("Parsing file");
-      console.log("[validate-and-stage] File buffer size:", fileBuffer.length);
-
-      const parseResult = await parseFile(
-        new File([fileBuffer.buffer as ArrayBuffer], "import.csv"),
-        { trimValues: true },
-      );
+      // 3. Parse Excel file
+      const parseResult = await parseExcelFile(fileBuffer);
 
       if (parseResult.errors.length > 0) {
-        console.error(
-          "[validate-and-stage] File parsing errors:",
-          parseResult.errors,
-        );
-        logger.error("File parsing errors", {
-          errors: parseResult.errors,
-        });
         throw new Error(
-          `File parsing failed: ${parseResult.errors[0]?.message}`,
+          `Excel parsing failed: ${parseResult.errors[0]?.message}`,
         );
       }
 
-      console.log("[validate-and-stage] File parsed successfully:", {
-        rowCount: parseResult.rowCount,
-        headerCount: parseResult.headers.length,
-      });
-      logger.info("File parsed successfully", {
-        rowCount: parseResult.rowCount,
-        headers: parseResult.headers,
+      logger.info("Excel parsed", {
+        products: parseResult.products.length,
+        totalRows: parseResult.totalRows,
       });
 
-      // Normalize headers
-      const { normalized: normalizedHeaders, mapping: headerMapping } =
-        normalizeHeaders(parseResult.headers);
-
-      // ========================================================================
-      // DUPLICATE DETECTION - Two-level approach for data integrity:
-      // 1. Check for duplicate UPIDs (when provided)
-      // 2. Check for duplicate composite keys (product_handle + colors + size)
-      // ========================================================================
-      console.log("[validate-and-stage] Checking for duplicates...");
-
-      // Check for duplicate UPIDs (when provided in CSV)
-      const upidDuplicates = findDuplicates(parseResult.data, ["upid"]);
-
-      // Check for duplicate composite keys (true variant duplicates)
-      // This catches duplicates even when UPID is not provided
-      const compositeDuplicates = findCompositeDuplicates(parseResult.data, [
-        "product_handle",
-        "colors",
-        "size",
-      ]);
-
-      // Build a map of row numbers that have any type of duplicate
-      const duplicateRowNumbers = new Set<number>();
-      const duplicateDetails = new Map<
-        number,
-        { type: "upid" | "composite"; value: string }
-      >();
-
-      // Mark rows with duplicate UPIDs (highest priority)
-      for (const dup of upidDuplicates) {
-        for (const rowNum of dup.rows) {
-          duplicateRowNumbers.add(rowNum);
-          duplicateDetails.set(rowNum, { type: "upid", value: dup.value });
-        }
+      // 4. Validate required columns
+      const columnValidation = validateRequiredColumns(parseResult.headers);
+      if (!columnValidation.valid) {
+        throw new Error(
+          `Missing required columns: ${columnValidation.missingColumns.join(", ")}`,
+        );
       }
 
-      // Mark rows with duplicate composite keys (if not already marked)
-      for (const dup of compositeDuplicates) {
-        for (const rowNum of dup.rows) {
-          duplicateRowNumbers.add(rowNum);
-          // Only set if not already marked as UPID duplicate
-          if (!duplicateDetails.has(rowNum)) {
-            duplicateDetails.set(rowNum, {
-              type: "composite",
-              value: dup.compositeKey,
-            });
+      // 5. Check for duplicate identifiers
+      const duplicates = findDuplicateIdentifiers(parseResult.products);
+      if (duplicates.length > 0) {
+        logger.warn("Duplicate identifiers found", {
+          count: duplicates.length,
+        });
+        // Mark duplicate rows with errors (handled in validation)
+      }
+
+      // 6. Load catalog and auto-create missing entities
+      let catalog = await loadBrandCatalog(db, brandId);
+      catalog = await autoCreateEntities(
+        db,
+        brandId,
+        parseResult.products,
+        catalog,
+      );
+
+      logger.info("Catalog loaded and entities auto-created", {
+        attributes: catalog.attributes.size,
+        attributeValues: catalog.attributeValues.size,
+        materials: catalog.materials.size,
+        tags: catalog.tags.size,
+      });
+
+      // 7. Process products in batches
+      const results: ProductResult[] = [];
+      let successCount = 0;
+      let failureCount = 0;
+
+      for (let i = 0; i < parseResult.products.length; i += BATCH_SIZE) {
+        const batch = parseResult.products.slice(i, i + BATCH_SIZE);
+
+        for (const product of batch) {
+          const result = await validateAndStageProduct(
+            db,
+            product,
+            catalog,
+            brandId,
+            jobId,
+            mode,
+            duplicates,
+          );
+
+          results.push(result);
+
+          if (result.success) {
+            successCount++;
+          } else {
+            failureCount++;
           }
         }
-      }
 
-      const totalDuplicates =
-        upidDuplicates.length + compositeDuplicates.length;
-
-      if (totalDuplicates > 0) {
-        console.log("[validate-and-stage] Found duplicates:", {
-          upidDuplicateCount: upidDuplicates.length,
-          compositeDuplicateCount: compositeDuplicates.length,
-          affectedRows: duplicateRowNumbers.size,
+        logger.info("Batch processed", {
+          processed: Math.min(i + BATCH_SIZE, parseResult.products.length),
+          total: parseResult.products.length,
         });
-        logger.warn("Duplicate values found in file", {
-          upidDuplicateCount: upidDuplicates.length,
-          compositeDuplicateCount: compositeDuplicates.length,
-          affectedRows: duplicateRowNumbers.size,
-        });
-      } else {
-        console.log("[validate-and-stage] No duplicates found");
       }
 
-      // Clean up any existing staging data for this job (handles retry scenarios)
-      console.log(
-        "[validate-and-stage] Cleaning up any existing staging data for retry...",
-      );
-      try {
-        const deletedCount = await deleteStagingDataForJob(db, jobId);
-        if (deletedCount > 0) {
-          console.log(
-            `[validate-and-stage] Cleaned up ${deletedCount} existing staging records from previous attempt`,
-          );
-          logger.info("Cleaned up existing staging data", {
-            jobId,
-            deletedCount,
-          });
-        }
-      } catch (cleanupError) {
-        // Non-fatal - log and continue
-        console.warn(
-          "[validate-and-stage] Failed to cleanup existing staging data:",
-          cleanupError,
-        );
-      }
+      // 8. Determine final status
+      const hasFailures = failureCount > 0;
+      const finalStatus = hasFailures ? "COMPLETED_WITH_FAILURES" : "COMPLETED";
 
-      // Create import_rows records for tracking
-      console.log("[validate-and-stage] Creating import_rows records...");
-      const importRows: CreateImportRowParams[] = parseResult.data.map(
-        (row, index) => ({
+      await db
+        .update(importJobs)
+        .set({
+          status: finalStatus,
+          finishedAt: new Date().toISOString(),
+          hasExportableFailures: hasFailures,
+          summary: {
+            totalProducts: successCount,
+            failedProducts: failureCount,
+          },
+        })
+        .where(eq(importJobs.id, jobId));
+
+      // 9. Auto-trigger commit-to-production job (only if we have successes)
+      if (successCount > 0) {
+        await tasks.trigger("commit-to-production", {
           jobId,
-          rowNumber: index + 1,
-          raw: row as Record<string, unknown>,
-          status: "PENDING",
-        }),
-      );
-
-      const createdRows = await createImportRows(db, importRows);
-      console.log(
-        "[validate-and-stage] Created import_rows:",
-        createdRows.length,
-      );
-      logger.info("Created import_rows records", {
-        count: createdRows.length,
-      });
-
-      // Load brand catalog into memory (PERFORMANCE OPTIMIZATION)
-      // This eliminates the N+1 query problem by loading all catalog data once
-      console.log("[validate-and-stage] Loading brand catalog into memory...");
-      const catalogLoadStart = Date.now();
-      const catalog = await loadBrandCatalog(db, brandId);
-      const catalogLoadDuration = Date.now() - catalogLoadStart;
-      console.log(
-        `[validate-and-stage] Catalog loaded in ${catalogLoadDuration}ms`,
-        {
-          materials: catalog.materials.size,
-          categories: catalog.categories.size,
-          valueMappings: catalog.valueMappings.size,
-        },
-      );
-      logger.info("Catalog loaded into memory", {
-        duration: catalogLoadDuration,
-        materialCount: catalog.materials.size,
-        categoryCount: catalog.categories.size,
-      });
-
-      // Performance optimization: Load variants per-batch instead of pre-loading all
-      // This reduces memory usage and query complexity
-
-      // Process data in batches
-      const totalRows = parseResult.data.length;
-      let processedCount = 0;
-      let validCount = 0;
-      let invalidCount = 0;
-      let willCreateCount = 0;
-      let willUpdateCount = 0;
-      let willSkipCount = 0; // Track rows that will be skipped (no changes)
-      const unmappedValues = new Map<string, Set<string>>();
-      // Track unmapped values with full details for pending_approval
-      const unmappedValueDetails = new Map<
-        string,
-        {
-          type: string;
-          name: string;
-          affected_rows: number;
-          source_column: string;
-        }
-      >();
-
-      console.log("[validate-and-stage] Starting parallel batch processing...");
-      console.log(
-        `[validate-and-stage] Configuration: MAX_PARALLEL_BATCHES=${MAX_PARALLEL_BATCHES}`,
-      );
-
-      // Split data into batch chunks
-      const batches: Array<{
-        data: unknown[];
-        rows: typeof createdRows;
-        startIndex: number;
-      }> = [];
-
-      for (let i = 0; i < totalRows; i += BATCH_SIZE) {
-        batches.push({
-          data: parseResult.data.slice(i, i + BATCH_SIZE),
-          rows: createdRows.slice(i, i + BATCH_SIZE),
-          startIndex: i,
+          brandId,
         });
+
+        logger.info("Triggered commit-to-production job", { jobId });
       }
 
-      const totalBatches = batches.length;
-      logger.info("Starting parallel batch processing", {
-        totalRows,
-        batchSize: BATCH_SIZE,
-        totalBatches,
-        maxParallelBatches: MAX_PARALLEL_BATCHES,
-      });
-
-      // Process batches in parallel with concurrency limit
-      await pMap(
-        batches,
-        async (batchData, batchIndex) => {
-          const { data: batch, rows: batchRows, startIndex: i } = batchData;
-          const batchNumber = batchIndex + 1;
-
-          console.log(
-            `[validate-and-stage] Processing batch ${batchNumber}/${totalBatches}`,
-          );
-          logger.info(`Processing batch ${batchNumber}`, {
-            start: i + 1,
-            end: Math.min(i + BATCH_SIZE, totalRows),
-            total: totalRows,
-          });
-
-          // Load existing variants for this batch only (per-batch queries)
-          const batchUpids = batch
-            .map((r) => (r as CSVRow).upid)
-            .filter((v): v is string => !!v && v.trim() !== "");
-
-          const existingVariantsByUpid = new Map<string, ExistingVariant>();
-
-          if (batchUpids.length > 0) {
-            const existingVariants = await db
-              .select({
-                variantId: productVariants.id,
-                productId: productVariants.productId,
-                productHandle: products.productHandle,
-                name: products.name,
-                description: products.description,
-                categoryId: products.categoryId,
-                seasonId: products.seasonId,
-                imagePath: products.imagePath,
-                manufacturerId: products.manufacturerId,
-                status: products.status,
-                upid: productVariants.upid,
-              })
-              .from(productVariants)
-              .innerJoin(products, eq(productVariants.productId, products.id))
-              .where(
-                and(
-                  eq(products.brandId, brandId),
-                  inArray(productVariants.upid, batchUpids),
-                ),
-              );
-
-            for (const v of existingVariants) {
-              const variant: ExistingVariant = {
-                id: v.productId,
-                productHandle: v.productHandle,
-                name: v.name,
-                description: v.description,
-                categoryId: v.categoryId,
-                seasonId: v.seasonId,
-                imagePath: v.imagePath,
-                manufacturerId: v.manufacturerId,
-                status: v.status,
-                variant_id: v.variantId,
-                upid: v.upid,
-              };
-
-              if (v.upid && v.upid.trim() !== "") {
-                existingVariantsByUpid.set(v.upid, variant);
-              }
-            }
-          }
-
-          // Parallel validation within batch
-          const validationStart = Date.now();
-          const validatedBatch = await Promise.all(
-            batch.map(async (row, j) => {
-              const importRow = batchRows[j];
-              if (!importRow) return null;
-
-              const rowNumber = i + j + 1;
-
-              try {
-                // Validate and transform row with in-memory catalog
-                const validated = await validateRow(
-                  row as CSVRow,
-                  brandId,
-                  rowNumber,
-                  jobId,
-                  catalog,
-                  unmappedValues,
-                  unmappedValueDetails,
-                  duplicateRowNumbers,
-                  duplicateDetails,
-                  existingVariantsByUpid,
-                  db,
-                );
-
-                // Only hard errors block validation (warnings are OK)
-                const hasHardErrors = validated.errors.length > 0;
-
-                // Row is valid if it has no hard errors (warnings are acceptable)
-                if (!hasHardErrors) {
-                  validCount++;
-                  if (validated.action === "CREATE") willCreateCount++;
-                  else if (validated.action === "UPDATE") willUpdateCount++;
-                  else if (validated.action === "SKIP") willSkipCount++;
-                } else {
-                  invalidCount++;
-                }
-
-                return {
-                  importRowId: importRow.id,
-                  rowNumber,
-                  validated,
-                  error: hasHardErrors
-                    ? validated.errors.map((e) => e.message).join("; ")
-                    : null,
-                  hasHardErrors,
-                };
-              } catch (error) {
-                logger.error("Row validation error", {
-                  rowNumber,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-
-                invalidCount++;
-
-                return {
-                  importRowId: importRow.id,
-                  rowNumber,
-                  validated: null,
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "Unknown validation error",
-                  hasHardErrors: true,
-                };
-              }
-            }),
-          ).then((results) =>
-            results.filter((r): r is NonNullable<typeof r> => r !== null),
-          );
-
-          const validationDuration = Date.now() - validationStart;
-          console.log(
-            `[validate-and-stage] Batch ${batchNumber} validated in ${validationDuration}ms (parallel)`,
-          );
-
-          // PHASE 2 OPTIMIZATION: Batch staging inserts
-          // PHASE 3A OPTIMIZATION: Wrap in transaction for connection pooling efficiency
-          // Single batch insert instead of individual inserts per row
-          const stagingInsertStart = Date.now();
-
-          // Separate valid and invalid rows
-          const validRows = validatedBatch.filter(
-            (item) => item.validated && !item.hasHardErrors,
-          );
-          const invalidRows = validatedBatch.filter(
-            (item) => !item.validated || item.hasHardErrors,
-          );
-
-          try {
-            if (validRows.length > 0) {
-              // PHASE 3D: OPTIMIZED - Single round trip for all operations
-              // Use PostgreSQL function to insert products, variants, and update statuses
-              // in a SINGLE database call to eliminate network latency overhead
-              // Performance: 3 round trips → 1 round trip = ~40% faster in production
-
-              // Prepare data for single round trip
-              const products = validRows.map((item) => item.validated!.product);
-              const variants = validRows.map((item) => item.validated!.variant);
-              const validStatusUpdates = validRows.map((item) => ({
-                id: item.importRowId,
-                status: "VALIDATED" as const,
-                normalized: {
-                  action: item.validated!.action,
-                  product_id: item.validated!.productId,
-                  variant_id: item.validated!.variantId,
-                  warnings:
-                    item.validated!.warnings.length > 0
-                      ? item.validated!.warnings.map((w) => ({
-                          type: w.subtype,
-                          field: w.field,
-                          message: w.message,
-                          entity_type: w.entityType,
-                        }))
-                      : undefined,
-                },
-              }));
-
-              // Single database call for all three operations!
-              const result = await batchInsertStagingWithStatus(
-                db,
-                products,
-                variants,
-                validStatusUpdates,
-              );
-
-              const stagingInsertDuration = Date.now() - stagingInsertStart;
-              console.log(
-                `[validate-and-stage] Batch ${batchNumber} staged ${validRows.length} rows in ${stagingInsertDuration}ms (single round trip: ${result.productsInserted} products, ${result.variantsInserted} variants, ${result.rowsUpdated} status updates)`,
-              );
-            }
-
-            // PHASE 2 OPTIMIZATION: Single batch status update for all invalid rows
-            if (invalidRows.length > 0) {
-              const invalidStatusUpdates = invalidRows.map((item) => ({
-                id: item.importRowId,
-                status: "FAILED" as const,
-                error: item.error || "Validation failed",
-              }));
-              await batchUpdateImportRowStatus(db, invalidStatusUpdates);
-            }
-          } catch (error) {
-            // Batch insert failed - fall back to individual row inserts
-            // This ensures we don't lose good rows due to one bad row
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
-            logger.error(
-              "Batch staging insert failed, falling back to individual row inserts",
-              {
-                batchNumber,
-                validRowCount: validRows.length,
-                error: errorMessage,
-              },
-            );
-
-            // Fallback: Process each row individually to isolate failures
-            let successCount = 0;
-            let fallbackFailCount = 0;
-
-            for (const validRow of validRows) {
-              try {
-                // Insert product and variant individually
-                const productStagingId = await insertStagingProduct(
-                  db,
-                  validRow.validated!.product,
-                );
-                await insertStagingVariant(db, {
-                  ...validRow.validated!.variant,
-                  stagingProductId: productStagingId,
-                });
-
-                // Update status for this row
-                await batchUpdateImportRowStatus(db, [
-                  {
-                    id: validRow.importRowId,
-                    status: "VALIDATED" as const,
-                    normalized: {
-                      action: validRow.validated!.action,
-                      product_id: validRow.validated!.productId,
-                      variant_id: validRow.validated!.variantId,
-                      warnings:
-                        validRow.validated!.warnings.length > 0
-                          ? validRow.validated!.warnings.map((w) => ({
-                              type: w.subtype,
-                              field: w.field,
-                              message: w.message,
-                              entity_type: w.entityType,
-                            }))
-                          : undefined,
-                    },
-                  },
-                ]);
-
-                successCount++;
-              } catch (rowError) {
-                // This specific row failed - mark only this row as failed
-                logger.error("Individual row insert failed", {
-                  batchNumber,
-                  rowNumber: validRow.rowNumber,
-                  error:
-                    rowError instanceof Error
-                      ? rowError.message
-                      : String(rowError),
-                });
-
-                await batchUpdateImportRowStatus(db, [
-                  {
-                    id: validRow.importRowId,
-                    status: "FAILED" as const,
-                    error:
-                      rowError instanceof Error
-                        ? rowError.message
-                        : "Failed to insert into staging",
-                  },
-                ]);
-
-                fallbackFailCount++;
-                invalidCount++;
-                validCount--;
-              }
-            }
-
-            logger.info("Individual row fallback completed", {
-              batchNumber,
-              totalRows: validRows.length,
-              successCount,
-              fallbackFailCount,
-            });
-          }
-
-          processedCount += batch.length;
-
-          // OPTIMIZATION: Update DB progress every batch (cheap operation)
-          // WebSocket updates are automatically debounced to once per second
-          await updateImportJobProgress(db, {
-            jobId,
-            summary: {
-              total: totalRows,
-              processed: processedCount,
-              valid: validCount,
-              invalid: invalidCount,
-              will_create: willCreateCount,
-              will_update: willUpdateCount,
-              will_skip: willSkipCount,
-              percentage: Math.round((processedCount / totalRows) * 100),
-            },
-          });
-
-          // OPTIMIZATION: Debounced WebSocket update (max once per second)
-          // Fire-and-forget, never blocks batch processing
-          progressEmitter.emit({
-            jobId,
-            status: "VALIDATING",
-            phase: "validation",
-            processed: processedCount,
-            total: totalRows,
-            failed: invalidCount,
-            percentage: Math.round((processedCount / totalRows) * 100),
-          });
-
-          logger.info("Batch processed", {
-            batchNumber,
-            processedCount,
-            validCount,
-            invalidCount,
-          });
-        },
-        { concurrency: MAX_PARALLEL_BATCHES },
-      );
-
-      // Get final staging counts
-      const stagingCounts = await countStagingProductsByAction(db, jobId);
-
-      // Prepare pending_approval array from unmappedValueDetails
-      const pendingApproval = Array.from(unmappedValueDetails.values());
-
-      // Update job status to VALIDATED
-      await updateImportJobStatus(db, {
+      const duration = Date.now() - startTime;
+      logger.info("Validate-and-stage completed", {
         jobId,
-        status: "VALIDATED",
-        summary: {
-          total: totalRows,
-          valid: validCount,
-          invalid: invalidCount,
-          will_create: stagingCounts.create,
-          will_update: stagingCounts.update,
-          pending_approval: pendingApproval,
-          approved_values: [],
-          requires_value_approval: pendingApproval.length > 0,
-        },
-      });
-      console.log("[validate-and-stage] Job status updated to VALIDATED", {
-        jobId,
-        totalRows,
-        validCount,
-        invalidCount,
-        willCreate: stagingCounts.create,
-        willUpdate: stagingCounts.update,
-      });
-
-      // OPTIMIZATION: Flush any pending updates before final notification
-      await progressEmitter.flush();
-
-      // Send final VALIDATED notification
-      progressEmitter.emit({
-        jobId,
-        status: "VALIDATED",
-        phase: "validation",
-        processed: totalRows,
-        total: totalRows,
-        failed: invalidCount,
-        percentage: 100,
-        message: "Validation complete - ready for review",
-      });
-
-      // CRITICAL: Flush final notification before task completion
-      // This ensures the VALIDATED status reaches the frontend before the job exits
-      await progressEmitter.flush();
-
-      logger.info("Validation and staging completed successfully", {
-        jobId,
-        total: totalRows,
-        valid: validCount,
-        invalid: invalidCount,
-        will_create: stagingCounts.create,
-        will_update: stagingCounts.update,
-        durationMs: Date.now() - jobStartTime,
+        successCount,
+        failureCount,
+        duration: `${duration}ms`,
+        status: finalStatus,
       });
     } catch (error) {
-      logger.error("Validation and staging job failed", {
-        jobId,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
 
-      // Update job status to FAILED
-      await updateImportJobStatus(db, {
-        jobId,
-        status: "FAILED",
-        finishedAt: new Date().toISOString(),
-        summary: {
-          error: error instanceof Error ? error.message : "Unknown error",
-        },
-      });
-      console.log("[validate-and-stage] Job status updated to FAILED", {
-        jobId,
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      logger.error("Validate-and-stage failed", { jobId, error: errorMessage });
 
-      // Send WebSocket failure notification (temporarily disabled)
-      // websocketManager.emit(jobId, {
-      //   jobId,
-      //   status: "FAILED",
-      //   phase: "validation",
-      //   processed: 0,
-      //   total: 0,
-      //   percentage: 0,
-      //   message: error instanceof Error ? error.message : "Validation failed",
-      // });
+      await db
+        .update(importJobs)
+        .set({
+          status: "FAILED",
+          finishedAt: new Date().toISOString(),
+          summary: { error: errorMessage },
+        })
+        .where(eq(importJobs.id, jobId));
 
       throw error;
     }
@@ -1035,832 +264,573 @@ export const validateAndStage = task({
 });
 
 // ============================================================================
-// VALIDATION HELPERS
+// Auto-Create Entities
 // ============================================================================
 
 /**
- * Parse pipe-separated values from CSV field
- * Example: "Red|Blue|Green" => ["Red", "Blue", "Green"]
+ * Auto-create missing entities in the database.
+ * Categories are the ONLY exception - they must exist.
  */
-function parsePipeSeparated(value: string | undefined): string[] {
-  if (!value || value.trim() === "") return [];
-  return value
-    .split("|")
-    .map((v) => v.trim())
-    .filter((v) => v.length > 0);
-}
-
-/**
- * Parse materials from CSV format
- * Format: "Name:Percentage[:Country:Recyclable:CertTitle:CertNumber:CertExpiry]|..."
- * Example: "Cotton:75:TR:yes:GOTS:123:2025-12-31|Polyester:25"
- */
-interface ParsedMaterial {
-  name: string;
-  percentage: number;
-}
-
-function parseMaterials(value: string | undefined): ParsedMaterial[] {
-  if (!value || value.trim() === "") return [];
-
-  const materials = parsePipeSeparated(value);
-  const parsed: ParsedMaterial[] = [];
-
-  for (const mat of materials) {
-    const parts = mat.split(":").map((p) => p.trim());
-
-    if (parts.length < 2) continue; // Must have at least name:percentage
-
-    const name = parts[0];
-    const percentageStr = parts[1];
-
-    if (!name || !percentageStr) continue;
-
-    const percentage = Number.parseFloat(percentageStr);
-    if (Number.isNaN(percentage)) continue;
-
-    parsed.push({ name, percentage });
-  }
-
-  return parsed;
-}
-
-/**
- * Parse journey steps from CSV format
- * Format: "StepName@Operator1,Operator2|Step2@Operator3"
- * Example: "Spinning@SupplierA,SupplierB|Weaving@SupplierC"
- */
-interface ParsedJourneyStep {
-  step: string;
-  operators: string[];
-}
-
-function parseJourneySteps(value: string | undefined): ParsedJourneyStep[] {
-  if (!value || value.trim() === "") return [];
-
-  const steps = parsePipeSeparated(value);
-  const parsed: ParsedJourneyStep[] = [];
-
-  for (const stepStr of steps) {
-    const [step, operatorsStr] = stepStr.split("@").map((s) => s.trim());
-
-    if (!step) continue;
-
-    const operators = operatorsStr
-      ? operatorsStr
-          .split(",")
-          .map((o) => o.trim())
-          .filter((o) => o.length > 0)
-      : [];
-
-    parsed.push({ step, operators });
-  }
-
-  return parsed;
-}
-
-/**
- * Parse tag with optional color from CSV format
- * Format: "TagName" or "New:TagName:ColorHex"
- * Example: "Sustainable" or "New:EcoFriendly:#10B981"
- */
-interface ParsedTag {
-  name: string;
-  isNew: boolean;
-  hex?: string;
-}
-
-function parseTag(tagStr: string): ParsedTag {
-  const parts = tagStr.split(":");
-
-  if (parts[0] === "New" && parts.length >= 2) {
-    // New tag with optional color
-    return {
-      name: parts[1]!.trim(),
-      isNew: true,
-      hex: parts.length > 2 ? parts[2]?.trim() : undefined,
-    };
-  }
-
-  // Existing tag
-  return {
-    name: tagStr.trim(),
-    isNew: false,
-  };
-}
-
-/**
- * Parse color with optional custom indicator from CSV format
- * Format: "ColorName" or "Custom:ColorName"
- * Example: "Blue" or "Custom:Navy Blue"
- */
-interface ParsedColor {
-  name: string;
-  isCustom: boolean;
-}
-
-function parseColor(colorStr: string): ParsedColor {
-  if (colorStr.startsWith("Custom:")) {
-    return {
-      name: colorStr.substring(7).trim(),
-      isCustom: true,
-    };
-  }
-
-  return {
-    name: colorStr.trim(),
-    isCustom: false,
-  };
-}
-
-/**
- * Validate EAN-8 or EAN-13 barcode format and checksum
- * @param ean - EAN barcode string
- * @returns true if valid, false otherwise
- */
-function validateEAN(ean: string): boolean {
-  // Remove whitespace
-  const cleaned = ean.trim().replace(/\s/g, "");
-
-  // Must be 8 or 13 digits
-  if (!/^\d{8}$|^\d{13}$/.test(cleaned)) {
-    return false;
-  }
-
-  // Calculate checksum
-  const digits = cleaned.split("").map(Number);
-  const checkDigit = digits.pop()!;
-
-  // EAN checksum algorithm
-  let sum = 0;
-  for (let i = 0; i < digits.length; i++) {
-    // Alternate weights: 1, 3, 1, 3, ...
-    const weight = i % 2 === 0 ? 1 : 3;
-    sum += digits[i]! * weight;
-  }
-
-  const calculatedCheck = (10 - (sum % 10)) % 10;
-  return calculatedCheck === checkDigit;
-}
-
-/**
- * Validate status field against allowed values
- * Valid statuses: published, unpublished, archived, scheduled
- * @param status - Status string from CSV
- * @returns Normalized status or null if invalid
- */
-function validateStatus(
-  status: string | undefined,
-): "published" | "unpublished" | "archived" | "scheduled" | null {
-  if (!status) return null;
-
-  const normalized = status.trim().toLowerCase();
-
-  switch (normalized) {
-    case "published":
-    case "publish":
-      return "published";
-    case "unpublished":
-    case "draft":
-      return "unpublished";
-    case "archived":
-    case "archive":
-      return "archived";
-    case "scheduled":
-    case "schedule":
-      return "scheduled";
-    default:
-      return null; // Invalid status
-  }
-}
-
-/**
- * Validate decimal number (for carbon/water metrics)
- * @param value - String value from CSV
- * @returns number if valid, null otherwise
- */
-function validateDecimal(value: string | undefined): number | null {
-  if (!value || value.trim() === "") return null;
-
-  const num = Number.parseFloat(value.trim());
-
-  // Must be a valid number and non-negative
-  if (Number.isNaN(num) || num < 0) {
-    return null;
-  }
-
-  return num;
-}
-
-/**
- * Validate and sum material percentages
- * @param materials - Array of material percentage values
- * @returns object with isValid flag and total sum
- */
-function validateMaterialPercentages(materials: Array<string | undefined>): {
-  isValid: boolean;
-  total: number;
-  error?: string;
-} {
-  const percentages: number[] = [];
-
-  for (const mat of materials) {
-    if (!mat || mat.trim() === "") continue;
-
-    const num = Number.parseFloat(mat.trim());
-
-    if (Number.isNaN(num) || num < 0 || num > 100) {
-      return {
-        isValid: false,
-        total: 0,
-        error: `Invalid material percentage: "${mat}"`,
-      };
-    }
-
-    percentages.push(num);
-  }
-
-  // If no materials, validation passes
-  if (percentages.length === 0) {
-    return { isValid: true, total: 0 };
-  }
-
-  const total = percentages.reduce((sum, p) => sum + p, 0);
-
-  // Total must be 100% (allow 0.1% tolerance for rounding)
-  if (Math.abs(total - 100) > 0.1) {
-    return {
-      isValid: false,
-      total,
-      error: `Material percentages sum to ${total}%, but must total 100%`,
-    };
-  }
-
-  return { isValid: true, total };
-}
-
-/**
- * Validate boolean field (for material_N_recyclable)
- * @param value - String value from CSV
- * @returns boolean or null
- */
-function validateBoolean(value: string | undefined): boolean | null {
-  if (!value || value.trim() === "") return null;
-
-  const normalized = value.trim().toLowerCase();
-
-  if (["true", "yes", "1", "y"].includes(normalized)) return true;
-  if (["false", "no", "0", "n"].includes(normalized)) return false;
-
-  return null; // Invalid boolean
-}
-
-/**
- * Detect changes between new staging data and existing product/variant
- * @param newProduct - New product data from CSV
- * @param newVariant - New variant data from CSV
- * @param existing - Existing product/variant data from database
- * @returns Object with hasChanges flag and array of changed field names
- */
-function detectChanges(
-  newProduct: InsertStagingProductParams,
-  newVariant: InsertStagingVariantParams,
-  existing: {
-    // Product fields
-    name: string;
-    description: string | null;
-    categoryId: string | null;
-    seasonId: string | null;
-    imagePath: string | null;
-    manufacturerId: string | null;
-    status: string | null;
-    // Variant fields
-    upid: string | null;
-  },
-): { hasChanges: boolean; changedFields: string[] } {
-  const changedFields: string[] = [];
-
-  // Helper function to compare values (handles null/undefined/empty string equivalence)
-  const isDifferent = (newVal: unknown, oldVal: unknown): boolean => {
-    // Normalize null, undefined, and empty string to null
-    const normalizeEmpty = (val: unknown): unknown => {
-      if (val === "" || val === undefined) return null;
-      return val;
-    };
-
-    const normalizedNew = normalizeEmpty(newVal);
-    const normalizedOld = normalizeEmpty(oldVal);
-
-    return normalizedNew !== normalizedOld;
-  };
-
-  // Compare product fields
-  if (isDifferent(newProduct.name, existing.name)) changedFields.push("name");
-  if (isDifferent(newProduct.description, existing.description))
-    changedFields.push("description");
-  if (isDifferent(newProduct.categoryId, existing.categoryId))
-    changedFields.push("categoryId");
-  if (isDifferent(newProduct.seasonId, existing.seasonId))
-    changedFields.push("seasonId");
-  if (isDifferent(newProduct.imagePath, existing.imagePath))
-    changedFields.push("imagePath");
-  if (isDifferent(newProduct.manufacturerId, existing.manufacturerId))
-    changedFields.push("manufacturerId");
-  if (isDifferent(newProduct.status, existing.status))
-    changedFields.push("status");
-
-  // Compare variant fields
-  if (isDifferent(newVariant.upid, existing.upid)) changedFields.push("upid");
-  // NOTE: colorId and sizeId comparison removed as part of variant attribute migration.
-  // These fields no longer exist on product_variants table.
-
-  return {
-    hasChanges: changedFields.length > 0,
-    changedFields,
-  };
-}
-
-/**
- * Validate a single CSV row and prepare staging data
- *
- * Performs two-tier validation:
- * - Hard errors (block import): missing required fields, duplicates, invalid formats
- * - Warnings (need user definition): missing catalog entities that can be created
- *
- * @param row - CSV row data
- * @param brandId - Brand ID for scoping
- * @param rowNumber - Row number in CSV (1-indexed)
- * @param jobId - Import job ID
- * @param catalog - In-memory brand catalog for fast lookups
- * @param unmappedValues - Map to track unmapped values
- * @param unmappedValueDetails - Map to track detailed unmapped value information for pending_approval
- * @param duplicateRowNumbers - Set of row numbers that have duplicate UPID
- * @param duplicateCheckColumn - Column name being checked for duplicates (upid)
- * @param existingVariantsMap - Pre-loaded map of existing variants (UPID -> product/variant IDs)
- * @param db - Database instance for auto-creating entities
- * @returns Validated row data with errors and warnings
- */
-async function validateRow(
-  row: CSVRow,
+async function autoCreateEntities(
+  database: Database,
   brandId: string,
-  rowNumber: number,
-  jobId: string,
+  products: ParsedProduct[],
   catalog: BrandCatalog,
-  unmappedValues: Map<string, Set<string>>,
-  unmappedValueDetails: Map<
-    string,
-    {
-      type: string;
-      name: string;
-      affected_rows: number;
-      source_column: string;
-    }
-  >,
-  duplicateRowNumbers: Set<number>,
-  duplicateDetails: Map<number, { type: "upid" | "composite"; value: string }>,
-  existingVariantsByUpid: Map<string, ExistingVariant>,
-  db: Database,
-): Promise<ValidatedRowData> {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+): Promise<BrandCatalog> {
+  // Collect all unique entity names from parsed products
+  const uniqueManufacturers = new Set<string>();
+  const uniqueSeasons = new Set<string>();
+  const uniqueTags = new Set<string>();
+  const uniqueMaterials = new Set<string>();
+  const uniqueEcoClaims = new Set<string>();
+  const uniqueFacilities = new Set<string>();
+  const uniqueAttributes = new Set<string>();
+  const uniqueAttributeValues = new Map<string, Set<string>>(); // attrName -> values
 
-  // HARD ERROR: Duplicate detection (UPID or composite key)
-  if (duplicateRowNumbers.has(rowNumber)) {
-    const dupInfo = duplicateDetails.get(rowNumber);
-    if (dupInfo) {
-      if (dupInfo.type === "upid") {
-        errors.push({
-          type: "HARD_ERROR",
-          subtype: "DUPLICATE_VALUE",
-          field: "upid",
-          message: `Duplicate UPID: "${dupInfo.value}" appears multiple times in the file`,
-          severity: "error",
-        });
-      } else {
-        // Composite key duplicate
-        errors.push({
-          type: "HARD_ERROR",
-          subtype: "DUPLICATE_VALUE",
-          field: "product_handle+colors+size",
-          message:
-            "Duplicate variant: This combination of product, color, and size appears multiple times in the file",
-          severity: "error",
+  for (const product of products) {
+    if (product.manufacturerName) {
+      uniqueManufacturers.add(product.manufacturerName.trim());
+    }
+    if (product.seasonName) {
+      uniqueSeasons.add(product.seasonName.trim());
+    }
+    for (const tag of product.tags) {
+      uniqueTags.add(tag.trim());
+    }
+
+    for (const variant of product.variants) {
+      // Materials
+      for (const material of variant.materials) {
+        uniqueMaterials.add(material.name.trim());
+      }
+      // Eco claims
+      for (const claim of variant.ecoClaims) {
+        uniqueEcoClaims.add(claim.trim());
+      }
+      // Journey step facilities
+      for (const facilityName of Object.values(variant.journeySteps)) {
+        uniqueFacilities.add(facilityName.trim());
+      }
+      // Attributes
+      for (const attr of variant.attributes) {
+        uniqueAttributes.add(attr.name.trim());
+        if (!uniqueAttributeValues.has(attr.name.trim())) {
+          uniqueAttributeValues.set(attr.name.trim(), new Set());
+        }
+        uniqueAttributeValues.get(attr.name.trim())?.add(attr.value.trim());
+      }
+    }
+  }
+
+  // Auto-create missing entities (batch inserts)
+  const normalizeKey = (s: string) => s.toLowerCase().trim();
+
+  // Manufacturers
+  const missingManufacturers = [...uniqueManufacturers].filter(
+    (name) => !catalog.manufacturers.has(normalizeKey(name)),
+  );
+  if (missingManufacturers.length > 0) {
+    const inserted = await database
+      .insert(brandManufacturers)
+      .values(
+        missingManufacturers.map((name) => ({
+          brandId,
+          name,
+        })),
+      )
+      .returning({ id: brandManufacturers.id, name: brandManufacturers.name });
+
+    for (const m of inserted) {
+      catalog.manufacturers.set(normalizeKey(m.name), m.id);
+    }
+    logger.info("Auto-created manufacturers", { count: inserted.length });
+  }
+
+  // Seasons
+  const missingSeasons = [...uniqueSeasons].filter(
+    (name) => !catalog.seasons.has(normalizeKey(name)),
+  );
+  if (missingSeasons.length > 0) {
+    const inserted = await database
+      .insert(brandSeasons)
+      .values(missingSeasons.map((name) => ({ brandId, name })))
+      .returning({ id: brandSeasons.id, name: brandSeasons.name });
+
+    for (const s of inserted) {
+      catalog.seasons.set(normalizeKey(s.name), s.id);
+    }
+    logger.info("Auto-created seasons", { count: inserted.length });
+  }
+
+  // Tags
+  const missingTags = [...uniqueTags].filter(
+    (name) => !catalog.tags.has(normalizeKey(name)),
+  );
+  if (missingTags.length > 0) {
+    const inserted = await database
+      .insert(brandTags)
+      .values(missingTags.map((name) => ({ brandId, name })))
+      .returning({ id: brandTags.id, name: brandTags.name });
+
+    for (const t of inserted) {
+      catalog.tags.set(normalizeKey(t.name), t.id);
+    }
+    logger.info("Auto-created tags", { count: inserted.length });
+  }
+
+  // Materials
+  const missingMaterials = [...uniqueMaterials].filter(
+    (name) => !catalog.materials.has(normalizeKey(name)),
+  );
+  if (missingMaterials.length > 0) {
+    const inserted = await database
+      .insert(brandMaterials)
+      .values(missingMaterials.map((name) => ({ brandId, name })))
+      .returning({ id: brandMaterials.id, name: brandMaterials.name });
+
+    for (const m of inserted) {
+      catalog.materials.set(normalizeKey(m.name), m.id);
+    }
+    logger.info("Auto-created materials", { count: inserted.length });
+  }
+
+  // Eco Claims
+  const missingEcoClaims = [...uniqueEcoClaims].filter(
+    (name) => !catalog.ecoClaims.has(normalizeKey(name)),
+  );
+  if (missingEcoClaims.length > 0) {
+    const inserted = await database
+      .insert(brandEcoClaims)
+      .values(missingEcoClaims.map((claim) => ({ brandId, claim })))
+      .returning({ id: brandEcoClaims.id, claim: brandEcoClaims.claim });
+
+    for (const e of inserted) {
+      catalog.ecoClaims.set(normalizeKey(e.claim), e.id);
+    }
+    logger.info("Auto-created eco claims", { count: inserted.length });
+  }
+
+  // Facilities
+  const missingFacilities = [...uniqueFacilities].filter(
+    (name) => !catalog.operators.has(normalizeKey(name)),
+  );
+  if (missingFacilities.length > 0) {
+    const inserted = await database
+      .insert(brandFacilities)
+      .values(
+        missingFacilities.map((name) => ({
+          brandId,
+          displayName: name,
+          type: "MANUFACTURER" as const,
+        })),
+      )
+      .returning({
+        id: brandFacilities.id,
+        displayName: brandFacilities.displayName,
+      });
+
+    for (const f of inserted) {
+      if (f.displayName) {
+        catalog.operators.set(normalizeKey(f.displayName), f.id);
+      }
+    }
+    logger.info("Auto-created facilities", { count: inserted.length });
+  }
+
+  // Attributes
+  const missingAttributes = [...uniqueAttributes].filter(
+    (name) => !catalog.attributes.has(normalizeKey(name)),
+  );
+  if (missingAttributes.length > 0) {
+    const inserted = await database
+      .insert(brandAttributes)
+      .values(missingAttributes.map((name) => ({ brandId, name })))
+      .returning({ id: brandAttributes.id, name: brandAttributes.name });
+
+    for (const a of inserted) {
+      catalog.attributes.set(normalizeKey(a.name), a.id);
+    }
+    logger.info("Auto-created attributes", { count: inserted.length });
+  }
+
+  // Attribute Values
+  const attributeValueInserts: Array<{
+    brandId: string;
+    attributeId: string;
+    name: string;
+  }> = [];
+
+  for (const [attrName, values] of uniqueAttributeValues) {
+    const attributeId = catalog.attributes.get(normalizeKey(attrName));
+    if (!attributeId) continue;
+
+    for (const valueName of values) {
+      const key = `${attributeId}:${normalizeKey(valueName)}`;
+      if (!catalog.attributeValues.has(key)) {
+        attributeValueInserts.push({
+          brandId,
+          attributeId,
+          name: valueName,
         });
       }
     }
   }
 
-  // HARD ERROR: Required field validation
-  if (!row.product_name || row.product_name.trim() === "") {
-    errors.push({
-      type: "HARD_ERROR",
-      subtype: "REQUIRED_FIELD_EMPTY",
-      field: "product_name",
-      message: "Product name is required",
-      severity: "error",
-    });
-  }
+  if (attributeValueInserts.length > 0) {
+    const inserted = await database
+      .insert(brandAttributeValues)
+      .values(attributeValueInserts)
+      .returning({
+        id: brandAttributeValues.id,
+        name: brandAttributeValues.name,
+        attributeId: brandAttributeValues.attributeId,
+      });
 
-  // HARD ERROR: product_handle is required (product-level identification)
-  if (!row.product_handle || row.product_handle.trim() === "") {
-    errors.push({
-      type: "HARD_ERROR",
-      subtype: "REQUIRED_FIELD_EMPTY",
-      field: "product_handle",
-      message: "Product handle is required",
-      severity: "error",
-    });
-  }
-
-  // Auto-generate UPID if not provided (variant-level identification)
-  const upid =
-    row.upid?.trim() ||
-    (await generateUniqueUpid({
-      isTaken: async (candidate: string) => {
-        const [existing] = await db
-          .select({ id: productVariants.id })
-          .from(productVariants)
-          .where(eq(productVariants.upid, candidate))
-          .limit(1);
-        return Boolean(existing);
-      },
-    }));
-
-  // HARD ERROR: Check string length limits
-  if (row.product_name && row.product_name.length > 100) {
-    errors.push({
-      type: "HARD_ERROR",
-      subtype: "FIELD_TOO_LONG",
-      field: "product_name",
-      message: "Product name cannot exceed 100 characters",
-      severity: "error",
-    });
-  }
-
-  if (row.description && row.description.length > 2000) {
-    errors.push({
-      type: "HARD_ERROR",
-      subtype: "FIELD_TOO_LONG",
-      field: "description",
-      message: "Description cannot exceed 2000 characters",
-      severity: "error",
-    });
-  }
-
-  // Validate status (defaults to unpublished if invalid/empty)
-  const validatedStatus = row.status
-    ? validateStatus(row.status)
-    : "unpublished";
-  const productStatus = validatedStatus || "unpublished"; // Default to unpublished
-
-  // HARD ERROR: Carbon footprint validation
-  if (row.carbon_footprint?.trim()) {
-    const carbonValue = validateDecimal(row.carbon_footprint);
-    if (carbonValue === null) {
-      errors.push({
-        type: "HARD_ERROR",
-        subtype: "INVALID_NUMBER",
-        field: "carbon_footprint",
-        message: `Invalid carbon footprint: "${row.carbon_footprint}". Must be a non-negative decimal number`,
-        severity: "error",
+    for (const av of inserted) {
+      const key = `${av.attributeId}:${normalizeKey(av.name)}`;
+      const attrName =
+        [...catalog.attributes.entries()].find(
+          ([, id]) => id === av.attributeId,
+        )?.[0] || "";
+      catalog.attributeValues.set(key, {
+        id: av.id,
+        name: av.name,
+        attributeId: av.attributeId,
+        attributeName: attrName,
       });
     }
+    logger.info("Auto-created attribute values", { count: inserted.length });
   }
 
-  // HARD ERROR: Water usage validation
-  if (row.water_usage?.trim()) {
-    const waterValue = validateDecimal(row.water_usage);
-    if (waterValue === null) {
-      errors.push({
-        type: "HARD_ERROR",
-        subtype: "INVALID_NUMBER",
-        field: "water_usage",
-        message: `Invalid water usage: "${row.water_usage}". Must be a non-negative decimal number`,
-        severity: "error",
-      });
-    }
+  return catalog;
+}
+
+// ============================================================================
+// Validate and Stage Product
+// ============================================================================
+
+async function validateAndStageProduct(
+  database: Database,
+  product: ParsedProduct,
+  catalog: BrandCatalog,
+  brandId: string,
+  jobId: string,
+  mode: "CREATE" | "ENRICH",
+  duplicates: ReturnType<typeof findDuplicateIdentifiers>,
+): Promise<ProductResult> {
+  const errors: RowError[] = [];
+  const normalizeKey = (s: string) => s.toLowerCase().trim();
+
+  // Validate required fields
+  if (!product.name || product.name.trim() === "") {
+    errors.push({ field: "Product Title", message: "Required" });
   }
 
-  // ========================================================================
-  // MATERIALS VALIDATION
-  // ========================================================================
-  // Format: materials field with complex format
-
-  let materialsToValidate: ParsedMaterial[] = [];
-
-  if (row.materials?.trim()) {
-    materialsToValidate = parseMaterials(row.materials);
-  }
-
-  // Simplified material validation - only check for critical errors
-  if (materialsToValidate.length > 0) {
-    const totalPercentage = materialsToValidate.reduce(
-      (sum, m) => sum + m.percentage,
-      0,
-    );
-
-    // HARD ERROR: Percentages must total 100% (with 1% tolerance for simplicity)
-    if (Math.abs(totalPercentage - 100) > 1) {
-      errors.push({
-        type: "HARD_ERROR",
-        subtype: "INVALID_MATERIAL_PERCENTAGE",
-        field: "materials",
-        message: `Material percentages must total 100%. Current total: ${totalPercentage.toFixed(2)}%`,
-        severity: "error",
-      });
-    }
-
-    // Only track first material if unmapped (for performance)
-    const firstMaterial = materialsToValidate[0];
-    if (firstMaterial) {
-      const materialId = lookupMaterialId(
-        catalog,
-        firstMaterial.name,
-        "materials",
-      );
-      if (!materialId) {
-        trackUnmappedValue(
-          unmappedValues,
-          unmappedValueDetails,
-          "MATERIAL",
-          firstMaterial.name,
-          "materials",
-        );
-      }
-    }
-  }
-
-  // ========================================================================
-  // ECO-CLAIMS VALIDATION
-  // ========================================================================
-  // Parse multi-value eco-claims field
-  const ecoClaims = parsePipeSeparated(row.eco_claims);
-
-  // HARD ERROR: Maximum 5 eco-claims allowed
-  if (ecoClaims.length > 5) {
-    errors.push({
-      type: "HARD_ERROR",
-      subtype: "TOO_MANY_ECO_CLAIMS",
-      field: "eco_claims",
-      message: `Maximum 5 eco-claims allowed per product. Found ${ecoClaims.length}.`,
-      severity: "error",
-    });
-  }
-
-  // Note: Individual eco-claim length validation removed for performance
-  // Claims will be truncated at database level if needed
-
-  // ========================================================================
-  // JOURNEY STEPS VALIDATION
-  // ========================================================================
-  // Note: Journey step operator validation simplified for performance
-  // Operators will be validated during the commit phase
-  const journeySteps = parseJourneySteps(row.journey_steps);
-
-  // Note: URL validation removed for performance
-  // URLs will be validated when actually used/accessed
-
-  // Parse multi-value fields (pipe-separated)
-  const colors = parsePipeSeparated(row.colors);
-  // ecoClaims already parsed above in ECO-CLAIMS VALIDATION section
-
-  // ========================================================================
-  // END NEW FIELD VALIDATIONS
-  // ========================================================================
-
-  // ========================================================================
-  // MANUFACTURER VALIDATION
-  // ========================================================================
-  const manufacturerId: string | null = null;
-  if (row.manufacturer?.trim()) {
-    // Check if manufacturer exists in catalog
-    // TODO: Implement lookupManufacturerId function
-    // For now, track as unmapped if provided
-    trackUnmappedValue(
-      unmappedValues,
-      unmappedValueDetails,
-      "MANUFACTURER",
-      row.manufacturer.trim(),
-      "manufacturer",
-    );
-    warnings.push({
-      type: "NEEDS_DEFINITION",
-      subtype: "MISSING_MANUFACTURER",
-      field: "manufacturer",
-      message: `Manufacturer "${row.manufacturer}" needs to be mapped or created`,
-      severity: "warning",
-      entityType: "MANUFACTURER",
-    });
-  }
-
-  // ========================================================================
-  // COLOR/SIZE VALIDATION - REMOVED
-  // ========================================================================
-  // Note: Color and size validation removed in Phase 5 of variant attribute migration.
-  // Colors and sizes are now managed via generic brand attributes.
-  // The colors and size fields in the CSV are still parsed but no longer validated
-  // or stored on variants. In the future, these could be mapped to brand attributes.
-
-  // ========================================================================
-  // SEASON VALIDATION - Lookup from brand_seasons table
-  // ========================================================================
-  let seasonId: string | null = null;
-  if (row.season?.trim()) {
-    seasonId = lookupSeasonId(catalog, row.season, "season");
-    if (!seasonId) {
-      trackUnmappedValue(
-        unmappedValues,
-        unmappedValueDetails,
-        "SEASON",
-        row.season,
-        "season",
-      );
-      warnings.push({
-        type: "NEEDS_DEFINITION",
-        subtype: "MISSING_SEASON",
-        field: "season",
-        message: `Season "${row.season}" needs to be mapped or created`,
-        severity: "warning",
-        entityType: "SEASON",
-      });
-    }
-  }
-
-  // WARNING: Missing category (needs user definition)
+  // Validate category (MUST exist - no auto-create)
   let categoryId: string | null = null;
-  const categoryValue = row.category;
-
-  if (categoryValue?.trim()) {
-    // NEW format: hierarchical path like "Men's > Tops > T-Shirts"
-    // The path will be normalized to just the leaf category name for lookup
-    // Example: "Men's > Tops > T-Shirts" becomes "t-shirts" for lookup
-    const categoryParts = categoryValue.split(">").map((p) => p.trim());
-    const leafCategory = categoryParts[categoryParts.length - 1] || "";
-
-    // In-memory lookup from catalog (0 database queries)
-    categoryId = lookupCategoryId(catalog, leafCategory, "category");
+  if (product.categoryPath) {
+    // Try to match category by name (using the last segment of the path)
+    const categoryName = product.categoryPath.split(">").pop()?.trim() || "";
+    categoryId = catalog.categories.get(normalizeKey(categoryName)) || null;
 
     if (!categoryId) {
-      // Track as unmapped for user definition
-      trackUnmappedValue(
-        unmappedValues,
-        unmappedValueDetails,
-        "CATEGORY",
-        categoryValue,
-        "category",
-      );
-      warnings.push({
-        type: "NEEDS_DEFINITION",
-        subtype: "MISSING_CATEGORY",
-        field: "category",
-        message: `Category "${categoryValue}" needs to be mapped to an existing category`,
-        severity: "warning",
-        entityType: "CATEGORY",
+      errors.push({
+        field: "Category",
+        message: `Category not found: "${product.categoryPath}"`,
       });
-      // Leave categoryId as null - will be populated after user maps category
     }
   }
 
-  // ========================================================================
-  // CREATE vs UPDATE DETECTION - UPID matching
-  // ========================================================================
+  // Check for duplicate identifiers
+  for (const variant of product.variants) {
+    const barcodeDup = duplicates.find(
+      (d) =>
+        d.field === "Barcode" &&
+        d.value === variant.barcode &&
+        d.rows.length > 1,
+    );
+    if (barcodeDup) {
+      errors.push({
+        field: "Barcode",
+        message: `Duplicate barcode: ${variant.barcode}`,
+      });
+    }
 
-  const matchedByUpid = (upid ? existingVariantsByUpid.get(upid) : null) as
-    | ExistingVariant
-    | null
-    | undefined;
+    const skuDup = duplicates.find(
+      (d) => d.field === "SKU" && d.value === variant.sku && d.rows.length > 1,
+    );
+    if (skuDup) {
+      errors.push({
+        field: "SKU",
+        message: `Duplicate SKU: ${variant.sku}`,
+      });
+    }
 
-  const existingVariant: ExistingVariant | null = matchedByUpid || null;
+    // Require at least barcode or SKU
+    if (!variant.barcode && !variant.sku) {
+      errors.push({
+        field: "Barcode/SKU",
+        message: "At least one of Barcode or SKU is required",
+      });
+    }
+  }
 
-  // Generate UUIDs for new records or use existing
-  const productId = existingVariant?.id || randomUUID();
-  const variantId = existingVariant?.variant_id || randomUUID();
+  // If validation failed, don't stage
+  if (errors.length > 0) {
+    return {
+      productHandle: product.productHandle,
+      rowNumber: product.rowNumber,
+      success: false,
+      errors,
+    };
+  }
 
-  // Build temporary product and variant objects for change detection
-  const productHandle = row.product_handle.trim();
-  const tempProduct: InsertStagingProductParams = {
+  // Resolve entities
+  const manufacturerId = product.manufacturerName
+    ? catalog.manufacturers.get(normalizeKey(product.manufacturerName))
+    : null;
+  const seasonId = product.seasonName
+    ? catalog.seasons.get(normalizeKey(product.seasonName))
+    : null;
+
+  // Check for existing product/variants in ENRICH mode
+  let existingProductId: string | null = null;
+  const existingVariantIds = new Map<string, string>(); // barcode/sku -> variantId
+
+  if (mode === "ENRICH") {
+    // Look up existing product by handle
+    const existingProduct = await database.query.products.findFirst({
+      where: sql`${products.brandId} = ${brandId} AND ${products.productHandle} = ${product.productHandle}`,
+      columns: { id: true },
+    });
+    existingProductId = existingProduct?.id || null;
+
+    // Look up existing variants by barcode/sku
+    const identifiers: string[] = [];
+    for (const v of product.variants) {
+      if (v.barcode) identifiers.push(v.barcode);
+      if (v.sku) identifiers.push(v.sku);
+    }
+
+    if (identifiers.length > 0 && existingProductId) {
+      const existingVariants = await database.query.productVariants.findMany({
+        where: sql`${productVariants.productId} = ${existingProductId} AND (
+          ${productVariants.barcode} = ANY(ARRAY[${sql.join(
+            identifiers.map((i) => sql`${i}`),
+            sql`, `,
+          )}]::text[])
+          OR ${productVariants.sku} = ANY(ARRAY[${sql.join(
+            identifiers.map((i) => sql`${i}`),
+            sql`, `,
+          )}]::text[])
+        )`,
+        columns: { id: true, barcode: true, sku: true },
+      });
+
+      for (const ev of existingVariants) {
+        if (ev.barcode) existingVariantIds.set(ev.barcode, ev.id);
+        if (ev.sku) existingVariantIds.set(ev.sku, ev.id);
+      }
+    }
+  }
+
+  // Generate IDs for staging
+  const stagingProductId = randomUUID();
+  const productId = existingProductId || randomUUID();
+  const action = existingProductId ? "UPDATE" : "CREATE";
+
+  // Insert into staging_products
+  await database.insert(stagingProducts).values({
+    stagingId: stagingProductId,
     jobId,
-    rowNumber,
-    action: "UPDATE", // Temporary, will be overwritten
-    existingProductId: existingVariant?.id || null,
+    rowNumber: product.rowNumber,
+    action,
+    existingProductId,
     id: productId,
     brandId,
-    productHandle,
-    name: row.product_name?.trim() || "",
-    description: row.description?.trim() || null,
+    productHandle: product.productHandle,
+    name: product.name,
+    description: product.description,
+    imagePath: product.imagePath,
     categoryId,
     seasonId,
-    // CSV column is image_url, but we store as imagePath
-    imagePath: row.image_url?.trim() || null,
-    status: productStatus,
     manufacturerId,
-  };
+    status: "draft",
+    rowStatus: "PENDING",
+  });
 
-  // Note: colorId and sizeId removed in Phase 5 of variant attribute migration.
-  const tempVariant: InsertStagingVariantParams = {
-    stagingProductId: "", // Will be set after product insertion
-    jobId,
-    rowNumber,
-    action: "UPDATE", // Temporary, will be overwritten
-    existingVariantId: existingVariant?.variant_id || null,
-    id: variantId,
-    productId,
-    upid: upid || "",
-  };
+  // Resolve and insert tags
+  const tagIds = product.tags
+    .map((t) => catalog.tags.get(normalizeKey(t)))
+    .filter((id): id is string => !!id);
 
-  // ========================================================================
-  // PHASE 2: CHANGE DETECTION - Skip UPDATE if no changes detected
-  // ========================================================================
-
-  let action: "CREATE" | "UPDATE" | "SKIP" = "CREATE";
-  let changedFields: string[] | undefined;
-
-  if (existingVariant) {
-    // Product exists - check if any fields have changed
-    const changeDetection = detectChanges(
-      tempProduct,
-      tempVariant,
-      existingVariant,
+  if (tagIds.length > 0) {
+    await database.insert(stagingProductTags).values(
+      tagIds.map((tagId) => ({
+        stagingProductId,
+        jobId,
+        tagId,
+      })),
     );
-
-    if (changeDetection.hasChanges) {
-      action = "UPDATE";
-      changedFields = changeDetection.changedFields;
-    } else {
-      action = "SKIP";
-      changedFields = []; // No changes
-    }
-  } else {
-    // New product
-    action = "CREATE";
   }
 
-  // Update action in product and variant objects
-  const product: InsertStagingProductParams = {
-    ...tempProduct,
-    action,
-  };
+  // Process each variant
+  for (const variant of product.variants) {
+    const stagingVariantId = randomUUID();
+    const existingVariantId =
+      existingVariantIds.get(variant.barcode || "") ||
+      existingVariantIds.get(variant.sku || "") ||
+      null;
+    const variantId = existingVariantId || randomUUID();
+    const variantAction = existingVariantId ? "UPDATE" : "CREATE";
 
-  const variant: InsertStagingVariantParams = {
-    ...tempVariant,
-    action,
-  };
+    // Insert staging variant
+    await database.insert(stagingProductVariants).values({
+      stagingId: stagingVariantId,
+      stagingProductId,
+      jobId,
+      rowNumber: variant.rowNumber,
+      action: variantAction,
+      existingVariantId,
+      id: variantId,
+      productId,
+      barcode: variant.barcode,
+      sku: variant.sku,
+      nameOverride: variant.nameOverride,
+      descriptionOverride: variant.descriptionOverride,
+      imagePathOverride: variant.imagePathOverride,
+      rowStatus: "PENDING",
+    });
+
+    // Staging variant attributes
+    for (const attr of variant.attributes) {
+      const attributeId = catalog.attributes.get(normalizeKey(attr.name));
+      if (!attributeId) continue;
+
+      const key = `${attributeId}:${normalizeKey(attr.value)}`;
+      const attrValue = catalog.attributeValues.get(key);
+      if (!attrValue) continue;
+
+      await database.insert(stagingVariantAttributes).values({
+        stagingVariantId,
+        jobId,
+        attributeId,
+        attributeValueId: attrValue.id,
+        sortOrder: attr.sortOrder,
+      });
+    }
+
+    // Staging variant materials
+    for (const material of variant.materials) {
+      const materialId = catalog.materials.get(normalizeKey(material.name));
+      if (!materialId) continue;
+
+      await database.insert(stagingVariantMaterials).values({
+        stagingVariantId,
+        jobId,
+        brandMaterialId: materialId,
+        percentage: material.percentage?.toString(),
+      });
+    }
+
+    // Staging variant eco claims
+    for (const claimName of variant.ecoClaims) {
+      const ecoClaimId = catalog.ecoClaims.get(normalizeKey(claimName));
+      if (!ecoClaimId) continue;
+
+      await database.insert(stagingVariantEcoClaims).values({
+        stagingVariantId,
+        jobId,
+        ecoClaimId,
+      });
+    }
+
+    // Staging variant environment (carbon/water)
+    if (variant.carbonKg !== undefined || variant.waterLiters !== undefined) {
+      await database.insert(stagingVariantEnvironment).values({
+        stagingVariantId,
+        jobId,
+        carbonKgCo2e: variant.carbonKg?.toString() ?? null,
+        waterLiters: variant.waterLiters?.toString() ?? null,
+      });
+    }
+
+    // Staging variant journey steps
+    const journeyEntries = Object.entries(variant.journeySteps);
+    for (let i = 0; i < journeyEntries.length; i++) {
+      const [stepType, facilityName] = journeyEntries[i] ?? [];
+      if (!stepType || !facilityName) continue;
+
+      const facilityId = catalog.operators.get(normalizeKey(facilityName));
+      if (!facilityId) continue;
+
+      await database.insert(stagingVariantJourneySteps).values({
+        stagingVariantId,
+        jobId,
+        stepType,
+        sortIndex: i,
+        facilityId,
+      });
+    }
+
+    // Staging variant weight
+    if (variant.weightGrams !== undefined) {
+      await database.insert(stagingVariantWeight).values({
+        stagingVariantId,
+        jobId,
+        weight: variant.weightGrams.toString(),
+        weightUnit: "g",
+      });
+    }
+  }
 
   return {
-    productId,
-    variantId,
-    action,
-    existingProductId: existingVariant?.id,
-    existingVariantId: existingVariant?.variant_id,
-    product,
-    variant,
-    errors, // Hard errors that block import
-    warnings, // Missing catalog values that need user definition
-    changedFields, // Fields that changed (for UPDATE action only)
+    productHandle: product.productHandle,
+    rowNumber: product.rowNumber,
+    success: true,
+    errors: [],
+    stagingProductId,
   };
 }
 
-/**
- * Track unmapped value for user review
- *
- * @param unmappedValues - Map to store unmapped values
- * @param unmappedValueDetails - Map to store detailed unmapped value information
- * @param entityType - Type of entity (COLOR, SIZE, etc.)
- * @param value - Raw value from CSV
- * @param sourceColumn - CSV column where this value came from
- */
-function trackUnmappedValue(
-  unmappedValues: Map<string, Set<string>>,
-  unmappedValueDetails: Map<
-    string,
-    {
-      type: string;
-      name: string;
-      affected_rows: number;
-      source_column: string;
-    }
-  >,
-  entityType: string,
-  value: string,
-  sourceColumn: string,
-): void {
-  if (!unmappedValues.has(entityType)) {
-    unmappedValues.set(entityType, new Set());
-  }
-  unmappedValues.get(entityType)?.add(value);
+// ============================================================================
+// Helper: Download File from Supabase
+// ============================================================================
 
-  // Track detailed information for pending_approval
-  const key = `${entityType}:${value}`;
-  if (unmappedValueDetails.has(key)) {
-    // Increment affected rows count
-    const existing = unmappedValueDetails.get(key)!;
-    existing.affected_rows += 1;
-  } else {
-    unmappedValueDetails.set(key, {
-      type: entityType,
-      name: value,
-      affected_rows: 1,
-      source_column: sourceColumn,
-    });
+async function downloadFileFromSupabase(filePath: string): Promise<Uint8Array> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error("Supabase configuration missing");
   }
+
+  const normalizedBaseUrl = supabaseUrl.endsWith("/")
+    ? supabaseUrl.slice(0, -1)
+    : supabaseUrl;
+
+  const encodedPath = filePath
+    .split("/")
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  const downloadUrl = `${normalizedBaseUrl}/storage/v1/object/product-imports/${encodedPath}`;
+
+  const response = await fetch(downloadUrl, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `Storage download failed (${response.status}): ${body || response.statusText}`,
+    );
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return new Uint8Array(arrayBuffer);
 }

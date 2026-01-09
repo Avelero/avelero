@@ -33,10 +33,13 @@ export {
   asc,
   desc,
   eq,
+  gte,
   inArray,
   isNull,
+  lt,
   or,
   sql,
   SQL,
   type SQLWrapper,
 } from "drizzle-orm";
+

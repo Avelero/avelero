@@ -12,8 +12,9 @@ import { brands } from "../core/brands";
 
 /**
  * Import jobs table for tracking bulk product import operations
- * Supports two-phase workflow: validation/staging → user approval → production commit
- * @see prd.txt section 3.4 and section 5 for workflow details
+ * Supports fire-and-forget workflow: validate → auto-commit successful rows
+ * Status values: PENDING | PROCESSING | COMPLETED | COMPLETED_WITH_FAILURES | FAILED
+ * Mode values: CREATE (new products) | ENRICH (update existing by SKU/Barcode)
  */
 export const importJobs = pgTable(
   "import_jobs",
@@ -23,6 +24,8 @@ export const importJobs = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     filename: text("filename").notNull(),
+    /** Import mode: CREATE for new products, ENRICH to update existing by SKU/Barcode */
+    mode: text("mode").notNull().default("CREATE"), // CREATE | ENRICH
     startedAt: timestamp("started_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -34,8 +37,12 @@ export const importJobs = pgTable(
       withTimezone: true,
       mode: "string",
     }),
-    status: text("status").notNull().default("PENDING"), // PENDING | VALIDATING | VALIDATED | COMMITTING | COMPLETED | FAILED | CANCELLED
+    status: text("status").notNull().default("PENDING"), // PENDING | PROCESSING | COMPLETED | COMPLETED_WITH_FAILURES | FAILED
     requiresValueApproval: boolean("requires_value_approval")
+      .notNull()
+      .default(false),
+    /** Whether the job has failed rows that can be exported for correction */
+    hasExportableFailures: boolean("has_exportable_failures")
       .notNull()
       .default(false),
     summary: jsonb("summary"),

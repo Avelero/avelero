@@ -177,6 +177,13 @@ export async function hydrateStagingProductPreviews(
       id: v.id,
       productId: v.productId,
       upid: v.upid,
+      barcode: v.barcode,
+      sku: v.sku,
+      nameOverride: v.nameOverride,
+      descriptionOverride: v.descriptionOverride,
+      imagePathOverride: v.imagePathOverride,
+      rowStatus: v.rowStatus,
+      errors: v.errors,
       createdAt: v.createdAt,
     });
   }

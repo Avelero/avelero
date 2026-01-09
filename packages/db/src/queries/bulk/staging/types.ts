@@ -27,10 +27,12 @@ export interface InsertStagingProductParams {
 
 /**
  * Staging product variant insertion parameters
- * 
+ *
  * Note: colorId and sizeId removed in Phase 5 of variant attribute migration.
  * Variants no longer have these fields - colors and sizes are now managed
  * via generic brand attributes.
+ *
+ * Note: upid is now optional (legacy field). Use barcode/sku for variant identification.
  */
 export interface InsertStagingVariantParams {
   stagingProductId: string;
@@ -40,7 +42,22 @@ export interface InsertStagingVariantParams {
   existingVariantId?: string | null;
   id: string;
   productId: string;
-  upid: string;
+  /** Legacy UPID field - use barcode/sku instead */
+  upid?: string | null;
+  /** Product barcode (EAN/UPC) */
+  barcode?: string | null;
+  /** Stock Keeping Unit */
+  sku?: string | null;
+  /** Variant-level override for product name */
+  nameOverride?: string | null;
+  /** Variant-level override for product description */
+  descriptionOverride?: string | null;
+  /** Variant-level override for product image path */
+  imagePathOverride?: string | null;
+  /** Row processing status: PENDING | COMMITTED | FAILED */
+  rowStatus?: string;
+  /** Validation errors for this row */
+  errors?: Array<{ field: string; message: string }> | null;
 }
 
 /**
@@ -115,8 +132,9 @@ export interface StagingProductPreview {
 
 /**
  * Staging variant preview data
- * 
+ *
  * Note: colorId and sizeId removed in Phase 5 of variant attribute migration.
+ * Note: upid is now optional (legacy field). Use barcode/sku for variant identification.
  */
 export interface StagingVariantPreview {
   stagingId: string;
@@ -127,7 +145,22 @@ export interface StagingVariantPreview {
   existingVariantId: string | null;
   id: string;
   productId: string;
-  upid: string;
+  /** Legacy UPID field */
+  upid: string | null;
+  /** Product barcode (EAN/UPC) */
+  barcode: string | null;
+  /** Stock Keeping Unit */
+  sku: string | null;
+  /** Variant-level override for product name */
+  nameOverride: string | null;
+  /** Variant-level override for product description */
+  descriptionOverride: string | null;
+  /** Variant-level override for product image path */
+  imagePathOverride: string | null;
+  /** Row processing status: PENDING | COMMITTED | FAILED */
+  rowStatus: string;
+  /** Validation errors for this row */
+  errors: Array<{ field: string; message: string }> | null;
   createdAt: string;
 }
 

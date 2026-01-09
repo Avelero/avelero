@@ -3,6 +3,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgPolicy,
   pgTable,
   text,
@@ -25,9 +26,22 @@ export const stagingProductVariants = pgTable(
     existingVariantId: uuid("existing_variant_id"),
     id: uuid("id").notNull(),
     productId: uuid("product_id").notNull(),
-    colorId: uuid("color_id"),
-    sizeId: uuid("size_id"),
-    upid: text("upid").notNull(),
+    /** Product barcode (EAN/UPC) - one of barcode or sku required */
+    barcode: text("barcode"),
+    /** Stock Keeping Unit - one of barcode or sku required */
+    sku: text("sku"),
+    /** Legacy UPID field for backward compatibility */
+    upid: text("upid"),
+    /** Variant-level override for product name */
+    nameOverride: text("name_override"),
+    /** Variant-level override for product description */
+    descriptionOverride: text("description_override"),
+    /** Variant-level override for product image path */
+    imagePathOverride: text("image_path_override"),
+    /** Row processing status: PENDING | COMMITTED | FAILED */
+    rowStatus: text("row_status").notNull().default("PENDING"),
+    /** Validation errors for this row (array of {field, message}) */
+    errors: jsonb("errors").$type<Array<{ field: string; message: string }>>(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -53,6 +67,14 @@ export const stagingProductVariants = pgTable(
     index("staging_product_variants_staging_product_id_idx").using(
       "btree",
       table.stagingProductId.asc().nullsLast().op("uuid_ops"),
+    ),
+    index("staging_product_variants_barcode_idx").using(
+      "btree",
+      table.barcode.asc().nullsLast().op("text_ops"),
+    ),
+    index("staging_product_variants_sku_idx").using(
+      "btree",
+      table.sku.asc().nullsLast().op("text_ops"),
     ),
     index("staging_product_variants_upid_idx").using(
       "btree",

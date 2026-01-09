@@ -52,6 +52,15 @@ export * from "./staging/staging-product-journey-steps";
 export * from "./staging/staging-product-environment";
 export * from "./staging/staging-eco-claims";
 export * from "./staging/value-mappings";
+// New staging schemas for bulk import refactor
+export * from "./staging/staging-variant-attributes";
+export * from "./staging/staging-product-tags";
+export * from "./staging/staging-product-weight";
+export * from "./staging/staging-variant-materials";
+export * from "./staging/staging-variant-eco-claims";
+export * from "./staging/staging-variant-environment";
+export * from "./staging/staging-variant-journey-steps";
+export * from "./staging/staging-variant-weight";
 
 // Integration schemas
 export * from "./integrations/brand-integrations";

@@ -3,6 +3,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgPolicy,
   pgTable,
   text,
@@ -41,6 +42,11 @@ export const stagingProducts = pgTable(
     productHandle: text("product_handle"),
     /** Internal 16-character UPID (legacy, still stored in products table) */
     productUpid: text("product_upid"),
+    /** Row processing status: PENDING | COMMITTED | FAILED */
+    rowStatus: text("row_status").notNull().default("PENDING"),
+    /** Validation errors for this row (array of {field, message}) */
+    errors: jsonb("errors").$type<Array<{ field: string; message: string }>>(),
+    /** Legacy status field for backward compatibility */
     status: text("status"),
   },
   (table) => [

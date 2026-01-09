@@ -47,6 +47,8 @@ export interface ParsedAttribute {
 export interface ParsedVariant {
   /** Row number in the original Excel file (1-indexed, excluding header) */
   rowNumber: number;
+  /** Unique Product/Variant ID - required for enriching existing variants, empty for new variants */
+  upid?: string;
   /** Product barcode (EAN/UPC) */
   barcode?: string;
   /** Stock Keeping Unit */
@@ -188,6 +190,12 @@ const COLUMN_ALIASES: Record<string, string> = {
 
   sku: "SKU",
   stock_keeping_unit: "SKU",
+
+  // UPID column for variant matching in enrich mode
+  upid: "UPID",
+  variant_upid: "UPID",
+  variantupid: "UPID",
+  variant_id: "UPID",
 
   // Attribute columns
   attribute_1: "Attribute 1",
@@ -490,6 +498,7 @@ function extractVariant(
 ): ParsedVariant {
   return {
     rowNumber,
+    upid: rowData.UPID?.trim() || undefined,
     barcode: rowData.Barcode,
     sku: rowData.SKU,
     attributes: extractAttributes(rowData),
@@ -712,13 +721,14 @@ export function validateRequiredColumns(headers: string[]): {
 
 /**
  * Find duplicate identifiers within parsed products
- * Returns rows with duplicate barcodes or SKUs
+ * Returns rows with duplicate barcodes, SKUs, or UPIDs
  */
 export function findDuplicateIdentifiers(
   products: ParsedProduct[],
-): { field: "Barcode" | "SKU"; value: string; rows: number[] }[] {
+): { field: "Barcode" | "SKU" | "UPID"; value: string; rows: number[] }[] {
   const barcodeMap = new Map<string, number[]>();
   const skuMap = new Map<string, number[]>();
+  const upidMap = new Map<string, number[]>();
 
   for (const product of products) {
     for (const variant of product.variants) {
@@ -733,11 +743,17 @@ export function findDuplicateIdentifiers(
         existing.push(variant.rowNumber);
         skuMap.set(variant.sku, existing);
       }
+
+      if (variant.upid) {
+        const existing = upidMap.get(variant.upid) || [];
+        existing.push(variant.rowNumber);
+        upidMap.set(variant.upid, existing);
+      }
     }
   }
 
   const duplicates: {
-    field: "Barcode" | "SKU";
+    field: "Barcode" | "SKU" | "UPID";
     value: string;
     rows: number[];
   }[] = [];
@@ -751,6 +767,12 @@ export function findDuplicateIdentifiers(
   for (const [sku, rows] of skuMap.entries()) {
     if (rows.length > 1) {
       duplicates.push({ field: "SKU", value: sku, rows });
+    }
+  }
+
+  for (const [upid, rows] of upidMap.entries()) {
+    if (rows.length > 1) {
+      duplicates.push({ field: "UPID", value: upid, rows });
     }
   }
 

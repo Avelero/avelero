@@ -98,10 +98,12 @@ export const bulkUpdateSchema = z.discriminatedUnion("domain", [
 /**
  * Import mode enum
  *
- * - CREATE: Create new products from scratch (never matches existing)
- * - ENRICH: Update existing products matched by SKU/Barcode
+ * - CREATE: Create new products where handle doesn't exist. Products with matching handles are SKIPPED.
+ * - CREATE_AND_ENRICH: Create new products AND update/enrich existing products with matching handles.
+ *   Products are matched by product_handle, variants are matched by UPID for enrichment.
+ *   Enrichment uses one-way merge: Excel values fill empty fields, Excel wins on conflicts.
  */
-export const importModeSchema = z.enum(["CREATE", "ENRICH"]);
+export const importModeSchema = z.enum(["CREATE", "CREATE_AND_ENRICH"]);
 
 /**
  * Schema for starting an import job

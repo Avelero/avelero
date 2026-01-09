@@ -14,7 +14,9 @@ import { brands } from "../core/brands";
  * Import jobs table for tracking bulk product import operations
  * Supports fire-and-forget workflow: validate → auto-commit successful rows
  * Status values: PENDING | PROCESSING | COMPLETED | COMPLETED_WITH_FAILURES | FAILED
- * Mode values: CREATE (new products) | ENRICH (update existing by SKU/Barcode)
+ * Mode values:
+ * - CREATE: Creates new products where handle doesn't exist, skips matching handles
+ * - CREATE_AND_ENRICH: Creates new products AND enriches/updates matching products by handle + UPID
  */
 export const importJobs = pgTable(
   "import_jobs",
@@ -24,8 +26,8 @@ export const importJobs = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     filename: text("filename").notNull(),
-    /** Import mode: CREATE for new products, ENRICH to update existing by SKU/Barcode */
-    mode: text("mode").notNull().default("CREATE"), // CREATE | ENRICH
+    /** Import mode: CREATE for new products (skips matching handles), CREATE_AND_ENRICH to also update matching products */
+    mode: text("mode").notNull().default("CREATE"), // CREATE | CREATE_AND_ENRICH
     startedAt: timestamp("started_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

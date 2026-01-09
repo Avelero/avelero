@@ -44,7 +44,7 @@ interface ValidateAndStagePayload {
   jobId: string;
   brandId: string;
   filePath: string;
-  mode: "CREATE" | "ENRICH";
+  mode: "CREATE" | "CREATE_AND_ENRICH";
 }
 
 /**
@@ -56,12 +56,18 @@ interface RowError {
 }
 
 /**
+ * Product action determined by mode and existence
+ */
+type ProductAction = "CREATE" | "ENRICH" | "SKIP";
+
+/**
  * Result of validating and staging a product
  */
 interface ProductResult {
   productHandle: string;
   rowNumber: number;
   success: boolean;
+  action: ProductAction;
   errors: RowError[];
   stagingProductId?: string;
 }
@@ -208,9 +214,20 @@ export const validateAndStage = task({
         });
       }
 
-      // 8. Determine final status
+      // 8. Determine final status and summary
       const hasFailures = failureCount > 0;
       const finalStatus = hasFailures ? "COMPLETED_WITH_FAILURES" : "COMPLETED";
+
+      // Count by action type
+      const createdCount = results.filter(
+        (r) => r.success && r.action === "CREATE",
+      ).length;
+      const enrichedCount = results.filter(
+        (r) => r.success && r.action === "ENRICH",
+      ).length;
+      const skippedCount = results.filter(
+        (r) => r.success && r.action === "SKIP",
+      ).length;
 
       await db
         .update(importJobs)
@@ -221,6 +238,9 @@ export const validateAndStage = task({
           summary: {
             totalProducts: successCount,
             failedProducts: failureCount,
+            productsCreated: createdCount,
+            productsEnriched: enrichedCount,
+            productsSkipped: skippedCount,
           },
         })
         .where(eq(importJobs.id, jobId));
@@ -515,7 +535,7 @@ async function validateAndStageProduct(
   catalog: BrandCatalog,
   brandId: string,
   jobId: string,
-  mode: "CREATE" | "ENRICH",
+  mode: "CREATE" | "CREATE_AND_ENRICH",
   duplicates: ReturnType<typeof findDuplicateIdentifiers>,
 ): Promise<ProductResult> {
   const errors: RowError[] = [];
@@ -566,6 +586,17 @@ async function validateAndStageProduct(
       });
     }
 
+    const upidDup = duplicates.find(
+      (d) =>
+        d.field === "UPID" && d.value === variant.upid && d.rows.length > 1,
+    );
+    if (upidDup) {
+      errors.push({
+        field: "UPID",
+        message: `Duplicate UPID: ${variant.upid}`,
+      });
+    }
+
     // Require at least barcode or SKU
     if (!variant.barcode && !variant.sku) {
       errors.push({
@@ -581,6 +612,7 @@ async function validateAndStageProduct(
       productHandle: product.productHandle,
       rowNumber: product.rowNumber,
       success: false,
+      action: "CREATE", // Default action for failed rows doesn't matter
       errors,
     };
   }
@@ -593,58 +625,93 @@ async function validateAndStageProduct(
     ? catalog.seasons.get(normalizeKey(product.seasonName))
     : null;
 
-  // Check for existing product/variants in ENRICH mode
-  let existingProductId: string | null = null;
-  const existingVariantIds = new Map<string, string>(); // barcode/sku -> variantId
+  // ============================================================================
+  // HYBRID MODE LOGIC: Check for existing product by handle
+  // ============================================================================
 
-  if (mode === "ENRICH") {
-    // Look up existing product by handle
-    const existingProduct = await database.query.products.findFirst({
-      where: sql`${products.brandId} = ${brandId} AND ${products.productHandle} = ${product.productHandle}`,
-      columns: { id: true },
+  // Look up existing product by handle (always, regardless of mode)
+  const existingProduct = await database.query.products.findFirst({
+    where: sql`${products.brandId} = ${brandId} AND ${products.productHandle} = ${product.productHandle}`,
+    columns: { id: true },
+  });
+  const existingProductId = existingProduct?.id || null;
+
+  // Determine product action based on mode and existence
+  let productAction: ProductAction;
+  if (existingProductId) {
+    if (mode === "CREATE") {
+      // CREATE mode: Skip products that already exist
+      productAction = "SKIP";
+    } else {
+      // CREATE_AND_ENRICH mode: Enrich existing products
+      productAction = "ENRICH";
+    }
+  } else {
+    // Product doesn't exist: Create it (both modes)
+    productAction = "CREATE";
+  }
+
+  // For SKIP action, return success without staging
+  if (productAction === "SKIP") {
+    return {
+      productHandle: product.productHandle,
+      rowNumber: product.rowNumber,
+      success: true,
+      action: "SKIP",
+      errors: [],
+      // No stagingProductId - we're not staging anything
+    };
+  }
+
+  // Look up existing variants by UPID (for ENRICH mode)
+  const existingVariantsByUpid = new Map<string, string>(); // upid -> variantId
+
+  if (productAction === "ENRICH" && existingProductId) {
+    // Get all existing variants for this product
+    const existingVariants = await database.query.productVariants.findMany({
+      where: sql`${productVariants.productId} = ${existingProductId}`,
+      columns: { id: true, upid: true },
     });
-    existingProductId = existingProduct?.id || null;
 
-    // Look up existing variants by barcode/sku
-    const identifiers: string[] = [];
-    for (const v of product.variants) {
-      if (v.barcode) identifiers.push(v.barcode);
-      if (v.sku) identifiers.push(v.sku);
+    for (const ev of existingVariants) {
+      if (ev.upid) {
+        existingVariantsByUpid.set(ev.upid, ev.id);
+      }
     }
 
-    if (identifiers.length > 0 && existingProductId) {
-      const existingVariants = await database.query.productVariants.findMany({
-        where: sql`${productVariants.productId} = ${existingProductId} AND (
-          ${productVariants.barcode} = ANY(ARRAY[${sql.join(
-            identifiers.map((i) => sql`${i}`),
-            sql`, `,
-          )}]::text[])
-          OR ${productVariants.sku} = ANY(ARRAY[${sql.join(
-            identifiers.map((i) => sql`${i}`),
-            sql`, `,
-          )}]::text[])
-        )`,
-        columns: { id: true, barcode: true, sku: true },
-      });
-
-      for (const ev of existingVariants) {
-        if (ev.barcode) existingVariantIds.set(ev.barcode, ev.id);
-        if (ev.sku) existingVariantIds.set(ev.sku, ev.id);
+    // Validate that provided UPIDs exist in the product (for enrichment)
+    for (const variant of product.variants) {
+      if (variant.upid && !existingVariantsByUpid.has(variant.upid)) {
+        errors.push({
+          field: "UPID",
+          message: `Variant UPID not found in product: ${variant.upid}`,
+        });
       }
+    }
+
+    // If any UPID validation failed, return error
+    if (errors.length > 0) {
+      return {
+        productHandle: product.productHandle,
+        rowNumber: product.rowNumber,
+        success: false,
+        action: productAction,
+        errors,
+      };
     }
   }
 
   // Generate IDs for staging
   const stagingProductId = randomUUID();
   const productId = existingProductId || randomUUID();
-  const action = existingProductId ? "UPDATE" : "CREATE";
+  const stagingAction = productAction === "ENRICH" ? "UPDATE" : "CREATE";
 
   // Insert into staging_products
   await database.insert(stagingProducts).values({
     stagingId: stagingProductId,
     jobId,
     rowNumber: product.rowNumber,
-    action,
+    action: stagingAction,
     existingProductId,
     id: productId,
     brandId,
@@ -677,10 +744,14 @@ async function validateAndStageProduct(
   // Process each variant
   for (const variant of product.variants) {
     const stagingVariantId = randomUUID();
-    const existingVariantId =
-      existingVariantIds.get(variant.barcode || "") ||
-      existingVariantIds.get(variant.sku || "") ||
-      null;
+
+    // For ENRICH mode: match by UPID
+    // For CREATE mode: no matching needed, always create new
+    let existingVariantId: string | null = null;
+    if (productAction === "ENRICH" && variant.upid) {
+      existingVariantId = existingVariantsByUpid.get(variant.upid) || null;
+    }
+
     const variantId = existingVariantId || randomUUID();
     const variantAction = existingVariantId ? "UPDATE" : "CREATE";
 
@@ -694,6 +765,7 @@ async function validateAndStageProduct(
       existingVariantId,
       id: variantId,
       productId,
+      upid: variant.upid, // Preserve UPID from Excel
       barcode: variant.barcode,
       sku: variant.sku,
       nameOverride: variant.nameOverride,
@@ -788,6 +860,7 @@ async function validateAndStageProduct(
     productHandle: product.productHandle,
     rowNumber: product.rowNumber,
     success: true,
+    action: productAction,
     errors: [],
     stagingProductId,
   };

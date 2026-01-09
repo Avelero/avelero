@@ -9,8 +9,8 @@ export interface CreateImportJobParams {
   brandId: string;
   filename: string;
   status?: string;
-  /** Import mode: CREATE for new products, ENRICH to update existing */
-  mode?: "CREATE" | "ENRICH";
+  /** Import mode: CREATE for new products (skips existing), CREATE_AND_ENRICH to also update existing */
+  mode?: "CREATE" | "CREATE_AND_ENRICH";
 }
 
 /**

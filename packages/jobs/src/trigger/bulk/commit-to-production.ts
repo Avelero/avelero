@@ -268,20 +268,43 @@ async function commitStagingProduct(
           status: stagingProduct.status ?? "draft",
         });
       } else {
-        // UPDATE
-        await tx
-          .update(products)
-          .set({
-            name: stagingProduct.name,
-            productHandle: stagingProduct.productHandle ?? undefined,
-            description: stagingProduct.description ?? undefined,
-            categoryId: stagingProduct.categoryId ?? undefined,
-            seasonId: stagingProduct.seasonId ?? undefined,
-            manufacturerId: stagingProduct.manufacturerId ?? undefined,
-            imagePath: stagingProduct.imagePath ?? undefined,
-            status: stagingProduct.status ?? undefined,
-          })
-          .where(eq(products.id, existingProductId!));
+        // UPDATE - One-way merge: Only apply non-null/non-empty values from staging
+        // This ensures enrichment fills gaps without clearing existing data
+        const updateData: Record<string, unknown> = {};
+
+        // Only update fields that have values in staging
+        if (stagingProduct.name?.trim()) {
+          updateData.name = stagingProduct.name;
+        }
+        if (stagingProduct.productHandle?.trim()) {
+          updateData.productHandle = stagingProduct.productHandle;
+        }
+        if (stagingProduct.description?.trim()) {
+          updateData.description = stagingProduct.description;
+        }
+        if (stagingProduct.categoryId) {
+          updateData.categoryId = stagingProduct.categoryId;
+        }
+        if (stagingProduct.seasonId) {
+          updateData.seasonId = stagingProduct.seasonId;
+        }
+        if (stagingProduct.manufacturerId) {
+          updateData.manufacturerId = stagingProduct.manufacturerId;
+        }
+        if (stagingProduct.imagePath?.trim()) {
+          updateData.imagePath = stagingProduct.imagePath;
+        }
+        if (stagingProduct.status?.trim()) {
+          updateData.status = stagingProduct.status;
+        }
+
+        // Only perform update if there are changes
+        if (Object.keys(updateData).length > 0) {
+          await tx
+            .update(products)
+            .set(updateData)
+            .where(eq(products.id, existingProductId!));
+        }
       }
 
       // 2. Process staging variants
@@ -298,17 +321,32 @@ async function commitStagingProduct(
           await tx.insert(productVariants).values({
             id: variantId,
             productId,
+            upid: stagingVariant.upid, // Preserve UPID
             barcode: stagingVariant.barcode,
             sku: stagingVariant.sku,
           });
         } else {
-          await tx
-            .update(productVariants)
-            .set({
-              barcode: stagingVariant.barcode,
-              sku: stagingVariant.sku,
-            })
-            .where(eq(productVariants.id, stagingVariant.existingVariantId!));
+          // UPDATE - One-way merge for variants
+          const variantUpdateData: Record<string, unknown> = {};
+
+          // Only update fields that have values in staging
+          if (stagingVariant.upid?.trim()) {
+            variantUpdateData.upid = stagingVariant.upid;
+          }
+          if (stagingVariant.barcode?.trim()) {
+            variantUpdateData.barcode = stagingVariant.barcode;
+          }
+          if (stagingVariant.sku?.trim()) {
+            variantUpdateData.sku = stagingVariant.sku;
+          }
+
+          // Only perform update if there are changes
+          if (Object.keys(variantUpdateData).length > 0) {
+            await tx
+              .update(productVariants)
+              .set(variantUpdateData)
+              .where(eq(productVariants.id, stagingVariant.existingVariantId!));
+          }
         }
 
         // 3. Commit variant attributes

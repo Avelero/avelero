@@ -16,12 +16,7 @@ import {
   getRecentImportJobs,
   updateImportJobStatus,
 } from "@v1/db/queries/bulk";
-import { downloadImportFile } from "@v1/supabase/utils/product-imports";
-import {
-  normalizeHeader,
-  normalizeHeaders,
-  parseFile,
-} from "../../../lib/csv-parser.js";
+
 import {
   dismissFailedImportSchema,
   exportCorrectionsSchema,
@@ -243,10 +238,9 @@ export const importRouter = createTRPCRouter({
 
           // If Trigger.dev is not available, throw a more specific error
           throw new Error(
-            `Failed to start background import job. Please ensure Trigger.dev dev server is running. Error: ${
-              triggerError instanceof Error
-                ? triggerError.message
-                : String(triggerError)
+            `Failed to start background import job. Please ensure Trigger.dev dev server is running. Error: ${triggerError instanceof Error
+              ? triggerError.message
+              : String(triggerError)
             }`,
           );
         }

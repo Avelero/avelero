@@ -1,0 +1,26 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "0072e586e47d47ca4f367de0247bea92"
+name = "Avelero"
+application_url = "https://app.avelero.com/settings/integrations"
+embedded = false
+
+[webhooks]
+api_version = "2025-10"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "https://api.avelero.com/integrations/webhooks/compliance"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_products"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://api.avelero.com/integrations/shopify/callback",
+  "https://pr-100-avelero-api.fly.dev/integrations/shopify/callback",
+  "http://localhost:4000/integrations/shopify/callback"
+]

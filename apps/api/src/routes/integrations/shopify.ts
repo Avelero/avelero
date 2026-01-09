@@ -39,7 +39,7 @@ const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
 // API version for Shopify Admin API
-const SHOPIFY_API_VERSION = "2024-07";
+const SHOPIFY_API_VERSION = "2025-10";
 
 /**
  * Creates the mandatory compliance webhook subscriptions for a shop.
@@ -57,15 +57,16 @@ async function createComplianceWebhookSubscriptions(
   shop: string,
   accessToken: string
 ): Promise<void> {
+  // All compliance webhooks go to the same endpoint, differentiated by X-Shopify-Topic header
   const webhookEndpoint = `${API_URL}/integrations/webhooks/compliance`;
 
   const topics = [
-    { topic: "CUSTOMERS_DATA_REQUEST", path: "customers-data-request" },
-    { topic: "CUSTOMERS_REDACT", path: "customers-redact" },
-    { topic: "SHOP_REDACT", path: "shop-redact" },
+    "CUSTOMERS_DATA_REQUEST",
+    "CUSTOMERS_REDACT",
+    "SHOP_REDACT",
   ];
 
-  for (const { topic, path } of topics) {
+  for (const topic of topics) {
     const mutation = `
       mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
         webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
@@ -84,7 +85,7 @@ async function createComplianceWebhookSubscriptions(
     const variables = {
       topic,
       webhookSubscription: {
-        callbackUrl: `${webhookEndpoint}/${path}`,
+        callbackUrl: webhookEndpoint,
         format: "JSON",
       },
     };

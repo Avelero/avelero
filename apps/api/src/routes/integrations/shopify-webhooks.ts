@@ -113,27 +113,20 @@ async function verifyAndParseWebhook<T>(
 export const shopifyWebhooksRouter = new Hono();
 
 // =============================================================================
-// COMPLIANCE WEBHOOK HANDLERS
+// TOPIC HANDLERS
 // =============================================================================
 
 /**
- * POST /customers-data-request
- *
- * Handles customers/data_request webhook.
+ * Handles customers/data_request topic.
  *
  * When a customer requests their data from a store, Shopify sends this webhook.
  * Since we only have read_products scope and do not store any customer data,
  * this is an intentional no-op. We acknowledge receipt and return success.
  */
-shopifyWebhooksRouter.post("/customers-data-request", async (c) => {
-    const result = await verifyAndParseWebhook<CustomerDataRequestPayload>(c);
-
-    if (!result.success) {
-        return result.response;
-    }
-
-    const { payload } = result;
-
+async function handleCustomersDataRequest(
+    c: Context,
+    payload: CustomerDataRequestPayload
+): Promise<Response> {
     console.log("Shopify webhook: customers/data_request received (no-op, we don't store customer data)", {
         shopDomain: payload.shop_domain,
         shopId: payload.shop_id,
@@ -142,26 +135,19 @@ shopifyWebhooksRouter.post("/customers-data-request", async (c) => {
 
     // No action needed - we don't store customer data (read_products scope only)
     return c.json({ success: true }, 200);
-});
+}
 
 /**
- * POST /customers-redact
- *
- * Handles customers/redact webhook.
+ * Handles customers/redact topic.
  *
  * When a store owner requests customer data deletion, Shopify sends this webhook.
  * Since we only have read_products scope and do not store any customer data,
  * this is an intentional no-op. We acknowledge receipt and return success.
  */
-shopifyWebhooksRouter.post("/customers-redact", async (c) => {
-    const result = await verifyAndParseWebhook<CustomerRedactPayload>(c);
-
-    if (!result.success) {
-        return result.response;
-    }
-
-    const { payload } = result;
-
+async function handleCustomersRedact(
+    c: Context,
+    payload: CustomerRedactPayload
+): Promise<Response> {
     console.log("Shopify webhook: customers/redact received (no-op, we don't store customer data)", {
         shopDomain: payload.shop_domain,
         shopId: payload.shop_id,
@@ -170,26 +156,19 @@ shopifyWebhooksRouter.post("/customers-redact", async (c) => {
 
     // No action needed - we don't store customer data (read_products scope only)
     return c.json({ success: true }, 200);
-});
+}
 
 /**
- * POST /shop-redact
- *
- * Handles shop/redact webhook.
+ * Handles shop/redact topic.
  *
  * 48 hours after a store uninstalls the app, Shopify sends this webhook.
  * We delete the brand integration record for this shop. Product data is
  * retained as it belongs to the brand, not the Shopify integration.
  */
-shopifyWebhooksRouter.post("/shop-redact", async (c) => {
-    const result = await verifyAndParseWebhook<ShopRedactPayload>(c);
-
-    if (!result.success) {
-        return result.response;
-    }
-
-    const { payload } = result;
-
+async function handleShopRedact(
+    c: Context,
+    payload: ShopRedactPayload
+): Promise<Response> {
     console.log("Shopify webhook: shop/redact received", {
         shopDomain: payload.shop_domain,
         shopId: payload.shop_id,
@@ -218,6 +197,53 @@ shopifyWebhooksRouter.post("/shop-redact", async (c) => {
     }
 
     return c.json({ success: true }, 200);
+}
+
+// =============================================================================
+// UNIFIED COMPLIANCE ENDPOINT
+// =============================================================================
+
+/**
+ * POST /
+ *
+ * Unified compliance webhook handler.
+ *
+ * Routes to the appropriate handler based on the X-Shopify-Topic header.
+ * This single endpoint handles all three mandatory compliance webhooks:
+ * - customers/data_request
+ * - customers/redact
+ * - shop/redact
+ */
+shopifyWebhooksRouter.post("/", async (c) => {
+    // Get the topic from the header (case-insensitive)
+    const topic = c.req.header("x-shopify-topic");
+
+    if (!topic) {
+        console.warn("Shopify webhook: Missing X-Shopify-Topic header");
+        return c.json({ error: "Missing X-Shopify-Topic header" }, 400);
+    }
+
+    // Route based on topic
+    switch (topic) {
+        case "customers/data_request": {
+            const result = await verifyAndParseWebhook<CustomerDataRequestPayload>(c);
+            if (!result.success) return result.response;
+            return handleCustomersDataRequest(c, result.payload);
+        }
+        case "customers/redact": {
+            const result = await verifyAndParseWebhook<CustomerRedactPayload>(c);
+            if (!result.success) return result.response;
+            return handleCustomersRedact(c, result.payload);
+        }
+        case "shop/redact": {
+            const result = await verifyAndParseWebhook<ShopRedactPayload>(c);
+            if (!result.success) return result.response;
+            return handleShopRedact(c, result.payload);
+        }
+        default:
+            console.warn("Shopify webhook: Unknown topic:", topic);
+            return c.json({ error: "Unknown webhook topic" }, 400);
+    }
 });
 
 export type ShopifyWebhooksRouter = typeof shopifyWebhooksRouter;

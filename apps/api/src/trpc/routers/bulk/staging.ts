@@ -2,18 +2,16 @@
  * Bulk import staging operations router.
  *
  * Handles staging data operations:
- * - preview: View validated staging data before approval
+ * - reviewSummary: Get comprehensive review data in a single request
+ * - preview: View validated staging data with pagination and filtering
  * - errors: Get paginated list of validation errors
- * - export: Export failed rows as CSV for correction
  */
 import {
   countStagingProductsByAction,
-  getFailedRowsForExport,
   getImportErrors,
   getImportJobStatus,
   getStagingPreview,
 } from "@v1/db/queries/bulk";
-import { generateCSV } from "../../../lib/csv-parser.js";
 import {
   exportFailedRowsSchema,
   getImportErrorsSchema,
@@ -78,6 +76,9 @@ export const stagingRouter = createTRPCRouter({
               rowNumber: p.rowNumber,
               action: p.action,
               existingProductId: p.existingProductId,
+              // Per-row status and errors (new in fire-and-forget flow)
+              rowStatus: p.variant?.rowStatus ?? "PENDING",
+              errors: p.variant?.errors ?? [],
               product: {
                 name: p.name,
                 description: p.description,
@@ -88,7 +89,8 @@ export const stagingRouter = createTRPCRouter({
               variant: p.variant
                 ? {
                     upid: p.variant.upid,
-                    // Note: colorId/sizeId removed - use generic attributes (Phase 5)
+                    barcode: p.variant.barcode,
+                    sku: p.variant.sku,
                   }
                 : null,
             })),
@@ -151,13 +153,12 @@ export const stagingRouter = createTRPCRouter({
           offset: input.offset,
         });
 
-        // Get staging preview
-        const preview = await getStagingPreview(
-          brandCtx.db,
-          input.jobId,
-          input.limit,
-          input.offset,
-        );
+        // Get staging preview with optional status filter
+        const preview = await getStagingPreview(brandCtx.db, input.jobId, {
+          limit: input.limit,
+          offset: input.offset,
+          status: input.status,
+        });
 
         // Get action counts
         const counts = await countStagingProductsByAction(
@@ -179,6 +180,9 @@ export const stagingRouter = createTRPCRouter({
             rowNumber: p.rowNumber,
             action: p.action,
             existingProductId: p.existingProductId,
+            // Per-row status and errors (new in fire-and-forget flow)
+            rowStatus: p.variant?.rowStatus ?? "PENDING",
+            errors: p.variant?.errors ?? [],
             product: {
               name: p.name,
               description: p.description,
@@ -189,7 +193,11 @@ export const stagingRouter = createTRPCRouter({
             variant: p.variant
               ? {
                   upid: p.variant.upid,
-                  // Note: colorId/sizeId removed - use generic attributes (Phase 5)
+                  barcode: p.variant.barcode,
+                  sku: p.variant.sku,
+                  nameOverride: p.variant.nameOverride,
+                  descriptionOverride: p.variant.descriptionOverride,
+                  imagePathOverride: p.variant.imagePathOverride,
                 }
               : null,
           })),
@@ -198,6 +206,8 @@ export const stagingRouter = createTRPCRouter({
           willUpdate: counts.update,
           limit: input.limit,
           offset: input.offset,
+          // Include the status filter in response for client reference
+          statusFilter: input.status ?? null,
         };
 
         console.log(
@@ -264,62 +274,6 @@ export const stagingRouter = createTRPCRouter({
       }
     }),
 
-  /**
-   * Export failed rows as CSV
-   *
-   * Generates a downloadable CSV file containing all failed rows
-   * with their original data and error messages.
-   */
-  export: brandRequiredProcedure
-    .input(exportFailedRowsSchema)
-    .query(async ({ ctx, input }) => {
-      const brandCtx = ctx as BrandContext;
-      const brandId = brandCtx.brandId;
-
-      try {
-        // First verify job ownership
-        const job = await getImportJobStatus(brandCtx.db, input.jobId);
-
-        if (!job) {
-          throw badRequest("Import job not found");
-        }
-
-        if (job.brandId !== brandId) {
-          throw badRequest("Access denied: job belongs to different brand");
-        }
-
-        // Get failed rows
-        const failedRows = await getFailedRowsForExport(
-          brandCtx.db,
-          input.jobId,
-        );
-
-        if (failedRows.length === 0) {
-          return {
-            csv: "",
-            filename: `failed-rows-${input.jobId}.csv`,
-            totalRows: 0,
-          };
-        }
-
-        // Prepare data for CSV generation
-        const rows = failedRows.map((row) => ({
-          ...row.raw,
-          error_message: row.error ?? "Unknown error",
-        }));
-
-        // Generate CSV
-        const csv = generateCSV(rows);
-
-        return {
-          csv,
-          filename: `failed-rows-${input.jobId}.csv`,
-          totalRows: failedRows.length,
-        };
-      } catch (error) {
-        throw wrapError(error, "Failed to export failed rows");
-      }
-    }),
 });
 
 export type StagingRouter = typeof stagingRouter;

@@ -33,27 +33,55 @@ type DbOrTx =
 type StagingProductRow = typeof stagingProducts.$inferSelect;
 
 /**
- * Retrieves staging product preview with pagination
+ * Options for staging preview query
+ */
+export interface StagingPreviewOptions {
+  limit?: number;
+  offset?: number;
+  /** Filter by row status (PENDING, COMMITTED, FAILED) */
+  status?: "PENDING" | "COMMITTED" | "FAILED";
+}
+
+/**
+ * Retrieves staging product preview with pagination and optional status filter
  */
 export async function getStagingPreview(
   db: DbOrTx,
   jobId: string,
-  limit = 100,
+  limitOrOptions: number | StagingPreviewOptions = 100,
   offset = 0,
 ): Promise<{ products: StagingProductPreview[]; total: number }> {
-  // Get total count
+  // Handle both old signature (limit, offset) and new signature (options object)
+  let limit = 100;
+  let statusFilter: string | undefined;
+
+  if (typeof limitOrOptions === "number") {
+    limit = limitOrOptions;
+  } else {
+    limit = limitOrOptions.limit ?? 100;
+    offset = limitOrOptions.offset ?? 0;
+    statusFilter = limitOrOptions.status;
+  }
+
+  // Build where conditions
+  const whereConditions = [eq(stagingProducts.jobId, jobId)];
+  if (statusFilter) {
+    whereConditions.push(eq(stagingProducts.rowStatus, statusFilter));
+  }
+
+  // Get total count with filters
   const countResult = await db
     .select({ value: count() })
     .from(stagingProducts)
-    .where(eq(stagingProducts.jobId, jobId));
+    .where(and(...whereConditions));
 
   const total = countResult[0]?.value ?? 0;
 
-  // Get paginated products
+  // Get paginated products with filters
   const products = await db
     .select()
     .from(stagingProducts)
-    .where(eq(stagingProducts.jobId, jobId))
+    .where(and(...whereConditions))
     .orderBy(asc(stagingProducts.rowNumber))
     .limit(limit)
     .offset(offset);

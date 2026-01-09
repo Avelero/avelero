@@ -9,6 +9,8 @@ export interface CreateImportJobParams {
   brandId: string;
   filename: string;
   status?: string;
+  /** Import mode: CREATE for new products, ENRICH to update existing */
+  mode?: "CREATE" | "ENRICH";
 }
 
 /**
@@ -43,6 +45,10 @@ export interface ImportJobStatus {
   status: string;
   requiresValueApproval: boolean;
   summary: Record<string, unknown> | null;
+  /** Import mode: CREATE for new products, ENRICH to update existing */
+  mode: string;
+  /** Whether the job has failed rows that can be exported for correction */
+  hasExportableFailures: boolean;
 }
 
 /**

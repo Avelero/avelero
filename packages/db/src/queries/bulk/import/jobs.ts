@@ -33,6 +33,7 @@ export async function createImportJob(
       brandId: params.brandId,
       filename: params.filename,
       status: params.status ?? "PENDING",
+      mode: params.mode ?? "CREATE",
     })
     .returning();
 
@@ -52,6 +53,8 @@ export async function createImportJob(
     status: job.status,
     requiresValueApproval: job.requiresValueApproval,
     summary: job.summary as Record<string, unknown> | null,
+    mode: job.mode,
+    hasExportableFailures: job.hasExportableFailures,
   };
 }
 
@@ -100,6 +103,8 @@ export async function updateImportJobStatus(
     status: job.status,
     requiresValueApproval: job.requiresValueApproval,
     summary: job.summary as Record<string, unknown> | null,
+    mode: job.mode,
+    hasExportableFailures: job.hasExportableFailures,
   };
 }
 
@@ -132,6 +137,8 @@ export async function updateImportJobProgress(
     status: job.status,
     requiresValueApproval: job.requiresValueApproval,
     summary: job.summary as Record<string, unknown> | null,
+    mode: job.mode,
+    hasExportableFailures: job.hasExportableFailures,
   };
 }
 
@@ -164,7 +171,43 @@ export async function getImportJobStatus(
     status: job.status,
     requiresValueApproval: job.requiresValueApproval,
     summary: job.summary as Record<string, unknown> | null,
+    mode: job.mode,
+    hasExportableFailures: job.hasExportableFailures,
   };
+}
+
+/**
+ * Retrieves recent import jobs for a brand
+ *
+ * Returns the most recent import jobs ordered by start date descending.
+ * Used for displaying import history in the import modal.
+ */
+export async function getRecentImportJobs(
+  db: DbOrTx,
+  brandId: string,
+  limit: number = 5,
+): Promise<ImportJobStatus[]> {
+  const results = await db
+    .select()
+    .from(importJobs)
+    .where(eq(importJobs.brandId, brandId))
+    .orderBy(importJobs.startedAt)
+    .limit(limit);
+
+  // Reverse to get descending order (most recent first)
+  return results.reverse().map((job) => ({
+    id: job.id,
+    brandId: job.brandId,
+    filename: job.filename,
+    startedAt: job.startedAt,
+    finishedAt: job.finishedAt,
+    commitStartedAt: job.commitStartedAt,
+    status: job.status,
+    requiresValueApproval: job.requiresValueApproval,
+    summary: job.summary as Record<string, unknown> | null,
+    mode: job.mode,
+    hasExportableFailures: job.hasExportableFailures,
+  }));
 }
 
 

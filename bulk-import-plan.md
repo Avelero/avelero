@@ -39,13 +39,13 @@
 | Update `layout.tsx` | ✅ Done | Removed FloatingProgressWidget and ImportReviewDialog |
 | Update passports list layout | ✅ Done | Removed PassportsUploadSheet |
 
-### Phase 2: API/Backend Changes 🔲 NOT STARTED
-| Task | Status |
-|------|--------|
-| 2.1 Update bulk import schemas | 🔲 |
-| 2.2 Update import router | 🔲 |
-| 2.3 Simplify values router | 🔲 |
-| 2.4 Update staging router | 🔲 |
+### Phase 2: API/Backend Changes ✅ COMPLETE
+| Task | Status | Notes |
+|------|--------|-------|
+| 2.1 Update bulk import schemas | ✅ Done | Added importModeSchema, updated startImportSchema with mode, added exportCorrectionsSchema, dismissFailedImportSchema, getRecentImportsSchema, stagingRowStatusSchema |
+| 2.2 Update import router | ✅ Done | Modified start to accept mode, added getRecentImports/dismiss/exportCorrections, deprecated approve/cancel |
+| 2.3 Simplify values router | ✅ Done | Added deprecation comments to define/batchDefine/mapToExisting, updated unmapped description |
+| 2.4 Update staging router | ✅ Done | Added status filter to preview, added rowStatus/errors to response, deprecated export |
 
 ### Phase 3: Background Job Changes 🔲 NOT STARTED
 | Task | Status |

@@ -2,18 +2,18 @@ import { tasks } from "@trigger.dev/sdk/v3";
 /**
  * Bulk import lifecycle router.
  *
- * Handles the complete import workflow:
- * - validate: Quick pre-validation of file headers
- * - start: Create job and trigger background validation
+ * Handles the fire-and-forget import workflow:
+ * - start: Create job and trigger background processing
  * - status: Get real-time job progress
- * - approve: Trigger Phase 2 commit to production
- * - cancel: Discard staging data and cancel job
+ * - getRecentImports: Get recent import jobs for the brand
+ * - dismiss: Clean up staging data for failed imports
+ * - exportCorrections: Generate Excel file with failed rows for correction
  */
 import {
-  countStagingProductsByAction,
   createImportJob,
   deleteStagingDataForJob,
   getImportJobStatus,
+  getRecentImportJobs,
   updateImportJobStatus,
 } from "@v1/db/queries/bulk";
 import { downloadImportFile } from "@v1/supabase/utils/product-imports";
@@ -23,9 +23,10 @@ import {
   parseFile,
 } from "../../../lib/csv-parser.js";
 import {
-  approveImportSchema,
-  cancelImportSchema,
+  dismissFailedImportSchema,
+  exportCorrectionsSchema,
   getImportStatusSchema,
+  getRecentImportsSchema,
   startImportSchema,
 } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -168,12 +169,13 @@ export const importRouter = createTRPCRouter({
       console.log("[import.start] Resolved file path:", resolvedFile.path);
 
       try {
-        // Create import job record
+        // Create import job record with mode
         console.log("[import.start] Creating import job...");
         const job = await createImportJob(brandCtx.db, {
           brandId,
           filename: input.filename,
           status: "PENDING",
+          mode: input.mode,
         });
 
         console.log("[import.start] Import job created:", {
@@ -197,6 +199,7 @@ export const importRouter = createTRPCRouter({
               jobId: job.id,
               brandId,
               filePath: resolvedFile.path,
+              mode: input.mode,
             },
           );
 
@@ -204,6 +207,7 @@ export const importRouter = createTRPCRouter({
             jobId: job.id,
             brandId,
             filePath: resolvedFile.path,
+            mode: input.mode,
           });
 
           console.log("[import.start] Background job triggered successfully", {
@@ -319,136 +323,52 @@ export const importRouter = createTRPCRouter({
     }),
 
   /**
-   * Approve import job (trigger Phase 2)
+   * Get recent import jobs
    *
-   * Validates that:
-   * 1. Job is in VALIDATED status
-   * 2. All unmapped values have been defined
-   * 3. Staging data exists
-   *
-   * Then triggers Phase 2 background job to commit staging data to production.
-   * Returns immediately while background job processes the commit.
+   * Returns the most recent import jobs for the active brand.
+   * Used to display import history in the import modal.
    */
-  approve: brandRequiredProcedure
-    .input(approveImportSchema)
-    .mutation(async ({ ctx, input }) => {
+  getRecentImports: brandRequiredProcedure
+    .input(getRecentImportsSchema)
+    .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = brandCtx.brandId;
 
       try {
-        // Verify job ownership and get current status
-        const job = await getImportJobStatus(brandCtx.db, input.jobId);
-
-        if (!job) {
-          throw badRequest("Import job not found");
-        }
-
-        if (job.brandId !== brandId) {
-          throw badRequest("Access denied: job belongs to different brand");
-        }
-
-        // Allow safe re-entry if commit already in progress
-        if (job.status === "COMMITTING") {
-          return {
-            jobId: job.id,
-            status: "COMMITTING" as const,
-            message: "Import already approved and committing to production",
-          };
-        }
-
-        // Validate job status - only VALIDATED jobs can be approved
-        if (job.status !== "VALIDATED") {
-          throw badRequest(
-            `Cannot approve job with status ${job.status}. Job must be in VALIDATED status.`,
-          );
-        }
-
-        // Check that all unmapped values have been defined
-        const summary = (job.summary as Record<string, unknown>) ?? {};
-        const pendingApproval = (summary.pending_approval as unknown[]) ?? [];
-
-        if (pendingApproval.length > 0) {
-          throw badRequest(
-            `Cannot approve import: ${pendingApproval.length} unmapped values still need to be defined. Please define all values before approval.`,
-          );
-        }
-
-        // Verify staging data exists
-        const counts = await countStagingProductsByAction(
-          brandCtx.db,
-          input.jobId,
-        );
-
-        if (counts.create === 0 && counts.update === 0) {
-          console.warn(
-            "[import.approve] Proceeding with approval despite empty staging data",
-            { jobId: input.jobId },
-          );
-        }
-
-        // Update job status to COMMITTING
-        await updateImportJobStatus(brandCtx.db, {
-          jobId: input.jobId,
-          status: "COMMITTING",
-        });
-
-        // Trigger Phase 2 background job (commit-to-production)
-        console.log("[import.approve] Triggering commit-to-production job", {
-          jobId: input.jobId,
-          brandId,
-        });
-
-        try {
-          const runHandle = await tasks.trigger("commit-to-production", {
-            jobId: input.jobId,
-            brandId,
-          });
-
-          console.log("[import.approve] Commit job triggered successfully", {
-            triggerRunId: runHandle.id,
-          });
-        } catch (triggerError) {
-          console.error("[import.approve] Failed to trigger commit job:", {
-            error: triggerError,
-            errorMessage:
-              triggerError instanceof Error
-                ? triggerError.message
-                : String(triggerError),
-          });
-
-          // Rollback status if trigger fails
-          await updateImportJobStatus(brandCtx.db, {
-            jobId: input.jobId,
-            status: "VALIDATED",
-          });
-
-          throw wrapError(triggerError, "Failed to start commit process");
-        }
+        const jobs = await getRecentImportJobs(brandCtx.db, brandId, input.limit);
 
         return {
-          jobId: input.jobId,
-          status: "COMMITTING" as const,
-          message: "Import approved - committing to production",
+          jobs: jobs.map((job) => ({
+            id: job.id,
+            filename: job.filename,
+            mode: job.mode,
+            status: job.status,
+            startedAt: job.startedAt,
+            finishedAt: job.finishedAt,
+            hasExportableFailures: job.hasExportableFailures,
+            summary: job.summary,
+          })),
         };
       } catch (error) {
-        throw wrapError(error, "Failed to approve import");
+        throw wrapError(error, "Failed to get recent imports");
       }
     }),
 
   /**
-   * Cancel import job
+   * Dismiss a failed import
    *
-   * Discards staging data and marks job as CANCELLED.
-   * Can only cancel jobs in VALIDATED status (before commit starts).
+   * Cleans up staging data for a failed import and removes it
+   * from the actionable imports list. Use this when the user
+   * doesn't want to fix and re-import the failed rows.
    */
-  cancel: brandRequiredProcedure
-    .input(cancelImportSchema)
+  dismiss: brandRequiredProcedure
+    .input(dismissFailedImportSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = brandCtx.brandId;
 
       try {
-        // Verify job ownership and get current status
+        // Verify job ownership
         const job = await getImportJobStatus(brandCtx.db, input.jobId);
 
         if (!job) {
@@ -459,29 +379,82 @@ export const importRouter = createTRPCRouter({
           throw badRequest("Access denied: job belongs to different brand");
         }
 
-        // Validate job status - only VALIDATED jobs can be cancelled
-        if (job.status !== "VALIDATED") {
+        // Only allow dismissing jobs with failures or failed jobs
+        const dismissableStatuses = ["COMPLETED_WITH_FAILURES", "FAILED"];
+        if (!dismissableStatuses.includes(job.status)) {
           throw badRequest(
-            `Cannot cancel job with status ${job.status}. Only jobs in VALIDATED status can be cancelled.`,
+            `Cannot dismiss job with status ${job.status}. Only jobs with failures can be dismissed.`,
           );
         }
 
-        // Delete staging data for this job (cascades to all related tables)
+        // Delete staging data for this job
         await deleteStagingDataForJob(brandCtx.db, input.jobId);
 
-        // Update job status to CANCELLED
+        // Update job to mark as dismissed (clear the exportable failures flag)
         await updateImportJobStatus(brandCtx.db, {
           jobId: input.jobId,
-          status: "CANCELLED",
+          status: job.status, // Keep the same status
+          summary: {
+            ...(job.summary ?? {}),
+            dismissed: true,
+            dismissedAt: new Date().toISOString(),
+          },
         });
 
         return {
           jobId: input.jobId,
-          status: "CANCELLED" as const,
-          message: "Import cancelled - staging data discarded",
+          success: true,
+          message: "Import dismissed - staging data cleaned up",
         };
       } catch (error) {
-        throw wrapError(error, "Failed to cancel import");
+        throw wrapError(error, "Failed to dismiss import");
+      }
+    }),
+
+  /**
+   * Export corrections Excel file
+   *
+   * Generates an Excel file containing failed rows with error cells
+   * highlighted in red. Users can correct the data and re-import.
+   *
+   * Note: The actual Excel generation is handled by a background job.
+   * This endpoint triggers the generation and returns a download URL.
+   */
+  exportCorrections: brandRequiredProcedure
+    .input(exportCorrectionsSchema)
+    .mutation(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = brandCtx.brandId;
+
+      try {
+        // Verify job ownership
+        const job = await getImportJobStatus(brandCtx.db, input.jobId);
+
+        if (!job) {
+          throw badRequest("Import job not found");
+        }
+
+        if (job.brandId !== brandId) {
+          throw badRequest("Access denied: job belongs to different brand");
+        }
+
+        // Check that job has exportable failures
+        if (!job.hasExportableFailures) {
+          throw badRequest(
+            "No failed rows to export. This job completed successfully or has no exportable failures.",
+          );
+        }
+
+        // TODO: Phase 3 will implement the actual Excel generation
+        // For now, return a placeholder indicating the feature is not yet implemented
+        return {
+          jobId: input.jobId,
+          status: "pending" as const,
+          message: "Excel export will be implemented in Phase 3",
+          downloadUrl: null,
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to export corrections");
       }
     }),
 });

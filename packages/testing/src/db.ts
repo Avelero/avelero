@@ -28,6 +28,12 @@ const client = postgres(connectionString);
 export const testDb = drizzle(client, { schema });
 
 /**
+ * Track whether the connection has been closed.
+ * This is used to make closeTestDb() idempotent.
+ */
+let connectionClosed = false;
+
+/**
  * Tables that should NOT be cleaned between tests.
  * These contain reference data that is seeded once and should persist.
  */
@@ -51,6 +57,11 @@ const protectedTables = new Set([
  * Uses a single TRUNCATE statement with CASCADE for speed.
  */
 export async function cleanupTables(): Promise<void> {
+    // Skip cleanup if connection is already closed
+    if (connectionClosed) {
+        return;
+    }
+
     // Query all user tables from the public schema
     const result = await testDb.execute<{ tablename: string }>(sql`
         SELECT tablename 
@@ -77,8 +88,14 @@ export async function cleanupTables(): Promise<void> {
 
 /**
  * Close database connection. Called after all tests complete.
+ * This function is idempotent - calling it multiple times is safe.
  */
 export async function closeTestDb(): Promise<void> {
+    // Only close if not already closed
+    if (connectionClosed) {
+        return;
+    }
+    connectionClosed = true;
     await client.end();
 }
 

@@ -64,23 +64,24 @@ export interface ParsedVariant {
   /** Override for product image (only on child rows) */
   imagePathOverride?: string;
 
-  // Environmental data (variant-level)
-  /** Carbon footprint in kg CO2e */
-  carbonKg?: number;
-  /** Carbon footprint description/status */
-  carbonStatus?: string;
-  /** Water usage in liters */
-  waterLiters?: number;
-  /** Weight in grams */
-  weightGrams?: number;
-  /** Eco claims (pipe-separated in Excel) */
-  ecoClaims: string[];
-  /** Parsed materials (complex format) */
-  materials: ParsedMaterial[];
+  // Environmental data OVERRIDES (only populated on child rows with values)
+  // Parent row environmental data goes to ParsedProduct instead
+  /** Carbon footprint override in kg CO2e (only on child rows) */
+  carbonKgOverride?: number;
+  /** Carbon footprint status override (only on child rows) */
+  carbonStatusOverride?: string;
+  /** Water usage override in liters (only on child rows) */
+  waterLitersOverride?: number;
+  /** Weight override in grams (only on child rows) */
+  weightGramsOverride?: number;
+  /** Eco claims override (only on child rows) */
+  ecoClaimsOverride: string[];
+  /** Materials override (only on child rows) */
+  materialsOverride: ParsedMaterial[];
 
-  // Journey steps (variant-level)
-  /** Map of step slug -> operator/facility name */
-  journeySteps: Record<string, string>;
+  // Journey steps OVERRIDE (only populated on child rows with values)
+  /** Map of step slug -> operator/facility name (only on child rows) */
+  journeyStepsOverride: Record<string, string>;
 
   // Raw data for error reporting
   rawData: Record<string, string>;
@@ -102,14 +103,31 @@ export interface ParsedProduct {
   manufacturerName?: string;
   /** Product image URL/path */
   imagePath?: string;
-  /** Image publication status */
-  imageStatus?: string;
+  /** Product status (unpublished, published, archived, scheduled) */
+  status?: string;
   /** Category path (e.g., "Clothing > T-shirts") */
   categoryPath?: string;
   /** Season name (e.g., "NOS", "SS26") */
   seasonName?: string;
-  /** Tags (pipe-separated in Excel) */
+  /** Tags (semicolon-separated in Excel) */
   tags: string[];
+
+  // Product-level environmental/supply chain data (from parent row)
+  /** Carbon footprint in kg CO2e */
+  carbonKg?: number;
+  /** Carbon footprint description/status */
+  carbonStatus?: string;
+  /** Water usage in liters */
+  waterLiters?: number;
+  /** Weight in grams */
+  weightGrams?: number;
+  /** Eco claims (semicolon-separated in Excel) */
+  ecoClaims: string[];
+  /** Parsed materials (from Materials + Percentages columns) */
+  materials: ParsedMaterial[];
+  /** Map of journey step slug -> operator/facility name */
+  journeySteps: Record<string, string>;
+
   /** All variants belonging to this product */
   variants: ParsedVariant[];
   /** Raw product-level data for error reporting */
@@ -171,9 +189,10 @@ const COLUMN_ALIASES: Record<string, string> = {
   image_url: "Image",
   imageurl: "Image",
 
-  image_status: "Image Status",
-  imagestatus: "Image Status",
-  status: "Image Status",
+  // Product status (unpublished, published, archived, scheduled)
+  status: "Status",
+  product_status: "Status",
+  productstatus: "Status",
 
   category: "Category",
   product_category: "Category",
@@ -220,6 +239,8 @@ const COLUMN_ALIASES: Record<string, string> = {
   "attribute 3 value": "Attribute Value 3",
 
   // Environmental columns
+  // "kgCO2e Carbon Footprint" -> "kgco2e_carbon_footprint"
+  kgco2e_carbon_footprint: "Kilograms CO2",
   kilograms_co2: "Kilograms CO2",
   kilogramsco2: "Kilograms CO2",
   kg_co2: "Kilograms CO2",
@@ -228,11 +249,14 @@ const COLUMN_ALIASES: Record<string, string> = {
   carbon_footprint: "Carbon Footprint",
   carbonfootprint: "Carbon Footprint",
 
+  // "Liters Water Used" -> "liters_water_used"
   liters_water_used: "Liters Water Used",
   literswaterused: "Liters Water Used",
   water_liters: "Liters Water Used",
   water_usage: "Liters Water Used",
+  liters_water: "Liters Water Used",
 
+  // "Eco-claims" -> "eco_claims"
   eco_claims: "Eco Claims",
   ecoclaims: "Eco Claims",
 
@@ -241,9 +265,16 @@ const COLUMN_ALIASES: Record<string, string> = {
   weight: "Grams Weight",
   weight_grams: "Grams Weight",
 
-  materials_percentages: "Materials Percentages",
-  materialspercentages: "Materials Percentages",
-  materials: "Materials Percentages",
+  // Materials column (semicolon-separated material names)
+  materials: "Materials",
+  material: "Materials",
+  material_list: "Materials",
+
+  // Percentages column (semicolon-separated percentages, matches Materials order)
+  percentages: "Percentages",
+  percentage: "Percentages",
+  material_percentages: "Percentages",
+  materials_percentages: "Percentages",
 
   // Journey step columns
   raw_material: "Raw Material",
@@ -251,11 +282,11 @@ const COLUMN_ALIASES: Record<string, string> = {
 
   weaving: "Weaving",
 
-  "dyeing/printing": "Dyeing/Printing",
-  dyeing_printing: "Dyeing/Printing",
-  dyeingprinting: "Dyeing/Printing",
-  dyeing: "Dyeing/Printing",
-  printing: "Dyeing/Printing",
+  "dyeing / printing": "Dyeing / Printing",
+  dyeing_printing: "Dyeing / Printing",
+  dyeingprinting: "Dyeing / Printing",
+  dyeing: "Dyeing / Printing",
+  printing: "Dyeing / Printing",
 
   stitching: "Stitching",
 
@@ -265,15 +296,16 @@ const COLUMN_ALIASES: Record<string, string> = {
 };
 
 /**
- * Journey step column names mapped to their step slugs
+ * Journey step column names mapped to their step types (display format)
+ * These must match the exact format used in the UI/database
  */
 const JOURNEY_STEP_COLUMNS: Record<string, string> = {
-  "Raw Material": "raw-material",
-  Weaving: "weaving",
-  "Dyeing/Printing": "dyeing-printing",
-  Stitching: "stitching",
-  Assembly: "assembly",
-  Finishing: "finishing",
+  "Raw Material": "Raw Material",
+  Weaving: "Weaving",
+  "Dyeing / Printing": "Dyeing / Printing",
+  Stitching: "Stitching",
+  Assembly: "Assembly",
+  Finishing: "Finishing",
 };
 
 // ============================================================================
@@ -287,7 +319,7 @@ function normalizeColumnName(name: string): string {
   return name
     .toLowerCase()
     .trim()
-    .replace(/[\s_-]+/g, "_");
+    .replace(/[\s_\-/]+/g, "_");
 }
 
 /**
@@ -359,76 +391,62 @@ function getCellValue(
 }
 
 /**
- * Parse pipe-separated values
- * Example: "Red|Blue|Green" => ["Red", "Blue", "Green"]
+ * Parse semicolon-separated values
+ * Example: "Red; Blue; Green" => ["Red", "Blue", "Green"]
  */
-export function parsePipeSeparated(value: string | undefined): string[] {
+export function parseSemicolonSeparated(value: string | undefined): string[] {
   if (!value || value.trim() === "") {
     return [];
   }
   return value
-    .split("|")
+    .split(";")
     .map((v) => v.trim())
     .filter((v) => v.length > 0);
 }
 
 /**
- * Parse materials from complex format
- * Format: "Name:Percentage[:Country:Recyclable:CertTitle:CertNumber:CertExpiry]|..."
- * Example: "Cotton:75:TR:yes:GOTS:123:2025-12-31|Polyester:25"
+ * @deprecated Use parseSemicolonSeparated instead
  */
-export function parseMaterials(value: string | undefined): ParsedMaterial[] {
-  if (!value || value.trim() === "") {
+export function parsePipeSeparated(value: string | undefined): string[] {
+  return parseSemicolonSeparated(value);
+}
+
+/**
+ * Parse materials from simple semicolon-separated format with optional percentages
+ *
+ * Materials column: "Cotton; Polyester; Elastane"
+ * Percentages column (optional): "80; 15; 5"
+ *
+ * @param materialsValue - Semicolon-separated material names
+ * @param percentagesValue - Optional semicolon-separated percentages
+ * @returns Array of ParsedMaterial objects
+ */
+export function parseMaterials(
+  materialsValue: string | undefined,
+  percentagesValue?: string | undefined,
+): ParsedMaterial[] {
+  if (!materialsValue || materialsValue.trim() === "") {
     return [];
   }
 
-  const materials: ParsedMaterial[] = [];
-  const parts = value.split("|");
+  const materialNames = parseSemicolonSeparated(materialsValue);
+  const percentages = percentagesValue
+    ? parseSemicolonSeparated(percentagesValue)
+    : [];
 
-  for (const part of parts) {
-    const segments = part.split(":").map((s) => s.trim());
+  return materialNames.map((name, index) => {
+    const material: ParsedMaterial = { name };
 
-    if (segments.length === 0 || !segments[0]) {
-      continue;
-    }
-
-    const material: ParsedMaterial = {
-      name: segments[0],
-    };
-
-    if (segments[1]) {
-      const percentage = Number.parseFloat(segments[1]);
+    // Get corresponding percentage if available
+    if (percentages[index]) {
+      const percentage = Number.parseFloat(percentages[index]);
       if (!Number.isNaN(percentage)) {
         material.percentage = percentage;
       }
     }
 
-    if (segments[2]) {
-      material.country = segments[2];
-    }
-
-    if (segments[3]) {
-      material.recyclable =
-        segments[3].toLowerCase() === "yes" ||
-        segments[3].toLowerCase() === "true";
-    }
-
-    if (segments[4]) {
-      material.certificationTitle = segments[4];
-    }
-
-    if (segments[5]) {
-      material.certificationNumber = segments[5];
-    }
-
-    if (segments[6]) {
-      material.certificationExpiry = segments[6];
-    }
-
-    materials.push(material);
-  }
-
-  return materials;
+    return material;
+  });
 }
 
 /**
@@ -487,6 +505,11 @@ function extractJourneySteps(
 /**
  * Extract variant data from a row
  *
+ * For parent rows (isFirstVariant=true): Only extracts variant-level data (barcode, sku, attributes)
+ * Environmental/material/journey data goes to the product level instead.
+ *
+ * For child rows (isFirstVariant=false): Extracts variant-level overrides if cells have values.
+ *
  * @param rowData - Row data as key-value pairs
  * @param rowNumber - Row number in the Excel file
  * @param isFirstVariant - Whether this is the first variant of a product (parent row)
@@ -496,6 +519,10 @@ function extractVariant(
   rowNumber: number,
   isFirstVariant: boolean,
 ): ParsedVariant {
+  // For child rows, extract environmental/material/journey data as overrides
+  // For parent rows, these fields stay empty (data goes to product level)
+  const shouldExtractOverrides = !isFirstVariant;
+
   return {
     rowNumber,
     upid: rowData.UPID?.trim() || undefined,
@@ -504,26 +531,40 @@ function extractVariant(
     attributes: extractAttributes(rowData),
 
     // Only set overrides for child rows (not first variant)
-    nameOverride: !isFirstVariant
+    nameOverride: shouldExtractOverrides
       ? rowData["Product Title"]?.trim() || undefined
       : undefined,
-    descriptionOverride: !isFirstVariant
+    descriptionOverride: shouldExtractOverrides
       ? rowData.Description?.trim() || undefined
       : undefined,
-    imagePathOverride: !isFirstVariant
+    imagePathOverride: shouldExtractOverrides
       ? rowData.Image?.trim() || undefined
       : undefined,
 
-    // Environmental data
-    carbonKg: parseNumber(rowData["Kilograms CO2"]),
-    carbonStatus: rowData["Carbon Footprint"],
-    waterLiters: parseNumber(rowData["Liters Water Used"]),
-    weightGrams: parseNumber(rowData["Grams Weight"]),
-    ecoClaims: parsePipeSeparated(rowData["Eco Claims"]),
-    materials: parseMaterials(rowData["Materials Percentages"]),
+    // Environmental data OVERRIDES - only for child rows
+    carbonKgOverride: shouldExtractOverrides
+      ? parseNumber(rowData["Kilograms CO2"])
+      : undefined,
+    carbonStatusOverride: shouldExtractOverrides
+      ? rowData["Carbon Footprint"]
+      : undefined,
+    waterLitersOverride: shouldExtractOverrides
+      ? parseNumber(rowData["Liters Water Used"])
+      : undefined,
+    weightGramsOverride: shouldExtractOverrides
+      ? parseNumber(rowData["Grams Weight"])
+      : undefined,
+    ecoClaimsOverride: shouldExtractOverrides
+      ? parseSemicolonSeparated(rowData["Eco Claims"])
+      : [],
+    materialsOverride: shouldExtractOverrides
+      ? parseMaterials(rowData.Materials, rowData.Percentages)
+      : [],
 
-    // Journey steps
-    journeySteps: extractJourneySteps(rowData),
+    // Journey steps OVERRIDE - only for child rows
+    journeyStepsOverride: shouldExtractOverrides
+      ? extractJourneySteps(rowData)
+      : {},
 
     // Raw data for error reporting
     rawData: { ...rowData },
@@ -531,17 +572,26 @@ function extractVariant(
 }
 
 /**
- * Build a header map from the first row
+ * Build a header map from row 2 (Avelero template structure)
+ *
+ * Template structure:
+ * - Row 1: Category header with merged cells (skip)
+ * - Row 2: Actual column headers
+ * - Row 3: Example data row (skip)
+ * - Row 4+: Actual product data
+ *
  * Maps column index to canonical column name
  */
 function buildHeaderMap(worksheet: ExcelJS.Worksheet): {
   headers: string[];
   headerMap: Map<number, string>;
+  headerRowNumber: number;
 } {
   const headers: string[] = [];
   const headerMap = new Map<number, string>();
 
-  const headerRow = worksheet.getRow(1);
+  // Use row 2 as the header row (row 1 is category headers with merged cells)
+  const headerRow = worksheet.getRow(2);
 
   headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
     const rawHeader = getCellValue(headerRow, colNumber);
@@ -552,7 +602,7 @@ function buildHeaderMap(worksheet: ExcelJS.Worksheet): {
     }
   });
 
-  return { headers, headerMap };
+  return { headers, headerMap, headerRowNumber: 2 };
 }
 
 /**
@@ -608,18 +658,29 @@ export async function parseExcelFile(
     };
   }
 
-  const worksheet = workbook.getWorksheet(1);
+  // Get the "Products" worksheet by name (the template has two tabs: Description and Products)
+  // Fall back to first worksheet if "Products" tab doesn't exist (for simpler files)
+  let worksheet = workbook.getWorksheet("Products");
+  if (!worksheet) {
+    worksheet = workbook.getWorksheet(1);
+  }
+
   if (!worksheet) {
     return {
       products: [],
       headers: [],
       totalRows: 0,
-      errors: [{ row: 0, message: "No worksheet found in Excel file" }],
+      errors: [
+        {
+          row: 0,
+          message: "No worksheet found in Excel file. Expected 'Products' tab.",
+        },
+      ],
     };
   }
 
-  // Build header map from first row
-  const { headers, headerMap } = buildHeaderMap(worksheet);
+  // Build header map from row 2 (row 1 is category header with merged cells)
+  const { headers, headerMap, headerRowNumber } = buildHeaderMap(worksheet);
 
   if (headers.length === 0) {
     return {
@@ -634,9 +695,17 @@ export async function parseExcelFile(
   let currentProduct: ParsedProduct | null = null;
   let rowCount = 0;
 
-  // Process each row (skip header row)
+  // Process each row (skip first 3 rows: category header, column headers, example row)
+  // Row 1: Category headers (merged cells)
+  // Row 2: Column headers
+  // Row 3: Example data row
+  // Row 4+: Actual product data
+  const DATA_START_ROW = 4;
+
   worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber === 1) return; // Skip header
+    if (rowNumber < DATA_START_ROW) {
+      return; // Skip rows 1-3
+    }
 
     rowCount++;
     const rowData = extractRowData(row, headerMap);
@@ -646,6 +715,7 @@ export async function parseExcelFile(
 
     if (productHandle) {
       // Parent row - start new product group
+      // Extract product-level environmental/material/journey data from parent row
       currentProduct = {
         rowNumber,
         productHandle,
@@ -653,10 +723,20 @@ export async function parseExcelFile(
         description: rowData.Description,
         manufacturerName: rowData.Manufacturer,
         imagePath: rowData.Image,
-        imageStatus: rowData["Image Status"],
+        status: rowData.Status?.toLowerCase(),
         categoryPath: rowData.Category,
         seasonName: rowData.Season,
-        tags: parsePipeSeparated(rowData.Tags),
+        tags: parseSemicolonSeparated(rowData.Tags),
+
+        // Product-level environmental/supply chain data (from parent row)
+        carbonKg: parseNumber(rowData["Kilograms CO2"]),
+        carbonStatus: rowData["Carbon Footprint"],
+        waterLiters: parseNumber(rowData["Liters Water Used"]),
+        weightGrams: parseNumber(rowData["Grams Weight"]),
+        ecoClaims: parseSemicolonSeparated(rowData["Eco Claims"]),
+        materials: parseMaterials(rowData.Materials, rowData.Percentages),
+        journeySteps: extractJourneySteps(rowData),
+
         variants: [extractVariant(rowData, rowNumber, true)],
         rawData: { ...rowData },
       };

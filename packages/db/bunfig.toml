@@ -1,0 +1,10 @@
+# Bun configuration for database tests
+[test]
+# Preload the setup file to initialize env vars and database cleanup
+preload = ["./__tests__/setup.ts"]
+
+# Disable code coverage to speed up test runs
+coverage = false
+
+# Increase timeout for CI environments with remote databases
+timeout = 60000

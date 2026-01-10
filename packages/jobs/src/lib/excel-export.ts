@@ -287,7 +287,7 @@ export const DEFAULT_IMPORT_COLUMN_ORDER = [
   "Materials Percentages",
   "Raw Material",
   "Weaving",
-  "Dyeing/Printing",
+  "Dyeing / Printing",
   "Stitching",
   "Assembly",
   "Finishing",
@@ -343,7 +343,7 @@ export async function generateImportTemplate(
       "Materials Percentages": "Organic Cotton:100:TR:yes:GOTS:123:2026-12-31",
       "Raw Material": "Turkish Cotton Co",
       Weaving: "Eco Textiles",
-      "Dyeing/Printing": "Natural Dye Works",
+      "Dyeing / Printing": "Natural Dye Works",
       Assembly: "Fair Wear Factory",
       Finishing: "Quality Finish Ltd",
     });

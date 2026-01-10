@@ -82,12 +82,19 @@ const {
   stagingProductVariants,
   stagingVariantAttributes,
   stagingProductTags,
+  // Product-level staging tables (for parent row data)
+  stagingProductMaterials,
+  stagingProductEcoClaims,
+  stagingProductEnvironment,
+  stagingProductJourneySteps,
   stagingProductWeight,
+  // Variant-level staging tables (for child row overrides only)
   stagingVariantMaterials,
   stagingVariantEcoClaims,
   stagingVariantEnvironment,
   stagingVariantJourneySteps,
   stagingVariantWeight,
+  // Brand entity tables
   brandAttributes,
   brandAttributeValues,
   brandMaterials,
@@ -145,7 +152,40 @@ export const validateAndStage = task({
       logger.info("Excel parsed", {
         products: parseResult.products.length,
         totalRows: parseResult.totalRows,
+        headers: parseResult.headers,
       });
+
+      // Debug: Log first product's data to verify parsing
+      if (parseResult.products.length > 0) {
+        const firstProduct = parseResult.products[0];
+        const firstVariant = firstProduct?.variants[0];
+        logger.info("Debug: First product parsed data", {
+          productHandle: firstProduct?.productHandle,
+          status: firstProduct?.status,
+          tags: firstProduct?.tags,
+          // Product-level environmental data (from parent row)
+          productLevelData: {
+            materials: firstProduct?.materials,
+            ecoClaims: firstProduct?.ecoClaims,
+            carbonKg: firstProduct?.carbonKg,
+            waterLiters: firstProduct?.waterLiters,
+            weightGrams: firstProduct?.weightGrams,
+            journeySteps: firstProduct?.journeySteps,
+          },
+          // Variant data (only overrides for child rows)
+          variantData: firstVariant
+            ? {
+                barcode: firstVariant.barcode,
+                sku: firstVariant.sku,
+                attributes: firstVariant.attributes,
+                // Override fields (should be empty for first variant which is parent row)
+                materialsOverride: firstVariant.materialsOverride,
+                ecoClaimsOverride: firstVariant.ecoClaimsOverride,
+                rawData: Object.keys(firstVariant.rawData),
+              }
+            : null,
+        });
+      }
 
       // 4. Validate required columns
       const columnValidation = validateRequiredColumns(parseResult.headers);
@@ -318,20 +358,33 @@ async function autoCreateEntities(
       uniqueTags.add(tag.trim());
     }
 
+    // Product-level materials (from parent row)
+    for (const material of product.materials) {
+      uniqueMaterials.add(material.name.trim());
+    }
+    // Product-level eco claims (from parent row)
+    for (const claim of product.ecoClaims) {
+      uniqueEcoClaims.add(claim.trim());
+    }
+    // Product-level journey step facilities (from parent row)
+    for (const facilityName of Object.values(product.journeySteps)) {
+      uniqueFacilities.add(facilityName.trim());
+    }
+
     for (const variant of product.variants) {
-      // Materials
-      for (const material of variant.materials) {
+      // Variant-level material overrides (from child rows)
+      for (const material of variant.materialsOverride) {
         uniqueMaterials.add(material.name.trim());
       }
-      // Eco claims
-      for (const claim of variant.ecoClaims) {
+      // Variant-level eco claim overrides (from child rows)
+      for (const claim of variant.ecoClaimsOverride) {
         uniqueEcoClaims.add(claim.trim());
       }
-      // Journey step facilities
-      for (const facilityName of Object.values(variant.journeySteps)) {
+      // Variant-level journey step facility overrides (from child rows)
+      for (const facilityName of Object.values(variant.journeyStepsOverride)) {
         uniqueFacilities.add(facilityName.trim());
       }
-      // Attributes
+      // Attributes (always variant-level)
       for (const attr of variant.attributes) {
         uniqueAttributes.add(attr.name.trim());
         if (!uniqueAttributeValues.has(attr.name.trim())) {
@@ -457,40 +510,83 @@ async function autoCreateEntities(
     logger.info("Auto-created facilities", { count: inserted.length });
   }
 
-  // Attributes
+  // Attributes - Match to taxonomy first, then create with taxonomy reference
   const missingAttributes = [...uniqueAttributes].filter(
     (name) => !catalog.attributes.has(normalizeKey(name)),
   );
   if (missingAttributes.length > 0) {
+    // Build insert values with taxonomy references where possible
+    const attributeInsertValues = missingAttributes.map((name) => {
+      const normalizedName = normalizeKey(name);
+      // Check if there's a matching taxonomy attribute
+      const taxonomyAttr = catalog.taxonomyAttributes.get(normalizedName);
+      return {
+        brandId,
+        name,
+        taxonomyAttributeId: taxonomyAttr?.id ?? null,
+      };
+    });
+
     const inserted = await database
       .insert(brandAttributes)
-      .values(missingAttributes.map((name) => ({ brandId, name })))
-      .returning({ id: brandAttributes.id, name: brandAttributes.name });
+      .values(attributeInsertValues)
+      .returning({
+        id: brandAttributes.id,
+        name: brandAttributes.name,
+        taxonomyAttributeId: brandAttributes.taxonomyAttributeId,
+      });
 
     for (const a of inserted) {
       catalog.attributes.set(normalizeKey(a.name), a.id);
+      // Also track the taxonomy link in the catalog
+      if (a.taxonomyAttributeId) {
+        catalog.attributeTaxonomyLinks.set(
+          normalizeKey(a.name),
+          a.taxonomyAttributeId,
+        );
+      }
     }
-    logger.info("Auto-created attributes", { count: inserted.length });
+    logger.info("Auto-created attributes", {
+      count: inserted.length,
+      withTaxonomy: inserted.filter((a) => a.taxonomyAttributeId).length,
+    });
   }
 
-  // Attribute Values
+  // Attribute Values - Match to taxonomy first, then create with taxonomy reference
   const attributeValueInserts: Array<{
     brandId: string;
     attributeId: string;
     name: string;
+    taxonomyValueId: string | null;
   }> = [];
 
   for (const [attrName, values] of uniqueAttributeValues) {
     const attributeId = catalog.attributes.get(normalizeKey(attrName));
     if (!attributeId) continue;
 
+    // Get the taxonomy attribute ID for this brand attribute (if linked)
+    const taxonomyAttributeId = catalog.attributeTaxonomyLinks.get(
+      normalizeKey(attrName),
+    );
+
     for (const valueName of values) {
       const key = `${attributeId}:${normalizeKey(valueName)}`;
       if (!catalog.attributeValues.has(key)) {
+        // Try to find a matching taxonomy value if we have a taxonomy attribute
+        let taxonomyValueId: string | null = null;
+        if (taxonomyAttributeId) {
+          const taxonomyValueKey = `${taxonomyAttributeId}:${normalizeKey(valueName)}`;
+          const taxonomyValue = catalog.taxonomyValues.get(taxonomyValueKey);
+          if (taxonomyValue) {
+            taxonomyValueId = taxonomyValue.id;
+          }
+        }
+
         attributeValueInserts.push({
           brandId,
           attributeId,
           name: valueName,
+          taxonomyValueId,
         });
       }
     }
@@ -504,6 +600,7 @@ async function autoCreateEntities(
         id: brandAttributeValues.id,
         name: brandAttributeValues.name,
         attributeId: brandAttributeValues.attributeId,
+        taxonomyValueId: brandAttributeValues.taxonomyValueId,
       });
 
     for (const av of inserted) {
@@ -519,7 +616,10 @@ async function autoCreateEntities(
         attributeName: attrName,
       });
     }
-    logger.info("Auto-created attribute values", { count: inserted.length });
+    logger.info("Auto-created attribute values", {
+      count: inserted.length,
+      withTaxonomy: inserted.filter((av) => av.taxonomyValueId).length,
+    });
   }
 
   return catalog;
@@ -722,7 +822,7 @@ async function validateAndStageProduct(
     categoryId,
     seasonId,
     manufacturerId,
-    status: "draft",
+    status: product.status || "unpublished",
     rowStatus: "PENDING",
   });
 
@@ -739,6 +839,74 @@ async function validateAndStageProduct(
         tagId,
       })),
     );
+  }
+
+  // ============================================================================
+  // PRODUCT-LEVEL DATA (from parent row)
+  // These are the environmental/material/journey data from the parent row
+  // ============================================================================
+
+  // Staging product materials (product-level)
+  for (const material of product.materials) {
+    const materialId = catalog.materials.get(normalizeKey(material.name));
+    if (!materialId) continue;
+
+    await database.insert(stagingProductMaterials).values({
+      stagingProductId,
+      jobId,
+      brandMaterialId: materialId,
+      percentage: material.percentage?.toString(),
+    });
+  }
+
+  // Staging product eco claims (product-level)
+  for (const claimName of product.ecoClaims) {
+    const ecoClaimId = catalog.ecoClaims.get(normalizeKey(claimName));
+    if (!ecoClaimId) continue;
+
+    await database.insert(stagingProductEcoClaims).values({
+      stagingProductId,
+      jobId,
+      ecoClaimId,
+    });
+  }
+
+  // Staging product environment (product-level carbon/water)
+  if (product.carbonKg !== undefined || product.waterLiters !== undefined) {
+    await database.insert(stagingProductEnvironment).values({
+      stagingProductId,
+      jobId,
+      carbonKgCo2E: product.carbonKg?.toString() ?? null,
+      waterLiters: product.waterLiters?.toString() ?? null,
+    });
+  }
+
+  // Staging product journey steps (product-level)
+  const productJourneyEntries = Object.entries(product.journeySteps);
+  for (let i = 0; i < productJourneyEntries.length; i++) {
+    const [stepType, facilityName] = productJourneyEntries[i] ?? [];
+    if (!stepType || !facilityName) continue;
+
+    const facilityId = catalog.operators.get(normalizeKey(facilityName));
+    if (!facilityId) continue;
+
+    await database.insert(stagingProductJourneySteps).values({
+      stagingProductId,
+      jobId,
+      stepType,
+      sortIndex: i,
+      facilityId,
+    });
+  }
+
+  // Staging product weight (product-level)
+  if (product.weightGrams !== undefined) {
+    await database.insert(stagingProductWeight).values({
+      stagingProductId,
+      jobId,
+      weight: product.weightGrams.toString(),
+      weightUnit: "g",
+    });
   }
 
   // Process each variant
@@ -774,7 +942,7 @@ async function validateAndStageProduct(
       rowStatus: "PENDING",
     });
 
-    // Staging variant attributes
+    // Staging variant attributes (always variant-level)
     for (const attr of variant.attributes) {
       const attributeId = catalog.attributes.get(normalizeKey(attr.name));
       if (!attributeId) continue;
@@ -792,8 +960,13 @@ async function validateAndStageProduct(
       });
     }
 
-    // Staging variant materials
-    for (const material of variant.materials) {
+    // ============================================================================
+    // VARIANT-LEVEL OVERRIDES (only from child rows)
+    // These are only populated if the child row had values for these fields
+    // ============================================================================
+
+    // Staging variant materials OVERRIDE (only if child row had materials)
+    for (const material of variant.materialsOverride) {
       const materialId = catalog.materials.get(normalizeKey(material.name));
       if (!materialId) continue;
 
@@ -805,8 +978,8 @@ async function validateAndStageProduct(
       });
     }
 
-    // Staging variant eco claims
-    for (const claimName of variant.ecoClaims) {
+    // Staging variant eco claims OVERRIDE (only if child row had eco claims)
+    for (const claimName of variant.ecoClaimsOverride) {
       const ecoClaimId = catalog.ecoClaims.get(normalizeKey(claimName));
       if (!ecoClaimId) continue;
 
@@ -817,20 +990,23 @@ async function validateAndStageProduct(
       });
     }
 
-    // Staging variant environment (carbon/water)
-    if (variant.carbonKg !== undefined || variant.waterLiters !== undefined) {
+    // Staging variant environment OVERRIDE (only if child row had carbon/water)
+    if (
+      variant.carbonKgOverride !== undefined ||
+      variant.waterLitersOverride !== undefined
+    ) {
       await database.insert(stagingVariantEnvironment).values({
         stagingVariantId,
         jobId,
-        carbonKgCo2e: variant.carbonKg?.toString() ?? null,
-        waterLiters: variant.waterLiters?.toString() ?? null,
+        carbonKgCo2e: variant.carbonKgOverride?.toString() ?? null,
+        waterLiters: variant.waterLitersOverride?.toString() ?? null,
       });
     }
 
-    // Staging variant journey steps
-    const journeyEntries = Object.entries(variant.journeySteps);
-    for (let i = 0; i < journeyEntries.length; i++) {
-      const [stepType, facilityName] = journeyEntries[i] ?? [];
+    // Staging variant journey steps OVERRIDE (only if child row had journey steps)
+    const journeyOverrideEntries = Object.entries(variant.journeyStepsOverride);
+    for (let i = 0; i < journeyOverrideEntries.length; i++) {
+      const [stepType, facilityName] = journeyOverrideEntries[i] ?? [];
       if (!stepType || !facilityName) continue;
 
       const facilityId = catalog.operators.get(normalizeKey(facilityName));
@@ -845,12 +1021,12 @@ async function validateAndStageProduct(
       });
     }
 
-    // Staging variant weight
-    if (variant.weightGrams !== undefined) {
+    // Staging variant weight OVERRIDE (only if child row had weight)
+    if (variant.weightGramsOverride !== undefined) {
       await database.insert(stagingVariantWeight).values({
         stagingVariantId,
         jobId,
-        weight: variant.weightGrams.toString(),
+        weight: variant.weightGramsOverride.toString(),
         weightUnit: "g",
       });
     }

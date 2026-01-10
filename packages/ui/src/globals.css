@@ -100,7 +100,7 @@
   }
 
   xsmall {
-    @apply text-[11px] font-normal leading-[16px] tracking-wide;
+    @apply text-[12px] font-normal leading-[16px] tracking-wide;
   }
 }
 
@@ -111,6 +111,51 @@
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ============================================================================
+ * Global Scrollbar Styling
+ * 
+ * These styles apply to ALL scrollbars in the application.
+ * Creates a subtle, modern scrollbar that blends with the UI.
+ * 
+ * To customize:
+ * - Change `width` to make scrollbar thicker/thinner (e.g., 8px, 10px)
+ * - Change `-thumb` background colors for different opacity/color
+ * - Change `border-radius` for more/less rounded corners
+ * - Add `background-color` to `-track` for visible track
+ * ============================================================================ */
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: oklch(0.10 0.04 264 / 0.15);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.10 0.04 264 / 0.25);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.10 0.04 264 / 0.15) transparent;
 }
 
 [type="search"]::-webkit-search-cancel-button,
@@ -219,6 +264,6 @@ input:-webkit-autofill:focus-visible {
   }
 
   .type-xsmall {
-    @apply text-[11px] font-normal leading-[16px] tracking-wide;
+    @apply text-[12px] font-normal leading-[16px] tracking-wide;
   }
 }

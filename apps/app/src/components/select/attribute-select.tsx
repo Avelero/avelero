@@ -30,6 +30,7 @@ import {
 } from "@v1/ui/command";
 import { Icons } from "@v1/ui/icons";
 import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+import { SelectAction, SelectFooter } from "@v1/ui/select";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
 import { CreateValueModal } from "@/components/modals/create-value-modal";
@@ -805,18 +806,14 @@ export function AttributeSelect({
                 </CommandList>
                 {/* Footer with Create option */}
                 {showCreateOption && (
-                  <div className="border-t border-border p-1">
-                    <button
-                      type="button"
-                      onClick={handleCreateValue}
-                      className="relative flex w-full cursor-pointer select-none items-center gap-0.5 rounded-none px-2 h-[30px] !type-small outline-none hover:bg-accent hover:text-accent-foreground"
-                    >
+                  <SelectFooter>
+                    <SelectAction onSelect={handleCreateValue}>
                       <div className="flex items-center gap-2">
                         <Icons.Plus className="h-3.5 w-3.5" />
                         <span>Create &quot;{search.trim()}&quot;</span>
                       </div>
-                    </button>
-                  </div>
+                    </SelectAction>
+                  </SelectFooter>
                 )}
               </Command>
             </PopoverContent>

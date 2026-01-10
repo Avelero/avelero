@@ -3,6 +3,7 @@ import { tasks } from "@trigger.dev/sdk/v3";
  * Bulk import lifecycle router.
  *
  * Handles the fire-and-forget import workflow:
+ * - preview: Parse Excel file and return summary + first product preview
  * - start: Create job and trigger background processing
  * - status: Get real-time job progress
  * - getRecentImports: Get recent import jobs for the brand
@@ -16,12 +17,14 @@ import {
   getRecentImportJobs,
   updateImportJobStatus,
 } from "@v1/db/queries/bulk";
+import { parseExcelFile } from "@v1/jobs/lib/excel-parser";
 
 import {
   dismissFailedImportSchema,
   exportCorrectionsSchema,
   getImportStatusSchema,
   getRecentImportsSchema,
+  previewImportSchema,
   startImportSchema,
 } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -52,10 +55,15 @@ function assertBrandScope(
 
 interface ResolvedImportFilePath {
   path: string;
-  jobId: string;
   filename: string;
 }
 
+/**
+ * Validates and resolves the import file path.
+ * 
+ * Expected format: brandId/timestamp-filename
+ * Example: ac262c8a-c742-4fa9-91f7-31d0833129ae/1768059882771-template.xlsx
+ */
 function resolveImportFilePath(params: {
   fileId: string;
   brandId: string;
@@ -64,63 +72,37 @@ function resolveImportFilePath(params: {
   const sanitizedPath = params.fileId.replace(/^\/+|\/+$/g, "");
   const segments = sanitizedPath.split("/");
 
-  console.log("[resolveImportFilePath] Debug info:", {
-    fileId: params.fileId,
-    brandId: params.brandId,
-    filename: params.filename,
-    sanitizedPath,
-    segments,
-    segmentsLength: segments.length,
-  });
-
-  if (segments.length < 3) {
-    console.error("[resolveImportFilePath] Error: segments.length < 3");
+  // Expect at least 2 segments: brandId and filename
+  if (segments.length < 2) {
     throw badRequest(
-      `Invalid file reference provided. Expected format: brandId/jobId/filename, got: ${sanitizedPath}`,
+      `Invalid file reference provided. Expected format: brandId/filename, got: ${sanitizedPath}`,
     );
   }
 
-  const [pathBrandId, jobId, ...fileSegments] = segments;
-
-  console.log("[resolveImportFilePath] Parsed segments:", {
-    pathBrandId,
-    jobId,
-    fileSegments,
-  });
+  const [pathBrandId, ...fileSegments] = segments;
 
   if (pathBrandId !== params.brandId) {
-    console.error("[resolveImportFilePath] Error: brandId mismatch", {
-      pathBrandId,
-      expectedBrandId: params.brandId,
-    });
     throw badRequest(
       `File does not belong to the active brand context. Expected: ${params.brandId}, got: ${pathBrandId}`,
     );
   }
 
-  if (!jobId || fileSegments.length === 0) {
-    console.error("[resolveImportFilePath] Error: missing jobId or filename");
-    throw badRequest("Incomplete file reference provided");
+  if (fileSegments.length === 0) {
+    throw badRequest("Incomplete file reference provided - missing filename");
   }
 
   const resolvedFilename = fileSegments.join("/");
 
-  console.log("[resolveImportFilePath] Filename comparison:", {
-    resolvedFilename,
-    expectedFilename: params.filename,
-    match: resolvedFilename === params.filename,
-  });
-
-  if (resolvedFilename !== params.filename) {
-    console.error("[resolveImportFilePath] Error: filename mismatch");
+  // The uploaded filename includes a timestamp prefix, 
+  // so we check if it ends with the original filename
+  if (!resolvedFilename.endsWith(params.filename)) {
     throw badRequest(
-      `Filename does not match the provided file reference. Expected: ${params.filename}, got: ${resolvedFilename}`,
+      `Filename does not match the provided file reference. Expected to end with: ${params.filename}, got: ${resolvedFilename}`,
     );
   }
 
   return {
     path: sanitizedPath,
-    jobId,
     filename: resolvedFilename,
   };
 }
@@ -131,6 +113,103 @@ function calculatePercentage(processed: number, total: number): number {
 }
 
 export const importRouter = createTRPCRouter({
+  /**
+   * Preview import file contents
+   *
+   * Parses the uploaded Excel file and returns:
+   * - Summary statistics (product count, variant count, image count)
+   * - First product preview data (title, handle, manufacturer, description, status, category)
+   * - First product's variants preview (title, SKU, barcode)
+   *
+   * Used in the confirmation step of the import modal.
+   */
+  preview: brandRequiredProcedure
+    .input(previewImportSchema)
+    .query(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = brandCtx.brandId;
+
+      try {
+        // Validate file path belongs to brand
+        const sanitizedPath = input.fileId.replace(/^\/+|\/+$/g, "");
+        const segments = sanitizedPath.split("/");
+
+        if (segments.length < 2) {
+          throw badRequest("Invalid file reference");
+        }
+
+        const [pathBrandId] = segments;
+        if (pathBrandId !== brandId) {
+          throw badRequest("File does not belong to the active brand");
+        }
+
+        // Download and parse the Excel file
+        const fileBuffer = await downloadFileFromSupabase(sanitizedPath);
+        const parseResult = await parseExcelFile(fileBuffer);
+
+        if (parseResult.errors.length > 0) {
+          throw badRequest(
+            `Excel parsing failed: ${parseResult.errors[0]?.message}`,
+          );
+        }
+
+        const products = parseResult.products;
+        if (products.length === 0) {
+          throw badRequest("No products found in the Excel file");
+        }
+
+        // Calculate summary statistics
+        const totalProducts = products.length;
+        const totalVariants = products.reduce(
+          (acc, p) => acc + p.variants.length,
+          0,
+        );
+        const totalImages = products.filter((p) => p.imagePath).length;
+
+        // Get the first product for preview
+        // Safe non-null assertion: we already checked products.length > 0 above
+        const firstProduct = products[0]!;
+
+        // Build variant titles from attributes (like variants-overview.tsx does)
+        const variantPreviews = firstProduct.variants.map((variant, index) => {
+          // Build variant title from attributes
+          const attributeValues = variant.attributes
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .map((attr) => attr.value);
+
+          const title =
+            attributeValues.length > 0
+              ? attributeValues.join(" / ")
+              : `Variant ${index + 1}`;
+
+          return {
+            title,
+            sku: variant.sku || "",
+            barcode: variant.barcode || "",
+          };
+        });
+
+        return {
+          summary: {
+            totalProducts,
+            totalVariants,
+            totalImages,
+          },
+          firstProduct: {
+            title: firstProduct.name || "",
+            handle: firstProduct.productHandle || "",
+            manufacturer: firstProduct.manufacturerName || "",
+            description: firstProduct.description || "",
+            status: "Draft", // Default status for new products
+            category: firstProduct.categoryPath || "",
+          },
+          variants: variantPreviews,
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to preview import file");
+      }
+    }),
+
   /**
    * Start async import job (Phase 1 - Validation & Staging)
    *
@@ -149,23 +228,14 @@ export const importRouter = createTRPCRouter({
       const brandCtx = ctx as BrandContext;
       const brandId = brandCtx.brandId;
 
-      console.log("[import.start] Input received:", {
-        fileId: input.fileId,
-        filename: input.filename,
-        brandId,
-      });
-
       const resolvedFile = resolveImportFilePath({
         fileId: input.fileId,
         brandId,
         filename: input.filename,
       });
 
-      console.log("[import.start] Resolved file path:", resolvedFile.path);
-
       try {
         // Create import job record with mode
-        console.log("[import.start] Creating import job...");
         const job = await createImportJob(brandCtx.db, {
           brandId,
           filename: input.filename,
@@ -173,60 +243,14 @@ export const importRouter = createTRPCRouter({
           mode: input.mode,
         });
 
-        console.log("[import.start] Import job created:", {
-          jobId: job.id,
-          status: job.status,
-        });
-
-        // Trigger validate-and-stage background job via Trigger.dev using the uploaded file path
-        const triggerApiUrl =
-          process.env.TRIGGER_API_URL ?? "https://api.trigger.dev";
-        console.log("[import.start] Triggering background job...", {
-          triggerApiUrl,
-          hasCustomTriggerUrl: Boolean(process.env.TRIGGER_API_URL),
-          hasTriggerSecret: Boolean(process.env.TRIGGER_SECRET_KEY),
-        });
-
         try {
-          console.log(
-            "[import.start] About to trigger background job with payload:",
-            {
-              jobId: job.id,
-              brandId,
-              filePath: resolvedFile.path,
-              mode: input.mode,
-            },
-          );
-
           const runHandle = await tasks.trigger("validate-and-stage", {
             jobId: job.id,
             brandId,
             filePath: resolvedFile.path,
             mode: input.mode,
           });
-
-          console.log("[import.start] Background job triggered successfully", {
-            triggerRunId: runHandle.id,
-            triggerTaskId: "validate-and-stage",
-            publicAccessToken: runHandle.publicAccessToken || "N/A",
-          });
-
-          // Log the run handle for debugging
-          console.log(
-            "[import.start] Full run handle:",
-            JSON.stringify(runHandle, null, 2),
-          );
         } catch (triggerError) {
-          console.error("[import.start] Failed to trigger background job:", {
-            error: triggerError,
-            errorMessage:
-              triggerError instanceof Error
-                ? triggerError.message
-                : String(triggerError),
-            errorStack:
-              triggerError instanceof Error ? triggerError.stack : undefined,
-          });
-
           // Update job status to FAILED immediately
           await updateImportJobStatus(brandCtx.db, {
             jobId: job.id,
@@ -236,7 +260,6 @@ export const importRouter = createTRPCRouter({
             },
           });
 
-          // If Trigger.dev is not available, throw a more specific error
           throw new Error(
             `Failed to start background import job. Please ensure Trigger.dev dev server is running. Error: ${triggerError instanceof Error
               ? triggerError.message
@@ -251,11 +274,6 @@ export const importRouter = createTRPCRouter({
           createdAt: job.startedAt,
         };
       } catch (error) {
-        console.error("[import.start] Error occurred:", {
-          error,
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
-        });
         throw wrapError(error, "Failed to start import job");
       }
     }),
@@ -454,3 +472,45 @@ export const importRouter = createTRPCRouter({
 });
 
 export type ImportRouter = typeof importRouter;
+
+// ============================================================================
+// Helper: Download File from Supabase
+// ============================================================================
+
+async function downloadFileFromSupabase(filePath: string): Promise<Uint8Array> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error("Supabase configuration missing");
+  }
+
+  const normalizedBaseUrl = supabaseUrl.endsWith("/")
+    ? supabaseUrl.slice(0, -1)
+    : supabaseUrl;
+
+  const encodedPath = filePath
+    .split("/")
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  const downloadUrl = `${normalizedBaseUrl}/storage/v1/object/product-imports/${encodedPath}`;
+
+  const response = await fetch(downloadUrl, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `Storage download failed (${response.status}): ${body || response.statusText}`,
+    );
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return new Uint8Array(arrayBuffer);
+}

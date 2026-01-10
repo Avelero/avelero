@@ -43,6 +43,7 @@ export * from "./products/variant-journey-steps";
 export * from "./data/file-assets";
 export * from "./data/import-jobs";
 export * from "./data/import-rows";
+export * from "./data/export-jobs";
 
 // Staging schemas
 export * from "./staging/staging-products";

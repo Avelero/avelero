@@ -48,13 +48,15 @@ const TagLabel = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex items-center justify-center h-[12px] w-[12px]">
-        <div
-          className="h-2.5 w-2.5 rounded-full border-[0.5px] border-border"
-          style={{ backgroundColor: `#${tag.hex}` }}
-        />
-      </div>
-      <p className="type-small leading-none text-primary ml-1.5">{tag.name}</p>
+      {tag.hex && (
+        <div className="flex items-center justify-center h-[12px] w-[12px]">
+          <div
+            className="h-2.5 w-2.5 rounded-full border-[0.5px] border-border"
+            style={{ backgroundColor: `#${tag.hex}` }}
+          />
+        </div>
+      )}
+      <p className={cn("type-small leading-none text-primary", tag.hex && "ml-1.5")}>{tag.name}</p>
       {isHovered && !disabled && (
         <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center">
           <div className="w-3 h-3 bg-gradient-to-r from-transparent to-background" />
@@ -312,11 +314,13 @@ export function TagSelect({
                         className="justify-between"
                       >
                         <div className="flex items-center">
-                          <div
-                            className="h-3.5 w-3.5 rounded-full border border-border"
-                            style={{ backgroundColor: `#${tag.hex}` }}
-                          />
-                          <span className="px-1">
+                          {tag.hex && (
+                            <div
+                              className="h-3.5 w-3.5 rounded-full border border-border"
+                              style={{ backgroundColor: `#${tag.hex}` }}
+                            />
+                          )}
+                          <span className={tag.hex ? "px-1" : undefined}>
                             {tag.name}
                           </span>
                         </div>

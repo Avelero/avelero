@@ -121,6 +121,20 @@ export const startImportSchema = z.object({
 });
 
 /**
+ * Schema for previewing import file contents
+ *
+ * Used in bulk.import.preview query to parse the uploaded Excel file
+ * and return summary statistics and first product preview before import.
+ */
+export const previewImportSchema = z.object({
+  fileId: z.string().min(1, "File ID is required"),
+  filename: z
+    .string()
+    .min(1, "Filename is required")
+    .regex(/\.(xlsx|xls)$/i, "File must be Excel format (.xlsx or .xls)"),
+});
+
+/**
  * Schema for retrieving import job status
  *
  * Used in bulk.getImportStatus query to fetch current job progress
@@ -243,10 +257,50 @@ export const getRecentImportsSchema = z.object({
  */
 export const stagingRowStatusSchema = z.enum(["PENDING", "COMMITTED", "FAILED"]);
 
+// ============================================================================
+// Export Schemas
+// ============================================================================
+
+/**
+ * Schema for starting a product export
+ *
+ * Uses the same selection schema as bulk operations.
+ * Preserves filter state and search query to ensure
+ * export matches what user sees on screen.
+ */
+export const startExportSchema = z.object({
+  selection: bulkSelectionSchema,
+  filterState: z.any().optional(), // preserve current filter state (JSON)
+  search: z.string().optional(), // preserve current search query
+});
+
+/**
+ * Schema for getting export job status
+ */
+export const getExportStatusSchema = z.object({
+  jobId: uuidSchema,
+});
+
+/**
+ * Export job status enum
+ */
+export const exportJobStatusSchema = z.enum([
+  "PENDING",
+  "PROCESSING",
+  "COMPLETED",
+  "FAILED",
+]);
+
+// Export types
+export type StartExportInput = z.infer<typeof startExportSchema>;
+export type GetExportStatusInput = z.infer<typeof getExportStatusSchema>;
+export type ExportJobStatus = z.infer<typeof exportJobStatusSchema>;
+
 export type BulkSelectionInput = z.infer<typeof bulkSelectionSchema>;
 export type BulkImportInput = z.infer<typeof bulkImportSchema>;
 export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
 export type StartImportInput = z.infer<typeof startImportSchema>;
+export type PreviewImportInput = z.infer<typeof previewImportSchema>;
 export type GetImportStatusInput = z.infer<typeof getImportStatusSchema>;
 export type GetImportErrorsInput = z.infer<typeof getImportErrorsSchema>;
 export type GetStagingPreviewInput = z.infer<typeof getStagingPreviewSchema>;

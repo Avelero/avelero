@@ -10,4 +10,5 @@
  */
 
 export * from "./db";
+export * from "./db/export";
 export * from "./context";

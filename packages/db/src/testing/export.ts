@@ -5,12 +5,12 @@
  * These helpers create products, variants, and related data with all the
  * fields needed to test Excel export functionality.
  *
- * @module @v1/testing/db/export
+ * @module @v1/db/testing/export
  */
 
-import * as schema from "@v1/db/schema";
-import { and, eq } from "drizzle-orm";
-import { testDb, createTestBrand } from "../db";
+import * as schema from "../schema/index";
+import { and, eq, sql } from "drizzle-orm";
+import { testDb } from "./connection";
 
 // ============================================================================
 // Types
@@ -565,22 +565,4 @@ export async function createTestExportJob(
     }
 
     return job.id;
-}
-
-/**
- * Creates a test user for export testing.
- * Note: Creates in users table, not auth.users table (for testing purposes).
- * Returns the user ID.
- */
-export async function createTestUser(email: string): Promise<string> {
-    // Generate a UUID for the user
-    const userId = crypto.randomUUID();
-
-    // Insert into users table
-    await testDb.insert(schema.users).values({
-        id: userId,
-        email,
-    });
-
-    return userId;
 }

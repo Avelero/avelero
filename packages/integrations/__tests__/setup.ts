@@ -12,7 +12,7 @@ config({ path: resolve(import.meta.dir, "../.env.test") });
 
 import { beforeAll, afterAll, afterEach } from "bun:test";
 import { mockServer } from "@v1/testing/mocks/shopify";
-import { cleanupTables, closeTestDb } from "@v1/testing/db";
+import { cleanupTables, closeTestDb } from "@v1/db/testing";
 
 // Clean database before all tests to ensure a fresh state
 // This handles cases where a previous run failed and left stale data

@@ -11,16 +11,8 @@
 import "../../../setup";
 
 import { describe, it, expect, beforeEach } from "bun:test";
-import { testDb, cleanupTables, createTestBrand } from "@v1/testing/db";
-import {
-    ExcelBuilder,
-    basicProduct,
-    completeProduct,
-    multiVariantProduct,
-    TestCatalog,
-    TestDatabase,
-    type InsertedCatalog,
-} from "@v1/testing/bulk-import";
+import { testDb, cleanupTables, createTestBrand, TestCatalog, TestDatabase, type InsertedCatalog } from "@v1/db/testing";
+import { ExcelBuilder, basicProduct, completeProduct, multiVariantProduct } from "@v1/testing/bulk-import";
 import { parseExcelFile } from "../../../../src/lib/excel-parser";
 import { loadBrandCatalog } from "../../../../src/lib/catalog-loader";
 

@@ -7,7 +7,6 @@
  * @module tests/unit/excel-export/column-mapping
  */
 
-import "../setup";
 
 import { describe, it, expect } from "bun:test";
 import ExcelJS from "exceljs";

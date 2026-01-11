@@ -7,7 +7,7 @@
  * @group excel-parser
  */
 
-import "../setup";
+
 import { describe, it, expect } from "bun:test";
 import { parseSemicolonSeparated } from "../../../src/lib/excel-parser";
 

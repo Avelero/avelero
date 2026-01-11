@@ -5,26 +5,19 @@
     "type": "module",
     "exports": {
         ".": "./src/index.ts",
-        "./db": "./src/db.ts",
-        "./db/export": "./src/db/export.ts",
         "./mocks": "./src/mocks/index.ts",
         "./mocks/shopify": "./src/mocks/shopify.ts",
         "./mocks/its-perfect": "./src/mocks/its-perfect.ts",
         "./fixtures": "./src/fixtures/index.ts",
         "./fixtures/shopify": "./src/fixtures/shopify.ts",
-        "./context": "./src/context.ts",
         "./bulk-import": "./src/bulk-import/index.ts"
     },
     "scripts": {
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
-        "@v1/db": "workspace:*",
-        "@v1/supabase": "workspace:*",
-        "drizzle-orm": "^0.44.7",
         "exceljs": "^4.4.0",
-        "msw": "^2.7.0",
-        "postgres": "^3.4.7"
+        "msw": "^2.7.0"
     },
     "devDependencies": {
         "@types/bun": "^1.2.16",

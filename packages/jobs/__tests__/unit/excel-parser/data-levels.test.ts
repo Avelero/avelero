@@ -8,7 +8,7 @@
  * @group excel-parser
  */
 
-import "../setup";
+
 import { describe, it, expect } from "bun:test";
 import { ExcelBuilder } from "@v1/testing/bulk-import";
 import { parseExcelFile } from "../../../src/lib/excel-parser";
@@ -34,7 +34,7 @@ describe("Excel Parser - Data Levels", () => {
         const result = await parseExcelFile(buffer);
 
         expect(result.products).toHaveLength(1);
-        const product = result.products[0];
+        const product = result.products[0]!;
 
         expect(product.productHandle).toBe("test-handle");
         expect(product.name).toBe("Test Product Title");
@@ -78,10 +78,10 @@ describe("Excel Parser - Data Levels", () => {
 
         const result = await parseExcelFile(buffer);
 
-        expect(result.products[0].variants).toHaveLength(2);
+        expect(result.products[0]!.variants).toHaveLength(2);
 
         // First variant (parent row)
-        const v1 = result.products[0].variants[0];
+        const v1 = result.products[0]!.variants[0]!;
         expect(v1.sku).toBe("SKU-001");
         expect(v1.barcode).toBe("1111111111111");
         expect(v1.attributes).toHaveLength(2);
@@ -89,7 +89,7 @@ describe("Excel Parser - Data Levels", () => {
         expect(v1.attributes[1]).toEqual({ name: "Color", value: "Red", sortOrder: 1 });
 
         // Second variant (child row)
-        const v2 = result.products[0].variants[1];
+        const v2 = result.products[0]!.variants[1]!;
         expect(v2.sku).toBe("SKU-002");
         expect(v2.barcode).toBe("1111111111112");
         expect(v2.attributes).toHaveLength(2);
@@ -119,14 +119,14 @@ describe("Excel Parser - Data Levels", () => {
         const result = await parseExcelFile(buffer);
 
         // Product-level environmental data
-        const product = result.products[0];
+        const product = result.products[0]!;
         expect(product.carbonKg).toBe(2.5);
         expect(product.waterLiters).toBe(100);
         expect(product.carbonStatus).toBe("Low carbon footprint");
 
         // Parent variant should NOT have environmental overrides
-        expect(result.products[0].variants[0].carbonKgOverride).toBeUndefined();
-        expect(result.products[0].variants[0].waterLitersOverride).toBeUndefined();
+        expect(result.products[0]!.variants[0]!.carbonKgOverride).toBeUndefined();
+        expect(result.products[0]!.variants[0]!.waterLitersOverride).toBeUndefined();
     });
 
     it("extracts materials from parent row only", async () => {
@@ -150,15 +150,15 @@ describe("Excel Parser - Data Levels", () => {
         const result = await parseExcelFile(buffer);
 
         // Product-level materials
-        const product = result.products[0];
+        const product = result.products[0]!;
         expect(product.materials).toHaveLength(2);
-        expect(product.materials[0].name).toBe("Cotton");
-        expect(product.materials[0].percentage).toBe(80);
-        expect(product.materials[1].name).toBe("Polyester");
-        expect(product.materials[1].percentage).toBe(20);
+        expect(product.materials[0]!.name).toBe("Cotton");
+        expect(product.materials[0]!.percentage).toBe(80);
+        expect(product.materials[1]!.name).toBe("Polyester");
+        expect(product.materials[1]!.percentage).toBe(20);
 
         // Parent variant should NOT have materials override
-        expect(result.products[0].variants[0].materialsOverride).toEqual([]);
+        expect(result.products[0]!.variants[0]!.materialsOverride).toEqual([]);
     });
 
     it("extracts journey steps from parent row only", async () => {
@@ -186,7 +186,7 @@ describe("Excel Parser - Data Levels", () => {
         const result = await parseExcelFile(buffer);
 
         // Product-level journey steps
-        const product = result.products[0];
+        const product = result.products[0]!;
         expect(product.journeySteps["Raw Material"]).toBe("Italy Supplier");
         expect(product.journeySteps["Weaving"]).toBe("Portugal Mill");
         expect(product.journeySteps["Dyeing / Printing"]).toBe("Spain Dye House");
@@ -195,7 +195,7 @@ describe("Excel Parser - Data Levels", () => {
         expect(product.journeySteps["Finishing"]).toBe("Portugal Finish");
 
         // Parent variant should NOT have journey override
-        expect(result.products[0].variants[0].journeyStepsOverride).toEqual({});
+        expect(result.products[0]!.variants[0]!.journeyStepsOverride).toEqual({});
     });
 
     it("handles variant-level overrides in child rows", async () => {
@@ -223,13 +223,13 @@ describe("Excel Parser - Data Levels", () => {
         const result = await parseExcelFile(buffer);
 
         // Parent variant should NOT have overrides (isFirstVariant = true)
-        const v1 = result.products[0].variants[0];
+        const v1 = result.products[0]!.variants[0]!;
         expect(v1.nameOverride).toBeUndefined();
         expect(v1.descriptionOverride).toBeUndefined();
         expect(v1.imagePathOverride).toBeUndefined();
 
         // Child variant SHOULD have overrides
-        const v2 = result.products[0].variants[1];
+        const v2 = result.products[0]!.variants[1]!;
         expect(v2.nameOverride).toBe("Override Title for Variant");
         expect(v2.descriptionOverride).toBe("Override Description");
         expect(v2.imagePathOverride).toBe("https://example.com/variant.jpg");
@@ -262,14 +262,14 @@ describe("Excel Parser - Data Levels", () => {
         const result = await parseExcelFile(buffer);
 
         // Product should have parent row values
-        const product = result.products[0];
+        const product = result.products[0]!;
         expect(product.name).toBe("Parent Title");
         expect(product.manufacturerName).toBe("Parent Manufacturer");
         expect(product.categoryPath).toBe("Parent Category");
         expect(product.seasonName).toBe("SS26");
 
         // Child variant should have title override but not other product fields
-        const v2 = result.products[0].variants[1];
+        const v2 = result.products[0]!.variants[1]!;
         expect(v2.nameOverride).toBe("Child Title Override");
         // Manufacturer, Category, Season are not extractable from child rows
         // They don't have corresponding override fields on ParsedVariant
@@ -293,7 +293,7 @@ describe("Excel Parser - Data Levels", () => {
         const result = await parseExcelFile(buffer);
 
         // Product-level eco claims
-        const product = result.products[0];
+        const product = result.products[0]!;
         expect(product.ecoClaims).toEqual([
             "Organic",
             "Fair Trade",
@@ -301,6 +301,6 @@ describe("Excel Parser - Data Levels", () => {
         ]);
 
         // Parent variant should NOT have eco claims override
-        expect(result.products[0].variants[0].ecoClaimsOverride).toEqual([]);
+        expect(result.products[0]!.variants[0]!.ecoClaimsOverride).toEqual([]);
     });
 });

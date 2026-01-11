@@ -8,7 +8,7 @@
  * @group excel-parser
  */
 
-import "../setup";
+
 import { describe, it, expect } from "bun:test";
 import { ExcelBuilder } from "@v1/testing/bulk-import";
 import { parseExcelFile } from "../../../src/lib/excel-parser";
@@ -36,10 +36,10 @@ describe("Excel Parser - Row Grouping", () => {
         const result = await parseExcelFile(buffer);
 
         expect(result.products).toHaveLength(2);
-        expect(result.products[0].productHandle).toBe("product-1");
-        expect(result.products[0].variants).toHaveLength(2);
-        expect(result.products[1].productHandle).toBe("product-2");
-        expect(result.products[1].variants).toHaveLength(1);
+        expect(result.products[0]!.productHandle).toBe("product-1");
+        expect(result.products[0]!.variants).toHaveLength(2);
+        expect(result.products[1]!.productHandle).toBe("product-2");
+        expect(result.products[1]!.variants).toHaveLength(1);
     });
 
     it("first row with handle becomes parent", async () => {
@@ -61,7 +61,7 @@ describe("Excel Parser - Row Grouping", () => {
         const result = await parseExcelFile(buffer);
 
         expect(result.products).toHaveLength(1);
-        const product = result.products[0];
+        const product = result.products[0]!;
         expect(product.productHandle).toBe("test-handle");
         expect(product.name).toBe("Test Product");
         expect(product.description).toBe("Product description");
@@ -86,10 +86,10 @@ describe("Excel Parser - Row Grouping", () => {
         const result = await parseExcelFile(buffer);
 
         expect(result.products).toHaveLength(1);
-        expect(result.products[0].variants).toHaveLength(3);
-        expect(result.products[0].variants[0].sku).toBe("PARENT-001");
-        expect(result.products[0].variants[1].sku).toBe("CHILD-001");
-        expect(result.products[0].variants[2].sku).toBe("CHILD-002");
+        expect(result.products[0]!.variants).toHaveLength(3);
+        expect(result.products[0]!.variants[0]!.sku).toBe("PARENT-001");
+        expect(result.products[0]!.variants[1]!.sku).toBe("CHILD-001");
+        expect(result.products[0]!.variants[2]!.sku).toBe("CHILD-002");
     });
 
     it("single row becomes single-variant product", async () => {
@@ -106,8 +106,8 @@ describe("Excel Parser - Row Grouping", () => {
         const result = await parseExcelFile(buffer);
 
         expect(result.products).toHaveLength(1);
-        expect(result.products[0].variants).toHaveLength(1);
-        expect(result.products[0].variants[0].sku).toBe("SINGLE-001");
+        expect(result.products[0]!.variants).toHaveLength(1);
+        expect(result.products[0]!.variants[0]!.sku).toBe("SINGLE-001");
     });
 
     it("empty file returns empty array", async () => {
@@ -146,7 +146,7 @@ describe("Excel Parser - Row Grouping", () => {
 
         const result = await parseExcelFile(buffer);
 
-        const skus = result.products[0].variants.map((v) => v.sku);
+        const skus = result.products[0]!.variants.map((v) => v.sku);
         expect(skus).toEqual(["ORDER-A", "ORDER-B", "ORDER-C", "ORDER-D"]);
     });
 
@@ -165,7 +165,7 @@ describe("Excel Parser - Row Grouping", () => {
 
         expect(result.products).toHaveLength(1);
         // The parser should trim whitespace from handles
-        expect(result.products[0].productHandle).toBe("spaced-handle");
+        expect(result.products[0]!.productHandle).toBe("spaced-handle");
     });
 
     it("handles case sensitivity in handles", async () => {
@@ -189,7 +189,7 @@ describe("Excel Parser - Row Grouping", () => {
 
         // Handles should be treated as case-sensitive
         expect(result.products).toHaveLength(2);
-        expect(result.products[0].productHandle).toBe("CamelCase-Handle");
-        expect(result.products[1].productHandle).toBe("camelcase-handle");
+        expect(result.products[0]!.productHandle).toBe("CamelCase-Handle");
+        expect(result.products[1]!.productHandle).toBe("camelcase-handle");
     });
 });

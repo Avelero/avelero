@@ -9,9 +9,16 @@
  * Uses real database connections with cleanup between tests.
  */
 
+// Load setup first (loads .env.test and configures cleanup)
+import "../../setup";
+
 import { describe, it, expect, beforeEach } from "bun:test";
-import { createTestBrand, testDb } from "@v1/testing/db";
-import { createTestExportJob, createTestUser } from "@v1/testing/db/export";
+import {
+    createTestBrand,
+    createTestExportJob,
+    createTestUser,
+    testDb,
+} from "@v1/db/testing";
 import {
     createExportJob,
     updateExportJobStatus,
@@ -21,9 +28,13 @@ import {
 describe("Export Job CRUD", () => {
     let brandId: string;
     let userId: string;
-    const userEmail = "test@example.com";
+    let userEmail: string;
 
     beforeEach(async () => {
+        // Create unique email for each test to avoid conflicts
+        const uniqueSuffix = Math.random().toString(36).substring(2, 10);
+        userEmail = `test-${uniqueSuffix}@example.com`;
+
         // Create a test brand and user for each test
         brandId = await createTestBrand("Export Test Brand");
         userId = await createTestUser(userEmail);
@@ -143,24 +154,28 @@ describe("Export Job CRUD", () => {
             expect(result.status).toBe("COMPLETED");
             expect(result.filePath).toBe("exports/test-file.xlsx");
             expect(result.downloadUrl).toBe("https://storage.example.com/exports/test-file.xlsx");
-            expect(result.expiresAt).toBe(expiresAt);
-            expect(result.finishedAt).toBe(finishedAt);
+            // Compare timestamps as dates since PostgreSQL returns different format
+            expect(new Date(result.expiresAt!).getTime()).toBe(new Date(expiresAt).getTime());
+            expect(new Date(result.finishedAt!).getTime()).toBe(new Date(finishedAt).getTime());
             expect(result.summary).toEqual({ totalProducts: 42, totalVariants: 100 });
         });
 
         it("throws for non-existent job", async () => {
+            // Use a valid UUID format that doesn't exist
+            const nonExistentId = "00000000-0000-0000-0000-000000000000";
             await expect(
                 updateExportJobStatus(testDb, {
-                    jobId: "non-existent-job-id",
+                    jobId: nonExistentId,
                     status: "COMPLETED",
                 })
-            ).rejects.toThrow("Export job not found: non-existent-job-id");
+            ).rejects.toThrow(`Export job not found: ${nonExistentId}`);
         });
     });
 
     describe("getExportJobStatus()", () => {
         it("returns null for non-existent job", async () => {
-            const result = await getExportJobStatus(testDb, "non-existent-job-id");
+            // Use a valid UUID format that doesn't exist
+            const result = await getExportJobStatus(testDb, "00000000-0000-0000-0000-000000000000");
 
             expect(result).toBeNull();
         });

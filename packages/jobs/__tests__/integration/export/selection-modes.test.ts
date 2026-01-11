@@ -11,11 +11,11 @@
 import "../../setup";
 
 import { describe, it, expect, beforeEach } from "bun:test";
-import { testDb, cleanupTables, createTestBrand } from "@v1/testing/db";
+import { testDb, cleanupTables, createTestBrand } from "@v1/db/testing";
 import {
     createTestProductForExport,
     createTestVariantWithOverrides,
-} from "@v1/testing/db/export";
+} from "@v1/db/testing";
 import { getProductsForExport } from "@v1/db/queries/products";
 
 describe("Selection Modes", () => {

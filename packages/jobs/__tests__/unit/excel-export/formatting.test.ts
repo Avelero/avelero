@@ -7,7 +7,6 @@
  * @module tests/unit/excel-export/formatting
  */
 
-import "../setup";
 
 import { describe, it, expect } from "bun:test";
 import {

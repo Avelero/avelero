@@ -11,9 +11,9 @@
     "whoami": "npx --yes trigger.dev@4.0.6 whoami",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "test": "bun test __tests__",
-    "test:unit": "bun test __tests__/unit",
-    "test:integration": "bun test __tests__/integration",
+    "test": "bun run test:unit && bun run test:integration",
+    "test:unit": "bun test __tests__/unit --timeout 10000",
+    "test:integration": "bun test __tests__/integration --serial --timeout 30000",
     "test:watch": "bun test __tests__ --watch",
     "test:coverage": "bun test __tests__ --coverage"
   },

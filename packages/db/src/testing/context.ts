@@ -4,12 +4,10 @@
  * Creates SyncContext objects for testing.
  * Provides default field configs and mock storage client.
  *
- * @module @v1/testing/context
+ * @module @v1/db/testing/context
  */
 
-// Import types from integrations package
-// Note: The types are imported dynamically to avoid circular dependencies
-import { testDb } from "./db";
+import { testDb } from "./connection";
 
 // =============================================================================
 // TYPES

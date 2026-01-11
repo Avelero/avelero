@@ -1,14 +1,18 @@
 /**
- * @v1/testing
+ * Testing Utilities Index
  *
- * Shared testing utilities for the Avelero monorepo.
+ * This package provides non-database testing utilities:
+ * - MSW mock servers for external APIs
+ * - Static fixtures
+ * - Excel file builders
  *
- * Usage:
- *   import { testDb, createTestBrand, cleanupTables } from "@v1/testing/db";
- *   import { mockServer, createMockProduct } from "@v1/testing/mocks/shopify";
- *   import { createTestSyncContext } from "@v1/testing/context";
+ * For database testing utilities, use @v1/db/testing
+ *
+ * @module @v1/testing
  */
 
-export * from "./db";
-export * from "./db/export";
-export * from "./context";
+// Re-export mocks
+export * from "./mocks";
+
+// Re-export fixtures
+export * from "./fixtures";

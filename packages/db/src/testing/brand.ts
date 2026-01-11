@@ -1,103 +1,15 @@
 /**
- * Test Database Utility
+ * Test Data Helpers - Brand & Integration
  *
- * Connects to test PostgreSQL database and provides cleanup functions.
- * Uses dynamic table discovery instead of hardcoded lists to avoid sync issues.
+ * Provides helper functions for creating test brands, integrations,
+ * and field configurations.
  *
- * @module @v1/testing/db
+ * @module @v1/db/testing/brand
  */
 
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import * as schema from "@v1/db/schema";
 import { sql } from "drizzle-orm";
-
-// Use test database URL from environment
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-    throw new Error("DATABASE_URL environment variable is required for tests");
-}
-
-const client = postgres(connectionString);
-
-/**
- * Drizzle database instance for tests.
- * Uses the schema from @v1/db for full type safety.
- */
-export const testDb = drizzle(client, { schema });
-
-/**
- * Track whether the connection has been closed.
- * This is used to make closeTestDb() idempotent.
- */
-let connectionClosed = false;
-
-/**
- * Tables that should NOT be cleaned between tests.
- * These contain reference data that is seeded once and should persist.
- */
-const protectedTables = new Set([
-    // Taxonomy data - seeded by taxonomy sync, required for all tests
-    "taxonomy_categories",
-    "taxonomy_attributes",
-    "taxonomy_values",
-    "taxonomy_external_mappings",
-    // System tables
-    "users",
-    // Reference tables
-    "integrations",
-]);
-
-/**
- * Clean all user tables between tests.
- * Dynamically queries the database for all tables and truncates them,
- * except for protected tables that contain reference data.
- *
- * Uses a single TRUNCATE statement with CASCADE for speed.
- */
-export async function cleanupTables(): Promise<void> {
-    // Skip cleanup if connection is already closed
-    if (connectionClosed) {
-        return;
-    }
-
-    // Query all user tables from the public schema
-    const result = await testDb.execute<{ tablename: string }>(sql`
-        SELECT tablename 
-        FROM pg_tables 
-        WHERE schemaname = 'public'
-        AND tablename NOT LIKE 'drizzle_%'
-        AND tablename NOT LIKE 'pg_%'
-    `);
-
-    // Filter out protected tables
-    const tablesToClean = result
-        .map((row) => row.tablename)
-        .filter((table) => !protectedTables.has(table));
-
-    if (tablesToClean.length === 0) {
-        return;
-    }
-
-    // Build a single TRUNCATE statement for all tables
-    // This is faster than truncating one by one and handles FK dependencies with CASCADE
-    const tableList = tablesToClean.map((t) => `"${t}"`).join(", ");
-    await testDb.execute(sql.raw(`TRUNCATE TABLE ${tableList} CASCADE`));
-}
-
-/**
- * Close database connection. Called after all tests complete.
- * This function is idempotent - calling it multiple times is safe.
- */
-export async function closeTestDb(): Promise<void> {
-    // Only close if not already closed
-    if (connectionClosed) {
-        return;
-    }
-    connectionClosed = true;
-    await client.end();
-}
+import * as schema from "../schema/index";
+import { testDb } from "./connection";
 
 /**
  * Create a test brand for integration tests.

@@ -19,17 +19,12 @@ import ExcelJS from "exceljs";
 // ============================================================================
 
 /**
- * Parsed material from the "Materials Percentages" column
- * Format: "Name:Percentage[:Country:Recyclable:CertTitle:CertNumber:CertExpiry]|..."
+ * Parsed material from the "Materials" and "Percentages" columns
+ * Format: Two separate columns - Materials (semicolon-separated names) and Percentages (semicolon-separated values)
  */
 export interface ParsedMaterial {
   name: string;
   percentage?: number;
-  country?: string;
-  recyclable?: boolean;
-  certificationTitle?: string;
-  certificationNumber?: string;
-  certificationExpiry?: string;
 }
 
 /**
@@ -162,137 +157,82 @@ export interface ExcelParseError {
 // ============================================================================
 
 /**
- * Column name mappings for case-insensitive matching
- * Maps normalized column names to their canonical form
+ * Expected columns in the Avelero import template.
+ * All columns must be present with exact names (case-sensitive).
+ * UPID is the only optional column (present in export template, absent in import template).
  */
-const COLUMN_ALIASES: Record<string, string> = {
-  // Product-level columns
-  product_title: "Product Title",
-  producttitle: "Product Title",
-  title: "Product Title",
-  name: "Product Title",
-  product_name: "Product Title",
-  productname: "Product Title",
+export const EXPECTED_COLUMNS = [
+  "Product Title",
+  "Product Handle",
+  "Manufacturer",
+  "Description",
+  "Image",
+  "Status",
+  "Category",
+  "Season",
+  "Tags",
+  "Barcode",
+  "SKU",
+  "Attribute 1",
+  "Attribute Value 1",
+  "Attribute 2",
+  "Attribute Value 2",
+  "Attribute 3",
+  "Attribute Value 3",
+  "kgCO2e Carbon Footprint",
+  "Liters Water Used",
+  "Eco-claims",
+  "Grams Weight",
+  "Materials",
+  "Percentages",
+  "Raw Material",
+  "Weaving",
+  "Dyeing / Printing",
+  "Stitching",
+  "Assembly",
+  "Finishing",
+] as const;
 
-  product_handle: "Product Handle",
-  producthandle: "Product Handle",
-  handle: "Product Handle",
+/**
+ * Column that is optional (only present in export template, not required in import template)
+ */
+const OPTIONAL_COLUMN = "UPID";
 
-  manufacturer: "Manufacturer",
-  brand: "Manufacturer",
-
-  description: "Description",
-  desc: "Description",
-  product_description: "Description",
-
-  image: "Image",
-  image_url: "Image",
-  imageurl: "Image",
-
-  // Product status (unpublished, published, archived, scheduled)
-  status: "Status",
-  product_status: "Status",
-  productstatus: "Status",
-
-  category: "Category",
-  product_category: "Category",
-
-  season: "Season",
-
-  tags: "Tags",
-  tag: "Tags",
-
-  // Variant-level columns
-  barcode: "Barcode",
-  ean: "Barcode",
-  upc: "Barcode",
-
-  sku: "SKU",
-  stock_keeping_unit: "SKU",
-
-  // UPID column for variant matching in enrich mode
-  upid: "UPID",
-  variant_upid: "UPID",
-  variantupid: "UPID",
-  variant_id: "UPID",
-
-  // Attribute columns
-  attribute_1: "Attribute 1",
-  attribute1: "Attribute 1",
-  "attribute value 1": "Attribute Value 1",
-  attribute_value_1: "Attribute Value 1",
-  attributevalue1: "Attribute Value 1",
-  "attribute 1 value": "Attribute Value 1",
-
-  attribute_2: "Attribute 2",
-  attribute2: "Attribute 2",
-  "attribute value 2": "Attribute Value 2",
-  attribute_value_2: "Attribute Value 2",
-  attributevalue2: "Attribute Value 2",
-  "attribute 2 value": "Attribute Value 2",
-
-  attribute_3: "Attribute 3",
-  attribute3: "Attribute 3",
-  "attribute value 3": "Attribute Value 3",
-  attribute_value_3: "Attribute Value 3",
-  attributevalue3: "Attribute Value 3",
-  "attribute 3 value": "Attribute Value 3",
-
-  // Environmental columns
-  // "kgCO2e Carbon Footprint" -> "kgco2e_carbon_footprint"
-  kgco2e_carbon_footprint: "Kilograms CO2",
-  kilograms_co2: "Kilograms CO2",
-  kilogramsco2: "Kilograms CO2",
-  kg_co2: "Kilograms CO2",
-  carbon_kg: "Kilograms CO2",
-
-  carbon_footprint: "Carbon Footprint",
-  carbonfootprint: "Carbon Footprint",
-
-  // "Liters Water Used" -> "liters_water_used"
-  liters_water_used: "Liters Water Used",
-  literswaterused: "Liters Water Used",
-  water_liters: "Liters Water Used",
-  water_usage: "Liters Water Used",
-  liters_water: "Liters Water Used",
-
-  // "Eco-claims" -> "eco_claims"
-  eco_claims: "Eco Claims",
-  ecoclaims: "Eco Claims",
-
-  grams_weight: "Grams Weight",
-  gramsweight: "Grams Weight",
-  weight: "Grams Weight",
-  weight_grams: "Grams Weight",
-
-  // Materials column (semicolon-separated material names)
-  materials: "Materials",
-  material: "Materials",
-  material_list: "Materials",
-
-  // Percentages column (semicolon-separated percentages, matches Materials order)
-  percentages: "Percentages",
-  percentage: "Percentages",
-  material_percentages: "Percentages",
-  materials_percentages: "Percentages",
-
-  // Journey step columns
-  raw_material: "Raw Material",
-  rawmaterial: "Raw Material",
-
-  weaving: "Weaving",
-
-  "dyeing / printing": "Dyeing / Printing",
-  dyeing_printing: "Dyeing / Printing",
-  dyeingprinting: "Dyeing / Printing",
-  dyeing: "Dyeing / Printing",
-  printing: "Dyeing / Printing",
-
-  stitching: "Stitching",
-
-  assembly: "Assembly",
-
-  finishing: "Finishing",
+/**
+ * Mapping from template column names to internal canonical names
+ * Used for accessing data after parsing
+ */
+const COLUMN_TO_INTERNAL: Record<string, string> = {
+  "Product Title": "Product Title",
+  "Product Handle": "Product Handle",
+  "Manufacturer": "Manufacturer",
+  "Description": "Description",
+  "Image": "Image",
+  "Status": "Status",
+  "Category": "Category",
+  "Season": "Season",
+  "Tags": "Tags",
+  "UPID": "UPID",
+  "Barcode": "Barcode",
+  "SKU": "SKU",
+  "Attribute 1": "Attribute 1",
+  "Attribute Value 1": "Attribute Value 1",
+  "Attribute 2": "Attribute 2",
+  "Attribute Value 2": "Attribute Value 2",
+  "Attribute 3": "Attribute 3",
+  "Attribute Value 3": "Attribute Value 3",
+  "kgCO2e Carbon Footprint": "Kilograms CO2",
+  "Liters Water Used": "Liters Water Used",
+  "Eco-claims": "Eco Claims",
+  "Grams Weight": "Grams Weight",
+  "Materials": "Materials",
+  "Percentages": "Percentages",
+  "Raw Material": "Raw Material",
+  "Weaving": "Weaving",
+  "Dyeing / Printing": "Dyeing / Printing",
+  "Stitching": "Stitching",
+  "Assembly": "Assembly",
+  "Finishing": "Finishing",
 };
 
 /**
@@ -313,21 +253,11 @@ const JOURNEY_STEP_COLUMNS: Record<string, string> = {
 // ============================================================================
 
 /**
- * Normalize a column name for comparison
+ * Get internal column name from template column name
+ * Uses exact matching - no normalization or aliases
  */
-function normalizeColumnName(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[\s_\-/]+/g, "_");
-}
-
-/**
- * Get canonical column name from any variation
- */
-function getCanonicalColumnName(name: string): string {
-  const normalized = normalizeColumnName(name);
-  return COLUMN_ALIASES[normalized] || name;
+function getInternalColumnName(name: string): string {
+  return COLUMN_TO_INTERNAL[name] || name;
 }
 
 /**
@@ -596,9 +526,9 @@ function buildHeaderMap(worksheet: ExcelJS.Worksheet): {
   headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
     const rawHeader = getCellValue(headerRow, colNumber);
     if (rawHeader) {
-      const canonicalHeader = getCanonicalColumnName(rawHeader);
+      const internalHeader = getInternalColumnName(rawHeader);
       headers.push(rawHeader);
-      headerMap.set(colNumber, canonicalHeader);
+      headerMap.set(colNumber, internalHeader);
     }
   });
 
@@ -764,66 +694,97 @@ export async function parseExcelFile(
 }
 
 /**
- * Validate that required columns are present
+ * Validate that the Excel file matches the Avelero template exactly.
+ * All expected columns must be present with exact names (case-sensitive).
+ * UPID is optional (present in export template, absent in import template).
+ * Extra columns are not allowed.
+ */
+export function validateTemplateMatch(headers: string[]): {
+  valid: boolean;
+  error?: string;
+  missingColumns: string[];
+  extraColumns: string[];
+  hasUpid: boolean;
+} {
+  const headerSet = new Set(headers);
+  const expectedSet = new Set<string>(EXPECTED_COLUMNS);
+
+  // Check for missing columns (excluding optional UPID)
+  const missingColumns: string[] = [];
+  for (const expected of EXPECTED_COLUMNS) {
+    if (!headerSet.has(expected)) {
+      missingColumns.push(expected);
+    }
+  }
+
+  // Check for extra columns (excluding optional UPID)
+  const extraColumns: string[] = [];
+  for (const header of headers) {
+    if (!expectedSet.has(header) && header !== OPTIONAL_COLUMN) {
+      extraColumns.push(header);
+    }
+  }
+
+  // Check if UPID column is present
+  const hasUpid = headerSet.has(OPTIONAL_COLUMN);
+
+  // Build error message if invalid
+  let error: string | undefined;
+  if (missingColumns.length > 0 || extraColumns.length > 0) {
+    const parts: string[] = [];
+    if (missingColumns.length > 0) {
+      parts.push(`Missing columns: ${missingColumns.join(", ")}`);
+    }
+    if (extraColumns.length > 0) {
+      parts.push(`Unexpected columns: ${extraColumns.join(", ")}`);
+    }
+    error = `Template mismatch. ${parts.join(". ")}. Please use the Avelero template.`;
+  }
+
+  return {
+    valid: missingColumns.length === 0 && extraColumns.length === 0,
+    error,
+    missingColumns,
+    extraColumns,
+    hasUpid,
+  };
+}
+
+/**
+ * @deprecated Use validateTemplateMatch instead
  */
 export function validateRequiredColumns(headers: string[]): {
   valid: boolean;
   missingColumns: string[];
 } {
-  const canonicalHeaders = headers.map((h) => getCanonicalColumnName(h));
-
-  // Required columns per the refactor plan
-  const requiredColumns = ["Product Title", "Product Handle"];
-
-  // At least one identifier column is required
-  const identifierColumns = ["Barcode", "SKU"];
-  const hasIdentifier = identifierColumns.some((col) =>
-    canonicalHeaders.includes(col),
-  );
-
-  const missingColumns: string[] = [];
-
-  for (const required of requiredColumns) {
-    if (!canonicalHeaders.includes(required)) {
-      missingColumns.push(required);
-    }
-  }
-
-  if (!hasIdentifier) {
-    missingColumns.push("Barcode or SKU (at least one required)");
-  }
-
+  const result = validateTemplateMatch(headers);
   return {
-    valid: missingColumns.length === 0,
-    missingColumns,
+    valid: result.valid,
+    missingColumns: [...result.missingColumns, ...result.extraColumns],
   };
 }
 
 /**
- * Find duplicate identifiers within parsed products
- * Returns rows with duplicate barcodes, SKUs, or UPIDs
+ * Find duplicate identifiers within parsed products.
+ * Only checks for duplicate Product Handles and UPIDs.
+ * SKU and Barcode duplicates are NOT checked (user's responsibility).
  */
 export function findDuplicateIdentifiers(
   products: ParsedProduct[],
-): { field: "Barcode" | "SKU" | "UPID"; value: string; rows: number[] }[] {
-  const barcodeMap = new Map<string, number[]>();
-  const skuMap = new Map<string, number[]>();
+): { field: "Product Handle" | "UPID"; value: string; rows: number[] }[] {
+  const handleMap = new Map<string, number[]>();
   const upidMap = new Map<string, number[]>();
 
   for (const product of products) {
+    // Track product handle duplicates
+    if (product.productHandle) {
+      const existing = handleMap.get(product.productHandle) || [];
+      existing.push(product.rowNumber);
+      handleMap.set(product.productHandle, existing);
+    }
+
+    // Track UPID duplicates across all variants
     for (const variant of product.variants) {
-      if (variant.barcode) {
-        const existing = barcodeMap.get(variant.barcode) || [];
-        existing.push(variant.rowNumber);
-        barcodeMap.set(variant.barcode, existing);
-      }
-
-      if (variant.sku) {
-        const existing = skuMap.get(variant.sku) || [];
-        existing.push(variant.rowNumber);
-        skuMap.set(variant.sku, existing);
-      }
-
       if (variant.upid) {
         const existing = upidMap.get(variant.upid) || [];
         existing.push(variant.rowNumber);
@@ -833,20 +794,14 @@ export function findDuplicateIdentifiers(
   }
 
   const duplicates: {
-    field: "Barcode" | "SKU" | "UPID";
+    field: "Product Handle" | "UPID";
     value: string;
     rows: number[];
   }[] = [];
 
-  for (const [barcode, rows] of barcodeMap.entries()) {
+  for (const [handle, rows] of handleMap.entries()) {
     if (rows.length > 1) {
-      duplicates.push({ field: "Barcode", value: barcode, rows });
-    }
-  }
-
-  for (const [sku, rows] of skuMap.entries()) {
-    if (rows.length > 1) {
-      duplicates.push({ field: "SKU", value: sku, rows });
+      duplicates.push({ field: "Product Handle", value: handle, rows });
     }
   }
 

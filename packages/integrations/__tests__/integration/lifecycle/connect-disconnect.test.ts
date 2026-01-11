@@ -26,7 +26,7 @@ import {
     createTestBrand,
     createTestBrandIntegration,
     createDefaultFieldConfigs,
-} from "@v1/testing/db";
+} from "@v1/db/testing";
 
 // =============================================================================
 // HELPER FUNCTIONS

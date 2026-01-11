@@ -231,8 +231,37 @@ export async function generateCorrectionExcel(
 }
 
 /**
+ * Generate a correction export including ONLY rows with errors.
+ * This is the preferred method for correction exports.
+ *
+ * @param allRows - All rows from the original import (success and failed)
+ * @param failedRowNumbers - Set of row numbers that failed
+ * @param errorsByRow - Map of row number to errors
+ * @param columnOrder - Column order for the output
+ * @returns Buffer containing the XLSX file with only error rows
+ */
+export async function generateErrorOnlyCorrectionExcel(
+  allRows: Array<{ rowNumber: number; data: Record<string, string> }>,
+  failedRowNumbers: Set<number>,
+  errorsByRow: Map<number, Array<{ field: string; message: string }>>,
+  columnOrder: string[],
+): Promise<Uint8Array> {
+  // Only include rows that have errors
+  const exportRows: ExportRow[] = allRows
+    .filter((row) => failedRowNumbers.has(row.rowNumber))
+    .map((row) => ({
+      rowNumber: row.rowNumber,
+      data: row.data,
+      errors: errorsByRow.get(row.rowNumber) || [],
+    }));
+
+  return generateCorrectionExcel(exportRows, { columnOrder });
+}
+
+/**
+ * @deprecated Use generateErrorOnlyCorrectionExcel instead.
  * Generate a complete correction export including all original rows
- * with error highlighting only on failed rows
+ * with error highlighting only on failed rows.
  *
  * @param allRows - All rows from the original import (success and failed)
  * @param failedRowNumbers - Set of row numbers that failed

@@ -30,7 +30,7 @@ import {
   type ParsedVariant,
   findDuplicateIdentifiers,
   parseExcelFile,
-  validateRequiredColumns,
+  validateTemplateMatch,
 } from "../../lib/excel-parser";
 
 // ============================================================================
@@ -114,6 +114,12 @@ const {
 
 const BATCH_SIZE = 100;
 
+/**
+ * Valid status values for products
+ */
+const VALID_STATUSES = ["unpublished", "published", "archived", "scheduled"] as const;
+type ValidStatus = (typeof VALID_STATUSES)[number];
+
 // ============================================================================
 // Main Task
 // ============================================================================
@@ -187,21 +193,35 @@ export const validateAndStage = task({
         });
       }
 
-      // 4. Validate required columns
-      const columnValidation = validateRequiredColumns(parseResult.headers);
-      if (!columnValidation.valid) {
-        throw new Error(
-          `Missing required columns: ${columnValidation.missingColumns.join(", ")}`,
-        );
+      // 4. Validate template match (strict column validation)
+      const templateValidation = validateTemplateMatch(parseResult.headers);
+      if (!templateValidation.valid) {
+        throw new Error(templateValidation.error || "Template validation failed");
       }
 
-      // 5. Check for duplicate identifiers
+      logger.info("Template validation passed", {
+        hasUpid: templateValidation.hasUpid,
+      });
+
+      // 5. Check for duplicate identifiers (only Product Handle and UPID)
       const duplicates = findDuplicateIdentifiers(parseResult.products);
+
+      // Build a set of duplicate product handles to skip
+      const duplicateHandles = new Set<string>();
+      const seenHandles = new Set<string>();
+
+      for (const dup of duplicates) {
+        if (dup.field === "Product Handle") {
+          duplicateHandles.add(dup.value);
+        }
+      }
+
       if (duplicates.length > 0) {
         logger.warn("Duplicate identifiers found", {
           count: duplicates.length,
+          handles: duplicates.filter(d => d.field === "Product Handle").length,
+          upids: duplicates.filter(d => d.field === "UPID").length,
         });
-        // Mark duplicate rows with errors (handled in validation)
       }
 
       // 6. Load catalog and auto-create missing entities
@@ -229,6 +249,23 @@ export const validateAndStage = task({
         const batch = parseResult.products.slice(i, i + BATCH_SIZE);
 
         for (const product of batch) {
+          // Skip duplicate product handles (keep first, reject subsequent)
+          if (seenHandles.has(product.productHandle)) {
+            results.push({
+              productHandle: product.productHandle,
+              rowNumber: product.rowNumber,
+              success: false,
+              action: "SKIP",
+              errors: [{
+                field: "Product Handle",
+                message: `Duplicate product handle: "${product.productHandle}". Only the first occurrence will be processed.`,
+              }],
+            });
+            failureCount++;
+            continue;
+          }
+          seenHandles.add(product.productHandle);
+
           const result = await validateAndStageProduct(
             db,
             product,
@@ -646,6 +683,31 @@ async function validateAndStageProduct(
     errors.push({ field: "Product Title", message: "Required" });
   }
 
+  // Validate status field
+  if (product.status && product.status.trim() !== "") {
+    const normalizedStatus = product.status.toLowerCase().trim();
+    if (!VALID_STATUSES.includes(normalizedStatus as ValidStatus)) {
+      errors.push({
+        field: "Status",
+        message: `Invalid status: "${product.status}". Must be one of: ${VALID_STATUSES.join(", ")}`,
+      });
+    }
+  }
+
+  // Validate category format (hierarchical with " > " delimiter)
+  if (product.categoryPath && product.categoryPath.trim() !== "") {
+    // Check if it contains the required " > " delimiter for hierarchical categories
+    // or is a simple single-level category (no delimiter needed)
+    const trimmedPath = product.categoryPath.trim();
+    // If there's a ">" but not with proper spacing " > ", it's invalid
+    if (trimmedPath.includes(">") && !trimmedPath.includes(" > ")) {
+      errors.push({
+        field: "Category",
+        message: `Invalid category format: "${product.categoryPath}". Use " > " delimiter (e.g., "Clothing > T-shirts > Printed T-shirts")`,
+      });
+    }
+  }
+
   // Validate category (MUST exist - no auto-create)
   let categoryId: string | null = null;
   if (product.categoryPath) {
@@ -661,48 +723,20 @@ async function validateAndStageProduct(
     }
   }
 
-  // Check for duplicate identifiers
+  // Check for duplicate UPIDs within the file
+  // Note: SKU and barcode duplicates are NOT checked (user's responsibility)
   for (const variant of product.variants) {
-    const barcodeDup = duplicates.find(
-      (d) =>
-        d.field === "Barcode" &&
-        d.value === variant.barcode &&
-        d.rows.length > 1,
-    );
-    if (barcodeDup) {
-      errors.push({
-        field: "Barcode",
-        message: `Duplicate barcode: ${variant.barcode}`,
-      });
-    }
-
-    const skuDup = duplicates.find(
-      (d) => d.field === "SKU" && d.value === variant.sku && d.rows.length > 1,
-    );
-    if (skuDup) {
-      errors.push({
-        field: "SKU",
-        message: `Duplicate SKU: ${variant.sku}`,
-      });
-    }
-
-    const upidDup = duplicates.find(
-      (d) =>
-        d.field === "UPID" && d.value === variant.upid && d.rows.length > 1,
-    );
-    if (upidDup) {
-      errors.push({
-        field: "UPID",
-        message: `Duplicate UPID: ${variant.upid}`,
-      });
-    }
-
-    // Require at least barcode or SKU
-    if (!variant.barcode && !variant.sku) {
-      errors.push({
-        field: "Barcode/SKU",
-        message: "At least one of Barcode or SKU is required",
-      });
+    if (variant.upid) {
+      const upidDup = duplicates.find(
+        (d) =>
+          d.field === "UPID" && d.value === variant.upid && d.rows.length > 1,
+      );
+      if (upidDup) {
+        errors.push({
+          field: "UPID",
+          message: `Duplicate UPID: ${variant.upid}`,
+        });
+      }
     }
   }
 
@@ -765,6 +799,7 @@ async function validateAndStageProduct(
 
   // Look up existing variants by UPID (for ENRICH mode)
   const existingVariantsByUpid = new Map<string, string>(); // upid -> variantId
+  const variantsToDelete: string[] = []; // variant IDs to delete
 
   if (productAction === "ENRICH" && existingProductId) {
     // Get all existing variants for this product
@@ -779,25 +814,19 @@ async function validateAndStageProduct(
       }
     }
 
-    // Validate that provided UPIDs exist in the product (for enrichment)
+    // Collect UPIDs from the import sheet
+    const importedUpids = new Set<string>();
     for (const variant of product.variants) {
-      if (variant.upid && !existingVariantsByUpid.has(variant.upid)) {
-        errors.push({
-          field: "UPID",
-          message: `Variant UPID not found in product: ${variant.upid}`,
-        });
+      if (variant.upid) {
+        importedUpids.add(variant.upid);
       }
     }
 
-    // If any UPID validation failed, return error
-    if (errors.length > 0) {
-      return {
-        productHandle: product.productHandle,
-        rowNumber: product.rowNumber,
-        success: false,
-        action: productAction,
-        errors,
-      };
+    // Find variants to delete: exist in DB but not in sheet
+    for (const [upid, variantId] of existingVariantsByUpid.entries()) {
+      if (!importedUpids.has(upid)) {
+        variantsToDelete.push(variantId);
+      }
     }
   }
 
@@ -1030,6 +1059,23 @@ async function validateAndStageProduct(
         weightUnit: "g",
       });
     }
+  }
+
+  // Stage variants for deletion (ENRICH mode only)
+  // These are variants that exist in the DB but are not in the import sheet
+  for (const variantIdToDelete of variantsToDelete) {
+    const stagingVariantId = randomUUID();
+    await database.insert(stagingProductVariants).values({
+      stagingId: stagingVariantId,
+      stagingProductId,
+      jobId,
+      rowNumber: product.rowNumber, // Use product row number for deletions
+      action: "DELETE",
+      existingVariantId: variantIdToDelete,
+      id: variantIdToDelete,
+      productId,
+      rowStatus: "PENDING",
+    });
   }
 
   return {

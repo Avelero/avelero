@@ -34,11 +34,11 @@ import {
     createTestBrand,
     createTestBrandIntegration,
     createDefaultFieldConfigs,
-} from "@v1/testing/db";
+} from "@v1/db/testing";
 import { promoteIntegrationToPrimary } from "../../../src/sync/promotion";
 import { registerConnector, unregisterConnector } from "../../../src/connectors/registry";
 import { syncProducts } from "../../../src/sync/engine";
-import { createTestSyncContext } from "@v1/testing/context";
+import { createTestSyncContext } from "@v1/db/testing";
 import {
     setMockProducts,
     clearMockProducts,

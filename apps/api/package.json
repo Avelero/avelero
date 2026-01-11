@@ -12,7 +12,9 @@
     "reset": "supabase db reset",
     "generate": "supabase gen types --lang=typescript --project-id ebshgnuavsacpplatsqt --schema public > ../../packages/supabase/src/types/db.ts",
     "lint": "biome lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test __tests__ --serial --timeout 30000",
+    "test:integration": "bun test __tests__/integration --serial --timeout 30000"
   },
   "dependencies": {
     "@hono/trpc-server": "^0.3.0",
@@ -42,6 +44,8 @@
     "@types/papaparse": "^5.5.0",
     "@types/supertest": "^6.0.3",
     "@types/ws": "^8.18.1",
+    "@v1/testing": "workspace:*",
+    "dotenv": "^17.2.3",
     "supertest": "^7.1.4"
   }
 }

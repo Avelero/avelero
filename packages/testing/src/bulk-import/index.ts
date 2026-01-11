@@ -1,21 +1,24 @@
 /**
  * Bulk Import Testing Utilities
  *
- * Provides utilities for testing the bulk import functionality:
- * - ExcelBuilder: Create test Excel files programmatically
- * - MockStorage: Mock Supabase storage for file operations
- * - MockTrigger: Mock Trigger.dev for background task testing
- * - TestCatalog: Setup brand catalog data for tests
- * - TestDatabase: Database helpers for verifying import results
- * - Test fixtures: Reusable test data
+ * Provides utilities for testing bulk import functionality:
+ * - Excel file generation
+ * - Mock storage
+ * - Mock Trigger.dev tasks
+ * - Product fixtures
+ *
+ * For database-dependent utilities (TestDatabase, TestCatalog),
+ * use @v1/db/testing instead.
  *
  * @module @v1/testing/bulk-import
  */
 
+// Excel file generation
 export * from "./excel-builder";
+
+// Mock utilities (no database dependency)
 export * from "./mock-storage";
 export * from "./mock-trigger";
-export * from "./test-catalog";
-export * from "./test-database";
-export * from "./fixtures/catalog-fixtures";
+
+// Static fixtures (no database dependency)
 export * from "./fixtures/product-fixtures";

@@ -12,6 +12,7 @@ import ExcelJS from "exceljs";
 import {
     generateCorrectionExcel,
     generateFullCorrectionExcel,
+    generateErrorOnlyCorrectionExcel,
     type ExportRow,
     DEFAULT_IMPORT_COLUMN_ORDER,
 } from "../../../src/lib/excel-export";
@@ -36,7 +37,7 @@ function createExportRow(
  */
 async function parseExcelBuffer(buffer: Uint8Array): Promise<ExcelJS.Workbook> {
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(Buffer.from(buffer));
+    await workbook.xlsx.load(buffer.buffer as ArrayBuffer);
     return workbook;
 }
 
@@ -88,7 +89,7 @@ describe("Excel Export - Correction Generation", () => {
             const buffer = await generateCorrectionExcel(rows);
             const workbook = await parseExcelBuffer(buffer);
 
-            expect(workbook.worksheets[0].name).toBe("Products");
+            expect(workbook.worksheets[0]!.name).toBe("Products");
         });
 
         it("creates worksheet with custom name when specified", async () => {
@@ -101,7 +102,7 @@ describe("Excel Export - Correction Generation", () => {
             });
             const workbook = await parseExcelBuffer(buffer);
 
-            expect(workbook.worksheets[0].name).toBe("Import Corrections");
+            expect(workbook.worksheets[0]!.name).toBe("Import Corrections");
         });
 
         it("handles empty rows array", async () => {
@@ -109,7 +110,7 @@ describe("Excel Export - Correction Generation", () => {
             const workbook = await parseExcelBuffer(buffer);
 
             expect(workbook.worksheets.length).toBe(1);
-            expect(workbook.worksheets[0].rowCount).toBe(0);
+            expect(workbook.worksheets[0]!.rowCount).toBe(0);
         });
     });
 
@@ -131,7 +132,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title", "SKU", "Category"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // Row 2 is the data row (row 1 is headers)
             const skuCell = worksheet.getCell(2, 2); // Column 2 = SKU
@@ -153,7 +154,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title", "SKU", "Category"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // Product Title should not be highlighted
             const titleCell = worksheet.getCell(2, 1);
@@ -179,7 +180,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title", "SKU", "Category"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // All three cells should be highlighted
             expect(getCellFillColor(worksheet.getCell(2, 1))).toBe(ERROR_FILL_COLOR);
@@ -200,7 +201,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title", "SKU", "Category"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // No cells should be highlighted
             expect(getCellFillColor(worksheet.getCell(2, 1))).not.toBe(ERROR_FILL_COLOR);
@@ -228,7 +229,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title", "SKU", "Category", "Description"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // Verify each value is preserved
             expect(worksheet.getCell(2, 1).value).toBe("Organic Cotton T-Shirt");
@@ -250,7 +251,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title", "SKU", "Category"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // Empty value should be preserved as empty string
             expect(worksheet.getCell(2, 2).value).toBe("");
@@ -269,7 +270,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title", "Description", "Tags"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             expect(worksheet.getCell(2, 1).value).toBe('Test "Product" & Co.');
             expect(worksheet.getCell(2, 2).value).toBe("Line 1\nLine 2");
@@ -295,7 +296,7 @@ describe("Excel Export - Correction Generation", () => {
 
             const buffer = await generateCorrectionExcel(rows, { columnOrder });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // Check headers match specified order
             expect(worksheet.getCell(1, 1).value).toBe("Category");
@@ -318,7 +319,7 @@ describe("Excel Export - Correction Generation", () => {
 
             const buffer = await generateCorrectionExcel(rows);
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // Columns should be derived from the data
             const headerRow = worksheet.getRow(1);
@@ -346,7 +347,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             const headerCell = worksheet.getCell(1, 1);
             const fillColor = getCellFillColor(headerCell);
@@ -363,7 +364,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             const headerCell = worksheet.getCell(1, 1);
             expect(headerCell.font?.bold).toBe(true);
@@ -378,10 +379,10 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Product Title"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // Check that the worksheet view has frozen panes at row 1
-            const view = worksheet.views[0];
+            const view = worksheet.views[0] as { state?: string; ySplit?: number };
             expect(view?.state).toBe("frozen");
             expect(view?.ySplit).toBe(1);
         });
@@ -404,7 +405,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Short", "Very Long Column Name With Lots of Text"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             const shortColumn = worksheet.getColumn(1);
             const longColumn = worksheet.getColumn(2);
@@ -423,7 +424,7 @@ describe("Excel Export - Correction Generation", () => {
                 columnOrder: ["Column"],
             });
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             const column = worksheet.getColumn(1);
             // Max column width is 50 (from excel-export.ts)
@@ -456,7 +457,7 @@ describe("Excel Export - Correction Generation", () => {
             );
 
             const workbook = await parseExcelBuffer(buffer);
-            const worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0]!;
 
             // All 3 data rows should be present (+ 1 header row)
             expect(worksheet.rowCount).toBe(4);
@@ -466,6 +467,98 @@ describe("Excel Export - Correction Generation", () => {
             expect(getCellFillColor(worksheet.getCell(2, 2))).not.toBe(ERROR_FILL_COLOR); // SKU-001
             expect(getCellFillColor(worksheet.getCell(3, 2))).toBe(ERROR_FILL_COLOR); // Empty SKU
             expect(getCellFillColor(worksheet.getCell(4, 2))).not.toBe(ERROR_FILL_COLOR); // SKU-003
+        });
+    });
+
+    // ============================================================================
+    // Tests: Error-Only Correction Export
+    // ============================================================================
+
+    describe("Error-Only Correction Export", () => {
+        it("only includes products with errors", async () => {
+            const allRows = [
+                { rowNumber: 2, data: { "Title": "Product 1", "SKU": "SKU-001" } },
+                { rowNumber: 3, data: { "Title": "Product 2", "SKU": "" } },
+                { rowNumber: 4, data: { "Title": "Product 3", "SKU": "SKU-003" } },
+                { rowNumber: 5, data: { "Title": "Product 4", "SKU": "" } },
+            ];
+
+            const failedRowNumbers = new Set([3, 5]);
+            const errorsByRow = new Map([
+                [3, [{ field: "SKU", message: "Required" }]],
+                [5, [{ field: "SKU", message: "Required" }]],
+            ]);
+
+            const buffer = await generateErrorOnlyCorrectionExcel(
+                allRows,
+                failedRowNumbers,
+                errorsByRow,
+                ["Title", "SKU"]
+            );
+
+            const workbook = await parseExcelBuffer(buffer);
+            const worksheet = workbook.worksheets[0]!;
+
+            // Only 2 error rows should be present (+ 1 header row)
+            expect(worksheet.rowCount).toBe(3);
+
+            // Both error rows should have error highlighting
+            expect(getCellFillColor(worksheet.getCell(2, 2))).toBe(ERROR_FILL_COLOR);
+            expect(getCellFillColor(worksheet.getCell(3, 2))).toBe(ERROR_FILL_COLOR);
+
+            // Verify the correct data is included
+            expect(worksheet.getCell(2, 1).value).toBe("Product 2");
+            expect(worksheet.getCell(3, 1).value).toBe("Product 4");
+        });
+
+        it("returns empty worksheet when no errors", async () => {
+            const allRows = [
+                { rowNumber: 2, data: { "Title": "Product 1", "SKU": "SKU-001" } },
+                { rowNumber: 3, data: { "Title": "Product 2", "SKU": "SKU-002" } },
+            ];
+
+            const failedRowNumbers = new Set<number>();
+            const errorsByRow = new Map<number, Array<{ field: string; message: string }>>();
+
+            const buffer = await generateErrorOnlyCorrectionExcel(
+                allRows,
+                failedRowNumbers,
+                errorsByRow,
+                ["Title", "SKU"]
+            );
+
+            const workbook = await parseExcelBuffer(buffer);
+            const worksheet = workbook.worksheets[0]!;
+
+            // Only header row, no data rows
+            expect(worksheet.rowCount).toBe(1);
+        });
+
+        it("preserves original data in error rows", async () => {
+            const allRows = [
+                { rowNumber: 2, data: { "Title": "Valid Product", "SKU": "SKU-001", "Category": "Clothing" } },
+                { rowNumber: 3, data: { "Title": "Invalid Product", "SKU": "", "Category": "Electronics" } },
+            ];
+
+            const failedRowNumbers = new Set([3]);
+            const errorsByRow = new Map([
+                [3, [{ field: "SKU", message: "Required" }]],
+            ]);
+
+            const buffer = await generateErrorOnlyCorrectionExcel(
+                allRows,
+                failedRowNumbers,
+                errorsByRow,
+                ["Title", "SKU", "Category"]
+            );
+
+            const workbook = await parseExcelBuffer(buffer);
+            const worksheet = workbook.worksheets[0]!;
+
+            // Verify data is preserved
+            expect(worksheet.getCell(2, 1).value).toBe("Invalid Product");
+            expect(worksheet.getCell(2, 2).value).toBe("");
+            expect(worksheet.getCell(2, 3).value).toBe("Electronics");
         });
     });
 

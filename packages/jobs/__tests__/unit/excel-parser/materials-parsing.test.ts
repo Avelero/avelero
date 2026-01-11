@@ -8,7 +8,7 @@
  * @group excel-parser
  */
 
-import "../setup";
+
 import { describe, it, expect } from "bun:test";
 import { parseMaterials } from "../../../src/lib/excel-parser";
 
@@ -17,16 +17,16 @@ describe("Excel Parser - Materials Parsing", () => {
         const result = parseMaterials("Cotton", "100");
 
         expect(result).toHaveLength(1);
-        expect(result[0].name).toBe("Cotton");
-        expect(result[0].percentage).toBe(100);
+        expect(result[0]!.name).toBe("Cotton");
+        expect(result[0]!.percentage).toBe(100);
     });
 
     it("parses minimal material (name only, no percentage)", () => {
         const result = parseMaterials("Cotton");
 
         expect(result).toHaveLength(1);
-        expect(result[0].name).toBe("Cotton");
-        expect(result[0].percentage).toBeUndefined();
+        expect(result[0]!.name).toBe("Cotton");
+        expect(result[0]!.percentage).toBeUndefined();
     });
 
     it("parses multiple materials with percentages", () => {
@@ -43,9 +43,9 @@ describe("Excel Parser - Materials Parsing", () => {
         const result = parseMaterials("Cotton; Polyester; Elastane", "80; 15");
 
         expect(result).toHaveLength(3);
-        expect(result[0].percentage).toBe(80);
-        expect(result[1].percentage).toBe(15);
-        expect(result[2].percentage).toBeUndefined();
+        expect(result[0]!.percentage).toBe(80);
+        expect(result[1]!.percentage).toBe(15);
+        expect(result[2]!.percentage).toBeUndefined();
     });
 
     it("handles more percentages than materials", () => {
@@ -53,8 +53,8 @@ describe("Excel Parser - Materials Parsing", () => {
         const result = parseMaterials("Cotton; Polyester", "80; 15; 5");
 
         expect(result).toHaveLength(2);
-        expect(result[0].percentage).toBe(80);
-        expect(result[1].percentage).toBe(15);
+        expect(result[0]!.percentage).toBe(80);
+        expect(result[1]!.percentage).toBe(15);
     });
 
     it("handles non-numeric percentage values", () => {
@@ -62,16 +62,16 @@ describe("Excel Parser - Materials Parsing", () => {
         const result = parseMaterials("Cotton; Polyester", "eighty; 15");
 
         expect(result).toHaveLength(2);
-        expect(result[0].percentage).toBeUndefined(); // "eighty" is not numeric
-        expect(result[1].percentage).toBe(15);
+        expect(result[0]!.percentage).toBeUndefined(); // "eighty" is not numeric
+        expect(result[1]!.percentage).toBe(15);
     });
 
     it("handles decimal percentage values", () => {
         const result = parseMaterials("Cotton; Elastane", "95.5; 4.5");
 
         expect(result).toHaveLength(2);
-        expect(result[0].percentage).toBe(95.5);
-        expect(result[1].percentage).toBe(4.5);
+        expect(result[0]!.percentage).toBe(95.5);
+        expect(result[1]!.percentage).toBe(4.5);
     });
 
     it("handles empty materials value", () => {
@@ -90,43 +90,43 @@ describe("Excel Parser - Materials Parsing", () => {
         const result = parseMaterials("Cotton; Polyester", "");
 
         expect(result).toHaveLength(2);
-        expect(result[0].name).toBe("Cotton");
-        expect(result[0].percentage).toBeUndefined();
-        expect(result[1].name).toBe("Polyester");
-        expect(result[1].percentage).toBeUndefined();
+        expect(result[0]!.name).toBe("Cotton");
+        expect(result[0]!.percentage).toBeUndefined();
+        expect(result[1]!.name).toBe("Polyester");
+        expect(result[1]!.percentage).toBeUndefined();
     });
 
     it("handles undefined percentages value", () => {
         const result = parseMaterials("Cotton; Polyester", undefined);
 
         expect(result).toHaveLength(2);
-        expect(result[0].name).toBe("Cotton");
-        expect(result[0].percentage).toBeUndefined();
-        expect(result[1].name).toBe("Polyester");
-        expect(result[1].percentage).toBeUndefined();
+        expect(result[0]!.name).toBe("Cotton");
+        expect(result[0]!.percentage).toBeUndefined();
+        expect(result[1]!.name).toBe("Polyester");
+        expect(result[1]!.percentage).toBeUndefined();
     });
 
     it("trims whitespace from material names", () => {
         const result = parseMaterials("  Cotton  ;  Polyester  ", "80; 20");
 
         expect(result).toHaveLength(2);
-        expect(result[0].name).toBe("Cotton");
-        expect(result[1].name).toBe("Polyester");
+        expect(result[0]!.name).toBe("Cotton");
+        expect(result[1]!.name).toBe("Polyester");
     });
 
     it("handles percentage values with whitespace", () => {
         const result = parseMaterials("Cotton; Polyester", "  80  ;  20  ");
 
         expect(result).toHaveLength(2);
-        expect(result[0].percentage).toBe(80);
-        expect(result[1].percentage).toBe(20);
+        expect(result[0]!.percentage).toBe(80);
+        expect(result[1]!.percentage).toBe(20);
     });
 
     it("handles zero percentage", () => {
         const result = parseMaterials("Cotton", "0");
 
         expect(result).toHaveLength(1);
-        expect(result[0].percentage).toBe(0);
+        expect(result[0]!.percentage).toBe(0);
     });
 
     it("handles percentage over 100", () => {
@@ -134,7 +134,7 @@ describe("Excel Parser - Materials Parsing", () => {
         const result = parseMaterials("Cotton", "150");
 
         expect(result).toHaveLength(1);
-        expect(result[0].percentage).toBe(150);
+        expect(result[0]!.percentage).toBe(150);
     });
 
     it("handles negative percentage", () => {
@@ -142,6 +142,6 @@ describe("Excel Parser - Materials Parsing", () => {
         const result = parseMaterials("Cotton", "-10");
 
         expect(result).toHaveLength(1);
-        expect(result[0].percentage).toBe(-10);
+        expect(result[0]!.percentage).toBe(-10);
     });
 });

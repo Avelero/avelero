@@ -8,7 +8,6 @@
  * @module tests/unit/excel-export/parent-child-rows
  */
 
-import "../setup";
 
 import { describe, it, expect } from "bun:test";
 import {

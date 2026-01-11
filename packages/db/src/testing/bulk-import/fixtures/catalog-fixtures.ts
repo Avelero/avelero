@@ -8,7 +8,7 @@
  */
 
 import type { InferInsertModel } from "drizzle-orm";
-import * as schema from "@v1/db/schema";
+import * as schema from "../../../schema/index";
 
 // ============================================================================
 // Types - Using actual schema table types

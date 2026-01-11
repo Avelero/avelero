@@ -8,8 +8,8 @@
  * @module @v1/testing/bulk-import/test-catalog
  */
 
-import type { Database } from "@v1/db/client";
-import * as schema from "@v1/db/schema";
+import type { Database } from "../../client";
+import * as schema from "../../schema/index";
 import {
     createFullCatalogFixtures,
     createMinimalCatalogFixtures,

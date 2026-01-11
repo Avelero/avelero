@@ -12,6 +12,7 @@ import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 import type {
   CreateImportJobParams,
   ImportJobStatus,
+  UpdateImportJobCorrectionFileParams,
   UpdateImportJobProgressParams,
   UpdateImportJobStatusParams,
 } from "./types";
@@ -34,6 +35,8 @@ export async function createImportJob(
       filename: params.filename,
       status: params.status ?? "PENDING",
       mode: params.mode ?? "CREATE",
+      userId: params.userId ?? null,
+      userEmail: params.userEmail ?? null,
     })
     .returning();
 
@@ -55,6 +58,11 @@ export async function createImportJob(
     summary: job.summary as Record<string, unknown> | null,
     mode: job.mode,
     hasExportableFailures: job.hasExportableFailures,
+    correctionFilePath: job.correctionFilePath,
+    correctionDownloadUrl: job.correctionDownloadUrl,
+    correctionExpiresAt: job.correctionExpiresAt,
+    userId: job.userId,
+    userEmail: job.userEmail,
   };
 }
 
@@ -105,6 +113,11 @@ export async function updateImportJobStatus(
     summary: job.summary as Record<string, unknown> | null,
     mode: job.mode,
     hasExportableFailures: job.hasExportableFailures,
+    correctionFilePath: job.correctionFilePath,
+    correctionDownloadUrl: job.correctionDownloadUrl,
+    correctionExpiresAt: job.correctionExpiresAt,
+    userId: job.userId,
+    userEmail: job.userEmail,
   };
 }
 
@@ -139,6 +152,11 @@ export async function updateImportJobProgress(
     summary: job.summary as Record<string, unknown> | null,
     mode: job.mode,
     hasExportableFailures: job.hasExportableFailures,
+    correctionFilePath: job.correctionFilePath,
+    correctionDownloadUrl: job.correctionDownloadUrl,
+    correctionExpiresAt: job.correctionExpiresAt,
+    userId: job.userId,
+    userEmail: job.userEmail,
   };
 }
 
@@ -173,6 +191,11 @@ export async function getImportJobStatus(
     summary: job.summary as Record<string, unknown> | null,
     mode: job.mode,
     hasExportableFailures: job.hasExportableFailures,
+    correctionFilePath: job.correctionFilePath,
+    correctionDownloadUrl: job.correctionDownloadUrl,
+    correctionExpiresAt: job.correctionExpiresAt,
+    userId: job.userId,
+    userEmail: job.userEmail,
   };
 }
 
@@ -207,12 +230,33 @@ export async function getRecentImportJobs(
     summary: job.summary as Record<string, unknown> | null,
     mode: job.mode,
     hasExportableFailures: job.hasExportableFailures,
+    correctionFilePath: job.correctionFilePath,
+    correctionDownloadUrl: job.correctionDownloadUrl,
+    correctionExpiresAt: job.correctionExpiresAt,
+    userId: job.userId,
+    userEmail: job.userEmail,
   }));
 }
 
-
-
-
+/**
+ * Updates an import job with correction file information
+ *
+ * Called after generating the error report Excel file to store
+ * the download URL and expiry timestamp.
+ */
+export async function updateImportJobCorrectionFile(
+  db: DbOrTx,
+  params: UpdateImportJobCorrectionFileParams,
+): Promise<void> {
+  await db
+    .update(importJobs)
+    .set({
+      correctionFilePath: params.correctionFilePath,
+      correctionDownloadUrl: params.correctionDownloadUrl,
+      correctionExpiresAt: params.correctionExpiresAt,
+    })
+    .where(eq(importJobs.id, params.jobId));
+}
 
 
 

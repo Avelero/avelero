@@ -227,6 +227,7 @@ export const importRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = brandCtx.brandId;
+      const userEmail = ctx.user.email ?? null;
 
       const resolvedFile = resolveImportFilePath({
         fileId: input.fileId,
@@ -235,12 +236,14 @@ export const importRouter = createTRPCRouter({
       });
 
       try {
-        // Create import job record with mode
+        // Create import job record with mode and user info
         const job = await createImportJob(brandCtx.db, {
           brandId,
           filename: input.filename,
           status: "PENDING",
           mode: input.mode,
+          userId: ctx.user.id,
+          userEmail: userEmail ?? undefined,
         });
 
         try {
@@ -249,6 +252,7 @@ export const importRouter = createTRPCRouter({
             brandId,
             filePath: resolvedFile.path,
             mode: input.mode,
+            userEmail: userEmail ?? undefined,
           });
         } catch (triggerError) {
           // Update job status to FAILED immediately
@@ -359,6 +363,9 @@ export const importRouter = createTRPCRouter({
             finishedAt: job.finishedAt,
             hasExportableFailures: job.hasExportableFailures,
             summary: job.summary,
+            // Correction file info (for error report downloads)
+            correctionDownloadUrl: job.correctionDownloadUrl,
+            correctionExpiresAt: job.correctionExpiresAt,
           })),
         };
       } catch (error) {
@@ -437,6 +444,7 @@ export const importRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = brandCtx.brandId;
+      const userEmail = ctx.user.email ?? null;
 
       try {
         // Verify job ownership
@@ -457,13 +465,34 @@ export const importRouter = createTRPCRouter({
           );
         }
 
-        // TODO: Phase 3 will implement the actual Excel generation
-        // For now, return a placeholder indicating the feature is not yet implemented
+        // Check if correction file already exists and not expired
+        if (job.correctionDownloadUrl && job.correctionExpiresAt) {
+          const expiresAt = new Date(job.correctionExpiresAt);
+          if (expiresAt > new Date()) {
+            // Return existing URL
+            return {
+              jobId: input.jobId,
+              status: "ready" as const,
+              downloadUrl: job.correctionDownloadUrl,
+              expiresAt: job.correctionExpiresAt,
+              message: null,
+            };
+          }
+        }
+
+        // Trigger generation if not exists or expired
+        await tasks.trigger("generate-error-report", {
+          jobId: input.jobId,
+          brandId,
+          userEmail,
+        });
+
         return {
           jobId: input.jobId,
-          status: "pending" as const,
-          message: "Excel export will be implemented in Phase 3",
+          status: "generating" as const,
           downloadUrl: null,
+          expiresAt: null,
+          message: "Error report is being generated. Check back shortly.",
         };
       } catch (error) {
         throw wrapError(error, "Failed to export corrections");

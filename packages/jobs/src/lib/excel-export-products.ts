@@ -357,7 +357,7 @@ export async function generateProductExportExcel(
         // Journey steps
         const journeySteps =
           variant.journeyStepsOverride &&
-            Object.keys(variant.journeyStepsOverride).length > 0
+          Object.keys(variant.journeyStepsOverride).length > 0
             ? variant.journeyStepsOverride
             : product.journeySteps;
         for (const [stepType, columnName] of Object.entries(

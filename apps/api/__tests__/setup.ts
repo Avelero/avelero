@@ -7,7 +7,7 @@
 
 // Load .env.test FIRST before any other imports that depend on DATABASE_URL
 import { config } from "dotenv";
-import { resolve } from "path";
+import { resolve } from "node:path";
 config({ path: resolve(import.meta.dir, "../.env.test") });
 
 import { beforeAll, afterAll, afterEach } from "bun:test";

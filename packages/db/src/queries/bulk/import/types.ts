@@ -11,6 +11,10 @@ export interface CreateImportJobParams {
   status?: string;
   /** Import mode: CREATE for new products (skips existing), CREATE_AND_ENRICH to also update existing */
   mode?: "CREATE" | "CREATE_AND_ENRICH";
+  /** User ID who started the import (for email notifications) */
+  userId?: string;
+  /** Email address for notifications */
+  userEmail?: string;
 }
 
 /**
@@ -49,6 +53,26 @@ export interface ImportJobStatus {
   mode: string;
   /** Whether the job has failed rows that can be exported for correction */
   hasExportableFailures: boolean;
+  /** Path to the generated correction Excel file in storage */
+  correctionFilePath: string | null;
+  /** Signed download URL for the correction file */
+  correctionDownloadUrl: string | null;
+  /** When the correction download URL expires */
+  correctionExpiresAt: string | null;
+  /** User ID who started the import */
+  userId: string | null;
+  /** Email address for notifications */
+  userEmail: string | null;
+}
+
+/**
+ * Parameters for updating correction file info on an import job
+ */
+export interface UpdateImportJobCorrectionFileParams {
+  jobId: string;
+  correctionFilePath: string;
+  correctionDownloadUrl: string;
+  correctionExpiresAt: string;
 }
 
 /**

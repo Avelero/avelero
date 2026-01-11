@@ -1,5 +1,5 @@
 /**
- * Validate and Stage Job (Refactored)
+ * Validate and Stage Job (Optimized with Batch Operations)
  *
  * Phase 1 of the bulk import process:
  * 1. Downloads and parses the uploaded Excel file
@@ -8,11 +8,10 @@
  * 4. Populates staging tables with validated data
  * 5. Auto-triggers the commit-to-production job
  *
- * Key changes from previous version:
- * - Uses Excel parser with Shopify-style row grouping
- * - Auto-creates entities instead of flagging for user mapping
- * - Fire-and-forget flow (no user approval step)
- * - Explicit CREATE vs ENRICH mode
+ * Key optimizations (matching integrations engine pattern):
+ * - Processes products in batches of 250 (same as integrations)
+ * - Each batch goes through complete cycle: prefetch → compute → insert
+ * - Memory-efficient: only 250 products in memory at a time
  *
  * @module validate-and-stage
  */
@@ -21,13 +20,11 @@ import "../configure-trigger";
 import { randomUUID } from "node:crypto";
 import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
-import { eq, inArray, sql } from "@v1/db/queries";
+import { and, eq, inArray } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 import { type BrandCatalog, loadBrandCatalog } from "../../lib/catalog-loader";
 import {
-  type ExcelParseResult,
   type ParsedProduct,
-  type ParsedVariant,
   findDuplicateIdentifiers,
   parseExcelFile,
   validateTemplateMatch,
@@ -45,6 +42,8 @@ interface ValidateAndStagePayload {
   brandId: string;
   filePath: string;
   mode: "CREATE" | "CREATE_AND_ENRICH";
+  /** User email for error report notifications (optional) */
+  userEmail?: string | null;
 }
 
 /**
@@ -70,6 +69,148 @@ interface ProductResult {
   action: ProductAction;
   errors: RowError[];
   stagingProductId?: string;
+}
+
+/**
+ * Pre-fetched data for batch lookups (replaces N individual queries)
+ */
+interface PreFetchedData {
+  /** Map of productHandle (lowercase) -> existing product record */
+  existingProductsByHandle: Map<string, { id: string }>;
+  /** Map of productId -> existing variants with UPIDs */
+  existingVariantsByProductId: Map<
+    string,
+    Array<{ id: string; upid: string | null }>
+  >;
+}
+
+/**
+ * Pending staging operations to be batch inserted (for one batch of 250)
+ */
+interface PendingStagingOps {
+  products: Array<{
+    stagingId: string;
+    jobId: string;
+    rowNumber: number;
+    action: string;
+    existingProductId: string | null;
+    id: string;
+    brandId: string;
+    productHandle: string;
+    name: string;
+    description: string | null;
+    imagePath: string | null;
+    categoryId: string | null;
+    seasonId: string | null;
+    manufacturerId: string | null;
+    status: string;
+  }>;
+  variants: Array<{
+    stagingId: string;
+    stagingProductId: string;
+    jobId: string;
+    rowNumber: number;
+    action: string;
+    existingVariantId: string | null;
+    id: string;
+    productId: string;
+    upid: string | null;
+    barcode: string | null;
+    sku: string | null;
+    nameOverride: string | null;
+    descriptionOverride: string | null;
+    imagePathOverride: string | null;
+  }>;
+  productTags: Array<{
+    stagingProductId: string;
+    jobId: string;
+    tagId: string;
+  }>;
+  productMaterials: Array<{
+    stagingProductId: string;
+    jobId: string;
+    brandMaterialId: string;
+    percentage: string | null;
+  }>;
+  productEcoClaims: Array<{
+    stagingProductId: string;
+    jobId: string;
+    ecoClaimId: string;
+  }>;
+  productEnvironment: Array<{
+    stagingProductId: string;
+    jobId: string;
+    carbonKgCo2E: string | null;
+    waterLiters: string | null;
+  }>;
+  productJourneySteps: Array<{
+    stagingProductId: string;
+    jobId: string;
+    stepType: string;
+    sortIndex: number;
+    facilityId: string;
+  }>;
+  productWeight: Array<{
+    stagingProductId: string;
+    jobId: string;
+    weight: string;
+    weightUnit: string;
+  }>;
+  variantAttributes: Array<{
+    stagingVariantId: string;
+    jobId: string;
+    attributeId: string;
+    attributeValueId: string;
+    sortOrder: number;
+  }>;
+  variantMaterials: Array<{
+    stagingVariantId: string;
+    jobId: string;
+    brandMaterialId: string;
+    percentage: string | null;
+  }>;
+  variantEcoClaims: Array<{
+    stagingVariantId: string;
+    jobId: string;
+    ecoClaimId: string;
+  }>;
+  variantEnvironment: Array<{
+    stagingVariantId: string;
+    jobId: string;
+    carbonKgCo2e: string | null;
+    waterLiters: string | null;
+  }>;
+  variantJourneySteps: Array<{
+    stagingVariantId: string;
+    jobId: string;
+    stepType: string;
+    sortIndex: number;
+    facilityId: string;
+  }>;
+  variantWeight: Array<{
+    stagingVariantId: string;
+    jobId: string;
+    weight: string;
+    weightUnit: string;
+  }>;
+  variantsToDelete: Array<{
+    stagingId: string;
+    stagingProductId: string;
+    jobId: string;
+    rowNumber: number;
+    action: string;
+    existingVariantId: string;
+    id: string;
+    productId: string;
+  }>;
+}
+
+/**
+ * Computed result for a single product (pure computation, no DB)
+ */
+interface ComputedProductResult {
+  result: ProductResult;
+  ops: Partial<PendingStagingOps> | null;
 }
 
 // ============================================================================
@@ -105,19 +246,27 @@ const {
   brandManufacturers,
   products,
   productVariants,
-  taxonomyCategories,
 } = schema;
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-const BATCH_SIZE = 100;
+/**
+ * Batch size for processing products (same as integrations engine)
+ * Each batch goes through complete cycle: prefetch → compute → insert
+ */
+const BATCH_SIZE = 250;
 
 /**
  * Valid status values for products
  */
-const VALID_STATUSES = ["unpublished", "published", "archived", "scheduled"] as const;
+const VALID_STATUSES = [
+  "unpublished",
+  "published",
+  "archived",
+  "scheduled",
+] as const;
 type ValidStatus = (typeof VALID_STATUSES)[number];
 
 // ============================================================================
@@ -169,7 +318,6 @@ export const validateAndStage = task({
           productHandle: firstProduct?.productHandle,
           status: firstProduct?.status,
           tags: firstProduct?.tags,
-          // Product-level environmental data (from parent row)
           productLevelData: {
             materials: firstProduct?.materials,
             ecoClaims: firstProduct?.ecoClaims,
@@ -178,13 +326,11 @@ export const validateAndStage = task({
             weightGrams: firstProduct?.weightGrams,
             journeySteps: firstProduct?.journeySteps,
           },
-          // Variant data (only overrides for child rows)
           variantData: firstVariant
             ? {
                 barcode: firstVariant.barcode,
                 sku: firstVariant.sku,
                 attributes: firstVariant.attributes,
-                // Override fields (should be empty for first variant which is parent row)
                 materialsOverride: firstVariant.materialsOverride,
                 ecoClaimsOverride: firstVariant.ecoClaimsOverride,
                 rawData: Object.keys(firstVariant.rawData),
@@ -196,7 +342,9 @@ export const validateAndStage = task({
       // 4. Validate template match (strict column validation)
       const templateValidation = validateTemplateMatch(parseResult.headers);
       if (!templateValidation.valid) {
-        throw new Error(templateValidation.error || "Template validation failed");
+        throw new Error(
+          templateValidation.error || "Template validation failed",
+        );
       }
 
       logger.info("Template validation passed", {
@@ -207,24 +355,18 @@ export const validateAndStage = task({
       const duplicates = findDuplicateIdentifiers(parseResult.products);
 
       // Build a set of duplicate product handles to skip
-      const duplicateHandles = new Set<string>();
       const seenHandles = new Set<string>();
-
-      for (const dup of duplicates) {
-        if (dup.field === "Product Handle") {
-          duplicateHandles.add(dup.value);
-        }
-      }
 
       if (duplicates.length > 0) {
         logger.warn("Duplicate identifiers found", {
           count: duplicates.length,
-          handles: duplicates.filter(d => d.field === "Product Handle").length,
-          upids: duplicates.filter(d => d.field === "UPID").length,
+          handles: duplicates.filter((d) => d.field === "Product Handle")
+            .length,
+          upids: duplicates.filter((d) => d.field === "UPID").length,
         });
       }
 
-      // 6. Load catalog and auto-create missing entities
+      // 6. Load catalog and auto-create missing entities (batch)
       let catalog = await loadBrandCatalog(db, brandId);
       catalog = await autoCreateEntities(
         db,
@@ -240,54 +382,99 @@ export const validateAndStage = task({
         tags: catalog.tags.size,
       });
 
-      // 7. Process products in batches
+      // 7. Process products in batches of 250 (same as integrations engine)
+      // Each batch goes through complete cycle: prefetch → compute → insert
       const results: ProductResult[] = [];
       let successCount = 0;
       let failureCount = 0;
+      const totalBatches = Math.ceil(parseResult.products.length / BATCH_SIZE);
 
-      for (let i = 0; i < parseResult.products.length; i += BATCH_SIZE) {
-        const batch = parseResult.products.slice(i, i + BATCH_SIZE);
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const batchStart = batchIndex * BATCH_SIZE;
+        const batchEnd = Math.min(
+          batchStart + BATCH_SIZE,
+          parseResult.products.length,
+        );
+        const batch = parseResult.products.slice(batchStart, batchEnd);
+        const batchNumber = batchIndex + 1;
+        const batchStartTime = Date.now();
+
+        logger.info(`Batch ${batchNumber}/${totalBatches}: Starting`, {
+          products: batch.length,
+          range: `${batchStart + 1}-${batchEnd}`,
+        });
+
+        // PHASE 1: Pre-fetch for this batch
+        const preFetched = await batchPreFetchExistingData(
+          db,
+          brandId,
+          batch,
+          mode,
+        );
+
+        // PHASE 2: Pure computation for this batch (no DB calls)
+        const batchOps = createEmptyPendingOps();
+        const batchResults: ProductResult[] = [];
+        let batchSuccess = 0;
+        let batchFailure = 0;
 
         for (const product of batch) {
           // Skip duplicate product handles (keep first, reject subsequent)
           if (seenHandles.has(product.productHandle)) {
-            results.push({
+            batchResults.push({
               productHandle: product.productHandle,
               rowNumber: product.rowNumber,
               success: false,
               action: "SKIP",
-              errors: [{
-                field: "Product Handle",
-                message: `Duplicate product handle: "${product.productHandle}". Only the first occurrence will be processed.`,
-              }],
+              errors: [
+                {
+                  field: "Product Handle",
+                  message: `Duplicate product handle: "${product.productHandle}". Only the first occurrence will be processed.`,
+                },
+              ],
             });
-            failureCount++;
+            batchFailure++;
             continue;
           }
           seenHandles.add(product.productHandle);
 
-          const result = await validateAndStageProduct(
-            db,
+          // Pure computation - no DB calls!
+          const computed = computeProductStagingOps(
             product,
             catalog,
             brandId,
             jobId,
             mode,
+            preFetched,
             duplicates,
           );
 
-          results.push(result);
+          batchResults.push(computed.result);
 
-          if (result.success) {
-            successCount++;
-          } else {
-            failureCount++;
+          if (computed.result.success && computed.ops) {
+            batchSuccess++;
+            mergePendingOps(batchOps, computed.ops);
+          } else if (!computed.result.success) {
+            batchFailure++;
           }
         }
 
-        logger.info("Batch processed", {
-          processed: Math.min(i + BATCH_SIZE, parseResult.products.length),
-          total: parseResult.products.length,
+        // PHASE 3: Insert staging data for this batch
+        if (batchOps.products.length > 0) {
+          await batchInsertStagingData(db, batchOps);
+        }
+
+        // Accumulate results
+        results.push(...batchResults);
+        successCount += batchSuccess;
+        failureCount += batchFailure;
+
+        const batchDuration = Date.now() - batchStartTime;
+        logger.info(`Batch ${batchNumber}/${totalBatches}: Complete`, {
+          success: batchSuccess,
+          failure: batchFailure,
+          variants: batchOps.variants.length,
+          duration: `${batchDuration}ms`,
         });
       }
 
@@ -327,9 +514,21 @@ export const validateAndStage = task({
         await tasks.trigger("commit-to-production", {
           jobId,
           brandId,
+          userEmail: payload.userEmail ?? null,
         });
 
         logger.info("Triggered commit-to-production job", { jobId });
+      } else if (failureCount > 0) {
+        // All products failed - trigger error report directly (no commit needed)
+        await tasks.trigger("generate-error-report", {
+          jobId,
+          brandId,
+          userEmail: payload.userEmail ?? null,
+        });
+
+        logger.info("Triggered error report generation (all products failed)", {
+          jobId,
+        });
       }
 
       const duration = Date.now() - startTime;
@@ -337,6 +536,7 @@ export const validateAndStage = task({
         jobId,
         successCount,
         failureCount,
+        batches: totalBatches,
         duration: `${duration}ms`,
         status: finalStatus,
       });
@@ -361,7 +561,68 @@ export const validateAndStage = task({
 });
 
 // ============================================================================
-// Auto-Create Entities
+// Batch Pre-fetch (for one batch of 250 products)
+// ============================================================================
+
+/**
+ * Pre-fetch existing products and variants for a batch.
+ * This replaces N individual queries with just 2 queries per batch.
+ */
+async function batchPreFetchExistingData(
+  database: Database,
+  brandId: string,
+  batchProducts: ParsedProduct[],
+  mode: "CREATE" | "CREATE_AND_ENRICH",
+): Promise<PreFetchedData> {
+  // Extract all unique product handles from this batch
+  const handles = batchProducts.map((p) => p.productHandle);
+
+  // Single query: fetch existing products by handle for this batch
+  const existingProducts = await database
+    .select({ id: products.id, productHandle: products.productHandle })
+    .from(products)
+    .where(
+      and(
+        eq(products.brandId, brandId),
+        inArray(products.productHandle, handles),
+      ),
+    );
+
+  const existingProductsByHandle = new Map(
+    existingProducts.map((p) => [p.productHandle.toLowerCase(), { id: p.id }]),
+  );
+
+  // For ENRICH mode: fetch variants for existing products in this batch
+  const existingVariantsByProductId = new Map<
+    string,
+    Array<{ id: string; upid: string | null }>
+  >();
+
+  if (mode === "CREATE_AND_ENRICH" && existingProducts.length > 0) {
+    const productIds = existingProducts.map((p) => p.id);
+
+    const existingVariants = await database
+      .select({
+        id: productVariants.id,
+        productId: productVariants.productId,
+        upid: productVariants.upid,
+      })
+      .from(productVariants)
+      .where(inArray(productVariants.productId, productIds));
+
+    // Group by productId
+    for (const v of existingVariants) {
+      const list = existingVariantsByProductId.get(v.productId) || [];
+      list.push({ id: v.id, upid: v.upid });
+      existingVariantsByProductId.set(v.productId, list);
+    }
+  }
+
+  return { existingProductsByHandle, existingVariantsByProductId };
+}
+
+// ============================================================================
+// Auto-Create Entities (already batch-optimized)
 // ============================================================================
 
 /**
@@ -371,7 +632,7 @@ export const validateAndStage = task({
 async function autoCreateEntities(
   database: Database,
   brandId: string,
-  products: ParsedProduct[],
+  parsedProducts: ParsedProduct[],
   catalog: BrandCatalog,
 ): Promise<BrandCatalog> {
   // Collect all unique entity names from parsed products
@@ -384,7 +645,7 @@ async function autoCreateEntities(
   const uniqueAttributes = new Set<string>();
   const uniqueAttributeValues = new Map<string, Set<string>>(); // attrName -> values
 
-  for (const product of products) {
+  for (const product of parsedProducts) {
     if (product.manufacturerName) {
       uniqueManufacturers.add(product.manufacturerName.trim());
     }
@@ -663,18 +924,23 @@ async function autoCreateEntities(
 }
 
 // ============================================================================
-// Validate and Stage Product
+// Pure Computation: Compute Staging Operations (NO DB CALLS)
 // ============================================================================
 
-async function validateAndStageProduct(
-  database: Database,
+/**
+ * Compute staging operations for a single product.
+ * This is a PURE FUNCTION - no database calls!
+ * Uses pre-fetched data for all lookups.
+ */
+function computeProductStagingOps(
   product: ParsedProduct,
   catalog: BrandCatalog,
   brandId: string,
   jobId: string,
   mode: "CREATE" | "CREATE_AND_ENRICH",
+  preFetched: PreFetchedData,
   duplicates: ReturnType<typeof findDuplicateIdentifiers>,
-): Promise<ProductResult> {
+): ComputedProductResult {
   const errors: RowError[] = [];
   const normalizeKey = (s: string) => s.toLowerCase().trim();
 
@@ -696,10 +962,7 @@ async function validateAndStageProduct(
 
   // Validate category format (hierarchical with " > " delimiter)
   if (product.categoryPath && product.categoryPath.trim() !== "") {
-    // Check if it contains the required " > " delimiter for hierarchical categories
-    // or is a simple single-level category (no delimiter needed)
     const trimmedPath = product.categoryPath.trim();
-    // If there's a ">" but not with proper spacing " > ", it's invalid
     if (trimmedPath.includes(">") && !trimmedPath.includes(" > ")) {
       errors.push({
         field: "Category",
@@ -724,7 +987,6 @@ async function validateAndStageProduct(
   }
 
   // Check for duplicate UPIDs within the file
-  // Note: SKU and barcode duplicates are NOT checked (user's responsibility)
   for (const variant of product.variants) {
     if (variant.upid) {
       const upidDup = duplicates.find(
@@ -743,86 +1005,78 @@ async function validateAndStageProduct(
   // If validation failed, don't stage
   if (errors.length > 0) {
     return {
-      productHandle: product.productHandle,
-      rowNumber: product.rowNumber,
-      success: false,
-      action: "CREATE", // Default action for failed rows doesn't matter
-      errors,
+      result: {
+        productHandle: product.productHandle,
+        rowNumber: product.rowNumber,
+        success: false,
+        action: "CREATE",
+        errors,
+      },
+      ops: null,
     };
   }
 
-  // Resolve entities
+  // Resolve entities from catalog (no DB calls!)
   const manufacturerId = product.manufacturerName
-    ? catalog.manufacturers.get(normalizeKey(product.manufacturerName))
+    ? catalog.manufacturers.get(normalizeKey(product.manufacturerName)) ?? null
     : null;
   const seasonId = product.seasonName
-    ? catalog.seasons.get(normalizeKey(product.seasonName))
+    ? catalog.seasons.get(normalizeKey(product.seasonName)) ?? null
     : null;
 
-  // ============================================================================
-  // HYBRID MODE LOGIC: Check for existing product by handle
-  // ============================================================================
-
-  // Look up existing product by handle (always, regardless of mode)
-  const existingProduct = await database.query.products.findFirst({
-    where: sql`${products.brandId} = ${brandId} AND ${products.productHandle} = ${product.productHandle}`,
-    columns: { id: true },
-  });
+  // Determine action using PRE-FETCHED data (no DB query!)
+  const existingProduct = preFetched.existingProductsByHandle.get(
+    product.productHandle.toLowerCase(),
+  );
   const existingProductId = existingProduct?.id || null;
 
-  // Determine product action based on mode and existence
   let productAction: ProductAction;
   if (existingProductId) {
     if (mode === "CREATE") {
-      // CREATE mode: Skip products that already exist
       productAction = "SKIP";
     } else {
-      // CREATE_AND_ENRICH mode: Enrich existing products
       productAction = "ENRICH";
     }
   } else {
-    // Product doesn't exist: Create it (both modes)
     productAction = "CREATE";
   }
 
   // For SKIP action, return success without staging
   if (productAction === "SKIP") {
     return {
-      productHandle: product.productHandle,
-      rowNumber: product.rowNumber,
-      success: true,
-      action: "SKIP",
-      errors: [],
-      // No stagingProductId - we're not staging anything
+      result: {
+        productHandle: product.productHandle,
+        rowNumber: product.rowNumber,
+        success: true,
+        action: "SKIP",
+        errors: [],
+      },
+      ops: null,
     };
   }
 
-  // Look up existing variants by UPID (for ENRICH mode)
-  const existingVariantsByUpid = new Map<string, string>(); // upid -> variantId
-  const variantsToDelete: string[] = []; // variant IDs to delete
-
-  if (productAction === "ENRICH" && existingProductId) {
-    // Get all existing variants for this product
-    const existingVariants = await database.query.productVariants.findMany({
-      where: sql`${productVariants.productId} = ${existingProductId}`,
-      columns: { id: true, upid: true },
-    });
-
-    for (const ev of existingVariants) {
-      if (ev.upid) {
-        existingVariantsByUpid.set(ev.upid, ev.id);
-      }
+  // Look up existing variants from PRE-FETCHED data (no DB query!)
+  const existingVariants = existingProductId
+    ? preFetched.existingVariantsByProductId.get(existingProductId) || []
+    : [];
+  const existingVariantsByUpid = new Map<string, string>();
+  for (const v of existingVariants) {
+    if (v.upid) {
+      existingVariantsByUpid.set(v.upid, v.id);
     }
+  }
 
-    // Collect UPIDs from the import sheet
-    const importedUpids = new Set<string>();
-    for (const variant of product.variants) {
-      if (variant.upid) {
-        importedUpids.add(variant.upid);
-      }
+  // Collect UPIDs from the import sheet
+  const importedUpids = new Set<string>();
+  for (const variant of product.variants) {
+    if (variant.upid) {
+      importedUpids.add(variant.upid);
     }
+  }
 
-    // Find variants to delete: exist in DB but not in sheet
+  // Find variants to delete: exist in DB but not in sheet (ENRICH mode only)
+  const variantsToDelete: string[] = [];
+  if (productAction === "ENRICH") {
     for (const [upid, variantId] of existingVariantsByUpid.entries()) {
       if (!importedUpids.has(upid)) {
         variantsToDelete.push(variantId);
@@ -835,74 +1089,75 @@ async function validateAndStageProduct(
   const productId = existingProductId || randomUUID();
   const stagingAction = productAction === "ENRICH" ? "UPDATE" : "CREATE";
 
-  // Insert into staging_products
-  await database.insert(stagingProducts).values({
-    stagingId: stagingProductId,
-    jobId,
-    rowNumber: product.rowNumber,
-    action: stagingAction,
-    existingProductId,
-    id: productId,
-    brandId,
-    productHandle: product.productHandle,
-    name: product.name,
-    description: product.description,
-    imagePath: product.imagePath,
-    categoryId,
-    seasonId,
-    manufacturerId,
-    status: product.status || "unpublished",
-    rowStatus: "PENDING",
-  });
-
-  // Resolve and insert tags
-  const tagIds = product.tags
-    .map((t) => catalog.tags.get(normalizeKey(t)))
-    .filter((id): id is string => !!id);
-
-  if (tagIds.length > 0) {
-    await database.insert(stagingProductTags).values(
-      tagIds.map((tagId) => ({
-        stagingProductId,
+  // Build staging operations
+  const ops: Partial<PendingStagingOps> = {
+    products: [
+      {
+        stagingId: stagingProductId,
         jobId,
-        tagId,
-      })),
-    );
+        rowNumber: product.rowNumber,
+        action: stagingAction,
+        existingProductId,
+        id: productId,
+        brandId,
+        productHandle: product.productHandle,
+        name: product.name,
+        description: product.description ?? null,
+        imagePath: product.imagePath ?? null,
+        categoryId,
+        seasonId,
+        manufacturerId,
+        status: product.status || "unpublished",
+      },
+    ],
+    variants: [],
+    productTags: [],
+    productMaterials: [],
+    productEcoClaims: [],
+    productEnvironment: [],
+    productJourneySteps: [],
+    productWeight: [],
+    variantAttributes: [],
+    variantMaterials: [],
+    variantEcoClaims: [],
+    variantEnvironment: [],
+    variantJourneySteps: [],
+    variantWeight: [],
+    variantsToDelete: [],
+  };
+
+  // Add tags
+  for (const tagName of product.tags) {
+    const tagId = catalog.tags.get(normalizeKey(tagName));
+    if (tagId) {
+      ops.productTags!.push({ stagingProductId, jobId, tagId });
+    }
   }
 
-  // ============================================================================
-  // PRODUCT-LEVEL DATA (from parent row)
-  // These are the environmental/material/journey data from the parent row
-  // ============================================================================
-
-  // Staging product materials (product-level)
+  // Add product-level materials
   for (const material of product.materials) {
     const materialId = catalog.materials.get(normalizeKey(material.name));
-    if (!materialId) continue;
-
-    await database.insert(stagingProductMaterials).values({
-      stagingProductId,
-      jobId,
-      brandMaterialId: materialId,
-      percentage: material.percentage?.toString(),
-    });
+    if (materialId) {
+      ops.productMaterials!.push({
+        stagingProductId,
+        jobId,
+        brandMaterialId: materialId,
+        percentage: material.percentage?.toString() ?? null,
+      });
+    }
   }
 
-  // Staging product eco claims (product-level)
+  // Add product-level eco claims
   for (const claimName of product.ecoClaims) {
     const ecoClaimId = catalog.ecoClaims.get(normalizeKey(claimName));
-    if (!ecoClaimId) continue;
-
-    await database.insert(stagingProductEcoClaims).values({
-      stagingProductId,
-      jobId,
-      ecoClaimId,
-    });
+    if (ecoClaimId) {
+      ops.productEcoClaims!.push({ stagingProductId, jobId, ecoClaimId });
+    }
   }
 
-  // Staging product environment (product-level carbon/water)
+  // Add product-level environment
   if (product.carbonKg !== undefined || product.waterLiters !== undefined) {
-    await database.insert(stagingProductEnvironment).values({
+    ops.productEnvironment!.push({
       stagingProductId,
       jobId,
       carbonKgCo2E: product.carbonKg?.toString() ?? null,
@@ -910,27 +1165,27 @@ async function validateAndStageProduct(
     });
   }
 
-  // Staging product journey steps (product-level)
-  const productJourneyEntries = Object.entries(product.journeySteps);
-  for (let i = 0; i < productJourneyEntries.length; i++) {
-    const [stepType, facilityName] = productJourneyEntries[i] ?? [];
+  // Add product-level journey steps
+  const journeyEntries = Object.entries(product.journeySteps);
+  for (let i = 0; i < journeyEntries.length; i++) {
+    const [stepType, facilityName] = journeyEntries[i] ?? [];
     if (!stepType || !facilityName) continue;
 
     const facilityId = catalog.operators.get(normalizeKey(facilityName));
-    if (!facilityId) continue;
-
-    await database.insert(stagingProductJourneySteps).values({
-      stagingProductId,
-      jobId,
-      stepType,
-      sortIndex: i,
-      facilityId,
-    });
+    if (facilityId) {
+      ops.productJourneySteps!.push({
+        stagingProductId,
+        jobId,
+        stepType,
+        sortIndex: i,
+        facilityId,
+      });
+    }
   }
 
-  // Staging product weight (product-level)
+  // Add product-level weight
   if (product.weightGrams !== undefined) {
-    await database.insert(stagingProductWeight).values({
+    ops.productWeight!.push({
       stagingProductId,
       jobId,
       weight: product.weightGrams.toString(),
@@ -938,12 +1193,11 @@ async function validateAndStageProduct(
     });
   }
 
-  // Process each variant
+  // Process variants
   for (const variant of product.variants) {
     const stagingVariantId = randomUUID();
 
     // For ENRICH mode: match by UPID
-    // For CREATE mode: no matching needed, always create new
     let existingVariantId: string | null = null;
     if (productAction === "ENRICH" && variant.upid) {
       existingVariantId = existingVariantsByUpid.get(variant.upid) || null;
@@ -952,8 +1206,7 @@ async function validateAndStageProduct(
     const variantId = existingVariantId || randomUUID();
     const variantAction = existingVariantId ? "UPDATE" : "CREATE";
 
-    // Insert staging variant
-    await database.insert(stagingProductVariants).values({
+    ops.variants!.push({
       stagingId: stagingVariantId,
       stagingProductId,
       jobId,
@@ -962,16 +1215,15 @@ async function validateAndStageProduct(
       existingVariantId,
       id: variantId,
       productId,
-      upid: variant.upid, // Preserve UPID from Excel
-      barcode: variant.barcode,
-      sku: variant.sku,
-      nameOverride: variant.nameOverride,
-      descriptionOverride: variant.descriptionOverride,
-      imagePathOverride: variant.imagePathOverride,
-      rowStatus: "PENDING",
+      upid: variant.upid ?? null,
+      barcode: variant.barcode ?? null,
+      sku: variant.sku ?? null,
+      nameOverride: variant.nameOverride ?? null,
+      descriptionOverride: variant.descriptionOverride ?? null,
+      imagePathOverride: variant.imagePathOverride ?? null,
     });
 
-    // Staging variant attributes (always variant-level)
+    // Add variant attributes
     for (const attr of variant.attributes) {
       const attributeId = catalog.attributes.get(normalizeKey(attr.name));
       if (!attributeId) continue;
@@ -980,7 +1232,7 @@ async function validateAndStageProduct(
       const attrValue = catalog.attributeValues.get(key);
       if (!attrValue) continue;
 
-      await database.insert(stagingVariantAttributes).values({
+      ops.variantAttributes!.push({
         stagingVariantId,
         jobId,
         attributeId,
@@ -989,42 +1241,33 @@ async function validateAndStageProduct(
       });
     }
 
-    // ============================================================================
-    // VARIANT-LEVEL OVERRIDES (only from child rows)
-    // These are only populated if the child row had values for these fields
-    // ============================================================================
-
-    // Staging variant materials OVERRIDE (only if child row had materials)
+    // Add variant-level material overrides
     for (const material of variant.materialsOverride) {
       const materialId = catalog.materials.get(normalizeKey(material.name));
-      if (!materialId) continue;
-
-      await database.insert(stagingVariantMaterials).values({
-        stagingVariantId,
-        jobId,
-        brandMaterialId: materialId,
-        percentage: material.percentage?.toString(),
-      });
+      if (materialId) {
+        ops.variantMaterials!.push({
+          stagingVariantId,
+          jobId,
+          brandMaterialId: materialId,
+          percentage: material.percentage?.toString() ?? null,
+        });
+      }
     }
 
-    // Staging variant eco claims OVERRIDE (only if child row had eco claims)
+    // Add variant-level eco claim overrides
     for (const claimName of variant.ecoClaimsOverride) {
       const ecoClaimId = catalog.ecoClaims.get(normalizeKey(claimName));
-      if (!ecoClaimId) continue;
-
-      await database.insert(stagingVariantEcoClaims).values({
-        stagingVariantId,
-        jobId,
-        ecoClaimId,
-      });
+      if (ecoClaimId) {
+        ops.variantEcoClaims!.push({ stagingVariantId, jobId, ecoClaimId });
+      }
     }
 
-    // Staging variant environment OVERRIDE (only if child row had carbon/water)
+    // Add variant-level environment overrides
     if (
       variant.carbonKgOverride !== undefined ||
       variant.waterLitersOverride !== undefined
     ) {
-      await database.insert(stagingVariantEnvironment).values({
+      ops.variantEnvironment!.push({
         stagingVariantId,
         jobId,
         carbonKgCo2e: variant.carbonKgOverride?.toString() ?? null,
@@ -1032,27 +1275,27 @@ async function validateAndStageProduct(
       });
     }
 
-    // Staging variant journey steps OVERRIDE (only if child row had journey steps)
-    const journeyOverrideEntries = Object.entries(variant.journeyStepsOverride);
-    for (let i = 0; i < journeyOverrideEntries.length; i++) {
-      const [stepType, facilityName] = journeyOverrideEntries[i] ?? [];
+    // Add variant-level journey step overrides
+    const variantJourneyEntries = Object.entries(variant.journeyStepsOverride);
+    for (let i = 0; i < variantJourneyEntries.length; i++) {
+      const [stepType, facilityName] = variantJourneyEntries[i] ?? [];
       if (!stepType || !facilityName) continue;
 
       const facilityId = catalog.operators.get(normalizeKey(facilityName));
-      if (!facilityId) continue;
-
-      await database.insert(stagingVariantJourneySteps).values({
-        stagingVariantId,
-        jobId,
-        stepType,
-        sortIndex: i,
-        facilityId,
-      });
+      if (facilityId) {
+        ops.variantJourneySteps!.push({
+          stagingVariantId,
+          jobId,
+          stepType,
+          sortIndex: i,
+          facilityId,
+        });
+      }
     }
 
-    // Staging variant weight OVERRIDE (only if child row had weight)
+    // Add variant-level weight override
     if (variant.weightGramsOverride !== undefined) {
-      await database.insert(stagingVariantWeight).values({
+      ops.variantWeight!.push({
         stagingVariantId,
         jobId,
         weight: variant.weightGramsOverride.toString(),
@@ -1061,31 +1304,244 @@ async function validateAndStageProduct(
     }
   }
 
-  // Stage variants for deletion (ENRICH mode only)
-  // These are variants that exist in the DB but are not in the import sheet
+  // Add variants to delete (ENRICH mode only)
   for (const variantIdToDelete of variantsToDelete) {
     const stagingVariantId = randomUUID();
-    await database.insert(stagingProductVariants).values({
+    ops.variantsToDelete!.push({
       stagingId: stagingVariantId,
       stagingProductId,
       jobId,
-      rowNumber: product.rowNumber, // Use product row number for deletions
+      rowNumber: product.rowNumber,
       action: "DELETE",
       existingVariantId: variantIdToDelete,
       id: variantIdToDelete,
       productId,
-      rowStatus: "PENDING",
     });
   }
 
   return {
-    productHandle: product.productHandle,
-    rowNumber: product.rowNumber,
-    success: true,
-    action: productAction,
-    errors: [],
-    stagingProductId,
+    result: {
+      productHandle: product.productHandle,
+      rowNumber: product.rowNumber,
+      success: true,
+      action: productAction,
+      errors: [],
+      stagingProductId,
+    },
+    ops,
   };
+}
+
+// ============================================================================
+// Batch Insert Staging Data (for one batch of 250 products)
+// ============================================================================
+
+/**
+ * Batch insert staging data for one batch.
+ * With max 250 products and ~10 variants each, this is ~2500 rows max per table.
+ */
+async function batchInsertStagingData(
+  database: Database,
+  pendingOps: PendingStagingOps,
+): Promise<void> {
+  // Insert products first (order matters for foreign key constraints)
+  if (pendingOps.products.length > 0) {
+    await database.insert(stagingProducts).values(
+      pendingOps.products.map((p) => ({
+        stagingId: p.stagingId,
+        jobId: p.jobId,
+        rowNumber: p.rowNumber,
+        action: p.action,
+        existingProductId: p.existingProductId,
+        id: p.id,
+        brandId: p.brandId,
+        productHandle: p.productHandle,
+        name: p.name,
+        description: p.description,
+        imagePath: p.imagePath,
+        categoryId: p.categoryId,
+        seasonId: p.seasonId,
+        manufacturerId: p.manufacturerId,
+        status: p.status,
+        rowStatus: "PENDING",
+      })),
+    );
+  }
+
+  // Insert variants (regular + to-delete)
+  const allVariants = [
+    ...pendingOps.variants.map((v) => ({
+      stagingId: v.stagingId,
+      stagingProductId: v.stagingProductId,
+      jobId: v.jobId,
+      rowNumber: v.rowNumber,
+      action: v.action,
+      existingVariantId: v.existingVariantId,
+      id: v.id,
+      productId: v.productId,
+      upid: v.upid,
+      barcode: v.barcode,
+      sku: v.sku,
+      nameOverride: v.nameOverride,
+      descriptionOverride: v.descriptionOverride,
+      imagePathOverride: v.imagePathOverride,
+      rowStatus: "PENDING",
+    })),
+    ...pendingOps.variantsToDelete.map((v) => ({
+      stagingId: v.stagingId,
+      stagingProductId: v.stagingProductId,
+      jobId: v.jobId,
+      rowNumber: v.rowNumber,
+      action: v.action,
+      existingVariantId: v.existingVariantId,
+      id: v.id,
+      productId: v.productId,
+      upid: null,
+      barcode: null,
+      sku: null,
+      nameOverride: null,
+      descriptionOverride: null,
+      imagePathOverride: null,
+      rowStatus: "PENDING",
+    })),
+  ];
+
+  if (allVariants.length > 0) {
+    await database.insert(stagingProductVariants).values(allVariants);
+  }
+
+  // Insert product-level relations
+  if (pendingOps.productTags.length > 0) {
+    await database.insert(stagingProductTags).values(pendingOps.productTags);
+  }
+
+  if (pendingOps.productMaterials.length > 0) {
+    await database
+      .insert(stagingProductMaterials)
+      .values(pendingOps.productMaterials);
+  }
+
+  if (pendingOps.productEcoClaims.length > 0) {
+    await database
+      .insert(stagingProductEcoClaims)
+      .values(pendingOps.productEcoClaims);
+  }
+
+  if (pendingOps.productEnvironment.length > 0) {
+    await database
+      .insert(stagingProductEnvironment)
+      .values(pendingOps.productEnvironment);
+  }
+
+  if (pendingOps.productJourneySteps.length > 0) {
+    await database
+      .insert(stagingProductJourneySteps)
+      .values(pendingOps.productJourneySteps);
+  }
+
+  if (pendingOps.productWeight.length > 0) {
+    await database
+      .insert(stagingProductWeight)
+      .values(pendingOps.productWeight);
+  }
+
+  // Insert variant-level relations
+  if (pendingOps.variantAttributes.length > 0) {
+    await database
+      .insert(stagingVariantAttributes)
+      .values(pendingOps.variantAttributes);
+  }
+
+  if (pendingOps.variantMaterials.length > 0) {
+    await database
+      .insert(stagingVariantMaterials)
+      .values(pendingOps.variantMaterials);
+  }
+
+  if (pendingOps.variantEcoClaims.length > 0) {
+    await database
+      .insert(stagingVariantEcoClaims)
+      .values(pendingOps.variantEcoClaims);
+  }
+
+  if (pendingOps.variantEnvironment.length > 0) {
+    await database
+      .insert(stagingVariantEnvironment)
+      .values(pendingOps.variantEnvironment);
+  }
+
+  if (pendingOps.variantJourneySteps.length > 0) {
+    await database
+      .insert(stagingVariantJourneySteps)
+      .values(pendingOps.variantJourneySteps);
+  }
+
+  if (pendingOps.variantWeight.length > 0) {
+    await database
+      .insert(stagingVariantWeight)
+      .values(pendingOps.variantWeight);
+  }
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Create an empty pending ops structure
+ */
+function createEmptyPendingOps(): PendingStagingOps {
+  return {
+    products: [],
+    variants: [],
+    productTags: [],
+    productMaterials: [],
+    productEcoClaims: [],
+    productEnvironment: [],
+    productJourneySteps: [],
+    productWeight: [],
+    variantAttributes: [],
+    variantMaterials: [],
+    variantEcoClaims: [],
+    variantEnvironment: [],
+    variantJourneySteps: [],
+    variantWeight: [],
+    variantsToDelete: [],
+  };
+}
+
+/**
+ * Merge partial ops into the main ops structure
+ */
+function mergePendingOps(
+  target: PendingStagingOps,
+  source: Partial<PendingStagingOps>,
+): void {
+  if (source.products) target.products.push(...source.products);
+  if (source.variants) target.variants.push(...source.variants);
+  if (source.productTags) target.productTags.push(...source.productTags);
+  if (source.productMaterials)
+    target.productMaterials.push(...source.productMaterials);
+  if (source.productEcoClaims)
+    target.productEcoClaims.push(...source.productEcoClaims);
+  if (source.productEnvironment)
+    target.productEnvironment.push(...source.productEnvironment);
+  if (source.productJourneySteps)
+    target.productJourneySteps.push(...source.productJourneySteps);
+  if (source.productWeight) target.productWeight.push(...source.productWeight);
+  if (source.variantAttributes)
+    target.variantAttributes.push(...source.variantAttributes);
+  if (source.variantMaterials)
+    target.variantMaterials.push(...source.variantMaterials);
+  if (source.variantEcoClaims)
+    target.variantEcoClaims.push(...source.variantEcoClaims);
+  if (source.variantEnvironment)
+    target.variantEnvironment.push(...source.variantEnvironment);
+  if (source.variantJourneySteps)
+    target.variantJourneySteps.push(...source.variantJourneySteps);
+  if (source.variantWeight) target.variantWeight.push(...source.variantWeight);
+  if (source.variantsToDelete)
+    target.variantsToDelete.push(...source.variantsToDelete);
 }
 
 // ============================================================================

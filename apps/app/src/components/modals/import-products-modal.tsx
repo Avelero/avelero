@@ -16,7 +16,7 @@ import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
 import { createClient } from "@v1/supabase/client";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useUserQuery } from "@/hooks/use-user";
 
 // ============================================================================
@@ -28,6 +28,9 @@ type ImportMethod = "upload" | "integration" | null;
 type ImportMode = "CREATE" | "CREATE_AND_ENRICH";
 
 const TEMPLATE_URL = "/templates/avelero-bulk-import-template.xlsx";
+
+/** How long to show the notification dot after import failure (1 hour) */
+const NOTIFICATION_EXPIRY_MS = 60 * 60 * 1000;
 
 // ============================================================================
 // Component
@@ -49,6 +52,114 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
     const [mode, setMode] = useState<ImportMode>("CREATE");
     const [isUploading, setIsUploading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+
+    // Query for recent imports to check for failed imports
+    const recentImportsQuery = useQuery({
+        ...trpc.bulk.import.getRecentImports.queryOptions({ limit: 1 }),
+        // Always enabled - we need this for the notification dot
+    });
+
+    // Derive the most recent failed import (user-specific via userId stored in job)
+    const recentFailedImport = useMemo(() => {
+        const job = recentImportsQuery.data?.jobs[0];
+        if (!job?.hasExportableFailures) return null;
+        // Check if dismissed
+        if ((job.summary as Record<string, unknown>)?.dismissed) return null;
+        return job;
+    }, [recentImportsQuery.data]);
+
+    // Check if notification dot should be shown (user-specific, expires after 1 hour)
+    const showNotificationDot = useMemo(() => {
+        if (!recentFailedImport || !user?.id) return false;
+
+        // Check localStorage for "viewed" status
+        const viewedKey = `import_failure_viewed_${user.id}_${recentFailedImport.id}`;
+        const viewedAt = localStorage.getItem(viewedKey);
+
+        if (viewedAt) {
+            // User has viewed this - don't show dot
+            return false;
+        }
+
+        // Check if job is older than 1 hour
+        const jobTime = new Date(recentFailedImport.finishedAt ?? recentFailedImport.startedAt).getTime();
+        const now = Date.now();
+        if (now - jobTime > NOTIFICATION_EXPIRY_MS) {
+            return false;
+        }
+
+        return true;
+    }, [recentFailedImport, user?.id]);
+
+    // Mark notification as viewed when modal opens
+    useEffect(() => {
+        if (open && recentFailedImport && user?.id) {
+            const viewedKey = `import_failure_viewed_${user.id}_${recentFailedImport.id}`;
+            localStorage.setItem(viewedKey, Date.now().toString());
+        }
+    }, [open, recentFailedImport, user?.id]);
+
+    // Helper function to download file using fetch + blob (same as template download)
+    const downloadFile = async (url: string, filename: string) => {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Download failed");
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        } catch {
+            toast.error("Failed to download error report");
+        }
+    };
+
+    // Mutation for exporting corrections
+    const exportCorrectionsMutation = useMutation(
+        trpc.bulk.import.exportCorrections.mutationOptions({
+            onSuccess: async (data) => {
+                if (data.status === "ready" && data.downloadUrl) {
+                    // Download using fetch + blob
+                    const filename = `${recentFailedImport?.filename ?? "import"}-corrections.xlsx`;
+                    await downloadFile(data.downloadUrl, filename);
+                    setIsDownloadingReport(false);
+                } else if (data.status === "generating") {
+                    toast.success("Error report is being generated. Check your email shortly.");
+                    setIsDownloadingReport(false);
+                }
+            },
+            onError: (error) => {
+                toast.error(error.message || "Failed to download error report");
+                setIsDownloadingReport(false);
+            },
+        })
+    );
+
+    // Handler for downloading error report
+    const handleDownloadErrorReport = async () => {
+        if (!recentFailedImport) return;
+
+        // If URL exists and not expired, download directly using fetch + blob
+        if (recentFailedImport.correctionDownloadUrl && recentFailedImport.correctionExpiresAt) {
+            const expiresAt = new Date(recentFailedImport.correctionExpiresAt);
+            if (expiresAt > new Date()) {
+                setIsDownloadingReport(true);
+                const filename = `${recentFailedImport.filename ?? "import"}-corrections.xlsx`;
+                await downloadFile(recentFailedImport.correctionDownloadUrl, filename);
+                setIsDownloadingReport(false);
+                return;
+            }
+        }
+
+        // Otherwise trigger generation
+        setIsDownloadingReport(true);
+        exportCorrectionsMutation.mutate({ jobId: recentFailedImport.id });
+    };
 
     const resetState = () => {
         setTimeout(() => {
@@ -176,9 +287,12 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="default">
+                <Button variant="outline" size="default" className="relative">
                     <Icons.Upload className="h-[14px] w-[14px]" />
                     <span className="px-1">Import</span>
+                    {showNotificationDot && (
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-destructive rounded-full" />
+                    )}
                 </Button>
             </DialogTrigger>
             <DialogContent className="rounded-none sm:rounded-none p-0 gap-0 border border-border focus:outline-none focus-visible:outline-none max-w-xl">
@@ -193,8 +307,8 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
                             <p className="type-p text-foreground">How do you want to import your products?</p>
 
                             <div onClick={() => setMethod("upload")} className="w-full flex items-start gap-3 text-left cursor-pointer">
-                                <div className={cn("w-5 h-5 mt-0.5 rounded-full border-2 flex items-center justify-center shrink-0", method === "upload" ? "border-foreground" : "border-tertiary")}>
-                                    {method === "upload" && <div className="w-2.5 h-2.5 rounded-full bg-foreground" />}
+                                <div className={cn("w-4 h-4 mt-0.5 rounded-full border-2 flex items-center justify-center shrink-0", method === "upload" ? "border-foreground" : "border-tertiary")}>
+                                    {method === "upload" && <div className="w-2 h-2 rounded-full bg-foreground" />}
                                 </div>
                                 <div>
                                     <p className="type-p text-foreground">Upload an Avelero-formatted Excel file</p>
@@ -208,14 +322,53 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
                             </div>
 
                             <div onClick={() => setMethod("integration")} className="w-full flex items-start gap-3 text-left cursor-pointer">
-                                <div className={cn("w-5 h-5 mt-0.5 rounded-full border-2 flex items-center justify-center shrink-0", method === "integration" ? "border-foreground" : "border-tertiary")}>
-                                    {method === "integration" && <div className="w-2.5 h-2.5 rounded-full bg-foreground" />}
+                                <div className={cn("w-4 h-4 mt-0.5 rounded-full border-2 flex items-center justify-center shrink-0", method === "integration" ? "border-foreground" : "border-tertiary")}>
+                                    {method === "integration" && <div className="w-2 h-2 rounded-full bg-foreground" />}
                                 </div>
                                 <div>
                                     <p className="type-p text-foreground">Import data from another platform</p>
                                     <p className="type-small text-secondary">Import a copy of your data from another platform using one of our integrations.</p>
                                 </div>
                             </div>
+
+                            {/* Recent Import Failures Banner */}
+                            {recentFailedImport && (
+                                <div className="mt-6 pt-6 border-t border-border">
+                                    <div className="flex items-start gap-3 p-4 bg-destructive/5 border border-destructive/20">
+                                        <Icons.AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="type-p text-foreground font-medium">
+                                                {(() => {
+                                                    const summary = recentFailedImport.summary as Record<string, unknown> | null;
+                                                    return (summary?.failedProducts as number) ?? (summary?.failed as number) ?? 0;
+                                                })()} products failed during your most recent import
+                                            </p>
+                                            <p className="type-small text-secondary mt-1">
+                                                Download the error report to see which products need corrections.
+                                            </p>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="mt-3"
+                                                onClick={handleDownloadErrorReport}
+                                                disabled={isDownloadingReport}
+                                            >
+                                                {isDownloadingReport ? (
+                                                    <>
+                                                        <Icons.Loader className="w-4 h-4 animate-spin mr-2" />
+                                                        Generating...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Icons.Download className="w-4 h-4 mr-2" />
+                                                        Download Error Report
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <DialogFooter className="px-6 py-4 border-t border-border">

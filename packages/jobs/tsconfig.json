@@ -1,19 +1,11 @@
 {
   "extends": "@v1/tsconfig/base.json",
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "__tests__/**/*.ts"
-  ],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "__tests__/**/*.ts"],
   "compilerOptions": {
-    "types": [
-      "@types/bun"
-    ],
+    "types": ["@types/bun"],
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "Bundler"
   },
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

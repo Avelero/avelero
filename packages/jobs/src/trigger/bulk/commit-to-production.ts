@@ -1,19 +1,17 @@
 /**
- * Commit to Production Job (Refactored with Batch Operations)
+ * Commit to Production Job (Optimized with Batch Operations)
  *
  * Phase 2 of the bulk import process:
- * 1. Pre-fetches ALL staging data for the job
- * 2. Processes images (downloads external URLs, uploads to storage)
- * 3. Executes all DB operations in batches for optimal performance
- * 4. Updates per-row status to COMMITTED or FAILED
- * 5. Deletes only COMMITTED rows (keeps FAILED for correction export)
- * 6. Revalidates DPP cache for the brand
+ * 1. Loads staging data in batches of 250
+ * 2. For each batch: generates UPIDs, processes images, commits to production
+ * 3. Updates per-row status to COMMITTED or FAILED
+ * 4. Deletes only COMMITTED rows (keeps FAILED for correction export)
+ * 5. Revalidates DPP cache for the brand
  *
- * Key optimizations:
- * - Batch operations using sync-batch-operations (same as integrations)
- * - Rate-limited parallel image processing
- * - Minimal database round-trips
- * - Smart image change detection to prevent unnecessary re-downloads
+ * Key optimizations (matching integrations engine pattern):
+ * - Processes products in batches of 250 (same as integrations)
+ * - Each batch goes through complete cycle: load → images → commit
+ * - Memory-efficient: only 250 products in memory at a time
  *
  * @module commit-to-production
  */
@@ -21,7 +19,7 @@
 import "../configure-trigger";
 import { createHash } from "node:crypto";
 import { type SupabaseClient, createClient } from "@supabase/supabase-js";
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
@@ -39,6 +37,8 @@ import { revalidateBrand } from "../../lib/dpp-revalidation";
 interface CommitToProductionPayload {
   jobId: string;
   brandId: string;
+  /** User email for error report notifications (optional) */
+  userEmail?: string | null;
 }
 
 interface CommitStats {
@@ -46,6 +46,7 @@ interface CommitStats {
   productsUpdated: number;
   variantsCreated: number;
   variantsUpdated: number;
+  variantsDeleted: number;
   tagsSet: number;
   attributesSet: number;
   materialsSet: number;
@@ -121,6 +122,105 @@ interface StagingVariantData {
   weight: { weight: string | null; weightUnit: string | null } | null;
 }
 
+/** Pending production operations (computed phase, no DB calls) */
+interface PendingProductionOps {
+  productCreates: Array<{
+    id: string;
+    brandId: string;
+    name: string;
+    productHandle: string;
+    description?: string;
+    categoryId?: string;
+    seasonId?: string;
+    manufacturerId?: string;
+    imagePath?: string;
+    status: string;
+  }>;
+  productUpdates: Array<{
+    id: string;
+    data: Partial<{
+      name: string;
+      productHandle: string;
+      description: string;
+      categoryId: string;
+      seasonId: string;
+      manufacturerId: string;
+      imagePath: string;
+      status: string;
+    }>;
+  }>;
+  variantCreates: Array<{
+    id: string;
+    productId: string;
+    upid: string;
+    barcode?: string;
+    sku?: string;
+    name?: string;
+    description?: string;
+    imagePath?: string;
+  }>;
+  variantUpdates: Array<{
+    id: string;
+    data: Partial<{
+      upid: string;
+      barcode: string;
+      sku: string;
+      name: string;
+      description: string;
+      imagePath: string;
+    }>;
+  }>;
+  variantDeletes: string[];
+  productTagsToSet: Array<{ productId: string; tagIds: string[] }>;
+  productMaterialsToSet: Array<{
+    productId: string;
+    materials: Array<{ brandMaterialId: string; percentage: string | null }>;
+  }>;
+  productEcoClaimsToSet: Array<{ productId: string; ecoClaimIds: string[] }>;
+  productEnvironmentUpserts: Array<{
+    productId: string;
+    metric: string;
+    value: string;
+    unit: string;
+  }>;
+  productJourneyStepsToSet: Array<{
+    productId: string;
+    steps: Array<{ sortIndex: number; stepType: string; facilityId: string }>;
+  }>;
+  productWeightUpserts: Array<{
+    productId: string;
+    weight: string;
+    weightUnit: string;
+  }>;
+  variantAttributesToSet: Array<{
+    variantId: string;
+    attrs: Array<{
+      attributeId: string;
+      attributeValueId: string;
+      sortOrder: number;
+    }>;
+  }>;
+  variantMaterialsToSet: Array<{
+    variantId: string;
+    materials: Array<{ brandMaterialId: string; percentage: string | null }>;
+  }>;
+  variantEcoClaimsToSet: Array<{ variantId: string; ecoClaimIds: string[] }>;
+  variantEnvironmentUpserts: Array<{
+    variantId: string;
+    carbonKgCo2e: string | null;
+    waterLiters: string | null;
+  }>;
+  variantJourneyStepsToSet: Array<{
+    variantId: string;
+    steps: Array<{ sortIndex: number; stepType: string; facilityId: string }>;
+  }>;
+  variantWeightUpserts: Array<{
+    variantId: string;
+    weight: string;
+    weightUnit: string;
+  }>;
+}
+
 // ============================================================================
 // Schema References
 // ============================================================================
@@ -167,10 +267,15 @@ const {
 // Constants
 // ============================================================================
 
-/** Batch size for loading staging data */
-const LOAD_BATCH_SIZE = 500;
+/**
+ * Batch size for processing products (same as integrations engine)
+ * Each batch goes through complete cycle: load → images → commit
+ */
+const BATCH_SIZE = 250;
+
 /** Concurrency for image uploads */
 const IMAGE_CONCURRENCY = 15;
+
 /** Image upload timeout in ms */
 const IMAGE_TIMEOUT_MS = 60_000;
 
@@ -189,11 +294,12 @@ export const commitToProduction = task({
 
     logger.info("Starting commit-to-production job", { jobId, brandId });
 
-    const stats: CommitStats = {
+    const totalStats: CommitStats = {
       productsCreated: 0,
       productsUpdated: 0,
       variantsCreated: 0,
       variantsUpdated: 0,
+      variantsDeleted: 0,
       tagsSet: 0,
       attributesSet: 0,
       materialsSet: 0,
@@ -207,6 +313,7 @@ export const commitToProduction = task({
 
     let committedCount = 0;
     let failedCount = 0;
+    let batchNumber = 0;
 
     try {
       // Update job status to COMMITTING
@@ -225,132 +332,139 @@ export const commitToProduction = task({
           process.env.SUPABASE_SERVICE_ROLE_KEY!,
       );
 
-      // PHASE 1: Load all staging data
-      logger.info("Phase 1: Loading staging data");
-      const loadStart = Date.now();
-      const stagingData = await loadAllStagingData(db, jobId);
-      logger.info("Staging data loaded", {
-        products: stagingData.length,
-        variants: stagingData.reduce((sum, p) => sum + p.variants.length, 0),
-        duration: `${Date.now() - loadStart}ms`,
-      });
+      // Process staging data in batches of 250 (same as integrations engine)
+      // Each batch goes through complete cycle: load → images → UPIDs → commit
+      let hasMoreData = true;
+      let lastRowNumber = 0;
 
-      if (stagingData.length === 0) {
-        logger.info("No staging data to commit");
-        await db
-          .update(importJobs)
-          .set({
-            status: "COMPLETED",
-            finishedAt: new Date().toISOString(),
-            summary: { committed: 0, failed: 0 },
-          })
-          .where(eq(importJobs.id, jobId));
-        return;
-      }
+      while (hasMoreData) {
+        batchNumber++;
+        const batchStartTime = Date.now();
 
-      // PHASE 2: Pre-fetch existing data for enrichment comparison
-      logger.info("Phase 2: Pre-fetching existing product data");
-      const prefetchStart = Date.now();
-      const existingProductIds = stagingData
-        .filter((p) => p.existingProductId)
-        .map((p) => p.existingProductId as string);
+        // PHASE 1: Load next batch of staging data
+        const batchData = await loadStagingBatch(
+          db,
+          jobId,
+          lastRowNumber,
+          BATCH_SIZE,
+        );
 
-      const existingProducts =
-        existingProductIds.length > 0
-          ? await db
-              .select({ id: products.id, imagePath: products.imagePath })
-              .from(products)
-              .where(inArray(products.id, existingProductIds))
-          : [];
+        if (batchData.length === 0) {
+          hasMoreData = false;
+          break;
+        }
 
-      const existingProductImageMap = new Map(
-        existingProducts.map((p) => [p.id, p.imagePath]),
-      );
-      logger.info("Existing products pre-fetched", {
-        count: existingProducts.length,
-        duration: `${Date.now() - prefetchStart}ms`,
-      });
+        logger.info(`Batch ${batchNumber}: Starting`, {
+          products: batchData.length,
+          variants: batchData.reduce((sum, p) => sum + p.variants.length, 0),
+        });
 
-      // PHASE 3: Process images (with smart change detection)
-      logger.info("Phase 3: Processing images");
-      const imageStart = Date.now();
-      const imageResults = await processImages(
-        storageClient,
-        brandId,
-        stagingData,
-        existingProductImageMap,
-      );
-      stats.imagesProcessed = imageResults.completed;
-      stats.imagesFailed = imageResults.failed;
-      logger.info("Images processed", {
-        processed: imageResults.completed,
-        failed: imageResults.failed,
-        skipped: imageResults.skipped,
-        duration: `${Date.now() - imageStart}ms`,
-      });
+        // Update lastRowNumber for next batch
+        lastRowNumber = batchData[batchData.length - 1]!.rowNumber;
 
-      // PHASE 4: Commit to production with batch operations
-      logger.info("Phase 4: Committing to production");
-      const commitStart = Date.now();
+        // PHASE 2: Fetch existing product images for change detection
+        const existingProductIds = batchData
+          .filter((p) => p.existingProductId)
+          .map((p) => p.existingProductId as string);
 
-      for (const stagingProduct of stagingData) {
+        const existingProducts =
+          existingProductIds.length > 0
+            ? await db
+                .select({ id: products.id, imagePath: products.imagePath })
+                .from(products)
+                .where(inArray(products.id, existingProductIds))
+            : [];
+
+        const existingProductImageMap = new Map(
+          existingProducts.map((p) => [p.id, p.imagePath]),
+        );
+
+        // PHASE 3: Process images for this batch
+        const imageResults = await processImages(
+          storageClient,
+          brandId,
+          batchData,
+          existingProductImageMap,
+        );
+        totalStats.imagesProcessed += imageResults.completed;
+        totalStats.imagesFailed += imageResults.failed;
+
+        // PHASE 4: Generate UPIDs for new variants in this batch
+        const upidMap = await preGenerateUpids(db, batchData);
+
+        // PHASE 5: Compute production operations (pure, no DB)
+        const { ops, batchStats } = computeProductionOps(
+          batchData,
+          upidMap,
+          brandId,
+        );
+
+        // PHASE 6: Execute production writes for this batch
         try {
-          await commitStagingProductBatched(
-            db,
-            brandId,
-            jobId,
-            stagingProduct,
-            stats,
-          );
-          committedCount++;
+          await batchExecuteProductionOps(db, ops);
 
-          // Mark as committed
+          // Accumulate stats
+          totalStats.productsCreated += batchStats.productsCreated;
+          totalStats.productsUpdated += batchStats.productsUpdated;
+          totalStats.variantsCreated += batchStats.variantsCreated;
+          totalStats.variantsUpdated += batchStats.variantsUpdated;
+          totalStats.variantsDeleted += batchStats.variantsDeleted;
+          totalStats.tagsSet += batchStats.tagsSet;
+          totalStats.attributesSet += batchStats.attributesSet;
+          totalStats.materialsSet += batchStats.materialsSet;
+          totalStats.ecoClaimsSet += batchStats.ecoClaimsSet;
+          totalStats.environmentSet += batchStats.environmentSet;
+          totalStats.journeyStepsSet += batchStats.journeyStepsSet;
+          totalStats.weightSet += batchStats.weightSet;
+
+          committedCount += batchData.length;
+
+          // PHASE 7: Mark batch as committed
+          const stagingProductIds = batchData.map((p) => p.stagingId);
+          const stagingVariantIds = batchData.flatMap((p) =>
+            p.variants.map((v) => v.stagingId),
+          );
+
           await db
             .update(stagingProducts)
             .set({ rowStatus: "COMMITTED" })
-            .where(eq(stagingProducts.stagingId, stagingProduct.stagingId));
+            .where(inArray(stagingProducts.stagingId, stagingProductIds));
 
-          // Mark variants as committed
-          const variantStagingIds = stagingProduct.variants.map(
-            (v) => v.stagingId,
-          );
-          if (variantStagingIds.length > 0) {
+          if (stagingVariantIds.length > 0) {
             await db
               .update(stagingProductVariants)
               .set({ rowStatus: "COMMITTED" })
               .where(
-                inArray(stagingProductVariants.stagingId, variantStagingIds),
+                inArray(stagingProductVariants.stagingId, stagingVariantIds),
               );
           }
+
+          const batchDuration = Date.now() - batchStartTime;
+          logger.info(`Batch ${batchNumber}: Complete`, {
+            committed: batchData.length,
+            duration: `${batchDuration}ms`,
+          });
         } catch (error) {
           const errorMessage =
-            error instanceof Error ? error.message : "Unknown error";
-          logger.error("Failed to commit staging product", {
-            stagingId: stagingProduct.stagingId,
-            error: errorMessage,
-          });
+            error instanceof Error ? error.message : String(error);
+          logger.error(`Batch ${batchNumber}: Failed`, { error: errorMessage });
 
-          failedCount++;
-
-          // Mark as failed
+          // Mark batch as failed
+          const stagingProductIds = batchData.map((p) => p.stagingId);
           await db
             .update(stagingProducts)
             .set({
               rowStatus: "FAILED",
               errors: [{ field: "commit", message: errorMessage }],
             })
-            .where(eq(stagingProducts.stagingId, stagingProduct.stagingId));
+            .where(inArray(stagingProducts.stagingId, stagingProductIds));
+
+          failedCount += batchData.length;
         }
       }
 
-      logger.info("Commit phase completed", {
-        committed: committedCount,
-        failed: failedCount,
-        duration: `${Date.now() - commitStart}ms`,
-      });
-
-      // PHASE 5: Delete committed staging data
-      logger.info("Phase 5: Cleaning up committed staging data");
+      // PHASE 8: Delete committed staging data
+      logger.info("Cleaning up committed staging data");
       await deleteCommittedStagingData(db, jobId);
 
       // Determine final status
@@ -366,7 +480,7 @@ export const commitToProduction = task({
           summary: {
             committed: committedCount,
             failed: failedCount,
-            ...stats,
+            ...totalStats,
           },
         })
         .where(eq(importJobs.id, jobId));
@@ -374,14 +488,26 @@ export const commitToProduction = task({
       // Revalidate DPP cache for the brand
       await revalidateBrandCache(brandId);
 
+      // Trigger error report generation if there are failures
+      if (hasFailures) {
+        await tasks.trigger("generate-error-report", {
+          jobId,
+          brandId,
+          userEmail: payload.userEmail ?? null,
+        });
+
+        logger.info("Triggered error report generation", { jobId });
+      }
+
       const duration = Date.now() - startTime;
       logger.info("Commit-to-production completed", {
         jobId,
         committedCount,
         failedCount,
+        batches: batchNumber,
         duration: `${duration}ms`,
         status: finalStatus,
-        stats,
+        stats: totalStats,
       });
     } catch (error) {
       const errorMessage =
@@ -407,183 +533,157 @@ export const commitToProduction = task({
 });
 
 // ============================================================================
-// Load All Staging Data
+// Load Staging Batch (250 products at a time)
 // ============================================================================
 
 /**
- * Load all staging products and their related data for a job.
- * Uses batch loading for efficiency.
+ * Load a batch of staging products and their related data.
  */
-async function loadAllStagingData(
+async function loadStagingBatch(
   database: Database,
   jobId: string,
+  afterRowNumber: number,
+  limit: number,
 ): Promise<StagingProductData[]> {
-  const allProducts: StagingProductData[] = [];
-  let lastRowNumber = 0;
-  let hasMore = true;
+  // Load batch of staging products
+  const batch = await database
+    .select({
+      stagingId: stagingProducts.stagingId,
+      rowNumber: stagingProducts.rowNumber,
+      action: stagingProducts.action,
+      existingProductId: stagingProducts.existingProductId,
+      id: stagingProducts.id,
+      brandId: stagingProducts.brandId,
+      name: stagingProducts.name,
+      description: stagingProducts.description,
+      manufacturerId: stagingProducts.manufacturerId,
+      imagePath: stagingProducts.imagePath,
+      categoryId: stagingProducts.categoryId,
+      seasonId: stagingProducts.seasonId,
+      productHandle: stagingProducts.productHandle,
+      status: stagingProducts.status,
+    })
+    .from(stagingProducts)
+    .where(
+      and(
+        eq(stagingProducts.jobId, jobId),
+        eq(stagingProducts.rowStatus, "PENDING"),
+        sql`${stagingProducts.rowNumber} > ${afterRowNumber}`,
+      ),
+    )
+    .orderBy(stagingProducts.rowNumber)
+    .limit(limit);
 
-  while (hasMore) {
-    // Load batch of staging products
-    const batch = await database
-      .select({
-        stagingId: stagingProducts.stagingId,
-        rowNumber: stagingProducts.rowNumber,
-        action: stagingProducts.action,
-        existingProductId: stagingProducts.existingProductId,
-        id: stagingProducts.id,
-        brandId: stagingProducts.brandId,
-        name: stagingProducts.name,
-        description: stagingProducts.description,
-        manufacturerId: stagingProducts.manufacturerId,
-        imagePath: stagingProducts.imagePath,
-        categoryId: stagingProducts.categoryId,
-        seasonId: stagingProducts.seasonId,
-        productHandle: stagingProducts.productHandle,
-        status: stagingProducts.status,
-      })
-      .from(stagingProducts)
-      .where(
-        and(
-          eq(stagingProducts.jobId, jobId),
-          eq(stagingProducts.rowStatus, "PENDING"),
-          sql`${stagingProducts.rowNumber} > ${lastRowNumber}`,
-        ),
-      )
-      .orderBy(stagingProducts.rowNumber)
-      .limit(LOAD_BATCH_SIZE);
-
-    if (batch.length === 0) {
-      hasMore = false;
-      break;
-    }
-
-    const stagingIds = batch.map((p) => p.stagingId);
-
-    // Load all related data in parallel (including product-level data)
-    const [
-      variantsResult,
-      tagsResult,
-      productMaterialsResult,
-      productEcoClaimsResult,
-      productEnvironmentResult,
-      productJourneyResult,
-      productWeightResult,
-    ] = await Promise.all([
-      loadVariantsWithRelated(database, jobId, stagingIds),
-      database
-        .select({
-          stagingProductId: stagingProductTags.stagingProductId,
-          tagId: stagingProductTags.tagId,
-        })
-        .from(stagingProductTags)
-        .where(inArray(stagingProductTags.stagingProductId, stagingIds)),
-      // Product-level materials
-      database
-        .select()
-        .from(stagingProductMaterials)
-        .where(inArray(stagingProductMaterials.stagingProductId, stagingIds)),
-      // Product-level eco claims
-      database
-        .select()
-        .from(stagingProductEcoClaims)
-        .where(inArray(stagingProductEcoClaims.stagingProductId, stagingIds)),
-      // Product-level environment
-      database
-        .select()
-        .from(stagingProductEnvironment)
-        .where(inArray(stagingProductEnvironment.stagingProductId, stagingIds)),
-      // Product-level journey steps
-      database
-        .select()
-        .from(stagingProductJourneySteps)
-        .where(
-          inArray(stagingProductJourneySteps.stagingProductId, stagingIds),
-        ),
-      // Product-level weight
-      database
-        .select()
-        .from(stagingProductWeight)
-        .where(inArray(stagingProductWeight.stagingProductId, stagingIds)),
-    ]);
-
-    // Group related data by staging product ID
-    const variantsByProduct = new Map<string, StagingVariantData[]>();
-    for (const v of variantsResult) {
-      const list = variantsByProduct.get(v.stagingProductId) || [];
-      list.push(v);
-      variantsByProduct.set(v.stagingProductId, list);
-    }
-
-    const tagsByProduct = new Map<string, { tagId: string }[]>();
-    for (const t of tagsResult) {
-      const list = tagsByProduct.get(t.stagingProductId) || [];
-      list.push({ tagId: t.tagId });
-      tagsByProduct.set(t.stagingProductId, list);
-    }
-
-    // Group product-level data by staging product ID
-    const materialsByProduct = groupBy(
-      productMaterialsResult,
-      (m) => m.stagingProductId,
-    );
-    const ecoClaimsByProduct = groupBy(
-      productEcoClaimsResult,
-      (c) => c.stagingProductId,
-    );
-    const envByProduct = new Map(
-      productEnvironmentResult.map((e) => [e.stagingProductId, e]),
-    );
-    const journeyByProduct = groupBy(
-      productJourneyResult,
-      (j) => j.stagingProductId,
-    );
-    const weightByProduct = new Map(
-      productWeightResult.map((w) => [w.stagingProductId, w]),
-    );
-
-    // Assemble product data
-    for (const product of batch) {
-      allProducts.push({
-        ...product,
-        variants: variantsByProduct.get(product.stagingId) || [],
-        tags: tagsByProduct.get(product.stagingId) || [],
-        // Product-level environmental/supply chain data
-        materials: (materialsByProduct.get(product.stagingId) || []).map(
-          (m) => ({
-            brandMaterialId: m.brandMaterialId,
-            percentage: m.percentage,
-          }),
-        ),
-        ecoClaims: (ecoClaimsByProduct.get(product.stagingId) || []).map(
-          (c) => ({
-            ecoClaimId: c.ecoClaimId,
-          }),
-        ),
-        environment: envByProduct.get(product.stagingId)
-          ? {
-              carbonKgCo2E: envByProduct.get(product.stagingId)!.carbonKgCo2E,
-              waterLiters: envByProduct.get(product.stagingId)!.waterLiters,
-            }
-          : null,
-        journeySteps: (journeyByProduct.get(product.stagingId) || []).map(
-          (j) => ({
-            sortIndex: j.sortIndex,
-            stepType: j.stepType,
-            facilityId: j.facilityId,
-          }),
-        ),
-        weight: weightByProduct.get(product.stagingId)
-          ? {
-              weight: weightByProduct.get(product.stagingId)!.weight,
-              weightUnit: weightByProduct.get(product.stagingId)!.weightUnit,
-            }
-          : null,
-      });
-      lastRowNumber = product.rowNumber;
-    }
+  if (batch.length === 0) {
+    return [];
   }
 
-  return allProducts;
+  const stagingIds = batch.map((p) => p.stagingId);
+
+  // Load all related data in parallel
+  const [
+    variantsResult,
+    tagsResult,
+    productMaterialsResult,
+    productEcoClaimsResult,
+    productEnvironmentResult,
+    productJourneyResult,
+    productWeightResult,
+  ] = await Promise.all([
+    loadVariantsWithRelated(database, stagingIds),
+    database
+      .select({
+        stagingProductId: stagingProductTags.stagingProductId,
+        tagId: stagingProductTags.tagId,
+      })
+      .from(stagingProductTags)
+      .where(inArray(stagingProductTags.stagingProductId, stagingIds)),
+    database
+      .select()
+      .from(stagingProductMaterials)
+      .where(inArray(stagingProductMaterials.stagingProductId, stagingIds)),
+    database
+      .select()
+      .from(stagingProductEcoClaims)
+      .where(inArray(stagingProductEcoClaims.stagingProductId, stagingIds)),
+    database
+      .select()
+      .from(stagingProductEnvironment)
+      .where(inArray(stagingProductEnvironment.stagingProductId, stagingIds)),
+    database
+      .select()
+      .from(stagingProductJourneySteps)
+      .where(inArray(stagingProductJourneySteps.stagingProductId, stagingIds)),
+    database
+      .select()
+      .from(stagingProductWeight)
+      .where(inArray(stagingProductWeight.stagingProductId, stagingIds)),
+  ]);
+
+  // Group related data by staging product ID
+  const variantsByProduct = new Map<string, StagingVariantData[]>();
+  for (const v of variantsResult) {
+    const list = variantsByProduct.get(v.stagingProductId) || [];
+    list.push(v);
+    variantsByProduct.set(v.stagingProductId, list);
+  }
+
+  const tagsByProduct = new Map<string, { tagId: string }[]>();
+  for (const t of tagsResult) {
+    const list = tagsByProduct.get(t.stagingProductId) || [];
+    list.push({ tagId: t.tagId });
+    tagsByProduct.set(t.stagingProductId, list);
+  }
+
+  const materialsByProduct = groupBy(
+    productMaterialsResult,
+    (m) => m.stagingProductId,
+  );
+  const ecoClaimsByProduct = groupBy(
+    productEcoClaimsResult,
+    (c) => c.stagingProductId,
+  );
+  const envByProduct = new Map(
+    productEnvironmentResult.map((e) => [e.stagingProductId, e]),
+  );
+  const journeyByProduct = groupBy(
+    productJourneyResult,
+    (j) => j.stagingProductId,
+  );
+  const weightByProduct = new Map(
+    productWeightResult.map((w) => [w.stagingProductId, w]),
+  );
+
+  // Assemble product data
+  return batch.map((product) => ({
+    ...product,
+    variants: variantsByProduct.get(product.stagingId) || [],
+    tags: tagsByProduct.get(product.stagingId) || [],
+    materials: (materialsByProduct.get(product.stagingId) || []).map((m) => ({
+      brandMaterialId: m.brandMaterialId,
+      percentage: m.percentage,
+    })),
+    ecoClaims: (ecoClaimsByProduct.get(product.stagingId) || []).map((c) => ({
+      ecoClaimId: c.ecoClaimId,
+    })),
+    environment: envByProduct.get(product.stagingId)
+      ? {
+          carbonKgCo2E: envByProduct.get(product.stagingId)!.carbonKgCo2E,
+          waterLiters: envByProduct.get(product.stagingId)!.waterLiters,
+        }
+      : null,
+    journeySteps: (journeyByProduct.get(product.stagingId) || []).map((j) => ({
+      sortIndex: j.sortIndex,
+      stepType: j.stepType,
+      facilityId: j.facilityId,
+    })),
+    weight: weightByProduct.get(product.stagingId)
+      ? {
+          weight: weightByProduct.get(product.stagingId)!.weight,
+          weightUnit: weightByProduct.get(product.stagingId)!.weightUnit,
+        }
+      : null,
+  }));
 }
 
 /**
@@ -591,7 +691,6 @@ async function loadAllStagingData(
  */
 async function loadVariantsWithRelated(
   database: Database,
-  jobId: string,
   stagingProductIds: string[],
 ): Promise<(StagingVariantData & { stagingProductId: string })[]> {
   // Load variants
@@ -711,11 +810,590 @@ async function loadVariantsWithRelated(
 }
 
 // ============================================================================
+// Pre-generate UPIDs (for one batch)
+// ============================================================================
+
+/**
+ * Pre-generate all UPIDs for new variants in a batch.
+ */
+async function preGenerateUpids(
+  database: Database,
+  batchData: StagingProductData[],
+): Promise<Map<string, string>> {
+  // Count variants that need UPIDs
+  const variantsNeedingUpids: string[] = [];
+
+  for (const product of batchData) {
+    for (const variant of product.variants) {
+      if (variant.action === "CREATE" && !variant.upid) {
+        variantsNeedingUpids.push(variant.stagingId);
+      }
+    }
+  }
+
+  if (variantsNeedingUpids.length === 0) {
+    return new Map();
+  }
+
+  // Generate all UPIDs in one batch
+  const upids = await generateUniqueUpids({
+    count: variantsNeedingUpids.length,
+    isTaken: async (candidate) => {
+      const [existing] = await database
+        .select({ id: productVariants.id })
+        .from(productVariants)
+        .where(eq(productVariants.upid, candidate))
+        .limit(1);
+      return Boolean(existing);
+    },
+    fetchTakenSet: async (candidates) => {
+      const rows = await database
+        .select({ upid: productVariants.upid })
+        .from(productVariants)
+        .where(inArray(productVariants.upid, candidates as string[]));
+      return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
+    },
+  });
+
+  // Map stagingVariantId -> generated UPID
+  const upidMap = new Map<string, string>();
+  variantsNeedingUpids.forEach((stagingId, i) => {
+    upidMap.set(stagingId, upids[i]!);
+  });
+
+  return upidMap;
+}
+
+// ============================================================================
+// Compute Production Operations (PURE - no DB calls)
+// ============================================================================
+
+/**
+ * Compute all production operations from a batch of staging data.
+ * This is a PURE FUNCTION - no database calls!
+ */
+function computeProductionOps(
+  batchData: StagingProductData[],
+  upidMap: Map<string, string>,
+  brandId: string,
+): { ops: PendingProductionOps; batchStats: CommitStats } {
+  const ops: PendingProductionOps = {
+    productCreates: [],
+    productUpdates: [],
+    variantCreates: [],
+    variantUpdates: [],
+    variantDeletes: [],
+    productTagsToSet: [],
+    productMaterialsToSet: [],
+    productEcoClaimsToSet: [],
+    productEnvironmentUpserts: [],
+    productJourneyStepsToSet: [],
+    productWeightUpserts: [],
+    variantAttributesToSet: [],
+    variantMaterialsToSet: [],
+    variantEcoClaimsToSet: [],
+    variantEnvironmentUpserts: [],
+    variantJourneyStepsToSet: [],
+    variantWeightUpserts: [],
+  };
+
+  const batchStats: CommitStats = {
+    productsCreated: 0,
+    productsUpdated: 0,
+    variantsCreated: 0,
+    variantsUpdated: 0,
+    variantsDeleted: 0,
+    tagsSet: 0,
+    attributesSet: 0,
+    materialsSet: 0,
+    ecoClaimsSet: 0,
+    environmentSet: 0,
+    journeyStepsSet: 0,
+    weightSet: 0,
+    imagesProcessed: 0,
+    imagesFailed: 0,
+  };
+
+  for (const stagingProduct of batchData) {
+    const productId = stagingProduct.existingProductId || stagingProduct.id;
+
+    // Product create or update
+    if (stagingProduct.action === "CREATE") {
+      ops.productCreates.push({
+        id: productId,
+        brandId,
+        name: stagingProduct.name,
+        productHandle: stagingProduct.productHandle ?? productId,
+        description: stagingProduct.description ?? undefined,
+        categoryId: stagingProduct.categoryId ?? undefined,
+        seasonId: stagingProduct.seasonId ?? undefined,
+        manufacturerId: stagingProduct.manufacturerId ?? undefined,
+        imagePath: stagingProduct.imagePath ?? undefined,
+        status: stagingProduct.status ?? "unpublished",
+      });
+      batchStats.productsCreated++;
+    } else if (
+      stagingProduct.action === "UPDATE" &&
+      stagingProduct.existingProductId
+    ) {
+      const updateData: PendingProductionOps["productUpdates"][0]["data"] = {};
+
+      if (stagingProduct.name?.trim()) updateData.name = stagingProduct.name;
+      if (stagingProduct.productHandle?.trim())
+        updateData.productHandle = stagingProduct.productHandle;
+      if (stagingProduct.description?.trim())
+        updateData.description = stagingProduct.description;
+      if (stagingProduct.categoryId)
+        updateData.categoryId = stagingProduct.categoryId;
+      if (stagingProduct.seasonId)
+        updateData.seasonId = stagingProduct.seasonId;
+      if (stagingProduct.manufacturerId)
+        updateData.manufacturerId = stagingProduct.manufacturerId;
+      if (stagingProduct.imagePath?.trim())
+        updateData.imagePath = stagingProduct.imagePath;
+      if (stagingProduct.status?.trim())
+        updateData.status = stagingProduct.status;
+
+      if (Object.keys(updateData).length > 0) {
+        ops.productUpdates.push({
+          id: stagingProduct.existingProductId,
+          data: updateData,
+        });
+        batchStats.productsUpdated++;
+      }
+    }
+
+    // Product tags
+    if (stagingProduct.tags.length > 0) {
+      ops.productTagsToSet.push({
+        productId,
+        tagIds: stagingProduct.tags.map((t) => t.tagId),
+      });
+      batchStats.tagsSet += stagingProduct.tags.length;
+    }
+
+    // Product materials
+    if (stagingProduct.materials.length > 0) {
+      ops.productMaterialsToSet.push({
+        productId,
+        materials: stagingProduct.materials,
+      });
+      batchStats.materialsSet += stagingProduct.materials.length;
+    }
+
+    // Product eco claims
+    if (stagingProduct.ecoClaims.length > 0) {
+      ops.productEcoClaimsToSet.push({
+        productId,
+        ecoClaimIds: stagingProduct.ecoClaims.map((c) => c.ecoClaimId),
+      });
+      batchStats.ecoClaimsSet += stagingProduct.ecoClaims.length;
+    }
+
+    // Product environment
+    if (stagingProduct.environment) {
+      if (stagingProduct.environment.carbonKgCo2E) {
+        ops.productEnvironmentUpserts.push({
+          productId,
+          metric: "carbon_kg_co2e",
+          value: stagingProduct.environment.carbonKgCo2E,
+          unit: "kg_co2e",
+        });
+        batchStats.environmentSet++;
+      }
+      if (stagingProduct.environment.waterLiters) {
+        ops.productEnvironmentUpserts.push({
+          productId,
+          metric: "water_liters",
+          value: stagingProduct.environment.waterLiters,
+          unit: "liters",
+        });
+        batchStats.environmentSet++;
+      }
+    }
+
+    // Product journey steps
+    if (stagingProduct.journeySteps.length > 0) {
+      ops.productJourneyStepsToSet.push({
+        productId,
+        steps: stagingProduct.journeySteps,
+      });
+      batchStats.journeyStepsSet += stagingProduct.journeySteps.length;
+    }
+
+    // Product weight
+    if (stagingProduct.weight?.weight) {
+      ops.productWeightUpserts.push({
+        productId,
+        weight: stagingProduct.weight.weight,
+        weightUnit: stagingProduct.weight.weightUnit ?? "g",
+      });
+      batchStats.weightSet++;
+    }
+
+    // Variants
+    for (const variant of stagingProduct.variants) {
+      const variantId = variant.existingVariantId || variant.id;
+
+      if (variant.action === "CREATE") {
+        const upid = variant.upid || upidMap.get(variant.stagingId)!;
+        ops.variantCreates.push({
+          id: variantId,
+          productId,
+          upid,
+          barcode: variant.barcode ?? undefined,
+          sku: variant.sku ?? undefined,
+          name: variant.nameOverride ?? undefined,
+          description: variant.descriptionOverride ?? undefined,
+          imagePath: variant.imagePathOverride ?? undefined,
+        });
+        batchStats.variantsCreated++;
+      } else if (variant.action === "UPDATE" && variant.existingVariantId) {
+        const updateData: PendingProductionOps["variantUpdates"][0]["data"] =
+          {};
+
+        if (variant.upid?.trim()) updateData.upid = variant.upid;
+        if (variant.barcode?.trim()) updateData.barcode = variant.barcode;
+        if (variant.sku?.trim()) updateData.sku = variant.sku;
+        if (variant.nameOverride?.trim())
+          updateData.name = variant.nameOverride;
+        if (variant.descriptionOverride?.trim())
+          updateData.description = variant.descriptionOverride;
+        if (variant.imagePathOverride?.trim())
+          updateData.imagePath = variant.imagePathOverride;
+
+        if (Object.keys(updateData).length > 0) {
+          ops.variantUpdates.push({
+            id: variant.existingVariantId,
+            data: updateData,
+          });
+          batchStats.variantsUpdated++;
+        }
+      } else if (variant.action === "DELETE" && variant.existingVariantId) {
+        ops.variantDeletes.push(variant.existingVariantId);
+        batchStats.variantsDeleted++;
+      }
+
+      // Skip relation updates for DELETE variants
+      if (variant.action === "DELETE") continue;
+
+      // Variant attributes
+      if (variant.attributes.length > 0) {
+        ops.variantAttributesToSet.push({
+          variantId,
+          attrs: variant.attributes,
+        });
+        batchStats.attributesSet += variant.attributes.length;
+      }
+
+      // Variant materials
+      if (variant.materials.length > 0) {
+        ops.variantMaterialsToSet.push({
+          variantId,
+          materials: variant.materials,
+        });
+        batchStats.materialsSet += variant.materials.length;
+      }
+
+      // Variant eco claims
+      if (variant.ecoClaims.length > 0) {
+        ops.variantEcoClaimsToSet.push({
+          variantId,
+          ecoClaimIds: variant.ecoClaims.map((c) => c.ecoClaimId),
+        });
+        batchStats.ecoClaimsSet += variant.ecoClaims.length;
+      }
+
+      // Variant environment
+      if (variant.environment) {
+        ops.variantEnvironmentUpserts.push({
+          variantId,
+          carbonKgCo2e: variant.environment.carbonKgCo2e,
+          waterLiters: variant.environment.waterLiters,
+        });
+        batchStats.environmentSet++;
+      }
+
+      // Variant journey steps
+      if (variant.journeySteps.length > 0) {
+        ops.variantJourneyStepsToSet.push({
+          variantId,
+          steps: variant.journeySteps,
+        });
+        batchStats.journeyStepsSet += variant.journeySteps.length;
+      }
+
+      // Variant weight
+      if (variant.weight?.weight) {
+        ops.variantWeightUpserts.push({
+          variantId,
+          weight: variant.weight.weight,
+          weightUnit: variant.weight.weightUnit ?? "g",
+        });
+        batchStats.weightSet++;
+      }
+    }
+  }
+
+  return { ops, batchStats };
+}
+
+// ============================================================================
+// Batch Execute Production Operations (for one batch)
+// ============================================================================
+
+/**
+ * Execute all production operations for a batch within a transaction.
+ */
+async function batchExecuteProductionOps(
+  database: Database,
+  ops: PendingProductionOps,
+): Promise<void> {
+  await database.transaction(async (tx) => {
+    // 1. Product creates (batch)
+    if (ops.productCreates.length > 0) {
+      await tx.insert(products).values(ops.productCreates);
+    }
+
+    // 2. Product updates
+    for (const update of ops.productUpdates) {
+      await tx
+        .update(products)
+        .set(update.data)
+        .where(eq(products.id, update.id));
+    }
+
+    // 3. Variant creates (batch)
+    if (ops.variantCreates.length > 0) {
+      await tx.insert(productVariants).values(ops.variantCreates);
+    }
+
+    // 4. Variant updates
+    for (const update of ops.variantUpdates) {
+      await tx
+        .update(productVariants)
+        .set(update.data)
+        .where(eq(productVariants.id, update.id));
+    }
+
+    // 5. Variant deletes (batch)
+    if (ops.variantDeletes.length > 0) {
+      await tx
+        .delete(productVariants)
+        .where(inArray(productVariants.id, ops.variantDeletes));
+    }
+
+    // 6. Product tags (delete old + insert new)
+    if (ops.productTagsToSet.length > 0) {
+      const allProductIds = ops.productTagsToSet.map((t) => t.productId);
+      await tx
+        .delete(productTags)
+        .where(inArray(productTags.productId, allProductIds));
+
+      const allTagInserts = ops.productTagsToSet.flatMap((t) =>
+        t.tagIds.map((tagId) => ({ productId: t.productId, tagId })),
+      );
+      if (allTagInserts.length > 0) {
+        await tx.insert(productTags).values(allTagInserts);
+      }
+    }
+
+    // 7. Product materials (delete old + insert new)
+    if (ops.productMaterialsToSet.length > 0) {
+      const allProductIds = ops.productMaterialsToSet.map((m) => m.productId);
+      await tx
+        .delete(productMaterials)
+        .where(inArray(productMaterials.productId, allProductIds));
+
+      const allMaterialInserts = ops.productMaterialsToSet.flatMap((m) =>
+        m.materials.map((mat) => ({ productId: m.productId, ...mat })),
+      );
+      if (allMaterialInserts.length > 0) {
+        await tx.insert(productMaterials).values(allMaterialInserts);
+      }
+    }
+
+    // 8. Product eco claims (delete old + insert new)
+    if (ops.productEcoClaimsToSet.length > 0) {
+      const allProductIds = ops.productEcoClaimsToSet.map((c) => c.productId);
+      await tx
+        .delete(productEcoClaims)
+        .where(inArray(productEcoClaims.productId, allProductIds));
+
+      const allClaimInserts = ops.productEcoClaimsToSet.flatMap((c) =>
+        c.ecoClaimIds.map((ecoClaimId) => ({
+          productId: c.productId,
+          ecoClaimId,
+        })),
+      );
+      if (allClaimInserts.length > 0) {
+        await tx.insert(productEcoClaims).values(allClaimInserts);
+      }
+    }
+
+    // 9. Product environment (upserts)
+    for (const env of ops.productEnvironmentUpserts) {
+      await tx
+        .insert(productEnvironment)
+        .values({
+          productId: env.productId,
+          metric: env.metric,
+          value: env.value,
+          unit: env.unit,
+        })
+        .onConflictDoUpdate({
+          target: [productEnvironment.productId, productEnvironment.metric],
+          set: {
+            value: env.value,
+            unit: env.unit,
+          },
+        });
+    }
+
+    // 10. Product journey steps (delete old + insert new)
+    if (ops.productJourneyStepsToSet.length > 0) {
+      const allProductIds = ops.productJourneyStepsToSet.map(
+        (j) => j.productId,
+      );
+      await tx
+        .delete(productJourneySteps)
+        .where(inArray(productJourneySteps.productId, allProductIds));
+
+      const allJourneyInserts = ops.productJourneyStepsToSet.flatMap((j) =>
+        j.steps.map((step) => ({ productId: j.productId, ...step })),
+      );
+      if (allJourneyInserts.length > 0) {
+        await tx.insert(productJourneySteps).values(allJourneyInserts);
+      }
+    }
+
+    // 11. Product weight (upserts)
+    for (const w of ops.productWeightUpserts) {
+      await tx
+        .insert(productWeight)
+        .values({
+          productId: w.productId,
+          weight: w.weight,
+          weightUnit: w.weightUnit,
+        })
+        .onConflictDoUpdate({
+          target: productWeight.productId,
+          set: {
+            weight: w.weight,
+            weightUnit: w.weightUnit,
+          },
+        });
+    }
+
+    // 12. Variant attributes (delete old + insert new)
+    if (ops.variantAttributesToSet.length > 0) {
+      const allVariantIds = ops.variantAttributesToSet.map((a) => a.variantId);
+      await tx
+        .delete(productVariantAttributes)
+        .where(inArray(productVariantAttributes.variantId, allVariantIds));
+
+      const allAttrInserts = ops.variantAttributesToSet.flatMap((a) =>
+        a.attrs.map((attr) => ({ variantId: a.variantId, ...attr })),
+      );
+      if (allAttrInserts.length > 0) {
+        await tx.insert(productVariantAttributes).values(allAttrInserts);
+      }
+    }
+
+    // 13. Variant materials (delete old + insert new)
+    if (ops.variantMaterialsToSet.length > 0) {
+      const allVariantIds = ops.variantMaterialsToSet.map((m) => m.variantId);
+      await tx
+        .delete(variantMaterials)
+        .where(inArray(variantMaterials.variantId, allVariantIds));
+
+      const allMaterialInserts = ops.variantMaterialsToSet.flatMap((m) =>
+        m.materials.map((mat) => ({ variantId: m.variantId, ...mat })),
+      );
+      if (allMaterialInserts.length > 0) {
+        await tx.insert(variantMaterials).values(allMaterialInserts);
+      }
+    }
+
+    // 14. Variant eco claims (delete old + insert new)
+    if (ops.variantEcoClaimsToSet.length > 0) {
+      const allVariantIds = ops.variantEcoClaimsToSet.map((c) => c.variantId);
+      await tx
+        .delete(variantEcoClaims)
+        .where(inArray(variantEcoClaims.variantId, allVariantIds));
+
+      const allClaimInserts = ops.variantEcoClaimsToSet.flatMap((c) =>
+        c.ecoClaimIds.map((ecoClaimId) => ({
+          variantId: c.variantId,
+          ecoClaimId,
+        })),
+      );
+      if (allClaimInserts.length > 0) {
+        await tx.insert(variantEcoClaims).values(allClaimInserts);
+      }
+    }
+
+    // 15. Variant environment (upserts)
+    for (const env of ops.variantEnvironmentUpserts) {
+      await tx
+        .insert(variantEnvironment)
+        .values({
+          variantId: env.variantId,
+          carbonKgCo2e: env.carbonKgCo2e,
+          waterLiters: env.waterLiters,
+        })
+        .onConflictDoUpdate({
+          target: variantEnvironment.variantId,
+          set: {
+            carbonKgCo2e: env.carbonKgCo2e,
+            waterLiters: env.waterLiters,
+          },
+        });
+    }
+
+    // 16. Variant journey steps (delete old + insert new)
+    if (ops.variantJourneyStepsToSet.length > 0) {
+      const allVariantIds = ops.variantJourneyStepsToSet.map(
+        (j) => j.variantId,
+      );
+      await tx
+        .delete(variantJourneySteps)
+        .where(inArray(variantJourneySteps.variantId, allVariantIds));
+
+      const allJourneyInserts = ops.variantJourneyStepsToSet.flatMap((j) =>
+        j.steps.map((step) => ({ variantId: j.variantId, ...step })),
+      );
+      if (allJourneyInserts.length > 0) {
+        await tx.insert(variantJourneySteps).values(allJourneyInserts);
+      }
+    }
+
+    // 17. Variant weight (upserts)
+    for (const w of ops.variantWeightUpserts) {
+      await tx
+        .insert(variantWeight)
+        .values({
+          variantId: w.variantId,
+          weight: w.weight,
+          weightUnit: w.weightUnit,
+        })
+        .onConflictDoUpdate({
+          target: variantWeight.variantId,
+          set: {
+            weight: w.weight,
+            weightUnit: w.weightUnit,
+          },
+        });
+    }
+  });
+}
+
+// ============================================================================
 // Image Processing
 // ============================================================================
 
 /**
- * Extract URL hash for comparison (matches the hash used in downloadAndUploadImage).
+ * Extract URL hash for comparison.
  */
 function getUrlHash(url: string): string {
   return createHash("sha256").update(url).digest("hex").slice(0, 16);
@@ -723,55 +1401,45 @@ function getUrlHash(url: string): string {
 
 /**
  * Check if existing image path was generated from the same source URL.
- * The filename in storage is based on the URL hash, so we can compare.
  */
 function isSameImageSource(
   existingPath: string | null,
   newUrl: string,
 ): boolean {
   if (!existingPath) return false;
-
   const urlHash = getUrlHash(newUrl);
-  // Storage paths are like "brandId/abc123def456.jpg" - extract the filename
   const filename = existingPath.split("/").pop() || "";
-  // Filename is like "abc123def456.jpg" - extract the hash part
   const existingHash = filename.split(".")[0];
-
   return existingHash === urlHash;
 }
 
 /**
- * Process all images with rate limiting.
- * Returns counts of completed, failed, and skipped images.
+ * Process images for a batch with rate limiting.
  */
 async function processImages(
   storageClient: SupabaseClient,
   brandId: string,
-  stagingData: StagingProductData[],
+  batchData: StagingProductData[],
   existingProductImageMap: Map<string, string | null>,
 ): Promise<{ completed: number; failed: number; skipped: number }> {
   const tasks: ImageUploadTask[] = [];
   let skipped = 0;
 
-  // Collect all image upload tasks
-  for (const product of stagingData) {
-    // Product-level image
+  // Collect all image upload tasks for this batch
+  for (const product of batchData) {
     if (product.imagePath && isExternalImageUrl(product.imagePath)) {
       const existingImagePath = existingProductImageMap.get(
         product.existingProductId || "",
       );
 
-      // Check if this is the same image source (skip if unchanged)
       if (
         product.existingProductId &&
         existingImagePath &&
         isSameImageSource(existingImagePath, product.imagePath)
       ) {
-        // Same image - use existing path instead of re-downloading
         product.imagePath = existingImagePath ?? null;
         skipped++;
       } else {
-        // New or changed image - queue for download
         tasks.push({
           type: "product",
           entityId: product.id,
@@ -780,14 +1448,11 @@ async function processImages(
       }
     }
 
-    // Variant-level image overrides
     for (const variant of product.variants) {
       if (
         variant.imagePathOverride &&
         isExternalImageUrl(variant.imagePathOverride)
       ) {
-        // For variants, always process (we don't track variant-level image sources)
-        // Could be optimized in the future with a similar approach
         tasks.push({
           type: "variant",
           entityId: variant.id,
@@ -801,22 +1466,15 @@ async function processImages(
     return { completed: 0, failed: 0, skipped };
   }
 
-  logger.info(
-    `Processing ${tasks.length} images (${skipped} skipped as unchanged)`,
-  );
-
   // Process with rate limiting
   let completed = 0;
   let failed = 0;
   let currentIndex = 0;
-
-  // Create a map to store results
   const imagePathResults = new Map<string, string | null>();
 
   await new Promise<void>((resolve) => {
     const processNext = async () => {
       if (currentIndex >= tasks.length) {
-        // Check if all tasks are done
         if (completed + failed === tasks.length) {
           resolve();
         }
@@ -853,7 +1511,6 @@ async function processImages(
       } catch {
         failed++;
       } finally {
-        // Start next task or check if done
         if (currentIndex < tasks.length) {
           processNext();
         }
@@ -863,15 +1520,14 @@ async function processImages(
       }
     };
 
-    // Start initial batch
     const initialBatch = Math.min(IMAGE_CONCURRENCY, tasks.length);
     for (let i = 0; i < initialBatch; i++) {
       processNext();
     }
   });
 
-  // Update staging data with new image paths
-  for (const product of stagingData) {
+  // Update batch data with new image paths
+  for (const product of batchData) {
     const productPath = imagePathResults.get(`product:${product.id}`);
     if (productPath) {
       product.imagePath = productPath;
@@ -889,370 +1545,6 @@ async function processImages(
 }
 
 // ============================================================================
-// Commit Staging Product (Batched)
-// ============================================================================
-
-/**
- * Commit a single staging product and all its related data.
- * Uses transactions for atomicity.
- */
-async function commitStagingProductBatched(
-  database: Database,
-  brandId: string,
-  jobId: string,
-  stagingProduct: StagingProductData,
-  stats: CommitStats,
-): Promise<void> {
-  const { action, existingProductId, id: productId } = stagingProduct;
-
-  // Pre-transaction: Generate UPIDs for new variants that don't have one
-  // This must be done before the transaction to avoid database queries inside tx
-  const variantsNeedingUpids = stagingProduct.variants.filter(
-    (v) => v.action === "CREATE" && !v.upid,
-  );
-
-  let generatedUpids: string[] = [];
-  if (variantsNeedingUpids.length > 0) {
-    generatedUpids = await generateUniqueUpids({
-      count: variantsNeedingUpids.length,
-      isTaken: async (candidate) => {
-        const [existing] = await database
-          .select({ id: productVariants.id })
-          .from(productVariants)
-          .where(eq(productVariants.upid, candidate))
-          .limit(1);
-        return Boolean(existing);
-      },
-      fetchTakenSet: async (candidates) => {
-        const rows = await database
-          .select({ upid: productVariants.upid })
-          .from(productVariants)
-          .where(inArray(productVariants.upid, candidates as string[]));
-        return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
-      },
-    });
-  }
-
-  // Create a map of stagingId -> generated UPID
-  const upidMap = new Map<string, string>();
-  variantsNeedingUpids.forEach((v, index) => {
-    upidMap.set(v.stagingId, generatedUpids[index]!);
-  });
-
-  await database.transaction(async (tx) => {
-    // 1. Create or update product
-    if (action === "CREATE") {
-      await tx.insert(products).values({
-        id: productId,
-        brandId,
-        name: stagingProduct.name,
-        productHandle: stagingProduct.productHandle ?? productId,
-        description: stagingProduct.description ?? undefined,
-        categoryId: stagingProduct.categoryId ?? undefined,
-        seasonId: stagingProduct.seasonId ?? undefined,
-        manufacturerId: stagingProduct.manufacturerId ?? undefined,
-        imagePath: stagingProduct.imagePath ?? undefined,
-        status: stagingProduct.status ?? "unpublished",
-      });
-      stats.productsCreated++;
-    } else if (action === "UPDATE" && existingProductId) {
-      // One-way merge: Only apply non-null/non-empty values from staging
-      const updateData: Record<string, unknown> = {};
-
-      if (stagingProduct.name?.trim()) updateData.name = stagingProduct.name;
-      if (stagingProduct.productHandle?.trim())
-        updateData.productHandle = stagingProduct.productHandle;
-      if (stagingProduct.description?.trim())
-        updateData.description = stagingProduct.description;
-      if (stagingProduct.categoryId)
-        updateData.categoryId = stagingProduct.categoryId;
-      if (stagingProduct.seasonId)
-        updateData.seasonId = stagingProduct.seasonId;
-      if (stagingProduct.manufacturerId)
-        updateData.manufacturerId = stagingProduct.manufacturerId;
-      if (stagingProduct.imagePath?.trim())
-        updateData.imagePath = stagingProduct.imagePath;
-      if (stagingProduct.status?.trim())
-        updateData.status = stagingProduct.status;
-
-      if (Object.keys(updateData).length > 0) {
-        await tx
-          .update(products)
-          .set(updateData)
-          .where(eq(products.id, existingProductId));
-        stats.productsUpdated++;
-      }
-    }
-
-    // 2. Process variants
-    for (const variant of stagingProduct.variants) {
-      const variantId = variant.id;
-
-      if (variant.action === "CREATE") {
-        // Use existing UPID if provided, otherwise use the generated one
-        const upid = variant.upid || upidMap.get(variant.stagingId);
-
-        await tx.insert(productVariants).values({
-          id: variantId,
-          productId,
-          upid,
-          barcode: variant.barcode,
-          sku: variant.sku,
-          name: variant.nameOverride ?? undefined,
-          description: variant.descriptionOverride ?? undefined,
-          imagePath: variant.imagePathOverride ?? undefined,
-        });
-        stats.variantsCreated++;
-      } else if (variant.action === "UPDATE" && variant.existingVariantId) {
-        const variantUpdateData: Record<string, unknown> = {};
-
-        if (variant.upid?.trim()) variantUpdateData.upid = variant.upid;
-        if (variant.barcode?.trim())
-          variantUpdateData.barcode = variant.barcode;
-        if (variant.sku?.trim()) variantUpdateData.sku = variant.sku;
-        if (variant.nameOverride?.trim())
-          variantUpdateData.name = variant.nameOverride;
-        if (variant.descriptionOverride?.trim())
-          variantUpdateData.description = variant.descriptionOverride;
-        if (variant.imagePathOverride?.trim())
-          variantUpdateData.imagePath = variant.imagePathOverride;
-
-        if (Object.keys(variantUpdateData).length > 0) {
-          await tx
-            .update(productVariants)
-            .set(variantUpdateData)
-            .where(eq(productVariants.id, variant.existingVariantId));
-          stats.variantsUpdated++;
-        }
-      }
-
-      // 3. Variant attributes (replace)
-      if (variant.attributes.length > 0) {
-        await tx
-          .delete(productVariantAttributes)
-          .where(eq(productVariantAttributes.variantId, variantId));
-        await tx.insert(productVariantAttributes).values(
-          variant.attributes.map((a) => ({
-            variantId,
-            attributeId: a.attributeId,
-            attributeValueId: a.attributeValueId,
-            sortOrder: a.sortOrder,
-          })),
-        );
-        stats.attributesSet += variant.attributes.length;
-      }
-
-      // 4. Variant materials (replace)
-      if (variant.materials.length > 0) {
-        await tx
-          .delete(variantMaterials)
-          .where(eq(variantMaterials.variantId, variantId));
-        await tx.insert(variantMaterials).values(
-          variant.materials.map((m) => ({
-            variantId,
-            brandMaterialId: m.brandMaterialId,
-            percentage: m.percentage,
-          })),
-        );
-        stats.materialsSet += variant.materials.length;
-      }
-
-      // 5. Variant eco claims (replace)
-      if (variant.ecoClaims.length > 0) {
-        await tx
-          .delete(variantEcoClaims)
-          .where(eq(variantEcoClaims.variantId, variantId));
-        await tx.insert(variantEcoClaims).values(
-          variant.ecoClaims.map((c) => ({
-            variantId,
-            ecoClaimId: c.ecoClaimId,
-          })),
-        );
-        stats.ecoClaimsSet += variant.ecoClaims.length;
-      }
-
-      // 6. Variant environment (upsert)
-      if (variant.environment) {
-        await tx
-          .insert(variantEnvironment)
-          .values({
-            variantId,
-            carbonKgCo2e: variant.environment.carbonKgCo2e,
-            waterLiters: variant.environment.waterLiters,
-          })
-          .onConflictDoUpdate({
-            target: variantEnvironment.variantId,
-            set: {
-              carbonKgCo2e: variant.environment.carbonKgCo2e,
-              waterLiters: variant.environment.waterLiters,
-            },
-          });
-        stats.environmentSet++;
-      }
-
-      // 7. Variant journey steps (replace)
-      if (variant.journeySteps.length > 0) {
-        await tx
-          .delete(variantJourneySteps)
-          .where(eq(variantJourneySteps.variantId, variantId));
-        await tx.insert(variantJourneySteps).values(
-          variant.journeySteps.map((j) => ({
-            variantId,
-            sortIndex: j.sortIndex,
-            stepType: j.stepType,
-            facilityId: j.facilityId,
-          })),
-        );
-        stats.journeyStepsSet += variant.journeySteps.length;
-      }
-
-      // 8. Variant weight (upsert)
-      if (variant.weight) {
-        await tx
-          .insert(variantWeight)
-          .values({
-            variantId,
-            weight: variant.weight.weight,
-            weightUnit: variant.weight.weightUnit,
-          })
-          .onConflictDoUpdate({
-            target: variantWeight.variantId,
-            set: {
-              weight: variant.weight.weight,
-              weightUnit: variant.weight.weightUnit,
-            },
-          });
-        stats.weightSet++;
-      }
-    }
-
-    // 3. Product tags (replace)
-    if (stagingProduct.tags.length > 0) {
-      await tx.delete(productTags).where(eq(productTags.productId, productId));
-      await tx.insert(productTags).values(
-        stagingProduct.tags.map((t) => ({
-          productId,
-          tagId: t.tagId,
-        })),
-      );
-      stats.tagsSet += stagingProduct.tags.length;
-    }
-
-    // ============================================================================
-    // PRODUCT-LEVEL DATA (from parent row)
-    // These are the environmental/material/journey data at the product level
-    // ============================================================================
-
-    // 4. Product materials (replace)
-    if (stagingProduct.materials.length > 0) {
-      await tx
-        .delete(productMaterials)
-        .where(eq(productMaterials.productId, productId));
-      await tx.insert(productMaterials).values(
-        stagingProduct.materials.map((m) => ({
-          productId,
-          brandMaterialId: m.brandMaterialId,
-          percentage: m.percentage,
-        })),
-      );
-      stats.materialsSet += stagingProduct.materials.length;
-    }
-
-    // 5. Product eco claims (replace)
-    if (stagingProduct.ecoClaims.length > 0) {
-      await tx
-        .delete(productEcoClaims)
-        .where(eq(productEcoClaims.productId, productId));
-      await tx.insert(productEcoClaims).values(
-        stagingProduct.ecoClaims.map((c) => ({
-          productId,
-          ecoClaimId: c.ecoClaimId,
-        })),
-      );
-      stats.ecoClaimsSet += stagingProduct.ecoClaims.length;
-    }
-
-    // 6. Product environment (metric-keyed structure - separate rows for carbon and water)
-    if (stagingProduct.environment) {
-      // Insert/update carbon footprint metric
-      if (stagingProduct.environment.carbonKgCo2E) {
-        await tx
-          .insert(productEnvironment)
-          .values({
-            productId,
-            metric: "carbon_kg_co2e",
-            value: stagingProduct.environment.carbonKgCo2E,
-            unit: "kg_co2e",
-          })
-          .onConflictDoUpdate({
-            target: [productEnvironment.productId, productEnvironment.metric],
-            set: {
-              value: stagingProduct.environment.carbonKgCo2E,
-              unit: "kg_co2e",
-            },
-          });
-        stats.environmentSet++;
-      }
-
-      // Insert/update water usage metric
-      if (stagingProduct.environment.waterLiters) {
-        await tx
-          .insert(productEnvironment)
-          .values({
-            productId,
-            metric: "water_liters",
-            value: stagingProduct.environment.waterLiters,
-            unit: "liters",
-          })
-          .onConflictDoUpdate({
-            target: [productEnvironment.productId, productEnvironment.metric],
-            set: {
-              value: stagingProduct.environment.waterLiters,
-              unit: "liters",
-            },
-          });
-        stats.environmentSet++;
-      }
-    }
-
-    // 7. Product journey steps (replace)
-    if (stagingProduct.journeySteps.length > 0) {
-      await tx
-        .delete(productJourneySteps)
-        .where(eq(productJourneySteps.productId, productId));
-      await tx.insert(productJourneySteps).values(
-        stagingProduct.journeySteps.map((j) => ({
-          productId,
-          sortIndex: j.sortIndex,
-          stepType: j.stepType,
-          facilityId: j.facilityId,
-        })),
-      );
-      stats.journeyStepsSet += stagingProduct.journeySteps.length;
-    }
-
-    // 8. Product weight (upsert)
-    if (stagingProduct.weight) {
-      await tx
-        .insert(productWeight)
-        .values({
-          productId,
-          weight: stagingProduct.weight.weight,
-          weightUnit: stagingProduct.weight.weightUnit,
-        })
-        .onConflictDoUpdate({
-          target: productWeight.productId,
-          set: {
-            weight: stagingProduct.weight.weight,
-            weightUnit: stagingProduct.weight.weightUnit,
-          },
-        });
-      stats.weightSet++;
-    }
-  });
-}
-
-// ============================================================================
 // Delete Committed Staging Data
 // ============================================================================
 
@@ -1260,7 +1552,6 @@ async function deleteCommittedStagingData(
   database: Database,
   jobId: string,
 ): Promise<void> {
-  // Get all COMMITTED staging product IDs
   const committedProducts = await database
     .select({ stagingId: stagingProducts.stagingId })
     .from(stagingProducts)
@@ -1277,12 +1568,10 @@ async function deleteCommittedStagingData(
 
   const stagingIds = committedProducts.map((p) => p.stagingId);
 
-  // Delete in batches to avoid memory issues
+  // Delete in chunks to avoid memory issues
   const CHUNK_SIZE = 500;
   for (let i = 0; i < stagingIds.length; i += CHUNK_SIZE) {
     const chunk = stagingIds.slice(i, i + CHUNK_SIZE);
-
-    // Delete cascades from staging_products to related tables
     await database.delete(stagingProducts).where(
       sql`${stagingProducts.stagingId} = ANY(ARRAY[${sql.join(
         chunk.map((id) => sql`${id}`),
@@ -1314,7 +1603,6 @@ async function revalidateBrandCache(brandId: string): Promise<void> {
       logger.info("DPP cache revalidated", { brandSlug: brand.slug });
     }
   } catch (error) {
-    // Don't fail the job if revalidation fails
     logger.warn("DPP cache revalidation failed (non-fatal)", {
       error: error instanceof Error ? error.message : String(error),
     });

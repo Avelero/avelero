@@ -48,6 +48,19 @@ export const importJobs = pgTable(
       .notNull()
       .default(false),
     summary: jsonb("summary"),
+    /** Path to the generated correction Excel file in storage */
+    correctionFilePath: text("correction_file_path"),
+    /** Signed download URL for the correction file */
+    correctionDownloadUrl: text("correction_download_url"),
+    /** When the correction download URL expires */
+    correctionExpiresAt: timestamp("correction_expires_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    /** User ID who started the import (for email notifications) */
+    userId: uuid("user_id"),
+    /** Email address for notifications */
+    userEmail: text("user_email"),
   },
   (table) => [
     // RLS policies

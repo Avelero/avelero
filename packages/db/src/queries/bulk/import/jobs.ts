@@ -4,7 +4,7 @@
  * Handles creation, status updates, and retrieval of import jobs.
  */
 
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { Database } from "../../../client";
 import { importJobs } from "../../../schema";
 import type { PgTransaction } from "drizzle-orm/pg-core";
@@ -214,11 +214,10 @@ export async function getRecentImportJobs(
     .select()
     .from(importJobs)
     .where(eq(importJobs.brandId, brandId))
-    .orderBy(importJobs.startedAt)
+    .orderBy(desc(importJobs.startedAt))
     .limit(limit);
 
-  // Reverse to get descending order (most recent first)
-  return results.reverse().map((job) => ({
+  return results.map((job) => ({
     id: job.id,
     brandId: job.brandId,
     filename: job.filename,

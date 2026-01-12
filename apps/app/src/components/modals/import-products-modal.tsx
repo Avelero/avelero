@@ -340,8 +340,16 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
                                             <p className="type-p text-foreground font-medium">
                                                 {(() => {
                                                     const summary = recentFailedImport.summary as Record<string, unknown> | null;
-                                                    return (summary?.failedProducts as number) ?? (summary?.failed as number) ?? 0;
-                                                })()} products failed during your most recent import
+                                                    const blocked = (summary?.blockedProducts as number) ?? 0;
+                                                    const warnings = (summary?.warningProducts as number) ?? 0;
+                                                    if (blocked > 0 && warnings > 0) {
+                                                        return `${blocked} products failed and ${warnings} had warnings during your most recent import`;
+                                                    }
+                                                    if (blocked > 0) {
+                                                        return `${blocked} products failed during your most recent import`;
+                                                    }
+                                                    return `${warnings} products had warnings during your most recent import`;
+                                                })()}
                                             </p>
                                             <p className="type-small text-secondary mt-1">
                                                 Download the error report to see which products need corrections.

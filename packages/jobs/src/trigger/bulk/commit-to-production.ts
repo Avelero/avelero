@@ -39,6 +39,8 @@ interface CommitToProductionPayload {
   brandId: string;
   /** User email for error report notifications (optional) */
   userEmail?: string | null;
+  /** Whether validation found errors (to preserve hasExportableFailures) */
+  hasValidationErrors?: boolean;
 }
 
 interface CommitStats {
@@ -468,15 +470,21 @@ export const commitToProduction = task({
       await deleteCommittedStagingData(db, jobId);
 
       // Determine final status
-      const hasFailures = failedCount > 0;
-      const finalStatus = hasFailures ? "COMPLETED_WITH_FAILURES" : "COMPLETED";
+      // Consider both commit failures AND validation errors from earlier phase
+      const hasCommitFailures = failedCount > 0;
+      const hasValidationErrors = payload.hasValidationErrors ?? false;
+      const hasAnyFailures = hasCommitFailures || hasValidationErrors;
+      const finalStatus = hasAnyFailures
+        ? "COMPLETED_WITH_FAILURES"
+        : "COMPLETED";
 
       await db
         .update(importJobs)
         .set({
           status: finalStatus,
           finishedAt: new Date().toISOString(),
-          hasExportableFailures: hasFailures,
+          // Preserve validation errors flag OR set if there are commit failures
+          hasExportableFailures: hasAnyFailures,
           summary: {
             committed: committedCount,
             failed: failedCount,
@@ -488,16 +496,8 @@ export const commitToProduction = task({
       // Revalidate DPP cache for the brand
       await revalidateBrandCache(brandId);
 
-      // Trigger error report generation if there are failures
-      if (hasFailures) {
-        await tasks.trigger("generate-error-report", {
-          jobId,
-          brandId,
-          userEmail: payload.userEmail ?? null,
-        });
-
-        logger.info("Triggered error report generation", { jobId });
-      }
+      // Note: Error report is triggered in validate-and-stage.ts, not here
+      // This ensures the error report includes ALL errors (validation + commit failures)
 
       const duration = Date.now() - startTime;
       logger.info("Commit-to-production completed", {
@@ -567,7 +567,11 @@ async function loadStagingBatch(
     .where(
       and(
         eq(stagingProducts.jobId, jobId),
-        eq(stagingProducts.rowStatus, "PENDING"),
+        // Only process PENDING and PENDING_WITH_WARNINGS (skip BLOCKED)
+        inArray(stagingProducts.rowStatus, [
+          "PENDING",
+          "PENDING_WITH_WARNINGS",
+        ]),
         sql`${stagingProducts.rowNumber} > ${afterRowNumber}`,
       ),
     )

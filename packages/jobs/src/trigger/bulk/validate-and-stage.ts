@@ -20,7 +20,7 @@ import "../configure-trigger";
 import { randomUUID } from "node:crypto";
 import { logger, task, tasks } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
-import { and, eq, inArray } from "@v1/db/queries";
+import { and, eq, inArray, sql } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 import { type BrandCatalog, loadBrandCatalog } from "../../lib/catalog-loader";
 import {
@@ -60,13 +60,25 @@ interface RowError {
 type ProductAction = "CREATE" | "ENRICH" | "SKIP";
 
 /**
+ * Staging row status
+ * - PENDING: No errors, ready for commit
+ * - PENDING_WITH_WARNINGS: Has non-blocking field errors, product will still be created
+ * - BLOCKED: Has blocking errors (missing Product Title), cannot create product
+ */
+type StagingRowStatus = "PENDING" | "PENDING_WITH_WARNINGS" | "BLOCKED";
+
+/**
  * Result of validating and staging a product
  */
 interface ProductResult {
   productHandle: string;
   rowNumber: number;
-  success: boolean;
+  /** Whether the product can be committed (PENDING or PENDING_WITH_WARNINGS) */
+  canCommit: boolean;
   action: ProductAction;
+  /** Row status for staging table */
+  rowStatus: StagingRowStatus;
+  /** Field-level errors */
   errors: RowError[];
   stagingProductId?: string;
 }
@@ -104,6 +116,10 @@ interface PendingStagingOps {
     seasonId: string | null;
     manufacturerId: string | null;
     status: string;
+    /** Staging row status: PENDING | PENDING_WITH_WARNINGS | BLOCKED */
+    rowStatus: StagingRowStatus;
+    /** Field-level validation errors */
+    errors: RowError[];
   }>;
   variants: Array<{
     stagingId: string;
@@ -120,6 +136,10 @@ interface PendingStagingOps {
     nameOverride: string | null;
     descriptionOverride: string | null;
     imagePathOverride: string | null;
+    /** Row status: PENDING | PENDING_WITH_WARNINGS | BLOCKED */
+    rowStatus: StagingRowStatus;
+    /** Field-level validation errors for this specific variant row */
+    errors: RowError[];
   }>;
   productTags: Array<{
     stagingProductId: string;
@@ -219,6 +239,7 @@ interface ComputedProductResult {
 
 const {
   importJobs,
+  importRows,
   stagingProducts,
   stagingProductVariants,
   stagingVariantAttributes,
@@ -385,8 +406,9 @@ export const validateAndStage = task({
       // 7. Process products in batches of 250 (same as integrations engine)
       // Each batch goes through complete cycle: prefetch → compute → insert
       const results: ProductResult[] = [];
-      let successCount = 0;
-      let failureCount = 0;
+      let pendingCount = 0;
+      let warningsCount = 0;
+      let blockedCount = 0;
       const totalBatches = Math.ceil(parseResult.products.length / BATCH_SIZE);
 
       for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
@@ -415,17 +437,53 @@ export const validateAndStage = task({
         // PHASE 2: Pure computation for this batch (no DB calls)
         const batchOps = createEmptyPendingOps();
         const batchResults: ProductResult[] = [];
-        let batchSuccess = 0;
-        let batchFailure = 0;
+        const batchRawRows: Array<{
+          jobId: string;
+          rowNumber: number;
+          raw: Record<string, string>;
+          status: string;
+        }> = [];
+        let batchPending = 0;
+        let batchWarnings = 0;
+        let batchBlocked = 0;
 
         for (const product of batch) {
           // Skip duplicate product handles (keep first, reject subsequent)
           if (seenHandles.has(product.productHandle)) {
+            // Duplicate handles are BLOCKED - we stage them but won't commit
+            const stagingProductId = randomUUID();
             batchResults.push({
               productHandle: product.productHandle,
               rowNumber: product.rowNumber,
-              success: false,
+              canCommit: false,
               action: "SKIP",
+              rowStatus: "BLOCKED",
+              errors: [
+                {
+                  field: "Product Handle",
+                  message: `Duplicate product handle: "${product.productHandle}". Only the first occurrence will be processed.`,
+                },
+              ],
+              stagingProductId,
+            });
+            // Stage the duplicate so it appears in error report
+            batchOps.products.push({
+              stagingId: stagingProductId,
+              jobId,
+              rowNumber: product.rowNumber,
+              action: "SKIP",
+              existingProductId: null,
+              id: randomUUID(),
+              brandId,
+              productHandle: product.productHandle,
+              name: product.name || "",
+              description: product.description ?? null,
+              imagePath: product.imagePath ?? null,
+              categoryId: null,
+              seasonId: null,
+              manufacturerId: null,
+              status: product.status || "unpublished",
+              rowStatus: "BLOCKED",
               errors: [
                 {
                   field: "Product Handle",
@@ -433,7 +491,26 @@ export const validateAndStage = task({
                 },
               ],
             });
-            batchFailure++;
+            batchBlocked++;
+            // Store raw rows for this duplicate product (for error report)
+            batchRawRows.push({
+              jobId,
+              rowNumber: product.rowNumber,
+              raw: product.rawData,
+              status: "BLOCKED",
+            });
+            // Also store each variant's raw row
+            for (const variant of product.variants) {
+              // Skip the first variant if it has the same row number as the product (parent row)
+              if (variant.rowNumber !== product.rowNumber) {
+                batchRawRows.push({
+                  jobId,
+                  rowNumber: variant.rowNumber,
+                  raw: variant.rawData,
+                  status: "BLOCKED",
+                });
+              }
+            }
             continue;
           }
           seenHandles.add(product.productHandle);
@@ -451,91 +528,187 @@ export const validateAndStage = task({
 
           batchResults.push(computed.result);
 
-          if (computed.result.success && computed.ops) {
-            batchSuccess++;
+          // ALL products get staged (including with errors)
+          if (computed.ops) {
             mergePendingOps(batchOps, computed.ops);
-          } else if (!computed.result.success) {
-            batchFailure++;
+          }
+
+          // Track by status
+          if (computed.result.rowStatus === "PENDING") {
+            batchPending++;
+          } else if (computed.result.rowStatus === "PENDING_WITH_WARNINGS") {
+            batchWarnings++;
+            // Store raw rows for products with warnings (for error report)
+            batchRawRows.push({
+              jobId,
+              rowNumber: product.rowNumber,
+              raw: product.rawData,
+              status: "PENDING_WITH_WARNINGS",
+            });
+            // Also store each variant's raw row
+            for (const variant of product.variants) {
+              if (variant.rowNumber !== product.rowNumber) {
+                batchRawRows.push({
+                  jobId,
+                  rowNumber: variant.rowNumber,
+                  raw: variant.rawData,
+                  status: "PENDING_WITH_WARNINGS",
+                });
+              }
+            }
+          } else if (computed.result.rowStatus === "BLOCKED") {
+            batchBlocked++;
+            // Store raw rows for blocked products (for error report)
+            batchRawRows.push({
+              jobId,
+              rowNumber: product.rowNumber,
+              raw: product.rawData,
+              status: "BLOCKED",
+            });
+            // Also store each variant's raw row
+            for (const variant of product.variants) {
+              if (variant.rowNumber !== product.rowNumber) {
+                batchRawRows.push({
+                  jobId,
+                  rowNumber: variant.rowNumber,
+                  raw: variant.rawData,
+                  status: "BLOCKED",
+                });
+              }
+            }
           }
         }
 
-        // PHASE 3: Insert staging data for this batch
+        // PHASE 3: Insert staging data for this batch (ALL products, including errors)
         if (batchOps.products.length > 0) {
           await batchInsertStagingData(db, batchOps);
         }
 
+        // PHASE 4: Insert raw rows for error products (for error report)
+        if (batchRawRows.length > 0) {
+          await db.insert(importRows).values(batchRawRows);
+          logger.info(
+            `Batch ${batchNumber}: Stored ${batchRawRows.length} raw rows for error report`,
+          );
+        }
+
         // Accumulate results
         results.push(...batchResults);
-        successCount += batchSuccess;
-        failureCount += batchFailure;
+        pendingCount += batchPending;
+        warningsCount += batchWarnings;
+        blockedCount += batchBlocked;
 
         const batchDuration = Date.now() - batchStartTime;
         logger.info(`Batch ${batchNumber}/${totalBatches}: Complete`, {
-          success: batchSuccess,
-          failure: batchFailure,
+          pending: batchPending,
+          warnings: batchWarnings,
+          blocked: batchBlocked,
           variants: batchOps.variants.length,
           duration: `${batchDuration}ms`,
         });
       }
 
       // 8. Determine final status and summary
-      const hasFailures = failureCount > 0;
-      const finalStatus = hasFailures ? "COMPLETED_WITH_FAILURES" : "COMPLETED";
+      const hasErrors = warningsCount > 0 || blockedCount > 0;
+      const canCommitCount = pendingCount + warningsCount; // Products that can be committed
+      const hasCommittableProducts = canCommitCount > 0;
 
-      // Count by action type
+      // Count by action type (only for committable products)
       const createdCount = results.filter(
-        (r) => r.success && r.action === "CREATE",
+        (r) => r.canCommit && r.action === "CREATE",
       ).length;
       const enrichedCount = results.filter(
-        (r) => r.success && r.action === "ENRICH",
+        (r) => r.canCommit && r.action === "ENRICH",
       ).length;
       const skippedCount = results.filter(
-        (r) => r.success && r.action === "SKIP",
+        (r) => r.canCommit && r.action === "SKIP",
       ).length;
+
+      // Count total field errors
+      const totalFieldErrors = results.reduce(
+        (sum, r) => sum + r.errors.length,
+        0,
+      );
+
+      const finalStatus = hasErrors ? "COMPLETED_WITH_FAILURES" : "COMPLETED";
 
       await db
         .update(importJobs)
         .set({
           status: finalStatus,
           finishedAt: new Date().toISOString(),
-          hasExportableFailures: hasFailures,
+          hasExportableFailures: hasErrors,
           summary: {
-            totalProducts: successCount,
-            failedProducts: failureCount,
+            totalProducts: results.length,
+            pendingProducts: pendingCount,
+            warningProducts: warningsCount,
+            blockedProducts: blockedCount,
             productsCreated: createdCount,
             productsEnriched: enrichedCount,
             productsSkipped: skippedCount,
+            totalFieldErrors,
           },
         })
         .where(eq(importJobs.id, jobId));
 
-      // 9. Auto-trigger commit-to-production job (only if we have successes)
-      if (successCount > 0) {
+      // 9. Log comprehensive summary
+      logger.info("Validate-and-stage summary", {
+        jobId,
+        totalProducts: results.length,
+        pending: pendingCount,
+        pendingWithWarnings: warningsCount,
+        blocked: blockedCount,
+        totalFieldErrors,
+        canCommit: canCommitCount,
+        errorReportNeeded: hasErrors,
+      });
+
+      // 10. Generate error report SYNCHRONOUSLY if ANY products have errors
+      // IMPORTANT: Must use triggerAndWait so the report is generated BEFORE
+      // commit-to-production runs (which changes rowStatus and deletes staging data)
+      if (hasErrors) {
+        logger.info("Generating error report (synchronous)", {
+          jobId,
+          warningsCount,
+          blockedCount,
+        });
+
+        await tasks.triggerAndWait("generate-error-report", {
+          jobId,
+          brandId,
+          userEmail: payload.userEmail ?? null,
+        });
+
+        logger.info("Error report generation completed", {
+          jobId,
+          warningsCount,
+          blockedCount,
+        });
+      }
+
+      // 11. Auto-trigger commit-to-production job (only if we have committable products)
+      if (hasCommittableProducts) {
         await tasks.trigger("commit-to-production", {
           jobId,
           brandId,
           userEmail: payload.userEmail ?? null,
+          // Pass validation errors flag so commit-to-production can preserve it
+          hasValidationErrors: hasErrors,
         });
 
-        logger.info("Triggered commit-to-production job", { jobId });
-      } else if (failureCount > 0) {
-        // All products failed - trigger error report directly (no commit needed)
-        await tasks.trigger("generate-error-report", {
+        logger.info("Triggered commit-to-production job", {
           jobId,
-          brandId,
-          userEmail: payload.userEmail ?? null,
-        });
-
-        logger.info("Triggered error report generation (all products failed)", {
-          jobId,
+          productsToCommit: canCommitCount,
+          hasValidationErrors: hasErrors,
         });
       }
 
       const duration = Date.now() - startTime;
       logger.info("Validate-and-stage completed", {
         jobId,
-        successCount,
-        failureCount,
+        pending: pendingCount,
+        warnings: warningsCount,
+        blocked: blockedCount,
         batches: totalBatches,
         duration: `${duration}ms`,
         status: finalStatus,
@@ -941,79 +1114,199 @@ function computeProductStagingOps(
   preFetched: PreFetchedData,
   duplicates: ReturnType<typeof findDuplicateIdentifiers>,
 ): ComputedProductResult {
-  const errors: RowError[] = [];
+  const blockingErrors: RowError[] = [];
+  const warningErrors: RowError[] = [];
   const normalizeKey = (s: string) => s.toLowerCase().trim();
 
-  // Validate required fields
+  // ========================================================================
+  // BLOCKING VALIDATION: Missing Product Title = cannot create product
+  // ========================================================================
   if (!product.name || product.name.trim() === "") {
-    errors.push({ field: "Product Title", message: "Required" });
+    blockingErrors.push({ field: "Product Title", message: "Required" });
   }
 
+  // ========================================================================
+  // NON-BLOCKING VALIDATION: Field errors that don't prevent product creation
+  // ========================================================================
+
   // Validate status field
+  let validatedStatus = product.status || "unpublished";
   if (product.status && product.status.trim() !== "") {
     const normalizedStatus = product.status.toLowerCase().trim();
     if (!VALID_STATUSES.includes(normalizedStatus as ValidStatus)) {
-      errors.push({
+      warningErrors.push({
         field: "Status",
-        message: `Invalid status: "${product.status}". Must be one of: ${VALID_STATUSES.join(", ")}`,
+        message: `Invalid status: "${product.status}". Must be one of: ${VALID_STATUSES.join(", ")}. Defaulting to "unpublished".`,
       });
+      validatedStatus = "unpublished"; // Default to unpublished on error
     }
   }
 
   // Validate category format (hierarchical with " > " delimiter)
+  let categoryId: string | null = null;
   if (product.categoryPath && product.categoryPath.trim() !== "") {
     const trimmedPath = product.categoryPath.trim();
     if (trimmedPath.includes(">") && !trimmedPath.includes(" > ")) {
-      errors.push({
+      warningErrors.push({
         field: "Category",
-        message: `Invalid category format: "${product.categoryPath}". Use " > " delimiter (e.g., "Clothing > T-shirts > Printed T-shirts")`,
+        message: `Invalid category format: "${product.categoryPath}". Use " > " delimiter (e.g., "Clothing > T-shirts"). Field skipped.`,
       });
+    } else {
+      // Try to match category by name (using the last segment of the path)
+      const categoryName = product.categoryPath.split(">").pop()?.trim() || "";
+      categoryId = catalog.categories.get(normalizeKey(categoryName)) || null;
+
+      if (!categoryId) {
+        warningErrors.push({
+          field: "Category",
+          message: `Category not found: "${product.categoryPath}". Field skipped.`,
+        });
+      }
     }
   }
 
-  // Validate category (MUST exist - no auto-create)
-  let categoryId: string | null = null;
-  if (product.categoryPath) {
-    // Try to match category by name (using the last segment of the path)
-    const categoryName = product.categoryPath.split(">").pop()?.trim() || "";
-    categoryId = catalog.categories.get(normalizeKey(categoryName)) || null;
-
-    if (!categoryId) {
-      errors.push({
-        field: "Category",
-        message: `Category not found: "${product.categoryPath}"`,
-      });
-    }
+  // Validate numeric fields
+  if (
+    product.carbonKg === undefined &&
+    product.rawData["Kilograms CO2"]?.trim()
+  ) {
+    warningErrors.push({
+      field: "kgCO2e Carbon Footprint",
+      message: `Invalid number: "${product.rawData["Kilograms CO2"]}". Field skipped.`,
+    });
   }
 
-  // Check for duplicate UPIDs within the file
+  if (
+    product.waterLiters === undefined &&
+    product.rawData["Liters Water Used"]?.trim()
+  ) {
+    warningErrors.push({
+      field: "Liters Water Used",
+      message: `Invalid number: "${product.rawData["Liters Water Used"]}". Field skipped.`,
+    });
+  }
+
+  if (
+    product.weightGrams === undefined &&
+    product.rawData["Grams Weight"]?.trim()
+  ) {
+    warningErrors.push({
+      field: "Grams Weight",
+      message: `Invalid number: "${product.rawData["Grams Weight"]}". Field skipped.`,
+    });
+  }
+
+  // Track errors per variant (by row number) for error reporting
+  const variantErrorsByRow = new Map<number, RowError[]>();
+  let hasVariantErrors = false; // Track if any variant has errors (for product status)
+
+  // Check for duplicate UPIDs within the file and validate variant-level fields
   for (const variant of product.variants) {
+    const variantErrors: RowError[] = [];
+
     if (variant.upid) {
       const upidDup = duplicates.find(
         (d) =>
           d.field === "UPID" && d.value === variant.upid && d.rows.length > 1,
       );
       if (upidDup) {
-        errors.push({
+        variantErrors.push({
           field: "UPID",
-          message: `Duplicate UPID: ${variant.upid}`,
+          message: `Duplicate UPID: ${variant.upid}. Variant will be skipped.`,
         });
       }
     }
+
+    // Validate attribute pairs - both must be present
+    for (let i = 1; i <= 3; i++) {
+      const attrName = variant.rawData[`Attribute ${i}`]?.trim();
+      const attrValue = variant.rawData[`Attribute Value ${i}`]?.trim();
+      if ((attrName && !attrValue) || (!attrName && attrValue)) {
+        // Mark both as error since pair is incomplete
+        const errorField1 = `Attribute ${i}`;
+        const errorField2 = `Attribute Value ${i}`;
+        const message = `Incomplete attribute pair: both Attribute ${i} and Attribute Value ${i} must be provided. Pair skipped.`;
+
+        variantErrors.push({ field: errorField1, message });
+        variantErrors.push({ field: errorField2, message });
+      }
+    }
+
+    // Validate variant-level numeric overrides (child rows only)
+    // Check if raw data has values but parsed override is undefined
+    if (
+      variant.carbonKgOverride === undefined &&
+      variant.rawData["Kilograms CO2"]?.trim()
+    ) {
+      variantErrors.push({
+        field: "kgCO2e Carbon Footprint",
+        message: `Invalid number: "${variant.rawData["Kilograms CO2"]}". Field skipped.`,
+      });
+    }
+
+    if (
+      variant.waterLitersOverride === undefined &&
+      variant.rawData["Liters Water Used"]?.trim()
+    ) {
+      variantErrors.push({
+        field: "Liters Water Used",
+        message: `Invalid number: "${variant.rawData["Liters Water Used"]}". Field skipped.`,
+      });
+    }
+
+    if (
+      variant.weightGramsOverride === undefined &&
+      variant.rawData["Grams Weight"]?.trim()
+    ) {
+      variantErrors.push({
+        field: "Grams Weight",
+        message: `Invalid number: "${variant.rawData["Grams Weight"]}". Field skipped.`,
+      });
+    }
+
+    // Validate percentages column (semicolon-delimited numbers)
+    const rawPercentages = variant.rawData.Percentages?.trim();
+    if (rawPercentages) {
+      const percentageValues = rawPercentages.split(";").map((v) => v.trim());
+      const invalidPercentages = percentageValues.filter((v) => {
+        if (!v) return false; // Empty is OK
+        const num = Number.parseFloat(v);
+        return Number.isNaN(num);
+      });
+      if (invalidPercentages.length > 0) {
+        variantErrors.push({
+          field: "Percentages",
+          message: `Invalid percentage values: "${invalidPercentages.join(", ")}". Must be semicolon-separated numbers.`,
+        });
+      }
+    }
+
+    // Store variant errors if any
+    if (variantErrors.length > 0) {
+      variantErrorsByRow.set(variant.rowNumber, variantErrors);
+      hasVariantErrors = true;
+    }
   }
 
-  // If validation failed, don't stage
-  if (errors.length > 0) {
-    return {
-      result: {
-        productHandle: product.productHandle,
-        rowNumber: product.rowNumber,
-        success: false,
-        action: "CREATE",
-        errors,
-      },
-      ops: null,
-    };
+  // Product-only errors for storage (exclude variant errors)
+  const productOnlyErrors = [...blockingErrors, ...warningErrors];
+
+  // All errors (product + all variants) for result/summary tracking
+  const variantErrors = Array.from(variantErrorsByRow.values()).flat();
+  const allErrors = [...productOnlyErrors, ...variantErrors];
+
+  // Determine row status (considers both product and variant errors)
+  let rowStatus: StagingRowStatus;
+  let canCommit: boolean;
+  if (blockingErrors.length > 0) {
+    rowStatus = "BLOCKED";
+    canCommit = false;
+  } else if (warningErrors.length > 0 || hasVariantErrors) {
+    rowStatus = "PENDING_WITH_WARNINGS";
+    canCommit = true;
+  } else {
+    rowStatus = "PENDING";
+    canCommit = true;
   }
 
   // Resolve entities from catalog (no DB calls!)
@@ -1041,14 +1334,15 @@ function computeProductStagingOps(
     productAction = "CREATE";
   }
 
-  // For SKIP action, return success without staging
+  // For SKIP action in CREATE mode, return success without staging
   if (productAction === "SKIP") {
     return {
       result: {
         productHandle: product.productHandle,
         rowNumber: product.rowNumber,
-        success: true,
+        canCommit: true,
         action: "SKIP",
+        rowStatus: "PENDING",
         errors: [],
       },
       ops: null,
@@ -1107,7 +1401,9 @@ function computeProductStagingOps(
         categoryId,
         seasonId,
         manufacturerId,
-        status: product.status || "unpublished",
+        status: validatedStatus,
+        rowStatus,
+        errors: productOnlyErrors,
       },
     ],
     variants: [],
@@ -1206,6 +1502,23 @@ function computeProductStagingOps(
     const variantId = existingVariantId || randomUUID();
     const variantAction = existingVariantId ? "UPDATE" : "CREATE";
 
+    // Get errors specific to this variant row (mutable copy)
+    const variantErrors = [
+      ...(variantErrorsByRow.get(variant.rowNumber) ?? []),
+    ];
+
+    // Validate UPID: if provided but doesn't exist in database, it's an error
+    // This only applies in ENRICH mode where we expect UPIDs to match existing variants
+    if (productAction === "ENRICH" && variant.upid && !existingVariantId) {
+      variantErrors.push({
+        field: "UPID",
+        message: `UPID not found in database: "${variant.upid}". UPID must match an existing variant.`,
+      });
+    }
+
+    const variantRowStatus: StagingRowStatus =
+      variantErrors.length > 0 ? "PENDING_WITH_WARNINGS" : "PENDING";
+
     ops.variants!.push({
       stagingId: stagingVariantId,
       stagingProductId,
@@ -1221,6 +1534,8 @@ function computeProductStagingOps(
       nameOverride: variant.nameOverride ?? null,
       descriptionOverride: variant.descriptionOverride ?? null,
       imagePathOverride: variant.imagePathOverride ?? null,
+      rowStatus: variantRowStatus,
+      errors: variantErrors,
     });
 
     // Add variant attributes
@@ -1305,13 +1620,16 @@ function computeProductStagingOps(
   }
 
   // Add variants to delete (ENRICH mode only)
-  for (const variantIdToDelete of variantsToDelete) {
+  // Use negative row numbers since DELETE operations don't correspond to Excel rows
+  // This avoids the unique constraint violation on (jobId, rowNumber)
+  for (let i = 0; i < variantsToDelete.length; i++) {
+    const variantIdToDelete = variantsToDelete[i]!;
     const stagingVariantId = randomUUID();
     ops.variantsToDelete!.push({
       stagingId: stagingVariantId,
       stagingProductId,
       jobId,
-      rowNumber: product.rowNumber,
+      rowNumber: -(product.rowNumber * 1000 + i + 1), // Unique negative: e.g., row 4 → -4001, -4002, etc.
       action: "DELETE",
       existingVariantId: variantIdToDelete,
       id: variantIdToDelete,
@@ -1323,9 +1641,10 @@ function computeProductStagingOps(
     result: {
       productHandle: product.productHandle,
       rowNumber: product.rowNumber,
-      success: true,
+      canCommit,
       action: productAction,
-      errors: [],
+      rowStatus,
+      errors: allErrors,
       stagingProductId,
     },
     ops,
@@ -1346,29 +1665,65 @@ async function batchInsertStagingData(
 ): Promise<void> {
   // Insert products first (order matters for foreign key constraints)
   if (pendingOps.products.length > 0) {
-    await database.insert(stagingProducts).values(
-      pendingOps.products.map((p) => ({
-        stagingId: p.stagingId,
-        jobId: p.jobId,
-        rowNumber: p.rowNumber,
-        action: p.action,
-        existingProductId: p.existingProductId,
-        id: p.id,
-        brandId: p.brandId,
-        productHandle: p.productHandle,
-        name: p.name,
-        description: p.description,
-        imagePath: p.imagePath,
-        categoryId: p.categoryId,
-        seasonId: p.seasonId,
-        manufacturerId: p.manufacturerId,
-        status: p.status,
-        rowStatus: "PENDING",
-      })),
-    );
+    const jobId = pendingOps.products[0]!.jobId;
+    const rowNumbers = pendingOps.products.map((p) => p.rowNumber);
+
+    // DIAGNOSTIC: Check for existing staging data
+    const existingCount = await database
+      .select({ count: sql<number>`count(*)::int` })
+      .from(stagingProducts)
+      .where(eq(stagingProducts.jobId, jobId));
+
+    logger.info("DIAGNOSTIC: Before staging insert", {
+      jobId,
+      productsToInsert: pendingOps.products.length,
+      existingStagingProductsForJob: existingCount[0]?.count ?? 0,
+      rowNumbersToInsert: rowNumbers.slice(0, 10), // First 10 for brevity
+    });
+
+    try {
+      await database.insert(stagingProducts).values(
+        pendingOps.products.map((p) => ({
+          stagingId: p.stagingId,
+          jobId: p.jobId,
+          rowNumber: p.rowNumber,
+          action: p.action,
+          existingProductId: p.existingProductId,
+          id: p.id,
+          brandId: p.brandId,
+          productHandle: p.productHandle,
+          name: p.name,
+          description: p.description,
+          imagePath: p.imagePath,
+          categoryId: p.categoryId,
+          seasonId: p.seasonId,
+          manufacturerId: p.manufacturerId,
+          status: p.status,
+          rowStatus: p.rowStatus,
+          errors: p.errors,
+        })),
+      );
+      logger.info("DIAGNOSTIC: Staging insert successful", {
+        jobId,
+        insertedCount: pendingOps.products.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: Staging insert FAILED", {
+        jobId,
+        errorType: error instanceof Error ? error.constructor.name : "Unknown",
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        productsCount: pendingOps.products.length,
+        sampleRowNumbers: rowNumbers.slice(0, 5),
+      });
+      throw error;
+    }
   }
 
   // Insert variants (regular + to-delete)
+  // NOTE: Must be chunked because 100 products can have ~1000 variants
+  // Each variant has 15 params, so 1000 variants = 15000 params (exceeds Supabase limit)
   const allVariants = [
     ...pendingOps.variants.map((v) => ({
       stagingId: v.stagingId,
@@ -1385,7 +1740,8 @@ async function batchInsertStagingData(
       nameOverride: v.nameOverride,
       descriptionOverride: v.descriptionOverride,
       imagePathOverride: v.imagePathOverride,
-      rowStatus: "PENDING",
+      rowStatus: v.rowStatus,
+      errors: v.errors,
     })),
     ...pendingOps.variantsToDelete.map((v) => ({
       stagingId: v.stagingId,
@@ -1402,85 +1758,269 @@ async function batchInsertStagingData(
       nameOverride: null,
       descriptionOverride: null,
       imagePathOverride: null,
-      rowStatus: "PENDING",
+      rowStatus: "PENDING" as const,
+      errors: [] as RowError[],
     })),
   ];
 
+  // Chunk variants to avoid parameter limit (500 variants * 15 params = 7500 params)
+  const VARIANT_CHUNK_SIZE = 500;
   if (allVariants.length > 0) {
-    await database.insert(stagingProductVariants).values(allVariants);
+    logger.info("DIAGNOSTIC: Inserting staging variants", {
+      totalVariants: allVariants.length,
+      chunks: Math.ceil(allVariants.length / VARIANT_CHUNK_SIZE),
+    });
+    try {
+      for (let i = 0; i < allVariants.length; i += VARIANT_CHUNK_SIZE) {
+        const chunk = allVariants.slice(i, i + VARIANT_CHUNK_SIZE);
+        await database.insert(stagingProductVariants).values(chunk);
+        logger.info("DIAGNOSTIC: Variant chunk inserted", {
+          chunkIndex: Math.floor(i / VARIANT_CHUNK_SIZE),
+          chunkSize: chunk.length,
+        });
+      }
+    } catch (error) {
+      logger.error("DIAGNOSTIC: Staging variants insert FAILED", {
+        errorType: error instanceof Error ? error.constructor.name : "Unknown",
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        variantsCount: allVariants.length,
+        sampleVariant: allVariants[0],
+      });
+      throw error;
+    }
   }
 
-  // Insert product-level relations
+  // Insert product-level relations with error logging
   if (pendingOps.productTags.length > 0) {
-    await database.insert(stagingProductTags).values(pendingOps.productTags);
+    try {
+      await database.insert(stagingProductTags).values(pendingOps.productTags);
+      logger.info("DIAGNOSTIC: Inserted productTags", {
+        count: pendingOps.productTags.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: productTags insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.productTags.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.productMaterials.length > 0) {
-    await database
-      .insert(stagingProductMaterials)
-      .values(pendingOps.productMaterials);
+    try {
+      await database
+        .insert(stagingProductMaterials)
+        .values(pendingOps.productMaterials);
+      logger.info("DIAGNOSTIC: Inserted productMaterials", {
+        count: pendingOps.productMaterials.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: productMaterials insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.productMaterials.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.productEcoClaims.length > 0) {
-    await database
-      .insert(stagingProductEcoClaims)
-      .values(pendingOps.productEcoClaims);
+    try {
+      await database
+        .insert(stagingProductEcoClaims)
+        .values(pendingOps.productEcoClaims);
+      logger.info("DIAGNOSTIC: Inserted productEcoClaims", {
+        count: pendingOps.productEcoClaims.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: productEcoClaims insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.productEcoClaims.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.productEnvironment.length > 0) {
-    await database
-      .insert(stagingProductEnvironment)
-      .values(pendingOps.productEnvironment);
+    try {
+      await database
+        .insert(stagingProductEnvironment)
+        .values(pendingOps.productEnvironment);
+      logger.info("DIAGNOSTIC: Inserted productEnvironment", {
+        count: pendingOps.productEnvironment.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: productEnvironment insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.productEnvironment.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.productJourneySteps.length > 0) {
-    await database
-      .insert(stagingProductJourneySteps)
-      .values(pendingOps.productJourneySteps);
+    try {
+      await database
+        .insert(stagingProductJourneySteps)
+        .values(pendingOps.productJourneySteps);
+      logger.info("DIAGNOSTIC: Inserted productJourneySteps", {
+        count: pendingOps.productJourneySteps.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: productJourneySteps insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.productJourneySteps.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.productWeight.length > 0) {
-    await database
-      .insert(stagingProductWeight)
-      .values(pendingOps.productWeight);
+    try {
+      await database
+        .insert(stagingProductWeight)
+        .values(pendingOps.productWeight);
+      logger.info("DIAGNOSTIC: Inserted productWeight", {
+        count: pendingOps.productWeight.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: productWeight insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.productWeight.length,
+      });
+      throw error;
+    }
   }
 
-  // Insert variant-level relations
+  // Insert variant-level relations with error logging
   if (pendingOps.variantAttributes.length > 0) {
-    await database
-      .insert(stagingVariantAttributes)
-      .values(pendingOps.variantAttributes);
+    try {
+      await database
+        .insert(stagingVariantAttributes)
+        .values(pendingOps.variantAttributes);
+      logger.info("DIAGNOSTIC: Inserted variantAttributes", {
+        count: pendingOps.variantAttributes.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: variantAttributes insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.variantAttributes.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.variantMaterials.length > 0) {
-    await database
-      .insert(stagingVariantMaterials)
-      .values(pendingOps.variantMaterials);
+    try {
+      await database
+        .insert(stagingVariantMaterials)
+        .values(pendingOps.variantMaterials);
+      logger.info("DIAGNOSTIC: Inserted variantMaterials", {
+        count: pendingOps.variantMaterials.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: variantMaterials insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.variantMaterials.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.variantEcoClaims.length > 0) {
-    await database
-      .insert(stagingVariantEcoClaims)
-      .values(pendingOps.variantEcoClaims);
+    try {
+      await database
+        .insert(stagingVariantEcoClaims)
+        .values(pendingOps.variantEcoClaims);
+      logger.info("DIAGNOSTIC: Inserted variantEcoClaims", {
+        count: pendingOps.variantEcoClaims.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: variantEcoClaims insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.variantEcoClaims.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.variantEnvironment.length > 0) {
-    await database
-      .insert(stagingVariantEnvironment)
-      .values(pendingOps.variantEnvironment);
+    try {
+      await database
+        .insert(stagingVariantEnvironment)
+        .values(pendingOps.variantEnvironment);
+      logger.info("DIAGNOSTIC: Inserted variantEnvironment", {
+        count: pendingOps.variantEnvironment.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: variantEnvironment insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.variantEnvironment.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.variantJourneySteps.length > 0) {
-    await database
-      .insert(stagingVariantJourneySteps)
-      .values(pendingOps.variantJourneySteps);
+    try {
+      await database
+        .insert(stagingVariantJourneySteps)
+        .values(pendingOps.variantJourneySteps);
+      logger.info("DIAGNOSTIC: Inserted variantJourneySteps", {
+        count: pendingOps.variantJourneySteps.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: variantJourneySteps insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.variantJourneySteps.length,
+      });
+      throw error;
+    }
   }
 
   if (pendingOps.variantWeight.length > 0) {
-    await database
-      .insert(stagingVariantWeight)
-      .values(pendingOps.variantWeight);
+    try {
+      await database
+        .insert(stagingVariantWeight)
+        .values(pendingOps.variantWeight);
+      logger.info("DIAGNOSTIC: Inserted variantWeight", {
+        count: pendingOps.variantWeight.length,
+      });
+    } catch (error) {
+      logger.error("DIAGNOSTIC: variantWeight insert FAILED", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorCode: (error as { code?: string })?.code,
+        errorDetail: (error as { detail?: string })?.detail,
+        count: pendingOps.variantWeight.length,
+      });
+      throw error;
+    }
   }
+
+  logger.info("DIAGNOSTIC: batchInsertStagingData completed successfully");
 }
 
 // ============================================================================

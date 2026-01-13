@@ -214,9 +214,9 @@ export function transformBrandAttributeInput<T extends Record<string, any>>(
 /**
  * Transforms brand attribute value input from snake_case schema to camelCase DB format.
  */
-export function transformBrandAttributeValueInput<T extends Record<string, any>>(
-  input: T,
-): any {
+export function transformBrandAttributeValueInput<
+  T extends Record<string, any>,
+>(input: T): any {
   const result: any = {};
 
   for (const [key, value] of Object.entries(input)) {

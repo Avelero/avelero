@@ -15,7 +15,7 @@ import {
   formatMaterials,
   getAttributeByIndex,
   joinSemicolon,
-} from "../../../src/lib/excel-export-products";
+} from "../../../src/lib/excel";
 
 // Helper to create a minimal variant
 function createTestVariant(

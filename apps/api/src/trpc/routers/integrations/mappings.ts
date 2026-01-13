@@ -70,7 +70,9 @@ export const mappingsRouter = createTRPCRouter({
         // Fetch field configs using Supabase client (for RLS)
         const { data: configs, error } = await brandCtx.supabase
           .from("integration_field_configs")
-          .select("id, brand_integration_id, field_key, ownership_enabled, source_option_key, created_at, updated_at")
+          .select(
+            "id, brand_integration_id, field_key, ownership_enabled, source_option_key, created_at, updated_at",
+          )
           .eq("brand_integration_id", input.brand_integration_id)
           .order("field_key");
 
@@ -244,7 +246,10 @@ export const mappingsRouter = createTRPCRouter({
         >();
 
         for (const field of ownedFields ?? []) {
-          const bi = field.brand_integrations as { id: string; integrations: { slug: string; name: string } };
+          const bi = field.brand_integrations as {
+            id: string;
+            integrations: { slug: string; name: string };
+          };
           const existing = fieldMap.get(field.field_key) ?? [];
           existing.push({
             brandIntegrationId: bi.id,

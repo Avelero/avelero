@@ -11,7 +11,6 @@
  * @module routes/integrations/shopify
  */
 import { randomBytes } from "node:crypto";
-import { Hono } from "hono";
 import { db } from "@v1/db/client";
 import {
   createBrandIntegration,
@@ -30,6 +29,7 @@ import {
   exchangeCodeForToken,
   validateShopifyHmac,
 } from "@v1/integrations";
+import { Hono } from "hono";
 
 // Shopify OAuth configuration
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID ?? "";
@@ -55,16 +55,12 @@ const SHOPIFY_API_VERSION = "2025-10";
  */
 async function createComplianceWebhookSubscriptions(
   shop: string,
-  accessToken: string
+  accessToken: string,
 ): Promise<void> {
   // All compliance webhooks go to the same endpoint, differentiated by X-Shopify-Topic header
   const webhookEndpoint = `${API_URL}/integrations/webhooks/compliance`;
 
-  const topics = [
-    "CUSTOMERS_DATA_REQUEST",
-    "CUSTOMERS_REDACT",
-    "SHOP_REDACT",
-  ];
+  const topics = ["CUSTOMERS_DATA_REQUEST", "CUSTOMERS_REDACT", "SHOP_REDACT"];
 
   for (const topic of topics) {
     const mutation = `
@@ -100,19 +96,19 @@ async function createComplianceWebhookSubscriptions(
             "X-Shopify-Access-Token": accessToken,
           },
           body: JSON.stringify({ query: mutation, variables }),
-        }
+        },
       );
 
       if (!response.ok) {
         console.error(
           `Failed to create webhook subscription for ${topic}:`,
           response.status,
-          await response.text()
+          await response.text(),
         );
         continue;
       }
 
-      const result = await response.json() as {
+      const result = (await response.json()) as {
         data?: {
           webhookSubscriptionCreate?: {
             userErrors?: Array<{ field: string; message: string }>;
@@ -126,7 +122,7 @@ async function createComplianceWebhookSubscriptions(
       if (result.errors && result.errors.length > 0) {
         console.error(
           `GraphQL errors creating webhook for ${topic}:`,
-          result.errors
+          result.errors,
         );
         continue;
       }
@@ -134,13 +130,13 @@ async function createComplianceWebhookSubscriptions(
       const userErrors = result.data?.webhookSubscriptionCreate?.userErrors;
       if (userErrors && userErrors.length > 0) {
         // Check if it's just a "already exists" error, which is fine
-        const alreadyExists = userErrors.some(
-          (e) => e.message.toLowerCase().includes("already exists")
+        const alreadyExists = userErrors.some((e) =>
+          e.message.toLowerCase().includes("already exists"),
         );
         if (!alreadyExists) {
           console.error(
             `Webhook subscription errors for ${topic}:`,
-            userErrors
+            userErrors,
           );
         } else {
           console.log(`Webhook subscription for ${topic} already exists`);
@@ -150,7 +146,7 @@ async function createComplianceWebhookSubscriptions(
 
       console.log(
         `Created webhook subscription for ${topic}:`,
-        result.data?.webhookSubscriptionCreate?.webhookSubscription?.id
+        result.data?.webhookSubscriptionCreate?.webhookSubscription?.id,
       );
     } catch (error) {
       console.error(`Error creating webhook subscription for ${topic}:`, error);
@@ -196,7 +192,8 @@ shopifyOAuthRouter.get("/install", async (c) => {
     if (!shopRegex.test(shop)) {
       return c.json(
         {
-          error: "Invalid shop domain. Must be a valid Shopify domain (e.g., my-store.myshopify.com)",
+          error:
+            "Invalid shop domain. Must be a valid Shopify domain (e.g., my-store.myshopify.com)",
         },
         400,
       );
@@ -205,10 +202,7 @@ shopifyOAuthRouter.get("/install", async (c) => {
     // Validate Shopify credentials are configured
     if (!SHOPIFY_CLIENT_ID || !SHOPIFY_CLIENT_SECRET) {
       console.error("Shopify OAuth: Missing client credentials");
-      return c.json(
-        { error: "Shopify integration is not configured" },
-        500,
-      );
+      return c.json({ error: "Shopify integration is not configured" }, 500);
     }
 
     // Generate CSRF state token
@@ -231,7 +225,7 @@ shopifyOAuthRouter.get("/install", async (c) => {
       SHOPIFY_CLIENT_ID,
       SHOPIFY_SCOPES,
       redirectUri,
-      state
+      state,
     );
 
     // Redirect to Shopify
@@ -277,7 +271,7 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     const isValidHmac = validateShopifyHmac(
       c.req.query() as Record<string, string>,
       hmac,
-      SHOPIFY_CLIENT_SECRET
+      SHOPIFY_CLIENT_SECRET,
     );
     if (!isValidHmac) {
       console.error("Shopify OAuth: Invalid HMAC signature");
@@ -290,18 +284,14 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     const oauthState = await findOAuthState(db, state);
     if (!oauthState) {
       console.error("Shopify OAuth: Invalid or expired state token");
-      return c.redirect(
-        `${APP_URL}/settings/integrations?error=invalid_state`,
-      );
+      return c.redirect(`${APP_URL}/settings/integrations?error=invalid_state`);
     }
 
     // Verify shop domain matches
     if (oauthState.shopDomain !== shop) {
       console.error("Shopify OAuth: Shop domain mismatch");
       await deleteOAuthState(db, oauthState.id);
-      return c.redirect(
-        `${APP_URL}/settings/integrations?error=shop_mismatch`,
-      );
+      return c.redirect(`${APP_URL}/settings/integrations?error=shop_mismatch`);
     }
 
     // Exchange code for access token using shared utility
@@ -309,7 +299,7 @@ shopifyOAuthRouter.get("/callback", async (c) => {
       shop,
       code,
       SHOPIFY_CLIENT_ID,
-      SHOPIFY_CLIENT_SECRET
+      SHOPIFY_CLIENT_SECRET,
     );
     if (!accessToken) {
       await deleteOAuthState(db, oauthState.id);
@@ -373,9 +363,7 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     return c.redirect(`${APP_URL}/settings/integrations/shopify`);
   } catch (error) {
     console.error("Shopify OAuth callback error:", error);
-    return c.redirect(
-      `${APP_URL}/settings/integrations?error=callback_failed`,
-    );
+    return c.redirect(`${APP_URL}/settings/integrations?error=callback_failed`);
   }
 });
 

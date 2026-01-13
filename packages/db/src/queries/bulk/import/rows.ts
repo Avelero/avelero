@@ -234,6 +234,331 @@ export async function getImportRowStatusCounts(
   }, {});
 }
 
+// ============================================================================
+// New Architecture: Normalized JSONB functions
+// ============================================================================
+
+import { sql, inArray } from "drizzle-orm";
+import type {
+  NormalizedRowData,
+  RowStatus,
+} from "./normalized-types";
+
+/**
+ * Import row with normalized data for commit processing
+ */
+export interface ImportRowForCommit {
+  id: string;
+  rowNumber: number;
+  status: string;
+  normalized: NormalizedRowData;
+}
+
+/**
+ * Retrieves a batch of pending rows for commit processing.
+ * Returns rows with status PENDING or PENDING_WITH_WARNINGS.
+ *
+ * @param db Database connection
+ * @param jobId Import job ID
+ * @param afterRowNumber Cursor for pagination (rows after this number)
+ * @param limit Maximum rows to return
+ */
+export async function getPendingRowsForCommit(
+  db: DbOrTx,
+  jobId: string,
+  afterRowNumber: number,
+  limit: number,
+): Promise<ImportRowForCommit[]> {
+  const rows = await db
+    .select({
+      id: importRows.id,
+      rowNumber: importRows.rowNumber,
+      status: importRows.status,
+      normalized: importRows.normalized,
+    })
+    .from(importRows)
+    .where(
+      and(
+        eq(importRows.jobId, jobId),
+        inArray(importRows.status, ["PENDING", "PENDING_WITH_WARNINGS"]),
+        sql`${importRows.rowNumber} > ${afterRowNumber}`,
+      ),
+    )
+    .orderBy(asc(importRows.rowNumber))
+    .limit(limit);
+
+  // Filter out rows without normalized data and type-check
+  return rows
+    .filter((row) => row.normalized !== null)
+    .map((row) => ({
+      id: row.id,
+      rowNumber: row.rowNumber,
+      status: row.status,
+      normalized: row.normalized as NormalizedRowData,
+    }));
+}
+
+/**
+ * Marks import rows as committed in batch.
+ *
+ * @param db Database connection
+ * @param rowIds Array of import row IDs to mark as committed
+ */
+export async function markRowsAsCommitted(
+  db: DbOrTx,
+  rowIds: string[],
+): Promise<number> {
+  if (rowIds.length === 0) return 0;
+
+  await db
+    .update(importRows)
+    .set({ status: "COMMITTED" })
+    .where(inArray(importRows.id, rowIds));
+
+  return rowIds.length;
+}
+
+/**
+ * Marks import rows as failed in batch.
+ *
+ * @param db Database connection
+ * @param rowIds Array of import row IDs to mark as failed
+ * @param errorMessage Error message to store
+ */
+export async function markRowsAsFailed(
+  db: DbOrTx,
+  rowIds: string[],
+  errorMessage: string,
+): Promise<number> {
+  if (rowIds.length === 0) return 0;
+
+  await db
+    .update(importRows)
+    .set({
+      status: "FAILED",
+      error: errorMessage,
+    })
+    .where(inArray(importRows.id, rowIds));
+
+  return rowIds.length;
+}
+
+/**
+ * Deletes committed rows for cleanup after successful import.
+ *
+ * @param db Database connection
+ * @param jobId Import job ID
+ */
+export async function deleteCommittedRows(
+  db: DbOrTx,
+  jobId: string,
+): Promise<number> {
+  const committed = await db
+    .select({ id: importRows.id })
+    .from(importRows)
+    .where(
+      and(eq(importRows.jobId, jobId), eq(importRows.status, "COMMITTED")),
+    );
+
+  if (committed.length === 0) return 0;
+
+  // Delete in chunks to avoid memory issues
+  const CHUNK_SIZE = 500;
+  for (let i = 0; i < committed.length; i += CHUNK_SIZE) {
+    const chunk = committed.slice(i, i + CHUNK_SIZE);
+    const ids = chunk.map((r) => r.id);
+    await db.delete(importRows).where(inArray(importRows.id, ids));
+  }
+
+  return committed.length;
+}
+
+/**
+ * Deletes ALL import rows for a job.
+ * Used for dismiss functionality to clean up all data after a failed import.
+ *
+ * @param db Database connection
+ * @param jobId Import job ID
+ */
+export async function deleteAllImportRowsForJob(
+  db: DbOrTx,
+  jobId: string,
+): Promise<number> {
+  const rows = await db
+    .select({ id: importRows.id })
+    .from(importRows)
+    .where(eq(importRows.jobId, jobId));
+
+  if (rows.length === 0) return 0;
+
+  // Delete in chunks to avoid memory issues
+  const CHUNK_SIZE = 500;
+  for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+    const chunk = rows.slice(i, i + CHUNK_SIZE);
+    const ids = chunk.map((r) => r.id);
+    await db.delete(importRows).where(inArray(importRows.id, ids));
+  }
+
+  return rows.length;
+}
+
+/**
+ * Gets rows with errors for preview/error report.
+ * Returns rows with status BLOCKED or PENDING_WITH_WARNINGS.
+ *
+ * @param db Database connection
+ * @param jobId Import job ID
+ * @param limit Maximum rows to return
+ * @param offset Offset for pagination
+ */
+export async function getRowsWithErrors(
+  db: DbOrTx,
+  jobId: string,
+  limit = 100,
+  offset = 0,
+): Promise<{
+  rows: Array<{
+    id: string;
+    rowNumber: number;
+    status: string;
+    raw: Record<string, unknown>;
+    normalized: NormalizedRowData | null;
+  }>;
+  total: number;
+}> {
+  // Get total count
+  const countResult = await db
+    .select({ value: count() })
+    .from(importRows)
+    .where(
+      and(
+        eq(importRows.jobId, jobId),
+        inArray(importRows.status, ["BLOCKED", "PENDING_WITH_WARNINGS"]),
+      ),
+    );
+
+  const total = countResult[0]?.value ?? 0;
+
+  // Get paginated rows
+  const rows = await db
+    .select({
+      id: importRows.id,
+      rowNumber: importRows.rowNumber,
+      status: importRows.status,
+      raw: importRows.raw,
+      normalized: importRows.normalized,
+    })
+    .from(importRows)
+    .where(
+      and(
+        eq(importRows.jobId, jobId),
+        inArray(importRows.status, ["BLOCKED", "PENDING_WITH_WARNINGS"]),
+      ),
+    )
+    .orderBy(asc(importRows.rowNumber))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    rows: rows.map((row) => ({
+      id: row.id,
+      rowNumber: row.rowNumber,
+      status: row.status,
+      raw: row.raw as Record<string, unknown>,
+      normalized: row.normalized as NormalizedRowData | null,
+    })),
+    total,
+  };
+}
+
+/**
+ * Gets preview data from import rows for UI display.
+ * Used to show users what will be imported.
+ *
+ * @param db Database connection
+ * @param jobId Import job ID
+ * @param options Pagination and filter options
+ */
+export async function getImportRowsPreview(
+  db: DbOrTx,
+  jobId: string,
+  options: {
+    limit?: number;
+    offset?: number;
+    status?: RowStatus;
+  } = {},
+): Promise<{
+  rows: Array<{
+    id: string;
+    rowNumber: number;
+    status: string;
+    normalized: NormalizedRowData;
+  }>;
+  total: number;
+  counts: {
+    create: number;
+    update: number;
+    total: number;
+  };
+}> {
+  const { limit = 100, offset = 0, status } = options;
+
+  // Build where conditions
+  const whereConditions = [eq(importRows.jobId, jobId)];
+  if (status) {
+    whereConditions.push(eq(importRows.status, status));
+  }
+
+  // Get total count
+  const countResult = await db
+    .select({ value: count() })
+    .from(importRows)
+    .where(and(...whereConditions));
+
+  const total = countResult[0]?.value ?? 0;
+
+  // Get paginated rows with normalized data
+  const rows = await db
+    .select({
+      id: importRows.id,
+      rowNumber: importRows.rowNumber,
+      status: importRows.status,
+      normalized: importRows.normalized,
+    })
+    .from(importRows)
+    .where(and(...whereConditions))
+    .orderBy(asc(importRows.rowNumber))
+    .limit(limit)
+    .offset(offset);
+
+  // Filter to only rows with normalized data
+  const validRows = rows
+    .filter((row) => row.normalized !== null)
+    .map((row) => ({
+      id: row.id,
+      rowNumber: row.rowNumber,
+      status: row.status,
+      normalized: row.normalized as NormalizedRowData,
+    }));
+
+  // Count by action
+  const actionCounts = validRows.reduce(
+    (acc, row) => {
+      if (row.normalized.action === "CREATE") acc.create++;
+      else if (row.normalized.action === "UPDATE") acc.update++;
+      acc.total++;
+      return acc;
+    },
+    { create: 0, update: 0, total: 0 },
+  );
+
+  return {
+    rows: validRows,
+    total,
+    counts: actionCounts,
+  };
+}
+
 
 
 

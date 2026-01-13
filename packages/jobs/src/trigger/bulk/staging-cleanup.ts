@@ -1,13 +1,13 @@
 /**
- * Staging Cleanup Scheduled Job
+ * Import Data Cleanup Scheduled Job
  *
- * Cleans up old staging data to prevent storage buildup.
+ * Cleans up old import data to prevent storage buildup.
  * Runs as a daily cron job.
  *
  * Cleanup rules:
- * - Delete staging data for jobs older than 30 days
- * - Immediately delete staging data for dismissed jobs
- * - Delete staging data for completed jobs after 7 days
+ * - Delete import_rows for jobs older than 30 days
+ * - Immediately delete import_rows for dismissed jobs
+ * - Delete import_rows for completed jobs after 7 days
  *
  * @module staging-cleanup
  */
@@ -18,31 +18,19 @@ import { type Database, serviceDb as db } from "@v1/db/client";
 import { eq, sql } from "@v1/db/queries";
 import * as schema from "@v1/db/schema";
 
-const {
-  importJobs,
-  stagingProducts,
-  stagingProductVariants,
-  stagingVariantAttributes,
-  stagingProductTags,
-  stagingProductWeight,
-  stagingVariantMaterials,
-  stagingVariantEcoClaims,
-  stagingVariantEnvironment,
-  stagingVariantJourneySteps,
-  stagingVariantWeight,
-} = schema;
+const { importJobs, importRows } = schema;
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
 /**
- * Days to keep staging data for completed jobs (no failures)
+ * Days to keep import data for completed jobs (no failures)
  */
 const COMPLETED_RETENTION_DAYS = 7;
 
 /**
- * Days to keep staging data for jobs with failures
+ * Days to keep import data for jobs with failures
  */
 const FAILED_RETENTION_DAYS = 30;
 
@@ -57,7 +45,6 @@ const DELETE_BATCH_SIZE = 100;
 
 interface CleanupStats {
   jobsCleaned: number;
-  missedJobsBecauseOfStatus: number;
   errors: string[];
 }
 
@@ -66,60 +53,13 @@ interface CleanupStats {
 // ============================================================================
 
 /**
- * Delete all staging data for a specific job
- * Uses cascading deletes where possible, but explicitly handles
- * tables that might not have cascade setup
+ * Delete all import_rows for a specific job
  */
-async function cleanupStagingDataForJob(
+async function cleanupImportDataForJob(
   database: Database,
   jobId: string,
 ): Promise<void> {
-  // Delete in order to respect foreign key constraints
-  // Child tables first, then parent tables
-
-  // 1. Delete variant-level staging tables
-  await database
-    .delete(stagingVariantAttributes)
-    .where(eq(stagingVariantAttributes.jobId, jobId));
-
-  await database
-    .delete(stagingVariantMaterials)
-    .where(eq(stagingVariantMaterials.jobId, jobId));
-
-  await database
-    .delete(stagingVariantEcoClaims)
-    .where(eq(stagingVariantEcoClaims.jobId, jobId));
-
-  await database
-    .delete(stagingVariantEnvironment)
-    .where(eq(stagingVariantEnvironment.jobId, jobId));
-
-  await database
-    .delete(stagingVariantJourneySteps)
-    .where(eq(stagingVariantJourneySteps.jobId, jobId));
-
-  await database
-    .delete(stagingVariantWeight)
-    .where(eq(stagingVariantWeight.jobId, jobId));
-
-  // 2. Delete product-level staging tables
-  await database
-    .delete(stagingProductTags)
-    .where(eq(stagingProductTags.jobId, jobId));
-
-  await database
-    .delete(stagingProductWeight)
-    .where(eq(stagingProductWeight.jobId, jobId));
-
-  // 3. Delete variants (should cascade from products, but be explicit)
-  await database
-    .delete(stagingProductVariants)
-    .where(eq(stagingProductVariants.jobId, jobId));
-
-  // 4. Delete products
-  await database
-    .delete(stagingProducts)
-    .where(eq(stagingProducts.jobId, jobId));
+  await database.delete(importRows).where(eq(importRows.jobId, jobId));
 }
 
 /**
@@ -160,9 +100,9 @@ async function findJobsToCleanup(database: Database): Promise<string[]> {
 // ============================================================================
 
 /**
- * Staging cleanup scheduled task
+ * Import data cleanup scheduled task
  *
- * Runs daily at 3 AM UTC to clean up old staging data
+ * Runs daily at 3 AM UTC to clean up old import data
  */
 export const stagingCleanupTask = schedules.task({
   id: "staging-cleanup",
@@ -171,11 +111,10 @@ export const stagingCleanupTask = schedules.task({
     const startTime = Date.now();
     const stats: CleanupStats = {
       jobsCleaned: 0,
-      missedJobsBecauseOfStatus: 0,
       errors: [],
     };
 
-    logger.info("Starting staging cleanup job");
+    logger.info("Starting import data cleanup job");
 
     try {
       // Find jobs eligible for cleanup
@@ -194,7 +133,7 @@ export const stagingCleanupTask = schedules.task({
 
         for (const jobId of batch) {
           try {
-            await cleanupStagingDataForJob(db, jobId);
+            await cleanupImportDataForJob(db, jobId);
             stats.jobsCleaned++;
 
             logger.debug("Cleaned up job", { jobId });
@@ -221,7 +160,7 @@ export const stagingCleanupTask = schedules.task({
 
       const duration = Date.now() - startTime;
 
-      logger.info("Staging cleanup completed", {
+      logger.info("Import data cleanup completed", {
         stats,
         duration: `${duration}ms`,
       });
@@ -231,7 +170,7 @@ export const stagingCleanupTask = schedules.task({
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
 
-      logger.error("Staging cleanup failed", { error: errorMessage });
+      logger.error("Import data cleanup failed", { error: errorMessage });
 
       stats.errors.push(`Fatal: ${errorMessage}`);
       return { stats, duration: Date.now() - startTime };
@@ -243,15 +182,15 @@ export const stagingCleanupTask = schedules.task({
  * Manual cleanup function that can be called from API
  * Useful for immediately cleaning up a specific job
  */
-export async function cleanupJobStagingData(
+export async function cleanupJobImportData(
   database: Database,
   jobId: string,
 ): Promise<void> {
-  await cleanupStagingDataForJob(database, jobId);
+  await cleanupImportDataForJob(database, jobId);
 }
 
 /**
- * Cleanup staging data for dismissed jobs
+ * Cleanup import data for dismissed jobs
  * Can be called when a job is dismissed via API
  */
 export async function cleanupDismissedJob(
@@ -274,8 +213,8 @@ export async function cleanupDismissedJob(
     );
   }
 
-  // Cleanup staging data
-  await cleanupStagingDataForJob(database, jobId);
+  // Cleanup import data
+  await cleanupImportDataForJob(database, jobId);
 
   // Update job status to DISMISSED
   await database

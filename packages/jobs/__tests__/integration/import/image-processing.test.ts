@@ -23,7 +23,7 @@ import {
   completeProduct,
   productWithOverrides,
 } from "@v1/testing/bulk-import";
-import { parseExcelFile } from "../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../src/lib/excel";
 
 describe("Image Processing", () => {
   let brandId: string;

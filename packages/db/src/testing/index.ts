@@ -48,8 +48,6 @@ export {
     type InsertedCatalog,
     type DbTestProduct,
     type DbTestVariant,
-    type DbTestStagingProduct,
-    type DbTestStagingVariant,
     type DbTestImportJob,
     type CatalogFixtures,
     createFullCatalogFixtures,

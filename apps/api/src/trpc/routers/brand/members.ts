@@ -1,10 +1,10 @@
+import { asc, eq } from "@v1/db/queries";
 import {
   BrandMemberForbiddenError,
   BrandMemberSoleOwnerError,
   deleteMember,
   updateMemberRole,
 } from "@v1/db/queries/brand";
-import { asc, eq } from "@v1/db/queries";
 import { brandMembers, users } from "@v1/db/schema";
 import { z } from "zod";
 /**
@@ -102,13 +102,7 @@ export const brandMembersRouter = createTRPCRouter({
       const { db, brandId, user } = ctx;
 
       try {
-        await updateMemberRole(
-          db,
-          user.id,
-          brandId,
-          input.user_id,
-          input.role,
-        );
+        await updateMemberRole(db, user.id, brandId, input.user_id, input.role);
         return { success: true as const };
       } catch (error) {
         if (error instanceof BrandMemberSoleOwnerError) {
@@ -136,9 +130,7 @@ export const brandMembersRouter = createTRPCRouter({
           throw soleOwnerError();
         }
         if (error instanceof BrandMemberForbiddenError) {
-          throw forbidden(
-            "You do not have permission to remove this member",
-          );
+          throw forbidden("You do not have permission to remove this member");
         }
         throw wrapError(error, "Failed to remove member");
       }

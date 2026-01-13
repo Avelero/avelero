@@ -24,10 +24,11 @@ export const createBrandAttributeSchema = z.object({
 /**
  * Payload for updating a brand attribute.
  */
-export const updateBrandAttributeSchema = updateFrom(createBrandAttributeSchema);
+export const updateBrandAttributeSchema = updateFrom(
+  createBrandAttributeSchema,
+);
 
 /**
  * Payload for deleting a brand attribute by id.
  */
 export const deleteBrandAttributeSchema = byIdSchema;
-

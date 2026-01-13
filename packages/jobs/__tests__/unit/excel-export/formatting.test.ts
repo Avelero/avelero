@@ -8,10 +8,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import {
-  formatMaterials,
-  joinSemicolon,
-} from "../../../src/lib/excel-export-products";
+import { formatMaterials, joinSemicolon } from "../../../src/lib/excel";
 
 describe("joinSemicolon()", () => {
   it("returns empty string for null array", () => {

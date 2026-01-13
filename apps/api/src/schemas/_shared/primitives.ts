@@ -75,7 +75,7 @@ export function generateProductHandle(productName: string): string {
 
   if (!handle) {
     throw new Error(
-      "Cannot generate product handle: input contains no valid characters (only letters, numbers, spaces, and dashes are allowed)"
+      "Cannot generate product handle: input contains no valid characters (only letters, numbers, spaces, and dashes are allowed)",
     );
   }
 

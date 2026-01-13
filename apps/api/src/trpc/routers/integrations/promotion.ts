@@ -23,26 +23,26 @@ type BrandContext = AuthenticatedTRPCContext & { brandId: string };
  * - status: Get current promotion operation status for a brand integration
  */
 export const promotionRouter = createTRPCRouter({
-    /**
-     * Get current promotion operation status for a brand integration.
-     *
-     * Used by the frontend to poll for promotion progress.
-     * Returns the most recent promotion operation for the integration.
-     */
-    status: brandRequiredProcedure
-        .input(getPromotionStatusSchema)
-        .query(async ({ ctx, input }) => {
-            const brandCtx = ctx as BrandContext;
-            try {
-                const operation = await getPromotionStatusByIntegration(
-                    brandCtx.db,
-                    input.brand_integration_id,
-                );
-                return createEntityResponse(operation ?? null);
-            } catch (error) {
-                throw wrapError(error, "Failed to get promotion status");
-            }
-        }),
+  /**
+   * Get current promotion operation status for a brand integration.
+   *
+   * Used by the frontend to poll for promotion progress.
+   * Returns the most recent promotion operation for the integration.
+   */
+  status: brandRequiredProcedure
+    .input(getPromotionStatusSchema)
+    .query(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      try {
+        const operation = await getPromotionStatusByIntegration(
+          brandCtx.db,
+          input.brand_integration_id,
+        );
+        return createEntityResponse(operation ?? null);
+      } catch (error) {
+        throw wrapError(error, "Failed to get promotion status");
+      }
+    }),
 });
 
 export type PromotionRouter = typeof promotionRouter;

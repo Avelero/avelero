@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { ExcelBuilder } from "@v1/testing/bulk-import";
-import { parseExcelFile } from "../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../src/lib/excel";
 
 describe("Excel Parser - Row Grouping", () => {
   it("groups rows by Product Handle", async () => {

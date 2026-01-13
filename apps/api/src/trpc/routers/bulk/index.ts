@@ -4,17 +4,16 @@
  * Structure:
  * - import.*: Async bulk import lifecycle (validate, start, status, approve, cancel)
  * - export.*: Async bulk export lifecycle (start, status)
- * - staging.*: Staging data operations (preview, errors, export)
  * - values.*: Value mapping operations (unmapped, define, batchDefine)
- * - import (legacy): Synchronous product import (deprecated)
- * - update: Passport bulk updates
+ *
+ * Note: Staging router has been removed as staging tables were replaced with
+ * import_rows.normalized JSONB data structure.
  */
 import { badRequest } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 import { exportRouter } from "./export.js";
 import { importRouter } from "./import.js";
-import { stagingRouter } from "./staging.js";
 import { valuesRouter } from "./values.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
@@ -48,7 +47,6 @@ export const bulkRouter = createTRPCRouter({
    */
   import: importRouter,
   export: exportRouter,
-  staging: stagingRouter,
   values: valuesRouter,
 });
 

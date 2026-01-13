@@ -27,7 +27,7 @@ import {
   type BrandCatalog,
   loadBrandCatalog,
 } from "../../../../src/lib/catalog-loader";
-import { parseExcelFile } from "../../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../../src/lib/excel";
 
 // Helper to simulate auto-creation logic from validate-and-stage
 async function autoCreateMissingEntities(

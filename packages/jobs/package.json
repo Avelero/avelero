@@ -46,7 +46,7 @@
     "typescript": "^5.9.2"
   },
   "exports": {
-    "./lib/excel-parser": "./src/lib/excel-parser.ts",
+    "./lib/excel": "./src/lib/excel.ts",
     "./trigger": "./src/trigger/index.ts",
     "./trigger/validate-and-stage": "./src/trigger/validate-and-stage.ts",
     "./trigger/commit-to-production": "./src/trigger/commit-to-production.ts",

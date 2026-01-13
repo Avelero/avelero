@@ -14,7 +14,7 @@ import {
   type ParsedProduct,
   findDuplicateIdentifiers,
   parseExcelFile,
-} from "../../../src/lib/excel-parser";
+} from "../../../src/lib/excel";
 
 describe("Excel Parser - Duplicate Detection", () => {
   describe("Product Handle Duplicates", () => {

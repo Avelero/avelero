@@ -8,7 +8,7 @@
  * - Variants: Matched by UPID only (not SKU/Barcode)
  * - Variant with UPID match -> UPDATE
  * - Variant without UPID -> CREATE new variant
- * - Variant UPID missing from sheet -> DELETE (in CREATE_AND_ENRICH mode)
+ * - Variant UPID missing from sheet -> IGNORED (existing variant preserved)
  *
  * @module tests/integration/import/product-updates
  */
@@ -31,7 +31,7 @@ import {
 } from "@v1/testing/bulk-import";
 import { eq, sql } from "drizzle-orm";
 import { loadBrandCatalog } from "../../../src/lib/catalog-loader";
-import { parseExcelFile } from "../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../src/lib/excel";
 
 describe("Product Updates", () => {
   let brandId: string;

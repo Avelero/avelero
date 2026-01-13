@@ -2,8 +2,7 @@
  * Test Database Utility for Bulk Import Tests
  *
  * Provides database helpers specific to bulk import testing,
- * including product/variant retrieval, staging record inspection,
- * and import job management.
+ * including product/variant retrieval and import job management.
  *
  * @module @v1/testing/bulk-import/test-database
  */
@@ -40,25 +39,6 @@ export interface DbTestVariant {
     updatedAt: string;
 }
 
-export interface DbTestStagingProduct {
-    stagingId: string;
-    jobId: string;
-    rowNumber: number;
-    productHandle: string | null;
-    rowStatus: string;
-    createdAt: string;
-}
-
-export interface DbTestStagingVariant {
-    stagingId: string;
-    stagingProductId: string;
-    rowNumber: number;
-    sku: string | null;
-    barcode: string | null;
-    rowStatus: string;
-    createdAt: string;
-}
-
 export interface DbTestImportJob {
     id: string;
     brandId: string;
@@ -84,9 +64,6 @@ export interface DbTestImportJob {
  *
  * // Get all variants for a product
  * const variants = await TestDatabase.getVariantsByProductId(db, product.id);
- *
- * // Get staging records for a job
- * const stagingProducts = await TestDatabase.getStagingProducts(db, jobId);
  * ```
  */
 export class TestDatabase {
@@ -402,93 +379,6 @@ export class TestDatabase {
             finishedAt: job.finishedAt,
             summary: job.summary as Record<string, unknown> | null,
         };
-    }
-
-    // ========================================================================
-    // Staging Operations
-    // ========================================================================
-
-    /**
-     * Get all staging products for a job
-     */
-    static async getStagingProducts(
-        db: Database,
-        jobId: string
-    ): Promise<DbTestStagingProduct[]> {
-        const results = await db
-            .select()
-            .from(schema.stagingProducts)
-            .where(eq(schema.stagingProducts.jobId, jobId));
-
-        return results.map((sp) => ({
-            stagingId: sp.stagingId,
-            jobId: sp.jobId,
-            rowNumber: sp.rowNumber,
-            productHandle: sp.productHandle,
-            rowStatus: sp.rowStatus,
-            createdAt: sp.createdAt,
-        }));
-    }
-
-    /**
-     * Get staging product count for a job
-     */
-    static async getStagingProductCount(
-        db: Database,
-        jobId: string
-    ): Promise<number> {
-        const result = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(schema.stagingProducts)
-            .where(eq(schema.stagingProducts.jobId, jobId));
-
-        return result[0]?.count ?? 0;
-    }
-
-    /**
-     * Get all staging variants for a job
-     */
-    static async getStagingVariants(
-        db: Database,
-        jobId: string
-    ): Promise<DbTestStagingVariant[]> {
-        const results = await db
-            .select({
-                stagingId: schema.stagingProductVariants.stagingId,
-                stagingProductId: schema.stagingProductVariants.stagingProductId,
-                rowNumber: schema.stagingProductVariants.rowNumber,
-                sku: schema.stagingProductVariants.sku,
-                barcode: schema.stagingProductVariants.barcode,
-                rowStatus: schema.stagingProductVariants.rowStatus,
-                createdAt: schema.stagingProductVariants.createdAt,
-            })
-            .from(schema.stagingProductVariants)
-            .innerJoin(
-                schema.stagingProducts,
-                eq(schema.stagingProductVariants.stagingProductId, schema.stagingProducts.stagingId)
-            )
-            .where(eq(schema.stagingProducts.jobId, jobId));
-
-        return results;
-    }
-
-    /**
-     * Get staging variant count for a job
-     */
-    static async getStagingVariantCount(
-        db: Database,
-        jobId: string
-    ): Promise<number> {
-        const result = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(schema.stagingProductVariants)
-            .innerJoin(
-                schema.stagingProducts,
-                eq(schema.stagingProductVariants.stagingProductId, schema.stagingProducts.stagingId)
-            )
-            .where(eq(schema.stagingProducts.jobId, jobId));
-
-        return result[0]?.count ?? 0;
     }
 
     // ========================================================================

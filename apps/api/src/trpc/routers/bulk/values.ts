@@ -1,4 +1,10 @@
 import { serviceDb } from "@v1/db/client";
+import { and, eq, isNull } from "@v1/db/queries";
+import type { SQL } from "@v1/db/queries";
+import {
+  getImportJobStatus,
+  getUnmappedValuesForJob,
+} from "@v1/db/queries/bulk";
 /**
  * Bulk import value mapping router.
  *
@@ -8,12 +14,6 @@ import { serviceDb } from "@v1/db/client";
  * - ensureCategory: Create category path in database
  */
 import { taxonomyCategories } from "@v1/db/schema";
-import {
-  getImportJobStatus,
-  getUnmappedValuesForJob,
-} from "@v1/db/queries/bulk";
-import { and, eq, isNull } from "@v1/db/queries";
-import type { SQL } from "@v1/db/queries";
 import { z } from "zod";
 import { getUnmappedValuesSchema } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -109,7 +109,8 @@ export const valuesRouter = createTRPCRouter({
             orderBy: (facilities, { asc }) => [asc(facilities.displayName)],
           }),
           brandCtx.db.query.brandManufacturers.findMany({
-            where: (manufacturers, { eq }) => eq(manufacturers.brandId, brandId),
+            where: (manufacturers, { eq }) =>
+              eq(manufacturers.brandId, brandId),
             columns: { id: true, name: true },
             orderBy: (manufacturers, { asc }) => [asc(manufacturers.name)],
           }),

@@ -7,8 +7,8 @@
  * @module routes/integrations
  */
 import { Hono } from "hono";
-import { shopifyOAuthRouter } from "./shopify.js";
 import { shopifyWebhooksRouter } from "./shopify-webhooks.js";
+import { shopifyOAuthRouter } from "./shopify.js";
 
 /**
  * Main integrations route handler.

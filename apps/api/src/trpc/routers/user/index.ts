@@ -21,15 +21,16 @@ import {
   listPendingInvitesForEmail,
   setActiveBrand,
 } from "@v1/db/queries/brand";
+import type { UserInviteSummaryRow } from "@v1/db/queries/brand";
 import {
   deleteUser,
   getUserById,
   isEmailTaken,
   updateUser,
 } from "@v1/db/queries/user";
-import type { UserInviteSummaryRow } from "@v1/db/queries/brand";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
+import { brandCreateSchema } from "../../../schemas/brand.js";
 import {
   brandLeaveSchema,
   brandSetActiveSchema,
@@ -37,7 +38,6 @@ import {
   inviteRejectSchema,
   userDomainUpdateSchema,
 } from "../../../schemas/user.js";
-import { brandCreateSchema } from "../../../schemas/brand.js";
 import {
   badRequest,
   internalServerError,
@@ -518,9 +518,7 @@ export const userRouter = createTRPCRouter({
         const brandIdToLeave = input.brand_id ?? activeBrandId;
 
         if (!brandIdToLeave) {
-          throw badRequest(
-            "No brand specified and no active brand to leave",
-          );
+          throw badRequest("No brand specified and no active brand to leave");
         }
 
         const result = await leaveBrand(db, user.id, brandIdToLeave);
@@ -581,7 +579,10 @@ export const userRouter = createTRPCRouter({
 /**
  * Helper to determine if a user can leave a brand based on their role.
  */
-function canLeaveFromRole(role: "owner" | "member", ownerCount: number): boolean {
+function canLeaveFromRole(
+  role: "owner" | "member",
+  ownerCount: number,
+): boolean {
   if (role !== "owner") return true;
   return ownerCount > 1;
 }

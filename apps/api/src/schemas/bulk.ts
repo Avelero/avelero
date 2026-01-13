@@ -255,7 +255,11 @@ export const getRecentImportsSchema = z.object({
  * - COMMITTED: Row successfully committed to production
  * - FAILED: Row failed validation/commit
  */
-export const stagingRowStatusSchema = z.enum(["PENDING", "COMMITTED", "FAILED"]);
+export const stagingRowStatusSchema = z.enum([
+  "PENDING",
+  "COMMITTED",
+  "FAILED",
+]);
 
 // ============================================================================
 // Export Schemas
@@ -310,7 +314,9 @@ export type ImportJobStatus = z.infer<typeof importJobStatusSchema>;
 
 // New types for fire-and-forget flow
 export type ImportMode = z.infer<typeof importModeSchema>;
-export type DismissFailedImportInput = z.infer<typeof dismissFailedImportSchema>;
+export type DismissFailedImportInput = z.infer<
+  typeof dismissFailedImportSchema
+>;
 export type ExportCorrectionsInput = z.infer<typeof exportCorrectionsSchema>;
 export type GetRecentImportsInput = z.infer<typeof getRecentImportsSchema>;
 export type StagingRowStatus = z.infer<typeof stagingRowStatusSchema>;

@@ -12,7 +12,7 @@ import ExcelJS from "exceljs";
 import {
   buildColumnMapFromRow,
   getAttributeByIndex,
-} from "../../../src/lib/excel-export-products";
+} from "../../../src/lib/excel";
 
 describe("buildColumnMapFromRow()", () => {
   it("creates correct index mapping from header row", async () => {

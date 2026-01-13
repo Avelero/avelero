@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { parseSemicolonSeparated } from "../../../src/lib/excel-parser";
+import { parseSemicolonSeparated } from "../../../src/lib/excel";
 
 describe("Excel Parser - Semicolon Parsing", () => {
   it("parses single value", () => {

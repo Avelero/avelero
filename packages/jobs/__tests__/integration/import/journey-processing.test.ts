@@ -29,7 +29,7 @@ import {
   type BrandCatalog,
   loadBrandCatalog,
 } from "../../../src/lib/catalog-loader";
-import { parseExcelFile } from "../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../src/lib/excel";
 
 describe("Journey Processing", () => {
   let brandId: string;

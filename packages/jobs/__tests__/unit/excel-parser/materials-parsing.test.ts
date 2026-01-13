@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { parseMaterials } from "../../../src/lib/excel-parser";
+import { parseMaterials } from "../../../src/lib/excel";
 
 describe("Excel Parser - Materials Parsing", () => {
   it("parses single material with percentage", () => {

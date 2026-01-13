@@ -310,7 +310,7 @@ export type BulkSelection = z.infer<typeof bulkSelectionSchema>;
 
 /**
  * Unified delete schema supporting both single and bulk operations.
- * 
+ *
  * Single mode: { id: string }
  * Bulk mode: { selection: BulkSelection }
  */
@@ -343,7 +343,7 @@ export type BulkUpdateFields = z.infer<typeof bulkUpdateFieldsSchema>;
 
 /**
  * Unified update schema supporting both single and bulk operations.
- * 
+ *
  * Single mode: { id: string, ...allUpdateFields }
  * Bulk mode: { selection: BulkSelection, ...bulkUpdateFields }
  */
@@ -353,10 +353,12 @@ export const unifiedUpdateSchema = z.union([
     brand_id: uuidSchema.optional(),
   }),
   // Bulk update (limited fields)
-  z.object({
-    selection: bulkSelectionSchema,
-    brand_id: uuidSchema.optional(),
-  }).merge(bulkUpdateFieldsSchema),
+  z
+    .object({
+      selection: bulkSelectionSchema,
+      brand_id: uuidSchema.optional(),
+    })
+    .merge(bulkUpdateFieldsSchema),
 ]);
 
 export type UnifiedUpdateInput = z.infer<typeof unifiedUpdateSchema>;
@@ -444,7 +446,7 @@ export const explicitVariantSchema = z.object({
 
 /**
  * Schema for a matrix dimension (one attribute with multiple values).
- * 
+ *
  * @deprecated Use the `products.variants.sync` endpoint instead.
  * Matrix mode has been removed in favor of explicit variant definitions.
  */
@@ -452,16 +454,18 @@ export const matrixDimensionSchema = z.object({
   /** The brand attribute ID */
   attribute_id: uuidSchema,
   /** The brand attribute value IDs for this dimension (max 50 values) */
-  value_ids: uuidArraySchema.min(1, "At least one value is required per dimension").max(50, "Maximum 50 values allowed per dimension"),
+  value_ids: uuidArraySchema
+    .min(1, "At least one value is required per dimension")
+    .max(50, "Maximum 50 values allowed per dimension"),
 });
 
 /**
  * Upsert/replace variants for a product using the generic attribute system.
- * 
+ *
  * @deprecated Use the `products.variants.sync` endpoint instead.
  * This schema and the associated upsert endpoint have been replaced by the
  * unified variants router which uses productHandle + variantUpid identifiers.
- * 
+ *
  * Supports two modes:
  * - **explicit**: Provide explicit variant definitions with attribute assignments
  * - **matrix**: Provide dimensions and auto-generate cartesian product of variants
@@ -472,19 +476,23 @@ export const productVariantsUpsertSchema = z.discriminatedUnion("mode", [
     product_id: uuidSchema,
     mode: z.literal("explicit"),
     /** Explicit variant definitions with attribute assignments */
-    variants: z.array(explicitVariantSchema).max(500, "Maximum 500 variants allowed"),
+    variants: z
+      .array(explicitVariantSchema)
+      .max(500, "Maximum 500 variants allowed"),
   }),
   // Matrix mode: server generates cartesian product from dimensions
   z.object({
     product_id: uuidSchema,
     mode: z.literal("matrix"),
-    /** 
+    /**
      * Ordered dimensions for cartesian product generation.
      * Max 3 dimensions, each with max 50 values.
      * Example: [{ attribute_id: "color", value_ids: ["red", "blue"] }, { attribute_id: "size", value_ids: ["S", "M"] }]
      */
-    dimensions: z.array(matrixDimensionSchema).max(3, "Maximum 3 dimensions allowed"),
-    /** 
+    dimensions: z
+      .array(matrixDimensionSchema)
+      .max(3, "Maximum 3 dimensions allowed"),
+    /**
      * Optional metadata for specific combinations, keyed by pipe-separated value IDs.
      * Example: { "red-value-id|S-value-id": { sku: "SKU001" } }
      */
@@ -509,14 +517,19 @@ export const productVariantsCreateSchema = z.object({
   /** Product handle (URL-friendly identifier) */
   productHandle: productHandleSchema,
   /** Ordered list of brand attribute value IDs defining this variant's attributes */
-  attribute_value_ids: uuidArraySchema.min(1, "At least one attribute value is required"),
+  attribute_value_ids: uuidArraySchema.min(
+    1,
+    "At least one attribute value is required",
+  ),
   /** Optional SKU */
   sku: z.string().max(100).optional(),
   /** Optional barcode */
   barcode: z.string().max(100).optional(),
 });
 
-export type ProductVariantsCreateInput = z.infer<typeof productVariantsCreateSchema>;
+export type ProductVariantsCreateInput = z.infer<
+  typeof productVariantsCreateSchema
+>;
 
 /**
  * Input payload for `products.list` in the reorganized API.

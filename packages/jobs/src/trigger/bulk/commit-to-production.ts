@@ -2,7 +2,7 @@
  * Commit to Production Job (Optimized with Batch Operations)
  *
  * Phase 2 of the bulk import process:
- * 1. Loads staging data in batches of 250
+ * 1. Loads import_rows.normalized data in batches of 250
  * 2. For each batch: generates UPIDs, processes images, commits to production
  * 3. Updates per-row status to COMMITTED or FAILED
  * 4. Deletes only COMMITTED rows (keeps FAILED for correction export)
@@ -12,6 +12,7 @@
  * - Processes products in batches of 250 (same as integrations)
  * - Each batch goes through complete cycle: load → images → commit
  * - Memory-efficient: only 250 products in memory at a time
+ * - Uses NormalizedRowData directly (no intermediate type conversion)
  *
  * @module commit-to-production
  */
@@ -19,9 +20,10 @@
 import "../configure-trigger";
 import { createHash } from "node:crypto";
 import { type SupabaseClient, createClient } from "@supabase/supabase-js";
-import { logger, task, tasks } from "@trigger.dev/sdk/v3";
+import { logger, task } from "@trigger.dev/sdk/v3";
 import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
+import type { NormalizedRowData, NormalizedVariant } from "@v1/db/queries/bulk";
 import * as schema from "@v1/db/schema";
 import { generateUniqueUpids } from "@v1/db/utils";
 import {
@@ -48,7 +50,6 @@ interface CommitStats {
   productsUpdated: number;
   variantsCreated: number;
   variantsUpdated: number;
-  variantsDeleted: number;
   tagsSet: number;
   attributesSet: number;
   materialsSet: number;
@@ -65,63 +66,6 @@ interface ImageUploadTask {
   type: "product" | "variant";
   entityId: string;
   imageUrl: string;
-}
-
-/** Aggregated staging data for a product */
-interface StagingProductData {
-  stagingId: string;
-  rowNumber: number;
-  action: string;
-  existingProductId: string | null;
-  id: string;
-  brandId: string;
-  name: string;
-  description: string | null;
-  manufacturerId: string | null;
-  imagePath: string | null;
-  categoryId: string | null;
-  seasonId: string | null;
-  productHandle: string | null;
-  status: string | null;
-  variants: StagingVariantData[];
-  tags: { tagId: string }[];
-  // Product-level environmental/supply chain data (from parent row)
-  materials: { brandMaterialId: string; percentage: string | null }[];
-  ecoClaims: { ecoClaimId: string }[];
-  environment: {
-    carbonKgCo2E: string | null;
-    waterLiters: string | null;
-  } | null;
-  journeySteps: { sortIndex: number; stepType: string; facilityId: string }[];
-  weight: { weight: string | null; weightUnit: string | null } | null;
-}
-
-interface StagingVariantData {
-  stagingId: string;
-  rowNumber: number;
-  action: string;
-  existingVariantId: string | null;
-  id: string;
-  productId: string;
-  upid: string | null;
-  barcode: string | null;
-  sku: string | null;
-  nameOverride: string | null;
-  descriptionOverride: string | null;
-  imagePathOverride: string | null;
-  attributes: {
-    attributeId: string;
-    attributeValueId: string;
-    sortOrder: number;
-  }[];
-  materials: { brandMaterialId: string; percentage: string | null }[];
-  ecoClaims: { ecoClaimId: string }[];
-  environment: {
-    carbonKgCo2e: string | null;
-    waterLiters: string | null;
-  } | null;
-  journeySteps: { sortIndex: number; stepType: string; facilityId: string }[];
-  weight: { weight: string | null; weightUnit: string | null } | null;
 }
 
 /** Pending production operations (computed phase, no DB calls) */
@@ -172,7 +116,6 @@ interface PendingProductionOps {
       imagePath: string;
     }>;
   }>;
-  variantDeletes: string[];
   productTagsToSet: Array<{ productId: string; tagIds: string[] }>;
   productMaterialsToSet: Array<{
     productId: string;
@@ -229,22 +172,7 @@ interface PendingProductionOps {
 
 const {
   importJobs,
-  stagingProducts,
-  stagingProductVariants,
-  stagingVariantAttributes,
-  stagingProductTags,
-  // Product-level staging tables
-  stagingProductMaterials,
-  stagingProductEcoClaims,
-  stagingProductEnvironment,
-  stagingProductJourneySteps,
-  stagingProductWeight,
-  // Variant-level staging tables (for overrides)
-  stagingVariantMaterials,
-  stagingVariantEcoClaims,
-  stagingVariantEnvironment,
-  stagingVariantJourneySteps,
-  stagingVariantWeight,
+  importRows,
   // Production tables
   products,
   productVariants,
@@ -301,7 +229,6 @@ export const commitToProduction = task({
       productsUpdated: 0,
       variantsCreated: 0,
       variantsUpdated: 0,
-      variantsDeleted: 0,
       tagsSet: 0,
       attributesSet: 0,
       materialsSet: 0,
@@ -334,7 +261,7 @@ export const commitToProduction = task({
           process.env.SUPABASE_SERVICE_ROLE_KEY!,
       );
 
-      // Process staging data in batches of 250 (same as integrations engine)
+      // Process data in batches of 250 (same as integrations engine)
       // Each batch goes through complete cycle: load → images → UPIDs → commit
       let hasMoreData = true;
       let lastRowNumber = 0;
@@ -343,13 +270,15 @@ export const commitToProduction = task({
         batchNumber++;
         const batchStartTime = Date.now();
 
-        // PHASE 1: Load next batch of staging data
-        const batchData = await loadStagingBatch(
+        // PHASE 1: Load next batch of NormalizedRowData from import_rows
+        const result = await loadBatchFromImportRows(
           db,
           jobId,
           lastRowNumber,
           BATCH_SIZE,
         );
+        const batchData = result.data;
+        const batchRowIds = result.rowIds;
 
         if (batchData.length === 0) {
           hasMoreData = false;
@@ -410,7 +339,6 @@ export const commitToProduction = task({
           totalStats.productsUpdated += batchStats.productsUpdated;
           totalStats.variantsCreated += batchStats.variantsCreated;
           totalStats.variantsUpdated += batchStats.variantsUpdated;
-          totalStats.variantsDeleted += batchStats.variantsDeleted;
           totalStats.tagsSet += batchStats.tagsSet;
           totalStats.attributesSet += batchStats.attributesSet;
           totalStats.materialsSet += batchStats.materialsSet;
@@ -422,24 +350,7 @@ export const commitToProduction = task({
           committedCount += batchData.length;
 
           // PHASE 7: Mark batch as committed
-          const stagingProductIds = batchData.map((p) => p.stagingId);
-          const stagingVariantIds = batchData.flatMap((p) =>
-            p.variants.map((v) => v.stagingId),
-          );
-
-          await db
-            .update(stagingProducts)
-            .set({ rowStatus: "COMMITTED" })
-            .where(inArray(stagingProducts.stagingId, stagingProductIds));
-
-          if (stagingVariantIds.length > 0) {
-            await db
-              .update(stagingProductVariants)
-              .set({ rowStatus: "COMMITTED" })
-              .where(
-                inArray(stagingProductVariants.stagingId, stagingVariantIds),
-              );
-          }
+          await markImportRowsCommitted(db, batchRowIds);
 
           const batchDuration = Date.now() - batchStartTime;
           logger.info(`Batch ${batchNumber}: Complete`, {
@@ -452,22 +363,15 @@ export const commitToProduction = task({
           logger.error(`Batch ${batchNumber}: Failed`, { error: errorMessage });
 
           // Mark batch as failed
-          const stagingProductIds = batchData.map((p) => p.stagingId);
-          await db
-            .update(stagingProducts)
-            .set({
-              rowStatus: "FAILED",
-              errors: [{ field: "commit", message: errorMessage }],
-            })
-            .where(inArray(stagingProducts.stagingId, stagingProductIds));
+          await markImportRowsFailed(db, batchRowIds, errorMessage);
 
           failedCount += batchData.length;
         }
       }
 
-      // PHASE 8: Delete committed staging data
-      logger.info("Cleaning up committed staging data");
-      await deleteCommittedStagingData(db, jobId);
+      // PHASE 8: Delete committed import_rows
+      logger.info("Cleaning up committed data");
+      await deleteCommittedImportRows(db, jobId);
 
       // Determine final status
       // Consider both commit failures AND validation errors from earlier phase
@@ -533,284 +437,113 @@ export const commitToProduction = task({
 });
 
 // ============================================================================
-// Load Staging Batch (250 products at a time)
+// Load Batch from import_rows (Direct NormalizedRowData)
 // ============================================================================
 
 /**
- * Load a batch of staging products and their related data.
+ * Load a batch of products from import_rows.normalized JSONB.
+ * Returns NormalizedRowData directly - no type conversion needed.
  */
-async function loadStagingBatch(
+async function loadBatchFromImportRows(
   database: Database,
   jobId: string,
   afterRowNumber: number,
   limit: number,
-): Promise<StagingProductData[]> {
-  // Load batch of staging products
+): Promise<{ data: NormalizedRowData[]; rowIds: string[] }> {
+  // Load batch of import rows with normalized data
   const batch = await database
     .select({
-      stagingId: stagingProducts.stagingId,
-      rowNumber: stagingProducts.rowNumber,
-      action: stagingProducts.action,
-      existingProductId: stagingProducts.existingProductId,
-      id: stagingProducts.id,
-      brandId: stagingProducts.brandId,
-      name: stagingProducts.name,
-      description: stagingProducts.description,
-      manufacturerId: stagingProducts.manufacturerId,
-      imagePath: stagingProducts.imagePath,
-      categoryId: stagingProducts.categoryId,
-      seasonId: stagingProducts.seasonId,
-      productHandle: stagingProducts.productHandle,
-      status: stagingProducts.status,
+      id: importRows.id,
+      rowNumber: importRows.rowNumber,
+      normalized: importRows.normalized,
     })
-    .from(stagingProducts)
+    .from(importRows)
     .where(
       and(
-        eq(stagingProducts.jobId, jobId),
+        eq(importRows.jobId, jobId),
         // Only process PENDING and PENDING_WITH_WARNINGS (skip BLOCKED)
-        inArray(stagingProducts.rowStatus, [
-          "PENDING",
-          "PENDING_WITH_WARNINGS",
-        ]),
-        sql`${stagingProducts.rowNumber} > ${afterRowNumber}`,
+        inArray(importRows.status, ["PENDING", "PENDING_WITH_WARNINGS"]),
+        sql`${importRows.rowNumber} > ${afterRowNumber}`,
       ),
     )
-    .orderBy(stagingProducts.rowNumber)
+    .orderBy(importRows.rowNumber)
     .limit(limit);
 
   if (batch.length === 0) {
-    return [];
+    return { data: [], rowIds: [] };
   }
 
-  const stagingIds = batch.map((p) => p.stagingId);
+  const rowIds = batch.map((r) => r.id);
 
-  // Load all related data in parallel
-  const [
-    variantsResult,
-    tagsResult,
-    productMaterialsResult,
-    productEcoClaimsResult,
-    productEnvironmentResult,
-    productJourneyResult,
-    productWeightResult,
-  ] = await Promise.all([
-    loadVariantsWithRelated(database, stagingIds),
-    database
-      .select({
-        stagingProductId: stagingProductTags.stagingProductId,
-        tagId: stagingProductTags.tagId,
-      })
-      .from(stagingProductTags)
-      .where(inArray(stagingProductTags.stagingProductId, stagingIds)),
-    database
-      .select()
-      .from(stagingProductMaterials)
-      .where(inArray(stagingProductMaterials.stagingProductId, stagingIds)),
-    database
-      .select()
-      .from(stagingProductEcoClaims)
-      .where(inArray(stagingProductEcoClaims.stagingProductId, stagingIds)),
-    database
-      .select()
-      .from(stagingProductEnvironment)
-      .where(inArray(stagingProductEnvironment.stagingProductId, stagingIds)),
-    database
-      .select()
-      .from(stagingProductJourneySteps)
-      .where(inArray(stagingProductJourneySteps.stagingProductId, stagingIds)),
-    database
-      .select()
-      .from(stagingProductWeight)
-      .where(inArray(stagingProductWeight.stagingProductId, stagingIds)),
-  ]);
+  // Return NormalizedRowData directly
+  const data: NormalizedRowData[] = batch
+    .filter((row) => row.normalized !== null)
+    .map((row) => row.normalized as NormalizedRowData);
 
-  // Group related data by staging product ID
-  const variantsByProduct = new Map<string, StagingVariantData[]>();
-  for (const v of variantsResult) {
-    const list = variantsByProduct.get(v.stagingProductId) || [];
-    list.push(v);
-    variantsByProduct.set(v.stagingProductId, list);
-  }
-
-  const tagsByProduct = new Map<string, { tagId: string }[]>();
-  for (const t of tagsResult) {
-    const list = tagsByProduct.get(t.stagingProductId) || [];
-    list.push({ tagId: t.tagId });
-    tagsByProduct.set(t.stagingProductId, list);
-  }
-
-  const materialsByProduct = groupBy(
-    productMaterialsResult,
-    (m) => m.stagingProductId,
-  );
-  const ecoClaimsByProduct = groupBy(
-    productEcoClaimsResult,
-    (c) => c.stagingProductId,
-  );
-  const envByProduct = new Map(
-    productEnvironmentResult.map((e) => [e.stagingProductId, e]),
-  );
-  const journeyByProduct = groupBy(
-    productJourneyResult,
-    (j) => j.stagingProductId,
-  );
-  const weightByProduct = new Map(
-    productWeightResult.map((w) => [w.stagingProductId, w]),
-  );
-
-  // Assemble product data
-  return batch.map((product) => ({
-    ...product,
-    variants: variantsByProduct.get(product.stagingId) || [],
-    tags: tagsByProduct.get(product.stagingId) || [],
-    materials: (materialsByProduct.get(product.stagingId) || []).map((m) => ({
-      brandMaterialId: m.brandMaterialId,
-      percentage: m.percentage,
-    })),
-    ecoClaims: (ecoClaimsByProduct.get(product.stagingId) || []).map((c) => ({
-      ecoClaimId: c.ecoClaimId,
-    })),
-    environment: envByProduct.get(product.stagingId)
-      ? {
-          carbonKgCo2E: envByProduct.get(product.stagingId)!.carbonKgCo2E,
-          waterLiters: envByProduct.get(product.stagingId)!.waterLiters,
-        }
-      : null,
-    journeySteps: (journeyByProduct.get(product.stagingId) || []).map((j) => ({
-      sortIndex: j.sortIndex,
-      stepType: j.stepType,
-      facilityId: j.facilityId,
-    })),
-    weight: weightByProduct.get(product.stagingId)
-      ? {
-          weight: weightByProduct.get(product.stagingId)!.weight,
-          weightUnit: weightByProduct.get(product.stagingId)!.weightUnit,
-        }
-      : null,
-  }));
+  return { data, rowIds };
 }
 
 /**
- * Load all variants with their related data.
+ * Mark import rows as committed.
  */
-async function loadVariantsWithRelated(
+async function markImportRowsCommitted(
   database: Database,
-  stagingProductIds: string[],
-): Promise<(StagingVariantData & { stagingProductId: string })[]> {
-  // Load variants
-  const variants = await database
-    .select({
-      stagingId: stagingProductVariants.stagingId,
-      stagingProductId: stagingProductVariants.stagingProductId,
-      rowNumber: stagingProductVariants.rowNumber,
-      action: stagingProductVariants.action,
-      existingVariantId: stagingProductVariants.existingVariantId,
-      id: stagingProductVariants.id,
-      productId: stagingProductVariants.productId,
-      upid: stagingProductVariants.upid,
-      barcode: stagingProductVariants.barcode,
-      sku: stagingProductVariants.sku,
-      nameOverride: stagingProductVariants.nameOverride,
-      descriptionOverride: stagingProductVariants.descriptionOverride,
-      imagePathOverride: stagingProductVariants.imagePathOverride,
-    })
-    .from(stagingProductVariants)
-    .where(inArray(stagingProductVariants.stagingProductId, stagingProductIds));
+  rowIds: string[],
+): Promise<void> {
+  if (rowIds.length === 0) return;
 
-  if (variants.length === 0) return [];
+  await database
+    .update(importRows)
+    .set({ status: "COMMITTED" })
+    .where(inArray(importRows.id, rowIds));
+}
 
-  const variantStagingIds = variants.map((v) => v.stagingId);
+/**
+ * Mark import rows as failed.
+ */
+async function markImportRowsFailed(
+  database: Database,
+  rowIds: string[],
+  errorMessage: string,
+): Promise<void> {
+  if (rowIds.length === 0) return;
 
-  // Load all variant-related data in parallel
-  const [
-    attributesResult,
-    materialsResult,
-    ecoClaimsResult,
-    environmentResult,
-    journeyResult,
-    weightResult,
-  ] = await Promise.all([
-    database
-      .select()
-      .from(stagingVariantAttributes)
-      .where(
-        inArray(stagingVariantAttributes.stagingVariantId, variantStagingIds),
-      ),
-    database
-      .select()
-      .from(stagingVariantMaterials)
-      .where(
-        inArray(stagingVariantMaterials.stagingVariantId, variantStagingIds),
-      ),
-    database
-      .select()
-      .from(stagingVariantEcoClaims)
-      .where(
-        inArray(stagingVariantEcoClaims.stagingVariantId, variantStagingIds),
-      ),
-    database
-      .select()
-      .from(stagingVariantEnvironment)
-      .where(
-        inArray(stagingVariantEnvironment.stagingVariantId, variantStagingIds),
-      ),
-    database
-      .select()
-      .from(stagingVariantJourneySteps)
-      .where(
-        inArray(stagingVariantJourneySteps.stagingVariantId, variantStagingIds),
-      ),
-    database
-      .select()
-      .from(stagingVariantWeight)
-      .where(inArray(stagingVariantWeight.stagingVariantId, variantStagingIds)),
-  ]);
+  await database
+    .update(importRows)
+    .set({ status: "FAILED", error: errorMessage })
+    .where(inArray(importRows.id, rowIds));
+}
 
-  // Group by variant staging ID
-  const attrsByVariant = groupBy(attributesResult, (a) => a.stagingVariantId);
-  const matsByVariant = groupBy(materialsResult, (m) => m.stagingVariantId);
-  const claimsByVariant = groupBy(ecoClaimsResult, (c) => c.stagingVariantId);
-  const envByVariant = new Map(
-    environmentResult.map((e) => [e.stagingVariantId, e]),
-  );
-  const journeyByVariant = groupBy(journeyResult, (j) => j.stagingVariantId);
-  const weightByVariant = new Map(
-    weightResult.map((w) => [w.stagingVariantId, w]),
-  );
+/**
+ * Delete committed import rows.
+ */
+async function deleteCommittedImportRows(
+  database: Database,
+  jobId: string,
+): Promise<number> {
+  const committed = await database
+    .select({ id: importRows.id })
+    .from(importRows)
+    .where(
+      and(eq(importRows.jobId, jobId), eq(importRows.status, "COMMITTED")),
+    );
 
-  // Assemble variant data
-  return variants.map((v) => ({
-    ...v,
-    attributes: (attrsByVariant.get(v.stagingId) || []).map((a) => ({
-      attributeId: a.attributeId,
-      attributeValueId: a.attributeValueId,
-      sortOrder: a.sortOrder,
-    })),
-    materials: (matsByVariant.get(v.stagingId) || []).map((m) => ({
-      brandMaterialId: m.brandMaterialId,
-      percentage: m.percentage,
-    })),
-    ecoClaims: (claimsByVariant.get(v.stagingId) || []).map((c) => ({
-      ecoClaimId: c.ecoClaimId,
-    })),
-    environment: envByVariant.get(v.stagingId)
-      ? {
-          carbonKgCo2e: envByVariant.get(v.stagingId)!.carbonKgCo2e,
-          waterLiters: envByVariant.get(v.stagingId)!.waterLiters,
-        }
-      : null,
-    journeySteps: (journeyByVariant.get(v.stagingId) || []).map((j) => ({
-      sortIndex: j.sortIndex,
-      stepType: j.stepType,
-      facilityId: j.facilityId,
-    })),
-    weight: weightByVariant.get(v.stagingId)
-      ? {
-          weight: weightByVariant.get(v.stagingId)!.weight,
-          weightUnit: weightByVariant.get(v.stagingId)!.weightUnit,
-        }
-      : null,
-  }));
+  if (committed.length === 0) return 0;
+
+  // Delete in chunks
+  const CHUNK_SIZE = 500;
+  for (let i = 0; i < committed.length; i += CHUNK_SIZE) {
+    const chunk = committed.slice(i, i + CHUNK_SIZE);
+    const ids = chunk.map((r) => r.id);
+    await database.delete(importRows).where(inArray(importRows.id, ids));
+  }
+
+  logger.info("Deleted committed import rows", {
+    jobId,
+    count: committed.length,
+  });
+
+  return committed.length;
 }
 
 // ============================================================================
@@ -822,7 +555,7 @@ async function loadVariantsWithRelated(
  */
 async function preGenerateUpids(
   database: Database,
-  batchData: StagingProductData[],
+  batchData: NormalizedRowData[],
 ): Promise<Map<string, string>> {
   // Count variants that need UPIDs
   const variantsNeedingUpids: string[] = [];
@@ -873,11 +606,11 @@ async function preGenerateUpids(
 // ============================================================================
 
 /**
- * Compute all production operations from a batch of staging data.
+ * Compute all production operations from a batch of NormalizedRowData.
  * This is a PURE FUNCTION - no database calls!
  */
 function computeProductionOps(
-  batchData: StagingProductData[],
+  batchData: NormalizedRowData[],
   upidMap: Map<string, string>,
   brandId: string,
 ): { ops: PendingProductionOps; batchStats: CommitStats } {
@@ -886,7 +619,6 @@ function computeProductionOps(
     productUpdates: [],
     variantCreates: [],
     variantUpdates: [],
-    variantDeletes: [],
     productTagsToSet: [],
     productMaterialsToSet: [],
     productEcoClaimsToSet: [],
@@ -906,7 +638,6 @@ function computeProductionOps(
     productsUpdated: 0,
     variantsCreated: 0,
     variantsUpdated: 0,
-    variantsDeleted: 0,
     tagsSet: 0,
     attributesSet: 0,
     materialsSet: 0,
@@ -918,98 +649,100 @@ function computeProductionOps(
     imagesFailed: 0,
   };
 
-  for (const stagingProduct of batchData) {
-    const productId = stagingProduct.existingProductId || stagingProduct.id;
+  for (const normalizedProduct of batchData) {
+    const productId =
+      normalizedProduct.existingProductId || normalizedProduct.id;
 
     // Product create or update
-    if (stagingProduct.action === "CREATE") {
+    if (normalizedProduct.action === "CREATE") {
       ops.productCreates.push({
         id: productId,
         brandId,
-        name: stagingProduct.name,
-        productHandle: stagingProduct.productHandle ?? productId,
-        description: stagingProduct.description ?? undefined,
-        categoryId: stagingProduct.categoryId ?? undefined,
-        seasonId: stagingProduct.seasonId ?? undefined,
-        manufacturerId: stagingProduct.manufacturerId ?? undefined,
-        imagePath: stagingProduct.imagePath ?? undefined,
-        status: stagingProduct.status ?? "unpublished",
+        name: normalizedProduct.name,
+        productHandle: normalizedProduct.productHandle ?? productId,
+        description: normalizedProduct.description ?? undefined,
+        categoryId: normalizedProduct.categoryId ?? undefined,
+        seasonId: normalizedProduct.seasonId ?? undefined,
+        manufacturerId: normalizedProduct.manufacturerId ?? undefined,
+        imagePath: normalizedProduct.imagePath ?? undefined,
+        status: normalizedProduct.status ?? "unpublished",
       });
       batchStats.productsCreated++;
     } else if (
-      stagingProduct.action === "UPDATE" &&
-      stagingProduct.existingProductId
+      normalizedProduct.action === "UPDATE" &&
+      normalizedProduct.existingProductId
     ) {
       const updateData: PendingProductionOps["productUpdates"][0]["data"] = {};
 
-      if (stagingProduct.name?.trim()) updateData.name = stagingProduct.name;
-      if (stagingProduct.productHandle?.trim())
-        updateData.productHandle = stagingProduct.productHandle;
-      if (stagingProduct.description?.trim())
-        updateData.description = stagingProduct.description;
-      if (stagingProduct.categoryId)
-        updateData.categoryId = stagingProduct.categoryId;
-      if (stagingProduct.seasonId)
-        updateData.seasonId = stagingProduct.seasonId;
-      if (stagingProduct.manufacturerId)
-        updateData.manufacturerId = stagingProduct.manufacturerId;
-      if (stagingProduct.imagePath?.trim())
-        updateData.imagePath = stagingProduct.imagePath;
-      if (stagingProduct.status?.trim())
-        updateData.status = stagingProduct.status;
+      if (normalizedProduct.name?.trim())
+        updateData.name = normalizedProduct.name;
+      if (normalizedProduct.productHandle?.trim())
+        updateData.productHandle = normalizedProduct.productHandle;
+      if (normalizedProduct.description?.trim())
+        updateData.description = normalizedProduct.description;
+      if (normalizedProduct.categoryId)
+        updateData.categoryId = normalizedProduct.categoryId;
+      if (normalizedProduct.seasonId)
+        updateData.seasonId = normalizedProduct.seasonId;
+      if (normalizedProduct.manufacturerId)
+        updateData.manufacturerId = normalizedProduct.manufacturerId;
+      if (normalizedProduct.imagePath?.trim())
+        updateData.imagePath = normalizedProduct.imagePath;
+      if (normalizedProduct.status?.trim())
+        updateData.status = normalizedProduct.status;
 
       if (Object.keys(updateData).length > 0) {
         ops.productUpdates.push({
-          id: stagingProduct.existingProductId,
+          id: normalizedProduct.existingProductId,
           data: updateData,
         });
         batchStats.productsUpdated++;
       }
     }
 
-    // Product tags
-    if (stagingProduct.tags.length > 0) {
+    // Product tags (now directly array of tag IDs)
+    if (normalizedProduct.tags.length > 0) {
       ops.productTagsToSet.push({
         productId,
-        tagIds: stagingProduct.tags.map((t) => t.tagId),
+        tagIds: normalizedProduct.tags,
       });
-      batchStats.tagsSet += stagingProduct.tags.length;
+      batchStats.tagsSet += normalizedProduct.tags.length;
     }
 
     // Product materials
-    if (stagingProduct.materials.length > 0) {
+    if (normalizedProduct.materials.length > 0) {
       ops.productMaterialsToSet.push({
         productId,
-        materials: stagingProduct.materials,
+        materials: normalizedProduct.materials,
       });
-      batchStats.materialsSet += stagingProduct.materials.length;
+      batchStats.materialsSet += normalizedProduct.materials.length;
     }
 
     // Product eco claims
-    if (stagingProduct.ecoClaims.length > 0) {
+    if (normalizedProduct.ecoClaims.length > 0) {
       ops.productEcoClaimsToSet.push({
         productId,
-        ecoClaimIds: stagingProduct.ecoClaims.map((c) => c.ecoClaimId),
+        ecoClaimIds: normalizedProduct.ecoClaims.map((c) => c.ecoClaimId),
       });
-      batchStats.ecoClaimsSet += stagingProduct.ecoClaims.length;
+      batchStats.ecoClaimsSet += normalizedProduct.ecoClaims.length;
     }
 
     // Product environment
-    if (stagingProduct.environment) {
-      if (stagingProduct.environment.carbonKgCo2E) {
+    if (normalizedProduct.environment) {
+      if (normalizedProduct.environment.carbonKgCo2e) {
         ops.productEnvironmentUpserts.push({
           productId,
           metric: "carbon_kg_co2e",
-          value: stagingProduct.environment.carbonKgCo2E,
+          value: normalizedProduct.environment.carbonKgCo2e,
           unit: "kg_co2e",
         });
         batchStats.environmentSet++;
       }
-      if (stagingProduct.environment.waterLiters) {
+      if (normalizedProduct.environment.waterLiters) {
         ops.productEnvironmentUpserts.push({
           productId,
           metric: "water_liters",
-          value: stagingProduct.environment.waterLiters,
+          value: normalizedProduct.environment.waterLiters,
           unit: "liters",
         });
         batchStats.environmentSet++;
@@ -1017,26 +750,26 @@ function computeProductionOps(
     }
 
     // Product journey steps
-    if (stagingProduct.journeySteps.length > 0) {
+    if (normalizedProduct.journeySteps.length > 0) {
       ops.productJourneyStepsToSet.push({
         productId,
-        steps: stagingProduct.journeySteps,
+        steps: normalizedProduct.journeySteps,
       });
-      batchStats.journeyStepsSet += stagingProduct.journeySteps.length;
+      batchStats.journeyStepsSet += normalizedProduct.journeySteps.length;
     }
 
     // Product weight
-    if (stagingProduct.weight?.weight) {
+    if (normalizedProduct.weight?.weight) {
       ops.productWeightUpserts.push({
         productId,
-        weight: stagingProduct.weight.weight,
-        weightUnit: stagingProduct.weight.weightUnit ?? "g",
+        weight: normalizedProduct.weight.weight,
+        weightUnit: normalizedProduct.weight.weightUnit ?? "g",
       });
       batchStats.weightSet++;
     }
 
     // Variants
-    for (const variant of stagingProduct.variants) {
+    for (const variant of normalizedProduct.variants) {
       const variantId = variant.existingVariantId || variant.id;
 
       if (variant.action === "CREATE") {
@@ -1073,13 +806,7 @@ function computeProductionOps(
           });
           batchStats.variantsUpdated++;
         }
-      } else if (variant.action === "DELETE" && variant.existingVariantId) {
-        ops.variantDeletes.push(variant.existingVariantId);
-        batchStats.variantsDeleted++;
       }
-
-      // Skip relation updates for DELETE variants
-      if (variant.action === "DELETE") continue;
 
       // Variant attributes
       if (variant.attributes.length > 0) {
@@ -1180,14 +907,7 @@ async function batchExecuteProductionOps(
         .where(eq(productVariants.id, update.id));
     }
 
-    // 5. Variant deletes (batch)
-    if (ops.variantDeletes.length > 0) {
-      await tx
-        .delete(productVariants)
-        .where(inArray(productVariants.id, ops.variantDeletes));
-    }
-
-    // 6. Product tags (delete old + insert new)
+    // 5. Product tags (delete old + insert new)
     if (ops.productTagsToSet.length > 0) {
       const allProductIds = ops.productTagsToSet.map((t) => t.productId);
       await tx
@@ -1419,11 +1139,12 @@ function isSameImageSource(
 
 /**
  * Process images for a batch with rate limiting.
+ * Works directly with NormalizedRowData.
  */
 async function processImages(
   storageClient: SupabaseClient,
   brandId: string,
-  batchData: StagingProductData[],
+  batchData: NormalizedRowData[],
   existingProductImageMap: Map<string, string | null>,
 ): Promise<{ completed: number; failed: number; skipped: number }> {
   const tasks: ImageUploadTask[] = [];
@@ -1441,7 +1162,9 @@ async function processImages(
         existingImagePath &&
         isSameImageSource(existingImagePath, product.imagePath)
       ) {
-        product.imagePath = existingImagePath ?? null;
+        // Mutate the product to use existing image path
+        (product as { imagePath: string | null }).imagePath =
+          existingImagePath ?? null;
         skipped++;
       } else {
         tasks.push({
@@ -1530,64 +1253,23 @@ async function processImages(
     }
   });
 
-  // Update batch data with new image paths
+  // Update batch data with new image paths (mutate in place)
   for (const product of batchData) {
     const productPath = imagePathResults.get(`product:${product.id}`);
     if (productPath) {
-      product.imagePath = productPath;
+      (product as { imagePath: string | null }).imagePath = productPath;
     }
 
     for (const variant of product.variants) {
       const variantPath = imagePathResults.get(`variant:${variant.id}`);
       if (variantPath) {
-        variant.imagePathOverride = variantPath;
+        (variant as { imagePathOverride: string | null }).imagePathOverride =
+          variantPath;
       }
     }
   }
 
   return { completed, failed, skipped };
-}
-
-// ============================================================================
-// Delete Committed Staging Data
-// ============================================================================
-
-async function deleteCommittedStagingData(
-  database: Database,
-  jobId: string,
-): Promise<void> {
-  const committedProducts = await database
-    .select({ stagingId: stagingProducts.stagingId })
-    .from(stagingProducts)
-    .where(
-      and(
-        eq(stagingProducts.jobId, jobId),
-        eq(stagingProducts.rowStatus, "COMMITTED"),
-      ),
-    );
-
-  if (committedProducts.length === 0) {
-    return;
-  }
-
-  const stagingIds = committedProducts.map((p) => p.stagingId);
-
-  // Delete in chunks to avoid memory issues
-  const CHUNK_SIZE = 500;
-  for (let i = 0; i < stagingIds.length; i += CHUNK_SIZE) {
-    const chunk = stagingIds.slice(i, i + CHUNK_SIZE);
-    await database.delete(stagingProducts).where(
-      sql`${stagingProducts.stagingId} = ANY(ARRAY[${sql.join(
-        chunk.map((id) => sql`${id}`),
-        sql`, `,
-      )}]::uuid[])`,
-    );
-  }
-
-  logger.info("Deleted committed staging data", {
-    jobId,
-    count: stagingIds.length,
-  });
 }
 
 // ============================================================================
@@ -1611,22 +1293,4 @@ async function revalidateBrandCache(brandId: string): Promise<void> {
       error: error instanceof Error ? error.message : String(error),
     });
   }
-}
-
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
-function groupBy<T, K extends string | number>(
-  items: T[],
-  keyFn: (item: T) => K,
-): Map<K, T[]> {
-  const map = new Map<K, T[]>();
-  for (const item of items) {
-    const key = keyFn(item);
-    const list = map.get(key) || [];
-    list.push(item);
-    map.set(key, list);
-  }
-  return map;
 }

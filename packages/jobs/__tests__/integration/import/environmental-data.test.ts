@@ -22,7 +22,7 @@ import {
   basicProduct,
   completeProduct,
 } from "@v1/testing/bulk-import";
-import { parseExcelFile } from "../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../src/lib/excel";
 
 describe("Environmental Data Processing", () => {
   let brandId: string;

@@ -23,7 +23,7 @@ import {
 } from "@v1/db/testing";
 import { ExcelBuilder, basicProduct } from "@v1/testing/bulk-import";
 import { loadBrandCatalog } from "../../../src/lib/catalog-loader";
-import { parseExcelFile } from "../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../src/lib/excel";
 
 describe("Edge Cases", () => {
   let brandId: string;

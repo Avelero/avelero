@@ -21,7 +21,7 @@ import {
 import { ExcelBuilder, basicProduct } from "@v1/testing/bulk-import";
 import { eq } from "drizzle-orm";
 import { loadBrandCatalog } from "../../../src/lib/catalog-loader";
-import { parseExcelFile } from "../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../src/lib/excel";
 
 describe("Import Job Lifecycle", () => {
   let brandId: string;

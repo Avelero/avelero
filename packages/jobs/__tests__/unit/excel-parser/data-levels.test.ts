@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { ExcelBuilder } from "@v1/testing/bulk-import";
-import { parseExcelFile } from "../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../src/lib/excel";
 
 describe("Excel Parser - Data Levels", () => {
   it("extracts product-level fields from parent row", async () => {

@@ -49,4 +49,3 @@ export const collectionDeleteSchema = byIdSchema;
 export type CollectionCreateInput = z.infer<typeof collectionCreateSchema>;
 export type CollectionUpdateInput = z.infer<typeof collectionUpdateSchema>;
 export type CollectionDeleteInput = z.infer<typeof collectionDeleteSchema>;
-

@@ -13,7 +13,7 @@ import { describe, expect, it } from "bun:test";
 import {
   EXPECTED_COLUMNS,
   validateTemplateMatch,
-} from "../../../src/lib/excel-parser";
+} from "../../../src/lib/excel";
 
 describe("Excel Parser - Template Validation", () => {
   // Get all expected columns as a mutable string array

@@ -19,7 +19,7 @@ import {
 } from "@v1/db/testing";
 import { ExcelBuilder, basicProduct } from "@v1/testing/bulk-import";
 import * as ExcelJS from "exceljs";
-import { parseExcelFile } from "../../../../src/lib/excel-parser";
+import { parseExcelFile } from "../../../../src/lib/excel";
 
 describe("Error Handling - System Errors", () => {
   let brandId: string;

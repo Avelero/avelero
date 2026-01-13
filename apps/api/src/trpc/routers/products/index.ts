@@ -1,3 +1,4 @@
+import { and, eq, inArray } from "@v1/db/queries";
 /**
  * Products domain router implementation.
  *
@@ -9,32 +10,31 @@
  * - Merged `get` and `getByUpid` into single `get` endpoint with discriminated union
  */
 import {
-  createProduct,
-  deleteProduct,
-  getProductWithIncludes,
-  listProductsWithIncludes,
-  updateProduct,
-  setProductEcoClaims,
-  setProductJourneySteps,
-  upsertProductEnvironment,
-  upsertProductMaterials,
-  setProductTags,
   bulkDeleteProductsByFilter,
   bulkDeleteProductsByIds,
   bulkUpdateProductsByFilter,
   bulkUpdateProductsByIds,
+  createProduct,
+  deleteProduct,
+  getProductWithIncludes,
+  listProductsWithIncludes,
+  setProductEcoClaims,
+  setProductJourneySteps,
+  setProductTags,
+  updateProduct,
+  upsertProductEnvironment,
+  upsertProductMaterials,
 } from "@v1/db/queries/products";
-import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
 import { productVariants, products } from "@v1/db/schema";
-import { and, eq, inArray } from "@v1/db/queries";
+import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
+import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import {
+  productUnifiedGetSchema,
   productsDomainCreateSchema,
   productsDomainListSchema,
-  productUnifiedGetSchema,
-  unifiedUpdateSchema,
   unifiedDeleteSchema,
+  unifiedUpdateSchema,
 } from "../../../schemas/products.js";
-import { generateProductHandle } from "../../../schemas/_shared/primitives.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
   createEntityResponse,
@@ -124,9 +124,8 @@ export const productsRouter = createTRPCRouter({
       const brandId = ensureBrandScope(brandCtx);
 
       // Handle discriminated union: { id } or { handle }
-      const identifier = 'id' in input
-        ? { id: input.id }
-        : { handle: input.handle };
+      const identifier =
+        "id" in input ? { id: input.id } : { handle: input.handle };
 
       return getProductWithIncludes(brandCtx.db, brandId, identifier, {
         includeVariants: input.includeVariants,
@@ -142,7 +141,8 @@ export const productsRouter = createTRPCRouter({
 
       try {
         // Auto-generate product handle from name if not provided
-        const productHandle = input.product_handle || generateProductHandle(input.name);
+        const productHandle =
+          input.product_handle || generateProductHandle(input.name);
 
         const payload: Record<string, unknown> = {
           name: input.name,
@@ -181,10 +181,10 @@ export const productsRouter = createTRPCRouter({
 
   /**
    * Update products - supports both single and bulk operations.
-   * 
+   *
    * Single mode: { id: string, ...updateFields }
    * Bulk mode: { selection: BulkSelection, ...bulkUpdateFields }
-   * 
+   *
    * For bulk operations, only certain fields are supported (status, category_id, season_id).
    */
   update: brandRequiredProcedure
@@ -209,11 +209,16 @@ export const productsRouter = createTRPCRouter({
           // Bulk update based on selection mode
           let result: { updated: number };
           if (selection.mode === "all") {
-            result = await bulkUpdateProductsByFilter(brandCtx.db, brandId, bulkUpdates, {
-              filterState: selection.filters,
-              search: selection.search,
-              excludeIds: selection.excludeIds,
-            });
+            result = await bulkUpdateProductsByFilter(
+              brandCtx.db,
+              brandId,
+              bulkUpdates,
+              {
+                filterState: selection.filters,
+                search: selection.search,
+                excludeIds: selection.excludeIds,
+              },
+            );
           } else {
             result = await bulkUpdateProductsByIds(
               brandCtx.db,
@@ -237,13 +242,18 @@ export const productsRouter = createTRPCRouter({
         const payload: Record<string, unknown> = { id: input.id };
 
         // Only add fields to payload if they were explicitly provided in input
-        if (input.product_handle !== undefined) payload.productHandle = input.product_handle;
+        if (input.product_handle !== undefined)
+          payload.productHandle = input.product_handle;
         if (input.name !== undefined) payload.name = input.name;
-        if (input.description !== undefined) payload.description = input.description;
-        if (input.category_id !== undefined) payload.categoryId = input.category_id;
+        if (input.description !== undefined)
+          payload.description = input.description;
+        if (input.category_id !== undefined)
+          payload.categoryId = input.category_id;
         if (input.season_id !== undefined) payload.seasonId = input.season_id;
-        if (input.manufacturer_id !== undefined) payload.manufacturerId = input.manufacturer_id;
-        if (input.image_path !== undefined) payload.imagePath = input.image_path;
+        if (input.manufacturer_id !== undefined)
+          payload.manufacturerId = input.manufacturer_id;
+        if (input.image_path !== undefined)
+          payload.imagePath = input.image_path;
         if (input.status !== undefined) payload.status = input.status;
 
         const product = await updateProduct(
@@ -265,10 +275,12 @@ export const productsRouter = createTRPCRouter({
           const [productWithHandle] = await brandCtx.db
             .select({ productHandle: products.productHandle })
             .from(products)
-            .where(and(eq(products.id, product.id), eq(products.brandId, brandId)))
+            .where(
+              and(eq(products.id, product.id), eq(products.brandId, brandId)),
+            )
             .limit(1);
           if (productWithHandle?.productHandle) {
-            revalidateProduct(productWithHandle.productHandle).catch(() => { });
+            revalidateProduct(productWithHandle.productHandle).catch(() => {});
           }
         }
 
@@ -280,10 +292,10 @@ export const productsRouter = createTRPCRouter({
 
   /**
    * Delete products - supports both single and bulk operations.
-   * 
+   *
    * Single mode: { id: string }
    * Bulk mode: { selection: BulkSelection }
-   * 
+   *
    * Bulk selection supports:
    * - 'explicit': Delete specific products by ID
    * - 'all': Delete all products matching filters, optionally excluding some IDs
@@ -312,13 +324,19 @@ export const productsRouter = createTRPCRouter({
             });
           } else {
             // Bulk delete by explicit IDs
-            result = await bulkDeleteProductsByIds(brandCtx.db, brandId, selection.ids);
+            result = await bulkDeleteProductsByIds(
+              brandCtx.db,
+              brandId,
+              selection.ids,
+            );
           }
 
           // Clean up product images from storage after deletion
           if (result.imagePaths.length > 0 && ctx.supabase) {
             try {
-              await ctx.supabase.storage.from("products").remove(result.imagePaths);
+              await ctx.supabase.storage
+                .from("products")
+                .remove(result.imagePaths);
             } catch {
               // Silently ignore storage cleanup errors - products are already deleted
             }

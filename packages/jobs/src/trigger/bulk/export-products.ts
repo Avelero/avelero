@@ -26,7 +26,7 @@ import {
   listProductIds,
 } from "@v1/db/queries/products";
 import ExportReadyEmail from "@v1/email/emails/export-ready";
-import { generateProductExportExcel } from "../../lib/excel-export-products";
+import { generateProductExportExcel } from "../../lib/excel";
 import { getResend } from "../../utils/resend";
 
 // ============================================================================

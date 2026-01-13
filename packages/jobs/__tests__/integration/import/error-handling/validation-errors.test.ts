@@ -34,7 +34,7 @@ import {
   type ParsedProduct,
   findDuplicateIdentifiers,
   parseExcelFile,
-} from "../../../../src/lib/excel-parser";
+} from "../../../../src/lib/excel";
 
 describe("Error Handling - Validation Errors", () => {
   let brandId: string;

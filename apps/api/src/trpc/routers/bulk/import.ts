@@ -12,12 +12,12 @@ import { tasks } from "@trigger.dev/sdk/v3";
  */
 import {
   createImportJob,
-  deleteStagingDataForJob,
+  deleteAllImportRowsForJob,
   getImportJobStatus,
   getRecentImportJobs,
   updateImportJobStatus,
 } from "@v1/db/queries/bulk";
-import { parseExcelFile } from "@v1/jobs/lib/excel-parser";
+import { parseExcelFile } from "@v1/jobs/lib/excel";
 
 import {
   dismissFailedImportSchema,
@@ -60,7 +60,7 @@ interface ResolvedImportFilePath {
 
 /**
  * Validates and resolves the import file path.
- * 
+ *
  * Expected format: brandId/timestamp-filename
  * Example: ac262c8a-c742-4fa9-91f7-31d0833129ae/1768059882771-template.xlsx
  */
@@ -93,7 +93,7 @@ function resolveImportFilePath(params: {
 
   const resolvedFilename = fileSegments.join("/");
 
-  // The uploaded filename includes a timestamp prefix, 
+  // The uploaded filename includes a timestamp prefix,
   // so we check if it ends with the original filename
   if (!resolvedFilename.endsWith(params.filename)) {
     throw badRequest(
@@ -351,7 +351,11 @@ export const importRouter = createTRPCRouter({
       const brandId = brandCtx.brandId;
 
       try {
-        const jobs = await getRecentImportJobs(brandCtx.db, brandId, input.limit);
+        const jobs = await getRecentImportJobs(
+          brandCtx.db,
+          brandId,
+          input.limit,
+        );
 
         return {
           jobs: jobs.map((job) => ({
@@ -406,8 +410,8 @@ export const importRouter = createTRPCRouter({
           );
         }
 
-        // Delete staging data for this job
-        await deleteStagingDataForJob(brandCtx.db, input.jobId);
+        // Delete import rows for this job
+        await deleteAllImportRowsForJob(brandCtx.db, input.jobId);
 
         // Update job to mark as dismissed (clear the exportable failures flag)
         await updateImportJobStatus(brandCtx.db, {

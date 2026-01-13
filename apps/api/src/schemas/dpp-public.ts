@@ -3,7 +3,7 @@
  *
  * These schemas back the `dppPublic` router for public-facing endpoints
  * that don't require authentication.
- * 
+ *
  * URL structure: /[brandSlug]/[productHandle]/[variantUpid]/
  */
 import { z } from "zod";
@@ -45,8 +45,11 @@ export const dppCarouselListSchema = z.object({
   limit: z.number().min(1).max(20).default(8),
 });
 
-export type DppGetByProductHandleInput = z.infer<typeof dppGetByProductHandleSchema>;
-export type DppGetByVariantUpidInput = z.infer<typeof dppGetByVariantUpidSchema>;
+export type DppGetByProductHandleInput = z.infer<
+  typeof dppGetByProductHandleSchema
+>;
+export type DppGetByVariantUpidInput = z.infer<
+  typeof dppGetByVariantUpidSchema
+>;
 export type DppThemePreviewInput = z.infer<typeof dppThemePreviewSchema>;
 export type DppCarouselListInput = z.infer<typeof dppCarouselListSchema>;
-

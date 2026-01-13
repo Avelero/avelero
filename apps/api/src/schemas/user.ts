@@ -5,11 +5,7 @@
  * consistent validation for account management flows.
  */
 import { z } from "zod";
-import {
-  emailSchema,
-  urlSchema,
-  uuidSchema,
-} from "./_shared/primitives.js";
+import { emailSchema, urlSchema, uuidSchema } from "./_shared/primitives.js";
 
 /**
  * Validates payloads for updating the authenticated user's profile.

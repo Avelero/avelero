@@ -25,7 +25,7 @@ import { type Database, serviceDb as db } from "@v1/db/client";
 import { and, eq, inArray, sql } from "@v1/db/queries";
 import type { NormalizedRowData, NormalizedVariant } from "@v1/db/queries/bulk";
 import * as schema from "@v1/db/schema";
-import { generateUniqueUpids } from "@v1/db/utils";
+import { generateUniqueUpids, sendBulkBroadcast } from "@v1/db/utils";
 import {
   downloadAndUploadImage,
   isExternalImageUrl,
@@ -331,6 +331,8 @@ export const commitToProduction = task({
         );
 
         // PHASE 6: Execute production writes for this batch
+        // Triggers are disabled inside the transaction using SET LOCAL
+        // This prevents overwhelming Supabase Realtime with per-row broadcasts
         try {
           await batchExecuteProductionOps(db, ops);
 
@@ -351,6 +353,18 @@ export const commitToProduction = task({
 
           // PHASE 7: Mark batch as committed
           await markImportRowsCommitted(db, batchRowIds);
+
+          // Send single consolidated broadcast for this batch
+          await sendBulkBroadcast(db, {
+            domain: "products",
+            brandId,
+            operation: "BULK_INSERT",
+            summary: {
+              created: batchStats.productsCreated,
+              updated: batchStats.productsUpdated,
+              total: batchData.length,
+            },
+          });
 
           const batchDuration = Date.now() - batchStartTime;
           logger.info(`Batch ${batchNumber}: Complete`, {
@@ -875,12 +889,17 @@ function computeProductionOps(
 
 /**
  * Execute all production operations for a batch within a transaction.
+ * Uses SET LOCAL to disable triggers for this transaction only.
+ * This prevents per-row broadcasts from overwhelming Supabase Realtime.
  */
 async function batchExecuteProductionOps(
   database: Database,
   ops: PendingProductionOps,
 ): Promise<void> {
   await database.transaction(async (tx) => {
+    // Note: Database-level throttling in realtime.broadcast_domain_changes() ensures
+    // only one broadcast per domain/brand per second, preventing message flooding.
+
     // 1. Product creates (batch)
     if (ops.productCreates.length > 0) {
       await tx.insert(products).values(ops.productCreates);

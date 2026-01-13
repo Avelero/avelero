@@ -268,7 +268,7 @@ export function useUpdateFieldMappingsBatchMutation() {
 // =============================================================================
 
 /**
- * Get current sync status with polling.
+ * Get current sync status (fetches once, real-time updates via useJobProgress).
  */
 export function useSyncStatusQuery(brandIntegrationId: string | null) {
   const trpc = useTRPC();
@@ -278,7 +278,7 @@ export function useSyncStatusQuery(brandIntegrationId: string | null) {
   return useQuery({
     ...opts,
     enabled: typeof window !== "undefined" && !!brandIntegrationId,
-    refetchInterval: 5000, // Poll every 5 seconds for active syncs
+    // No polling - real-time updates come via WebSocket (useJobProgress hook)
   });
 }
 

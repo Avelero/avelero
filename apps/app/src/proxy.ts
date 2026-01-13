@@ -20,15 +20,17 @@ export async function proxy(request: NextRequest) {
   const supabase = await createClient();
   const encodedSearchParams = `${pathname.substring(1)}${nextUrl.search}`;
 
+  // Use getUser() to validate the token with Supabase auth server
+  // Note: getSession() only reads cookies without validation - don't use for security-critical paths
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // Check if pathname is login route: /login or /login/...
   const isLoginRoute = pathname === "/login" || pathname.startsWith("/login/");
 
   // Not authenticated - redirect to login
-  if (!session && !isLoginRoute && !isApiRoute) {
+  if (!user && !isLoginRoute && !isApiRoute) {
     const url = new URL("/login", request.url);
     if (encodedSearchParams) {
       url.searchParams.append("return_to", encodedSearchParams);

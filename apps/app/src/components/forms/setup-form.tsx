@@ -134,6 +134,7 @@ export function SetupForm() {
           name={fullName || undefined}
           size={72}
           onUpload={onAvatarUpload}
+          disableInitials
         />
 
         <div className="space-y-1.5 w-full">

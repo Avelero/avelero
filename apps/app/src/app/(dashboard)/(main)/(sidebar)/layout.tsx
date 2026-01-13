@@ -1,5 +1,6 @@
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
+import { RealtimeWrapper } from "@/providers/realtime-wrapper";
 import { getQueryClient, trpc } from "@/trpc/server";
 
 /**
@@ -48,7 +49,7 @@ export default async function SidebarLayout({
       <div className="flex flex-row justify-start h-[calc(100%_-_56px)]">
         <Sidebar />
         <div className="relative w-[calc(100%_-_56px)] h-full ml-[56px]">
-          {children}
+          <RealtimeWrapper>{children}</RealtimeWrapper>
         </div>
       </div>
     </div>

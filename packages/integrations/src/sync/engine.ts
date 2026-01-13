@@ -2,7 +2,7 @@
  * Integration Sync Engine
  *
  * Product-centric sync with batch operations for optimal performance.
- * 
+ *
  * Architecture:
  * 1. Fetch products from connector in batches
  * 2. Pre-fetch all lookup data in batch (identifier matches, existing handles)
@@ -11,28 +11,32 @@
  */
 
 import type { Database } from "@v1/db/client";
+import { and, eq, inArray } from "@v1/db/queries";
 import {
+  type ProductIdentifierBatch,
+  type VariantUpdateData,
+  batchFindAllBrandVariants,
   batchFindProductLinks,
+  batchFindProductsByIdentifiers,
+  batchFindProductsWithCanonicalLink,
   batchFindVariantLinks,
   batchFindVariantsByProductIds,
-  batchFindProductsByIdentifiers,
-  batchFindAllBrandVariants,
-  batchFindProductsWithCanonicalLink,
-  batchUpdateProducts,
-  batchUpsertProductCommercial,
-  batchUpdateVariants,
-  batchSetProductTags,
-  batchUpsertProductLinks,
-  batchUpsertVariantLinks,
   batchReplaceVariantAttributes,
-  batchUpsertVariantDisplayOverrides,
+  batchSetProductTags,
+  batchUpdateProducts,
+  batchUpdateVariants,
+  batchUpsertProductCommercial,
+  batchUpsertProductLinks,
   batchUpsertVariantCommercial,
-  type VariantUpdateData,
-  type ProductIdentifierBatch,
+  batchUpsertVariantDisplayOverrides,
+  batchUpsertVariantLinks,
 } from "@v1/db/queries/integrations";
-import { products, productVariants } from "@v1/db/schema";
-import { generateUniqueUpids, slugifyProductName } from "@v1/db/utils";
-import { eq, and, inArray } from "@v1/db/queries";
+import { productVariants, products } from "@v1/db/schema";
+import {
+  generateUniqueUpids,
+  sendBulkBroadcast,
+  slugifyProductName,
+} from "@v1/db/utils";
 import {
   downloadAndUploadImage,
   isExternalImageUrl,
@@ -40,21 +44,24 @@ import {
 import { getConnector } from "../connectors/registry";
 import { initShopifyToAveleroCategoryMapping } from "../connectors/shopify/category-mappings";
 import type {
-  FetchedProductBatch,
   FetchedProduct,
+  FetchedProductBatch,
+  StorageClient,
   SyncContext,
   SyncResult,
-  StorageClient,
 } from "../types";
-import { initializeCaches, type SyncCaches } from "./caches";
-import { createMissingEntities, extractUniqueEntitiesFromBatch } from "./batch-operations";
 import {
-  processProduct,
+  createMissingEntities,
+  extractUniqueEntitiesFromBatch,
+} from "./batch-operations";
+import { type SyncCaches, initializeCaches } from "./caches";
+import {
+  type PendingOperations,
+  type ProductCreateOp,
   buildEffectiveFieldMappings,
   extractValues,
   getValueByPath,
-  type PendingOperations,
-  type ProductCreateOp,
+  processProduct,
 } from "./processor";
 
 const PROGRESS_UPDATE_INTERVAL = 5;
@@ -84,7 +91,10 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
 
   const onProductProcessed = async () => {
     totalProductsProcessed++;
-    if (ctx.onProgress && totalProductsProcessed - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
+    if (
+      ctx.onProgress &&
+      totalProductsProcessed - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL
+    ) {
       lastProgressUpdate = totalProductsProcessed;
       await ctx.onProgress({
         productsProcessed: totalProductsProcessed,
@@ -99,7 +109,10 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
       throw new Error(`Unknown integration: ${ctx.integrationSlug}`);
     }
 
-    const mappings = buildEffectiveFieldMappings(connector.schema, ctx.fieldConfigs);
+    const mappings = buildEffectiveFieldMappings(
+      connector.schema,
+      ctx.fieldConfigs,
+    );
     const db = ctx.db as Database;
     const caches = await initializeCaches(db, ctx.brandId);
 
@@ -109,14 +122,26 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
     }
 
     // Collect all image upload promises to await at end of job
-    const imageUploadPromises: Promise<{ completed: number; failed: number }>[] = [];
+    const imageUploadPromises: Promise<{
+      completed: number;
+      failed: number;
+    }>[] = [];
 
     for await (const batch of connector.fetchProducts(ctx.credentials)) {
       batchNumber++;
       const batchStart = Date.now();
-      console.log(`[SYNC] Batch ${batchNumber}: Processing ${batch.length} products...`);
+      console.log(
+        `[SYNC] Batch ${batchNumber}: Processing ${batch.length} products...`,
+      );
 
-      const batchResult = await processBatch(db, ctx, batch, mappings, caches, onProductProcessed);
+      const batchResult = await processBatch(
+        db,
+        ctx,
+        batch,
+        mappings,
+        caches,
+        onProductProcessed,
+      );
 
       // Collect image upload promise (will be awaited at job end)
       if (batchResult.imageUploadPromise) {
@@ -124,9 +149,15 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
       }
 
       const batchMs = Date.now() - batchStart;
-      console.log(`[SYNC] Batch ${batchNumber}: Completed in ${batchMs}ms (created: ${batchResult.productsCreated}, updated: ${batchResult.productsUpdated}, variants: ${batchResult.variantsCreated}/${batchResult.variantsUpdated}/${batchResult.variantsSkipped} c/u/s)`);
-      console.log(`[SYNC] Batch ${batchNumber} TIMING: entity=${batchResult.timing.entityExtraction}ms, prefetch=${batchResult.timing.preFetch}ms, compute=${batchResult.timing.compute}ms, batchOps=${batchResult.timing.batchOps}ms`);
-      console.log(`[SYNC] Batch ${batchNumber} QUERIES: total=${batchResult.queries.total} (prefetch=${batchResult.queries.preFetch}, batch: pCreate=${batchResult.queries.productCreates}, pUpdate=${batchResult.queries.productUpdates}, pCommercial=${batchResult.queries.productCommercial}, pLinks=${batchResult.queries.productLinks}, tags=${batchResult.queries.tags}, vUpdate=${batchResult.queries.variantUpdates}, vCreate=${batchResult.queries.variantCreates}, vLinks=${batchResult.queries.variantLinks}, vAttrs=${batchResult.queries.variantAttributes})`);
+      console.log(
+        `[SYNC] Batch ${batchNumber}: Completed in ${batchMs}ms (created: ${batchResult.productsCreated}, updated: ${batchResult.productsUpdated}, variants: ${batchResult.variantsCreated}/${batchResult.variantsUpdated}/${batchResult.variantsSkipped} c/u/s)`,
+      );
+      console.log(
+        `[SYNC] Batch ${batchNumber} TIMING: entity=${batchResult.timing.entityExtraction}ms, prefetch=${batchResult.timing.preFetch}ms, compute=${batchResult.timing.compute}ms, batchOps=${batchResult.timing.batchOps}ms`,
+      );
+      console.log(
+        `[SYNC] Batch ${batchNumber} QUERIES: total=${batchResult.queries.total} (prefetch=${batchResult.queries.preFetch}, batch: pCreate=${batchResult.queries.productCreates}, pUpdate=${batchResult.queries.productUpdates}, pCommercial=${batchResult.queries.productCommercial}, pLinks=${batchResult.queries.productLinks}, tags=${batchResult.queries.tags}, vUpdate=${batchResult.queries.variantUpdates}, vCreate=${batchResult.queries.variantCreates}, vLinks=${batchResult.queries.variantLinks}, vAttrs=${batchResult.queries.variantAttributes})`,
+      );
 
       result.variantsProcessed += batchResult.variantsProcessed;
       result.variantsCreated += batchResult.variantsCreated;
@@ -143,12 +174,19 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
 
     // Wait for all image uploads to complete before marking job as done
     if (imageUploadPromises.length > 0) {
-      console.log(`[SYNC] Waiting for ${imageUploadPromises.length} batch image uploads to complete...`);
+      console.log(
+        `[SYNC] Waiting for ${imageUploadPromises.length} batch image uploads to complete...`,
+      );
       const imageStart = Date.now();
       const imageResults = await Promise.all(imageUploadPromises);
-      const totalCompleted = imageResults.reduce((sum, r) => sum + r.completed, 0);
+      const totalCompleted = imageResults.reduce(
+        (sum, r) => sum + r.completed,
+        0,
+      );
       const totalFailed = imageResults.reduce((sum, r) => sum + r.failed, 0);
-      console.log(`[SYNC] All image uploads finished in ${Date.now() - imageStart}ms: ${totalCompleted} succeeded, ${totalFailed} failed`);
+      console.log(
+        `[SYNC] All image uploads finished in ${Date.now() - imageStart}ms: ${totalCompleted} succeeded, ${totalFailed} failed`,
+      );
     }
 
     if (ctx.onProgress && totalProductsProcessed > lastProgressUpdate) {
@@ -159,9 +197,13 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
     }
 
     result.success = result.variantsFailed === 0 && result.errors.length === 0;
-    console.log(`[SYNC] Completed in ${Date.now() - syncStart}ms - Products: ${result.productsCreated} created, ${result.productsUpdated} updated | Variants: ${result.variantsCreated} created, ${result.variantsUpdated} updated, ${result.variantsSkipped} skipped`);
+    console.log(
+      `[SYNC] Completed in ${Date.now() - syncStart}ms - Products: ${result.productsCreated} created, ${result.productsUpdated} updated | Variants: ${result.variantsCreated} created, ${result.variantsUpdated} updated, ${result.variantsSkipped} skipped`,
+    );
   } catch (error) {
-    console.log(`[SYNC] Failed after ${Date.now() - syncStart}ms: ${error instanceof Error ? error.message : String(error)}`);
+    console.log(
+      `[SYNC] Failed after ${Date.now() - syncStart}ms: ${error instanceof Error ? error.message : String(error)}`,
+    );
     result.errors.push({
       externalId: "SYSTEM",
       message: error instanceof Error ? error.message : String(error),
@@ -173,18 +215,24 @@ export async function syncProducts(ctx: SyncContext): Promise<SyncResult> {
 
 export async function testIntegrationConnection(
   integrationSlug: string,
-  credentials: SyncContext["credentials"]
+  credentials: SyncContext["credentials"],
 ): Promise<{ success: boolean; message: string; data?: unknown }> {
   const connector = getConnector(integrationSlug);
   if (!connector) {
-    return { success: false, message: `Unknown integration: ${integrationSlug}` };
+    return {
+      success: false,
+      message: `Unknown integration: ${integrationSlug}`,
+    };
   }
 
   try {
     const result = await connector.testConnection(credentials);
     return { success: true, message: "Connection successful", data: result };
   } catch (error) {
-    return { success: false, message: error instanceof Error ? error.message : String(error) };
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -234,7 +282,7 @@ async function processBatch(
   batch: FetchedProductBatch,
   mappings: ReturnType<typeof buildEffectiveFieldMappings>,
   caches: SyncCaches,
-  onProductProcessed?: () => Promise<void>
+  onProductProcessed?: () => Promise<void>,
 ): Promise<BatchResult> {
   const result: BatchResult = {
     variantsProcessed: 0,
@@ -274,18 +322,32 @@ async function processBatch(
   const entityStart = Date.now();
   const extracted = extractUniqueEntitiesFromBatch(batch, mappings);
   // Pass isPrimary to control whether attributes can be created (only primary can create)
-  const creationStats = await createMissingEntities(db, ctx.brandId, extracted, caches, ctx.isPrimary);
+  const creationStats = await createMissingEntities(
+    db,
+    ctx.brandId,
+    extracted,
+    caches,
+    ctx.isPrimary,
+  );
   result.entitiesCreated += creationStats.tagsCreated;
   result.timing.entityExtraction = Date.now() - entityStart;
-  result.queries.preFetch += (creationStats.tagsCreated > 0 ? 1 : 0);
+  result.queries.preFetch += creationStats.tagsCreated > 0 ? 1 : 0;
 
   // PHASE 2: Pre-fetch all links, variants, AND identifier matches (BATCHED)
   const preFetchStart = Date.now();
 
   // 2a: Fetch existing product/variant links
   const [productLinks, variantLinks] = await Promise.all([
-    batchFindProductLinks(db, ctx.brandIntegrationId, Array.from(extracted.productIds)),
-    batchFindVariantLinks(db, ctx.brandIntegrationId, Array.from(extracted.variantIds)),
+    batchFindProductLinks(
+      db,
+      ctx.brandIntegrationId,
+      Array.from(extracted.productIds),
+    ),
+    batchFindVariantLinks(
+      db,
+      ctx.brandIntegrationId,
+      Array.from(extracted.variantIds),
+    ),
   ]);
   result.queries.preFetch += 2;
 
@@ -294,39 +356,63 @@ async function processBatch(
   for (const product of batch) {
     if (!productLinks.has(product.externalId)) {
       // Extract variant identifiers for matching
-      const identifiers = product.variants.map((v: FetchedProduct["variants"][number]) => {
-        const variantData = { ...v.data, product: product.data };
-        return extractRawIdentifiers(variantData);
+      const identifiers = product.variants.map(
+        (v: FetchedProduct["variants"][number]) => {
+          const variantData = { ...v.data, product: product.data };
+          return extractRawIdentifiers(variantData);
+        },
+      );
+      productsNeedingMatch.push({
+        externalId: product.externalId,
+        identifiers,
       });
-      productsNeedingMatch.push({ externalId: product.externalId, identifiers });
     }
   }
 
   // 2c: Batch identifier matching (replaces N individual findProductByVariantIdentifiers calls)
   // Only secondary integrations do identifier matching, and they only use their configured identifier type
-  let identifierMatches = new Map<string, { productId: string; productHandle: string }>();
+  let identifierMatches = new Map<
+    string,
+    { productId: string; productHandle: string }
+  >();
   if (productsNeedingMatch.length > 0 && !ctx.isPrimary) {
-    const matchResult = await batchFindProductsByIdentifiers(db, ctx.brandId, productsNeedingMatch, ctx.matchIdentifier);
+    const matchResult = await batchFindProductsByIdentifiers(
+      db,
+      ctx.brandId,
+      productsNeedingMatch,
+      ctx.matchIdentifier,
+    );
     identifierMatches = matchResult.matches;
     result.queries.preFetch += 1; // Now only 1 query (barcode OR SKU, not both)
   }
 
   // 2d: Fetch existing variants for linked products
-  const linkedProductIds = Array.from(productLinks.values()).map((l) => l.productId);
+  const linkedProductIds = Array.from(productLinks.values()).map(
+    (l) => l.productId,
+  );
   // Also include products matched by identifiers
   for (const match of identifierMatches.values()) {
     if (!linkedProductIds.includes(match.productId)) {
       linkedProductIds.push(match.productId);
     }
   }
-  const existingVariantsByProduct = await batchFindVariantsByProductIds(db, linkedProductIds);
+  const existingVariantsByProduct = await batchFindVariantsByProductIds(
+    db,
+    linkedProductIds,
+  );
   result.queries.preFetch += 1;
 
   // 2e: Batch check which handles are taken (replaces N individual isTaken calls)
   const productsNeedingHandles = batch.filter(
-    (p: FetchedProduct) => !productLinks.has(p.externalId) && !identifierMatches.has(p.externalId)
+    (p: FetchedProduct) =>
+      !productLinks.has(p.externalId) && !identifierMatches.has(p.externalId),
   );
-  const takenHandles = await batchCheckHandlesTaken(db, ctx.brandId, productsNeedingHandles, mappings);
+  const takenHandles = await batchCheckHandlesTaken(
+    db,
+    ctx.brandId,
+    productsNeedingHandles,
+    mappings,
+  );
   result.queries.preFetch += 1;
 
   // 2f: Build global variant index for multi-source integration matching
@@ -339,7 +425,7 @@ async function processBatch(
   const productsWithCanonicalLink = await batchFindProductsWithCanonicalLink(
     db,
     ctx.brandIntegrationId,
-    linkedProductIds
+    linkedProductIds,
   );
   result.queries.preFetch += 1;
 
@@ -382,7 +468,15 @@ async function processBatch(
 
   for (const product of batch) {
     try {
-      const processed = processProduct(ctx, product, mappings, caches, preFetched, usedHandlesInBatch, productsWithCanonicalLinkInBatch);
+      const processed = processProduct(
+        ctx,
+        product,
+        mappings,
+        caches,
+        preFetched,
+        usedHandlesInBatch,
+        productsWithCanonicalLinkInBatch,
+      );
       result.variantsProcessed += product.variants.length;
 
       if (processed.success) {
@@ -400,19 +494,42 @@ async function processBatch(
         if (processed.pendingOps.productCreate) {
           allPendingOps.productCreates.push(processed.pendingOps.productCreate);
         }
-        allPendingOps.productUpdates.push(...processed.pendingOps.productUpdates);
-        allPendingOps.productCommercialUpserts.push(...processed.pendingOps.productCommercialUpserts);
-        allPendingOps.productLinkUpserts.push(...processed.pendingOps.productLinkUpserts);
-        allPendingOps.tagAssignments.push(...processed.pendingOps.tagAssignments);
-        allPendingOps.variantUpdates.push(...processed.pendingOps.variantUpdates);
-        allPendingOps.variantCreates.push(...processed.pendingOps.variantCreates);
-        allPendingOps.variantLinkUpserts.push(...processed.pendingOps.variantLinkUpserts);
-        allPendingOps.variantAttributeAssignments.push(...processed.pendingOps.variantAttributeAssignments);
-        allPendingOps.variantDisplayOverrides.push(...processed.pendingOps.variantDisplayOverrides);
-        allPendingOps.variantCommercialOverrides.push(...processed.pendingOps.variantCommercialOverrides);
+        allPendingOps.productUpdates.push(
+          ...processed.pendingOps.productUpdates,
+        );
+        allPendingOps.productCommercialUpserts.push(
+          ...processed.pendingOps.productCommercialUpserts,
+        );
+        allPendingOps.productLinkUpserts.push(
+          ...processed.pendingOps.productLinkUpserts,
+        );
+        allPendingOps.tagAssignments.push(
+          ...processed.pendingOps.tagAssignments,
+        );
+        allPendingOps.variantUpdates.push(
+          ...processed.pendingOps.variantUpdates,
+        );
+        allPendingOps.variantCreates.push(
+          ...processed.pendingOps.variantCreates,
+        );
+        allPendingOps.variantLinkUpserts.push(
+          ...processed.pendingOps.variantLinkUpserts,
+        );
+        allPendingOps.variantAttributeAssignments.push(
+          ...processed.pendingOps.variantAttributeAssignments,
+        );
+        allPendingOps.variantDisplayOverrides.push(
+          ...processed.pendingOps.variantDisplayOverrides,
+        );
+        allPendingOps.variantCommercialOverrides.push(
+          ...processed.pendingOps.variantCommercialOverrides,
+        );
       } else {
         result.variantsFailed += product.variants.length;
-        result.errors.push({ externalId: product.externalId, message: processed.error || "Unknown error" });
+        result.errors.push({
+          externalId: product.externalId,
+          message: processed.error || "Unknown error",
+        });
       }
 
       if (onProductProcessed) {
@@ -422,18 +539,24 @@ async function processBatch(
       result.variantsFailed += product.variants.length;
       result.errors.push({
         externalId: product.externalId,
-        message: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : String(error),
       });
     }
   }
   result.timing.compute = Date.now() - computeStart;
 
   // PHASE 4: Execute all batch operations (PARALLELIZED where possible)
+  // Note: Database-level throttling in realtime.broadcast_domain_changes() ensures
+  // only one broadcast per domain/brand per second, preventing message flooding.
+  // sendBulkBroadcast at the end provides a guaranteed notification after batch completion.
   const batchOpsStart = Date.now();
 
   // Collect image upload tasks for rate-limited execution
   const imageUploadTasks: Array<{ productId: string; imageUrl: string }> = [];
-  const variantImageUploadTasks: Array<{ variantId: string; imageUrl: string }> = [];
+  const variantImageUploadTasks: Array<{
+    variantId: string;
+    imageUrl: string;
+  }> = [];
 
   // GROUP 1: Product creates (must be first - generates IDs)
   const createdProductMap = new Map<string, string>(); // externalId -> productId
@@ -466,18 +589,21 @@ async function processBatch(
       preFetched.takenHandles.add(handle);
     }
 
-    const insertedProducts = await db.insert(products)
-      .values(allPendingOps.productCreates.map((p: ProductCreateOp) => ({
-        brandId: ctx.brandId,
-        name: p.name,
-        productHandle: p.productHandle,
-        description: p.description,
-        imagePath: null,
-        status: "unpublished" as const,
-        categoryId: p.categoryId,
-        source: p.source,
-        sourceIntegrationId: p.sourceIntegrationId,
-      })))
+    const insertedProducts = await db
+      .insert(products)
+      .values(
+        allPendingOps.productCreates.map((p: ProductCreateOp) => ({
+          brandId: ctx.brandId,
+          name: p.name,
+          productHandle: p.productHandle,
+          description: p.description,
+          imagePath: null,
+          status: "unpublished" as const,
+          categoryId: p.categoryId,
+          source: p.source,
+          sourceIntegrationId: p.sourceIntegrationId,
+        })),
+      )
       .returning({ id: products.id, productHandle: products.productHandle });
 
     result.queries.productCreates = 1;
@@ -490,7 +616,10 @@ async function processBatch(
 
       // Queue image upload for later (rate-limited)
       if (create.imageUrl) {
-        imageUploadTasks.push({ productId: inserted.id, imageUrl: create.imageUrl });
+        imageUploadTasks.push({
+          productId: inserted.id,
+          imageUrl: create.imageUrl,
+        });
       }
     }
 
@@ -505,7 +634,10 @@ async function processBatch(
   }
 
   if (allPendingOps.productCommercialUpserts.length > 0) {
-    await batchUpsertProductCommercial(db, allPendingOps.productCommercialUpserts);
+    await batchUpsertProductCommercial(
+      db,
+      allPendingOps.productCommercialUpserts,
+    );
     result.queries.productCommercial = 1;
   }
 
@@ -520,11 +652,14 @@ async function processBatch(
   }
 
   if (allPendingOps.variantUpdates.length > 0) {
-    const variantUpdates: VariantUpdateData[] = allPendingOps.variantUpdates.map((u: PendingOperations["variantUpdates"][number]) => ({
-      id: u.id,
-      sku: u.sku,
-      barcode: u.barcode,
-    }));
+    const variantUpdates: VariantUpdateData[] =
+      allPendingOps.variantUpdates.map(
+        (u: PendingOperations["variantUpdates"][number]) => ({
+          id: u.id,
+          sku: u.sku,
+          barcode: u.barcode,
+        }),
+      );
     await batchUpdateVariants(db, variantUpdates);
     result.queries.variantUpdates = 1;
   }
@@ -537,23 +672,35 @@ async function processBatch(
     const upids = await generateUniqueUpids({
       count: variantCreates.length,
       isTaken: async (c) => {
-        const [r] = await db.select({ id: productVariants.id }).from(productVariants).where(eq(productVariants.upid, c)).limit(1);
+        const [r] = await db
+          .select({ id: productVariants.id })
+          .from(productVariants)
+          .where(eq(productVariants.upid, c))
+          .limit(1);
         return Boolean(r);
       },
       fetchTakenSet: async (candidates) => {
-        const rows = await db.select({ upid: productVariants.upid }).from(productVariants).where(inArray(productVariants.upid, candidates as string[]));
+        const rows = await db
+          .select({ upid: productVariants.upid })
+          .from(productVariants)
+          .where(inArray(productVariants.upid, candidates as string[]));
         return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
       },
     });
 
     // Batch insert all variants
-    const inserted = await db.insert(productVariants)
-      .values(variantCreates.map((v: PendingOperations["variantCreates"][number], i: number) => ({
-        productId: v.productId,
-        sku: v.sku,
-        barcode: v.barcode,
-        upid: upids[i]!,
-      })))
+    const inserted = await db
+      .insert(productVariants)
+      .values(
+        variantCreates.map(
+          (v: PendingOperations["variantCreates"][number], i: number) => ({
+            productId: v.productId,
+            sku: v.sku,
+            barcode: v.barcode,
+            upid: upids[i]!,
+          }),
+        ),
+      )
       .returning({ id: productVariants.id });
 
     result.queries.variantCreates = 2;
@@ -589,7 +736,10 @@ async function processBatch(
   }
 
   if (allPendingOps.variantAttributeAssignments.length > 0) {
-    await batchReplaceVariantAttributes(db, allPendingOps.variantAttributeAssignments);
+    await batchReplaceVariantAttributes(
+      db,
+      allPendingOps.variantAttributeAssignments,
+    );
     result.queries.variantAttributes = 2;
   }
 
@@ -607,14 +757,20 @@ async function processBatch(
         override.imagePath = null;
       }
     }
-    await batchUpsertVariantDisplayOverrides(db, allPendingOps.variantDisplayOverrides);
+    await batchUpsertVariantDisplayOverrides(
+      db,
+      allPendingOps.variantDisplayOverrides,
+    );
     result.queries.variantUpdates += 1; // Reuse variantUpdates counter for display overrides
   }
 
   // GROUP 6: Variant commercial overrides (multi-source integration support)
   // These are written for non-canonical source products with differing prices
   if (allPendingOps.variantCommercialOverrides.length > 0) {
-    await batchUpsertVariantCommercial(db, allPendingOps.variantCommercialOverrides);
+    await batchUpsertVariantCommercial(
+      db,
+      allPendingOps.variantCommercialOverrides,
+    );
     result.queries.variantUpdates += 1; // Reuse variantUpdates counter for commercial overrides
   }
 
@@ -629,15 +785,40 @@ async function processBatch(
       db,
       imageUploadTasks,
       variantImageUploadTasks,
-      25
+      25,
     );
   }
 
   // Calculate total queries: preFetch + batch
-  const batchTotal = result.queries.productCreates + result.queries.productUpdates + result.queries.productCommercial +
-    result.queries.productLinks + result.queries.tags + result.queries.variantUpdates + result.queries.variantCreates +
-    result.queries.variantLinks + result.queries.variantAttributes;
+  const batchTotal =
+    result.queries.productCreates +
+    result.queries.productUpdates +
+    result.queries.productCommercial +
+    result.queries.productLinks +
+    result.queries.tags +
+    result.queries.variantUpdates +
+    result.queries.variantCreates +
+    result.queries.variantLinks +
+    result.queries.variantAttributes;
   result.queries.total = result.queries.preFetch + batchTotal;
+
+  // Send single consolidated broadcast for this batch
+  // This ensures clients get notified even if per-row triggers are throttled
+  try {
+    await sendBulkBroadcast(db, {
+      domain: "products",
+      brandId: ctx.brandId,
+      operation: "BULK_SYNC",
+      summary: {
+        created: result.productsCreated,
+        updated: result.productsUpdated,
+        total: batch.length,
+      },
+    });
+  } catch (broadcastError) {
+    // Log but don't throw - the main sync may have succeeded
+    console.warn("[SYNC] Failed to send broadcast:", broadcastError);
+  }
 
   return result;
 }
@@ -670,7 +851,7 @@ async function batchCheckHandlesTaken(
   db: Database,
   brandId: string,
   productsToCheck: FetchedProduct[],
-  mappings: ReturnType<typeof buildEffectiveFieldMappings>
+  mappings: ReturnType<typeof buildEffectiveFieldMappings>,
 ): Promise<Set<string>> {
   if (productsToCheck.length === 0) {
     return new Set();
@@ -680,7 +861,8 @@ async function batchCheckHandlesTaken(
   const baseSlugs = new Set<string>();
   for (const product of productsToCheck) {
     const productExtracted = extractValues(product.data, mappings);
-    const productName = (productExtracted.product.name as string) || "Unnamed Product";
+    const productName =
+      (productExtracted.product.name as string) || "Unnamed Product";
     const baseSlug = slugifyProductName(productName);
     if (baseSlug) {
       baseSlugs.add(baseSlug);
@@ -695,10 +877,12 @@ async function batchCheckHandlesTaken(
   const rows = await db
     .select({ handle: products.productHandle })
     .from(products)
-    .where(and(
-      eq(products.brandId, brandId),
-      inArray(products.productHandle, Array.from(baseSlugs))
-    ));
+    .where(
+      and(
+        eq(products.brandId, brandId),
+        inArray(products.productHandle, Array.from(baseSlugs)),
+      ),
+    );
 
   const takenHandles = new Set(rows.map((r) => r.handle));
 
@@ -711,7 +895,7 @@ async function batchCheckHandlesTaken(
  */
 function updatePendingOpsWithCreatedProducts(
   pendingOps: PendingOperations,
-  createdProductMap: Map<string, string>
+  createdProductMap: Map<string, string>,
 ): void {
   // Update product commercial upserts
   for (const commercial of pendingOps.productCommercialUpserts) {
@@ -771,7 +955,7 @@ async function processImageUrl(
   storageClient: StorageClient,
   brandId: string,
   productId: string,
-  imageUrl: string | null | undefined
+  imageUrl: string | null | undefined,
 ): Promise<string | null> {
   if (!imageUrl) return null;
 
@@ -797,7 +981,7 @@ async function processVariantImageUrl(
   storageClient: StorageClient,
   brandId: string,
   variantId: string,
-  imageUrl: string | null | undefined
+  imageUrl: string | null | undefined,
 ): Promise<string | null> {
   if (!imageUrl) return null;
 
@@ -814,11 +998,10 @@ async function processVariantImageUrl(
   return storagePath;
 }
 
-
 /**
  * Process image uploads with rate limiting to avoid overwhelming external services.
  * Returns a Promise that resolves when all images are uploaded.
- * 
+ *
  * Handles both product images and variant images (for multi-source overrides).
  * Each image has a 120-second timeout to prevent hanging.
  */
@@ -828,23 +1011,25 @@ function processImagesWithRateLimit(
   db: Database,
   productTasks: Array<{ productId: string; imageUrl: string }>,
   variantTasks: Array<{ variantId: string; imageUrl: string }>,
-  concurrency: number
+  concurrency: number,
 ): Promise<{ completed: number; failed: number }> {
   // Combine all tasks into a unified list
   type ImageTask =
-    | { type: 'product'; productId: string; imageUrl: string }
-    | { type: 'variant'; variantId: string; imageUrl: string };
+    | { type: "product"; productId: string; imageUrl: string }
+    | { type: "variant"; variantId: string; imageUrl: string };
 
   const allTasks: ImageTask[] = [
-    ...productTasks.map(t => ({ type: 'product' as const, ...t })),
-    ...variantTasks.map(t => ({ type: 'variant' as const, ...t })),
+    ...productTasks.map((t) => ({ type: "product" as const, ...t })),
+    ...variantTasks.map((t) => ({ type: "variant" as const, ...t })),
   ];
 
   if (allTasks.length === 0) {
     return Promise.resolve({ completed: 0, failed: 0 });
   }
 
-  console.log(`[SYNC] Starting image upload for ${allTasks.length} images (${productTasks.length} products, ${variantTasks.length} variants, concurrency: ${concurrency})`);
+  console.log(
+    `[SYNC] Starting image upload for ${allTasks.length} images (${productTasks.length} products, ${variantTasks.length} variants, concurrency: ${concurrency})`,
+  );
 
   return new Promise((resolve) => {
     let currentIndex = 0;
@@ -853,7 +1038,9 @@ function processImagesWithRateLimit(
 
     const checkDone = () => {
       if (completedCount + failedCount === allTasks.length) {
-        console.log(`[SYNC] Image upload finished: ${completedCount} succeeded, ${failedCount} failed`);
+        console.log(
+          `[SYNC] Image upload finished: ${completedCount} succeeded, ${failedCount} failed`,
+        );
         resolve({ completed: completedCount, failed: failedCount });
       }
     };
@@ -865,21 +1052,37 @@ function processImagesWithRateLimit(
 
       // Process with timeout (120s to handle large images and slow networks)
       const timeoutPromise = new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error('Image upload timeout')), 120_000)
+        setTimeout(() => reject(new Error("Image upload timeout")), 120_000),
       );
 
       const uploadPromise = (async () => {
-        if (task.type === 'product') {
-          const path = await processImageUrl(storageClient, brandId, task.productId, task.imageUrl);
+        if (task.type === "product") {
+          const path = await processImageUrl(
+            storageClient,
+            brandId,
+            task.productId,
+            task.imageUrl,
+          );
           if (path) {
-            await db.update(products).set({ imagePath: path }).where(eq(products.id, task.productId));
+            await db
+              .update(products)
+              .set({ imagePath: path })
+              .where(eq(products.id, task.productId));
           }
           return path;
         }
         // Variant image - use variants path prefix
-        const path = await processVariantImageUrl(storageClient, brandId, task.variantId, task.imageUrl);
+        const path = await processVariantImageUrl(
+          storageClient,
+          brandId,
+          task.variantId,
+          task.imageUrl,
+        );
         if (path) {
-          await db.update(productVariants).set({ imagePath: path }).where(eq(productVariants.id, task.variantId));
+          await db
+            .update(productVariants)
+            .set({ imagePath: path })
+            .where(eq(productVariants.id, task.variantId));
         }
         return path;
       })();

@@ -28,6 +28,7 @@ import {
   getConnector,
   syncProducts,
 } from "@v1/integrations";
+import { createThrottledBroadcaster } from "../../utils/progress-broadcast";
 
 // =============================================================================
 // TYPES
@@ -71,6 +72,11 @@ export const syncIntegration = task({
     }
 
     const syncJobId = syncJob.id;
+
+    // Set up progress tracking variables at top level so they're accessible in catch block
+    let productsTotal: number | undefined;
+    const syncStartedAt = new Date().toISOString();
+    const broadcastProgress = createThrottledBroadcaster(brandId, 2000);
 
     try {
       // Mark job as started
@@ -135,7 +141,6 @@ export const syncIntegration = task({
 
       // Get connector and product count for progress tracking
       const connector = getConnector(integration.slug);
-      let productsTotal: number | undefined;
 
       if (connector) {
         try {
@@ -162,11 +167,24 @@ export const syncIntegration = task({
           process.env.SUPABASE_SERVICE_ROLE_KEY!,
       );
 
-      // Progress callback to update sync job during processing
+      // Progress callback to update sync job and broadcast via WebSocket
       const onProgress = async (progress: SyncProgress) => {
+        // Update database (for persistence and fallback)
         await updateSyncJob(db, syncJobId, {
           productsProcessed: progress.productsProcessed,
         });
+
+        // Broadcast via WebSocket for real-time UI updates
+        broadcastProgress({
+          jobId: syncJobId,
+          jobType: "sync",
+          status: "running",
+          processed: progress.productsProcessed,
+          total: progress.productsTotal ?? productsTotal ?? null,
+          startedAt: syncStartedAt,
+          context: { brandIntegrationId },
+        });
+
         logger.info("Sync progress", {
           productsProcessed: progress.productsProcessed,
           productsTotal: progress.productsTotal,
@@ -224,6 +242,21 @@ export const syncIntegration = task({
         errorLog: result.errors.length > 0 ? result.errors : null,
       });
 
+      // Broadcast completion via WebSocket
+      broadcastProgress({
+        jobId: syncJobId,
+        jobType: "sync",
+        status: result.success ? "completed" : "failed",
+        processed: result.variantsProcessed,
+        total: productsTotal ?? null,
+        startedAt: syncStartedAt,
+        errorMessage:
+          result.errors.length > 0
+            ? `${result.errors.length} errors occurred`
+            : null,
+        context: { brandIntegrationId },
+      });
+
       // Update brand integration with last sync time
       if (result.success) {
         await updateBrandIntegration(db, brandId, brandIntegrationId, {
@@ -256,6 +289,18 @@ export const syncIntegration = task({
         status: "failed",
         finishedAt: new Date().toISOString(),
         errorSummary: error instanceof Error ? error.message : String(error),
+      });
+
+      // Broadcast failure via WebSocket
+      broadcastProgress({
+        jobId: syncJobId,
+        jobType: "sync",
+        status: "failed",
+        processed: 0,
+        total: productsTotal ?? null,
+        startedAt: syncStartedAt,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        context: { brandIntegrationId },
       });
 
       throw error;

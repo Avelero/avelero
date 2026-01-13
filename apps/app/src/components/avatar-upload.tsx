@@ -26,6 +26,13 @@ interface AvatarUploadProps {
 
   // optional external persistence override
   onUpload?: (url: string) => void;
+
+  /**
+   * When true, disables the colored background with initials display.
+   * Only uploaded images or the fallback UI (gray user icon) will be shown.
+   * Useful for setup flows where the user hasn't fully created their account yet.
+   */
+  disableInitials?: boolean;
 }
 
 const ACCEPTED_MIME = ["image/jpeg", "image/jpg", "image/png"];
@@ -41,6 +48,7 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
       size = 52,
       className,
       onUpload,
+      disableInitials = false,
     },
     ref,
   ) => {
@@ -219,8 +227,12 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
           );
           const isAwaitingSignedUrl = hasInitialPath && !avatar;
           const effectiveLoading = Boolean(isLoading) || isAwaitingSignedUrl;
-          // Derive color from entityId when no avatar image
-          const effectiveColor = avatar ? undefined : getAvatarColor(entityId);
+          // Derive color from entityId only when initials are enabled, no avatar, and a name exists.
+          // If disableInitials is true or no name, we want the default fallback (gray user icon)
+          const effectiveColor =
+            disableInitials || avatar || !name
+              ? undefined
+              : getAvatarColor(entityId);
 
           return (
             <Avatar

@@ -48,10 +48,13 @@ export async function cleanupTables(): Promise<void> {
         AND tablename NOT LIKE 'pg_%'
     `);
 
-    // Filter out protected tables
+    // Filter out protected tables and sort alphabetically
+    // Sorting ensures consistent lock order across parallel test runs,
+    // which prevents deadlocks when multiple test processes clean up simultaneously
     const tablesToClean = result
         .map((row) => row.tablename)
-        .filter((table) => !protectedTables.has(table));
+        .filter((table) => !protectedTables.has(table))
+        .sort();
 
     if (tablesToClean.length === 0) {
         return;

@@ -118,6 +118,13 @@ export function TableSection() {
     setIsInnerSuspenseEnabled(true);
   }, []);
 
+  // Check if there are active filters or search (defined before useEffect that uses it)
+  const hasActiveFilters = useMemo(() => {
+    const hasSearch = deferredSearch.trim().length > 0;
+    const hasFilterGroups = filterState.groups.length > 0;
+    return hasSearch || hasFilterGroups;
+  }, [deferredSearch, filterState.groups]);
+
   // Sync selection state to context (for Export button in layout)
   const selectionContext = useSelectionContextSafe();
   useEffect(() => {
@@ -126,16 +133,9 @@ export function TableSection() {
       selectionContext.setSelectedCount(selectedCount);
       selectionContext.setFilterState(filterState);
       selectionContext.setSearchValue(searchValue);
-      selectionContext.setDisabled(!hasAnyPassports && !(filterState.groups.length > 0 || deferredSearch.trim().length > 0));
+      selectionContext.setDisabled(!hasAnyPassports && !hasActiveFilters);
     }
-  }, [selection, selectedCount, filterState, searchValue, hasAnyPassports, deferredSearch, selectionContext]);
-
-  // Check if there are active filters or search
-  const hasActiveFilters = useMemo(() => {
-    const hasSearch = deferredSearch.trim().length > 0;
-    const hasFilterGroups = filterState.groups.length > 0;
-    return hasSearch || hasFilterGroups;
-  }, [deferredSearch, filterState.groups]);
+  }, [selection, selectedCount, filterState, searchValue, hasAnyPassports, hasActiveFilters, selectionContext]);
 
   const handleClearFilters = useCallback(() => {
     setSearchValue("");

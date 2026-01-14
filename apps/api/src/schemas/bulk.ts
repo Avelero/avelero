@@ -184,6 +184,20 @@ export const importJobStatusSchema = z.enum([
 ]);
 
 /**
+ * Staging row status enum for filtering
+ *
+ * Used to filter staging preview by row status:
+ * - PENDING: Row awaiting commit
+ * - COMMITTED: Row successfully committed to production
+ * - FAILED: Row failed validation/commit
+ */
+export const stagingRowStatusSchema = z.enum([
+  "PENDING",
+  "COMMITTED",
+  "FAILED",
+]);
+
+/**
  * Schema for retrieving staging preview with pagination
  *
  * Used in bulk.getStagingPreview query to preview validated
@@ -194,7 +208,7 @@ export const getStagingPreviewSchema = z.object({
   limit: z.number().int().positive().max(1000).default(100),
   offset: z.number().int().nonnegative().default(0),
   /** Optional filter by row status (PENDING, COMMITTED, FAILED) */
-  status: z.enum(["PENDING", "COMMITTED", "FAILED"]).optional(),
+  status: stagingRowStatusSchema.optional(),
 });
 
 /**
@@ -247,19 +261,7 @@ export const getRecentImportsSchema = z.object({
   limit: z.number().int().min(1).max(10).default(5),
 });
 
-/**
- * Staging row status enum for filtering
- *
- * Used to filter staging preview by row status:
- * - PENDING: Row awaiting commit
- * - COMMITTED: Row successfully committed to production
- * - FAILED: Row failed validation/commit
- */
-export const stagingRowStatusSchema = z.enum([
-  "PENDING",
-  "COMMITTED",
-  "FAILED",
-]);
+// stagingRowStatusSchema is now defined earlier in this file (before getStagingPreviewSchema)
 
 // ============================================================================
 // Export Schemas

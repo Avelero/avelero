@@ -43,6 +43,18 @@ export function useJobProgress(
   const supabase = useMemo(() => createClient(), []);
   const retentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Use refs to avoid stale closures in the subscription callback
+  const jobTypesRef = useRef(jobTypes);
+  const contextFilterRef = useRef(contextFilter);
+  const completedRetentionRef = useRef(completedRetention);
+
+  // Keep refs in sync with latest values
+  useEffect(() => {
+    jobTypesRef.current = jobTypes;
+    contextFilterRef.current = contextFilter;
+    completedRetentionRef.current = completedRetention;
+  }, [jobTypes, contextFilter, completedRetention]);
+
   const clear = useCallback(() => {
     setProgress(null);
     if (retentionTimerRef.current) {
@@ -62,10 +74,14 @@ export function useJobProgress(
       .on("broadcast", { event: "progress" }, (message) => {
         const payload = message.payload as JobProgressData;
 
-        // Apply filters
-        if (jobTypes?.length && !jobTypes.includes(payload.jobType)) return;
-        if (contextFilter && payload.context) {
-          const matches = Object.entries(contextFilter).every(
+        // Apply filters using refs to avoid stale closures
+        if (
+          jobTypesRef.current?.length &&
+          !jobTypesRef.current.includes(payload.jobType)
+        )
+          return;
+        if (contextFilterRef.current && payload.context) {
+          const matches = Object.entries(contextFilterRef.current).every(
             ([key, value]) => payload.context?.[key] === value,
           );
           if (!matches) return;
@@ -87,7 +103,7 @@ export function useJobProgress(
           retentionTimerRef.current = setTimeout(() => {
             setProgress(null);
             retentionTimerRef.current = null;
-          }, completedRetention);
+          }, completedRetentionRef.current);
         }
       })
       .subscribe((status) => {
@@ -102,7 +118,6 @@ export function useJobProgress(
         retentionTimerRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandId, supabase]);
 
   return { progress, isConnected, clear };

@@ -16,8 +16,9 @@ import { Icons } from "@v1/ui/icons";
 import { toast } from "@v1/ui/sonner";
 import { createClient } from "@v1/supabase/client";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserQuery } from "@/hooks/use-user";
+import { useNotifications } from "@/hooks/use-notifications";
 
 // ============================================================================
 // Types & Constants
@@ -28,9 +29,6 @@ type ImportMethod = "upload" | "integration" | null;
 type ImportMode = "CREATE" | "CREATE_AND_ENRICH";
 
 const TEMPLATE_URL = "/templates/avelero-bulk-import-template.xlsx";
-
-/** How long to show the notification dot after import failure (1 hour) */
-const NOTIFICATION_EXPIRY_MS = 60 * 60 * 1000;
 
 // ============================================================================
 // Component
@@ -54,51 +52,38 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
     const [isDragging, setIsDragging] = useState(false);
     const [isDownloadingReport, setIsDownloadingReport] = useState(false);
 
-    // Query for recent imports to check for failed imports
+    // Use the new notifications system for the badge
+    const { unreadCount, notifications, markAsSeen } = useNotifications();
+
+    // Find import failure notification (if any)
+    const importFailureNotification = useMemo(() => {
+        return notifications.find((n) => n.type === "import_failure" && !n.seenAt);
+    }, [notifications]);
+
+    // Query for recent imports to get the failed import details (for error report download)
     const recentImportsQuery = useQuery({
         ...trpc.bulk.import.getRecentImports.queryOptions({ limit: 1 }),
-        // Always enabled - we need this for the notification dot
+        // Only fetch when we have an import failure notification
+        enabled: !!importFailureNotification,
     });
 
-    // Derive the most recent failed import (user-specific via userId stored in job)
+    // Get the recent failed import for the error report download
     const recentFailedImport = useMemo(() => {
         const job = recentImportsQuery.data?.jobs[0];
         if (!job?.hasExportableFailures) return null;
-        // Check if dismissed
         if ((job.summary as Record<string, unknown>)?.dismissed) return null;
         return job;
     }, [recentImportsQuery.data]);
 
-    // Check if notification dot should be shown (user-specific, expires after 1 hour)
-    const showNotificationDot = useMemo(() => {
-        if (!recentFailedImport || !user?.id) return false;
+    // Show notification dot based on unread import failure notifications
+    const showNotificationDot = !!importFailureNotification;
 
-        // Check localStorage for "viewed" status
-        const viewedKey = `import_failure_viewed_${user.id}_${recentFailedImport.id}`;
-        const viewedAt = localStorage.getItem(viewedKey);
-
-        if (viewedAt) {
-            // User has viewed this - don't show dot
-            return false;
-        }
-
-        // Check if job is older than 1 hour
-        const jobTime = new Date(recentFailedImport.finishedAt ?? recentFailedImport.startedAt).getTime();
-        const now = Date.now();
-        if (now - jobTime > NOTIFICATION_EXPIRY_MS) {
-            return false;
-        }
-
-        return true;
-    }, [recentFailedImport, user?.id]);
-
-    // Mark notification as viewed when modal opens
+    // Mark notification as seen when modal opens
     useEffect(() => {
-        if (open && recentFailedImport && user?.id) {
-            const viewedKey = `import_failure_viewed_${user.id}_${recentFailedImport.id}`;
-            localStorage.setItem(viewedKey, Date.now().toString());
+        if (open && importFailureNotification) {
+            markAsSeen.mutate({ id: importFailureNotification.id });
         }
-    }, [open, recentFailedImport, user?.id]);
+    }, [open, importFailureNotification, markAsSeen]);
 
     // Helper function to download file using fetch + blob (same as template download)
     const downloadFile = async (url: string, filename: string) => {
@@ -141,6 +126,18 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
     );
 
     // Handler for downloading error report
+    // Ref to track resetState timeout for cleanup
+    const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Cleanup timeout on unmount to prevent state updates on unmounted component
+    useEffect(() => {
+        return () => {
+            if (resetTimeoutRef.current) {
+                clearTimeout(resetTimeoutRef.current);
+            }
+        };
+    }, []);
+
     const handleDownloadErrorReport = async () => {
         if (!recentFailedImport) return;
 
@@ -161,8 +158,12 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
         exportCorrectionsMutation.mutate({ jobId: recentFailedImport.id });
     };
 
-    const resetState = () => {
-        setTimeout(() => {
+    const resetState = useCallback(() => {
+        // Clear any pending reset timeout
+        if (resetTimeoutRef.current) {
+            clearTimeout(resetTimeoutRef.current);
+        }
+        resetTimeoutRef.current = setTimeout(() => {
             setStep("method");
             setMethod(null);
             setFile(null);
@@ -171,8 +172,9 @@ export function ImportProductsModal({ onSuccess }: { onSuccess?: () => void }) {
             setIsUploading(false);
             setIsDragging(false);
             if (fileInputRef.current) fileInputRef.current.value = "";
+            resetTimeoutRef.current = null;
         }, 350);
-    };
+    }, []);
 
     const handleOpenChange = (newOpen: boolean) => {
         if (!newOpen) resetState();

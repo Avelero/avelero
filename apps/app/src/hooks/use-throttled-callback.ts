@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 
 interface ThrottleOptions {
     leading?: boolean; // Fire on first call
@@ -19,34 +19,63 @@ export function useThrottledCallback<T extends (...args: unknown[]) => void>(
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pendingRef = useRef<boolean>(false);
     const callbackRef = useRef(callback);
+    const lastArgsRef = useRef<Parameters<T> | null>(null);
 
     // Keep callback ref updated
     callbackRef.current = callback;
+
+    // Cleanup timeout on unmount to prevent memory leaks and state updates on unmounted components
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
+        };
+    }, []);
 
     return useCallback(
         (...args: Parameters<T>) => {
             const now = Date.now();
             const timeSinceLastCall = now - lastCallRef.current;
 
-            // If outside throttle window, fire immediately (leading edge)
+            // If outside throttle window
             if (timeSinceLastCall >= delayMs) {
+                // Always update timestamp to start new throttle window
+                lastCallRef.current = now;
+
                 if (options.leading) {
-                    lastCallRef.current = now;
+                    // Fire immediately on leading edge
                     callbackRef.current(...args);
+                } else if (options.trailing) {
+                    // Leading is disabled but trailing is enabled - schedule trailing call
+                    lastArgsRef.current = args;
+                    pendingRef.current = true;
+                    timeoutRef.current = setTimeout(() => {
+                        if (pendingRef.current && lastArgsRef.current) {
+                            lastCallRef.current = Date.now();
+                            callbackRef.current(...lastArgsRef.current);
+                            pendingRef.current = false;
+                            lastArgsRef.current = null;
+                        }
+                        timeoutRef.current = null;
+                    }, delayMs);
                 }
                 return;
             }
 
             // Inside throttle window - schedule trailing call if enabled
+            lastArgsRef.current = args;
             pendingRef.current = true;
 
             if (!timeoutRef.current && options.trailing) {
                 const remaining = delayMs - timeSinceLastCall;
                 timeoutRef.current = setTimeout(() => {
-                    if (pendingRef.current) {
+                    if (pendingRef.current && lastArgsRef.current) {
                         lastCallRef.current = Date.now();
-                        callbackRef.current(...args);
+                        callbackRef.current(...lastArgsRef.current);
                         pendingRef.current = false;
+                        lastArgsRef.current = null;
                     }
                     timeoutRef.current = null;
                 }, remaining);

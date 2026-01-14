@@ -344,10 +344,6 @@ jobs:
           } > .env
 
           DATABASE_URL=$(echo "$POSTGRES_URL" | sed 's/:6543/:5432/')
-
-          echo "🔍 DEBUG: Checking migration history on branch..."
-          psql "$DATABASE_URL" -c "SELECT * FROM supabase_migrations.schema_migrations ORDER BY version;" || echo "Could not query migration history table"
-
           supabase db push --db-url "$DATABASE_URL"
 
           # Clean up .env file after db push

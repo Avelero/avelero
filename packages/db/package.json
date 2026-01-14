@@ -28,6 +28,7 @@
     "./queries/dpp": "./src/queries/dpp/index.ts",
     "./queries/integrations": "./src/queries/integrations/index.ts",
     "./queries/bulk": "./src/queries/bulk/index.ts",
+    "./queries/notifications": "./src/queries/notifications/index.ts",
     "./defaults": "./src/defaults/index.ts",
     "./index": "./src/index.ts",
     "./utils": "./src/utils/index.ts",

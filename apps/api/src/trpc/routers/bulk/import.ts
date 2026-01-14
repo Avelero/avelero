@@ -252,6 +252,7 @@ export const importRouter = createTRPCRouter({
             brandId,
             filePath: resolvedFile.path,
             mode: input.mode,
+            userId: ctx.user.id,
             userEmail: userEmail ?? undefined,
           });
         } catch (triggerError) {

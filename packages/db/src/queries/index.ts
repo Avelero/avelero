@@ -24,6 +24,7 @@ export * from "./taxonomy/index";
 export * from "./dpp/index";
 export * from "./integrations/index";
 export * from "./bulk/index";
+export * from "./notifications/index";
 
 // =============================================================================
 // Drizzle-ORM utilities

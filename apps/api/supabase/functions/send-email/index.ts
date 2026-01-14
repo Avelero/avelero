@@ -5,9 +5,12 @@ import { Webhook } from "standardwebhooks";
 import OtpEmail from "./_templates/otp.tsx";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY") as string);
-const hookSecret = Deno.env
-  .get("SEND_EMAIL_HOOK_SECRET")
-  .replace("v1,whsec_", "");
+
+const rawHookSecret = Deno.env.get("SEND_EMAIL_HOOK_SECRET");
+if (!rawHookSecret) {
+  throw new Error("SEND_EMAIL_HOOK_SECRET environment variable is not set");
+}
+const hookSecret = rawHookSecret.replace("v1,whsec_", "");
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {

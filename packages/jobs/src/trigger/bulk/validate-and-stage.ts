@@ -28,6 +28,7 @@ import type {
   NormalizedVariant,
   RowError,
 } from "@v1/db/queries/bulk";
+import { createNotification } from "@v1/db/queries/notifications";
 import * as schema from "@v1/db/schema";
 import { type BrandCatalog, loadBrandCatalog } from "../../lib/catalog-loader";
 import {
@@ -49,6 +50,8 @@ interface ValidateAndStagePayload {
   brandId: string;
   filePath: string;
   mode: "CREATE" | "CREATE_AND_ENRICH";
+  /** User ID who initiated the import (for notifications) */
+  userId?: string | null;
   /** User email for error report notifications (optional) */
   userEmail?: string | null;
 }
@@ -501,6 +504,41 @@ export const validateAndStage = task({
           warningsCount,
           blockedCount,
         });
+
+        // 10b. Create user notification for import failure
+        if (payload.userId) {
+          const notificationTitle =
+            blockedCount > 0 && warningsCount > 0
+              ? `${blockedCount} products failed and ${warningsCount} had warnings`
+              : blockedCount > 0
+                ? `${blockedCount} products failed during import`
+                : `${warningsCount} products had warnings during import`;
+
+          await createNotification(db, {
+            userId: payload.userId,
+            brandId,
+            type: "import_failure",
+            title: notificationTitle,
+            message:
+              "Download the error report to see which products need corrections.",
+            resourceType: "import_job",
+            resourceId: jobId,
+            actionUrl: "/products",
+            actionData: {
+              blockedCount,
+              warningsCount,
+              jobId,
+            },
+            expiresInMs: 24 * 60 * 60 * 1000, // 24 hours
+          });
+
+          logger.info("Created import failure notification", {
+            jobId,
+            userId: payload.userId,
+            blockedCount,
+            warningsCount,
+          });
+        }
       }
 
       // 11. Auto-trigger commit-to-production job (only if we have committable products)

@@ -95,11 +95,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         { leading: true, trailing: true },
     );
 
-    // Non-throttled invalidators (called directly)
-    const catalogInvalidate = createInvalidator("catalog");
-    const teamInvalidate = createInvalidator("team");
-    const jobsInvalidate = createInvalidator("jobs");
-    const themeInvalidate = createInvalidator("theme");
+    // Non-throttled invalidators (memoized to ensure stable references)
+    const catalogInvalidate = useMemo(() => createInvalidator("catalog"), [createInvalidator]);
+    const teamInvalidate = useMemo(() => createInvalidator("team"), [createInvalidator]);
+    const jobsInvalidate = useMemo(() => createInvalidator("jobs"), [createInvalidator]);
+    const themeInvalidate = useMemo(() => createInvalidator("theme"), [createInvalidator]);
 
     // Map domain to its invalidator
     const getInvalidator = useCallback(

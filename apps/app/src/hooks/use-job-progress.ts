@@ -1,5 +1,6 @@
 "use client";
 
+import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import { createClient } from "@v1/supabase/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -22,12 +23,89 @@ export interface JobProgressData {
   context?: Record<string, unknown>;
 }
 
+// =============================================================================
+// Trigger.dev Native Realtime Hook for Sync Progress
+// =============================================================================
+
+export interface SyncProgressMetadata {
+  status: "running" | "completed" | "failed";
+  processed: number;
+  total: number | null;
+  startedAt: string;
+  errorMessage?: string | null;
+  context?: { brandIntegrationId: string };
+}
+
+/**
+ * Hook to subscribe to sync progress via Trigger.dev native realtime.
+ * Uses useRealtimeRun to subscribe directly to the Trigger.dev run.
+ */
+export function useTriggerSyncProgress(
+  runId: string | null,
+  accessToken: string | null,
+): {
+  progress: SyncProgressMetadata | null;
+  runStatus: string | null;
+  error: Error | null;
+} {
+  const isEnabled = !!runId && !!accessToken;
+
+  const { run, error } = useRealtimeRun(runId ?? "", {
+    accessToken: accessToken ?? "",
+    enabled: isEnabled,
+  });
+
+  // Extract sync progress from run metadata
+  const progress = useMemo(() => {
+    if (!run?.metadata?.syncProgress) return null;
+    return run.metadata.syncProgress as unknown as SyncProgressMetadata;
+  }, [run?.metadata?.syncProgress]);
+
+  // Map Trigger.dev run status to our status type
+  const runStatus = useMemo(() => {
+    if (!run) return null;
+    // Trigger.dev statuses from SDK 4.0.6
+    switch (run.status) {
+      case "EXECUTING":
+        return "running";
+      case "COMPLETED":
+        return "completed";
+      case "FAILED":
+      case "CRASHED":
+      case "SYSTEM_FAILURE":
+      case "TIMED_OUT":
+      case "EXPIRED":
+        return "failed";
+      case "CANCELED":
+        return "cancelled";
+      case "QUEUED":
+      case "DEQUEUED":
+      case "WAITING":
+      case "DELAYED":
+      case "PENDING_VERSION":
+        return "pending";
+      default:
+        return String(run.status).toLowerCase();
+    }
+  }, [run?.status]);
+
+  return { progress, runStatus, error: error ?? null };
+}
+
+// =============================================================================
+// Legacy Supabase Realtime Hook (for promotion progress)
+// =============================================================================
+
 export interface UseJobProgressOptions {
   jobTypes?: JobProgressType[];
   contextFilter?: Record<string, unknown>;
   completedRetention?: number;
 }
 
+/**
+ * Legacy hook for job progress via Supabase Realtime.
+ * Still used for promotion progress (sync now uses Trigger.dev native realtime).
+ */
 export function useJobProgress(
   brandId: string | null,
   options: UseJobProgressOptions = {},
@@ -123,6 +201,14 @@ export function useJobProgress(
   return { progress, isConnected, clear };
 }
 
+// =============================================================================
+// Convenience Hooks
+// =============================================================================
+
+/**
+ * @deprecated Use useTriggerSyncProgress instead for sync progress.
+ * This hook is kept for backwards compatibility but sync now uses Trigger.dev native realtime.
+ */
 export function useSyncProgress(
   brandId: string | null,
   brandIntegrationId: string | null,
@@ -151,3 +237,4 @@ export function useImportProgress(brandId: string | null) {
   });
   return { progress, isConnected };
 }
+

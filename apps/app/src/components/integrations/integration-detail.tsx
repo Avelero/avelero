@@ -35,7 +35,7 @@ import {
   useUpdateFieldMappingMutation,
   useUpdateIntegrationMutation,
 } from "@/hooks/use-integrations";
-import { useSyncProgress, usePromotionProgress } from "@/hooks/use-job-progress";
+import { useTriggerSyncProgress, usePromotionProgress } from "@/hooks/use-job-progress";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { getConnectorFields } from "@v1/integrations";
 import { Button } from "@v1/ui/button";
@@ -128,6 +128,12 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   // Optimistic sync state - shows "In progress" immediately when user clicks sync
   const [optimisticSyncStarted, setOptimisticSyncStarted] = useState<Date | null>(null);
 
+  // Track active sync run for Trigger.dev realtime
+  const [activeSyncRun, setActiveSyncRun] = useState<{
+    runId: string;
+    accessToken: string;
+  } | null>(null);
+
   // Auto-hide progress bar state
   const [showProgress, setShowProgress] = useState(true);
 
@@ -164,8 +170,11 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   // Sync status (initial load only - no polling)
   const { data: syncStatusData } = useSyncStatusQuery(connection?.id ?? null);
 
-  // Real-time progress via WebSocket
-  const { progress: syncProgress } = useSyncProgress(brandId, connection?.id ?? null);
+  // Real-time progress via Trigger.dev native realtime
+  const { progress: syncProgress, runStatus: syncRunStatus } = useTriggerSyncProgress(
+    activeSyncRun?.runId ?? null,
+    activeSyncRun?.accessToken ?? null,
+  );
   const { progress: promotionProgress } = usePromotionProgress(brandId, connection?.id ?? null);
 
   // Promotion status (still uses polling when promotion is active since we don't have WS for it yet)
@@ -209,29 +218,50 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     setOptimisticSyncStarted(new Date());
 
     try {
-      await triggerSyncMutation.mutateAsync({
+      const result = await triggerSyncMutation.mutateAsync({
         brand_integration_id: connection.id,
       });
+
+      // Store runId and accessToken for Trigger.dev realtime subscription
+      if (result.data?.id && result.data?.publicAccessToken) {
+        setActiveSyncRun({
+          runId: result.data.id,
+          accessToken: result.data.publicAccessToken,
+        });
+      }
+
       toast.success("Sync started");
     } catch (error) {
       // Clear optimistic state on error
       setOptimisticSyncStarted(null);
+      setActiveSyncRun(null);
       toast.error("Failed to start sync");
     }
   }
 
-  // Clear optimistic state when WebSocket confirms job is running
+  // Clear optimistic state only when we have actual progress data (not just running status)
+  // This prevents the brief indeterminate state while waiting for first metadata update
   useEffect(() => {
-    if (syncProgress?.status === "running") {
+    // Only clear optimistic state once we have real progress data
+    if (syncProgress?.processed !== undefined && syncProgress?.processed >= 0) {
       setOptimisticSyncStarted(null);
     }
-  }, [syncProgress?.status]);
+    // Clear activeSyncRun when job completes
+    if (syncRunStatus === "completed" || syncRunStatus === "failed" || syncRunStatus === "cancelled") {
+      // Keep the activeSyncRun for a bit so the completion state is visible
+      const timer = setTimeout(() => setActiveSyncRun(null), 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [syncRunStatus, syncProgress?.processed]);
 
   // Auto-hide progress bar after job completion (5 second delay)
-  const isJobRunning = syncProgress?.status === "running" ||
+  const isJobRunning = syncRunStatus === "running" ||
+    syncProgress?.status === "running" ||
     promotionProgress?.status === "running" ||
     promotionStatusData?.data?.status === "running";
-  const isJobCompleted = syncProgress?.status === "completed" ||
+  const isJobCompleted = syncRunStatus === "completed" ||
+    syncRunStatus === "failed" ||
+    syncProgress?.status === "completed" ||
     syncProgress?.status === "failed" ||
     promotionProgress?.status === "completed" ||
     promotionProgress?.status === "failed" ||
@@ -397,8 +427,11 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       ).toISOString()
       : null);
 
-  // Determine sync job status - prioritize WebSocket data
-  const syncJobStatus: SyncJobStatus | undefined = syncProgress?.status ?? latestJob?.status as SyncJobStatus | undefined;
+  // Determine sync job status - prioritize Trigger.dev realtime data
+  const syncJobStatus: SyncJobStatus | undefined =
+    (syncRunStatus as SyncJobStatus) ??
+    syncProgress?.status ??
+    latestJob?.status as SyncJobStatus | undefined;
 
   // Calculate progress percentage - prioritize WebSocket data
   const progress = useMemo(() => {
@@ -431,7 +464,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     if (promotionProgress?.status === "running") {
       return "promotion";
     }
-    if (syncProgress?.status === "running" || optimisticSyncStarted) {
+    if (syncRunStatus === "running" || syncProgress?.status === "running" || optimisticSyncStarted) {
       return "sync";
     }
 
@@ -439,7 +472,8 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     if (promotionProgress?.status === "completed" || promotionProgress?.status === "failed") {
       return "promotion";
     }
-    if (syncProgress?.status === "completed" || syncProgress?.status === "failed") {
+    if (syncRunStatus === "completed" || syncRunStatus === "failed" ||
+      syncProgress?.status === "completed" || syncProgress?.status === "failed") {
       return "sync";
     }
 
@@ -455,7 +489,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       return "sync";
     }
     return null;
-  }, [optimisticSyncStarted, syncProgress, promotionProgress, promotionStatusData?.data?.status, latestJob]);
+  }, [optimisticSyncStarted, syncProgress, syncRunStatus, promotionProgress, promotionStatusData?.data?.status, latestJob]);
 
   // Show setup wizard if not completed
   if (setupCompleted === false) {

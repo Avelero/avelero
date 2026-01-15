@@ -8,7 +8,7 @@
  *
  * @module trpc/routers/integrations/sync
  */
-import { tasks } from "@trigger.dev/sdk/v3";
+import { auth, tasks } from "@trigger.dev/sdk/v3";
 import {
   getBrandIntegration,
   getLatestSyncJob,
@@ -112,9 +112,17 @@ export const syncRouter = createTRPCRouter({
           triggerType: "manual",
         });
 
+        // Generate a public access token for the client to subscribe to realtime updates
+        const publicToken = await auth.createPublicToken({
+          scopes: {
+            read: { runs: [handle.id] },
+          },
+        });
+
         return createEntityResponse({
           id: handle.id,
           status: "triggered",
+          publicAccessToken: publicToken,
           message: "Sync job triggered successfully",
         });
       } catch (error) {
@@ -237,19 +245,19 @@ export const syncRouter = createTRPCRouter({
           isSyncing,
           latestJob: latestJob
             ? {
-                id: latestJob.id,
-                status: latestJob.status,
-                triggerType: latestJob.triggerType,
-                startedAt: latestJob.startedAt,
-                finishedAt: latestJob.finishedAt,
-                productsTotal: latestJob.productsTotal,
-                productsProcessed: latestJob.productsProcessed,
-                productsCreated: latestJob.productsCreated,
-                productsUpdated: latestJob.productsUpdated,
-                productsFailed: latestJob.productsFailed,
-                productsSkipped: latestJob.productsSkipped,
-                errorSummary: latestJob.errorSummary,
-              }
+              id: latestJob.id,
+              status: latestJob.status,
+              triggerType: latestJob.triggerType,
+              startedAt: latestJob.startedAt,
+              finishedAt: latestJob.finishedAt,
+              productsTotal: latestJob.productsTotal,
+              productsProcessed: latestJob.productsProcessed,
+              productsCreated: latestJob.productsCreated,
+              productsUpdated: latestJob.productsUpdated,
+              productsFailed: latestJob.productsFailed,
+              productsSkipped: latestJob.productsSkipped,
+              errorSummary: latestJob.errorSummary,
+            }
             : null,
         });
       } catch (error) {

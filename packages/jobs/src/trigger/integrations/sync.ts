@@ -9,7 +9,7 @@
 
 import "../configure-trigger";
 import { createClient } from "@supabase/supabase-js";
-import { logger, task } from "@trigger.dev/sdk/v3";
+import { logger, metadata, task } from "@trigger.dev/sdk/v3";
 import { serviceDb as db } from "@v1/db/client";
 import {
   createSyncJob,
@@ -28,7 +28,6 @@ import {
   getConnector,
   syncProducts,
 } from "@v1/integrations";
-import { createThrottledBroadcaster } from "../../utils/progress-broadcast";
 
 // =============================================================================
 // TYPES
@@ -76,7 +75,20 @@ export const syncIntegration = task({
     // Set up progress tracking variables at top level so they're accessible in catch block
     let productsTotal: number | undefined;
     const syncStartedAt = new Date().toISOString();
-    const broadcastProgress = createThrottledBroadcaster(brandId, 2000);
+
+    // Helper to update progress via Trigger.dev metadata (native realtime)
+    const updateProgress = (data: {
+      status: "running" | "completed" | "failed";
+      processed: number;
+      total: number | null;
+      errorMessage?: string | null;
+    }) => {
+      metadata.set("syncProgress", {
+        ...data,
+        startedAt: syncStartedAt,
+        context: { brandIntegrationId },
+      });
+    };
 
     try {
       // Mark job as started
@@ -167,22 +179,18 @@ export const syncIntegration = task({
           process.env.SUPABASE_SERVICE_ROLE_KEY!,
       );
 
-      // Progress callback to update sync job and broadcast via WebSocket
+      // Progress callback to update sync job and metadata for real-time UI
       const onProgress = async (progress: SyncProgress) => {
         // Update database (for persistence and fallback)
         await updateSyncJob(db, syncJobId, {
           productsProcessed: progress.productsProcessed,
         });
 
-        // Broadcast via WebSocket for real-time UI updates
-        broadcastProgress({
-          jobId: syncJobId,
-          jobType: "sync",
+        // Update Trigger.dev metadata for real-time UI updates
+        updateProgress({
           status: "running",
           processed: progress.productsProcessed,
           total: progress.productsTotal ?? productsTotal ?? null,
-          startedAt: syncStartedAt,
-          context: { brandIntegrationId },
         });
 
         logger.info("Sync progress", {
@@ -242,19 +250,15 @@ export const syncIntegration = task({
         errorLog: result.errors.length > 0 ? result.errors : null,
       });
 
-      // Broadcast completion via WebSocket
-      broadcastProgress({
-        jobId: syncJobId,
-        jobType: "sync",
+      // Update metadata with completion status
+      updateProgress({
         status: result.success ? "completed" : "failed",
         processed: result.variantsProcessed,
         total: productsTotal ?? null,
-        startedAt: syncStartedAt,
         errorMessage:
           result.errors.length > 0
             ? `${result.errors.length} errors occurred`
             : null,
-        context: { brandIntegrationId },
       });
 
       // Update brand integration with last sync time
@@ -291,16 +295,12 @@ export const syncIntegration = task({
         errorSummary: error instanceof Error ? error.message : String(error),
       });
 
-      // Broadcast failure via WebSocket
-      broadcastProgress({
-        jobId: syncJobId,
-        jobType: "sync",
+      // Update metadata with failure status
+      updateProgress({
         status: "failed",
         processed: 0,
         total: productsTotal ?? null,
-        startedAt: syncStartedAt,
         errorMessage: error instanceof Error ? error.message : String(error),
-        context: { brandIntegrationId },
       });
 
       throw error;

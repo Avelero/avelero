@@ -1,118 +1,36 @@
 import { serviceDb } from "@v1/db/client";
+import { and, eq, isNull } from "@v1/db/queries";
+import type { SQL } from "@v1/db/queries";
+import {
+  getImportJobStatus,
+  getUnmappedValuesForJob,
+} from "@v1/db/queries/bulk";
 /**
  * Bulk import value mapping router.
  *
  * Handles value mapping operations:
  * - unmapped: Get CSV values that need entity definitions
- * - define: Create single catalog entity inline
- * - batchDefine: Create multiple catalog entities at once
+ * - catalogData: Get all catalog entities for dropdown selection
+ * - ensureCategory: Create category path in database
  */
 import { taxonomyCategories } from "@v1/db/schema";
-import {
-  createValueMapping,
-  getImportJobStatus,
-  getUnmappedValuesForJob,
-  getValueMapping,
-  updateImportJobProgress,
-  updateValueMapping,
-} from "@v1/db/queries/bulk";
-import {
-  validateAndCreateEntity,
-  createSeason,
-  createBrandTag,
-  type CatalogEntityType,
-} from "@v1/db/queries/catalog";
-import { and, eq, isNull, sql } from "@v1/db/queries";
-import type { SQL } from "@v1/db/queries";
-import type { ValueMappingTarget } from "@v1/db/queries/bulk";
 import { z } from "zod";
-import {
-  batchDefineValuesSchema,
-  defineValueSchema,
-  getUnmappedValuesSchema,
-  mapToExistingEntitySchema,
-} from "../../../schemas/bulk.js";
+import { getUnmappedValuesSchema } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 
-async function createEntityForType(
-  db: BrandContext["db"],
-  brandId: string,
-  entityType: ValueMappingTarget,
-  entityData: unknown,
-) {
-  switch (entityType) {
-    case "SEASON": {
-      const payload = entityData as {
-        name: string;
-        startDate?: string;
-        endDate?: string;
-        isOngoing?: boolean;
-      };
-
-      if (!payload.name?.trim()) {
-        throw badRequest("Season name is required");
-      }
-
-      const startDate =
-        payload.startDate != null ? new Date(payload.startDate) : null;
-      const endDate =
-        payload.endDate != null ? new Date(payload.endDate) : null;
-
-      if (startDate !== null && Number.isNaN(startDate.getTime())) {
-        throw badRequest("Invalid season start date");
-      }
-      if (endDate !== null && Number.isNaN(endDate.getTime())) {
-        throw badRequest("Invalid season end date");
-      }
-
-      const created = await createSeason(db, brandId, {
-        name: payload.name.trim(),
-        startDate,
-        endDate,
-        ongoing: payload.isOngoing ?? false,
-      });
-
-      if (!created?.id) {
-        throw new Error("Failed to create season");
-      }
-
-      return { id: created.id };
-    }
-    case "TAG": {
-      const payload = entityData as { name: string; hex?: string | null };
-      if (!payload.name?.trim()) {
-        throw badRequest("Tag name is required");
-      }
-      const created = await createBrandTag(db, brandId, {
-        name: payload.name.trim(),
-        hex: payload.hex ?? null,
-      });
-      if (!created?.id) {
-        throw new Error("Failed to create tag");
-      }
-      return { id: created.id };
-    }
-    case "CATEGORY": {
-      throw badRequest(
-        "Categories are created via ensureCategory path handling. Inline creation is not supported.",
-      );
-    }
-    default:
-      // TypeScript should now know this is a CatalogEntityType (COLOR/SIZE removed from ValueMappingTarget)
-      return validateAndCreateEntity(db, brandId, entityType as CatalogEntityType, entityData);
-  }
-}
-
 export const valuesRouter = createTRPCRouter({
   /**
    * Get unmapped values needing definition
    *
    * Returns list of CSV values that don't have corresponding database entities.
-   * User must define these before approval.
+   *
+   * Note: With the auto-create approach, most entities are automatically created
+   * during import. Only categories cannot be auto-created (they're hierarchical
+   * and pre-seeded). This endpoint now primarily returns category errors.
    */
   unmapped: brandRequiredProcedure
     .input(getUnmappedValuesSchema)
@@ -191,7 +109,8 @@ export const valuesRouter = createTRPCRouter({
             orderBy: (facilities, { asc }) => [asc(facilities.displayName)],
           }),
           brandCtx.db.query.brandManufacturers.findMany({
-            where: (manufacturers, { eq }) => eq(manufacturers.brandId, brandId),
+            where: (manufacturers, { eq }) =>
+              eq(manufacturers.brandId, brandId),
             columns: { id: true, name: true },
             orderBy: (manufacturers, { asc }) => [asc(manufacturers.name)],
           }),
@@ -350,317 +269,6 @@ export const valuesRouter = createTRPCRouter({
         };
       } catch (error) {
         throw wrapError(error, "Failed to ensure category exists");
-      }
-    }),
-
-  /**
-   * Define single value inline
-   *
-   * Creates a new catalog entity (material, color, size, etc.) during import review.
-   * Updates value mapping and job summary.
-   */
-  define: brandRequiredProcedure
-    .input(defineValueSchema)
-    .mutation(async ({ ctx, input }) => {
-      const brandCtx = ctx as BrandContext;
-      const brandId = brandCtx.brandId;
-
-      try {
-        // First verify job ownership
-        const job = await getImportJobStatus(brandCtx.db, input.jobId);
-
-        if (!job) {
-          throw badRequest("Import job not found");
-        }
-
-        if (job.brandId !== brandId) {
-          throw badRequest("Access denied: job belongs to different brand");
-        }
-
-        // Validate job status
-        if (job.status !== "VALIDATED") {
-          throw badRequest(
-            `Cannot define values for job with status ${job.status}. Job must be VALIDATED.`,
-          );
-        }
-
-        // Create the entity based on type
-        const entity = await createEntityForType(
-          brandCtx.db,
-          brandId,
-          input.entityType as ValueMappingTarget,
-          input.entityData,
-        );
-
-        // Create value mapping and capture the ID
-        const mapping = await createValueMapping(brandCtx.db, {
-          brandId,
-          sourceColumn: input.sourceColumn,
-          rawValue: input.rawValue,
-          target: input.entityType as ValueMappingTarget,
-          targetId: entity.id,
-        });
-
-        // Update job summary to remove from pending_approval
-        const summary = (job.summary as Record<string, unknown>) ?? {};
-        const pendingApproval = (summary.pending_approval as unknown[]) ?? [];
-        const approvedValues = (summary.approved_values as unknown[]) ?? [];
-
-        // Filter out the value we just defined
-        const updatedPending = pendingApproval.filter((item) => {
-          const val = item as { name: string; type: string };
-          return !(
-            val.name === input.rawValue && val.type === input.entityType
-          );
-        });
-
-        // Add to approved values
-        approvedValues.push({
-          type: input.entityType,
-          name: input.rawValue,
-          entityId: entity.id,
-        });
-
-        await updateImportJobProgress(brandCtx.db, {
-          jobId: input.jobId,
-          summary: {
-            ...summary,
-            pending_approval: updatedPending,
-            approved_values: approvedValues,
-          },
-        });
-
-        const remainingUnmapped = updatedPending.length;
-
-        return {
-          success: true,
-          entityId: entity.id,
-          entityType: input.entityType,
-          name: input.rawValue,
-          valueMappingId: mapping.id,
-          remainingUnmapped,
-        };
-      } catch (error) {
-        throw wrapError(error, "Failed to define value");
-      }
-    }),
-
-  /**
-   * Batch define multiple values
-   *
-   * Creates multiple catalog entities at once.
-   * Useful for bulk approval of simple entities.
-   */
-  batchDefine: brandRequiredProcedure
-    .input(batchDefineValuesSchema)
-    .mutation(async ({ ctx, input }) => {
-      const brandCtx = ctx as BrandContext;
-      const brandId = brandCtx.brandId;
-
-      try {
-        // First verify job ownership
-        const job = await getImportJobStatus(brandCtx.db, input.jobId);
-
-        if (!job) {
-          throw badRequest("Import job not found");
-        }
-
-        if (job.brandId !== brandId) {
-          throw badRequest("Access denied: job belongs to different brand");
-        }
-
-        // Validate job status
-        if (job.status !== "VALIDATED") {
-          throw badRequest(
-            `Cannot define values for job with status ${job.status}. Job must be VALIDATED.`,
-          );
-        }
-
-        const created: Array<{
-          entityId: string;
-          entityType: string;
-          name: string;
-        }> = [];
-        const failed: Array<{ rawValue: string; error: string }> = [];
-
-        // Process each value
-        for (const value of input.values) {
-          try {
-            // Create the entity
-            const entity = await createEntityForType(
-              brandCtx.db,
-              brandId,
-              value.entityType as ValueMappingTarget,
-              value.entityData,
-            );
-
-            // Create value mapping
-            await createValueMapping(brandCtx.db, {
-              brandId,
-              sourceColumn: value.sourceColumn,
-              rawValue: value.rawValue,
-              target: value.entityType as ValueMappingTarget,
-              targetId: entity.id,
-            });
-
-            created.push({
-              entityId: entity.id,
-              entityType: value.entityType,
-              name: value.rawValue,
-            });
-          } catch (err) {
-            failed.push({
-              rawValue: value.rawValue,
-              error: err instanceof Error ? err.message : "Unknown error",
-            });
-          }
-        }
-
-        // Update job summary
-        const summary = (job.summary as Record<string, unknown>) ?? {};
-        const pendingApproval = (summary.pending_approval as unknown[]) ?? [];
-        const approvedValues = (summary.approved_values as unknown[]) ?? [];
-
-        // Filter out successfully created values from pending (match by both name and type)
-        const createdSet = new Set(
-          created.map((c) => `${c.entityType}:${c.name}`),
-        );
-        const updatedPending = pendingApproval.filter((item) => {
-          const val = item as { name: string; type: string };
-          const key = `${val.type}:${val.name}`;
-          return !createdSet.has(key);
-        });
-
-        // Add all created values to approved (ensure consistent shape with type, not entityType)
-        approvedValues.push(
-          ...created.map((c) => ({
-            type: c.entityType,
-            name: c.name,
-            entityId: c.entityId,
-          })),
-        );
-
-        await updateImportJobProgress(brandCtx.db, {
-          jobId: input.jobId,
-          summary: {
-            ...summary,
-            pending_approval: updatedPending,
-            approved_values: approvedValues,
-          },
-        });
-
-        return {
-          success: true,
-          created,
-          failed,
-          remainingUnmapped: updatedPending.length,
-        };
-      } catch (error) {
-        throw wrapError(error, "Failed to batch define values");
-      }
-    }),
-
-  /**
-   * Map CSV value to existing entity
-   *
-   * Instead of creating a new entity, this maps an unmapped CSV value
-   * to an entity that already exists in the catalog.
-   */
-  mapToExisting: brandRequiredProcedure
-    .input(mapToExistingEntitySchema)
-    .mutation(async ({ ctx, input }) => {
-      const brandCtx = ctx as BrandContext;
-      const brandId = brandCtx.brandId;
-
-      try {
-        // Verify job ownership
-        const job = await getImportJobStatus(brandCtx.db, input.jobId);
-
-        if (!job) {
-          throw badRequest("Import job not found");
-        }
-
-        if (job.brandId !== brandId) {
-          throw badRequest("Access denied: job belongs to different brand");
-        }
-
-        // Validate job status
-        if (job.status !== "VALIDATED") {
-          throw badRequest(
-            `Cannot map values for job with status ${job.status}. Job must be VALIDATED.`,
-          );
-        }
-
-        const existingMapping = await getValueMapping(
-          brandCtx.db,
-          brandId,
-          input.sourceColumn,
-          input.rawValue,
-        );
-
-        const target = input.entityType as ValueMappingTarget;
-
-        if (existingMapping) {
-          const needsUpdate =
-            existingMapping.target_id !== input.entityId ||
-            existingMapping.target !== input.entityType;
-
-          if (needsUpdate) {
-            await updateValueMapping(brandCtx.db, {
-              id: existingMapping.id,
-              brandId,
-              target,
-              targetId: input.entityId,
-            });
-          }
-        } else {
-          await createValueMapping(brandCtx.db, {
-            brandId,
-            sourceColumn: input.sourceColumn,
-            rawValue: input.rawValue,
-            target,
-            targetId: input.entityId,
-          });
-        }
-
-        // Update job summary
-        const summary = (job.summary as Record<string, unknown>) ?? {};
-        const pendingApproval = (summary.pending_approval as unknown[]) ?? [];
-        const approvedValues = (summary.approved_values as unknown[]) ?? [];
-
-        // Remove from pending
-        const updatedPending = pendingApproval.filter((item) => {
-          const val = item as { name: string; type: string };
-          return !(
-            val.name === input.rawValue && val.type === input.entityType
-          );
-        });
-
-        // Add to approved
-        approvedValues.push({
-          type: input.entityType,
-          name: input.rawValue,
-          entityId: input.entityId,
-        });
-
-        await updateImportJobProgress(brandCtx.db, {
-          jobId: input.jobId,
-          summary: {
-            ...summary,
-            pending_approval: updatedPending,
-            approved_values: approvedValues,
-          },
-        });
-
-        return {
-          success: true,
-          entityId: input.entityId,
-          entityType: input.entityType,
-          name: input.rawValue,
-          remainingUnmapped: updatedPending.length,
-        };
-      } catch (error) {
-        throw wrapError(error, "Failed to map value to existing entity");
       }
     }),
 });

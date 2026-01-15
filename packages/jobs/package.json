@@ -10,7 +10,12 @@
     "login": "npx --yes trigger.dev@4.0.6 login",
     "whoami": "npx --yes trigger.dev@4.0.6 whoami",
     "format": "biome format --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun run test:unit && bun run test:integration",
+    "test:unit": "bun test __tests__/unit --timeout 10000",
+    "test:integration": "bun test __tests__/integration --serial --timeout 30000",
+    "test:watch": "bun test __tests__ --watch",
+    "test:coverage": "bun test __tests__ --coverage"
   },
   "dependencies": {
     "@react-email/render": "^2.0.1",
@@ -23,6 +28,7 @@
     "@v1/utils": "workspace:*",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
+    "exceljs": "^4.4.0",
     "import-in-the-middle": "^2.0.0",
     "jschardet": "^3.1.4",
     "p-map": "^7.0.2",
@@ -33,11 +39,14 @@
   },
   "devDependencies": {
     "@trigger.dev/build": "4.0.6",
+    "@types/bun": "^1.2.16",
     "@types/papaparse": "^5.5.0",
+    "@v1/testing": "workspace:*",
     "trigger.dev": "4.0.6",
     "typescript": "^5.9.2"
   },
   "exports": {
+    "./lib/excel": "./src/lib/excel.ts",
     "./trigger": "./src/trigger/index.ts",
     "./trigger/validate-and-stage": "./src/trigger/validate-and-stage.ts",
     "./trigger/commit-to-production": "./src/trigger/commit-to-production.ts",

@@ -427,8 +427,7 @@ const CONSTRAINT_MESSAGES: Record<string, string> = {
   brand_attribute_values_brand_attr_name_unq:
     "An attribute value with this name already exists for this attribute",
   brand_colors_brand_id_name_unq: "A color with this name already exists",
-  brand_materials_brand_id_name_unq:
-    "A material with this name already exists",
+  brand_materials_brand_id_name_unq: "A material with this name already exists",
   brand_seasons_brand_id_name_unq: "A season with this name already exists",
   brand_tags_brand_id_name_unq: "A tag with this name already exists",
   brand_facilities_brand_id_display_name_unq:

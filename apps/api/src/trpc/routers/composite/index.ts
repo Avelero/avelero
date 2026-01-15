@@ -1,31 +1,29 @@
 import type { Database } from "@v1/db/client";
+import { and, asc, desc, eq, inArray } from "@v1/db/queries";
 import {
   type BrandMembershipListItem,
+  type UserInviteSummaryRow,
   getBrandsByUserId,
   getOwnerCountsByBrandIds,
   listPendingInvitesForEmail,
-  type UserInviteSummaryRow,
 } from "@v1/db/queries/brand";
 import {
-  getUserById,
-} from "@v1/db/queries/user";
+  listAllBrandAttributeValues,
+  listBrandAttributes,
+  listBrandManufacturers,
+  listBrandTags,
+  listCertifications,
+  listEcoClaims,
+  listFacilities,
+  listMaterials,
+  listSeasonsForBrand,
+} from "@v1/db/queries/catalog";
 import {
-  listTaxonomyCategories,
   listTaxonomyAttributes,
+  listTaxonomyCategories,
   listTaxonomyValues,
 } from "@v1/db/queries/taxonomy";
-import {
-  listMaterials,
-  listFacilities,
-  listBrandManufacturers,
-  listEcoClaims,
-  listCertifications,
-  listBrandTags,
-  listSeasonsForBrand,
-  listBrandAttributes,
-  listAllBrandAttributeValues,
-} from "@v1/db/queries/catalog";
-import { and, asc, desc, eq, inArray } from "@v1/db/queries";
+import { getUserById } from "@v1/db/queries/user";
 import { brandInvites, brandMembers, users } from "@v1/db/schema";
 import { getAppUrl } from "@v1/utils/envs";
 /**
@@ -44,10 +42,10 @@ import { brandIdOptionalSchema } from "../../../schemas/brand.js";
 import { badRequest, unauthorized, wrapError } from "../../../utils/errors.js";
 import { createEntityResponse } from "../../../utils/response.js";
 import {
+  type AuthenticatedTRPCContext,
   brandRequiredProcedure,
   createTRPCRouter,
   protectedProcedure,
-  type AuthenticatedTRPCContext,
 } from "../../init.js";
 
 /** User's role within a brand */

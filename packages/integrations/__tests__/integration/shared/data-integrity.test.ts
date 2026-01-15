@@ -23,8 +23,8 @@ import {
     createTestBrand,
     createTestBrandIntegration,
     createDefaultFieldConfigs,
-} from "@v1/testing/db";
-import { createTestSyncContext } from "@v1/testing/context";
+} from "@v1/db/testing";
+import { createTestSyncContext } from "@v1/db/testing";
 import {
     setMockProducts,
     clearMockProducts,

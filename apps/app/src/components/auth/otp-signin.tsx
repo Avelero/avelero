@@ -14,6 +14,35 @@ type Props = {
   className?: string;
 };
 
+/**
+ * Converts technical Supabase error messages to user-friendly ones.
+ * Prevents showing developer-facing errors to end users.
+ */
+function sanitizeErrorMessage(message: string | undefined): string {
+  if (!message) return "Something went wrong. Please try again.";
+
+  // List of patterns that indicate technical/developer errors
+  const technicalErrorPatterns = [
+    /failed to reach hook/i,
+    /maximum time of \d+/i,
+    /hook.*timeout/i,
+    /internal server error/i,
+    /unexpected.*error/i,
+    /fetch failed/i,
+    /network.*error/i,
+  ];
+
+  // Check if the message matches any technical error pattern
+  for (const pattern of technicalErrorPatterns) {
+    if (pattern.test(message)) {
+      return "Something went wrong. Please try again.";
+    }
+  }
+
+  // Return the original message if it's user-friendly
+  return message;
+}
+
 export function OTPSignIn({ className }: Props) {
   const verifyOtp = useAction(verifyOtpAction);
   const [isLoading, setLoading] = useState(false);
@@ -72,7 +101,7 @@ export function OTPSignIn({ className }: Props) {
     });
 
     if (error) {
-      setSendError(error.message || "Failed to send verification code");
+      setSendError(sanitizeErrorMessage(error.message));
       setLoading(false);
       return;
     }

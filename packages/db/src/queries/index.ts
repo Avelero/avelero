@@ -24,6 +24,7 @@ export * from "./taxonomy/index";
 export * from "./dpp/index";
 export * from "./integrations/index";
 export * from "./bulk/index";
+export * from "./notifications/index";
 
 // =============================================================================
 // Drizzle-ORM utilities
@@ -33,10 +34,13 @@ export {
   asc,
   desc,
   eq,
+  gte,
   inArray,
   isNull,
+  lt,
   or,
   sql,
   SQL,
   type SQLWrapper,
 } from "drizzle-orm";
+

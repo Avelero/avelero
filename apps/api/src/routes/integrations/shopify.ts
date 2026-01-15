@@ -11,7 +11,6 @@
  * @module routes/integrations/shopify
  */
 import { randomBytes } from "node:crypto";
-import { Hono } from "hono";
 import { db } from "@v1/db/client";
 import {
   createBrandIntegration,
@@ -30,6 +29,7 @@ import {
   exchangeCodeForToken,
   validateShopifyHmac,
 } from "@v1/integrations";
+import { Hono } from "hono";
 
 // Shopify OAuth configuration
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID ?? "";
@@ -38,128 +38,12 @@ const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES ?? "read_products";
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 const API_URL = process.env.API_URL ?? "http://localhost:4000";
 
-// API version for Shopify Admin API
-const SHOPIFY_API_VERSION = "2025-10";
-
-/**
- * Creates the mandatory compliance webhook subscriptions for a shop.
- *
- * This is called after a shop installs the app to ensure the three
- * required compliance webhooks are registered:
- * - CUSTOMERS_DATA_REQUEST
- * - CUSTOMERS_REDACT
- * - SHOP_REDACT
- *
- * @param shop - The shop domain (e.g., "my-store.myshopify.com")
- * @param accessToken - The shop's Admin API access token
- */
-async function createComplianceWebhookSubscriptions(
-  shop: string,
-  accessToken: string
-): Promise<void> {
-  // All compliance webhooks go to the same endpoint, differentiated by X-Shopify-Topic header
-  const webhookEndpoint = `${API_URL}/integrations/webhooks/compliance`;
-
-  const topics = [
-    "CUSTOMERS_DATA_REQUEST",
-    "CUSTOMERS_REDACT",
-    "SHOP_REDACT",
-  ];
-
-  for (const topic of topics) {
-    const mutation = `
-      mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {
-        webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {
-          userErrors {
-            field
-            message
-          }
-          webhookSubscription {
-            id
-            topic
-          }
-        }
-      }
-    `;
-
-    const variables = {
-      topic,
-      webhookSubscription: {
-        callbackUrl: webhookEndpoint,
-        format: "JSON",
-      },
-    };
-
-    try {
-      const response = await fetch(
-        `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Shopify-Access-Token": accessToken,
-          },
-          body: JSON.stringify({ query: mutation, variables }),
-        }
-      );
-
-      if (!response.ok) {
-        console.error(
-          `Failed to create webhook subscription for ${topic}:`,
-          response.status,
-          await response.text()
-        );
-        continue;
-      }
-
-      const result = await response.json() as {
-        data?: {
-          webhookSubscriptionCreate?: {
-            userErrors?: Array<{ field: string; message: string }>;
-            webhookSubscription?: { id: string; topic: string };
-          };
-        };
-        errors?: Array<{ message: string }>;
-      };
-
-      // Check for top-level GraphQL errors (auth failures, rate limits, invalid queries)
-      if (result.errors && result.errors.length > 0) {
-        console.error(
-          `GraphQL errors creating webhook for ${topic}:`,
-          result.errors
-        );
-        continue;
-      }
-
-      const userErrors = result.data?.webhookSubscriptionCreate?.userErrors;
-      if (userErrors && userErrors.length > 0) {
-        // Check if it's just a "already exists" error, which is fine
-        const alreadyExists = userErrors.some(
-          (e) => e.message.toLowerCase().includes("already exists")
-        );
-        if (!alreadyExists) {
-          console.error(
-            `Webhook subscription errors for ${topic}:`,
-            userErrors
-          );
-        } else {
-          console.log(`Webhook subscription for ${topic} already exists`);
-        }
-        continue;
-      }
-
-      console.log(
-        `Created webhook subscription for ${topic}:`,
-        result.data?.webhookSubscriptionCreate?.webhookSubscription?.id
-      );
-    } catch (error) {
-      console.error(`Error creating webhook subscription for ${topic}:`, error);
-    }
-  }
-}
-
 /**
  * Shopify OAuth router.
+ *
+ * Note: Mandatory compliance webhooks (customers/data_request, customers/redact, shop/redact)
+ * are configured in shopify.app.avelero.toml and registered automatically by Shopify.
+ * They cannot be subscribed to via the GraphQL Admin API.
  */
 export const shopifyOAuthRouter = new Hono();
 
@@ -196,7 +80,8 @@ shopifyOAuthRouter.get("/install", async (c) => {
     if (!shopRegex.test(shop)) {
       return c.json(
         {
-          error: "Invalid shop domain. Must be a valid Shopify domain (e.g., my-store.myshopify.com)",
+          error:
+            "Invalid shop domain. Must be a valid Shopify domain (e.g., my-store.myshopify.com)",
         },
         400,
       );
@@ -205,10 +90,7 @@ shopifyOAuthRouter.get("/install", async (c) => {
     // Validate Shopify credentials are configured
     if (!SHOPIFY_CLIENT_ID || !SHOPIFY_CLIENT_SECRET) {
       console.error("Shopify OAuth: Missing client credentials");
-      return c.json(
-        { error: "Shopify integration is not configured" },
-        500,
-      );
+      return c.json({ error: "Shopify integration is not configured" }, 500);
     }
 
     // Generate CSRF state token
@@ -231,7 +113,7 @@ shopifyOAuthRouter.get("/install", async (c) => {
       SHOPIFY_CLIENT_ID,
       SHOPIFY_SCOPES,
       redirectUri,
-      state
+      state,
     );
 
     // Redirect to Shopify
@@ -277,7 +159,7 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     const isValidHmac = validateShopifyHmac(
       c.req.query() as Record<string, string>,
       hmac,
-      SHOPIFY_CLIENT_SECRET
+      SHOPIFY_CLIENT_SECRET,
     );
     if (!isValidHmac) {
       console.error("Shopify OAuth: Invalid HMAC signature");
@@ -290,18 +172,14 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     const oauthState = await findOAuthState(db, state);
     if (!oauthState) {
       console.error("Shopify OAuth: Invalid or expired state token");
-      return c.redirect(
-        `${APP_URL}/settings/integrations?error=invalid_state`,
-      );
+      return c.redirect(`${APP_URL}/settings/integrations?error=invalid_state`);
     }
 
     // Verify shop domain matches
     if (oauthState.shopDomain !== shop) {
       console.error("Shopify OAuth: Shop domain mismatch");
       await deleteOAuthState(db, oauthState.id);
-      return c.redirect(
-        `${APP_URL}/settings/integrations?error=shop_mismatch`,
-      );
+      return c.redirect(`${APP_URL}/settings/integrations?error=shop_mismatch`);
     }
 
     // Exchange code for access token using shared utility
@@ -309,7 +187,7 @@ shopifyOAuthRouter.get("/callback", async (c) => {
       shop,
       code,
       SHOPIFY_CLIENT_ID,
-      SHOPIFY_CLIENT_SECRET
+      SHOPIFY_CLIENT_SECRET,
     );
     if (!accessToken) {
       await deleteOAuthState(db, oauthState.id);
@@ -318,9 +196,8 @@ shopifyOAuthRouter.get("/callback", async (c) => {
       );
     }
 
-    // Create mandatory compliance webhook subscriptions
-    // These are required for Shopify app review
-    await createComplianceWebhookSubscriptions(shop, accessToken);
+    // Note: Compliance webhooks (customers/data_request, customers/redact, shop/redact)
+    // are configured in shopify.app.avelero.toml and registered automatically by Shopify.
 
     // Get the Shopify integration type
     const integration = await getIntegrationBySlug(db, "shopify");
@@ -373,9 +250,7 @@ shopifyOAuthRouter.get("/callback", async (c) => {
     return c.redirect(`${APP_URL}/settings/integrations/shopify`);
   } catch (error) {
     console.error("Shopify OAuth callback error:", error);
-    return c.redirect(
-      `${APP_URL}/settings/integrations?error=callback_failed`,
-    );
+    return c.redirect(`${APP_URL}/settings/integrations?error=callback_failed`);
   }
 });
 

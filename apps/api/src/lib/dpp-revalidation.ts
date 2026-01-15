@@ -12,7 +12,8 @@
 const DPP_URL = process.env.DPP_URL || process.env.NEXT_PUBLIC_DPP_URL;
 const REVALIDATION_SECRET = process.env.DPP_REVALIDATION_SECRET;
 const DEFAULT_TIMEOUT_MS =
-  Number.parseInt(process.env.DPP_REVALIDATION_TIMEOUT_MS || "5000", 10) || 5000;
+  Number.parseInt(process.env.DPP_REVALIDATION_TIMEOUT_MS || "5000", 10) ||
+  5000;
 
 /**
  * Revalidate DPP cache for specific tags.
@@ -79,9 +80,7 @@ export async function revalidateDppCache(
 
     // Handle abort errors specifically - these are expected when timeout occurs
     if (error instanceof Error && error.name === "AbortError") {
-      console.warn(
-        `[DPP Revalidation] Request timed out after ${timeoutMs}ms`,
-      );
+      console.warn(`[DPP Revalidation] Request timed out after ${timeoutMs}ms`);
       return;
     }
 
@@ -148,6 +147,7 @@ export function revalidateBrand(brandSlug: string): Promise<void> {
 export function revalidateProducts(productHandles: string[]): Promise<void> {
   const validHandles = productHandles.filter(Boolean);
   if (validHandles.length === 0) return Promise.resolve();
-  return revalidateDppCache(validHandles.map((handle) => `dpp-product-${handle}`));
+  return revalidateDppCache(
+    validHandles.map((handle) => `dpp-product-${handle}`),
+  );
 }
-

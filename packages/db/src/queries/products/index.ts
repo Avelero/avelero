@@ -13,3 +13,4 @@ export * from "./attributes";
 export * from "./bulk";
 export * from "./types";
 export * from "./resolve-variant-data";
+export * from "./export";

@@ -22,4 +22,3 @@ export const themeUpdateSchema = z.object({
 
 export type ThemeConfig = z.infer<typeof themeConfigSchema>;
 export type ThemeUpdateInput = z.infer<typeof themeUpdateSchema>;
-

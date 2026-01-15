@@ -22,18 +22,24 @@
 export * from "./products.js";
 // Re-export bulk schemas, but exclude bulkSelectionSchema (already exported from products.js)
 export {
-  approveImportSchema,
-  cancelImportSchema,
   exportFailedRowsSchema,
   getImportErrorsSchema,
   getImportStatusSchema,
   getStagingPreviewSchema,
   getUnmappedValuesSchema,
   startImportSchema,
-  defineValueSchema,
-  batchDefineValuesSchema,
-  mapToExistingEntitySchema,
+  previewImportSchema,
+  dismissFailedImportSchema,
+  exportCorrectionsSchema,
+  getRecentImportsSchema,
+  importModeSchema,
+  stagingRowStatusSchema,
   type BulkSelectionInput,
+  type ImportMode,
+  type DismissFailedImportInput,
+  type ExportCorrectionsInput,
+  type GetRecentImportsInput,
+  type StagingRowStatus,
 } from "./bulk.js";
 export * from "./user.js";
 export * from "./brand.js";

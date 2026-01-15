@@ -96,17 +96,42 @@ export const bulkUpdateSchema = z.discriminatedUnion("domain", [
 ]);
 
 /**
+ * Import mode enum
+ *
+ * - CREATE: Create new products where handle doesn't exist. Products with matching handles are SKIPPED.
+ * - CREATE_AND_ENRICH: Create new products AND update/enrich existing products with matching handles.
+ *   Products are matched by product_handle, variants are matched by UPID for enrichment.
+ *   Enrichment uses one-way merge: Excel values fill empty fields, Excel wins on conflicts.
+ */
+export const importModeSchema = z.enum(["CREATE", "CREATE_AND_ENRICH"]);
+
+/**
  * Schema for starting an import job
  *
- * Used in bulk.startImport mutation to trigger Phase 1 validation
- * and staging background job.
+ * Used in bulk.startImport mutation to trigger background validation
+ * and auto-commit job. Now includes mode selection for CREATE vs ENRICH.
  */
 export const startImportSchema = z.object({
   fileId: z.string().min(1, "File ID is required"),
   filename: z
     .string()
     .min(1, "Filename is required")
-    .regex(/\.(csv|xlsx|xls)$/i, "File must be CSV or Excel format"),
+    .regex(/\.(xlsx|xls)$/i, "File must be Excel format (.xlsx or .xls)"),
+  mode: importModeSchema,
+});
+
+/**
+ * Schema for previewing import file contents
+ *
+ * Used in bulk.import.preview query to parse the uploaded Excel file
+ * and return summary statistics and first product preview before import.
+ */
+export const previewImportSchema = z.object({
+  fileId: z.string().min(1, "File ID is required"),
+  filename: z
+    .string()
+    .min(1, "Filename is required")
+    .regex(/\.(xlsx|xls)$/i, "File must be Excel format (.xlsx or .xls)"),
 });
 
 /**
@@ -133,27 +158,57 @@ export const getImportErrorsSchema = z.object({
 
 /**
  * Import job status enum values
+ *
+ * Updated for fire-and-forget flow:
+ * - PENDING: Job created, awaiting background processing
+ * - PROCESSING: Background job actively running (replaces VALIDATING/COMMITTING)
+ * - COMPLETED: All rows imported successfully
+ * - COMPLETED_WITH_FAILURES: Some rows imported, some failed
+ * - FAILED: Job itself failed (system error)
+ *
+ * @deprecated statuses: VALIDATING, VALIDATED, COMMITTING, CANCELLED
+ * These are kept for backward compatibility with existing jobs but
+ * new imports will use the simplified status flow.
  */
 export const importJobStatusSchema = z.enum([
   "PENDING",
+  "PROCESSING",
+  "COMPLETED",
+  "COMPLETED_WITH_FAILURES",
+  "FAILED",
+  // Legacy statuses (kept for backward compatibility)
   "VALIDATING",
   "VALIDATED",
   "COMMITTING",
-  "COMPLETED",
-  "FAILED",
   "CANCELLED",
+]);
+
+/**
+ * Staging row status enum for filtering
+ *
+ * Used to filter staging preview by row status:
+ * - PENDING: Row awaiting commit
+ * - COMMITTED: Row successfully committed to production
+ * - FAILED: Row failed validation/commit
+ */
+export const stagingRowStatusSchema = z.enum([
+  "PENDING",
+  "COMMITTED",
+  "FAILED",
 ]);
 
 /**
  * Schema for retrieving staging preview with pagination
  *
  * Used in bulk.getStagingPreview query to preview validated
- * staging data before final approval.
+ * staging data. Now includes optional status filter.
  */
 export const getStagingPreviewSchema = z.object({
   jobId: uuidSchema,
   limit: z.number().int().positive().max(1000).default(100),
   offset: z.number().int().nonnegative().default(0),
+  /** Optional filter by row status (PENDING, COMMITTED, FAILED) */
+  status: stagingRowStatusSchema.optional(),
 });
 
 /**
@@ -167,212 +222,6 @@ export const getUnmappedValuesSchema = z.object({
 });
 
 /**
- * Entity data schemas for value definition
- */
-const defineColorDataSchema = z.object({
-  name: z.string().min(1).max(100),
-  hex: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, "Must be valid hex color")
-    .optional(),
-});
-
-const defineSizeDataSchema = z.object({
-  name: z.string().min(1).max(100),
-  categoryGroup: z
-    .enum([
-      "mens-tops",
-      "mens-bottoms",
-      "mens-outerwear",
-      "mens-footwear",
-      "mens-accessories",
-      "womens-tops",
-      "womens-bottoms",
-      "womens-dresses",
-      "womens-outerwear",
-      "womens-footwear",
-      "womens-accessories",
-    ])
-    .optional(),
-  categoryId: uuidSchema.optional(), // Legacy support
-  sortIndex: z.number().int().nonnegative().optional(),
-});
-
-const defineMaterialDataSchema = z.object({
-  name: z.string().min(1).max(100),
-  countryOfOrigin: z
-    .string()
-    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
-    .optional(),
-  recyclable: z.boolean().optional(),
-  certificationId: uuidSchema.optional(),
-  // Inline certification details (when creating material with certification)
-  certificationTitle: z.string().max(200).optional(),
-  certificationCode: z.string().optional(),
-  certificationNumber: z.string().optional(),
-  certificationExpiryDate: z.string().datetime().optional(),
-});
-
-const defineEcoClaimDataSchema = z.object({
-  claim: z.string().min(1).max(500),
-});
-
-const defineFacilityDataSchema = z.object({
-  displayName: z.string().min(1).max(200),
-  legalName: z.string().max(200).optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  countryCode: z
-    .string()
-    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
-    .optional(),
-  contact: z.string().optional(),
-  vatNumber: z.string().optional(),
-});
-
-const defineManufacturerDataSchema = z.object({
-  name: z.string().min(1).max(200),
-  legalName: z.string().max(200).optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  website: z.string().url().optional(),
-  addressLine1: z.string().optional(),
-  addressLine2: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zip: z.string().optional(),
-  countryCode: z
-    .string()
-    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
-    .optional(),
-});
-
-const defineCertificationDataSchema = z.object({
-  title: z.string().min(1).max(200),
-  certificationCode: z.string().optional(),
-  instituteName: z.string().optional(),
-  instituteEmail: z.string().email().optional(),
-  instituteWebsite: z.string().url().optional(),
-  instituteAddressLine1: z.string().optional(),
-  instituteAddressLine2: z.string().optional(),
-  instituteCity: z.string().optional(),
-  instituteState: z.string().optional(),
-  instituteZip: z.string().optional(),
-  instituteCountryCode: z
-    .string()
-    .regex(/^[A-Z]{2}$/, "Must be 2-letter ISO country code")
-    .optional(),
-  issueDate: z.string().datetime().optional(),
-  expiryDate: z.string().datetime().optional(),
-  certificationPath: z.string().optional(),
-});
-
-const defineSeasonDataSchema = z.object({
-  name: z.string().min(1).max(100),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
-  isOngoing: z.boolean().optional(),
-});
-
-const defineCategoryDataSchema = z.object({
-  // Categories are read-only hardcoded, no creation schema needed
-  // This exists for type completeness
-  id: uuidSchema,
-});
-
-const defineTagDataSchema = z.object({
-  name: z.string().min(1).max(100),
-  hex: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, "Must be valid hex color")
-    .optional(),
-});
-
-/**
- * Entity type enum for value definition
- */
-export const entityTypeSchema = z.enum([
-  "MATERIAL",
-  "ECO_CLAIM",
-  "FACILITY",
-  "MANUFACTURER",
-  "CERTIFICATION",
-  "SEASON",
-  "CATEGORY",
-  "TAG",
-]);
-
-/**
- * Schema for defining a single value inline
- *
- * Used in bulk.defineValue mutation to create new catalog entities
- * during the import review process.
- */
-export const defineValueSchema = z.object({
-  jobId: uuidSchema,
-  entityType: entityTypeSchema,
-  rawValue: z.string().min(1),
-  sourceColumn: z.string().min(1),
-  entityData: z.union([
-    defineColorDataSchema,
-    defineSizeDataSchema,
-    defineMaterialDataSchema,
-    defineEcoClaimDataSchema,
-    defineFacilityDataSchema,
-    defineManufacturerDataSchema,
-    defineCertificationDataSchema,
-    defineSeasonDataSchema,
-    defineCategoryDataSchema,
-    defineTagDataSchema,
-  ]),
-});
-
-/**
- * Schema for batch defining multiple values
- *
- * Used in bulk.batchDefineValues mutation to create multiple
- * catalog entities at once.
- */
-export const batchDefineValuesSchema = z.object({
-  jobId: uuidSchema,
-  values: z
-    .array(
-      z.object({
-        entityType: entityTypeSchema,
-        rawValue: z.string().min(1),
-        sourceColumn: z.string().min(1),
-        entityData: z.union([
-          defineColorDataSchema,
-          defineSizeDataSchema,
-          defineMaterialDataSchema,
-          defineEcoClaimDataSchema,
-          defineFacilityDataSchema,
-          defineManufacturerDataSchema,
-          defineCertificationDataSchema,
-          defineSeasonDataSchema,
-          defineCategoryDataSchema,
-          defineTagDataSchema,
-        ]),
-      }),
-    )
-    .min(1),
-});
-
-/**
- * Schema for mapping CSV value to existing entity
- *
- * Used in bulk.values.mapToExisting mutation to map unmapped CSV values
- * to existing catalog entities instead of creating new ones.
- */
-export const mapToExistingEntitySchema = z.object({
-  jobId: uuidSchema,
-  entityType: entityTypeSchema,
-  rawValue: z.string().min(1),
-  sourceColumn: z.string().min(1),
-  entityId: uuidSchema,
-});
-
-/**
  * Schema for exporting failed rows as CSV
  *
  * Used in bulk.exportFailedRows query to generate downloadable
@@ -383,37 +232,93 @@ export const exportFailedRowsSchema = z.object({
 });
 
 /**
- * Schema for approving an import job
+ * Schema for dismissing a failed import
  *
- * Used in bulk.approveImport mutation to trigger Phase 2 (production commit)
- * after user has reviewed and approved the staging data.
+ * Used in bulk.dismiss mutation to cleanup staging data
+ * for a failed import and remove it from the recent imports list.
  */
-export const approveImportSchema = z.object({
+export const dismissFailedImportSchema = z.object({
   jobId: uuidSchema,
 });
 
 /**
- * Schema for cancelling an import job
+ * Schema for exporting correction Excel file
  *
- * Used in bulk.cancelImport mutation to discard staging data
- * and mark the job as CANCELLED.
+ * Used in bulk.exportCorrections mutation to generate an Excel file
+ * with failed rows highlighted in red for user correction.
  */
-export const cancelImportSchema = z.object({
+export const exportCorrectionsSchema = z.object({
   jobId: uuidSchema,
 });
+
+/**
+ * Schema for retrieving recent import jobs
+ *
+ * Used in bulk.getRecentImports query to fetch the last N import jobs
+ * for display in the import modal.
+ */
+export const getRecentImportsSchema = z.object({
+  limit: z.number().int().min(1).max(10).default(5),
+});
+
+// stagingRowStatusSchema is now defined earlier in this file (before getStagingPreviewSchema)
+
+// ============================================================================
+// Export Schemas
+// ============================================================================
+
+/**
+ * Schema for starting a product export
+ *
+ * Uses the same selection schema as bulk operations.
+ * Preserves filter state and search query to ensure
+ * export matches what user sees on screen.
+ */
+export const startExportSchema = z.object({
+  selection: bulkSelectionSchema,
+  filterState: z.any().optional(), // preserve current filter state (JSON)
+  search: z.string().optional(), // preserve current search query
+});
+
+/**
+ * Schema for getting export job status
+ */
+export const getExportStatusSchema = z.object({
+  jobId: uuidSchema,
+});
+
+/**
+ * Export job status enum
+ */
+export const exportJobStatusSchema = z.enum([
+  "PENDING",
+  "PROCESSING",
+  "COMPLETED",
+  "FAILED",
+]);
+
+// Export types
+export type StartExportInput = z.infer<typeof startExportSchema>;
+export type GetExportStatusInput = z.infer<typeof getExportStatusSchema>;
+export type ExportJobStatus = z.infer<typeof exportJobStatusSchema>;
 
 export type BulkSelectionInput = z.infer<typeof bulkSelectionSchema>;
 export type BulkImportInput = z.infer<typeof bulkImportSchema>;
 export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
 export type StartImportInput = z.infer<typeof startImportSchema>;
+export type PreviewImportInput = z.infer<typeof previewImportSchema>;
 export type GetImportStatusInput = z.infer<typeof getImportStatusSchema>;
 export type GetImportErrorsInput = z.infer<typeof getImportErrorsSchema>;
 export type GetStagingPreviewInput = z.infer<typeof getStagingPreviewSchema>;
 export type GetUnmappedValuesInput = z.infer<typeof getUnmappedValuesSchema>;
-export type DefineValueInput = z.infer<typeof defineValueSchema>;
-export type BatchDefineValuesInput = z.infer<typeof batchDefineValuesSchema>;
 export type ExportFailedRowsInput = z.infer<typeof exportFailedRowsSchema>;
-export type ApproveImportInput = z.infer<typeof approveImportSchema>;
-export type CancelImportInput = z.infer<typeof cancelImportSchema>;
 export type ImportJobStatus = z.infer<typeof importJobStatusSchema>;
-export type EntityType = z.infer<typeof entityTypeSchema>;
+
+// New types for fire-and-forget flow
+export type ImportMode = z.infer<typeof importModeSchema>;
+export type DismissFailedImportInput = z.infer<
+  typeof dismissFailedImportSchema
+>;
+export type ExportCorrectionsInput = z.infer<typeof exportCorrectionsSchema>;
+export type GetRecentImportsInput = z.infer<typeof getRecentImportsSchema>;
+export type StagingRowStatus = z.infer<typeof stagingRowStatusSchema>;

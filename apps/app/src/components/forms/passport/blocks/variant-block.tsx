@@ -18,17 +18,10 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@v1/ui/button";
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@v1/ui/command";
+
 import { Icons } from "@v1/ui/icons";
 import { Label } from "@v1/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@v1/ui/popover";
+
 import {
     Select,
     SelectAction,
@@ -1234,8 +1227,8 @@ export function VariantSection({
 
                         {/* Add attribute button with popover - only when less than 3 */}
                         {dimensions.length < 3 && (
-                            <Popover open={addPopoverOpen} onOpenChange={setAddPopoverOpen}>
-                                <PopoverTrigger asChild>
+                            <Select open={addPopoverOpen} onOpenChange={setAddPopoverOpen}>
+                                <SelectTrigger asChild>
                                     <button
                                         type="button"
                                         className="w-full flex items-center gap-1.5 px-4 py-3 text-left hover:bg-accent data-[state=open]:bg-accent transition-colors"
@@ -1245,85 +1238,81 @@ export function VariantSection({
                                             Add attribute
                                         </span>
                                     </button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[280px] p-0" align="start">
-                                    <Command shouldFilter={false}>
-                                        <CommandInput
-                                            placeholder="Search attributes..."
-                                            value={addSearchTerm}
-                                            onValueChange={setAddSearchTerm}
-                                        />
-                                        <CommandList className="max-h-48">
-                                            {/* Custom attributes first */}
-                                            {filteredCustomAttrs.length > 0 && (
-                                                <CommandGroup heading="Custom">
-                                                    {filteredCustomAttrs.map((attr) => (
-                                                        <CommandItem
-                                                            key={attr.id}
-                                                            onMouseDown={(e) => e.preventDefault()}
-                                                            onSelect={() => handleSelectAttribute(attr.id)}
-                                                        >
-                                                            <span className="type-p text-primary">
-                                                                {attr.name}
-                                                            </span>
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            )}
+                                </SelectTrigger>
+                                <SelectContent className="w-[280px]" shouldFilter={false}>
+                                    <SelectSearch
+                                        placeholder="Search attributes..."
+                                        value={addSearchTerm}
+                                        onValueChange={setAddSearchTerm}
+                                    />
+                                    <SelectList>
+                                        {/* Custom attributes first */}
+                                        {filteredCustomAttrs.length > 0 && (
+                                            <SelectGroup heading="Custom">
+                                                {filteredCustomAttrs.map((attr) => (
+                                                    <SelectItem
+                                                        key={attr.id}
+                                                        value={attr.id}
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onSelect={() => handleSelectAttribute(attr.id)}
+                                                    >
+                                                        {attr.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        )}
 
-                                            {/* Standard taxonomy attributes */}
-                                            {filteredTaxonomyAttrs.length > 0 && (
-                                                <CommandGroup
-                                                    heading={
-                                                        filteredCustomAttrs.length > 0
-                                                            ? "Standard"
-                                                            : undefined
-                                                    }
-                                                >
-                                                    {filteredTaxonomyAttrs.map((attr) => {
-                                                        const brandAttr = brandAttributes.find(
-                                                            (a) => a.taxonomyAttributeId === attr.id,
-                                                        );
-                                                        return (
-                                                            <CommandItem
-                                                                key={attr.id}
-                                                                onMouseDown={(e) => e.preventDefault()}
-                                                                onSelect={() =>
-                                                                    handleSelectAttribute(
-                                                                        brandAttr?.id ?? `tax:${attr.id}`,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <span className="type-p text-primary">
-                                                                    {attr.name}
-                                                                </span>
-                                                            </CommandItem>
-                                                        );
-                                                    })}
-                                                </CommandGroup>
-                                            )}
-
-                                            {filteredTaxonomyAttrs.length === 0 &&
-                                                filteredCustomAttrs.length === 0 && (
-                                                    <CommandEmpty>No attributes found</CommandEmpty>
-                                                )}
-                                        </CommandList>
-
-                                        {/* Add custom button - always visible at bottom */}
-                                        <div className="border-t border-border">
-                                            <button
-                                                type="button"
-                                                onMouseDown={(e) => e.preventDefault()}
-                                                onClick={handleAddCustomAttribute}
-                                                className="flex w-full items-center px-3 py-2 text-left type-p text-foreground hover:bg-accent transition-colors"
+                                        {/* Standard taxonomy attributes */}
+                                        {filteredTaxonomyAttrs.length > 0 && (
+                                            <SelectGroup
+                                                heading={
+                                                    filteredCustomAttrs.length > 0
+                                                        ? "Standard"
+                                                        : undefined
+                                                }
                                             >
-                                                <Icons.Plus className="h-4 w-4" />
-                                                <span className="px-1">Add custom attribute</span>
-                                            </button>
-                                        </div>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                                                {filteredTaxonomyAttrs.map((attr) => {
+                                                    const brandAttr = brandAttributes.find(
+                                                        (a) => a.taxonomyAttributeId === attr.id,
+                                                    );
+                                                    return (
+                                                        <SelectItem
+                                                            key={attr.id}
+                                                            value={brandAttr?.id ?? `tax:${attr.id}`}
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onSelect={() =>
+                                                                handleSelectAttribute(
+                                                                    brandAttr?.id ?? `tax:${attr.id}`,
+                                                                )
+                                                            }
+                                                        >
+                                                            {attr.name}
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectGroup>
+                                        )}
+
+                                        {filteredTaxonomyAttrs.length === 0 &&
+                                            filteredCustomAttrs.length === 0 && (
+                                                <SelectEmpty>No attributes found</SelectEmpty>
+                                            )}
+                                    </SelectList>
+
+                                    {/* Add custom button - always visible at bottom */}
+                                    <SelectFooter>
+                                        <SelectAction
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onSelect={handleAddCustomAttribute}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Icons.Plus className="h-3.5 w-3.5" />
+                                                <span>Add custom attribute</span>
+                                            </div>
+                                        </SelectAction>
+                                    </SelectFooter>
+                                </SelectContent>
+                            </Select>
                         )}
                     </div>
                 ) : (

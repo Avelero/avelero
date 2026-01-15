@@ -43,15 +43,11 @@ export * from "./products/variant-journey-steps";
 export * from "./data/file-assets";
 export * from "./data/import-jobs";
 export * from "./data/import-rows";
+export * from "./data/export-jobs";
+export * from "./data/user-notifications";
 
-// Staging schemas
-export * from "./staging/staging-products";
-export * from "./staging/staging-product-variants";
-export * from "./staging/staging-product-materials";
-export * from "./staging/staging-product-journey-steps";
-export * from "./staging/staging-product-environment";
-export * from "./staging/staging-eco-claims";
-export * from "./staging/value-mappings";
+// Import schemas
+export * from "./import/value-mappings";
 
 // Integration schemas
 export * from "./integrations/brand-integrations";

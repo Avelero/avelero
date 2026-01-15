@@ -35,6 +35,8 @@ import {
   useUpdateFieldMappingMutation,
   useUpdateIntegrationMutation,
 } from "@/hooks/use-integrations";
+import { useTriggerSyncProgress, usePromotionProgress } from "@/hooks/use-job-progress";
+import { useUserQuerySuspense } from "@/hooks/use-user";
 import { getConnectorFields } from "@v1/integrations";
 import { Button } from "@v1/ui/button";
 import {
@@ -115,6 +117,8 @@ export function IntegrationDetailSkeleton() {
 export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const router = useRouter();
   const { data: connectionData } = useIntegrationBySlugQuerySuspense(slug);
+  const { data: user } = useUserQuerySuspense();
+  const brandId = user?.brand_id ?? null;
 
   const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
   const [promoteModalOpen, setPromoteModalOpen] = useState(false);
@@ -123,6 +127,12 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
 
   // Optimistic sync state - shows "In progress" immediately when user clicks sync
   const [optimisticSyncStarted, setOptimisticSyncStarted] = useState<Date | null>(null);
+
+  // Track active sync run for Trigger.dev realtime
+  const [activeSyncRun, setActiveSyncRun] = useState<{
+    runId: string;
+    accessToken: string;
+  } | null>(null);
 
   // Auto-hide progress bar state
   const [showProgress, setShowProgress] = useState(true);
@@ -157,10 +167,17 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     connection?.id ?? null,
   );
 
-  // Sync status with polling
+  // Sync status (initial load only - no polling)
   const { data: syncStatusData } = useSyncStatusQuery(connection?.id ?? null);
 
-  // Promotion status with polling
+  // Real-time progress via Trigger.dev native realtime
+  const { progress: syncProgress, runStatus: syncRunStatus } = useTriggerSyncProgress(
+    activeSyncRun?.runId ?? null,
+    activeSyncRun?.accessToken ?? null,
+  );
+  const { progress: promotionProgress } = usePromotionProgress(brandId, connection?.id ?? null);
+
+  // Promotion status (still uses polling when promotion is active since we don't have WS for it yet)
   const { data: promotionStatusData } = usePromotionStatusQuery(
     connection?.id ?? null,
     { refetchInterval: isPromoting ? 2000 : false },
@@ -189,8 +206,10 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const triggerSyncMutation = useTriggerSyncMutation();
   const updateFieldMutation = useUpdateFieldMappingMutation();
 
+  // Determine if syncing based on WebSocket progress or optimistic state
   const isSyncing = triggerSyncMutation.status === "pending" ||
-    syncStatusData?.data?.isSyncing;
+    syncProgress?.status === "running" ||
+    optimisticSyncStarted !== null;
 
   async function handleTriggerSync() {
     if (!connection?.id) return;
@@ -199,29 +218,53 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     setOptimisticSyncStarted(new Date());
 
     try {
-      await triggerSyncMutation.mutateAsync({
+      const result = await triggerSyncMutation.mutateAsync({
         brand_integration_id: connection.id,
       });
+
+      // Store runId and accessToken for Trigger.dev realtime subscription
+      if (result.data?.id && result.data?.publicAccessToken) {
+        setActiveSyncRun({
+          runId: result.data.id,
+          accessToken: result.data.publicAccessToken,
+        });
+      }
+
       toast.success("Sync started");
     } catch (error) {
       // Clear optimistic state on error
       setOptimisticSyncStarted(null);
+      setActiveSyncRun(null);
       toast.error("Failed to start sync");
     }
   }
 
-  // Clear optimistic state when real sync status is available
+  // Clear optimistic state only when we have actual progress data (not just running status)
+  // This prevents the brief indeterminate state while waiting for first metadata update
   useEffect(() => {
-    if (syncStatusData?.data?.isSyncing) {
+    // Only clear optimistic state once we have real progress data
+    if (syncProgress?.processed !== undefined && syncProgress?.processed >= 0) {
       setOptimisticSyncStarted(null);
     }
-  }, [syncStatusData?.data?.isSyncing]);
+    // Clear activeSyncRun when job completes
+    if (syncRunStatus === "completed" || syncRunStatus === "failed" || syncRunStatus === "cancelled") {
+      // Keep the activeSyncRun for a bit so the completion state is visible
+      const timer = setTimeout(() => setActiveSyncRun(null), 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [syncRunStatus, syncProgress?.processed]);
 
   // Auto-hide progress bar after job completion (5 second delay)
-  const isJobRunning = syncStatusData?.data?.isSyncing ||
+  const isJobRunning = syncRunStatus === "running" ||
+    syncProgress?.status === "running" ||
+    promotionProgress?.status === "running" ||
     promotionStatusData?.data?.status === "running";
-  const isJobCompleted = syncStatusData?.data?.latestJob?.status === "completed" ||
-    syncStatusData?.data?.latestJob?.status === "failed" ||
+  const isJobCompleted = syncRunStatus === "completed" ||
+    syncRunStatus === "failed" ||
+    syncProgress?.status === "completed" ||
+    syncProgress?.status === "failed" ||
+    promotionProgress?.status === "completed" ||
+    promotionProgress?.status === "failed" ||
     promotionStatusData?.data?.status === "completed" ||
     promotionStatusData?.data?.status === "failed";
 
@@ -364,7 +407,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
 
   const status = connection.status as IntegrationStatus;
 
-  // Get latest job info for progress display
+  // Get latest job info for initial state (before WebSocket connects)
   const latestJob = syncStatusData?.data?.latestJob;
 
   // Use sync status data for dates (more accurate than connection data)
@@ -383,36 +426,70 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         new Date(lastSyncTime).getTime() + connection.syncInterval * 1000,
       ).toISOString()
       : null);
-  const syncJobStatus = latestJob?.status as SyncJobStatus | undefined;
 
-  // Calculate progress percentage from productsProcessed / productsTotal
-  const progress = latestJob
-    ? syncJobStatus === "completed"
-      ? 100
-      : syncJobStatus === "failed"
-        ? 100
-        : syncJobStatus === "running" && latestJob.productsTotal && latestJob.productsTotal > 0
-          ? Math.round((latestJob.productsProcessed / latestJob.productsTotal) * 100)
-          : undefined // No total available: show indeterminate
-    : undefined;
+  // Determine sync job status - prioritize Trigger.dev realtime data
+  const syncJobStatus: SyncJobStatus | undefined =
+    (syncRunStatus as SyncJobStatus) ??
+    syncProgress?.status ??
+    latestJob?.status as SyncJobStatus | undefined;
+
+  // Calculate progress percentage - prioritize WebSocket data
+  const progress = useMemo(() => {
+    // Use WebSocket progress if available
+    if (syncProgress) {
+      if (syncProgress.status === "completed" || syncProgress.status === "failed") {
+        return 100;
+      }
+      if (syncProgress.status === "running" && syncProgress.total && syncProgress.total > 0) {
+        return Math.round((syncProgress.processed / syncProgress.total) * 100);
+      }
+      return undefined; // Indeterminate
+    }
+
+    // Fallback to initial job data
+    if (latestJob) {
+      if (latestJob.status === "completed" || latestJob.status === "failed") {
+        return 100;
+      }
+      if (latestJob.status === "running" && latestJob.productsTotal && latestJob.productsTotal > 0) {
+        return Math.round((latestJob.productsProcessed / latestJob.productsTotal) * 100);
+      }
+    }
+    return undefined;
+  }, [syncProgress, latestJob]);
 
   // Determine active job type (sync vs promotion)
   const activeJobType: JobType | null = useMemo(() => {
-    if (promotionStatusData?.data?.status === "running") {
+    // Check WebSocket progress first
+    if (promotionProgress?.status === "running") {
       return "promotion";
     }
-    if (optimisticSyncStarted || syncStatusData?.data?.isSyncing) {
+    if (syncRunStatus === "running" || syncProgress?.status === "running" || optimisticSyncStarted) {
       return "sync";
     }
-    // Check for recent completed jobs
-    if (promotionStatusData?.data?.status === "completed" || promotionStatusData?.data?.status === "failed") {
+
+    // Check for completed WebSocket jobs
+    if (promotionProgress?.status === "completed" || promotionProgress?.status === "failed") {
       return "promotion";
     }
+    if (syncRunStatus === "completed" || syncRunStatus === "failed" ||
+      syncProgress?.status === "completed" || syncProgress?.status === "failed") {
+      return "sync";
+    }
+
+    // Fallback to polling data for promotion
+    if (promotionStatusData?.data?.status === "running" ||
+      promotionStatusData?.data?.status === "completed" ||
+      promotionStatusData?.data?.status === "failed") {
+      return "promotion";
+    }
+
+    // Fallback to initial sync data
     if (latestJob) {
       return "sync";
     }
     return null;
-  }, [optimisticSyncStarted, syncStatusData?.data?.isSyncing, promotionStatusData?.data?.status, latestJob]);
+  }, [optimisticSyncStarted, syncProgress, syncRunStatus, promotionProgress, promotionStatusData?.data?.status, latestJob]);
 
   // Show setup wizard if not completed
   if (setupCompleted === false) {
@@ -500,37 +577,39 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       />
 
       {/* Progress block - show sync or promotion progress, auto-hide after completion */}
-      {showProgress && (optimisticSyncStarted || latestJob || promotionStatusData?.data) && (
+      {showProgress && (optimisticSyncStarted || syncProgress || promotionProgress || latestJob || promotionStatusData?.data) && (
         <SyncProgressBlock
           jobType={activeJobType ?? "sync"}
           status={
             optimisticSyncStarted
               ? "running"
               : activeJobType === "promotion"
-                ? (promotionStatusData?.data?.status as SyncJobStatus ?? null)
+                ? (promotionProgress?.status ?? promotionStatusData?.data?.status as SyncJobStatus ?? null)
                 : (syncJobStatus ?? null)
           }
           progress={
             optimisticSyncStarted
               ? 0
               : activeJobType === "promotion"
-                ? (promotionStatusData?.data?.totalVariants && promotionStatusData?.data?.totalVariants > 0
-                  ? Math.round((promotionStatusData?.data?.variantsProcessed ?? 0) / promotionStatusData?.data?.totalVariants * 100)
-                  : undefined)
+                ? (promotionProgress?.total && promotionProgress.total > 0
+                  ? Math.round((promotionProgress.processed / promotionProgress.total) * 100)
+                  : promotionStatusData?.data?.totalVariants && promotionStatusData?.data?.totalVariants > 0
+                    ? Math.round((promotionStatusData?.data?.variantsProcessed ?? 0) / promotionStatusData?.data?.totalVariants * 100)
+                    : undefined)
                 : progress
           }
           startedAt={
             optimisticSyncStarted?.toISOString() ??
             (activeJobType === "promotion"
-              ? promotionStatusData?.data?.startedAt ?? null
-              : latestJob?.startedAt ?? null)
+              ? promotionProgress?.startedAt ?? promotionStatusData?.data?.startedAt ?? null
+              : syncProgress?.startedAt ?? latestJob?.startedAt ?? null)
           }
           errorMessage={
             optimisticSyncStarted
               ? null
               : activeJobType === "promotion"
-                ? promotionStatusData?.data?.errorMessage
-                : latestJob?.errorSummary
+                ? promotionProgress?.errorMessage ?? promotionStatusData?.data?.errorMessage
+                : syncProgress?.errorMessage ?? latestJob?.errorSummary
           }
         />
       )}

@@ -12,7 +12,9 @@
     "db:pull": "drizzle-kit introspect",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check",
-    "db:up": "drizzle-kit up"
+    "db:up": "drizzle-kit up",
+    "test": "bun test __tests__ --serial --timeout 30000",
+    "test:integration": "bun test __tests__/integration --serial --timeout 30000"
   },
   "exports": {
     "./client": "./src/client.ts",
@@ -26,9 +28,11 @@
     "./queries/dpp": "./src/queries/dpp/index.ts",
     "./queries/integrations": "./src/queries/integrations/index.ts",
     "./queries/bulk": "./src/queries/bulk/index.ts",
+    "./queries/notifications": "./src/queries/notifications/index.ts",
     "./defaults": "./src/defaults/index.ts",
     "./index": "./src/index.ts",
-    "./utils": "./src/utils/index.ts"
+    "./utils": "./src/utils/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "dependencies": {
     "@v1/dpp-components": "workspace:*",
@@ -38,7 +42,9 @@
     "postgres": "^3.4.7"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.16",
     "@types/node": "^24.0.1",
+    "@v1/supabase": "workspace:*",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.7",
     "typescript": "^5.9.2"

@@ -24,6 +24,7 @@ import type {
 } from "../tables/passports/types";
 import type { FilterState } from "./filter-types";
 import { PassportControls } from "./passport-controls";
+import { useSelectionContextSafe } from "./selection-context";
 
 type SortField =
   | "name"
@@ -117,12 +118,24 @@ export function TableSection() {
     setIsInnerSuspenseEnabled(true);
   }, []);
 
-  // Check if there are active filters or search
+  // Check if there are active filters or search (defined before useEffect that uses it)
   const hasActiveFilters = useMemo(() => {
     const hasSearch = deferredSearch.trim().length > 0;
     const hasFilterGroups = filterState.groups.length > 0;
     return hasSearch || hasFilterGroups;
   }, [deferredSearch, filterState.groups]);
+
+  // Sync selection state to context (for Export button in layout)
+  const selectionContext = useSelectionContextSafe();
+  useEffect(() => {
+    if (selectionContext) {
+      selectionContext.setSelection(selection);
+      selectionContext.setSelectedCount(selectedCount);
+      selectionContext.setFilterState(filterState);
+      selectionContext.setSearchValue(searchValue);
+      selectionContext.setDisabled(!hasAnyPassports && !hasActiveFilters);
+    }
+  }, [selection, selectedCount, filterState, searchValue, hasAnyPassports, hasActiveFilters, selectionContext]);
 
   const handleClearFilters = useCallback(() => {
     setSearchValue("");

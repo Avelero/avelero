@@ -1,3 +1,15 @@
+import {
+  type CarouselProduct,
+  fetchCarouselProducts,
+  getBrandBySlug,
+  getBrandTheme,
+  getDppByProductHandle,
+  getDppByVariantUpid,
+  getProductByHandle,
+  transformToDppData,
+} from "@v1/db/queries";
+import { getPublicUrl } from "@v1/supabase/storage";
+import type { StorageClient } from "@v1/supabase/storage";
 /**
  * Public DPP (Digital Product Passport) router.
  *
@@ -13,21 +25,9 @@
  * - Added `carousel.list` endpoint for explicit carousel fetching
  */
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "../../init.js";
-import {
-  getDppByProductHandle,
-  getDppByVariantUpid,
-  transformToDppData,
-  getBrandBySlug,
-  getBrandTheme,
-  fetchCarouselProducts,
-  getProductByHandle,
-  type CarouselProduct,
-} from "@v1/db/queries";
-import { dppCarouselListSchema } from "../../../schemas/dpp-public.js";
-import { getPublicUrl } from "@v1/supabase/storage";
-import type { StorageClient } from "@v1/supabase/storage";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
+import { dppCarouselListSchema } from "../../../schemas/dpp-public.js";
+import { createTRPCRouter, publicProcedure } from "../../init.js";
 
 /**
  * Minimum number of products required to show the carousel.
@@ -109,7 +109,7 @@ function transformCarouselProducts(
   return products.map((product) => ({
     name: product.name,
     image: product.imagePath
-      ? (getPublicUrl(supabase, "products", product.imagePath) ?? "")
+      ? getPublicUrl(supabase, "products", product.imagePath) ?? ""
       : "",
     price: Number(product.price),
     currency: product.currency,
@@ -132,7 +132,11 @@ export const dppPublicRouter = createTRPCRouter({
       const { brandSlug, productHandle } = input;
 
       // Fetch using service-level database (bypasses RLS)
-      const rawData = await getDppByProductHandle(ctx.db, brandSlug, productHandle);
+      const rawData = await getDppByProductHandle(
+        ctx.db,
+        brandSlug,
+        productHandle,
+      );
 
       if (!rawData) {
         return null;
@@ -152,8 +156,9 @@ export const dppPublicRouter = createTRPCRouter({
         : null;
 
       // Fetch similar products for carousel
-      const carouselConfig = (rawData.themeConfig as { carousel?: CarouselConfig } | null)
-        ?.carousel;
+      const carouselConfig = (
+        rawData.themeConfig as { carousel?: CarouselConfig } | null
+      )?.carousel;
       let similarProducts: SimilarProduct[] = [];
 
       if (carouselConfig) {
@@ -234,8 +239,9 @@ export const dppPublicRouter = createTRPCRouter({
 
       // Fetch similar products for carousel
       // For variant-level DPP, exclude the parent product from carousel
-      const carouselConfig = (rawData.themeConfig as { carousel?: CarouselConfig } | null)
-        ?.carousel;
+      const carouselConfig = (
+        rawData.themeConfig as { carousel?: CarouselConfig } | null
+      )?.carousel;
       let similarProducts: SimilarProduct[] = [];
 
       if (carouselConfig) {
@@ -341,12 +347,18 @@ export const dppPublicRouter = createTRPCRouter({
 
         // Get theme config for carousel settings
         const theme = await getBrandTheme(ctx.db, brand.id);
-        const carouselConfig = (theme?.themeConfig as { carousel?: CarouselConfig } | null)?.carousel;
+        const carouselConfig = (
+          theme?.themeConfig as { carousel?: CarouselConfig } | null
+        )?.carousel;
 
         if (!carouselConfig) return [];
 
         // Get product by handle to exclude from carousel and get category
-        const product = await getProductByHandle(ctx.db, brand.id, productHandle);
+        const product = await getProductByHandle(
+          ctx.db,
+          brand.id,
+          productHandle,
+        );
         if (!product) return [];
 
         // Fetch carousel products with limit override
@@ -366,4 +378,3 @@ export const dppPublicRouter = createTRPCRouter({
 });
 
 export type DppPublicRouter = typeof dppPublicRouter;
-

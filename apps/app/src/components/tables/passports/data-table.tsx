@@ -108,14 +108,13 @@ export function PassportDataTable({
     onTotalCountChangeAction?.(total > 0);
   }, [total, onTotalCountChangeAction]);
 
-  // Optimistic local state for instant UI updates
-  const [optimisticRowSelection, setOptimisticRowSelection] = React.useState<
+  // Local state for row selection (synced with parent selection state)
+  const [rowSelection, setRowSelection] = React.useState<
     Record<string, boolean>
   >({});
   const [lastClickedIndex, setLastClickedIndex] = React.useState<number | null>(
     null,
   );
-  const [isPending, startTransition] = React.useTransition();
 
   const handleRangeSelection = React.useCallback(
     (rowIndex: number, shiftKey: boolean, rowId: string) => {
@@ -153,21 +152,19 @@ export function PassportDataTable({
           return;
         }
 
-        // INSTANT UPDATE - synchronous, no delays
-        const next: Record<string, boolean> = { ...optimisticRowSelection };
+        // Update local row selection
+        const next: Record<string, boolean> = { ...rowSelection };
         for (const id of idsToSelect) {
           next[id] = true;
         }
-        setOptimisticRowSelection(next);
+        setRowSelection(next);
 
-        // Defer parent update (non-blocking)
-        startTransition(() => {
-          const newSelection = applyRangeSelection(
-            selection,
-            passportIdsToSelect,
-          );
-          onSelectionStateChangeAction(newSelection);
-        });
+        // Update parent selection state synchronously
+        const newSelection = applyRangeSelection(
+          selection,
+          passportIdsToSelect,
+        );
+        onSelectionStateChangeAction(newSelection);
       } else if (result.type === "cross-page" && result.rangeInfo) {
         // TODO: Implement cross-page selection with backend support
         console.warn(
@@ -183,7 +180,7 @@ export function PassportDataTable({
       tableData,
       selection,
       onSelectionStateChangeAction,
-      optimisticRowSelection,
+      rowSelection,
       mapRowIdsToPassportIds,
     ],
   );
@@ -194,76 +191,74 @@ export function PassportDataTable({
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
     onRowSelectionChange: (updater) => {
-      // INSTANT UPDATE - synchronous, no delays
-      const prev = optimisticRowSelection;
+      // Update local row selection
+      const prev = rowSelection;
       const next = typeof updater === "function" ? updater(prev) : updater;
-      setOptimisticRowSelection(next);
+      setRowSelection(next);
 
-      // Defer parent sync (non-blocking)
-      startTransition(() => {
-        if (selection.mode === "all") {
-          // In "all" mode: unchecking adds to excludeIds
-          const exclude = new Set(selection.excludeIds);
-          for (const row of tableData) {
-            const isChecked = !!next[row.id];
-            const targetIds = row.passportIds;
-            if (!targetIds.length) continue;
-            if (isChecked) {
-              for (const id of targetIds) {
-                exclude.delete(id); // Re-selecting removes from exclusions
-              }
-            } else {
-              for (const id of targetIds) {
-                exclude.add(id); // Deselecting adds to exclusions
-              }
+      // Sync to parent selection state synchronously
+      if (selection.mode === "all") {
+        // In "all" mode: unchecking adds to excludeIds
+        const exclude = new Set(selection.excludeIds);
+        for (const row of tableData) {
+          const isChecked = !!next[row.id];
+          const targetIds = row.passportIds;
+          if (!targetIds.length) continue;
+          if (isChecked) {
+            for (const id of targetIds) {
+              exclude.delete(id); // Re-selecting removes from exclusions
             }
-          }
-          const nextExcludeIds = Array.from(exclude);
-          // Only update if changed (avoid unnecessary re-renders)
-          if (
-            nextExcludeIds.length !== selection.excludeIds.length ||
-            !nextExcludeIds.every((id) => selection.excludeIds.includes(id))
-          ) {
-            onSelectionStateChangeAction({
-              mode: "all",
-              includeIds: [],
-              excludeIds: nextExcludeIds,
-            });
-          }
-        } else {
-          // In "explicit" mode: checking adds to includeIds
-          const include = new Set(selection.includeIds);
-          for (const row of tableData) {
-            const isChecked = !!next[row.id];
-            const targetIds = row.passportIds;
-            if (!targetIds.length) continue;
-            if (isChecked) {
-              for (const id of targetIds) {
-                include.add(id);
-              }
-            } else {
-              for (const id of targetIds) {
-                include.delete(id);
-              }
+          } else {
+            for (const id of targetIds) {
+              exclude.add(id); // Deselecting adds to exclusions
             }
-          }
-          const nextIncludeIds = Array.from(include);
-          // Only update if changed (avoid unnecessary re-renders)
-          if (
-            nextIncludeIds.length !== selection.includeIds.length ||
-            !nextIncludeIds.every((id) => selection.includeIds.includes(id))
-          ) {
-            onSelectionStateChangeAction({
-              mode: "explicit",
-              includeIds: nextIncludeIds,
-              excludeIds: [],
-            });
           }
         }
-      });
+        const nextExcludeIds = Array.from(exclude);
+        // Only update if changed (avoid unnecessary re-renders)
+        if (
+          nextExcludeIds.length !== selection.excludeIds.length ||
+          !nextExcludeIds.every((id) => selection.excludeIds.includes(id))
+        ) {
+          onSelectionStateChangeAction({
+            mode: "all",
+            includeIds: [],
+            excludeIds: nextExcludeIds,
+          });
+        }
+      } else {
+        // In "explicit" mode: checking adds to includeIds
+        const include = new Set(selection.includeIds);
+        for (const row of tableData) {
+          const isChecked = !!next[row.id];
+          const targetIds = row.passportIds;
+          if (!targetIds.length) continue;
+          if (isChecked) {
+            for (const id of targetIds) {
+              include.add(id);
+            }
+          } else {
+            for (const id of targetIds) {
+              include.delete(id);
+            }
+          }
+        }
+        const nextIncludeIds = Array.from(include);
+        // Only update if changed (avoid unnecessary re-renders)
+        if (
+          nextIncludeIds.length !== selection.includeIds.length ||
+          !nextIncludeIds.every((id) => selection.includeIds.includes(id))
+        ) {
+          onSelectionStateChangeAction({
+            mode: "explicit",
+            includeIds: nextIncludeIds,
+            excludeIds: [],
+          });
+        }
+      }
     },
     state: {
-      rowSelection: optimisticRowSelection,
+      rowSelection: rowSelection,
       columnOrder,
       columnVisibility,
     },
@@ -298,13 +293,10 @@ export function PassportDataTable({
     enableKeyboardNavigation: true,
   });
 
-  // Sync from parent selection → optimistic state (only when not in transition)
+  // Sync from parent selection → local row selection state
   React.useEffect(() => {
-    // Don't overwrite optimistic updates during transitions
-    if (isPending) return;
-
     if (!tableData.length) {
-      setOptimisticRowSelection({});
+      setRowSelection({});
       return;
     }
 
@@ -326,8 +318,8 @@ export function PassportDataTable({
       }
     }
 
-    setOptimisticRowSelection(nextMap);
-  }, [tableData, selection, isPending]);
+    setRowSelection(nextMap);
+  }, [tableData, selection]);
   if (!tableData.length) {
     // Show "No passports yet" only if there are truly no products AND no active filters/search
     // If there are active filters/search and no results, show "No results"
@@ -354,32 +346,26 @@ export function PassportDataTable({
               onScrollRightAction={scrollRight}
               onSelectAllAction={() => {
                 // Switch to "all" mode - selects ALL products in filter (not just visible)
-                // INSTANT UPDATE - synchronous, no delays
                 const next: Record<string, boolean> = {};
                 for (const row of tableData) next[row.id] = true;
-                setOptimisticRowSelection(next);
+                setRowSelection(next);
 
-                // Defer parent update (non-blocking)
-                startTransition(() => {
-                  onSelectionStateChangeAction({
-                    mode: "all",
-                    includeIds: [],
-                    excludeIds: [],
-                  });
+                // Update parent selection state synchronously
+                onSelectionStateChangeAction({
+                  mode: "all",
+                  includeIds: [],
+                  excludeIds: [],
                 });
               }}
               onClearSelectionAction={() => {
                 // Clear selection completely
-                // INSTANT UPDATE - synchronous, no delays
-                setOptimisticRowSelection({});
+                setRowSelection({});
 
-                // Defer parent update (non-blocking)
-                startTransition(() => {
-                  onSelectionStateChangeAction({
-                    mode: "explicit",
-                    includeIds: [],
-                    excludeIds: [],
-                  });
+                // Update parent selection state synchronously
+                onSelectionStateChangeAction({
+                  mode: "explicit",
+                  includeIds: [],
+                  excludeIds: [],
                 });
               }}
               isAllMode={selection.mode === "all"}

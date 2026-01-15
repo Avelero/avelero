@@ -12,30 +12,20 @@
  * - brand.invites.revoke
  */
 import { tasks } from "@trigger.dev/sdk/v3";
+import { desc, eq } from "@v1/db/queries";
 import {
   createBrandInvites,
   revokeBrandInviteByOwner,
 } from "@v1/db/queries/brand";
-import { desc, eq } from "@v1/db/queries";
 import { brandInvites, users } from "@v1/db/schema";
 import { logger } from "@v1/logger";
 import { getAppUrl } from "@v1/utils/envs";
 import { z } from "zod";
 import { ROLES } from "../../../config/roles.js";
 import { uuidSchema } from "../../../schemas/_shared/primitives.js";
-import {
-  invitesListSchema,
-  inviteSendSchema,
-} from "../../../schemas/brand.js";
-import {
-  badRequest,
-  forbidden,
-  wrapError,
-} from "../../../utils/errors.js";
-import {
-  brandRequiredProcedure,
-  createTRPCRouter,
-} from "../../init.js";
+import { inviteSendSchema, invitesListSchema } from "../../../schemas/brand.js";
+import { badRequest, forbidden, wrapError } from "../../../utils/errors.js";
+import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
 type InviteEmailPayload = {
@@ -175,9 +165,7 @@ export const brandInvitesRouter = createTRPCRouter({
         return { success: true as const };
       } catch (error) {
         if (error instanceof Error && error.message === "FORBIDDEN") {
-          throw forbidden(
-            "You do not have permission to revoke this invite",
-          );
+          throw forbidden("You do not have permission to revoke this invite");
         }
         throw wrapError(error, "Failed to revoke invite");
       }

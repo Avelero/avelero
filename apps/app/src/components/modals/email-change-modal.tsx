@@ -25,6 +25,35 @@ interface Props {
   onSuccess?: () => void;
 }
 
+/**
+ * Converts technical Supabase error messages to user-friendly ones.
+ * Prevents showing developer-facing errors to end users.
+ */
+function sanitizeErrorMessage(message: string | undefined): string {
+  if (!message) return "Something went wrong. Please try again.";
+
+  // List of patterns that indicate technical/developer errors
+  const technicalErrorPatterns = [
+    /failed to reach hook/i,
+    /maximum time of \d+/i,
+    /hook.*timeout/i,
+    /internal server error/i,
+    /unexpected.*error/i,
+    /fetch failed/i,
+    /network.*error/i,
+  ];
+
+  // Check if the message matches any technical error pattern
+  for (const pattern of technicalErrorPatterns) {
+    if (pattern.test(message)) {
+      return "Something went wrong. Please try again.";
+    }
+  }
+
+  // Return the original message if it's user-friendly
+  return message;
+}
+
 type Step = "otp_old" | "otp_new";
 
 export function EmailChangeModal({
@@ -94,7 +123,7 @@ export function EmailChangeModal({
     });
     setBusy(false);
     setSentOldOnce(true);
-    if (error) setError(error.message || "Failed to send code. Try again.");
+    if (error) setError(sanitizeErrorMessage(error.message));
     else setCooldownOld(45);
   }
 
@@ -121,7 +150,7 @@ export function EmailChangeModal({
     const u = await supabase.auth.updateUser({ email: newEmail });
     setBusy(false);
     if (u.error) {
-      setError(u.error.message || "Failed to start email change.");
+      setError(sanitizeErrorMessage(u.error.message));
       return;
     }
     setStep("otp_new");
@@ -134,7 +163,7 @@ export function EmailChangeModal({
     setBusy(true);
     const u = await supabase.auth.updateUser({ email: newEmail });
     setBusy(false);
-    if (u.error) setError(u.error.message || "Failed to resend code.");
+    if (u.error) setError(sanitizeErrorMessage(u.error.message));
     else setCooldownNew(45);
   }
 

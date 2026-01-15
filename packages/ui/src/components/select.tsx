@@ -174,11 +174,11 @@ const SelectAction = React.forwardRef<
     /** Callback when action is selected */
     onSelect?: () => void;
   }
->(({ className, children, onSelect, onClick, ...props }, ref) => (
+>(({ className, children, onSelect, onClick, tabIndex = 0, ...props }, ref) => (
   <button
     ref={ref}
     type="button"
-    tabIndex={-1}
+    tabIndex={tabIndex}
     onClick={(e) => {
       onClick?.(e);
       onSelect?.();
@@ -186,6 +186,7 @@ const SelectAction = React.forwardRef<
     className={cn(
       "relative flex w-full cursor-pointer select-none items-center gap-0.5 rounded-none px-2 h-[30px] !type-small outline-none",
       "hover:bg-accent hover:text-accent-foreground",
+      "focus-visible:bg-accent focus-visible:text-accent-foreground",
       className,
     )}
     {...props}

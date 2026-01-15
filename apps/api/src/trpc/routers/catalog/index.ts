@@ -8,7 +8,7 @@ import type { Database } from "@v1/db/client";
  *
  * Renamed from `brand.*` to `catalog.*` in Phase 4 to clarify that this
  * router handles catalog entities, not brand lifecycle operations.
- * 
+ *
  * Note: Legacy color/size routers removed in Phase 5 of variant attribute migration.
  * Colors and sizes are now managed via generic brand attributes.
  *
@@ -16,91 +16,91 @@ import type { Database } from "@v1/db/client";
  * functions to minimize code duplication and ensure uniform error handling.
  */
 import {
+  batchCreateBrandAttributeValues,
   createBrandAttribute,
   createBrandAttributeValue,
-  batchCreateBrandAttributeValues,
+  createBrandManufacturer,
   createBrandTag,
   createCertification,
   createEcoClaim,
   createFacility,
   createMaterial,
   createSeason,
-  createBrandManufacturer,
   deleteBrandAttribute,
   deleteBrandAttributeValue,
+  deleteBrandManufacturer,
   deleteBrandTag,
   deleteCertification,
   deleteEcoClaim,
   deleteFacility,
   deleteMaterial,
   deleteSeason,
-  deleteBrandManufacturer,
-  listBrandAttributes,
   listBrandAttributeValues,
+  listBrandAttributes,
+  listBrandManufacturers,
   listBrandTags,
   listCertifications,
   listEcoClaims,
   listFacilities,
   listMaterials,
   listSeasonsForBrand,
-  listBrandManufacturers,
   updateBrandAttribute,
   updateBrandAttributeValue,
+  updateBrandManufacturer,
   updateBrandTag,
   updateCertification,
   updateEcoClaim,
   updateFacility,
   updateMaterial,
   updateSeason,
-  updateBrandManufacturer,
 } from "@v1/db/queries/catalog";
 import {
+  batchCreateBrandAttributeValuesSchema,
   createBrandAttributeSchema,
   createBrandAttributeValueSchema,
-  batchCreateBrandAttributeValuesSchema,
   createBrandTagSchema,
   createCertificationSchema,
   createEcoClaimSchema,
   createFacilitySchema,
+  createManufacturerSchema,
   createMaterialSchema,
   createSeasonSchema,
-  createManufacturerSchema,
   deleteBrandAttributeSchema,
   deleteBrandAttributeValueSchema,
   deleteBrandTagSchema,
   deleteCertificationSchema,
   deleteEcoClaimSchema,
   deleteFacilitySchema,
+  deleteManufacturerSchema,
   deleteMaterialSchema,
   deleteSeasonSchema,
-  deleteManufacturerSchema,
-  listBrandAttributesSchema,
   listBrandAttributeValuesSchema,
+  listBrandAttributesSchema,
   listBrandTagsSchema,
   listCertificationsSchema,
   listEcoClaimsSchema,
   listFacilitiesSchema,
+  listManufacturersSchema,
   listMaterialsSchema,
   listSeasonsSchema,
-  listManufacturersSchema,
   updateBrandAttributeSchema,
   updateBrandAttributeValueSchema,
   updateBrandTagSchema,
   updateCertificationSchema,
   updateEcoClaimSchema,
   updateFacilitySchema,
+  updateManufacturerSchema,
   updateMaterialSchema,
   updateSeasonSchema,
-  updateManufacturerSchema,
 } from "../../../schemas/catalog/index.js";
 import {
   transformBrandAttributeInput,
   transformBrandAttributeValueInput,
   transformCertificationInput,
   transformFacilityInput,
+  transformManufacturerInput,
   transformMaterialInput,
   transformSeasonInput,
-  transformManufacturerInput,
 } from "../../../utils/catalog-transform.js";
 import { notFound, wrapError } from "../../../utils/errors.js";
 import {
@@ -410,7 +410,7 @@ export const catalogRouter = createTRPCRouter({
           const results = await listBrandAttributeValues(
             brandCtx.db,
             brandCtx.brandId,
-            input.attribute_id
+            input.attribute_id,
           );
           return createListResponse(results);
         } catch (error) {
@@ -421,18 +421,18 @@ export const catalogRouter = createTRPCRouter({
       createBrandAttributeValueSchema,
       createBrandAttributeValue,
       "attribute value",
-      transformBrandAttributeValueInput
+      transformBrandAttributeValueInput,
     ),
     update: createUpdateProcedure(
       updateBrandAttributeValueSchema,
       updateBrandAttributeValue,
       "attribute value",
-      transformBrandAttributeValueInput
+      transformBrandAttributeValueInput,
     ),
     delete: createDeleteProcedure(
       deleteBrandAttributeValueSchema,
       deleteBrandAttributeValue,
-      "attribute value"
+      "attribute value",
     ),
     batchCreate: brandRequiredProcedure
       .input(batchCreateBrandAttributeValuesSchema)
@@ -447,14 +447,17 @@ export const catalogRouter = createTRPCRouter({
           const resultMap = await batchCreateBrandAttributeValues(
             brandCtx.db,
             brandCtx.brandId,
-            valuesWithTransform
+            valuesWithTransform,
           );
           // Convert map to array of results
           const results: Array<{ key: string; id: string }> = [];
           for (const [key, id] of resultMap) {
             results.push({ key, id });
           }
-          return createEntityResponse({ created: results.length, values: results });
+          return createEntityResponse({
+            created: results.length,
+            values: results,
+          });
         } catch (error) {
           throw wrapError(error, "Failed to batch create attribute values");
         }

@@ -1,3 +1,5 @@
+import { tasks } from "@trigger.dev/sdk/v3";
+import { eq } from "@v1/db/queries";
 /**
  * Brand theme router.
  *
@@ -11,13 +13,8 @@
  * - brand.theme.get - Get full theme (styles + config)
  * - brand.theme.update - Update theme config (menus, banner, social, etc.)
  */
-import {
-  getBrandTheme,
-  updateBrandThemeConfig,
-} from "@v1/db/queries/brand";
-import { eq } from "@v1/db/queries";
+import { getBrandTheme, updateBrandThemeConfig } from "@v1/db/queries/brand";
 import { brands } from "@v1/db/schema";
-import { tasks } from "@trigger.dev/sdk/v3";
 import { z } from "zod";
 import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
 import { wrapError } from "../../../utils/errors.js";

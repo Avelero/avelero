@@ -1,4 +1,7 @@
-import { syncEnvVars } from "@trigger.dev/build/extensions/core";
+import {
+  additionalFiles,
+  syncEnvVars,
+} from "@trigger.dev/build/extensions/core";
 import type { TriggerConfig } from "@trigger.dev/sdk/v3";
 
 export const config: TriggerConfig = {
@@ -21,6 +24,8 @@ export const config: TriggerConfig = {
   // Trigger.dev v4 automatically creates and manages feature branch environments.
   build: {
     extensions: [
+      // Bundle the Excel export template for deployment
+      additionalFiles({ files: ["./src/templates/**"] }),
       syncEnvVars(async (ctx) => {
         // Sync environment variables from the deployment context to Trigger.dev
         //

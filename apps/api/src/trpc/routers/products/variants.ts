@@ -1,3 +1,22 @@
+import { and, eq, inArray } from "@v1/db/queries";
+import {
+  clearAllVariantOverrides,
+  getProductVariantsWithAttributes,
+  getVariantOverridesOnly,
+  listVariantsForProduct,
+} from "@v1/db/queries/products";
+import {
+  productVariantAttributes,
+  productVariants,
+  products,
+  variantCommercial,
+  variantEcoClaims,
+  variantEnvironment,
+  variantJourneySteps,
+  variantMaterials,
+  variantWeight,
+} from "@v1/db/schema";
+import { generateUniqueUpids } from "@v1/db/utils";
 /**
  * Unified Product Variants Router
  *
@@ -11,26 +30,13 @@
  * - Sync operation for product form saves
  */
 import { z } from "zod";
-import { and, eq, inArray } from "@v1/db/queries";
-import {
-  products,
-  productVariants,
-  productVariantAttributes,
-  variantCommercial,
-  variantEnvironment,
-  variantEcoClaims,
-  variantMaterials,
-  variantWeight,
-  variantJourneySteps,
-} from "@v1/db/schema";
-import {
-  listVariantsForProduct,
-  getProductVariantsWithAttributes,
-  getVariantOverridesOnly,
-  clearAllVariantOverrides,
-} from "@v1/db/queries/products";
-import { generateUniqueUpids } from "@v1/db/utils";
 import { revalidateProduct } from "../../../lib/dpp-revalidation.js";
+import {
+  paginationLimitSchema,
+  shortStringSchema,
+  uuidSchema,
+} from "../../../schemas/_shared/primitives.js";
+import { upidSchema } from "../../../schemas/products.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
 import {
   createEntityResponse,
@@ -38,12 +44,6 @@ import {
 } from "../../../utils/response.js";
 import type { AuthenticatedTRPCContext } from "../../init.js";
 import { brandRequiredProcedure, createTRPCRouter } from "../../init.js";
-import {
-  shortStringSchema,
-  uuidSchema,
-  paginationLimitSchema,
-} from "../../../schemas/_shared/primitives.js";
-import { upidSchema } from "../../../schemas/products.js";
 
 type BrandContext = AuthenticatedTRPCContext & { brandId: string };
 type BrandDb = BrandContext["db"];
@@ -90,7 +90,7 @@ const variantOverridesSchema = z
         z.object({
           brandMaterialId: z.string().uuid(),
           percentage: z.string().nullable().optional(),
-        })
+        }),
       )
       .optional(),
     journey: z
@@ -99,7 +99,7 @@ const variantOverridesSchema = z
           sortIndex: z.number().int().min(0),
           stepType: z.string().min(1),
           facilityId: z.string().uuid(),
-        })
+        }),
       )
       .optional(),
     ecoClaimIds: z.array(z.string().uuid()).optional(),
@@ -138,13 +138,16 @@ const syncVariantInputSchema = z.object({
 async function findProductByHandle(
   db: BrandDb,
   brandId: string,
-  productHandle: string
+  productHandle: string,
 ): Promise<{ id: string }> {
   const [product] = await db
     .select({ id: products.id })
     .from(products)
     .where(
-      and(eq(products.productHandle, productHandle), eq(products.brandId, brandId))
+      and(
+        eq(products.productHandle, productHandle),
+        eq(products.brandId, brandId),
+      ),
     )
     .limit(1);
 
@@ -162,7 +165,7 @@ async function findVariantByUpid(
   db: BrandDb,
   brandId: string,
   productHandle: string,
-  variantUpid: string
+  variantUpid: string,
 ): Promise<{ variantId: string; productId: string }> {
   const [row] = await db
     .select({
@@ -175,13 +178,15 @@ async function findVariantByUpid(
       and(
         eq(products.brandId, brandId),
         eq(products.productHandle, productHandle),
-        eq(productVariants.upid, variantUpid)
-      )
+        eq(productVariants.upid, variantUpid),
+      ),
     )
     .limit(1);
 
   if (!row) {
-    throw badRequest("Variant not found for the active brand and product handle");
+    throw badRequest(
+      "Variant not found for the active brand and product handle",
+    );
   }
 
   return row;
@@ -193,7 +198,7 @@ async function findVariantByUpid(
 async function applyVariantOverrides(
   db: BrandDb,
   variantId: string,
-  overrides: z.infer<typeof variantOverridesSchema>
+  overrides: z.infer<typeof variantOverridesSchema>,
 ): Promise<void> {
   if (!overrides) return;
 
@@ -338,7 +343,7 @@ async function applyVariantOverrides(
           brandMaterialId: m.brandMaterialId,
           percentage: m.percentage ?? null,
           createdAt: now,
-        }))
+        })),
       );
     }
   }
@@ -357,7 +362,7 @@ async function applyVariantOverrides(
           stepType: s.stepType,
           facilityId: s.facilityId,
           createdAt: now,
-        }))
+        })),
       );
     }
   }
@@ -374,7 +379,7 @@ async function applyVariantOverrides(
           variantId,
           ecoClaimId,
           createdAt: now,
-        }))
+        })),
       );
     }
   }
@@ -385,7 +390,7 @@ async function applyVariantOverrides(
  */
 async function generateVariantUpids(
   db: BrandDb,
-  count: number
+  count: number,
 ): Promise<string[]> {
   return generateUniqueUpids({
     count,
@@ -403,7 +408,7 @@ async function generateVariantUpids(
         .from(productVariants)
         .where(inArray(productVariants.upid, candidates as string[]));
       return new Set(
-        existing.map((e) => e.upid).filter((u): u is string => u !== null)
+        existing.map((e) => e.upid).filter((u): u is string => u !== null),
       );
     },
   });
@@ -424,7 +429,7 @@ export const productVariantsRouter = createTRPCRouter({
         includeOverrides: z.boolean().optional().default(false),
         cursor: z.string().optional(),
         limit: paginationLimitSchema.optional(),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -433,7 +438,7 @@ export const productVariantsRouter = createTRPCRouter({
         db,
         brandId,
         { product_handle: input.productHandle },
-        { cursor: input.cursor, limit: input.limit }
+        { cursor: input.cursor, limit: input.limit },
       );
 
       // TODO: If includeOverrides, fetch override data for each variant
@@ -448,20 +453,29 @@ export const productVariantsRouter = createTRPCRouter({
     .input(
       variantIdentifierSchema.extend({
         includeOverrides: z.boolean().optional().default(false),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
 
       // Verify variant exists and belongs to brand
-      await findVariantByUpid(db, brandId, input.productHandle, input.variantUpid);
+      await findVariantByUpid(
+        db,
+        brandId,
+        input.productHandle,
+        input.variantUpid,
+      );
 
       // Get variant with attributes
-      const product = await findProductByHandle(db, brandId, input.productHandle);
+      const product = await findProductByHandle(
+        db,
+        brandId,
+        input.productHandle,
+      );
       const variants = await getProductVariantsWithAttributes(
         db,
         brandId,
-        product.id
+        product.id,
       );
 
       const variant = variants.find((v) => v.upid === input.variantUpid);
@@ -483,12 +497,17 @@ export const productVariantsRouter = createTRPCRouter({
       const { db, brandId } = ctx as BrandContext;
 
       // Verify variant exists and belongs to brand
-      await findVariantByUpid(db, brandId, input.productHandle, input.variantUpid);
+      await findVariantByUpid(
+        db,
+        brandId,
+        input.productHandle,
+        input.variantUpid,
+      );
 
       const overrides = await getVariantOverridesOnly(
         db,
         input.productHandle,
-        input.variantUpid
+        input.variantUpid,
       );
 
       if (!overrides) {
@@ -509,7 +528,7 @@ export const productVariantsRouter = createTRPCRouter({
         sku: z.string().max(100).optional(),
         barcode: z.string().max(100).optional(),
         overrides: variantOverridesSchema,
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -518,7 +537,7 @@ export const productVariantsRouter = createTRPCRouter({
         const product = await findProductByHandle(
           db,
           brandId,
-          input.productHandle
+          input.productHandle,
         );
 
         // Check for duplicate attribute combination
@@ -538,8 +557,8 @@ export const productVariantsRouter = createTRPCRouter({
               .where(
                 inArray(
                   productVariantAttributes.variantId,
-                  existingVariants.map((v) => v.id)
-                )
+                  existingVariants.map((v) => v.id),
+                ),
               );
 
             const variantAttrMap = new Map<string, Set<string>>();
@@ -557,7 +576,7 @@ export const productVariantsRouter = createTRPCRouter({
                 [...attrSet].every((v) => inputValueSet.has(v))
               ) {
                 throw badRequest(
-                  "A variant with this attribute combination already exists"
+                  "A variant with this attribute combination already exists",
                 );
               }
             }
@@ -594,7 +613,7 @@ export const productVariantsRouter = createTRPCRouter({
                 variantId: newVariant.id,
                 attributeValueId: valueId,
                 sortOrder: index,
-              }))
+              })),
             );
           }
 
@@ -611,7 +630,7 @@ export const productVariantsRouter = createTRPCRouter({
         }
 
         // Revalidate product cache
-        revalidateProduct(input.productHandle).catch(() => { });
+        revalidateProduct(input.productHandle).catch(() => {});
 
         return createEntityResponse({
           id: variant.id,
@@ -632,7 +651,7 @@ export const productVariantsRouter = createTRPCRouter({
         sku: z.string().max(100).optional(),
         barcode: z.string().max(100).optional(),
         overrides: variantOverridesSchema,
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -642,7 +661,7 @@ export const productVariantsRouter = createTRPCRouter({
           db,
           brandId,
           input.productHandle,
-          input.variantUpid
+          input.variantUpid,
         );
 
         // Update core variant fields
@@ -671,7 +690,7 @@ export const productVariantsRouter = createTRPCRouter({
                 variantId,
                 attributeValueId: valueId,
                 sortOrder: index,
-              }))
+              })),
             );
           }
         }
@@ -682,7 +701,7 @@ export const productVariantsRouter = createTRPCRouter({
         }
 
         // Revalidate product cache
-        revalidateProduct(input.productHandle).catch(() => { });
+        revalidateProduct(input.productHandle).catch(() => {});
 
         return createEntityResponse({ success: true, variantId });
       } catch (error) {
@@ -703,7 +722,7 @@ export const productVariantsRouter = createTRPCRouter({
           db,
           brandId,
           input.productHandle,
-          input.variantUpid
+          input.variantUpid,
         );
 
         // Delete variant (cascades will handle related data)
@@ -712,7 +731,7 @@ export const productVariantsRouter = createTRPCRouter({
           .where(eq(productVariants.id, variantId));
 
         // Revalidate product cache
-        revalidateProduct(input.productHandle).catch(() => { });
+        revalidateProduct(input.productHandle).catch(() => {});
 
         return createEntityResponse({ deleted: true });
       } catch (error) {
@@ -730,7 +749,7 @@ export const productVariantsRouter = createTRPCRouter({
       z.object({
         productHandle: shortStringSchema,
         variants: z.array(createVariantInputSchema).max(500),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -739,7 +758,7 @@ export const productVariantsRouter = createTRPCRouter({
         const product = await findProductByHandle(
           db,
           brandId,
-          input.productHandle
+          input.productHandle,
         );
 
         // Generate UPIDs for all variants
@@ -748,7 +767,10 @@ export const productVariantsRouter = createTRPCRouter({
         const createdVariants: Array<{ id: string; upid: string }> = [];
 
         // Track variant overrides to apply after transaction
-        const variantOverridesToApply: Array<{ variantId: string; overrides: NonNullable<typeof input.variants[number]['overrides']> }> = [];
+        const variantOverridesToApply: Array<{
+          variantId: string;
+          overrides: NonNullable<(typeof input.variants)[number]["overrides"]>;
+        }> = [];
 
         await db.transaction(async (tx) => {
           for (let i = 0; i < input.variants.length; i++) {
@@ -779,7 +801,7 @@ export const productVariantsRouter = createTRPCRouter({
                   variantId: variant.id,
                   attributeValueId: valueId,
                   sortOrder: index,
-                }))
+                })),
               );
             }
 
@@ -799,7 +821,7 @@ export const productVariantsRouter = createTRPCRouter({
         }
 
         // Revalidate product cache
-        revalidateProduct(input.productHandle).catch(() => { });
+        revalidateProduct(input.productHandle).catch(() => {});
 
         return createEntityResponse({
           created: createdVariants.length,
@@ -818,7 +840,7 @@ export const productVariantsRouter = createTRPCRouter({
       z.object({
         productHandle: shortStringSchema,
         variants: z.array(updateVariantInputSchema).max(500),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -827,13 +849,16 @@ export const productVariantsRouter = createTRPCRouter({
         const product = await findProductByHandle(
           db,
           brandId,
-          input.productHandle
+          input.productHandle,
         );
 
         let updated = 0;
 
         // Track variant overrides to apply after transaction
-        const variantOverridesToApply: Array<{ variantId: string; overrides: NonNullable<typeof input.variants[number]['overrides']> }> = [];
+        const variantOverridesToApply: Array<{
+          variantId: string;
+          overrides: NonNullable<(typeof input.variants)[number]["overrides"]>;
+        }> = [];
 
         await db.transaction(async (tx) => {
           for (const variantInput of input.variants) {
@@ -844,8 +869,8 @@ export const productVariantsRouter = createTRPCRouter({
               .where(
                 and(
                   eq(productVariants.productId, product.id),
-                  eq(productVariants.upid, variantInput.variantUpid)
-                )
+                  eq(productVariants.upid, variantInput.variantUpid),
+                ),
               )
               .limit(1);
 
@@ -879,7 +904,7 @@ export const productVariantsRouter = createTRPCRouter({
                     variantId: variant.id,
                     attributeValueId: valueId,
                     sortOrder: index,
-                  }))
+                  })),
                 );
               }
             }
@@ -902,7 +927,7 @@ export const productVariantsRouter = createTRPCRouter({
         }
 
         // Revalidate product cache
-        revalidateProduct(input.productHandle).catch(() => { });
+        revalidateProduct(input.productHandle).catch(() => {});
 
         return createEntityResponse({ updated });
       } catch (error) {
@@ -918,7 +943,7 @@ export const productVariantsRouter = createTRPCRouter({
       z.object({
         productHandle: shortStringSchema,
         variantUpids: z.array(z.string()).max(500),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -927,7 +952,7 @@ export const productVariantsRouter = createTRPCRouter({
         const product = await findProductByHandle(
           db,
           brandId,
-          input.productHandle
+          input.productHandle,
         );
 
         // Find all variants by UPID
@@ -937,23 +962,21 @@ export const productVariantsRouter = createTRPCRouter({
           .where(
             and(
               eq(productVariants.productId, product.id),
-              inArray(productVariants.upid, input.variantUpids)
-            )
+              inArray(productVariants.upid, input.variantUpids),
+            ),
           );
 
         if (variants.length > 0) {
-          await db
-            .delete(productVariants)
-            .where(
-              inArray(
-                productVariants.id,
-                variants.map((v) => v.id)
-              )
-            );
+          await db.delete(productVariants).where(
+            inArray(
+              productVariants.id,
+              variants.map((v) => v.id),
+            ),
+          );
         }
 
         // Revalidate product cache
-        revalidateProduct(input.productHandle).catch(() => { });
+        revalidateProduct(input.productHandle).catch(() => {});
 
         return createEntityResponse({ deleted: variants.length });
       } catch (error) {
@@ -976,7 +999,7 @@ export const productVariantsRouter = createTRPCRouter({
       z.object({
         productHandle: shortStringSchema,
         variants: z.array(syncVariantInputSchema).max(500),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
@@ -985,7 +1008,7 @@ export const productVariantsRouter = createTRPCRouter({
         const product = await findProductByHandle(
           db,
           brandId,
-          input.productHandle
+          input.productHandle,
         );
 
         // Get existing variants
@@ -998,9 +1021,7 @@ export const productVariantsRouter = createTRPCRouter({
           .where(eq(productVariants.productId, product.id));
 
         const existingByUpid = new Map(
-          existingVariants
-            .filter((v) => v.upid)
-            .map((v) => [v.upid!, v.id])
+          existingVariants.filter((v) => v.upid).map((v) => [v.upid!, v.id]),
         );
 
         // Categorize input variants
@@ -1025,7 +1046,7 @@ export const productVariantsRouter = createTRPCRouter({
 
         // Find variants to delete (existing but not in input)
         const toDelete = existingVariants.filter(
-          (v) => v.upid && !inputUpids.has(v.upid)
+          (v) => v.upid && !inputUpids.has(v.upid),
         );
 
         // Generate UPIDs for new variants
@@ -1038,14 +1059,12 @@ export const productVariantsRouter = createTRPCRouter({
         await db.transaction(async (tx) => {
           // Delete variants
           if (toDelete.length > 0) {
-            await tx
-              .delete(productVariants)
-              .where(
-                inArray(
-                  productVariants.id,
-                  toDelete.map((v) => v.id)
-                )
-              );
+            await tx.delete(productVariants).where(
+              inArray(
+                productVariants.id,
+                toDelete.map((v) => v.id),
+              ),
+            );
             deletedCount = toDelete.length;
           }
 
@@ -1078,7 +1097,7 @@ export const productVariantsRouter = createTRPCRouter({
                   variantId: variant.id,
                   attributeValueId: valueId,
                   sortOrder: index,
-                }))
+                })),
               );
             }
           }
@@ -1111,7 +1130,7 @@ export const productVariantsRouter = createTRPCRouter({
                   variantId,
                   attributeValueId: valueId,
                   sortOrder: index,
-                }))
+                })),
               );
             }
 
@@ -1120,7 +1139,7 @@ export const productVariantsRouter = createTRPCRouter({
         });
 
         // Revalidate product cache
-        revalidateProduct(input.productHandle).catch(() => { });
+        revalidateProduct(input.productHandle).catch(() => {});
 
         return createEntityResponse({
           created: createdVariants.length,
@@ -1154,13 +1173,13 @@ export const productVariantsRouter = createTRPCRouter({
           db,
           brandId,
           input.productHandle,
-          input.variantUpid
+          input.variantUpid,
         );
 
         await clearAllVariantOverrides(db, variantId);
 
         // Revalidate product cache
-        revalidateProduct(input.productHandle).catch(() => { });
+        revalidateProduct(input.productHandle).catch(() => {});
 
         return createEntityResponse({ success: true, variantId });
       } catch (error) {

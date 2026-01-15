@@ -23,7 +23,7 @@ import {
   setBrandIntegrationPrimary,
   updateBrandIntegration,
 } from "@v1/db/queries/integrations";
-import { encryptCredentials, decryptCredentials } from "@v1/db/utils";
+import { decryptCredentials, encryptCredentials } from "@v1/db/utils";
 import { testIntegrationConnection } from "@v1/integrations";
 import {
   connectApiKeySchema,
@@ -195,13 +195,17 @@ export const connectionsRouter = createTRPCRouter({
         const { encrypted, iv } = encryptCredentials(credentialsData);
 
         // 5. Create brand integration
-        const result = await createBrandIntegration(brandCtx.db, brandCtx.brandId, {
-          integrationId: integration.id,
-          credentials: encrypted,
-          credentialsIv: iv,
-          syncInterval: input.sync_interval ?? 86400, // Default 24 hours
-          status: "active",
-        });
+        const result = await createBrandIntegration(
+          brandCtx.db,
+          brandCtx.brandId,
+          {
+            integrationId: integration.id,
+            credentials: encrypted,
+            credentialsIv: iv,
+            syncInterval: input.sync_interval ?? 86400, // Default 24 hours
+            status: "active",
+          },
+        );
 
         return createEntityResponse(result);
       } catch (error) {
@@ -314,7 +318,10 @@ export const connectionsRouter = createTRPCRouter({
         );
 
         // Add shop domain to credentials for Shopify
-        if (integration.integration?.slug === "shopify" && integration.shopDomain) {
+        if (
+          integration.integration?.slug === "shopify" &&
+          integration.shopDomain
+        ) {
           credentials.shopDomain = integration.shopDomain;
         }
 
@@ -326,7 +333,7 @@ export const connectionsRouter = createTRPCRouter({
 
         const testResult = await testIntegrationConnection(
           integrationSlug,
-          credentials
+          credentials,
         );
 
         return createEntityResponse({
@@ -345,7 +352,8 @@ export const connectionsRouter = createTRPCRouter({
         ) {
           return createEntityResponse({
             success: false,
-            message: "Failed to decrypt credentials. Please reconnect the integration.",
+            message:
+              "Failed to decrypt credentials. Please reconnect the integration.",
           });
         }
         throw wrapError(error, "Failed to test connection");
@@ -381,7 +389,9 @@ export const connectionsRouter = createTRPCRouter({
 
         // Check if already primary
         if (integration.isPrimary) {
-          throw badRequest("This integration is already the primary integration");
+          throw badRequest(
+            "This integration is already the primary integration",
+          );
         }
 
         // Check if there are any variants to regroup

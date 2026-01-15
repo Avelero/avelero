@@ -8,7 +8,7 @@
  *
  * @module trpc/routers/integrations/sync
  */
-import { tasks } from "@trigger.dev/sdk/v3";
+import { auth, tasks } from "@trigger.dev/sdk/v3";
 import {
   getBrandIntegration,
   getLatestSyncJob,
@@ -80,13 +80,16 @@ export const syncRouter = createTRPCRouter({
           brandCtx.db,
           input.brand_integration_id,
         );
-        
-        if (latestJob && (latestJob.status === "pending" || latestJob.status === "running")) {
+
+        if (
+          latestJob &&
+          (latestJob.status === "pending" || latestJob.status === "running")
+        ) {
           // Check if the job is stale (older than 10 minutes)
           // This handles cases where Trigger.dev tasks timed out but DB wasn't updated
           const jobAge = Date.now() - new Date(latestJob.createdAt).getTime();
           const staleThresholdMs = 10 * 60 * 1000; // 10 minutes
-          
+
           if (jobAge > staleThresholdMs) {
             // Mark the stale job as failed
             await updateSyncJob(brandCtx.db, latestJob.id, {
@@ -109,9 +112,17 @@ export const syncRouter = createTRPCRouter({
           triggerType: "manual",
         });
 
+        // Generate a public access token for the client to subscribe to realtime updates
+        const publicToken = await auth.createPublicToken({
+          scopes: {
+            read: { runs: [handle.id] },
+          },
+        });
+
         return createEntityResponse({
           id: handle.id,
           status: "triggered",
+          publicAccessToken: publicToken,
           message: "Sync job triggered successfully",
         });
       } catch (error) {
@@ -140,10 +151,14 @@ export const syncRouter = createTRPCRouter({
           throw notFound("Integration", input.brand_integration_id);
         }
 
-        const jobs = await listSyncJobs(brandCtx.db, input.brand_integration_id, {
-          limit: input.limit ?? 20,
-          offset: input.offset ?? 0,
-        });
+        const jobs = await listSyncJobs(
+          brandCtx.db,
+          input.brand_integration_id,
+          {
+            limit: input.limit ?? 20,
+            offset: input.offset ?? 0,
+          },
+        );
 
         return createListResponse(jobs);
       } catch (error) {
@@ -182,14 +197,19 @@ export const syncRouter = createTRPCRouter({
 
         // Check if the job is stale (older than 2 minutes with no progress, or 5 minutes total)
         // This handles cases where Trigger.dev tasks were cancelled/crashed but DB wasn't updated
-        if (latestJob && (latestJob.status === "pending" || latestJob.status === "running")) {
+        if (
+          latestJob &&
+          (latestJob.status === "pending" || latestJob.status === "running")
+        ) {
           const jobAge = Date.now() - new Date(latestJob.createdAt).getTime();
-          const lastUpdate = latestJob.updatedAt ? new Date(latestJob.updatedAt).getTime() : new Date(latestJob.createdAt).getTime();
+          const lastUpdate = latestJob.updatedAt
+            ? new Date(latestJob.updatedAt).getTime()
+            : new Date(latestJob.createdAt).getTime();
           const timeSinceUpdate = Date.now() - lastUpdate;
-          
+
           const staleNoProgressMs = 2 * 60 * 1000; // 2 minutes with no progress
           const staleAbsoluteMs = 5 * 60 * 1000; // 5 minutes absolute max
-          
+
           if (timeSinceUpdate > staleNoProgressMs || jobAge > staleAbsoluteMs) {
             // Mark the stale job as cancelled
             await updateSyncJob(brandCtx.db, latestJob.id, {
@@ -225,19 +245,19 @@ export const syncRouter = createTRPCRouter({
           isSyncing,
           latestJob: latestJob
             ? {
-                id: latestJob.id,
-                status: latestJob.status,
-                triggerType: latestJob.triggerType,
-                startedAt: latestJob.startedAt,
-                finishedAt: latestJob.finishedAt,
-                productsTotal: latestJob.productsTotal,
-                productsProcessed: latestJob.productsProcessed,
-                productsCreated: latestJob.productsCreated,
-                productsUpdated: latestJob.productsUpdated,
-                productsFailed: latestJob.productsFailed,
-                productsSkipped: latestJob.productsSkipped,
-                errorSummary: latestJob.errorSummary,
-              }
+              id: latestJob.id,
+              status: latestJob.status,
+              triggerType: latestJob.triggerType,
+              startedAt: latestJob.startedAt,
+              finishedAt: latestJob.finishedAt,
+              productsTotal: latestJob.productsTotal,
+              productsProcessed: latestJob.productsProcessed,
+              productsCreated: latestJob.productsCreated,
+              productsUpdated: latestJob.productsUpdated,
+              productsFailed: latestJob.productsFailed,
+              productsSkipped: latestJob.productsSkipped,
+              errorSummary: latestJob.errorSummary,
+            }
             : null,
         });
       } catch (error) {

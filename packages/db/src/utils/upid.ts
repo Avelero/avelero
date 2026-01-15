@@ -1,13 +1,13 @@
 import { randomBytes } from "node:crypto";
 
-const BASE36_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
+const NUMERIC_ALPHABET = "0123456789";
 
-export function randomBase36String(length = 16): string {
+export function randomNumericString(length = 16): string {
   const bytes = randomBytes(length);
   let result = "";
   for (let i = 0; i < length; i += 1) {
-    const index = bytes[i]! % BASE36_ALPHABET.length;
-    result += BASE36_ALPHABET[index]!;
+    const index = bytes[i]! % NUMERIC_ALPHABET.length;
+    result += NUMERIC_ALPHABET[index]!;
   }
   return result;
 }
@@ -27,7 +27,7 @@ export async function generateUniqueUpid({
   isTaken,
 }: GenerateUniqueUpidOptions): Promise<string> {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const candidate = randomBase36String(length);
+    const candidate = randomNumericString(length);
     if (!(await isTaken(candidate))) {
       return candidate;
     }
@@ -70,7 +70,7 @@ export async function generateUniqueUpids({
       maxBatchSize,
     );
     const candidates = Array.from({ length: batchSize }, () =>
-      randomBase36String(length),
+      randomNumericString(length),
     );
 
     const taken = await fetchTakenSet(candidates);

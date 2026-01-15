@@ -1,11 +1,11 @@
+import { tasks } from "@trigger.dev/sdk/v3";
+import { eq } from "@v1/db/queries";
 import {
   deleteBrand as deleteBrandRecord,
   isSlugTaken,
   updateBrand as updateBrandRecord,
 } from "@v1/db/queries/brand";
-import { eq } from "@v1/db/queries";
 import { brands } from "@v1/db/schema";
-import { tasks } from "@trigger.dev/sdk/v3";
 import { getAppUrl } from "@v1/utils/envs";
 /**
  * Brand lifecycle operations implementation.
@@ -21,15 +21,9 @@ import { getAppUrl } from "@v1/utils/envs";
  */
 import { ROLES } from "../../../config/roles.js";
 import { revalidateBrand } from "../../../lib/dpp-revalidation.js";
-import {
-  brandIdSchema,
-  brandUpdateSchema,
-} from "../../../schemas/brand.js";
+import { brandIdSchema, brandUpdateSchema } from "../../../schemas/brand.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
-import {
-  brandRequiredProcedure,
-  protectedProcedure,
-} from "../../init.js";
+import { brandRequiredProcedure, protectedProcedure } from "../../init.js";
 import { hasRole } from "../../middleware/auth/roles.js";
 
 function extractStoragePath(url: string | null | undefined): string | null {
@@ -60,9 +54,7 @@ export const brandUpdateProcedure = brandRequiredProcedure
   .mutation(async ({ ctx, input }) => {
     const { db, user, brandId } = ctx;
     if (brandId && brandId !== input.id) {
-      throw badRequest(
-        "Active brand does not match the brand being updated",
-      );
+      throw badRequest("Active brand does not match the brand being updated");
     }
 
     // Validate slug uniqueness if being updated
@@ -107,10 +99,10 @@ export const brandUpdateProcedure = brandRequiredProcedure
       // Revalidate DPP cache when slug changes (fire-and-forget)
       // Both old and new slugs need to be revalidated
       if (input.slug !== undefined && oldSlug && oldSlug !== input.slug) {
-        revalidateBrand(oldSlug).catch(() => { });
+        revalidateBrand(oldSlug).catch(() => {});
       }
       if (result.slug) {
-        revalidateBrand(result.slug).catch(() => { });
+        revalidateBrand(result.slug).catch(() => {});
       }
 
       return { success: true, slug: result.slug ?? null };
@@ -176,4 +168,3 @@ export const brandCheckSlugProcedure = brandRequiredProcedure
 
     return { available: !taken };
   });
-

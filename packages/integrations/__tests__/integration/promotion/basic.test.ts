@@ -27,7 +27,7 @@ import {
     createTestBrand,
     createTestBrandIntegration,
     createDefaultFieldConfigs,
-} from "@v1/testing/db";
+} from "@v1/db/testing";
 import {
     setMockProducts,
     clearMockProducts,
@@ -35,7 +35,7 @@ import {
     createMockVariant,
 } from "@v1/testing/mocks/shopify";
 import { syncProducts } from "../../../src/sync/engine";
-import { createTestSyncContext } from "@v1/testing/context";
+import { createTestSyncContext } from "@v1/db/testing";
 
 describe("Promotion: Basic Flow", () => {
     let brandId: string;

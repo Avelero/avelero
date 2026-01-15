@@ -12,8 +12,11 @@ import { brands } from "../core/brands";
 
 /**
  * Import jobs table for tracking bulk product import operations
- * Supports two-phase workflow: validation/staging → user approval → production commit
- * @see prd.txt section 3.4 and section 5 for workflow details
+ * Supports fire-and-forget workflow: validate → auto-commit successful rows
+ * Status values: PENDING | PROCESSING | COMPLETED | COMPLETED_WITH_FAILURES | FAILED
+ * Mode values:
+ * - CREATE: Creates new products where handle doesn't exist, skips matching handles
+ * - CREATE_AND_ENRICH: Creates new products AND enriches/updates matching products by handle + UPID
  */
 export const importJobs = pgTable(
   "import_jobs",
@@ -23,6 +26,8 @@ export const importJobs = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     filename: text("filename").notNull(),
+    /** Import mode: CREATE for new products (skips matching handles), CREATE_AND_ENRICH to also update matching products */
+    mode: text("mode").notNull().default("CREATE"), // CREATE | CREATE_AND_ENRICH
     startedAt: timestamp("started_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),
@@ -34,11 +39,28 @@ export const importJobs = pgTable(
       withTimezone: true,
       mode: "string",
     }),
-    status: text("status").notNull().default("PENDING"), // PENDING | VALIDATING | VALIDATED | COMMITTING | COMPLETED | FAILED | CANCELLED
+    status: text("status").notNull().default("PENDING"), // PENDING | PROCESSING | COMPLETED | COMPLETED_WITH_FAILURES | FAILED
     requiresValueApproval: boolean("requires_value_approval")
       .notNull()
       .default(false),
+    /** Whether the job has failed rows that can be exported for correction */
+    hasExportableFailures: boolean("has_exportable_failures")
+      .notNull()
+      .default(false),
     summary: jsonb("summary"),
+    /** Path to the generated correction Excel file in storage */
+    correctionFilePath: text("correction_file_path"),
+    /** Signed download URL for the correction file */
+    correctionDownloadUrl: text("correction_download_url"),
+    /** When the correction download URL expires */
+    correctionExpiresAt: timestamp("correction_expires_at", {
+      withTimezone: true,
+      mode: "string",
+    }),
+    /** User ID who started the import (for email notifications) */
+    userId: uuid("user_id"),
+    /** Email address for notifications */
+    userEmail: text("user_email"),
   },
   (table) => [
     // RLS policies

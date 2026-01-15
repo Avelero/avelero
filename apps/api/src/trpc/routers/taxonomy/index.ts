@@ -9,11 +9,11 @@
  * or admin scripts, not through the API.
  */
 import {
-  listTaxonomyAttributes,
   getTaxonomyAttributeByFriendlyId,
+  getTaxonomyValueByFriendlyId,
+  listTaxonomyAttributes,
   listTaxonomyValues,
   listTaxonomyValuesByAttribute,
-  getTaxonomyValueByFriendlyId,
 } from "@v1/db/queries/taxonomy";
 import { z } from "zod";
 import { wrapError } from "../../../utils/errors.js";
@@ -49,7 +49,10 @@ export const taxonomyRouter = createTRPCRouter({
       .input(z.object({ friendly_id: z.string().min(1) }))
       .query(async ({ ctx, input }) => {
         try {
-          return await getTaxonomyAttributeByFriendlyId(ctx.db, input.friendly_id);
+          return await getTaxonomyAttributeByFriendlyId(
+            ctx.db,
+            input.friendly_id,
+          );
         } catch (error) {
           throw wrapError(error, "Failed to get taxonomy attribute");
         }
@@ -87,7 +90,7 @@ export const taxonomyRouter = createTRPCRouter({
         try {
           return await listTaxonomyValuesByAttribute(
             ctx.db,
-            input.attribute_friendly_id
+            input.attribute_friendly_id,
           );
         } catch (error) {
           throw wrapError(error, "Failed to list taxonomy values by attribute");
@@ -112,4 +115,3 @@ export const taxonomyRouter = createTRPCRouter({
 });
 
 export type TaxonomyRouter = typeof taxonomyRouter;
-

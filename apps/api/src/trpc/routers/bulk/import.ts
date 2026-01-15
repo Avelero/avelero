@@ -2,30 +2,29 @@ import { tasks } from "@trigger.dev/sdk/v3";
 /**
  * Bulk import lifecycle router.
  *
- * Handles the complete import workflow:
- * - validate: Quick pre-validation of file headers
- * - start: Create job and trigger background validation
+ * Handles the fire-and-forget import workflow:
+ * - preview: Parse Excel file and return summary + first product preview
+ * - start: Create job and trigger background processing
  * - status: Get real-time job progress
- * - approve: Trigger Phase 2 commit to production
- * - cancel: Discard staging data and cancel job
+ * - getRecentImports: Get recent import jobs for the brand
+ * - dismiss: Clean up staging data for failed imports
+ * - exportCorrections: Generate Excel file with failed rows for correction
  */
 import {
-  countStagingProductsByAction,
   createImportJob,
-  deleteStagingDataForJob,
+  deleteAllImportRowsForJob,
   getImportJobStatus,
+  getRecentImportJobs,
   updateImportJobStatus,
 } from "@v1/db/queries/bulk";
-import { downloadImportFile } from "@v1/supabase/utils/product-imports";
+import { parseExcelFile } from "@v1/jobs/lib/excel";
+
 import {
-  normalizeHeader,
-  normalizeHeaders,
-  parseFile,
-} from "../../../lib/csv-parser.js";
-import {
-  approveImportSchema,
-  cancelImportSchema,
+  dismissFailedImportSchema,
+  exportCorrectionsSchema,
   getImportStatusSchema,
+  getRecentImportsSchema,
+  previewImportSchema,
   startImportSchema,
 } from "../../../schemas/bulk.js";
 import { badRequest, wrapError } from "../../../utils/errors.js";
@@ -56,10 +55,15 @@ function assertBrandScope(
 
 interface ResolvedImportFilePath {
   path: string;
-  jobId: string;
   filename: string;
 }
 
+/**
+ * Validates and resolves the import file path.
+ *
+ * Expected format: brandId/timestamp-filename
+ * Example: ac262c8a-c742-4fa9-91f7-31d0833129ae/1768059882771-template.xlsx
+ */
 function resolveImportFilePath(params: {
   fileId: string;
   brandId: string;
@@ -68,63 +72,37 @@ function resolveImportFilePath(params: {
   const sanitizedPath = params.fileId.replace(/^\/+|\/+$/g, "");
   const segments = sanitizedPath.split("/");
 
-  console.log("[resolveImportFilePath] Debug info:", {
-    fileId: params.fileId,
-    brandId: params.brandId,
-    filename: params.filename,
-    sanitizedPath,
-    segments,
-    segmentsLength: segments.length,
-  });
-
-  if (segments.length < 3) {
-    console.error("[resolveImportFilePath] Error: segments.length < 3");
+  // Expect at least 2 segments: brandId and filename
+  if (segments.length < 2) {
     throw badRequest(
-      `Invalid file reference provided. Expected format: brandId/jobId/filename, got: ${sanitizedPath}`,
+      `Invalid file reference provided. Expected format: brandId/filename, got: ${sanitizedPath}`,
     );
   }
 
-  const [pathBrandId, jobId, ...fileSegments] = segments;
-
-  console.log("[resolveImportFilePath] Parsed segments:", {
-    pathBrandId,
-    jobId,
-    fileSegments,
-  });
+  const [pathBrandId, ...fileSegments] = segments;
 
   if (pathBrandId !== params.brandId) {
-    console.error("[resolveImportFilePath] Error: brandId mismatch", {
-      pathBrandId,
-      expectedBrandId: params.brandId,
-    });
     throw badRequest(
       `File does not belong to the active brand context. Expected: ${params.brandId}, got: ${pathBrandId}`,
     );
   }
 
-  if (!jobId || fileSegments.length === 0) {
-    console.error("[resolveImportFilePath] Error: missing jobId or filename");
-    throw badRequest("Incomplete file reference provided");
+  if (fileSegments.length === 0) {
+    throw badRequest("Incomplete file reference provided - missing filename");
   }
 
   const resolvedFilename = fileSegments.join("/");
 
-  console.log("[resolveImportFilePath] Filename comparison:", {
-    resolvedFilename,
-    expectedFilename: params.filename,
-    match: resolvedFilename === params.filename,
-  });
-
-  if (resolvedFilename !== params.filename) {
-    console.error("[resolveImportFilePath] Error: filename mismatch");
+  // The uploaded filename includes a timestamp prefix,
+  // so we check if it ends with the original filename
+  if (!resolvedFilename.endsWith(params.filename)) {
     throw badRequest(
-      `Filename does not match the provided file reference. Expected: ${params.filename}, got: ${resolvedFilename}`,
+      `Filename does not match the provided file reference. Expected to end with: ${params.filename}, got: ${resolvedFilename}`,
     );
   }
 
   return {
     path: sanitizedPath,
-    jobId,
     filename: resolvedFilename,
   };
 }
@@ -135,6 +113,103 @@ function calculatePercentage(processed: number, total: number): number {
 }
 
 export const importRouter = createTRPCRouter({
+  /**
+   * Preview import file contents
+   *
+   * Parses the uploaded Excel file and returns:
+   * - Summary statistics (product count, variant count, image count)
+   * - First product preview data (title, handle, manufacturer, description, status, category)
+   * - First product's variants preview (title, SKU, barcode)
+   *
+   * Used in the confirmation step of the import modal.
+   */
+  preview: brandRequiredProcedure
+    .input(previewImportSchema)
+    .query(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = brandCtx.brandId;
+
+      try {
+        // Validate file path belongs to brand
+        const sanitizedPath = input.fileId.replace(/^\/+|\/+$/g, "");
+        const segments = sanitizedPath.split("/");
+
+        if (segments.length < 2) {
+          throw badRequest("Invalid file reference");
+        }
+
+        const [pathBrandId] = segments;
+        if (pathBrandId !== brandId) {
+          throw badRequest("File does not belong to the active brand");
+        }
+
+        // Download and parse the Excel file
+        const fileBuffer = await downloadFileFromSupabase(sanitizedPath);
+        const parseResult = await parseExcelFile(fileBuffer);
+
+        if (parseResult.errors.length > 0) {
+          throw badRequest(
+            `Excel parsing failed: ${parseResult.errors[0]?.message}`,
+          );
+        }
+
+        const products = parseResult.products;
+        if (products.length === 0) {
+          throw badRequest("No products found in the Excel file");
+        }
+
+        // Calculate summary statistics
+        const totalProducts = products.length;
+        const totalVariants = products.reduce(
+          (acc, p) => acc + p.variants.length,
+          0,
+        );
+        const totalImages = products.filter((p) => p.imagePath).length;
+
+        // Get the first product for preview
+        // Safe non-null assertion: we already checked products.length > 0 above
+        const firstProduct = products[0]!;
+
+        // Build variant titles from attributes (like variants-overview.tsx does)
+        const variantPreviews = firstProduct.variants.map((variant, index) => {
+          // Build variant title from attributes
+          const attributeValues = variant.attributes
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .map((attr) => attr.value);
+
+          const title =
+            attributeValues.length > 0
+              ? attributeValues.join(" / ")
+              : `Variant ${index + 1}`;
+
+          return {
+            title,
+            sku: variant.sku || "",
+            barcode: variant.barcode || "",
+          };
+        });
+
+        return {
+          summary: {
+            totalProducts,
+            totalVariants,
+            totalImages,
+          },
+          firstProduct: {
+            title: firstProduct.name || "",
+            handle: firstProduct.productHandle || "",
+            manufacturer: firstProduct.manufacturerName || "",
+            description: firstProduct.description || "",
+            status: "Draft", // Default status for new products
+            category: firstProduct.categoryPath || "",
+          },
+          variants: variantPreviews,
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to preview import file");
+      }
+    }),
+
   /**
    * Start async import job (Phase 1 - Validation & Staging)
    *
@@ -152,12 +227,7 @@ export const importRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = brandCtx.brandId;
-
-      console.log("[import.start] Input received:", {
-        fileId: input.fileId,
-        filename: input.filename,
-        brandId,
-      });
+      const userEmail = ctx.user.email ?? null;
 
       const resolvedFile = resolveImportFilePath({
         fileId: input.fileId,
@@ -165,69 +235,27 @@ export const importRouter = createTRPCRouter({
         filename: input.filename,
       });
 
-      console.log("[import.start] Resolved file path:", resolvedFile.path);
-
       try {
-        // Create import job record
-        console.log("[import.start] Creating import job...");
+        // Create import job record with mode and user info
         const job = await createImportJob(brandCtx.db, {
           brandId,
           filename: input.filename,
           status: "PENDING",
-        });
-
-        console.log("[import.start] Import job created:", {
-          jobId: job.id,
-          status: job.status,
-        });
-
-        // Trigger validate-and-stage background job via Trigger.dev using the uploaded file path
-        const triggerApiUrl =
-          process.env.TRIGGER_API_URL ?? "https://api.trigger.dev";
-        console.log("[import.start] Triggering background job...", {
-          triggerApiUrl,
-          hasCustomTriggerUrl: Boolean(process.env.TRIGGER_API_URL),
-          hasTriggerSecret: Boolean(process.env.TRIGGER_SECRET_KEY),
+          mode: input.mode,
+          userId: ctx.user.id,
+          userEmail: userEmail ?? undefined,
         });
 
         try {
-          console.log(
-            "[import.start] About to trigger background job with payload:",
-            {
-              jobId: job.id,
-              brandId,
-              filePath: resolvedFile.path,
-            },
-          );
-
           const runHandle = await tasks.trigger("validate-and-stage", {
             jobId: job.id,
             brandId,
             filePath: resolvedFile.path,
+            mode: input.mode,
+            userId: ctx.user.id,
+            userEmail: userEmail ?? undefined,
           });
-
-          console.log("[import.start] Background job triggered successfully", {
-            triggerRunId: runHandle.id,
-            triggerTaskId: "validate-and-stage",
-            publicAccessToken: runHandle.publicAccessToken || "N/A",
-          });
-
-          // Log the run handle for debugging
-          console.log(
-            "[import.start] Full run handle:",
-            JSON.stringify(runHandle, null, 2),
-          );
         } catch (triggerError) {
-          console.error("[import.start] Failed to trigger background job:", {
-            error: triggerError,
-            errorMessage:
-              triggerError instanceof Error
-                ? triggerError.message
-                : String(triggerError),
-            errorStack:
-              triggerError instanceof Error ? triggerError.stack : undefined,
-          });
-
           // Update job status to FAILED immediately
           await updateImportJobStatus(brandCtx.db, {
             jobId: job.id,
@@ -237,12 +265,10 @@ export const importRouter = createTRPCRouter({
             },
           });
 
-          // If Trigger.dev is not available, throw a more specific error
           throw new Error(
-            `Failed to start background import job. Please ensure Trigger.dev dev server is running. Error: ${
-              triggerError instanceof Error
-                ? triggerError.message
-                : String(triggerError)
+            `Failed to start background import job. Please ensure Trigger.dev dev server is running. Error: ${triggerError instanceof Error
+              ? triggerError.message
+              : String(triggerError)
             }`,
           );
         }
@@ -253,11 +279,6 @@ export const importRouter = createTRPCRouter({
           createdAt: job.startedAt,
         };
       } catch (error) {
-        console.error("[import.start] Error occurred:", {
-          error,
-          errorMessage: error instanceof Error ? error.message : String(error),
-          errorStack: error instanceof Error ? error.stack : undefined,
-        });
         throw wrapError(error, "Failed to start import job");
       }
     }),
@@ -319,136 +340,59 @@ export const importRouter = createTRPCRouter({
     }),
 
   /**
-   * Approve import job (trigger Phase 2)
+   * Get recent import jobs
    *
-   * Validates that:
-   * 1. Job is in VALIDATED status
-   * 2. All unmapped values have been defined
-   * 3. Staging data exists
-   *
-   * Then triggers Phase 2 background job to commit staging data to production.
-   * Returns immediately while background job processes the commit.
+   * Returns the most recent import jobs for the active brand.
+   * Used to display import history in the import modal.
    */
-  approve: brandRequiredProcedure
-    .input(approveImportSchema)
-    .mutation(async ({ ctx, input }) => {
+  getRecentImports: brandRequiredProcedure
+    .input(getRecentImportsSchema)
+    .query(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = brandCtx.brandId;
 
       try {
-        // Verify job ownership and get current status
-        const job = await getImportJobStatus(brandCtx.db, input.jobId);
-
-        if (!job) {
-          throw badRequest("Import job not found");
-        }
-
-        if (job.brandId !== brandId) {
-          throw badRequest("Access denied: job belongs to different brand");
-        }
-
-        // Allow safe re-entry if commit already in progress
-        if (job.status === "COMMITTING") {
-          return {
-            jobId: job.id,
-            status: "COMMITTING" as const,
-            message: "Import already approved and committing to production",
-          };
-        }
-
-        // Validate job status - only VALIDATED jobs can be approved
-        if (job.status !== "VALIDATED") {
-          throw badRequest(
-            `Cannot approve job with status ${job.status}. Job must be in VALIDATED status.`,
-          );
-        }
-
-        // Check that all unmapped values have been defined
-        const summary = (job.summary as Record<string, unknown>) ?? {};
-        const pendingApproval = (summary.pending_approval as unknown[]) ?? [];
-
-        if (pendingApproval.length > 0) {
-          throw badRequest(
-            `Cannot approve import: ${pendingApproval.length} unmapped values still need to be defined. Please define all values before approval.`,
-          );
-        }
-
-        // Verify staging data exists
-        const counts = await countStagingProductsByAction(
+        const jobs = await getRecentImportJobs(
           brandCtx.db,
-          input.jobId,
+          brandId,
+          input.limit,
         );
 
-        if (counts.create === 0 && counts.update === 0) {
-          console.warn(
-            "[import.approve] Proceeding with approval despite empty staging data",
-            { jobId: input.jobId },
-          );
-        }
-
-        // Update job status to COMMITTING
-        await updateImportJobStatus(brandCtx.db, {
-          jobId: input.jobId,
-          status: "COMMITTING",
-        });
-
-        // Trigger Phase 2 background job (commit-to-production)
-        console.log("[import.approve] Triggering commit-to-production job", {
-          jobId: input.jobId,
-          brandId,
-        });
-
-        try {
-          const runHandle = await tasks.trigger("commit-to-production", {
-            jobId: input.jobId,
-            brandId,
-          });
-
-          console.log("[import.approve] Commit job triggered successfully", {
-            triggerRunId: runHandle.id,
-          });
-        } catch (triggerError) {
-          console.error("[import.approve] Failed to trigger commit job:", {
-            error: triggerError,
-            errorMessage:
-              triggerError instanceof Error
-                ? triggerError.message
-                : String(triggerError),
-          });
-
-          // Rollback status if trigger fails
-          await updateImportJobStatus(brandCtx.db, {
-            jobId: input.jobId,
-            status: "VALIDATED",
-          });
-
-          throw wrapError(triggerError, "Failed to start commit process");
-        }
-
         return {
-          jobId: input.jobId,
-          status: "COMMITTING" as const,
-          message: "Import approved - committing to production",
+          jobs: jobs.map((job) => ({
+            id: job.id,
+            filename: job.filename,
+            mode: job.mode,
+            status: job.status,
+            startedAt: job.startedAt,
+            finishedAt: job.finishedAt,
+            hasExportableFailures: job.hasExportableFailures,
+            summary: job.summary,
+            // Correction file info (for error report downloads)
+            correctionDownloadUrl: job.correctionDownloadUrl,
+            correctionExpiresAt: job.correctionExpiresAt,
+          })),
         };
       } catch (error) {
-        throw wrapError(error, "Failed to approve import");
+        throw wrapError(error, "Failed to get recent imports");
       }
     }),
 
   /**
-   * Cancel import job
+   * Dismiss a failed import
    *
-   * Discards staging data and marks job as CANCELLED.
-   * Can only cancel jobs in VALIDATED status (before commit starts).
+   * Cleans up staging data for a failed import and removes it
+   * from the actionable imports list. Use this when the user
+   * doesn't want to fix and re-import the failed rows.
    */
-  cancel: brandRequiredProcedure
-    .input(cancelImportSchema)
+  dismiss: brandRequiredProcedure
+    .input(dismissFailedImportSchema)
     .mutation(async ({ ctx, input }) => {
       const brandCtx = ctx as BrandContext;
       const brandId = brandCtx.brandId;
 
       try {
-        // Verify job ownership and get current status
+        // Verify job ownership
         const job = await getImportJobStatus(brandCtx.db, input.jobId);
 
         if (!job) {
@@ -459,31 +403,148 @@ export const importRouter = createTRPCRouter({
           throw badRequest("Access denied: job belongs to different brand");
         }
 
-        // Validate job status - only VALIDATED jobs can be cancelled
-        if (job.status !== "VALIDATED") {
+        // Only allow dismissing jobs with failures or failed jobs
+        const dismissableStatuses = ["COMPLETED_WITH_FAILURES", "FAILED"];
+        if (!dismissableStatuses.includes(job.status)) {
           throw badRequest(
-            `Cannot cancel job with status ${job.status}. Only jobs in VALIDATED status can be cancelled.`,
+            `Cannot dismiss job with status ${job.status}. Only jobs with failures can be dismissed.`,
           );
         }
 
-        // Delete staging data for this job (cascades to all related tables)
-        await deleteStagingDataForJob(brandCtx.db, input.jobId);
+        // Delete import rows for this job
+        await deleteAllImportRowsForJob(brandCtx.db, input.jobId);
 
-        // Update job status to CANCELLED
+        // Update job to mark as dismissed (clear the exportable failures flag)
         await updateImportJobStatus(brandCtx.db, {
           jobId: input.jobId,
-          status: "CANCELLED",
+          status: job.status, // Keep the same status
+          summary: {
+            ...(job.summary ?? {}),
+            dismissed: true,
+            dismissedAt: new Date().toISOString(),
+          },
         });
 
         return {
           jobId: input.jobId,
-          status: "CANCELLED" as const,
-          message: "Import cancelled - staging data discarded",
+          success: true,
+          message: "Import dismissed - staging data cleaned up",
         };
       } catch (error) {
-        throw wrapError(error, "Failed to cancel import");
+        throw wrapError(error, "Failed to dismiss import");
+      }
+    }),
+
+  /**
+   * Export corrections Excel file
+   *
+   * Generates an Excel file containing failed rows with error cells
+   * highlighted in red. Users can correct the data and re-import.
+   *
+   * Note: The actual Excel generation is handled by a background job.
+   * This endpoint triggers the generation and returns a download URL.
+   */
+  exportCorrections: brandRequiredProcedure
+    .input(exportCorrectionsSchema)
+    .mutation(async ({ ctx, input }) => {
+      const brandCtx = ctx as BrandContext;
+      const brandId = brandCtx.brandId;
+      const userEmail = ctx.user.email ?? null;
+
+      try {
+        // Verify job ownership
+        const job = await getImportJobStatus(brandCtx.db, input.jobId);
+
+        if (!job) {
+          throw badRequest("Import job not found");
+        }
+
+        if (job.brandId !== brandId) {
+          throw badRequest("Access denied: job belongs to different brand");
+        }
+
+        // Check that job has exportable failures
+        if (!job.hasExportableFailures) {
+          throw badRequest(
+            "No failed rows to export. This job completed successfully or has no exportable failures.",
+          );
+        }
+
+        // Check if correction file already exists and not expired
+        if (job.correctionDownloadUrl && job.correctionExpiresAt) {
+          const expiresAt = new Date(job.correctionExpiresAt);
+          if (expiresAt > new Date()) {
+            // Return existing URL
+            return {
+              jobId: input.jobId,
+              status: "ready" as const,
+              downloadUrl: job.correctionDownloadUrl,
+              expiresAt: job.correctionExpiresAt,
+              message: null,
+            };
+          }
+        }
+
+        // Trigger generation if not exists or expired
+        await tasks.trigger("generate-error-report", {
+          jobId: input.jobId,
+          brandId,
+          userEmail,
+        });
+
+        return {
+          jobId: input.jobId,
+          status: "generating" as const,
+          downloadUrl: null,
+          expiresAt: null,
+          message: "Error report is being generated. Check back shortly.",
+        };
+      } catch (error) {
+        throw wrapError(error, "Failed to export corrections");
       }
     }),
 });
 
 export type ImportRouter = typeof importRouter;
+
+// ============================================================================
+// Helper: Download File from Supabase
+// ============================================================================
+
+async function downloadFileFromSupabase(filePath: string): Promise<Uint8Array> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error("Supabase configuration missing");
+  }
+
+  const normalizedBaseUrl = supabaseUrl.endsWith("/")
+    ? supabaseUrl.slice(0, -1)
+    : supabaseUrl;
+
+  const encodedPath = filePath
+    .split("/")
+    .filter((segment) => segment.length > 0)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  const downloadUrl = `${normalizedBaseUrl}/storage/v1/object/product-imports/${encodedPath}`;
+
+  const response = await fetch(downloadUrl, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(
+      `Storage download failed (${response.status}): ${body || response.statusText}`,
+    );
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return new Uint8Array(arrayBuffer);
+}

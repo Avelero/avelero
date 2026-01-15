@@ -39,25 +39,44 @@ async function getOrCreateChannel(brandId: string) {
   const cached = channelCache.get(brandId);
   if (cached?.ready) return cached.channel;
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  console.log('[broadcast] Creating Supabase client for channel:', {
+    url: supabaseUrl,
+    hasServiceKey: !!serviceKey,
+    brandId,
+  });
+
+  if (!supabaseUrl || !serviceKey) {
+    console.error('[broadcast] Missing Supabase credentials:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!serviceKey,
+    });
+    throw new Error('Missing Supabase credentials for broadcast');
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey);
 
   const channel = supabase.channel(`job-progress:${brandId}`);
 
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(
-      () => reject(new Error("Channel subscription timeout")),
+      () => {
+        console.error('[broadcast] Channel subscription timeout after 5s');
+        reject(new Error("Channel subscription timeout"));
+      },
       5000,
     );
     channel.subscribe((status) => {
+      console.log('[broadcast] Channel subscription status:', status);
       if (status === "SUBSCRIBED") {
         clearTimeout(timeout);
         channelCache.set(brandId, { channel, ready: true });
         resolve();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         clearTimeout(timeout);
+        console.error('[broadcast] Channel subscription failed:', status);
         reject(new Error(`Channel subscription failed: ${status}`));
       }
     });

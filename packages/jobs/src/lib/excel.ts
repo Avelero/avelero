@@ -422,10 +422,23 @@ async function loadExportTemplate(): Promise<{
   fromTemplate: boolean;
 }> {
   const workbook = new ExcelJS.Workbook();
-  const templatePath = path.join(
+
+  // Check bundled location first (for Trigger.dev deployments)
+  // The additionalFiles extension copies ./src/templates/** to the build directory
+  const bundledTemplatePath = path.join(
+    process.cwd(),
+    "src/templates/avelero-bulk-export-template.xlsx",
+  );
+
+  // Fallback to monorepo location (for local development)
+  const localTemplatePath = path.join(
     process.cwd(),
     "../../apps/api/public/templates/avelero-bulk-export-template.xlsx",
   );
+
+  const templatePath = fs.existsSync(bundledTemplatePath)
+    ? bundledTemplatePath
+    : localTemplatePath;
 
   if (fs.existsSync(templatePath)) {
     await workbook.xlsx.readFile(templatePath);

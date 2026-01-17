@@ -9,10 +9,10 @@ import { cn } from "@v1/ui/cn";
 export type TabType = "styles" | "content";
 
 interface StyleContentTabsProps {
-    activeTab: TabType;
-    onTabChange: (tab: TabType) => void;
-    /** Whether to show the Content tab (some components only have styles) */
-    showContentTab?: boolean;
+  activeTab: TabType;
+  onTabChange: (tab: TabType) => void;
+  /** Whether to show the Content tab (some components only have styles) */
+  showContentTab?: boolean;
 }
 
 // =============================================================================
@@ -24,41 +24,41 @@ interface StyleContentTabsProps {
  * Shows "Styles" and "Content" tabs when a component has both.
  */
 export function StyleContentTabs({
-    activeTab,
-    onTabChange,
-    showContentTab = true,
+  activeTab,
+  onTabChange,
+  showContentTab = true,
 }: StyleContentTabsProps) {
-    if (!showContentTab) {
-        // If only styles, don't show tabs at all
-        return null;
-    }
+  if (!showContentTab) {
+    // If only styles, don't show tabs at all
+    return null;
+  }
 
-    return (
-        <div className="flex border-b border-border">
-            <button
-                type="button"
-                onClick={() => onTabChange("styles")}
-                className={cn(
-                    "flex-1 h-10 type-small font-medium transition-colors",
-                    activeTab === "styles"
-                        ? "text-primary border-b-2 border-primary"
-                        : "text-secondary border-b-2 border-transparent hover:text-primary",
-                )}
-            >
-                Styles
-            </button>
-            <button
-                type="button"
-                onClick={() => onTabChange("content")}
-                className={cn(
-                    "flex-1 h-10 type-small font-medium transition-colors",
-                    activeTab === "content"
-                        ? "text-primary border-b-2 border-primary"
-                        : "text-secondary border-b-2 border-transparent hover:text-primary",
-                )}
-            >
-                Content
-            </button>
-        </div>
-    );
+  return (
+    <div className="flex border-b border-border">
+      <button
+        type="button"
+        onClick={() => onTabChange("styles")}
+        className={cn(
+          "flex-1 h-10 type-small font-medium transition-colors",
+          activeTab === "styles"
+            ? "text-primary border-b-2 border-primary"
+            : "text-secondary border-b-2 border-transparent hover:text-primary",
+        )}
+      >
+        Styles
+      </button>
+      <button
+        type="button"
+        onClick={() => onTabChange("content")}
+        className={cn(
+          "flex-1 h-10 type-small font-medium transition-colors",
+          activeTab === "content"
+            ? "text-primary border-b-2 border-primary"
+            : "text-secondary border-b-2 border-transparent hover:text-primary",
+        )}
+      >
+        Content
+      </button>
+    </div>
+  );
 }

@@ -16,10 +16,13 @@ export const taxonomyCategories = pgTable(
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     publicId: text("public_id").unique().notNull(),
     name: text("name").notNull(),
-    parentId: uuid("parent_id").references((): AnyPgColumn => taxonomyCategories.id, {
-      onDelete: "set null",
-      onUpdate: "cascade",
-    }),
+    parentId: uuid("parent_id").references(
+      (): AnyPgColumn => taxonomyCategories.id,
+      {
+        onDelete: "set null",
+        onUpdate: "cascade",
+      },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

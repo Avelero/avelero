@@ -16,6 +16,10 @@ import { VariantSection } from "@/components/forms/passport/blocks/variant-block
 import { IdentifiersSidebar } from "@/components/forms/passport/sidebars/identifiers-sidebar";
 import { StatusSidebar } from "@/components/forms/passport/sidebars/status-sidebar";
 import {
+  FirstPublishModal,
+  shouldShowFirstPublishModal,
+} from "@/components/modals/first-publish-modal";
+import {
   usePassportFormContext,
   useRegisterForm,
 } from "@/contexts/passport-form-context";
@@ -24,7 +28,11 @@ import { usePassportForm } from "@/hooks/use-passport-form";
 import type { PassportFormValidationErrors } from "@/hooks/use-passport-form";
 import { useUserQuery } from "@/hooks/use-user";
 import { useTRPC } from "@/trpc/client";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { cn } from "@v1/ui/cn";
 import { toast } from "@v1/ui/sonner";
 import * as React from "react";
@@ -37,6 +45,7 @@ function ProductFormScaffold({
   title,
   left,
   right,
+  actions,
   className,
   leftClassName,
   rightClassName,
@@ -44,13 +53,17 @@ function ProductFormScaffold({
   title: React.ReactNode;
   left: React.ReactNode;
   right: React.ReactNode;
+  actions?: React.ReactNode;
   className?: string;
   leftClassName?: string;
   rightClassName?: string;
 }) {
   return (
     <div className={cn("flex flex-col gap-6 w-full max-w-[924px]", className)}>
-      <p className="type-h4 text-primary">{title}</p>
+      <div className="flex items-center justify-between">
+        <p className="type-h4 text-primary">{title}</p>
+        {actions}
+      </div>
       <div className="flex flex-row gap-6">
         <div
           className={cn(
@@ -89,7 +102,17 @@ function ProductFormInner({
   initialData,
 }: ProductFormProps) {
   const { data: user } = useUserQuery();
-  const { setIsSubmitting, setHasUnsavedChanges, requestNavigation, formResetCallbackRef } = usePassportFormContext();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const {
+    setIsSubmitting,
+    setHasUnsavedChanges,
+    requestNavigation,
+    formResetCallbackRef,
+    setProductId,
+    setPublishingStatus,
+    setHasDbUnpublishedChanges,
+  } = usePassportFormContext();
   const isEditMode = mode === "edit";
 
   // Register form with context
@@ -110,20 +133,100 @@ function ProductFormInner({
     resetForm,
     savedVariantsMap,
     productHandle: savedProductHandle,
+    productId,
+    dbPublishingStatus,
+    dbHasUnpublishedChanges,
   } = usePassportForm({ mode, productHandle, initialData });
 
-  const handleEcoClaimsChange = React.useCallback<
-    React.Dispatch<React.SetStateAction<{ id: string; value: string }[]>>
-  >(
-    (value) => {
-      if (typeof value === "function") {
-        updateField("ecoClaims", value);
-      } else {
-        setField("ecoClaims", value);
-      }
-    },
-    [setField, updateField],
+  // Publishing mutation
+  const publishProductMutation = useMutation(
+    trpc.products.publish.product.mutationOptions(),
   );
+
+  // First publish modal state (for three-dot menu)
+  const [showFirstPublishModal, setShowFirstPublishModal] =
+    React.useState(false);
+
+  // Sync productId and publishing state with context when they change
+  React.useEffect(() => {
+    setProductId(productId);
+    setPublishingStatus(dbPublishingStatus);
+    setHasDbUnpublishedChanges(dbHasUnpublishedChanges);
+  }, [
+    productId,
+    setProductId,
+    dbPublishingStatus,
+    setPublishingStatus,
+    dbHasUnpublishedChanges,
+    setHasDbUnpublishedChanges,
+  ]);
+
+  // Actual publish logic
+  const executePublish = React.useCallback(async () => {
+    if (!productId) {
+      toast.error("Cannot publish: product has not been saved yet");
+      return;
+    }
+
+    try {
+      const result = await publishProductMutation.mutateAsync({ productId });
+      if (result.success) {
+        toast.success("Product published successfully");
+
+        // Update publishing status immediately in context so UI updates without page refresh
+        setPublishingStatus("published");
+        setHasDbUnpublishedChanges(false);
+
+        // Invalidate queries to refresh data
+        await queryClient.invalidateQueries({
+          queryKey: trpc.products.get.queryKey({
+            handle: savedProductHandle ?? productHandle ?? "",
+          }),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.products.list.queryKey(),
+        });
+      }
+    } catch (err) {
+      console.error("Publish failed:", err);
+      toast.error("Failed to publish product");
+    }
+  }, [
+    productId,
+    publishProductMutation,
+    queryClient,
+    trpc,
+    savedProductHandle,
+    productHandle,
+    setPublishingStatus,
+    setHasDbUnpublishedChanges,
+  ]);
+
+  // Handle publish action - show modal on first publish if preference not set
+  const handlePublish = React.useCallback(() => {
+    if (!productId) {
+      toast.error("Cannot publish: product has not been saved yet");
+      return;
+    }
+
+    // On first publish, show warning modal (unless user dismissed it before)
+    const isFirstPublish = dbPublishingStatus === "unpublished";
+    if (isFirstPublish && shouldShowFirstPublishModal()) {
+      setShowFirstPublishModal(true);
+    } else {
+      void executePublish();
+    }
+  }, [productId, dbPublishingStatus, executePublish]);
+
+  // First publish modal handlers
+  const handleFirstPublishConfirm = React.useCallback(() => {
+    setShowFirstPublishModal(false);
+    void executePublish();
+  }, [executePublish]);
+
+  const handleFirstPublishCancel = React.useCallback(() => {
+    setShowFirstPublishModal(false);
+  }, []);
 
   // Clear errors when fields change (after first submit attempt)
   React.useEffect(() => {
@@ -221,7 +324,9 @@ function ProductFormInner({
   // Register reset callback with context so discard handler can reset form state
   React.useEffect(() => {
     formResetCallbackRef.current = resetForm;
-    return () => { formResetCallbackRef.current = null; };
+    return () => {
+      formResetCallbackRef.current = null;
+    };
   }, [resetForm, formResetCallbackRef]);
 
   // Refs for focusing invalid fields
@@ -362,16 +467,19 @@ function ProductFormInner({
               isEditMode={isEditMode}
               productHandle={savedProductHandle ?? undefined}
               savedVariants={savedVariantsMap}
-              isNewProduct={!isEditMode || !savedVariantsMap || savedVariantsMap.size === 0}
+              isNewProduct={
+                !isEditMode || !savedVariantsMap || savedVariantsMap.size === 0
+              }
               onNavigateToVariant={requestNavigation}
+              publishingStatus={dbPublishingStatus}
             />
             <EnvironmentSection
               carbonKgCo2e={state.carbonKgCo2e}
               setCarbonKgCo2e={(value) => setField("carbonKgCo2e", value)}
               waterLiters={state.waterLiters}
               setWaterLiters={(value) => setField("waterLiters", value)}
-              ecoClaims={state.ecoClaims}
-              setEcoClaims={handleEcoClaimsChange}
+              weightGrams={state.weightGrams}
+              setWeightGrams={(value) => setField("weightGrams", value)}
               carbonError={
                 state.hasAttemptedSubmit
                   ? state.validationErrors.carbonKgCo2e
@@ -380,6 +488,11 @@ function ProductFormInner({
               waterError={
                 state.hasAttemptedSubmit
                   ? state.validationErrors.waterLiters
+                  : undefined
+              }
+              weightError={
+                state.hasAttemptedSubmit
+                  ? state.validationErrors.weightGrams
                   : undefined
               }
             />
@@ -419,6 +532,14 @@ function ProductFormInner({
             />
           </>
         }
+      />
+
+      <FirstPublishModal
+        open={showFirstPublishModal}
+        onOpenChange={setShowFirstPublishModal}
+        onConfirm={handleFirstPublishConfirm}
+        onCancel={handleFirstPublishCancel}
+        isPublishing={publishProductMutation.isPending}
       />
     </form>
   );

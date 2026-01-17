@@ -11,14 +11,3 @@ export default function IntegrationsLayout({
 }) {
   return <>{children}</>;
 }
-
-
-
-
-
-
-
-
-
-
-

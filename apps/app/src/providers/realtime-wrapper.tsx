@@ -3,5 +3,5 @@
 import { RealtimeProvider } from "./realtime-provider";
 
 export function RealtimeWrapper({ children }: { children: React.ReactNode }) {
-    return <RealtimeProvider>{children}</RealtimeProvider>;
+  return <RealtimeProvider>{children}</RealtimeProvider>;
 }

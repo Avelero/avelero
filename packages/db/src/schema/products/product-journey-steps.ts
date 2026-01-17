@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { uniqueIndex } from "drizzle-orm/pg-core";
 import { products } from "./products";
-import { brandFacilities } from "../catalog/brand-facilities";
+import { brandOperators } from "../catalog/brand-operators";
 
 export const productJourneySteps = pgTable(
   "product_journey_steps",
@@ -24,8 +24,8 @@ export const productJourneySteps = pgTable(
       .notNull(),
     sortIndex: integer("sort_index").notNull(),
     stepType: text("step_type").notNull(),
-    facilityId: uuid("facility_id")
-      .references(() => brandFacilities.id, {
+    operatorId: uuid("operator_id")
+      .references(() => brandOperators.id, {
         onDelete: "restrict",
         onUpdate: "cascade",
       })
@@ -38,9 +38,12 @@ export const productJourneySteps = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("product_journey_steps_product_sort_unq").on(
+    // Unique constraint: allows multiple operators per step (same product_id + sort_index)
+    // but prevents duplicate operator assignments to the same step
+    uniqueIndex("product_journey_steps_product_sort_operator_unq").on(
       table.productId,
       table.sortIndex,
+      table.operatorId,
     ),
     // Indexes for query performance
     // For loadAttributesForProducts - batch loading journey steps

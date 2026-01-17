@@ -18,15 +18,15 @@ import { createMockVariant, type ShopifyVariantNode } from "../mocks/shopify";
  * ```
  */
 export function createSizeVariants(
-    skuPrefix: string,
-    sizes: string[] = ["S", "M", "L"]
+  skuPrefix: string,
+  sizes: string[] = ["S", "M", "L"],
 ): ShopifyVariantNode[] {
-    return sizes.map((size) =>
-        createMockVariant({
-            sku: `${skuPrefix}-${size}`,
-            selectedOptions: [{ name: "Size", value: size }],
-        })
-    );
+  return sizes.map((size) =>
+    createMockVariant({
+      sku: `${skuPrefix}-${size}`,
+      selectedOptions: [{ name: "Size", value: size }],
+    }),
+  );
 }
 
 /**
@@ -39,27 +39,27 @@ export function createSizeVariants(
  * ```
  */
 export function createColorSizeVariants(
-    skuPrefix: string,
-    colors: string[],
-    sizes: string[]
+  skuPrefix: string,
+  colors: string[],
+  sizes: string[],
 ): ShopifyVariantNode[] {
-    const variants: ShopifyVariantNode[] = [];
+  const variants: ShopifyVariantNode[] = [];
 
-    for (const color of colors) {
-        for (const size of sizes) {
-            variants.push(
-                createMockVariant({
-                    sku: `${skuPrefix}-${color.toUpperCase()}-${size}`,
-                    selectedOptions: [
-                        { name: "Color", value: color },
-                        { name: "Size", value: size },
-                    ],
-                })
-            );
-        }
+  for (const color of colors) {
+    for (const size of sizes) {
+      variants.push(
+        createMockVariant({
+          sku: `${skuPrefix}-${color.toUpperCase()}-${size}`,
+          selectedOptions: [
+            { name: "Color", value: color },
+            { name: "Size", value: size },
+          ],
+        }),
+      );
     }
+  }
 
-    return variants;
+  return variants;
 }
 
 /**
@@ -77,29 +77,29 @@ export function createColorSizeVariants(
  * ```
  */
 export function createThreeAttributeVariants(
-    skuPrefix: string,
-    colors: string[],
-    sizes: string[],
-    materials: string[]
+  skuPrefix: string,
+  colors: string[],
+  sizes: string[],
+  materials: string[],
 ): ShopifyVariantNode[] {
-    const variants: ShopifyVariantNode[] = [];
+  const variants: ShopifyVariantNode[] = [];
 
-    for (const color of colors) {
-        for (const size of sizes) {
-            for (const material of materials) {
-                variants.push(
-                    createMockVariant({
-                        sku: `${skuPrefix}-${color.substring(0, 3).toUpperCase()}-${size}-${material.substring(0, 3).toUpperCase()}`,
-                        selectedOptions: [
-                            { name: "Color", value: color },
-                            { name: "Size", value: size },
-                            { name: "Material", value: material },
-                        ],
-                    })
-                );
-            }
-        }
+  for (const color of colors) {
+    for (const size of sizes) {
+      for (const material of materials) {
+        variants.push(
+          createMockVariant({
+            sku: `${skuPrefix}-${color.substring(0, 3).toUpperCase()}-${size}-${material.substring(0, 3).toUpperCase()}`,
+            selectedOptions: [
+              { name: "Color", value: color },
+              { name: "Size", value: size },
+              { name: "Material", value: material },
+            ],
+          }),
+        );
+      }
     }
+  }
 
-    return variants;
+  return variants;
 }

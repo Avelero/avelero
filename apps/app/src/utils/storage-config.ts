@@ -19,7 +19,6 @@ export const BUCKETS = {
   PRODUCTS: "products",
   DPP_ASSETS: "dpp-assets",
   DPP_THEMES: "dpp-themes",
-  THEME_SCREENSHOTS: "theme-screenshots",
 } as const;
 
 export type Bucket = (typeof BUCKETS)[keyof typeof BUCKETS];
@@ -86,12 +85,6 @@ export const UPLOAD_CONFIGS = {
     allowedMime: IMAGE_MIME,
     isPublic: false,
   },
-  themeScreenshot: {
-    bucket: BUCKETS.THEME_SCREENSHOTS,
-    maxBytes: 1 * 1024 * 1024, // 1MB
-    allowedMime: ["image/webp"] as const,
-    isPublic: true,
-  },
   font: {
     bucket: BUCKETS.DPP_ASSETS,
     maxBytes: 10 * 1024 * 1024, // 10MB
@@ -119,9 +112,6 @@ export const buildStoragePath = {
 
   themeStylesheet: (brandId: string) => `${brandId}/theme.css`,
 
-  themeScreenshot: (brandId: string, device: "desktop" | "mobile") =>
-    `${brandId}/${device}_${Date.now()}.webp`,
-
   avatar: (userId: string, filename: string) => `${userId}/${filename}`,
 
   brandAvatar: (brandId: string, filename: string) => `${brandId}/${filename}`,
@@ -148,7 +138,3 @@ export function extractPathFromUrl(url: string, bucket: string): string | null {
     return null;
   }
 }
-
-
-
-

@@ -125,4 +125,3 @@ export async function removeFolderContents(bucket: string, folderPath: string) {
   const filePaths = existingFiles.map((file) => `${folderPath}/${file.name}`);
   await supabase.storage.from(bucket).remove(filePaths);
 }
-

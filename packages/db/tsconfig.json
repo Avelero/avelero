@@ -1,22 +1,12 @@
 {
   "extends": "@v1/tsconfig/nextjs.json",
-  "include": [
-    "src/**/*.ts",
-    "__tests__/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ],
+  "include": ["src/**/*.ts", "__tests__/**/*.ts"],
+  "exclude": ["node_modules"],
   "compilerOptions": {
-    "types": [
-      "node",
-      "@types/bun"
-    ],
+    "types": ["node", "@types/bun"],
     "baseUrl": ".",
     "paths": {
-      "@db/*": [
-        "./src/*"
-      ]
+      "@db/*": ["./src/*"]
     }
   }
 }

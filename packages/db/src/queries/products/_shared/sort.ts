@@ -1,6 +1,6 @@
 /**
  * Shared sorting logic for product queries.
- * 
+ *
  * Provides reusable ORDER BY clause builders with special handling
  * for category and season sorting (NULLS LAST).
  */
@@ -23,12 +23,12 @@ const SORT_FIELD_MAP: Record<string, any> = {
 
 /**
  * Builds ORDER BY clause for product queries.
- * 
+ *
  * Special handling for:
  * - Season sorting: Uses end date with ongoing seasons treated as most recent
  * - Category sorting: NULLS LAST
  * - Default: Uses sort field map with product ID as tie-breaker
- * 
+ *
  * @param sortField - Field name to sort by
  * @param sortDirection - Sort direction ("asc" | "desc")
  * @returns ORDER BY clause(s)
@@ -41,10 +41,8 @@ export function buildProductOrderBy(
   | ReturnType<typeof desc>
   | ReturnType<typeof sql>
   | Array<
-    | ReturnType<typeof asc>
-    | ReturnType<typeof desc>
-    | ReturnType<typeof sql>
-  > {
+      ReturnType<typeof asc> | ReturnType<typeof desc> | ReturnType<typeof sql>
+    > {
   if (sortField === "season") {
     if (sortDirection === "asc") {
       return [
@@ -78,8 +76,6 @@ export function buildProductOrderBy(
     return [sql`${categorySortField} DESC NULLS LAST`, desc(products.id)];
   }
 
-
-
   const field = sortField
     ? SORT_FIELD_MAP[sortField] ?? products.createdAt
     : products.createdAt;
@@ -88,4 +84,3 @@ export function buildProductOrderBy(
     ? [asc(field), asc(products.id)]
     : [desc(field), desc(products.id)];
 }
-

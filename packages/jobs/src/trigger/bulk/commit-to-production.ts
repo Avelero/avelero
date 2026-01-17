@@ -53,7 +53,6 @@ interface CommitStats {
   tagsSet: number;
   attributesSet: number;
   materialsSet: number;
-  ecoClaimsSet: number;
   environmentSet: number;
   journeyStepsSet: number;
   weightSet: number;
@@ -81,6 +80,8 @@ interface PendingProductionOps {
     manufacturerId?: string;
     imagePath?: string;
     status: string;
+    /** Imported products always have unpublished changes - require manual publish */
+    hasUnpublishedChanges: boolean;
   }>;
   productUpdates: Array<{
     id: string;
@@ -93,6 +94,8 @@ interface PendingProductionOps {
       manufacturerId: string;
       imagePath: string;
       status: string;
+      /** Updates to products mark them as having unpublished changes */
+      hasUnpublishedChanges: boolean;
     }>;
   }>;
   variantCreates: Array<{
@@ -121,7 +124,6 @@ interface PendingProductionOps {
     productId: string;
     materials: Array<{ brandMaterialId: string; percentage: string | null }>;
   }>;
-  productEcoClaimsToSet: Array<{ productId: string; ecoClaimIds: string[] }>;
   productEnvironmentUpserts: Array<{
     productId: string;
     metric: string;
@@ -130,7 +132,11 @@ interface PendingProductionOps {
   }>;
   productJourneyStepsToSet: Array<{
     productId: string;
-    steps: Array<{ sortIndex: number; stepType: string; facilityId: string }>;
+    steps: Array<{
+      sortIndex: number;
+      stepType: string;
+      operatorIds: string[];
+    }>;
   }>;
   productWeightUpserts: Array<{
     productId: string;
@@ -149,7 +155,6 @@ interface PendingProductionOps {
     variantId: string;
     materials: Array<{ brandMaterialId: string; percentage: string | null }>;
   }>;
-  variantEcoClaimsToSet: Array<{ variantId: string; ecoClaimIds: string[] }>;
   variantEnvironmentUpserts: Array<{
     variantId: string;
     carbonKgCo2e: string | null;
@@ -157,7 +162,11 @@ interface PendingProductionOps {
   }>;
   variantJourneyStepsToSet: Array<{
     variantId: string;
-    steps: Array<{ sortIndex: number; stepType: string; facilityId: string }>;
+    steps: Array<{
+      sortIndex: number;
+      stepType: string;
+      operatorIds: string[];
+    }>;
   }>;
   variantWeightUpserts: Array<{
     variantId: string;
@@ -180,13 +189,11 @@ const {
   productTags,
   // Product-level production tables
   productMaterials,
-  productEcoClaims,
   productEnvironment,
   productJourneySteps,
   productWeight,
   // Variant-level production tables (for overrides)
   variantMaterials,
-  variantEcoClaims,
   variantEnvironment,
   variantJourneySteps,
   variantWeight,
@@ -232,7 +239,6 @@ export const commitToProduction = task({
       tagsSet: 0,
       attributesSet: 0,
       materialsSet: 0,
-      ecoClaimsSet: 0,
       environmentSet: 0,
       journeyStepsSet: 0,
       weightSet: 0,
@@ -344,7 +350,6 @@ export const commitToProduction = task({
           totalStats.tagsSet += batchStats.tagsSet;
           totalStats.attributesSet += batchStats.attributesSet;
           totalStats.materialsSet += batchStats.materialsSet;
-          totalStats.ecoClaimsSet += batchStats.ecoClaimsSet;
           totalStats.environmentSet += batchStats.environmentSet;
           totalStats.journeyStepsSet += batchStats.journeyStepsSet;
           totalStats.weightSet += batchStats.weightSet;
@@ -635,13 +640,11 @@ function computeProductionOps(
     variantUpdates: [],
     productTagsToSet: [],
     productMaterialsToSet: [],
-    productEcoClaimsToSet: [],
     productEnvironmentUpserts: [],
     productJourneyStepsToSet: [],
     productWeightUpserts: [],
     variantAttributesToSet: [],
     variantMaterialsToSet: [],
-    variantEcoClaimsToSet: [],
     variantEnvironmentUpserts: [],
     variantJourneyStepsToSet: [],
     variantWeightUpserts: [],
@@ -655,7 +658,6 @@ function computeProductionOps(
     tagsSet: 0,
     attributesSet: 0,
     materialsSet: 0,
-    ecoClaimsSet: 0,
     environmentSet: 0,
     journeyStepsSet: 0,
     weightSet: 0,
@@ -680,6 +682,8 @@ function computeProductionOps(
         manufacturerId: normalizedProduct.manufacturerId ?? undefined,
         imagePath: normalizedProduct.imagePath ?? undefined,
         status: normalizedProduct.status ?? "unpublished",
+        // Imported products require manual publish before data is public
+        hasUnpublishedChanges: true,
       });
       batchStats.productsCreated++;
     } else if (
@@ -704,6 +708,9 @@ function computeProductionOps(
         updateData.imagePath = normalizedProduct.imagePath;
       if (normalizedProduct.status?.trim())
         updateData.status = normalizedProduct.status;
+
+      // Mark product as having unpublished changes after import update
+      updateData.hasUnpublishedChanges = true;
 
       if (Object.keys(updateData).length > 0) {
         ops.productUpdates.push({
@@ -730,15 +737,6 @@ function computeProductionOps(
         materials: normalizedProduct.materials,
       });
       batchStats.materialsSet += normalizedProduct.materials.length;
-    }
-
-    // Product eco claims
-    if (normalizedProduct.ecoClaims.length > 0) {
-      ops.productEcoClaimsToSet.push({
-        productId,
-        ecoClaimIds: normalizedProduct.ecoClaims.map((c) => c.ecoClaimId),
-      });
-      batchStats.ecoClaimsSet += normalizedProduct.ecoClaims.length;
     }
 
     // Product environment
@@ -838,15 +836,6 @@ function computeProductionOps(
           materials: variant.materials,
         });
         batchStats.materialsSet += variant.materials.length;
-      }
-
-      // Variant eco claims
-      if (variant.ecoClaims.length > 0) {
-        ops.variantEcoClaimsToSet.push({
-          variantId,
-          ecoClaimIds: variant.ecoClaims.map((c) => c.ecoClaimId),
-        });
-        batchStats.ecoClaimsSet += variant.ecoClaims.length;
       }
 
       // Variant environment
@@ -956,25 +945,7 @@ async function batchExecuteProductionOps(
       }
     }
 
-    // 8. Product eco claims (delete old + insert new)
-    if (ops.productEcoClaimsToSet.length > 0) {
-      const allProductIds = ops.productEcoClaimsToSet.map((c) => c.productId);
-      await tx
-        .delete(productEcoClaims)
-        .where(inArray(productEcoClaims.productId, allProductIds));
-
-      const allClaimInserts = ops.productEcoClaimsToSet.flatMap((c) =>
-        c.ecoClaimIds.map((ecoClaimId) => ({
-          productId: c.productId,
-          ecoClaimId,
-        })),
-      );
-      if (allClaimInserts.length > 0) {
-        await tx.insert(productEcoClaims).values(allClaimInserts);
-      }
-    }
-
-    // 9. Product environment (upserts)
+    // 8. Product environment (upserts)
     for (const env of ops.productEnvironmentUpserts) {
       await tx
         .insert(productEnvironment)
@@ -1002,8 +973,16 @@ async function batchExecuteProductionOps(
         .delete(productJourneySteps)
         .where(inArray(productJourneySteps.productId, allProductIds));
 
+      // Flatten steps: one row per operator
       const allJourneyInserts = ops.productJourneyStepsToSet.flatMap((j) =>
-        j.steps.map((step) => ({ productId: j.productId, ...step })),
+        j.steps.flatMap((step) =>
+          step.operatorIds.map((operatorId) => ({
+            productId: j.productId,
+            sortIndex: step.sortIndex,
+            stepType: step.stepType,
+            operatorId,
+          })),
+        ),
       );
       if (allJourneyInserts.length > 0) {
         await tx.insert(productJourneySteps).values(allJourneyInserts);
@@ -1058,25 +1037,7 @@ async function batchExecuteProductionOps(
       }
     }
 
-    // 14. Variant eco claims (delete old + insert new)
-    if (ops.variantEcoClaimsToSet.length > 0) {
-      const allVariantIds = ops.variantEcoClaimsToSet.map((c) => c.variantId);
-      await tx
-        .delete(variantEcoClaims)
-        .where(inArray(variantEcoClaims.variantId, allVariantIds));
-
-      const allClaimInserts = ops.variantEcoClaimsToSet.flatMap((c) =>
-        c.ecoClaimIds.map((ecoClaimId) => ({
-          variantId: c.variantId,
-          ecoClaimId,
-        })),
-      );
-      if (allClaimInserts.length > 0) {
-        await tx.insert(variantEcoClaims).values(allClaimInserts);
-      }
-    }
-
-    // 15. Variant environment (upserts)
+    // 14. Variant environment (upserts)
     for (const env of ops.variantEnvironmentUpserts) {
       await tx
         .insert(variantEnvironment)
@@ -1103,8 +1064,16 @@ async function batchExecuteProductionOps(
         .delete(variantJourneySteps)
         .where(inArray(variantJourneySteps.variantId, allVariantIds));
 
+      // Flatten steps: one row per operator
       const allJourneyInserts = ops.variantJourneyStepsToSet.flatMap((j) =>
-        j.steps.map((step) => ({ variantId: j.variantId, ...step })),
+        j.steps.flatMap((step) =>
+          step.operatorIds.map((operatorId) => ({
+            variantId: j.variantId,
+            sortIndex: step.sortIndex,
+            stepType: step.stepType,
+            operatorId,
+          })),
+        ),
       );
       if (allJourneyInserts.length > 0) {
         await tx.insert(variantJourneySteps).values(allJourneyInserts);

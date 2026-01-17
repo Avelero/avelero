@@ -79,12 +79,3 @@ export async function deleteMaterial(
     .returning({ id: brandMaterials.id });
   return row;
 }
-
-
-
-
-
-
-
-
-

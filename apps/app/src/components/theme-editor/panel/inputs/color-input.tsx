@@ -60,7 +60,10 @@ export function hexAlphaToOpacity(hexAlpha: string): number {
  * Handles: #RRGGBB, #RRGGBBAA, RRGGBB, RRGGBBAA
  * Returns: { rgb: "RRGGBB", opacity: 0-100 }
  */
-export function parseHexWithAlpha(hex: string): { rgb: string; opacity: number } {
+export function parseHexWithAlpha(hex: string): {
+  rgb: string;
+  opacity: number;
+} {
   // Remove # prefix if present
   const cleaned = hex.replace(/^#/, "").toUpperCase();
 

@@ -34,7 +34,13 @@ export interface ImageUploaderProps {
 
 const DEFAULT_VALIDATION: ValidationConfig = {
   maxBytes: 10 * 1024 * 1024, // 10MB
-  allowedMime: ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"],
+  allowedMime: [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "image/avif",
+  ],
 };
 
 export function ImageUploader({

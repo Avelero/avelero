@@ -18,17 +18,24 @@ import { useState } from "react";
 
 export type MatchIdentifier = "sku" | "barcode";
 export type IntegrationMode = "primary" | "secondary";
-export type IntegrationStatus = "pending" | "active" | "error" | "paused" | "disconnected";
-export type SyncJobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type IntegrationStatus =
+  | "pending"
+  | "active"
+  | "error"
+  | "paused"
+  | "disconnected";
+export type SyncJobStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 // =============================================================================
 // Status Badge
 // =============================================================================
 
-const integrationStatusConfig: Record<
-  IntegrationStatus,
-  { label: string }
-> = {
+const integrationStatusConfig: Record<IntegrationStatus, { label: string }> = {
   pending: {
     label: "Pending",
   },
@@ -58,7 +65,8 @@ export function IntegrationStatusBadge({
   status,
   className,
 }: IntegrationStatusBadgeProps) {
-  const config = integrationStatusConfig[status] ?? integrationStatusConfig.pending;
+  const config =
+    integrationStatusConfig[status] ?? integrationStatusConfig.pending;
 
   return (
     <span
@@ -143,7 +151,8 @@ export function SyncProgressBlock({
 
   // Show indeterminate state when in progress but no percentage available
   const isIndeterminate = isInProgress && progress === undefined;
-  const displayProgress = progress ?? (isCompleted ? 100 : (isFailed || isCancelled) ? 100 : 0);
+  const displayProgress =
+    progress ?? (isCompleted ? 100 : isFailed || isCancelled ? 100 : 0);
 
   // Labels based on job type
   const labels = {
@@ -189,7 +198,7 @@ export function SyncProgressBlock({
             <div
               className={cn(
                 "h-full transition-all duration-300",
-                (isFailed || isCancelled) ? "bg-destructive" : "bg-brand",
+                isFailed || isCancelled ? "bg-destructive" : "bg-brand",
               )}
               style={{ width: `${displayProgress}%` }}
             />
@@ -211,7 +220,6 @@ export function SyncProgressBlock({
     </div>
   );
 }
-
 
 // =============================================================================
 // Integration Info Header
@@ -239,12 +247,18 @@ export function IntegrationInfoRow({
 }: IntegrationInfoRowProps) {
   const [open, setOpen] = useState(false);
 
-  const identifierConfig: Record<MatchIdentifier, { label: string; icon: typeof Icons.Barcode }> = {
+  const identifierConfig: Record<
+    MatchIdentifier,
+    { label: string; icon: typeof Icons.Barcode }
+  > = {
     barcode: { label: "Barcode", icon: Icons.Barcode },
     sku: { label: "SKU", icon: Icons.Package },
   };
 
-  const modeConfig: Record<IntegrationMode, { label: string; icon: typeof Icons.Crown }> = {
+  const modeConfig: Record<
+    IntegrationMode,
+    { label: string; icon: typeof Icons.Crown }
+  > = {
     primary: { label: "Primary", icon: Icons.Crown },
     secondary: { label: "Secondary", icon: Icons.LayoutGrid },
   };
@@ -263,36 +277,53 @@ export function IntegrationInfoRow({
   return (
     <div className="flex flex-row items-start gap-4 mx-4">
       <div className="flex flex-col items-start gap-2">
-        <span className="type-small h-6 text-secondary flex items-center">Last sync</span>
-        <span className="type-small h-6 text-secondary flex items-center">Next sync</span>
-        <span className="type-small h-6 text-secondary flex items-center">Status</span>
+        <span className="type-small h-6 text-secondary flex items-center">
+          Last sync
+        </span>
+        <span className="type-small h-6 text-secondary flex items-center">
+          Next sync
+        </span>
+        <span className="type-small h-6 text-secondary flex items-center">
+          Status
+        </span>
         {mode !== undefined && (
-          <span className="type-small h-6 text-secondary flex items-center">Mode</span>
+          <span className="type-small h-6 text-secondary flex items-center">
+            Mode
+          </span>
         )}
         {matchIdentifier !== undefined && (
-          <span className="type-small h-6 text-secondary flex items-center">Identifier</span>
+          <span className="type-small h-6 text-secondary flex items-center">
+            Identifier
+          </span>
         )}
       </div>
       <div className="flex flex-col items-start gap-2">
         <div className="flex items-center pl-1.5 h-6 pr-1">
           <Icons.Calendar className="h-3 w-3 text-secondary" />
-          <span className="type-small text-foreground pl-1">{formatFullDateTime(lastSync)}</span>
+          <span className="type-small text-foreground pl-1">
+            {formatFullDateTime(lastSync)}
+          </span>
         </div>
         <div className="flex items-center pl-1.5 h-6 pr-1">
           <Icons.Calendar className="h-3 w-3 text-secondary" />
-          <span className="type-small text-foreground pl-1">{nextSync ? formatFullDateTime(nextSync) : "Not scheduled"}</span>
+          <span className="type-small text-foreground pl-1">
+            {nextSync ? formatFullDateTime(nextSync) : "Not scheduled"}
+          </span>
         </div>
         <IntegrationStatusBadge status={status} />
-        {mode !== undefined && (() => {
-          const config = modeConfig[mode];
-          const ModeIcon = config.icon;
-          return (
-            <div className="flex items-center pl-1.5 h-6 pr-1">
-              <ModeIcon className="h-3 w-3 text-secondary" />
-              <span className="type-small text-foreground pl-1">{config.label}</span>
-            </div>
-          );
-        })()}
+        {mode !== undefined &&
+          (() => {
+            const config = modeConfig[mode];
+            const ModeIcon = config.icon;
+            return (
+              <div className="flex items-center pl-1.5 h-6 pr-1">
+                <ModeIcon className="h-3 w-3 text-secondary" />
+                <span className="type-small text-foreground pl-1">
+                  {config.label}
+                </span>
+              </div>
+            );
+          })()}
         {matchIdentifier !== undefined && onMatchIdentifierChange && (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
@@ -300,7 +331,7 @@ export function IntegrationInfoRow({
                 type="button"
                 className={cn(
                   "inline-flex items-center px-1.5 h-6 rounded-full transition-colors duration-100 cursor-pointer",
-                  "hover:bg-accent data-[state=open]:bg-accent"
+                  "hover:bg-accent data-[state=open]:bg-accent",
                 )}
               >
                 <CurrentIcon className="h-3 w-3 text-secondary" />
@@ -398,7 +429,10 @@ export function formatFullDateTime(date: string | Date | null): string {
 /**
  * Formats sync duration in human readable format.
  */
-export function formatDuration(startedAt: string | null, finishedAt: string | null): string {
+export function formatDuration(
+  startedAt: string | null,
+  finishedAt: string | null,
+): string {
   if (!startedAt || !finishedAt) return "-";
 
   const start = new Date(startedAt);
@@ -417,4 +451,3 @@ export function formatDuration(startedAt: string | null, finishedAt: string | nu
   const mins = Math.floor((diffMs % 3600000) / 60000);
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
-

@@ -248,20 +248,6 @@ export const DEFAULT_THEME_STYLES: ThemeStyles = {
     typescale: "body-xs",
     textTransform: "none",
   },
-  "impact-card__eco-claim": {
-    borderColor: "$border",
-    borderRadius: 0,
-    backgroundColor: "$card",
-  },
-  "impact-card__eco-claim-icon": {
-    color: "$primary",
-    size: 17.5,
-  },
-  "impact-card__eco-claim-text": {
-    color: "$cardForeground",
-    typescale: "body-sm",
-    textTransform: "none",
-  },
   "impact-card__icon": {
     color: "$mutedForeground",
     size: 28,

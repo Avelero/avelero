@@ -93,7 +93,9 @@ export function ManufacturerSheet({
         rules.required("Manufacturer name is required"),
         rules.maxLength(100, "Name must be 100 characters or less"),
         rules.uniqueCaseInsensitive(
-          existingManufacturers.map((manufacturer: { name: string }) => manufacturer.name),
+          existingManufacturers.map(
+            (manufacturer: { name: string }) => manufacturer.name,
+          ),
           "A manufacturer with this name already exists",
         ),
       ],
@@ -283,7 +285,6 @@ export function ManufacturerSheet({
         state: createdManufacturer.state || undefined,
         zip: createdManufacturer.zip || undefined,
         countryCode: createdManufacturer.country_code || undefined,
-        
       };
 
       // Call parent callback with real data

@@ -63,10 +63,12 @@ export function DisconnectIntegrationModal({
 
         <div className="px-6 py-4 space-y-3">
           <DialogDescription className="text-secondary type-p">
-            Are you sure you want to disconnect this integration? This will stop automatic syncing.
+            Are you sure you want to disconnect this integration? This will stop
+            automatic syncing.
           </DialogDescription>
           <p className="text-secondary type-p">
-            Your product data will <span className="text-foreground font-medium">not</span> be deleted.
+            Your product data will{" "}
+            <span className="text-foreground font-medium">not</span> be deleted.
           </p>
         </div>
 
@@ -90,9 +92,3 @@ export function DisconnectIntegrationModal({
     </Dialog>
   );
 }
-
-
-
-
-
-

@@ -1,6 +1,6 @@
 /**
  * Shared authorization helpers for brand-level access control.
- * 
+ *
  * Provides utilities for checking brand membership, ownership,
  * and preventing invalid operations (e.g., removing last owner).
  */
@@ -11,7 +11,7 @@ import { brandMembers } from "../../schema";
 
 /**
  * Checks if a user is a member of a brand.
- * 
+ *
  * @param db - Database instance
  * @param userId - User ID
  * @param brandId - Brand ID
@@ -26,10 +26,7 @@ export async function isBrandMember(
     .select({ id: brandMembers.id })
     .from(brandMembers)
     .where(
-      and(
-        eq(brandMembers.userId, userId),
-        eq(brandMembers.brandId, brandId),
-      ),
+      and(eq(brandMembers.userId, userId), eq(brandMembers.brandId, brandId)),
     )
     .limit(1);
   return !!member;
@@ -37,7 +34,7 @@ export async function isBrandMember(
 
 /**
  * Checks if a user is an owner of a brand.
- * 
+ *
  * @param db - Database instance
  * @param userId - User ID
  * @param brandId - Brand ID
@@ -64,7 +61,7 @@ export async function isBrandOwner(
 
 /**
  * Gets the count of owners for a brand.
- * 
+ *
  * @param db - Database instance
  * @param brandId - Brand ID
  * @returns Number of owners
@@ -77,10 +74,7 @@ export async function getOwnerCount(
     .select({ count: sql<number>`COUNT(*)::int` })
     .from(brandMembers)
     .where(
-      and(
-        eq(brandMembers.brandId, brandId),
-        eq(brandMembers.role, "owner"),
-      ),
+      and(eq(brandMembers.brandId, brandId), eq(brandMembers.role, "owner")),
     );
   return result?.count ?? 0;
 }
@@ -88,7 +82,7 @@ export async function getOwnerCount(
 /**
  * Asserts that a user is an owner of a brand.
  * Throws an error if not.
- * 
+ *
  * @param db - Database instance
  * @param userId - User ID
  * @param brandId - Brand ID
@@ -107,7 +101,7 @@ export async function assertBrandOwner(
 
 /**
  * Checks if removing a user would leave the brand without owners.
- * 
+ *
  * @param db - Database instance
  * @param brandId - Brand ID
  * @param userId - User ID to check
@@ -125,12 +119,3 @@ export async function isLastOwner(
   }
   return false;
 }
-
-
-
-
-
-
-
-
-

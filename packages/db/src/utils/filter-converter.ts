@@ -28,12 +28,10 @@ import {
 import type { SQL } from "drizzle-orm";
 import type { Database } from "../client";
 import {
-  brandEcoClaims,
-  brandFacilities,
+  brandOperators,
   brandMaterials,
   brandSeasons,
   brandTags,
-  productEcoClaims,
   productEnvironment,
   productJourneySteps,
   productMaterials,
@@ -80,13 +78,11 @@ type SchemaRefs = {
   productMaterials: typeof productMaterials;
   productJourneySteps: typeof productJourneySteps;
   productEnvironment: typeof productEnvironment;
-  productEcoClaims: typeof productEcoClaims;
   productTags: typeof productTags;
   taxonomyCategories: typeof taxonomyCategories;
   brandSeasons: typeof brandSeasons;
   brandMaterials: typeof brandMaterials;
-  brandFacilities: typeof brandFacilities;
-  brandEcoClaims: typeof brandEcoClaims;
+  brandOperators: typeof brandOperators;
   brandTags: typeof brandTags;
 };
 
@@ -113,13 +109,11 @@ export function convertFilterStateToWhereClauses(
     productMaterials,
     productJourneySteps,
     productEnvironment,
-    productEcoClaims,
     productTags,
     taxonomyCategories,
     brandSeasons,
     brandMaterials,
-    brandFacilities,
-    brandEcoClaims,
+    brandOperators,
     brandTags,
   };
 
@@ -229,7 +223,7 @@ function buildConditionClause(
         const ids = Array.isArray(value) ? value : [value];
         return or(
           sql`NOT ${inArray(schema.products.manufacturerId, ids)}`,
-          isNull(schema.products.manufacturerId)
+          isNull(schema.products.manufacturerId),
         )!;
       }
       return buildOperatorClause(
@@ -261,9 +255,6 @@ function buildConditionClause(
 
     case "waterLiters":
       return buildEnvironmentClause(schema, "waterLiters", operator, value);
-
-    case "ecoClaimId":
-      return buildEcoClaimClause(schema, operator, value, db, brandId);
 
     case "brandCertificationId":
       return buildCertificationClause(schema, operator, value, db, brandId);
@@ -353,10 +344,7 @@ function buildOperatorClause(
       return inArray(column, Array.isArray(value) ? value : [value]);
     case "is none of": {
       const arr = Array.isArray(value) ? value : [value];
-      return or(
-        sql`NOT ${inArray(column, arr)}`,
-        isNull(column)
-      )!;
+      return or(sql`NOT ${inArray(column, arr)}`, isNull(column))!;
     }
     case "contains":
       return ilike(column, `%${value}%`);
@@ -612,9 +600,7 @@ function buildEnvironmentClause(
       !Array.isArray(value) &&
       ("min" in value || "max" in value)
     ) {
-      const conditions: SQL[] = [
-        eq(metricColumn, metric),
-      ];
+      const conditions: SQL[] = [eq(metricColumn, metric)];
 
       // min filled = "is greater than or equal to"
       if (
@@ -662,50 +648,6 @@ function buildEnvironmentClause(
     AND ${eq(metricColumn, metric)}
     AND ${operatorClause}
   )`;
-}
-
-// ============================================================================
-// Eco Claim Clause Builder
-// ============================================================================
-
-/**
- * Builds eco claim clause
- */
-function buildEcoClaimClause(
-  schema: SchemaRefs,
-  operator: string,
-  value: any,
-  db: Database,
-  brandId: string,
-): SQL | null {
-  const ids = Array.isArray(value) ? value : [value];
-
-  switch (operator) {
-    case "is any of":
-      return sql`EXISTS (
-        SELECT 1 FROM ${schema.productEcoClaims}
-        WHERE ${schema.productEcoClaims.productId} = ${schema.products.id}
-        AND ${inArray(schema.productEcoClaims.ecoClaimId, ids)}
-      )`;
-    case "is none of":
-      return sql`NOT EXISTS (
-        SELECT 1 FROM ${schema.productEcoClaims}
-        WHERE ${schema.productEcoClaims.productId} = ${schema.products.id}
-        AND ${inArray(schema.productEcoClaims.ecoClaimId, ids)}
-      )`;
-    case "is empty":
-      return sql`NOT EXISTS (
-        SELECT 1 FROM ${schema.productEcoClaims}
-        WHERE ${schema.productEcoClaims.productId} = ${schema.products.id}
-      )`;
-    case "is not empty":
-      return sql`EXISTS (
-        SELECT 1 FROM ${schema.productEcoClaims}
-        WHERE ${schema.productEcoClaims.productId} = ${schema.products.id}
-      )`;
-    default:
-      return null;
-  }
 }
 
 // ============================================================================
@@ -777,7 +719,8 @@ function buildMaterialRecyclableClause(
   brandId: string,
 ): SQL | null {
   // Determine boolean value from operator
-  const boolValue = operator === "is true" ? true : operator === "is false" ? false : null;
+  const boolValue =
+    operator === "is true" ? true : operator === "is false" ? false : null;
 
   if (boolValue === null) return null;
 
@@ -898,11 +841,11 @@ function buildNestedMaterialCondition(
 }
 
 // ============================================================================
-// Facility Clause Builder (with nested conditions)
+// Operator Clause Builder (with nested conditions)
 // ============================================================================
 
 /**
- * Builds facility clause (nested conditions supported)
+ * Builds operator clause (nested conditions supported)
  */
 function buildFacilityClause(
   schema: SchemaRefs,
@@ -912,13 +855,13 @@ function buildFacilityClause(
   db: Database,
   brandId: string,
 ): SQL | null {
-  const facilityIds = Array.isArray(value) ? value : value ? [value] : [];
+  const operatorIds = Array.isArray(value) ? value : value ? [value] : [];
 
   // Build nested conditions (countryCode, city, stepType)
   const nestedClauses: SQL[] = [];
   if (nestedConditions) {
     for (const nested of nestedConditions) {
-      const clause = buildNestedFacilityCondition(nested, schema);
+      const clause = buildNestedOperatorCondition(nested, schema);
       if (clause) nestedClauses.push(clause);
     }
   }
@@ -926,30 +869,30 @@ function buildFacilityClause(
   // Handle multi-select operators
   switch (operator) {
     case "is any of": {
-      if (facilityIds.length === 0) return null;
+      if (operatorIds.length === 0) return null;
       const anyClauses: SQL[] = [
-        inArray(schema.productJourneySteps.facilityId, facilityIds),
+        inArray(schema.productJourneySteps.operatorId, operatorIds),
       ];
       anyClauses.push(...nestedClauses);
       return sql`EXISTS (
         SELECT 1 FROM ${schema.productJourneySteps}
-        INNER JOIN ${schema.brandFacilities}
-          ON ${schema.productJourneySteps.facilityId} = ${schema.brandFacilities.id}
+        INNER JOIN ${schema.brandOperators}
+          ON ${schema.productJourneySteps.operatorId} = ${schema.brandOperators.id}
         WHERE ${schema.productJourneySteps.productId} = ${schema.products.id}
           ${anyClauses.length > 0 ? sql`AND ${and(...anyClauses)}` : sql``}
       )`;
     }
 
     case "is none of": {
-      if (facilityIds.length === 0) return null;
+      if (operatorIds.length === 0) return null;
       const noneClauses: SQL[] = [
-        inArray(schema.productJourneySteps.facilityId, facilityIds),
+        inArray(schema.productJourneySteps.operatorId, operatorIds),
       ];
       noneClauses.push(...nestedClauses);
       return sql`NOT EXISTS (
         SELECT 1 FROM ${schema.productJourneySteps}
-        INNER JOIN ${schema.brandFacilities}
-          ON ${schema.productJourneySteps.facilityId} = ${schema.brandFacilities.id}
+        INNER JOIN ${schema.brandOperators}
+          ON ${schema.productJourneySteps.operatorId} = ${schema.brandOperators.id}
         WHERE ${schema.productJourneySteps.productId} = ${schema.products.id}
           ${noneClauses.length > 0 ? sql`AND ${and(...noneClauses)}` : sql``}
       )`;
@@ -973,9 +916,9 @@ function buildFacilityClause(
 }
 
 /**
- * Builds nested facility condition clause
+ * Builds nested operator condition clause
  */
-function buildNestedFacilityCondition(
+function buildNestedOperatorCondition(
   nested: FilterCondition,
   schema: SchemaRefs,
 ): SQL | null {
@@ -984,12 +927,12 @@ function buildNestedFacilityCondition(
   switch (fieldId) {
     case "countryCode":
       return buildOperatorClause(
-        schema.brandFacilities.countryCode,
+        schema.brandOperators.countryCode,
         operator,
         value,
       );
     case "city":
-      return buildOperatorClause(schema.brandFacilities.city, operator, value);
+      return buildOperatorClause(schema.brandOperators.city, operator, value);
     case "stepType":
       return buildOperatorClause(
         schema.productJourneySteps.stepType,
@@ -1002,13 +945,13 @@ function buildNestedFacilityCondition(
 }
 
 // ============================================================================
-// Facility Country Clause Builder
+// Operator Country Clause Builder
 // ============================================================================
 
 /**
- * Builds facility country clause (nested in facilities)
+ * Builds operator country clause (nested in operators)
  */
-function buildFacilityCountryClause(
+function buildOperatorCountryClause(
   schema: SchemaRefs,
   operator: string,
   value: any,
@@ -1019,10 +962,10 @@ function buildFacilityCountryClause(
 
   return sql`EXISTS (
     SELECT 1 FROM ${schema.productJourneySteps}
-    INNER JOIN ${schema.brandFacilities}
-      ON ${schema.productJourneySteps.facilityId} = ${schema.brandFacilities.id}
+    INNER JOIN ${schema.brandOperators}
+      ON ${schema.productJourneySteps.operatorId} = ${schema.brandOperators.id}
     WHERE ${schema.productJourneySteps.productId} = ${schema.products.id}
-      AND ${inArray(schema.brandFacilities.countryCode, countryCodes)}
+      AND ${inArray(schema.brandOperators.countryCode, countryCodes)}
   )`;
 }
 
@@ -1162,7 +1105,7 @@ function buildCategoryClause(
       // Include products with NULL category when excluding specific categories
       return or(
         sql`NOT ${inArray(schema.products.categoryId, categoryIds)}`,
-        isNull(schema.products.categoryId)
+        isNull(schema.products.categoryId),
       )!;
     }
     case "is any of":
@@ -1256,7 +1199,7 @@ function buildSeasonClause(
       // Include products with NULL seasonId when excluding specific seasons
       return or(
         sql`NOT ${inArray(schema.products.seasonId, seasonIds)}`,
-        isNull(schema.products.seasonId)
+        isNull(schema.products.seasonId),
       )!;
     }
     case "is empty":

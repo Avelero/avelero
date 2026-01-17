@@ -3,8 +3,8 @@ import type { Database } from "@v1/db/client";
  * Catalog router implementation.
  *
  * Implements the reorganized `catalog.*` namespace covering all brand-owned
- * catalog resources (attributes, attribute values, materials, facilities,
- * manufacturers, ecoClaims, certifications).
+ * catalog resources (attributes, attribute values, materials, operators,
+ * manufacturers, certifications).
  *
  * Renamed from `brand.*` to `catalog.*` in Phase 4 to clarify that this
  * router handles catalog entities, not brand lifecycle operations.
@@ -22,36 +22,32 @@ import {
   createBrandManufacturer,
   createBrandTag,
   createCertification,
-  createEcoClaim,
-  createFacility,
   createMaterial,
+  createOperator,
   createSeason,
   deleteBrandAttribute,
   deleteBrandAttributeValue,
   deleteBrandManufacturer,
   deleteBrandTag,
   deleteCertification,
-  deleteEcoClaim,
-  deleteFacility,
   deleteMaterial,
+  deleteOperator,
   deleteSeason,
   listBrandAttributeValues,
   listBrandAttributes,
   listBrandManufacturers,
   listBrandTags,
   listCertifications,
-  listEcoClaims,
-  listFacilities,
   listMaterials,
+  listOperators,
   listSeasonsForBrand,
   updateBrandAttribute,
   updateBrandAttributeValue,
   updateBrandManufacturer,
   updateBrandTag,
   updateCertification,
-  updateEcoClaim,
-  updateFacility,
   updateMaterial,
+  updateOperator,
   updateSeason,
 } from "@v1/db/queries/catalog";
 import {
@@ -60,46 +56,42 @@ import {
   createBrandAttributeValueSchema,
   createBrandTagSchema,
   createCertificationSchema,
-  createEcoClaimSchema,
-  createFacilitySchema,
   createManufacturerSchema,
   createMaterialSchema,
+  createOperatorSchema,
   createSeasonSchema,
   deleteBrandAttributeSchema,
   deleteBrandAttributeValueSchema,
   deleteBrandTagSchema,
   deleteCertificationSchema,
-  deleteEcoClaimSchema,
-  deleteFacilitySchema,
   deleteManufacturerSchema,
   deleteMaterialSchema,
+  deleteOperatorSchema,
   deleteSeasonSchema,
   listBrandAttributeValuesSchema,
   listBrandAttributesSchema,
   listBrandTagsSchema,
   listCertificationsSchema,
-  listEcoClaimsSchema,
-  listFacilitiesSchema,
   listManufacturersSchema,
   listMaterialsSchema,
+  listOperatorsSchema,
   listSeasonsSchema,
   updateBrandAttributeSchema,
   updateBrandAttributeValueSchema,
   updateBrandTagSchema,
   updateCertificationSchema,
-  updateEcoClaimSchema,
-  updateFacilitySchema,
   updateManufacturerSchema,
   updateMaterialSchema,
+  updateOperatorSchema,
   updateSeasonSchema,
 } from "../../../schemas/catalog/index.js";
 import {
   transformBrandAttributeInput,
   transformBrandAttributeValueInput,
   transformCertificationInput,
-  transformFacilityInput,
   transformManufacturerInput,
   transformMaterialInput,
+  transformOperatorInput,
   transformSeasonInput,
 } from "../../../utils/catalog-transform.js";
 import { notFound, wrapError } from "../../../utils/errors.js";
@@ -282,7 +274,7 @@ function createDeleteProcedure<TInput extends { id: string }>(
  * formatting. All endpoints enforce brand-level permissions.
  *
  * This pattern is used for colors, sizes, materials, facilities, certifications,
- * eco claims, and manufacturers - eliminating ~200 lines of duplication.
+ * and manufacturers - eliminating ~200 lines of duplication.
  *
  * @template T - Resource entity type
  * @param resourceName - Human-readable name for error messages (e.g., "color", "size")
@@ -358,16 +350,15 @@ function createCatalogResourceRouter<T>(
  * - catalog.attributeValues.* (list/create/update/delete) - dimension options
  * - catalog.materials.* (list/create/update/delete)
  * - catalog.seasons.* (list/create/update/delete)
- * - catalog.facilities.* (list/create/update/delete)
+ * - catalog.operators.* (list/create/update/delete)
  * - catalog.manufacturers.* (list/create/update/delete)
- * - catalog.ecoClaims.* (list/create/update/delete)
  * - catalog.certifications.* (list/create/update/delete)
  * - catalog.tags.* (list/create/update/delete)
  *
  * Note: Legacy colors/sizes routers removed in Phase 5.
  * Colors and sizes are now managed via catalog.attributes and catalog.attributeValues.
  *
- * Total: 36 endpoints (9 resources × 4 operations)
+ * Total: 32 endpoints (8 resources × 4 operations)
  */
 export const catalogRouter = createTRPCRouter({
   /**
@@ -530,25 +521,25 @@ export const catalogRouter = createTRPCRouter({
   ),
 
   /**
-   * Facilities catalog endpoints.
+   * Operators catalog endpoints.
    *
    * Used for journey step tracking in product manufacturing.
    */
-  facilities: createCatalogResourceRouter(
-    "facility",
+  operators: createCatalogResourceRouter(
+    "operator",
     {
-      list: listFacilitiesSchema,
-      create: createFacilitySchema,
-      update: updateFacilitySchema,
-      delete: deleteFacilitySchema,
+      list: listOperatorsSchema,
+      create: createOperatorSchema,
+      update: updateOperatorSchema,
+      delete: deleteOperatorSchema,
     },
     {
-      list: listFacilities,
-      create: createFacility,
-      update: updateFacility,
-      delete: deleteFacility,
+      list: listOperators,
+      create: createOperator,
+      update: updateOperator,
+      delete: deleteOperator,
     },
-    transformFacilityInput,
+    transformOperatorInput,
   ),
 
   /**
@@ -572,27 +563,6 @@ export const catalogRouter = createTRPCRouter({
       delete: deleteBrandManufacturer,
     },
     transformManufacturerInput,
-  ),
-
-  /**
-   * Eco claims catalog endpoints.
-   *
-   * Simple 50-character sustainability claims for products.
-   */
-  ecoClaims: createCatalogResourceRouter(
-    "eco claim",
-    {
-      list: listEcoClaimsSchema,
-      create: createEcoClaimSchema,
-      update: updateEcoClaimSchema,
-      delete: deleteEcoClaimSchema,
-    },
-    {
-      list: listEcoClaims,
-      create: createEcoClaim,
-      update: updateEcoClaim,
-      delete: deleteEcoClaim,
-    },
   ),
 
   /**

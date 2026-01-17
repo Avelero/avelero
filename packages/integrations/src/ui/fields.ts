@@ -15,19 +15,16 @@
 
 /**
  * Categories for grouping fields in UI.
- * 
+ *
  * Grouping:
  * - product: Title, description, image
  * - organization: Tags, categories
  * - sales: Webshop URL, price, currency, status
- * 
+ *
  * NOTE: Variant fields (SKU, barcode, attributes) are NOT configurable.
  * They are always synced as structural fields.
  */
-export type FieldCategory =
-  | "product"
-  | "organization"
-  | "sales";
+export type FieldCategory = "product" | "organization" | "sales";
 
 /**
  * Client-safe field definition for the setup wizard.
@@ -75,102 +72,102 @@ const SHOPIFY_FIELD_DEFINITIONS: Array<{
   category: FieldCategory;
   required: boolean;
 }> = [
-    // ─────────────────────────────────────────────────────────────────────────────
-    // PRODUCT FIELDS
-    // ─────────────────────────────────────────────────────────────────────────────
-    {
-      fieldKey: "product.name",
-      label: "Product Name",
-      description: "Product display name from Shopify",
-      entity: "product",
-      category: "product",
-      required: false,
-    },
-    {
-      fieldKey: "product.description",
-      label: "Description",
-      description: "Product description text from Shopify",
-      entity: "product",
-      category: "product",
-      required: false,
-    },
-    {
-      fieldKey: "product.imagePath",
-      label: "Primary Image",
-      description: "Product image URL from Shopify",
-      entity: "product",
-      category: "product",
-      required: false,
-    },
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PRODUCT FIELDS
+  // ─────────────────────────────────────────────────────────────────────────────
+  {
+    fieldKey: "product.name",
+    label: "Product Name",
+    description: "Product display name from Shopify",
+    entity: "product",
+    category: "product",
+    required: false,
+  },
+  {
+    fieldKey: "product.description",
+    label: "Description",
+    description: "Product description text from Shopify",
+    entity: "product",
+    category: "product",
+    required: false,
+  },
+  {
+    fieldKey: "product.imagePath",
+    label: "Primary Image",
+    description: "Product image URL from Shopify",
+    entity: "product",
+    category: "product",
+    required: false,
+  },
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // VARIANT FIELDS
-    // ─────────────────────────────────────────────────────────────────────────────
-    // NOTE: variant.attributes, variant.sku, and variant.barcode are NOT included here.
-    // These are structural fields that are ALWAYS synced:
-    // - SKU and barcode are used for matching variants
-    // - Attributes define variant structure (primary integrations only)
-    // Users cannot disable these fields.
-    //
-    // For secondary integrations, match identifier (barcode vs SKU) is configured
-    // via brand_integrations.match_identifier, not here.
+  // ─────────────────────────────────────────────────────────────────────────────
+  // VARIANT FIELDS
+  // ─────────────────────────────────────────────────────────────────────────────
+  // NOTE: variant.attributes, variant.sku, and variant.barcode are NOT included here.
+  // These are structural fields that are ALWAYS synced:
+  // - SKU and barcode are used for matching variants
+  // - Attributes define variant structure (primary integrations only)
+  // Users cannot disable these fields.
+  //
+  // For secondary integrations, match identifier (barcode vs SKU) is configured
+  // via brand_integrations.match_identifier, not here.
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // ORGANIZATION FIELDS
-    // ─────────────────────────────────────────────────────────────────────────────
-    {
-      fieldKey: "product.tags",
-      label: "Tags",
-      description: "Product tags synced as brand tags",
-      entity: "product",
-      category: "organization",
-      required: false,
-    },
-    {
-      fieldKey: "product.categoryId",
-      label: "Category",
-      description: "Product category from Shopify taxonomy",
-      entity: "product",
-      category: "organization",
-      required: false,
-    },
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ORGANIZATION FIELDS
+  // ─────────────────────────────────────────────────────────────────────────────
+  {
+    fieldKey: "product.tags",
+    label: "Tags",
+    description: "Product tags synced as brand tags",
+    entity: "product",
+    category: "organization",
+    required: false,
+  },
+  {
+    fieldKey: "product.categoryId",
+    label: "Category",
+    description: "Product category from Shopify taxonomy",
+    entity: "product",
+    category: "organization",
+    required: false,
+  },
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // SALES FIELDS
-    // ─────────────────────────────────────────────────────────────────────────────
-    {
-      fieldKey: "product.webshopUrl",
-      label: "Webshop URL",
-      description: "URL to the product on the online store",
-      entity: "product",
-      category: "sales",
-      required: false,
-    },
-    {
-      fieldKey: "product.price",
-      label: "Price",
-      description: "Product price from variant",
-      entity: "product",
-      category: "sales",
-      required: false,
-    },
-    {
-      fieldKey: "product.currency",
-      label: "Currency",
-      description: "Currency code from Shopify shop settings",
-      entity: "product",
-      category: "sales",
-      required: false,
-    },
-    {
-      fieldKey: "product.salesStatus",
-      label: "Sales Status",
-      description: "Availability status derived from Shopify product status",
-      entity: "product",
-      category: "sales",
-      required: false,
-    },
-  ];
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SALES FIELDS
+  // ─────────────────────────────────────────────────────────────────────────────
+  {
+    fieldKey: "product.webshopUrl",
+    label: "Webshop URL",
+    description: "URL to the product on the online store",
+    entity: "product",
+    category: "sales",
+    required: false,
+  },
+  {
+    fieldKey: "product.price",
+    label: "Price",
+    description: "Product price from variant",
+    entity: "product",
+    category: "sales",
+    required: false,
+  },
+  {
+    fieldKey: "product.currency",
+    label: "Currency",
+    description: "Currency code from Shopify shop settings",
+    entity: "product",
+    category: "sales",
+    required: false,
+  },
+  {
+    fieldKey: "product.salesStatus",
+    label: "Sales Status",
+    description: "Availability status derived from Shopify product status",
+    entity: "product",
+    category: "sales",
+    required: false,
+  },
+];
 
 // =============================================================================
 // EXPORTS
@@ -180,7 +177,8 @@ const SHOPIFY_FIELD_DEFINITIONS: Array<{
  * Shopify connector field metadata.
  * Use this for the field setup wizard.
  */
-export const SHOPIFY_FIELDS: readonly ConnectorFieldMeta[] = SHOPIFY_FIELD_DEFINITIONS;
+export const SHOPIFY_FIELDS: readonly ConnectorFieldMeta[] =
+  SHOPIFY_FIELD_DEFINITIONS;
 
 /**
  * Get fields for a specific connector.

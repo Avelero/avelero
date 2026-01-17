@@ -14,8 +14,6 @@ export * from "./navigation/menu-button";
 
 export * from "./impact/impact-frame";
 export * from "./impact/large-impact-card";
-export * from "./impact/small-impact-card";
-export * from "./impact/small-impact-frame";
 
 export * from "./materials/materials-frame";
 export * from "./journey/journey-frame";

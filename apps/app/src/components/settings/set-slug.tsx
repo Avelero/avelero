@@ -50,7 +50,8 @@ function SetSlug() {
   }, [activeBrand?.slug]);
 
   const trimmed = slug.trim().toLowerCase();
-  const isDirty = trimmed !== (initialSlugRef.current ?? "").trim().toLowerCase();
+  const isDirty =
+    trimmed !== (initialSlugRef.current ?? "").trim().toLowerCase();
   const isEmpty = trimmed.length === 0;
   const isFormatValid = isEmpty || isValidSlug(trimmed);
   const isSaving = updateBrand.status === "pending";
@@ -63,23 +64,30 @@ function SetSlug() {
     ...trpc.brand.checkSlug.queryOptions({ slug: debouncedSlug }),
     enabled: Boolean(
       debouncedSlug &&
-      isFormatValid &&
-      isDirty &&
-      debouncedSlug.length >= 2 &&
-      activeBrand?.id
+        isFormatValid &&
+        isDirty &&
+        debouncedSlug.length >= 2 &&
+        activeBrand?.id,
     ),
     staleTime: 10000, // Cache for 10 seconds
   });
 
   // Determine if we're currently checking availability
-  const isChecking = slugCheckQuery.isLoading || (trimmed !== debouncedSlug && isDirty && !isEmpty && isFormatValid);
+  const isChecking =
+    slugCheckQuery.isLoading ||
+    (trimmed !== debouncedSlug && isDirty && !isEmpty && isFormatValid);
 
   // Slug is available if the check returned true or if it's the same as initial
   const isAvailable = slugCheckQuery.data?.available ?? null;
   const isTaken = isAvailable === false;
 
   // Only show availability status when we have a valid, dirty slug that has been checked
-  const showAvailabilityStatus = !isEmpty && isFormatValid && isDirty && debouncedSlug === trimmed && !isChecking;
+  const showAvailabilityStatus =
+    !isEmpty &&
+    isFormatValid &&
+    isDirty &&
+    debouncedSlug === trimmed &&
+    !isChecking;
 
   function handleSlugChange(value: string) {
     // Auto-format: lowercase, replace spaces with dashes
@@ -91,7 +99,9 @@ function SetSlug() {
     if (!isDirty || isSaving || !activeBrand) return;
 
     if (!isEmpty && !isValidSlug(trimmed)) {
-      toast.error("Slug can only contain lowercase letters, numbers, and dashes");
+      toast.error(
+        "Slug can only contain lowercase letters, numbers, and dashes",
+      );
       return;
     }
 
@@ -118,7 +128,10 @@ function SetSlug() {
 
           // Fallback to message checking if no code is available
           const message = err?.message ?? "";
-          if (message.includes("slug is already taken") || message.includes("already taken")) {
+          if (
+            message.includes("slug is already taken") ||
+            message.includes("already taken")
+          ) {
             toast.error("This slug is already taken by another brand");
           } else {
             toast.error(message || "Failed to save");
@@ -129,14 +142,21 @@ function SetSlug() {
   }
 
   // Disable save button if: not dirty, invalid format, currently saving, checking, or slug is taken
-  const isSaveDisabled = !isDirty || (!isEmpty && !isFormatValid) || isSaving || isChecking || isTaken;
+  const isSaveDisabled =
+    !isDirty ||
+    (!isEmpty && !isFormatValid) ||
+    isSaving ||
+    isChecking ||
+    isTaken;
 
   return (
     <div className="relative">
       <div className="flex flex-row p-6 border justify-between items-center">
         <div className="flex flex-col gap-2">
           <h6 className="text-foreground">Slug</h6>
-          <p className="text-secondary">Enter your product passport URL slug on the right.</p>
+          <p className="text-secondary">
+            Enter your product passport URL slug on the right.
+          </p>
         </div>
         <div className="relative">
           <Input
@@ -145,7 +165,9 @@ function SetSlug() {
             onChange={(e) => handleSlugChange(e.target.value)}
             className={cn(
               "w-[250px] pr-10",
-              isTaken && showAvailabilityStatus && "border-destructive focus-visible:ring-destructive",
+              isTaken &&
+                showAvailabilityStatus &&
+                "border-destructive focus-visible:ring-destructive",
             )}
           />
           {/* Loading spinner - absolutely positioned */}

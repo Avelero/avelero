@@ -35,6 +35,7 @@ import {
   type ParsedProduct,
   findDuplicateIdentifiers,
   parseExcelFile,
+  parseSemicolonSeparated,
   validateTemplateMatch,
 } from "../../lib/excel";
 
@@ -122,8 +123,7 @@ const {
   brandMaterials,
   brandSeasons,
   brandTags,
-  brandEcoClaims,
-  brandFacilities,
+  brandOperators,
   brandManufacturers,
   products,
   productVariants,
@@ -140,14 +140,11 @@ const {
 const BATCH_SIZE = 250;
 
 /**
- * Valid status values for products
+ * Valid status values for products (new publishing model)
+ * - 'unpublished': Draft, never been published (default)
+ * - 'published': Has been published at least once
  */
-const VALID_STATUSES = [
-  "unpublished",
-  "published",
-  "archived",
-  "scheduled",
-] as const;
+const VALID_STATUSES = ["unpublished", "published"] as const;
 type ValidStatus = (typeof VALID_STATUSES)[number];
 
 // ============================================================================
@@ -201,7 +198,6 @@ export const validateAndStage = task({
           tags: firstProduct?.tags,
           productLevelData: {
             materials: firstProduct?.materials,
-            ecoClaims: firstProduct?.ecoClaims,
             carbonKg: firstProduct?.carbonKg,
             waterLiters: firstProduct?.waterLiters,
             weightGrams: firstProduct?.weightGrams,
@@ -213,7 +209,6 @@ export const validateAndStage = task({
                 sku: firstVariant.sku,
                 attributes: firstVariant.attributes,
                 materialsOverride: firstVariant.materialsOverride,
-                ecoClaimsOverride: firstVariant.ecoClaimsOverride,
                 rawData: Object.keys(firstVariant.rawData),
               }
             : null,
@@ -351,7 +346,6 @@ export const validateAndStage = task({
               variants: [],
               tags: [],
               materials: [],
-              ecoClaims: [],
               environment: null,
               journeySteps: [],
               weight: null,
@@ -668,7 +662,6 @@ async function autoCreateEntities(
   const uniqueSeasons = new Set<string>();
   const uniqueTags = new Set<string>();
   const uniqueMaterials = new Set<string>();
-  const uniqueEcoClaims = new Set<string>();
   const uniqueFacilities = new Set<string>();
   const uniqueAttributes = new Set<string>();
   const uniqueAttributeValues = new Map<string, Set<string>>(); // attrName -> values
@@ -688,13 +681,13 @@ async function autoCreateEntities(
     for (const material of product.materials) {
       uniqueMaterials.add(material.name.trim());
     }
-    // Product-level eco claims (from parent row)
-    for (const claim of product.ecoClaims) {
-      uniqueEcoClaims.add(claim.trim());
-    }
-    // Product-level journey step facilities (from parent row)
-    for (const facilityName of Object.values(product.journeySteps)) {
-      uniqueFacilities.add(facilityName.trim());
+    // Product-level journey step operators (from parent row)
+    // Support semicolon-separated multiple operators per step: "Factory A; Factory B"
+    for (const operatorValue of Object.values(product.journeySteps)) {
+      const operatorNames = parseSemicolonSeparated(operatorValue);
+      for (const operatorName of operatorNames) {
+        uniqueFacilities.add(operatorName.trim());
+      }
     }
 
     for (const variant of product.variants) {
@@ -702,13 +695,13 @@ async function autoCreateEntities(
       for (const material of variant.materialsOverride) {
         uniqueMaterials.add(material.name.trim());
       }
-      // Variant-level eco claim overrides (from child rows)
-      for (const claim of variant.ecoClaimsOverride) {
-        uniqueEcoClaims.add(claim.trim());
-      }
-      // Variant-level journey step facility overrides (from child rows)
-      for (const facilityName of Object.values(variant.journeyStepsOverride)) {
-        uniqueFacilities.add(facilityName.trim());
+      // Variant-level journey step operator overrides (from child rows)
+      // Support semicolon-separated multiple operators per step
+      for (const operatorValue of Object.values(variant.journeyStepsOverride)) {
+        const operatorNames = parseSemicolonSeparated(operatorValue);
+        for (const operatorName of operatorNames) {
+          uniqueFacilities.add(operatorName.trim());
+        }
       }
       // Attributes (always variant-level)
       for (const attr of variant.attributes) {
@@ -793,29 +786,13 @@ async function autoCreateEntities(
     logger.info("Auto-created materials", { count: inserted.length });
   }
 
-  // Eco Claims
-  const missingEcoClaims = [...uniqueEcoClaims].filter(
-    (name) => !catalog.ecoClaims.has(normalizeKey(name)),
-  );
-  if (missingEcoClaims.length > 0) {
-    const inserted = await database
-      .insert(brandEcoClaims)
-      .values(missingEcoClaims.map((claim) => ({ brandId, claim })))
-      .returning({ id: brandEcoClaims.id, claim: brandEcoClaims.claim });
-
-    for (const e of inserted) {
-      catalog.ecoClaims.set(normalizeKey(e.claim), e.id);
-    }
-    logger.info("Auto-created eco claims", { count: inserted.length });
-  }
-
   // Facilities
   const missingFacilities = [...uniqueFacilities].filter(
     (name) => !catalog.operators.has(normalizeKey(name)),
   );
   if (missingFacilities.length > 0) {
     const inserted = await database
-      .insert(brandFacilities)
+      .insert(brandOperators)
       .values(
         missingFacilities.map((name) => ({
           brandId,
@@ -824,8 +801,8 @@ async function autoCreateEntities(
         })),
       )
       .returning({
-        id: brandFacilities.id,
-        displayName: brandFacilities.displayName,
+        id: brandOperators.id,
+        displayName: brandOperators.displayName,
       });
 
     for (const f of inserted) {
@@ -1281,15 +1258,6 @@ function computeNormalizedRowData(
       }
     }
 
-    // Build variant eco claims
-    const ecoClaims: NormalizedVariant["ecoClaims"] = [];
-    for (const claimName of variant.ecoClaimsOverride) {
-      const ecoClaimId = catalog.ecoClaims.get(normalizeKey(claimName));
-      if (ecoClaimId) {
-        ecoClaims.push({ ecoClaimId });
-      }
-    }
-
     // Build variant environment
     const environment: NormalizedVariant["environment"] =
       variant.carbonKgOverride !== undefined ||
@@ -1301,18 +1269,28 @@ function computeNormalizedRowData(
         : null;
 
     // Build variant journey steps
+    // Support semicolon-separated multiple operators per step: "Factory A; Factory B"
     const journeySteps: NormalizedVariant["journeySteps"] = [];
     const variantJourneyEntries = Object.entries(variant.journeyStepsOverride);
     for (let i = 0; i < variantJourneyEntries.length; i++) {
-      const [stepType, facilityName] = variantJourneyEntries[i] ?? [];
-      if (!stepType || !facilityName) continue;
+      const [stepType, operatorValue] = variantJourneyEntries[i] ?? [];
+      if (!stepType || !operatorValue) continue;
 
-      const facilityId = catalog.operators.get(normalizeKey(facilityName));
-      if (facilityId) {
+      // Parse semicolon-separated operator names and look up each
+      const operatorNames = parseSemicolonSeparated(operatorValue);
+      const operatorIds: string[] = [];
+      for (const operatorName of operatorNames) {
+        const operatorId = catalog.operators.get(normalizeKey(operatorName));
+        if (operatorId) {
+          operatorIds.push(operatorId);
+        }
+      }
+
+      if (operatorIds.length > 0) {
         journeySteps.push({
           sortIndex: i,
           stepType,
-          facilityId,
+          operatorIds,
         });
       }
     }
@@ -1343,7 +1321,6 @@ function computeNormalizedRowData(
       errors: variantRowErrors,
       attributes,
       materials,
-      ecoClaims,
       environment,
       journeySteps,
       weight,
@@ -1381,15 +1358,6 @@ function computeNormalizedRowData(
     }
   }
 
-  // Build product-level eco claims
-  const productEcoClaims: NormalizedRowData["ecoClaims"] = [];
-  for (const claimName of product.ecoClaims) {
-    const ecoClaimId = catalog.ecoClaims.get(normalizeKey(claimName));
-    if (ecoClaimId) {
-      productEcoClaims.push({ ecoClaimId });
-    }
-  }
-
   // Build product-level environment
   const productEnvironment: NormalizedRowData["environment"] =
     product.carbonKg !== undefined || product.waterLiters !== undefined
@@ -1400,18 +1368,28 @@ function computeNormalizedRowData(
       : null;
 
   // Build product-level journey steps
+  // Support semicolon-separated multiple operators per step: "Factory A; Factory B"
   const productJourneySteps: NormalizedRowData["journeySteps"] = [];
   const journeyEntries = Object.entries(product.journeySteps);
   for (let i = 0; i < journeyEntries.length; i++) {
-    const [stepType, facilityName] = journeyEntries[i] ?? [];
-    if (!stepType || !facilityName) continue;
+    const [stepType, operatorValue] = journeyEntries[i] ?? [];
+    if (!stepType || !operatorValue) continue;
 
-    const facilityId = catalog.operators.get(normalizeKey(facilityName));
-    if (facilityId) {
+    // Parse semicolon-separated operator names and look up each
+    const operatorNames = parseSemicolonSeparated(operatorValue);
+    const operatorIds: string[] = [];
+    for (const operatorName of operatorNames) {
+      const operatorId = catalog.operators.get(normalizeKey(operatorName));
+      if (operatorId) {
+        operatorIds.push(operatorId);
+      }
+    }
+
+    if (operatorIds.length > 0) {
       productJourneySteps.push({
         sortIndex: i,
         stepType,
-        facilityId,
+        operatorIds,
       });
     }
   }
@@ -1446,7 +1424,6 @@ function computeNormalizedRowData(
     variants: normalizedVariants,
     tags,
     materials: productMaterials,
-    ecoClaims: productEcoClaims,
     environment: productEnvironment,
     journeySteps: productJourneySteps,
     weight: productWeight,

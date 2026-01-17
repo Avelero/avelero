@@ -47,7 +47,7 @@ const MAX_TOTAL_VARIANTS = 500;
 async function validateBrandConsistency(
   db: Database,
   brandId: string,
-  attributeValueIds: string[]
+  attributeValueIds: string[],
 ): Promise<void> {
   if (attributeValueIds.length === 0) return;
 
@@ -58,8 +58,8 @@ async function validateBrandConsistency(
     .where(
       and(
         inArray(brandAttributeValues.id, uniqueIds),
-        eq(brandAttributeValues.brandId, brandId)
-      )
+        eq(brandAttributeValues.brandId, brandId),
+      ),
     );
 
   const foundIds = new Set(rows.map((r) => r.id));
@@ -67,7 +67,7 @@ async function validateBrandConsistency(
 
   if (missingIds.length > 0) {
     throw new Error(
-      `Attribute values not found or do not belong to brand: ${missingIds.join(", ")}`
+      `Attribute values not found or do not belong to brand: ${missingIds.join(", ")}`,
     );
   }
 }
@@ -78,7 +78,7 @@ async function validateBrandConsistency(
  */
 async function validateOneValuePerAttribute(
   db: Database,
-  attributeValueIds: string[]
+  attributeValueIds: string[],
 ): Promise<Map<string, string>> {
   if (attributeValueIds.length === 0) return new Map();
 
@@ -98,7 +98,7 @@ async function validateOneValuePerAttribute(
     const existingValueId = seenAttributes.get(row.attributeId);
     if (existingValueId) {
       throw new Error(
-        `Multiple values from same attribute not allowed: values ${existingValueId} and ${row.id} belong to attribute ${row.attributeId}`
+        `Multiple values from same attribute not allowed: values ${existingValueId} and ${row.id} belong to attribute ${row.attributeId}`,
       );
     }
     seenAttributes.set(row.attributeId, row.id);
@@ -117,7 +117,7 @@ async function validateOneValuePerAttribute(
  */
 async function loadValueToAttributeMap(
   db: Database,
-  attributeValueIds: string[]
+  attributeValueIds: string[],
 ): Promise<Map<string, string>> {
   if (attributeValueIds.length === 0) return new Map();
 
@@ -151,28 +151,31 @@ async function loadValueToAttributeMap(
 function validateMatrixConstraints(dimensions: MatrixDimension[]): void {
   if (dimensions.length > MAX_DIMENSIONS) {
     throw new Error(
-      `Too many dimensions: ${dimensions.length} exceeds maximum of ${MAX_DIMENSIONS}`
+      `Too many dimensions: ${dimensions.length} exceeds maximum of ${MAX_DIMENSIONS}`,
     );
   }
 
   for (const dim of dimensions) {
     if (dim.valueIds.length > MAX_VALUES_PER_DIMENSION) {
       throw new Error(
-        `Too many values for attribute ${dim.attributeId}: ${dim.valueIds.length} exceeds maximum of ${MAX_VALUES_PER_DIMENSION}`
+        `Too many values for attribute ${dim.attributeId}: ${dim.valueIds.length} exceeds maximum of ${MAX_VALUES_PER_DIMENSION}`,
       );
     }
     if (dim.valueIds.length === 0) {
       throw new Error(
-        `Dimension for attribute ${dim.attributeId} has no values`
+        `Dimension for attribute ${dim.attributeId} has no values`,
       );
     }
   }
 
   // Calculate total variants
-  const totalVariants = dimensions.reduce((acc, dim) => acc * dim.valueIds.length, 1);
+  const totalVariants = dimensions.reduce(
+    (acc, dim) => acc * dim.valueIds.length,
+    1,
+  );
   if (totalVariants > MAX_TOTAL_VARIANTS) {
     throw new Error(
-      `Too many variants: ${totalVariants} exceeds maximum of ${MAX_TOTAL_VARIANTS}`
+      `Too many variants: ${totalVariants} exceeds maximum of ${MAX_TOTAL_VARIANTS}`,
     );
   }
 }
@@ -187,7 +190,7 @@ function validateMatrixConstraints(dimensions: MatrixDimension[]): void {
  */
 export async function loadVariantAttributesForVariants(
   db: Database,
-  variantIds: string[]
+  variantIds: string[],
 ): Promise<Map<string, VariantAttributeAssignment[]>> {
   if (variantIds.length === 0) return new Map();
 
@@ -203,11 +206,11 @@ export async function loadVariantAttributesForVariants(
     .from(productVariantAttributes)
     .innerJoin(
       brandAttributeValues,
-      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id)
+      eq(productVariantAttributes.attributeValueId, brandAttributeValues.id),
     )
     .innerJoin(
       brandAttributes,
-      eq(brandAttributeValues.attributeId, brandAttributes.id)
+      eq(brandAttributeValues.attributeId, brandAttributes.id),
     )
     .where(inArray(productVariantAttributes.variantId, variantIds))
     .orderBy(productVariantAttributes.sortOrder);
@@ -240,7 +243,7 @@ export async function loadVariantAttributesForVariants(
 export async function replaceVariantAttributes(
   db: Database,
   variantId: string,
-  orderedAttributeValueIds: string[]
+  orderedAttributeValueIds: string[],
 ): Promise<void> {
   await db.transaction(async (tx) => {
     // Delete existing assignments
@@ -255,7 +258,7 @@ export async function replaceVariantAttributes(
           variantId,
           attributeValueId: valueId,
           sortOrder: index,
-        }))
+        })),
       );
     }
   });
@@ -273,7 +276,7 @@ export async function replaceProductVariantsExplicit(
   db: Database,
   brandId: string,
   productId: string,
-  variants: ExplicitVariantInput[]
+  variants: ExplicitVariantInput[],
 ): Promise<ReplaceVariantsResult> {
   // Validate product belongs to brand
   const [product] = await db
@@ -289,12 +292,14 @@ export async function replaceProductVariantsExplicit(
   // Validate total variants
   if (variants.length > MAX_TOTAL_VARIANTS) {
     throw new Error(
-      `Too many variants: ${variants.length} exceeds maximum of ${MAX_TOTAL_VARIANTS}`
+      `Too many variants: ${variants.length} exceeds maximum of ${MAX_TOTAL_VARIANTS}`,
     );
   }
 
   // Collect all attribute value IDs for validation
-  const allAttributeValueIds = variants.flatMap((v) => v.attributeValueIds ?? []);
+  const allAttributeValueIds = variants.flatMap(
+    (v) => v.attributeValueIds ?? [],
+  );
 
   // Validate brand consistency
   await validateBrandConsistency(db, brandId, allAttributeValueIds);
@@ -325,9 +330,7 @@ export async function replaceProductVariantsExplicit(
               .select({ upid: productVariants.upid })
               .from(productVariants)
               .where(inArray(productVariants.upid, candidates as string[]));
-            return new Set(
-              rows.map((r) => r.upid).filter(Boolean) as string[]
-            );
+            return new Set(rows.map((r) => r.upid).filter(Boolean) as string[]);
           },
         })
       : [];
@@ -374,8 +377,15 @@ export async function replaceProductVariantsExplicit(
       const variant = insertedVariants[i]!;
       const inputVariant = variants[i]!;
 
-      if (inputVariant.attributeValueIds && inputVariant.attributeValueIds.length > 0) {
-        for (let sortOrder = 0; sortOrder < inputVariant.attributeValueIds.length; sortOrder++) {
+      if (
+        inputVariant.attributeValueIds &&
+        inputVariant.attributeValueIds.length > 0
+      ) {
+        for (
+          let sortOrder = 0;
+          sortOrder < inputVariant.attributeValueIds.length;
+          sortOrder++
+        ) {
           attributeAssignments.push({
             variantId: variant.id,
             attributeValueId: inputVariant.attributeValueIds[sortOrder]!,
@@ -422,7 +432,7 @@ export async function replaceProductVariantsMatrix(
   brandId: string,
   productId: string,
   dimensions: MatrixDimension[],
-  variantMetadata?: Map<string, { sku?: string; barcode?: string }>
+  variantMetadata?: Map<string, { sku?: string; barcode?: string }>,
 ): Promise<ReplaceVariantsResult> {
   // Handle empty dimensions - just delete all variants
   if (dimensions.length === 0) {
@@ -462,18 +472,23 @@ export async function replaceProductVariantsMatrix(
   // Validate that values belong to their declared attributes.
   // IMPORTANT: matrix mode intentionally has multiple values per attribute
   // across the full set, so we must NOT use validateOneValuePerAttribute here.
-  const valueToAttribute = await loadValueToAttributeMap(db, allAttributeValueIds);
+  const valueToAttribute = await loadValueToAttributeMap(
+    db,
+    allAttributeValueIds,
+  );
 
   for (const dim of dimensions) {
     // Defensive: ensure no duplicates inside a single dimension.
     if (new Set(dim.valueIds).size !== dim.valueIds.length) {
-      throw new Error(`Duplicate value IDs in dimension for attribute ${dim.attributeId}`);
+      throw new Error(
+        `Duplicate value IDs in dimension for attribute ${dim.attributeId}`,
+      );
     }
     for (const valueId of dim.valueIds) {
       const actualAttributeId = valueToAttribute.get(valueId);
       if (actualAttributeId !== dim.attributeId) {
         throw new Error(
-          `Value ${valueId} does not belong to attribute ${dim.attributeId} (belongs to ${actualAttributeId})`
+          `Value ${valueId} does not belong to attribute ${dim.attributeId} (belongs to ${actualAttributeId})`,
         );
       }
     }
@@ -493,7 +508,12 @@ export async function replaceProductVariantsMatrix(
     };
   });
 
-  return replaceProductVariantsExplicit(db, brandId, productId, explicitVariants);
+  return replaceProductVariantsExplicit(
+    db,
+    brandId,
+    productId,
+    explicitVariants,
+  );
 }
 
 /**
@@ -526,7 +546,7 @@ function generateCartesianProduct(dimensions: MatrixDimension[]): string[][] {
 export async function getProductVariantsWithAttributes(
   db: Database,
   brandId: string,
-  productId: string
+  productId: string,
 ): Promise<VariantWithAttributeAssignments[]> {
   // Validate product belongs to brand
   const [product] = await db
@@ -572,4 +592,3 @@ export async function getProductVariantsWithAttributes(
     attributes: attributeMap.get(v.id) ?? [],
   }));
 }
-

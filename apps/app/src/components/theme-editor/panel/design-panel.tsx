@@ -43,7 +43,13 @@ function getNavigationTitle(
 }
 
 export function DesignPanel() {
-  const { navigation, navigateBack, menuItemEdit, clearMenuItemEdit, getConfigValue } = useDesignEditor();
+  const {
+    navigation,
+    navigateBack,
+    menuItemEdit,
+    clearMenuItemEdit,
+    getConfigValue,
+  } = useDesignEditor();
 
   // Tab state for component view (Styles vs Content)
   const [activeTab, setActiveTab] = useState<TabType>("styles");
@@ -54,7 +60,10 @@ export function DesignPanel() {
   // Check if we're editing a menu item
   if (menuItemEdit) {
     // Get the menu item label for the header
-    const items = (getConfigValue(menuItemEdit.configPath) as Array<{ label: string; url: string }> | undefined) ?? [];
+    const items =
+      (getConfigValue(menuItemEdit.configPath) as
+        | Array<{ label: string; url: string }>
+        | undefined) ?? [];
     const item = items[menuItemEdit.itemIndex];
     const headerTitle = item?.label || "Edit Button";
 
@@ -164,4 +173,3 @@ export function DesignPanel() {
     </div>
   );
 }
-

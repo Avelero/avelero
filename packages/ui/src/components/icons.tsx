@@ -84,8 +84,6 @@ import type React from "react";
 function StatusPublished(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
-      width="14"
-      height="14"
       viewBox="0 0 14 14"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -126,8 +124,6 @@ function StatusPublished(props: React.SVGProps<SVGSVGElement>) {
 function StatusScheduled(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
-      width="14"
-      height="14"
       viewBox="0 0 14 14"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -171,8 +167,6 @@ function StatusScheduled(props: React.SVGProps<SVGSVGElement>) {
 function StatusUnpublished(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
-      width="14"
-      height="14"
       viewBox="0 0 14 14"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -213,8 +207,6 @@ function StatusUnpublished(props: React.SVGProps<SVGSVGElement>) {
 function StatusArchived(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
-      width="14"
-      height="14"
       viewBox="0 0 14 14"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

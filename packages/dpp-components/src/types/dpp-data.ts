@@ -108,20 +108,11 @@ export interface ProductAttributes {
 // =============================================================================
 
 /**
- * Environmental claim reference
- */
-export interface EcoClaim {
-  ecoClaimId: number;
-  ecoClaim: string;
-}
-
-/**
  * Environmental impact data
  */
 export interface Environmental {
   waterUsage?: MeasuredValue;
   carbonEmissions?: MeasuredValue;
-  ecoClaims?: EcoClaim[];
 }
 
 // =============================================================================

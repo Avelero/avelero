@@ -1,6 +1,7 @@
 export * from "./client";
 export * as schema from "./schema";
 export * as utils from "./utils";
+export * as constants from "./constants";
 // Re-export drizzle-orm utilities for consumers
 export {
   and,

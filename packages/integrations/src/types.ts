@@ -459,4 +459,3 @@ export interface RegisteredConnector {
   /** Get total product count for progress tracking. Returns -1 if unknown. */
   getProductCount: (credentials: IntegrationCredentials) => Promise<number>;
 }
-

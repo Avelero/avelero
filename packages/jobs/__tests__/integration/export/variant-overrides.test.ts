@@ -34,7 +34,6 @@ describe("Variant Override Resolution", () => {
       waterLiters: 3000,
       weightGrams: 500,
       materials: [{ name: "Cotton", percentage: 100 }],
-      ecoClaims: ["Organic"],
       journeySteps: { "Raw Material": "Farm A" },
     });
 
@@ -55,7 +54,6 @@ describe("Variant Override Resolution", () => {
     expect(variant.carbonKgOverride).toBeNull();
     expect(variant.waterLitersOverride).toBeNull();
     expect(variant.weightGramsOverride).toBeNull();
-    expect(variant.ecoClaimsOverride).toBeNull();
     expect(variant.materialsOverride).toBeNull();
     expect(variant.journeyStepsOverride).toBeNull();
   });
@@ -109,26 +107,6 @@ describe("Variant Override Resolution", () => {
         (m) => m.name === "Organic Cotton" && m.percentage === 30,
       ),
     ).toBe(true);
-  });
-
-  it("variant with eco-claims override includes ecoClaimsOverride", async () => {
-    const productId = await createTestProductForExport(brandId, {
-      name: "Eco Claims Test Product",
-      ecoClaims: ["GOTS Certified"],
-    });
-
-    await createTestVariantWithOverrides(productId, brandId, {
-      upid: "UPID-ECOCLAIMS-OVERRIDE",
-      ecoClaimsOverride: ["Recycled Content", "Fair Trade"],
-    });
-
-    const products = await getProductsForExport(testDb, brandId, [productId]);
-    const variant = products[0]!.variants[0]!;
-
-    expect(variant.ecoClaimsOverride).not.toBeNull();
-    expect(variant.ecoClaimsOverride!.length).toBe(2);
-    expect(variant.ecoClaimsOverride).toContain("Recycled Content");
-    expect(variant.ecoClaimsOverride).toContain("Fair Trade");
   });
 
   it("variant with journey override includes journeyStepsOverride", async () => {

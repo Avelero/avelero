@@ -266,9 +266,10 @@ export const importRouter = createTRPCRouter({
           });
 
           throw new Error(
-            `Failed to start background import job. Please ensure Trigger.dev dev server is running. Error: ${triggerError instanceof Error
-              ? triggerError.message
-              : String(triggerError)
+            `Failed to start background import job. Please ensure Trigger.dev dev server is running. Error: ${
+              triggerError instanceof Error
+                ? triggerError.message
+                : String(triggerError)
             }`,
           );
         }

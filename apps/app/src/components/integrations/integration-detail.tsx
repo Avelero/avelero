@@ -35,7 +35,10 @@ import {
   useUpdateFieldMappingMutation,
   useUpdateIntegrationMutation,
 } from "@/hooks/use-integrations";
-import { useTriggerSyncProgress, usePromotionProgress } from "@/hooks/use-job-progress";
+import {
+  useTriggerSyncProgress,
+  useTriggerPromotionProgress,
+} from "@/hooks/use-job-progress";
 import { useUserQuerySuspense } from "@/hooks/use-user";
 import { getConnectorFields } from "@v1/integrations";
 import { Button } from "@v1/ui/button";
@@ -126,7 +129,8 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
 
   // Optimistic sync state - shows "In progress" immediately when user clicks sync
-  const [optimisticSyncStarted, setOptimisticSyncStarted] = useState<Date | null>(null);
+  const [optimisticSyncStarted, setOptimisticSyncStarted] =
+    useState<Date | null>(null);
 
   // Track active sync run for Trigger.dev realtime
   const [activeSyncRun, setActiveSyncRun] = useState<{
@@ -156,38 +160,42 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const existingPrimary: string | null = null; // TODO: Add API endpoint to get primary name
 
   // Match identifier - load from connection or default to barcode
-  const matchIdentifier = (connection?.matchIdentifier as "sku" | "barcode" | null) ?? "barcode";
+  const matchIdentifier =
+    (connection?.matchIdentifier as "sku" | "barcode" | null) ?? "barcode";
 
   // Mutations
   const { mutate: updateIntegration } = useUpdateIntegrationMutation();
-  const { mutate: promoteToPrimary, isPending: isPromoting } = usePromoteToPrimaryMutation();
+  const { mutate: promoteToPrimary, isPending: isPromoting } =
+    usePromoteToPrimaryMutation();
 
   // Field configs to determine if setup is needed (only runs on client)
-  const { data: fieldConfigsData, isLoading: fieldConfigsLoading } = useFieldMappingsQuery(
-    connection?.id ?? null,
-  );
+  const { data: fieldConfigsData, isLoading: fieldConfigsLoading } =
+    useFieldMappingsQuery(connection?.id ?? null);
 
   // Sync status (initial load only - no polling)
   const { data: syncStatusData } = useSyncStatusQuery(connection?.id ?? null);
 
   // Real-time progress via Trigger.dev native realtime
-  const { progress: syncProgress, runStatus: syncRunStatus } = useTriggerSyncProgress(
-    activeSyncRun?.runId ?? null,
-    activeSyncRun?.accessToken ?? null,
+  const { progress: syncProgress, runStatus: syncRunStatus } =
+    useTriggerSyncProgress(
+      activeSyncRun?.runId ?? null,
+      activeSyncRun?.accessToken ?? null,
+    );
+  // Promotion progress (not yet using Trigger.dev realtime - relies on polling below)
+  // TODO: Add activePromotionRun state and track runId/accessToken when promotion is triggered
+  const { progress: promotionProgress } = useTriggerPromotionProgress(
+    null,
+    null,
   );
-  const { progress: promotionProgress } = usePromotionProgress(brandId, connection?.id ?? null);
 
-  // Promotion status (still uses polling when promotion is active since we don't have WS for it yet)
+  // Promotion status (uses polling since promotion doesn't have Trigger.dev realtime set up yet)
   const { data: promotionStatusData } = usePromotionStatusQuery(
     connection?.id ?? null,
     { refetchInterval: isPromoting ? 2000 : false },
   );
 
   // Get connector fields
-  const availableFields = useMemo(
-    () => getConnectorFields(slug),
-    [slug],
-  );
+  const availableFields = useMemo(() => getConnectorFields(slug), [slug]);
 
   // Determine if setup is needed based on field configs
   useEffect(() => {
@@ -207,7 +215,8 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   const updateFieldMutation = useUpdateFieldMappingMutation();
 
   // Determine if syncing based on WebSocket progress or optimistic state
-  const isSyncing = triggerSyncMutation.status === "pending" ||
+  const isSyncing =
+    triggerSyncMutation.status === "pending" ||
     syncProgress?.status === "running" ||
     optimisticSyncStarted !== null;
 
@@ -247,7 +256,11 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       setOptimisticSyncStarted(null);
     }
     // Clear activeSyncRun when job completes
-    if (syncRunStatus === "completed" || syncRunStatus === "failed" || syncRunStatus === "cancelled") {
+    if (
+      syncRunStatus === "completed" ||
+      syncRunStatus === "failed" ||
+      syncRunStatus === "cancelled"
+    ) {
       // Keep the activeSyncRun for a bit so the completion state is visible
       const timer = setTimeout(() => setActiveSyncRun(null), 10000);
       return () => clearTimeout(timer);
@@ -255,12 +268,15 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
   }, [syncRunStatus, syncProgress?.processed]);
 
   // Auto-hide progress bar after job completion (5 second delay)
-  const isJobRunning = syncRunStatus === "running" ||
+  const isJobRunning =
+    syncRunStatus === "running" ||
     syncProgress?.status === "running" ||
     promotionProgress?.status === "running" ||
     promotionStatusData?.data?.status === "running";
-  const isJobCompleted = syncRunStatus === "completed" ||
+  const isJobCompleted =
+    syncRunStatus === "completed" ||
     syncRunStatus === "failed" ||
+    syncRunStatus === "cancelled" ||
     syncProgress?.status === "completed" ||
     syncProgress?.status === "failed" ||
     promotionProgress?.status === "completed" ||
@@ -303,7 +319,9 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       sales: [],
     };
 
-    const visibleFields = availableFields.filter((f) => !HIDDEN_FIELDS.has(f.fieldKey));
+    const visibleFields = availableFields.filter(
+      (f) => !HIDDEN_FIELDS.has(f.fieldKey),
+    );
 
     for (const field of visibleFields) {
       const group = getFieldGroup(field.fieldKey);
@@ -345,7 +363,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         onError: () => {
           toast.error("Failed to update match identifier");
         },
-      }
+      },
     );
   }
 
@@ -367,7 +385,7 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         onError: (error) => {
           toast.error(error.message || "Failed to start promotion");
         },
-      }
+      },
     );
   }
 
@@ -382,7 +400,8 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
               {integrationInfo?.name ?? slug} is not connected
             </h5>
             <p className="text-secondary text-sm max-w-[400px]">
-              Connect this integration to start syncing product data automatically.
+              Connect this integration to start syncing product data
+              automatically.
             </p>
           </div>
           {slug === "shopify" ? (
@@ -397,7 +416,9 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
             </>
           ) : (
             <Button asChild>
-              <Link href="/settings/integrations" prefetch>Go to Integrations</Link>
+              <Link href="/settings/integrations" prefetch>
+                Go to Integrations
+              </Link>
             </Button>
           )}
         </div>
@@ -423,24 +444,31 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     syncStatusData?.data?.nextSyncAt ??
     (lastSyncTime && connection.syncInterval
       ? new Date(
-        new Date(lastSyncTime).getTime() + connection.syncInterval * 1000,
-      ).toISOString()
+          new Date(lastSyncTime).getTime() + connection.syncInterval * 1000,
+        ).toISOString()
       : null);
 
   // Determine sync job status - prioritize Trigger.dev realtime data
   const syncJobStatus: SyncJobStatus | undefined =
     (syncRunStatus as SyncJobStatus) ??
     syncProgress?.status ??
-    latestJob?.status as SyncJobStatus | undefined;
+    (latestJob?.status as SyncJobStatus | undefined);
 
   // Calculate progress percentage - prioritize WebSocket data
   const progress = useMemo(() => {
     // Use WebSocket progress if available
     if (syncProgress) {
-      if (syncProgress.status === "completed" || syncProgress.status === "failed") {
+      if (
+        syncProgress.status === "completed" ||
+        syncProgress.status === "failed"
+      ) {
         return 100;
       }
-      if (syncProgress.status === "running" && syncProgress.total && syncProgress.total > 0) {
+      if (
+        syncProgress.status === "running" &&
+        syncProgress.total &&
+        syncProgress.total > 0
+      ) {
         return Math.round((syncProgress.processed / syncProgress.total) * 100);
       }
       return undefined; // Indeterminate
@@ -451,8 +479,14 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       if (latestJob.status === "completed" || latestJob.status === "failed") {
         return 100;
       }
-      if (latestJob.status === "running" && latestJob.productsTotal && latestJob.productsTotal > 0) {
-        return Math.round((latestJob.productsProcessed / latestJob.productsTotal) * 100);
+      if (
+        latestJob.status === "running" &&
+        latestJob.productsTotal &&
+        latestJob.productsTotal > 0
+      ) {
+        return Math.round(
+          (latestJob.productsProcessed / latestJob.productsTotal) * 100,
+        );
       }
     }
     return undefined;
@@ -464,23 +498,36 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
     if (promotionProgress?.status === "running") {
       return "promotion";
     }
-    if (syncRunStatus === "running" || syncProgress?.status === "running" || optimisticSyncStarted) {
+    if (
+      syncRunStatus === "running" ||
+      syncProgress?.status === "running" ||
+      optimisticSyncStarted
+    ) {
       return "sync";
     }
 
     // Check for completed WebSocket jobs
-    if (promotionProgress?.status === "completed" || promotionProgress?.status === "failed") {
+    if (
+      promotionProgress?.status === "completed" ||
+      promotionProgress?.status === "failed"
+    ) {
       return "promotion";
     }
-    if (syncRunStatus === "completed" || syncRunStatus === "failed" ||
-      syncProgress?.status === "completed" || syncProgress?.status === "failed") {
+    if (
+      syncRunStatus === "completed" ||
+      syncRunStatus === "failed" ||
+      syncProgress?.status === "completed" ||
+      syncProgress?.status === "failed"
+    ) {
       return "sync";
     }
 
     // Fallback to polling data for promotion
-    if (promotionStatusData?.data?.status === "running" ||
+    if (
+      promotionStatusData?.data?.status === "running" ||
       promotionStatusData?.data?.status === "completed" ||
-      promotionStatusData?.data?.status === "failed") {
+      promotionStatusData?.data?.status === "failed"
+    ) {
       return "promotion";
     }
 
@@ -489,7 +536,14 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
       return "sync";
     }
     return null;
-  }, [optimisticSyncStarted, syncProgress, syncRunStatus, promotionProgress, promotionStatusData?.data?.status, latestJob]);
+  }, [
+    optimisticSyncStarted,
+    syncProgress,
+    syncRunStatus,
+    promotionProgress,
+    promotionStatusData?.data?.status,
+    latestJob,
+  ]);
 
   // Show setup wizard if not completed
   if (setupCompleted === false) {
@@ -536,7 +590,11 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-9 w-9 data-[state=open]:bg-accent">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 data-[state=open]:bg-accent"
+                >
                   <Icons.EllipsisVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -573,48 +631,67 @@ export function IntegrationDetail({ slug }: IntegrationDetailProps) {
         status={status}
         mode={connection?.isPrimary ? "primary" : "secondary"}
         matchIdentifier={connection?.isPrimary ? undefined : matchIdentifier}
-        onMatchIdentifierChange={connection?.isPrimary ? undefined : handleMatchIdentifierChange}
+        onMatchIdentifierChange={
+          connection?.isPrimary ? undefined : handleMatchIdentifierChange
+        }
       />
 
       {/* Progress block - show sync or promotion progress, auto-hide after completion */}
-      {showProgress && (optimisticSyncStarted || syncProgress || promotionProgress || latestJob || promotionStatusData?.data) && (
-        <SyncProgressBlock
-          jobType={activeJobType ?? "sync"}
-          status={
-            optimisticSyncStarted
-              ? "running"
-              : activeJobType === "promotion"
-                ? (promotionProgress?.status ?? promotionStatusData?.data?.status as SyncJobStatus ?? null)
-                : (syncJobStatus ?? null)
-          }
-          progress={
-            optimisticSyncStarted
-              ? 0
-              : activeJobType === "promotion"
-                ? (promotionProgress?.total && promotionProgress.total > 0
-                  ? Math.round((promotionProgress.processed / promotionProgress.total) * 100)
-                  : promotionStatusData?.data?.totalVariants && promotionStatusData?.data?.totalVariants > 0
-                    ? Math.round((promotionStatusData?.data?.variantsProcessed ?? 0) / promotionStatusData?.data?.totalVariants * 100)
-                    : undefined)
-                : progress
-          }
-          startedAt={
-            optimisticSyncStarted?.toISOString() ??
-            (activeJobType === "promotion"
-              ? promotionProgress?.startedAt ?? promotionStatusData?.data?.startedAt ?? null
-              : syncProgress?.startedAt ?? latestJob?.startedAt ?? null)
-          }
-          errorMessage={
-            optimisticSyncStarted
-              ? null
-              : activeJobType === "promotion"
-                ? promotionProgress?.errorMessage ?? promotionStatusData?.data?.errorMessage
-                : syncProgress?.errorMessage ?? latestJob?.errorSummary
-          }
-        />
-      )}
-
-
+      {showProgress &&
+        (optimisticSyncStarted ||
+          syncProgress ||
+          promotionProgress ||
+          latestJob ||
+          promotionStatusData?.data) && (
+          <SyncProgressBlock
+            jobType={activeJobType ?? "sync"}
+            status={
+              optimisticSyncStarted
+                ? "running"
+                : activeJobType === "promotion"
+                  ? promotionProgress?.status ??
+                    (promotionStatusData?.data?.status as SyncJobStatus) ??
+                    null
+                  : syncJobStatus ?? null
+            }
+            progress={
+              optimisticSyncStarted
+                ? 0
+                : activeJobType === "promotion"
+                  ? promotionProgress?.total && promotionProgress.total > 0
+                    ? Math.round(
+                        (promotionProgress.processed /
+                          promotionProgress.total) *
+                          100,
+                      )
+                    : promotionStatusData?.data?.totalVariants &&
+                        promotionStatusData?.data?.totalVariants > 0
+                      ? Math.round(
+                          ((promotionStatusData?.data?.variantsProcessed ?? 0) /
+                            promotionStatusData?.data?.totalVariants) *
+                            100,
+                        )
+                      : undefined
+                  : progress
+            }
+            startedAt={
+              optimisticSyncStarted?.toISOString() ??
+              (activeJobType === "promotion"
+                ? promotionProgress?.startedAt ??
+                  promotionStatusData?.data?.startedAt ??
+                  null
+                : syncProgress?.startedAt ?? latestJob?.startedAt ?? null)
+            }
+            errorMessage={
+              optimisticSyncStarted
+                ? null
+                : activeJobType === "promotion"
+                  ? promotionProgress?.errorMessage ??
+                    promotionStatusData?.data?.errorMessage
+                  : syncProgress?.errorMessage ?? latestJob?.errorSummary
+            }
+          />
+        )}
 
       {/* Configure fields section */}
       <section className="space-y-4">

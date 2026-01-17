@@ -7,9 +7,7 @@ import { Suspense } from "react";
 export default async function IntegrationsPage() {
   await connection();
 
-  batchPrefetch([
-    trpc.integrations.connections.list.queryOptions({}),
-  ]);
+  batchPrefetch([trpc.integrations.connections.list.queryOptions({})]);
 
   return (
     <HydrateClient>

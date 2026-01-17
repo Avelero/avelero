@@ -75,11 +75,13 @@ export function VariantsOverview({
   const imageUrl = normalizeToDisplayUrl(BUCKETS.PRODUCTS, productImage);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [variantToDelete, setVariantToDelete] = React.useState<string | null>(null);
+  const [variantToDelete, setVariantToDelete] = React.useState<string | null>(
+    null,
+  );
 
   // Delete variant mutation
   const deleteVariantMutation = useMutation(
-    trpc.products.variants.delete.mutationOptions()
+    trpc.products.variants.delete.mutationOptions(),
   );
 
   const handleDeleteClick = (upid: string, e: React.MouseEvent) => {
@@ -252,9 +254,12 @@ export function VariantsOverview({
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="rounded-none sm:rounded-none p-6 gap-6 border border-border focus:outline-none focus-visible:outline-none">
           <DialogHeader>
-            <DialogTitle className="text-foreground">Delete variant</DialogTitle>
+            <DialogTitle className="text-foreground">
+              Delete variant
+            </DialogTitle>
             <DialogDescription className="text-secondary">
-              Are you sure you want to delete this variant? This action cannot be undone.
+              Are you sure you want to delete this variant? This action cannot
+              be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex justify-end gap-2">

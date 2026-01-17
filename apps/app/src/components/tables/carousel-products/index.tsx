@@ -11,9 +11,9 @@ export { EmptyState } from "./empty-state";
 export { CarouselTableHeader } from "./table-header";
 export { CarouselTableSkeleton } from "./table-skeleton";
 export type {
-    CarouselProductRow,
-    CarouselSelectionState,
-    FilterState,
-    FilterCondition,
-    FilterGroup,
+  CarouselProductRow,
+  CarouselSelectionState,
+  FilterState,
+  FilterCondition,
+  FilterGroup,
 } from "./types";

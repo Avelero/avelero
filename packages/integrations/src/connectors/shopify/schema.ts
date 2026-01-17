@@ -47,7 +47,10 @@ export function parseShopifyPrice(value: unknown): number | null {
 /**
  * Truncate string to max length.
  */
-export function truncateString(value: unknown, maxLength: number): string | null {
+export function truncateString(
+  value: unknown,
+  maxLength: number,
+): string | null {
   if (value === null || value === undefined) return null;
   const str = String(value).trim();
   return str.length > maxLength ? str.slice(0, maxLength) : str;
@@ -63,11 +66,11 @@ export function stripHtmlTags(html: unknown): string | null {
 
 /**
  * Transform Shopify tags to normalized strings.
- * 
+ *
  * Handles two possible formats from Shopify:
  * - GraphQL Admin API: Array of strings ["summer", "sports"]
  * - String format: Comma-separated "summer, sports"
- * 
+ *
  * The GraphQL API should return an array, but we handle both for robustness.
  */
 export function transformTags(tags: unknown): string[] {
@@ -75,9 +78,7 @@ export function transformTags(tags: unknown): string[] {
 
   // Handle array format (expected from GraphQL API)
   if (Array.isArray(tags)) {
-    return tags
-      .map((t) => String(t).trim())
-      .filter((t) => t.length > 0);
+    return tags.map((t) => String(t).trim()).filter((t) => t.length > 0);
   }
 
   // Handle comma-separated string format (defensive handling)
@@ -113,10 +114,10 @@ export function transformTags(tags: unknown): string[] {
 const SHOPIFY_METAFIELD_TO_TAXONOMY: Record<string, string> = {
   // Core attributes available across most categories
   "color-pattern": "color",
-  "size": "size",
+  size: "size",
   "target-gender": "target_gender",
   "age-group": "age_group",
-  "fabric": "fabric",
+  fabric: "fabric",
 };
 
 /**
@@ -165,7 +166,10 @@ export function resolveTaxonomyFriendlyId(
   const match = productOptions.find((opt) => {
     if (typeof opt !== "object" || opt === null) return false;
     const optName = (opt as Record<string, unknown>).name;
-    return typeof optName === "string" && optName.trim().toLowerCase() === name.toLowerCase();
+    return (
+      typeof optName === "string" &&
+      optName.trim().toLowerCase() === name.toLowerCase()
+    );
   }) as Record<string, unknown> | undefined;
 
   const linked = match?.linkedMetafield;
@@ -208,7 +212,7 @@ export interface ParsedVariantOption {
  * Also resolves taxonomy hints for each option.
  */
 export function parseSelectedOptions(
-  variantData: Record<string, unknown>
+  variantData: Record<string, unknown>,
 ): ParsedVariantOption[] {
   const selectedOptions = getValueByPath(variantData, "selectedOptions");
   if (!Array.isArray(selectedOptions)) return [];
@@ -328,7 +332,12 @@ export const shopifySchema: ConnectorSchema = {
       description: "Product description",
       sourceOptions: [
         { key: "description", label: "Plain Text", path: "description" },
-        { key: "descriptionHtml", label: "HTML (stripped)", path: "descriptionHtml", transform: stripHtmlTags },
+        {
+          key: "descriptionHtml",
+          label: "HTML (stripped)",
+          path: "descriptionHtml",
+          transform: stripHtmlTags,
+        },
       ],
       defaultSource: "description",
       transform: (v: unknown) => truncateString(v, 5000),
@@ -338,7 +347,13 @@ export const shopifySchema: ConnectorSchema = {
       targetField: "product.imagePath",
       entity: "product",
       description: "Product image URL",
-      sourceOptions: [{ key: "featured_image", label: "Featured Image", path: "featuredImage.url" }],
+      sourceOptions: [
+        {
+          key: "featured_image",
+          label: "Featured Image",
+          path: "featuredImage.url",
+        },
+      ],
       defaultSource: "featured_image",
     },
 
@@ -346,7 +361,9 @@ export const shopifySchema: ConnectorSchema = {
       targetField: "product.webshopUrl",
       entity: "product",
       description: "Online store URL",
-      sourceOptions: [{ key: "online_store_url", label: "URL", path: "onlineStoreUrl" }],
+      sourceOptions: [
+        { key: "online_store_url", label: "URL", path: "onlineStoreUrl" },
+      ],
       defaultSource: "online_store_url",
     },
 
@@ -354,7 +371,13 @@ export const shopifySchema: ConnectorSchema = {
       targetField: "product.price",
       entity: "product",
       description: "Product price",
-      sourceOptions: [{ key: "price", label: "Min Price", path: "priceRangeV2.minVariantPrice.amount" }],
+      sourceOptions: [
+        {
+          key: "price",
+          label: "Min Price",
+          path: "priceRangeV2.minVariantPrice.amount",
+        },
+      ],
       defaultSource: "price",
       transform: parseShopifyPrice,
     },
@@ -363,7 +386,13 @@ export const shopifySchema: ConnectorSchema = {
       targetField: "product.currency",
       entity: "product",
       description: "Currency code",
-      sourceOptions: [{ key: "currency", label: "Currency", path: "priceRangeV2.minVariantPrice.currencyCode" }],
+      sourceOptions: [
+        {
+          key: "currency",
+          label: "Currency",
+          path: "priceRangeV2.minVariantPrice.currencyCode",
+        },
+      ],
       defaultSource: "currency",
       transform: (v: unknown) => (v ? String(v).toUpperCase() : null),
     },
@@ -372,7 +401,14 @@ export const shopifySchema: ConnectorSchema = {
       targetField: "product.salesStatus",
       entity: "product",
       description: "Sales status",
-      sourceOptions: [{ key: "status", label: "Status", path: "status", transform: transformSalesStatus }],
+      sourceOptions: [
+        {
+          key: "status",
+          label: "Status",
+          path: "status",
+          transform: transformSalesStatus,
+        },
+      ],
       defaultSource: "status",
     },
 
@@ -382,7 +418,9 @@ export const shopifySchema: ConnectorSchema = {
       description: "Product tags",
       isRelation: true,
       relationType: "tags",
-      sourceOptions: [{ key: "tags", label: "Tags", path: "tags", transform: transformTags }],
+      sourceOptions: [
+        { key: "tags", label: "Tags", path: "tags", transform: transformTags },
+      ],
       defaultSource: "tags",
     },
 
@@ -396,7 +434,8 @@ export const shopifySchema: ConnectorSchema = {
           key: "category",
           label: "Category",
           path: "category",
-          transform: (cat: unknown) => resolveShopifyCategoryId(cat as ShopifyCategory | null),
+          transform: (cat: unknown) =>
+            resolveShopifyCategoryId(cat as ShopifyCategory | null),
         },
       ],
       defaultSource: "category",

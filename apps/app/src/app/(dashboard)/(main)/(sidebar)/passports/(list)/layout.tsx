@@ -25,7 +25,9 @@ export default function PassportsListLayout({
       <div className="flex flex-col h-full">
         <ControlBar>
           <ControlBarLeft>
-            <ControlBarNavButton href="/passports">Passports</ControlBarNavButton>
+            <ControlBarNavButton href="/passports">
+              Passports
+            </ControlBarNavButton>
           </ControlBarLeft>
           <ControlBarRight>
             <ExportButton />

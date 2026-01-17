@@ -2,8 +2,8 @@ import { sql } from "drizzle-orm";
 import { pgPolicy, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { brands } from "../core/brands";
 
-export const brandFacilities = pgTable(
-  "brand_facilities",
+export const brandOperators = pgTable(
+  "brand_operators",
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     brandId: uuid("brand_id")
@@ -29,25 +29,25 @@ export const brandFacilities = pgTable(
   },
   (table) => [
     // RLS policies
-    pgPolicy("brand_facilities_select_for_brand_members", {
+    pgPolicy("brand_operators_select_for_brand_members", {
       as: "permissive",
       for: "select",
       to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_facilities_insert_by_brand_member", {
+    pgPolicy("brand_operators_insert_by_brand_member", {
       as: "permissive",
       for: "insert",
       to: ["authenticated", "service_role"],
       withCheck: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_facilities_update_by_brand_member", {
+    pgPolicy("brand_operators_update_by_brand_member", {
       as: "permissive",
       for: "update",
       to: ["authenticated", "service_role"],
       using: sql`is_brand_member(brand_id)`,
     }),
-    pgPolicy("brand_facilities_delete_by_brand_member", {
+    pgPolicy("brand_operators_delete_by_brand_member", {
       as: "permissive",
       for: "delete",
       to: ["authenticated", "service_role"],

@@ -36,15 +36,6 @@ export const dppThemePreviewSchema = z.object({
   brandSlug: slugSchema,
 });
 
-/**
- * Input for fetching carousel products for public DPP display.
- */
-export const dppCarouselListSchema = z.object({
-  brandSlug: slugSchema,
-  productHandle: productHandleSchema,
-  limit: z.number().min(1).max(20).default(8),
-});
-
 export type DppGetByProductHandleInput = z.infer<
   typeof dppGetByProductHandleSchema
 >;
@@ -52,4 +43,3 @@ export type DppGetByVariantUpidInput = z.infer<
   typeof dppGetByVariantUpidSchema
 >;
 export type DppThemePreviewInput = z.infer<typeof dppThemePreviewSchema>;
-export type DppCarouselListInput = z.infer<typeof dppCarouselListSchema>;

@@ -245,13 +245,12 @@ export const createProductSchema = z.object({
       }),
     )
     .optional(),
-  eco_claim_ids: uuidArraySchema.optional(),
   journey_steps: z
     .array(
       z.object({
         sort_index: nonNegativeIntSchema,
         step_type: shortStringSchema,
-        facility_id: uuidSchema, // 1:1 relationship with facility
+        operator_ids: uuidArraySchema, // Multiple operators per step
       }),
     )
     .optional(),
@@ -259,6 +258,12 @@ export const createProductSchema = z.object({
     .object({
       carbon_kg_co2e: z.union([z.string(), z.number()]).optional(),
       water_liters: z.union([z.string(), z.number()]).optional(),
+    })
+    .optional(),
+  weight: z
+    .object({
+      weight: z.union([z.string(), z.number()]).optional(),
+      weight_unit: z.string().optional().default("g"),
     })
     .optional(),
 });

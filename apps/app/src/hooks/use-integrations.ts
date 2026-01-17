@@ -183,11 +183,15 @@ export function useUpdateFieldMappingMutation() {
         // Optimistically update the cache
         queryClient.setQueryData(
           queryKey,
-          (old: RouterOutputs["integrations"]["mappings"]["list"] | undefined) => {
+          (
+            old: RouterOutputs["integrations"]["mappings"]["list"] | undefined,
+          ) => {
             if (!old?.data) return old;
 
             // Check if mapping exists
-            const exists = old.data.some((m) => m.fieldKey === variables.field_key);
+            const exists = old.data.some(
+              (m) => m.fieldKey === variables.field_key,
+            );
 
             if (exists) {
               // Update existing mapping
@@ -196,10 +200,12 @@ export function useUpdateFieldMappingMutation() {
                 data: old.data.map((mapping) =>
                   mapping.fieldKey === variables.field_key
                     ? {
-                      ...mapping,
-                      ownershipEnabled: variables.ownership_enabled ?? false,
-                      sourceOptionKey: variables.source_option_key ?? mapping.sourceOptionKey,
-                    }
+                        ...mapping,
+                        ownershipEnabled: variables.ownership_enabled ?? false,
+                        sourceOptionKey:
+                          variables.source_option_key ??
+                          mapping.sourceOptionKey,
+                      }
                     : mapping,
                 ),
               };

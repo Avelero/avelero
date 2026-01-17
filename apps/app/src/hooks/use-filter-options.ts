@@ -22,8 +22,6 @@ export function useFilterOptions() {
     trpc.catalog.tags.list.queryOptions(undefined),
   );
 
-
-
   // Transform and memoize all options
   const options = React.useMemo(() => {
     return {
@@ -74,22 +72,14 @@ export function useFilterOptions() {
           }),
         ) ?? [],
 
-      // From composite.catalogContent
-      ecoClaims:
-        formData?.brandCatalog?.ecoClaims?.map(
-          (c: { id: string; claim: string }) => ({
-            value: c.id,
-            label: c.claim,
+      tags:
+        tagsData?.data?.map(
+          (t: { id: string; name: string; hex?: string }) => ({
+            value: t.id,
+            label: t.name,
+            hex: t.hex ?? undefined,
           }),
         ) ?? [],
-
-      tags:
-        tagsData?.data?.map((t: { id: string; name: string; hex?: string }) => ({
-          value: t.id,
-          label: t.name,
-          hex: t.hex ?? undefined,
-        })) ?? [],
-
     };
   }, [formData, tagsData]);
 
@@ -118,7 +108,6 @@ export function useFieldOptions(fieldId: string): {
       brandCertificationId: options.certifications,
       operatorId: options.facilities,
       manufacturerId: options.manufacturers,
-      ecoClaimId: options.ecoClaims,
       tagId: options.tags,
       season: options.seasons ?? [],
     };

@@ -291,33 +291,4 @@ describe("Excel Parser - Data Levels", () => {
     // Manufacturer, Category, Season are not extractable from child rows
     // They don't have corresponding override fields on ParsedVariant
   });
-
-  it("extracts eco claims from parent row", async () => {
-    const buffer = await ExcelBuilder.create({
-      products: [
-        {
-          handle: "eco-claims-product",
-          title: "Eco Claims Product",
-          ecoClaims: ["Organic", "Fair Trade", "Recycled Materials"],
-          variants: [
-            { sku: "SKU-001", barcode: "7777777777771" },
-            { sku: "SKU-002", barcode: "7777777777772" },
-          ],
-        },
-      ],
-    });
-
-    const result = await parseExcelFile(buffer);
-
-    // Product-level eco claims
-    const product = result.products[0]!;
-    expect(product.ecoClaims).toEqual([
-      "Organic",
-      "Fair Trade",
-      "Recycled Materials",
-    ]);
-
-    // Parent variant should NOT have eco claims override
-    expect(result.products[0]!.variants[0]!.ecoClaimsOverride).toEqual([]);
-  });
 });

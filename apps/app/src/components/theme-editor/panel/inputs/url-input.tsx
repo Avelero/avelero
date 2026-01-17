@@ -5,24 +5,24 @@ import { FieldWrapper } from "./field-wrapper";
 import type { ContentField } from "../../registry/types";
 
 interface UrlInputProps {
-    field: ContentField;
-    value: unknown;
-    onChange: (value: string) => void;
+  field: ContentField;
+  value: unknown;
+  onChange: (value: string) => void;
 }
 
 /**
  * URL input for content fields.
  */
 export function UrlInput({ field, value, onChange }: UrlInputProps) {
-    return (
-        <FieldWrapper label={field.label}>
-            <Input
-                type="url"
-                value={typeof value === "string" ? value : ""}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={field.placeholder || "https://..."}
-                className="h-8 text-sm"
-            />
-        </FieldWrapper>
-    );
+  return (
+    <FieldWrapper label={field.label}>
+      <Input
+        type="url"
+        value={typeof value === "string" ? value : ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={field.placeholder || "https://..."}
+        className="h-8 text-sm"
+      />
+    </FieldWrapper>
+  );
 }

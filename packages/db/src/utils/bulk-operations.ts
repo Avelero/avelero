@@ -25,31 +25,25 @@ import type { Database } from "../client";
  * Sent once per batch instead of per-row.
  */
 export interface BulkBroadcastPayload {
-    /** Domain being updated (products, catalog, integrations, etc.) */
-    domain:
-    | "products"
-    | "catalog"
-    | "integrations"
-    | "team"
-    | "jobs"
-    | "theme";
-    /** Brand ID the changes belong to */
-    brandId: string;
-    /** Operation type */
-    operation: "BULK_INSERT" | "BULK_UPDATE" | "BULK_DELETE" | "BULK_SYNC";
-    /** Summary of changes in this batch */
-    summary: {
-        /** Number of items created */
-        created?: number;
-        /** Number of items updated */
-        updated?: number;
-        /** Number of items deleted */
-        deleted?: number;
-        /** Total items affected */
-        total: number;
-    };
-    /** Optional metadata */
-    metadata?: Record<string, unknown>;
+  /** Domain being updated (products, catalog, integrations, etc.) */
+  domain: "products" | "catalog" | "integrations" | "team" | "jobs" | "theme";
+  /** Brand ID the changes belong to */
+  brandId: string;
+  /** Operation type */
+  operation: "BULK_INSERT" | "BULK_UPDATE" | "BULK_DELETE" | "BULK_SYNC";
+  /** Summary of changes in this batch */
+  summary: {
+    /** Number of items created */
+    created?: number;
+    /** Number of items updated */
+    updated?: number;
+    /** Number of items deleted */
+    deleted?: number;
+    /** Total items affected */
+    total: number;
+  };
+  /** Optional metadata */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -64,7 +58,7 @@ export interface BulkBroadcastPayload {
  * @param _db - Database instance (unused)
  */
 export async function disableTriggers(_db: Database): Promise<void> {
-    // No-op: Database-level throttling handles this automatically
+  // No-op: Database-level throttling handles this automatically
 }
 
 /**
@@ -73,7 +67,7 @@ export async function disableTriggers(_db: Database): Promise<void> {
  * @param _db - Database instance (unused)
  */
 export async function enableTriggers(_db: Database): Promise<void> {
-    // No-op: Database-level throttling handles this automatically
+  // No-op: Database-level throttling handles this automatically
 }
 
 /**
@@ -90,15 +84,15 @@ export async function enableTriggers(_db: Database): Promise<void> {
  * @param payload - Broadcast payload with change summary
  */
 export async function sendBulkBroadcast(
-    db: Database,
-    payload: BulkBroadcastPayload,
+  db: Database,
+  payload: BulkBroadcastPayload,
 ): Promise<void> {
-    const topic = `${payload.domain}:${payload.brandId}`;
-    const event = payload.operation;
+  const topic = `${payload.domain}:${payload.brandId}`;
+  const event = payload.operation;
 
-    // Use raw SQL to call realtime.send directly
-    // This bypasses RLS and sends the message immediately
-    await db.execute(sql`
+  // Use raw SQL to call realtime.send directly
+  // This bypasses RLS and sends the message immediately
+  await db.execute(sql`
     SELECT realtime.send(
       ${JSON.stringify(payload)}::jsonb,
       ${event}::text,
@@ -121,23 +115,23 @@ export async function sendBulkBroadcast(
  * @returns Result of the operation function
  */
 export async function withBulkOperation<T>(
-    db: Database,
-    payload: BulkBroadcastPayload,
-    operation: () => Promise<T>,
+  db: Database,
+  payload: BulkBroadcastPayload,
+  operation: () => Promise<T>,
 ): Promise<T> {
+  try {
+    const result = await operation();
+    return result;
+  } finally {
+    // Send consolidated broadcast
     try {
-        const result = await operation();
-        return result;
-    } finally {
-        // Send consolidated broadcast
-        try {
-            await sendBulkBroadcast(db, payload);
-        } catch (broadcastError) {
-            // Log but don't throw - the main operation may have succeeded
-            console.warn(
-                "[withBulkOperation] Failed to send broadcast:",
-                broadcastError,
-            );
-        }
+      await sendBulkBroadcast(db, payload);
+    } catch (broadcastError) {
+      // Log but don't throw - the main operation may have succeeded
+      console.warn(
+        "[withBulkOperation] Failed to send broadcast:",
+        broadcastError,
+      );
     }
+  }
 }

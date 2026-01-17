@@ -21,7 +21,9 @@ export const brands = pgTable(
   },
   (table) => [
     // Index for filtering active (non-deleted) brands
-    index("idx_brands_active").on(table.id).where(sql`(deleted_at IS NULL)`),
+    index("idx_brands_active")
+      .on(table.id)
+      .where(sql`(deleted_at IS NULL)`),
     // Unique index for slug (used in public DPP URLs)
     uniqueIndex("idx_brands_slug")
       .on(table.slug)

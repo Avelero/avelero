@@ -391,29 +391,6 @@
     text-decoration: var(--impact-card-unit-text-decoration, none);
   }
 
-  .dpp-root .impact-card__eco-claim {
-    border-color: var(--impact-card-eco-claim-border-color, var(--border));
-    border-radius: var(--impact-card-eco-claim-border-radius, var(--radius-none));
-    background-color: var(--impact-card-eco-claim-background-color, var(--card));
-  }
-
-  .dpp-root .impact-card__eco-claim-icon {
-    color: var(--impact-card-eco-claim-icon-color, var(--primary));
-    width: var(--impact-card-eco-claim-icon-size, 17.5px);
-    height: var(--impact-card-eco-claim-icon-size, 17.5px);
-  }
-
-  .dpp-root .impact-card__eco-claim-text {
-    font-family: var(--impact-card-eco-claim-text-font-family, var(--type-body-sm-family));
-    font-size: var(--impact-card-eco-claim-text-font-size, var(--type-body-sm-size));
-    font-weight: var(--impact-card-eco-claim-text-font-weight, var(--type-body-sm-weight));
-    line-height: var(--impact-card-eco-claim-text-line-height, var(--type-body-sm-line-height));
-    letter-spacing: var(--impact-card-eco-claim-text-letter-spacing, var(--type-body-sm-letter-spacing));
-    color: var(--impact-card-eco-claim-text-color, var(--card-foreground));
-    text-transform: var(--impact-card-eco-claim-text-text-transform, none);
-    text-decoration: var(--impact-card-eco-claim-text-text-decoration, none);
-  }
-
   /* Impact card icons - consolidated styling */
   .dpp-root .impact-card__icon {
     color: var(--impact-card-icon-color, var(--muted-foreground));

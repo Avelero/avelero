@@ -1,6 +1,6 @@
 /**
  * Shared search logic for product queries.
- * 
+ *
  * Provides reusable search WHERE clause builders that search across
  * product fields, category names, season names, and tags.
  */
@@ -17,7 +17,7 @@ import type { ListFilters } from "../types.js";
 
 /**
  * Builds search WHERE clauses for product queries.
- * 
+ *
  * Searches across:
  * - Product name
  * - Product handle
@@ -25,7 +25,7 @@ import type { ListFilters } from "../types.js";
  * - Season name (via EXISTS subquery)
  * - Category name (via recursive CTE EXISTS subquery)
  * - Tag names (via EXISTS subquery)
- * 
+ *
  * @param filters - Filter options containing search term
  * @returns SQL WHERE clause or null if no search term
  */
@@ -74,11 +74,3 @@ export function buildProductSearchClause(
     )`,
   )!;
 }
-
-
-
-
-
-
-
-

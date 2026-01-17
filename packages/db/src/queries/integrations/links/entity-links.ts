@@ -1,26 +1,24 @@
 /**
  * Entity link query functions.
- * 
+ *
  * Handles mapping external entities to internal catalog entities.
- * Supports: material, facility, manufacturer, season, color, size, tag, eco_claim, certification
+ * Supports: material, operator, manufacturer, season, color, size, tag, certification
  */
 
 import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "../../../client";
 import {
   integrationMaterialLinks,
-  integrationFacilityLinks,
+  integrationOperatorLinks,
   integrationManufacturerLinks,
   integrationSeasonLinks,
   integrationTagLinks,
-  integrationEcoClaimLinks,
   integrationCertificationLinks,
   brandMaterials,
-  brandFacilities,
+  brandOperators,
   brandManufacturers,
   brandSeasons,
   brandTags,
-  brandEcoClaims,
   brandCertifications,
 } from "../../../schema";
 
@@ -76,54 +74,54 @@ export async function createMaterialLink(
   return row;
 }
 
-// Facility Links
-export async function findFacilityLink(
+// Operator Links
+export async function findOperatorLink(
   db: Database,
   brandIntegrationId: string,
   externalId: string,
 ) {
   const [row] = await db
     .select({
-      id: integrationFacilityLinks.id,
-      brandIntegrationId: integrationFacilityLinks.brandIntegrationId,
-      facilityId: integrationFacilityLinks.facilityId,
-      externalId: integrationFacilityLinks.externalId,
-      externalName: integrationFacilityLinks.externalName,
-      lastSyncedAt: integrationFacilityLinks.lastSyncedAt,
+      id: integrationOperatorLinks.id,
+      brandIntegrationId: integrationOperatorLinks.brandIntegrationId,
+      operatorId: integrationOperatorLinks.operatorId,
+      externalId: integrationOperatorLinks.externalId,
+      externalName: integrationOperatorLinks.externalName,
+      lastSyncedAt: integrationOperatorLinks.lastSyncedAt,
     })
-    .from(integrationFacilityLinks)
+    .from(integrationOperatorLinks)
     .where(
       and(
-        eq(integrationFacilityLinks.brandIntegrationId, brandIntegrationId),
-        eq(integrationFacilityLinks.externalId, externalId),
+        eq(integrationOperatorLinks.brandIntegrationId, brandIntegrationId),
+        eq(integrationOperatorLinks.externalId, externalId),
       ),
     )
     .limit(1);
   return row;
 }
 
-export async function createFacilityLink(
+export async function createOperatorLink(
   db: Database,
   input: {
     brandIntegrationId: string;
-    facilityId: string;
+    operatorId: string;
     externalId: string;
     externalName?: string | null;
   },
 ) {
   const [row] = await db
-    .insert(integrationFacilityLinks)
+    .insert(integrationOperatorLinks)
     .values({
       brandIntegrationId: input.brandIntegrationId,
-      facilityId: input.facilityId,
+      operatorId: input.operatorId,
       externalId: input.externalId,
       externalName: input.externalName ?? null,
       lastSyncedAt: new Date().toISOString(),
     })
     .returning({
-      id: integrationFacilityLinks.id,
-      facilityId: integrationFacilityLinks.facilityId,
-      externalId: integrationFacilityLinks.externalId,
+      id: integrationOperatorLinks.id,
+      operatorId: integrationOperatorLinks.operatorId,
+      externalId: integrationOperatorLinks.externalId,
     });
   return row;
 }
@@ -284,58 +282,6 @@ export async function createTagLink(
   return row;
 }
 
-// Eco Claim Links
-export async function findEcoClaimLink(
-  db: Database,
-  brandIntegrationId: string,
-  externalId: string,
-) {
-  const [row] = await db
-    .select({
-      id: integrationEcoClaimLinks.id,
-      brandIntegrationId: integrationEcoClaimLinks.brandIntegrationId,
-      ecoClaimId: integrationEcoClaimLinks.ecoClaimId,
-      externalId: integrationEcoClaimLinks.externalId,
-      externalName: integrationEcoClaimLinks.externalName,
-      lastSyncedAt: integrationEcoClaimLinks.lastSyncedAt,
-    })
-    .from(integrationEcoClaimLinks)
-    .where(
-      and(
-        eq(integrationEcoClaimLinks.brandIntegrationId, brandIntegrationId),
-        eq(integrationEcoClaimLinks.externalId, externalId),
-      ),
-    )
-    .limit(1);
-  return row;
-}
-
-export async function createEcoClaimLink(
-  db: Database,
-  input: {
-    brandIntegrationId: string;
-    ecoClaimId: string;
-    externalId: string;
-    externalName?: string | null;
-  },
-) {
-  const [row] = await db
-    .insert(integrationEcoClaimLinks)
-    .values({
-      brandIntegrationId: input.brandIntegrationId,
-      ecoClaimId: input.ecoClaimId,
-      externalId: input.externalId,
-      externalName: input.externalName ?? null,
-      lastSyncedAt: new Date().toISOString(),
-    })
-    .returning({
-      id: integrationEcoClaimLinks.id,
-      ecoClaimId: integrationEcoClaimLinks.ecoClaimId,
-      externalId: integrationEcoClaimLinks.externalId,
-    });
-  return row;
-}
-
 // Certification Links
 export async function findCertificationLink(
   db: Database,
@@ -354,7 +300,10 @@ export async function findCertificationLink(
     .from(integrationCertificationLinks)
     .where(
       and(
-        eq(integrationCertificationLinks.brandIntegrationId, brandIntegrationId),
+        eq(
+          integrationCertificationLinks.brandIntegrationId,
+          brandIntegrationId,
+        ),
         eq(integrationCertificationLinks.externalId, externalId),
       ),
     )
@@ -417,23 +366,23 @@ export async function findMaterialByName(
 }
 
 /**
- * Find a facility by display name (case-insensitive).
+ * Find an operator by display name (case-insensitive).
  */
-export async function findFacilityByName(
+export async function findOperatorByName(
   db: Database,
   brandId: string,
   name: string,
 ) {
   const [row] = await db
     .select({
-      id: brandFacilities.id,
-      displayName: brandFacilities.displayName,
+      id: brandOperators.id,
+      displayName: brandOperators.displayName,
     })
-    .from(brandFacilities)
+    .from(brandOperators)
     .where(
       and(
-        eq(brandFacilities.brandId, brandId),
-        sql`LOWER(${brandFacilities.displayName}) = LOWER(${name})`,
+        eq(brandOperators.brandId, brandId),
+        sql`LOWER(${brandOperators.displayName}) = LOWER(${name})`,
       ),
     )
     .limit(1);
@@ -513,30 +462,6 @@ export async function findTagByName(
 }
 
 /**
- * Find an eco claim by claim text (case-insensitive).
- */
-export async function findEcoClaimByName(
-  db: Database,
-  brandId: string,
-  name: string,
-) {
-  const [row] = await db
-    .select({
-      id: brandEcoClaims.id,
-      claim: brandEcoClaims.claim,
-    })
-    .from(brandEcoClaims)
-    .where(
-      and(
-        eq(brandEcoClaims.brandId, brandId),
-        sql`LOWER(${brandEcoClaims.claim}) = LOWER(${name})`,
-      ),
-    )
-    .limit(1);
-  return row;
-}
-
-/**
  * Find a certification by title (case-insensitive).
  */
 export async function findCertificationByName(
@@ -559,12 +484,3 @@ export async function findCertificationByName(
     .limit(1);
   return row;
 }
-
-
-
-
-
-
-
-
-

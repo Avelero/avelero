@@ -1,4 +1,3 @@
-import { tasks } from "@trigger.dev/sdk/v3";
 import { eq } from "@v1/db/queries";
 /**
  * Brand theme router.
@@ -33,8 +32,6 @@ const getThemeProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
         themeConfig: {},
         googleFontsUrl: null,
         updatedAt: null,
-        screenshotDesktopPath: null,
-        screenshotMobilePath: null,
       };
     }
     return {
@@ -42,8 +39,6 @@ const getThemeProcedure = brandRequiredProcedure.query(async ({ ctx }) => {
       themeConfig: theme.themeConfig,
       googleFontsUrl: theme.googleFontsUrl,
       updatedAt: theme.updatedAt,
-      screenshotDesktopPath: theme.screenshotDesktopPath,
-      screenshotMobilePath: theme.screenshotMobilePath,
     };
   } catch (error) {
     throw wrapError(error, "Failed to fetch theme");
@@ -80,13 +75,6 @@ const updateConfigProcedure = brandRequiredProcedure
         }
       } catch {
         // Silently ignore revalidation errors - the config update already succeeded
-      }
-
-      // Trigger screenshot capture in background (fire-and-forget)
-      try {
-        await tasks.trigger("capture-theme-screenshot", { brandId });
-      } catch {
-        // Silently ignore - screenshot is optional enhancement
       }
 
       return result;

@@ -28,11 +28,6 @@ export const DEMO_DPP_DATA: DppData = {
   environmental: {
     carbonEmissions: { value: 8.2, unit: "kgCO2e" },
     waterUsage: { value: 2155, unit: "liters" },
-    ecoClaims: [
-      { ecoClaimId: 1, ecoClaim: "No harmful chemicals" },
-      { ecoClaimId: 2, ecoClaim: "Made with renewable energy" },
-      { ecoClaimId: 3, ecoClaim: "85% recycled material" },
-    ],
   },
 
   materials: {

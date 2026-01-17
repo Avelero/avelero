@@ -11,7 +11,7 @@ import { taxonomyExternalMappings } from "../../schema";
  */
 export async function getTaxonomyExternalMappingBySlug(
   db: Database,
-  slug: string
+  slug: string,
 ) {
   const [row] = await db
     .select({
@@ -31,4 +31,3 @@ export async function getTaxonomyExternalMappingBySlug(
 
   return row ?? null;
 }
-

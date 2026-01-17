@@ -222,8 +222,8 @@ export const AvatarUpload = forwardRef<HTMLInputElement, AvatarUploadProps>(
         {(() => {
           const hasInitialPath = Boolean(
             initialUrl &&
-            !/^https?:\/\//i.test(initialUrl) &&
-            !initialUrl.startsWith("/"),
+              !/^https?:\/\//i.test(initialUrl) &&
+              !initialUrl.startsWith("/"),
           );
           const isAwaitingSignedUrl = hasInitialPath && !avatar;
           const effectiveLoading = Boolean(isLoading) || isAwaitingSignedUrl;

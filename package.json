@@ -39,8 +39,5 @@
     "typecheck": "turbo typecheck",
     "seed:shopify": "bun run scripts/seed-shopify-integration.ts"
   },
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ]
+  "workspaces": ["packages/*", "apps/*"]
 }

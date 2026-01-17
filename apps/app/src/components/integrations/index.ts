@@ -8,7 +8,10 @@ export {
   IntegrationCard,
   IntegrationCardSkeleton,
 } from "./integration-card";
-export { IntegrationDetail, IntegrationDetailSkeleton } from "./integration-detail";
+export {
+  IntegrationDetail,
+  IntegrationDetailSkeleton,
+} from "./integration-detail";
 export { IntegrationsList } from "./integrations-list";
 export { IntegrationLogo } from "./integration-logo";
 

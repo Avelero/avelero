@@ -79,7 +79,9 @@ export function Footer() {
                 </ul>
               </div>
               <div>
-                <h6 className="text-small text-foreground/50 pb-1">Resources</h6>
+                <h6 className="text-small text-foreground/50 pb-1">
+                  Resources
+                </h6>
                 <ul>
                   <li>
                     <Link

@@ -91,7 +91,7 @@ export const valuesRouter = createTRPCRouter({
         // This is faster than querying unmapped values first to determine which types are needed
         const [
           materials,
-          facilities,
+          operators,
           manufacturers,
           categories,
           certifications,
@@ -103,10 +103,10 @@ export const valuesRouter = createTRPCRouter({
             columns: { id: true, name: true },
             orderBy: (materials, { asc }) => [asc(materials.name)],
           }),
-          brandCtx.db.query.brandFacilities.findMany({
-            where: (facilities, { eq }) => eq(facilities.brandId, brandId),
+          brandCtx.db.query.brandOperators.findMany({
+            where: (operators, { eq }) => eq(operators.brandId, brandId),
             columns: { id: true, displayName: true },
-            orderBy: (facilities, { asc }) => [asc(facilities.displayName)],
+            orderBy: (operators, { asc }) => [asc(operators.displayName)],
           }),
           brandCtx.db.query.brandManufacturers.findMany({
             where: (manufacturers, { eq }) =>
@@ -137,27 +137,44 @@ export const valuesRouter = createTRPCRouter({
 
         return {
           colors: [],
-          materials: materials.map((m) => ({ id: m.id, name: m.name })),
-          sizes: [],
-          facilities: facilities.map((f) => ({
-            id: f.id,
-            name: f.displayName,
-          })),
-          manufacturers: manufacturers.map((m) => ({
+          materials: materials.map((m: { id: string; name: string }) => ({
             id: m.id,
             name: m.name,
           })),
-          categories: categories.map((c) => ({ id: c.id, name: c.name })),
-          certifications: certifications.map((c) => ({
+          sizes: [],
+          operators: operators.map(
+            (op: { id: string; displayName: string }) => ({
+              id: op.id,
+              name: op.displayName,
+            }),
+          ),
+          manufacturers: manufacturers.map(
+            (m: { id: string; name: string }) => ({
+              id: m.id,
+              name: m.name,
+            }),
+          ),
+          categories: categories.map((c: { id: string; name: string }) => ({
             id: c.id,
-            name: c.title,
+            name: c.name,
           })),
-          seasons: seasons.map((s) => ({ id: s.id, name: s.name })),
-          tags: tags.map((t) => ({
-            id: t.id,
-            name: t.name,
-            hex: t.hex ?? undefined,
+          certifications: certifications.map(
+            (c: { id: string; title: string }) => ({
+              id: c.id,
+              name: c.title,
+            }),
+          ),
+          seasons: seasons.map((s: { id: string; name: string }) => ({
+            id: s.id,
+            name: s.name,
           })),
+          tags: tags.map(
+            (t: { id: string; name: string; hex: string | null }) => ({
+              id: t.id,
+              name: t.name,
+              hex: t.hex ?? undefined,
+            }),
+          ),
         };
       } catch (error) {
         throw wrapError(error, "Failed to get catalog data");

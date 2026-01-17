@@ -16,325 +16,347 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { eq, and } from "drizzle-orm";
 import {
-    products,
-    productVariants,
-    brandIntegrations,
-    integrationProductLinks,
-    integrationVariantLinks,
+  products,
+  productVariants,
+  brandIntegrations,
+  integrationProductLinks,
+  integrationVariantLinks,
 } from "@v1/db/schema";
 import {
-    testDb,
-    createTestBrand,
-    createTestBrandIntegration,
-    createDefaultFieldConfigs,
+  testDb,
+  createTestBrand,
+  createTestBrandIntegration,
+  createDefaultFieldConfigs,
 } from "@v1/db/testing";
 import {
-    setMockProducts,
-    clearMockProducts,
-    createMockProduct,
-    createMockVariant,
+  setMockProducts,
+  clearMockProducts,
+  createMockProduct,
+  createMockVariant,
 } from "@v1/testing/mocks/shopify";
 import { syncProducts } from "../../../src/sync/engine";
 import { createTestSyncContext } from "@v1/db/testing";
 
 describe("Promotion: Basic Flow", () => {
-    let brandId: string;
-    let primaryIntegrationId: string;
-    let secondaryIntegrationId: string;
+  let brandId: string;
+  let primaryIntegrationId: string;
+  let secondaryIntegrationId: string;
 
-    beforeEach(async () => {
-        clearMockProducts();
-        brandId = await createTestBrand("Test Brand");
+  beforeEach(async () => {
+    clearMockProducts();
+    brandId = await createTestBrand("Test Brand");
 
-        // Create primary integration
-        primaryIntegrationId = await createTestBrandIntegration(brandId, "shopify", {
-            isPrimary: true,
-        });
-        await createDefaultFieldConfigs(primaryIntegrationId);
+    // Create primary integration
+    primaryIntegrationId = await createTestBrandIntegration(
+      brandId,
+      "shopify",
+      {
+        isPrimary: true,
+      },
+    );
+    await createDefaultFieldConfigs(primaryIntegrationId);
 
-        // Create secondary integration (using different integration type to avoid unique constraint)
-        secondaryIntegrationId = await createTestBrandIntegration(brandId, "its-perfect", {
-            isPrimary: false,
-        });
-        await createDefaultFieldConfigs(secondaryIntegrationId);
+    // Create secondary integration (using different integration type to avoid unique constraint)
+    secondaryIntegrationId = await createTestBrandIntegration(
+      brandId,
+      "its-perfect",
+      {
+        isPrimary: false,
+      },
+    );
+    await createDefaultFieldConfigs(secondaryIntegrationId);
+  });
+
+  // =========================================================================
+  // Test: Primary and Secondary Integration Setup
+  // =========================================================================
+
+  it("verifies primary and secondary integration setup", async () => {
+    // Verify primary integration
+    const [primary] = await testDb
+      .select()
+      .from(brandIntegrations)
+      .where(eq(brandIntegrations.id, primaryIntegrationId))
+      .limit(1);
+
+    expect(primary).toBeDefined();
+    expect(primary!.isPrimary).toBe(true);
+
+    // Verify secondary integration
+    const [secondary] = await testDb
+      .select()
+      .from(brandIntegrations)
+      .where(eq(brandIntegrations.id, secondaryIntegrationId))
+      .limit(1);
+
+    expect(secondary).toBeDefined();
+    expect(secondary!.isPrimary).toBe(false);
+  });
+
+  // =========================================================================
+  // Test: Primary Sync Creates Products
+  // =========================================================================
+
+  it("primary sync creates new products", async () => {
+    // Arrange: Mock products for primary integration
+    const mockProducts = [
+      createMockProduct({
+        title: "Primary Product A",
+        variants: [
+          createMockVariant({ sku: "SKU-A1", barcode: "1111111111111" }),
+          createMockVariant({ sku: "SKU-A2", barcode: "1111111111112" }),
+        ],
+      }),
+      createMockProduct({
+        title: "Primary Product B",
+        variants: [
+          createMockVariant({ sku: "SKU-B1", barcode: "2222222222221" }),
+        ],
+      }),
+    ];
+    setMockProducts(mockProducts);
+
+    const ctx = createTestSyncContext({
+      brandId,
+      brandIntegrationId: primaryIntegrationId,
+      productsTotal: 2,
     });
 
-    // =========================================================================
-    // Test: Primary and Secondary Integration Setup
-    // =========================================================================
+    // Act: Run sync
+    const result = await syncProducts(ctx);
 
-    it("verifies primary and secondary integration setup", async () => {
-        // Verify primary integration
-        const [primary] = await testDb
-            .select()
-            .from(brandIntegrations)
-            .where(eq(brandIntegrations.id, primaryIntegrationId))
-            .limit(1);
+    // Assert: Products created
+    expect(result.success).toBe(true);
+    expect(result.productsCreated).toBe(2);
+    expect(result.variantsCreated).toBe(3);
 
-        expect(primary).toBeDefined();
-        expect(primary!.isPrimary).toBe(true);
+    // Verify products in database
+    const allProducts = await testDb
+      .select()
+      .from(products)
+      .where(eq(products.brandId, brandId));
 
-        // Verify secondary integration
-        const [secondary] = await testDb
-            .select()
-            .from(brandIntegrations)
-            .where(eq(brandIntegrations.id, secondaryIntegrationId))
-            .limit(1);
+    expect(allProducts).toHaveLength(2);
+    expect(
+      allProducts.every((p) => p.sourceIntegrationId === primaryIntegrationId),
+    ).toBe(true);
+  });
 
-        expect(secondary).toBeDefined();
-        expect(secondary!.isPrimary).toBe(false);
+  // =========================================================================
+  // Test: Secondary Sync Links to Existing Products
+  // =========================================================================
+
+  it("secondary sync links to existing products by barcode", async () => {
+    // Arrange: First, sync primary products
+    const primaryMockProducts = [
+      createMockProduct({
+        title: "Primary Product",
+        variants: [
+          createMockVariant({
+            sku: "PRIMARY-SKU",
+            barcode: "SHARED-BARCODE-001",
+          }),
+        ],
+      }),
+    ];
+    setMockProducts(primaryMockProducts);
+
+    const primaryCtx = createTestSyncContext({
+      brandId,
+      brandIntegrationId: primaryIntegrationId,
+      productsTotal: 1,
+    });
+    await syncProducts(primaryCtx);
+
+    // Clear and set up secondary mock products with same barcode
+    clearMockProducts();
+    const secondaryMockProducts = [
+      createMockProduct({
+        title: "Secondary Product (Same Barcode)",
+        variants: [
+          createMockVariant({
+            sku: "SECONDARY-SKU",
+            barcode: "SHARED-BARCODE-001",
+          }),
+        ],
+      }),
+    ];
+    setMockProducts(secondaryMockProducts);
+
+    const secondaryCtx = createTestSyncContext({
+      brandId,
+      brandIntegrationId: secondaryIntegrationId,
+      productsTotal: 1,
+      isPrimary: false,
+      matchIdentifier: "barcode",
     });
 
-    // =========================================================================
-    // Test: Primary Sync Creates Products
-    // =========================================================================
+    // Act: Run secondary sync
+    const result = await syncProducts(secondaryCtx);
 
-    it("primary sync creates new products", async () => {
-        // Arrange: Mock products for primary integration
-        const mockProducts = [
-            createMockProduct({
-                title: "Primary Product A",
-                variants: [
-                    createMockVariant({ sku: "SKU-A1", barcode: "1111111111111" }),
-                    createMockVariant({ sku: "SKU-A2", barcode: "1111111111112" }),
-                ],
-            }),
-            createMockProduct({
-                title: "Primary Product B",
-                variants: [
-                    createMockVariant({ sku: "SKU-B1", barcode: "2222222222221" }),
-                ],
-            }),
-        ];
-        setMockProducts(mockProducts);
+    // Assert: No new product created (linked to existing)
+    expect(result.success).toBe(true);
+    expect(result.productsCreated).toBe(0);
+    expect(result.variantsCreated).toBe(0);
 
-        const ctx = createTestSyncContext({
-            brandId,
-            brandIntegrationId: primaryIntegrationId,
-            productsTotal: 2,
-        });
+    // Verify only 1 product exists
+    const allProducts = await testDb
+      .select()
+      .from(products)
+      .where(eq(products.brandId, brandId));
+    expect(allProducts).toHaveLength(1);
 
-        // Act: Run sync
-        const result = await syncProducts(ctx);
+    // Verify both integrations have links to the same product
+    const primaryLinks = await testDb
+      .select()
+      .from(integrationProductLinks)
+      .where(
+        eq(integrationProductLinks.brandIntegrationId, primaryIntegrationId),
+      );
 
-        // Assert: Products created
-        expect(result.success).toBe(true);
-        expect(result.productsCreated).toBe(2);
-        expect(result.variantsCreated).toBe(3);
+    const secondaryLinks = await testDb
+      .select()
+      .from(integrationProductLinks)
+      .where(
+        eq(integrationProductLinks.brandIntegrationId, secondaryIntegrationId),
+      );
 
-        // Verify products in database
-        const allProducts = await testDb
-            .select()
-            .from(products)
-            .where(eq(products.brandId, brandId));
-
-        expect(allProducts).toHaveLength(2);
-        expect(allProducts.every(p => p.sourceIntegrationId === primaryIntegrationId)).toBe(true);
-    });
-
-    // =========================================================================
-    // Test: Secondary Sync Links to Existing Products
-    // =========================================================================
-
-    it("secondary sync links to existing products by barcode", async () => {
-        // Arrange: First, sync primary products
-        const primaryMockProducts = [
-            createMockProduct({
-                title: "Primary Product",
-                variants: [
-                    createMockVariant({ sku: "PRIMARY-SKU", barcode: "SHARED-BARCODE-001" }),
-                ],
-            }),
-        ];
-        setMockProducts(primaryMockProducts);
-
-        const primaryCtx = createTestSyncContext({
-            brandId,
-            brandIntegrationId: primaryIntegrationId,
-            productsTotal: 1,
-        });
-        await syncProducts(primaryCtx);
-
-        // Clear and set up secondary mock products with same barcode
-        clearMockProducts();
-        const secondaryMockProducts = [
-            createMockProduct({
-                title: "Secondary Product (Same Barcode)",
-                variants: [
-                    createMockVariant({ sku: "SECONDARY-SKU", barcode: "SHARED-BARCODE-001" }),
-                ],
-            }),
-        ];
-        setMockProducts(secondaryMockProducts);
-
-        const secondaryCtx = createTestSyncContext({
-            brandId,
-            brandIntegrationId: secondaryIntegrationId,
-            productsTotal: 1,
-            isPrimary: false,
-            matchIdentifier: "barcode",
-        });
-
-        // Act: Run secondary sync
-        const result = await syncProducts(secondaryCtx);
-
-        // Assert: No new product created (linked to existing)
-        expect(result.success).toBe(true);
-        expect(result.productsCreated).toBe(0);
-        expect(result.variantsCreated).toBe(0);
-
-        // Verify only 1 product exists
-        const allProducts = await testDb
-            .select()
-            .from(products)
-            .where(eq(products.brandId, brandId));
-        expect(allProducts).toHaveLength(1);
-
-        // Verify both integrations have links to the same product
-        const primaryLinks = await testDb
-            .select()
-            .from(integrationProductLinks)
-            .where(eq(integrationProductLinks.brandIntegrationId, primaryIntegrationId));
-
-        const secondaryLinks = await testDb
-            .select()
-            .from(integrationProductLinks)
-            .where(eq(integrationProductLinks.brandIntegrationId, secondaryIntegrationId));
-
-        expect(primaryLinks).toHaveLength(1);
-        expect(secondaryLinks).toHaveLength(1);
-        expect(primaryLinks[0]!.productId).toBe(secondaryLinks[0]!.productId);
-    });
+    expect(primaryLinks).toHaveLength(1);
+    expect(secondaryLinks).toHaveLength(1);
+    expect(primaryLinks[0]!.productId).toBe(secondaryLinks[0]!.productId);
+  });
 });
 
 describe("Promotion: Product Link Management", () => {
-    let brandId: string;
-    let integrationId: string;
+  let brandId: string;
+  let integrationId: string;
 
-    beforeEach(async () => {
-        clearMockProducts();
-        brandId = await createTestBrand("Test Brand");
-        integrationId = await createTestBrandIntegration(brandId, "shopify", {
-            isPrimary: true,
-        });
-        await createDefaultFieldConfigs(integrationId);
+  beforeEach(async () => {
+    clearMockProducts();
+    brandId = await createTestBrand("Test Brand");
+    integrationId = await createTestBrandIntegration(brandId, "shopify", {
+      isPrimary: true,
+    });
+    await createDefaultFieldConfigs(integrationId);
+  });
+
+  // =========================================================================
+  // Test: Product Links Created During Sync
+  // =========================================================================
+
+  it("creates product links with isCanonical=true for primary", async () => {
+    const mockProduct = createMockProduct({
+      title: "Test Product",
+      variants: [createMockVariant({ sku: "TEST-001" })],
+    });
+    setMockProducts([mockProduct]);
+
+    const ctx = createTestSyncContext({
+      brandId,
+      brandIntegrationId: integrationId,
+      productsTotal: 1,
     });
 
-    // =========================================================================
-    // Test: Product Links Created During Sync
-    // =========================================================================
+    await syncProducts(ctx);
 
-    it("creates product links with isCanonical=true for primary", async () => {
-        const mockProduct = createMockProduct({
-            title: "Test Product",
-            variants: [createMockVariant({ sku: "TEST-001" })],
-        });
-        setMockProducts([mockProduct]);
+    // Verify product link exists
+    const links = await testDb
+      .select()
+      .from(integrationProductLinks)
+      .where(eq(integrationProductLinks.brandIntegrationId, integrationId));
 
-        const ctx = createTestSyncContext({
-            brandId,
-            brandIntegrationId: integrationId,
-            productsTotal: 1,
-        });
+    expect(links).toHaveLength(1);
+    expect(links[0]!.isCanonical).toBe(true);
+  });
 
-        await syncProducts(ctx);
+  // =========================================================================
+  // Test: Variant Links Created During Sync
+  // =========================================================================
 
-        // Verify product link exists
-        const links = await testDb
-            .select()
-            .from(integrationProductLinks)
-            .where(eq(integrationProductLinks.brandIntegrationId, integrationId));
+  it("creates variant links for all variants", async () => {
+    const mockProduct = createMockProduct({
+      title: "Multi-Variant Product",
+      variants: [
+        createMockVariant({ sku: "VAR-001", barcode: "1111" }),
+        createMockVariant({ sku: "VAR-002", barcode: "2222" }),
+        createMockVariant({ sku: "VAR-003", barcode: "3333" }),
+      ],
+    });
+    setMockProducts([mockProduct]);
 
-        expect(links).toHaveLength(1);
-        expect(links[0]!.isCanonical).toBe(true);
+    const ctx = createTestSyncContext({
+      brandId,
+      brandIntegrationId: integrationId,
+      productsTotal: 1,
     });
 
-    // =========================================================================
-    // Test: Variant Links Created During Sync
-    // =========================================================================
+    await syncProducts(ctx);
 
-    it("creates variant links for all variants", async () => {
-        const mockProduct = createMockProduct({
-            title: "Multi-Variant Product",
-            variants: [
-                createMockVariant({ sku: "VAR-001", barcode: "1111" }),
-                createMockVariant({ sku: "VAR-002", barcode: "2222" }),
-                createMockVariant({ sku: "VAR-003", barcode: "3333" }),
-            ],
-        });
-        setMockProducts([mockProduct]);
+    // Verify variant links exist
+    const variantLinks = await testDb
+      .select()
+      .from(integrationVariantLinks)
+      .where(eq(integrationVariantLinks.brandIntegrationId, integrationId));
 
-        const ctx = createTestSyncContext({
-            brandId,
-            brandIntegrationId: integrationId,
-            productsTotal: 1,
-        });
-
-        await syncProducts(ctx);
-
-        // Verify variant links exist
-        const variantLinks = await testDb
-            .select()
-            .from(integrationVariantLinks)
-            .where(eq(integrationVariantLinks.brandIntegrationId, integrationId));
-
-        expect(variantLinks).toHaveLength(3);
-    });
+    expect(variantLinks).toHaveLength(3);
+  });
 });
 
 describe("Promotion: Empty Product Archival", () => {
-    let brandId: string;
-    let integrationId: string;
+  let brandId: string;
+  let integrationId: string;
 
-    beforeEach(async () => {
-        clearMockProducts();
-        brandId = await createTestBrand("Test Brand");
-        integrationId = await createTestBrandIntegration(brandId, "shopify", {
-            isPrimary: true,
-        });
-        await createDefaultFieldConfigs(integrationId);
+  beforeEach(async () => {
+    clearMockProducts();
+    brandId = await createTestBrand("Test Brand");
+    integrationId = await createTestBrandIntegration(brandId, "shopify", {
+      isPrimary: true,
     });
+    await createDefaultFieldConfigs(integrationId);
+  });
 
-    // =========================================================================
-    // Test: Products Without Variants Get Archived
-    // =========================================================================
+  // =========================================================================
+  // Test: Products Without Variants Get Archived
+  // =========================================================================
 
-    it("archives products that become empty after variant reassignment", async () => {
-        // Arrange: Create a product with no variants (should normally not happen, but test archival logic)
-        const [emptyProduct] = await testDb
-            .insert(products)
-            .values({
-                brandId,
-                name: "Empty Product",
-                productHandle: "empty-product",
-                source: "integration",
-                sourceIntegrationId: integrationId,
-                status: "published",
-            })
-            .returning();
+  it("archives products that become empty after variant reassignment", async () => {
+    // Arrange: Create a product with no variants (should normally not happen, but test archival logic)
+    const [emptyProduct] = await testDb
+      .insert(products)
+      .values({
+        brandId,
+        name: "Empty Product",
+        productHandle: "empty-product",
+        source: "integration",
+        sourceIntegrationId: integrationId,
+        status: "published",
+      })
+      .returning();
 
-        expect(emptyProduct).toBeDefined();
+    expect(emptyProduct).toBeDefined();
 
-        // Verify product exists with published status
-        const [before] = await testDb
-            .select()
-            .from(products)
-            .where(eq(products.id, emptyProduct!.id));
+    // Verify product exists with published status
+    const [before] = await testDb
+      .select()
+      .from(products)
+      .where(eq(products.id, emptyProduct!.id));
 
-        expect(before!.status).toBe("published");
+    expect(before!.status).toBe("published");
 
-        // Act: Import from "@v1/db/queries/integrations" and call archiveEmptyProducts
-        const { archiveEmptyProducts } = await import("@v1/db/queries/integrations");
-        const archivedCount = await archiveEmptyProducts(testDb, brandId);
+    // Act: Import from "@v1/db/queries/integrations" and call archiveEmptyProducts
+    const { archiveEmptyProducts } = await import(
+      "@v1/db/queries/integrations"
+    );
+    const archivedCount = await archiveEmptyProducts(testDb, brandId);
 
-        // Assert: Product was archived
-        expect(archivedCount).toBe(1);
+    // Assert: Product was archived (status set to unpublished)
+    expect(archivedCount).toBe(1);
 
-        const [after] = await testDb
-            .select()
-            .from(products)
-            .where(eq(products.id, emptyProduct!.id));
+    const [after] = await testDb
+      .select()
+      .from(products)
+      .where(eq(products.id, emptyProduct!.id));
 
-        expect(after!.status).toBe("archived");
-    });
+    expect(after!.status).toBe("unpublished");
+  });
 });

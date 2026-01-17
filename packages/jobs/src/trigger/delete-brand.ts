@@ -218,30 +218,6 @@ async function cleanupBrandStorage(brandId: string): Promise<void> {
       }
     }
 
-    // Clean up theme screenshots
-    const { data: themeFiles } = await supabase.storage
-      .from("theme-screenshots")
-      .list(brandId);
-
-    if (themeFiles && themeFiles.length > 0) {
-      const themePaths = themeFiles.map((file) => `${brandId}/${file.name}`);
-      const { error: themeError } = await supabase.storage
-        .from("theme-screenshots")
-        .remove(themePaths);
-
-      if (themeError) {
-        logger.warn("Failed to delete theme screenshots", {
-          brandId,
-          error: themeError.message,
-        });
-      } else {
-        logger.info("Deleted theme screenshots", {
-          brandId,
-          count: themePaths.length,
-        });
-      }
-    }
-
     // Clean up product images (if stored per-brand)
     const { data: productImages } = await supabase.storage
       .from("product-images")

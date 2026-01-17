@@ -1,6 +1,6 @@
 /**
  * Unmapped values query functions.
- * 
+ *
  * Handles retrieval of unmapped values that need user approval.
  */
 
@@ -8,14 +8,15 @@ import type { Database } from "../../../client";
 import type { PgTransaction } from "drizzle-orm/pg-core";
 import type { PostgresJsQueryResultHKT } from "drizzle-orm/postgres-js";
 import { getImportJobStatus } from "./jobs";
-import type {
-  UnmappedValue,
-  UnmappedValuesResponse,
-} from "./types";
+import type { UnmappedValue, UnmappedValuesResponse } from "./types";
 
 type DbOrTx =
   | Database
-  | PgTransaction<PostgresJsQueryResultHKT, typeof import("../../../schema"), any>;
+  | PgTransaction<
+      PostgresJsQueryResultHKT,
+      typeof import("../../../schema"),
+      any
+    >;
 
 /**
  * Gets unmapped values for a job that need definition
@@ -88,12 +89,3 @@ export async function getUnmappedValuesForJob(
     totalDefined,
   };
 }
-
-
-
-
-
-
-
-
-

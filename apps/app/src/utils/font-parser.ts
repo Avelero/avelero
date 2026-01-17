@@ -271,4 +271,3 @@ function getVariableWeightRange(
     max: Math.round(weightAxis.maxValue),
   };
 }
-

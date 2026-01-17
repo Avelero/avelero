@@ -1,13 +1,19 @@
 /**
  * Batch operations for sync engine.
- * 
+ *
  * These functions perform TRUE batch operations using single SQL statements
  * to minimize database round-trips during sync.
  */
 
 import { sql, inArray, eq } from "drizzle-orm";
 import type { Database } from "../../client";
-import { products, productVariants, productTags, integrationProductLinks, integrationVariantLinks } from "../../schema";
+import {
+  products,
+  productVariants,
+  productTags,
+  integrationProductLinks,
+  integrationVariantLinks,
+} from "../../schema";
 
 // =============================================================================
 // SQL SANITIZATION
@@ -19,9 +25,9 @@ import { products, productVariants, productTags, integrationProductLinks, integr
  */
 function escapeSqlString(value: string): string {
   return value
-    .replace(/\0/g, '')           // Remove null bytes
-    .replace(/\\/g, '\\\\')       // Escape backslashes
-    .replace(/'/g, "''");         // Escape single quotes (SQL standard)
+    .replace(/\0/g, "") // Remove null bytes
+    .replace(/\\/g, "\\\\") // Escape backslashes
+    .replace(/'/g, "''"); // Escape single quotes (SQL standard)
 }
 
 // =============================================================================
@@ -90,15 +96,15 @@ export interface TagAssignmentData {
 /**
  * Batch update multiple products in a SINGLE SQL query using UPDATE FROM VALUES.
  * This reduces N queries to 1 query.
- * 
+ *
  * NOTE: Only updates fields in the `products` table. Commercial fields (price, currency, etc.)
  * are in `product_commercial` and handled by `batchUpsertProductCommercial`.
- * 
+ *
  * @returns Number of products updated
  */
 export async function batchUpdateProducts(
   db: Database,
-  updates: ProductUpdateData[]
+  updates: ProductUpdateData[],
 ): Promise<number> {
   if (updates.length === 0) return 0;
 
@@ -109,29 +115,37 @@ export async function batchUpdateProducts(
 
   for (const update of updates) {
     const id = `'${update.id}'::uuid`;
-    const name = update.name !== undefined
-      ? `'${escapeSqlString(update.name)}'`
-      : 'NULL';
-    const description = update.description !== undefined
-      ? (update.description ? `'${escapeSqlString(update.description)}'` : 'NULL')
-      : 'NULL';
-    const categoryId = update.categoryId !== undefined
-      ? (update.categoryId ? `'${update.categoryId}'::uuid` : 'NULL::uuid')
-      : 'NULL::uuid';
+    const name =
+      update.name !== undefined ? `'${escapeSqlString(update.name)}'` : "NULL";
+    const description =
+      update.description !== undefined
+        ? update.description
+          ? `'${escapeSqlString(update.description)}'`
+          : "NULL"
+        : "NULL";
+    const categoryId =
+      update.categoryId !== undefined
+        ? update.categoryId
+          ? `'${update.categoryId}'::uuid`
+          : "NULL::uuid"
+        : "NULL::uuid";
 
     valueRows.push(`(${id}, ${name}, ${description}, ${categoryId})`);
   }
 
   // Determine which columns have updates
-  const hasName = updates.some(u => u.name !== undefined);
-  const hasDescription = updates.some(u => u.description !== undefined);
-  const hasCategoryId = updates.some(u => u.categoryId !== undefined);
+  const hasName = updates.some((u) => u.name !== undefined);
+  const hasDescription = updates.some((u) => u.description !== undefined);
+  const hasCategoryId = updates.some((u) => u.categoryId !== undefined);
 
   // Build SET clause
   const setClauses: string[] = [];
-  if (hasName) setClauses.push('name = COALESCE(v.name, p.name)');
-  if (hasDescription) setClauses.push('description = v.description');
-  if (hasCategoryId) setClauses.push('category_id = v.category_id');
+  if (hasName) setClauses.push("name = COALESCE(v.name, p.name)");
+  if (hasDescription) setClauses.push("description = v.description");
+  if (hasCategoryId) setClauses.push("category_id = v.category_id");
+  // Always mark products as having unpublished changes after sync
+  // User must manually publish to make changes public
+  setClauses.push("has_unpublished_changes = true");
   setClauses.push(`updated_at = '${now}'`);
 
   if (setClauses.length === 1) {
@@ -140,8 +154,8 @@ export async function batchUpdateProducts(
 
   const query = `
     UPDATE products AS p
-    SET ${setClauses.join(', ')}
-    FROM (VALUES ${valueRows.join(', ')}) AS v(id, name, description, category_id)
+    SET ${setClauses.join(", ")}
+    FROM (VALUES ${valueRows.join(", ")}) AS v(id, name, description, category_id)
     WHERE p.id = v.id
   `;
 
@@ -159,37 +173,41 @@ import { productCommercial } from "../../schema";
 /**
  * Batch upsert product commercial data (price, currency, webshopUrl, salesStatus).
  * Uses INSERT ON CONFLICT DO UPDATE for efficient upsert.
- * 
+ *
  * @returns Number of rows upserted
  */
 export async function batchUpsertProductCommercial(
   db: Database,
-  data: ProductCommercialUpsertData[]
+  data: ProductCommercialUpsertData[],
 ): Promise<number> {
   if (data.length === 0) return 0;
 
   const now = new Date().toISOString();
 
   // Filter to only records that have at least one commercial field set
-  const validData = data.filter(d =>
-    d.webshopUrl !== undefined ||
-    d.price !== undefined ||
-    d.currency !== undefined ||
-    d.salesStatus !== undefined
+  const validData = data.filter(
+    (d) =>
+      d.webshopUrl !== undefined ||
+      d.price !== undefined ||
+      d.currency !== undefined ||
+      d.salesStatus !== undefined,
   );
 
   if (validData.length === 0) return 0;
 
-  await db.insert(productCommercial)
-    .values(validData.map(d => ({
-      productId: d.productId,
-      webshopUrl: d.webshopUrl ?? null,
-      price: d.price ?? null,
-      currency: d.currency ?? null,
-      salesStatus: d.salesStatus ?? null,
-      createdAt: now,
-      updatedAt: now,
-    })))
+  await db
+    .insert(productCommercial)
+    .values(
+      validData.map((d) => ({
+        productId: d.productId,
+        webshopUrl: d.webshopUrl ?? null,
+        price: d.price ?? null,
+        currency: d.currency ?? null,
+        salesStatus: d.salesStatus ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
     .onConflictDoUpdate({
       target: productCommercial.productId,
       set: {
@@ -211,16 +229,16 @@ export async function batchUpsertProductCommercial(
 /**
  * Batch update multiple variants in a SINGLE SQL query using UPDATE FROM VALUES.
  * This is the key optimization - turns 2400 queries into 1 query.
- * 
+ *
  * Uses PostgreSQL's UPDATE FROM with VALUES clause to update all rows atomically.
- * 
+ *
  * Now supports variant-level override fields: name, description, imagePath, sourceIntegration, sourceExternalId.
- * 
+ *
  * @returns Number of variants updated
  */
 export async function batchUpdateVariants(
   db: Database,
-  updates: VariantUpdateData[]
+  updates: VariantUpdateData[],
 ): Promise<number> {
   if (updates.length === 0) return 0;
 
@@ -232,49 +250,80 @@ export async function batchUpdateVariants(
 
   for (const update of updates) {
     const id = `'${update.id}'::uuid`;
-    const sku = update.sku !== undefined
-      ? (update.sku ? `'${escapeSqlString(update.sku)}'` : 'NULL')
-      : 'NULL';
-    const barcode = update.barcode !== undefined
-      ? (update.barcode ? `'${escapeSqlString(update.barcode)}'` : 'NULL')
-      : 'NULL';
-    const name = update.name !== undefined
-      ? (update.name ? `'${escapeSqlString(update.name)}'` : 'NULL')
-      : 'NULL';
-    const description = update.description !== undefined
-      ? (update.description ? `'${escapeSqlString(update.description)}'` : 'NULL')
-      : 'NULL';
-    const imagePath = update.imagePath !== undefined
-      ? (update.imagePath ? `'${escapeSqlString(update.imagePath)}'` : 'NULL')
-      : 'NULL';
-    const sourceIntegration = update.sourceIntegration !== undefined
-      ? (update.sourceIntegration ? `'${escapeSqlString(update.sourceIntegration)}'` : 'NULL')
-      : 'NULL';
-    const sourceExternalId = update.sourceExternalId !== undefined
-      ? (update.sourceExternalId ? `'${escapeSqlString(update.sourceExternalId)}'` : 'NULL')
-      : 'NULL';
+    const sku =
+      update.sku !== undefined
+        ? update.sku
+          ? `'${escapeSqlString(update.sku)}'`
+          : "NULL"
+        : "NULL";
+    const barcode =
+      update.barcode !== undefined
+        ? update.barcode
+          ? `'${escapeSqlString(update.barcode)}'`
+          : "NULL"
+        : "NULL";
+    const name =
+      update.name !== undefined
+        ? update.name
+          ? `'${escapeSqlString(update.name)}'`
+          : "NULL"
+        : "NULL";
+    const description =
+      update.description !== undefined
+        ? update.description
+          ? `'${escapeSqlString(update.description)}'`
+          : "NULL"
+        : "NULL";
+    const imagePath =
+      update.imagePath !== undefined
+        ? update.imagePath
+          ? `'${escapeSqlString(update.imagePath)}'`
+          : "NULL"
+        : "NULL";
+    const sourceIntegration =
+      update.sourceIntegration !== undefined
+        ? update.sourceIntegration
+          ? `'${escapeSqlString(update.sourceIntegration)}'`
+          : "NULL"
+        : "NULL";
+    const sourceExternalId =
+      update.sourceExternalId !== undefined
+        ? update.sourceExternalId
+          ? `'${escapeSqlString(update.sourceExternalId)}'`
+          : "NULL"
+        : "NULL";
 
-    valueRows.push(`(${id}, ${sku}, ${barcode}, ${name}, ${description}, ${imagePath}, ${sourceIntegration}, ${sourceExternalId})`);
+    valueRows.push(
+      `(${id}, ${sku}, ${barcode}, ${name}, ${description}, ${imagePath}, ${sourceIntegration}, ${sourceExternalId})`,
+    );
   }
 
   // Determine which columns actually have updates (to avoid setting unchanged columns)
-  const hasSkuUpdates = updates.some(u => u.sku !== undefined);
-  const hasBarcodeUpdates = updates.some(u => u.barcode !== undefined);
-  const hasNameUpdates = updates.some(u => u.name !== undefined);
-  const hasDescriptionUpdates = updates.some(u => u.description !== undefined);
-  const hasImagePathUpdates = updates.some(u => u.imagePath !== undefined);
-  const hasSourceIntegrationUpdates = updates.some(u => u.sourceIntegration !== undefined);
-  const hasSourceExternalIdUpdates = updates.some(u => u.sourceExternalId !== undefined);
+  const hasSkuUpdates = updates.some((u) => u.sku !== undefined);
+  const hasBarcodeUpdates = updates.some((u) => u.barcode !== undefined);
+  const hasNameUpdates = updates.some((u) => u.name !== undefined);
+  const hasDescriptionUpdates = updates.some(
+    (u) => u.description !== undefined,
+  );
+  const hasImagePathUpdates = updates.some((u) => u.imagePath !== undefined);
+  const hasSourceIntegrationUpdates = updates.some(
+    (u) => u.sourceIntegration !== undefined,
+  );
+  const hasSourceExternalIdUpdates = updates.some(
+    (u) => u.sourceExternalId !== undefined,
+  );
 
   // Build SET clause - only update columns that have changes
   const setClauses: string[] = [];
-  if (hasSkuUpdates) setClauses.push('sku = v.sku');
-  if (hasBarcodeUpdates) setClauses.push('barcode = v.barcode');
-  if (hasNameUpdates) setClauses.push('name = v.name');
-  if (hasDescriptionUpdates) setClauses.push('description = v.description');
-  if (hasImagePathUpdates) setClauses.push('image_path = v.image_path');
-  if (hasSourceIntegrationUpdates) setClauses.push('source_integration = v.source_integration');
-  if (hasSourceExternalIdUpdates) setClauses.push('source_external_id = v.source_external_id');
+  if (hasSkuUpdates) setClauses.push("sku = v.sku");
+  if (hasBarcodeUpdates) setClauses.push("barcode = v.barcode");
+  if (hasNameUpdates) setClauses.push("name = v.name");
+  if (hasDescriptionUpdates) setClauses.push("description = v.description");
+  if (hasImagePathUpdates) setClauses.push("image_path = v.image_path");
+  if (hasSourceIntegrationUpdates)
+    setClauses.push("source_integration = v.source_integration");
+  if (hasSourceExternalIdUpdates)
+    setClauses.push("source_external_id = v.source_external_id");
   setClauses.push(`updated_at = '${now}'`);
 
   if (setClauses.length === 1) {
@@ -285,8 +334,8 @@ export async function batchUpdateVariants(
   // Execute single UPDATE FROM VALUES query
   const query = `
     UPDATE product_variants AS pv
-    SET ${setClauses.join(', ')}
-    FROM (VALUES ${valueRows.join(', ')}) AS v(id, sku, barcode, name, description, image_path, source_integration, source_external_id)
+    SET ${setClauses.join(", ")}
+    FROM (VALUES ${valueRows.join(", ")}) AS v(id, sku, barcode, name, description, image_path, source_integration, source_external_id)
     WHERE pv.id = v.id
   `;
 
@@ -295,7 +344,6 @@ export async function batchUpdateVariants(
   return updates.length;
 }
 
-
 // =============================================================================
 // BATCH SET PRODUCT TAGS
 // =============================================================================
@@ -303,19 +351,20 @@ export async function batchUpdateVariants(
 /**
  * Batch set tags for multiple products in minimal queries.
  * Deletes all existing tags for the products, then inserts all new ones.
- * 
+ *
  * @returns Number of tag assignments created
  */
 export async function batchSetProductTags(
   db: Database,
-  assignments: TagAssignmentData[]
+  assignments: TagAssignmentData[],
 ): Promise<number> {
   if (assignments.length === 0) return 0;
 
-  const productIds = assignments.map(a => a.productId);
+  const productIds = assignments.map((a) => a.productId);
 
   // Delete all existing tags for these products in one query
-  await db.delete(productTags)
+  await db
+    .delete(productTags)
     .where(inArray(productTags.productId, productIds));
 
   // Build all tag assignments to insert
@@ -340,33 +389,36 @@ export async function batchSetProductTags(
 
 /**
  * Batch upsert product links in a single query.
- * 
+ *
  * Includes isCanonical flag for multi-source integration support:
  * - Canonical sources (isCanonical=true) write to product-level
  * - Non-canonical sources (isCanonical=false) write to variant overrides
- * 
+ *
  * The isCanonical flag is only set on INSERT (new links), not on UPDATE.
  * This preserves the first link as canonical even if re-synced.
  */
 export async function batchUpsertProductLinks(
   db: Database,
-  links: ProductLinkUpsertData[]
+  links: ProductLinkUpsertData[],
 ): Promise<void> {
   if (links.length === 0) return;
 
   const now = new Date().toISOString();
 
-  await db.insert(integrationProductLinks)
-    .values(links.map(link => ({
-      brandIntegrationId: link.brandIntegrationId,
-      productId: link.productId,
-      externalId: link.externalId,
-      externalName: link.externalName,
-      lastSyncedHash: link.lastSyncedHash,
-      lastSyncedAt: now,
-      // isCanonical defaults to true for new links (backward compatibility)
-      isCanonical: link.isCanonical ?? true,
-    })))
+  await db
+    .insert(integrationProductLinks)
+    .values(
+      links.map((link) => ({
+        brandIntegrationId: link.brandIntegrationId,
+        productId: link.productId,
+        externalId: link.externalId,
+        externalName: link.externalName,
+        lastSyncedHash: link.lastSyncedHash,
+        lastSyncedAt: now,
+        // isCanonical defaults to true for new links (backward compatibility)
+        isCanonical: link.isCanonical ?? true,
+      })),
+    )
     .onConflictDoUpdate({
       target: [
         integrationProductLinks.brandIntegrationId,
@@ -412,7 +464,7 @@ export interface VariantAttributeAssignmentData {
  */
 export async function batchReplaceVariantAttributes(
   db: Database,
-  assignments: VariantAttributeAssignmentData[]
+  assignments: VariantAttributeAssignmentData[],
 ): Promise<number> {
   if (assignments.length === 0) return 0;
 
@@ -458,7 +510,6 @@ import {
   variantMaterials,
   variantWeight,
   variantJourneySteps,
-  variantEcoClaims,
 } from "../../schema";
 
 /**
@@ -482,7 +533,7 @@ export interface VariantCommercialUpsertData {
  */
 export async function batchUpsertVariantCommercial(
   db: Database,
-  data: VariantCommercialUpsertData[]
+  data: VariantCommercialUpsertData[],
 ): Promise<number> {
   if (data.length === 0) return 0;
 
@@ -494,7 +545,7 @@ export async function batchUpsertVariantCommercial(
       d.webshopUrl !== undefined ||
       d.price !== undefined ||
       d.currency !== undefined ||
-      d.salesStatus !== undefined
+      d.salesStatus !== undefined,
   );
 
   if (validData.length === 0) return 0;
@@ -512,7 +563,7 @@ export async function batchUpsertVariantCommercial(
         sourceExternalId: d.sourceExternalId ?? null,
         createdAt: now,
         updatedAt: now,
-      }))
+      })),
     )
     .onConflictDoUpdate({
       target: variantCommercial.variantId,
@@ -549,7 +600,7 @@ export interface VariantEnvironmentUpsertData {
  */
 export async function batchUpsertVariantEnvironment(
   db: Database,
-  data: VariantEnvironmentUpsertData[]
+  data: VariantEnvironmentUpsertData[],
 ): Promise<number> {
   if (data.length === 0) return 0;
 
@@ -557,7 +608,7 @@ export async function batchUpsertVariantEnvironment(
 
   // Filter to only records that have at least one environment field set
   const validData = data.filter(
-    (d) => d.carbonKgCo2e !== undefined || d.waterLiters !== undefined
+    (d) => d.carbonKgCo2e !== undefined || d.waterLiters !== undefined,
   );
 
   if (validData.length === 0) return 0;
@@ -573,7 +624,7 @@ export async function batchUpsertVariantEnvironment(
         sourceExternalId: d.sourceExternalId ?? null,
         createdAt: now,
         updatedAt: now,
-      }))
+      })),
     )
     .onConflictDoUpdate({
       target: variantEnvironment.variantId,
@@ -615,7 +666,7 @@ export interface VariantMaterialsReplacementData {
  */
 export async function batchReplaceVariantMaterials(
   db: Database,
-  data: VariantMaterialsReplacementData[]
+  data: VariantMaterialsReplacementData[],
 ): Promise<number> {
   if (data.length === 0) return 0;
 
@@ -676,7 +727,7 @@ export interface VariantWeightUpsertData {
  */
 export async function batchUpsertVariantWeight(
   db: Database,
-  data: VariantWeightUpsertData[]
+  data: VariantWeightUpsertData[],
 ): Promise<number> {
   if (data.length === 0) return 0;
 
@@ -684,7 +735,7 @@ export async function batchUpsertVariantWeight(
 
   // Filter to only records that have at least one weight field set
   const validData = data.filter(
-    (d) => d.weight !== undefined || d.weightUnit !== undefined
+    (d) => d.weight !== undefined || d.weightUnit !== undefined,
   );
 
   if (validData.length === 0) return 0;
@@ -700,7 +751,7 @@ export async function batchUpsertVariantWeight(
         sourceExternalId: d.sourceExternalId ?? null,
         createdAt: now,
         updatedAt: now,
-      }))
+      })),
     )
     .onConflictDoUpdate({
       target: variantWeight.variantId,
@@ -722,7 +773,7 @@ export async function batchUpsertVariantWeight(
 export interface VariantJourneyStepData {
   sortIndex: number;
   stepType: string;
-  facilityId: string;
+  operatorId: string;
 }
 
 /**
@@ -743,7 +794,7 @@ export interface VariantJourneyReplacementData {
  */
 export async function batchReplaceVariantJourney(
   db: Database,
-  data: VariantJourneyReplacementData[]
+  data: VariantJourneyReplacementData[],
 ): Promise<number> {
   if (data.length === 0) return 0;
 
@@ -760,7 +811,7 @@ export async function batchReplaceVariantJourney(
     variantId: string;
     sortIndex: number;
     stepType: string;
-    facilityId: string;
+    operatorId: string;
     sourceIntegration: string | null;
     sourceExternalId: string | null;
     createdAt: string;
@@ -772,7 +823,7 @@ export async function batchReplaceVariantJourney(
         variantId: item.variantId,
         sortIndex: step.sortIndex,
         stepType: step.stepType,
-        facilityId: step.facilityId,
+        operatorId: step.operatorId,
         sourceIntegration: item.sourceIntegration ?? null,
         sourceExternalId: item.sourceExternalId ?? null,
         createdAt: now,
@@ -787,71 +838,13 @@ export async function batchReplaceVariantJourney(
   return toInsert.length;
 }
 
-/**
- * Replacement data for variant eco claims.
- */
-export interface VariantEcoClaimsReplacementData {
-  variantId: string;
-  ecoClaimIds: string[];
-  sourceIntegration?: string | null;
-  sourceExternalId?: string | null;
-}
-
-/**
- * Batch replace variant eco claims.
- * Deletes existing eco claims for the given variants, then inserts new ones.
- *
- * @returns Number of eco claims created
- */
-export async function batchReplaceVariantEcoClaims(
-  db: Database,
-  data: VariantEcoClaimsReplacementData[]
-): Promise<number> {
-  if (data.length === 0) return 0;
-
-  const variantIds = data.map((d) => d.variantId);
-
-  // Delete all existing eco claims for these variants in one query
-  await db
-    .delete(variantEcoClaims)
-    .where(inArray(variantEcoClaims.variantId, variantIds));
-
-  // Build all eco claims to insert
-  const now = new Date().toISOString();
-  const toInsert: Array<{
-    variantId: string;
-    ecoClaimId: string;
-    sourceIntegration: string | null;
-    sourceExternalId: string | null;
-    createdAt: string;
-  }> = [];
-
-  for (const item of data) {
-    for (const ecoClaimId of item.ecoClaimIds) {
-      toInsert.push({
-        variantId: item.variantId,
-        ecoClaimId,
-        sourceIntegration: item.sourceIntegration ?? null,
-        sourceExternalId: item.sourceExternalId ?? null,
-        createdAt: now,
-      });
-    }
-  }
-
-  if (toInsert.length === 0) return 0;
-
-  await db.insert(variantEcoClaims).values(toInsert);
-
-  return toInsert.length;
-}
-
 // =============================================================================
 // BATCH UPSERT VARIANT DISPLAY OVERRIDES (Multi-Source Integration Support)
 // =============================================================================
 
 /**
  * Display override data for variant-level overrides.
- * 
+ *
  * These overrides are written when processing a non-canonical source product
  * within an integration (many-to-one mapping). The canonical source product
  * writes to product-level, while non-canonical sources write to variant overrides.
@@ -872,21 +865,21 @@ export interface VariantDisplayOverrideData {
 
 /**
  * Batch upsert variant display overrides.
- * 
+ *
  * Updates the name, description, imagePath, sourceIntegration, and sourceExternalId
  * columns on the product_variants table. These are variant-level overrides that
  * take precedence over product-level values for DPP rendering.
- * 
+ *
  * Used for multi-source integration support when a non-canonical source product
  * links to the same Avelero product as a canonical source.
- * 
+ *
  * @param db - Database connection
  * @param overrides - Array of variant display override data
  * @returns Number of variants updated
  */
 export async function batchUpsertVariantDisplayOverrides(
   db: Database,
-  overrides: VariantDisplayOverrideData[]
+  overrides: VariantDisplayOverrideData[],
 ): Promise<number> {
   if (overrides.length === 0) return 0;
 
@@ -895,7 +888,7 @@ export async function batchUpsertVariantDisplayOverrides(
     (d) =>
       d.name !== undefined ||
       d.description !== undefined ||
-      d.imagePath !== undefined
+      d.imagePath !== undefined,
   );
 
   if (validOverrides.length === 0) return 0;

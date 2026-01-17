@@ -1,15 +1,31 @@
 import { randomBytes } from "node:crypto";
 
-const NUMERIC_ALPHABET = "0123456789";
+/**
+ * Base62 alphabet for URL-safe UPIDs.
+ * Contains 0-9, A-Z, a-z (62 characters total).
+ */
+const BASE62_ALPHABET =
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-export function randomNumericString(length = 16): string {
+/**
+ * Generate a random base62 string suitable for use as a UPID.
+ * Uses 16 characters by default, providing ~95 bits of entropy.
+ */
+export function randomUpidString(length = 16): string {
   const bytes = randomBytes(length);
   let result = "";
   for (let i = 0; i < length; i += 1) {
-    const index = bytes[i]! % NUMERIC_ALPHABET.length;
-    result += NUMERIC_ALPHABET[index]!;
+    const index = bytes[i]! % BASE62_ALPHABET.length;
+    result += BASE62_ALPHABET[index]!;
   }
   return result;
+}
+
+/**
+ * @deprecated Use randomUpidString instead. This is kept for backwards compatibility.
+ */
+export function randomNumericString(length = 16): string {
+  return randomUpidString(length);
 }
 
 type IsTakenFn = (candidate: string) => Promise<boolean>;
@@ -27,7 +43,7 @@ export async function generateUniqueUpid({
   isTaken,
 }: GenerateUniqueUpidOptions): Promise<string> {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const candidate = randomNumericString(length);
+    const candidate = randomUpidString(length);
     if (!(await isTaken(candidate))) {
       return candidate;
     }
@@ -70,7 +86,7 @@ export async function generateUniqueUpids({
       maxBatchSize,
     );
     const candidates = Array.from({ length: batchSize }, () =>
-      randomNumericString(length),
+      randomUpidString(length),
     );
 
     const taken = await fetchTakenSet(candidates);

@@ -141,9 +141,7 @@ export const mdxComponents: MDXComponents = {
       {children}
     </thead>
   ),
-  tbody: ({ children, ...props }) => (
-    <tbody {...props}>{children}</tbody>
-  ),
+  tbody: ({ children, ...props }) => <tbody {...props}>{children}</tbody>,
   tr: ({ children, ...props }) => (
     <tr className="border-b border-border" {...props}>
       {children}

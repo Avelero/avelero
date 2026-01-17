@@ -98,7 +98,12 @@ export async function updateBrandManufacturer(
   const [row] = await db
     .update(brandManufacturers)
     .set(updateData)
-    .where(and(eq(brandManufacturers.id, id), eq(brandManufacturers.brandId, brandId)))
+    .where(
+      and(
+        eq(brandManufacturers.id, id),
+        eq(brandManufacturers.brandId, brandId),
+      ),
+    )
     .returning({ id: brandManufacturers.id });
   return row;
 }
@@ -110,16 +115,12 @@ export async function deleteBrandManufacturer(
 ) {
   const [row] = await db
     .delete(brandManufacturers)
-    .where(and(eq(brandManufacturers.id, id), eq(brandManufacturers.brandId, brandId)))
+    .where(
+      and(
+        eq(brandManufacturers.id, id),
+        eq(brandManufacturers.brandId, brandId),
+      ),
+    )
     .returning({ id: brandManufacturers.id });
   return row;
 }
-
-
-
-
-
-
-
-
-

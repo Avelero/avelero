@@ -1,37 +1,21 @@
 import { SetTheme } from "@/components/design/set-theme";
 import { HydrateClient, prefetch, trpc } from "@/trpc/server";
-import { buildPublicUrl } from "@/utils/storage-urls";
-import { BUCKETS } from "@/utils/storage-config";
 import { Skeleton } from "@v1/ui/skeleton";
 import { Suspense } from "react";
 import { connection } from "next/server";
 
 async function SetThemeWithData() {
   const trpc_client = await import("@/trpc/server").then((m) => m.trpc);
-  const queryClient = await import("@/trpc/server").then((m) => m.getQueryClient());
+  const queryClient = await import("@/trpc/server").then((m) =>
+    m.getQueryClient(),
+  );
 
   // Fetch theme data using the prefetched query
   const theme = await queryClient.fetchQuery(
     trpc_client.brand.theme.get.queryOptions(),
   );
 
-  // Build public URLs for screenshots
-  const screenshotDesktopUrl = buildPublicUrl(
-    BUCKETS.THEME_SCREENSHOTS,
-    theme.screenshotDesktopPath,
-  );
-  const screenshotMobileUrl = buildPublicUrl(
-    BUCKETS.THEME_SCREENSHOTS,
-    theme.screenshotMobilePath,
-  );
-
-  return (
-    <SetTheme
-      updatedAt={theme.updatedAt ?? new Date().toISOString()}
-      screenshotDesktopUrl={screenshotDesktopUrl}
-      screenshotMobileUrl={screenshotMobileUrl}
-    />
-  );
+  return <SetTheme updatedAt={theme.updatedAt ?? new Date().toISOString()} />;
 }
 
 export default async function DesignPage() {

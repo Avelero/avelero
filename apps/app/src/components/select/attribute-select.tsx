@@ -439,28 +439,28 @@ function CustomInlineExpanded({
                         isNewSlot
                           ? undefined
                           : (e) => {
-                            if (
-                              e.key === "Enter" ||
-                              (e.key === "Tab" && !e.shiftKey)
-                            ) {
-                              e.preventDefault();
-                              focusNewValueInput();
+                              if (
+                                e.key === "Enter" ||
+                                (e.key === "Tab" && !e.shiftKey)
+                              ) {
+                                e.preventDefault();
+                                focusNewValueInput();
+                              }
                             }
-                          }
                       }
                       onBlur={
                         isNewSlot
                           ? undefined
                           : () => {
-                            const current = (vals[i] ?? "").trim();
-                            if (current) return;
-                            const last = (
-                              lastNonEmptyByIdRef.current.get(id) ?? ""
-                            ).trim();
-                            if (last) {
-                              handleValueChange(i, last);
+                              const current = (vals[i] ?? "").trim();
+                              if (current) return;
+                              const last = (
+                                lastNonEmptyByIdRef.current.get(id) ?? ""
+                              ).trim();
+                              if (last) {
+                                handleValueChange(i, last);
+                              }
                             }
-                          }
                       }
                     />
                   );
@@ -627,7 +627,10 @@ export function AttributeSelect({
       });
 
       // Add to selected values
-      onChange({ ...dimension, values: [...dimension.values, createdValue.id] });
+      onChange({
+        ...dimension,
+        values: [...dimension.values, createdValue.id],
+      });
       toast.success(`Created "${valueName}"`);
     } catch (error) {
       console.error("Failed to create value:", error);

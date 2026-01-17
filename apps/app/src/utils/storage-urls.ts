@@ -15,7 +15,6 @@ const PUBLIC_BUCKETS = new Set<string>([
   BUCKETS.PRODUCTS,
   BUCKETS.DPP_ASSETS,
   BUCKETS.DPP_THEMES,
-  BUCKETS.THEME_SCREENSHOTS,
 ]);
 
 const PRIVATE_BUCKETS = new Set<string>([
@@ -40,7 +39,7 @@ export function encodePath(path: string | string[]): string {
 
 /**
  * Build a public URL for files in public buckets.
- * Use for: products, dpp-assets, dpp-themes, theme-screenshots
+ * Use for: products, dpp-assets, dpp-themes
  */
 export function buildPublicUrl(
   bucket: string,
@@ -152,4 +151,3 @@ export function extractPath(
 export function getSupabaseUrl(): string | null {
   return process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
 }
-

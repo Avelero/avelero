@@ -1,6 +1,6 @@
 /**
  * Import job management functions.
- * 
+ *
  * Handles creation, status updates, and retrieval of import jobs.
  */
 
@@ -19,7 +19,11 @@ import type {
 
 type DbOrTx =
   | Database
-  | PgTransaction<PostgresJsQueryResultHKT, typeof import("../../../schema"), any>;
+  | PgTransaction<
+      PostgresJsQueryResultHKT,
+      typeof import("../../../schema"),
+      any
+    >;
 
 /**
  * Creates a new import job record
@@ -256,8 +260,3 @@ export async function updateImportJobCorrectionFile(
     })
     .where(eq(importJobs.id, params.jobId));
 }
-
-
-
-
-

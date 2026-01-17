@@ -102,7 +102,7 @@ export function BasicInfoSection({
           className={cn(
             "h-9",
             nameError &&
-            "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
+              "border-destructive focus-visible:border-destructive focus-visible:ring-2 focus-visible:ring-destructive",
           )}
           aria-invalid={Boolean(nameError)}
           aria-required={required}

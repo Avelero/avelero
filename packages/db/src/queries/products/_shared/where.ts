@@ -1,6 +1,6 @@
 /**
  * Shared WHERE clause builders for product queries.
- * 
+ *
  * Provides reusable WHERE clause builders that combine brand scoping,
  * filter state conversion, search, and exclusion logic.
  */
@@ -15,13 +15,13 @@ import { safeNotInArray } from "../../_shared/selection.js";
 
 /**
  * Builds base WHERE clauses for product queries.
- * 
+ *
  * Includes:
  * - Brand ID scoping
  * - FilterState conversion
  * - Search term handling
  * - Optional excludeIds
- * 
+ *
  * @param db - Database instance
  * @param brandId - Brand identifier for scoping
  * @param filters - Filter options
@@ -60,4 +60,3 @@ export function buildProductWhereClauses(
 
   return whereClauses;
 }
-

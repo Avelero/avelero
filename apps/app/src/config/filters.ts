@@ -56,7 +56,15 @@ export const OPERATORS = {
     "is ancestor of",
   ] as const,
 
-  date: ["is", "is before", "is after", "is on or before", "is on or after", "is between", "relative"] as const,
+  date: [
+    "is",
+    "is before",
+    "is after",
+    "is on or before",
+    "is on or after",
+    "is between",
+    "relative",
+  ] as const,
 
   boolean: ["is true", "is false"] as const,
 } as const;
@@ -67,9 +75,7 @@ export const OPERATORS = {
 
 export const STATUS_OPTIONS: SelectOption[] = [
   { value: "published", label: "Published" },
-  { value: "scheduled", label: "Scheduled" },
   { value: "unpublished", label: "Unpublished" },
-  { value: "archived", label: "Archived" },
 ];
 
 export const RELATIVE_DATE_OPTIONS: SelectOption[] = [

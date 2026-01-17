@@ -1,4 +1,7 @@
-import { EditProductForm, ProductFormSkeleton } from "@/components/forms/passport";
+import {
+  EditProductForm,
+  ProductFormSkeleton,
+} from "@/components/forms/passport";
 import { HydrateClient, batchPrefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { connection } from "next/server";

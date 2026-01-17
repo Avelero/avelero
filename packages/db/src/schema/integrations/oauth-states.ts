@@ -36,8 +36,10 @@ export const oauthStates = pgTable(
     /** Shop domain for Shopify (e.g., "my-store.myshopify.com") */
     shopDomain: text("shop_domain"),
     /** When this state expires (default: 10 minutes from creation) */
-    expiresAt: timestamp("expires_at", { withTimezone: true, mode: "string" })
-      .notNull(),
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()
       .notNull(),

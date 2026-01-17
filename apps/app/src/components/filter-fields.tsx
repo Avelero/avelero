@@ -112,7 +112,11 @@ function FilterSingleSelect({
           <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
         </Button>
       </SelectTrigger>
-      <SelectContent shouldFilter={false} inline defaultValue={value ?? undefined}>
+      <SelectContent
+        shouldFilter={false}
+        inline
+        defaultValue={value ?? undefined}
+      >
         <SelectSearch
           placeholder="Search..."
           value={searchTerm}
@@ -719,7 +723,9 @@ function CategoryPopoverSelect({
                   className="w-full h-[30px] px-2 !type-small text-primary focus:outline-none flex items-center hover:bg-accent transition-colors"
                 >
                   <Icons.ChevronLeft className="h-4 w-4 text-secondary" />
-                  <span className="px-1 text-primary">{getBreadcrumbString()}</span>
+                  <span className="px-1 text-primary">
+                    {getBreadcrumbString()}
+                  </span>
                 </button>
               </div>
               <div className="h-px bg-accent-dark" />
@@ -761,7 +767,7 @@ function CategoryPopoverSelect({
                             isSelected
                               ? "bg-accent-blue text-brand"
                               : hoveredRow === categoryId &&
-                                hoveredArea === "selection"
+                                  hoveredArea === "selection"
                                 ? "bg-accent-dark text-primary"
                                 : "text-primary",
                           )}
@@ -1048,10 +1054,10 @@ function SeasonPopoverSelect({
                   const season = seasons.find((s) => s.id === option.value);
                   const seasonInfo = season
                     ? {
-                      startDate: season.startDate,
-                      endDate: season.endDate,
-                      isOngoing: season.isOngoing,
-                    }
+                        startDate: season.startDate,
+                        endDate: season.endDate,
+                        isOngoing: season.isOngoing,
+                      }
                     : null;
 
                   return (

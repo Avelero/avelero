@@ -3,7 +3,11 @@ export { FieldWrapper } from "./field-wrapper";
 export { EditorSection } from "./editor-section";
 
 // Style input components
-export { ColorInput, parseHexWithAlpha, combineHexWithAlpha } from "./color-input";
+export {
+  ColorInput,
+  parseHexWithAlpha,
+  combineHexWithAlpha,
+} from "./color-input";
 export { PixelInput } from "./pixel-input";
 export { RadiusInput } from "./radius-input";
 export { BorderInput } from "./border-input";

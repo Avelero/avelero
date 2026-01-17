@@ -22,7 +22,8 @@ export function IntegrationCard({
   integration,
   onConnect,
 }: IntegrationCardProps) {
-  const connectionStatus = integration.connectionStatus as IntegrationStatus | null;
+  const connectionStatus =
+    integration.connectionStatus as IntegrationStatus | null;
   const isConnected = !!connectionStatus;
 
   return (
@@ -37,9 +38,7 @@ export function IntegrationCard({
             )}
           </div>
           {integration.description && (
-            <p className="text-secondary text-sm">
-              {integration.description}
-            </p>
+            <p className="text-secondary text-sm">{integration.description}</p>
           )}
         </div>
       </div>
@@ -47,7 +46,9 @@ export function IntegrationCard({
       <div className="flex items-center gap-3">
         {isConnected ? (
           <Button variant="outline" asChild>
-            <Link href={`/settings/integrations/${integration.slug}`} prefetch>Manage</Link>
+            <Link href={`/settings/integrations/${integration.slug}`} prefetch>
+              Manage
+            </Link>
           </Button>
         ) : (
           <Button variant="outline" onClick={onConnect}>
@@ -58,7 +59,6 @@ export function IntegrationCard({
     </div>
   );
 }
-
 
 /**
  * Loading skeleton for integration cards.

@@ -1,32 +1,32 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "../../client";
-import { brandFacilities } from "../../schema";
+import { brandOperators } from "../../schema";
 import { buildPartialUpdate } from "../_shared/patch.js";
 
-export async function listFacilities(db: Database, brandId: string) {
+export async function listOperators(db: Database, brandId: string) {
   return db
     .select({
-      id: brandFacilities.id,
-      display_name: brandFacilities.displayName,
-      legal_name: brandFacilities.legalName,
-      email: brandFacilities.email,
-      phone: brandFacilities.phone,
-      website: brandFacilities.website,
-      address_line_1: brandFacilities.addressLine1,
-      address_line_2: brandFacilities.addressLine2,
-      city: brandFacilities.city,
-      state: brandFacilities.state,
-      zip: brandFacilities.zip,
-      country_code: brandFacilities.countryCode,
-      created_at: brandFacilities.createdAt,
-      updated_at: brandFacilities.updatedAt,
+      id: brandOperators.id,
+      display_name: brandOperators.displayName,
+      legal_name: brandOperators.legalName,
+      email: brandOperators.email,
+      phone: brandOperators.phone,
+      website: brandOperators.website,
+      address_line_1: brandOperators.addressLine1,
+      address_line_2: brandOperators.addressLine2,
+      city: brandOperators.city,
+      state: brandOperators.state,
+      zip: brandOperators.zip,
+      country_code: brandOperators.countryCode,
+      created_at: brandOperators.createdAt,
+      updated_at: brandOperators.updatedAt,
     })
-    .from(brandFacilities)
-    .where(eq(brandFacilities.brandId, brandId))
-    .orderBy(asc(brandFacilities.displayName));
+    .from(brandOperators)
+    .where(eq(brandOperators.brandId, brandId))
+    .orderBy(asc(brandOperators.displayName));
 }
 
-export async function createFacility(
+export async function createOperator(
   db: Database,
   brandId: string,
   input: {
@@ -44,7 +44,7 @@ export async function createFacility(
   },
 ) {
   const [row] = await db
-    .insert(brandFacilities)
+    .insert(brandOperators)
     .values({
       brandId,
       displayName: input.displayName,
@@ -59,11 +59,11 @@ export async function createFacility(
       zip: input.zip ?? null,
       countryCode: input.countryCode ?? null,
     })
-    .returning({ id: brandFacilities.id });
+    .returning({ id: brandOperators.id });
   return row;
 }
 
-export async function updateFacility(
+export async function updateOperator(
   db: Database,
   brandId: string,
   id: string,
@@ -96,34 +96,21 @@ export async function updateFacility(
   });
 
   const [row] = await db
-    .update(brandFacilities)
+    .update(brandOperators)
     .set(updateData)
-    .where(
-      and(eq(brandFacilities.id, id), eq(brandFacilities.brandId, brandId)),
-    )
-    .returning({ id: brandFacilities.id });
+    .where(and(eq(brandOperators.id, id), eq(brandOperators.brandId, brandId)))
+    .returning({ id: brandOperators.id });
   return row;
 }
 
-export async function deleteFacility(
+export async function deleteOperator(
   db: Database,
   brandId: string,
   id: string,
 ) {
   const [row] = await db
-    .delete(brandFacilities)
-    .where(
-      and(eq(brandFacilities.id, id), eq(brandFacilities.brandId, brandId)),
-    )
-    .returning({ id: brandFacilities.id });
+    .delete(brandOperators)
+    .where(and(eq(brandOperators.id, id), eq(brandOperators.brandId, brandId)))
+    .returning({ id: brandOperators.id });
   return row;
 }
-
-
-
-
-
-
-
-
-

@@ -16,7 +16,7 @@ import { brandIntegrations } from "./brand-integrations";
  * Stores field ownership and source options for each field per integration
  *
  * Field keys follow the pattern: `{entity}.{fieldName}`
- * Example: `product.name`, `material.recyclable`, `facility.city`
+ * Example: `product.name`, `material.recyclable`, `operator.city`
  *
  * @see plan-integration.md for architecture details
  */

@@ -49,7 +49,7 @@ export interface UpdateBrandAttributeInput {
  */
 export async function getBrandAttribute(
   db: Database,
-  attributeId: string
+  attributeId: string,
 ): Promise<BrandAttributeData | null> {
   const [row] = await db
     .select({
@@ -71,7 +71,7 @@ export async function getBrandAttribute(
  */
 export async function listBrandAttributes(
   db: Database,
-  brandId: string
+  brandId: string,
 ): Promise<BrandAttributeData[]> {
   return db
     .select({
@@ -92,7 +92,7 @@ export async function listBrandAttributes(
  */
 export async function listBrandAttributesWithTaxonomy(
   db: Database,
-  brandId: string
+  brandId: string,
 ): Promise<BrandAttributeWithTaxonomy[]> {
   const rows = await db
     .select({
@@ -109,7 +109,7 @@ export async function listBrandAttributesWithTaxonomy(
     .from(brandAttributes)
     .leftJoin(
       taxonomyAttributes,
-      eq(brandAttributes.taxonomyAttributeId, taxonomyAttributes.id)
+      eq(brandAttributes.taxonomyAttributeId, taxonomyAttributes.id),
     )
     .where(eq(brandAttributes.brandId, brandId))
     .orderBy(brandAttributes.name);
@@ -123,10 +123,10 @@ export async function listBrandAttributesWithTaxonomy(
     updatedAt: row.updatedAt,
     taxonomyAttribute: row.taxonomyId
       ? {
-        id: row.taxonomyId,
-        friendlyId: row.taxonomyFriendlyId!,
-        name: row.taxonomyName!,
-      }
+          id: row.taxonomyId,
+          friendlyId: row.taxonomyFriendlyId!,
+          name: row.taxonomyName!,
+        }
       : null,
   }));
 }
@@ -137,7 +137,7 @@ export async function listBrandAttributesWithTaxonomy(
 export async function createBrandAttribute(
   db: Database,
   brandId: string,
-  input: CreateBrandAttributeInput
+  input: CreateBrandAttributeInput,
 ): Promise<{ id: string } | null> {
   const [row] = await db
     .insert(brandAttributes)
@@ -157,7 +157,7 @@ export async function updateBrandAttribute(
   db: Database,
   brandId: string,
   id: string,
-  input: UpdateBrandAttributeInput
+  input: UpdateBrandAttributeInput,
 ): Promise<{ id: string } | null> {
   const updateData: Record<string, unknown> = {
     updatedAt: new Date().toISOString(),
@@ -172,7 +172,9 @@ export async function updateBrandAttribute(
   const [row] = await db
     .update(brandAttributes)
     .set(updateData)
-    .where(and(eq(brandAttributes.id, id), eq(brandAttributes.brandId, brandId)))
+    .where(
+      and(eq(brandAttributes.id, id), eq(brandAttributes.brandId, brandId)),
+    )
     .returning({ id: brandAttributes.id });
   return row ?? null;
 }
@@ -183,11 +185,13 @@ export async function updateBrandAttribute(
 export async function deleteBrandAttribute(
   db: Database,
   brandId: string,
-  id: string
+  id: string,
 ): Promise<{ id: string } | null> {
   const [row] = await db
     .delete(brandAttributes)
-    .where(and(eq(brandAttributes.id, id), eq(brandAttributes.brandId, brandId)))
+    .where(
+      and(eq(brandAttributes.id, id), eq(brandAttributes.brandId, brandId)),
+    )
     .returning({ id: brandAttributes.id });
   return row ?? null;
 }
@@ -202,7 +206,7 @@ export async function deleteBrandAttribute(
 export async function findBrandAttributeByName(
   db: Database,
   brandId: string,
-  name: string
+  name: string,
 ): Promise<BrandAttributeData | null> {
   const rows = await db
     .select({
@@ -227,7 +231,7 @@ export async function findBrandAttributeByName(
  */
 export async function loadBrandAttributesMap(
   db: Database,
-  brandId: string
+  brandId: string,
 ): Promise<Map<string, { id: string; taxonomyAttributeId: string | null }>> {
   const rows = await db
     .select({
@@ -238,7 +242,10 @@ export async function loadBrandAttributesMap(
     .from(brandAttributes)
     .where(eq(brandAttributes.brandId, brandId));
 
-  const map = new Map<string, { id: string; taxonomyAttributeId: string | null }>();
+  const map = new Map<
+    string,
+    { id: string; taxonomyAttributeId: string | null }
+  >();
   for (const row of rows) {
     map.set(row.name.toLowerCase(), {
       id: row.id,
@@ -253,7 +260,7 @@ export async function loadBrandAttributesMap(
  */
 export async function getBrandAttributesByIds(
   db: Database,
-  attributeIds: string[]
+  attributeIds: string[],
 ): Promise<BrandAttributeData[]> {
   if (attributeIds.length === 0) return [];
 
@@ -282,12 +289,14 @@ export async function getBrandAttributesByIds(
 export async function batchCreateBrandAttributes(
   db: Database,
   brandId: string,
-  names: string[]
+  names: string[],
 ): Promise<Map<string, string>> {
   if (names.length === 0) return new Map();
 
   // Deduplicate and normalize names
-  const uniqueNames = [...new Set(names.map((n) => n.trim()).filter((n) => n.length > 0))];
+  const uniqueNames = [
+    ...new Set(names.map((n) => n.trim()).filter((n) => n.length > 0)),
+  ];
   if (uniqueNames.length === 0) return new Map();
 
   // Insert with ON CONFLICT DO NOTHING
@@ -315,7 +324,7 @@ export async function ensureBrandAttributeForTaxonomy(
   db: Database,
   brandId: string,
   taxonomyAttributeId: string,
-  taxonomyAttributeName: string
+  taxonomyAttributeName: string,
 ): Promise<string> {
   // Use atomic upsert to handle concurrent inserts safely
   // ON CONFLICT DO NOTHING prevents race conditions
@@ -336,17 +345,16 @@ export async function ensureBrandAttributeForTaxonomy(
     .where(
       and(
         eq(brandAttributes.brandId, brandId),
-        eq(brandAttributes.name, taxonomyAttributeName)
-      )
+        eq(brandAttributes.name, taxonomyAttributeName),
+      ),
     )
     .limit(1);
 
   if (!result) {
     throw new Error(
-      `Failed to find or create brand attribute for taxonomy "${taxonomyAttributeName}"`
+      `Failed to find or create brand attribute for taxonomy "${taxonomyAttributeName}"`,
     );
   }
 
   return result.id;
 }
-

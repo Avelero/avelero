@@ -23,7 +23,12 @@ export const FIELD_GROUP_LABELS: Record<FieldGroup, string> = {
 };
 
 /** Order of groups to display */
-export const FIELD_GROUP_ORDER: FieldGroup[] = ["product", "variants", "organization", "sales"];
+export const FIELD_GROUP_ORDER: FieldGroup[] = [
+  "product",
+  "variants",
+  "organization",
+  "sales",
+];
 
 /**
  * Fields hidden from the main field config UI:
@@ -44,24 +49,31 @@ export const HIDDEN_FIELDS = new Set([
  * Custom labels for field display.
  * Overrides the default labels from the connector schema.
  */
-export const FIELD_UI_LABELS: Record<string, { label: string; description: string }> = {
+export const FIELD_UI_LABELS: Record<
+  string,
+  { label: string; description: string }
+> = {
   // Product
   "product.name": {
     label: "Title",
-    description: "Product title in your Shopify store, will be publicly visible",
+    description:
+      "Product title in your Shopify store, will be publicly visible",
   },
   "product.description": {
     label: "Description",
-    description: "Product description in your Shopify store, will be publicly visible",
+    description:
+      "Product description in your Shopify store, will be publicly visible",
   },
   "product.imagePath": {
     label: "Image",
-    description: "Main product image from your Shopify store, will be publicly visible",
+    description:
+      "Main product image from your Shopify store, will be publicly visible",
   },
   // Variants
   "variant.attributes": {
     label: "Attributes",
-    description: "Variant options from your Shopify store (Color, Size, etc.), will be publicly visible",
+    description:
+      "Variant options from your Shopify store (Color, Size, etc.), will be publicly visible",
   },
   "variant.sku": {
     label: "SKUs",
@@ -74,7 +86,8 @@ export const FIELD_UI_LABELS: Record<string, { label: string; description: strin
   // Organization
   "product.categoryId": {
     label: "Category",
-    description: "Shopify's category mapped to our category system, will be publicly visible",
+    description:
+      "Shopify's category mapped to our category system, will be publicly visible",
   },
   "product.tags": {
     label: "Tags",
@@ -83,11 +96,13 @@ export const FIELD_UI_LABELS: Record<string, { label: string; description: strin
   // Sales
   "product.webshopUrl": {
     label: "Webshop link",
-    description: "Link to your Shopify product page, used for the product carousel",
+    description:
+      "Link to your Shopify product page, used for the product carousel",
   },
   "product.price": {
     label: "Price",
-    description: "Price from your Shopify store in your main currency, used for the product carousel",
+    description:
+      "Price from your Shopify store in your main currency, used for the product carousel",
   },
 };
 
@@ -97,7 +112,7 @@ export const FIELD_UI_LABELS: Record<string, { label: string; description: strin
 
 /**
  * Map field keys to their UI groups for display.
- * 
+ *
  * Grouping:
  * - product: Title, Description, Image
  * - variants: Attributes, SKUs, Barcodes
@@ -133,9 +148,14 @@ export function getFieldGroup(fieldKey: string): FieldGroup {
  * Get UI label and description for a field.
  * Falls back to the connector schema values if not overridden.
  */
-export function getFieldUIInfo(field: ConnectorFieldMeta): { label: string; description: string } {
-  return FIELD_UI_LABELS[field.fieldKey] ?? {
-    label: field.label,
-    description: field.description,
-  };
+export function getFieldUIInfo(field: ConnectorFieldMeta): {
+  label: string;
+  description: string;
+} {
+  return (
+    FIELD_UI_LABELS[field.fieldKey] ?? {
+      label: field.label,
+      description: field.description,
+    }
+  );
 }

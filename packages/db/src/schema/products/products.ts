@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   numeric,
   pgPolicy,
@@ -41,7 +42,22 @@ export const products = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
+    /**
+     * Publication status of the product.
+     * Values: 'published' | 'unpublished'
+     * - 'unpublished': Draft, never been published (default)
+     * - 'published': Has been published at least once
+     * Note: Previous status values 'archived' and 'scheduled' have been removed.
+     */
     status: text("status").notNull().default("unpublished"),
+    /**
+     * Tracks whether the product has changes that haven't been published yet.
+     * Set to `true` on every save, set to `false` on publish.
+     * Used to enable/disable the "Publish" button in the UI.
+     */
+    hasUnpublishedChanges: boolean("has_unpublished_changes")
+      .notNull()
+      .default(false),
     /**
      * Source of product creation.
      * Values: 'manual' | 'integration'
@@ -113,7 +129,10 @@ export const products = pgTable(
       table.name.asc().nullsLast().op("text_ops"),
     ),
     // For queries filtering by name alone (count by name)
-    index("idx_products_name").using("btree", table.name.asc().nullsLast().op("text_ops")),
+    index("idx_products_name").using(
+      "btree",
+      table.name.asc().nullsLast().op("text_ops"),
+    ),
     // RLS policies - both members and owners can perform all operations
     pgPolicy("products_select_for_brand_members", {
       as: "permissive",

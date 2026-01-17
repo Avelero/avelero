@@ -7,7 +7,7 @@
  */
 export type EntityLinkType =
   | "material"
-  | "facility"
+  | "operator"
   | "manufacturer"
   | "season"
   | "tag"

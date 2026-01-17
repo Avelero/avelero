@@ -18,7 +18,12 @@ interface Props {
   isOwner?: boolean;
 }
 
-export function MembersHeader({ activeTab, onTabChange, brandId, isOwner = false }: Props) {
+export function MembersHeader({
+  activeTab,
+  onTabChange,
+  brandId,
+  isOwner = false,
+}: Props) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">

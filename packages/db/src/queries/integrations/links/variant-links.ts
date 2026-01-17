@@ -57,7 +57,7 @@ export interface UpdateVariantLinkInput {
 export async function findVariantLink(
   db: Database,
   brandIntegrationId: string,
-  externalId: string
+  externalId: string,
 ): Promise<VariantLinkData | null> {
   const [row] = await db
     .select({
@@ -77,8 +77,8 @@ export async function findVariantLink(
     .where(
       and(
         eq(integrationVariantLinks.brandIntegrationId, brandIntegrationId),
-        eq(integrationVariantLinks.externalId, externalId)
-      )
+        eq(integrationVariantLinks.externalId, externalId),
+      ),
     )
     .limit(1);
   return row ?? null;
@@ -90,7 +90,7 @@ export async function findVariantLink(
 export async function findVariantLinkByVariantId(
   db: Database,
   brandIntegrationId: string,
-  variantId: string
+  variantId: string,
 ): Promise<VariantLinkData | null> {
   const [row] = await db
     .select({
@@ -110,8 +110,8 @@ export async function findVariantLinkByVariantId(
     .where(
       and(
         eq(integrationVariantLinks.brandIntegrationId, brandIntegrationId),
-        eq(integrationVariantLinks.variantId, variantId)
-      )
+        eq(integrationVariantLinks.variantId, variantId),
+      ),
     )
     .limit(1);
   return row ?? null;
@@ -122,7 +122,7 @@ export async function findVariantLinkByVariantId(
  */
 export async function createVariantLink(
   db: Database,
-  input: CreateVariantLinkInput
+  input: CreateVariantLinkInput,
 ): Promise<VariantLinkData> {
   const [row] = await db
     .insert(integrationVariantLinks)
@@ -162,7 +162,7 @@ export async function createVariantLink(
 export async function updateVariantLink(
   db: Database,
   id: string,
-  input: UpdateVariantLinkInput
+  input: UpdateVariantLinkInput,
 ): Promise<VariantLinkData | null> {
   const [row] = await db
     .update(integrationVariantLinks)
@@ -195,7 +195,7 @@ export async function updateVariantLink(
  */
 export async function deleteVariantLink(
   db: Database,
-  id: string
+  id: string,
 ): Promise<boolean> {
   const result = await db
     .delete(integrationVariantLinks)
@@ -209,7 +209,7 @@ export async function deleteVariantLink(
  */
 export async function listVariantLinks(
   db: Database,
-  brandIntegrationId: string
+  brandIntegrationId: string,
 ): Promise<VariantLinkData[]> {
   return db
     .select({
@@ -234,7 +234,7 @@ export async function listVariantLinks(
  */
 export async function deleteAllVariantLinks(
   db: Database,
-  brandIntegrationId: string
+  brandIntegrationId: string,
 ): Promise<number> {
   const result = await db
     .delete(integrationVariantLinks)
@@ -254,7 +254,7 @@ export async function deleteAllVariantLinks(
 export async function batchFindVariantLinks(
   db: Database,
   brandIntegrationId: string,
-  externalIds: string[]
+  externalIds: string[],
 ): Promise<Map<string, VariantLinkData>> {
   if (externalIds.length === 0) {
     return new Map();
@@ -278,8 +278,8 @@ export async function batchFindVariantLinks(
     .where(
       and(
         eq(integrationVariantLinks.brandIntegrationId, brandIntegrationId),
-        inArray(integrationVariantLinks.externalId, externalIds)
-      )
+        inArray(integrationVariantLinks.externalId, externalIds),
+      ),
     );
 
   const map = new Map<string, VariantLinkData>();
@@ -295,7 +295,7 @@ export async function batchFindVariantLinks(
  */
 export async function batchUpsertVariantLinks(
   db: Database,
-  links: CreateVariantLinkInput[]
+  links: CreateVariantLinkInput[],
 ): Promise<void> {
   if (links.length === 0) return;
 
@@ -312,7 +312,7 @@ export async function batchUpsertVariantLinks(
         externalBarcode: link.externalBarcode ?? null,
         lastSyncedHash: link.lastSyncedHash ?? null,
         lastSyncedAt: new Date().toISOString(),
-      }))
+      })),
     )
     .onConflictDoUpdate({
       target: [
@@ -347,7 +347,7 @@ export interface PreFetchedVariant {
  */
 export async function batchFindVariantsByProductIds(
   db: Database,
-  productIds: string[]
+  productIds: string[],
 ): Promise<Map<string, PreFetchedVariant[]>> {
   if (productIds.length === 0) {
     return new Map();
@@ -401,18 +401,18 @@ export interface GlobalVariantIndex {
 /**
  * Fetch ALL variants for a brand and build global indices.
  * Returns Maps for O(1) lookup by SKU or barcode.
- * 
+ *
  * This enables variant matching across ALL products in the brand,
  * not just products that were matched in the current batch.
  * Critical for multi-source integration scenarios.
- * 
+ *
  * @param db - Database connection
  * @param brandId - Brand ID to fetch variants for
  * @returns GlobalVariantIndex with bySku and byBarcode maps
  */
 export async function batchFindAllBrandVariants(
   db: Database,
-  brandId: string
+  brandId: string,
 ): Promise<GlobalVariantIndex> {
   const rows = await db
     .select({
@@ -478,7 +478,7 @@ export async function findVariantsBySKUorBarcode(
   db: Database,
   brandId: string,
   skus: string[],
-  barcodes: string[]
+  barcodes: string[],
 ): Promise<VariantMatchResult[]> {
   // Filter out empty strings
   const validSkus = skus.filter((s) => s?.trim());
@@ -519,7 +519,7 @@ export async function findVariantsBySKUorBarcode(
 export async function findProductByVariantIdentifiers(
   db: Database,
   brandId: string,
-  identifiers: { sku?: string; barcode?: string }[]
+  identifiers: { sku?: string; barcode?: string }[],
 ): Promise<{ productId: string; productHandle: string } | null> {
   const barcodes = identifiers
     .map((i) => i.barcode)
@@ -530,9 +530,17 @@ export async function findProductByVariantIdentifiers(
 
   // Priority 1: Match by barcode (standardized, reliable)
   if (barcodes.length > 0) {
-    const barcodeMatches = await findVariantsBySKUorBarcode(db, brandId, [], barcodes);
+    const barcodeMatches = await findVariantsBySKUorBarcode(
+      db,
+      brandId,
+      [],
+      barcodes,
+    );
     if (barcodeMatches[0]) {
-      return { productId: barcodeMatches[0].productId, productHandle: barcodeMatches[0].productHandle };
+      return {
+        productId: barcodeMatches[0].productId,
+        productHandle: barcodeMatches[0].productHandle,
+      };
     }
   }
 
@@ -540,7 +548,10 @@ export async function findProductByVariantIdentifiers(
   if (skus.length > 0) {
     const skuMatches = await findVariantsBySKUorBarcode(db, brandId, skus, []);
     if (skuMatches[0]) {
-      return { productId: skuMatches[0].productId, productHandle: skuMatches[0].productHandle };
+      return {
+        productId: skuMatches[0].productId,
+        productHandle: skuMatches[0].productHandle,
+      };
     }
   }
 
@@ -575,10 +586,10 @@ export type MatchIdentifierType = "barcode" | "sku";
 
 /**
  * Batch find products by variant identifiers for multiple external products.
- * 
+ *
  * This eliminates N queries (one per product) with a single batch query.
  * Uses ONLY the configured matchIdentifier type (barcode OR sku), not both.
- * 
+ *
  * @param db - Database connection
  * @param brandId - Brand ID to search within
  * @param products - Array of external products with their variant identifiers
@@ -589,9 +600,12 @@ export async function batchFindProductsByIdentifiers(
   db: Database,
   brandId: string,
   products: ProductIdentifierBatch[],
-  matchIdentifier: MatchIdentifierType = "barcode"
+  matchIdentifier: MatchIdentifierType = "barcode",
 ): Promise<BatchIdentifierMatchResult> {
-  const matches = new Map<string, { productId: string; productHandle: string }>();
+  const matches = new Map<
+    string,
+    { productId: string; productHandle: string }
+  >();
 
   if (products.length === 0) {
     return { matches };
@@ -620,19 +634,25 @@ export async function batchFindProductsByIdentifiers(
   }
 
   // Single batch query for the configured identifier type
-  const variantMatches = matchIdentifier === "barcode"
-    ? await findVariantsBySKUorBarcode(db, brandId, [], identifiersToMatch)
-    : await findVariantsBySKUorBarcode(db, brandId, identifiersToMatch, []);
+  const variantMatches =
+    matchIdentifier === "barcode"
+      ? await findVariantsBySKUorBarcode(db, brandId, [], identifiersToMatch)
+      : await findVariantsBySKUorBarcode(db, brandId, identifiersToMatch, []);
 
   for (const match of variantMatches) {
-    const matchValue = matchIdentifier === "barcode" ? match.barcode : match.sku;
+    const matchValue =
+      matchIdentifier === "barcode" ? match.barcode : match.sku;
     if (!matchValue) continue;
 
-    const externalIds = identifierToExternalIds.get(matchValue.toLowerCase()) ?? [];
+    const externalIds =
+      identifierToExternalIds.get(matchValue.toLowerCase()) ?? [];
     for (const externalId of externalIds) {
       // First match wins (as specified in plan)
       if (!matches.has(externalId)) {
-        matches.set(externalId, { productId: match.productId, productHandle: match.productHandle });
+        matches.set(externalId, {
+          productId: match.productId,
+          productHandle: match.productHandle,
+        });
       }
     }
   }

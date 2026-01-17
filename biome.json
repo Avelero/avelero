@@ -62,9 +62,7 @@
       }
     },
     {
-      "include": [
-        "apps/web/src/app/updates/[slug]/page.tsx"
-      ],
+      "include": ["apps/web/src/app/updates/[slug]/page.tsx"],
       "linter": {
         "rules": {
           "security": {

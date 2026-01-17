@@ -16,12 +16,12 @@ import { cleanupTables } from "@v1/db/testing";
 // Clean database before all tests to ensure a fresh state
 // This handles cases where a previous run failed and left stale data
 beforeAll(async () => {
-    await cleanupTables();
+  await cleanupTables();
 });
 
 // Clean database after each test
 afterEach(async () => {
-    await cleanupTables();
+  await cleanupTables();
 });
 
 // NOTE: We intentionally do NOT call closeTestDb() here.

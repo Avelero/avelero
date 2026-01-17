@@ -114,11 +114,6 @@ function createMockCatalog(overrides?: Partial<BrandCatalog>): BrandCatalog {
       ["new arrival", "tag_002"],
       ["sale", "tag_003"],
     ]),
-    ecoClaims: new Map([
-      ["organic", "eco_001"],
-      ["fair trade", "eco_002"],
-      ["gots certified", "eco_003"],
-    ]),
     manufacturers: new Map([
       ["premium textiles co", "mfr_001"],
       ["eco fashion manufacturing", "mfr_002"],
@@ -414,22 +409,6 @@ describe("Catalog Loader - Entity Resolution", () => {
 
     it("returns undefined for unknown tag", () => {
       expect(catalog.tags.get("unknown tag")).toBeUndefined();
-    });
-  });
-
-  // ============================================================================
-  // Tests: Eco Claims Lookup
-  // ============================================================================
-
-  describe("Eco Claims Lookup", () => {
-    it("looks up eco claim by name", () => {
-      expect(catalog.ecoClaims.get("organic")).toBe("eco_001");
-      expect(catalog.ecoClaims.get("fair trade")).toBe("eco_002");
-      expect(catalog.ecoClaims.get("gots certified")).toBe("eco_003");
-    });
-
-    it("returns undefined for unknown eco claim", () => {
-      expect(catalog.ecoClaims.get("unknown claim")).toBeUndefined();
     });
   });
 

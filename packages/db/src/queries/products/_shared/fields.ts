@@ -29,10 +29,3 @@ export type ProductField = keyof typeof PRODUCT_FIELD_MAP;
 export const PRODUCT_FIELDS = Object.keys(
   PRODUCT_FIELD_MAP,
 ) as readonly ProductField[];
-
-
-
-
-
-
-

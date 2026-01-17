@@ -1,6 +1,6 @@
 /**
  * Shared SQL helper functions for common query patterns.
- * 
+ *
  * Provides reusable SQL fragments and utilities for case-insensitive
  * comparisons, existence checks, and other common patterns.
  */
@@ -9,7 +9,7 @@ import { sql, type SQL } from "drizzle-orm";
 
 /**
  * Creates a case-insensitive equality comparison.
- * 
+ *
  * @param column - Column to compare
  * @param value - Value to compare against
  * @returns SQL fragment for case-insensitive comparison
@@ -20,7 +20,7 @@ export function ciEquals(column: SQL, value: string): SQL {
 
 /**
  * Creates a case-insensitive LIKE comparison.
- * 
+ *
  * @param column - Column to search
  * @param pattern - Search pattern (should include % wildcards)
  * @returns SQL fragment for case-insensitive LIKE
@@ -32,7 +32,7 @@ export function ciLike(column: SQL, pattern: string): SQL {
 /**
  * Checks if a category name matches (case-insensitive) including parent categories.
  * Uses a recursive CTE to traverse up the category hierarchy.
- * 
+ *
  * @param categoryIdColumn - Column containing the category ID
  * @param categoriesTable - Categories table reference
  * @param searchTerm - Search term (will be wrapped with %)
@@ -60,12 +60,3 @@ export function existsCategoryNameSearch(
     WHERE name ILIKE ${term}
   )`;
 }
-
-
-
-
-
-
-
-
-

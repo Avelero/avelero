@@ -565,7 +565,7 @@ export function MaterialsSection({
       className={cn(
         "relative flex flex-col border border-border bg-background focus:outline-none",
         materialsError &&
-        "border-destructive focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-destructive",
+          "border-destructive focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-destructive",
       )}
       tabIndex={-1}
     >
@@ -607,10 +607,7 @@ export function MaterialsSection({
           </div>
         ) : (
           displayMaterials.map((material) => (
-            <div
-              key={material.id}
-              className="grid grid-cols-3"
-            >
+            <div key={material.id} className="grid grid-cols-3">
               {/* Material Column */}
               <div className="border-r border-b border-border">
                 <MaterialDropdown
@@ -631,13 +628,13 @@ export function MaterialsSection({
                         prev.map((m) =>
                           m.id === material.id
                             ? {
-                              ...m,
-                              id: selectedMaterial.id, // Update to real ID
-                              name: selectedMaterial.name,
-                              countries: selectedMaterial.country_of_origin
-                                ? [selectedMaterial.country_of_origin]
-                                : [],
-                            }
+                                ...m,
+                                id: selectedMaterial.id, // Update to real ID
+                                name: selectedMaterial.name,
+                                countries: selectedMaterial.country_of_origin
+                                  ? [selectedMaterial.country_of_origin]
+                                  : [],
+                              }
                             : m,
                         ),
                       );

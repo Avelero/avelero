@@ -9,10 +9,18 @@
 
 // Main form components
 export { CreateProductForm, EditProductForm } from "./product-form";
-export { VariantForm, EditVariantForm, CreateVariantForm } from "./variant-form";
+export {
+  VariantForm,
+  EditVariantForm,
+  CreateVariantForm,
+} from "./variant-form";
 
 // Action components
-export { FormActionsWrapper, ProductFormActions, VariantFormActions } from "./actions";
+export {
+  FormActionsWrapper,
+  ProductFormActions,
+  VariantFormActions,
+} from "./actions";
 
 // Sidebar components
 export { IdentifiersSidebar } from "./sidebars/identifiers-sidebar";

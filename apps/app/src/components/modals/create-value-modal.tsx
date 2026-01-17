@@ -87,7 +87,11 @@ function TaxonomyValueSelect({
             <Icons.ChevronDown className="h-4 w-4 text-tertiary" />
           </Button>
         </SelectTrigger>
-        <SelectContent shouldFilter={false} inline defaultValue={value ?? undefined}>
+        <SelectContent
+          shouldFilter={false}
+          inline
+          defaultValue={value ?? undefined}
+        >
           <SelectSearch
             placeholder="Search..."
             value={searchTerm}

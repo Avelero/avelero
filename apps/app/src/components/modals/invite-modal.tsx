@@ -217,10 +217,7 @@ export function InviteModal({ brandId }: { brandId: string }) {
           >
             Cancel
           </Button>
-          <Button
-            onClick={onSend}
-            disabled={isSubmitting}
-          >
+          <Button onClick={onSend} disabled={isSubmitting}>
             {isSubmitting
               ? "Sending..."
               : `Send invite${invitees.length > 1 ? "s" : ""}`}

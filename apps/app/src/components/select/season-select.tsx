@@ -87,9 +87,7 @@ export function SeasonSelect({
   const filteredSeasons = React.useMemo(() => {
     if (!searchTerm.trim()) return seasons;
     const query = searchTerm.toLowerCase().trim();
-    return seasons.filter((s: Season) =>
-      s.name.toLowerCase().includes(query),
-    );
+    return seasons.filter((s: Season) => s.name.toLowerCase().includes(query));
   }, [seasons, searchTerm]);
 
   const showCreateOption =
@@ -109,7 +107,10 @@ export function SeasonSelect({
           variant="outline"
           size="default"
           disabled={disabled}
-          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
+          className={cn(
+            "w-full justify-between data-[state=open]:bg-accent",
+            className,
+          )}
         >
           {value ? (
             <div className="flex items-center gap-2 px-1">

@@ -37,7 +37,6 @@ describe("getProductsForExport()", () => {
         { name: "Cotton", percentage: 60 },
         { name: "Polyester", percentage: 40 },
       ],
-      ecoClaims: ["GOTS Certified", "Fair Trade"],
       carbonKg: 5.5,
       waterLiters: 2500,
       weightGrams: 250,
@@ -87,10 +86,6 @@ describe("getProductsForExport()", () => {
         (m) => m.name === "Polyester" && m.percentage === 40,
       ),
     ).toBe(true);
-
-    // Eco-claims
-    expect(product.ecoClaims).toContain("GOTS Certified");
-    expect(product.ecoClaims).toContain("Fair Trade");
 
     // Environment
     expect(product.carbonKg).toBe(5.5);
@@ -209,7 +204,6 @@ describe("getProductsForExport()", () => {
     // Should have empty arrays and null values
     expect(product.tags).toEqual([]);
     expect(product.materials).toEqual([]);
-    expect(product.ecoClaims).toEqual([]);
     expect(product.carbonKg).toBeNull();
     expect(product.waterLiters).toBeNull();
     expect(product.weightGrams).toBeNull();

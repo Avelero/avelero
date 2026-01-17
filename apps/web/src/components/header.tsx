@@ -39,8 +39,9 @@ export function Header() {
     <>
       <div className="h-4" />
       <header
-        className={`sticky top-0 w-full flex items-center justify-between z-30 py-4 px-6 sm:px-16 backdrop-blur-md bg-background/80 transition-none ${isMobileMenuOpen ? "border-b-0 md:border-b" : "border-b"
-          }`}
+        className={`sticky top-0 w-full flex items-center justify-between z-30 py-4 px-6 sm:px-16 backdrop-blur-md bg-background/80 transition-none ${
+          isMobileMenuOpen ? "border-b-0 md:border-b" : "border-b"
+        }`}
         style={{
           borderBottomColor: `hsl(var(--border) / ${scrollProgress})`,
         }}
@@ -138,8 +139,9 @@ export function Header() {
 
       {/* Mobile Menu Overlay */}
       <div
-        className={`fixed inset-0 top-0 z-20 bg-background md:hidden pt-[calc(64px+1rem)] ${isMobileMenuOpen ? "block" : "hidden"
-          }`}
+        className={`fixed inset-0 top-0 z-20 bg-background md:hidden pt-[calc(64px+1rem)] ${
+          isMobileMenuOpen ? "block" : "hidden"
+        }`}
       >
         <nav className="h-full px-4 sm:px-16 py-8">
           <div className="flex flex-col items-start gap-6">

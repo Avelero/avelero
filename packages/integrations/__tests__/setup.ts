@@ -17,14 +17,14 @@ import { cleanupTables } from "@v1/db/testing";
 // Clean database before all tests to ensure a fresh state
 // This handles cases where a previous run failed and left stale data
 beforeAll(async () => {
-    await cleanupTables();
-    mockServer.listen({ onUnhandledRequest: "error" });
+  await cleanupTables();
+  mockServer.listen({ onUnhandledRequest: "error" });
 });
 
 // Reset handlers and clean database after each test
 afterEach(async () => {
-    mockServer.resetHandlers();
-    await cleanupTables();
+  mockServer.resetHandlers();
+  await cleanupTables();
 });
 
 // Close mock server after all tests
@@ -33,5 +33,5 @@ afterEach(async () => {
 // the first package to finish would close the connection, breaking remaining tests.
 // The connection will close automatically when the test process exits.
 afterAll(async () => {
-    mockServer.close();
+  mockServer.close();
 });

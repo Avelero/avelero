@@ -87,15 +87,22 @@ interface VariantFormProps {
   variantUpid?: string; // Optional for create mode
 }
 
-function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps) {
+function VariantFormInner({
+  mode,
+  productHandle,
+  variantUpid,
+}: VariantFormProps) {
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const { setIsSubmitting, setHasUnsavedChanges, formResetCallbackRef } = usePassportFormContext();
+  const { setIsSubmitting, setHasUnsavedChanges, formResetCallbackRef } =
+    usePassportFormContext();
   const isCreateMode = mode === "create";
 
   // State for create mode selections
-  const [selectedAttributes, setSelectedAttributes] = React.useState<Record<string, string>>({});
+  const [selectedAttributes, setSelectedAttributes] = React.useState<
+    Record<string, string>
+  >({});
 
   // Track if we're actively creating a variant (to suppress duplicate warning during submission)
   const [isCreatingVariant, setIsCreatingVariant] = React.useState(false);
@@ -152,12 +159,12 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
 
   // Create variant mutation
   const createVariantMutation = useMutation(
-    trpc.products.variants.create.mutationOptions()
+    trpc.products.variants.create.mutationOptions(),
   );
 
   // Create attribute value mutation (for resolving pending taxonomy values)
   const createAttributeValueMutation = useMutation(
-    trpc.catalog.attributeValues.create.mutationOptions()
+    trpc.catalog.attributeValues.create.mutationOptions(),
   );
 
   /**
@@ -169,7 +176,7 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
     async (selections: Record<string, string>): Promise<string[]> => {
       // Get existing brand values from cache for quick lookup
       const brandCatalogQuery = queryClient.getQueryData(
-        trpc.composite.catalogContent.queryKey()
+        trpc.composite.catalogContent.queryKey(),
       ) as any;
       const existingBrandValues: any[] = [
         ...(brandCatalogQuery?.brandCatalog?.attributeValues ?? []),
@@ -186,14 +193,17 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
           // Check if a brand value already exists for this taxonomy value
           const existingByTaxonomy = existingBrandValues.find(
             (v: any) =>
-              v.attributeId === attributeId && v.taxonomyValueId === taxonomyValueId
+              v.attributeId === attributeId &&
+              v.taxonomyValueId === taxonomyValueId,
           );
 
           if (existingByTaxonomy) {
             resolvedIds.push(existingByTaxonomy.id);
           } else {
             // Find the taxonomy value to get its name
-            const taxValue = taxValues.find((v: any) => v.id === taxonomyValueId);
+            const taxValue = taxValues.find(
+              (v: any) => v.id === taxonomyValueId,
+            );
             const name = taxValue?.name ?? taxonomyValueId;
 
             // Create the brand attribute value
@@ -218,10 +228,12 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
       }
 
       // Invalidate catalog cache if we created any new values
-      if (resolvedIds.some((id, idx) => {
-        const originalId = Object.values(selections)[idx];
-        return originalId?.startsWith("tax:");
-      })) {
+      if (
+        resolvedIds.some((id, idx) => {
+          const originalId = Object.values(selections)[idx];
+          return originalId?.startsWith("tax:");
+        })
+      ) {
         queryClient.invalidateQueries({
           queryKey: trpc.composite.catalogContent.queryKey(),
         });
@@ -229,7 +241,7 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
 
       return resolvedIds;
     },
-    [queryClient, trpc, createAttributeValueMutation]
+    [queryClient, trpc, createAttributeValueMutation],
   );
 
   // Build variants list for sidebar with prefetch capability
@@ -296,9 +308,7 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
   const productStatus =
     productData?.status === "published"
       ? ("published" as const)
-      : productData?.status === "archived"
-        ? ("archived" as const)
-        : ("draft" as const);
+      : ("unpublished" as const);
 
   // Form hook - only pass initialData when we have it (empty values = no override)
   const {
@@ -314,17 +324,18 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
     productHandle,
     variantUpid: variantUpid ?? "new",
     // Pass variant data (override values only, not resolved)
-    initialData: variantData && !isCreateMode
-      ? {
-        name: variantData.name,
-        description: variantData.description,
-        imagePath: variantData.imagePath,
-        environment: variantData.environment,
-        ecoClaims: variantData.ecoClaims,
-        materials: variantData.materials,
-        journey: variantData.journey,
-      }
-      : undefined,
+    initialData:
+      variantData && !isCreateMode
+        ? {
+            name: variantData.name,
+            description: variantData.description,
+            imagePath: variantData.imagePath,
+            environment: variantData.environment,
+            weight: null, // TODO: Add weight to VariantOverrideData when needed
+            materials: variantData.materials,
+            journey: variantData.journey,
+          }
+        : undefined,
     productDefaults: {
       name: productName,
       description: productDescription,
@@ -344,22 +355,10 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
   // Register reset callback with context so discard handler can reset form
   React.useEffect(() => {
     formResetCallbackRef.current = resetForm;
-    return () => { formResetCallbackRef.current = null; };
+    return () => {
+      formResetCallbackRef.current = null;
+    };
   }, [resetForm, formResetCallbackRef]);
-
-  // Eco claims handler
-  const handleEcoClaimsChange = React.useCallback<
-    React.Dispatch<React.SetStateAction<{ id: string; value: string }[]>>
-  >(
-    (value) => {
-      if (typeof value === "function") {
-        updateField("ecoClaims", value);
-      } else {
-        setField("ecoClaims", value);
-      }
-    },
-    [setField, updateField],
-  );
 
   // Form submit handler
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -382,9 +381,8 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
 
       try {
         // Resolve any pending taxonomy values (tax:-prefixed) to real brand value IDs
-        const resolvedAttributeValueIds = await resolvePendingAttributeValues(
-          selectedAttributes
-        );
+        const resolvedAttributeValueIds =
+          await resolvePendingAttributeValues(selectedAttributes);
 
         const result = await createVariantMutation.mutateAsync({
           productHandle,
@@ -396,7 +394,9 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
 
         if (result.data?.upid) {
           // Navigate immediately
-          router.push(`/passports/edit/${productHandle}/variant/${result.data.upid}`);
+          router.push(
+            `/passports/edit/${productHandle}/variant/${result.data.upid}`,
+          );
 
           // Invalidate queries in background (don't await - navigation takes priority)
           queryClient.invalidateQueries({
@@ -460,7 +460,7 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
             productName={productName}
             productImage={productImage}
             variants={variants}
-            selectedUpid={isCreateMode ? "" : (variantUpid ?? "")}
+            selectedUpid={isCreateMode ? "" : variantUpid ?? ""}
             onVariantHover={prefetchVariant}
           />
         }
@@ -515,8 +515,8 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
                 setCarbonKgCo2e={(value) => setField("carbonKgCo2e", value)}
                 waterLiters={state.waterLiters}
                 setWaterLiters={(value) => setField("waterLiters", value)}
-                ecoClaims={state.ecoClaims}
-                setEcoClaims={handleEcoClaimsChange}
+                weightGrams={state.weightGrams}
+                setWeightGrams={(value) => setField("weightGrams", value)}
                 carbonError={
                   state.hasAttemptedSubmit
                     ? state.validationErrors.carbonKgCo2e
@@ -525,6 +525,11 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
                 waterError={
                   state.hasAttemptedSubmit
                     ? state.validationErrors.waterLiters
+                    : undefined
+                }
+                weightError={
+                  state.hasAttemptedSubmit
+                    ? state.validationErrors.weightGrams
                     : undefined
                 }
               />
@@ -542,8 +547,21 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
 
               {/* Journey Block */}
               <JourneySection
-                journeySteps={state.journeySteps}
-                setJourneySteps={(value) => setField("journeySteps", value)}
+                journeySteps={state.journeySteps.map((s) => ({
+                  stepType: s.stepType,
+                  operatorIds: s.operatorId ? [s.operatorId] : [],
+                  sortIndex: s.sortIndex,
+                }))}
+                setJourneySteps={(value) =>
+                  setField(
+                    "journeySteps",
+                    value.map((v) => ({
+                      stepType: v.stepType,
+                      operatorId: v.operatorIds[0] || "",
+                      sortIndex: v.sortIndex,
+                    })),
+                  )
+                }
               />
             </>
           )
@@ -556,14 +574,25 @@ function VariantFormInner({ mode, productHandle, variantUpid }: VariantFormProps
 /**
  * EditVariantForm - Wrapper for editing an existing variant
  */
-export function EditVariantForm({ productHandle, variantUpid }: { productHandle: string; variantUpid: string }) {
-  return <VariantFormInner mode="edit" productHandle={productHandle} variantUpid={variantUpid} />;
+export function EditVariantForm({
+  productHandle,
+  variantUpid,
+}: { productHandle: string; variantUpid: string }) {
+  return (
+    <VariantFormInner
+      mode="edit"
+      productHandle={productHandle}
+      variantUpid={variantUpid}
+    />
+  );
 }
 
 /**
  * CreateVariantForm - Wrapper for creating a new variant
  */
-export function CreateVariantForm({ productHandle }: { productHandle: string }) {
+export function CreateVariantForm({
+  productHandle,
+}: { productHandle: string }) {
   return <VariantFormInner mode="create" productHandle={productHandle} />;
 }
 

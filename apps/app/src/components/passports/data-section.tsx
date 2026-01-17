@@ -5,10 +5,10 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { DataCard, DataCardSkeleton } from "../data-card";
 
 const CARD_CONFIG = [
+  { key: "total", title: "Total Passports" },
   { key: "published", title: "Published" },
-  { key: "scheduled", title: "Scheduled" },
   { key: "unpublished", title: "Unpublished" },
-  { key: "archived", title: "Archived" },
+  { key: "pendingChanges", title: "Pending Changes" },
 ] as const;
 
 export function DataSection() {
@@ -16,10 +16,10 @@ export function DataSection() {
   const { data } = useSuspenseQuery(trpc.summary.productStatus.queryOptions());
 
   const counts = {
+    total: data?.data?.total ?? 0,
     published: data?.data?.published ?? 0,
-    scheduled: data?.data?.scheduled ?? 0,
     unpublished: data?.data?.unpublished ?? 0,
-    archived: data?.data?.archived ?? 0,
+    pendingChanges: data?.data?.pendingChanges ?? 0,
   };
 
   return (

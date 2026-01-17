@@ -49,7 +49,10 @@ export async function listBrandIntegrations(db: Database, brandId: string) {
       },
     })
     .from(brandIntegrations)
-    .innerJoin(integrations, eq(brandIntegrations.integrationId, integrations.id))
+    .innerJoin(
+      integrations,
+      eq(brandIntegrations.integrationId, integrations.id),
+    )
     .where(eq(brandIntegrations.brandId, brandId))
     .orderBy(asc(integrations.name));
 }
@@ -87,7 +90,10 @@ export async function getBrandIntegration(
       },
     })
     .from(brandIntegrations)
-    .innerJoin(integrations, eq(brandIntegrations.integrationId, integrations.id))
+    .innerJoin(
+      integrations,
+      eq(brandIntegrations.integrationId, integrations.id),
+    )
     .where(
       and(eq(brandIntegrations.id, id), eq(brandIntegrations.brandId, brandId)),
     )
@@ -127,7 +133,10 @@ export async function getBrandIntegrationBySlug(
       },
     })
     .from(brandIntegrations)
-    .innerJoin(integrations, eq(brandIntegrations.integrationId, integrations.id))
+    .innerJoin(
+      integrations,
+      eq(brandIntegrations.integrationId, integrations.id),
+    )
     .where(
       and(
         eq(brandIntegrations.brandId, brandId),
@@ -259,7 +268,10 @@ export async function deleteBrandIntegrationByShopDomain(
   const [row] = await db
     .delete(brandIntegrations)
     .where(eq(brandIntegrations.shopDomain, shopDomain))
-    .returning({ id: brandIntegrations.id, brandId: brandIntegrations.brandId });
+    .returning({
+      id: brandIntegrations.id,
+      brandId: brandIntegrations.brandId,
+    });
   return row;
 }
 
@@ -267,7 +279,10 @@ export async function deleteBrandIntegrationByShopDomain(
  * List all integrations with their connection status for a brand.
  * Returns all available integrations, with connection info if connected.
  */
-export async function listIntegrationsWithStatus(db: Database, brandId: string) {
+export async function listIntegrationsWithStatus(
+  db: Database,
+  brandId: string,
+) {
   return db
     .select({
       // Integration details
@@ -302,7 +317,10 @@ export async function listIntegrationsWithStatus(db: Database, brandId: string) 
 /**
  * Get the current primary integration for a brand.
  */
-export async function getCurrentPrimaryIntegration(db: Database, brandId: string) {
+export async function getCurrentPrimaryIntegration(
+  db: Database,
+  brandId: string,
+) {
   const [row] = await db
     .select({
       id: brandIntegrations.id,
@@ -315,7 +333,10 @@ export async function getCurrentPrimaryIntegration(db: Database, brandId: string
       },
     })
     .from(brandIntegrations)
-    .innerJoin(integrations, eq(brandIntegrations.integrationId, integrations.id))
+    .innerJoin(
+      integrations,
+      eq(brandIntegrations.integrationId, integrations.id),
+    )
     .where(
       and(
         eq(brandIntegrations.brandId, brandId),
@@ -396,7 +417,10 @@ export async function listIntegrationsDueForSync(db: Database) {
       },
     })
     .from(brandIntegrations)
-    .innerJoin(integrations, eq(brandIntegrations.integrationId, integrations.id))
+    .innerJoin(
+      integrations,
+      eq(brandIntegrations.integrationId, integrations.id),
+    )
     .where(
       and(
         eq(brandIntegrations.status, "active"),
@@ -405,4 +429,3 @@ export async function listIntegrationsDueForSync(db: Database) {
       ),
     );
 }
-

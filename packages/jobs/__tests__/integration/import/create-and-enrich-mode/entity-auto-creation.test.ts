@@ -43,7 +43,6 @@ async function autoCreateMissingEntities(
   const uniqueSeasons = new Set<string>();
   const uniqueTags = new Set<string>();
   const uniqueMaterials = new Set<string>();
-  const uniqueEcoClaims = new Set<string>();
   const uniqueFacilities = new Set<string>();
   const uniqueAttributes = new Set<string>();
   const uniqueAttributeValues = new Map<string, Set<string>>(); // attrName -> values
@@ -60,9 +59,6 @@ async function autoCreateMissingEntities(
     }
     for (const material of product.materials) {
       uniqueMaterials.add(material.name.trim());
-    }
-    for (const claim of product.ecoClaims) {
-      uniqueEcoClaims.add(claim.trim());
     }
     for (const facilityName of Object.values(product.journeySteps)) {
       uniqueFacilities.add(facilityName.trim());
@@ -147,46 +143,28 @@ async function autoCreateMissingEntities(
     }
   }
 
-  // Auto-create missing eco claims
-  const missingEcoClaims = [...uniqueEcoClaims].filter(
-    (name) => !catalog.ecoClaims.has(normalizeKey(name)),
-  );
-  if (missingEcoClaims.length > 0) {
-    const inserted = await database
-      .insert(schema.brandEcoClaims)
-      .values(missingEcoClaims.map((claim) => ({ brandId, claim })))
-      .returning({
-        id: schema.brandEcoClaims.id,
-        claim: schema.brandEcoClaims.claim,
-      });
-
-    for (const e of inserted) {
-      catalog.ecoClaims.set(normalizeKey(e.claim), e.id);
-    }
-  }
-
-  // Auto-create missing facilities
-  const missingFacilities = [...uniqueFacilities].filter(
+  // Auto-create missing operators
+  const missingOperators = [...uniqueFacilities].filter(
     (name) => !catalog.operators.has(normalizeKey(name)),
   );
-  if (missingFacilities.length > 0) {
+  if (missingOperators.length > 0) {
     const inserted = await database
-      .insert(schema.brandFacilities)
+      .insert(schema.brandOperators)
       .values(
-        missingFacilities.map((name) => ({
+        missingOperators.map((name) => ({
           brandId,
           displayName: name,
           type: "MANUFACTURER" as const,
         })),
       )
       .returning({
-        id: schema.brandFacilities.id,
-        displayName: schema.brandFacilities.displayName,
+        id: schema.brandOperators.id,
+        displayName: schema.brandOperators.displayName,
       });
 
-    for (const f of inserted) {
-      if (f.displayName) {
-        catalog.operators.set(normalizeKey(f.displayName), f.id);
+    for (const op of inserted) {
+      if (op.displayName) {
+        catalog.operators.set(normalizeKey(op.displayName), op.id);
       }
     }
   }
@@ -488,11 +466,11 @@ describe("CREATE_AND_ENRICH Mode - Entity Auto-Creation", () => {
       );
 
       // Verify in database
-      const dbFacilities = await testDb.query.brandFacilities.findMany({
-        where: eq(schema.brandFacilities.brandId, brandId),
+      const dbOperators = await testDb.query.brandOperators.findMany({
+        where: eq(schema.brandOperators.brandId, brandId),
       });
-      expect(dbFacilities.length).toBe(2);
-      expect(dbFacilities.map((f) => f.displayName)).toContain(
+      expect(dbOperators.length).toBe(2);
+      expect(dbOperators.map((op) => op.displayName)).toContain(
         "New Cotton Farm Brazil",
       );
     });
@@ -640,41 +618,6 @@ describe("CREATE_AND_ENRICH Mode - Entity Auto-Creation", () => {
         where: eq(schema.brandManufacturers.brandId, brandId),
       });
       expect(dbManufacturers.length).toBe(1);
-    });
-  });
-
-  describe("Eco Claims Auto-Creation", () => {
-    it("auto-creates eco claim when not found in catalog", async () => {
-      const productWithNewEcoClaim = {
-        ...basicProduct,
-        ecoClaims: ["Carbon Neutral", "Vegan Friendly"],
-      };
-
-      const excelBuffer = await ExcelBuilder.create({
-        products: [productWithNewEcoClaim],
-      });
-
-      const parseResult = await parseExcelFile(excelBuffer);
-      const catalog = await loadBrandCatalog(testDb, brandId);
-
-      expect(catalog.ecoClaims.has("carbon neutral")).toBe(false);
-      expect(catalog.ecoClaims.has("vegan friendly")).toBe(false);
-
-      const updatedCatalog = await autoCreateMissingEntities(
-        testDb,
-        brandId,
-        parseResult.products,
-        catalog,
-      );
-
-      expect(updatedCatalog.ecoClaims.has("carbon neutral")).toBe(true);
-      expect(updatedCatalog.ecoClaims.has("vegan friendly")).toBe(true);
-
-      // Verify in database
-      const dbEcoClaims = await testDb.query.brandEcoClaims.findMany({
-        where: eq(schema.brandEcoClaims.brandId, brandId),
-      });
-      expect(dbEcoClaims.length).toBe(2);
     });
   });
 

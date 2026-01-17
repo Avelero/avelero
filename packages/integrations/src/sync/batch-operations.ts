@@ -12,7 +12,10 @@ import {
   batchCreateBrandAttributeValues,
   ensureBrandAttributeForTaxonomy,
 } from "@v1/db/queries/catalog";
-import { getTaxonomyAttributeByFriendlyId, listTaxonomyValuesByAttribute } from "@v1/db/queries/taxonomy";
+import {
+  getTaxonomyAttributeByFriendlyId,
+  listTaxonomyValuesByAttribute,
+} from "@v1/db/queries/taxonomy";
 import type { FetchedProductBatch } from "../types";
 import { parseSelectedOptions } from "../connectors/shopify/schema";
 import type { EffectiveFieldMapping } from "./processor";
@@ -67,7 +70,7 @@ export interface BatchCreationStats {
  */
 export function extractUniqueEntitiesFromBatch(
   batch: FetchedProductBatch,
-  mappings: EffectiveFieldMapping[]
+  mappings: EffectiveFieldMapping[],
 ): ExtractedEntities {
   const tags = new Set<string>();
   const productIds = new Set<string>();
@@ -77,7 +80,7 @@ export function extractUniqueEntitiesFromBatch(
   const attributeTaxonomyHints = new Map<string, string | null>();
 
   const variantAttributesEnabled = mappings.some(
-    (m) => m.fieldKey === "variant.attributes"
+    (m) => m.fieldKey === "variant.attributes",
   );
 
   for (const product of batch) {
@@ -116,7 +119,14 @@ export function extractUniqueEntitiesFromBatch(
     }
   }
 
-  return { tags, productIds, variantIds, attributeNames, attributeValuesByName, attributeTaxonomyHints };
+  return {
+    tags,
+    productIds,
+    variantIds,
+    attributeNames,
+    attributeValuesByName,
+    attributeTaxonomyHints,
+  };
 }
 
 // =============================================================================
@@ -144,7 +154,7 @@ export async function createMissingEntities(
   brandId: string,
   extracted: ExtractedEntities,
   caches: SyncCaches,
-  isPrimary = true
+  isPrimary = true,
 ): Promise<BatchCreationStats> {
   const stats: BatchCreationStats = {
     tagsCreated: 0,
@@ -198,11 +208,15 @@ export async function createMissingEntities(
 
       if (taxonomyFriendlyId) {
         // We know this attribute should be linked to a taxonomy attribute
-        const taxonomyAttr = await getTaxonomyAttributeByFriendlyId(db, taxonomyFriendlyId);
+        const taxonomyAttr = await getTaxonomyAttributeByFriendlyId(
+          db,
+          taxonomyFriendlyId,
+        );
         if (taxonomyAttr) {
           // Check if this attribute was already in the cache before calling ensureBrandAttributeForTaxonomy
           // to determine if we're creating vs retrieving
-          const wasAlreadyCached = caches.attributes.has(rawName.toLowerCase()) ||
+          const wasAlreadyCached =
+            caches.attributes.has(rawName.toLowerCase()) ||
             caches.attributes.has(taxonomyFriendlyId);
 
           const id = await ensureBrandAttributeForTaxonomy(
@@ -230,15 +244,25 @@ export async function createMissingEntities(
     }
 
     if (plainAttributeNames.length > 0) {
-      const attrMap = await batchCreateBrandAttributes(db, brandId, plainAttributeNames);
-      const newAttrNames = new Set(plainAttributeNames.map((n) => n.toLowerCase()));
+      const attrMap = await batchCreateBrandAttributes(
+        db,
+        brandId,
+        plainAttributeNames,
+      );
+      const newAttrNames = new Set(
+        plainAttributeNames.map((n) => n.toLowerCase()),
+      );
       stats.attributesCreated += attrMap.size;
       bulkCacheAttributes(caches, attrMap, newAttrNames);
     }
   }
 
   // Find missing attribute values
-  const missingValues: Array<{ attributeId: string; name: string; taxonomyValueId?: string | null }> = [];
+  const missingValues: Array<{
+    attributeId: string;
+    name: string;
+    taxonomyValueId?: string | null;
+  }> = [];
   for (const [attrName, values] of extracted.attributeValuesByName) {
     const attrId = getCachedAttributeId(caches, attrName);
     if (!attrId) continue; // Should not happen after creating attributes
@@ -256,8 +280,13 @@ export async function createMissingEntities(
 
     for (const valueName of values) {
       if (!getCachedAttributeValueId(caches, attrId, valueName)) {
-        const taxonomyValueId = taxonomyValuesByName.get(valueName.trim().toLowerCase()) ?? null;
-        missingValues.push({ attributeId: attrId, name: valueName, taxonomyValueId });
+        const taxonomyValueId =
+          taxonomyValuesByName.get(valueName.trim().toLowerCase()) ?? null;
+        missingValues.push({
+          attributeId: attrId,
+          name: valueName,
+          taxonomyValueId,
+        });
       }
     }
   }
@@ -267,7 +296,7 @@ export async function createMissingEntities(
     const valueMap = await batchCreateBrandAttributeValues(
       db,
       brandId,
-      missingValues
+      missingValues,
     );
     stats.attributeValuesCreated = missingValues.length;
     bulkCacheAttributeValues(caches, valueMap);
@@ -286,10 +315,26 @@ export async function createMissingEntities(
  */
 function getRandomHex(): string {
   const colors = [
-    "FF6B6B", "4ECDC4", "45B7D1", "96CEB4", "FFEAA7",
-    "DDA0DD", "98D8C8", "F7DC6F", "BB8FCE", "85C1E9",
-    "F8B500", "00CED1", "FF69B4", "32CD32", "FFD700",
-    "FF7F50", "87CEEB", "DA70D6", "8FBC8F", "E6E6FA",
+    "FF6B6B",
+    "4ECDC4",
+    "45B7D1",
+    "96CEB4",
+    "FFEAA7",
+    "DDA0DD",
+    "98D8C8",
+    "F7DC6F",
+    "BB8FCE",
+    "85C1E9",
+    "F8B500",
+    "00CED1",
+    "FF69B4",
+    "32CD32",
+    "FFD700",
+    "FF7F50",
+    "87CEEB",
+    "DA70D6",
+    "8FBC8F",
+    "E6E6FA",
   ] as const;
   return colors[Math.floor(Math.random() * colors.length)] ?? "FF6B6B";
 }

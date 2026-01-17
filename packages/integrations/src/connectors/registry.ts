@@ -49,4 +49,3 @@ export function registerConnector(connector: RegisteredConnector): void {
 export function unregisterConnector(slug: string): void {
   registry.delete(slug);
 }
-

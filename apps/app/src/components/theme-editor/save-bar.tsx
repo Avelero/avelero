@@ -38,9 +38,7 @@ export function SaveBar() {
         "flex absolute bottom-6 items-center justify-between rounded-full border bg-background pl-4 pr-2 py-2 max-w-[440px] w-full z-20",
         "shadow-[0_6px_18px_rgba(0,0,0,0.02),0_3px_9px_rgba(0,0,0,0.04),0_1px_1px_rgba(0,0,0,0.04)]",
         "transition-[transform,opacity] duration-[250ms] ease-out origin-bottom",
-        isVisible
-          ? "opacity-100 scale-100"
-          : "opacity-0 scale-[0.9]"
+        isVisible ? "opacity-100 scale-100" : "opacity-0 scale-[0.9]",
       )}
     >
       <div className="flex items-center gap-2">
@@ -70,4 +68,3 @@ export function SaveBar() {
     </div>
   );
 }
-

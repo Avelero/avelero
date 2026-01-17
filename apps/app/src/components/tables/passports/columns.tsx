@@ -8,9 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import {
@@ -90,12 +87,12 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       const product = row.original;
       const meta = table.options.meta as
         | {
-          handleRangeSelection?: (
-            index: number,
-            shift: boolean,
-            id: string,
-          ) => void;
-        }
+            handleRangeSelection?: (
+              index: number,
+              shift: boolean,
+              id: string,
+            ) => void;
+          }
         | undefined;
 
       return (
@@ -172,34 +169,36 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       );
     },
   },
-  // 3) Status with icon
+  // 3) Status with icon - simplified to only Published/Unpublished
   {
     id: "status",
     header: "Status",
     cell: ({ row }) => {
-      const { status } = row.original;
+      const { status, hasUnpublishedChanges } = row.original;
 
       const Icon =
         status === "published"
           ? Icons.StatusPublished
-          : status === "scheduled"
-            ? Icons.StatusScheduled
-            : status === "unpublished"
-              ? Icons.StatusUnpublished
-              : Icons.StatusArchived;
+          : Icons.StatusUnpublished;
+
+      // Show "Pending" instead of "Published" if there are unpublished changes
+      const displayStatus =
+        status === "published" && hasUnpublishedChanges
+          ? "Pending changes"
+          : status;
 
       return (
         <div className="flex items-center gap-3">
-          <Icon className="h-[14px] w-[14px]" />
+          <Icon className="h-[16px] w-[16px]" />
           <span className="truncate type-p text-primary capitalize">
-            {status}
+            {displayStatus}
           </span>
         </div>
       );
     },
     meta: {
-      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
-      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      headerClassName: cn("w-[180px] min-w-[180px] max-w-[180px]"),
+      cellClassName: cn("w-[180px] min-w-[180px] max-w-[180px]"),
     },
   },
   // Category with hover path
@@ -268,11 +267,32 @@ export const columns: ColumnDef<PassportTableRow>[] = [
     header: "Variants",
     cell: ({ row }) => {
       const count = row.original.variantCount;
-      return (
-        <span className="type-p text-primary">
-          {count}
-        </span>
-      );
+      return <span className="type-p text-primary">{count}</span>;
+    },
+    meta: {
+      headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+      cellClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
+    },
+  },
+  // Last Published At
+  {
+    id: "lastPublishedAt",
+    header: "Last published",
+    cell: ({ row }) => {
+      const lastPublishedAt = row.original.lastPublishedAt;
+      if (!lastPublishedAt) {
+        return null;
+      }
+
+      const date = new Date(lastPublishedAt);
+      // Use explicit locale to prevent hydration mismatch between server/client
+      const formatted = date.toLocaleDateString("en-GB", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+
+      return <span className="type-p text-primary">{formatted}</span>;
     },
     meta: {
       headerClassName: cn("w-[220px] min-w-[220px] max-w-[220px]"),
@@ -314,13 +334,14 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                 <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background pointer-events-none [tr:hover_&]:to-accent-light [tr[data-state=selected]_&]:to-accent-blue" />
               </div>
             </TooltipTrigger>
-            <TooltipContent side="top" align="start" className="p-2 min-w-[120px]">
+            <TooltipContent
+              side="top"
+              align="start"
+              className="p-2 min-w-[120px]"
+            >
               <div className="flex flex-col gap-1.5">
                 {tags.map((tag) => (
-                  <div
-                    key={tag.id}
-                    className="flex items-center gap-2"
-                  >
+                  <div key={tag.id} className="flex items-center gap-2">
                     {tag.hex && (
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0 border-[0.5px] border-border"
@@ -357,24 +378,33 @@ export const columns: ColumnDef<PassportTableRow>[] = [
       // Get callbacks from table meta
       const meta = table.options.meta as
         | {
-          brandSlug?: string | null;
-          onDeleteProduct?: (productId: string) => void;
-          onChangeStatus?: (productId: string, status: string) => void;
-        }
+            onDeleteProduct?: (productId: string) => void;
+            onPublishProduct?: (productId: string) => void;
+          }
         | undefined;
-      const brandSlug = meta?.brandSlug;
       const onDeleteProduct = meta?.onDeleteProduct;
-      const onChangeStatus = meta?.onChangeStatus;
+      const onPublishProduct = meta?.onPublishProduct;
 
-      // Build public DPP URL (opens in new tab, no prefetch)
+      // Build public DPP URL using UPID (new immutable passports URL structure)
       const dppBaseUrl =
         process.env.NEXT_PUBLIC_DPP_URL || "https://passport.avelero.com";
-      const dppUrl =
-        brandSlug && handle ? `${dppBaseUrl}/${brandSlug}/${handle}` : undefined;
+      // Use firstVariantUpid if available, otherwise the product isn't published yet
+      const upid = product.firstVariantUpid;
+      const dppUrl = upid ? `${dppBaseUrl}/${upid}` : undefined;
 
-      // Only show passport button if product is published and has a valid DPP URL
+      // Only show passport button if product is published and has a UPID
       const canViewPassport =
         product.status === "published" && dppUrl !== undefined;
+
+      // Determine if publish action should be enabled:
+      // - Unpublished products can be published
+      // - Published products with unpublished changes can be republished
+      const canPublish =
+        product.status === "unpublished" ||
+        (product.status === "published" && product.hasUnpublishedChanges);
+
+      const publishLabel =
+        product.status === "published" ? "Publish changes" : "Publish";
 
       return (
         <div className="flex items-center justify-end gap-3">
@@ -402,9 +432,7 @@ export const columns: ColumnDef<PassportTableRow>[] = [
                 <TooltipContent>
                   {product.status !== "published"
                     ? "Passport must be published to view"
-                    : !brandSlug
-                      ? "Brand slug not configured"
-                      : "Passport URL not available"}
+                    : "Passport URL not available"}
                 </TooltipContent>
               )}
             </Tooltip>
@@ -427,53 +455,17 @@ export const columns: ColumnDef<PassportTableRow>[] = [
               className="w-[220px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <span>Change status</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-[220px]">
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onChangeStatus?.(product.id, "published");
-                    }}
-                  >
-                    <span className="inline-flex items-center">
-                      <Icons.StatusPublished className="!h-[14px] !w-[14px]" />
-                      <span className="px-1">Published</span>
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onChangeStatus?.(product.id, "scheduled");
-                    }}
-                  >
-                    <span className="inline-flex items-center">
-                      <Icons.StatusScheduled className="!h-[14px] !w-[14px]" />
-                      <span className="px-1">Scheduled</span>
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onChangeStatus?.(product.id, "unpublished");
-                    }}
-                  >
-                    <span className="inline-flex items-center">
-                      <Icons.StatusUnpublished className="!h-[14px] !w-[14px]" />
-                      <span className="px-1">Unpublished</span>
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      onChangeStatus?.(product.id, "archived");
-                    }}
-                  >
-                    <span className="inline-flex items-center">
-                      <Icons.StatusArchived className="!h-[14px] !w-[14px]" />
-                      <span className="px-1">Archived</span>
-                    </span>
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
+              <DropdownMenuItem
+                disabled={!canPublish}
+                onSelect={() => {
+                  onPublishProduct?.(product.id);
+                }}
+              >
+                <span className="inline-flex items-center">
+                  <Icons.StatusPublished width={12} height={12} />
+                  <span className="px-1">{publishLabel}</span>
+                </span>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onSelect={() => {

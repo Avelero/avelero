@@ -121,4 +121,3 @@ export function FieldSectionSkeleton({ rowCount = 4 }: { rowCount?: number }) {
     </div>
   );
 }
-

@@ -80,7 +80,8 @@ export function convertQuickFiltersToFilterState(
 
     // Use "is descendant of" for category to include child categories in hierarchy
     // This means selecting "clothing" will also match "outerwear", "rain jackets", etc.
-    const operator = fieldId === "categoryId" ? "is descendant of" : "is any of";
+    const operator =
+      fieldId === "categoryId" ? "is descendant of" : "is any of";
 
     // Create a group with one condition
     const condition: FilterCondition = {

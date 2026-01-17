@@ -33,7 +33,7 @@ interface DeleteProductsModalProps {
 /**
  * Modal for confirming product deletion.
  * Supports both single and bulk product deletion using the unified delete endpoint.
- * 
+ *
  * Selection modes:
  * - 'explicit': Delete specific products by ID (manual selection)
  * - 'all': Delete all products matching filters, optionally excluding some IDs
@@ -52,22 +52,25 @@ function DeleteProductsModal({
 
   const isBulk = totalCount > 1;
   const count = totalCount;
-  const isSingleExplicit = selection.mode === "explicit" && selection.includeIds.length === 1;
+  const isSingleExplicit =
+    selection.mode === "explicit" && selection.includeIds.length === 1;
 
   // Use unified delete endpoint which supports both single and bulk operations
   const deleteMutation = useMutation(
     trpc.products.delete.mutationOptions({
       onSuccess: (result) => {
         // Check if this is a bulk result (has 'deleted' property) or single (has 'data')
-        if ('deleted' in result) {
+        if ("deleted" in result) {
           toast.success(
-            `${result.deleted} ${result.deleted === 1 ? "product" : "products"} deleted`
+            `${result.deleted} ${result.deleted === 1 ? "product" : "products"} deleted`,
           );
         } else {
           toast.success("Product deleted");
         }
         // Invalidate products list to refresh table
-        void queryClient.invalidateQueries({ queryKey: [["products", "list"]] });
+        void queryClient.invalidateQueries({
+          queryKey: [["products", "list"]],
+        });
         void queryClient.invalidateQueries({ queryKey: [["summary"]] });
         void queryClient.invalidateQueries({ queryKey: [["composite"]] });
         onSuccess?.();
@@ -76,7 +79,7 @@ function DeleteProductsModal({
       onError: (error) => {
         toast.error(error.message || "Failed to delete products");
       },
-    })
+    }),
   );
 
   const isDeleting = deleteMutation.isPending;
@@ -98,7 +101,8 @@ function DeleteProductsModal({
           mode: "all",
           filters: filterState?.groups.length ? filterState : undefined,
           search: search?.trim() || undefined,
-          excludeIds: selection.excludeIds.length > 0 ? selection.excludeIds : undefined,
+          excludeIds:
+            selection.excludeIds.length > 0 ? selection.excludeIds : undefined,
         },
       });
     } else {
@@ -140,7 +144,11 @@ function DeleteProductsModal({
             onClick={handleDelete}
             disabled={isDeleting || totalCount === 0}
           >
-            {isDeleting ? "Deleting..." : isBulk ? `Delete ${count} products` : "Delete"}
+            {isDeleting
+              ? "Deleting..."
+              : isBulk
+                ? `Delete ${count} products`
+                : "Delete"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -149,6 +157,3 @@ function DeleteProductsModal({
 }
 
 export { DeleteProductsModal };
-
-
-

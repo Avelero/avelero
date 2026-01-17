@@ -68,11 +68,15 @@ export function CustomFontsModal({
           const weightA =
             typeof a.fontWeight === "number"
               ? a.fontWeight
-              : Number.parseInt(String(a.fontWeight ?? 400).split(" ")[0] ?? "400") || 400;
+              : Number.parseInt(
+                  String(a.fontWeight ?? 400).split(" ")[0] ?? "400",
+                ) || 400;
           const weightB =
             typeof b.fontWeight === "number"
               ? b.fontWeight
-              : Number.parseInt(String(b.fontWeight ?? 400).split(" ")[0] ?? "400") || 400;
+              : Number.parseInt(
+                  String(b.fontWeight ?? 400).split(" ")[0] ?? "400",
+                ) || 400;
           return weightA - weightB;
         }),
       }),
@@ -278,9 +282,7 @@ export function CustomFontsModal({
           {/* Uploaded fonts list */}
           {groupedFonts.length > 0 && (
             <div className="space-y-2">
-              <p className="type-small text-secondary">
-                Uploaded fonts
-              </p>
+              <p className="type-small text-secondary">Uploaded fonts</p>
               <div className="space-y-2">
                 {groupedFonts.map((group) => (
                   <FontFamilyGroup
@@ -361,7 +363,11 @@ interface FontVariantRowProps {
   onDelete: () => void;
 }
 
-function FontVariantRow({ font, showFamilyName, onDelete }: FontVariantRowProps) {
+function FontVariantRow({
+  font,
+  showFamilyName,
+  onDelete,
+}: FontVariantRowProps) {
   const weightLabel = formatWeight(font.fontWeight);
   const isVariable =
     typeof font.fontWeight === "string" && font.fontWeight.includes(" ");
@@ -449,7 +455,8 @@ function formatWeight(weight: number | string | undefined): string {
     return `${min}–${max}`;
   }
 
-  const numWeight = typeof weight === "number" ? weight : Number.parseInt(weight);
+  const numWeight =
+    typeof weight === "number" ? weight : Number.parseInt(weight);
 
   const weightNames: Record<number, string> = {
     100: "Thin",
@@ -466,4 +473,3 @@ function formatWeight(weight: number | string | undefined): string {
   const name = weightNames[numWeight] ?? "";
   return name ? `${name} (${numWeight})` : String(numWeight);
 }
-

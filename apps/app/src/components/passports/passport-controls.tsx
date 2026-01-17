@@ -6,9 +6,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@v1/ui/dropdown-menu";
 import { Icons } from "@v1/ui/icons";
@@ -18,7 +15,6 @@ import { QuickFiltersPopover } from "../select/filter-select";
 import { SortPopover } from "../select/sort-select";
 import { AdvancedFilterPanel } from "../sheets/filter-sheet";
 import type {
-  BulkChanges,
   FilterActions,
   FilterState,
   SelectionState,
@@ -29,9 +25,8 @@ interface PassportControlsProps {
   disabled?: boolean;
   selection?: SelectionState;
   onClearSelectionAction?: () => void;
-  onRequestBulkUpdate?: (changes: BulkChanges) => void; // optional external handler
-  onDeleteSelectedAction?: () => void; // trigger delete modal for selected items
-  onStatusChangeAction?: (status: string) => void; // trigger bulk status change
+  onDeleteSelectedAction?: () => void;
+  onPublishSelectedAction?: () => void;
   filterState?: FilterState;
   filterActions?: FilterActions;
   sortState?: { field: string; direction: "asc" | "desc" } | null;
@@ -48,7 +43,7 @@ export function PassportControls({
   selection,
   onClearSelectionAction,
   onDeleteSelectedAction,
-  onStatusChangeAction,
+  onPublishSelectedAction,
   filterState,
   filterActions,
   sortState,
@@ -60,12 +55,6 @@ export function PassportControls({
   const [advancedFilterOpen, setAdvancedFilterOpen] = React.useState(false);
 
   const hasSelection = selectedCount > 0;
-
-  function handleBulkStatusChange(
-    status: "published" | "scheduled" | "unpublished" | "archived",
-  ) {
-    onStatusChangeAction?.(status);
-  }
 
   return (
     <div className="flex items-center justify-between pb-3">
@@ -92,7 +81,7 @@ export function PassportControls({
               "pl-8 pr-3 py-[6px] h-9",
               "transition-transform",
               // Ensure normal arrow cursor when disabled (not not-allowed)
-              "disabled:cursor-default disabled:hover:cursor-default"
+              "disabled:cursor-default disabled:hover:cursor-default",
             )}
             disabled={disabled}
             value={searchValue}
@@ -110,11 +99,7 @@ export function PassportControls({
             disabled={disabled}
           />
         ) : (
-          <Button
-            variant="subtle"
-            size="default"
-            disabled={disabled}
-          >
+          <Button variant="subtle" size="default" disabled={disabled}>
             <Icons.ArrowDownUp className="h-[14px] w-[14px]" />
             <span className="px-1">Sort</span>
           </Button>
@@ -137,11 +122,7 @@ export function PassportControls({
             />
           </>
         ) : (
-          <Button
-            variant="subtle"
-            size="default"
-            disabled={disabled}
-          >
+          <Button variant="subtle" size="default" disabled={disabled}>
             <Icons.Filter className="h-[14px] w-[14px]" />
             <span className="px-1">Filter</span>
           </Button>
@@ -167,53 +148,16 @@ export function PassportControls({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[220px]">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <span>Change status</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-[220px]">
-                <DropdownMenuItem
-                  onSelect={() => {
-                    handleBulkStatusChange("published");
-                  }}
-                >
-                  <span className="inline-flex items-center">
-                    <Icons.StatusPublished className="!h-[14px] !w-[14px]" />
-                    <span className="px-1">Published</span>
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => {
-                    handleBulkStatusChange("scheduled");
-                  }}
-                >
-                  <span className="inline-flex items-center">
-                    <Icons.StatusScheduled className="!h-[14px] !w-[14px]" />
-                    <span className="px-1">Scheduled</span>
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => {
-                    handleBulkStatusChange("unpublished");
-                  }}
-                >
-                  <span className="inline-flex items-center">
-                    <Icons.StatusUnpublished className="!h-[14px] !w-[14px]" />
-                    <span className="px-1">Unpublished</span>
-                  </span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => {
-                    handleBulkStatusChange("archived");
-                  }}
-                >
-                  <span className="inline-flex items-center">
-                    <Icons.StatusArchived className="!h-[14px] !w-[14px]" />
-                    <span className="px-1">Archived</span>
-                  </span>
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
+            <DropdownMenuItem
+              onSelect={() => {
+                onPublishSelectedAction?.();
+              }}
+            >
+              <span className="inline-flex items-center">
+                <Icons.StatusPublished width={12} height={12} />
+                <span className="px-1">Publish</span>
+              </span>
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               onSelect={() => {

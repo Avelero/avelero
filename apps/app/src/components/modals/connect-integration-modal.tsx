@@ -61,7 +61,9 @@ export function ConnectIntegrationModal({
       onOpenChange(false);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to connect integration",
+        error instanceof Error
+          ? error.message
+          : "Failed to connect integration",
       );
     }
   }
@@ -95,7 +97,10 @@ export function ConnectIntegrationModal({
 
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
-              <label htmlFor="api-key" className="text-foreground text-sm font-medium">
+              <label
+                htmlFor="api-key"
+                className="text-foreground text-sm font-medium"
+              >
                 API Key
               </label>
               <Input
@@ -110,7 +115,10 @@ export function ConnectIntegrationModal({
 
             {showApiSecret && (
               <div className="flex flex-col gap-2">
-                <label htmlFor="api-secret" className="text-foreground text-sm font-medium">
+                <label
+                  htmlFor="api-secret"
+                  className="text-foreground text-sm font-medium"
+                >
                   API Secret
                 </label>
                 <Input
@@ -126,8 +134,12 @@ export function ConnectIntegrationModal({
 
             {showBaseUrl && (
               <div className="flex flex-col gap-2">
-                <label htmlFor="base-url" className="text-foreground text-sm font-medium">
-                  Base URL <span className="text-secondary font-normal">(optional)</span>
+                <label
+                  htmlFor="base-url"
+                  className="text-foreground text-sm font-medium"
+                >
+                  Base URL{" "}
+                  <span className="text-secondary font-normal">(optional)</span>
                 </label>
                 <Input
                   id="base-url"
@@ -163,10 +175,3 @@ export function ConnectIntegrationModal({
     </Dialog>
   );
 }
-
-
-
-
-
-
-

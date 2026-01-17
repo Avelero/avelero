@@ -12,7 +12,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@v1/ui/sonner";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import type { VariantDimension, VariantMetadata } from "@/components/forms/passport/blocks/variant-block";
+import type {
+  VariantDimension,
+  VariantMetadata,
+} from "@/components/forms/passport/blocks/variant-block";
 
 // ============================================================================
 // Types
@@ -46,18 +49,20 @@ export interface PassportFormValues {
 
   // Materials
   materialData: Array<{ materialId: string; percentage: number }>;
-  ecoClaims: Array<{ id: string; value: string }>;
 
   // Journey
   journeySteps: Array<{
     stepType: string;
-    facilityId: string;
+    operatorIds: string[];
     sortIndex: number;
   }>;
 
   // Environment
   carbonKgCo2e: string;
   waterLiters: string;
+
+  // Weight
+  weightGrams: string;
 
   // Status
   status: string;
@@ -89,10 +94,10 @@ const initialFormValues: PassportFormValues = {
   explicitVariants: [],
   enabledVariantKeys: new Set<string>(),
   materialData: [],
-  ecoClaims: [],
   journeySteps: [],
   carbonKgCo2e: "",
   waterLiters: "",
+  weightGrams: "",
   status: "unpublished",
 };
 
@@ -107,6 +112,7 @@ export interface PassportFormValidationErrors {
   materials?: string;
   carbonKgCo2e?: string;
   waterLiters?: string;
+  weightGrams?: string;
 }
 
 type PassportFormValidationFields = Pick<
@@ -117,6 +123,7 @@ type PassportFormValidationFields = Pick<
   | "materialData"
   | "carbonKgCo2e"
   | "waterLiters"
+  | "weightGrams"
 >;
 
 const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
@@ -141,6 +148,9 @@ const passportFormSchema: ValidationSchema<PassportFormValidationFields> = {
   ],
   waterLiters: [
     rules.positiveNumeric("Water value must be a valid positive number"),
+  ],
+  weightGrams: [
+    rules.positiveNumeric("Weight must be a valid positive number"),
   ],
   materialData: [
     (materials) => {
@@ -173,13 +183,17 @@ function mapValidationErrors(
   if (errors.name) mapped.name = errors.name;
   if (errors.productHandle) mapped.productHandle = errors.productHandle;
   if (errors.description) mapped.description = errors.description;
-  if ((errors as any).materialData) mapped.materials = (errors as any).materialData;
+  if ((errors as any).materialData)
+    mapped.materials = (errors as any).materialData;
   if (errors.carbonKgCo2e) mapped.carbonKgCo2e = errors.carbonKgCo2e;
   if (errors.waterLiters) mapped.waterLiters = errors.waterLiters;
+  if (errors.weightGrams) mapped.weightGrams = errors.weightGrams;
   return mapped;
 }
 
-function getPassportValidationErrors(values: PassportFormValues): PassportFormValidationErrors {
+function getPassportValidationErrors(
+  values: PassportFormValues,
+): PassportFormValidationErrors {
   const fields: PassportFormValidationFields = {
     name: values.name,
     productHandle: values.productHandle,
@@ -187,6 +201,7 @@ function getPassportValidationErrors(values: PassportFormValues): PassportFormVa
     materialData: values.materialData,
     carbonKgCo2e: values.carbonKgCo2e,
     waterLiters: values.waterLiters,
+    weightGrams: values.weightGrams,
   };
   const errors = validateForm(fields, passportFormSchema);
   return mapValidationErrors(errors);
@@ -222,11 +237,21 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     resetForm: resetFormValues,
   } = useFormState(initialFormValues);
 
-  const [validationErrors, setValidationErrors] = React.useState<PassportFormValidationErrors>({});
+  const [validationErrors, setValidationErrors] =
+    React.useState<PassportFormValidationErrors>({});
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [initialSnapshot, setInitialSnapshot] = React.useState<string | null>(null);
+  const [initialSnapshot, setInitialSnapshot] = React.useState<string | null>(
+    null,
+  );
+
+  // Database publishing state (from loaded product data)
+  const [dbPublishingStatus, setDbPublishingStatus] = React.useState<
+    "published" | "unpublished" | null
+  >(null);
+  const [dbHasUnpublishedChanges, setDbHasUnpublishedChanges] =
+    React.useState(false);
 
   const metadataRef = React.useRef<{
     productId?: string;
@@ -255,12 +280,21 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     lastModeRef.current = mode;
   }, [isEditMode, mode, resetFormValues]);
 
-  const createProductMutation = useMutation(trpc.products.create.mutationOptions());
-  const updateProductMutation = useMutation(trpc.products.update.mutationOptions());
-  const syncVariantsMutation = useMutation(trpc.products.variants.sync.mutationOptions());
-  const createEcoClaimMutation = useMutation(trpc.catalog.ecoClaims.create.mutationOptions());
-  const createAttributeMutation = useMutation(trpc.catalog.attributes.create.mutationOptions());
-  const createAttributeValueMutation = useMutation(trpc.catalog.attributeValues.create.mutationOptions());
+  const createProductMutation = useMutation(
+    trpc.products.create.mutationOptions(),
+  );
+  const updateProductMutation = useMutation(
+    trpc.products.update.mutationOptions(),
+  );
+  const syncVariantsMutation = useMutation(
+    trpc.products.variants.sync.mutationOptions(),
+  );
+  const createAttributeMutation = useMutation(
+    trpc.catalog.attributes.create.mutationOptions(),
+  );
+  const createAttributeValueMutation = useMutation(
+    trpc.catalog.attributeValues.create.mutationOptions(),
+  );
 
   const passportFormQuery = useQuery({
     ...trpc.products.get.queryOptions({
@@ -283,7 +317,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     const data = passportFormQuery.data as any;
     // Use a combination of fields that would change when variants are modified
     const variants = data.variants ?? [];
-    const variantKeys = variants.map((v: any) => v.upid || v.id).sort().join(",");
+    const variantKeys = variants
+      .map((v: any) => v.upid || v.id)
+      .sort()
+      .join(",");
     return `${data.id}:${variants.length}:${variantKeys}`;
   }, [passportFormQuery.data]);
 
@@ -295,7 +332,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   // Compute a map of variant value keys -> { upid, hasOverrides } for navigation in edit mode
   // The key is pipe-separated value IDs matching the format used in variantMetadata
   const savedVariantsMap = React.useMemo(() => {
-    if (!isEditMode || !passportFormQuery.data) return new Map<string, { upid: string; hasOverrides: boolean }>();
+    if (!isEditMode || !passportFormQuery.data)
+      return new Map<string, { upid: string; hasOverrides: boolean }>();
 
     const payload = passportFormQuery.data as any;
     const variants = Array.isArray(payload?.variants) ? payload.variants : [];
@@ -322,7 +360,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   // Sync enabledVariantKeys with savedVariantsMap when variants are deleted externally
   // This handles the case where a user deletes a variant from the variant edit page
   // and navigates back - the deleted variant should not show as "new"
-  const prevSavedVariantsRef = React.useRef<Map<string, { upid: string; hasOverrides: boolean }> | null>(null);
+  const prevSavedVariantsRef = React.useRef<Map<
+    string,
+    { upid: string; hasOverrides: boolean }
+  > | null>(null);
   React.useEffect(() => {
     // Only run after initial hydration is complete
     if (!isEditMode || !hasHydratedRef.current) return;
@@ -347,7 +388,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       // Remove deleted variants from enabledVariantKeys
       if (deletedKeys.size > 0) {
         const updatedKeys = new Set(
-          [...formValues.enabledVariantKeys].filter((key) => !deletedKeys.has(key))
+          [...formValues.enabledVariantKeys].filter(
+            (key) => !deletedKeys.has(key),
+          ),
         );
         setFields({ enabledVariantKeys: updatedKeys });
       }
@@ -388,14 +431,14 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       explicitVariants: values.explicitVariants,
       enabledVariantKeys: Array.from(values.enabledVariantKeys).sort(),
       materialData: values.materialData,
-      ecoClaims: values.ecoClaims,
       journeySteps: values.journeySteps.map((step) => ({
         sortIndex: step.sortIndex,
         stepType: step.stepType,
-        facilityId: step.facilityId,
+        operatorIds: step.operatorIds,
       })),
       carbonKgCo2e: values.carbonKgCo2e,
       waterLiters: values.waterLiters,
+      weightGrams: values.weightGrams,
       status: values.status,
       existingImageUrl: values.existingImageUrl,
       imageFileName: values.imageFile
@@ -408,7 +451,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   // Hydrate form from API data
   React.useEffect(() => {
     if (!passportFormQuery.error) return;
-    toast.error(passportFormQuery.error.message ?? "Failed to load passport data");
+    toast.error(
+      passportFormQuery.error.message ?? "Failed to load passport data",
+    );
   }, [passportFormQuery.error]);
 
   React.useEffect(() => {
@@ -416,7 +461,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     if (!isEditMode || !passportFormQuery.data) return;
 
     // If already hydrated with this exact data version, skip
-    if (hasHydratedRef.current && lastHydratedDataVersionRef.current === currentDataVersion) {
+    if (
+      hasHydratedRef.current &&
+      lastHydratedDataVersionRef.current === currentDataVersion
+    ) {
       return;
     }
 
@@ -425,12 +473,15 @@ export function usePassportForm(options?: UsePassportFormOptions) {
 
     // Build dimensions and metadata from variant attributes
     // Store brand attribute value IDs so custom names (e.g. "Sky Blue") rehydrate correctly
-    const dimensionMap = new Map<string, {
-      attributeId: string;
-      name: string;
-      taxonomyAttributeId: string | null;
-      values: Set<string>;
-    }>();
+    const dimensionMap = new Map<
+      string,
+      {
+        attributeId: string;
+        name: string;
+        taxonomyAttributeId: string | null;
+        values: Set<string>;
+      }
+    >();
     const metadata: Record<string, VariantMetadata> = {};
 
     for (const variant of variants) {
@@ -441,7 +492,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         const attrId = attr.attribute_id ?? attr.attributeId;
         const brandValueId = attr.value_id ?? attr.valueId;
         const attrName = attr.attribute_name ?? attr.attributeName ?? "Unknown";
-        const taxAttrId = attr.taxonomy_attribute_id ?? attr.taxonomyAttributeId ?? null;
+        const taxAttrId =
+          attr.taxonomy_attribute_id ?? attr.taxonomyAttributeId ?? null;
 
         if (attrId && brandValueId) {
           if (!dimensionMap.has(attrId)) {
@@ -471,7 +523,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
 
     // Convert to dimensions array
-    const variantDimensions: VariantDimension[] = Array.from(dimensionMap.values()).map((d, idx) => ({
+    const variantDimensions: VariantDimension[] = Array.from(
+      dimensionMap.values(),
+    ).map((d, idx) => ({
       id: `dim-${idx}`,
       attributeId: d.attributeId,
       attributeName: d.name,
@@ -504,21 +558,28 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     }
 
     const attributes = payload.attributes ?? {};
-    const materials = attributes.materials?.map((m: any) => ({
-      materialId: m.brand_material_id ?? m.material_id ?? m.materialId,
-      percentage: typeof m.percentage === "string" ? Number(m.percentage) : m.percentage,
-    })) ?? [];
-    const ecoClaims = attributes.ecoClaims?.map((c: any) => ({
-      id: c.eco_claim_id ?? c.ecoClaimId ?? c.id,
-      value: c.claim ?? "",
-    })) ?? [];
-    const journeySteps = attributes.journey?.map((s: any) => ({
-      sortIndex: s.sort_index ?? s.sortIndex ?? 0,
-      stepType: s.step_type ?? s.stepType ?? "",
-      facilityId: s.facility_id ?? s.facilityId ?? "",
-    })) ?? [];
-    const tagIds = attributes.tags?.map((t: any) => t.tag_id ?? t.tagId).filter(Boolean) ?? [];
+    const materials =
+      attributes.materials?.map((m: any) => ({
+        materialId: m.brand_material_id ?? m.material_id ?? m.materialId,
+        percentage:
+          typeof m.percentage === "string"
+            ? Number(m.percentage)
+            : m.percentage,
+      })) ?? [];
+    const journeySteps =
+      attributes.journey?.map((s: any) => ({
+        sortIndex: s.sort_index ?? s.sortIndex ?? 0,
+        stepType: s.step_type ?? s.stepType ?? "",
+        operatorIds:
+          s.operator_ids ??
+          s.operatorIds ??
+          (s.operatorId ? [s.operatorId] : []),
+      })) ?? [];
+    const tagIds =
+      attributes.tags?.map((t: any) => t.tag_id ?? t.tagId).filter(Boolean) ??
+      [];
     const environment = attributes.environment ?? {};
+    const weight = attributes.weight ?? {};
 
     const nextValues: PassportFormValues = {
       ...initialFormValues,
@@ -536,10 +597,14 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       explicitVariants,
       enabledVariantKeys,
       materialData: materials,
-      ecoClaims,
       journeySteps,
-      carbonKgCo2e: stripTrailingZeros(environment.carbonKgCo2e ?? environment.carbon_kg_co2e ?? ""),
-      waterLiters: stripTrailingZeros(environment.waterLiters ?? environment.water_liters ?? ""),
+      carbonKgCo2e: stripTrailingZeros(
+        environment.carbonKgCo2e ?? environment.carbon_kg_co2e ?? "",
+      ),
+      waterLiters: stripTrailingZeros(
+        environment.waterLiters ?? environment.water_liters ?? "",
+      ),
+      weightGrams: stripTrailingZeros(weight.weight ?? ""),
       status: payload.status ?? "unpublished",
     };
 
@@ -550,9 +615,24 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     };
     setInitialSnapshot(JSON.stringify(computeComparableState(nextValues)));
     setHasAttemptedSubmit(false);
+
+    // Set database publishing state
+    const status = payload.status as "published" | "unpublished" | undefined;
+    setDbPublishingStatus(status ?? "unpublished");
+    setDbHasUnpublishedChanges(
+      payload.has_unpublished_changes ?? payload.hasUnpublishedChanges ?? false,
+    );
+
     hasHydratedRef.current = true;
     lastHydratedDataVersionRef.current = currentDataVersion;
-  }, [computeComparableState, isEditMode, passportFormQuery.data, setFields, productHandle, currentDataVersion]);
+  }, [
+    computeComparableState,
+    isEditMode,
+    passportFormQuery.data,
+    setFields,
+    productHandle,
+    currentDataVersion,
+  ]);
 
   React.useEffect(() => {
     if (isEditMode || initialSnapshot !== null) return;
@@ -563,7 +643,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     () => JSON.stringify(computeComparableState(formValues)),
     [computeComparableState, formValues],
   );
-  const hasUnsavedChanges = initialSnapshot !== null && serializedState !== initialSnapshot;
+  const hasUnsavedChanges =
+    initialSnapshot !== null && serializedState !== initialSnapshot;
 
   const validate = React.useCallback((): PassportFormValidationErrors => {
     const errors = getPassportValidationErrors(formValues);
@@ -606,259 +687,275 @@ export function usePassportForm(options?: UsePassportFormOptions) {
   }
 
   // Resolve variant dimensions - creates brand attributes and values as needed
-  const resolveVariantDimensions = React.useCallback(async (): Promise<ResolvedVariantDimensionsResult> => {
-    // Filter to dimensions that have values (either standard or custom inline)
-    const dims = formValues.variantDimensions.filter((d) => {
-      if (d.isCustomInline) {
-        return (d.customValues ?? []).some((v) => v.trim().length > 0);
-      }
-      return d.values.length > 0;
-    });
-    if (dims.length === 0) return { dimensions: [], tokenMaps: [] };
+  const resolveVariantDimensions =
+    React.useCallback(async (): Promise<ResolvedVariantDimensionsResult> => {
+      // Filter to dimensions that have values (either standard or custom inline)
+      const dims = formValues.variantDimensions.filter((d) => {
+        if (d.isCustomInline) {
+          return (d.customValues ?? []).some((v) => v.trim().length > 0);
+        }
+        return d.values.length > 0;
+      });
+      if (dims.length === 0) return { dimensions: [], tokenMaps: [] };
 
-    const brandCatalogQuery = queryClient.getQueryData(trpc.composite.catalogContent.queryKey()) as any;
-    // Copy to mutable working lists so we can include newly-created attrs/values
-    // in subsequent lookups within the same submit.
-    const existingBrandAttrs: any[] = [...(brandCatalogQuery?.brandCatalog?.attributes ?? [])];
-    const existingBrandValues: any[] = [...(brandCatalogQuery?.brandCatalog?.attributeValues ?? [])];
+      const brandCatalogQuery = queryClient.getQueryData(
+        trpc.composite.catalogContent.queryKey(),
+      ) as any;
+      // Copy to mutable working lists so we can include newly-created attrs/values
+      // in subsequent lookups within the same submit.
+      const existingBrandAttrs: any[] = [
+        ...(brandCatalogQuery?.brandCatalog?.attributes ?? []),
+      ];
+      const existingBrandValues: any[] = [
+        ...(brandCatalogQuery?.brandCatalog?.attributeValues ?? []),
+      ];
 
-    const resolved: Array<{ attribute_id: string; value_ids: string[] }> = [];
-    const tokenMaps: Array<Map<string, string>> = [];
+      const resolved: Array<{ attribute_id: string; value_ids: string[] }> = [];
+      const tokenMaps: Array<Map<string, string>> = [];
 
-    for (const dim of dims) {
-      let brandAttrId = dim.attributeId;
-      const tokenToBrandValueId = new Map<string, string>();
+      for (const dim of dims) {
+        let brandAttrId = dim.attributeId;
+        const tokenToBrandValueId = new Map<string, string>();
 
-      // Handle custom inline attributes - create the attribute first
-      if (dim.isCustomInline) {
-        const attrName = dim.customAttributeName?.trim();
-        if (!attrName) continue;
+        // Handle custom inline attributes - create the attribute first
+        if (dim.isCustomInline) {
+          const attrName = dim.customAttributeName?.trim();
+          if (!attrName) continue;
 
-        // Check if attribute with this name already exists
-        const existing = existingBrandAttrs.find(
-          (a: any) => a.name.toLowerCase() === attrName.toLowerCase() && !a.taxonomyAttributeId
-        );
-        if (existing) {
-          brandAttrId = existing.id;
-        } else {
-          const result = await createAttributeMutation.mutateAsync({ name: attrName });
-          if (!result?.data?.id) throw new Error("Failed to create custom attribute");
-          brandAttrId = result.data.id;
-          existingBrandAttrs.push(result.data);
+          // Check if attribute with this name already exists
+          const existing = existingBrandAttrs.find(
+            (a: any) =>
+              a.name.toLowerCase() === attrName.toLowerCase() &&
+              !a.taxonomyAttributeId,
+          );
+          if (existing) {
+            brandAttrId = existing.id;
+          } else {
+            const result = await createAttributeMutation.mutateAsync({
+              name: attrName,
+            });
+            if (!result?.data?.id)
+              throw new Error("Failed to create custom attribute");
+            brandAttrId = result.data.id;
+            existingBrandAttrs.push(result.data);
+          }
+
+          // Create values for custom inline
+          const resolvedValueIds: string[] = [];
+          for (const valueName of dim.customValues ?? []) {
+            const trimmedName = valueName.trim();
+            if (!trimmedName) continue;
+
+            // Check if value exists
+            const existingValue = existingBrandValues.find(
+              (v: any) =>
+                v.attributeId === brandAttrId &&
+                v.name.toLowerCase() === trimmedName.toLowerCase(),
+            );
+            if (existingValue) {
+              resolvedValueIds.push(existingValue.id);
+              tokenToBrandValueId.set(trimmedName, existingValue.id);
+              tokenToBrandValueId.set(existingValue.id, existingValue.id);
+            } else {
+              const result = await createAttributeValueMutation.mutateAsync({
+                attribute_id: brandAttrId!,
+                name: trimmedName,
+              });
+              if (!result?.data?.id)
+                throw new Error("Failed to create custom attribute value");
+              resolvedValueIds.push(result.data.id);
+              tokenToBrandValueId.set(trimmedName, result.data.id);
+              tokenToBrandValueId.set(result.data.id, result.data.id);
+              existingBrandValues.push(result.data);
+            }
+          }
+
+          if (resolvedValueIds.length > 0) {
+            resolved.push({
+              attribute_id: brandAttrId!,
+              value_ids: resolvedValueIds,
+            });
+            tokenMaps.push(tokenToBrandValueId);
+          }
+          continue;
         }
 
-        // Create values for custom inline
-        const resolvedValueIds: string[] = [];
-        for (const valueName of dim.customValues ?? []) {
-          const trimmedName = valueName.trim();
-          if (!trimmedName) continue;
-
-          // Check if value exists
-          const existingValue = existingBrandValues.find(
-            (v: any) => v.attributeId === brandAttrId && v.name.toLowerCase() === trimmedName.toLowerCase()
+        // Create brand attribute if it doesn't exist (indicated by tax: prefix)
+        if (brandAttrId?.startsWith("tax:")) {
+          const taxAttrId = brandAttrId.slice(4);
+          const existing = existingBrandAttrs.find(
+            (a: any) => a.taxonomyAttributeId === taxAttrId,
           );
-          if (existingValue) {
-            resolvedValueIds.push(existingValue.id);
-            tokenToBrandValueId.set(trimmedName, existingValue.id);
-            tokenToBrandValueId.set(existingValue.id, existingValue.id);
+          if (existing) {
+            brandAttrId = existing.id;
           } else {
-            const result = await createAttributeValueMutation.mutateAsync({
-              attribute_id: brandAttrId!,
-              name: trimmedName,
+            const result = await createAttributeMutation.mutateAsync({
+              name: dim.attributeName,
+              taxonomy_attribute_id: taxAttrId,
             });
-            if (!result?.data?.id) throw new Error("Failed to create custom attribute value");
-            resolvedValueIds.push(result.data.id);
-            tokenToBrandValueId.set(trimmedName, result.data.id);
-            tokenToBrandValueId.set(result.data.id, result.data.id);
-            existingBrandValues.push(result.data);
+            if (!result?.data?.id)
+              throw new Error("Failed to create attribute");
+            brandAttrId = result.data.id;
+            existingBrandAttrs.push(result.data);
           }
         }
 
-        if (resolvedValueIds.length > 0) {
-          resolved.push({ attribute_id: brandAttrId!, value_ids: resolvedValueIds });
-          tokenMaps.push(tokenToBrandValueId);
-        }
-        continue;
-      }
+        if (!brandAttrId) continue;
 
-      // Create brand attribute if it doesn't exist (indicated by tax: prefix)
-      if (brandAttrId?.startsWith("tax:")) {
-        const taxAttrId = brandAttrId.slice(4);
-        const existing = existingBrandAttrs.find((a: any) => a.taxonomyAttributeId === taxAttrId);
-        if (existing) {
-          brandAttrId = existing.id;
-        } else {
-          const result = await createAttributeMutation.mutateAsync({
-            name: dim.attributeName,
-            taxonomy_attribute_id: taxAttrId,
-          });
-          if (!result?.data?.id) throw new Error("Failed to create attribute");
-          brandAttrId = result.data.id;
-          existingBrandAttrs.push(result.data);
-        }
-      }
+        // Resolve values
+        const resolvedValueIds: string[] = [];
 
-      if (!brandAttrId) continue;
+        if (dim.taxonomyAttributeId) {
+          // Taxonomy-linked: values can be brand value IDs or tax:-prefixed taxonomy value IDs
+          for (const valueId of dim.values) {
+            // Check if this is a tax:-prefixed pending taxonomy value
+            const isTaxPrefixed = valueId.startsWith("tax:");
+            const actualValueId = isTaxPrefixed ? valueId.slice(4) : valueId;
 
-      // Resolve values
-      const resolvedValueIds: string[] = [];
-
-      if (dim.taxonomyAttributeId) {
-        // Taxonomy-linked: values can be brand value IDs or tax:-prefixed taxonomy value IDs
-        for (const valueId of dim.values) {
-          // Check if this is a tax:-prefixed pending taxonomy value
-          const isTaxPrefixed = valueId.startsWith("tax:");
-          const actualValueId = isTaxPrefixed ? valueId.slice(4) : valueId;
-
-          // First, check if it's already a brand value ID
-          const existingBrandValue = existingBrandValues.find(
-            (v: any) => v.id === actualValueId && v.attributeId === brandAttrId
-          );
-
-          if (existingBrandValue) {
-            resolvedValueIds.push(existingBrandValue.id);
-            tokenToBrandValueId.set(valueId, existingBrandValue.id);
-            tokenToBrandValueId.set(actualValueId, existingBrandValue.id);
-            tokenToBrandValueId.set(existingBrandValue.name, existingBrandValue.id);
-          } else {
-            // Check if there's already a brand value linked to this taxonomy value
-            const existingByTaxonomy = existingBrandValues.find(
-              (v: any) => v.attributeId === brandAttrId && v.taxonomyValueId === actualValueId
+            // First, check if it's already a brand value ID
+            const existingBrandValue = existingBrandValues.find(
+              (v: any) =>
+                v.id === actualValueId && v.attributeId === brandAttrId,
             );
-            if (existingByTaxonomy) {
-              resolvedValueIds.push(existingByTaxonomy.id);
-              tokenToBrandValueId.set(valueId, existingByTaxonomy.id);
-              tokenToBrandValueId.set(actualValueId, existingByTaxonomy.id);
-              tokenToBrandValueId.set(existingByTaxonomy.name, existingByTaxonomy.id);
-              tokenToBrandValueId.set(existingByTaxonomy.id, existingByTaxonomy.id);
-            } else {
-              // Look up the taxonomy value to get its name
-              const taxValues = brandCatalogQuery?.taxonomy?.values ?? [];
-              const taxValue = taxValues.find((v: any) => v.id === actualValueId);
-              const name = taxValue?.name ?? actualValueId;
 
-              // Check if there's already a brand value with the same name for this attribute
-              // This handles cases where:
-              // - The brand has a "Black" value created via integration (no taxonomy link)
-              // - The brand has a "Black" value created via modal without selecting taxonomy
-              // - The user now selects "Black" from the taxonomy dropdown
-              const existingByName = existingBrandValues.find(
-                (v: any) => v.attributeId === brandAttrId && v.name.toLowerCase() === name.toLowerCase()
+            if (existingBrandValue) {
+              resolvedValueIds.push(existingBrandValue.id);
+              tokenToBrandValueId.set(valueId, existingBrandValue.id);
+              tokenToBrandValueId.set(actualValueId, existingBrandValue.id);
+              tokenToBrandValueId.set(
+                existingBrandValue.name,
+                existingBrandValue.id,
               );
+            } else {
+              // Check if there's already a brand value linked to this taxonomy value
+              const existingByTaxonomy = existingBrandValues.find(
+                (v: any) =>
+                  v.attributeId === brandAttrId &&
+                  v.taxonomyValueId === actualValueId,
+              );
+              if (existingByTaxonomy) {
+                resolvedValueIds.push(existingByTaxonomy.id);
+                tokenToBrandValueId.set(valueId, existingByTaxonomy.id);
+                tokenToBrandValueId.set(actualValueId, existingByTaxonomy.id);
+                tokenToBrandValueId.set(
+                  existingByTaxonomy.name,
+                  existingByTaxonomy.id,
+                );
+                tokenToBrandValueId.set(
+                  existingByTaxonomy.id,
+                  existingByTaxonomy.id,
+                );
+              } else {
+                // Look up the taxonomy value to get its name
+                const taxValues = brandCatalogQuery?.taxonomy?.values ?? [];
+                const taxValue = taxValues.find(
+                  (v: any) => v.id === actualValueId,
+                );
+                const name = taxValue?.name ?? actualValueId;
 
+                // Check if there's already a brand value with the same name for this attribute
+                // This handles cases where:
+                // - The brand has a "Black" value created via integration (no taxonomy link)
+                // - The brand has a "Black" value created via modal without selecting taxonomy
+                // - The user now selects "Black" from the taxonomy dropdown
+                const existingByName = existingBrandValues.find(
+                  (v: any) =>
+                    v.attributeId === brandAttrId &&
+                    v.name.toLowerCase() === name.toLowerCase(),
+                );
+
+                if (existingByName) {
+                  // Use existing value found by name - no need to create a duplicate
+                  resolvedValueIds.push(existingByName.id);
+                  tokenToBrandValueId.set(valueId, existingByName.id);
+                  tokenToBrandValueId.set(actualValueId, existingByName.id);
+                  tokenToBrandValueId.set(
+                    existingByName.name,
+                    existingByName.id,
+                  );
+                  tokenToBrandValueId.set(existingByName.id, existingByName.id);
+                } else {
+                  // Create brand value for taxonomy value
+                  const result = await createAttributeValueMutation.mutateAsync(
+                    {
+                      attribute_id: brandAttrId,
+                      name,
+                      taxonomy_value_id: actualValueId,
+                    },
+                  );
+                  if (!result?.data?.id)
+                    throw new Error("Failed to create attribute value");
+                  resolvedValueIds.push(result.data.id);
+                  tokenToBrandValueId.set(valueId, result.data.id);
+                  tokenToBrandValueId.set(actualValueId, result.data.id);
+                  tokenToBrandValueId.set(
+                    result.data.name ?? name,
+                    result.data.id,
+                  );
+                  tokenToBrandValueId.set(result.data.id, result.data.id);
+                  existingBrandValues.push(result.data);
+                }
+              }
+            }
+          }
+        } else {
+          // Existing custom attribute: values are brand value IDs (already created via modal)
+          for (const valueId of dim.values) {
+            // Check if this is already a valid brand value ID
+            const existingBrandValue = existingBrandValues.find(
+              (v: any) => v.id === valueId && v.attributeId === brandAttrId,
+            );
+
+            if (existingBrandValue) {
+              resolvedValueIds.push(existingBrandValue.id);
+              tokenToBrandValueId.set(valueId, existingBrandValue.id);
+              tokenToBrandValueId.set(
+                existingBrandValue.name,
+                existingBrandValue.id,
+              );
+            } else {
+              // Might be a value name if the attribute was previously custom inline
+              const existingByName = existingBrandValues.find(
+                (v: any) => v.attributeId === brandAttrId && v.name === valueId,
+              );
               if (existingByName) {
-                // Use existing value found by name - no need to create a duplicate
                 resolvedValueIds.push(existingByName.id);
                 tokenToBrandValueId.set(valueId, existingByName.id);
-                tokenToBrandValueId.set(actualValueId, existingByName.id);
-                tokenToBrandValueId.set(existingByName.name, existingByName.id);
                 tokenToBrandValueId.set(existingByName.id, existingByName.id);
               } else {
-                // Create brand value for taxonomy value
                 const result = await createAttributeValueMutation.mutateAsync({
                   attribute_id: brandAttrId,
-                  name,
-                  taxonomy_value_id: actualValueId,
+                  name: valueId,
                 });
-                if (!result?.data?.id) throw new Error("Failed to create attribute value");
+                if (!result?.data?.id)
+                  throw new Error("Failed to create attribute value");
                 resolvedValueIds.push(result.data.id);
                 tokenToBrandValueId.set(valueId, result.data.id);
-                tokenToBrandValueId.set(actualValueId, result.data.id);
-                tokenToBrandValueId.set(result.data.name ?? name, result.data.id);
                 tokenToBrandValueId.set(result.data.id, result.data.id);
                 existingBrandValues.push(result.data);
               }
             }
           }
         }
-      } else {
-        // Existing custom attribute: values are brand value IDs (already created via modal)
-        for (const valueId of dim.values) {
-          // Check if this is already a valid brand value ID
-          const existingBrandValue = existingBrandValues.find(
-            (v: any) => v.id === valueId && v.attributeId === brandAttrId
-          );
 
-          if (existingBrandValue) {
-            resolvedValueIds.push(existingBrandValue.id);
-            tokenToBrandValueId.set(valueId, existingBrandValue.id);
-            tokenToBrandValueId.set(existingBrandValue.name, existingBrandValue.id);
-          } else {
-            // Might be a value name if the attribute was previously custom inline
-            const existingByName = existingBrandValues.find(
-              (v: any) => v.attributeId === brandAttrId && v.name === valueId
-            );
-            if (existingByName) {
-              resolvedValueIds.push(existingByName.id);
-              tokenToBrandValueId.set(valueId, existingByName.id);
-              tokenToBrandValueId.set(existingByName.id, existingByName.id);
-            } else {
-              const result = await createAttributeValueMutation.mutateAsync({
-                attribute_id: brandAttrId,
-                name: valueId,
-              });
-              if (!result?.data?.id) throw new Error("Failed to create attribute value");
-              resolvedValueIds.push(result.data.id);
-              tokenToBrandValueId.set(valueId, result.data.id);
-              tokenToBrandValueId.set(result.data.id, result.data.id);
-              existingBrandValues.push(result.data);
-            }
-          }
-        }
+        resolved.push({
+          attribute_id: brandAttrId,
+          value_ids: resolvedValueIds,
+        });
+        tokenMaps.push(tokenToBrandValueId);
       }
 
-      resolved.push({ attribute_id: brandAttrId, value_ids: resolvedValueIds });
-      tokenMaps.push(tokenToBrandValueId);
-    }
-
-    // Note: We intentionally don't invalidate the catalog cache here.
-    // The submit function handles cache updates synchronously via await refetchQueries
-    // to prevent UI flashes during the save process.
-    return { dimensions: resolved, tokenMaps };
-  }, [formValues.variantDimensions, createAttributeMutation, createAttributeValueMutation, queryClient, trpc]);
-
-  const resolveEcoClaims = React.useCallback(async () => {
-    if (!formValues.ecoClaims.length) return [];
-
-    const validClaims = formValues.ecoClaims.filter((c) => c.value.trim().length > 0);
-    if (validClaims.length === 0) return [];
-
-    const resolvedIds: string[] = [];
-    const brandCatalogQuery = queryClient.getQueryData(trpc.composite.catalogContent.queryKey()) as any;
-    const existingEcoClaims = brandCatalogQuery?.brandCatalog?.ecoClaims ?? [];
-    const ecoClaimByText = new Map<string, { id?: string; claim: string }>();
-
-    for (const ec of existingEcoClaims) {
-      ecoClaimByText.set(ec.claim.trim().toLowerCase(), { id: ec.id, claim: ec.claim });
-    }
-
-    for (const claim of validClaims) {
-      const normalizedText = claim.value.trim().toLowerCase();
-
-      if (claim.id && claim.id.length > 5) {
-        const existsInCache = existingEcoClaims.some((ec: any) => ec.id === claim.id);
-        if (existsInCache) {
-          resolvedIds.push(claim.id);
-          continue;
-        }
-      }
-
-      const existing = ecoClaimByText.get(normalizedText);
-      if (existing?.id) {
-        resolvedIds.push(existing.id);
-        continue;
-      }
-
-      const result = await createEcoClaimMutation.mutateAsync({ claim: claim.value.trim() });
-      if (!result?.data?.id) throw new Error("Failed to create eco-claim");
-      resolvedIds.push(result.data.id);
-      ecoClaimByText.set(normalizedText, { id: result.data.id, claim: result.data.claim });
-    }
-
-    // Note: We intentionally don't invalidate caches here.
-    // The submit function handles cache updates synchronously via await refetchQueries.
-    return resolvedIds;
-  }, [formValues.ecoClaims, createEcoClaimMutation, queryClient, trpc]);
+      // Note: We intentionally don't invalidate the catalog cache here.
+      // The submit function handles cache updates synchronously via await refetchQueries
+      // to prevent UI flashes during the save process.
+      return { dimensions: resolved, tokenMaps };
+    }, [
+      formValues.variantDimensions,
+      createAttributeMutation,
+      createAttributeValueMutation,
+      queryClient,
+      trpc,
+    ]);
 
   const submit = React.useCallback(
     async (brandId: string) => {
@@ -889,42 +986,59 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             isPublic: true,
             validation: {
               maxBytes: 10 * 1024 * 1024,
-              allowedMime: ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/avif"],
+              allowedMime: [
+                "image/jpeg",
+                "image/jpg",
+                "image/png",
+                "image/webp",
+                "image/avif",
+              ],
             },
           });
           imagePath = result.storageUrl;
         }
-
-        // Always send eco claims - empty array clears claims, undefined skips update
-        const ecoClaimIds = await resolveEcoClaims();
 
         // Resolve variant dimensions (creates brand attributes/values as needed)
         const resolvedVariant = await resolveVariantDimensions();
         const resolvedDimensions = resolvedVariant.dimensions;
         const variantMetadataForUpsert =
           resolvedDimensions.length > 0
-            ? translateVariantMetadataKeys(resolvedVariant.tokenMaps, formValues.variantMetadata)
+            ? translateVariantMetadataKeys(
+                resolvedVariant.tokenMaps,
+                formValues.variantMetadata,
+              )
             : undefined;
 
-        const materials = formValues.materialData.length > 0
-          ? formValues.materialData.map((m) => ({ brand_material_id: m.materialId, percentage: m.percentage }))
-          : undefined;
+        const materials =
+          formValues.materialData.length > 0
+            ? formValues.materialData.map((m) => ({
+                brand_material_id: m.materialId,
+                percentage: m.percentage,
+              }))
+            : undefined;
         // Always send tagIds - empty array clears tags, undefined skips update
         const tagIds = formValues.tagIds;
-        const journeySteps = formValues.journeySteps.length > 0
-          ? formValues.journeySteps.map((s) => ({
-            sort_index: s.sortIndex,
-            step_type: s.stepType,
-            facility_id: s.facilityId,
-          }))
-          : undefined;
+        const journeySteps =
+          formValues.journeySteps.length > 0
+            ? formValues.journeySteps.map((s) => ({
+                sort_index: s.sortIndex,
+                step_type: s.stepType,
+                operator_ids: s.operatorIds,
+              }))
+            : undefined;
         const environmentPayload =
           formValues.carbonKgCo2e.trim() || formValues.waterLiters.trim()
             ? {
-              carbon_kg_co2e: formValues.carbonKgCo2e.trim() || undefined,
-              water_liters: formValues.waterLiters.trim() || undefined,
-            }
+                carbon_kg_co2e: formValues.carbonKgCo2e.trim() || undefined,
+                water_liters: formValues.waterLiters.trim() || undefined,
+              }
             : undefined;
+        const weightPayload = formValues.weightGrams.trim()
+          ? {
+              weight: formValues.weightGrams.trim(),
+              weight_unit: "g",
+            }
+          : undefined;
 
         const basePayload = {
           brand_id: brandId,
@@ -935,16 +1049,19 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           season_id: formValues.seasonId ?? undefined, // Convert null to undefined for create (schema expects optional, not nullable)
           manufacturer_id: formValues.manufacturerId || undefined,
           image_path: imagePath ?? formValues.existingImageUrl ?? undefined,
-          status: (formValues.status || "unpublished") as "published" | "scheduled" | "unpublished" | "archived",
+          status: (formValues.status || "unpublished") as
+            | "published"
+            | "unpublished",
           materials,
           tag_ids: tagIds,
-          eco_claim_ids: ecoClaimIds,
           journey_steps: journeySteps,
           environment: environmentPayload,
+          weight: weightPayload,
         };
 
         if (isEditMode) {
-          const effectiveProductHandle = productHandle ?? metadataRef.current.productHandle ?? null;
+          const effectiveProductHandle =
+            productHandle ?? metadataRef.current.productHandle ?? null;
           if (!metadataRef.current.productId || !effectiveProductHandle) {
             throw new Error("Unable to update passport: missing context");
           }
@@ -973,9 +1090,9 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               }
 
               // Translate UI tokens to resolved brand value IDs using tokenMaps
-              const resolvedValueIds = tokens.map((token, idx) =>
-                resolvedVariant.tokenMaps[idx]?.get(token)
-              ).filter((id): id is string => id !== undefined);
+              const resolvedValueIds = tokens
+                .map((token, idx) => resolvedVariant.tokenMaps[idx]?.get(token))
+                .filter((id): id is string => id !== undefined);
 
               // Only include if all values resolved
               if (resolvedValueIds.length === tokens.length) {
@@ -1013,24 +1130,32 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           // are updated with fresh data BEFORE we update local state with resolved brand value IDs.
           // This prevents the brief UI flash where all variants show "new" badges.
           await Promise.all([
-            queryClient.refetchQueries({ queryKey: trpc.products.get.queryKey({ handle: effectiveProductHandle }) }),
-            queryClient.refetchQueries({ queryKey: trpc.composite.catalogContent.queryKey() }),
+            queryClient.refetchQueries({
+              queryKey: trpc.products.get.queryKey({
+                handle: effectiveProductHandle,
+              }),
+            }),
+            queryClient.refetchQueries({
+              queryKey: trpc.composite.catalogContent.queryKey(),
+            }),
           ]);
 
           // Now update dimension values to use resolved brand value IDs
           // This replaces tax:-prefixed pending values with actual brand value IDs
           if (resolvedVariant.tokenMaps.length > 0) {
-            const updatedDimensions = formValues.variantDimensions.map((dim, dimIndex) => {
-              const tokenMap = resolvedVariant.tokenMaps[dimIndex];
-              if (!tokenMap || dim.isCustomInline) return dim;
+            const updatedDimensions = formValues.variantDimensions.map(
+              (dim, dimIndex) => {
+                const tokenMap = resolvedVariant.tokenMaps[dimIndex];
+                if (!tokenMap || dim.isCustomInline) return dim;
 
-              // Replace values with resolved brand value IDs
-              const updatedValues = dim.values.map((valueId) =>
-                tokenMap.get(valueId) ?? valueId
-              );
+                // Replace values with resolved brand value IDs
+                const updatedValues = dim.values.map(
+                  (valueId) => tokenMap.get(valueId) ?? valueId,
+                );
 
-              return { ...dim, values: updatedValues };
-            });
+                return { ...dim, values: updatedValues };
+              },
+            );
 
             // Update enabledVariantKeys with resolved brand value IDs
             const updatedEnabledKeys = new Set<string>();
@@ -1044,8 +1169,13 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             }
 
             // Update variantMetadata keys with resolved brand value IDs
-            const updatedMetadata: Record<string, { sku?: string; barcode?: string }> = {};
-            for (const [key, value] of Object.entries(formValues.variantMetadata)) {
+            const updatedMetadata: Record<
+              string,
+              { sku?: string; barcode?: string }
+            > = {};
+            for (const [key, value] of Object.entries(
+              formValues.variantMetadata,
+            )) {
               const tokens = key.split("|");
               const resolvedTokens = tokens.map((token, idx) => {
                 const tokenMap = resolvedVariant.tokenMaps[idx];
@@ -1067,16 +1197,29 @@ export function usePassportForm(options?: UsePassportFormOptions) {
           });
           setHasAttemptedSubmit(false);
           setValidationErrors({});
-          setInitialSnapshot(JSON.stringify(computeComparableState({
-            ...formValues,
-            imageFile: null,
-            existingImageUrl: imagePath ?? formValues.existingImageUrl ?? null,
-          })));
+          setInitialSnapshot(
+            JSON.stringify(
+              computeComparableState({
+                ...formValues,
+                imageFile: null,
+                existingImageUrl:
+                  imagePath ?? formValues.existingImageUrl ?? null,
+              }),
+            ),
+          );
 
           // Invalidate other queries in the background (fire-and-forget)
-          void queryClient.invalidateQueries({ queryKey: trpc.products.get.queryKey({ id: metadataRef.current.productId }) });
-          void queryClient.invalidateQueries({ queryKey: trpc.products.list.queryKey() });
-          void queryClient.invalidateQueries({ queryKey: trpc.summary.productStatus.queryKey() });
+          void queryClient.invalidateQueries({
+            queryKey: trpc.products.get.queryKey({
+              id: metadataRef.current.productId,
+            }),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: trpc.products.list.queryKey(),
+          });
+          void queryClient.invalidateQueries({
+            queryKey: trpc.summary.productStatus.queryKey(),
+          });
 
           toast.success("Passport updated successfully");
           return;
@@ -1085,7 +1228,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         // Create mode
         const created = await createProductMutation.mutateAsync(basePayload);
         const productId = created?.data?.id;
-        const targetProductHandle = (created as any)?.data?.product_handle ?? productHandle ?? null;
+        const targetProductHandle =
+          (created as any)?.data?.product_handle ?? productHandle ?? null;
         if (!productId) throw new Error("Product was not created");
 
         // Sync variants using the new sync endpoint
@@ -1106,13 +1250,14 @@ export function usePassportForm(options?: UsePassportFormOptions) {
             }
 
             // Translate UI tokens to resolved brand value IDs using tokenMaps
-            const resolvedValueIds = tokens.map((token, idx) =>
-              resolvedVariant.tokenMaps[idx]?.get(token)
-            ).filter((id): id is string => id !== undefined);
+            const resolvedValueIds = tokens
+              .map((token, idx) => resolvedVariant.tokenMaps[idx]?.get(token))
+              .filter((id): id is string => id !== undefined);
 
             // Only include if all values resolved
             if (resolvedValueIds.length === tokens.length) {
-              const metadata = variantMetadataForUpsert?.[resolvedValueIds.join("|")];
+              const metadata =
+                variantMetadataForUpsert?.[resolvedValueIds.join("|")];
               variantsForSync.push({
                 attributeValueIds: resolvedValueIds,
                 sku: metadata?.sku || undefined,
@@ -1127,7 +1272,10 @@ export function usePassportForm(options?: UsePassportFormOptions) {
               variants: variantsForSync,
             });
           }
-        } else if (formValues.explicitVariants.length > 0 && targetProductHandle) {
+        } else if (
+          formValues.explicitVariants.length > 0 &&
+          targetProductHandle
+        ) {
           await syncVariantsMutation.mutateAsync({
             productHandle: targetProductHandle,
             variants: formValues.explicitVariants.map((v) => ({
@@ -1139,11 +1287,24 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         }
 
         void Promise.allSettled([
-          queryClient.invalidateQueries({ queryKey: trpc.products.list.queryKey() }),
-          queryClient.invalidateQueries({ queryKey: trpc.composite.catalogContent.queryKey() }),
-          queryClient.invalidateQueries({ queryKey: trpc.products.get.queryKey({ id: productId }) }),
-          targetProductHandle && queryClient.invalidateQueries({ queryKey: trpc.products.get.queryKey({ handle: targetProductHandle }) }),
-          queryClient.invalidateQueries({ queryKey: trpc.summary.productStatus.queryKey() }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.products.list.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.composite.catalogContent.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.products.get.queryKey({ id: productId }),
+          }),
+          targetProductHandle &&
+            queryClient.invalidateQueries({
+              queryKey: trpc.products.get.queryKey({
+                handle: targetProductHandle,
+              }),
+            }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.summary.productStatus.queryKey(),
+          }),
         ]);
 
         toast.success("Passport created successfully");
@@ -1157,7 +1318,8 @@ export function usePassportForm(options?: UsePassportFormOptions) {
         setHasAttemptedSubmit(false);
         resetFormValues();
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to create passport";
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to create passport";
         setError(errorMessage);
         toast.error(errorMessage);
         throw err;
@@ -1174,7 +1336,6 @@ export function usePassportForm(options?: UsePassportFormOptions) {
       trpc,
       uploadImage,
       validate,
-      resolveEcoClaims,
       resolveVariantDimensions,
       createProductMutation,
       updateProductMutation,
@@ -1196,10 +1357,15 @@ export function usePassportForm(options?: UsePassportFormOptions) {
     submit,
     isSubmitting,
     error,
-    isInitializing: isEditMode && (!hasHydratedRef.current || passportFormQuery.isLoading),
+    isInitializing:
+      isEditMode && (!hasHydratedRef.current || passportFormQuery.isLoading),
     hasUnsavedChanges,
     // Navigation support for variant editing
     savedVariantsMap,
     productHandle,
+    // Publishing support
+    productId: metadataRef.current.productId ?? null,
+    dbPublishingStatus,
+    dbHasUnpublishedChanges,
   };
 }

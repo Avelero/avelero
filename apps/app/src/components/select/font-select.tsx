@@ -145,7 +145,10 @@ export function FontSelect({
         <Button
           variant="outline"
           size="default"
-          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
+          className={cn(
+            "w-full justify-between data-[state=open]:bg-accent",
+            className,
+          )}
         >
           <span
             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
@@ -284,7 +287,12 @@ function FontList({
       viewportHeight / 2 +
       itemHeight / 2;
     return Math.max(0, targetOffset);
-  }, [selectedGoogleFontIndex, selectedCustomFontIndex, searchTerm, customFonts.length]);
+  }, [
+    selectedGoogleFontIndex,
+    selectedCustomFontIndex,
+    searchTerm,
+    customFonts.length,
+  ]);
 
   // Virtual list for Google fonts
   const virtualizer = useVirtualizer({
@@ -346,7 +354,11 @@ function FontList({
   const googleFontsHeaderHeight = showSectionHeaders && hasGoogleFonts ? 28 : 0;
 
   return (
-    <div ref={scrollRef} className="overflow-auto p-1" style={{ maxHeight: 300 }}>
+    <div
+      ref={scrollRef}
+      className="overflow-auto p-1"
+      style={{ maxHeight: 300 }}
+    >
       {/* Custom Fonts Section */}
       {hasCustomFonts && (
         <div>
@@ -366,7 +378,8 @@ function FontList({
                 hoveredFont === "__clear__"
                   ? false
                   : hoveredFont === null
-                    ? selectedValue?.toLowerCase() === font.fontFamily.toLowerCase()
+                    ? selectedValue?.toLowerCase() ===
+                      font.fontFamily.toLowerCase()
                     : hoveredFont === font.fontFamily
               }
               onSelect={onSelect}
@@ -442,7 +455,13 @@ interface CustomFontItemProps {
   onHover: (fontFamily: string | null) => void;
 }
 
-function CustomFontItem({ font, isSelected, isHighlighted, onSelect, onHover }: CustomFontItemProps) {
+function CustomFontItem({
+  font,
+  isSelected,
+  isHighlighted,
+  onSelect,
+  onHover,
+}: CustomFontItemProps) {
   return (
     <button
       type="button"
@@ -453,7 +472,10 @@ function CustomFontItem({ font, isSelected, isHighlighted, onSelect, onHover }: 
         isHighlighted && "bg-accent text-accent-foreground",
       )}
     >
-      <span className="px-1" style={{ fontFamily: `"${font.fontFamily}", sans-serif` }}>
+      <span
+        className="px-1"
+        style={{ fontFamily: `"${font.fontFamily}", sans-serif` }}
+      >
         {font.fontFamily}
       </span>
       {isSelected && <Icons.Check className="h-4 w-4" />}
@@ -469,7 +491,13 @@ interface GoogleFontItemProps {
   onHover: (fontFamily: string | null) => void;
 }
 
-function GoogleFontItem({ font, isSelected, isHighlighted, onSelect, onHover }: GoogleFontItemProps) {
+function GoogleFontItem({
+  font,
+  isSelected,
+  isHighlighted,
+  onSelect,
+  onHover,
+}: GoogleFontItemProps) {
   return (
     <button
       type="button"
@@ -480,7 +508,10 @@ function GoogleFontItem({ font, isSelected, isHighlighted, onSelect, onHover }: 
         isHighlighted && "bg-accent text-accent-foreground",
       )}
     >
-      <span className="px-1" style={{ fontFamily: `"${font.family}", sans-serif` }}>
+      <span
+        className="px-1"
+        style={{ fontFamily: `"${font.family}", sans-serif` }}
+      >
         {font.family}
       </span>
       {isSelected && <Icons.Check className="h-4 w-4" />}

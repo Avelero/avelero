@@ -187,7 +187,9 @@ export function CategorySelect({
                     className="w-full h-[30px] px-2 !type-small text-primary gap-2 focus:outline-none flex items-center hover:bg-accent rounded-none"
                   >
                     <Icons.ChevronLeft className="h-4 w-4 text-secondary" />
-                    <span className="px-1 text-primary truncate">{getBreadcrumbString()}</span>
+                    <span className="px-1 text-primary truncate">
+                      {getBreadcrumbString()}
+                    </span>
                   </button>
                 </div>
                 <div className="-mx-0 my-0 h-px bg-accent-dark" />
@@ -230,7 +232,7 @@ export function CategorySelect({
                               isSelected
                                 ? "bg-accent-blue text-brand"
                                 : hoveredRow === key &&
-                                  hoveredArea === "selection"
+                                    hoveredArea === "selection"
                                   ? "bg-accent-dark text-primary"
                                   : "text-primary",
                             )}

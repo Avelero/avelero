@@ -1,17 +1,9 @@
 {
   "extends": "@v1/tsconfig/nextjs.json",
   "compilerOptions": {
-    "types": [
-      "@types/bun"
-    ],
+    "types": ["@types/bun"],
     "moduleResolution": "bundler"
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "__tests__/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "__tests__/**/*.ts"],
+  "exclude": ["node_modules"]
 }

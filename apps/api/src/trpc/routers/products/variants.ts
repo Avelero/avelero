@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "@v1/db/queries";
 import {
   clearAllVariantOverrides,
+  getPassportByVariantId,
   getProductVariantsWithAttributes,
   getVariantOverridesOnly,
   listVariantsForProduct,
@@ -10,7 +11,6 @@ import {
   productVariants,
   products,
   variantCommercial,
-  variantEcoClaims,
   variantEnvironment,
   variantJourneySteps,
   variantMaterials,
@@ -98,11 +98,10 @@ const variantOverridesSchema = z
         z.object({
           sortIndex: z.number().int().min(0),
           stepType: z.string().min(1),
-          facilityId: z.string().uuid(),
+          operatorId: z.string().uuid(),
         }),
       )
       .optional(),
-    ecoClaimIds: z.array(z.string().uuid()).optional(),
   })
   .optional();
 
@@ -360,24 +359,7 @@ async function applyVariantOverrides(
           variantId,
           sortIndex: s.sortIndex,
           stepType: s.stepType,
-          facilityId: s.facilityId,
-          createdAt: now,
-        })),
-      );
-    }
-  }
-
-  // Eco claims (replace)
-  if (overrides.ecoClaimIds !== undefined) {
-    await db
-      .delete(variantEcoClaims)
-      .where(eq(variantEcoClaims.variantId, variantId));
-
-    if (overrides.ecoClaimIds.length > 0) {
-      await db.insert(variantEcoClaims).values(
-        overrides.ecoClaimIds.map((ecoClaimId) => ({
-          variantId,
-          ecoClaimId,
+          operatorId: s.operatorId,
           createdAt: now,
         })),
       );
@@ -448,18 +430,20 @@ export const productVariantsRouter = createTRPCRouter({
 
   /**
    * Get a single variant by UPID.
+   * Returns passport UPID if the variant has been published.
    */
   get: brandRequiredProcedure
     .input(
       variantIdentifierSchema.extend({
         includeOverrides: z.boolean().optional().default(false),
+        includePassport: z.boolean().optional().default(false),
       }),
     )
     .query(async ({ ctx, input }) => {
       const { db, brandId } = ctx as BrandContext;
 
       // Verify variant exists and belongs to brand
-      await findVariantByUpid(
+      const { variantId } = await findVariantByUpid(
         db,
         brandId,
         input.productHandle,
@@ -485,7 +469,24 @@ export const productVariantsRouter = createTRPCRouter({
 
       // TODO: If includeOverrides, fetch override data
 
-      return variant;
+      // Fetch passport info if requested or always include basic passport UPID
+      let passportInfo = null;
+      if (input.includePassport) {
+        const passport = await getPassportByVariantId(db, variantId);
+        if (passport) {
+          passportInfo = {
+            passportUpid: passport.upid,
+            isPublished: passport.currentVersionId !== null,
+            lastPublishedAt: passport.lastPublishedAt,
+            firstPublishedAt: passport.firstPublishedAt,
+          };
+        }
+      }
+
+      return {
+        ...variant,
+        passport: passportInfo,
+      };
     }),
 
   /**

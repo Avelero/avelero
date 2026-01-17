@@ -186,9 +186,9 @@ export function MaterialSheet({
   const [certExpiryDate, setCertExpiryDate] = React.useState<Date | undefined>(
     undefined,
   );
-  const [certificationPath, setCertificationPath] = React.useState<string | undefined>(
-    undefined,
-  );
+  const [certificationPath, setCertificationPath] = React.useState<
+    string | undefined
+  >(undefined);
   const [uploadedFileName, setUploadedFileName] = React.useState<
     string | undefined
   >(undefined);
@@ -287,30 +287,30 @@ export function MaterialSheet({
       // Serialize dates as ISO strings
       const issueDateISO = certIssueDate
         ? new Date(
-          Date.UTC(
-            certIssueDate.getFullYear(),
-            certIssueDate.getMonth(),
-            certIssueDate.getDate(),
-            0,
-            0,
-            0,
-            0,
-          ),
-        ).toISOString()
+            Date.UTC(
+              certIssueDate.getFullYear(),
+              certIssueDate.getMonth(),
+              certIssueDate.getDate(),
+              0,
+              0,
+              0,
+              0,
+            ),
+          ).toISOString()
         : undefined;
 
       const expiryDateISO = certExpiryDate
         ? new Date(
-          Date.UTC(
-            certExpiryDate.getFullYear(),
-            certExpiryDate.getMonth(),
-            certExpiryDate.getDate(),
-            0,
-            0,
-            0,
-            0,
-          ),
-        ).toISOString()
+            Date.UTC(
+              certExpiryDate.getFullYear(),
+              certExpiryDate.getMonth(),
+              certExpiryDate.getDate(),
+              0,
+              0,
+              0,
+              0,
+            ),
+          ).toISOString()
         : undefined;
 
       // Create certification via API
@@ -320,10 +320,8 @@ export function MaterialSheet({
         institute_name: certInstituteName.trim() || undefined,
         institute_email: certInstituteEmail.trim() || undefined,
         institute_website: normalizedWebsite || undefined,
-        institute_address_line_1:
-          certInstituteAddressLine1.trim() || undefined,
-        institute_address_line_2:
-          certInstituteAddressLine2.trim() || undefined,
+        institute_address_line_1: certInstituteAddressLine1.trim() || undefined,
+        institute_address_line_2: certInstituteAddressLine2.trim() || undefined,
         institute_city: certInstituteCity.trim() || undefined,
         institute_state: certInstituteState.trim() || undefined,
         institute_zip: certInstituteZip.trim() || undefined,
@@ -564,8 +562,7 @@ export function MaterialSheet({
           if (f.size > maxSize) {
             return {
               valid: false,
-              error:
-                "File too large. Please upload a file smaller than 50MB.",
+              error: "File too large. Please upload a file smaller than 50MB.",
             };
           }
           return { valid: true };
@@ -625,7 +622,8 @@ export function MaterialSheet({
           onClose={() => onOpenChange(false)}
           onPageClick={(pageIndex) => {
             if (pageIndex === 0) {
-              handleBackToMaterial(); SheetBreadcrumbHeader
+              handleBackToMaterial();
+              SheetBreadcrumbHeader;
             }
           }}
         />
@@ -712,14 +710,14 @@ export function MaterialSheet({
                         // Filter certifications by search term
                         const filteredCerts = certSearchTerm
                           ? availableCertifications.filter(
-                            (cert) =>
-                              cert.title
-                                .toLowerCase()
-                                .includes(certSearchTerm.toLowerCase()) ||
-                              cert.certificationCode
-                                ?.toLowerCase()
-                                .includes(certSearchTerm.toLowerCase()),
-                          )
+                              (cert) =>
+                                cert.title
+                                  .toLowerCase()
+                                  .includes(certSearchTerm.toLowerCase()) ||
+                                cert.certificationCode
+                                  ?.toLowerCase()
+                                  .includes(certSearchTerm.toLowerCase()),
+                            )
                           : availableCertifications;
 
                         // Check if search term doesn't match any existing certification
@@ -728,9 +726,9 @@ export function MaterialSheet({
                           !availableCertifications.some(
                             (cert) =>
                               cert.title.toLowerCase() ===
-                              certSearchTerm.toLowerCase() ||
+                                certSearchTerm.toLowerCase() ||
                               cert.certificationCode?.toLowerCase() ===
-                              certSearchTerm.toLowerCase(),
+                                certSearchTerm.toLowerCase(),
                           );
 
                         return (
@@ -747,10 +745,10 @@ export function MaterialSheet({
                                     "w-full p-3 flex items-center gap-3 hover:bg-accent transition-colors border-b border-border",
                                     // Remove bottom border on last item only if there's no create option below
                                     index === filteredCerts.length - 1 &&
-                                    !showCreateOption &&
-                                    "border-b-0",
+                                      !showCreateOption &&
+                                      "border-b-0",
                                     selectedCertificationId === cert.id &&
-                                    "bg-accent-blue",
+                                      "bg-accent-blue",
                                   )}
                                 >
                                   <div className="w-8 h-8 flex items-center justify-center shrink-0">
@@ -927,7 +925,9 @@ export function MaterialSheet({
 
               {/* Institute Website */}
               <div className="space-y-1.5">
-                <Label htmlFor="cert-institute-website">Institute website</Label>
+                <Label htmlFor="cert-institute-website">
+                  Institute website
+                </Label>
                 <Input
                   id="cert-institute-website"
                   type="text"

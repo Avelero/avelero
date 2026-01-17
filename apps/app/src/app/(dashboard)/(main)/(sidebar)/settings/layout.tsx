@@ -14,10 +14,10 @@ export default function AccountLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  
+
   // General tab should only be active for /settings exactly, not nested routes
   const isGeneralActive = pathname === "/settings";
-  
+
   return (
     <div className="flex flex-col h-full">
       <ControlBar>

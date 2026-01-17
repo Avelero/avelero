@@ -150,4 +150,3 @@ export function useImageUpload() {
 
   return { uploadImage, buildPath, error, isLoading, setError };
 }
-

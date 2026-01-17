@@ -40,7 +40,7 @@ export interface UpdateTagInput {
  */
 export async function getBrandTag(
   db: Database,
-  tagId: string
+  tagId: string,
 ): Promise<TagData | null> {
   const [row] = await db
     .select({
@@ -62,7 +62,7 @@ export async function getBrandTag(
  */
 export async function listBrandTags(
   db: Database,
-  brandId: string
+  brandId: string,
 ): Promise<TagData[]> {
   return db
     .select({
@@ -84,7 +84,7 @@ export async function listBrandTags(
 export async function createBrandTag(
   db: Database,
   brandId: string,
-  input: CreateTagInput
+  input: CreateTagInput,
 ): Promise<{ id: string } | null> {
   const [row] = await db
     .insert(brandTags)
@@ -104,7 +104,7 @@ export async function updateBrandTag(
   db: Database,
   brandId: string,
   id: string,
-  input: UpdateTagInput
+  input: UpdateTagInput,
 ): Promise<{ id: string } | null> {
   const updateData: Record<string, unknown> = {
     updatedAt: new Date().toISOString(),
@@ -152,7 +152,7 @@ export async function deleteBrandTag(
  */
 export async function loadTagsMap(
   db: Database,
-  brandId: string
+  brandId: string,
 ): Promise<Map<string, { id: string; hex: string | null }>> {
   const rows = await db
     .select({
@@ -182,7 +182,7 @@ export async function loadTagsMap(
 export async function batchCreateTags(
   db: Database,
   brandId: string,
-  tags: Array<{ name: string; hex?: string | null }>
+  tags: Array<{ name: string; hex?: string | null }>,
 ): Promise<Map<string, string>> {
   if (tags.length === 0) {
     return new Map();
@@ -208,7 +208,7 @@ export async function batchCreateTags(
         brandId,
         name: t.name,
         hex: t.hex,
-      }))
+      })),
     )
     .onConflictDoNothing({
       target: [brandTags.brandId, brandTags.name],
@@ -236,7 +236,7 @@ export async function batchCreateTags(
  */
 export async function getTagsByIds(
   db: Database,
-  tagIds: string[]
+  tagIds: string[],
 ): Promise<TagData[]> {
   if (tagIds.length === 0) return [];
 

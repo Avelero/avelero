@@ -10,26 +10,26 @@ import { useUserQuerySuspense } from "./use-user";
  * Notification object shape from the API.
  */
 export interface Notification {
-    /** Unique notification ID */
-    id: string;
-    /** Notification type (e.g., 'import_failure', 'export_ready') */
-    type: string;
-    /** Notification title */
-    title: string;
-    /** Optional detailed message */
-    message: string | null;
-    /** Type of resource this notification relates to */
-    resourceType: string | null;
-    /** ID of the related resource */
-    resourceId: string | null;
-    /** URL for click-through action */
-    actionUrl: string | null;
-    /** Additional action data */
-    actionData: Record<string, unknown> | null;
-    /** When the notification was seen (null = unread) */
-    seenAt: string | null;
-    /** When the notification was created */
-    createdAt: string;
+  /** Unique notification ID */
+  id: string;
+  /** Notification type (e.g., 'import_failure', 'export_ready') */
+  type: string;
+  /** Notification title */
+  title: string;
+  /** Optional detailed message */
+  message: string | null;
+  /** Type of resource this notification relates to */
+  resourceType: string | null;
+  /** ID of the related resource */
+  resourceId: string | null;
+  /** URL for click-through action */
+  actionUrl: string | null;
+  /** Additional action data */
+  actionData: Record<string, unknown> | null;
+  /** When the notification was seen (null = unread) */
+  seenAt: string | null;
+  /** When the notification was created */
+  createdAt: string;
 }
 
 /**
@@ -55,125 +55,126 @@ export interface Notification {
  * ```
  */
 export function useNotifications() {
-    const trpc = useTRPC();
-    const queryClient = useQueryClient();
-    const supabase = useMemo(() => createClient(), []);
-    const { data: user } = useUserQuerySuspense();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const supabase = useMemo(() => createClient(), []);
+  const { data: user } = useUserQuerySuspense();
 
-    // Query for unread count (for badge)
-    const unreadCountQuery = useQuery({
-        ...trpc.notifications.getUnreadCount.queryOptions(),
-        enabled: !!user?.id && !!user?.brand_id,
-        staleTime: 30_000, // Cache for 30 seconds
-        refetchOnWindowFocus: true,
-    });
+  // Query for unread count (for badge)
+  const unreadCountQuery = useQuery({
+    ...trpc.notifications.getUnreadCount.queryOptions(),
+    enabled: !!user?.id && !!user?.brand_id,
+    staleTime: 30_000, // Cache for 30 seconds
+    refetchOnWindowFocus: true,
+  });
 
-    // Query for recent notifications (for panel/dropdown)
-    const recentNotificationsQuery = useQuery({
-        ...trpc.notifications.getRecent.queryOptions({
-            limit: 10,
-            unreadOnly: false,
-            includeDismissed: false,
-        }),
-        enabled: !!user?.id && !!user?.brand_id,
-        staleTime: 30_000,
-    });
+  // Query for recent notifications (for panel/dropdown)
+  const recentNotificationsQuery = useQuery({
+    ...trpc.notifications.getRecent.queryOptions({
+      limit: 10,
+      unreadOnly: false,
+      includeDismissed: false,
+    }),
+    enabled: !!user?.id && !!user?.brand_id,
+    staleTime: 30_000,
+  });
 
-    // Mutations
-    const markAsSeen = useMutation(
-        trpc.notifications.markAsSeen.mutationOptions({
-            onSuccess: () => {
-                // Invalidate both queries
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            },
-        }),
-    );
+  // Mutations
+  const markAsSeen = useMutation(
+    trpc.notifications.markAsSeen.mutationOptions({
+      onSuccess: () => {
+        // Invalidate both queries
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      },
+    }),
+  );
 
-    const markAllAsSeen = useMutation(
-        trpc.notifications.markAllAsSeen.mutationOptions({
-            onSuccess: () => {
-                // Invalidate both queries
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            },
-        }),
-    );
+  const markAllAsSeen = useMutation(
+    trpc.notifications.markAllAsSeen.mutationOptions({
+      onSuccess: () => {
+        // Invalidate both queries
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      },
+    }),
+  );
 
-    const dismiss = useMutation(
-        trpc.notifications.dismiss.mutationOptions({
-            onSuccess: () => {
-                // Invalidate both queries
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            },
-        }),
-    );
+  const dismiss = useMutation(
+    trpc.notifications.dismiss.mutationOptions({
+      onSuccess: () => {
+        // Invalidate both queries
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      },
+    }),
+  );
 
-    // Subscribe to realtime notifications channel (user-specific)
-    useEffect(() => {
-        if (!user?.id) return;
+  // Subscribe to realtime notifications channel (user-specific)
+  useEffect(() => {
+    if (!user?.id) return;
 
-        const channel = supabase
-            .channel(`notifications:${user.id}`, { config: { private: true } })
-            .on("broadcast", { event: "INSERT" }, () => {
-                // New notification received - invalidate queries
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            })
-            .on("broadcast", { event: "UPDATE" }, () => {
-                // Notification updated (e.g., marked as seen from another device)
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getRecent.queryKey(),
-                });
-            })
-            .subscribe();
+    const channel = supabase
+      .channel(`notifications:${user.id}`, { config: { private: true } })
+      .on("broadcast", { event: "INSERT" }, () => {
+        // New notification received - invalidate queries
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      })
+      .on("broadcast", { event: "UPDATE" }, () => {
+        // Notification updated (e.g., marked as seen from another device)
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getRecent.queryKey(),
+        });
+      })
+      .subscribe();
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [user?.id, supabase, queryClient, trpc]);
-
-    return {
-        /** Number of unread notifications (for badge) */
-        unreadCount: unreadCountQuery.data?.count ?? 0,
-        /** Whether the unread count is loading */
-        isLoadingCount: unreadCountQuery.isLoading,
-        /** Recent notifications */
-        notifications: (recentNotificationsQuery.data?.notifications ?? []) as Notification[],
-        /** Whether recent notifications are loading */
-        isLoadingNotifications: recentNotificationsQuery.isLoading,
-        /** Refetch notifications */
-        refetch: () => {
-            unreadCountQuery.refetch();
-            recentNotificationsQuery.refetch();
-        },
-        /** Mark a specific notification as seen */
-        markAsSeen,
-        /** Mark all notifications as seen */
-        markAllAsSeen,
-        /** Dismiss a notification */
-        dismiss,
+    return () => {
+      supabase.removeChannel(channel);
     };
+  }, [user?.id, supabase, queryClient, trpc]);
+
+  return {
+    /** Number of unread notifications (for badge) */
+    unreadCount: unreadCountQuery.data?.count ?? 0,
+    /** Whether the unread count is loading */
+    isLoadingCount: unreadCountQuery.isLoading,
+    /** Recent notifications */
+    notifications: (recentNotificationsQuery.data?.notifications ??
+      []) as Notification[],
+    /** Whether recent notifications are loading */
+    isLoadingNotifications: recentNotificationsQuery.isLoading,
+    /** Refetch notifications */
+    refetch: () => {
+      unreadCountQuery.refetch();
+      recentNotificationsQuery.refetch();
+    },
+    /** Mark a specific notification as seen */
+    markAsSeen,
+    /** Mark all notifications as seen */
+    markAllAsSeen,
+    /** Dismiss a notification */
+    dismiss,
+  };
 }
 
 /**
@@ -188,44 +189,44 @@ export function useNotifications() {
  * ```
  */
 export function useNotificationCount() {
-    const trpc = useTRPC();
-    const queryClient = useQueryClient();
-    const supabase = useMemo(() => createClient(), []);
-    const { data: user } = useUserQuerySuspense();
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const supabase = useMemo(() => createClient(), []);
+  const { data: user } = useUserQuerySuspense();
 
-    const query = useQuery({
-        ...trpc.notifications.getUnreadCount.queryOptions(),
-        enabled: !!user?.id && !!user?.brand_id,
-        staleTime: 30_000,
-        refetchOnWindowFocus: true,
-    });
+  const query = useQuery({
+    ...trpc.notifications.getUnreadCount.queryOptions(),
+    enabled: !!user?.id && !!user?.brand_id,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
 
-    // Subscribe to realtime for count updates
-    useEffect(() => {
-        if (!user?.id) return;
+  // Subscribe to realtime for count updates
+  useEffect(() => {
+    if (!user?.id) return;
 
-        const channel = supabase
-            .channel(`notifications:${user.id}`, { config: { private: true } })
-            .on("broadcast", { event: "INSERT" }, () => {
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-            })
-            .on("broadcast", { event: "UPDATE" }, () => {
-                queryClient.invalidateQueries({
-                    queryKey: trpc.notifications.getUnreadCount.queryKey(),
-                });
-            })
-            .subscribe();
+    const channel = supabase
+      .channel(`notifications:${user.id}`, { config: { private: true } })
+      .on("broadcast", { event: "INSERT" }, () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+      })
+      .on("broadcast", { event: "UPDATE" }, () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.notifications.getUnreadCount.queryKey(),
+        });
+      })
+      .subscribe();
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [user?.id, supabase, queryClient, trpc]);
-
-    return {
-        count: query.data?.count ?? 0,
-        isLoading: query.isLoading,
-        refetch: query.refetch,
+    return () => {
+      supabase.removeChannel(channel);
     };
+  }, [user?.id, supabase, queryClient, trpc]);
+
+  return {
+    count: query.data?.count ?? 0,
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
 }

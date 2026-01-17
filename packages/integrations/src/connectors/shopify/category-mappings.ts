@@ -62,7 +62,7 @@ let branchKeys: string[] = [];
  * @throws Error if the mapping is not found in the database
  */
 export async function initShopifyToAveleroCategoryMapping(
-  db: Database
+  db: Database,
 ): Promise<void> {
   // Already initialized
   if (mapping) return;
@@ -72,7 +72,7 @@ export async function initShopifyToAveleroCategoryMapping(
   if (!row) {
     throw new Error(
       "Missing taxonomy external mapping 'shopify-to-avelero'. " +
-        "Run `bun run sync` in @v1/taxonomy after running db migrations."
+        "Run `bun run sync` in @v1/taxonomy after running db migrations.",
     );
   }
 
@@ -80,7 +80,7 @@ export async function initShopifyToAveleroCategoryMapping(
 
   // Pre-sort branch keys by length descending for efficient prefix matching
   branchKeys = Object.keys(mapping.branch_config.branches).sort(
-    (a, b) => b.length - a.length
+    (a, b) => b.length - a.length,
   );
 }
 
@@ -103,7 +103,7 @@ function requireMapping(): ShopifyToAveleroResolvedConfig {
   if (!mapping) {
     throw new Error(
       "Shopify category mapping not initialized. " +
-        "Call initShopifyToAveleroCategoryMapping(db) before syncing."
+        "Call initShopifyToAveleroCategoryMapping(db) before syncing.",
     );
   }
   return mapping;
@@ -114,10 +114,7 @@ function requireMapping(): ShopifyToAveleroResolvedConfig {
  * Example: "gid://shopify/TaxonomyCategory/aa-1-13-8" → "aa-1-13-8"
  */
 function extractShortId(shopifyCategoryId: string): string {
-  return shopifyCategoryId.replace(
-    /^gid:\/\/shopify\/TaxonomyCategory\//,
-    ""
-  );
+  return shopifyCategoryId.replace(/^gid:\/\/shopify\/TaxonomyCategory\//, "");
 }
 
 /**
@@ -137,7 +134,7 @@ function getParentId(categoryId: string): string | null {
 function isExcluded(categoryId: string, excludedIds: string[]): boolean {
   return excludedIds.some(
     (excludedId) =>
-      categoryId === excludedId || categoryId.startsWith(`${excludedId}-`)
+      categoryId === excludedId || categoryId.startsWith(`${excludedId}-`),
   );
 }
 
@@ -152,7 +149,10 @@ function isExcluded(categoryId: string, excludedIds: string[]): boolean {
  * @returns Avelero category UUID (string) or null if no mapping exists
  */
 export function resolveShopifyCategoryId(
-  shopifyCategory: { id: string; name: string; fullName: string } | null | undefined
+  shopifyCategory:
+    | { id: string; name: string; fullName: string }
+    | null
+    | undefined,
 ): string | null {
   if (!shopifyCategory?.id) return null;
 

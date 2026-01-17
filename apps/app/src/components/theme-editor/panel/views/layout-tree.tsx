@@ -292,7 +292,10 @@ export function LayoutTree() {
 
       // Only trigger preview highlight for components with editable content or config content
       const component = findComponentById(id);
-      if (!component || (!hasEditableContent(component) && !hasConfigContent(component))) {
+      if (
+        !component ||
+        (!hasEditableContent(component) && !hasConfigContent(component))
+      ) {
         // Clear hover when hovering non-editable items
         setHoveredComponentId(null);
         return;
@@ -326,12 +329,15 @@ export function LayoutTree() {
     expandedItems,
   );
 
+  // Filter out hidden components (feature flag support)
+  const visibleComponents = COMPONENT_TREE.filter((item) => !item.hidden);
+
   return (
     <div
       className="flex-1 p-2 overflow-y-auto scrollbar-hide"
       onMouseLeave={() => handleItemHover(null)}
     >
-      {COMPONENT_TREE.map((item) => (
+      {visibleComponents.map((item) => (
         <LayoutTreeItem
           key={item.id}
           item={item}

@@ -599,6 +599,8 @@ async function processBatch(
           description: p.description,
           imagePath: null,
           status: "unpublished" as const,
+          // Mark as having unpublished changes - user must manually publish
+          hasUnpublishedChanges: true,
           categoryId: p.categoryId,
           source: p.source,
           sourceIntegrationId: p.sourceIntegrationId,

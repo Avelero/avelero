@@ -45,7 +45,6 @@ export interface ParsedVariant {
   carbonStatusOverride?: string;
   waterLitersOverride?: number;
   weightGramsOverride?: number;
-  ecoClaimsOverride: string[];
   materialsOverride: ParsedMaterial[];
   journeyStepsOverride: Record<string, string>;
   rawData: Record<string, string>;
@@ -66,7 +65,6 @@ export interface ParsedProduct {
   carbonStatus?: string;
   waterLiters?: number;
   weightGrams?: number;
-  ecoClaims: string[];
   materials: ParsedMaterial[];
   journeySteps: Record<string, string>;
   variants: ParsedVariant[];
@@ -96,12 +94,15 @@ export interface ExportProductData {
   manufacturerName: string | null;
   imagePath: string | null;
   status: string;
+  /** Whether this product has unpublished changes (new publishing model) */
+  hasUnpublishedChanges: boolean;
+  /** ISO timestamp of last publish, null if never published */
+  lastPublishedAt: string | null;
   categoryPath: string | null;
   seasonName: string | null;
   tags: string[];
   carbonKg: number | null;
   waterLiters: number | null;
-  ecoClaims: string[];
   weightGrams: number | null;
   materials: Array<{ name: string; percentage: number | null }>;
   journeySteps: Record<string, string>;
@@ -119,7 +120,6 @@ export interface ExportVariantData {
   carbonKgOverride: number | null;
   waterLitersOverride: number | null;
   weightGramsOverride: number | null;
-  ecoClaimsOverride: string[] | null;
   materialsOverride: Array<{ name: string; percentage: number | null }> | null;
   journeyStepsOverride: Record<string, string> | null;
 }
@@ -162,6 +162,8 @@ const EXPORT_COLUMNS = [
   "Description",
   "Image",
   "Status",
+  "Has Unpublished Changes",
+  "Last Published At",
   "Category",
   "Season",
   "Tags",
@@ -176,7 +178,6 @@ const EXPORT_COLUMNS = [
   "Attribute Value 3",
   "kgCO2e Carbon Footprint",
   "Liters Water Used",
-  "Eco-claims",
   "Grams Weight",
   "Materials",
   "Percentages",
@@ -208,7 +209,6 @@ export const EXPECTED_COLUMNS = [
   "Attribute Value 3",
   "kgCO2e Carbon Footprint",
   "Liters Water Used",
-  "Eco-claims",
   "Grams Weight",
   "Materials",
   "Percentages",
@@ -250,7 +250,6 @@ const COLUMN_TO_INTERNAL: Record<string, string> = {
   "Attribute Value 3": "Attribute Value 3",
   "kgCO2e Carbon Footprint": "Kilograms CO2",
   "Liters Water Used": "Liters Water Used",
-  "Eco-claims": "Eco Claims",
   "Grams Weight": "Grams Weight",
   Materials: "Materials",
   Percentages: "Percentages",
@@ -265,7 +264,6 @@ const COLUMN_TO_INTERNAL: Record<string, string> = {
 const INTERNAL_TO_TEMPLATE: Record<string, string> = {
   "Kilograms CO2": "kgCO2e Carbon Footprint",
   "Carbon Footprint": "kgCO2e Carbon Footprint",
-  "Eco Claims": "Eco-claims",
 };
 
 // ============================================================================
@@ -525,9 +523,6 @@ function extractVariant(
     weightGramsOverride: shouldExtractOverrides
       ? parseNumber(rowData["Grams Weight"])
       : undefined,
-    ecoClaimsOverride: shouldExtractOverrides
-      ? parseSemicolonSeparated(rowData["Eco Claims"])
-      : [],
     materialsOverride: shouldExtractOverrides
       ? parseMaterials(rowData.Materials, rowData.Percentages)
       : [],
@@ -645,7 +640,6 @@ export async function parseExcelFile(
         carbonStatus: rowData["Carbon Footprint"],
         waterLiters: parseNumber(rowData["Liters Water Used"]),
         weightGrams: parseNumber(rowData["Grams Weight"]),
-        ecoClaims: parseSemicolonSeparated(rowData["Eco Claims"]),
         materials: parseMaterials(rowData.Materials, rowData.Percentages),
         journeySteps: extractJourneySteps(rowData),
         variants: [extractVariant(rowData, rowNumber, true)],
@@ -787,6 +781,11 @@ export async function generateProductExportExcel(
           buildImageUrl(variant.imagePathOverride ?? product.imagePath),
         );
         setCell("Status", product.status);
+        setCell(
+          "Has Unpublished Changes",
+          product.hasUnpublishedChanges ? "Yes" : "No",
+        );
+        setCell("Last Published At", product.lastPublishedAt);
         setCell("Category", product.categoryPath);
         setCell("Season", product.seasonName);
         setCell("Tags", joinSemicolon(product.tags));
@@ -798,10 +797,6 @@ export async function generateProductExportExcel(
           "Liters Water Used",
           variant.waterLitersOverride ?? product.waterLiters,
         );
-        const ecoClaims = variant.ecoClaimsOverride?.length
-          ? variant.ecoClaimsOverride
-          : product.ecoClaims;
-        setCell("Eco-claims", joinSemicolon(ecoClaims));
         setCell(
           "Grams Weight",
           variant.weightGramsOverride ?? product.weightGrams,
@@ -835,8 +830,6 @@ export async function generateProductExportExcel(
           setCell("Liters Water Used", variant.waterLitersOverride);
         if (variant.weightGramsOverride != null)
           setCell("Grams Weight", variant.weightGramsOverride);
-        if (variant.ecoClaimsOverride?.length)
-          setCell("Eco-claims", joinSemicolon(variant.ecoClaimsOverride));
         if (variant.materialsOverride?.length) {
           const { names, percentages } = formatMaterials(
             variant.materialsOverride,

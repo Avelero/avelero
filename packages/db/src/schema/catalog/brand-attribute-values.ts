@@ -13,10 +13,15 @@ export const brandAttributeValues = pgTable(
       .references(() => brands.id, { onDelete: "cascade", onUpdate: "cascade" })
       .notNull(),
     attributeId: uuid("attribute_id")
-      .references(() => brandAttributes.id, { onDelete: "cascade", onUpdate: "cascade" })
+      .references(() => brandAttributes.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      })
       .notNull(),
-    taxonomyValueId: uuid("taxonomy_value_id")
-      .references(() => taxonomyValues.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    taxonomyValueId: uuid("taxonomy_value_id").references(
+      () => taxonomyValues.id,
+      { onDelete: "cascade", onUpdate: "cascade" },
+    ),
     name: text("name").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
       .defaultNow()

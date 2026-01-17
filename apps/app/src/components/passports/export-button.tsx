@@ -8,28 +8,28 @@ import { useSelectionContextSafe } from "@/components/passports/selection-contex
  * Reads selection state from the SelectionContext and passes it to the ExportProductsModal.
  */
 export function ExportButton() {
-    const context = useSelectionContextSafe();
+  const context = useSelectionContextSafe();
 
-    // If no context (provider not mounted yet), show disabled button
-    if (!context) {
-        return (
-            <ExportProductsModal
-                selection={{ mode: "explicit", includeIds: [], excludeIds: [] }}
-                selectedCount={0}
-                filterState={undefined}
-                searchValue=""
-                disabled
-            />
-        );
-    }
-
+  // If no context (provider not mounted yet), show disabled button
+  if (!context) {
     return (
-        <ExportProductsModal
-            selection={context.selection}
-            selectedCount={context.selectedCount}
-            filterState={context.filterState}
-            searchValue={context.searchValue}
-            disabled={context.disabled}
-        />
+      <ExportProductsModal
+        selection={{ mode: "explicit", includeIds: [], excludeIds: [] }}
+        selectedCount={0}
+        filterState={undefined}
+        searchValue=""
+        disabled
+      />
     );
+  }
+
+  return (
+    <ExportProductsModal
+      selection={context.selection}
+      selectedCount={context.selectedCount}
+      filterState={context.filterState}
+      searchValue={context.searchValue}
+      disabled={context.disabled}
+    />
+  );
 }

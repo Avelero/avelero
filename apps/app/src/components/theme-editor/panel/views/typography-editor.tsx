@@ -90,7 +90,10 @@ function TypographySelect({
         <Button
           variant="outline"
           size="default"
-          className={cn("w-full justify-between data-[state=open]:bg-accent", className)}
+          className={cn(
+            "w-full justify-between data-[state=open]:bg-accent",
+            className,
+          )}
         >
           <span
             className={cn("truncate px-1", isPlaceholder && "text-tertiary")}
@@ -245,8 +248,12 @@ function TypographyScaleForm({
 }
 
 export function TypographyEditor() {
-  const { themeStylesDraft, setThemeStylesDraft, updateTypographyScale, brandId } =
-    useDesignEditor();
+  const {
+    themeStylesDraft,
+    setThemeStylesDraft,
+    updateTypographyScale,
+    brandId,
+  } = useDesignEditor();
   const [openItem, setOpenItem] = React.useState<string | null>(null);
   const [customFontsModalOpen, setCustomFontsModalOpen] = React.useState(false);
 

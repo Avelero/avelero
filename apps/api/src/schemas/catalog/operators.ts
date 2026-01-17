@@ -1,5 +1,5 @@
 /**
- * Validation schemas for brand facility operations.
+ * Validation schemas for brand operator operations.
  */
 import { z } from "zod";
 import {
@@ -14,14 +14,14 @@ import {
 } from "../_shared/primitives.js";
 
 /**
- * Empty payload for listing facilities.
+ * Empty payload for listing operators.
  */
-export const listFacilitiesSchema = voidSchema;
+export const listOperatorsSchema = voidSchema;
 
 /**
- * Payload for creating a facility.
+ * Payload for creating an operator.
  */
-export const createFacilitySchema = z.object({
+export const createOperatorSchema = z.object({
   display_name: shortStringSchema,
   legal_name: shortStringSchema.optional(),
   email: shortStringSchema.optional(),
@@ -36,9 +36,9 @@ export const createFacilitySchema = z.object({
 });
 
 /**
- * Payload for updating a facility.
+ * Payload for updating an operator.
  */
-export const updateFacilitySchema = updateWithNullable(createFacilitySchema, [
+export const updateOperatorSchema = updateWithNullable(createOperatorSchema, [
   "legal_name",
   "email",
   "phone",
@@ -52,6 +52,6 @@ export const updateFacilitySchema = updateWithNullable(createFacilitySchema, [
 ]);
 
 /**
- * Payload for deleting a facility.
+ * Payload for deleting an operator.
  */
-export const deleteFacilitySchema = byIdSchema;
+export const deleteOperatorSchema = byIdSchema;

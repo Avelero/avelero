@@ -44,7 +44,7 @@ jobs:
           EOF
 
       - name: 🗄️ Apply Pending Migrations
-        run: supabase db push --linked
+        run: supabase db push --db-url "${{ secrets.PRODUCTION_DATABASE_URL }}"
         working-directory: ./apps/api
 
       - name: 🧹 Cleanup .env

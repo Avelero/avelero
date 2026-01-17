@@ -1,6 +1,6 @@
 /**
  * Integration provider query functions.
- * 
+ *
  * Handles queries for system-level integration types (providers).
  */
 
@@ -75,12 +75,3 @@ export async function getIntegrationById(db: Database, id: string) {
     .limit(1);
   return row;
 }
-
-
-
-
-
-
-
-
-

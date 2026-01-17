@@ -1,4 +1,7 @@
-import { CreateProductForm, ProductFormSkeleton } from "@/components/forms/passport";
+import {
+  CreateProductForm,
+  ProductFormSkeleton,
+} from "@/components/forms/passport";
 import { HydrateClient, prefetch, trpc } from "@/trpc/server";
 import type { Metadata } from "next";
 import { Suspense } from "react";

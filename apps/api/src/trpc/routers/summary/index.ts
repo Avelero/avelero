@@ -1,4 +1,4 @@
-import { eq, sql } from "@v1/db/queries";
+import { and, eq, sql } from "@v1/db/queries";
 import { products } from "@v1/db/schema";
 import { summaryProductStatusSchema } from "../../../schemas/summary.js";
 import { createEntityResponse } from "../../../utils/response.js";
@@ -9,20 +9,58 @@ export const summaryRouter = createTRPCRouter({
     .input(summaryProductStatusSchema)
     .query(async ({ ctx }) => {
       const { db, brandId } = ctx;
-      const rows = await db
+
+      // Get total count
+      const [totalResult] = await db
         .select({
-          status: products.status,
           count: sql<number>`COUNT(*)::int`,
         })
         .from(products)
-        .where(eq(products.brandId, brandId))
-        .groupBy(products.status);
+        .where(eq(products.brandId, brandId));
 
-      const summary = rows.reduce<Record<string, number>>((acc, row) => {
-        const key = row.status ?? "unknown";
-        acc[key] = (acc[key] ?? 0) + (row.count ?? 0);
-        return acc;
-      }, {});
+      // Get published count
+      const [publishedResult] = await db
+        .select({
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(products)
+        .where(
+          and(eq(products.brandId, brandId), eq(products.status, "published")),
+        );
+
+      // Get unpublished count
+      const [unpublishedResult] = await db
+        .select({
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(products)
+        .where(
+          and(
+            eq(products.brandId, brandId),
+            eq(products.status, "unpublished"),
+          ),
+        );
+
+      // Get pending changes count (published products with unpublished changes)
+      const [pendingChangesResult] = await db
+        .select({
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(products)
+        .where(
+          and(
+            eq(products.brandId, brandId),
+            eq(products.status, "published"),
+            eq(products.hasUnpublishedChanges, true),
+          ),
+        );
+
+      const summary = {
+        total: totalResult?.count ?? 0,
+        published: publishedResult?.count ?? 0,
+        unpublished: unpublishedResult?.count ?? 0,
+        pendingChanges: pendingChangesResult?.count ?? 0,
+      };
 
       return createEntityResponse(summary);
     }),

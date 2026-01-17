@@ -354,10 +354,7 @@ export function SeasonModal({
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={!name.trim() || isCreating}
-          >
+          <Button onClick={handleSave} disabled={!name.trim() || isCreating}>
             Create
           </Button>
         </DialogFooter>

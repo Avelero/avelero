@@ -17,7 +17,15 @@ import type { PassportTableRow } from "./types";
 import { PassportControls } from "@/components/passports/passport-controls";
 
 // Default values matching table-section.tsx
-const DEFAULT_COLUMN_ORDER = ["product", "status", "category", "season", "variantCount", "tags", "actions"];
+const DEFAULT_COLUMN_ORDER = [
+  "product",
+  "status",
+  "category",
+  "season",
+  "variantCount",
+  "tags",
+  "actions",
+];
 const DEFAULT_COLUMN_VISIBILITY: Record<string, boolean> = {
   product: true,
   status: true,
@@ -84,12 +92,7 @@ export function TableSectionSkeleton({
       <div className="flex items-center justify-end gap-4 py-3">
         <div className="type-p text-secondary">0 - 0 of 0</div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="First page"
-            disabled
-          >
+          <Button variant="outline" size="sm" aria-label="First page" disabled>
             <Icons.ChevronsLeft className="h-[14px] w-[14px]" />
           </Button>
           <Button
@@ -100,20 +103,10 @@ export function TableSectionSkeleton({
           >
             <Icons.ChevronLeft className="h-[14px] w-[14px]" />
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Next page"
-            disabled
-          >
+          <Button variant="outline" size="sm" aria-label="Next page" disabled>
             <Icons.ChevronRight className="h-[14px] w-[14px]" />
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Last page"
-            disabled
-          >
+          <Button variant="outline" size="sm" aria-label="Last page" disabled>
             <Icons.ChevronsRight className="h-[14px] w-[14px]" />
           </Button>
         </div>
@@ -183,12 +176,7 @@ export function PassportTableSkeleton({
       <div className="flex items-center justify-end gap-4 py-3">
         <div className="type-p text-secondary">0 - 0 of 0</div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="First page"
-            disabled
-          >
+          <Button variant="outline" size="sm" aria-label="First page" disabled>
             <Icons.ChevronsLeft className="h-[14px] w-[14px]" />
           </Button>
           <Button
@@ -199,20 +187,10 @@ export function PassportTableSkeleton({
           >
             <Icons.ChevronLeft className="h-[14px] w-[14px]" />
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Next page"
-            disabled
-          >
+          <Button variant="outline" size="sm" aria-label="Next page" disabled>
             <Icons.ChevronRight className="h-[14px] w-[14px]" />
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Last page"
-            disabled
-          >
+          <Button variant="outline" size="sm" aria-label="Last page" disabled>
             <Icons.ChevronsRight className="h-[14px] w-[14px]" />
           </Button>
         </div>

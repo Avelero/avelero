@@ -1,15 +1,6 @@
-import {
-  type CarouselProduct,
-  fetchCarouselProducts,
-  getBrandBySlug,
-  getBrandTheme,
-  getDppByProductHandle,
-  getDppByVariantUpid,
-  getProductByHandle,
-  transformToDppData,
-} from "@v1/db/queries";
+import { getBrandBySlug, getBrandTheme } from "@v1/db/queries";
+import { getPublicDppByUpid } from "@v1/db/queries/dpp";
 import { getPublicUrl } from "@v1/supabase/storage";
-import type { StorageClient } from "@v1/supabase/storage";
 /**
  * Public DPP (Digital Product Passport) router.
  *
@@ -20,41 +11,10 @@ import type { StorageClient } from "@v1/supabase/storage";
  * - Uses service-level database access (bypasses RLS)
  * - Only returns published products
  * - Input validation on all parameters
- *
- * Phase 6 changes:
- * - Added `carousel.list` endpoint for explicit carousel fetching
  */
 import { z } from "zod";
 import { slugSchema } from "../../../schemas/_shared/primitives.js";
-import { dppCarouselListSchema } from "../../../schemas/dpp-public.js";
 import { createTRPCRouter, publicProcedure } from "../../init.js";
-
-/**
- * Minimum number of products required to show the carousel.
- * If fewer products are available, the carousel is hidden.
- */
-const MIN_CAROUSEL_PRODUCTS = 3;
-
-/**
- * Minimal carousel config type (only what we need from ThemeConfig.carousel)
- */
-interface CarouselConfig {
-  productCount?: number;
-  filter?: Record<string, unknown>;
-  includeIds?: string[];
-  excludeIds?: string[];
-}
-
-/**
- * Similar product for carousel display (matches DppData.similarProducts)
- */
-interface SimilarProduct {
-  image: string;
-  name: string;
-  price: number;
-  currency?: string;
-  url?: string;
-}
 
 /**
  * UPID schema: 16-character alphanumeric identifier
@@ -65,222 +25,13 @@ const upidSchema = z
   .regex(/^[a-zA-Z0-9]+$/, "UPID must be alphanumeric");
 
 /**
- * Product handle schema: brand-defined identifier used in URL
- */
-const productHandleSchema = z
-  .string()
-  .min(1, "Product handle is required")
-  .max(255, "Product handle too long");
-
-/**
- * Input schema for product-level DPP fetch
- * URL: /[brandSlug]/[productHandle]/
- */
-const getByProductHandleSchema = z.object({
-  brandSlug: slugSchema,
-  productHandle: productHandleSchema,
-});
-
-/**
- * Input schema for variant-level DPP fetch
- * URL: /[brandSlug]/[productHandle]/[variantUpid]/
- */
-const getByVariantUpidSchema = z.object({
-  brandSlug: slugSchema,
-  productHandle: productHandleSchema,
-  variantUpid: upidSchema,
-});
-
-/**
  * Input schema for theme preview fetch (screenshot generation)
  */
 const getThemePreviewSchema = z.object({
   brandSlug: slugSchema,
 });
 
-/**
- * Transform carousel products from database format to SimilarProduct format.
- * Resolves image paths to public URLs.
- */
-function transformCarouselProducts(
-  products: CarouselProduct[],
-  supabase: StorageClient,
-): SimilarProduct[] {
-  return products.map((product) => ({
-    name: product.name,
-    image: product.imagePath
-      ? getPublicUrl(supabase, "products", product.imagePath) ?? ""
-      : "",
-    price: Number(product.price),
-    currency: product.currency,
-    url: product.webshopUrl,
-  }));
-}
-
 export const dppPublicRouter = createTRPCRouter({
-  /**
-   * Fetch DPP data for a product-level passport.
-   * URL: /[brandSlug]/[productHandle]/
-   *
-   * @param brandSlug - URL-friendly brand identifier
-   * @param productHandle - Brand-defined product identifier (used in URL)
-   * @returns DppData for rendering, or null if not found/not published
-   */
-  getByProductHandle: publicProcedure
-    .input(getByProductHandleSchema)
-    .query(async ({ ctx, input }) => {
-      const { brandSlug, productHandle } = input;
-
-      // Fetch using service-level database (bypasses RLS)
-      const rawData = await getDppByProductHandle(
-        ctx.db,
-        brandSlug,
-        productHandle,
-      );
-
-      if (!rawData) {
-        return null;
-      }
-
-      // Transform to component-ready format
-      const dppData = transformToDppData(rawData);
-
-      // Resolve URLs server-side (DPP app doesn't need Supabase credentials)
-      const stylesheetUrl = rawData.stylesheetPath
-        ? getPublicUrl(ctx.supabase, "dpp-themes", rawData.stylesheetPath)
-        : null;
-
-      // Resolve product image path to public URL
-      const productImageUrl = rawData.productImage
-        ? getPublicUrl(ctx.supabase, "products", rawData.productImage)
-        : null;
-
-      // Fetch similar products for carousel
-      const carouselConfig = (
-        rawData.themeConfig as { carousel?: CarouselConfig } | null
-      )?.carousel;
-      let similarProducts: SimilarProduct[] = [];
-
-      if (carouselConfig) {
-        const carouselProducts = await fetchCarouselProducts(ctx.db, {
-          brandId: rawData.brandId,
-          currentProductId: rawData.productId,
-          currentCategoryId: rawData.categoryId,
-          carouselConfig,
-        });
-
-        // Only include products if we have minimum required
-        if (carouselProducts.length >= MIN_CAROUSEL_PRODUCTS) {
-          similarProducts = transformCarouselProducts(
-            carouselProducts,
-            ctx.supabase,
-          );
-        }
-      }
-
-      // Return all data needed for rendering
-      return {
-        dppData: {
-          ...dppData,
-          // Override productIdentifiers.productImage with resolved URL
-          productIdentifiers: {
-            ...dppData.productIdentifiers,
-            productImage: productImageUrl ?? "",
-          },
-        },
-        dppContent: {
-          similarProducts,
-        },
-        themeConfig: rawData.themeConfig,
-        themeStyles: rawData.themeStyles,
-        stylesheetUrl,
-        googleFontsUrl: rawData.googleFontsUrl,
-      };
-    }),
-
-  /**
-   * Fetch DPP data for a variant-level passport.
-   * URL: /[brandSlug]/[productHandle]/[variantUpid]/
-   *
-   * @param brandSlug - URL-friendly brand identifier
-   * @param productHandle - Brand-defined product identifier (used in URL)
-   * @param variantUpid - 16-character variant UPID
-   * @returns DppData for rendering, or null if not found/not published
-   */
-  getByVariantUpid: publicProcedure
-    .input(getByVariantUpidSchema)
-    .query(async ({ ctx, input }) => {
-      const { brandSlug, productHandle, variantUpid } = input;
-
-      // Fetch using service-level database (bypasses RLS)
-      const rawData = await getDppByVariantUpid(
-        ctx.db,
-        brandSlug,
-        productHandle,
-        variantUpid,
-      );
-
-      if (!rawData) {
-        return null;
-      }
-
-      // Transform to component-ready format
-      const dppData = transformToDppData(rawData);
-
-      // Resolve URLs server-side (DPP app doesn't need Supabase credentials)
-      const stylesheetUrl = rawData.stylesheetPath
-        ? getPublicUrl(ctx.supabase, "dpp-themes", rawData.stylesheetPath)
-        : null;
-
-      // Resolve product image path to public URL
-      const productImageUrl = rawData.productImage
-        ? getPublicUrl(ctx.supabase, "products", rawData.productImage)
-        : null;
-
-      // Fetch similar products for carousel
-      // For variant-level DPP, exclude the parent product from carousel
-      const carouselConfig = (
-        rawData.themeConfig as { carousel?: CarouselConfig } | null
-      )?.carousel;
-      let similarProducts: SimilarProduct[] = [];
-
-      if (carouselConfig) {
-        const carouselProducts = await fetchCarouselProducts(ctx.db, {
-          brandId: rawData.brandId,
-          currentProductId: rawData.productId, // Exclude the parent product
-          currentCategoryId: rawData.categoryId,
-          carouselConfig,
-        });
-
-        // Only include products if we have minimum required
-        if (carouselProducts.length >= MIN_CAROUSEL_PRODUCTS) {
-          similarProducts = transformCarouselProducts(
-            carouselProducts,
-            ctx.supabase,
-          );
-        }
-      }
-
-      // Return all data needed for rendering
-      return {
-        dppData: {
-          ...dppData,
-          // Override productIdentifiers.productImage with resolved URL
-          productIdentifiers: {
-            ...dppData.productIdentifiers,
-            productImage: productImageUrl ?? "",
-          },
-        },
-        dppContent: {
-          similarProducts,
-        },
-        themeConfig: rawData.themeConfig,
-        themeStyles: rawData.themeStyles,
-        stylesheetUrl,
-        googleFontsUrl: rawData.googleFontsUrl,
-      };
-    }),
-
   /**
    * Fetch theme data for screenshot preview.
    *
@@ -320,61 +71,76 @@ export const dppPublicRouter = createTRPCRouter({
     }),
 
   /**
-   * Carousel sub-router for explicit carousel product fetching.
-   * Added in Phase 6.
+   * Fetch DPP data by passport UPID.
+   * URL: /{upid}
+   *
+   * This endpoint reads from the immutable publishing layer (snapshots)
+   * rather than the normalized working layer, providing faster and simpler
+   * data access for published passports.
+   *
+   * @param upid - The Universal Product Identifier (16-char alphanumeric)
+   * @returns DPP snapshot data with theme, or null if not found/not published
    */
-  carousel: createTRPCRouter({
-    /**
-     * Fetch carousel products for public DPP display.
-     *
-     * This is an explicit endpoint for fetching carousel products,
-     * providing more control than the embedded carousel data in
-     * getByProductHandle/getByVariantUpid responses.
-     *
-     * @param brandSlug - URL-friendly brand identifier
-     * @param productHandle - Current product's handle (to exclude from carousel)
-     * @param limit - Maximum number of products to return (1-20, default 8)
-     * @returns Array of carousel products, or empty array if insufficient products
-     */
-    list: publicProcedure
-      .input(dppCarouselListSchema)
-      .query(async ({ ctx, input }) => {
-        const { brandSlug, productHandle, limit } = input;
-
-        // Get brand by slug
-        const brand = await getBrandBySlug(ctx.db, brandSlug);
-        if (!brand) return [];
-
-        // Get theme config for carousel settings
-        const theme = await getBrandTheme(ctx.db, brand.id);
-        const carouselConfig = (
-          theme?.themeConfig as { carousel?: CarouselConfig } | null
-        )?.carousel;
-
-        if (!carouselConfig) return [];
-
-        // Get product by handle to exclude from carousel and get category
-        const product = await getProductByHandle(
-          ctx.db,
-          brand.id,
-          productHandle,
-        );
-        if (!product) return [];
-
-        // Fetch carousel products with limit override
-        const products = await fetchCarouselProducts(ctx.db, {
-          brandId: brand.id,
-          currentProductId: product.id,
-          currentCategoryId: product.category_id,
-          carouselConfig: { ...carouselConfig, productCount: limit },
-        });
-
-        // Only return products if we have minimum required
-        if (products.length < MIN_CAROUSEL_PRODUCTS) return [];
-
-        return transformCarouselProducts(products, ctx.supabase);
+  getByPassportUpid: publicProcedure
+    .input(
+      z.object({
+        upid: upidSchema,
       }),
-  }),
+    )
+    .query(async ({ ctx, input }) => {
+      const { upid } = input;
+
+      // Fetch from the immutable publishing layer
+      const result = await getPublicDppByUpid(ctx.db, upid);
+
+      if (!result.found || !result.snapshot) {
+        return null;
+      }
+
+      // Resolve stylesheet URL if present
+      const stylesheetUrl = result.theme?.stylesheetPath
+        ? getPublicUrl(ctx.supabase, "dpp-themes", result.theme.stylesheetPath)
+        : null;
+
+      // Resolve product image in the snapshot to public URL
+      let productImageUrl: string | null = null;
+      const snapshotImage = result.snapshot.productAttributes?.image;
+      if (snapshotImage && typeof snapshotImage === "string") {
+        // Check if it's already a full URL or a storage path
+        if (
+          snapshotImage.startsWith("http://") ||
+          snapshotImage.startsWith("https://")
+        ) {
+          productImageUrl = snapshotImage;
+        } else {
+          productImageUrl = getPublicUrl(
+            ctx.supabase,
+            "products",
+            snapshotImage,
+          );
+        }
+      }
+
+      // Return the snapshot data with theme information
+      return {
+        dppData: {
+          ...result.snapshot,
+          productAttributes: {
+            ...result.snapshot.productAttributes,
+            image: productImageUrl ?? "",
+          },
+        },
+        themeConfig: result.theme?.config ?? null,
+        themeStyles: result.theme?.styles ?? null,
+        stylesheetUrl,
+        googleFontsUrl: result.theme?.googleFontsUrl ?? null,
+        passport: {
+          upid: result.upid,
+          isInactive: result.isInactive,
+          version: result.version,
+        },
+      };
+    }),
 });
 
 export type DppPublicRouter = typeof dppPublicRouter;

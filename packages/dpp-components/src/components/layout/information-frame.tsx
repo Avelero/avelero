@@ -48,9 +48,6 @@ export function InformationFrame({ data, themeConfig }: Props) {
     });
   }
 
-  // Build impact claims from eco claims
-  const impactClaims = environmental?.ecoClaims?.map((c) => c.ecoClaim) ?? [];
-
   // Transform materials for display
   const displayMaterials =
     materials?.composition?.map((m) => ({
@@ -131,10 +128,9 @@ export function InformationFrame({ data, themeConfig }: Props) {
       )}
 
       {/* Impact Section */}
-      {sections.showImpact &&
-        (impactMetrics.length > 0 || impactClaims.length > 0) && (
-          <ImpactFrame metrics={impactMetrics} claims={impactClaims} />
-        )}
+      {sections.showImpact && impactMetrics.length > 0 && (
+        <ImpactFrame metrics={impactMetrics} />
+      )}
 
       {/* Materials Section */}
       {sections.showMaterials && displayMaterials.length > 0 && (

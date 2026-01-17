@@ -112,7 +112,10 @@ export async function computeNextBrandIdForUser(
   userId: string,
   excludeBrandId?: string | null,
 ): Promise<string | null> {
-  const conditions = [eq(brandMembers.userId, userId), isNull(brands.deletedAt)];
+  const conditions = [
+    eq(brandMembers.userId, userId),
+    isNull(brands.deletedAt),
+  ];
   if (excludeBrandId) {
     conditions.push(ne(brandMembers.brandId, excludeBrandId));
   }
@@ -317,7 +320,9 @@ export async function updateBrand(
     .set(updateData)
     .where(eq(brands.id, id))
     .returning({ id: brands.id, slug: brands.slug });
-  return row ? { success: true as const, slug: row.slug } : { success: true as const, slug: null };
+  return row
+    ? { success: true as const, slug: row.slug }
+    : { success: true as const, slug: null };
 }
 
 /**
@@ -510,12 +515,3 @@ export async function leaveBrand(
   }
   return { ok: true, nextBrandId } as const;
 }
-
-
-
-
-
-
-
-
-

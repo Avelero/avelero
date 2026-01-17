@@ -61,7 +61,8 @@ export function useNavigationBlocker({
 
     const handleClick = (event: MouseEvent) => {
       // Skip if modifier keys are pressed (new tab/window navigation)
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+        return;
 
       const target = event.target as HTMLElement;
       const link = target.closest("a");

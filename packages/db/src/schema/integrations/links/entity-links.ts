@@ -9,8 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { brandCertifications } from "../../catalog/brand-certifications";
-import { brandEcoClaims } from "../../catalog/brand-eco-claims";
-import { brandFacilities } from "../../catalog/brand-facilities";
+import { brandOperators } from "../../catalog/brand-operators";
 import { brandManufacturers } from "../../catalog/brand-manufacturers";
 import { brandMaterials } from "../../catalog/brand-materials";
 import { brandSeasons } from "../../catalog/brand-seasons";
@@ -126,11 +125,11 @@ export const integrationMaterialLinks = pgTable(
 );
 
 // =============================================================================
-// FACILITY LINKS
+// OPERATOR LINKS
 // =============================================================================
 
-export const integrationFacilityLinks = pgTable(
-  "integration_facility_links",
+export const integrationOperatorLinks = pgTable(
+  "integration_operator_links",
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     brandIntegrationId: uuid("brand_integration_id")
@@ -139,8 +138,8 @@ export const integrationFacilityLinks = pgTable(
         onUpdate: "cascade",
       })
       .notNull(),
-    facilityId: uuid("facility_id")
-      .references(() => brandFacilities.id, {
+    operatorId: uuid("operator_id")
+      .references(() => brandOperators.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
       })
@@ -159,16 +158,16 @@ export const integrationFacilityLinks = pgTable(
       .notNull(),
   },
   (table) => [
-    uniqueIndex("integration_facility_links_integration_external_unq").on(
+    uniqueIndex("integration_operator_links_integration_external_unq").on(
       table.brandIntegrationId,
       table.externalId,
     ),
-    uniqueIndex("integration_facility_links_integration_facility_unq").on(
+    uniqueIndex("integration_operator_links_integration_operator_unq").on(
       table.brandIntegrationId,
-      table.facilityId,
+      table.operatorId,
     ),
-    index("idx_integration_facility_links_facility").on(table.facilityId),
-    ...createEntityLinkPolicies("integration_facility_links"),
+    index("idx_integration_operator_links_operator").on(table.operatorId),
+    ...createEntityLinkPolicies("integration_operator_links"),
   ],
 );
 
@@ -310,53 +309,6 @@ export const integrationTagLinks = pgTable(
     ),
     index("idx_integration_tag_links_tag").on(table.tagId),
     ...createEntityLinkPolicies("integration_tag_links"),
-  ],
-);
-
-// =============================================================================
-// ECO CLAIM LINKS
-// =============================================================================
-
-export const integrationEcoClaimLinks = pgTable(
-  "integration_eco_claim_links",
-  {
-    id: uuid("id").defaultRandom().primaryKey().notNull(),
-    brandIntegrationId: uuid("brand_integration_id")
-      .references(() => brandIntegrations.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      })
-      .notNull(),
-    ecoClaimId: uuid("eco_claim_id")
-      .references(() => brandEcoClaims.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      })
-      .notNull(),
-    externalId: text("external_id").notNull(),
-    externalName: text("external_name"),
-    lastSyncedAt: timestamp("last_synced_at", {
-      withTimezone: true,
-      mode: "string",
-    }),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    uniqueIndex("integration_eco_claim_links_integration_external_unq").on(
-      table.brandIntegrationId,
-      table.externalId,
-    ),
-    uniqueIndex("integration_eco_claim_links_integration_claim_unq").on(
-      table.brandIntegrationId,
-      table.ecoClaimId,
-    ),
-    index("idx_integration_eco_claim_links_claim").on(table.ecoClaimId),
-    ...createEntityLinkPolicies("integration_eco_claim_links"),
   ],
 );
 

@@ -51,12 +51,12 @@ function Button({
   const processedChildren = asChild
     ? children
     : React.Children.map(children, (child) =>
-      typeof child === "string" || typeof child === "number" ? (
-        <span>{child}</span>
-      ) : (
-        child
-      ),
-    );
+        typeof child === "string" || typeof child === "number" ? (
+          <span>{child}</span>
+        ) : (
+          child
+        ),
+      );
 
   return (
     <Comp

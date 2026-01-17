@@ -28,21 +28,23 @@ let _client: ReturnType<typeof postgres> | undefined;
 let _testDb: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
 function getClient() {
-    if (!_client) {
-        const connectionString = process.env.DATABASE_URL;
-        if (!connectionString) {
-            throw new Error("DATABASE_URL environment variable is required for tests");
-        }
-        _client = postgres(connectionString);
+  if (!_client) {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error(
+        "DATABASE_URL environment variable is required for tests",
+      );
     }
-    return _client;
+    _client = postgres(connectionString);
+  }
+  return _client;
 }
 
 function getTestDb() {
-    if (!_testDb) {
-        _testDb = drizzle(getClient(), { schema });
-    }
-    return _testDb;
+  if (!_testDb) {
+    _testDb = drizzle(getClient(), { schema });
+  }
+  return _testDb;
 }
 
 /**
@@ -51,12 +53,12 @@ function getTestDb() {
  * Connection is created lazily on first access.
  */
 export const testDb: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
-    {} as ReturnType<typeof drizzle<typeof schema>>,
-    {
-        get(_target, prop) {
-            return (getTestDb() as any)[prop];
-        },
-    }
+  {} as ReturnType<typeof drizzle<typeof schema>>,
+  {
+    get(_target, prop) {
+      return (getTestDb() as any)[prop];
+    },
+  },
 ) as ReturnType<typeof drizzle<typeof schema>>;
 
 /**
@@ -68,7 +70,7 @@ export type TestDatabaseConnection = typeof testDb;
  * Check if connection is closed (for cleanup.ts to check).
  */
 export function isConnectionClosed(): boolean {
-    return connectionClosed;
+  return connectionClosed;
 }
 
 /**
@@ -76,12 +78,12 @@ export function isConnectionClosed(): boolean {
  * This function is idempotent - calling it multiple times is safe.
  */
 export async function closeTestDb(): Promise<void> {
-    if (connectionClosed) {
-        return;
-    }
-    connectionClosed = true;
-    // Only close if a connection was actually created
-    if (_client) {
-        await _client.end();
-    }
+  if (connectionClosed) {
+    return;
+  }
+  connectionClosed = true;
+  // Only close if a connection was actually created
+  if (_client) {
+    await _client.end();
+  }
 }
